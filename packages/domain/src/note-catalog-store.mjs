@@ -57,6 +57,12 @@ function makeNoteId(noteType) {
   return `${prefix}_${randomUUID().slice(0, 8)}`;
 }
 
+function defaultDirectoryIdForNoteType(noteType) {
+  if (noteType === "fleeting") return "dir_fleeting_default";
+  if (noteType === "literature") return "dir_literature_default";
+  return "dir_original_default";
+}
+
 function mapNoteRow(row) {
   return {
     id: row.id,
@@ -148,6 +154,59 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       createdAt: now,
       updatedAt: now
     };
+  } finally {
+    db.close();
+  }
+}
+
+export async function registerMarkdownNoteInCatalog(vaultPath, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const noteId = String(input.noteId || "").trim();
+  if (!noteId) throw new Error("noteId is required");
+  const noteType = String(input.noteType || "permanent").trim();
+  const title = String(input.title || noteId).trim() || noteId;
+  const status = String(input.status || "draft").trim() || "draft";
+  const markdownPath = String(input.markdownPath || "").replaceAll("\\", "/").trim();
+  if (!markdownPath) throw new Error("markdownPath is required");
+  const directoryId = String(input.directoryId || defaultDirectoryIdForNoteType(noteType)).trim();
+  const now = new Date().toISOString();
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const directory = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(directoryId);
+    if (!directory) throw new Error(`directoryId not found: ${directoryId}`);
+
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      db.prepare(
+        `INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           note_type = excluded.note_type,
+           title = excluded.title,
+           status = excluded.status,
+           markdown_path = excluded.markdown_path,
+           updated_at = excluded.updated_at,
+           deleted_at = NULL`
+      ).run(noteId, noteType, title, status, markdownPath, now, now);
+      ensureSingleDirectoryMembership(db, noteId, directoryId);
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+
+    const row = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         WHERE n.id = ?
+         LIMIT 1`
+      )
+      .get(noteId);
+    return mapNoteRow(row);
   } finally {
     db.close();
   }

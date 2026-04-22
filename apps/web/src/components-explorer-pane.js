@@ -64,6 +64,7 @@ export class ExplorerPane {
       if (kind === "folder") {
         this.state.selectedFolderId = id;
         this.state.selectedFileId = null;
+        this.expandedFolders.add(id);
         this.onStateChange("select-folder");
         return;
       }

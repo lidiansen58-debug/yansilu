@@ -19,6 +19,7 @@ import {
   listDirectories,
   listNotesInDirectory,
   moveNoteToDirectory,
+  registerMarkdownNoteInCatalog,
   updateDirectory,
   updateNoteContent,
   writeLiteratureNoteIfAbsent,
@@ -105,6 +106,34 @@ function parseNotePath(urlPath) {
 function parseMoveNotePath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/notes\/([^/]+)\/move$/);
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+function defaultDirectoryIdForImportNoteType(noteType) {
+  if (noteType === "literature") return "dir_literature_default";
+  if (noteType === "fleeting") return "dir_fleeting_default";
+  return "dir_original_default";
+}
+
+function titleForCatalogNote(candidate) {
+  const explicit = String(candidate?.title || "").trim();
+  if (explicit) return explicit;
+  const firstLine = String(candidate?.core_claim || candidate?.quote_text || "")
+    .trim()
+    .split(/\r?\n/)[0]
+    ?.trim();
+  return firstLine || String(candidate?.id || "imported-note");
+}
+
+async function registerImportCatalogNote(candidate, noteType, writeResult) {
+  if (!writeResult?.written) return null;
+  return registerMarkdownNoteInCatalog(VAULT_PATH, {
+    noteId: candidate.id,
+    noteType,
+    title: titleForCatalogNote(candidate),
+    status: candidate.status || "draft",
+    markdownPath: path.relative(path.resolve(VAULT_PATH), writeResult.path).replaceAll("\\", "/"),
+    directoryId: defaultDirectoryIdForImportNoteType(noteType)
+  });
 }
 
 async function createPreview(connector, payload, options, rid) {
@@ -434,6 +463,7 @@ const server = http.createServer(async (req, res) => {
           created.literatureNotes += 1;
           writtenPaths.add(path.dirname(result.path));
           createdFiles.push(await createdEntryFromWriteResult(VAULT_PATH, result));
+          await registerImportCatalogNote(ln, "literature", result);
         } else skipped.conflicted += 1;
       }
       for (const pn of record.candidates.permanent) {
@@ -451,6 +481,7 @@ const server = http.createServer(async (req, res) => {
           created.permanentNotes += 1;
           writtenPaths.add(path.dirname(result.path));
           createdFiles.push(await createdEntryFromWriteResult(VAULT_PATH, result));
+          await registerImportCatalogNote(noteToWrite, "permanent", result);
         } else skipped.conflicted += 1;
       }
 
@@ -503,6 +534,13 @@ const server = http.createServer(async (req, res) => {
 
       const createdFiles = Array.isArray(record.confirmResult?.createdFiles) ? record.confirmResult.createdFiles : [];
       const { rolledBack, skipped } = await rollbackCreatedFiles(VAULT_PATH, createdFiles);
+      for (const item of rolledBack) {
+        if (item.noteType === "literature" || item.noteType === "permanent") {
+          try {
+            await deleteNoteById(VAULT_PATH, item.noteId);
+          } catch {}
+        }
+      }
 
       const finishedAt = new Date().toISOString();
       record.state = "rolled_back";

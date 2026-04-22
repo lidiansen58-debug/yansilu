@@ -467,6 +467,11 @@ test("API import records can be fetched and rolled back", async (t) => {
     await fs.access(path.join(vaultPath, item.path));
   }
 
+  const catalogNotes = await getJson(baseUrl, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(catalogNotes.status, 200);
+  assert.equal(catalogNotes.json.total, 1);
+  assert.equal(catalogNotes.json.items[0].noteType, "literature");
+
   const rollback = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/rollback`, {});
   assert.equal(rollback.status, 200);
   assert.equal(rollback.json.status, "rolled_back");
@@ -476,6 +481,10 @@ test("API import records can be fetched and rolled back", async (t) => {
   for (const item of completedRecord.json.importRecord.confirmResult.createdFiles) {
     await assert.rejects(fs.access(path.join(vaultPath, item.path)));
   }
+
+  const catalogAfterRollback = await getJson(baseUrl, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(catalogAfterRollback.status, 200);
+  assert.equal(catalogAfterRollback.json.total, 0);
 
   const rolledBackRecord = await getJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}`);
   assert.equal(rolledBackRecord.status, 200);

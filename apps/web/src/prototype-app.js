@@ -14,25 +14,78 @@ import { ExplorerPane } from "./components-explorer-pane.js";
 import { EditorPane } from "./components-editor-pane.js";
 import { pickDirectoryPath } from "./path-picker-adapter.js";
 import {
+  cancelImport,
+  confirmImport,
   createDirectory,
   createNote,
   deleteDirectory,
   deleteNote,
   fetchDirectories,
   fetchDirectoryNotes,
+  fetchImportRecord,
   fetchNote,
   getApiBase,
   moveNote,
+  previewImport,
+  rollbackImport,
   updateDirectory,
   updateNote
 } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
+const importState = {
+  importRecordId: "",
+  lastPreview: null
+};
 
 function setStatus(text, cls = "") {
   $("statusText").className = cls;
   $("statusText").textContent = text;
+}
+
+function setImportRecordId(value) {
+  importState.importRecordId = String(value || "").trim();
+  const input = $("importRecordId");
+  if (input) input.value = importState.importRecordId;
+}
+
+function showImportResult(payload) {
+  const el = $("importResult");
+  if (!el) return;
+  if (typeof payload === "string") {
+    el.textContent = payload;
+    return;
+  }
+  el.textContent = JSON.stringify(payload || {}, null, 2);
+}
+
+function parseJsonOrEmpty(raw, label) {
+  const text = String(raw || "").trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${label} 不是合法 JSON：${String(error?.message || error)}`);
+  }
+}
+
+function buildImportPayload(connector) {
+  const pathText = String($("importPath")?.value || "").trim();
+  const payloadText = String($("importPayload")?.value || "").trim();
+  if (payloadText) return parseJsonOrEmpty(payloadText, "Payload");
+  if ((connector === "markdown" || connector === "obsidian") && !pathText) {
+    throw new Error("markdown/obsidian 预览需要“导入路径”或 Payload JSON");
+  }
+  return pathText ? { path: pathText } : {};
+}
+
+async function refreshImportedNotesView() {
+  try {
+    await syncDirectoriesFromApi();
+    await syncNotesForDirectory(state.selectedFolderId);
+    renderAll();
+  } catch {}
 }
 
 function mapDirectoryItem(item) {
@@ -122,9 +175,19 @@ function renderAll() {
 async function ensureNoteBodyLoaded(noteId) {
   const note = state.notes.find((n) => n.id === noteId);
   if (!note || note.bodyLoaded) return;
+  const expectedNoteBody = note.body;
+  const expectedTab = state.tabs.find((t) => t.noteId === note.id);
+  const expectedTabBody = expectedTab?.body;
   try {
     const full = await fetchNote(noteId);
     if (!full) return;
+    const currentTab = state.tabs.find((t) => t.noteId === note.id);
+    const hasLocalEditorChange = currentTab && currentTab.body !== expectedTabBody;
+    const hasLocalNoteChange = note.body !== expectedNoteBody;
+    if (hasLocalEditorChange || hasLocalNoteChange) {
+      note.bodyLoaded = true;
+      return;
+    }
     note.body = full.body || note.body;
     note.title = full.title || note.title;
     note.updatedAt = full.updatedAt || note.updatedAt;
@@ -496,6 +559,135 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function bootstrap() {
+  $("btnImportPreview")?.addEventListener("click", async () => {
+    const connector = String($("importConnector")?.value || "markdown").trim();
+    try {
+      const payload = buildImportPayload(connector);
+      const options = parseJsonOrEmpty($("importOptions")?.value, "Options");
+      const preview = await previewImport({ connector, payload, options });
+      importState.lastPreview = preview;
+      setImportRecordId(preview.importRecordId);
+      showImportResult({
+        stage: "preview",
+        importRecordId: preview.importRecordId,
+        connector: preview.connector,
+        status: preview.status,
+        summary: preview.summary,
+        warnings: preview.warnings,
+        originalityGuard: preview.originalityGuard
+      });
+      setStatus(`导入预览完成：${preview.importRecordId}`, "ok");
+    } catch (error) {
+      showImportResult({
+        stage: "preview_error",
+        message: String(error?.message || error),
+        code: error?.code || null,
+        details: error?.details || null
+      });
+      setStatus(`导入预览失败：${String(error?.message || error)}`, "bad");
+    }
+  });
+
+  $("btnImportConfirm")?.addEventListener("click", async () => {
+    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
+    if (!importRecordId) return setStatus("请先预览或填写 ImportRecord ID", "warn");
+    try {
+      const result = await confirmImport(importRecordId);
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "confirm",
+        importRecordId,
+        status: result.status,
+        result: result.result,
+        originalityGuard: result.originalityGuard
+      });
+      await refreshImportedNotesView();
+      setStatus(`导入确认完成：${importRecordId}`, "ok");
+    } catch (error) {
+      showImportResult({
+        stage: "confirm_error",
+        importRecordId,
+        message: String(error?.message || error),
+        code: error?.code || null,
+        details: error?.details || null
+      });
+      setStatus(`导入确认失败：${String(error?.message || error)}`, "bad");
+    }
+  });
+
+  $("btnImportCancel")?.addEventListener("click", async () => {
+    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
+    if (!importRecordId) return setStatus("请先预览或填写 ImportRecord ID", "warn");
+    try {
+      const result = await cancelImport(importRecordId);
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "cancel",
+        importRecordId,
+        status: result.status,
+        message: result.message
+      });
+      setStatus(`已取消导入：${importRecordId}`, "ok");
+    } catch (error) {
+      showImportResult({
+        stage: "cancel_error",
+        importRecordId,
+        message: String(error?.message || error),
+        code: error?.code || null,
+        details: error?.details || null
+      });
+      setStatus(`取消导入失败：${String(error?.message || error)}`, "bad");
+    }
+  });
+
+  $("btnImportRefresh")?.addEventListener("click", async () => {
+    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
+    if (!importRecordId) return setStatus("请先填写 ImportRecord ID", "warn");
+    try {
+      const importRecord = await fetchImportRecord(importRecordId);
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "record",
+        importRecord
+      });
+      setStatus(`已读取导入记录：${importRecordId}`, "ok");
+    } catch (error) {
+      showImportResult({
+        stage: "record_error",
+        importRecordId,
+        message: String(error?.message || error),
+        code: error?.code || null
+      });
+      setStatus(`读取导入记录失败：${String(error?.message || error)}`, "bad");
+    }
+  });
+
+  $("btnImportRollback")?.addEventListener("click", async () => {
+    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
+    if (!importRecordId) return setStatus("请先填写 ImportRecord ID", "warn");
+    try {
+      const result = await rollbackImport(importRecordId);
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "rollback",
+        importRecordId,
+        status: result.status,
+        result: result.result
+      });
+      await refreshImportedNotesView();
+      setStatus(`回滚完成：${importRecordId}`, "ok");
+    } catch (error) {
+      showImportResult({
+        stage: "rollback_error",
+        importRecordId,
+        message: String(error?.message || error),
+        code: error?.code || null,
+        details: error?.details || null
+      });
+      setStatus(`回滚失败：${String(error?.message || error)}`, "bad");
+    }
+  });
+
   try {
     await syncDirectoriesFromApi();
     await syncNotesForDirectory(state.selectedFolderId);

@@ -17,7 +17,7 @@ Run all tests from the project root:
 Current expected result:
 
 ```text
-44 pass / 0 fail
+44 pass / 0 fail / 3 skipped (browser e2e requires RUN_BROWSER_E2E=1)
 ```
 
 Run API syntax check:
@@ -116,8 +116,7 @@ It should not regain parsing, storage, originality, connector, rollback, or expo
 
 ## Next Recommended Work
 
-1. Create the first baseline commit on `master` so follow-up worktrees can branch from a stable, reproducible state.
-2. Keep `docs/API.md` synchronized with the currently implemented API routes in `apps/api/src/server.mjs`.
-3. Add a small manual fixture vault under `tests/fixtures/` for repeatable import/export scenarios.
-4. Complete `wt-web-integration` for import `preview -> confirm/cancel -> result -> rollback`.
-5. Add browser-level smoke tests for the full import and rollback flow once web integration is clickable end to end.
+1. Keep `docs/API.md` synchronized with the currently implemented API routes in `apps/api/src/server.mjs`.
+2. Expand fixture coverage under `tests/fixtures/` for additional connector and malformed-input scenarios.
+3. Enable browser e2e in controlled runs using `RUN_BROWSER_E2E=1`, and add this mode to CI when Playwright runtime is available.
+4. Continue `wt-web-integration` polish for clearer import warnings, conflict details, and recovery hints.

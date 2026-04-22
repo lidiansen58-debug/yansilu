@@ -24,6 +24,8 @@ Monorepo scaffold for Yansilu (Thinking in Notes).
 ## Tests
 - `npm test` runs unit, integration, and smoke e2e tests.
 - `npm run test:e2e:smoke` starts temporary API/Web services and verifies the prototype can load against a real API.
+- `npm run test:e2e:browser` runs the real browser prototype flow when Playwright and Chromium are installed.
+- Set `RUN_BROWSER_E2E=1` to enable browser e2e execution; without it, browser tests are skipped by design.
 
 MVP API routes:
 - `GET /health`

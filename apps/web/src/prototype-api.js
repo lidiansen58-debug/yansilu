@@ -8,7 +8,12 @@ async function request(pathname, options = {}) {
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = json?.error?.message || json?.message || `HTTP ${response.status}`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.code = json?.error?.code || null;
+    error.details = json?.error?.details || null;
+    error.response = json;
+    throw error;
   }
   return json;
 }
@@ -95,6 +100,54 @@ export async function checkOriginality(payload) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {})
+  });
+}
+
+export async function previewImport({ connector, payload, options } = {}) {
+  return request("/api/v1/imports/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      connector,
+      payload: payload || {},
+      options: options || {}
+    })
+  });
+}
+
+export async function fetchImportRecord(importRecordId) {
+  if (!importRecordId) throw new Error("importRecordId is required");
+  const json = await request(`/api/v1/imports/${encodeURIComponent(importRecordId)}`);
+  return json.importRecord || null;
+}
+
+export async function confirmImport(importRecordId, payload = {}) {
+  if (!importRecordId) throw new Error("importRecordId is required");
+  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      confirm: true,
+      ...payload
+    })
+  });
+}
+
+export async function cancelImport(importRecordId) {
+  if (!importRecordId) throw new Error("importRecordId is required");
+  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: false })
+  });
+}
+
+export async function rollbackImport(importRecordId) {
+  if (!importRecordId) throw new Error("importRecordId is required");
+  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/rollback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
   });
 }
 
