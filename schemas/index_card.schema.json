@@ -1,0 +1,29 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "index_type", "title", "items", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "index_type": { "type": "string", "enum": ["topic", "nearby", "logic_chain", "free_link"] },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["note_id", "order"],
+        "properties": {
+          "note_id": { "type": "string" },
+          "short_label": { "type": "string" },
+          "rationale": { "type": "string" },
+          "order": { "type": "number" }
+        }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "ordering_strategy": { "type": "string", "enum": ["manual", "chronological", "logical", "clustered"] },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

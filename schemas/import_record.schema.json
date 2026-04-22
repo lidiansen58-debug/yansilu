@@ -1,0 +1,128 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importRecordId", "connector", "status", "state", "summary", "createdAt", "updatedAt"],
+  "properties": {
+    "importRecordId": { "type": "string" },
+    "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
+    "status": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
+    "state": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "literatureNotes", "permanentNotes", "warnings"],
+      "properties": {
+        "sources": { "type": "number" },
+        "literatureNotes": { "type": "number" },
+        "permanentNotes": { "type": "number" },
+        "warnings": { "type": "number" }
+      }
+    },
+    "samples": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sourceIds": { "type": "array", "items": { "type": "string" } },
+        "literatureNoteIds": { "type": "array", "items": { "type": "string" } },
+        "permanentNoteIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "count": { "type": "number" }
+        }
+      }
+    },
+    "payload": { "type": "object", "additionalProperties": true },
+    "options": { "type": "object", "additionalProperties": true },
+    "originalityGuard": { "type": ["object", "null"], "additionalProperties": true },
+    "confirmResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["created", "skipped", "writtenPaths", "createdFiles", "finishedAt"],
+      "properties": {
+        "created": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources", "literatureNotes", "permanentNotes"],
+          "properties": {
+            "sources": { "type": "number" },
+            "literatureNotes": { "type": "number" },
+            "permanentNotes": { "type": "number" }
+          }
+        },
+        "skipped": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["conflicted", "invalid"],
+          "properties": {
+            "conflicted": { "type": "number" },
+            "invalid": { "type": "number" }
+          }
+        },
+        "writtenPaths": { "type": "array", "items": { "type": "string" } },
+        "createdFiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["noteId", "noteType", "path", "hash"],
+            "properties": {
+              "noteId": { "type": "string" },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "path": { "type": "string" },
+              "hash": { "type": "string" }
+            }
+          }
+        },
+        "finishedAt": { "type": "string" }
+      }
+    },
+    "rollbackResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["rolledBack", "skipped", "finishedAt"],
+      "properties": {
+        "rolledBack": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["noteId", "noteType", "path", "hash"],
+            "properties": {
+              "noteId": { "type": "string" },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "path": { "type": "string" },
+              "hash": { "type": "string" }
+            }
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["noteId", "noteType", "path", "hash", "reason"],
+            "properties": {
+              "noteId": { "type": "string" },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "path": { "type": "string" },
+              "hash": { "type": "string" },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "finishedAt": { "type": "string" }
+      }
+    },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" }
+  }
+}

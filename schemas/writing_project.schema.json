@@ -1,0 +1,18 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "goal": { "type": "string" },
+    "audience": { "type": "string" },
+    "tone": { "type": "string" },
+    "related_index_ids": { "type": "array", "items": { "type": "string" } },
+    "basket_note_ids": { "type": "array", "items": { "type": "string" } },
+    "scaffold_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["draft", "active", "archived", "exported"] },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

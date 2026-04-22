@@ -1,0 +1,28 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "writing_project_id", "sections", "generated_by", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "writing_project_id": { "type": "string" },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["heading", "order"],
+        "properties": {
+          "heading": { "type": "string" },
+          "purpose": { "type": "string" },
+          "evidence_note_ids": { "type": "array", "items": { "type": "string" } },
+          "open_questions": { "type": "array", "items": { "type": "string" } },
+          "order": { "type": "number" }
+        }
+      }
+    },
+    "open_questions": { "type": "array", "items": { "type": "string" } },
+    "generated_by": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

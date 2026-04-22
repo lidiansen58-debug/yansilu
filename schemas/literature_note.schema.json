@@ -1,0 +1,42 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "source_id", "quote_text", "paraphrase_text", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "source_id": { "type": "string" },
+    "title": { "type": "string" },
+    "quote_text": { "type": "string" },
+    "paraphrase_text": { "type": "string" },
+    "locator": { "type": "string" },
+    "user_question": { "type": "string" },
+    "topic_candidates": { "type": "array", "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "wikilinks": { "type": "array", "items": { "type": "string" } },
+    "parsed_wikilinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["raw", "target", "heading", "block", "alias", "display", "embed"],
+        "properties": {
+          "raw": { "type": "string" },
+          "target": { "type": ["string", "null"] },
+          "heading": { "type": ["string", "null"] },
+          "block": { "type": ["string", "null"] },
+          "alias": { "type": ["string", "null"] },
+          "display": { "type": ["string", "null"] },
+          "embed": { "type": "boolean" }
+        }
+      }
+    },
+    "wikilink_targets": { "type": "array", "items": { "type": "string" } },
+    "imported_from": { "type": "string", "enum": ["local", "obsidian", "zotero", "readwise", "notebooklm", "unknown"] },
+    "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
+    "original_frontmatter": { "type": "object", "additionalProperties": true },
+    "status": { "type": "string", "enum": ["draft", "ready_for_review", "converted_to_permanent", "archived"] },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>研思录 Logo 提取 + 原型</title>
+    <style>
+      :root {
+        --bg: #eef5f1;
+        --card: #ffffff;
+        --ink: #143a2f;
+        --muted: #557a6d;
+        --line: #cdded7;
+        --accent: #18a05f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: radial-gradient(circle at 0% 0%, #f4fbf7 0%, var(--bg) 45%, #dbe9e3 100%);
+        color: var(--ink);
+      }
+      .wrap {
+        max-width: 1160px;
+        margin: 24px auto;
+        padding: 0 16px 28px;
+      }
+      .title {
+        margin: 0 0 16px;
+        font-size: 30px;
+      }
+      .subtitle {
+        margin: 0 0 22px;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 16px;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 8px 22px rgba(16, 66, 48, 0.08);
+        padding: 14px;
+      }
+      .panel h3 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+      .hint {
+        margin: 8px 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .file {
+        width: 100%;
+        margin: 10px 0;
+      }
+      .buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      button {
+        border: 1px solid #1f8a5b;
+        background: #1f8a5b;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #fff;
+        color: #1f8a5b;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      canvas,
+      .preview {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #f8fcfa;
+      }
+      .preview {
+        min-height: 120px;
+        display: grid;
+        place-items: center;
+      }
+      .preview img {
+        max-width: 100%;
+        max-height: 220px;
+      }
+
+      .proto {
+        overflow: hidden;
+      }
+      .proto-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(90deg, #fbfffd, #f0f8f4);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand img {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        object-fit: contain;
+        background: #fff;
+        border: 1px solid #dbe9e3;
+      }
+      .brand strong {
+        font-size: 18px;
+      }
+      .proto-main {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 520px;
+      }
+      .side {
+        border-right: 1px solid var(--line);
+        padding: 14px;
+        background: #f7fcf9;
+      }
+      .side .item {
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: #fff;
+        border: 1px solid #d9e8e1;
+        font-size: 14px;
+      }
+      .side .item.active {
+        border-color: #38a56f;
+        background: #ecf8f2;
+      }
+      .content {
+        padding: 16px;
+      }
+      .card {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 14px;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        padding: 6px 10px;
+        border: 1px solid #b9d5c8;
+        border-radius: 8px;
+        background: #f7fcfa;
+        font-size: 13px;
+      }
+      .editor {
+        margin-top: 12px;
+        border: 1px solid var(--line);
+        min-height: 180px;
+        border-radius: 10px;
+        padding: 12px;
+        background: #fbfffd;
+      }
+      .tags a {
+        color: #0f7f4d;
+        margin-right: 10px;
+        text-decoration: none;
+      }
+      @media (max-width: 960px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .proto-main {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1 class="title">研思录 Logo 提取 + 原型预览</h1>
+      <p class="subtitle">
+        上传你发的规范图后，点击“提取主 Logo”，会自动裁切出图标版和带字版，并同步到原型头部。
+      </p>
+
+      <div class="grid">
+        <section class="panel">
+          <h3>1) Logo 提取</h3>
+          <input id="fileInput" class="file" type="file" accept="image/*" />
+          <div class="buttons">
+            <button id="extractBtn" disabled>提取主 Logo</button>
+            <button id="downloadIconBtn" class="secondary" disabled>下载图标 PNG</button>
+            <button id="downloadFullBtn" class="secondary" disabled>下载带字 PNG</button>
+          </div>
+          <p class="hint">
+            预设裁切区域已按你给的规范图尺寸设置：<br />
+            - 图标：中心叶子图形<br />
+            - 带字：中心“研思录 + NoteSprout”
+          </p>
+          <canvas id="sourceCanvas" width="340" height="560"></canvas>
+          <div class="hint">图标提取预览</div>
+          <div class="preview"><img id="iconPreview" alt="icon preview" /></div>
+          <div class="hint">带字提取预览</div>
+          <div class="preview"><img id="fullPreview" alt="full logo preview" /></div>
+        </section>
+
+        <section class="panel proto">
+          <div class="proto-nav">
+            <div class="brand">
+              <img id="brandIcon" alt="brand icon" />
+              <strong>研思录 · 卡片盒中心</strong>
+            </div>
+            <span style="color: #4f7a69">全局搜索 · 命令面板 · 最近项目</span>
+          </div>
+
+          <div class="proto-main">
+            <aside class="side">
+              <div class="item active">原创笔记编辑器</div>
+              <div class="item">书摘笔记工坊</div>
+              <div class="item">随笔记录</div>
+              <div class="item">索引中心</div>
+              <div class="item">图谱工作台</div>
+              <div class="item">写作中心</div>
+            </aside>
+            <main class="content">
+              <div class="card">
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <img id="fullLogoPreviewInProto" alt="full logo" style="height: 54px; max-width: 240px; object-fit: contain; border: 1px solid #dceae3; border-radius: 8px; background: #fff" />
+                  <div>
+                    <div style="font-weight: 700">原创笔记编辑器（带工具栏）</div>
+                    <div style="color: #557a6d; font-size: 13px">支持关联笔记 `[[`、标签 `#`、反向链接与卡片盒内标签检索</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="toolbar">
+                  <span class="chip">B</span>
+                  <span class="chip">I</span>
+                  <span class="chip">高亮</span>
+                  <span class="chip">代码</span>
+                  <span class="chip">公式</span>
+                  <span class="chip">引用</span>
+                  <span class="chip">[[关联笔记]]</span>
+                  <span class="chip">#标签</span>
+                </div>
+                <div class="editor" contenteditable="true">输入 [[ 可联想笔记，输入 # 可联想标签...</div>
+                <div class="tags" style="margin-top: 10px">
+                  <a href="javascript:void(0)">#写作</a>
+                  <a href="javascript:void(0)">#卡片盒</a>
+                  <a href="javascript:void(0)">#原创笔记</a>
+                </div>
+              </div>
+            </main>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("fileInput");
+      const extractBtn = document.getElementById("extractBtn");
+      const downloadIconBtn = document.getElementById("downloadIconBtn");
+      const downloadFullBtn = document.getElementById("downloadFullBtn");
+      const sourceCanvas = document.getElementById("sourceCanvas");
+      const ctx = sourceCanvas.getContext("2d");
+      const iconPreview = document.getElementById("iconPreview");
+      const fullPreview = document.getElementById("fullPreview");
+      const brandIcon = document.getElementById("brandIcon");
+      const fullLogoPreviewInProto = document.getElementById("fullLogoPreviewInProto");
+
+      let img = null;
+      let iconBlobUrl = "";
+      let fullBlobUrl = "";
+
+      function cropToDataUrl(source, x, y, w, h) {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const cctx = c.getContext("2d");
+        cctx.drawImage(source, x, y, w, h, 0, 0, w, h);
+        return c.toDataURL("image/png");
+      }
+
+      function downloadDataUrl(dataUrl, filename) {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = filename;
+        a.click();
+      }
+
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => {
+            img = image;
+            const ratio = image.width / image.height;
+            let drawW = sourceCanvas.width;
+            let drawH = Math.round(drawW / ratio);
+            if (drawH > sourceCanvas.height) {
+              drawH = sourceCanvas.height;
+              drawW = Math.round(drawH * ratio);
+            }
+            ctx.clearRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+            const offsetX = Math.round((sourceCanvas.width - drawW) / 2);
+            const offsetY = Math.round((sourceCanvas.height - drawH) / 2);
+            ctx.drawImage(image, offsetX, offsetY, drawW, drawH);
+            extractBtn.disabled = false;
+          };
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      extractBtn.addEventListener("click", () => {
+        if (!img) return;
+
+        // 以下坐标基于你提供图片（1024x1536）的主 logo 位置比例。
+        // 图标（中上区域叶子图形）
+        const icon = cropToDataUrl(
+          img,
+          Math.round(img.width * 0.36),
+          Math.round(img.height * 0.16),
+          Math.round(img.width * 0.28),
+          Math.round(img.height * 0.18)
+        );
+
+        // 带字 Logo（中间“研思录 + NoteSprout”）
+        const full = cropToDataUrl(
+          img,
+          Math.round(img.width * 0.27),
+          Math.round(img.height * 0.30),
+          Math.round(img.width * 0.44),
+          Math.round(img.height * 0.20)
+        );
+
+        iconPreview.src = icon;
+        fullPreview.src = full;
+        brandIcon.src = icon;
+        fullLogoPreviewInProto.src = full;
+
+        iconBlobUrl = icon;
+        fullBlobUrl = full;
+        downloadIconBtn.disabled = false;
+        downloadFullBtn.disabled = false;
+      });
+
+      downloadIconBtn.addEventListener("click", () => {
+        if (iconBlobUrl) downloadDataUrl(iconBlobUrl, "yansilu-logo-icon.png");
+      });
+
+      downloadFullBtn.addEventListener("click", () => {
+        if (fullBlobUrl) downloadDataUrl(fullBlobUrl, "yansilu-logo-full.png");
+      });
+    </script>
+  </body>
+  </html>
+

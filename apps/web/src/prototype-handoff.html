@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>研思录原型交付板</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --line: #d7dde5;
+      --ink: #0f172a;
+      --muted: #475569;
+      --brand: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .top-actions {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 1px solid #bcd8cf;
+      background: #ecfdf5;
+      color: #065f46;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 12px 14px;
+    }
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .no {
+      min-width: 44px;
+      text-align: center;
+      border: 1px solid #c7d2fe;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #eef2ff;
+      font-weight: 700;
+      font-size: 12px;
+      color: #3730a3;
+    }
+    .name {
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .desc {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 22px;
+    }
+    .flow {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .flow-row {
+      border: 1px solid #dbe4ee;
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 14px;
+      background: #fcfdff;
+    }
+    .spec {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 12px 14px;
+    }
+    .spec ol {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 8px;
+    }
+    .spec li {
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>研思录原型交付板（本地代码版）</h1>
+    <div class="sub">用于设计完善与前端实现对齐：页面流程、关键交互态、Windows 风格文件管理规范。</div>
+    <div class="top-actions">
+      <a class="btn" href="/prototype">返回运行原型</a>
+      <button class="btn" id="copyChecklist">复制开发清单</button>
+    </div>
+
+    <div class="grid" id="stateCards"></div>
+
+    <h2>核心流程</h2>
+    <div class="flow">
+      <div class="flow-row">01 主工作台 -> 02 随手记 -> 03 书摘笔记 -> 04 原创笔记</div>
+      <div class="flow-row">04 原创笔记 -> 09 关联笔记候选（[[ 输入即搜）</div>
+      <div class="flow-row">04 原创笔记 -> 10 标签结果面板（点击 #标签）</div>
+      <div class="flow-row">目录树节点右键 -> 05 目录右键菜单 / 文件右键 -> 06 文件右键菜单</div>
+      <div class="flow-row">顶部多 Tab -> 07 Tab 堆叠菜单；新建目录 -> 08 新建目录弹窗</div>
+    </div>
+
+    <h2>Windows 风格交互规范（开发约束）</h2>
+    <div class="spec">
+      <ol id="specList"></ol>
+    </div>
+  </div>
+
+  <script>
+    const states = [
+      ["01", "主工作台", "统一三栏框架 + Markdown 编辑主流程"],
+      ["02", "随手记视图", "只展示随手记根目录与文件"],
+      ["03", "书摘笔记视图", "只展示书摘根目录与文件"],
+      ["04", "原创笔记视图", "只展示原创根目录与文件"],
+      ["05", "目录右键菜单", "新建/移动/隐藏/删除目录"],
+      ["06", "文件右键菜单", "打开/新标签页/重命名/移动/删除"],
+      ["07", "Tab 堆叠菜单", "多标签窗口管理"],
+      ["08", "新建目录弹窗", "目录名 + 本机保存路径 + 上限"],
+      ["09", "关联笔记候选", "[[ 输入即搜即选（键盘选择）"],
+      ["10", "标签结果面板", "#标签聚合本卡片盒内笔记"],
+    ];
+
+    const specs = [
+      "单击文件在当前 Tab 打开；双击文件固定 Tab 并聚焦编辑器。",
+      "单击目录展开/折叠，支持键盘 Left/Right 收起与展开。",
+      "右键目录：新建目录、新建笔记、重命名、移动到、隐藏、删除。",
+      "右键文件：打开、在新标签页打开、重命名、移动到、复制路径、删除。",
+      "拖拽：目录可拖到目录；文件可拖到目录；禁止拖到文件节点。",
+      "快捷键：Ctrl+N 新建，F2 重命名，Delete 删除，Ctrl+S 保存。",
+      "编辑器统一 Markdown；标题=第一行；工具栏插入 [[ 与 #。",
+      "点击 #标签时，右侧结果面板列出同标签笔记并可直接打开。",
+      "输入 [[ 实时检索笔记，支持上下键选中与 Enter 插入。",
+      "顶部 Tab 支持多文件并行编辑，支持下拉查看全部打开项。",
+      "左导航上半区固定三入口：随手记、书摘笔记、原创笔记。",
+      "新建目录必须支持设置本机路径并写入目录映射配置。",
+    ];
+
+    const cards = document.getElementById("stateCards");
+    cards.innerHTML = states.map(([no, name, desc]) => `
+      <section class="card">
+        <div class="head">
+          <span class="no">${no}</span>
+          <span class="name">${name}</span>
+        </div>
+        <div class="desc">${desc}</div>
+      </section>
+    `).join("");
+
+    const specList = document.getElementById("specList");
+    specList.innerHTML = specs.map((s) => `<li>${s}</li>`).join("");
+
+    document.getElementById("copyChecklist").addEventListener("click", async () => {
+      const text = states.map(([no, name, desc]) => `${no} ${name}: ${desc}`).join("\n")
+        + "\n\n交互规范:\n"
+        + specs.map((s, i) => `${i + 1}. ${s}`).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("已复制开发清单");
+      } catch {
+        alert("复制失败，请手动复制页面内容");
+      }
+    });
+  </script>
+</body>
+</html>

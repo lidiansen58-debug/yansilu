@@ -1,0 +1,18 @@
+﻿{
+  "name": "yansilu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./scripts/dev-all.mjs",
+    "dev:api": "node ./apps/api/src/server.mjs",
+    "dev:web": "node ./apps/web/src/dev-server.mjs",
+    "dev:worker": "node ./apps/worker/src/worker.mjs",
+    "test": "node --test",
+    "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",
+    "wt:create": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-create.ps1",
+    "wt:list": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-list.ps1",
+    "wt:remove": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-remove.ps1",
+    "wt:run": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-run-dev.ps1"
+  }
+}

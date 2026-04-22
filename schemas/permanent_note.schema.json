@@ -1,0 +1,42 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "core_claim", "rationale", "authorship", "originality_status", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "core_claim": { "type": "string" },
+    "rationale": { "type": "string" },
+    "boundary_or_counterpoint": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id"],
+        "properties": {
+          "source_id": { "type": "string" },
+          "locator": { "type": "string" },
+          "quote_excerpt": { "type": "string" }
+        }
+      }
+    },
+    "from_literature_note_ids": { "type": "array", "items": { "type": "string" } },
+    "related_index_ids": { "type": "array", "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "authorship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_confirmed", "ai_assisted"],
+      "properties": {
+        "user_confirmed": { "type": "boolean" },
+        "ai_assisted": { "type": "boolean" },
+        "ai_assistance_type": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "originality_status": { "type": "string", "enum": ["pass", "warning", "blocked"] },
+    "status": { "type": "string", "enum": ["draft", "active", "archived"] },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

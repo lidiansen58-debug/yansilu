@@ -1,0 +1,746 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>研思录原型 v2.0</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f7f8fa;
+      --editor: #ffffff;
+      --line: #e1e5ea;
+      --ink: #172033;
+      --muted: #7a8594;
+      --brand: #159a60;
+      --brand-weak: #e7f6ee;
+      --hover: #eef2f6;
+      --active: #e8eef5;
+      --shadow: 0 6px 20px rgba(17, 24, 39, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 48px 300px 1fr;
+    }
+
+    /* Left rail */
+    .rail {
+      border-right: 1px solid var(--line);
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 5px;
+      gap: 7px;
+      overflow: hidden;
+    }
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      border: 1px solid #b9d8c7;
+      background: linear-gradient(160deg, #f2fff7, #dff5e8);
+      display: grid;
+      place-items: center;
+      margin: 0 auto;
+    }
+    .rail-btn {
+      width: 34px;
+      height: 34px;
+      margin: 0 auto;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      cursor: pointer;
+      color: #4b5563;
+      font-size: 15px;
+      position: relative;
+    }
+    .rail-btn:hover { background: var(--hover); }
+    .rail-btn::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 48px;
+      top: 50%;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      background: #0f172a;
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      line-height: 1.2;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease;
+      z-index: 100;
+    }
+    .rail-btn:hover::after,
+    .rail-btn:focus-visible::after {
+      opacity: 1;
+    }
+    .rail-btn.active {
+      background: var(--brand-weak);
+      border-color: #b9ddc9;
+      color: #0f6f44;
+      font-weight: 700;
+    }
+    .rail-group {
+      display: grid;
+      gap: 6px;
+      align-content: start;
+      width: 100%;
+      justify-items: center;
+    }
+    .rail-group.bottom { margin-top: auto; }
+
+    /* Sidebar */
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-width: 0;
+    }
+    .vault-head {
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .vault-head h2 {
+      margin: 0;
+      font-size: 15px;
+    }
+    .mini-btn {
+      border: 1px solid #cfd7e0;
+      background: #fff;
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #334155;
+    }
+    .filter {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cfd7e0;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      padding: 7px 9px;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .list-area {
+      overflow: auto;
+      padding: 8px;
+    }
+    .explorer-item {
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px 6px;
+      margin-bottom: 2px;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .explorer-item .left {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+    .explorer-item .icon {
+      width: 16px;
+      text-align: center;
+      color: #475569;
+      flex: 0 0 18px;
+    }
+    .type-badge {
+      display: none;
+      border: 1px solid #c6d8ea;
+      background: #eef5ff;
+      color: #32567d;
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+    .explorer-item:hover { border-color: transparent; background: #eef2f6; }
+    .explorer-item.active { background: var(--active); border-color: #bfd1e4; }
+    .explorer-item .name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+    .explorer-item .name br,
+    .explorer-item .name small {
+      display: none;
+    }
+    .tree-root { display: grid; gap: 2px; }
+    .tree-row { margin-bottom: 2px; }
+    .tree-row .left { width: 100%; }
+    .tree-indent {
+      display: inline-block;
+      width: calc(var(--depth, 0) * 13px);
+      flex: 0 0 calc(var(--depth, 0) * 13px);
+    }
+    .tree-toggle {
+      border: 0;
+      background: transparent;
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      color: #475569;
+      cursor: pointer;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 18px;
+    }
+    .tree-toggle:hover:not(:disabled) { background: #e8eff7; }
+    .tree-toggle:disabled { cursor: default; color: #9aa7b8; }
+    .tree-toggle.ghost { visibility: hidden; }
+    .file-row .icon { color: #53657a; }
+    .explorer-item.dragging {
+      opacity: 0.55;
+    }
+    .explorer-item.drop-target {
+      outline: 2px solid #7fb3e6;
+      background: #eaf4ff;
+    }
+    .indent { margin-left: 14px; }
+    .sidebar-foot {
+      border-top: 1px solid var(--line);
+      padding: 8px 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ctx-menu {
+      position: fixed;
+      z-index: 40;
+      min-width: 168px;
+      border: 1px solid #cfd7e0;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.15);
+      padding: 4px;
+    }
+    .ctx-menu button {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      border-radius: 6px;
+      padding: 7px 8px;
+      font-size: 13px;
+      color: #1f2937;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .ctx-menu button:hover { background: #edf3f9; }
+    .ctx-menu .danger { color: #b42318; }
+    .ctx-menu .disabled {
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+    .ctx-menu .ctx-shortcut {
+      color: #64748b;
+      font-size: 12px;
+      margin-left: 12px;
+      white-space: nowrap;
+    }
+    .ctx-menu .ctx-sep {
+      height: 1px;
+      margin: 5px 6px;
+      background: #e3e8ef;
+    }
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.28);
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .modal {
+      width: min(520px, 100%);
+      border: 1px solid #cfd7e0;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 20px 40px rgba(17, 24, 39, 0.2);
+      overflow: hidden;
+    }
+    .modal-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      background: #f8fafc;
+    }
+    .modal-body {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .path-picker {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .modal-foot {
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #fbfcfe;
+    }
+
+    /* Editor area */
+    .main {
+      display: grid;
+      grid-template-rows: 42px auto 1fr auto;
+      min-width: 0;
+      background: var(--editor);
+    }
+    .tabs {
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      padding: 0 8px;
+      background: #f3f5f7;
+    }
+    .tabs-shell {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+    }
+    .tabs-list {
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      overflow: auto;
+      padding-top: 5px;
+      scrollbar-width: thin;
+    }
+    .tab {
+      border: 1px solid transparent;
+      border-bottom: 0;
+      border-top-left-radius: 7px;
+      border-top-right-radius: 7px;
+      padding: 7px 8px 6px;
+      min-width: 158px;
+      max-width: 240px;
+      cursor: pointer;
+      color: #4b5563;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .tab-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tab-close {
+      border: 0;
+      background: transparent;
+      color: #6b7280;
+      border-radius: 6px;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      line-height: 1;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 20px;
+    }
+    .tab-close:hover { background: #e7edf4; color: #111827; }
+    .tab.active {
+      border-color: var(--line);
+      background: #fff;
+      color: #111827;
+      font-weight: 700;
+    }
+    .tabs-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      padding-top: 4px;
+    }
+    .tab-act {
+      border: 1px solid #d3dbe5;
+      background: #fff;
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      color: #334155;
+      font-size: 15px;
+      line-height: 1;
+      display: inline-grid;
+      place-items: center;
+    }
+    .tab-act:hover { background: #f0f5fa; }
+    .tab-menu {
+      position: absolute;
+      right: 8px;
+      top: 38px;
+      width: 260px;
+      border: 1px solid #d3dbe5;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+      padding: 6px;
+      z-index: 30;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .tab-menu-item {
+      width: 100%;
+      border: 0;
+      text-align: left;
+      background: transparent;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      color: #1f2937;
+      cursor: pointer;
+    }
+    .tab-menu-item:hover { background: #eef3f9; }
+    .tab-menu-item.active {
+      background: #e7f0fb;
+      color: #0f4f8a;
+      font-weight: 600;
+    }
+    .tab-menu-sep {
+      height: 1px;
+      background: #e6ebf2;
+      margin: 6px 2px;
+    }
+    .tab-menu-empty {
+      color: #94a3b8;
+      padding: 10px;
+      font-size: 12px;
+    }
+    .crumb {
+      display: none;
+    }
+    .toolbar {
+      border-bottom: 1px solid var(--line);
+      padding: 4px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      background: #ffffff;
+      align-items: center;
+      min-height: 40px;
+    }
+    .toolbar-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      padding: 0 8px;
+      border-left: 1px solid #e5e7eb;
+    }
+    .toolbar-group:first-child {
+      border-left: 0;
+      padding-left: 0;
+    }
+    .tb {
+      border: 0;
+      background: transparent;
+      border-radius: 4px;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 0;
+      cursor: pointer;
+      width: 28px;
+      min-width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: none;
+      transition: background .12s ease, border-color .12s ease, transform .08s ease;
+    }
+    .tb:hover {
+      background: #eef2f6;
+    }
+    .tb:active {
+      background: #e4eaf1;
+      transform: translateY(1px);
+    }
+    .tb-icon {
+      font-weight: 700;
+      padding-left: 0;
+      padding-right: 0;
+      width: 28px;
+    }
+    .tb-wide {
+      min-width: 28px;
+      width: 28px;
+    }
+    .editor-wrap {
+      overflow: auto;
+      padding: 26px 48px 18px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      max-width: 980px;
+    }
+    .panel {
+      border: 1px solid #e4e8ee;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fff;
+      box-shadow: none;
+    }
+    .md-panel {
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+    .md-panel label,
+    .md-panel > div:first-of-type {
+      display: none;
+    }
+    .md-panel textarea {
+      min-height: 360px;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+      font-size: 15px;
+      line-height: 1.75;
+      background: transparent;
+    }
+    .link-picker-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .link-picker-list {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      max-height: 180px;
+      overflow: auto;
+      background: #fff;
+    }
+    .link-picker-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: block;
+      border-bottom: 1px solid #eef2f7;
+      color: #1e293b;
+    }
+    .link-picker-item:last-child { border-bottom: 0; }
+    .link-picker-item:hover { background: #edf4fb; }
+    .link-picker-item.active {
+      background: #dbeafe;
+      color: #0f4f8a;
+    }
+    .status {
+      border-top: 1px solid var(--line);
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .ok { color: #147a48; }
+    .warn { color: #a16207; }
+    .bad { color: #b42318; }
+    .hidden { display: none; }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 56px 320px 1fr; }
+    }
+    @media (max-width: 920px) {
+      .app { grid-template-columns: 56px 1fr; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="logo" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 128 128">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#68de7b"/>
+              <stop offset="100%" stop-color="#10a868"/>
+            </linearGradient>
+            <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#0f8e56"/>
+              <stop offset="100%" stop-color="#0a6a41"/>
+            </linearGradient>
+          </defs>
+          <path d="M20 84 L46 26 L68 30 L44 84 Z" fill="url(#g1)"/>
+          <path d="M58 40 C80 18,104 18,106 18 C105 39,90 56,71 62 C66 67,63 74,59 84 L44 84 C49 65,53 52,58 40 Z" fill="url(#g1)"/>
+          <path d="M46 84 C62 87,78 80,87 70 C77 89,61 98,40 98 Z" fill="url(#g2)"/>
+          <path d="M66 45 C76 34,87 30,95 28 C87 35,80 42,72 52 Z" fill="#0b6a41"/>
+        </svg>
+      </div>
+      <div class="rail-group">
+        <button class="rail-btn active" data-module="explorer" title="笔记浏览器" data-tip="笔记浏览器">🗂</button>
+        <button class="rail-btn" data-module="search" title="全局搜索" data-tip="全局搜索">🔎</button>
+        <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱">🕸</button>
+        <button class="rail-btn" data-module="writing" title="写作中心" data-tip="写作中心">🧾</button>
+      </div>
+      <div class="rail-group">
+        <button class="rail-btn" data-action="quick-fleeting" title="随手记入口" data-tip="随手记入口">⚡</button>
+        <button class="rail-btn" data-action="quick-literature" title="文献笔记入口" data-tip="书摘笔记入口">📘</button>
+        <button class="rail-btn" data-action="quick-original" title="原创笔记入口" data-tip="原创笔记入口">📝</button>
+      </div>
+      <div class="rail-group bottom">
+        <button class="rail-btn" data-action="open-handoff" title="交付板" data-tip="交付板">📐</button>
+        <button class="rail-btn" data-module="settings" title="设置" data-tip="设置">⚙</button>
+      </div>
+    </aside>
+
+    <aside class="sidebar">
+      <div class="vault-head">
+        <h2 id="sidebarTitle">目录</h2>
+        <div style="display:flex;gap:6px;">
+          <button class="mini-btn" id="btnOpenNewBoxDialog">新建目录</button>
+          <button class="mini-btn" id="btnNewNote">新建笔记</button>
+        </div>
+      </div>
+
+      <div class="filter">
+        <input id="searchInput" placeholder="搜索目录/笔记..." />
+        <div id="explorerActions" style="display:grid;gap:7px;">
+          <div style="font-size:12px;color:#64748b;">
+            体验对齐文件管理器：文件夹和文件同区展示，右键可操作。
+          </div>
+        </div>
+      </div>
+      <div class="list-area" id="listArea"></div>
+      <div class="sidebar-foot" id="sidebarFoot">默认根目录不可删除，子目录默认上限 500。</div>
+    </aside>
+
+    <main class="main">
+      <div class="tabs" id="tabs"></div>
+      <div class="crumb" id="breadcrumb"></div>
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <button class="tb tb-icon" data-md="bold" title="加粗">B</button>
+          <button class="tb tb-icon" data-md="italic" title="斜体">I</button>
+          <button class="tb tb-icon" data-md="h2" title="二级标题">H</button>
+          <button class="tb tb-icon" data-md="quote" title="引用块">"</button>
+          <button class="tb tb-icon" data-md="ul" title="无序列表">≡</button>
+        </div>
+        <div class="toolbar-group">
+          <button class="tb tb-wide" id="btnInsertLink" title="关联笔记">∞</button>
+          <button class="tb tb-icon" id="btnInsertTag" title="插入标签">◆</button>
+          <button class="tb tb-wide" id="btnShowRelated" title="查看反向链接">↔</button>
+        </div>
+        <div class="toolbar-group">
+          <button class="tb tb-wide" id="btnRunGuard" title="原创性检测">◈</button>
+          <button class="tb tb-wide" id="btnSave" title="保存 Markdown">✓</button>
+        </div>
+      </div>
+      <div class="editor-wrap">
+        <div class="panel hidden" id="linkPicker">
+          <div class="link-picker-head">
+            <strong>关联笔记检索</strong>
+            <button class="tb" id="btnCloseLinkPicker">关闭</button>
+          </div>
+          <input id="linkSearchInput" placeholder="输入关键词或笔记ID，实时检索..." />
+          <div style="height:8px;"></div>
+          <div class="link-picker-list" id="linkSearchList"></div>
+        </div>
+        <div class="panel md-panel">
+          <label>Markdown 文档</label>
+          <div style="font-size:12px;color:#64748b;margin-bottom:8px;">第一行即文件标题。输入 [[ 可实时检索候选（↑↓ 选择，Enter 插入），Ctrl/Cmd + 点击 #标签可检索，Ctrl/Cmd + 点击 [[标题]] 可跳转。</div>
+          <textarea id="editorBody" placeholder="在这里输入正文，支持 [[关联笔记标题]] 与 #标签"></textarea>
+        </div>
+        <div class="panel">
+          <div style="margin-bottom:8px;color:#475569;">关联到本笔记的其他笔记</div>
+          <div id="resultArea">打开一个笔记后，这里显示与当前笔记关联的其他笔记。</div>
+        </div>
+      </div>
+      <div class="status">
+        <span id="statusText">就绪</span>
+        <span id="statusHint">稳定框架：功能栏 + 目录栏 + 编辑器 + 顶部多Tab</span>
+      </div>
+    </main>
+  </div>
+  <div id="contextMenu" class="ctx-menu hidden"></div>
+  <div id="newBoxModal" class="modal-mask hidden">
+    <div class="modal">
+      <div class="modal-head">新建目录</div>
+      <div class="modal-body">
+        <div>
+          <label>目录名称</label>
+          <input id="modalBoxName" placeholder="例如：研究方法盒" />
+        </div>
+        <div>
+          <label>父目录</label>
+          <select id="modalParentFolder"></select>
+        </div>
+        <div>
+          <label>本机保存位置（文件系统路径）</label>
+          <div class="path-picker">
+            <input id="modalFsPath" placeholder="例如：E:\Users\you\Documents\yansilu-vault\notes\original" />
+            <button class="mini-btn" id="modalBrowsePath" type="button">浏览...</button>
+          </div>
+          <div style="margin-top:6px;font-size:12px;color:#64748b;">
+            桌面端（Tauri）将调用系统目录选择器；浏览器环境自动降级为手动输入。
+          </div>
+        </div>
+        <div>
+          <label>最大卡片数（默认500）</label>
+          <input id="modalMaxCards" type="number" min="50" step="50" value="500" />
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="mini-btn" id="modalCancel">取消</button>
+        <button class="mini-btn" id="modalCreate">创建</button>
+      </div>
+    </div>
+  </div>
+
+    <script>window.__API_BASE__ = "__API_BASE__";</script>
+    <script type="module" src="/prototype-app.js"></script>
+</body>
+</html>

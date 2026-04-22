@@ -1,0 +1,18 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "from_note_id", "to_note_id", "relation_type", "created_by", "created_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "from_note_id": { "type": "string" },
+    "to_note_id": { "type": "string" },
+    "relation_type": {
+      "type": "string",
+      "enum": ["supports", "contradicts", "extends", "precedes", "follows", "belongs_to_topic", "associated_with", "appears_in_draft"]
+    },
+    "rationale": { "type": "string" },
+    "created_by": { "type": "string", "enum": ["user", "ai_suggestion", "import"] },
+    "confidence": { "type": "number" },
+    "created_at": { "type": "string" }
+  }
+}

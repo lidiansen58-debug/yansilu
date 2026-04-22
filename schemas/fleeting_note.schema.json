@@ -1,0 +1,17 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "content", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "content": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "source_hint": { "type": "string" },
+    "convert_target": { "type": "string", "enum": ["literature_note", "permanent_note", "project_note"] },
+    "converted_to_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["inbox", "in_progress", "converted", "archived"] },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

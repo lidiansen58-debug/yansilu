@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>研思录 Figma 原型同步页</title>
+  <style>
+    :root {
+      --bg: #f3f6f8;
+      --panel: #ffffff;
+      --line: #d7dde5;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --soft: #eef2f6;
+      --active: #dce9f7;
+      --brand: #119461;
+      --brand-soft: #e4f7ed;
+      --danger: #b42318;
+      --shadow: 0 16px 42px rgba(15, 23, 42, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .shell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+    }
+
+    .library {
+      border-right: 1px solid var(--line);
+      background: #fbfcfe;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      min-width: 0;
+    }
+
+    .library-head {
+      padding: 18px 16px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .library-head h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.25;
+    }
+
+    .library-head p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .actions {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      border: 1px solid #bfd4cb;
+      border-radius: 8px;
+      background: var(--brand-soft);
+      color: #07543a;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .screen-list {
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .screen-button {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--ink);
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 8px;
+      padding: 8px;
+      cursor: pointer;
+      text-align: left;
+      margin-bottom: 4px;
+    }
+
+    .screen-button:hover {
+      background: var(--soft);
+    }
+
+    .screen-button.active {
+      background: var(--active);
+      border-color: #bfd1e4;
+    }
+
+    .screen-no {
+      align-self: start;
+      min-width: 36px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 2px 6px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+      color: #3730a3;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .screen-title {
+      font-size: 14px;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .screen-desc {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .library-foot {
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .stage {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 48px 1fr;
+    }
+
+    .stage-top {
+      border-bottom: 1px solid var(--line);
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+    }
+
+    .stage-title {
+      font-size: 14px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .stage-meta {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .canvas {
+      overflow: auto;
+      padding: 24px;
+      display: grid;
+      place-items: start center;
+      background:
+        linear-gradient(#e9eef4 1px, transparent 1px),
+        linear-gradient(90deg, #e9eef4 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .frame {
+      position: relative;
+      width: 1180px;
+      height: 720px;
+      background: #fff;
+      border: 1px solid #cfd7e0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transform-origin: top center;
+    }
+
+    .app-frame {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 56px 380px 1fr;
+      grid-template-rows: 44px 1fr;
+      background: #fff;
+    }
+
+    .tabs {
+      grid-column: 1 / 4;
+      background: #f3f4f6;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px 0 220px;
+    }
+
+    .tab {
+      height: 32px;
+      min-width: 170px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px 8px 0 0;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .tab.small {
+      min-width: 48px;
+      justify-content: center;
+      color: var(--muted);
+    }
+
+    .rail {
+      grid-row: 2;
+      border-right: 1px solid var(--line);
+      background: #eef2f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding-top: 10px;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #b9d8c7;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(160deg, #f2fff7, #dff5e8);
+      color: var(--brand);
+      font-weight: 900;
+    }
+
+    .rail-btn {
+      width: 38px;
+      height: 38px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #334155;
+      font-size: 13px;
+      background: transparent;
+    }
+
+    .rail-btn.active {
+      background: var(--brand-soft);
+      border-color: #b9ddc9;
+      color: #0f6f44;
+      font-weight: 800;
+    }
+
+    .explorer {
+      grid-row: 2;
+      border-right: 1px solid var(--line);
+      background: #f8fafc;
+      display: grid;
+      grid-template-rows: 52px 52px 1fr 34px;
+      min-width: 0;
+    }
+
+    .explorer-head {
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .mini {
+      border: 1px solid #cfd7e0;
+      background: #fff;
+      border-radius: 7px;
+      padding: 5px 8px;
+      color: #334155;
+      font-size: 12px;
+    }
+
+    .filter {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+    }
+
+    .input {
+      height: 31px;
+      border: 1px solid #cfd7e0;
+      border-radius: 8px;
+      background: #fff;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .tree {
+      overflow: hidden;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .tree-row {
+      min-height: 30px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      display: grid;
+      grid-template-columns: 20px 20px 1fr;
+      gap: 4px;
+      align-items: center;
+      padding: 4px 6px;
+      margin-bottom: 3px;
+    }
+
+    .tree-row.active {
+      background: var(--active);
+      border-color: #bfd1e4;
+    }
+
+    .indent-1 { padding-left: 22px; }
+    .indent-2 { padding-left: 44px; }
+
+    .foot {
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .editor {
+      grid-row: 2;
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 42px 1fr 160px 30px;
+      background: #fff;
+    }
+
+    .toolbar {
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 4px 12px;
+      background: #ffffff;
+    }
+
+    .tool {
+      width: 28px;
+      min-width: 28px;
+      height: 28px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #344054;
+      padding: 0;
+      box-shadow: none;
+    }
+    .tool-group {
+      display: inline-flex;
+      gap: 0;
+      padding: 0 8px;
+      border-left: 1px solid #e5e7eb;
+    }
+    .tool-group:first-child {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .doc {
+      padding: 34px 54px;
+      font-size: 17px;
+      line-height: 1.7;
+    }
+
+    .doc h2 {
+      margin: 0 0 22px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
+    .doc p {
+      margin: 0 0 14px;
+    }
+
+    .related {
+      border-top: 1px solid var(--line);
+      background: #fbfcfe;
+      padding: 14px 20px;
+      color: #334155;
+      font-size: 13px;
+    }
+
+    .related-title {
+      font-weight: 750;
+      margin-bottom: 8px;
+    }
+
+    .status {
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.08);
+      pointer-events: none;
+    }
+
+    .menu {
+      position: absolute;
+      width: 210px;
+      background: #fff;
+      border: 1px solid #cfd7e0;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 5px;
+      font-size: 13px;
+    }
+
+    .menu-row {
+      min-height: 31px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 9px;
+    }
+
+    .menu-row:hover,
+    .menu-row.selected {
+      background: #edf3f9;
+    }
+
+    .menu-row.danger {
+      color: var(--danger);
+    }
+
+    .sep {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 4px 6px;
+    }
+
+    .modal-mask {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.18);
+      display: grid;
+      place-items: center;
+    }
+
+    .modal {
+      width: 450px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .modal h3 {
+      margin: 0 0 16px;
+      font-size: 19px;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field label {
+      display: block;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .field-box {
+      height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      color: #64748b;
+      font-size: 13px;
+      background: #fff;
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 76px;
+      gap: 8px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .primary {
+      background: var(--brand);
+      color: #fff;
+      border-color: #0b7c50;
+    }
+
+    .floating {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .suggestion {
+      width: 320px;
+      left: 610px;
+      top: 278px;
+    }
+
+    .suggestion-title {
+      color: #334155;
+      font-size: 12px;
+      font-weight: 750;
+      margin-bottom: 8px;
+    }
+
+    .suggestion-row {
+      min-height: 34px;
+      border-radius: 7px;
+      padding: 6px 8px;
+      margin-top: 4px;
+    }
+
+    .suggestion-row.active {
+      background: #ecfeff;
+      border: 1px solid #67e8f9;
+    }
+
+    .tag-panel {
+      width: 370px;
+      right: 34px;
+      top: 185px;
+    }
+
+    .tab-menu {
+      width: 270px;
+      right: 110px;
+      top: 45px;
+    }
+
+    .badge {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 8;
+      border-radius: 999px;
+      background: #111827;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 5px 10px;
+    }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .library { display: none; }
+      .canvas { padding: 12px; }
+      .frame { transform: scale(0.74); transform-origin: top left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="library">
+      <div class="library-head">
+        <h1>研思录 Figma 原型同步页</h1>
+        <p>由于当前 Figma MCP 调用额度受限，本页使用此前已成功取得的 Figma node 清单生成。本地页面与 Figma 的 10 个 frame/state 一一对应。</p>
+      </div>
+      <div class="actions">
+        <a class="action" href="/prototype">运行原型</a>
+        <a class="action" href="/prototype-handoff">交付板</a>
+        <a class="action" href="https://www.figma.com/design/kFtHDtqQbuvRIuYCXG4Cmi" target="_blank" rel="noreferrer noopener">Figma 文件</a>
+        <button class="action" id="copyMap">复制清单</button>
+      </div>
+      <div class="screen-list" id="screenList"></div>
+      <div class="library-foot">
+        文件来源：Figma `kFtHDtqQbuvRIuYCXG4Cmi` / 页面 `研思录原型-v2`。
+      </div>
+    </aside>
+    <main class="stage">
+      <div class="stage-top">
+        <div class="stage-title" id="stageTitle"></div>
+        <div class="stage-meta" id="stageMeta"></div>
+      </div>
+      <div class="canvas">
+        <div class="frame" id="frame"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const screens = [
+      { key: "main", no: "01", name: "主工作台", nodeId: "16:3", desc: "统一三栏：功能栏、目录树、Markdown 编辑区。" },
+      { key: "fleeting", no: "02", name: "随手记视图", nodeId: "16:39", desc: "切换到随手记入口后的目录与文件视图。" },
+      { key: "literature", no: "03", name: "书摘笔记视图", nodeId: "16:75", desc: "切换到书摘笔记入口后的目录与文件视图。" },
+      { key: "original", no: "04", name: "原创笔记视图", nodeId: "16:111", desc: "切换到原创笔记入口后的目录与文件视图。" },
+      { key: "folder-menu", no: "05", name: "目录右键菜单", nodeId: "18:2", desc: "目录节点上下文操作：新建、移动、隐藏、删除。" },
+      { key: "file-menu", no: "06", name: "文件右键菜单", nodeId: "18:49", desc: "文件节点上下文操作：打开、重命名、移动、删除。" },
+      { key: "tab-menu", no: "07", name: "Tab 堆叠菜单", nodeId: "18:96", desc: "多标签页管理：堆叠、关闭、切换。" },
+      { key: "new-folder", no: "08", name: "新建目录弹窗", nodeId: "18:139", desc: "新建目录时设置名称、本机路径和容量上限。" },
+      { key: "link-picker", no: "09", name: "关联笔记候选", nodeId: "18:188", desc: "输入 `[[` 后实时搜索并插入关联笔记。" },
+      { key: "tag-results", no: "10", name: "标签结果面板", nodeId: "18:232", desc: "点击 `#标签` 后列出本卡片盒同标签笔记。" }
+    ];
+
+    const folderSets = {
+      main: [
+        ["folder", "默认卡片盒", 0, false],
+        ["folder", "随手记", 1, false],
+        ["file", "2026-04-22-灵感.md", 2, false],
+        ["folder", "书摘笔记", 1, false],
+        ["file", "卡片笔记法-摘录.md", 2, false],
+        ["folder", "原创笔记", 1, false],
+        ["file", "写作从结构生长.md", 2, true]
+      ],
+      fleeting: [
+        ["folder", "随手记", 0, true],
+        ["file", "2026-04-22-灵感.md", 1, true],
+        ["file", "会议后的问题.md", 1, false],
+        ["folder", "已归档", 1, false]
+      ],
+      literature: [
+        ["folder", "书摘笔记", 0, true],
+        ["file", "卡片笔记法-摘录.md", 1, true],
+        ["file", "外化认知材料.md", 1, false],
+        ["folder", "待读材料", 1, false]
+      ],
+      original: [
+        ["folder", "原创笔记", 0, true],
+        ["file", "写作从结构生长.md", 1, true],
+        ["file", "主题索引是写作入口.md", 1, false],
+        ["folder", "写作方法", 1, false],
+        ["file", "反向链接让写作可回溯.md", 2, false]
+      ]
+    };
+
+    function folderRows(type) {
+      const rows = folderSets[type] || folderSets.main;
+      return rows.map(([kind, name, depth, active]) => {
+        const icon = kind === "folder" ? "□" : "◇";
+        const caret = kind === "folder" ? "▾" : "";
+        return `
+          <div class="tree-row indent-${depth} ${active ? "active" : ""}">
+            <span>${caret}</span><span>${icon}</span><span>${name}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function appFrame(type = "main") {
+      const active = type === "fleeting" ? "随" : type === "literature" ? "书" : "原";
+      const title = type === "fleeting" ? "随手记" : type === "literature" ? "书摘笔记" : type === "original" ? "原创笔记" : "目录";
+      const docTitle = type === "fleeting" ? "突然想到的研究问题" : type === "literature" ? "卡片笔记法中的转述要求" : "写作从结构生长";
+      const body = type === "literature"
+        ? "作者：Sönke Ahrens\\n出版年份：2017\\n页码：p.34\\n\\n摘录文字与用户转述保持分区，后续可创建原创笔记并保留引用链。"
+        : type === "fleeting"
+          ? "这条内容先放在随手记里，超过 7 天会隐藏。点击后可转为原创笔记，完成后自动归档。"
+          : "本条原创笔记讨论：为什么积累必须通过结构才能进入写作。\\n\\n输入 [[ 时会弹出候选笔记，点击 #标签 可查看本盒下相关笔记。";
+      return `
+        <div class="app-frame">
+          <div class="tabs">
+            <div class="tab">收件箱.md <span>×</span></div>
+            <div class="tab">${docTitle}.md <span>×</span></div>
+            <div class="tab small">+</div>
+            <div class="tab small">▾</div>
+          </div>
+          <div class="rail">
+            <div class="logo">Y</div>
+            <div class="rail-btn">库</div>
+            <div class="rail-btn ${active === "随" ? "active" : ""}">随</div>
+            <div class="rail-btn ${active === "书" ? "active" : ""}">书</div>
+            <div class="rail-btn ${active === "原" ? "active" : ""}">原</div>
+          </div>
+          <aside class="explorer">
+            <div class="explorer-head"><span>${title}</span><button class="mini">新建目录</button></div>
+            <div class="filter"><div class="input">搜索目录/笔记...</div></div>
+            <div class="tree">${folderRows(type)}</div>
+            <div class="foot">目录=卡片盒，文件=Markdown 笔记</div>
+          </aside>
+          <section class="editor">
+            <div class="toolbar">
+              <span class="tool-group">
+                <button class="tool">B</button><button class="tool">I</button><button class="tool">H</button><button class="tool">"</button><button class="tool">≡</button>
+              </span>
+              <span class="tool-group">
+                <button class="tool">∞</button><button class="tool">◆</button><button class="tool">↔</button>
+              </span>
+              <span class="tool-group">
+                <button class="tool">◈</button><button class="tool">✓</button>
+              </span>
+            </div>
+            <article class="doc">
+              <h2># ${docTitle}</h2>
+              ${body.split("\\n").map((line) => `<p>${line || "&nbsp;"}</p>`).join("")}
+            </article>
+            <div class="related">
+              <div class="related-title">关联到本笔记的其他笔记</div>
+              <div>• 写作篮与索引的连接</div>
+              <div>• 反向链接让写作可回溯</div>
+              <div>• 主题图中的冲突路径</div>
+            </div>
+            <div class="status"><span>就绪</span><span>多 Tab + Markdown 编辑器 + 文件树</span></div>
+          </section>
+        </div>
+      `;
+    }
+
+    function overlayFor(key) {
+      if (key === "folder-menu") {
+        return `
+          <div class="overlay"></div>
+          <div class="menu" style="left:170px;top:210px;">
+            <div class="menu-row selected">新建目录</div>
+            <div class="menu-row">新建笔记</div>
+            <div class="sep"></div>
+            <div class="menu-row">重命名 <span>F2</span></div>
+            <div class="menu-row">移动到...</div>
+            <div class="menu-row">隐藏目录</div>
+            <div class="sep"></div>
+            <div class="menu-row danger">删除目录</div>
+          </div>
+        `;
+      }
+      if (key === "file-menu") {
+        return `
+          <div class="overlay"></div>
+          <div class="menu" style="left:210px;top:276px;">
+            <div class="menu-row selected">打开</div>
+            <div class="menu-row">在新标签页打开</div>
+            <div class="sep"></div>
+            <div class="menu-row">重命名 <span>F2</span></div>
+            <div class="menu-row">移动到...</div>
+            <div class="menu-row">复制路径</div>
+            <div class="sep"></div>
+            <div class="menu-row danger">删除笔记</div>
+          </div>
+        `;
+      }
+      if (key === "tab-menu") {
+        return `
+          <div class="floating tab-menu">
+            <div class="menu-row">堆叠标签页</div>
+            <div class="menu-row">收藏当前 2 个标签页</div>
+            <div class="sep"></div>
+            <div class="menu-row">全部关闭</div>
+            <div class="sep"></div>
+            <div class="menu-row selected">写作从结构生长.md</div>
+            <div class="menu-row">收件箱.md</div>
+          </div>
+        `;
+      }
+      if (key === "new-folder") {
+        return `
+          <div class="modal-mask">
+            <div class="modal">
+              <h3>新建卡片盒目录</h3>
+              <div class="field"><label>目录名称</label><div class="field-box">方法论 / 写作学</div></div>
+              <div class="field">
+                <label>保存位置（本机路径）</label>
+                <div class="field-row">
+                  <div class="field-box">E:\\Projects\\Thinking in Notes\\yansilu-vault\\notes\\original</div>
+                  <button class="mini">浏览...</button>
+                </div>
+              </div>
+              <div class="field"><label>最大卡片数量</label><div class="field-box">500</div></div>
+              <div class="modal-actions"><button class="mini">取消</button><button class="mini primary">创建</button></div>
+            </div>
+          </div>
+        `;
+      }
+      if (key === "link-picker") {
+        return `
+          <div class="floating suggestion">
+            <div class="suggestion-title">[[写 ... 候选笔记</div>
+            <div class="suggestion-row active">写作篮与索引的连接</div>
+            <div class="suggestion-row">写作从永久笔记生长</div>
+            <div class="suggestion-row">写作证据链与可追溯</div>
+          </div>
+        `;
+      }
+      if (key === "tag-results") {
+        return `
+          <div class="floating tag-panel">
+            <div class="suggestion-title">#写作（本卡片盒 12 条）</div>
+            <div class="suggestion-row active">写作从结构生长.md</div>
+            <div class="suggestion-row">写作篮与索引的连接.md</div>
+            <div class="suggestion-row">反向链接让写作可回溯.md</div>
+            <div class="suggestion-row">从书摘到原创的转化阈值.md</div>
+          </div>
+        `;
+      }
+      return "";
+    }
+
+    function renderList(activeKey) {
+      document.getElementById("screenList").innerHTML = screens.map((screen) => `
+        <button class="screen-button ${screen.key === activeKey ? "active" : ""}" data-screen="${screen.key}">
+          <span class="screen-no">${screen.no}</span>
+          <span>
+            <span class="screen-title">${screen.name}</span>
+            <span class="screen-desc">${screen.desc}</span>
+          </span>
+        </button>
+      `).join("");
+    }
+
+    function renderScreen(key) {
+      const screen = screens.find((item) => item.key === key) || screens[0];
+      const baseType = ["fleeting", "literature", "original"].includes(screen.key) ? screen.key : "original";
+      document.getElementById("stageTitle").textContent = `${screen.no} ${screen.name}`;
+      document.getElementById("stageMeta").textContent = `Figma Node: ${screen.nodeId}`;
+      document.getElementById("frame").innerHTML = `
+        <div class="badge">${screen.no}</div>
+        ${appFrame(screen.key === "main" ? "main" : baseType)}
+        ${overlayFor(screen.key)}
+      `;
+      renderList(screen.key);
+    }
+
+    document.getElementById("screenList").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-screen]");
+      if (!button) return;
+      renderScreen(button.dataset.screen);
+    });
+
+    document.getElementById("copyMap").addEventListener("click", async () => {
+      const text = screens.map((s) => `${s.no} ${s.name} ${s.nodeId} - ${s.desc}`).join("\\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        alert("已复制 Figma 页面清单");
+      } catch {
+        alert(text);
+      }
+    });
+
+    renderScreen("main");
+  </script>
+</body>
+</html>

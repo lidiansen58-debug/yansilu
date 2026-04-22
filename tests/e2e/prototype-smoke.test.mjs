@@ -1,0 +1,109 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import path from "node:path";
+import fs from "node:fs/promises";
+import os from "node:os";
+import net from "node:net";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
+
+async function makeTempDir(prefix) {
+  return fs.mkdtemp(path.join(os.tmpdir(), prefix));
+}
+
+async function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.on("error", reject);
+    server.listen(0, () => {
+      const address = server.address();
+      const port = typeof address === "object" ? address.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function waitForJsonHealth(url) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+  throw new Error(`Service did not become healthy: ${url}`);
+}
+
+async function postJson(baseUrl, pathname, body) {
+  const res = await fetch(`${baseUrl}${pathname}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const json = await res.json();
+  return { status: res.status, json };
+}
+
+test("prototype web server loads against a real API service", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-e2e-vault-");
+  const directoryRoot = await makeTempDir("yansilu-e2e-dirs-");
+  const apiPort = await findFreePort();
+  const webPort = await findFreePort();
+  const apiBase = `http://127.0.0.1:${apiPort}`;
+  const webBase = `http://127.0.0.1:${webPort}`;
+
+  const api = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(apiPort),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  const web = spawn(process.execPath, ["apps/web/src/dev-server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      WEB_PORT: String(webPort),
+      API_BASE: apiBase
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => {
+    api.kill();
+    web.kill();
+  });
+
+  await waitForJsonHealth(`${apiBase}/health`);
+  const webHealth = await waitForJsonHealth(`${webBase}/health`);
+  assert.equal(webHealth.apiBase, apiBase);
+
+  const page = await fetch(`${webBase}/prototype`);
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.ok(html.includes(`window.__API_BASE__ = "${apiBase}"`));
+  assert.match(html, /prototype-app\.js/);
+
+  const createdDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "e2e-directory",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(directoryRoot, "e2e-directory"),
+    maxNotes: 500
+  });
+  assert.equal(createdDirectory.status, 201);
+
+  const createdNote = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: createdDirectory.json.item.id,
+    body: "# E2E smoke note\n\nCreated through the same API used by the prototype."
+  });
+  assert.equal(createdNote.status, 201);
+  assert.equal(createdNote.json.item.title, "E2E smoke note");
+});

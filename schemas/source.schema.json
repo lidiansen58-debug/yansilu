@@ -1,0 +1,22 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "source_type", "title", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "source_type": { "type": "string", "enum": ["web", "pdf", "book", "article", "video", "audio", "markdown", "note", "manual"] },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "author": { "type": "array", "items": { "type": "string" } },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "url_or_path": { "type": "string" },
+    "locator": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "imported_from": { "type": "string", "enum": ["local", "obsidian", "zotero", "readwise", "notebooklm", "unknown"] },
+    "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
+    "original_frontmatter": { "type": "object", "additionalProperties": true },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}
