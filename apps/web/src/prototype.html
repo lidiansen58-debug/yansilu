@@ -4,19 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>研思录原型 v2.0</title>
+  <link rel="stylesheet" href="/vendor/toastui-editor.css" />
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search);
+      const editorOnly = window.location.pathname === "/editor" || params.get("mode") === "editor";
+      document.documentElement.classList.toggle("editor-only", editorOnly);
+      window.__EDITOR_ONLY__ = editorOnly;
+      if (editorOnly) document.title = "研思录编辑器";
+    })();
+  </script>
   <style>
     :root {
-      --bg: #ffffff;
-      --panel: #f7f8fa;
+      --bg: #f6f7f9;
+      --panel: #f3f4f7;
       --editor: #ffffff;
-      --line: #e1e5ea;
-      --ink: #172033;
-      --muted: #7a8594;
+      --line: #dde2e8;
+      --ink: #1f2937;
+      --muted: #6b7280;
       --brand: #159a60;
       --brand-weak: #e7f6ee;
-      --hover: #eef2f6;
-      --active: #e8eef5;
-      --shadow: 0 6px 20px rgba(17, 24, 39, 0.06);
+      --hover: #eceff4;
+      --active: #e4e9f1;
+      --shadow: 0 8px 24px rgba(17, 24, 39, 0.05);
     }
     * { box-sizing: border-box; }
     body {
@@ -34,11 +44,11 @@
     /* Left rail */
     .rail {
       border-right: 1px solid var(--line);
-      background: #ffffff;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 8px 5px;
+      padding: 10px 5px;
       gap: 7px;
       overflow: hidden;
     }
@@ -53,18 +63,33 @@
       margin: 0 auto;
     }
     .rail-btn {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       margin: 0 auto;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: 10px;
       background: transparent;
       cursor: pointer;
       color: #4b5563;
       font-size: 15px;
       position: relative;
+      display: inline-grid;
+      place-items: center;
+      transition: background .12s ease, border-color .12s ease, color .12s ease, transform .08s ease;
     }
-    .rail-btn:hover { background: var(--hover); }
+    .rail-svg {
+      width: 17px;
+      height: 17px;
+      display: block;
+    }
+    .rail-svg * {
+      vector-effect: non-scaling-stroke;
+    }
+    .rail-btn:hover {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: #1f2937;
+    }
     .rail-btn::after {
       content: attr(data-tip);
       position: absolute;
@@ -92,6 +117,25 @@
       border-color: #b9ddc9;
       color: #0f6f44;
       font-weight: 700;
+      box-shadow: inset 2px 0 0 #159a60;
+    }
+    .quick-entry.current-root {
+      background: #ffffff;
+      border-color: #d7e3db;
+      color: #1f2937;
+      box-shadow: inset 0 0 0 1px rgba(21, 154, 96, 0.08);
+    }
+    .quick-entry.current-root::before {
+      content: "";
+      position: absolute;
+      right: -3px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 16px;
+      border-radius: 999px;
+      background: #159a60;
+      opacity: .78;
     }
     .rail-group {
       display: grid;
@@ -99,6 +143,11 @@
       align-content: start;
       width: 100%;
       justify-items: center;
+    }
+    .rail-group + .rail-group {
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid #edf2f7;
     }
     .rail-group.bottom { margin-top: auto; }
 
@@ -109,33 +158,86 @@
       display: grid;
       grid-template-rows: auto auto 1fr auto;
       min-width: 0;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.5);
     }
     .vault-head {
-      padding: 10px 10px 8px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .vault-head h2 {
-      margin: 0;
-      font-size: 15px;
-    }
-    .mini-btn {
-      border: 1px solid #cfd7e0;
-      background: #fff;
-      border-radius: 8px;
-      padding: 5px 8px;
-      font-size: 12px;
-      cursor: pointer;
-      color: #334155;
-    }
-    .filter {
-      padding: 8px 10px;
+      padding: 12px 10px 8px;
       border-bottom: 1px solid var(--line);
       display: grid;
       gap: 8px;
+      background: #f5f6f9;
+    }
+    .vault-head-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .vault-head h2 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      color: #374151;
+    }
+    .sidebar-actions {
+      display: grid;
+      gap: 0;
+    }
+    .sidebar-actions-main {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mini-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: 8px;
+      padding: 7px 10px;
+      min-height: 32px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #4b5563;
+      transition: background-color .12s ease, border-color .12s ease, box-shadow .12s ease, transform .12s ease, color .12s ease;
+    }
+    .mini-btn:hover {
+      background: #ffffff;
+      border-color: #d7dce3;
+      color: #111827;
+    }
+    .mini-btn:active {
+      transform: translateY(1px);
+    }
+    .mini-btn.is-ghost {
+      background: transparent;
+      color: #6b7280;
+      border-color: transparent;
+      box-shadow: none;
+    }
+    .mini-btn.is-ghost:hover {
+      background: #ffffff;
+      border-color: #d7dce3;
+    }
+    .mini-btn.icon-btn {
+      min-width: 30px;
+      width: 30px;
+      padding: 0;
+      font-size: 14px;
+      display: inline-grid;
+      place-items: center;
+    }
+    .filter {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      background: #ffffff;
+    }
+    .filter.compact-search {
+      padding-top: 8px;
+      padding-bottom: 8px;
+      background: #f5f6f9;
     }
     input, select, textarea {
       width: 100%;
@@ -149,12 +251,26 @@
     textarea { min-height: 120px; resize: vertical; }
     .list-area {
       overflow: auto;
-      padding: 8px;
+      padding: 10px 6px 12px;
+    }
+    .explorer-empty {
+      display: grid;
+      gap: 5px;
+      align-content: center;
+      min-height: 96px;
+      padding: 14px;
+      border: 1px dashed #d9e3ee;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f6f9fc 100%);
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.7;
     }
     .explorer-item {
       border: 1px solid transparent;
-      border-radius: 6px;
-      padding: 4px 6px;
+      border-radius: 8px;
+      padding: 4px 7px;
+      min-height: 30px;
       margin-bottom: 2px;
       background: transparent;
       cursor: pointer;
@@ -162,18 +278,24 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      position: relative;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, opacity .12s ease, transform .08s ease;
     }
     .explorer-item .left {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       min-width: 0;
+      flex: 1 1 auto;
     }
     .explorer-item .icon {
       width: 16px;
       text-align: center;
-      color: #475569;
-      flex: 0 0 18px;
+      color: #6b7280;
+      flex: 0 0 16px;
+      opacity: 1;
+      display: inline-grid;
+      place-items: center;
     }
     .type-badge {
       display: none;
@@ -185,74 +307,186 @@
       font-size: 11px;
       margin-top: 2px;
     }
-    .explorer-item:hover { border-color: transparent; background: #eef2f6; }
-    .explorer-item.active { background: var(--active); border-color: #bfd1e4; }
+    .explorer-item:hover {
+      border-color: transparent;
+      background: #edf1f5;
+    }
+    .explorer-item.active {
+      background: linear-gradient(180deg, #e7edf4 0%, #e2e8f0 100%);
+      border-color: #d7dde5;
+      box-shadow: inset 2px 0 0 #8094ab, 0 1px 0 rgba(255,255,255,0.7);
+    }
     .explorer-item .name {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       font-size: 13px;
+      font-weight: 500;
+      color: #1f2937;
+    }
+    .explorer-item .name strong {
+      font-weight: inherit;
     }
     .explorer-item .name br,
     .explorer-item .name small {
       display: none;
     }
     .tree-root { display: grid; gap: 2px; }
-    .tree-row { margin-bottom: 2px; }
+    .tree-row { margin-bottom: 0; }
     .tree-row .left { width: 100%; }
+    .item-trail {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      margin-left: 10px;
+    }
+    .item-badge {
+      min-height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      border: 1px solid #dde6ef;
+      background: #f7fafc;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: .01em;
+    }
+    .item-badge-root { display: none; }
+    .item-badge-note { display: none; }
     .tree-indent {
       display: inline-block;
-      width: calc(var(--depth, 0) * 13px);
-      flex: 0 0 calc(var(--depth, 0) * 13px);
+      width: calc(var(--depth, 0) * 14px);
+      flex: 0 0 calc(var(--depth, 0) * 14px);
     }
     .tree-toggle {
       border: 0;
       background: transparent;
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border-radius: 4px;
-      color: #475569;
+      color: #6b7280;
       cursor: pointer;
       padding: 0;
       display: inline-grid;
       place-items: center;
-      flex: 0 0 18px;
+      flex: 0 0 14px;
+      font-size: 11px;
     }
-    .tree-toggle:hover:not(:disabled) { background: #e8eff7; }
+    .tree-toggle:hover:not(:disabled) { background: #e7ebf1; }
     .tree-toggle:disabled { cursor: default; color: #9aa7b8; }
     .tree-toggle.ghost { visibility: hidden; }
-    .file-row .icon { color: #53657a; }
+    .file-row .icon { color: #7b8794; }
+    .folder-row-root .name {
+      font-weight: 700;
+      color: #111827;
+    }
+    .folder-row-root {
+      background: rgba(255,255,255,0.35);
+    }
     .explorer-item.dragging {
-      opacity: 0.55;
+      opacity: 0.42;
+      background: #eef2f6;
+      border-color: #d9e0e8;
     }
     .explorer-item.drop-target {
-      outline: 2px solid #7fb3e6;
-      background: #eaf4ff;
+      background: #edf5ff;
+      border-color: #bfcee2;
+      box-shadow: inset 0 0 0 1px rgba(106, 145, 186, 0.32);
+    }
+    .explorer-item.drop-target::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      border-radius: 999px;
+      background: #6f8dab;
+    }
+    .explorer-item.drop-target::after {
+      content: "移动到此目录";
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      color: #45627e;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #d6e2ef;
+      border-radius: 999px;
+      padding: 1px 6px;
+      pointer-events: none;
+    }
+    .list-area.is-dragging .explorer-item:not(.drop-target):not(.dragging) {
+      opacity: 0.78;
     }
     .indent { margin-left: 14px; }
     .sidebar-foot {
+      display: none;
+    }
+    .module-sidebar {
+      display: none;
+      padding: 14px 12px;
+      overflow: auto;
       border-top: 1px solid var(--line);
-      padding: 8px 10px;
-      font-size: 11px;
-      color: var(--muted);
+    }
+    .module-sidebar.visible {
+      display: grid;
+      gap: 12px;
+    }
+    .module-sidebar-card {
+      border: 1px solid #dbe3ec;
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    }
+    .module-sidebar-card h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: #0f172a;
+    }
+    .module-sidebar-card p {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #64748b;
+    }
+    .module-sidebar-list {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #475569;
+    }
+    .module-sidebar-list li {
+      margin: 0;
     }
     .ctx-menu {
       position: fixed;
       z-index: 40;
-      min-width: 168px;
-      border: 1px solid #cfd7e0;
-      border-radius: 10px;
-      background: #fff;
-      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.15);
-      padding: 4px;
+      min-width: 196px;
+      border: 1px solid #d7e0ea;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 38px rgba(17, 24, 39, 0.18);
+      padding: 6px;
     }
     .ctx-menu button {
       width: 100%;
       text-align: left;
       border: 0;
       background: transparent;
-      border-radius: 6px;
-      padding: 7px 8px;
+      border-radius: 10px;
+      padding: 7px 10px;
       font-size: 13px;
       color: #1f2937;
       cursor: pointer;
@@ -260,28 +494,69 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      transition: background .12s ease, color .12s ease, transform .08s ease;
     }
-    .ctx-menu button:hover { background: #edf3f9; }
-    .ctx-menu .danger { color: #b42318; }
+    .ctx-menu .ctx-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .ctx-menu .ctx-icon {
+      width: 13px;
+      height: 13px;
+      display: inline-grid;
+      place-items: center;
+      color: #64748b;
+      font-size: 12px;
+      flex: 0 0 13px;
+    }
+    .ctx-menu .ctx-icon-empty {
+      opacity: 0;
+    }
+    .ctx-menu button:hover {
+      background: #eef4fb;
+      transform: translateY(-1px);
+    }
+    .ctx-menu button:disabled {
+      transform: none;
+    }
+    .ctx-menu .ctx-label {
+      font-weight: 600;
+      min-width: 0;
+    }
+    .ctx-menu .danger {
+      color: #b42318;
+      background: rgba(254, 242, 242, 0.75);
+    }
+    .ctx-menu .danger:hover {
+      background: #fff1f0;
+    }
     .ctx-menu .disabled {
       color: #94a3b8;
       cursor: not-allowed;
+      background: transparent;
     }
     .ctx-menu .ctx-shortcut {
       color: #64748b;
-      font-size: 12px;
+      font-size: 11px;
       margin-left: 12px;
       white-space: nowrap;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 1px 7px;
+      background: #f8fafc;
     }
     .ctx-menu .ctx-sep {
       height: 1px;
-      margin: 5px 6px;
-      background: #e3e8ef;
+      margin: 6px 6px;
+      background: #e8eef5;
     }
     .modal-mask {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.28);
+      background: rgba(15, 23, 42, 0.32);
+      backdrop-filter: blur(4px);
       z-index: 50;
       display: grid;
       place-items: center;
@@ -289,22 +564,32 @@
     }
     .modal {
       width: min(520px, 100%);
-      border: 1px solid #cfd7e0;
-      border-radius: 14px;
-      background: #fff;
-      box-shadow: 0 20px 40px rgba(17, 24, 39, 0.2);
+      border: 1px solid #d8e1eb;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      box-shadow: 0 28px 60px rgba(17, 24, 39, 0.22);
       overflow: hidden;
     }
     .modal-head {
-      padding: 12px 14px;
+      padding: 14px 16px 12px;
       border-bottom: 1px solid var(--line);
-      font-weight: 700;
-      background: #f8fafc;
+      font-weight: 800;
+      letter-spacing: .01em;
+      background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
     }
     .modal-body {
-      padding: 14px;
+      padding: 16px;
       display: grid;
-      gap: 10px;
+      gap: 12px;
+    }
+    .modal-body > div {
+      display: grid;
+      gap: 6px;
+    }
+    .modal-body label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
     }
     .path-picker {
       display: grid;
@@ -314,29 +599,31 @@
     }
     .modal-foot {
       border-top: 1px solid var(--line);
-      padding: 10px 14px;
+      padding: 12px 16px;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      background: #fbfcfe;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
     }
 
     /* Editor area */
     .main {
       display: grid;
-      grid-template-rows: 42px auto 1fr auto;
+      grid-template-rows: minmax(0, 1fr) auto;
       min-width: 0;
+      min-height: 0;
+      overflow: hidden;
       background: var(--editor);
     }
     .tabs {
       border-bottom: 1px solid var(--line);
       position: relative;
-      padding: 0 8px;
-      background: #f3f5f7;
+      padding: 0 10px;
+      background: linear-gradient(180deg, #f6f7f9 0%, #f1f3f6 100%);
     }
     .tabs-shell {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
       gap: 8px;
       min-height: 44px;
@@ -344,18 +631,55 @@
     .tabs-list {
       display: flex;
       align-items: end;
-      gap: 4px;
+      gap: 2px;
       overflow: auto;
-      padding-top: 5px;
+      padding-top: 6px;
       scrollbar-width: thin;
+    }
+    .tabs-list::-webkit-scrollbar {
+      height: 6px;
+    }
+    .tabs-list::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.38);
+      border-radius: 999px;
+    }
+    .tabs-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-self: end;
+      padding-top: 4px;
+    }
+    .tabs-meta-pill {
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid #dde5ee;
+      background: rgba(255, 255, 255, 0.82);
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .tabs-meta-pill strong {
+      color: #1f2937;
+      font-weight: 800;
+    }
+    .tabs-meta-pill.warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
     }
     .tab {
       border: 1px solid transparent;
       border-bottom: 0;
       border-top-left-radius: 7px;
       border-top-right-radius: 7px;
-      padding: 7px 8px 6px;
-      min-width: 158px;
+      padding: 8px 9px 7px;
+      min-width: 140px;
       max-width: 240px;
       cursor: pointer;
       color: #4b5563;
@@ -363,6 +687,39 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      background: transparent;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease, color .12s ease;
+    }
+    .tab:hover {
+      background: rgba(255, 255, 255, 0.58);
+      color: #1f2937;
+    }
+    .tab-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .tab-kind {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #e8ebef;
+      color: #66727f;
+      font-size: 11px;
+      font-weight: 800;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 16px;
+    }
+    .tab-dirty {
+      width: 10px;
+      color: #d97706;
+      font-size: 11px;
+      line-height: 1;
+      flex: 0 0 10px;
+      text-align: center;
     }
     .tab-title {
       white-space: nowrap;
@@ -374,20 +731,31 @@
       background: transparent;
       color: #6b7280;
       border-radius: 6px;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       cursor: pointer;
       line-height: 1;
       display: inline-grid;
       place-items: center;
       flex: 0 0 20px;
     }
-    .tab-close:hover { background: #e7edf4; color: #111827; }
+    .tab-close:hover { background: #dfe5ec; color: #111827; }
     .tab.active {
-      border-color: var(--line);
-      background: #fff;
+      border-color: #d8dde5;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
       color: #111827;
       font-weight: 700;
+      box-shadow: inset 0 -2px 0 #ffffff, 0 1px 0 rgba(255, 255, 255, 0.9), 0 -1px 0 rgba(255, 255, 255, 0.75), inset 0 2px 0 rgba(21, 154, 96, 0.18);
+    }
+    .tab.dirty .tab-title {
+      color: #0f172a;
+    }
+    .tab.active .tab-kind {
+      background: #dfe7e1;
+      color: #20573d;
+    }
+    .tab.active .tab-dirty {
+      color: #c56b08;
     }
     .tabs-actions {
       display: flex;
@@ -396,9 +764,9 @@
       padding-top: 4px;
     }
     .tab-act {
-      border: 1px solid #d3dbe5;
-      background: #fff;
-      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      border-radius: 7px;
       width: 28px;
       height: 28px;
       cursor: pointer;
@@ -408,7 +776,7 @@
       display: inline-grid;
       place-items: center;
     }
-    .tab-act:hover { background: #f0f5fa; }
+    .tab-act:hover { background: #e7ebf1; }
     .tab-menu {
       position: absolute;
       right: 8px;
@@ -434,6 +802,48 @@
       color: #1f2937;
       cursor: pointer;
     }
+    .tab-menu-item-shell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .tab-menu-item-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .tab-menu-kind {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: #eef3f8;
+      color: #5b6c7c;
+      font-size: 10px;
+      font-weight: 800;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 16px;
+    }
+    .tab-menu-item-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tab-menu-item-note {
+      color: #b45309;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .tab-menu-item-check {
+      color: #0f6f44;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .tab-menu-item:hover { background: #eef3f9; }
     .tab-menu-item.active {
       background: #e7f0fb;
@@ -455,30 +865,68 @@
     }
     .toolbar {
       border-bottom: 1px solid var(--line);
-      padding: 4px 12px;
+      padding: 6px 12px;
       display: flex;
       flex-wrap: wrap;
-      gap: 0;
-      background: #ffffff;
+      gap: 4px;
+      background: #fbfbfc;
       align-items: center;
-      min-height: 40px;
+      min-height: 42px;
+      position: relative;
+      z-index: 45;
     }
     .toolbar-group {
       display: inline-flex;
       align-items: center;
-      gap: 0;
+      gap: 4px;
       padding: 0 8px;
-      border-left: 1px solid #e5e7eb;
+      border-left: 1px solid #eceff3;
     }
     .toolbar-group:first-child {
       border-left: 0;
       padding-left: 0;
     }
+    .toolbar-segment {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px;
+      border: 1px solid #dbe3ec;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .toolbar-segment .tb {
+      min-width: 34px;
+      width: 34px;
+      padding: 0;
+    }
+    .toolbar-segment .tb.active {
+      background: #ffffff;
+      border-color: #cfe0d4;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .toolbar-segment .tb-select {
+      width: auto;
+      min-width: 104px;
+      height: 32px;
+      padding: 0 28px 0 10px;
+      border: 1px solid #d7e0ea;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+    }
+    .toolbar-segment .tb-select:disabled {
+      opacity: 0.56;
+      cursor: default;
+    }
     .tb {
-      border: 0;
+      border: 1px solid transparent;
       background: transparent;
-      border-radius: 4px;
-      color: #344054;
+      border-radius: 7px;
+      color: #4b5563;
       font-size: 12px;
       font-weight: 600;
       padding: 0;
@@ -491,14 +939,74 @@
       justify-content: center;
       gap: 4px;
       box-shadow: none;
-      transition: background .12s ease, border-color .12s ease, transform .08s ease;
+      transition: background .12s ease, border-color .12s ease, transform .08s ease, box-shadow .12s ease, color .12s ease;
+      position: relative;
     }
     .tb:hover {
-      background: #eef2f6;
+      background: #eceff4;
+      color: #111827;
+    }
+    .tb.active {
+      background: #e2e7ed;
+      color: #111827;
+      box-shadow: inset 0 0 0 1px #cfd6df;
     }
     .tb:active {
-      background: #e4eaf1;
+      background: #eef4f9;
       transform: translateY(1px);
+    }
+    .tb.is-dirty {
+      color: #a16207;
+      background: #fff7ed;
+    }
+    .tb.is-saving {
+      color: #0f4f8a;
+      background: #e0f2fe;
+    }
+    .tb.is-saved {
+      color: #166534;
+      background: #ecfdf3;
+    }
+    .tb.is-error,
+    .tb.is-blocked {
+      color: #b42318;
+      background: #fef3f2;
+    }
+    .tb[aria-busy="true"] {
+      animation: save-pulse 1s ease-in-out infinite;
+    }
+    @keyframes save-pulse {
+      0% { opacity: 1; }
+      50% { opacity: .58; }
+      100% { opacity: 1; }
+    }
+    .tb::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 8px);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      background: #111827;
+      color: #fff;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .12s ease;
+      z-index: 45;
+    }
+    .tb:hover::after,
+    .tb:focus-visible::after {
+      opacity: 1;
+    }
+    .tb:not([data-tip])::after,
+    .tb[data-tip=""]::after {
+      display: none;
     }
     .tb-icon {
       font-weight: 700;
@@ -507,23 +1015,78 @@
       width: 28px;
     }
     .tb-wide {
-      min-width: 28px;
-      width: 28px;
+      min-width: 34px;
+      width: 34px;
+    }
+    .tb-label {
+      min-width: 40px;
+      width: auto;
+      padding: 0 8px;
+      font-size: 12px;
+      letter-spacing: .01em;
+    }
+    .tb-glyph {
+      font-size: 14px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .tb-svg,
+    .mini-svg {
+      width: 14px;
+      height: 14px;
+      display: block;
+    }
+    .tb-svg * ,
+    .mini-svg * {
+      vector-effect: non-scaling-stroke;
+    }
+    .tb-svg-text {
+      fill: currentColor;
+      font-family: "Segoe UI", "SF Pro Display", sans-serif;
+      font-weight: 700;
+    }
+    .tb-label.has-icon {
+      min-width: 32px;
+      padding: 0 7px;
+      gap: 0;
     }
     .editor-wrap {
+      min-height: 0;
       overflow: auto;
-      padding: 26px 48px 18px;
+      padding: 18px 22px 24px;
       display: grid;
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 20px;
       align-content: start;
-      max-width: 980px;
+      max-width: none;
+    }
+    .editor-wrap.inspector-closed {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .markdown-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      min-height: 0;
+    }
+    .markdown-editor-col,
+    .markdown-preview-col,
+    .markdown-wysiwyg-col,
+    .markdown-source-col {
+      min-width: 0;
+      min-height: 0;
+    }
+    .markdown-split.editor-mode-wysiwyg .markdown-source-col,
+    .markdown-split.editor-mode-source .markdown-wysiwyg-col {
+      display: none;
     }
     .panel {
       border: 1px solid #e4e8ee;
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: 10px;
+      padding: 12px 14px;
       background: #fff;
-      box-shadow: none;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.03);
     }
     .import-grid {
       display: grid;
@@ -531,38 +1094,1637 @@
       gap: 8px 10px;
       align-items: center;
     }
+    .import-card {
+      border: 1px solid #dde6ef;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      padding: 16px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+    .import-card + .import-card {
+      margin-top: 16px;
+    }
+    .import-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .import-card-head strong {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      color: #0f172a;
+    }
+    .import-card-note {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #64748b;
+    }
     .import-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 12px;
     }
-    .import-result {
+    .import-actions.secondary {
+      margin-top: 12px;
+    }
+    .import-advanced {
+      margin-top: 14px;
+      border: 1px solid #dce5ef;
+      border-radius: 12px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+    .import-advanced summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      user-select: none;
+    }
+    .import-advanced summary::-webkit-details-marker {
+      display: none;
+    }
+    .import-advanced[open] summary {
+      border-bottom: 1px solid #e5ebf2;
+      background: #f8fbff;
+    }
+    .import-advanced-body {
+      padding: 12px 14px 14px;
+    }
+    .import-history-head {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .import-history-title {
+      font-weight: 800;
+      color: #172033;
+      font-size: 15px;
+      letter-spacing: .01em;
+    }
+    .import-history-controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    .import-history-controls label {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .import-history {
       margin-top: 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fbfdff;
+      border-radius: 12px;
+      background: #f8fafc;
       padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .import-history-list {
+      display: grid;
+      gap: 8px;
+    }
+    .import-history-item {
+      width: 100%;
+      border: 1px solid #dbe3ec;
+      border-radius: 8px;
+      background: #fff;
+      padding: 9px 10px;
+      text-align: left;
+      cursor: pointer;
+      display: grid;
+      gap: 6px;
+      color: #1f2937;
+    }
+    .import-history-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .import-history-action {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+    .import-history-item:hover {
+      background: #f8fbff;
+      border-color: #bfd1e4;
+    }
+    .import-history-item.is-active {
+      border-color: #8db7de;
+      background: #eef6ff;
+      box-shadow: inset 0 0 0 1px #d7e9fb;
+    }
+    .import-history-item-head,
+    .import-history-item-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .import-history-badge-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .import-history-item-id {
+      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+      font-size: 12px;
+      color: #516173;
+      word-break: break-all;
+    }
+    .import-history-item-meta {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .import-history-detail {
+      border-top: 1px dashed #dbe5ef;
+      padding-top: 6px;
+      display: grid;
+      gap: 3px;
+      font-size: 12px;
+      color: #334155;
+    }
+    .import-history-detail-line {
+      line-height: 1.5;
+    }
+    .import-history-badge {
+      border: 1px solid #d3dbe5;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      background: #f8fafc;
+      color: #475569;
+    }
+    .import-history-badge.tone-ok {
+      border-color: #bfd9c9;
+      background: #eef8f2;
+      color: #147a48;
+    }
+    .import-history-badge.tone-warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .import-history-badge.tone-bad {
+      border-color: #f0b8b3;
+      background: #fff1f0;
+      color: #b42318;
+    }
+    .import-history-badge.tone-muted {
+      border-color: #d5dde7;
+      background: #f4f7fa;
+      color: #64748b;
+    }
+    .import-history-empty,
+    .graph-empty,
+    .writing-empty,
+    .related-empty,
+    .picker-empty {
+      border: 1px dashed #d7e0ea;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fcfdff 0%, #f8fbfe 100%);
+      padding: 12px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .import-history-empty {
+      display: grid;
+      gap: 4px;
+    }
+	    .import-result {
+	      margin-top: 12px;
+	      border: 1px solid #e2e8f0;
+	      border-radius: 12px;
+	      background: #fbfdff;
+	      padding: 12px;
+	      font-size: 12px;
+	      line-height: 1.6;
+	      color: #334155;
+	      max-height: 220px;
+	      overflow: auto;
+	      word-break: break-word;
+	    }
+	    .result-card {
+	      display: grid;
+	      gap: 10px;
+	    }
+	    .result-card-head {
+	      display: flex;
+	      align-items: start;
+	      justify-content: space-between;
+	      gap: 10px;
+	    }
+	    .result-title {
+	      font-weight: 800;
+	      color: #172033;
+	    }
+	    .result-subtitle {
+	      margin-top: 2px;
+	      color: #64748b;
+	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	    }
+	    .result-status {
+	      border: 1px solid #bfd9c9;
+	      border-radius: 999px;
+	      background: #eef8f2;
+	      color: #147a48;
+	      padding: 2px 8px;
+	      white-space: nowrap;
+	      font-weight: 700;
+	    }
+	    .result-status.warn {
+	      border-color: #ead28a;
+	      background: #fff8df;
+	      color: #8a5a00;
+	    }
+	    .result-status.bad {
+	      border-color: #f0b8b3;
+	      background: #fff1f0;
+	      color: #b42318;
+	    }
+	    .result-metrics {
+	      display: grid;
+	      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+	      gap: 7px;
+	    }
+	    .result-metric {
+	      border: 1px solid #e2e8f0;
+	      border-radius: 8px;
+	      background: #fff;
+	      padding: 7px 8px;
+	      min-width: 0;
+	    }
+	    .result-metric span {
+	      display: block;
+	      color: #64748b;
+	      font-size: 11px;
+	    }
+	    .result-metric strong {
+	      display: block;
+	      color: #172033;
+	      font-size: 13px;
+	      overflow: hidden;
+	      text-overflow: ellipsis;
+	      white-space: nowrap;
+	    }
+	    .result-warnings {
+	      border: 1px solid #ead28a;
+	      border-radius: 8px;
+	      background: #fffaf0;
+	      padding: 8px;
+	      color: #744800;
+	    }
+	    .result-warnings-title {
+	      font-weight: 800;
+	      margin-bottom: 4px;
+	    }
+	    .result-warnings ul {
+	      margin: 0;
+	      padding-left: 18px;
+	    }
+	    .result-actions {
+	      border: 1px solid #c7d7ef;
+	      border-radius: 8px;
+	      background: #f7fbff;
+	      padding: 8px;
+	      color: #23415f;
+	    }
+	    .result-actions-inline {
+	      display: flex;
+	      flex-wrap: wrap;
+	      align-items: center;
+	      gap: 8px;
+	      padding: 2px 0;
+	    }
+	    .result-actions-title {
+	      font-weight: 800;
+	      margin-bottom: 4px;
+	    }
+	    .result-actions ol {
+	      margin: 0;
+	      padding-left: 19px;
+	    }
+	    .result-actions li + li {
+	      margin-top: 3px;
+	    }
+	    .result-candidates {
+	      border: 1px solid #dbe5ef;
+	      border-radius: 8px;
+	      background: #ffffff;
+	      padding: 8px;
+	      display: grid;
+	      gap: 8px;
+	    }
+	    .result-candidates-title {
+	      font-weight: 800;
+	      color: #172033;
+	    }
+	    .result-candidates-toolbar {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 6px;
+	      align-items: center;
+	      justify-content: space-between;
+	    }
+	    .result-candidates-toolbar .toolbar-actions {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 6px;
+	    }
+	    .result-candidates-toolbar .toolbar-note {
+	      font-size: 12px;
+	      color: #64748b;
+	    }
+	    .mini-btn.is-filter-active {
+	      border-color: #9fceaf;
+	      background: #eaf7ef;
+	      color: #0f6f44;
+	      font-weight: 700;
+	    }
+	    .candidate-summary {
+	      border: 1px solid #dbe5ef;
+	      border-radius: 7px;
+	      background: #f8fbff;
+	      padding: 8px 9px;
+	      color: #425466;
+	      font-size: 12px;
+	    }
+	    .candidate-summary-title {
+	      font-weight: 700;
+	      color: #172033;
+	      margin-bottom: 4px;
+	    }
+	    .candidate-summary-list {
+	      display: grid;
+	      gap: 4px;
+	      margin-top: 6px;
+	    }
+	    .candidate-summary-item {
+	      display: flex;
+	      justify-content: space-between;
+	      gap: 10px;
+	    }
+	    .candidate-summary-item span {
+	      color: #64748b;
+	      white-space: nowrap;
+	    }
+	    .candidate-summary-warn {
+	      border-color: #ead7b0;
+	      background: #fff9eb;
+	      color: #8a5a00;
+	    }
+	    .result-skip-breakdown {
+	      border: 1px solid #dbe5ef;
+	      border-radius: 8px;
+	      background: #ffffff;
+	      padding: 8px;
+	      display: grid;
+	      gap: 8px;
+	    }
+	    .result-skip-breakdown-title {
+	      font-weight: 800;
+	      color: #172033;
+	    }
+	    .result-skip-breakdown-list {
+	      display: grid;
+	      gap: 6px;
+	    }
+	    .result-skip-item {
+	      border: 1px solid #e2e8f0;
+	      border-radius: 7px;
+	      background: #f8fbff;
+	      padding: 7px 8px;
+	      display: grid;
+	      gap: 3px;
+	      width: 100%;
+	      text-align: left;
+	      cursor: pointer;
+	      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+	    }
+	    .result-skip-item:hover {
+	      transform: translateY(-1px);
+	      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+	    }
+	    .result-skip-item.is-active {
+	      border-color: #3566d6;
+	      box-shadow: 0 0 0 2px rgba(53, 102, 214, 0.16);
+	    }
+	    .result-skip-item.tone-warning {
+	      border-color: #efcf80;
+	      background: #fff7e7;
+	    }
+	    .result-skip-item.tone-bad {
+	      border-color: #f0b9b9;
+	      background: #fff3f3;
+	    }
+	    .result-skip-item-head {
+	      display: flex;
+	      justify-content: space-between;
+	      gap: 10px;
+	      align-items: center;
+	    }
+	    .result-skip-item-head span {
+	      font-weight: 700;
+	      color: #334155;
+	    }
+	    .result-skip-item-detail {
+	      color: #64748b;
+	      font-size: 12px;
+	      line-height: 1.5;
+	    }
+	    .candidate-focus-banner {
+	      border: 1px solid #bed5ff;
+	      border-radius: 7px;
+	      background: #f3f8ff;
+	      padding: 8px 9px;
+	      display: flex;
+	      justify-content: space-between;
+	      align-items: center;
+	      gap: 8px;
+	      color: #26427a;
+	      font-size: 12px;
+	    }
+	    .candidate-group {
+	      display: grid;
+	      gap: 5px;
+	    }
+	    .candidate-group-title {
+	      color: #64748b;
+	      font-weight: 700;
+	      font-size: 11px;
+	      text-transform: uppercase;
+	    }
+	    .candidate-list {
+	      display: grid;
+	      gap: 5px;
+	    }
+	    .candidate-item {
+	      border: 1px solid #edf2f7;
+	      border-radius: 7px;
+	      background: #fbfdff;
+	      padding: 7px 8px;
+	      display: grid;
+	      gap: 3px;
+	    }
+	    .candidate-item.selected {
+	      border-color: #b9ddc9;
+	      background: #f4fbf7;
+	    }
+	    .candidate-item.is-focused {
+	      border-color: #8cb2ff;
+	      background: #f3f8ff;
+	      box-shadow: 0 0 0 2px rgba(53, 102, 214, 0.14);
+	    }
+	    .candidate-item.is-muted {
+	      opacity: 0.48;
+	    }
+	    .candidate-item.unselected {
+	      border-style: dashed;
+	      opacity: 0.76;
+	    }
+	    .candidate-item.unselected.is-focused {
+	      opacity: 1;
+	    }
+	    .candidate-item.tone-warning {
+	      border-left: 3px solid #d9a441;
+	    }
+	    .candidate-item.tone-blocked {
+	      border-left: 3px solid #d45454;
+	      background: #fff8f8;
+	    }
+	    .candidate-item.tone-pass {
+	      border-left: 3px solid #159a60;
+	    }
+	    .candidate-check {
+	      display: flex;
+	      align-items: flex-start;
+	      gap: 8px;
+	      cursor: pointer;
+	    }
+	    .candidate-check input[type="checkbox"] {
+	      width: 16px;
+	      height: 16px;
+	      margin-top: 1px;
+	      accent-color: #159a60;
+	      flex: 0 0 16px;
+	    }
+	    .candidate-check-body {
+	      min-width: 0;
+	      display: grid;
+	      gap: 3px;
+	      flex: 1 1 auto;
+	    }
+	    .candidate-line {
+	      display: flex;
+	      justify-content: space-between;
+	      gap: 8px;
+	      min-width: 0;
+	    }
+	    .candidate-title {
+	      font-weight: 700;
+	      overflow: hidden;
+	      text-overflow: ellipsis;
+	      white-space: nowrap;
+	    }
+	    .candidate-badge {
+	      color: #0f6f44;
+	      background: #eef8f2;
+	      border: 1px solid #c6dfcf;
+	      border-radius: 999px;
+	      padding: 0 7px;
+	      white-space: nowrap;
+	      font-size: 11px;
+	    }
+	    .candidate-badge-warning {
+	      color: #8a5a00;
+	      background: #fff4d8;
+	      border-color: #efcf80;
+	    }
+	    .candidate-badge-blocked {
+	      color: #9b1c1c;
+	      background: #ffe5e5;
+	      border-color: #f0b9b9;
+	    }
+	    .candidate-badge-pass {
+	      color: #0f6f44;
+	      background: #eef8f2;
+	      border-color: #c6dfcf;
+	    }
+	    .candidate-meta {
+	      color: #64748b;
+	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	      overflow: hidden;
+	      text-overflow: ellipsis;
+	      white-space: nowrap;
+	    }
+	    .candidate-reasons {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 5px;
+	    }
+	    .candidate-reason {
+	      font-size: 11px;
+	      border-radius: 999px;
+	      padding: 2px 7px;
+	      border: 1px solid #dbe5ef;
+	      background: #f8fbff;
+	      color: #425466;
+	    }
+	    .candidate-reason-warning {
+	      border-color: #efcf80;
+	      background: #fff4d8;
+	      color: #8a5a00;
+	    }
+	    .candidate-reason-blocked {
+	      border-color: #f0b9b9;
+	      background: #ffe5e5;
+	      color: #9b1c1c;
+	    }
+	    .candidate-reason-pass {
+	      border-color: #c6dfcf;
+	      background: #eef8f2;
+	      color: #0f6f44;
+	    }
+	    .candidate-inline-note {
+	      font-size: 12px;
+	      color: #8a5a00;
+	    }
+	    .candidate-inline-note-neutral {
+	      color: #64748b;
+	    }
+	    .candidate-inline-note-warning {
+	      color: #8a5a00;
+	    }
+	    .candidate-inline-note-bad {
+	      color: #9b1c1c;
+	    }
+	    .result-json summary {
+	      cursor: pointer;
+	      color: #475569;
+	      font-weight: 700;
+	    }
+	    .result-json pre {
+	      margin: 8px 0 0;
+	      border: 1px solid #e2e8f0;
+	      border-radius: 8px;
+	      background: #f8fafc;
+	      padding: 9px;
+	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	      font-size: 12px;
+	      white-space: pre-wrap;
+	      overflow: auto;
+	    }
+    .graph-panel {
+      display: grid;
+      gap: 16px;
+      padding: 16px 18px 18px;
+    }
+    .graph-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ebf0f5;
+    }
+    .graph-title {
+      font-weight: 800;
+      color: #172033;
+      font-size: 16px;
+      letter-spacing: .01em;
+    }
+    .graph-summary {
+      color: #64748b;
+      font-size: 12px;
+      margin-top: 5px;
+      line-height: 1.65;
+    }
+    .graph-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1fr) minmax(280px, 1fr);
+      gap: 16px;
+    }
+    .graph-section {
+      border: 1px solid #dde6ef;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      min-height: 220px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    }
+    .graph-section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .graph-section-title {
+      font-weight: 800;
+      color: #172033;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    .graph-section-note {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .graph-overview {
+      display: grid;
+      gap: 8px;
+    }
+    .graph-overview-card,
+    .graph-detail-card {
+      border: 1px solid #dbe5ef;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .graph-overview-card strong,
+    .graph-detail-card strong {
+      color: #1f2937;
+      font-size: 13px;
+    }
+    .graph-overview-card small,
+    .graph-detail-card small {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .graph-list {
+      display: grid;
+      gap: 8px;
+    }
+    .graph-node,
+    .graph-edge {
+      border: 1px solid #dbe5ef;
+      background: #fff;
+      border-radius: 9px;
+      padding: 8px 9px;
+      text-align: left;
+      color: #1f2937;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .graph-node:hover,
+    .graph-edge:hover {
+      background: #eef6f1;
+      border-color: #b9ddc9;
+    }
+    .graph-node-text,
+    .graph-edge-text {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+    .graph-node-title,
+    .graph-edge-title {
+      font-weight: 700;
+      color: #1f2937;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .graph-node-meta,
+    .graph-edge-meta {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .graph-node small,
+    .graph-edge small {
+      color: #64748b;
+      margin-left: auto;
+      font-size: 11px;
+    }
+    .graph-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-weak);
+      flex: 0 0 9px;
+    }
+    .graph-empty {
+      color: #64748b;
+      font-size: 12px;
+    }
+    .graph-empty,
+    .writing-empty,
+    .import-history-empty,
+    .related-empty,
+    .picker-empty {
+      display: grid;
+      gap: 5px;
+      align-content: center;
+      justify-items: start;
+      min-height: 82px;
+      padding: 12px 14px;
+      border: 1px dashed #d8e3ee;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f6f9fc 100%);
+      color: #64748b;
+      line-height: 1.65;
+    }
+    .graph-empty.bad,
+    .writing-empty.bad,
+    .import-history-empty.bad,
+    .related-empty.bad,
+    .picker-empty.bad {
+      border-color: #f0c5c2;
+      background: linear-gradient(180deg, #fff8f7 0%, #fff3f2 100%);
+      color: #9b1c1c;
+    }
+    .graph-empty::before,
+    .writing-empty::before,
+    .import-history-empty::before,
+    .related-empty::before,
+    .picker-empty::before {
+      content: none;
+      display: none;
+    }
+    .writing-shell {
+      display: grid;
+      gap: 16px;
+    }
+    .writing-project-grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 1.15fr) minmax(300px, 0.85fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .writing-main-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr) minmax(260px, 0.8fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .writing-stack {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+    .writing-section {
+      border: 1px solid #dde6ef;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    }
+    .writing-section-title {
+      font-weight: 800;
+      color: #172033;
+      letter-spacing: .01em;
+    }
+    .writing-section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .writing-section-note {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .writing-summary {
+      border: 1px solid #dbe5ef;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #425466;
+      line-height: 1.6;
+    }
+    .writing-note-list {
+      display: grid;
+      gap: 8px;
+    }
+    .writing-note-card {
+      border: 1px solid #dbe5ef;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .writing-note-card.selected {
+      border-color: #b9ddc9;
+      background: #f4fbf7;
+    }
+    .writing-note-card-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .writing-note-title {
+      font-weight: 700;
+      color: #1f2937;
+    }
+    .writing-note-meta {
+      font-size: 12px;
+      color: #64748b;
+      word-break: break-word;
+    }
+    .writing-note-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .writing-empty {
+      color: #64748b;
+    }
+    .writing-preview {
+      border: 1px solid #dbe5ef;
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .writing-preview h4 {
+      margin: 0;
+      font-size: 13px;
+      color: #1f2937;
+    }
+    .writing-preview ul,
+    .writing-preview ol {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .writing-preview pre {
+      margin: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 9px;
       font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
       font-size: 12px;
       line-height: 1.6;
-      color: #334155;
-      max-height: 220px;
+      max-height: 240px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .writing-actions-primary,
+    .writing-actions-secondary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .writing-actions-secondary {
+      padding-top: 8px;
+      border-top: 1px solid #e8eef5;
+    }
     .md-panel {
+      min-height: 560px;
+      padding: 10px 0 6px;
       border: 0;
       border-radius: 0;
-      padding: 0;
       box-shadow: none;
+      background: transparent;
+    }
+    .md-panel .panel-head,
+    .md-panel .editor-host {
+      width: 100%;
+      max-width: 840px;
+      margin-inline: auto;
+    }
+    .md-panel .panel-head {
+      display: none;
+    }
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .panel-title {
+      font-weight: 800;
+      color: #172033;
+      font-size: 14px;
+      letter-spacing: .01em;
+    }
+    .panel-note {
+      margin-top: 5px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .panel-head.compact {
+      margin-bottom: 6px;
+    }
+    .panel-head.compact .panel-note {
+      margin-top: 2px;
+      font-size: 11px;
+      line-height: 1.5;
     }
     .md-panel label,
     .md-panel > div:first-of-type {
       display: none;
     }
-    .md-panel textarea {
+    .editor-host {
+      min-height: 420px;
+      border: 0;
+      border-radius: 0;
+      padding: 0;
+      background: transparent;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .editor-host.dragover {
+      background: linear-gradient(180deg, rgba(21, 154, 96, 0.06), rgba(21, 154, 96, 0.02));
+      box-shadow: inset 0 0 0 1.5px rgba(21, 154, 96, 0.34);
+      border-radius: 16px;
+    }
+    .editor-host.dragover::after {
+      content: "松开后插入图片或附件";
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.96);
+      color: #136a45;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      pointer-events: none;
+      z-index: 3;
+    }
+    .editor-host .cm-editor {
+      min-height: 420px;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+      background: transparent;
+    }
+    .editor-host .cm-scroller {
+      min-height: 420px;
+      overflow: auto;
+      position: relative;
+      z-index: 1;
+    }
+    .editor-host .cm-content {
+      min-height: 420px;
+      outline: none;
+      caret-color: #0f172a;
+      max-width: 860px;
+      margin: 0 auto;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 15px;
+      line-height: 1.78;
+      color: #172033;
+    }
+    .editor-host .cm-line {
+      padding: 0 8px;
+    }
+    .editor-host .cm-focused {
+      outline: none;
+    }
+    .editor-host .cm-selectionBackground,
+    .editor-host ::selection {
+      background: rgba(21, 154, 96, 0.18);
+    }
+    .editor-host .cm-activeLine {
+      background: rgba(15, 23, 42, 0.025);
+    }
+    .editor-host .cm-cursor {
+      border-left-color: #0f172a;
+    }
+    .wysiwyg-host {
+      min-height: 420px;
+      position: relative;
+    }
+    .wysiwyg-host .toastui-editor-defaultUI {
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .wysiwyg-host .toastui-editor-toolbar,
+    .wysiwyg-host .toastui-editor-md-tab-container,
+    .wysiwyg-host .toastui-editor-mode-switch {
+      display: none !important;
+    }
+    .wysiwyg-host .toastui-editor-main,
+    .wysiwyg-host .toastui-editor-md-container,
+    .wysiwyg-host .toastui-editor-ww-container {
+      border: 0;
+      background: transparent;
+    }
+    .wysiwyg-host .toastui-editor-contents {
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 4px 0 72px;
+      color: #172033;
+      font-size: 15px;
+      line-height: 1.78;
+      caret-color: #0f172a;
+    }
+    .wysiwyg-host .toastui-editor-contents p,
+    .wysiwyg-host .toastui-editor-contents li,
+    .wysiwyg-host .toastui-editor-contents blockquote,
+    .wysiwyg-host .toastui-editor-contents pre,
+    .wysiwyg-host .toastui-editor-contents table {
+      margin-bottom: 0.7em;
+    }
+    .wysiwyg-host .toastui-editor-contents h1,
+    .wysiwyg-host .toastui-editor-contents h2,
+    .wysiwyg-host .toastui-editor-contents h3 {
+      color: #0f172a;
+    }
+    .yansilu-token {
+      border: 1px solid #d6e3ef;
+      background: #f7fbff;
+      color: #254a72;
+      border-radius: 999px;
+      padding: 1px 8px;
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      line-height: 1.4;
+      cursor: pointer;
+      margin: 0 2px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.88);
+    }
+    .yansilu-token:hover {
+      background: #eef6ff;
+      border-color: #bfd4e8;
+    }
+    .yansilu-token-tag {
+      background: #f6fbf7;
+      border-color: #cfe2d3;
+      color: #245e42;
+    }
+    .yansilu-token-tag:hover {
+      background: #edf8f0;
+      border-color: #b8d6c1;
+    }
+    .markdown-preview-col {
+      border-left: 1px solid #edf1f5;
+      padding-left: 18px;
+    }
+    .markdown-preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .markdown-preview-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      letter-spacing: .01em;
+    }
+    .markdown-preview-note {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .markdown-preview {
+      min-height: 420px;
+      max-width: 760px;
+      margin: 0 auto;
+      color: #182232;
+      font-family: "Georgia", "Times New Roman", "PingFang SC", "Microsoft YaHei", serif;
+      font-size: 17px;
+      line-height: 1.88;
+      word-break: break-word;
+    }
+    .markdown-preview > *:first-child { margin-top: 0; }
+    .markdown-preview > *:last-child { margin-bottom: 0; }
+    .markdown-preview h1,
+    .markdown-preview h2,
+    .markdown-preview p,
+    .markdown-preview blockquote,
+    .markdown-preview ul {
+      margin: 0 0 14px;
+    }
+    .markdown-preview h1 {
+      font-size: 34px;
+      line-height: 1.24;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .markdown-preview h2 {
+      font-size: 23px;
+      line-height: 1.34;
+      font-weight: 760;
+      letter-spacing: -0.01em;
+    }
+    .markdown-preview ul {
+      padding-left: 22px;
+    }
+    .markdown-preview .task-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    .markdown-preview .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .markdown-preview .task-item input[type="checkbox"] {
+      margin-top: 6px;
+      width: 14px;
+      height: 14px;
+      accent-color: #159a60;
+      pointer-events: none;
+      flex: 0 0 14px;
+    }
+    .markdown-preview .task-item span {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .markdown-preview blockquote {
+      margin-left: 0;
+      padding-left: 14px;
+      border-left: 3px solid #cbd5e1;
+      color: #475569;
+    }
+    .markdown-preview code {
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: #eff3f7;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 14px;
+    }
+    .markdown-preview strong {
+      font-weight: 780;
+      color: #0f172a;
+    }
+    .markdown-preview em {
+      font-style: italic;
+    }
+    .markdown-preview .preview-wikilink {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      color: #0f4f8a;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(15, 79, 138, 0.2);
+      cursor: pointer;
+      font: inherit;
+    }
+    .markdown-preview .preview-tag {
+      display: inline-block;
+      border: 0;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #eef6ff;
+      color: #2f5d8a;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 2px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .markdown-preview .preview-figure {
+      margin: 0 0 18px;
+      display: grid;
+      gap: 8px;
+    }
+    .markdown-preview .preview-image-asset {
+      width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f8fafc, #eef4f8);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    }
+    .markdown-preview .preview-figure figcaption {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .markdown-preview .preview-attachment-block {
+      margin: 0 0 16px;
+    }
+    .markdown-preview .preview-attachment {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid #d9e3ee;
+      background: linear-gradient(180deg, #fbfdff, #f3f7fb);
+      color: #1e293b;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+    .markdown-preview .preview-attachment.inline {
+      width: auto;
+      display: inline-flex;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef4f8;
+      border: 1px solid #d8e3ed;
+      color: #35506e;
+    }
+    .markdown-preview .preview-attachment-name {
+      font-weight: 600;
+    }
+    .markdown-preview .preview-attachment-path {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .markdown-preview .preview-code-block {
+      margin: 0 0 18px;
+      border: 1px solid #dbe4ee;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0f172a;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+    .markdown-preview .preview-code-head {
+      padding: 8px 12px;
+      background: rgba(148, 163, 184, 0.14);
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    .markdown-preview .preview-code-block pre {
+      margin: 0;
+      padding: 16px 18px;
+      overflow: auto;
+      color: #e2e8f0;
+      font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      background: transparent;
+    }
+    .markdown-preview .preview-code-block code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      font-size: inherit;
+    }
+    .markdown-preview .preview-code-block .code-token-keyword {
+      color: #7dd3fc;
+      font-weight: 600;
+    }
+    .markdown-preview .preview-code-block .code-token-string {
+      color: #86efac;
+    }
+    .markdown-preview .preview-code-block .code-token-number {
+      color: #fbbf24;
+    }
+    .markdown-preview .preview-code-block .code-token-comment {
+      color: #94a3b8;
+      font-style: italic;
+    }
+    .markdown-preview .preview-code-block .code-token-atom {
+      color: #c4b5fd;
+    }
+    .markdown-preview .preview-code-block .code-token-key {
+      color: #f9a8d4;
+    }
+    .markdown-preview .preview-code-block .code-token-variable {
+      color: #fca5a5;
+    }
+    .markdown-preview .preview-table-wrap {
+      margin: 0 0 18px;
+      overflow-x: auto;
+      border: 1px solid #dbe4ee;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    }
+    .markdown-preview .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 420px;
+    }
+    .markdown-preview .preview-table th,
+    .markdown-preview .preview-table td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #e7eef5;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    .markdown-preview .preview-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+    }
+    .markdown-preview .preview-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
+    .markdown-preview .preview-rule {
+      border: 0;
+      border-top: 1px solid #dbe4ee;
+      margin: 24px 0;
+    }
+    .markdown-preview-empty {
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      padding: 24px;
+      border: 1px dashed #dbe3ec;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7fafc 100%);
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.7;
+      text-align: center;
+    }
+    .inspector-panel {
+      align-self: start;
+      position: sticky;
+      top: 18px;
+      padding: 14px;
+      background: #fbfbfc;
+    }
+    .editor-wrap.inspector-closed .inspector-panel {
+      display: none;
+    }
+    .inspector-toggle {
+      border: 1px solid #dbe4ee;
+      background: #f8fbff;
+      color: #38526d;
+      border-radius: 8px;
+      min-width: 32px;
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease, transform .08s ease;
+    }
+    .inspector-toggle:hover {
+      background: #eef5fb;
+      border-color: #c8d7e6;
+    }
+    .inspector-toggle:active {
+      transform: translateY(1px);
+    }
+    .inspector-toggle.active {
+      background: #e8f5ee;
+      border-color: #b8dcc9;
+      color: #0f6f44;
+    }
+    .inspector-summary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .inspector-overview {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 1px solid #dfe7f0;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+    }
+    .inspector-overview-head {
+      display: grid;
+      gap: 4px;
+    }
+    .inspector-overview-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #172033;
+      line-height: 1.4;
+    }
+    .inspector-overview-meta {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .inspector-overview-grid {
+      display: grid;
+      gap: 7px;
+    }
+    .inspector-overview-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .inspector-overview-label {
+      color: #64748b;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .inspector-overview-value {
+      color: #1f2937;
+      text-align: right;
+      word-break: break-word;
+    }
+    .inspector-chip {
+      border: 1px solid #dbe6f0;
+      background: #f8fbff;
+      color: #3b4b5d;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .inspector-sections {
+      display: grid;
+      gap: 12px;
+    }
+    .inspector-section {
+      border-top: 1px solid #eef3f7;
+      padding-top: 12px;
+    }
+    .inspector-section:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .inspector-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .inspector-section-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #213041;
+      letter-spacing: .01em;
+    }
+    .inspector-count {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .inspector-list {
+      display: grid;
+      gap: 6px;
+    }
+    .inspector-section-note {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.55;
+      margin-top: -3px;
+      margin-bottom: 8px;
+    }
+    .related-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #e7edf4;
+      background: #fbfdff;
+      border-radius: 10px;
+      padding: 9px 10px;
+      color: #0f4f8a;
+      cursor: pointer;
+      transition: border-color .12s ease, background .12s ease, transform .08s ease;
+    }
+    .related-item:hover {
+      border-color: #c9d8e6;
+      background: #f5faff;
+      transform: translateY(-1px);
+    }
+    .related-item-title {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #16324f;
+      line-height: 1.5;
+    }
+    .related-item-meta {
+      display: block;
+      margin-top: 3px;
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .related-item-preview {
+      display: block;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #425466;
+      line-height: 1.6;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .related-item-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 7px;
+    }
+    .related-item-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 19px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: #eef4fb;
+      color: #48617b;
+      font-size: 10px;
+      font-weight: 800;
+      border: 1px solid #d8e3ee;
+    }
+    .related-empty {
+      color: #64748b;
+    }
+    .editor-sync-field {
+      position: absolute;
+      left: -10000px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .md-panel textarea:not(.editor-sync-field) {
       min-height: 360px;
       border: 0;
       border-radius: 0;
@@ -579,50 +2741,436 @@
       margin-bottom: 8px;
       gap: 8px;
     }
+    .link-picker-head strong {
+      font-size: 13px;
+      font-weight: 800;
+      color: #172033;
+    }
     .link-picker-list {
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      max-height: 180px;
+      border-radius: 10px;
+      max-height: 240px;
       overflow: auto;
       background: #fff;
+    }
+    .picker-section + .picker-section {
+      border-top: 1px solid #e8edf4;
+    }
+    .picker-section-label {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: .02em;
+      background: #f8fafc;
+      border-bottom: 1px solid #eef2f7;
+    }
+    .picker-section-label span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #eef4fb;
+      color: #49627d;
     }
     .link-picker-item {
       width: 100%;
       border: 0;
       background: transparent;
       text-align: left;
-      padding: 8px 10px;
+      padding: 9px 11px;
       cursor: pointer;
       display: block;
       border-bottom: 1px solid #eef2f7;
       color: #1e293b;
+      border-left: 3px solid transparent;
+      transition: background .12s ease, border-color .12s ease, transform .08s ease, box-shadow .12s ease;
     }
     .link-picker-item:last-child { border-bottom: 0; }
-    .link-picker-item:hover { background: #edf4fb; }
+    .link-picker-item:hover {
+      background: #edf4fb;
+      border-left-color: #bfd2e6;
+    }
     .link-picker-item.active {
-      background: #dbeafe;
+      background: linear-gradient(180deg, #eaf4ff 0%, #dcecff 100%);
       color: #0f4f8a;
+      border-left-color: #3b82f6;
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.14);
+    }
+    .picker-headline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: space-between;
+    }
+    .picker-badge {
+      display: inline-flex;
+      align-items: center;
+      height: 20px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #eef6ff;
+      color: #245b92;
+      font-size: 11px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+    .picker-meta {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: #64748b;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.45;
+    }
+    .picker-mark {
+      background: #fff3c4;
+      color: inherit;
+      border-radius: 3px;
+      padding: 0 1px;
+    }
+    .picker-empty {
+      color: #64748b;
+    }
+    .settings-shell {
+      display: grid;
+      gap: 16px;
+    }
+    .settings-grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 1.05fr) minmax(260px, 0.95fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .settings-card {
+      border: 1px solid #dde6ef;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    }
+    .settings-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .settings-card-title {
+      font-weight: 800;
+      color: #172033;
+      font-size: 14px;
+      letter-spacing: .01em;
+    }
+    .settings-card-note {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.65;
+      margin-top: 4px;
+    }
+    .settings-stat-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .settings-stat-badge {
+      min-height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid #dbe6f0;
+      background: #f8fbff;
+      color: #425466;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .settings-stat-badge.ok {
+      border-color: #bfd9c9;
+      background: #eef8f2;
+      color: #147a48;
+    }
+    .settings-stat-badge.warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .settings-path-display {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.7;
+      word-break: break-all;
+    }
+    .settings-footnote {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.7;
+    }
+    .settings-mini-list {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #475569;
+    }
+    .panel.floating {
+      position: fixed;
+      z-index: 35;
+      margin: 0;
+      box-shadow: 0 20px 34px rgba(15, 23, 42, 0.2);
+      border-color: #bfd0e2;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+    }
+    .workspace-shell {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      overflow: hidden;
+    }
+    .module-workspace {
+      min-height: 0;
+      grid-template-rows: auto 1fr;
+      background:
+        radial-gradient(circle at top left, rgba(222, 235, 248, 0.45), transparent 26%),
+        linear-gradient(180deg, #f8fafc 0%, #f4f7fb 100%);
+    }
+    .module-header {
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+      padding: 20px 24px 18px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .module-header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 850;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      color: #0f172a;
+    }
+    .module-header p {
+      margin: 8px 0 0;
+      max-width: 760px;
+      font-size: 13px;
+      line-height: 1.72;
+      color: #64748b;
+    }
+    .module-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .module-stage {
+      min-height: 0;
+      overflow: auto;
+      padding: 22px 24px 24px;
+    }
+    .module-stage > .panel {
+      margin: 0 auto;
+      max-width: 1220px;
+    }
+    .module-stage > .panel.hidden {
+      display: none !important;
     }
     .status {
       border-top: 1px solid var(--line);
-      padding: 6px 10px;
+      padding: 7px 10px;
       font-size: 11px;
       color: var(--muted);
       display: flex;
+      align-items: center;
       justify-content: space-between;
+      gap: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      pointer-events: none;
+    }
+    .status-main {
+      min-width: 0;
+      display: flex;
+      align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
+      flex: 1 1 auto;
+    }
+    .status-meta {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex: 1 1 auto;
+    }
+    .status-chip {
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      color: #64748b;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-chip strong {
+      color: #0f172a;
+      font-weight: 800;
+    }
+    .status-chip.active {
+      border-color: #cfe0d5;
+      background: #f4fbf7;
+      color: #1f6a45;
+    }
+    .status-chip.warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .status-chip.title {
+      max-width: 280px;
+      overflow: hidden;
+    }
+    .status-chip.title strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+      max-width: 180px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid #dbe5ef;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .status-pill::before {
+      content: "•";
+      font-size: 12px;
+      line-height: 1;
+    }
+    .status-pill.ok {
+      border-color: #bfd9c9;
+      background: #eef8f2;
+      color: #147a48;
+    }
+    .status-pill.warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .status-pill.bad {
+      border-color: #f0b8b3;
+      background: #fff1f0;
+      color: #b42318;
+    }
+    .status-hint {
+      display: none;
     }
     .ok { color: #147a48; }
     .warn { color: #a16207; }
     .bad { color: #b42318; }
     .hidden { display: none; }
+    html.editor-only body {
+      background: #f6f7f9;
+    }
+    html.editor-only .app {
+      grid-template-columns: 1fr;
+    }
+    html.editor-only .rail,
+    html.editor-only .sidebar,
+    html.editor-only #importPanel,
+    html.editor-only #graphPanel,
+    html.editor-only #writingPanel,
+    html.editor-only #settingsPanel,
+    html.editor-only #relatedPanel {
+      display: none !important;
+    }
+    html.editor-only .main {
+      min-height: 100vh;
+    }
+    html.editor-only .toolbar {
+      padding-inline: 20px;
+    }
+    html.editor-only .editor-wrap {
+      grid-template-columns: 1fr;
+      max-width: none;
+      padding: 18px 28px 24px;
+    }
+    html.editor-only .md-panel {
+      background: transparent;
+    }
+    html.editor-only .status {
+      padding-inline: 24px;
+      background: #fff;
+    }
 
     @media (max-width: 1180px) {
       .app { grid-template-columns: 56px 320px 1fr; }
+    .editor-wrap { grid-template-columns: 1fr; }
+    .markdown-split.preview-open,
+    .markdown-split.split-mode { grid-template-columns: 1fr; }
+    .markdown-preview-col {
+      border-left: 0;
+      border-top: 1px solid #edf1f5;
+      padding-left: 0;
+      padding-top: 16px;
+    }
+      .tabs-shell { grid-template-columns: minmax(0, 1fr) auto; }
+      .tabs-meta { display: none; }
+      .status {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .status-hint {
+        border-left: 0;
+        padding-left: 0;
+        text-align: left;
+        flex: 1 1 auto;
+      }
     }
     @media (max-width: 920px) {
       .app { grid-template-columns: 56px 1fr; }
       .sidebar { display: none; }
+      .writing-project-grid,
+      .writing-main-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -648,121 +3196,495 @@
         </svg>
       </div>
       <div class="rail-group">
-        <button class="rail-btn active" data-module="explorer" title="笔记浏览器" data-tip="笔记浏览器">🗂</button>
-        <button class="rail-btn" data-module="search" title="全局搜索" data-tip="全局搜索">🔎</button>
-        <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱">🕸</button>
-        <button class="rail-btn" data-module="writing" title="写作中心" data-tip="写作中心">🧾</button>
+        <button class="rail-btn quick-entry" data-action="quick-fleeting" title="随笔记" data-tip="随笔记" aria-label="随笔记">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2.1l1.2 4.15 4.2.35-3.3 2.65 1.03 4.35L8 11.45 4.87 13.6 5.9 9.25 2.6 6.6l4.2-.35z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn quick-entry" data-action="quick-literature" title="书摘笔记" data-tip="书摘笔记" aria-label="书摘笔记">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4.2 2.35h6.4a1.4 1.4 0 0 1 1.4 1.4v8.5H5.45a1.75 1.75 0 0 0-1.75 1.75V3.85a1.5 1.5 0 0 1 1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            <path d="M5.45 12.25h6.8M6.2 5.2h4.7M6.2 7.55h4.7" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn quick-entry current-root" data-action="quick-original" title="原创笔记" data-tip="原创笔记" aria-label="原创笔记">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 2.25h5.1l2.9 2.9v8.1a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 13.25v-9.5A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            <path d="M9.1 2.25v2.3a1 1 0 0 0 1 1h2.3M5.4 9.8l1.55 1.55 3.75-3.75" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
       <div class="rail-group">
-        <button class="rail-btn" data-action="quick-fleeting" title="随手记入口" data-tip="随手记入口">⚡</button>
-        <button class="rail-btn" data-action="quick-literature" title="文献笔记入口" data-tip="书摘笔记入口">📘</button>
-        <button class="rail-btn" data-action="quick-original" title="原创笔记入口" data-tip="原创笔记入口">📝</button>
+        <button class="rail-btn active" data-module="explorer" title="笔记浏览器" data-tip="笔记浏览器" aria-label="笔记浏览器">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2.4 4.1h4.1l1.1 1.3h5.95a1 1 0 0 1 .98 1.2l-.72 3.85a1.5 1.5 0 0 1-1.47 1.2H3.65a1.5 1.5 0 0 1-1.47-1.2L1.46 6.6a1 1 0 0 1 .94-1.23z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            <path d="M5.35 8h5.3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn" data-module="imports" title="导入导出" data-tip="导入导出" aria-label="导入导出">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱" aria-label="关系图谱">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="4" cy="4" r="1.7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <circle cx="12" cy="4" r="1.7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <circle cx="8" cy="12" r="1.7" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M5.6 4.7l4.8 0M4.9 5.4l2.2 4.4M11.1 5.4l-2.2 4.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn" data-module="writing" title="写作中心" data-tip="写作中心" aria-label="写作中心">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 2.4h8a1.2 1.2 0 0 1 1.2 1.2v8.8L10.7 10H4A1.2 1.2 0 0 1 2.8 8.8V3.6A1.2 1.2 0 0 1 4 2.4z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+            <path d="M5.3 5.4h5.4M5.3 7.8h5.4" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
       <div class="rail-group bottom">
-        <button class="rail-btn" data-action="open-handoff" title="交付板" data-tip="交付板">📐</button>
-        <button class="rail-btn" data-module="settings" title="设置" data-tip="设置">⚙</button>
+        <button class="rail-btn" data-action="open-handoff" title="交付板" data-tip="交付板" aria-label="交付板">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.1 12.4l9.8-9.8M5.2 2.9h7.9v7.9M3.2 5.55l2.35 2.35M8.45 10.8l2.35 2.35" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button class="rail-btn" data-module="settings" title="设置" data-tip="设置" aria-label="设置">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="2.15" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <path d="M8 2.4v1.4M8 12.2v1.4M12.2 8h1.4M2.4 8h1.4M11.25 4.75l.95-.95M3.8 12.2l.95-.95M11.25 11.25l.95.95M3.8 3.8l.95.95" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
     </aside>
 
     <aside class="sidebar">
       <div class="vault-head">
-        <h2 id="sidebarTitle">目录</h2>
-        <div style="display:flex;gap:6px;">
-          <button class="mini-btn" id="btnOpenNewBoxDialog">新建目录</button>
-          <button class="mini-btn" id="btnNewNote">新建笔记</button>
+        <div class="vault-head-main">
+          <h2 id="sidebarTitle">目录</h2>
         </div>
-      </div>
-
-      <div class="filter">
-        <input id="searchInput" placeholder="搜索目录/笔记..." />
-        <div id="explorerActions" style="display:grid;gap:7px;">
-          <div style="font-size:12px;color:#64748b;">
-            体验对齐文件管理器：文件夹和文件同区展示，右键可操作。
+        <div class="sidebar-actions" id="sidebarPrimaryActions">
+          <div class="sidebar-actions-main">
+            <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建目录" data-tip="新建目录" aria-label="新建目录"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.25h4l1.1 1.35h5.9a1 1 0 0 1 .97 1.2l-.72 3.7a1.5 1.5 0 0 1-1.47 1.2H3.7a1.5 1.5 0 0 1-1.47-1.2l-.72-3.7a1 1 0 0 1 .99-1.2z" fill="currentColor" opacity=".82"/></svg></button>
+            <button class="mini-btn icon-btn" id="btnNewNote" title="新建笔记" data-tip="新建笔记" aria-label="新建笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.25 8h5.5M8 5.25v5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+            <button class="mini-btn icon-btn is-ghost" id="btnToggleSearch" title="搜索笔记" data-tip="搜索笔记" aria-label="搜索笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg></button>
           </div>
         </div>
       </div>
+
+      <div class="filter compact-search hidden" id="searchBar">
+        <input id="searchInput" placeholder="搜索目录/笔记..." />
+        <div id="explorerActions"></div>
+      </div>
+      <div class="module-sidebar" id="moduleSidebar"></div>
       <div class="list-area" id="listArea"></div>
-      <div class="sidebar-foot" id="sidebarFoot">默认根目录不可删除，子目录默认上限 500。</div>
+      <div class="sidebar-foot" id="sidebarFoot">右键可重命名、移动、设置保存位置；标题与 Markdown 文件名保持同步。</div>
     </aside>
 
     <main class="main">
-      <div class="tabs" id="tabs"></div>
-      <div class="crumb" id="breadcrumb"></div>
-      <div class="toolbar">
-        <div class="toolbar-group">
-          <button class="tb tb-icon" data-md="bold" title="加粗">B</button>
-          <button class="tb tb-icon" data-md="italic" title="斜体">I</button>
-          <button class="tb tb-icon" data-md="h2" title="二级标题">H</button>
-          <button class="tb tb-icon" data-md="quote" title="引用块">"</button>
-          <button class="tb tb-icon" data-md="ul" title="无序列表">≡</button>
-        </div>
-        <div class="toolbar-group">
-          <button class="tb tb-wide" id="btnInsertLink" title="关联笔记">∞</button>
-          <button class="tb tb-icon" id="btnInsertTag" title="插入标签">◆</button>
-          <button class="tb tb-wide" id="btnShowRelated" title="查看反向链接">↔</button>
-        </div>
-        <div class="toolbar-group">
-          <button class="tb tb-wide" id="btnRunGuard" title="原创性检测">◈</button>
-          <button class="tb tb-wide" id="btnSave" title="保存 Markdown">✓</button>
-        </div>
-      </div>
-      <div class="editor-wrap">
-        <div class="panel" id="importPanel">
-          <div style="font-weight:700;color:#1f2937;">导入工作台（MVP）</div>
-          <div style="font-size:12px;color:#64748b;margin-top:4px;">流程：预览 -> 确认/取消 -> 结果检查 -> 回滚</div>
-          <div class="import-grid" style="margin-top:10px;">
-            <label for="importConnector">连接器</label>
-            <select id="importConnector">
-              <option value="markdown">markdown</option>
-              <option value="obsidian">obsidian</option>
-              <option value="zotero">zotero</option>
-              <option value="readwise">readwise</option>
-              <option value="notebooklm">notebooklm</option>
-            </select>
-
-            <label for="importPath">导入路径</label>
-            <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
-
-            <label for="importPayload">Payload JSON</label>
-            <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"导入路径"}'></textarea>
-
-            <label for="importOptions">Options JSON</label>
-            <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'></textarea>
-
-            <label for="importRecordId">ImportRecord ID</label>
-            <input id="importRecordId" placeholder="预览后自动填充，可手动粘贴" />
+      <section class="workspace-shell" id="editorWorkspace">
+        <div class="tabs" id="tabs"></div>
+        <div class="crumb" id="breadcrumb"></div>
+        <div class="toolbar">
+          <div class="toolbar-group">
+            <button class="tb tb-icon" data-md="bold" title="加粗 Ctrl/Cmd+B" data-tip="加粗 Ctrl/Cmd+B" aria-label="加粗"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="3.3" y="11.8" font-size="11.5">B</text></svg></button>
+            <button class="tb tb-icon" data-md="italic" title="斜体 Ctrl/Cmd+I" data-tip="斜体 Ctrl/Cmd+I" aria-label="斜体"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="5.4" y="11.6" font-size="11.5" transform="skewX(-14)">I</text></svg></button>
+            <button class="tb tb-label has-icon" data-md="h2" title="二级标题 Ctrl/Cmd+Shift+H" data-tip="二级标题 Ctrl/Cmd+Shift+H" aria-label="二级标题"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="1.4" y="10.9" font-size="8.9">H</text><text class="tb-svg-text" x="9.1" y="12.5" font-size="6.5">2</text></svg></button>
+            <button class="tb tb-icon" data-md="quote" title="引用块" data-tip="引用块" aria-label="引用块"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.2 5.1c1.2 0 2 .8 2 2 0 .9-.46 1.57-1.22 2.12L5.5 11H4.1l-.4-1.35c-.25-.88-.37-1.55-.37-2.18 0-1.45.92-2.37 2.27-2.37zm5.1 0c1.2 0 2 .8 2 2 0 .9-.46 1.57-1.22 2.12l.53 1.78H9.2l-.4-1.35c-.25-.88-.37-1.55-.37-2.18 0-1.45.93-2.37 2.27-2.37z" fill="currentColor"/></svg></button>
+            <button class="tb tb-icon" data-md="ul" title="无序列表 Ctrl/Cmd+Shift+7" data-tip="无序列表 Ctrl/Cmd+Shift+7" aria-label="无序列表"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="5" r="1.1" fill="currentColor"/><circle cx="4" cy="8" r="1.1" fill="currentColor"/><circle cx="4" cy="11" r="1.1" fill="currentColor"/><path d="M7 5h5M7 8h5M7 11h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+            <button class="tb tb-icon" data-md="checklist" title="任务列表" data-tip="任务列表" aria-label="任务列表"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.35" y="3.35" width="2.8" height="2.8" rx=".45" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2.35" y="9.05" width="2.8" height="2.8" rx=".45" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M7.2 4.8h5.1M7.2 10.5h5.1" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/><path d="M2.95 10.45l.72.72 1.1-1.44" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="tb tb-icon" data-md="code" title="代码块" data-tip="代码块" aria-label="代码块"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.85 4.1L2.8 8l3.05 3.9M10.15 4.1L13.2 8l-3.05 3.9M8.8 3.55L7.2 12.45" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="tb tb-icon" data-md="table" title="表格" data-tip="表格" aria-label="表格"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.35" y="3.1" width="11.3" height="9.8" rx="1" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M2.7 6.4h10.6M2.7 9.65h10.6M6.15 3.45v9.1M10 3.45v9.1" fill="none" stroke="currentColor" stroke-width="1.05"/></svg></button>
+            <button class="tb tb-icon" data-md="hr" title="分隔线" data-tip="分隔线" aria-label="分隔线"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 8h10.5" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><path d="M5.1 5.9L3.85 8 5.1 10.1M10.9 5.9L12.15 8 10.9 10.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round" opacity=".68"/></svg></button>
+            <div class="toolbar-segment hidden" id="codeTools" aria-label="代码块工具">
+              <select class="tb-select" id="codeLanguageSelect" title="切换当前代码块语言" aria-label="切换当前代码块语言">
+                <option value="text">纯文本</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="json">JSON</option>
+                <option value="shell">Shell</option>
+                <option value="markdown">Markdown</option>
+              </select>
+            </div>
+            <div class="toolbar-segment hidden" id="tableTools" aria-label="表格工具">
+              <button class="tb tb-label has-icon" id="btnTableAddRow" title="为当前表格新增一行" data-tip="表格新增一行" aria-label="表格新增一行"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="3.1" width="11.6" height="9.8" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2.6 6.35h10.8M2.6 9.6h10.8M5.15 11.35h5.7" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M8 8.35v4.05M5.95 10.4H10.05" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/></svg></button>
+              <button class="tb tb-label has-icon" id="btnTableAddColumn" title="为当前表格新增一列" data-tip="表格新增一列" aria-label="表格新增一列"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="3.1" width="11.6" height="9.8" rx="1.1" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M2.6 6.35h10.8M2.6 9.6h10.8M6 3.45v9.1M9.8 3.45v9.1" fill="none" stroke="currentColor" stroke-width="1.02"/><path d="M11.8 8v3.35M10.1 9.7h3.35" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/></svg></button>
+            </div>
           </div>
-          <div class="import-actions">
-            <button class="mini-btn" id="btnImportPreview">预览</button>
-            <button class="mini-btn" id="btnImportConfirm">确认写入</button>
-            <button class="mini-btn" id="btnImportCancel">取消</button>
-            <button class="mini-btn" id="btnImportRefresh">查询记录</button>
-            <button class="mini-btn" id="btnImportRollback">回滚</button>
+          <div class="toolbar-group">
+            <button class="tb tb-label has-icon" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="tb tb-label has-icon" id="btnInsertAsset" title="插入图片或附件" data-tip="插入图片或附件" aria-label="插入图片或附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.1 5.1h5.8a2 2 0 0 1 0 4H6.7a1.45 1.45 0 1 1 0-2.9h4.15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.2 11.7l-1.95 1.3a1.5 1.5 0 0 1-2.2-.48 1.5 1.5 0 0 1 .48-2.08l3.65-2.55" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/></svg></button>
+            <button class="tb tb-label has-icon" id="btnInsertTag" title="插入标签 #" data-tip="插入标签 #" aria-label="插入标签"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.1 2.75h5.05l2.1 2.1v5.05l-4.9 4.1a1.2 1.2 0 0 1-1.66-.1L2.1 9.3a1.2 1.2 0 0 1-.1-1.66z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.6" cy="5.9" r="1" fill="currentColor"/></svg></button>
+            <div class="toolbar-segment" role="tablist" aria-label="编辑器视图模式">
+              <button class="tb tb-label has-icon" id="btnModeEdit" title="所见即所得 Ctrl/Cmd+1" data-tip="所见即所得 Ctrl/Cmd+1" aria-label="所见即所得" data-editor-mode="wysiwyg"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg></button>
+              <button class="tb tb-label has-icon hidden" id="btnModeSplit" title="" data-tip="" aria-label="保留"></button>
+              <button class="tb tb-label has-icon" id="btnModePreview" title="Markdown 源码 Ctrl/Cmd+2" data-tip="Markdown 源码 Ctrl/Cmd+2" aria-label="Markdown 源码" data-editor-mode="source"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.2h10v9.6H3z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 6.05l1.4 1.95L5 9.95M11 6.05L9.6 8 11 9.95M7.4 10.55l1.2-5.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            </div>
+            <button class="tb tb-label has-icon" id="btnShowRelated" title="展开回链侧栏" data-tip="展开回链侧栏" aria-label="回链侧栏"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.15 4.15H12v5.8H6.15M6.15 4.15L3.6 6.7M6.15 4.15L3.6 1.6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.85 11.85H4v-5.8h5.85M9.85 11.85l2.55-2.55M9.85 11.85l2.55 2.55" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/></svg></button>
           </div>
-          <div class="import-result" id="importResult">尚未开始导入。</div>
-        </div>
-        <div class="panel hidden" id="linkPicker">
-          <div class="link-picker-head">
-            <strong>关联笔记检索</strong>
-            <button class="tb" id="btnCloseLinkPicker">关闭</button>
+          <div class="toolbar-group">
+            <button class="tb tb-label has-icon" id="btnRunGuard" title="原创性检测" data-tip="原创性检测" aria-label="原创性检测"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l4.5 1.6v3.95c0 2.7-1.55 4.77-4.5 6.65-2.95-1.88-4.5-3.95-4.5-6.65V3.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 7.95l1.3 1.3 2.75-2.75" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="tb tb-label has-icon" id="btnSave" title="保存 Markdown Ctrl/Cmd+S" data-tip="保存 Ctrl/Cmd+S" aria-label="保存 Markdown"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
-          <input id="linkSearchInput" placeholder="输入关键词或笔记ID，实时检索..." />
-          <div style="height:8px;"></div>
-          <div class="link-picker-list" id="linkSearchList"></div>
         </div>
-        <div class="panel md-panel">
-          <label>Markdown 文档</label>
-          <div style="font-size:12px;color:#64748b;margin-bottom:8px;">第一行即文件标题。输入 [[ 可实时检索候选（↑↓ 选择，Enter 插入），Ctrl/Cmd + 点击 #标签可检索，Ctrl/Cmd + 点击 [[标题]] 可跳转。</div>
-          <textarea id="editorBody" placeholder="在这里输入正文，支持 [[关联笔记标题]] 与 #标签"></textarea>
+        <div class="editor-wrap">
+          <div class="panel hidden" id="linkPicker">
+            <div class="link-picker-head">
+              <strong>关联笔记检索</strong>
+              <button class="tb" id="btnCloseLinkPicker">关闭</button>
+            </div>
+            <input id="linkSearchInput" placeholder="输入关键词或笔记ID，实时检索..." />
+            <div style="height:8px;"></div>
+            <div class="link-picker-list" id="linkSearchList"></div>
+          </div>
+          <div class="panel hidden" id="tagPicker">
+            <div class="link-picker-head">
+              <strong>标签检索</strong>
+              <button class="tb" id="btnCloseTagPicker">关闭</button>
+            </div>
+            <input id="tagSearchInput" placeholder="输入标签关键词，实时检索..." />
+            <div style="height:8px;"></div>
+            <div class="link-picker-list" id="tagSearchList"></div>
+          </div>
+          <div class="panel md-panel" id="markdownPanel">
+            <div class="panel-head compact">
+              <div>
+                <div class="panel-title">Markdown 编辑器</div>
+
+              </div>
+            </div>
+            <div class="markdown-split editor-mode-wysiwyg" id="markdownSplit">
+              <div class="markdown-editor-col markdown-wysiwyg-col">
+                <div id="wysiwygHost" class="wysiwyg-host" aria-label="所见即所得笔记编辑器"></div>
+              </div>
+              <div class="markdown-editor-col markdown-source-col">
+                <div id="editorHost" class="editor-host" aria-label="Markdown 源码编辑器"></div>
+                <textarea id="editorBody" class="editor-sync-field" aria-hidden="true" tabindex="-1"></textarea>
+                <input id="assetFileInput" type="file" accept="image/*,.pdf,.txt,.md,.doc,.docx" hidden multiple />
+              </div>
+              <aside class="markdown-preview-col hidden" id="markdownPreviewPanel">
+                <div class="markdown-preview-head">
+                  <div class="markdown-preview-title">Markdown 预览</div>
+                  <div class="markdown-preview-note">按源码实时渲染，方便检查结构和可读性。</div>
+                </div>
+                <div id="markdownPreview" class="markdown-preview"></div>
+              </aside>
+            </div>
+          </div>
+          <div class="panel inspector-panel" id="relatedPanel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">链接检视器</div>
+
+              </div>
+              <button class="inspector-toggle" id="btnHideRelated" type="button" title="收起回链侧栏" aria-label="收起回链侧栏">收起</button>
+            </div>
+            <div id="resultArea">打开一个笔记后，这里显示与当前笔记相关的笔记与回链。</div>
+          </div>
         </div>
-        <div class="panel">
-          <div style="margin-bottom:8px;color:#475569;">关联到本笔记的其他笔记</div>
-          <div id="resultArea">打开一个笔记后，这里显示与当前笔记关联的其他笔记。</div>
+      </section>
+      <section class="workspace-shell module-workspace hidden" id="moduleWorkspace">
+        <div class="module-header">
+          <div>
+            <h1 id="moduleTitle">工作台</h1>
+            <p id="moduleSummary">当前模块说明。</p>
+          </div>
+          <div class="module-header-actions" id="moduleHeaderActions"></div>
         </div>
-      </div>
-      <div class="status">
-        <span id="statusText">就绪</span>
-        <span id="statusHint">稳定框架：功能栏 + 目录栏 + 编辑器 + 顶部多Tab</span>
+        <div class="module-stage">
+          <div class="panel hidden" id="importPanel">
+          <div class="import-card">
+            <div class="import-card-head">
+              <strong>开始一次导入</strong>
+            </div>
+            <p class="import-card-note">先选来源与路径，先预览候选，再确认写入。高级参数、记录读取和回滚都收进二级区域，避免第一次进入就被复杂选项打断。</p>
+            <div class="import-grid" style="margin-top:10px;">
+              <label for="importConnector">连接器</label>
+              <select id="importConnector">
+                <option value="markdown">markdown</option>
+                <option value="obsidian">obsidian</option>
+                <option value="zotero">zotero</option>
+                <option value="readwise">readwise</option>
+                <option value="notebooklm">notebooklm</option>
+              </select>
+
+              <label for="importPath">导入路径</label>
+              <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
+            </div>
+            <div class="import-actions">
+              <button class="mini-btn" id="btnImportPreview">预览候选</button>
+              <button class="mini-btn" id="btnImportConfirm">确认写入</button>
+            </div>
+            <details class="import-advanced" id="importAdvanced">
+              <summary>高级选项与记录操作</summary>
+              <div class="import-advanced-body">
+                <div class="import-grid">
+                  <label for="importPayload">Payload JSON</label>
+                  <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"导入路径"}'></textarea>
+
+                  <label for="importOptions">Options JSON</label>
+                  <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'></textarea>
+
+                  <label for="importRecordId">ImportRecord ID</label>
+                  <input id="importRecordId" placeholder="预览后自动填充，可手动粘贴" />
+                </div>
+                <div class="import-actions secondary">
+                  <button class="mini-btn" id="btnImportCancel">取消</button>
+                  <button class="mini-btn" id="btnImportRefresh">查询记录</button>
+                  <button class="mini-btn" id="btnImportRollback">回滚</button>
+                </div>
+              </div>
+            </details>
+          </div>
+          <div class="import-card">
+            <div class="import-history-head">
+              <div class="import-history-title">导入历史</div>
+              <button class="mini-btn" id="btnImportHistoryRefresh">刷新历史</button>
+            </div>
+          <div class="import-history-controls">
+            <label>
+              <span>状态</span>
+              <select id="importHistoryStatus">
+                  <option value="all">全部状态</option>
+                  <option value="preview">preview</option>
+                  <option value="completed">completed</option>
+                  <option value="rolled_back">rolled_back</option>
+                  <option value="cancelled">cancelled</option>
+                </select>
+              </label>
+              <label>
+                <span>连接器</span>
+                <select id="importHistoryConnector">
+                  <option value="all">全部连接器</option>
+                  <option value="markdown">markdown</option>
+                  <option value="obsidian">obsidian</option>
+                  <option value="zotero">zotero</option>
+                  <option value="readwise">readwise</option>
+                <option value="notebooklm">notebooklm</option>
+              </select>
+            </label>
+            <label>
+              <span>风险</span>
+              <select id="importHistoryRisk">
+                <option value="all">全部风险</option>
+                <option value="warning">warning</option>
+                <option value="blocked">blocked</option>
+                <option value="modified">modified</option>
+              </select>
+            </label>
+          </div>
+            <div class="import-history" id="importHistory">正在读取导入历史…</div>
+            <div class="import-result" id="importResult">还没有导入结果。先选择来源并预览候选。</div>
+          </div>
+          <div class="import-card">
+            <div class="import-card-head">
+              <strong>Markdown 导出</strong>
+            </div>
+            <p class="import-card-note">导出是独立动作，不和导入参数混在一起。先选导出目录，再执行 Markdown 导出。</p>
+            <div class="import-grid" style="margin-top:10px;">
+              <label for="exportTargetPath">导出目标路径</label>
+              <input id="exportTargetPath" placeholder="例如：E:\Projects\Thinking in Notes\markdown-export" />
+            </div>
+            <div class="import-actions">
+              <button class="mini-btn" id="btnExportMarkdown">导出 Markdown</button>
+            </div>
+            <div class="import-result" id="exportResult">还没有导出结果。选择目标路径后即可导出 Markdown。</div>
+          </div>
+          </div>
+          <div class="panel graph-panel hidden" id="graphPanel">
+          <div class="graph-head">
+            <div>
+              <div class="graph-title">当前目录关系图谱</div>
+              <div class="graph-summary" id="graphSummary">点击“刷新图谱”查看本目录内笔记关系。</div>
+            </div>
+            <button class="mini-btn" id="graphRefresh">刷新图谱</button>
+          </div>
+          <div id="graphCanvas">
+            <div class="graph-empty">图谱只围绕当前目录展开。建立 `[[关联笔记]]` 之后，这里会开始形成可浏览的关系结构。</div>
+          </div>
+          </div>
+          <div class="panel hidden" id="writingPanel">
+          <div class="writing-shell">
+            <div class="writing-project-grid">
+              <section class="writing-section">
+                <div class="writing-section-head">
+                  <div>
+                    <div class="writing-section-title">项目信息</div>
+                    <div class="writing-section-note">先明确当前要写什么，再把原创笔记组织进写作篮和 scaffold。</div>
+                  </div>
+                </div>
+                <div class="import-grid">
+                  <label>当前笔记</label>
+                  <div id="writingCurrentNote" style="font-size:13px;color:#334155;word-break:break-all;">尚未选择</div>
+                  <label for="writingTitle">项目标题</label>
+                  <input id="writingTitle" placeholder="例如：从卡片到论文大纲" />
+                  <label for="writingGoal">写作目标</label>
+                  <textarea id="writingGoal" style="min-height:70px;" placeholder="这篇文章要解决什么问题？"></textarea>
+                  <label for="writingAudience">读者</label>
+                  <input id="writingAudience" placeholder="例如：知识工作者" />
+                  <label for="writingTone">语气</label>
+                  <input id="writingTone" placeholder="例如：清晰、克制、有证据感" />
+                </div>
+                <div class="writing-actions-primary">
+                  <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
+                  <button class="mini-btn" id="btnWritingAddVisible">加入当前目录原创笔记</button>
+                  <button class="mini-btn" id="btnWritingClearBasket">清空篮子</button>
+                  <button class="mini-btn" id="btnWritingCreateProject">创建写作项目</button>
+                  <button class="mini-btn" id="btnWritingCreateScaffold">生成草稿骨架</button>
+                </div>
+              </section>
+              <section class="writing-section">
+                <div class="writing-section-head">
+                  <div>
+                    <div class="writing-section-title">当前项目状态</div>
+                    <div class="writing-section-note">这里保留项目当前的写作篮 ID、最近一次操作结果，以及后续导出前的重要状态。</div>
+                  </div>
+                </div>
+                <label for="writingBasketNoteIds" class="writing-section-note">写作篮 Note IDs</label>
+                <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="每行一个 note id，或用逗号分隔"></textarea>
+                <div class="import-result" id="writingResult">尚未开始写作项目。</div>
+                <div class="writing-actions-secondary">
+                  <button class="mini-btn" id="btnWritingCopyScaffold">复制 Scaffold Markdown</button>
+                  <button class="mini-btn" id="btnWritingExportScaffold">导出 Scaffold .md</button>
+                  <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿笔记</button>
+                  <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
+                </div>
+              </section>
+            </div>
+
+            <div class="writing-main-grid">
+              <div class="writing-stack">
+                <section class="writing-section">
+                  <div class="writing-section-head">
+                    <div>
+                      <div class="writing-section-title">写作篮</div>
+                      <div class="writing-section-note" id="writingScopeHint">当前目录内的原创笔记会出现在这里，可逐条加入篮子。</div>
+                    </div>
+                  </div>
+                  <div class="writing-summary" id="writingBasketSummary">篮子里还没有笔记。</div>
+                  <div class="writing-note-list" id="writingBasketList"></div>
+                </section>
+                <section class="writing-section">
+                  <div class="writing-section-head">
+                    <div>
+                      <div class="writing-section-title">当前目录原创笔记</div>
+                      <div class="writing-section-note" id="writingCandidateSummary">尚未读取候选。</div>
+                    </div>
+                  </div>
+                  <div class="writing-note-list" id="writingCandidateList"></div>
+                </section>
+              </div>
+
+              <section class="writing-section">
+                <div class="writing-section-head">
+                  <div>
+                    <div class="writing-section-title">Scaffold 主视图</div>
+                    <div class="writing-section-note">这里是本页主舞台。生成后优先在这里查看章节结构、证据绑定和 Markdown 预览。</div>
+                  </div>
+                </div>
+                <div class="writing-preview" id="writingScaffoldPreview">
+                  <h4>Scaffold 预览</h4>
+                  <div class="writing-empty">生成草稿骨架后，这里会显示章节结构、证据映射和 Markdown 预览。</div>
+                </div>
+              </section>
+
+              <div class="writing-stack">
+                <section class="writing-section">
+                  <div class="writing-section-head">
+                    <div>
+                      <div class="writing-section-title">最近项目</div>
+                      <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作项目，支持恢复到当前工作区。</div>
+                    </div>
+                    <button class="mini-btn" id="btnWritingRefreshProjects">刷新项目</button>
+                  </div>
+                  <div class="writing-note-list" id="writingProjectsList"></div>
+                </section>
+                <section class="writing-section">
+                  <div class="writing-section-head">
+                    <div>
+                      <div class="writing-section-title">Scaffold 版本</div>
+                      <div class="writing-section-note" id="writingScaffoldVersionsHint">每次生成 scaffold 都会保留历史版本。</div>
+                    </div>
+                    <button class="mini-btn" id="btnWritingRefreshScaffolds">刷新版本</button>
+                  </div>
+                  <div class="writing-note-list" id="writingScaffoldVersionsList"></div>
+                </section>
+                <section class="writing-section">
+                  <div class="writing-section-head">
+                    <div>
+                      <div class="writing-section-title">草稿版本</div>
+                      <div class="writing-section-note" id="writingDraftVersionsHint">每次保存草稿都会保留一个新版本，并记录来源 scaffold。</div>
+                    </div>
+                    <button class="mini-btn" id="btnWritingRefreshDraftVersions">刷新草稿版本</button>
+                  </div>
+                  <div class="writing-note-list" id="writingDraftVersionsList"></div>
+                </section>
+              </div>
+            </div>
+          </div>
+          </div>
+          <div class="panel hidden" id="settingsPanel">
+            <div class="settings-shell">
+              <div class="settings-grid">
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">当前 Vault</div>
+                      <div class="settings-card-note">这里是当前桌面工作区的根路径。切换 Vault 时，目录树、打开标签页和本地缓存都会重新对齐到新的卡片体系。</div>
+                    </div>
+                  </div>
+                  <div class="settings-stat-row" id="settingsVaultStats">
+                    <span class="settings-stat-badge warn">等待读取</span>
+                  </div>
+                  <div id="settingsCurrentVault" class="settings-path-display">尚未读取</div>
+                  <div id="settingsVaultDetail" class="settings-card-note">点击“刷新当前 Vault”读取 API 状态。</div>
+                  <div class="import-actions">
+                    <button class="mini-btn" id="settingsRefreshVault">刷新当前 Vault</button>
+                    <button class="mini-btn" id="settingsSwitchVault">切换并初始化</button>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">切换工作区</div>
+                      <div class="settings-card-note">浏览本机目录后，新的 Vault 路径会先填进输入框，再由你确认是否切换。</div>
+                    </div>
+                  </div>
+                  <div class="import-grid">
+                    <label for="settingsVaultPath">Vault 路径</label>
+                    <div class="path-picker">
+                      <input id="settingsVaultPath" placeholder="例如：E:\Users\you\Documents\yansilu-vault" />
+                      <button class="mini-btn" id="settingsBrowseVault" type="button">浏览...</button>
+                    </div>
+                  </div>
+                  <div class="settings-footnote">
+                    切换后会重新加载目录树，并清空当前打开的编辑标签页；主内容仍以本地 Markdown 为准，SQLite 缓存可重建。
+                  </div>
+                </section>
+              </div>
+
+              <section class="settings-card">
+                <div class="settings-card-head">
+                  <div>
+                    <div class="settings-card-title">桌面端说明</div>
+                    <div class="settings-card-note">这一版原型已经为桌面文件选择器、显示文件位置和 Vault 切换预留了接口。你现在可以把它当成真实桌面 App 的设置面板来测试。</div>
+                  </div>
+                </div>
+                <ul class="settings-mini-list">
+                  <li>浏览目录：优先调用桌面选择器，浏览器环境自动降级为手动输入。</li>
+                  <li>切换 Vault：重新初始化目录树、标签页和缓存上下文。</li>
+                  <li>主内容来源：Markdown 是主内容源，SQLite 负责关系、索引和查询加速。</li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div class="status" id="statusBar">
+        <div class="status-main">
+          <span id="statusText" class="status-pill">就绪</span>
+          <div id="statusMeta" class="status-meta"></div>
+        </div>
+        <span id="statusHint" class="status-hint"></span>
       </div>
     </main>
   </div>
@@ -771,6 +3693,9 @@
     <div class="modal">
       <div class="modal-head">新建目录</div>
       <div class="modal-body">
+        <div style="font-size:12px;color:#64748b;line-height:1.7;border:1px solid #e7edf4;border-radius:12px;background:#f8fbff;padding:10px 12px;">
+          目录会出现在当前知识树中，并绑定一个本机保存位置。后续新建的 Markdown 笔记会写入这个目录。
+        </div>
         <div>
           <label>目录名称</label>
           <input id="modalBoxName" placeholder="例如：研究方法盒" />
