@@ -308,10 +308,11 @@ export async function listProjectDraftVersions(writingProjectId, limit = 12) {
   return Array.isArray(json.items) ? json.items : [];
 }
 
-export async function bindWritingDraftNote(writingProjectId, draftNoteId, sourceScaffoldId = "") {
+export async function bindWritingDraftNote(writingProjectId, draftNoteId, sourceScaffoldId = "", versionNote = "") {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   const cleanDraftNoteId = String(draftNoteId || "").trim();
   const cleanSourceScaffoldId = String(sourceScaffoldId || "").trim();
+  const cleanVersionNote = String(versionNote || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
   if (!cleanDraftNoteId) throw new Error("draftNoteId is required");
   const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/draft-note`, {
@@ -319,7 +320,8 @@ export async function bindWritingDraftNote(writingProjectId, draftNoteId, source
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       draftNoteId: cleanDraftNoteId,
-      ...(cleanSourceScaffoldId ? { sourceScaffoldId: cleanSourceScaffoldId } : {})
+      ...(cleanSourceScaffoldId ? { sourceScaffoldId: cleanSourceScaffoldId } : {}),
+      ...(cleanVersionNote ? { versionNote: cleanVersionNote } : {})
     })
   });
   return json.item || null;
@@ -338,13 +340,17 @@ export async function setWritingCurrentDraftNote(writingProjectId, draftNoteId) 
   return json.item || null;
 }
 
-export async function createDraftScaffold(writingProjectId) {
+export async function createDraftScaffold(writingProjectId, versionNote = "") {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
+  const cleanVersionNote = String(versionNote || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
   return request("/api/v1/draft-scaffolds", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ writingProjectId: cleanWritingProjectId })
+    body: JSON.stringify({
+      writingProjectId: cleanWritingProjectId,
+      ...(cleanVersionNote ? { versionNote: cleanVersionNote } : {})
+    })
   });
 }
 

@@ -49,6 +49,7 @@ function mapScaffoldRow(row) {
     sections: JSON.parse(row.sections_json || "[]"),
     open_questions: JSON.parse(row.open_questions_json || "[]"),
     generated_by: row.generated_by,
+    version_note: row.version_note || "",
     markdown: row.markdown || "",
     created_at: row.created_at,
     updated_at: row.updated_at
@@ -60,6 +61,7 @@ function mapScaffoldListRow(row) {
     id: row.id,
     writing_project_id: row.writing_project_id,
     generated_by: row.generated_by,
+    version_note: row.version_note || "",
     section_count: Number(row.section_count || 0),
     created_at: row.created_at,
     updated_at: row.updated_at
@@ -88,6 +90,7 @@ function mapDraftVersionRow(row, currentDraftNoteId = "") {
     writing_project_id: row.writing_project_id,
     draft_note_id: row.draft_note_id,
     source_scaffold_id: row.source_scaffold_id || null,
+    version_note: row.version_note || "",
     version_no: Number(row.version_no || 0),
     created_at: row.created_at,
     is_current: cleanText(currentDraftNoteId) === cleanText(row.draft_note_id)
@@ -318,6 +321,7 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     sections: buildSections(project, basketNotes),
     open_questions: ["What evidence is missing?", "What counterpoint should be handled before drafting?"],
     generated_by: GENERATED_BY,
+    version_note: cleanText(input.versionNote || input.version_note),
     created_at: now,
     updated_at: now
   };
@@ -330,14 +334,15 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO draft_scaffolds
-          (id, writing_project_id, sections_json, open_questions_json, generated_by, markdown, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          (id, writing_project_id, sections_json, open_questions_json, generated_by, version_note, markdown, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         scaffold.id,
         scaffold.writing_project_id,
         JSON.stringify(scaffold.sections),
         JSON.stringify(scaffold.open_questions),
         scaffold.generated_by,
+        scaffold.version_note,
         markdown,
         now,
         now
@@ -471,6 +476,7 @@ export async function bindDraftNoteToProject(vaultPath, input = {}) {
   const draftNoteId = cleanText(input.draftNoteId || input.draft_note_id);
   if (!draftNoteId) throw new Error("draftNoteId is required");
   const sourceScaffoldId = cleanText(input.sourceScaffoldId || input.source_scaffold_id) || null;
+  const versionNote = cleanText(input.versionNote || input.version_note);
 
   const note = await getNoteById(vaultPath, draftNoteId);
   if (note.noteType !== "permanent") {
@@ -488,9 +494,9 @@ export async function bindDraftNoteToProject(vaultPath, input = {}) {
     ) + 1;
     db.prepare(
       `INSERT INTO draft_note_versions
-        (id, writing_project_id, draft_note_id, source_scaffold_id, version_no, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(`dnv_${randomUUID().slice(0, 8)}`, writingProjectId, draftNoteId, sourceScaffoldId, nextVersionNo, now);
+        (id, writing_project_id, draft_note_id, source_scaffold_id, version_no, version_note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(`dnv_${randomUUID().slice(0, 8)}`, writingProjectId, draftNoteId, sourceScaffoldId, nextVersionNo, versionNote, now);
     db.prepare("UPDATE writing_projects SET draft_note_id = ?, updated_at = ? WHERE id = ?").run(draftNoteId, now, writingProjectId);
   } finally {
     db.close();

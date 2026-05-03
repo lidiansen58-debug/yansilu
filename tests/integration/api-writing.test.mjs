@@ -116,12 +116,14 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(project.json.item.basket_notes.length, 2);
 
   const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
-    writingProjectId: project.json.item.id
+    writingProjectId: project.json.item.id,
+    versionNote: "First scaffold pass from two permanent notes."
   });
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.match(scaffold.json.item.id, /^ds_/);
   assert.equal(scaffold.json.item.writing_project_id, project.json.item.id);
   assert.equal(scaffold.json.item.generated_by, "writing-engine:v1");
+  assert.equal(scaffold.json.item.version_note, "First scaffold pass from two permanent notes.");
   assert.ok(scaffold.json.item.sections.length >= 4);
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
@@ -135,7 +137,8 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.match(fetchedScaffold.json.export.markdown, /Paragraph-Evidence Map/);
 
   const scaffoldV2 = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
-    writingProjectId: project.json.item.id
+    writingProjectId: project.json.item.id,
+    versionNote: "Second scaffold pass with a tighter structure."
   });
   assert.equal(scaffoldV2.status, 201, JSON.stringify(scaffoldV2.json));
   assert.notEqual(scaffoldV2.json.item.id, scaffold.json.item.id);
@@ -145,7 +148,9 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.ok(Array.isArray(scaffoldVersions.json.items));
   assert.equal(scaffoldVersions.json.items.length, 2);
   assert.equal(scaffoldVersions.json.items[0].id, scaffoldV2.json.item.id);
+  assert.equal(scaffoldVersions.json.items[0].version_note, "Second scaffold pass with a tighter structure.");
   assert.equal(scaffoldVersions.json.items[1].id, scaffold.json.item.id);
+  assert.equal(scaffoldVersions.json.items[1].version_note, "First scaffold pass from two permanent notes.");
 
   const draftNote = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
@@ -156,7 +161,8 @@ test("writing APIs create project basket and draft scaffold from permanent notes
 
   const bindDraft = await postJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/draft-note`, {
     draftNoteId: draftNote.json.item.id,
-    sourceScaffoldId: scaffold.json.item.id
+    sourceScaffoldId: scaffold.json.item.id,
+    versionNote: "First prose pass from scaffold v1."
   });
   assert.equal(bindDraft.status, 200, JSON.stringify(bindDraft.json));
   assert.equal(bindDraft.json.item.draft_note_id, draftNote.json.item.id);
@@ -172,7 +178,8 @@ test("writing APIs create project basket and draft scaffold from permanent notes
 
   const bindDraftV2 = await postJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/draft-note`, {
     draftNoteId: draftNoteV2.json.item.id,
-    sourceScaffoldId: scaffoldV2.json.item.id
+    sourceScaffoldId: scaffoldV2.json.item.id,
+    versionNote: "Second prose pass from scaffold v2."
   });
   assert.equal(bindDraftV2.status, 200, JSON.stringify(bindDraftV2.json));
   assert.equal(bindDraftV2.json.item.draft_note_id, draftNoteV2.json.item.id);
@@ -184,10 +191,12 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(draftVersions.json.items[0].draft_note_id, draftNoteV2.json.item.id);
   assert.equal(draftVersions.json.items[0].version_no, 2);
   assert.equal(draftVersions.json.items[0].source_scaffold_id, scaffoldV2.json.item.id);
+  assert.equal(draftVersions.json.items[0].version_note, "Second prose pass from scaffold v2.");
   assert.equal(draftVersions.json.items[0].is_current, true);
   assert.equal(draftVersions.json.items[1].draft_note_id, draftNote.json.item.id);
   assert.equal(draftVersions.json.items[1].version_no, 1);
   assert.equal(draftVersions.json.items[1].source_scaffold_id, scaffold.json.item.id);
+  assert.equal(draftVersions.json.items[1].version_note, "First prose pass from scaffold v1.");
 
   const rebindCurrent = await postJson(
     baseUrl,

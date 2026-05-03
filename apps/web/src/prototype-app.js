@@ -2247,6 +2247,10 @@ function populateWritingFormFromProject(project) {
   setWritingBasketIds(project.basket_note_ids || []);
 }
 
+function currentWritingVersionNote() {
+  return String($("writingVersionNote")?.value || "").trim();
+}
+
 function renderWritingProjectCard(project) {
   const draftLabel = project?.draft_note?.title || project?.draft_note_id || "未绑定草稿";
   const scaffoldLabel = project?.scaffold_id || "未生成";
@@ -2272,6 +2276,7 @@ function renderWritingProjectCard(project) {
 
 function renderScaffoldVersionCard(version) {
   const isActive = writingState.scaffold?.id === version.id;
+  const versionNote = String(version?.version_note || "").trim();
   return `
     <article class="writing-note-card ${isActive ? "selected" : ""}" data-writing-scaffold-id="${escapeHtml(version.id)}">
       <div class="writing-note-card-head">
@@ -2281,6 +2286,7 @@ function renderScaffoldVersionCard(version) {
         </div>
       </div>
       <div class="writing-note-meta">生成于：${escapeHtml(version.created_at || version.updated_at || "")}${isActive ? " · 当前预览中" : ""}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的 scaffold 版本")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-scaffold-action="open" data-writing-scaffold-id="${escapeHtml(version.id)}">打开版本</button>
         <button class="mini-btn" type="button" data-writing-scaffold-action="copy" data-writing-scaffold-id="${escapeHtml(version.id)}">复制</button>
@@ -2294,6 +2300,7 @@ function renderDraftVersionCard(version) {
   const noteTitle = version?.note?.title || version?.draft_note_id || "未命名草稿";
   const noteStatus = version?.note?.status || "draft";
   const sourceScaffold = version?.source_scaffold_id || "未记录";
+  const versionNote = String(version?.version_note || "").trim();
   return `
     <article class="writing-note-card ${version?.is_current ? "selected" : ""}" data-writing-draft-version-id="${escapeHtml(version.id)}">
       <div class="writing-note-card-head">
@@ -2303,6 +2310,7 @@ function renderDraftVersionCard(version) {
         </div>
       </div>
       <div class="writing-note-meta">来源 Scaffold：${escapeHtml(sourceScaffold)}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前 scaffold 保存的草稿版本")}</div>
       <div class="writing-note-meta">创建时间：${escapeHtml(version.created_at || "")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿</button>
@@ -3450,7 +3458,7 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
   if (!writingProjectId) return setStatus("请先创建写作项目", "warn");
   try {
-    const result = await createDraftScaffold(writingProjectId);
+    const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
     writingState.scaffold = result.item || null;
     writingState.scaffoldMarkdown = result.export?.markdown || "";
     if (writingState.project) {
@@ -3464,7 +3472,8 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
       writingProjectId,
       draftScaffoldId: result.item?.id,
       sections: result.item?.sections,
-      markdown: result.export?.markdown
+      markdown: result.export?.markdown,
+      versionNote: result.item?.version_note || ""
     });
     await loadWritingProjectsList();
     await loadWritingScaffoldVersions();
@@ -3533,7 +3542,12 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
       status: "draft",
       body
     });
-    const project = await bindWritingDraftNote(writingState.project?.id, created?.id, writingState.scaffold?.id);
+    const project = await bindWritingDraftNote(
+      writingState.project?.id,
+      created?.id,
+      writingState.scaffold?.id,
+      currentWritingVersionNote()
+    );
     writingState.project = project;
     const note = mapNoteItem({
       ...created,

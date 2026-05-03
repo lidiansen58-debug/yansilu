@@ -2493,6 +2493,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.fill("#writingGoal", "Turn two permanent notes into a browser-generated scaffold.");
   await page.fill("#writingAudience", "Researchers");
   await page.fill("#writingTone", "clear");
+  await page.fill("#writingVersionNote", "First scaffold note from browser flow.");
   await page.click("#btnWritingAddVisible");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
@@ -2559,6 +2560,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const scaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
   assert.match(scaffoldVersionText || "", /ds_/);
+  assert.match(scaffoldVersionText || "", /First scaffold note from browser flow/);
 
   await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="open"]').nth(1).click();
   await page.waitForFunction((firstId) => {
@@ -2566,6 +2568,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
     return summary.includes(firstId);
   }, firstScaffoldCardId);
 
+  await page.fill("#writingVersionNote", "Draft note saved from browser flow.");
   await page.click("#btnWritingSaveDraft");
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
@@ -2575,6 +2578,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const draftVersionsTextV1 = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(draftVersionsTextV1 || "", /v1/);
   assert.match(draftVersionsTextV1 || "", /当前草稿/);
+  assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
 
   const activeModule = await page.locator('.rail-btn[data-module="explorer"]').getAttribute("class");
   assert.match(activeModule || "", /active/);
@@ -2598,6 +2602,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const projectsListText = await page.locator("#writingProjectsList").textContent();
   assert.match(projectsListText || "", /Writing UI Project/);
 
+  await page.fill("#writingVersionNote", "Second draft note saved from browser flow.");
   await page.click("#btnWritingSaveDraft");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingDraftVersionsList")?.textContent || "";
@@ -2605,6 +2610,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   const draftVersionsTextV2 = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(draftVersionsTextV2 || "", /v2/);
+  assert.match(draftVersionsTextV2 || "", /Second draft note saved from browser flow/);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));

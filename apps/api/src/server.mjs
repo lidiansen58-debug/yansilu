@@ -1102,7 +1102,8 @@ const server = http.createServer(async (req, res) => {
         const item = await bindDraftNoteToProject(VAULT_PATH, {
           writingProjectId: decodeURIComponent(writingDraftBindingMatch[1]),
           draftNoteId: body.draftNoteId || body.draft_note_id,
-          sourceScaffoldId: body.sourceScaffoldId || body.source_scaffold_id
+          sourceScaffoldId: body.sourceScaffoldId || body.source_scaffold_id,
+          versionNote: body.versionNote || body.version_note
         });
         return sendJson(res, 200, {
           item,
@@ -1181,15 +1182,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 201, {
           item,
           export: {
-            json: {
-              id: item.id,
-              writing_project_id: item.writing_project_id,
-              sections: item.sections,
-              open_questions: item.open_questions,
-              generated_by: item.generated_by,
-              created_at: item.created_at,
-              updated_at: item.updated_at
-            },
+              json: {
+                id: item.id,
+                writing_project_id: item.writing_project_id,
+                sections: item.sections,
+                open_questions: item.open_questions,
+                generated_by: item.generated_by,
+                version_note: item.version_note || "",
+                created_at: item.created_at,
+                updated_at: item.updated_at
+              },
             markdown: item.markdown
           },
           requestId: rid,
@@ -1208,15 +1210,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
           item,
           export: {
-            json: {
-              id: item.id,
-              writing_project_id: item.writing_project_id,
-              sections: item.sections,
-              open_questions: item.open_questions,
-              generated_by: item.generated_by,
-              created_at: item.created_at,
-              updated_at: item.updated_at
-            },
+              json: {
+                id: item.id,
+                writing_project_id: item.writing_project_id,
+                sections: item.sections,
+                open_questions: item.open_questions,
+                generated_by: item.generated_by,
+                version_note: item.version_note || "",
+                created_at: item.created_at,
+                updated_at: item.updated_at
+              },
             markdown: item.markdown
           },
           requestId: rid,
