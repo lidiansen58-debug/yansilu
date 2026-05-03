@@ -13,6 +13,16 @@ import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane } from "./components-explorer-pane.js";
 import { EditorPane } from "./components-editor-pane.js";
+import {
+  filterImportHistoryItems,
+  formatImportTimestamp,
+  importHistoryActions,
+  importHistoryAlertBadges,
+  importHistoryDetailSummary,
+  importHistorySummary,
+  importStatusLabel,
+  importStatusTone
+} from "./import-history-model.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   bindWritingDraftNote,
@@ -78,6 +88,11 @@ const writingState = {
   scaffold: null,
   scaffoldMarkdown: "",
   projects: [],
+  projectFilters: {
+    q: "",
+    status: "all",
+    hasDraft: "all"
+  },
   loadingProjects: false,
   scaffoldVersions: [],
   loadingScaffoldVersions: false,
@@ -126,173 +141,6 @@ function compactValue(value) {
   return String(value);
 }
 
-function formatImportTimestamp(value) {
-  if (!value) return "时间未知";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
-}
-
-function importStatusLabel(status) {
-  const labels = {
-    preview: "预览",
-    completed: "已写入",
-    rolled_back: "已回滚",
-    cancelled: "已取消"
-  };
-  return labels[String(status || "").trim()] || compactValue(status);
-}
-
-function importStatusTone(status) {
-  const tones = {
-    preview: "neutral",
-    completed: "ok",
-    rolled_back: "warn",
-    cancelled: "muted"
-  };
-  return tones[String(status || "").trim()] || "neutral";
-}
-
-function importHistorySummary(record = {}) {
-  const summary = record.summary || {};
-  return `S${Number(summary.sources || 0)} · L${Number(summary.literatureNotes || 0)} · P${Number(summary.permanentNotes || 0)} · W${Number(summary.warnings || 0)}`;
-}
-
-function importHistoryOriginalityCounts(record = {}) {
-  const evaluations = Array.isArray(record.originalityGuard?.evaluations) ? record.originalityGuard.evaluations : [];
-  return {
-    blocked: evaluations.filter((item) => String(item?.status || "").trim() === "blocked").length,
-    warning: evaluations.filter((item) => String(item?.status || "").trim() === "warning").length
-  };
-}
-
-function importHistoryAlertBadges(record = {}) {
-  const status = String(record.status || record.state || "").trim();
-  const badges = [];
-  const summaryWarnings = Number(record.summary?.warnings || 0);
-  const originality = importHistoryOriginalityCounts(record);
-  const warningCount = Math.max(summaryWarnings, originality.warning);
-  if (warningCount > 0) {
-    badges.push({
-      tone: "warn",
-      text: `Warning ${warningCount}`
-    });
-  }
-  if (originality.blocked > 0) {
-    badges.push({
-      tone: "bad",
-      text: `Blocked ${originality.blocked}`
-    });
-  }
-  if (status === "rolled_back") {
-    const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
-    const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
-    if (modifiedCount > 0) {
-      badges.push({
-        tone: "warn",
-        text: `Modified ${modifiedCount}`
-      });
-    }
-  }
-  return badges;
-}
-
-function importHistoryMatchesRisk(record = {}, riskFilter = "all") {
-  const normalized = String(riskFilter || "all").trim();
-  if (normalized === "all") return true;
-
-  const summaryWarnings = Number(record.summary?.warnings || 0);
-  const originality = importHistoryOriginalityCounts(record);
-  const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
-  const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
-
-  if (normalized === "warning") {
-    return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0;
-  }
-  if (normalized === "blocked") {
-    return originality.blocked > 0;
-  }
-  if (normalized === "modified") {
-    return modifiedCount > 0;
-  }
-  return true;
-}
-
-function importHistoryDetailSummary(record = {}) {
-  const status = String(record.status || record.state || "").trim();
-  if (status === "preview") {
-    const summary = record.summary || {};
-    const originality = importHistoryOriginalityCounts(record);
-    const detail = [
-      `候选 ${Number(summary.sources || 0)} Source · ${Number(summary.literatureNotes || 0)} Literature · ${Number(summary.permanentNotes || 0)} Permanent`
-    ];
-    const signals = [];
-    if (Number(summary.warnings || 0) > 0) signals.push(`warning ${Number(summary.warnings || 0)}`);
-    if (originality.warning > 0) signals.push(`originality warning ${originality.warning}`);
-    if (originality.blocked > 0) signals.push(`blocked ${originality.blocked}`);
-    detail.push(signals.length ? `需人工检查：${signals.join(" · ")}` : "当前预览未发现需要额外处理的 warning");
-    return detail;
-  }
-  if (status === "completed") {
-    const created = record.confirmResult?.created || {};
-    const skipped = record.confirmResult?.skipped || {};
-    const writtenPaths = Array.isArray(record.confirmResult?.writtenPaths) ? record.confirmResult.writtenPaths.filter(Boolean) : [];
-    return [
-      `已创建 S${Number(created.sources || 0)} · L${Number(created.literatureNotes || 0)} · P${Number(created.permanentNotes || 0)}`,
-      `跳过 冲突${Number(skipped.conflicted || 0)} · 无效${Number(skipped.invalid || 0)}`,
-      writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "写入目录待确认"
-    ];
-  }
-  if (status === "rolled_back") {
-    const rolledBack = Array.isArray(record.rollbackResult?.rolledBack) ? record.rollbackResult.rolledBack : [];
-    const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
-    const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
-    return [
-      `已回滚 ${rolledBack.length} 项`,
-      `跳过 ${skipped.length} 项`,
-      modifiedCount ? `其中 ${modifiedCount} 项因已被修改而保留` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
-    ];
-  }
-  return [];
-}
-
-function importHistoryActions(record = {}) {
-  const status = String(record.status || record.state || "").trim();
-  if (status === "completed") {
-    return [
-      { action: "load", label: "查看结果" },
-      { action: "rollback", label: "回滚" }
-    ];
-  }
-  if (status === "preview") {
-    return [{ action: "load", label: "读取记录" }];
-  }
-  if (status === "rolled_back" || status === "cancelled") {
-    return [{ action: "load", label: "查看结果" }];
-  }
-  return [{ action: "load", label: "查看记录" }];
-}
-
-function filteredImportHistoryItems() {
-  const statusFilter = String(importState.historyStatusFilter || "all").trim();
-  const connectorFilter = String(importState.historyConnectorFilter || "all").trim();
-  const riskFilter = String(importState.historyRiskFilter || "all").trim();
-  return importState.historyItems.filter((record) => {
-    const status = String(record.status || record.state || "").trim();
-    const connector = String(record.connector || "").trim();
-    if (statusFilter !== "all" && status !== statusFilter) return false;
-    if (connectorFilter !== "all" && connector !== connectorFilter) return false;
-    if (!importHistoryMatchesRisk(record, riskFilter)) return false;
-    return true;
-  });
-}
-
 function renderImportHistory() {
   const el = $("importHistory");
   if (!el) return;
@@ -306,7 +154,11 @@ function renderImportHistory() {
   }
 
   const activeImportRecordId = String(importState.importRecordId || $("importRecordId")?.value || "").trim();
-  const filteredItems = filteredImportHistoryItems();
+  const filteredItems = filterImportHistoryItems(importState.historyItems, {
+    status: importState.historyStatusFilter,
+    connector: importState.historyConnectorFilter,
+    risk: importState.historyRiskFilter
+  });
   if (!filteredItems.length) {
     el.innerHTML = `
       <div class="import-history-empty">当前筛选条件下没有导入记录。试试切回“全部状态”或“全部连接器”。</div>
@@ -1349,7 +1201,12 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
   renderWritingPanel();
   try {
     const [projects, project, scaffoldVersions, draftVersions] = await Promise.all([
-      listWritingProjects(8).catch(() => writingState.projects),
+      listWritingProjects({
+        limit: 8,
+        q: writingState.projectFilters.q,
+        status: writingState.projectFilters.status,
+        hasDraft: writingState.projectFilters.hasDraft
+      }).catch(() => writingState.projects),
       writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
       writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
       writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([])
@@ -2328,11 +2185,22 @@ async function loadWritingProjectsList() {
   writingState.loadingProjects = true;
   renderWritingPanel();
   try {
-    writingState.projects = await listWritingProjects(8);
+    writingState.projects = await listWritingProjects({
+      limit: 8,
+      q: writingState.projectFilters.q,
+      status: writingState.projectFilters.status,
+      hasDraft: writingState.projectFilters.hasDraft
+    });
   } finally {
     writingState.loadingProjects = false;
     renderWritingPanel();
   }
+}
+
+function syncWritingProjectFiltersFromUi() {
+  writingState.projectFilters.q = String($("writingProjectsSearch")?.value || "").trim();
+  writingState.projectFilters.status = String($("writingProjectsStatusFilter")?.value || "all").trim() || "all";
+  writingState.projectFilters.hasDraft = String($("writingProjectsDraftFilter")?.value || "all").trim() || "all";
 }
 
 async function loadWritingScaffoldVersions() {
@@ -2578,9 +2446,18 @@ function renderWritingPanel() {
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
 
   if (projectsHint) {
+    const filterSummary = [
+      writingState.projectFilters.q ? `搜索“${writingState.projectFilters.q}”` : "",
+      writingState.projectFilters.status !== "all" ? `状态 ${writingState.projectFilters.status}` : "",
+      writingState.projectFilters.hasDraft === "true" ? "仅看有草稿" : "",
+      writingState.projectFilters.hasDraft === "false" ? "仅看无草稿" : ""
+    ]
+      .filter(Boolean)
+      .join("，");
     if (writingState.loadingProjects && writingState.projects.length) projectsHint.textContent = `正在刷新最近项目... 当前显示 ${writingState.projects.length} 个项目。`;
     else if (writingState.loadingProjects) projectsHint.textContent = "正在读取最近项目...";
-    else if (writingState.projects.length) projectsHint.textContent = `最近 ${writingState.projects.length} 个项目，按更新时间排序。`;
+    else if (writingState.projects.length) projectsHint.textContent = `${filterSummary ? `${filterSummary}，` : ""}共找到 ${writingState.projects.length} 个项目。`;
+    else if (filterSummary) projectsHint.textContent = `${filterSummary}，但暂时没有匹配项目。`;
     else projectsHint.textContent = "还没有写作项目，创建后会出现在这里。";
   }
   if (projectsList) {
@@ -3390,11 +3267,33 @@ $("writingDraftVersionsList")?.addEventListener("click", async (event) => {
 
 $("btnWritingRefreshProjects")?.addEventListener("click", async () => {
   try {
+    syncWritingProjectFiltersFromUi();
     await loadWritingProjectsList();
     setStatus("已刷新最近项目", "ok");
   } catch (error) {
     setStatus(`刷新项目失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("writingProjectsSearch")?.addEventListener("input", async () => {
+  try {
+    syncWritingProjectFiltersFromUi();
+    await loadWritingProjectsList();
+  } catch {}
+});
+
+$("writingProjectsStatusFilter")?.addEventListener("change", async () => {
+  try {
+    syncWritingProjectFiltersFromUi();
+    await loadWritingProjectsList();
+  } catch {}
+});
+
+$("writingProjectsDraftFilter")?.addEventListener("change", async () => {
+  try {
+    syncWritingProjectFiltersFromUi();
+    await loadWritingProjectsList();
+  } catch {}
 });
 
 $("btnWritingRefreshScaffolds")?.addEventListener("click", async () => {

@@ -3590,15 +3590,31 @@
 
               <div class="writing-stack">
                 <section class="writing-section">
-                  <div class="writing-section-head">
-                    <div>
-                      <div class="writing-section-title">最近项目</div>
-                      <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作项目，支持恢复到当前工作区。</div>
+                    <div class="writing-section-head">
+                      <div>
+                        <div class="writing-section-title">最近项目</div>
+                        <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作项目，支持恢复到当前工作区。</div>
+                      </div>
+                      <button class="mini-btn" id="btnWritingRefreshProjects">刷新项目</button>
                     </div>
-                    <button class="mini-btn" id="btnWritingRefreshProjects">刷新项目</button>
-                  </div>
-                  <div class="writing-note-list" id="writingProjectsList"></div>
-                </section>
+                    <div class="import-grid" style="margin-bottom:12px;">
+                      <label for="writingProjectsSearch">搜索</label>
+                      <input id="writingProjectsSearch" placeholder="按标题、目标或项目 ID 搜索" />
+                      <label for="writingProjectsStatusFilter">状态</label>
+                      <select id="writingProjectsStatusFilter">
+                        <option value="all">全部</option>
+                        <option value="draft">draft</option>
+                        <option value="active">active</option>
+                      </select>
+                      <label for="writingProjectsDraftFilter">草稿</label>
+                      <select id="writingProjectsDraftFilter">
+                        <option value="all">全部</option>
+                        <option value="true">有草稿</option>
+                        <option value="false">无草稿</option>
+                      </select>
+                    </div>
+                    <div class="writing-note-list" id="writingProjectsList"></div>
+                  </section>
                 <section class="writing-section">
                   <div class="writing-section-head">
                     <div>

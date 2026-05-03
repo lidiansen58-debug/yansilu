@@ -273,9 +273,16 @@ export async function createWritingProject(payload) {
   return json.item || null;
 }
 
-export async function listWritingProjects(limit = 8) {
-  const size = Math.max(1, Math.min(50, Number(limit || 8) || 8));
-  const json = await request(`/api/v1/writing-projects?limit=${encodeURIComponent(String(size))}`);
+export async function listWritingProjects(options = {}) {
+  const size = Math.max(1, Math.min(50, Number(options?.limit || 8) || 8));
+  const params = new URLSearchParams({ limit: String(size) });
+  const query = String(options?.q || "").trim();
+  const status = String(options?.status || "").trim();
+  const hasDraft = String(options?.hasDraft || "").trim();
+  if (query) params.set("q", query);
+  if (status && status !== "all") params.set("status", status);
+  if (hasDraft && hasDraft !== "all") params.set("hasDraft", hasDraft);
+  const json = await request(`/api/v1/writing-projects?${params.toString()}`);
   return Array.isArray(json.items) ? json.items : [];
 }
 

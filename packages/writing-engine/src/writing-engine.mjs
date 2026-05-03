@@ -381,6 +381,26 @@ export async function getWritingProject(vaultPath, writingProjectId) {
 export async function listWritingProjects(vaultPath, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const limit = Math.max(1, Math.min(50, Number(input.limit || 8) || 8));
+  const query = cleanText(input.q).toLowerCase();
+  const status = cleanText(input.status).toLowerCase();
+  const hasDraft = cleanText(input.hasDraft || input.has_draft).toLowerCase();
+  const filters = [];
+  const params = [];
+  if (query) {
+    const like = `%${query}%`;
+    filters.push("(LOWER(wp.title) LIKE ? OR LOWER(COALESCE(wp.goal, '')) LIKE ? OR LOWER(wp.id) LIKE ?)");
+    params.push(like, like, like);
+  }
+  if (status && status !== "all") {
+    filters.push("LOWER(COALESCE(wp.status, '')) = ?");
+    params.push(status);
+  }
+  if (hasDraft === "true") {
+    filters.push("wp.draft_note_id IS NOT NULL AND TRIM(wp.draft_note_id) <> ''");
+  } else if (hasDraft === "false") {
+    filters.push("(wp.draft_note_id IS NULL OR TRIM(wp.draft_note_id) = '')");
+  }
+  const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
@@ -391,11 +411,12 @@ export async function listWritingProjects(vaultPath, input = {}) {
            COUNT(wbi.id) AS basket_count
          FROM writing_projects wp
          LEFT JOIN writing_basket_items wbi ON wbi.project_id = wp.id
+         ${whereClause}
          GROUP BY wp.id
          ORDER BY datetime(wp.updated_at) DESC, wp.id DESC
          LIMIT ?`
       )
-      .all(limit);
+      .all(...params, limit);
     const projects = [];
     for (const row of rows) {
       projects.push({

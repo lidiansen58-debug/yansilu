@@ -232,4 +232,33 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(listedProjects.json.items[0].id, project.json.item.id);
   assert.equal(listedProjects.json.items[0].draft_note_id, draftNote.json.item.id);
   assert.equal(listedProjects.json.items[0].scaffold_id, scaffoldV2.json.item.id);
+
+  const secondProject = await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "Side outline",
+    goal: "Keep a separate branch without a draft note yet.",
+    audience: "Editors",
+    tone: "concise",
+    basketNoteIds: [noteA.json.item.id]
+  });
+  assert.equal(secondProject.status, 201, JSON.stringify(secondProject.json));
+
+  const filteredByQuery = await getJson(baseUrl, "/api/v1/writing-projects?limit=8&q=mainline");
+  assert.equal(filteredByQuery.status, 200, JSON.stringify(filteredByQuery.json));
+  assert.equal(filteredByQuery.json.items.length, 1);
+  assert.equal(filteredByQuery.json.items[0].id, project.json.item.id);
+
+  const filteredWithDraft = await getJson(baseUrl, "/api/v1/writing-projects?limit=8&hasDraft=true");
+  assert.equal(filteredWithDraft.status, 200, JSON.stringify(filteredWithDraft.json));
+  assert.equal(filteredWithDraft.json.items.length, 1);
+  assert.equal(filteredWithDraft.json.items[0].id, project.json.item.id);
+
+  const filteredWithoutDraft = await getJson(baseUrl, "/api/v1/writing-projects?limit=8&hasDraft=false");
+  assert.equal(filteredWithoutDraft.status, 200, JSON.stringify(filteredWithoutDraft.json));
+  assert.equal(filteredWithoutDraft.json.items.length, 1);
+  assert.equal(filteredWithoutDraft.json.items[0].id, secondProject.json.item.id);
+
+  const filteredByStatus = await getJson(baseUrl, "/api/v1/writing-projects?limit=8&status=draft");
+  assert.equal(filteredByStatus.status, 200, JSON.stringify(filteredByStatus.json));
+  assert.ok(filteredByStatus.json.items.some((item) => item.id === project.json.item.id));
+  assert.ok(filteredByStatus.json.items.some((item) => item.id === secondProject.json.item.id));
 });

@@ -1067,7 +1067,12 @@ const server = http.createServer(async (req, res) => {
       try {
         await initVault(VAULT_PATH);
         const limit = Number(url.searchParams.get("limit") || 8);
-        const items = await listWritingProjects(VAULT_PATH, { limit });
+        const items = await listWritingProjects(VAULT_PATH, {
+          limit,
+          q: url.searchParams.get("q") || "",
+          status: url.searchParams.get("status") || "",
+          hasDraft: url.searchParams.get("hasDraft") || ""
+        });
         return sendJson(res, 200, {
           items,
           total: items.length,
