@@ -189,16 +189,38 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(draftVersions.json.items[1].version_no, 1);
   assert.equal(draftVersions.json.items[1].source_scaffold_id, scaffold.json.item.id);
 
+  const rebindCurrent = await postJson(
+    baseUrl,
+    `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/current-draft`,
+    {
+      draftNoteId: draftNote.json.item.id
+    }
+  );
+  assert.equal(rebindCurrent.status, 200, JSON.stringify(rebindCurrent.json));
+  assert.equal(rebindCurrent.json.item.draft_note_id, draftNote.json.item.id);
+  assert.equal(rebindCurrent.json.item.draft_note.id, draftNote.json.item.id);
+
+  const reboundDraftVersions = await getJson(
+    baseUrl,
+    `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/draft-versions?limit=12`
+  );
+  assert.equal(reboundDraftVersions.status, 200, JSON.stringify(reboundDraftVersions.json));
+  assert.equal(reboundDraftVersions.json.items.length, 2);
+  assert.equal(reboundDraftVersions.json.items[0].draft_note_id, draftNoteV2.json.item.id);
+  assert.equal(reboundDraftVersions.json.items[0].is_current, false);
+  assert.equal(reboundDraftVersions.json.items[1].draft_note_id, draftNote.json.item.id);
+  assert.equal(reboundDraftVersions.json.items[1].is_current, true);
+
   const fetchedProject = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`);
   assert.equal(fetchedProject.status, 200, JSON.stringify(fetchedProject.json));
   assert.equal(fetchedProject.json.item.scaffold_id, scaffoldV2.json.item.id);
-  assert.equal(fetchedProject.json.item.draft_note_id, draftNoteV2.json.item.id);
-  assert.equal(fetchedProject.json.item.draft_note.id, draftNoteV2.json.item.id);
+  assert.equal(fetchedProject.json.item.draft_note_id, draftNote.json.item.id);
+  assert.equal(fetchedProject.json.item.draft_note.id, draftNote.json.item.id);
 
   const listedProjects = await getJson(baseUrl, "/api/v1/writing-projects?limit=8");
   assert.equal(listedProjects.status, 200, JSON.stringify(listedProjects.json));
   assert.ok(Array.isArray(listedProjects.json.items));
   assert.equal(listedProjects.json.items[0].id, project.json.item.id);
-  assert.equal(listedProjects.json.items[0].draft_note_id, draftNoteV2.json.item.id);
+  assert.equal(listedProjects.json.items[0].draft_note_id, draftNote.json.item.id);
   assert.equal(listedProjects.json.items[0].scaffold_id, scaffoldV2.json.item.id);
 });

@@ -499,6 +499,39 @@ export async function bindDraftNoteToProject(vaultPath, input = {}) {
   return getWritingProject(vaultPath, writingProjectId);
 }
 
+export async function setCurrentDraftNote(vaultPath, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const writingProjectId = cleanText(input.writingProjectId || input.writing_project_id);
+  if (!writingProjectId) throw new Error("writingProjectId is required");
+  const draftNoteId = cleanText(input.draftNoteId || input.draft_note_id);
+  if (!draftNoteId) throw new Error("draftNoteId is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const exists = db.prepare("SELECT id FROM writing_projects WHERE id = ? LIMIT 1").get(writingProjectId);
+    if (!exists) throw new Error(`writingProjectId not found: ${writingProjectId}`);
+    const draftVersion = db
+      .prepare(
+        `SELECT id
+         FROM draft_note_versions
+         WHERE writing_project_id = ? AND draft_note_id = ?
+         ORDER BY version_no DESC, datetime(created_at) DESC, id DESC
+         LIMIT 1`
+      )
+      .get(writingProjectId, draftNoteId);
+    if (!draftVersion) {
+      throw new Error(`draftNoteId is not a saved version for writing project: ${draftNoteId}`);
+    }
+    const now = new Date().toISOString();
+    db.prepare("UPDATE writing_projects SET draft_note_id = ?, updated_at = ? WHERE id = ?").run(draftNoteId, now, writingProjectId);
+  } finally {
+    db.close();
+  }
+
+  return getWritingProject(vaultPath, writingProjectId);
+}
+
 export async function getDraftScaffold(vaultPath, draftScaffoldId) {
   const id = cleanText(draftScaffoldId);
   if (!id) throw new Error("draftScaffoldId is required");

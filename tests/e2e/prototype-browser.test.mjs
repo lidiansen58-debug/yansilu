@@ -2626,6 +2626,29 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
 
   await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => {
+    const buttons = [...document.querySelectorAll('#writingDraftVersionsList [data-writing-draft-action="set-current"]')];
+    return buttons.length >= 1 && buttons.every((button) => button instanceof HTMLElement && button.offsetParent !== null);
+  });
+  await page.locator('#writingDraftVersionsList [data-writing-draft-action="set-current"]').last().click();
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#statusText")?.textContent || "";
+    return text.includes("已将草稿版本设为当前");
+  });
+  const reboundDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
+  assert.match(reboundDraftVersionsText || "", /v1/);
+  assert.match(reboundDraftVersionsText || "", /当前草稿/);
+
+  await page.locator("#btnWritingOpenDraft").click({ force: true });
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#statusText")?.textContent || "";
+    return text.includes("已打开草稿笔记");
+  });
+  const reboundEditorValue = await page.locator("#editorBody").inputValue();
+  assert.match(reboundEditorValue, /# Writing UI Project 草稿/);
+  assert.doesNotMatch(reboundEditorValue, /second scaffold/i);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('#writingProjectsList button[data-writing-project-action="open"]').first().click();
   await page.waitForFunction(() => {
     const title = document.querySelector("#writingTitle")?.value || "";

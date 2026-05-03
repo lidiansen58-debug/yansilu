@@ -325,6 +325,19 @@ export async function bindWritingDraftNote(writingProjectId, draftNoteId, source
   return json.item || null;
 }
 
+export async function setWritingCurrentDraftNote(writingProjectId, draftNoteId) {
+  const cleanWritingProjectId = String(writingProjectId || "").trim();
+  const cleanDraftNoteId = String(draftNoteId || "").trim();
+  if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
+  if (!cleanDraftNoteId) throw new Error("draftNoteId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/current-draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draftNoteId: cleanDraftNoteId })
+  });
+  return json.item || null;
+}
+
 export async function createDraftScaffold(writingProjectId) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");

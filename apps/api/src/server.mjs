@@ -48,7 +48,8 @@ import {
   getWritingProject,
   listProjectDraftVersions,
   listProjectScaffolds,
-  listWritingProjects
+  listWritingProjects,
+  setCurrentDraftNote
 } from "../../../packages/writing-engine/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
@@ -1102,6 +1103,25 @@ const server = http.createServer(async (req, res) => {
           writingProjectId: decodeURIComponent(writingDraftBindingMatch[1]),
           draftNoteId: body.draftNoteId || body.draft_note_id,
           sourceScaffoldId: body.sourceScaffoldId || body.source_scaffold_id
+        });
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const writingCurrentDraftMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/current-draft$/);
+    if (req.method === "POST" && writingCurrentDraftMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await setCurrentDraftNote(VAULT_PATH, {
+          writingProjectId: decodeURIComponent(writingCurrentDraftMatch[1]),
+          draftNoteId: body.draftNoteId || body.draft_note_id
         });
         return sendJson(res, 200, {
           item,

@@ -36,6 +36,7 @@ import {
   listProjectDraftVersions,
   listProjectScaffolds,
   listWritingProjects,
+  setWritingCurrentDraftNote,
   fetchVaultInfo,
   getApiBase,
   moveNote,
@@ -2305,6 +2306,11 @@ function renderDraftVersionCard(version) {
       <div class="writing-note-meta">创建时间：${escapeHtml(version.created_at || "")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿</button>
+        ${
+          version?.is_current
+            ? `<button class="mini-btn" type="button" disabled>当前草稿</button>`
+            : `<button class="mini-btn" type="button" data-writing-draft-action="set-current" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">设为当前草稿</button>`
+        }
       </div>
     </article>
   `;
@@ -3346,6 +3352,19 @@ $("writingDraftVersionsList")?.addEventListener("click", async (event) => {
   const action = String(button.getAttribute("data-writing-draft-action") || "");
   const draftNoteId = String(button.getAttribute("data-writing-draft-note-id") || "");
   if (!draftNoteId) return;
+  if (action === "set-current") {
+    try {
+      const project = await setWritingCurrentDraftNote(writingState.project?.id, draftNoteId);
+      writingState.project = project;
+      await loadWritingProjectsList();
+      await loadWritingDraftVersions();
+      renderWritingPanel();
+      setStatus(`已将草稿版本设为当前：${draftNoteId}`, "ok");
+    } catch (error) {
+      setStatus(`设为当前草稿失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
   if (action === "open") {
     try {
       if (!writingNoteById(draftNoteId)) {
