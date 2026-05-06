@@ -3,7 +3,9 @@
   createInitialState,
   folderById,
   joinFsPath,
+  parseLinks,
   notesInFolder,
+  parseTags,
   rootBoxIdFromFolder,
   typeFromFolder,
   uid
@@ -12,17 +14,40 @@ import { ContextMenu } from "./components-context-menu.js";
 import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane } from "./components-explorer-pane.js";
-import { EditorPane } from "./components-editor-pane.js";
+import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
 import {
-  filterImportHistoryItems,
-  formatImportTimestamp,
-  importHistoryActions,
-  importHistoryAlertBadges,
-  importHistoryDetailSummary,
-  importHistorySummary,
-  importStatusLabel,
-  importStatusTone
-} from "./import-history-model.js";
+  renderImportHistoryMount
+} from "./import-history-mount.js";
+import {
+  renderImportPageMount
+} from "./import-page-mount.js";
+import {
+  importConfirmButtonState
+} from "./import-toolbar-model.js";
+import {
+  createImportToolbarActions,
+} from "./import-toolbar-actions.js";
+import {
+  renderImportToolbarMount
+} from "./import-toolbar-mount.js";
+import {
+  renderImportResultMount
+} from "./import-result-mount.js";
+import {
+  candidateIdsByOriginalityStatus,
+  candidatePreviewItemIds,
+  candidatePreviewItems,
+  confirmSkipReasonMap,
+  confirmSkippedCandidateIds,
+  confirmableCandidateIds,
+  riskyCandidateIds,
+  safeCandidateIds,
+  selectionSummary as summarizeCandidateSelection
+} from "./import-candidate-preview-model.js";
+import {
+  renderCandidatePreview,
+  renderConfirmSkipBreakdown
+} from "./import-candidate-preview-panel.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   bindWritingDraftNote,
@@ -30,6 +55,7 @@ import {
   confirmImport,
   createDirectory,
   createDraftScaffold,
+  createIndexCard,
   createNote,
   createWritingProject,
   deleteDirectory,
@@ -37,16 +63,21 @@ import {
   exportMarkdown,
   fetchDraftScaffold,
   fetchDirectories,
+  fetchGraphConflicts,
   fetchDirectoryGraph,
+  fetchIndexCard,
   fetchDirectoryNotes,
   fetchImportRecord,
   listImportRecords,
+  listIndexCards,
   fetchNote,
   fetchWritingProject,
   listProjectDraftVersions,
   listProjectScaffolds,
   listWritingProjects,
   setWritingCurrentDraftNote,
+  updateDraftNoteVersionNote,
+  updateDraftScaffoldVersionNote,
   fetchVaultInfo,
   getApiBase,
   moveNote,
@@ -59,10 +90,13 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
+state.literatureQueueFocusNoteIds = [];
+state.literatureQueueFocusLabel = "";
 const importState = {
   importRecordId: "",
   lastPreview: null,
   lastResultPayload: null,
+  literatureBatchSummary: null,
   historyItems: [],
   historyTotal: 0,
   historyLoading: false,
@@ -76,6 +110,7 @@ const importState = {
 };
 const graphState = {
   item: null,
+  conflicts: null,
   loading: false,
   error: ""
 };
@@ -87,6 +122,9 @@ const writingState = {
   project: null,
   scaffold: null,
   scaffoldMarkdown: "",
+  sourceIndexIds: [],
+  themeIndexes: [],
+  loadingThemeIndexes: false,
   projects: [],
   projectFilters: {
     q: "",
@@ -141,87 +179,148 @@ function compactValue(value) {
   return String(value);
 }
 
-function renderImportHistory() {
-  const el = $("importHistory");
+function currentImportToolbarValues() {
+  return {
+    connector: String($("importConnector")?.value || "markdown").trim(),
+    path: String($("importPath")?.value || "").trim(),
+    payload: String($("importPayload")?.value || ""),
+    options: String($("importOptions")?.value || ""),
+    importRecordId: String($("importRecordId")?.value || importState.importRecordId || "").trim()
+  };
+}
+
+function renderImportToolbar() {
+  const el = $("importToolbarMount");
   if (!el) return;
-  if (importState.historyLoading) {
-    el.innerHTML = `<div class="import-history-empty">正在读取导入历史…</div>`;
-    return;
-  }
-  if (!importState.historyItems.length) {
-    el.innerHTML = `<div class="import-history-empty">还没有导入记录。先预览一次 Markdown/Obsidian 导入，这里就会出现历史。</div>`;
-    return;
+  const values = currentImportToolbarValues();
+  const preview = activeImportPreviewContext();
+  const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
+  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, values.importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const confirmButton = importConfirmButtonState({
+    hasMatchingPreview,
+    selectedCount: summary.selectedCount,
+    totalCount: summary.totalCount
+  });
+
+  el.innerHTML = renderImportToolbarMount({
+    ...values,
+    confirmButton
+  });
+}
+
+function renderImportPageShell() {
+  const el = $("importPageMount");
+  if (!el) return;
+  el.innerHTML = renderImportPageMount({
+    toolbar: currentImportToolbarValues(),
+    history: {
+      items: importState.historyItems,
+      total: importState.historyTotal,
+      loading: importState.historyLoading,
+      activeImportRecordId: String(importState.importRecordId || "").trim(),
+      filters: {
+        status: importState.historyStatusFilter,
+        connector: importState.historyConnectorFilter,
+        risk: importState.historyRiskFilter
+      }
+    },
+    result: importState.lastResultPayload
+      ? {
+          data: importState.lastResultPayload,
+          raw: JSON.stringify(importState.lastResultPayload, null, 2)
+        }
+      : null
+  });
+}
+
+function normalizeOptionalNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+const NOTE_SAVE_REFLECTION_PROMPTS = [
+  "这段材料你真正理解成什么？",
+  "你为什么要保留它？",
+  "它会支持什么判断？"
+];
+
+const ORIGINALITY_REASON_LABELS = {
+  similarity_above_block_threshold: "它仍然过于贴近关联文献的原句",
+  similarity_above_warn_threshold: "它还没有完全转成你自己的判断语言",
+  citation_locator_missing: "它缺少可追溯的引用定位",
+  core_claim_empty: "它的核心判断还不够清楚"
+};
+
+function noteSaveReflectionHint(prefix = "") {
+  const head = String(prefix || "").trim();
+  return `${head ? `${head} ` : ""}${NOTE_SAVE_REFLECTION_PROMPTS.join("  ")}`.trim();
+}
+
+function originalityReasonSummary(reasons = []) {
+  const labels = [...new Set((reasons || []).map((reason) => ORIGINALITY_REASON_LABELS[String(reason || "").trim()] || "").filter(Boolean))];
+  return labels.join("；");
+}
+
+function noteSaveFailureFeedback(error) {
+  const code = String(error?.code || "").trim();
+  if (code === "LITERATURE_PARAPHRASE_REQUIRED") {
+    return {
+      ok: false,
+      saveMode: "blocked",
+      saveMessage: noteSaveReflectionHint("当前文件：缺少转述，暂不能标记完成。"),
+      statusTone: "warn",
+      statusMessage: "保存被拦下：先写出你真正理解后的转述，再把文献笔记标记为已完成。"
+    };
   }
 
-  const activeImportRecordId = String(importState.importRecordId || $("importRecordId")?.value || "").trim();
-  const filteredItems = filterImportHistoryItems(importState.historyItems, {
-    status: importState.historyStatusFilter,
-    connector: importState.historyConnectorFilter,
-    risk: importState.historyRiskFilter
-  });
-  if (!filteredItems.length) {
-    el.innerHTML = `
-      <div class="import-history-empty">当前筛选条件下没有导入记录。试试切回“全部状态”或“全部连接器”。</div>
-      <div class="toolbar-note">共 ${importState.historyItems.length} 条历史记录，当前过滤后为 0 条。</div>
-    `;
-    return;
+  if (code === "PERMANENT_ORIGINALITY_BLOCKED") {
+    const originality = error?.details?.originality || {};
+    const similarity = Math.round((Number(originality.similarity) || 0) * 100);
+    const reasons = originalityReasonSummary(originality.reasons);
+    const reasonSuffix = reasons ? ` ${reasons}。` : "";
+    return {
+      ok: false,
+      saveMode: "blocked",
+      saveMessage: noteSaveReflectionHint(
+        `当前文件：原创性检测阻止落盘。相似度约 ${similarity}%。先把外部语言改写成你自己的判断，再继续保存。`
+      ),
+      statusTone: "warn",
+      statusMessage: `保存被拦下：这条原创笔记仍然过于贴近关联文献原文（相似度 ${similarity}%）。${reasonSuffix}`.trim()
+    };
   }
-  el.innerHTML = `
-    <div class="import-history-list">
-      ${filteredItems
-        .map((record) => {
-          const recordId = String(record.importRecordId || "").trim();
-          const status = String(record.status || record.state || "").trim();
-          const actions = importHistoryActions(record);
-          const badges = importHistoryAlertBadges(record);
-          const details = importHistoryDetailSummary(record);
-          return `
-            <div class="import-history-item ${recordId && recordId === activeImportRecordId ? "is-active" : ""}" data-import-history-id="${escapeHtml(recordId)}">
-              <div class="import-history-item-head">
-                <strong>${escapeHtml(record.connector || "import")}</strong>
-                <div class="import-history-badge-row">
-                  <span class="import-history-badge tone-${escapeHtml(importStatusTone(status))}">${escapeHtml(importStatusLabel(status))}</span>
-                  ${badges
-                    .map(
-                      (item) => `
-                        <span class="import-history-badge tone-${escapeHtml(item.tone)}">${escapeHtml(item.text)}</span>
-                      `
-                    )
-                    .join("")}
-                </div>
-              </div>
-              <div class="import-history-item-id">${escapeHtml(recordId)}</div>
-              <div class="import-history-item-meta">
-                <span>${escapeHtml(importHistorySummary(record))}</span>
-                <span>${escapeHtml(formatImportTimestamp(record.updatedAt || record.createdAt))}</span>
-              </div>
-              ${
-                details.length
-                  ? `<div class="import-history-detail">
-                      ${details.map((item) => `<div class="import-history-detail-line">${escapeHtml(item)}</div>`).join("")}
-                    </div>`
-                  : ""
-              }
-              <div class="import-history-actions">
-                ${actions
-                  .map(
-                    (item) => `
-                      <button class="mini-btn import-history-action" type="button" data-import-history-action="${escapeHtml(item.action)}" data-import-history-id="${escapeHtml(
-                        recordId
-                      )}">
-                        ${escapeHtml(item.label)}
-                      </button>
-                    `
-                  )
-                  .join("")}
-              </div>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-    <div class="toolbar-note">当前显示 ${filteredItems.length} 条${importState.historyItems.length !== filteredItems.length ? ` / 已加载 ${importState.historyItems.length} 条` : ""}${importState.historyTotal > importState.historyItems.length ? ` / 共 ${importState.historyTotal} 条` : ""}。</div>
-  `;
+
+  return {
+    ok: false,
+    saveMode: "error",
+    saveMessage: "当前文件：保存失败，修改仍保留在编辑器中。",
+    statusTone: "warn",
+    statusMessage: `保存失败（仅本地暂存）：${String(error?.message || error)}`
+  };
+}
+
+function normalizeAuthorshipItem(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    user_confirmed: Boolean(value.user_confirmed),
+    ai_assisted: Boolean(value.ai_assisted)
+  };
+}
+
+function renderImportHistory() {
+  const el = $("importHistoryMount");
+  if (!el) return;
+  el.innerHTML = renderImportHistoryMount({
+    items: importState.historyItems,
+    total: importState.historyTotal,
+    loading: importState.historyLoading,
+    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim(),
+    filters: {
+      status: importState.historyStatusFilter,
+      connector: importState.historyConnectorFilter,
+      risk: importState.historyRiskFilter
+    }
+  });
 }
 
 async function refreshImportHistory({ silent = false } = {}) {
@@ -231,7 +330,7 @@ async function refreshImportHistory({ silent = false } = {}) {
   }
   try {
     const result = await listImportRecords(12);
-    importState.historyItems = result.items;
+    importState.historyItems = await enrichImportHistoryItemsWithLiteratureProgress(result.items);
     importState.historyTotal = result.total;
   } catch (error) {
     if (!silent) {
@@ -290,260 +389,12 @@ function syncImportHistoryFiltersFromUi() {
   importState.historyRiskFilter = String($("importHistoryRisk")?.value || "all").trim();
 }
 
-function resultTitle(stage) {
-  const titles = {
-    preview: "导入预览完成",
-    preview_error: "导入预览失败",
-    confirm: "导入写入完成",
-    confirm_error: "导入写入失败",
-    cancel: "导入已取消",
-    cancel_error: "取消导入失败",
-    record: "导入记录已读取",
-    record_error: "读取导入记录失败",
-    rollback: "导入回滚完成",
-    rollback_error: "导入回滚失败",
-    export_markdown: "Markdown 导出完成",
-    export_error: "Markdown 导出失败",
-    writing_project: "写作项目已创建",
-    writing_project_error: "写作项目创建失败",
-    draft_scaffold: "草稿骨架已生成",
-    draft_scaffold_error: "草稿骨架生成失败",
-    writing_draft_note: "草稿笔记已创建",
-    writing_draft_note_error: "草稿笔记创建失败",
-    writing_copy_scaffold: "Scaffold Markdown 已复制",
-    writing_copy_scaffold_error: "Scaffold 复制失败",
-    writing_export_scaffold: "Scaffold Markdown 已导出",
-    writing_export_scaffold_error: "Scaffold 导出失败"
-  };
-  return titles[stage] || "操作结果";
-}
-
-function resultTone(payload = {}) {
-  const stage = String(payload.stage || "");
-  if (stage.includes("error")) return "bad";
-  if (Array.isArray(payload.warnings) && payload.warnings.length) return "warn";
-  if (payload.status === "blocked" || payload.status === "failed") return "bad";
-  if (Number(payload.result?.skipped || 0) > 0) return "warn";
-  if (Number(payload.result?.skipped?.invalid || 0) > 0 || Number(payload.result?.skipped?.conflicted || 0) > 0) return "warn";
-  return "ok";
-}
-
-function resultMetrics(payload = {}) {
-  const stage = String(payload.stage || "");
-  const metrics = [];
-  const push = (label, value) => {
-    if (value !== undefined) metrics.push({ label, value: compactValue(value) });
-  };
-
-  if (stage === "preview") {
-    push("ImportRecord", payload.importRecordId);
-    push("连接器", payload.connector);
-    push("状态", payload.status);
-    for (const [key, value] of primitiveEntries(payload.summary)) push(key, value);
-    push("Warnings", Array.isArray(payload.warnings) ? payload.warnings.length : 0);
-    return metrics;
-  }
-
-  if (stage === "confirm" || stage === "rollback") {
-    push("ImportRecord", payload.importRecordId);
-    push("状态", payload.status);
-    if (payload.result?.selection) {
-      const selection = payload.result.selection;
-      push("已选候选", `${compactValue(selection.selectedCandidates)}/${compactValue(selection.totalCandidates)}`);
-      push("选择模式", selection.mode);
-    }
-    for (const [key, value] of primitiveEntries(payload.result)) push(key, value);
-    return metrics;
-  }
-
-  if (stage === "record") {
-    push("ImportRecord", payload.importRecord?.importRecordId);
-    push("状态", payload.importRecord?.status);
-    push("连接器", payload.importRecord?.connector);
-    return metrics;
-  }
-
-  if (stage === "export_markdown") {
-    push("ExportJob", payload.exportJobId);
-    push("状态", payload.status);
-    push("复制文件", payload.copied);
-    push("目标路径", payload.targetPath);
-    return metrics;
-  }
-
-  if (stage === "writing_project") {
-    push("Project", payload.writingProjectId);
-    push("标题", payload.title);
-    push("篮子笔记", Array.isArray(payload.basketNoteIds) ? payload.basketNoteIds.length : undefined);
-    return metrics;
-  }
-
-  if (stage === "draft_scaffold") {
-    push("Project", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
-    push("章节数", Array.isArray(payload.sections) ? payload.sections.length : undefined);
-    return metrics;
-  }
-
-  if (stage === "writing_draft_note") {
-    push("Project", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
-    push("Note", payload.noteId);
-    push("目录", payload.directoryId);
-    return metrics;
-  }
-
-  if (stage === "writing_copy_scaffold" || stage === "writing_export_scaffold") {
-    push("Project", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
-    push("文件", payload.fileName);
-    push("字符数", payload.characters);
-    return metrics;
-  }
-
-  push("代码", payload.code);
-  push("消息", payload.message);
-  push("状态", payload.status);
-  return metrics;
-}
-
-function warningItems(payload = {}) {
-  const warnings = [];
-  if (Array.isArray(payload.warnings)) warnings.push(...payload.warnings);
-  if (payload.code) warnings.push({ code: payload.code, message: payload.message || "" });
-  const evaluations = payload.originalityGuard?.evaluations;
-  if (Array.isArray(evaluations)) {
-    for (const item of evaluations) {
-      if (item?.status && item.status !== "pass") {
-        warnings.push({
-          code: `ORIGINALITY_${String(item.status).toUpperCase()}`,
-          message: `${item.id || "note"}: ${item.reasons?.join(", ") || item.status}`
-        });
-      }
-    }
-  }
-  return warnings;
-}
-
 function uniqueStrings(items = []) {
   return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
-function actionableTextForCode(code, payload = {}) {
-  const normalized = String(code || "").trim();
-  const map = {
-    IMPORT_EMPTY_PAYLOAD: "补充 Payload JSON，或为 Markdown/Obsidian 导入填写一个存在的本机路径。",
-    IMPORT_SOURCE_UNREADABLE: "确认导入路径存在、当前进程有读取权限，并尽量使用绝对路径。",
-    IMPORT_MARKDOWN_FILE_UNREADABLE: "检查被跳过的 Markdown 文件权限或编码，修复后重新预览导入。",
-    IMPORT_MALFORMED_FRONTMATTER: "修正 frontmatter 的 --- 起止边界；预览仍会继续，但建议在确认写入前先处理。",
-    IMPORT_NO_MARKDOWN_FILE: "确认目录中包含 .md 文件；如果是 Obsidian vault，请选择 vault 根目录或目标子目录。",
-    IMPORT_PAYLOAD_INVALID: "检查 connector 名称和 JSON 结构，确认连接器为 markdown、obsidian、zotero、readwise 或 notebooklm。",
-    IMPORT_RECORD_NOT_FOUND: "确认 ImportRecord ID 是否来自当前 Vault；切换 Vault 后需要重新预览。",
-    IMPORT_STATUS_INVALID: "确认导入记录处于正确阶段：只有 preview 可确认，只有 completed 可回滚。",
-    IMPORT_CONFIRM_REQUIRED: "点击“确认写入”时需要明确 confirm=true；如果只是放弃本次导入，请使用取消。",
-    IMPORT_ORIGINALITY_BLOCKED: "先改写被阻止的永久笔记，或在确认接口中显式传入 originalityOverride=true 后再写入。",
-    ORIGINALITY_GUARD_WARNING: "检查 warning 笔记的引用定位和转述质量；需要直接写入时可开启 allowDraftOnWarning。",
-    ORIGINALITY_GUARD_BLOCKED: "把高相似度文本改写成自己的核心主张，并补充来源定位后重新预览。",
-    ORIGINALITY_WARNING: "补充引用定位或增强转述，再重新运行原创性检查。",
-    ORIGINALITY_BLOCKED: "降低与文献摘录的相似度，保留证据链但重写永久笔记表述。",
-    WRITING_PROJECT_INVALID: "确认标题不为空，并且 basket 里只放原创/永久笔记 ID。",
-    DRAFT_SCAFFOLD_INVALID: "先创建有效写作项目，再用返回的 writingProjectId 生成草稿骨架。",
-    WRITING_DRAFT_INVALID: "请先生成 scaffold，再保存成草稿笔记。"
-  };
-  if (map[normalized]) return map[normalized];
-  if (payload.message) return `根据错误信息处理：${payload.message}`;
-  return "";
-}
-
-function actionableTextForReason(reason) {
-  const map = {
-    core_claim_empty: "补充永久笔记的核心主张，避免只留下标题或空正文。",
-    similarity_above_warn_threshold: "把与文献相近的句子改写成自己的判断，并保留引用来源。",
-    similarity_above_block_threshold: "当前文本过于接近来源材料，需要重写后再确认导入。",
-    citation_locator_missing: "为引用补充页码、章节、时间戳或其他可追溯定位。"
-  };
-  return map[String(reason || "")] || "";
-}
-
-function actionItems(payload = {}, warnings = []) {
-  const actions = [];
-  for (const warning of warnings) {
-    const text = actionableTextForCode(warning?.code, payload);
-    if (text) actions.push(text);
-  }
-
-  const evaluations = Array.isArray(payload.originalityGuard?.evaluations) ? payload.originalityGuard.evaluations : [];
-  for (const item of evaluations) {
-    for (const reason of item?.reasons || []) {
-      const text = actionableTextForReason(reason);
-      if (text) actions.push(text);
-    }
-  }
-
-  const skipped = payload.result?.skipped;
-  if (typeof skipped === "number" && skipped > 0) {
-    actions.push("回滚时有文件被跳过，请查看 skippedFiles；如果 reason 是 modified，需要手动对比后决定是否删除。");
-  }
-  if (Number(skipped?.conflicted || 0) > 0) {
-    actions.push("有目标文件已存在，导入没有覆盖；重命名源文件或清理目标文件后重新确认。");
-  }
-  if (Number(skipped?.invalid || 0) > 0) {
-    actions.push("有永久笔记因为原创性 warning 被跳过；修复引用/转述，或允许 warning 作为 draft 写入。");
-  }
-  if (Array.isArray(payload.result?.skippedFiles) && payload.result.skippedFiles.length) {
-    const modified = payload.result.skippedFiles.some((item) => item?.reason === "modified");
-    actions.push(modified ? "被修改过的文件不会自动回滚；请打开对应路径手动合并或删除。" : "检查 skippedFiles 中的 reason 和 path，再手动处理未回滚文件。");
-  }
-
-  if (payload.stage === "writing_project_error" && /only accepts permanent notes/i.test(payload.message || "")) {
-    actions.push("先在原创笔记目录中选择 PermanentNote，再加入写作篮子。");
-  }
-  if (payload.stage === "writing_project_error" && /basketNoteIds/i.test(payload.message || "")) {
-    actions.push("至少加入一条原创笔记 ID；可以先打开一条原创笔记后点击“加入当前笔记”。");
-  }
-  if (payload.stage === "writing_project_error" && /title/i.test(payload.message || "")) {
-    actions.push("补充写作项目标题后再创建。");
-  }
-  if (payload.stage === "writing_draft_note_error" && /scaffold/i.test(payload.message || "")) {
-    actions.push("先点击“生成草稿骨架”，确认预览区已经出现章节和 Markdown。");
-  }
-
-  return uniqueStrings(actions).slice(0, 5);
-}
-
 function candidatePreviewFromPayload(payload = {}) {
   return payload.candidatePreview || payload.importRecord?.candidatePreview || null;
-}
-
-function candidatePreviewItems(candidatePreview) {
-  return candidateGroups(candidatePreview).flatMap((group) =>
-    group.items
-      .filter((item) => item?.id)
-      .map((item) => ({
-        ...item,
-        candidateGroup: group.title
-      }))
-  );
-}
-
-function normalizePreviewOriginalityPlan(originalityGuard = null) {
-  const plan = originalityGuard?.plan || {};
-  return {
-    allowDraftOnWarning: plan.allowDraftOnWarning !== false,
-    blockOnBlocked: plan.blockOnBlocked !== false
-  };
-}
-
-function isConfirmableCandidate(item = {}, originalityGuard = null) {
-  if (item.candidateGroup !== "PermanentNote") return true;
-  const plan = normalizePreviewOriginalityPlan(originalityGuard);
-  if (item.originalityStatus === "blocked") return !plan.blockOnBlocked;
-  if (item.originalityStatus === "warning") return plan.allowDraftOnWarning;
-  return true;
-}
-
-function candidatePreviewItemIds(candidatePreview) {
-  return candidatePreviewItems(candidatePreview).map((item) => String(item.id));
 }
 
 function syncImportSelection(importRecordId, candidatePreview, { preserve = false } = {}) {
@@ -572,232 +423,47 @@ function selectedCandidateIdsFor(candidatePreview, importRecordId, selection = n
 }
 
 function selectionSummary(candidatePreview, importRecordId, selection = null) {
-  const totalIds = candidatePreviewItemIds(candidatePreview);
   const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  return {
-    selectedIds,
-    selectedCount: totalIds.filter((id) => selectedIds.has(id)).length,
-    totalCount: totalIds.length,
-    excludedCount: totalIds.filter((id) => !selectedIds.has(id)).length
-  };
-}
-
-function candidateGroups(candidatePreview) {
-  if (!candidatePreview) return [];
-  return [
-    { title: "Source", items: candidatePreview.sources || [] },
-    { title: "LiteratureNote", items: candidatePreview.literatureNotes || [] },
-    { title: "PermanentNote", items: candidatePreview.permanentNotes || [] }
-  ].filter((group) => Array.isArray(group.items) && group.items.length);
-}
-
-function candidateBadge(item = {}) {
-  return item.originalityStatus || item.status || item.sourceType || item.type || "candidate";
-}
-
-function candidateMeta(item = {}) {
-  return uniqueStrings([item.id, item.importedFrom, item.locator, item.sourceId]).join(" · ");
-}
-
-function candidateReasonText(reason) {
-  const map = {
-    core_claim_empty: "核心主张为空",
-    similarity_above_warn_threshold: "相似度偏高",
-    similarity_above_block_threshold: "相似度阻断",
-    citation_locator_missing: "缺少引用定位"
-  };
-  return map[String(reason || "")] || String(reason || "");
-}
-
-function candidateTone(item = {}) {
-  if (item.originalityStatus === "blocked") return "blocked";
-  if (item.originalityStatus === "warning") return "warning";
-  if (item.originalityStatus === "pass") return "pass";
-  return "neutral";
-}
-
-function candidateReasonBadges(item = {}) {
-  const reasons = Array.isArray(item.reasons) ? item.reasons : [];
-  return reasons
-    .map(
-      (reason) =>
-        `<span class="candidate-reason candidate-reason-${escapeHtml(candidateTone(item))}">${escapeHtml(candidateReasonText(reason))}</span>`
-    )
-    .join("");
-}
-
-function safeCandidateIds(candidatePreview) {
-  return candidatePreviewItems(candidatePreview)
-    .filter((item) => item.originalityStatus !== "blocked")
-    .map((item) => String(item.id));
-}
-
-function confirmableCandidateIds(candidatePreview, originalityGuard = null) {
-  return candidatePreviewItems(candidatePreview)
-    .filter((item) => isConfirmableCandidate(item, originalityGuard))
-    .map((item) => String(item.id));
-}
-
-function candidateIdsByOriginalityStatus(candidatePreview, originalityStatus) {
-  return candidatePreviewItems(candidatePreview)
-    .filter((item) => item.originalityStatus === originalityStatus)
-    .map((item) => String(item.id));
-}
-
-function riskyCandidateIds(candidatePreview) {
-  return candidatePreviewItems(candidatePreview)
-    .filter((item) => item.originalityStatus === "warning" || item.originalityStatus === "blocked")
-    .map((item) => String(item.id));
-}
-
-function candidateFilterCounts(candidatePreview, importRecordId, selection = null, originalityGuard = null) {
-  const items = candidatePreviewItems(candidatePreview);
-  const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  const safeIds = new Set(safeCandidateIds(candidatePreview));
-  const confirmableIds = new Set(confirmableCandidateIds(candidatePreview, originalityGuard));
-  return {
-    all: items.length,
-    confirmable: items.filter((item) => confirmableIds.has(String(item.id))).length,
-    safe: items.filter((item) => safeIds.has(String(item.id))).length,
-    risky: items.filter((item) => item.originalityStatus === "warning" || item.originalityStatus === "blocked").length,
-    excluded: items.filter((item) => !selectedIds.has(String(item.id))).length,
-    warning: items.filter((item) => item.originalityStatus === "warning").length,
-    blocked: items.filter((item) => item.originalityStatus === "blocked").length
-  };
-}
-
-function matchesCandidateFilter(item, filter, selectedIds, originalityGuard = null) {
-  const candidateId = String(item?.id || "");
-  if (filter === "confirmable") return isConfirmableCandidate(item, originalityGuard);
-  if (filter === "safe") return item?.originalityStatus !== "blocked";
-  if (filter === "risky") return item?.originalityStatus === "warning" || item?.originalityStatus === "blocked";
-  if (filter === "excluded") return !selectedIds.has(candidateId);
-  if (filter === "warning") return item?.originalityStatus === "warning";
-  if (filter === "blocked") return item?.originalityStatus === "blocked";
-  return true;
-}
-
-function filterLabel(filter) {
-  const labels = {
-    all: "全部",
-    confirmable: "仅可确认项",
-    safe: "仅安全项",
-    risky: "仅风险项",
-    excluded: "已排除",
-    warning: "仅 Warning",
-    blocked: "仅 Blocked"
-  };
-  return labels[filter] || "全部";
-}
-
-function resultFocusLabel(reason) {
-  const labels = {
-    unselected: "未勾选跳过",
-    invalid: "原创性跳过",
-    conflicted: "文件冲突跳过"
-  };
-  return labels[String(reason || "").trim()] || "候选";
-}
-
-function excludedCandidateItems(candidatePreview, importRecordId, selection = null) {
-  const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  return candidatePreviewItems(candidatePreview).filter((item) => !selectedIds.has(String(item.id)));
-}
-
-function confirmSkippedCandidateIds(payload = {}, candidatePreview = null) {
-  const empty = { unselected: [], invalid: [], conflicted: [] };
-  if (String(payload.stage || "") !== "confirm" || !candidatePreview) return empty;
-
-  const importRecordId = payload.importRecordId || payload.importRecord?.importRecordId || "";
-  const selection = payload.result?.selection || null;
-  const items = candidatePreviewItems(candidatePreview);
-  const itemIds = items.map((item) => String(item.id || ""));
-  const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  const unselected = itemIds.filter((id) => !selectedIds.has(id));
-
-  const evaluationById = new Map(
-    (Array.isArray(payload.originalityGuard?.evaluations) ? payload.originalityGuard.evaluations : []).map((item) => [
-      String(item?.permanentId || item?.id || ""),
-      item
-    ])
-  );
-  const plan = normalizePreviewOriginalityPlan(payload.originalityGuard || null);
-  const invalid = items
-    .filter((item) => item.candidateGroup === "PermanentNote" && selectedIds.has(String(item.id || "")))
-    .filter((item) => {
-      const evaluation = evaluationById.get(String(item.id || ""));
-      const status = String(evaluation?.status || item.originalityStatus || "");
-      return status === "warning" && !plan.allowDraftOnWarning;
-    })
-    .map((item) => String(item.id || ""));
-
-  const invalidSet = new Set(invalid);
-  const createdIds = new Set((Array.isArray(payload.result?.createdFiles) ? payload.result.createdFiles : []).map((item) => String(item?.noteId || "")).filter(Boolean));
-  const conflicted = itemIds.filter((id) => selectedIds.has(id) && !invalidSet.has(id) && !createdIds.has(id));
-
-  return {
-    unselected,
-    invalid,
-    conflicted
-  };
-}
-
-function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
-  if (String(payload.stage || "") !== "confirm" || !candidatePreview) return {};
-
-  const skippedIds = confirmSkippedCandidateIds(payload, candidatePreview);
-  const evaluationById = new Map(
-    (Array.isArray(payload.originalityGuard?.evaluations) ? payload.originalityGuard.evaluations : []).map((item) => [
-      String(item?.permanentId || item?.id || ""),
-      item
-    ])
-  );
-  const map = {};
-
-  for (const candidateId of skippedIds.unselected) {
-    map[candidateId] = {
-      reason: "unselected",
-      tone: "neutral",
-      message: "未写入原因：确认前取消勾选。"
-    };
-  }
-  for (const candidateId of skippedIds.invalid) {
-    const evaluation = evaluationById.get(candidateId);
-    const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.map(candidateReasonText).filter(Boolean) : [];
-    map[candidateId] = {
-      reason: "invalid",
-      tone: "warning",
-      message: `未写入原因：原创性 warning，当前未允许按 draft 写入。${reasons.length ? ` ${reasons.join("、")}。` : ""}`.trim()
-    };
-  }
-  for (const candidateId of skippedIds.conflicted) {
-    map[candidateId] = {
-      reason: "conflicted",
-      tone: "bad",
-      message: "未写入原因：目标路径已有同名文件，系统没有覆盖。"
-    };
-  }
-
-  return map;
-}
-
-function confirmCreatedPermanentNoteIds(payload = {}) {
-  if (String(payload.stage || "") !== "confirm") return [];
-  return [...new Set(
-    (Array.isArray(payload.result?.createdFiles) ? payload.result.createdFiles : [])
-      .filter((item) => String(item?.noteType || "").trim() === "permanent")
-      .map((item) => String(item?.noteId || "").trim())
-      .filter(Boolean)
-  )];
+  return summarizeCandidateSelection(candidatePreview, selectedIds);
 }
 
 function renderImportWritingActions(payload = {}) {
-  const noteIds = confirmCreatedPermanentNoteIds(payload);
-  if (!noteIds.length) return "";
+  const permanentNoteIds = createdNoteIdsByTypeFromImportPayload(payload, "permanent");
+  const literatureNoteIds = createdNoteIdsByTypeFromImportPayload(payload, "literature");
+  const literatureBatchSummary = literatureBatchSummaryForPayload(payload);
+  if (!permanentNoteIds.length && !literatureNoteIds.length) return "";
   return `
     <div class="result-actions-inline">
+      ${
+        literatureNoteIds.length
+          ? `
+      ${
+        literatureBatchSummary
+          ? `
+      <div class="result-metrics">
+        <div class="result-metric"><span>待转述</span><strong>${literatureBatchSummary.pending}</strong></div>
+        <div class="result-metric"><span>待提炼</span><strong>${literatureBatchSummary.refine}</strong></div>
+        <div class="result-metric"><span>可转原创</span><strong>${literatureBatchSummary.ready}</strong></div>
+      </div>
+      `
+          : ""
+      }
+      <button class="mini-btn" type="button" data-import-writing-action="open-literature-queue">
+        处理待转述队列 ${literatureNoteIds.length}
+      </button>
+      <div class="toolbar-note">${
+        literatureBatchSummary
+          ? `本批次预测：已完成转述 ${literatureBatchSummary.paraphraseDone}/${literatureBatchSummary.total}，剩余待处理 ${literatureBatchSummary.remaining} 条。`
+          : `这 ${literatureNoteIds.length} 条书摘会先进入待转述队列，并默认只显示本次导入范围。`
+      }</div>
+      `
+          : ""
+      }
+      ${
+        permanentNoteIds.length
+          ? `
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes">
-        加入写作篮子 ${noteIds.length}
+        加入写作篮子 ${permanentNoteIds.length}
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
         加入并打开写作中心
@@ -806,232 +472,85 @@ function renderImportWritingActions(payload = {}) {
         直接创建写作项目
       </button>
       <div class="toolbar-note">把本次新写入的 PermanentNote 直接送进写作中心。</div>
+      `
+          : ""
+      }
     </div>
   `;
 }
 
-function renderExcludedCandidateSummary(candidatePreview, options = {}) {
-  const importRecordId = options.importRecordId || "";
-  const selection = options.selection || null;
-  const excludedItems = excludedCandidateItems(candidatePreview, importRecordId, selection);
-  if (!excludedItems.length) return "";
-  return `
-    <div class="candidate-summary candidate-summary-warn">
-      <div class="candidate-summary-title">未写入候选</div>
-      <div>以下 ${excludedItems.length} 个候选因为未勾选而没有写入本次导入：</div>
-      <div class="candidate-summary-list">
-        ${excludedItems
-          .slice(0, 6)
-          .map(
-            (item) => `
-              <div class="candidate-summary-item">
-                <strong>${escapeHtml(item.title || item.id)}</strong>
-                <span>${escapeHtml(item.candidateGroup)}</span>
-              </div>
-            `
-          )
-          .join("")}
-      </div>
-      ${excludedItems.length > 6 ? `<div class="toolbar-note">其余 ${excludedItems.length - 6} 项可在原始 JSON 或重新预览中查看。</div>` : ""}
-    </div>
-  `;
+function createdFilesFromImportPayload(payload = {}) {
+  const stage = String(payload?.stage || "").trim();
+  if (stage === "confirm") return Array.isArray(payload?.result?.createdFiles) ? payload.result.createdFiles : [];
+  if (stage === "record") return Array.isArray(payload?.importRecord?.confirmResult?.createdFiles) ? payload.importRecord.confirmResult.createdFiles : [];
+  return [];
 }
 
-function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null, options = {}) {
-  if (String(payload.stage || "") !== "confirm") return "";
-  const selection = payload.result?.selection || null;
-  const skipped = payload.result?.skipped || {};
-  const unselected = Math.max(0, Number(selection?.totalCandidates || 0) - Number(selection?.selectedCandidates || 0));
-  const originalitySkipped = Math.max(0, Number(skipped.invalid || 0));
-  const conflictedSkipped = Math.max(0, Number(skipped.conflicted || 0));
-  const total = unselected + originalitySkipped + conflictedSkipped;
-  if (!total) return "";
-
-  const focusReason = String(options.focusReason || "").trim();
-
-  const rows = [
-    {
-      key: "unselected",
-      tone: "neutral",
-      label: "未勾选跳过",
-      count: unselected,
-      detail: "这些候选在确认前被取消勾选，因此本次没有写入。"
-    },
-    {
-      key: "invalid",
-      tone: "warning",
-      label: "原创性跳过",
-      count: originalitySkipped,
-      detail: "通常是 PermanentNote 在当前 originality plan 下被判定为 warning/invalid，且不允许按 draft 写入。"
-    },
-    {
-      key: "conflicted",
-      tone: "bad",
-      label: "文件冲突跳过",
-      count: conflictedSkipped,
-      detail: "目标路径已有同名文件，系统保持非覆盖写入。"
-    }
-  ].filter((item) => item.count > 0);
-
-  return `
-    <div class="result-skip-breakdown">
-      <div class="result-skip-breakdown-title">未写入原因</div>
-      <div class="result-skip-breakdown-list">
-        ${rows
-          .map(
-            (item) => `
-              <button class="result-skip-item tone-${escapeHtml(item.tone)} ${focusReason === item.key ? "is-active" : ""}" type="button" data-skip-focus="${escapeHtml(
-                item.key
-              )}">
-                <div class="result-skip-item-head">
-                  <strong>${escapeHtml(item.label)}</strong>
-                  <span>${escapeHtml(item.count)}</span>
-                </div>
-                <div class="result-skip-item-detail">${escapeHtml(item.detail)}</div>
-              </button>
-            `
-          )
-          .join("")}
-      </div>
-      ${candidatePreview && unselected > 0 ? `<div class="toolbar-note">未勾选的候选明细见下方“未写入候选”。</div>` : ""}
-    </div>
-  `;
+function createdNoteIdsByTypeFromImportPayload(payload = {}, noteType = "") {
+  const normalizedType = String(noteType || "").trim();
+  if (!normalizedType) return [];
+  return [
+    ...new Set(
+      createdFilesFromImportPayload(payload)
+        .filter((item) => String(item?.noteType || "").trim() === normalizedType)
+        .map((item) => String(item?.noteId || "").trim())
+        .filter(Boolean)
+    )
+  ];
 }
 
-function renderCandidatePreview(candidatePreview, options = {}) {
-  const groups = candidateGroups(candidatePreview);
-  if (!groups.length) return "";
-  const importRecordId = options.importRecordId || "";
-  const interactive = Boolean(options.interactive);
-  const summary = selectionSummary(candidatePreview, importRecordId, options.selection || null);
-  const filter = interactive ? importState.previewFilter : "all";
-  const filterCounts = candidateFilterCounts(candidatePreview, importRecordId, options.selection || null, options.originalityGuard || null);
-  const focusReason = String(options.focusReason || "").trim();
-  const focusCandidateIds = new Set((options.focusCandidateIds || []).map((item) => String(item || "").trim()).filter(Boolean));
-  const skipReasonMap = options.skipReasonMap || {};
-  const hasFocus = !interactive && focusCandidateIds.size > 0;
-  const visibleFocusCount = hasFocus ? candidatePreviewItems(candidatePreview).filter((item) => focusCandidateIds.has(String(item.id || ""))).length : 0;
-  const total = candidatePreview.total || {};
-  const totalText = `${Number(total.sources || 0)} Source / ${Number(total.literatureNotes || 0)} LiteratureNote / ${Number(
-    total.permanentNotes || 0
-  )} PermanentNote`;
-  return `
-    <div class="result-candidates">
-      <div class="result-candidates-toolbar">
-        <div class="result-candidates-title">候选预览：${escapeHtml(totalText)}${candidatePreview.truncated ? "（仅显示前几项）" : ""}</div>
-        <div class="toolbar-note">已选 ${summary.selectedCount}/${summary.totalCount}${summary.excludedCount ? `，已排除 ${summary.excludedCount}` : ""}</div>
-      </div>
-      ${
-        interactive
-          ? `<div class="result-candidates-toolbar">
-              <div class="toolbar-actions">
-                <button class="mini-btn" type="button" data-candidate-action="all">全选</button>
-                <button class="mini-btn" type="button" data-candidate-action="none">清空</button>
-                <button class="mini-btn" type="button" data-candidate-action="confirmable">仅可确认项</button>
-                <button class="mini-btn" type="button" data-candidate-action="safe">仅安全项</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-risky">排除风险项</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-warning">排除 Warning</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除 Blocked</button>
-                <button class="mini-btn" type="button" data-candidate-action="permanent">仅 PermanentNote</button>
-              </div>
-              <div class="toolbar-note">确认写入会只处理当前勾选的候选。</div>
-            </div>
-            <div class="result-candidates-toolbar">
-              <div class="toolbar-actions">
-                <button class="mini-btn ${filter === "all" ? "is-filter-active" : ""}" type="button" data-candidate-filter="all">全部 ${filterCounts.all}</button>
-                <button class="mini-btn ${filter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">可确认项 ${filterCounts.confirmable}</button>
-                <button class="mini-btn ${filter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">仅安全项 ${filterCounts.safe}</button>
-                <button class="mini-btn ${filter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">风险项 ${filterCounts.risky}</button>
-                <button class="mini-btn ${filter === "excluded" ? "is-filter-active" : ""}" type="button" data-candidate-filter="excluded">已排除 ${filterCounts.excluded}</button>
-                <button class="mini-btn ${filter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">Warning ${filterCounts.warning}</button>
-                <button class="mini-btn ${filter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">Blocked ${filterCounts.blocked}</button>
-              </div>
-              <div class="toolbar-note">当前视图：${escapeHtml(filterLabel(filter))}</div>
-            </div>`
-          : ""
-      }
-      ${
-        summary.excludedCount
-          ? `<div class="candidate-summary candidate-summary-warn">当前有 ${summary.excludedCount} 个候选被排除，确认时不会写入这些项。</div>`
-          : ""
-      }
-      ${
-        filter !== "all" && filterCounts[filter] === 0
-          ? `<div class="candidate-summary">当前没有匹配“${escapeHtml(filterLabel(filter))}”的候选。</div>`
-          : ""
-      }
-      ${
-        hasFocus
-          ? `<div class="candidate-focus-banner">
-              <div>
-                <strong>当前聚焦：</strong>${escapeHtml(resultFocusLabel(focusReason))}${visibleFocusCount ? `（${visibleFocusCount} 项可见）` : "（当前预览中没有可见项）"}
-              </div>
-              <button class="mini-btn" type="button" data-clear-candidate-focus="1">查看全部</button>
-            </div>`
-          : ""
-      }
-      ${!interactive && options.showExcludedSummary ? renderExcludedCandidateSummary(candidatePreview, options) : ""}
-      ${groups
-        .map(
-          (group) => {
-            const groupItems = group.items.map((item) => ({
-              ...item,
-              candidateGroup: group.title
-            }));
-            const visibleItems = groupItems.filter((item) => matchesCandidateFilter(item, filter, summary.selectedIds, options.originalityGuard || null));
-            if (!visibleItems.length) return "";
-            return `
-            <div class="candidate-group">
-              <div class="candidate-group-title">${escapeHtml(group.title)}</div>
-              <div class="candidate-list">
-                ${visibleItems
-                  .map((item) => {
-                    const candidateId = String(item.id || "");
-                    const checked = summary.selectedIds.has(candidateId);
-                    const tone = candidateTone(item);
-                    const focusClass = hasFocus ? (focusCandidateIds.has(candidateId) ? "is-focused" : "is-muted") : "";
-                    const skipReason = skipReasonMap[candidateId] || null;
-                    return `
-                      <div class="candidate-item ${checked ? "selected" : "unselected"} ${focusClass} tone-${escapeHtml(tone)}" data-candidate-id="${escapeHtml(
-                        candidateId
-                      )}">
-                        <label class="candidate-check">
-                          ${
-                            interactive
-                              ? `<input class="candidate-checkbox" type="checkbox" data-candidate-id="${escapeHtml(candidateId)}" ${
-                                  checked ? "checked" : ""
-                                } />`
-                              : ""
-                          }
-                          <div class="candidate-check-body">
-                            <div class="candidate-line">
-                              <span class="candidate-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title || item.id)}</span>
-                              <span class="candidate-badge candidate-badge-${escapeHtml(tone)}">${escapeHtml(candidateBadge(item))}</span>
-                            </div>
-                            <div class="candidate-meta" title="${escapeHtml(candidateMeta(item))}">${escapeHtml(candidateMeta(item))}</div>
-                            ${item.excerpt ? `<div class="candidate-meta" title="${escapeHtml(item.excerpt)}">${escapeHtml(item.excerpt)}</div>` : ""}
-                            ${candidateReasonBadges(item) ? `<div class="candidate-reasons">${candidateReasonBadges(item)}</div>` : ""}
-                            ${
-                              skipReason
-                                ? `<div class="candidate-inline-note candidate-inline-note-${escapeHtml(skipReason.tone)}">${escapeHtml(skipReason.message)}</div>`
-                                : !checked
-                                  ? `<div class="candidate-inline-note">已排除：确认写入时会跳过这一项。</div>`
-                                  : ""
-                            }
-                          </div>
-                        </label>
-                      </div>
-                    `;
-                  })
-                  .join("")}
-              </div>
-            </div>
-          `;
-          }
-        )
-        .join("")}
-    </div>
-  `;
+function createdNoteIdsByTypeFromImportRecord(record = {}, noteType = "") {
+  const normalizedType = String(noteType || "").trim();
+  if (!normalizedType) return [];
+  return [
+    ...new Set(
+      (Array.isArray(record?.confirmResult?.createdFiles) ? record.confirmResult.createdFiles : [])
+        .filter((item) => String(item?.noteType || "").trim() === normalizedType)
+        .map((item) => String(item?.noteId || "").trim())
+        .filter(Boolean)
+    )
+  ];
+}
+
+function importPayloadRecordId(payload = {}) {
+  return String(payload?.importRecordId || payload?.importRecord?.importRecordId || "").trim();
+}
+
+function summarizeLiteratureBatchFromNotes(notes = []) {
+  let pending = 0;
+  let refine = 0;
+  let ready = 0;
+  const ranked = rankedLiteratureQueueNotes(notes);
+  for (const item of ranked) {
+    if (item.lane === "pending") pending += 1;
+    else if (item.lane === "refine") refine += 1;
+    else ready += 1;
+  }
+  const total = notes.length;
+  const nextPending = ranked.find((item) => item.lane === "pending") || ranked.find((item) => item.lane === "refine") || null;
+  const nextReady = ranked.find((item) => item.lane === "ready") || null;
+  return {
+    total,
+    pending,
+    refine,
+    ready,
+    paraphraseDone: total - pending,
+    remaining: pending + refine,
+    nextPendingNoteId: nextPending?.note?.id || "",
+    nextPendingTitle: nextPending?.note?.title || nextPending?.note?.id || "",
+    nextPendingLane: nextPending?.lane || "",
+    nextReadyNoteId: nextReady?.note?.id || "",
+    nextReadyTitle: nextReady?.note?.title || nextReady?.note?.id || ""
+  };
+}
+
+function literatureBatchSummaryForPayload(payload = {}) {
+  const summary = importState.literatureBatchSummary;
+  if (!summary) return null;
+  const recordId = importPayloadRecordId(payload);
+  const noteIds = createdNoteIdsByTypeFromImportPayload(payload, "literature");
+  const key = `${recordId}|${noteIds.join(",")}`;
+  return summary.key === key ? summary : null;
 }
 
 function renderWritingResultDetails(data = {}) {
@@ -1058,6 +577,7 @@ function renderWritingResultDetails(data = {}) {
     return `
       <div class="writing-preview">
         <h4>草稿骨架快照</h4>
+        <div class="toolbar-note">这里只组织结构、证据与开放问题，不直接替你完成终稿。</div>
         ${
           sections.length
             ? `<ol>${sections
@@ -1094,75 +614,41 @@ function renderResult(el, payload) {
   }
   const data = payload || {};
   const stage = String(data.stage || "");
-  const tone = resultTone(data);
-  const metrics = resultMetrics(data);
-  const warnings = warningItems(data);
-  const actions = actionItems(data, warnings);
   const candidatePreview = candidatePreviewFromPayload(data);
   const skippedCandidateIds = confirmSkippedCandidateIds(data, candidatePreview);
   const skipReasonMap = confirmSkipReasonMap(data, candidatePreview);
   const importRecordId = data.importRecordId || data.importRecord?.importRecordId || "";
   const interactivePreview = stage === "preview" || (stage === "record" && data.importRecord?.status === "preview");
   const selection = data.result?.selection || data.importRecord?.confirmResult?.selection || null;
+  const previewSummary = selectionSummary(candidatePreview, importRecordId, selection);
   const showExcludedSummary = stage === "confirm" && Boolean(selection?.selectedCandidates < selection?.totalCandidates);
   const raw = JSON.stringify(data, null, 2);
-  const subtitle = data.importRecordId || data.exportJobId || data.writingProjectId || data.draftScaffoldId || data.code || data.status || "";
 
-  el.innerHTML = `
-    <div class="result-card" data-result-stage="${escapeHtml(stage)}">
-      <div class="result-card-head">
-        <div>
-          <div class="result-title">${escapeHtml(resultTitle(stage))}</div>
-          ${subtitle ? `<div class="result-subtitle">${escapeHtml(subtitle)}</div>` : ""}
-        </div>
-        <div class="result-status ${tone === "ok" ? "" : tone}">${escapeHtml(tone === "bad" ? "failed" : tone === "warn" ? "warning" : "ok")}</div>
-      </div>
-      ${
-        metrics.length
-          ? `<div class="result-metrics">${metrics
-              .map((item) => `<div class="result-metric"><span>${escapeHtml(item.label)}</span><strong title="${escapeHtml(item.value)}">${escapeHtml(item.value)}</strong></div>`)
-              .join("")}</div>`
-          : ""
-      }
-      ${
-        warnings.length
-          ? `<div class="result-warnings"><div class="result-warnings-title">需要注意</div><ul>${warnings
-              .map((item) => `<li><strong>${escapeHtml(item.code || "WARNING")}</strong> ${escapeHtml(item.message || JSON.stringify(item))}</li>`)
-              .join("")}</ul></div>`
-          : ""
-      }
-      ${
-        actions.length
-          ? `<div class="result-actions"><div class="result-actions-title">建议动作</div><ol>${actions
-              .map((item) => `<li>${escapeHtml(item)}</li>`)
-              .join("")}</ol></div>`
-          : ""
-      }
-      ${renderImportWritingActions(data)}
-      ${renderConfirmSkipBreakdown(data, candidatePreview, { focusReason: importState.resultFocusReason })}
-      ${renderCandidatePreview(candidatePreview, {
-        interactive: interactivePreview,
-        importRecordId,
-        selection,
-        showExcludedSummary,
-        originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard || null,
-        focusReason: importState.resultFocusReason,
-        focusCandidateIds: skippedCandidateIds[importState.resultFocusReason] || [],
-        skipReasonMap
-      })}
-      ${renderWritingResultDetails(data)}
-      <details class="result-json" open>
-        <summary>原始 JSON</summary>
-        <pre>${escapeHtml(raw)}</pre>
-      </details>
-    </div>
-  `;
+  el.innerHTML = renderImportResultMount({
+    data,
+    writingActionsHtml: renderImportWritingActions(data),
+    skipBreakdownHtml: renderConfirmSkipBreakdown(data, candidatePreview, { focusReason: importState.resultFocusReason }),
+    candidatePreviewHtml: renderCandidatePreview(candidatePreview, {
+      interactive: interactivePreview,
+      summary: previewSummary,
+      previewFilter: importState.previewFilter,
+      showExcludedSummary,
+      originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard || null,
+      focusReason: importState.resultFocusReason,
+      focusCandidateIds: skippedCandidateIds[importState.resultFocusReason] || [],
+      skipReasonMap
+    }),
+    writingDetailsHtml: renderWritingResultDetails(data),
+    raw
+  });
 }
 
 function showImportResult(payload) {
   importState.resultFocusReason = "";
   importState.lastResultPayload = payload;
+  importState.literatureBatchSummary = null;
   renderResult($("importResult"), payload);
+  void refreshImportLiteratureBatchSummary(payload);
   updateImportConfirmButton();
 }
 
@@ -1191,32 +677,171 @@ async function ensureNotesLoaded(noteIds) {
   }
 }
 
+async function refreshImportLiteratureBatchSummary(payload = {}) {
+  const noteIds = createdNoteIdsByTypeFromImportPayload(payload, "literature");
+  if (!noteIds.length) return;
+  const key = `${importPayloadRecordId(payload)}|${noteIds.join(",")}`;
+  await ensureNotesLoaded(noteIds);
+  const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
+  if (!notes.length) return;
+  if (importState.lastResultPayload !== payload) return;
+  importState.literatureBatchSummary = {
+    key,
+    ...summarizeLiteratureBatchFromNotes(notes)
+  };
+  rerenderImportResult();
+}
+
+async function enrichImportHistoryItemsWithLiteratureProgress(items = []) {
+  const records = Array.isArray(items) ? items : [];
+  const literatureIdGroups = records.map((record) => createdNoteIdsByTypeFromImportRecord(record, "literature"));
+  const allLiteratureIds = [...new Set(literatureIdGroups.flat().filter(Boolean))];
+  if (!allLiteratureIds.length) return records;
+  await ensureNotesLoaded(allLiteratureIds);
+  return records.map((record, index) => {
+    const noteIds = literatureIdGroups[index] || [];
+    if (!noteIds.length) return record;
+    const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
+    if (!notes.length) return record;
+    return {
+      ...record,
+      literatureBatchProgress: summarizeLiteratureBatchFromNotes(notes)
+    };
+  });
+}
+
+function importHistoryRecordById(importRecordId = "") {
+  const id = String(importRecordId || "").trim();
+  if (!id) return null;
+  return importState.historyItems.find((item) => String(item?.importRecordId || "").trim() === id) || null;
+}
+
+function literatureQueueLaneForNote(note) {
+  const fields = parseLiteratureWorkspace(note?.body || "");
+  const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
+  const hasWhyKeep = Boolean(normalizeFieldText(fields.whyKeep));
+  const hasSupportsJudgment = Boolean(normalizeFieldText(fields.supportsJudgment));
+  if (!hasParaphrase) return "pending";
+  if (!hasWhyKeep || !hasSupportsJudgment) return "refine";
+  return "ready";
+}
+
+function rankedLiteratureQueueNotes(notes = []) {
+  const priority = { pending: 0, refine: 1, ready: 2 };
+  return (Array.isArray(notes) ? notes : [])
+    .map((note) => ({ note, lane: literatureQueueLaneForNote(note) }))
+    .sort((a, b) => {
+      const laneDiff = (priority[a.lane] ?? 99) - (priority[b.lane] ?? 99);
+      if (laneDiff) return laneDiff;
+      const aTime = Date.parse(a.note?.updatedAt || 0) || 0;
+      const bTime = Date.parse(b.note?.updatedAt || 0) || 0;
+      if (bTime !== aTime) return bTime - aTime;
+      return String(a.note?.title || a.note?.id || "").localeCompare(String(b.note?.title || b.note?.id || ""), "zh-CN");
+    });
+}
+
+function preferredLiteratureQueueNoteId(noteIds = [], { targetLane = "" } = {}) {
+  const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
+  const ranked = rankedLiteratureQueueNotes(notes);
+  const match = targetLane ? ranked.find((item) => item.lane === targetLane) : ranked[0];
+  return match?.note?.id || String(noteIds[0] || "").trim();
+}
+
+async function openLiteratureQueueForImportRecord(importRecordId, { preferNextPending = false, preferReadyForOriginal = false } = {}) {
+  const cleanImportRecordId = String(importRecordId || "").trim();
+  if (!cleanImportRecordId) throw new Error("importRecordId is required");
+  let record = importHistoryRecordById(cleanImportRecordId);
+  if (!record) {
+    record = await fetchImportRecord(cleanImportRecordId);
+  }
+  const noteIds = createdNoteIdsByTypeFromImportRecord(record || {}, "literature");
+  if (!noteIds.length) {
+    setStatus("这条导入记录里没有可处理的 LiteratureNote", "warn");
+    return false;
+  }
+  await ensureNotesLoaded(noteIds);
+  setImportRecordId(cleanImportRecordId);
+  setLiteratureQueueFocus(noteIds, `导入批次 ${cleanImportRecordId}`);
+  activateModule("explorer");
+  const targetNoteId = preferReadyForOriginal
+    ? preferredLiteratureQueueNoteId(noteIds, { targetLane: "ready" })
+    : preferNextPending
+      ? preferredLiteratureQueueNoteId(noteIds)
+      : noteIds[0];
+  const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
+  if (!opened) return false;
+  setStatus(
+    preferReadyForOriginal
+      ? `已从历史记录定位到可转原创书摘：${cleanImportRecordId}`
+      : preferNextPending
+        ? `已从历史记录继续下一条待处理书摘：${cleanImportRecordId}`
+        : `已从历史记录打开书摘队列：${cleanImportRecordId}`,
+    "ok",
+    { requireModule: "explorer" }
+  );
+  return true;
+}
+
+function setLiteratureQueueFocus(noteIds = [], label = "") {
+  state.literatureQueueFocusNoteIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
+  state.literatureQueueFocusLabel = state.literatureQueueFocusNoteIds.length ? String(label || "").trim() : "";
+}
+
+function clearLiteratureQueueFocus() {
+  setLiteratureQueueFocus([], "");
+}
+
+async function openImportedLiteratureQueue() {
+  const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "literature");
+  if (!noteIds.length) {
+    setStatus("当前导入结果里没有可继续处理的 LiteratureNote", "warn");
+    return false;
+  }
+  await ensureNotesLoaded(noteIds);
+  const importRecordId = importPayloadRecordId(importState.lastResultPayload || {}) || importState.importRecordId || "";
+  setLiteratureQueueFocus(noteIds, importRecordId ? `导入批次 ${importRecordId}` : "本次导入");
+  activateModule("explorer");
+  const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
+  if (!opened) return false;
+  setStatus(`已打开 ${noteIds.length} 条导入书摘中的第一条，并只显示本次导入的待转述队列`, "ok", { requireModule: "explorer" });
+  return true;
+}
+
 async function openWritingModule({ statusMessage = "已打开写作中心" } = {}) {
   const statusRevisionAtStart = statusRevision;
   activateModule("writing");
   const writingProjectId = String(writingState.project?.id || "").trim();
   writingState.loadingProjects = true;
+  writingState.loadingThemeIndexes = true;
   writingState.loadingScaffoldVersions = Boolean(writingProjectId);
   writingState.loadingDraftVersions = Boolean(writingProjectId);
   renderWritingPanel();
   try {
-    const [projects, project, scaffoldVersions, draftVersions] = await Promise.all([
+    const [projects, themeIndexes, project, scaffoldVersions, draftVersions] = await Promise.all([
       listWritingProjects({
         limit: 8,
         q: writingState.projectFilters.q,
         status: writingState.projectFilters.status,
         hasDraft: writingState.projectFilters.hasDraft
       }).catch(() => writingState.projects),
+      listIndexCards({
+        directoryId: writingThemeIndexScopeDirectoryId(),
+        includeDescendants: true,
+        indexType: "topic",
+        limit: 12
+      }).catch(() => writingState.themeIndexes),
       writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
       writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
       writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([])
     ]);
     writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
+    writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
     if (project) writingState.project = project;
     writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
     writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
   } finally {
     writingState.loadingProjects = false;
+    writingState.loadingThemeIndexes = false;
     writingState.loadingScaffoldVersions = false;
     writingState.loadingDraftVersions = false;
     renderWritingPanel();
@@ -1225,12 +850,13 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
 }
 
 async function addImportedPermanentNotesToWritingBasket({ openWriting = false } = {}) {
-  const noteIds = confirmCreatedPermanentNoteIds(importState.lastResultPayload || {});
+  const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
   if (!noteIds.length) {
     setStatus("当前导入结果里没有可加入写作篮子的 PermanentNote", "warn");
     return false;
   }
   await ensureNotesLoaded(noteIds);
+  clearWritingSourceIndexIds();
   addWritingBasketIds(noteIds);
   if (!$("writingTitle")?.value.trim()) {
     const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
@@ -1253,13 +879,60 @@ function suggestedWritingProjectTitle(noteIds = []) {
   return `导入笔记写作项目 ${noteIds.length}`;
 }
 
+async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false } = {}) {
+  const id = String(indexCardId || "").trim();
+  if (!id) throw new Error("indexCardId is required");
+  const indexCard = writingThemeIndexById(id) || (await fetchIndexCard(id));
+  const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
+  if (!noteIds.length) throw new Error("theme index is empty");
+  await ensureNotesLoaded(noteIds);
+  if (replaceBasket) setWritingBasketIds(noteIds);
+  else addWritingBasketIds(noteIds);
+  setWritingSourceIndexIds([id]);
+  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`;
+  renderWritingPanel();
+  return { indexCard, noteIds };
+}
+
+async function saveWritingBasketAsThemeIndex() {
+  const basketNoteIds = parseWritingBasketIds();
+  if (!basketNoteIds.length) throw new Error("writing basket is empty");
+  await ensureNotesLoaded(basketNoteIds);
+  const suggestedTitle = suggestedThemeIndexTitle(basketNoteIds);
+  const title = window.prompt("主题索引标题", suggestedTitle);
+  if (title === null) return null;
+  const cleanTitle = String(title || "").trim();
+  if (!cleanTitle) throw new Error("title is required");
+  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟原创笔记保留为后续写作入口。";
+  const summary = window.prompt("主题索引说明", summarySeed);
+  if (summary === null) return null;
+  const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
+  const card = await createIndexCard({
+    directoryId: writingThemeIndexScopeDirectoryId(),
+    indexType: "topic",
+    title: cleanTitle,
+    summary: String(summary || "").trim(),
+    noteIds: basketNoteIds,
+    items: basketNoteIds.map((noteId, index) => ({
+      noteId,
+      shortLabel: notes[index]?.title || "",
+      rationale: ""
+    }))
+  });
+  setWritingSourceIndexIds([card.id]);
+  await loadWritingThemeIndexes();
+  renderWritingPanel();
+  return card;
+}
+
 async function createWritingProjectFromImportedPermanentNotes() {
-  const noteIds = confirmCreatedPermanentNoteIds(importState.lastResultPayload || {});
+  const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
   if (!noteIds.length) {
     setStatus("当前导入结果里没有可创建写作项目的 PermanentNote", "warn");
     return false;
   }
   await ensureNotesLoaded(noteIds);
+  clearWritingSourceIndexIds();
   setWritingBasketIds(noteIds);
   const titleInput = $("writingTitle");
   if (titleInput && !String(titleInput.value || "").trim()) {
@@ -1334,14 +1007,15 @@ function updateImportConfirmButton() {
   if (!button) return;
   const preview = activeImportPreviewContext();
   const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
-  if (!preview || preview.importRecordId !== importRecordId || !preview.candidatePreview) {
-    button.disabled = false;
-    button.textContent = "确认写入";
-    return;
-  }
-  const summary = selectionSummary(preview.candidatePreview, importRecordId);
-  button.disabled = summary.totalCount > 0 && summary.selectedCount === 0;
-  button.textContent = `确认写入（${summary.selectedCount}/${summary.totalCount}）`;
+  const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === importRecordId);
+  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const state = importConfirmButtonState({
+    hasMatchingPreview,
+    selectedCount: summary.selectedCount,
+    totalCount: summary.totalCount
+  });
+  button.disabled = state.disabled;
+  button.textContent = state.label;
 }
 
 function rerenderImportResult() {
@@ -1403,26 +1077,6 @@ function setCandidateFilter(filter) {
   rerenderImportResult();
 }
 
-function parseJsonOrEmpty(raw, label) {
-  const text = String(raw || "").trim();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${label} 不是合法 JSON：${String(error?.message || error)}`);
-  }
-}
-
-function buildImportPayload(connector) {
-  const pathText = String($("importPath")?.value || "").trim();
-  const payloadText = String($("importPayload")?.value || "").trim();
-  if (payloadText) return parseJsonOrEmpty(payloadText, "Payload");
-  if ((connector === "markdown" || connector === "obsidian") && !pathText) {
-    throw new Error("markdown/obsidian 预览需要“导入路径”或 Payload JSON");
-  }
-  return pathText ? { path: pathText } : {};
-}
-
 async function refreshImportedNotesView() {
   try {
     await syncDirectoriesFromApi();
@@ -1449,8 +1103,13 @@ function mapNoteItem(item) {
     title: item.title || "未命名笔记",
     folderId: item.directoryId,
     noteType: item.noteType || "original",
+    status: item.status || "draft",
     markdownPath: item.markdownPath || "",
     body: item.body || `# ${item.title || "未命名笔记"}\n`,
+    originalityStatus: item.originalityStatus || item.originality_status || "",
+    originalitySimilarity: normalizeOptionalNumber(item.originalitySimilarity ?? item.originality_similarity),
+    authorship: normalizeAuthorshipItem(item.authorship),
+    boundaryOrCounterpoint: item.boundaryOrCounterpoint || item.boundary_or_counterpoint || "",
     tags: [],
     links: [],
     bodyLoaded: Boolean(item.body),
@@ -1473,6 +1132,49 @@ function replaceFirstMarkdownTitle(body, title) {
   }
   lines[0] = `# ${cleanTitle}`;
   return lines.join("\n");
+}
+
+function titleFromSeedText(text, fallback = "未命名笔记") {
+  const clean = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)[0] || "";
+  const singleLine = clean.replace(/^#+\s*/, "").replace(/\s+/g, " ").trim();
+  return (singleLine || String(fallback || "").trim() || "未命名笔记").slice(0, 48);
+}
+
+function originalDraftBodyFromLiterature(payload = {}) {
+  const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名书摘";
+  const claim = String(payload.paraphrase || "").trim();
+  const whyKeep = String(payload.whyKeep || "").trim();
+  const supportsJudgment = String(payload.supportsJudgment || "").trim();
+  const originalText = String(payload.originalText || "").trim();
+  const titleSeed = titleFromSeedText(claim, sourceTitle === "未命名书摘" ? "未命名原创笔记" : sourceTitle);
+  return [
+    `# ${titleSeed}`,
+    "",
+    "## 核心观点",
+    "",
+    claim || "用你自己的话写下这条原创笔记现在代表的判断。",
+    "",
+    "## 为什么成立",
+    "",
+    whyKeep || "说明这条判断为什么成立，以及你为什么认为它值得留下。",
+    "",
+    "## 边界 / 反例",
+    "",
+    "",
+    "## 证据来源",
+    "",
+    `- 来自书摘：[[${sourceTitle}]]`,
+    payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
+    supportsJudgment ? `- 这条材料原本想支持的判断：${supportsJudgment}` : "",
+    originalText ? `- 原文摘录：${originalText}` : "",
+    ""
+  ]
+    .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
+    .join("\n");
 }
 
 async function syncDirectoriesFromApi() {
@@ -1588,18 +1290,18 @@ function currentModuleUi() {
       sidebarTitle: "导入中心",
       sidebarFoot: "导入是独立流程：选择来源、预览候选、确认写入，再按需回滚。",
       title: "导入与导出",
-      summary: "把外部 Markdown、Obsidian、Zotero、Readwise 等内容带入研思录时，这里只服务导入这一个任务，不再混用笔记标签页和 Markdown 工具栏。",
+      summary: "\u628a\u5916\u90e8 Markdown\u3001Obsidian\u3001Zotero\u3001Readwise \u7b49\u5185\u5bb9\u5e26\u5165\u7814\u601d\u5f55\u65f6\uff0c\u8fd9\u91cc\u53ea\u670d\u52a1\u5bfc\u5165\u4e0e\u521d\u7b5b\uff0c\u4e0d\u628a\u8d44\u6599\u5165\u5e93\u91cf\u5305\u88c5\u6210\u8fdb\u5c55\u3002\u771f\u6b63\u7684\u8fdb\u5c55\u53d1\u751f\u5728\u540e\u7eed\u8f6c\u8ff0\u3001\u63d0\u70bc\u4e0e\u5199\u4f5c\u3002",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>当前目标</h3>
-          <p>把外部资料安全导入到 <strong>${escapeHtml(rootName)}</strong> 体系里，先预览，再确认，不直接破坏现有笔记。</p>
+          <p>\u628a\u5916\u90e8\u8d44\u6599\u5b89\u5168\u5bfc\u5165\u5230 <strong>${escapeHtml(rootName)}</strong> \u4f53\u7cfb\u91cc\uff0c\u5148\u9884\u89c8\uff0c\u518d\u786e\u8ba4\uff0c\u5e76\u9001\u5165\u5f85\u8f6c\u8ff0\u6216\u5f85\u63d0\u70bc\u6d41\u7a0b\uff0c\u4e0d\u76f4\u63a5\u7834\u574f\u73b0\u6709\u7b14\u8bb0\u3002</p>
         </div>
         <div class="module-sidebar-card">
           <h3>推荐顺序</h3>
           <ol class="module-sidebar-list">
             <li>先选来源与路径</li>
             <li>先看候选预览，再决定是否写入</li>
-            <li>导入后再进入书摘笔记或原创笔记继续加工</li>
+            <li>\u5bfc\u5165\u540e\u8fdb\u5165\u5f85\u8f6c\u8ff0\u961f\u5217\uff0c\u518d\u7ee7\u7eed\u52a0\u5de5\u4e3a\u4e66\u6458\u6216\u539f\u521b\u7b14\u8bb0</li>
           </ol>
         </div>
       `
@@ -1608,7 +1310,7 @@ function currentModuleUi() {
       sidebarTitle: "关系图谱",
       sidebarFoot: "图谱默认围绕当前目录或当前主题，不展示全局大图。",
       title: "关系图谱",
-      summary: "图谱页只回答结构问题：这个目录下有哪些关键笔记、它们如何互相链接、哪里还缺连接，而不是把所有信息堆成一张图。",
+      summary: "图谱页不只看连接，还要帮助你看见重名冲突、孤立观点、待补链接理由，以及哪些概念其实还没有真正对齐。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>查看范围</h3>
@@ -1618,7 +1320,7 @@ function currentModuleUi() {
           <h3>你现在可以做什么</h3>
           <ul class="module-sidebar-list">
             <li>刷新当前目录子图</li>
-            <li>查看局部关系与缺失连接</li>
+            <li>查看局部关系、显性冲突与缺失连接</li>
             <li>从节点直接回到对应笔记</li>
           </ul>
         </div>
@@ -1628,18 +1330,18 @@ function currentModuleUi() {
       sidebarTitle: "写作中心",
       sidebarFoot: "写作中心应从成熟笔记出发，不替代笔记编辑器。",
       title: "写作中心",
-      summary: "这里是把原创笔记组织成写作项目和脚手架的地方。页面应围绕写作篮、项目、脚手架展开，而不是和导入、编辑、设置混在一起。",
+      summary: "这里不是囤积观点卡的地方，而是把已经成熟的原创笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>写作原则</h3>
-          <p>先挑选原创笔记进入写作篮，再生成脚手架。这里帮助组织结构，不直接代替你完成最终写作。</p>
+          <p>先判断哪些主题已经值得写，再挑选支撑该主题的原创笔记进入写作篮。这里帮助组织结构，也会提醒你补反方、边界和漏洞，但不直接代替你完成最终写作。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>建议路径</h3>
           <ol class="module-sidebar-list">
-            <li>创建项目并明确目标</li>
+            <li>先确认一个可推进的主题</li>
             <li>把相关原创笔记加入写作篮</li>
-            <li>生成并迭代 scaffold</li>
+            <li>生成并迭代 scaffold，优先处理冲突与缺口</li>
           </ol>
         </div>
       `
@@ -1737,33 +1439,65 @@ function activeEditorNote() {
   return state.notes.find((note) => note.id === activeTab.noteId) || null;
 }
 
+function activeEditorBody() {
+  const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
+  return String(activeTab?.body || activeEditorNote()?.body || "");
+}
+
+function noteGrowthStage(note, body = "") {
+  const noteType = String(note?.noteType || typeFromFolder(state, note?.folderId || "")).toLowerCase();
+  const text = String(body || note?.body || "");
+  const tagCount = parseTags(text).length;
+  const linkCount = parseLinks(text).length;
+  const bodyLength = text.replace(/\s+/g, "").length;
+
+  if (noteType === "fleeting") return "捕捉中";
+  if (noteType === "literature") return "转述中";
+  if (linkCount >= 2 || (linkCount >= 1 && tagCount >= 2)) return "已串联";
+  if (bodyLength >= 140 || tagCount >= 2) return "正在成形";
+  return "提炼中";
+}
+
 function renderStatusMeta() {
   const statusMeta = $("statusMeta");
   if (!statusMeta) return;
 
   const activeNote = activeEditorNote();
+  const activeBody = activeEditorBody();
   const dirtyCount = state.tabs.filter((tab) => tab.dirty).length;
   const openCount = state.tabs.length;
   const rootFolder = folderById(state, state.browserRootId);
   const selectedFolder = folderById(state, state.selectedFolderId);
+  const activeTagCount = activeNote ? parseTags(activeBody).length : 0;
+  const activeLinkCount = activeNote ? parseLinks(activeBody).length : 0;
+  const focusActive = state.module === "explorer" && Boolean(state.focusMode);
 
   const chips = [];
   chips.push(`<span class="status-chip active"><strong>${escapeHtml(moduleLabel(state.module))}</strong></span>`);
+  if (focusActive) {
+    chips.push(`<span class="status-chip focus">专注提炼</span>`);
+  }
 
   if (state.module === "explorer") {
-    chips.push(`<span class="status-chip"><strong>${escapeHtml(displayFolderName(rootFolder))}</strong></span>`);
     if (selectedFolder) {
-      chips.push(`<span class="status-chip">当前目录 <strong>${escapeHtml(directoryPathLabel(selectedFolder.id))}</strong></span>`);
+      chips.push(`<span class="status-chip">研究桌面 <strong>${escapeHtml(directoryPathLabel(selectedFolder.id))}</strong></span>`);
+    } else if (rootFolder) {
+      chips.push(`<span class="status-chip"><strong>${escapeHtml(displayFolderName(rootFolder))}</strong></span>`);
     }
   } else if (rootFolder) {
     chips.push(`<span class="status-chip">工作范围 <strong>${escapeHtml(displayFolderName(rootFolder))}</strong></span>`);
   }
 
-  chips.push(`<span class="status-chip">标签页 <strong>${openCount}</strong></span>`);
+  if (!focusActive) {
+    chips.push(`<span class="status-chip">展开中 <strong>${openCount}</strong></span>`);
+  }
   if (dirtyCount) {
-    chips.push(`<span class="status-chip warn">未保存 <strong>${dirtyCount}</strong></span>`);
+    chips.push(`<span class="status-chip warn">待沉淀 <strong>${dirtyCount}</strong></span>`);
   }
   if (state.module === "explorer" && activeNote) {
+    chips.push(`<span class="status-chip">生长阶段 <strong>${escapeHtml(noteGrowthStage(activeNote, activeBody))}</strong></span>`);
+    chips.push(`<span class="status-chip">连接 <strong>${activeLinkCount}</strong></span>`);
+    chips.push(`<span class="status-chip">标签 <strong>${activeTagCount}</strong></span>`);
     chips.push(`<span class="status-chip">${escapeHtml(noteTypeLabel(activeNote.noteType))}</span>`);
     chips.push(`<span class="status-chip title">当前笔记 <strong>${escapeHtml(activeNote.title || "未命名笔记")}</strong></span>`);
   }
@@ -1774,11 +1508,44 @@ function renderStatusMeta() {
 function renderWorkspaceStatusHint() {
   const statusHint = $("statusHint");
   if (!statusHint) return;
-  if (state.module === "explorer") {
-    editor.renderSaveHint();
+  if (state.module !== "explorer") {
+    statusHint.textContent = "";
     return;
   }
-  statusHint.textContent = "";
+  const activeNote = activeEditorNote();
+  const activeBody = activeEditorBody();
+  if (state.focusMode) {
+    statusHint.textContent = activeNote
+      ? `专注提炼中：先用自己的话写清${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}，再决定是否补连接与标签。`
+      : "专注提炼中：打开一条笔记，让资料先长成自己的判断。";
+    return;
+  }
+  if (activeNote) {
+    statusHint.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}：慢一点，优先把观点、证据和边界写清楚。`;
+    return;
+  }
+  statusHint.textContent = "打开一条笔记，继续提炼观点、证据与连接。";
+}
+
+function applyFocusModeChrome() {
+  const focusActive = state.module === "explorer" && Boolean(state.focusMode);
+  document.querySelector(".app")?.setAttribute("data-focus-mode", focusActive ? "true" : "false");
+  if (focusActive) editor?.setInspectorVisible?.(false);
+  const focusButton = $("btnFocusMode");
+  if (focusButton) {
+    focusButton.classList.toggle("active", focusActive);
+    focusButton.setAttribute("aria-pressed", focusActive ? "true" : "false");
+    focusButton.title = focusActive ? "退出专注提炼模式" : "专注提炼模式";
+    focusButton.dataset.tip = focusActive ? "退出专注提炼模式" : "专注提炼模式";
+    const label = focusButton.querySelector("span");
+    if (label) label.textContent = focusActive ? "退出专注" : "专注";
+  }
+  const intentNote = $("editorIntentNote");
+  if (intentNote) {
+    intentNote.textContent = focusActive
+      ? "你现在处在低干扰视图里，先把核心判断写清楚，再决定是否补连接与标签。"
+      : "这里不强调更快完成，而强调更清楚地形成观点、边界与连接。";
+  }
 }
 
 function renderAll() {
@@ -1789,6 +1556,7 @@ function renderAll() {
   renderSettingsPanel();
   renderWritingPanel();
   editor.renderTabs();
+  applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
   if (state.module === "explorer") {
@@ -1827,19 +1595,43 @@ function ensureEditableNoteBody(body = "") {
   return /\n\s*\n\s*$/.test(value) ? value : `${value}\n\n`;
 }
 
+function literatureNoteTemplateBody(title = "未命名笔记") {
+  return [
+    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
+    "",
+    "## 原文",
+    "",
+    "",
+    "## 转述",
+    "",
+    "",
+    "## 保留原因",
+    "",
+    "",
+    "## 支持判断",
+    "",
+    ""
+  ].join("\n");
+}
+
+function initialBodyForFolder(folderId = "") {
+  return typeFromFolder(state, folderId) === "literature" ? literatureNoteTemplateBody() : "# 未命名笔记\n\n";
+}
+
 async function createNoteInSelectedFolder(options = {}) {
   const folderId = state.selectedFolderId;
   const preferTitleSelection = options.preferTitleSelection !== false;
   const openInStandalone = options.openInStandalone === true;
   try {
+    const initialBody = initialBodyForFolder(folderId);
     const created = await createNote({
       directoryId: folderId,
-      body: "# 未命名笔记\n\n"
+      body: initialBody
     });
     if (!created) throw new Error("创建笔记失败");
     const note = mapNoteItem({
       ...created,
-      body: ensureEditableNoteBody(typeof created?.body === "string" ? created.body : "# 未命名笔记\n\n")
+      body: ensureEditableNoteBody(typeof created?.body === "string" ? created.body : initialBody)
     });
     state.notes.unshift(note);
     if (openInStandalone) {
@@ -1854,7 +1646,8 @@ async function createNoteInSelectedFolder(options = {}) {
       title: "未命名笔记",
       folderId,
       noteType: typeFromFolder(state, folderId),
-      body: ensureEditableNoteBody("# 未命名笔记\n\n"),
+      status: "draft",
+      body: ensureEditableNoteBody(initialBodyForFolder(folderId)),
       tags: [],
       links: [],
       updatedAt: new Date().toISOString()
@@ -1944,12 +1737,101 @@ function writingCandidateNotes() {
     });
 }
 
+function writingThemeLabels(notes) {
+  const tags = [...new Set(
+    notes
+      .flatMap((note) => {
+        if (Array.isArray(note.tags) && note.tags.length) return note.tags;
+        return parseTags(String(note.body || ""));
+      })
+      .map((tag) => String(tag || "").trim())
+      .filter(Boolean)
+  )];
+  if (tags.length) return tags;
+  return [...new Set(notes.map((note) => String(note.title || "").trim()).filter(Boolean))];
+}
+
+function writingThemeSummary(notes) {
+  const labels = writingThemeLabels(notes);
+  if (!labels.length) return "\u8fd8\u6ca1\u6709\u6d6e\u73b0\u51fa\u53ef\u8fdb\u5165\u5199\u4f5c\u7684\u4e3b\u9898";
+  const preview = labels.slice(0, 3).join("、");
+  return `\u53ef\u8fdb\u5165\u5199\u4f5c\u7684\u4e3b\u9898\u7ea6 ${labels.length} \u4e2a${preview ? `\uff1a${preview}${labels.length > 3 ? " \u7b49" : ""}` : ""}`;
+}
+
+function writingThemeIndexById(indexId) {
+  return writingState.themeIndexes.find((item) => item.id === indexId) || null;
+}
+
+function writingSourceIndexSummary() {
+  const sourceIds = uniqueStrings(writingState.sourceIndexIds);
+  if (!sourceIds.length) return "";
+  const titles = sourceIds.map((id) => writingThemeIndexById(id)?.title || id).filter(Boolean);
+  const preview = titles.slice(0, 2).join("、");
+  return `主题入口：${preview}${titles.length > 2 ? " 等" : ""}`;
+}
+
+function suggestedThemeIndexTitle(noteIds = []) {
+  const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
+  const labels = writingThemeLabels(notes);
+  if (labels.length) return `${labels[0]} 主题索引`;
+  const first = notes[0];
+  if (first?.title) return `${first.title} 主题索引`;
+  return "新的主题索引";
+}
+
+function clearWritingSourceIndexIds() {
+  writingState.sourceIndexIds = [];
+}
+
+function setWritingSourceIndexIds(indexIds = []) {
+  writingState.sourceIndexIds = uniqueStrings(indexIds);
+}
+
 function writingNoteById(noteId) {
   return state.notes.find((item) => item.id === noteId) || null;
 }
 
+function writingCachedNoteById(noteId) {
+  return (writingState.project?.basket_notes || []).find((item) => item?.id === noteId) || null;
+}
+
 function isDirectoryUnderOriginalRoot(directoryId) {
   return rootBoxIdFromFolder(state, directoryId) === "dir_original_default";
+}
+
+function writingNoteEligibility(note) {
+  if (!note) {
+    return {
+      ok: false,
+      key: "missing",
+      message: "还没能读取到这条原创笔记的完整信息。"
+    };
+  }
+  const noteType = String(note.noteType || note.note_type || "").trim().toLowerCase();
+  const inOriginalRoot = noteType === "permanent" || isDirectoryUnderOriginalRoot(note.folderId);
+  if (!inOriginalRoot) {
+    return {
+      ok: false,
+      key: "type",
+      message: "写作篮只接受原创/永久笔记。"
+    };
+  }
+  const authorship = normalizeAuthorshipItem(note.authorship) || { user_confirmed: false, ai_assisted: false };
+  if (!authorship.user_confirmed) {
+    return {
+      ok: false,
+      key: "authorship",
+      message: "这条原创笔记还没完成作者确认。"
+    };
+  }
+  if (String(note.status || "").trim().toLowerCase() !== "active") {
+    return {
+      ok: false,
+      key: "draft",
+      message: "这条原创笔记仍是 draft，先完成原创性检查后再进入写作。"
+    };
+  }
+  return { ok: true, key: "ok", message: "" };
 }
 
 function parseWritingBasketIds() {
@@ -1975,9 +1857,52 @@ function clearWritingBasket() {
   setWritingBasketIds([]);
 }
 
+function writingKnownNoteById(noteId) {
+  return writingNoteById(noteId) || writingCachedNoteById(noteId) || null;
+}
+
+function partitionWritingEligibleNoteIds(noteIds = [], { noteLookup = writingKnownNoteById } = {}) {
+  const eligibleIds = [];
+  const ineligible = [];
+  for (const noteId of uniqueStrings(noteIds)) {
+    const note = noteLookup(noteId);
+    const eligibility = writingNoteEligibility(note || { id: noteId });
+    if (eligibility.ok) eligibleIds.push(noteId);
+    else {
+      ineligible.push({
+        id: noteId,
+        note,
+        ...eligibility
+      });
+    }
+  }
+  return { eligibleIds, ineligible };
+}
+
+function writingIneligibleSummary(items = []) {
+  const counts = items.reduce(
+    (acc, item) => {
+      const key = ["authorship", "draft", "type", "missing"].includes(item?.key) ? item.key : "other";
+      acc[key] += 1;
+      return acc;
+    },
+    { authorship: 0, draft: 0, type: 0, missing: 0, other: 0 }
+  );
+  return uniqueStrings([
+    counts.authorship ? `${counts.authorship} 条未完成作者确认` : "",
+    counts.draft ? `${counts.draft} 条仍是 draft` : "",
+    counts.type ? `${counts.type} 条不属于原创/永久笔记` : "",
+    counts.missing ? `${counts.missing} 条暂未读取完整信息` : "",
+    counts.other ? `${counts.other} 条暂不可进入写作` : ""
+  ]).join("，");
+}
+
+function currentWritingBasketEligibility() {
+  return partitionWritingEligibleNoteIds(parseWritingBasketIds());
+}
+
 function writingBasketEntries() {
-  const cachedById = new Map((writingState.project?.basket_notes || []).map((note) => [note.id, note]));
-  return parseWritingBasketIds().map((noteId) => writingNoteById(noteId) || cachedById.get(noteId) || { id: noteId, title: noteId, folderId: "", noteType: "permanent", body: "" });
+  return parseWritingBasketIds().map((noteId) => writingKnownNoteById(noteId) || { id: noteId, title: noteId, folderId: "", noteType: "permanent", body: "" });
 }
 
 function writingDraftDirectoryId() {
@@ -2095,12 +2020,61 @@ function renderWritingNoteCard(note, { selected = false, action = "add", actionL
   `;
 }
 
+function writingThemeIndexScopeDirectoryId() {
+  if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
+  return writingDraftDirectoryId();
+}
+
+async function loadWritingThemeIndexes() {
+  const directoryId = writingThemeIndexScopeDirectoryId();
+  writingState.loadingThemeIndexes = true;
+  renderWritingPanel();
+  try {
+    writingState.themeIndexes = await listIndexCards({
+      directoryId,
+      includeDescendants: true,
+      indexType: "topic",
+      limit: 12
+    });
+    return writingState.themeIndexes;
+  } finally {
+    writingState.loadingThemeIndexes = false;
+    renderWritingPanel();
+  }
+}
+
+function renderWritingThemeIndexCard(indexCard) {
+  const itemTitles = (Array.isArray(indexCard?.items) ? indexCard.items : [])
+    .map((item) => item?.note?.title || item?.short_label || item?.note_id)
+    .filter(Boolean)
+    .slice(0, 3);
+  const preview = itemTitles.join("、");
+  const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
+  const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
+  return `
+    <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
+      <div class="writing-note-card-head">
+        <div>
+          <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
+          <div class="writing-note-meta">${escapeHtml(indexCard.id)} · ${escapeHtml(indexCard.index_type || "topic")} · 条目 ${escapeHtml(noteCount)}</div>
+        </div>
+      </div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟原创笔记当成后续写作入口。")}</div>
+      <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
+      <div class="writing-note-actions">
+        <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
+      </div>
+    </article>
+  `;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
+  setWritingSourceIndexIds(project.related_index_ids || []);
   setWritingBasketIds(project.basket_note_ids || []);
 }
 
@@ -2108,10 +2082,17 @@ function currentWritingVersionNote() {
   return String($("writingVersionNote")?.value || "").trim();
 }
 
+function promptVersionNoteEdit(currentValue, label) {
+  const next = window.prompt(`${label}说明`, String(currentValue || ""));
+  if (next === null) return null;
+  return String(next).trim();
+}
+
 function renderWritingProjectCard(project) {
   const draftLabel = project?.draft_note?.title || project?.draft_note_id || "未绑定草稿";
   const scaffoldLabel = project?.scaffold_id || "未生成";
   const hasScaffold = Boolean(project?.scaffold_id);
+  const sourceCount = Array.isArray(project?.related_index_ids) ? project.related_index_ids.length : 0;
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project.id)}">
       <div class="writing-note-card-head">
@@ -2120,7 +2101,7 @@ function renderWritingProjectCard(project) {
           <div class="writing-note-meta">${escapeHtml(project.id)} · ${escapeHtml(project.status || "draft")} · 篮子 ${escapeHtml(project.basket_count || 0)}</div>
         </div>
       </div>
-      <div class="writing-note-meta">Scaffold：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}</div>
+      <div class="writing-note-meta">Scaffold：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；主题入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project.goal || "暂无写作目标说明。")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="open" data-writing-project-id="${escapeHtml(project.id)}">打开项目</button>
@@ -2144,11 +2125,12 @@ function renderScaffoldVersionCard(version) {
       </div>
       <div class="writing-note-meta">生成于：${escapeHtml(version.created_at || version.updated_at || "")}${isActive ? " · 当前预览中" : ""}</div>
       <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的 scaffold 版本")}</div>
-      <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-scaffold-action="open" data-writing-scaffold-id="${escapeHtml(version.id)}">打开版本</button>
-        <button class="mini-btn" type="button" data-writing-scaffold-action="copy" data-writing-scaffold-id="${escapeHtml(version.id)}">复制</button>
-        <button class="mini-btn" type="button" data-writing-scaffold-action="export" data-writing-scaffold-id="${escapeHtml(version.id)}">导出</button>
-      </div>
+        <div class="writing-note-actions">
+          <button class="mini-btn" type="button" data-writing-scaffold-action="open" data-writing-scaffold-id="${escapeHtml(version.id)}">打开版本</button>
+          <button class="mini-btn" type="button" data-writing-scaffold-action="copy" data-writing-scaffold-id="${escapeHtml(version.id)}">复制</button>
+          <button class="mini-btn" type="button" data-writing-scaffold-action="export" data-writing-scaffold-id="${escapeHtml(version.id)}">导出</button>
+          <button class="mini-btn" type="button" data-writing-scaffold-action="edit-note" data-writing-scaffold-id="${escapeHtml(version.id)}">编辑说明</button>
+        </div>
     </article>
   `;
 }
@@ -2169,11 +2151,12 @@ function renderDraftVersionCard(version) {
       <div class="writing-note-meta">来源 Scaffold：${escapeHtml(sourceScaffold)}</div>
       <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前 scaffold 保存的草稿版本")}</div>
       <div class="writing-note-meta">创建时间：${escapeHtml(version.created_at || "")}</div>
-      <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿</button>
-        ${
-          version?.is_current
-            ? `<button class="mini-btn" type="button" disabled>当前草稿</button>`
+        <div class="writing-note-actions">
+          <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿</button>
+          <button class="mini-btn" type="button" data-writing-draft-action="edit-note" data-writing-draft-version-id="${escapeHtml(version.id)}" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">编辑说明</button>
+          ${
+            version?.is_current
+              ? `<button class="mini-btn" type="button" disabled>当前草稿</button>`
             : `<button class="mini-btn" type="button" data-writing-draft-action="set-current" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">设为当前草稿</button>`
         }
       </div>
@@ -2361,9 +2344,41 @@ function renderWritingScaffoldPreview() {
       ${
         sections.length
           ? `<ol>${sections
-              .map((section) => `<li><strong>${escapeHtml(section.heading || `Section ${section.order || ""}`)}</strong> ${escapeHtml(section.purpose || "")}</li>`)
+              .map((section) => {
+                const gaps = Array.isArray(section.gaps) ? section.gaps : [];
+                const counterpoints = Array.isArray(section.counterpoints) ? section.counterpoints : [];
+                const sectionQuestions = Array.isArray(section.open_questions) ? section.open_questions : [];
+                return `
+                  <li>
+                    <strong>${escapeHtml(section.heading || `Section ${section.order || ""}`)}</strong> ${escapeHtml(section.purpose || "")}
+                    ${
+                      gaps.length
+                        ? `<div class="writing-summary">待补缺口：${escapeHtml(gaps.join(" / "))}</div>`
+                        : ""
+                    }
+                    ${
+                      counterpoints.length
+                        ? `<div class="writing-summary">反方/边界：${escapeHtml(counterpoints.join(" / "))}</div>`
+                        : ""
+                    }
+                    ${
+                      sectionQuestions.length
+                        ? `<div class="writing-summary">待回答问题：${escapeHtml(sectionQuestions.join(" / "))}</div>`
+                        : ""
+                    }
+                  </li>
+                `;
+              })
               .join("")}</ol>`
           : `<div class="writing-empty">当前 scaffold 还没有章节。</div>`
+      }
+    </div>
+    <div>
+      <h4>待处理的反方与漏洞</h4>
+      ${
+        questions.length
+          ? `<ul>${questions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>`
+          : `<div class="writing-empty">当前 scaffold 还没有开放问题。</div>`
       }
     </div>
     <div>
@@ -2376,6 +2391,8 @@ function renderWritingScaffoldPreview() {
 function renderWritingPanel() {
   const current = $("writingCurrentNote");
   const scopeHint = $("writingScopeHint");
+  const themeIndexesHint = $("writingThemeIndexesHint");
+  const themeIndexList = $("writingThemeIndexList");
   const basketSummary = $("writingBasketSummary");
   const basketList = $("writingBasketList");
   const candidateSummary = $("writingCandidateSummary");
@@ -2396,7 +2413,31 @@ function renderWritingPanel() {
   const scopeFolder = folderById(state, state.selectedFolderId);
   const scopeRoot = folderById(state, rootBoxIdFromFolder(state, state.selectedFolderId));
   if (scopeHint) {
-  scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "原创笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里的原创笔记。`;
+    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "原创笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的原创笔记，不展示原始导入资料；写作入口默认从已有观点开始。`;
+  }
+
+  const sourceIndexSummary = writingSourceIndexSummary();
+  if (themeIndexesHint) {
+    if (writingState.loadingThemeIndexes && writingState.themeIndexes.length) {
+      themeIndexesHint.textContent = `正在刷新主题索引... 当前显示 ${writingState.themeIndexes.length} 个。`;
+    } else if (writingState.loadingThemeIndexes) {
+      themeIndexesHint.textContent = "正在读取主题索引...";
+    } else if (writingState.themeIndexes.length) {
+      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作入口。`;
+    } else {
+      themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟原创笔记组织进写作篮，再保存为主题索引。";
+    }
+  }
+  if (themeIndexList) {
+    if (writingState.loadingThemeIndexes) {
+      themeIndexList.innerHTML = writingState.themeIndexes.length
+        ? writingState.themeIndexes.map(renderWritingThemeIndexCard).join("")
+        : `<div class="writing-empty">正在加载主题索引...</div>`;
+    } else if (writingState.themeIndexes.length) {
+      themeIndexList.innerHTML = writingState.themeIndexes.map(renderWritingThemeIndexCard).join("");
+    } else {
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟原创笔记保存一个，后续就能从这里直接开始写作。</div>`;
+    }
   }
 
   const basketEntries = writingBasketEntries();
@@ -2406,22 +2447,23 @@ function renderWritingPanel() {
     const draftPart = writingState.project?.draft_note_id
       ? `草稿：${writingState.project?.draft_note?.title || writingState.project.draft_note_id}`
       : "尚未绑定草稿";
+    const sourcePart = sourceIndexSummary || "尚未记录主题入口";
     basketSummary.textContent = basketEntries.length
-      ? `已加入 ${basketEntries.length} 条原创笔记。${projectPart}；${scaffoldPart}；${draftPart}。`
-      : `篮子里还没有笔记。${projectPart}；${scaffoldPart}；${draftPart}。`;
+      ? `\u5199\u4f5c\u7bee\u91cc\u5df2\u6709 ${basketEntries.length} \u6761\u539f\u521b\u7b14\u8bb0\uff0c\u6b63\u5728\u4e3a\u5f53\u524d\u4e3b\u9898\u7ec4\u7ec7\u8bba\u70b9\u4e0e\u8bc1\u636e\u3002${sourcePart}\uff1b${projectPart}\uff1b${scaffoldPart}\uff1b${draftPart}\u3002`
+      : `\u5199\u4f5c\u7bee\u8fd8\u6ca1\u6709\u7b14\u8bb0\u3002\u5148\u786e\u8ba4\u4e00\u4e2a\u503c\u5f97\u63a8\u8fdb\u7684\u4e3b\u9898\uff0c\u518d\u6311\u9009 2-5 \u6761\u80fd\u652f\u6491\u8bba\u8bc1\u7684\u539f\u521b\u7b14\u8bb0\u3002${sourcePart}\uff1b${projectPart}\uff1b${scaffoldPart}\uff1b${draftPart}\u3002`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
       ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出篮子" })).join("")
-      : `<div class="writing-empty">先在左侧打开一条原创笔记点击“加入当前笔记”，或直接把当前目录里的原创笔记批量加入写作篮。</div>`;
+      : `<div class="writing-empty">\u5148\u5728\u5de6\u4fa7\u6253\u5f00\u4e00\u6761\u539f\u521b\u7b14\u8bb0\u70b9\u51fb“\u52a0\u5165\u5f53\u524d\u7b14\u8bb0”\uff0c\u6216\u5148\u770b\u4e0b\u9762\u54ea\u4e9b\u4e3b\u9898\u5df2\u7ecf\u6210\u5f62\uff0c\u518d\u628a\u76f8\u5173\u7b14\u8bb0\u6279\u91cf\u52a0\u5165\u5199\u4f5c\u7bee\u3002</div>`;
   }
 
   const candidates = writingCandidateNotes();
   const basketIds = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
-      ? `当前目录内共 ${candidates.length} 条原创笔记，可逐条加入篮子或一次性全部加入。`
-    : "当前目录里还没有已加载的原创笔记。可以先回到原创笔记目录创建几条笔记，再来生成 scaffold。";
+      ? `当前目录内有 ${candidates.length} 条原创笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记进入写作篮。`
+    : "当前目录里还没有已加载的原创笔记。可以先回到原创笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
     candidateList.innerHTML = candidates.length
@@ -2539,8 +2581,8 @@ function renderGraphPanel() {
 
   const folder = folderById(state, state.selectedFolderId);
   if (graphState.loading) {
-    summary.textContent = `正在加载“${folder?.name || "当前目录"}”的关系图谱...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取 SQLite 链接关系。</div>`;
+    summary.textContent = `正在加载“${folder?.name || "当前目录"}”的关系图谱与冲突视图...`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取 SQLite 链接关系与张力信号。</div>`;
     return;
   }
 
@@ -2553,15 +2595,17 @@ function renderGraphPanel() {
   const graph = graphState.item;
   if (!graph) {
     summary.textContent = `当前目录：${folder?.name || "未选择目录"}。点击“刷新图谱”查看本目录内笔记关系。`;
-    canvas.innerHTML = `<div class="graph-empty">这里只显示当前目录内的笔记节点和目录内链接，不默认打开全局大图。</div>`;
+    canvas.innerHTML = `<div class="graph-empty">这里只显示当前目录内的笔记节点、目录内链接和冲突信号，不默认打开全局大图。</div>`;
     return;
   }
 
-  summary.textContent = `${graph.directoryTitle || folder?.name || "当前目录"}：${graph.totalNodes || 0} 个节点，${
-    graph.totalEdges || 0
-  } 条链接`;
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph.edges) ? graph.edges : [];
+  const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
+  const insights = graph.insights && typeof graph.insights === "object" ? graph.insights : {};
+  const supportingRelations = Array.isArray(insights.supportingRelations) ? insights.supportingRelations : [];
+  const conflictingRelations = Array.isArray(insights.conflictingRelations) ? insights.conflictingRelations : [];
+  const bridgeGaps = Array.isArray(insights.bridgeGaps) ? insights.bridgeGaps : [];
   const relationCounts = edges.reduce((acc, edge) => {
     const key = String(edge.relationType || "associated_with").trim();
     acc[key] = (acc[key] || 0) + 1;
@@ -2573,7 +2617,8 @@ function renderGraphPanel() {
     .map(([type, count]) => `${type} × ${count}`)
     .join(" / ");
   const linkedNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const isolatedCount = Math.max(0, nodes.filter((node) => !linkedNodeIds.has(node.id)).length);
+  const isolatedNodes = nodes.filter((node) => !linkedNodeIds.has(node.id));
+  const isolatedCount = isolatedNodes.length;
   const busiestNode = nodes
     .map((node) => ({
       node,
@@ -2581,6 +2626,89 @@ function renderGraphPanel() {
     }))
     .sort((a, b) => b.degree - a.degree)[0];
   const highlightedEdge = edges[0] || null;
+  const weakRationaleEdges = edges.filter((edge) => {
+    const rationale = String(edge.rationale || "").trim();
+    return !rationale || rationale === "markdown_wikilink";
+  });
+  const untypedRelations = Array.isArray(insights.untypedRelations) ? insights.untypedRelations : weakRationaleEdges;
+  const tensionCards = [];
+
+  conflictItems.slice(0, 4).forEach((conflict) => {
+    const noteTitles = (Array.isArray(conflict.notes) ? conflict.notes : [])
+      .map((note) => note.title || note.id)
+      .slice(0, 3)
+      .join(" / ");
+    tensionCards.push(`
+      <div class="graph-detail-card">
+        <strong>概念错位 / 重名冲突</strong>
+        <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
+        <small>${escapeHtml(conflict.rationale || "当前目录里有多条笔记标题相同，容易让连接和引用失真。")}</small>
+        <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
+      </div>
+    `);
+  });
+
+  if (conflictingRelations.length) {
+    tensionCards.push(`
+      <div class="graph-detail-card">
+        <strong>显式冲突关系</strong>
+        <small>${conflictingRelations.length} 条关系已经明确标为冲突/反驳，而不是被模糊处理。</small>
+        <small>${escapeHtml(
+          conflictingRelations
+            .slice(0, 3)
+            .map((edge) => `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`)
+            .join(" / ")
+        )}</small>
+      </div>
+    `);
+  }
+
+  if (bridgeGaps.length) {
+    tensionCards.push(`
+      <div class="graph-detail-card">
+        <strong>桥接缺口</strong>
+        <small>${bridgeGaps.length} 处结构还缺过渡节点或明确连接，写作时容易在这里断掉。</small>
+        <small>${escapeHtml(
+          bridgeGaps
+            .slice(0, 4)
+            .map((gap) => (Array.isArray(gap.noteTitles) ? gap.noteTitles.join(" / ") : "未命名缺口"))
+            .join(" / ")
+        )}</small>
+      </div>
+    `);
+  } else if (isolatedNodes.length) {
+    tensionCards.push(`
+      <div class="graph-detail-card">
+        <strong>孤立观点</strong>
+        <small>${isolatedNodes.length} 条笔记还没有进入当前目录的链接关系。</small>
+        <small>${escapeHtml(
+          isolatedNodes
+            .slice(0, 4)
+            .map((node) => node.title || node.id)
+            .join(" / ")
+        )}</small>
+      </div>
+    `);
+  }
+
+  if (untypedRelations.length) {
+    tensionCards.push(`
+      <div class="graph-detail-card">
+        <strong>待补链接理由</strong>
+        <small>${untypedRelations.length} 条连接仍主要依赖 wikilink，没有写清是支持、反驳、延展还是对照。</small>
+        <small>${escapeHtml(
+          untypedRelations
+            .slice(0, 3)
+            .map((edge) => `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`)
+            .join(" / ")
+        )}</small>
+      </div>
+    `);
+  }
+
+  summary.textContent = `${graph.directoryTitle || folder?.name || "当前目录"}：${graph.totalNodes || 0} 个节点，${
+    graph.totalEdges || 0
+  } 条链接，${supportingRelations.length} 条支持关系，${conflictingRelations.length + conflictItems.length} 个冲突信号，${bridgeGaps.length} 处桥接缺口`;
   canvas.innerHTML = `
     <div class="graph-grid">
       <section class="graph-section">
@@ -2600,10 +2728,37 @@ function renderGraphPanel() {
             <small>${busiestNode?.node?.title ? `连接最密的是「${escapeHtml(busiestNode.node.title)}」` : "还没有明显中心节点"}；${isolatedCount} 条笔记暂时没有进入链接关系。</small>
           </div>
           <div class="graph-overview-card">
+            <strong>支持与冲突</strong>
+            <small>${supportingRelations.length ? `显式支持关系 ${supportingRelations.length} 条` : "还没有显式 supports 关系"}；${
+              conflictingRelations.length + conflictItems.length
+                ? `冲突信号 ${conflictingRelations.length + conflictItems.length} 个`
+                : "暂未发现显性冲突"
+            }。</small>
+          </div>
+          <div class="graph-overview-card">
+            <strong>桥接与说明</strong>
+            <small>${bridgeGaps.length ? `桥接缺口 ${bridgeGaps.length} 处` : "当前没有明显桥接缺口"}；${
+              untypedRelations.length
+            } 条连接还缺明确关系说明。</small>
+          </div>
+          <div class="graph-overview-card">
             <strong>关系分布</strong>
             <small>${relationSummary || "目前还没有关系类型可统计，先在笔记中建立 [[关联笔记]]。"} </small>
           </div>
         </div>
+      </section>
+      <section class="graph-section">
+        <div class="graph-section-head">
+          <div>
+            <div class="graph-section-title">冲突与张力视图</div>
+            <div class="graph-section-note">先看哪里有重名、孤立和未解释连接，再决定该补反方、补边界还是补连接理由。</div>
+          </div>
+        </div>
+        ${
+          tensionCards.length
+            ? `<div class="graph-list">${tensionCards.join("")}</div>`
+            : `<div class="graph-empty">当前目录还没有显性冲突；如果结构看起来过于顺滑，可以回到笔记里补上反方、边界或例外条件。</div>`
+        }
       </section>
       <section class="graph-section">
         <div class="graph-section-head">
@@ -2637,7 +2792,7 @@ function renderGraphPanel() {
         <div class="graph-section-head">
           <div>
             <div class="graph-section-title">关系与详情</div>
-            <div class="graph-section-note">先看有哪些连接已经出现，再决定哪些地方要补证据、补反例或补链接理由。</div>
+            <div class="graph-section-note">先看有哪些连接已经出现，再决定哪些地方要补证据、补反方、补边界或补链接理由。</div>
           </div>
         </div>
         ${
@@ -2693,10 +2848,17 @@ async function refreshDirectoryGraph() {
   graphState.error = "";
   renderGraphPanel();
   try {
-    graphState.item = await fetchDirectoryGraph(state.selectedFolderId);
+    const directoryId = state.selectedFolderId;
+    const [graph, conflicts] = await Promise.all([
+      fetchDirectoryGraph(directoryId),
+      fetchGraphConflicts({ directoryId, includeDescendants: false }).catch(() => null)
+    ]);
+    graphState.item = graph;
+    graphState.conflicts = conflicts;
   } catch (error) {
     graphState.error = String(error?.message || error);
     graphState.item = null;
+    graphState.conflicts = null;
   } finally {
     graphState.loading = false;
     renderGraphPanel();
@@ -2725,7 +2887,12 @@ async function ensureNoteBodyLoaded(noteId) {
     }
     note.body = full.body || note.body;
     note.title = full.title || note.title;
+    note.status = full.status || note.status;
     note.markdownPath = full.markdownPath || note.markdownPath;
+    note.originalityStatus = full.originalityStatus || note.originalityStatus;
+    note.originalitySimilarity = normalizeOptionalNumber(full.originalitySimilarity ?? note.originalitySimilarity);
+    note.authorship = normalizeAuthorshipItem(full.authorship) || note.authorship;
+    note.boundaryOrCounterpoint = full.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
     note.updatedAt = full.updatedAt || note.updatedAt;
     note.bodyLoaded = true;
     const tab = state.tabs.find((t) => t.noteId === note.id);
@@ -2735,6 +2902,7 @@ async function ensureNoteBodyLoaded(noteId) {
       tab.savedBody = note.body;
       tab.savedTitle = note.title;
       tab.dirty = false;
+      editor.syncTabMetadataFromNote(note.id);
       if (state.activeTabId === tab.id) editor.fillEditorFromTab();
     }
   } catch {}
@@ -2757,6 +2925,11 @@ function openNoteById(id, options = {}) {
   }
   state.selectedFileId = id;
   const note = state.notes.find((n) => n.id === id);
+  const focusedIds = Array.isArray(state.literatureQueueFocusNoteIds) ? state.literatureQueueFocusNoteIds : [];
+  if (focusedIds.length) {
+    const keepFocus = String(note?.noteType || "").trim() === "literature" && focusedIds.includes(String(id || "").trim());
+    if (!keepFocus) clearLiteratureQueueFocus();
+  }
   if (note) {
     state.selectedFolderId = note.folderId;
     state.browserRootId = rootBoxIdFromFolder(state, note.folderId);
@@ -2774,6 +2947,31 @@ async function handleStateChange(reason, payload = {}) {
       setStatus("已在当前目录创建 Markdown 文件（已落盘）", "ok");
     } else {
       setStatus(`API 不可用，已降级本地创建：${String(result.error?.message || result.error)}`, "warn");
+    }
+    return;
+  }
+
+  if (reason === "create-original-from-literature") {
+    const body = originalDraftBodyFromLiterature(payload);
+    const title = titleFromSeedText(payload.paraphrase || payload.sourceTitle || "", payload.sourceTitle || "未命名原创笔记");
+    const directoryId = "dir_original_default";
+    try {
+      const created = await createNote({
+        directoryId,
+        status: "draft",
+        body
+      });
+      if (!created) throw new Error("创建原创笔记失败");
+      const note = mapNoteItem({
+        ...created,
+        body: typeof created?.body === "string" ? created.body : body
+      });
+      state.notes = [note, ...state.notes.filter((item) => item.id !== note.id)];
+      activateModule("explorer");
+      openNoteById(note.id, { preferTitleSelection: false });
+      setStatus(`已从书摘生成原创笔记草稿：${note.title || title}`, "ok");
+    } catch (error) {
+      setStatus(`从书摘生成原创笔记失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -2805,27 +3003,51 @@ async function handleStateChange(reason, payload = {}) {
       }
       if (note) {
         try {
-          const resolvedStatus = payload.originalityStatus === "pass" ? "active" : "draft";
+          const resolvedStatus =
+            String(payload.status || "").trim() ||
+            (payload.originalityStatus === "pass" && payload.authorshipConfirmed !== false ? "active" : note.status || "draft");
+          note.status = resolvedStatus;
+          note.authorship = {
+            ...(note.authorship || {}),
+            user_confirmed: Boolean(payload.authorshipConfirmed),
+            ai_assisted: Boolean(note.authorship?.ai_assisted)
+          };
           const updated = await updateNote(note.id, {
             title: note.title,
             body: note.body,
             status: resolvedStatus,
             originalityStatus: payload.originalityStatus,
-            originalitySimilarity: payload.originalitySimilarity
+            originalitySimilarity: payload.originalitySimilarity,
+            authorship: note.noteType === "original" ? note.authorship : undefined
           });
           if (updated) {
             note.title = updated.title || note.title;
             note.body = updated.body || note.body;
+            note.status = updated.status || note.status;
             note.markdownPath = updated.markdownPath || note.markdownPath;
+            note.originalityStatus = updated.originalityStatus || note.originalityStatus;
+            note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
+            note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
+            note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
             note.updatedAt = updated.updatedAt || note.updatedAt;
             note.bodyLoaded = true;
           }
-          setStatus("已保存 Markdown（已落盘）", "ok");
+          if (note.noteType === "original") {
+            setStatus(
+              resolvedStatus === "active"
+                ? "已保存 Markdown（已落盘），原创笔记已完成作者确认"
+                : "已保存 Markdown（已落盘），但当前原创笔记仍按 draft 处理",
+              resolvedStatus === "active" ? "ok" : "warn"
+            );
+          } else {
+            setStatus("已保存 Markdown（已落盘）", "ok");
+          }
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
-	          setStatus(`保存失败（仅本地暂存）：${String(error?.message || error)}`, "warn");
+            const feedback = noteSaveFailureFeedback(error);
+	          setStatus(feedback.statusMessage, feedback.statusTone);
             renderAll();
-            return false;
+            return feedback;
 	        }
 	      }
 	    }
@@ -2999,6 +3221,18 @@ const editor = new EditorPane({
     wysiwygHost: $("wysiwygHost"),
     editorHost: $("editorHost"),
     markdownSplit: $("markdownSplit"),
+    literatureWorkspace: $("literatureWorkspace"),
+    literatureTitle: $("literatureTitleInput"),
+    literatureOriginal: $("literatureOriginalInput"),
+    literatureParaphrase: $("literatureParaphraseInput"),
+    literatureWhyKeep: $("literatureWhyKeepInput"),
+    literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
+    literatureCompletionBadge: $("literatureCompletionBadge"),
+    literatureCompletionHint: $("literatureCompletionHint"),
+    literatureQueueNote: $("literatureQueueNote"),
+    literatureQueueSummary: $("literatureQueueSummary"),
+    literatureQueueList: $("literatureQueueList"),
+    literatureOpenNext: $("btnLiteratureOpenNext"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
     editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
@@ -3027,13 +3261,29 @@ const editor = new EditorPane({
     showRelated: $("btnShowRelated"),
     hideRelated: $("btnHideRelated"),
     runGuard: $("btnRunGuard"),
+    completeNote: $("btnCompleteNote"),
     save: $("btnSave"),
-    statusHint: $("statusHint")
+    statusHint: $("statusHint"),
+    authorshipPanel: $("authorshipPanel"),
+    authorshipClaimInput: $("authorshipClaimInput"),
+    authorshipConfirm: $("authorshipConfirm"),
+    authorshipHint: $("authorshipHint")
   },
   onStatus: setStatus,
   onStateChange: handleStateChange,
   onOpenNote: openNoteById,
-  onChromeChange: renderStatusMeta
+  onChromeChange: () => {
+    renderStatusMeta();
+    renderWorkspaceStatusHint();
+  }
+});
+
+$("btnFocusMode")?.addEventListener("click", () => {
+  state.focusMode = !state.focusMode;
+  applyFocusModeChrome();
+  editor.setFocusMode(state.focusMode);
+  setStatus(state.focusMode ? "已进入专注提炼模式" : "已退出专注提炼模式", "ok", { requireModule: "explorer" });
+  renderWorkspaceStatusHint();
 });
 
 $("settingsRefreshVault")?.addEventListener("click", async () => {
@@ -3085,6 +3335,7 @@ $("btnWritingUseCurrent")?.addEventListener("click", () => {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   if (!note) return setStatus("请先在左侧选择一条原创笔记", "warn");
 if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受原创/永久笔记，请先切到原创笔记目录选择笔记", "warn");
+  clearWritingSourceIndexIds();
   addWritingBasketIds([note.id]);
   if (!$("writingTitle")?.value.trim()) $("writingTitle").value = note.title || "新的写作项目";
   renderWritingPanel();
@@ -3094,13 +3345,15 @@ if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受原创/永
 $("btnWritingAddVisible")?.addEventListener("click", () => {
   const candidates = writingCandidateNotes();
   if (!candidates.length) return setStatus("当前目录没有可加入的原创笔记", "warn");
+  clearWritingSourceIndexIds();
   addWritingBasketIds(candidates.map((note) => note.id));
   renderWritingPanel();
-  setStatus(`已加入当前目录原创笔记：${candidates.length} 条`, "ok");
+  setStatus(`已把当前目录观点加入写作篮：${candidates.length} 条`, "ok");
 });
 
 $("btnWritingClearBasket")?.addEventListener("click", () => {
   clearWritingBasket();
+  clearWritingSourceIndexIds();
   writingState.project = null;
   writingState.scaffold = null;
   writingState.scaffoldMarkdown = "";
@@ -3118,12 +3371,14 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
   if (action === "add") {
+    clearWritingSourceIndexIds();
     addWritingBasketIds([noteId]);
     renderWritingPanel();
     setStatus(`已加入写作篮：${noteId}`, "ok");
     return;
   }
   if (action === "remove") {
+    clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
     setStatus(`已移出写作篮：${noteId}`, "ok");
@@ -3142,6 +3397,7 @@ $("writingBasketList")?.addEventListener("click", (event) => {
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
   if (action === "remove") {
+    clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
     setStatus(`已移出写作篮：${noteId}`, "ok");
@@ -3150,6 +3406,41 @@ $("writingBasketList")?.addEventListener("click", (event) => {
   if (action === "open") {
     openNoteById(noteId);
     setStatus(`已打开原创笔记：${noteId}`, "ok");
+  }
+});
+
+$("btnWritingRefreshThemeIndexes")?.addEventListener("click", async () => {
+  try {
+    await loadWritingThemeIndexes();
+    setStatus("已刷新主题索引", "ok");
+  } catch (error) {
+    setStatus(`刷新主题索引失败：${String(error?.message || error)}`, "bad");
+  }
+});
+
+$("btnWritingSaveThemeIndex")?.addEventListener("click", async () => {
+  try {
+    const card = await saveWritingBasketAsThemeIndex();
+    if (!card) return;
+    setStatus(`已保存主题索引：${card.title}`, "ok");
+  } catch (error) {
+    setStatus(`保存主题索引失败：${String(error?.message || error)}`, "bad");
+  }
+});
+
+$("writingThemeIndexList")?.addEventListener("click", async (event) => {
+  const button = event.target?.closest?.("[data-writing-index-action]");
+  if (!button) return;
+  const action = String(button.getAttribute("data-writing-index-action") || "");
+  const indexId = String(button.getAttribute("data-writing-index-id") || "");
+  if (!indexId) return;
+  if (action === "use") {
+    try {
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      setStatus(`已从主题索引进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
+    } catch (error) {
+      setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
+    }
   }
 });
 
@@ -3228,6 +3519,27 @@ $("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {
     } catch (error) {
       setStatus(`导出 Scaffold 失败：${String(error?.message || error)}`, "bad");
     }
+    return;
+  }
+  if (action === "edit-note") {
+    const nextNote = promptVersionNoteEdit(version?.version_note || "", "Scaffold 版本");
+    if (nextNote === null) return;
+    try {
+      const updated = await updateDraftScaffoldVersionNote(scaffoldId, nextNote);
+      writingState.scaffoldVersions = writingState.scaffoldVersions.map((item) =>
+        item.id === scaffoldId ? { ...item, version_note: updated?.version_note || "" } : item
+      );
+      if (writingState.scaffold?.id === scaffoldId) {
+        writingState.scaffold = {
+          ...writingState.scaffold,
+          version_note: updated?.version_note || ""
+        };
+      }
+      renderWritingPanel();
+      setStatus(`已更新 scaffold 版本说明：${scaffoldId}`, "ok");
+    } catch (error) {
+      setStatus(`更新 scaffold 版本说明失败：${String(error?.message || error)}`, "bad");
+    }
   }
 });
 
@@ -3236,7 +3548,24 @@ $("writingDraftVersionsList")?.addEventListener("click", async (event) => {
   if (!button) return;
   const action = String(button.getAttribute("data-writing-draft-action") || "");
   const draftNoteId = String(button.getAttribute("data-writing-draft-note-id") || "");
+  const draftVersionId = String(button.getAttribute("data-writing-draft-version-id") || "");
   if (!draftNoteId) return;
+  if (action === "edit-note") {
+    const version = writingState.draftVersions.find((item) => item.id === draftVersionId) || null;
+    const nextNote = promptVersionNoteEdit(version?.version_note || "", "草稿版本");
+    if (nextNote === null) return;
+    try {
+      const updated = await updateDraftNoteVersionNote(draftVersionId, nextNote);
+      writingState.draftVersions = writingState.draftVersions.map((item) =>
+        item.id === draftVersionId ? { ...item, version_note: updated?.version_note || "" } : item
+      );
+      renderWritingPanel();
+      setStatus(`已更新草稿版本说明：${draftVersionId}`, "ok");
+    } catch (error) {
+      setStatus(`更新草稿版本说明失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
   if (action === "set-current") {
     try {
       const project = await setWritingCurrentDraftNote(writingState.project?.id, draftNoteId);
@@ -3317,6 +3646,7 @@ $("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
 $("btnWritingCreateProject")?.addEventListener("click", async () => {
   const title = String($("writingTitle")?.value || "").trim();
   const basketNoteIds = parseWritingBasketIds();
+  const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
   if (!title) return setStatus("请先填写写作项目标题", "warn");
   if (!basketNoteIds.length) return setStatus("请先加入至少一条原创笔记", "warn");
   try {
@@ -3325,7 +3655,8 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
       goal: String($("writingGoal")?.value || "").trim(),
       audience: String($("writingAudience")?.value || "").trim(),
       tone: String($("writingTone")?.value || "").trim(),
-      basketNoteIds
+      basketNoteIds,
+      relatedIndexIds
     });
     writingState.project = project;
     writingState.scaffold = null;
@@ -3334,6 +3665,7 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
       stage: "writing_project",
       writingProjectId: project?.id,
       title: project?.title,
+      relatedIndexIds: project?.related_index_ids,
       basketNoteIds: project?.basket_note_ids,
       basketNotes: project?.basket_notes
     });
@@ -3622,6 +3954,64 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function bootstrap() {
+  renderImportPageShell();
+
+  const importToolbarActions = createImportToolbarActions({
+    getToolbarValues: currentImportToolbarValues,
+    getFallbackImportRecordId: () => importState.importRecordId,
+    getActivePreview: () => activeImportPreviewContext(),
+    selectionSummary,
+    previewImport,
+    confirmImport,
+    cancelImport,
+    loadImportRecordIntoUi,
+    rollbackImportIntoUi,
+    onPreviewSuccess: async (preview) => {
+      importState.lastPreview = preview;
+      importState.previewFilter = "all";
+      syncImportSelection(preview.importRecordId, preview.candidatePreview);
+      setImportRecordId(preview.importRecordId);
+      showImportResult({
+        stage: "preview",
+        importRecordId: preview.importRecordId,
+        connector: preview.connector,
+        status: preview.status,
+        summary: preview.summary,
+        candidatePreview: preview.candidatePreview,
+        warnings: preview.warnings,
+        originalityGuard: preview.originalityGuard
+      });
+    },
+    onConfirmSuccess: async ({ importRecordId, result, preview }) => {
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "confirm",
+        importRecordId,
+        status: result.status,
+        result: result.result,
+        originalityGuard: result.originalityGuard,
+        candidatePreview: preview?.candidatePreview || null
+      });
+      importState.lastPreview = null;
+    },
+    onCancelSuccess: async ({ importRecordId, result }) => {
+      setImportRecordId(importRecordId);
+      showImportResult({
+        stage: "cancel",
+        importRecordId,
+        status: result.status,
+        message: result.message
+      });
+      importState.lastPreview = null;
+    },
+    showImportResult,
+    refreshImportHistory,
+    refreshImportedNotesView,
+    setStatus
+  });
+
+  renderImportToolbar();
+
   $("importResult")?.addEventListener("change", (event) => {
     const checkbox = event.target?.closest?.(".candidate-checkbox");
     if (!checkbox) return;
@@ -3641,7 +4031,9 @@ async function bootstrap() {
     const importWritingButton = event.target?.closest?.("[data-import-writing-action]");
     if (importWritingButton) {
       const action = String(importWritingButton.getAttribute("data-import-writing-action") || "").trim();
-      if (action === "add-permanent-notes" || action === "add-permanent-notes-open-writing") {
+      if (action === "open-literature-queue") {
+        void openImportedLiteratureQueue();
+      } else if (action === "add-permanent-notes" || action === "add-permanent-notes-open-writing") {
         void addImportedPermanentNotesToWritingBasket({ openWriting: action === "add-permanent-notes-open-writing" });
       } else if (action === "create-writing-project") {
         void createWritingProjectFromImportedPermanentNotes();
@@ -3669,7 +4061,14 @@ async function bootstrap() {
     setCandidateFilter(String(filterButton.getAttribute("data-candidate-filter") || ""));
   });
 
-  $("importHistory")?.addEventListener("click", async (event) => {
+  $("importHistoryMount")?.addEventListener("click", async (event) => {
+    const refreshButton = event.target?.closest?.("#btnImportHistoryRefresh");
+    if (refreshButton) {
+      await refreshImportHistory();
+      setStatus("导入历史已刷新", "ok");
+      return;
+    }
+
     const actionButton = event.target?.closest?.("[data-import-history-action]");
     const item = event.target?.closest?.("[data-import-history-id]");
     const importRecordId = String((actionButton || item)?.getAttribute("data-import-history-id") || "").trim();
@@ -3678,6 +4077,18 @@ async function bootstrap() {
       const action = String(actionButton?.getAttribute("data-import-history-action") || "load").trim();
       if (action === "rollback") {
         await rollbackImportIntoUi(importRecordId, { statusPrefix: "已从历史记录回滚导入" });
+        return;
+      }
+      if (action === "resume-literature-queue") {
+        await openLiteratureQueueForImportRecord(importRecordId, { preferNextPending: true });
+        return;
+      }
+      if (action === "promote-literature-batch") {
+        await openLiteratureQueueForImportRecord(importRecordId, { preferReadyForOriginal: true });
+        return;
+      }
+      if (action === "open-literature-queue") {
+        await openLiteratureQueueForImportRecord(importRecordId);
         return;
       }
       await loadImportRecordIntoUi(importRecordId, { statusPrefix: "已从历史记录读取导入记录" });
@@ -3689,162 +4100,56 @@ async function bootstrap() {
         message: String(error?.message || error),
         code: error?.code || null
       });
-      setStatus(`${action === "rollback" ? "回滚" : "读取导入记录"}失败：${String(error?.message || error)}`, "bad");
+      setStatus(
+        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开书摘队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去原创整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
     }
   });
 
-  $("btnImportHistoryRefresh")?.addEventListener("click", async () => {
-    await refreshImportHistory();
-    setStatus("导入历史已刷新", "ok");
-  });
-
-  $("importHistoryStatus")?.addEventListener("change", (event) => {
-    importState.historyStatusFilter = String(event.target?.value || "all").trim();
-    renderImportHistory();
-  });
-
-  $("importHistoryConnector")?.addEventListener("change", (event) => {
-    importState.historyConnectorFilter = String(event.target?.value || "all").trim();
-    renderImportHistory();
-  });
-
-  $("importHistoryRisk")?.addEventListener("change", (event) => {
-    importState.historyRiskFilter = String(event.target?.value || "all").trim();
-    renderImportHistory();
+  $("importHistoryMount")?.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+    if (target.id === "importHistoryStatus") {
+      importState.historyStatusFilter = String(target.value || "all").trim();
+      renderImportHistory();
+      return;
+    }
+    if (target.id === "importHistoryConnector") {
+      importState.historyConnectorFilter = String(target.value || "all").trim();
+      renderImportHistory();
+      return;
+    }
+    if (target.id === "importHistoryRisk") {
+      importState.historyRiskFilter = String(target.value || "all").trim();
+      renderImportHistory();
+    }
   });
 
   $("importRecordId")?.addEventListener("input", (event) => {
     importState.importRecordId = String(event.target?.value || "").trim();
+    updateImportConfirmButton();
     renderImportHistory();
   });
 
   $("btnImportPreview")?.addEventListener("click", async () => {
-    const connector = String($("importConnector")?.value || "markdown").trim();
-    try {
-      const payload = buildImportPayload(connector);
-      const options = parseJsonOrEmpty($("importOptions")?.value, "Options");
-      const preview = await previewImport({ connector, payload, options });
-      importState.lastPreview = preview;
-      importState.previewFilter = "all";
-      syncImportSelection(preview.importRecordId, preview.candidatePreview);
-      setImportRecordId(preview.importRecordId);
-      showImportResult({
-        stage: "preview",
-        importRecordId: preview.importRecordId,
-        connector: preview.connector,
-        status: preview.status,
-        summary: preview.summary,
-        candidatePreview: preview.candidatePreview,
-        warnings: preview.warnings,
-        originalityGuard: preview.originalityGuard
-      });
-      await refreshImportHistory({ silent: true });
-      setStatus(`导入预览完成：${preview.importRecordId}`, "ok");
-    } catch (error) {
-      showImportResult({
-        stage: "preview_error",
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`导入预览失败：${String(error?.message || error)}`, "bad");
-    }
+    await importToolbarActions.handlePreview();
   });
 
   $("btnImportConfirm")?.addEventListener("click", async () => {
-    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
-    if (!importRecordId) return setStatus("请先预览或填写 ImportRecord ID", "warn");
-    try {
-      const preview = activeImportPreviewContext();
-      const selectedIds = preview?.candidatePreview ? [...selectionSummary(preview.candidatePreview, importRecordId).selectedIds] : null;
-      if (preview?.candidatePreview && selectedIds && selectedIds.length === 0) {
-        return setStatus("请至少勾选一个候选后再确认写入", "warn");
-      }
-      const result = await confirmImport(importRecordId, selectedIds ? { selectedCandidateIds: selectedIds } : {});
-      setImportRecordId(importRecordId);
-      showImportResult({
-        stage: "confirm",
-        importRecordId,
-        status: result.status,
-        result: result.result,
-        originalityGuard: result.originalityGuard,
-        candidatePreview: preview?.candidatePreview || null
-      });
-      importState.lastPreview = null;
-      await refreshImportHistory({ silent: true });
-      await refreshImportedNotesView();
-      setStatus(`导入确认完成：${importRecordId}`, "ok");
-    } catch (error) {
-      showImportResult({
-        stage: "confirm_error",
-        importRecordId,
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`导入确认失败：${String(error?.message || error)}`, "bad");
-    }
+    await importToolbarActions.handleConfirm();
   });
 
   $("btnImportCancel")?.addEventListener("click", async () => {
-    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
-    if (!importRecordId) return setStatus("请先预览或填写 ImportRecord ID", "warn");
-    try {
-      const result = await cancelImport(importRecordId);
-      setImportRecordId(importRecordId);
-      showImportResult({
-        stage: "cancel",
-        importRecordId,
-        status: result.status,
-        message: result.message
-      });
-      importState.lastPreview = null;
-      await refreshImportHistory({ silent: true });
-      setStatus(`已取消导入：${importRecordId}`, "ok");
-    } catch (error) {
-      showImportResult({
-        stage: "cancel_error",
-        importRecordId,
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`取消导入失败：${String(error?.message || error)}`, "bad");
-    }
+    await importToolbarActions.handleCancel();
   });
 
   $("btnImportRefresh")?.addEventListener("click", async () => {
-    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
-    if (!importRecordId) return setStatus("请先填写 ImportRecord ID", "warn");
-    try {
-      await loadImportRecordIntoUi(importRecordId);
-      await refreshImportHistory({ silent: true });
-    } catch (error) {
-      showImportResult({
-        stage: "record_error",
-        importRecordId,
-        message: String(error?.message || error),
-        code: error?.code || null
-      });
-      setStatus(`读取导入记录失败：${String(error?.message || error)}`, "bad");
-    }
+    await importToolbarActions.handleRefresh();
   });
 
   $("btnImportRollback")?.addEventListener("click", async () => {
-    const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
-    if (!importRecordId) return setStatus("请先填写 ImportRecord ID", "warn");
-    try {
-      await rollbackImportIntoUi(importRecordId);
-    } catch (error) {
-      showImportResult({
-        stage: "rollback_error",
-        importRecordId,
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`回滚失败：${String(error?.message || error)}`, "bad");
-    }
+    await importToolbarActions.handleRollback();
   });
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {

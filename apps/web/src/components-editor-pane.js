@@ -1,5 +1,45 @@
 ﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
-import { checkOriginality } from "./prototype-api.js";
+import { assetPreviewUrl, checkOriginality, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
+
+function saveIconMarkup(kind = "idle") {
+  if (kind === "saving") {
+    return `
+      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="1.1" fill="currentColor"/>
+        <circle cx="3.75" cy="8" r="1.1" fill="currentColor" opacity=".72"/>
+        <circle cx="12.25" cy="8" r="1.1" fill="currentColor" opacity=".72"/>
+      </svg>
+    `;
+  }
+  if (kind === "error") {
+    return `
+      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 3.1v5.3M8 11.45h.01" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      </svg>
+    `;
+  }
+  if (kind === "blocked") {
+    return `
+      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.6" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M4.3 11.7l7.4-7.4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
+  if (kind === "saved") {
+    return `
+      <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M3.3 8.35l2.55 2.55 6.1-6.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+  }
+  return `
+    <svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 2.75v7.15M5.25 7.3L8 10.05 10.75 7.3M3.25 12.25h9.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+}
 
 function titleFromBody(body) {
   const lines = String(body || "")
@@ -8,6 +48,114 @@ function titleFromBody(body) {
     .filter(Boolean);
   if (!lines.length) return "未命名笔记";
   return lines[0].replace(/^#+\s*/, "").slice(0, 60) || "未命名笔记";
+}
+
+function normalizePlaceholderTitleBody(body = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n");
+  return text.replace(/^#\s*未命名笔记(?=\S)/, "# ");
+}
+
+const LITERATURE_SECTION_LABELS = {
+  originalText: "原文",
+  paraphrase: "转述",
+  whyKeep: "保留原因",
+  supportsJudgment: "支持判断"
+};
+
+const REFLECTION_QUESTIONS = [
+  "这段材料你真正理解成什么？",
+  "你为什么要保留它？",
+  "它会支持什么判断？"
+];
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function normalizeFieldText(value = "") {
+  return String(value || "").replace(/\r\n/g, "\n").trim();
+}
+
+function stripMarkdownTitle(body = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  if (!lines.length) return "";
+  return lines.slice(1).join("\n").replace(/^\n+/, "");
+}
+
+function extractLiteratureSection(body = "", label = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n");
+  const headingRegex = new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*\\n`, "m");
+  const match = headingRegex.exec(text);
+  if (!match) return "";
+  const start = match.index + match[0].length;
+  const rest = text.slice(start);
+  const nextHeading = /\n##\s+[^\n]+\s*\n/m.exec(rest);
+  const section = nextHeading ? rest.slice(0, nextHeading.index) : rest;
+  return section.replace(/^\n+|\n+$/g, "");
+}
+
+export function parseLiteratureWorkspace(body = "") {
+  const title = titleFromBody(body);
+  const content = stripMarkdownTitle(body);
+  const structured = Object.values(LITERATURE_SECTION_LABELS).some((label) =>
+    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+  );
+  const originalText = structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.originalText) : content.trim();
+  return {
+    title,
+    originalText,
+    paraphrase: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.paraphrase) : "",
+    whyKeep: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.whyKeep) : "",
+    supportsJudgment: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.supportsJudgment) : ""
+  };
+}
+
+function composeLiteratureWorkspace(fields = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const originalText = normalizeFieldText(fields.originalText);
+  const paraphrase = normalizeFieldText(fields.paraphrase);
+  const whyKeep = normalizeFieldText(fields.whyKeep);
+  const supportsJudgment = normalizeFieldText(fields.supportsJudgment);
+  return [
+    `# ${title}`,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.originalText}`,
+    "",
+    originalText,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.paraphrase}`,
+    "",
+    paraphrase,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.whyKeep}`,
+    "",
+    whyKeep,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.supportsJudgment}`,
+    "",
+    supportsJudgment,
+    ""
+  ].join("\n");
+}
+
+function literatureTemplateBody(title = "未命名笔记") {
+  return composeLiteratureWorkspace({ title });
+}
+
+function reflectionQuestionsHint(prefix = "") {
+  const head = String(prefix || "").trim();
+  return `${head ? `${head} ` : ""}${REFLECTION_QUESTIONS.join("  ")}`.trim();
+}
+
+function authorshipSeedFromBody(body = "") {
+  const lines = String(body || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines[0]?.startsWith("#")) lines.shift();
+  return lines.join(" ").slice(0, 180).trim();
 }
 
 function tokenAtCursor(text, cursor) {
@@ -23,17 +171,658 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeClickedTag(token) {
+  return String(token || "")
+    .replace(/^#/, "")
+    .replace(/[，。！？、；：.!?;:,]+$/u, "")
+    .trim();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normalizePosixPath(input) {
+  const parts = [];
+  for (const chunk of String(input || "").replaceAll("\\", "/").split("/")) {
+    if (!chunk || chunk === ".") continue;
+    if (chunk === "..") {
+      if (parts.length) parts.pop();
+      continue;
+    }
+    parts.push(chunk);
+  }
+  return parts.join("/");
+}
+
+function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
+  const target = String(rawPath || "").trim();
+  if (!target) return "";
+  if (/^(https?:|data:)/i.test(target)) return target;
+  if (target.startsWith("assets/")) return normalizePosixPath(target);
+  const normalizedNotePath = String(noteMarkdownPath || "").replaceAll("\\", "/");
+  const slash = normalizedNotePath.lastIndexOf("/");
+  const noteDir = slash >= 0 ? normalizedNotePath.slice(0, slash) : "";
+  return normalizePosixPath(`${noteDir}/${target}`);
+}
+
+function previewAssetUrl(rawPath, noteMarkdownPath = "") {
+  const assetPath = resolveAssetPathForNote(rawPath, noteMarkdownPath);
+  if (!assetPath || /^(https?:|data:)/i.test(assetPath)) return assetPath;
+  return assetPreviewUrl(assetPath);
+}
+
+function attachmentLabelFromPath(rawPath) {
+  const normalized = String(rawPath || "").replaceAll("\\", "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[parts.length - 1] || normalized || "附件";
+}
+
+function isMarkdownCodeFenceLine(line = "") {
+  return /^\s*```/.test(String(line || ""));
+}
+
+function isHorizontalRuleLine(line = "") {
+  return /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(String(line || ""));
+}
+
+function isMarkdownChecklistLine(line = "") {
+  return /^\s*[-*+]\s\[(?: |x|X)\]\s/.test(String(line || ""));
+}
+
+function isMarkdownBulletLine(line = "") {
+  return /^\s*[-*+]\s/.test(String(line || "")) && !isMarkdownChecklistLine(line);
+}
+
+function isMarkdownImageLine(line = "") {
+  return /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.test(String(line || ""));
+}
+
+function isMarkdownAttachmentLine(line = "") {
+  return /^\[([^\]]+)\]\(([^)]+)\)\s*$/.test(String(line || ""));
+}
+
+function isMarkdownTableSeparator(line = "") {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.includes("-")) return false;
+  const normalized = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = normalized.split("|").map((cell) => cell.trim());
+  return cells.length >= 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function isMarkdownTableRow(line = "") {
+  const trimmed = String(line || "").trim();
+  if (!trimmed.includes("|")) return false;
+  const normalized = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = normalized.split("|");
+  return cells.length >= 2;
+}
+
+function isMarkdownTableStart(lines = [], index = 0) {
+  return isMarkdownTableRow(lines[index]) && isMarkdownTableSeparator(lines[index + 1] || "");
+}
+
+function parseMarkdownTableRow(line = "") {
+  const trimmed = String(line || "").trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function formatMarkdownTableRow(cells = [], width = cells.length || 2) {
+  const normalized = Array.from({ length: width }, (_, index) => String(cells[index] || "").trim());
+  return `| ${normalized.join(" | ")} |`;
+}
+
+function formatMarkdownTableSeparator(width = 2) {
+  return `| ${Array.from({ length: Math.max(2, width) }, () => "---").join(" | ")} |`;
+}
+
+function normalizeCodeLanguage(language = "") {
+  const value = String(language || "").trim().toLowerCase();
+  if (!value) return "";
+  if (["js", "jsx", "javascript", "node"].includes(value)) return "javascript";
+  if (["ts", "tsx", "typescript"].includes(value)) return "typescript";
+  if (["json", "jsonc"].includes(value)) return "json";
+  if (["sh", "bash", "zsh", "shell", "powershell", "ps1"].includes(value)) return "shell";
+  if (["md", "markdown"].includes(value)) return "markdown";
+  return value;
+}
+
+function inferCodeLanguage(code = "") {
+  const source = String(code || "").trim();
+  if (!source) return "text";
+  if ((source.startsWith("{") || source.startsWith("[")) && /":\s*/.test(source)) return "json";
+  if (/^\s*(npm|pnpm|yarn|git|cd|ls|mkdir|cp|mv|rm|cat|echo|node|python|cargo)\b/m.test(source) || /^\s*\$\s+/m.test(source)) return "shell";
+  if (/\b(interface|type|implements|enum)\b/.test(source)) return "typescript";
+  if (/\b(const|let|var|function|return|import|export|class|async|await|=>)\b/.test(source)) return "javascript";
+  if (/^(#{1,6}\s|>\s|[-*]\s|\[[^\]]+\]\([^)]+\))/m.test(source)) return "markdown";
+  return "text";
+}
+
+const CODE_BLOCK_LANGUAGE_OPTIONS = [
+  { value: "text", label: "纯文本" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "json", label: "JSON" },
+  { value: "shell", label: "Shell" },
+  { value: "markdown", label: "Markdown" }
+];
+
+function collectHighlightMatches(source = "", definitions = []) {
+  const text = String(source || "");
+  const matches = [];
+  for (const definition of definitions) {
+    const regex = new RegExp(definition.regex.source, definition.regex.flags.includes("g") ? definition.regex.flags : `${definition.regex.flags}g`);
+    let match;
+    while ((match = regex.exec(text))) {
+      const value = String(match[0] || "");
+      if (!value) {
+        regex.lastIndex += 1;
+        continue;
+      }
+      matches.push({
+        start: match.index,
+        end: match.index + value.length,
+        cls: definition.cls,
+        priority: Number(definition.priority || 0)
+      });
+      if (match.index === regex.lastIndex) regex.lastIndex += 1;
+    }
+  }
+  matches.sort((a, b) => a.start - b.start || b.priority - a.priority || b.end - a.end);
+  return matches;
+}
+
+function renderHighlightedText(source = "", definitions = []) {
+  const text = String(source || "");
+  const matches = collectHighlightMatches(text, definitions);
+  if (!matches.length) return escapeHtml(text);
+  let html = "";
+  let cursor = 0;
+  for (const match of matches) {
+    if (match.start < cursor) continue;
+    html += escapeHtml(text.slice(cursor, match.start));
+    html += `<span class="${escapeHtml(match.cls)}">${escapeHtml(text.slice(match.start, match.end))}</span>`;
+    cursor = match.end;
+  }
+  html += escapeHtml(text.slice(cursor));
+  return html;
+}
+
+function renderHighlightedCode(code = "", rawLanguage = "") {
+  const language = normalizeCodeLanguage(rawLanguage) || inferCodeLanguage(code);
+  const patterns = {
+    javascript: [
+      { regex: /\/\/.*$/gm, cls: "code-token-comment", priority: 4 },
+      { regex: /\/\*[\s\S]*?\*\//g, cls: "code-token-comment", priority: 4 },
+      { regex: /`(?:\\.|[^`])*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*'/g, cls: "code-token-string", priority: 3 },
+      { regex: /\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|continue|import|from|export|default|async|await|new|class|extends|try|catch|throw)\b/g, cls: "code-token-keyword", priority: 2 },
+      { regex: /\b(?:true|false|null|undefined|this)\b/g, cls: "code-token-atom", priority: 2 },
+      { regex: /\b\d+(?:\.\d+)?\b/g, cls: "code-token-number", priority: 1 }
+    ],
+    typescript: [
+      { regex: /\/\/.*$/gm, cls: "code-token-comment", priority: 4 },
+      { regex: /\/\*[\s\S]*?\*\//g, cls: "code-token-comment", priority: 4 },
+      { regex: /`(?:\\.|[^`])*`|"(?:\\.|[^"])*"|'(?:\\.|[^'])*'/g, cls: "code-token-string", priority: 3 },
+      { regex: /\b(?:const|let|var|function|return|if|else|for|while|switch|case|break|continue|import|from|export|default|async|await|new|class|extends|try|catch|throw|interface|type|implements|enum|readonly|public|private|protected)\b/g, cls: "code-token-keyword", priority: 2 },
+      { regex: /\b(?:true|false|null|undefined|this)\b/g, cls: "code-token-atom", priority: 2 },
+      { regex: /\b\d+(?:\.\d+)?\b/g, cls: "code-token-number", priority: 1 }
+    ],
+    json: [
+      { regex: /"(?:\\.|[^"])*"(?=\s*:)/g, cls: "code-token-key", priority: 4 },
+      { regex: /"(?:\\.|[^"])*"/g, cls: "code-token-string", priority: 3 },
+      { regex: /\b(?:true|false|null)\b/g, cls: "code-token-atom", priority: 2 },
+      { regex: /-?\b\d+(?:\.\d+)?\b/g, cls: "code-token-number", priority: 1 }
+    ],
+    shell: [
+      { regex: /#.*$/gm, cls: "code-token-comment", priority: 4 },
+      { regex: /"(?:\\.|[^"])*"|'(?:\\.|[^'])*'/g, cls: "code-token-string", priority: 3 },
+      { regex: /\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/g, cls: "code-token-variable", priority: 2 },
+      { regex: /^\s*(?:\$ ?)?(?:npm|pnpm|yarn|git|cd|ls|mkdir|cp|mv|rm|cat|echo|node|python|cargo)\b/gm, cls: "code-token-keyword", priority: 1 }
+    ],
+    markdown: [
+      { regex: /^#{1,6}\s.*$/gm, cls: "code-token-keyword", priority: 3 },
+      { regex: /^\s*>\s.*$/gm, cls: "code-token-comment", priority: 3 },
+      { regex: /^\s*(?:[-*+]|\d+[.)])\s.*$/gm, cls: "code-token-atom", priority: 2 },
+      { regex: /\[\[[^\]]+\]\]|\[[^\]]+\]\([^)]+\)/g, cls: "code-token-string", priority: 2 },
+      { regex: /#[A-Za-z0-9_\-\u4e00-\u9fff]+/gu, cls: "code-token-variable", priority: 1 }
+    ]
+  };
+  return {
+    language,
+    html: renderHighlightedText(code, patterns[language] || [])
+  };
+}
+
+function encodePreviewPayload(value = "") {
+  return encodeURIComponent(String(value || ""));
+}
+
+function decodePreviewPayload(value = "") {
+  try {
+    return decodeURIComponent(String(value || ""));
+  } catch {
+    return String(value || "");
+  }
+}
+
+function isMarkdownBlockBoundary(lines = [], index = 0) {
+  const line = String(lines[index] || "");
+  if (!line.trim()) return false;
+  return (
+    line.startsWith("# ") ||
+    line.startsWith("## ") ||
+    line.startsWith("> ") ||
+    isMarkdownCodeFenceLine(line) ||
+    isHorizontalRuleLine(line) ||
+    isMarkdownImageLine(line) ||
+    isMarkdownAttachmentLine(line) ||
+    isMarkdownChecklistLine(line) ||
+    isMarkdownBulletLine(line) ||
+    isMarkdownTableStart(lines, index)
+  );
+}
+
+function renderInlinePreview(text, options = {}) {
+  const source = String(text || "");
+  const noteMarkdownPath = String(options.noteMarkdownPath || "");
+  let html = "";
+  let index = 0;
+
+  while (index < source.length) {
+    if (source.startsWith("[[", index)) {
+      const close = source.indexOf("]]", index + 2);
+      if (close > index + 2) {
+        const label = source.slice(index + 2, close).trim();
+        html += `<button class="preview-wikilink" type="button" data-preview-link="${escapeHtml(label)}">${escapeHtml(label)}</button>`;
+        index = close + 2;
+        continue;
+      }
+    }
+
+    if (source.startsWith("**", index)) {
+      const close = source.indexOf("**", index + 2);
+      if (close > index + 2) {
+        html += `<strong>${renderInlinePreview(source.slice(index + 2, close))}</strong>`;
+        index = close + 2;
+        continue;
+      }
+    }
+
+    if (source[index] === "*") {
+      const close = source.indexOf("*", index + 1);
+      if (close > index + 1) {
+        html += `<em>${renderInlinePreview(source.slice(index + 1, close))}</em>`;
+        index = close + 1;
+        continue;
+      }
+    }
+
+    if (source[index] === "`") {
+      const close = source.indexOf("`", index + 1);
+      if (close > index + 1) {
+        html += `<code>${escapeHtml(source.slice(index + 1, close))}</code>`;
+        index = close + 1;
+        continue;
+      }
+    }
+
+    const markdownLink = source.slice(index).match(/^\[([^\]]+)\]\(([^)]+)\)/);
+    if (markdownLink) {
+      const [, label, href] = markdownLink;
+      const url = previewAssetUrl(href, noteMarkdownPath);
+      const textLabel = label || attachmentLabelFromPath(href);
+      html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
+      index += markdownLink[0].length;
+      continue;
+    }
+
+    const tagMatch = source.slice(index).match(/^#([A-Za-z0-9_\-\u4e00-\u9fff]+)/u);
+    const prev = index > 0 ? source[index - 1] : "";
+    if (tagMatch && (!prev || /[\s([{"'，。；：！？、,.!?;:]/u.test(prev))) {
+      const token = tagMatch[1];
+      html += `<button class="preview-tag" type="button" data-preview-tag="${escapeHtml(token)}">#${escapeHtml(token)}</button>`;
+      index += tagMatch[0].length;
+      continue;
+    }
+
+    if (source[index] === "\n") {
+      html += "<br>";
+      index += 1;
+      continue;
+    }
+
+    html += escapeHtml(source[index]);
+    index += 1;
+  }
+
+  return html;
+}
+
+function renderMarkdownPreview(markdown, options = {}) {
+  const text = String(markdown || "").replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  const blocks = [];
+  const noteMarkdownPath = String(options.noteMarkdownPath || "");
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) {
+      index += 1;
+      continue;
+    }
+
+    if (isMarkdownCodeFenceLine(line)) {
+      const language = line.replace(/^\s*```/, "").trim();
+      const codeLines = [];
+      index += 1;
+      while (index < lines.length && !isMarkdownCodeFenceLine(lines[index])) {
+        codeLines.push(lines[index]);
+        index += 1;
+      }
+      if (index < lines.length && isMarkdownCodeFenceLine(lines[index])) index += 1;
+      const codeSource = codeLines.join("\n");
+      const highlighted = renderHighlightedCode(codeSource, language);
+      const languageLabel = normalizeCodeLanguage(language) || highlighted.language || "text";
+      blocks.push(`
+        <div class="preview-code-block">
+          <div class="preview-code-head">
+            <span>${escapeHtml(languageLabel)}</span>
+            <button class="preview-code-copy" type="button" data-preview-copy-code="${escapeHtml(encodePreviewPayload(codeSource))}">复制代码</button>
+          </div>
+          <pre><code>${highlighted.html}</code></pre>
+        </div>
+      `);
+      continue;
+    }
+
+    if (isHorizontalRuleLine(line)) {
+      blocks.push(`<hr class="preview-rule">`);
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      blocks.push(`<h1>${renderInlinePreview(line.slice(2), options)}</h1>`);
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      blocks.push(`<h2>${renderInlinePreview(line.slice(3), options)}</h2>`);
+      index += 1;
+      continue;
+    }
+
+    if (line.startsWith("> ")) {
+      const quoteLines = [];
+      while (index < lines.length && lines[index].startsWith("> ")) {
+        quoteLines.push(lines[index].slice(2));
+        index += 1;
+      }
+      blocks.push(`<blockquote><p>${renderInlinePreview(quoteLines.join("\n"), options)}</p></blockquote>`);
+      continue;
+    }
+
+    if (isMarkdownTableStart(lines, index)) {
+      const headerCells = parseMarkdownTableRow(lines[index]);
+      const columnCount = Math.max(2, headerCells.length);
+      const rows = [];
+      index += 2;
+      while (index < lines.length && isMarkdownTableRow(lines[index]) && !isMarkdownTableSeparator(lines[index])) {
+        rows.push(parseMarkdownTableRow(lines[index]));
+        index += 1;
+      }
+      blocks.push(`
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead>
+              <tr>${Array.from({ length: columnCount }, (_, cellIndex) => `<th>${renderInlinePreview(headerCells[cellIndex] || "", options)}</th>`).join("")}</tr>
+            </thead>
+            <tbody>
+              ${rows
+                .map(
+                  (row) =>
+                    `<tr>${Array.from({ length: columnCount }, (_, cellIndex) => `<td>${renderInlinePreview(row[cellIndex] || "", options)}</td>`).join("")}</tr>`
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      `);
+      continue;
+    }
+
+    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imageMatch) {
+      const [, alt, href] = imageMatch;
+      const url = previewAssetUrl(href, noteMarkdownPath);
+      const label = alt || attachmentLabelFromPath(href);
+      if (!url) {
+        blocks.push(`<div class="preview-attachment-block"><button class="preview-attachment" type="button"><span class="preview-attachment-name">${escapeHtml(label)}</span><span class="preview-attachment-path">${escapeHtml(href)}</span></button></div>`);
+        index += 1;
+        continue;
+      }
+      blocks.push(`
+        <figure class="preview-figure">
+          <img class="preview-image-asset" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" data-preview-asset-url="${escapeHtml(url)}">
+          <figcaption>${escapeHtml(label)}</figcaption>
+        </figure>
+      `);
+      index += 1;
+      continue;
+    }
+
+    if (/^\s*[-*+]\s\[(?: |x|X)\]\s/.test(line)) {
+      const items = [];
+      while (index < lines.length && /^\s*[-*+]\s\[(?: |x|X)\]\s/.test(lines[index])) {
+        const match = lines[index].match(/^\s*[-*+]\s\[((?: |x|X))\]\s?(.*)$/);
+        const checked = /x/i.test(match?.[1] || "");
+        items.push(`<li class="task-item"><input type="checkbox" disabled ${checked ? "checked" : ""}><span>${renderInlinePreview(match?.[2] || "", options)}</span></li>`);
+        index += 1;
+      }
+      blocks.push(`<ul class="task-list">${items.join("")}</ul>`);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      const items = [];
+      while (index < lines.length && lines[index].startsWith("- ")) {
+        items.push(`<li>${renderInlinePreview(lines[index].slice(2), options)}</li>`);
+        index += 1;
+      }
+      blocks.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    const attachmentMatch = line.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (attachmentMatch) {
+      const [, label, href] = attachmentMatch;
+      const url = previewAssetUrl(href, noteMarkdownPath);
+      const textLabel = label || attachmentLabelFromPath(href);
+      blocks.push(`
+        <div class="preview-attachment-block">
+          <button class="preview-attachment" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">
+            <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
+            <span class="preview-attachment-path">${escapeHtml(href)}</span>
+          </button>
+        </div>
+      `);
+      index += 1;
+      continue;
+    }
+
+    const paragraphLines = [];
+    while (index < lines.length && lines[index].trim()) {
+      if (isMarkdownBlockBoundary(lines, index)) break;
+      paragraphLines.push(lines[index]);
+      index += 1;
+    }
+    blocks.push(`<p>${renderInlinePreview(paragraphLines.join("\n"), options)}</p>`);
+  }
+
+  return blocks.length
+    ? blocks.join("")
+    : `<div class="markdown-preview-empty">打开或新建一条笔记后，这里显示 Markdown 预览。</div>`;
+}
+
+function highlightMatch(text, query) {
+  const source = String(text || "");
+  const q = String(query || "").trim();
+  if (!q) return escapeHtml(source);
+  const lowerSource = source.toLowerCase();
+  const lowerQuery = q.toLowerCase();
+  const index = lowerSource.indexOf(lowerQuery);
+  if (index < 0) return escapeHtml(source);
+  const before = source.slice(0, index);
+  const match = source.slice(index, index + q.length);
+  const after = source.slice(index + q.length);
+  return `${escapeHtml(before)}<mark class="picker-mark">${escapeHtml(match)}</mark>${escapeHtml(after)}`;
+}
+
+function linkCandidateRank(note, query) {
+  const q = normalizeText(query);
+  if (!q) return 0;
+  const title = normalizeText(note.title);
+  const id = normalizeText(note.id);
+  if (title === q) return 0;
+  if (title.startsWith(q)) return 1;
+  if (id.startsWith(q)) return 2;
+  if (title.includes(q)) return 3;
+  if (id.includes(q)) return 4;
+  return 9;
+}
+
+function linkCandidateBadge(note, query) {
+  const q = normalizeText(query);
+  if (!q) return "";
+  const title = normalizeText(note.title);
+  const id = normalizeText(note.id);
+  if (title === q) return "标题精确";
+  if (title.startsWith(q)) return "标题前缀";
+  if (id.startsWith(q)) return "ID 前缀";
+  if (title.includes(q)) return "标题包含";
+  if (id.includes(q)) return "ID 包含";
+  return "";
+}
+
+function tagCandidateRank(item, query) {
+  const q = normalizeText(query);
+  if (!q) return 0;
+  const name = normalizeText(item?.name);
+  if (name === q) return 0;
+  if (name.startsWith(q)) return 1;
+  if (name.includes(q)) return 2;
+  return 9;
+}
+
+function tagCandidateBadge(item, query) {
+  const q = normalizeText(query);
+  if (!q) return "";
+  const name = normalizeText(item?.name);
+  if (name === q) return "标签精确";
+  if (name.startsWith(q)) return "标签前缀";
+  if (name.includes(q)) return "标签包含";
+  return "";
+}
+
+function linkCandidateGroupLabel(note, query) {
+  const q = normalizeText(query);
+  if (!q) return "同目录笔记";
+  const rank = linkCandidateRank(note, q);
+  if (rank <= 1) return "最匹配";
+  if (rank <= 3) return "其他匹配";
+  return "按 ID 匹配";
+}
+
+function tagCandidateGroupLabel(item, query) {
+  const q = normalizeText(query);
+  if (!q) return "已有标签";
+  const rank = tagCandidateRank(item, q);
+  if (rank <= 1) return "最匹配";
+  return "相关标签";
+}
+
+function renderPickerSections(items = [], groupLabelForItem, renderItem) {
+  const groups = [];
+  for (const item of items) {
+    const label = String(groupLabelForItem(item) || "结果");
+    let group = groups.find((entry) => entry.label === label);
+    if (!group) {
+      group = { label, items: [] };
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups
+    .map(
+      (group) => `
+        <section class="picker-section">
+          <div class="picker-section-label">${escapeHtml(group.label)}<span>${group.items.length}</span></div>
+          ${group.items.map((item) => renderItem(item)).join("")}
+        </section>
+      `
+    )
+    .join("");
+}
+
+function noteTypeGlyph(type) {
+  if (type === "fleeting") return "随";
+  if (type === "literature") return "摘";
+  return "原";
+}
+
+function noteTypeText(type) {
+  if (type === "fleeting") return "随笔记";
+  if (type === "literature") return "书摘笔记";
+  return "原创笔记";
+}
+
+function excerptFromBody(body = "", fallbackTitle = "") {
+  const lines = String(body || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^#+\s*/, "").trim())
+    .filter(Boolean);
+  const content = lines.filter((line) => line !== String(fallbackTitle || "").trim())[0] || "";
+  return content.slice(0, 120);
+}
+
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote }) {
+  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
     this.onStateChange = onStateChange;
     this.onOpenNote = onOpenNote;
+    this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentLinkContext = null;
+    this.currentTagCandidates = [];
+    this.currentTagIndex = 0;
+    this.currentTagContext = null;
+    this.richEditor = null;
+    this.markdownEditor = null;
+    this.lastInlinePickerAnchor = 0;
+    this.suppressEditorChange = false;
+    this.suppressRichEditorChange = false;
+    this.suppressSourceEditorChange = false;
+    this.suppressLiteratureWorkspaceChange = false;
+    this.savingPromise = null;
+    this.saveUiState = { mode: "idle", message: "" };
+    this.pendingEditorFocus = null;
     this.bind();
+    this.renderPreviewVisibility();
+    this.initRichEditor();
+    this.initMarkdownEditor();
   }
 
   activeTab() {
@@ -46,15 +835,447 @@ export class EditorPane {
     return this.state.notes.find((n) => n.id === t.noteId) || null;
   }
 
-  openNoteTab(noteId) {
+  isLiteratureNote(note = this.activeNote()) {
+    return String(note?.noteType || "").trim() === "literature";
+  }
+
+  isOriginalNote(note = this.activeNote()) {
+    return String(note?.noteType || "").trim() === "original";
+  }
+
+  isLiteratureWorkspaceActive(note = this.activeNote()) {
+    return this.isLiteratureNote(note) && Boolean(this.els.literatureWorkspace);
+  }
+
+  defaultAuthorshipState(note = null) {
+    return {
+      claim: this.isOriginalNote(note) ? authorshipSeedFromBody(note?.body || "") : "",
+      confirmed: Boolean(note?.authorship?.user_confirmed),
+      confirmedBody: ""
+    };
+  }
+
+  ensureTabAuthorshipState(tab, note = null) {
+    if (!tab) return this.defaultAuthorshipState(note);
+    if (!tab.authorshipState || typeof tab.authorshipState !== "object") {
+      tab.authorshipState = this.defaultAuthorshipState(note);
+    }
+    if (!this.isOriginalNote(note)) {
+      tab.authorshipState = this.defaultAuthorshipState(null);
+    }
+    return tab.authorshipState;
+  }
+
+  activeAuthorshipState() {
+    const tab = this.activeTab();
+    const note = this.activeNote();
+    return this.ensureTabAuthorshipState(tab, note);
+  }
+
+  resetActiveSaveUiState() {
+    const tab = this.activeTab();
+    if (!tab) return;
+    tab.saveUiState = this.defaultSaveUiState(tab);
+  }
+
+  authorshipBlockMessage(note = this.activeNote()) {
+    if (!this.isOriginalNote(note)) return "";
+    const authorship = this.activeAuthorshipState();
+    const claim = normalizeFieldText(authorship.claim);
+    if (!claim) return "当前文件：先用一句自己的话写下这条笔记现在代表的判断，再保存到 Markdown。";
+    if (!authorship.confirmed) return "当前文件：先完成作者确认，再保存到 Markdown。";
+    return "";
+  }
+
+  literatureFieldsFromInputs() {
+    return {
+      title: this.els.literatureTitle?.value || "未命名笔记",
+      originalText: this.els.literatureOriginal?.value || "",
+      paraphrase: this.els.literatureParaphrase?.value || "",
+      whyKeep: this.els.literatureWhyKeep?.value || "",
+      supportsJudgment: this.els.literatureSupportsJudgment?.value || ""
+    };
+  }
+
+  literatureCompletionState(note = this.activeNote()) {
+    const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
+    const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
+    const status = hasParaphrase && String(note?.status || "").trim() === "active" ? "active" : "draft";
+    return {
+      status,
+      hasParaphrase,
+      label: hasParaphrase && status === "active" ? "已完成" : "待完成",
+      hint: hasParaphrase
+        ? status === "active"
+          ? "原文与转述已配对保存。"
+          : "已写转述，点击完成即可将文献笔记标为已完成。"
+        : "先写出你自己的转述，再标记完成。"
+    };
+  }
+
+  literatureQueueScopeDirectoryIds(note = this.activeNote()) {
+    const startId = String(note?.folderId || this.state.selectedFolderId || "").trim();
+    if (!startId) return new Set();
+    const directoryIds = new Set();
+    const queue = [startId];
+    while (queue.length) {
+      const currentId = queue.shift();
+      if (!currentId || directoryIds.has(currentId)) continue;
+      directoryIds.add(currentId);
+      for (const folder of this.state.folders) {
+        if (folder.parentId === currentId) queue.push(folder.id);
+      }
+    }
+    return directoryIds;
+  }
+
+  literatureQueueRecord(note) {
+    const fields = parseLiteratureWorkspace(note?.body || "");
+    const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
+    const hasWhyKeep = Boolean(normalizeFieldText(fields.whyKeep));
+    const hasSupportsJudgment = Boolean(normalizeFieldText(fields.supportsJudgment));
+    let lane = "ready";
+    let label = "可转原创";
+    let tone = "active";
+    let noteText = "转述、保留理由和支持判断都已具备，可以继续提炼为原创笔记。";
+    if (!hasParaphrase) {
+      lane = "pending";
+      label = "待转述";
+      tone = "draft";
+      noteText = "先把原文改写成你自己的判断表达，再决定它是否值得留下。";
+    } else if (!hasWhyKeep || !hasSupportsJudgment) {
+      lane = "refine";
+      label = "待提炼";
+      tone = "refine";
+      noteText = "已经有转述，但还需要说明为什么保留它，以及它未来支持什么判断。";
+    }
+    const excerpt = normalizeFieldText(fields.paraphrase || fields.originalText || "");
+    return {
+      note,
+      fields,
+      lane,
+      label,
+      tone,
+      noteText,
+      excerpt: excerpt ? excerpt.slice(0, 96) : "这条书摘还没有写入任何内容。"
+    };
+  }
+
+  literatureQueueRecords(note = this.activeNote()) {
+    const scopeDirectoryIds = this.literatureQueueScopeDirectoryIds(note);
+    const currentId = String(note?.id || "").trim();
+    const focusedIds = new Set(
+      (Array.isArray(this.state.literatureQueueFocusNoteIds) ? this.state.literatureQueueFocusNoteIds : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
+    const priority = { pending: 0, refine: 1, ready: 2 };
+    return this.state.notes
+      .filter(
+        (item) =>
+          String(item?.noteType || "").trim() === "literature" &&
+          scopeDirectoryIds.has(item.folderId) &&
+          (!focusedIds.size || focusedIds.has(String(item.id || "").trim()))
+      )
+      .map((item) => ({
+        ...this.literatureQueueRecord(item),
+        isCurrent: String(item.id || "").trim() === currentId
+      }))
+      .sort((a, b) => {
+        if (a.isCurrent !== b.isCurrent) return a.isCurrent ? -1 : 1;
+        const laneDiff = (priority[a.lane] ?? 99) - (priority[b.lane] ?? 99);
+        if (laneDiff) return laneDiff;
+        const aTime = Date.parse(a.note?.updatedAt || 0) || 0;
+        const bTime = Date.parse(b.note?.updatedAt || 0) || 0;
+        if (bTime !== aTime) return bTime - aTime;
+        return String(a.note?.title || a.note?.id || "").localeCompare(String(b.note?.title || b.note?.id || ""), "zh-CN");
+      });
+  }
+
+  renderLiteratureQueue(note = this.activeNote()) {
+    const summary = this.els.literatureQueueSummary;
+    const list = this.els.literatureQueueList;
+    const queueNote = this.els.literatureQueueNote;
+    const nextButton = this.els.literatureOpenNext;
+    const isLiterature = this.isLiteratureWorkspaceActive(note);
+    if (!summary || !list || !queueNote || !nextButton) return;
+    if (!isLiterature) {
+      summary.innerHTML = "";
+      list.innerHTML = "";
+      queueNote.textContent = "";
+      nextButton.disabled = true;
+      return;
+    }
+    const records = this.literatureQueueRecords(note);
+    const pendingCount = records.filter((item) => item.lane === "pending").length;
+    const refineCount = records.filter((item) => item.lane === "refine").length;
+    const readyCount = records.filter((item) => item.lane === "ready").length;
+    const nextRecord = records.find((item) => !item.isCurrent && item.lane === "pending") || records.find((item) => !item.isCurrent && item.lane === "refine");
+    const scopeFolder = this.state.folders.find((folder) => folder.id === note?.folderId);
+    const focusCount = Array.isArray(this.state.literatureQueueFocusNoteIds) ? this.state.literatureQueueFocusNoteIds.length : 0;
+    const focusLabel = String(this.state.literatureQueueFocusLabel || "").trim();
+    const paraphraseDoneCount = focusCount ? focusCount - pendingCount : 0;
+    const remainingCount = pendingCount + refineCount;
+    queueNote.textContent = focusCount
+      ? `当前范围：${scopeFolder?.name || "当前目录"}。当前只显示${focusLabel || "本次导入"}的 ${focusCount} 条书摘；已完成转述 ${paraphraseDoneCount}/${focusCount}，已可转原创 ${readyCount}/${focusCount}，剩余待处理 ${remainingCount} 条。`
+      : `当前范围：${scopeFolder?.name || "当前目录"}。先清空待转述，再补齐待提炼，最后再把成熟材料送去原创笔记。`;
+    summary.innerHTML = `
+      <div class="literature-queue-metric"><strong>${pendingCount}</strong><span>待转述</span></div>
+      <div class="literature-queue-metric"><strong>${refineCount}</strong><span>待提炼</span></div>
+      <div class="literature-queue-metric"><strong>${readyCount}</strong><span>可转原创</span></div>
+    `;
+    nextButton.disabled = !nextRecord;
+    nextButton.textContent = nextRecord ? `打开下一条${nextRecord.label}` : "当前范围没有待处理条目";
+    list.innerHTML = records.length
+      ? records
+          .map(
+            (item) => `
+              <article class="literature-queue-item ${item.isCurrent ? "is-current" : ""}">
+                <div class="literature-queue-item-head">
+                  <div>
+                    <div class="literature-queue-item-title">${escapeHtml(item.note.title || item.note.id)}</div>
+                    <div class="literature-queue-item-meta">${escapeHtml(item.note.id)}${item.isCurrent ? " · 当前打开" : ""}</div>
+                  </div>
+                  <span class="literature-status-badge" data-tone="${escapeHtml(item.tone)}">${escapeHtml(item.label)}</span>
+                </div>
+                <div class="literature-queue-item-note">${escapeHtml(item.noteText)}</div>
+                <div class="literature-queue-item-meta">${escapeHtml(item.excerpt)}</div>
+                <div class="literature-queue-item-actions">
+                  <button class="mini-btn" type="button" data-open-literature-note="${escapeHtml(item.note.id)}">${item.isCurrent ? "继续编辑当前条目" : "打开条目"}</button>
+                  ${
+                    item.lane === "ready"
+                      ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">新建原创笔记</button>`
+                      : ""
+                  }
+                </div>
+              </article>
+            `
+          )
+          .join("")
+      : `<div class="literature-queue-item"><div class="literature-queue-item-note">当前目录还没有书摘笔记。先创建一条，再把它放进待转述流程。</div></div>`;
+  }
+
+  isSourceMode() {
+    return String(this.state.previewMode || "wysiwyg") === "source";
+  }
+
+  isWysiwygMode() {
+    return !this.isSourceMode();
+  }
+
+  currentEditor() {
+    if (this.isSourceMode() && this.markdownEditor) return this.markdownEditor;
+    if (this.richEditor) return this.richEditor;
+    return this.markdownEditor;
+  }
+
+  setUnderlyingEditorValue(value) {
+    const text = String(value || "");
+    this.els.body.value = text;
+    if (this.markdownEditor && this.markdownEditor.getValue() !== text) {
+      this.suppressEditorChange = true;
+      try {
+        this.suppressSourceEditorChange = true;
+        this.markdownEditor.setValue(text);
+      } finally {
+        this.suppressSourceEditorChange = false;
+        this.suppressEditorChange = false;
+      }
+    }
+    if (this.richEditor && this.richEditor.getValue() !== text) {
+      this.suppressEditorChange = true;
+      try {
+        this.suppressRichEditorChange = true;
+        this.richEditor.setValue(text);
+      } finally {
+        this.suppressRichEditorChange = false;
+        this.suppressEditorChange = false;
+      }
+    }
+  }
+
+  syncLiteratureWorkspaceFromBody(body = "") {
+    if (!this.els.literatureWorkspace) return;
+    const parsed = parseLiteratureWorkspace(body || "");
+    this.suppressLiteratureWorkspaceChange = true;
+    try {
+      if (this.els.literatureTitle) this.els.literatureTitle.value = parsed.title || "未命名笔记";
+      if (this.els.literatureOriginal) this.els.literatureOriginal.value = parsed.originalText || "";
+      if (this.els.literatureParaphrase) this.els.literatureParaphrase.value = parsed.paraphrase || "";
+      if (this.els.literatureWhyKeep) this.els.literatureWhyKeep.value = parsed.whyKeep || "";
+      if (this.els.literatureSupportsJudgment) this.els.literatureSupportsJudgment.value = parsed.supportsJudgment || "";
+    } finally {
+      this.suppressLiteratureWorkspaceChange = false;
+    }
+  }
+
+  syncLiteratureWorkspaceToEditor() {
+    if (this.suppressLiteratureWorkspaceChange || !this.isLiteratureWorkspaceActive()) return;
+    this.setUnderlyingEditorValue(composeLiteratureWorkspace(this.literatureFieldsFromInputs()));
+  }
+
+  currentSelectionRect() {
+    if (this.isSourceMode() && this.markdownEditor?.view?.coordsAtPos) {
+      const selection = this.editorSelection();
+      const coords = this.markdownEditor.view.coordsAtPos(Math.max(0, Number(selection.to || selection.from || 0)));
+      if (coords) return coords;
+    }
+    const rect = this.richEditor?.selectionRect?.();
+    if (rect) return rect;
+    const host = (this.isSourceMode() ? this.els.editorHost : this.els.wysiwygHost) || this.els.body;
+    return host?.getBoundingClientRect?.() || null;
+  }
+
+  defaultSaveUiState(tab = null) {
+    if (!tab) return { mode: "idle", message: "" };
+    return {
+      mode: tab.dirty ? "dirty" : "saved",
+      message: tab.dirty ? "" : ""
+    };
+  }
+
+  ensureTabSaveUiState(tab) {
+    if (!tab) return this.defaultSaveUiState();
+    if (!tab.saveUiState || typeof tab.saveUiState !== "object") {
+      tab.saveUiState = this.defaultSaveUiState(tab);
+    }
+    return tab.saveUiState;
+  }
+
+  activeSaveUiState() {
+    const tab = this.activeTab();
+    if (!tab) return this.saveUiState || this.defaultSaveUiState();
+    return this.ensureTabSaveUiState(tab);
+  }
+
+  dirtyTabs() {
+    return this.state.tabs.filter((t) => t.dirty);
+  }
+
+  hasDirtyTabs() {
+    return this.dirtyTabs().length > 0;
+  }
+
+  confirmDiscardTab(tab) {
+    if (!tab?.dirty) return true;
+    return window.confirm(`“${tab.title || "未命名笔记"}”有未保存更改，关闭后会丢失这些更改。是否继续？`);
+  }
+
+  confirmDiscardDirtyTabs(message = "") {
+    const dirty = this.dirtyTabs();
+    if (!dirty.length) return true;
+    const text =
+      message ||
+      `还有 ${dirty.length} 个打开的笔记未保存，继续操作会丢失这些更改。是否继续？`;
+    return window.confirm(text);
+  }
+
+  draftKey(noteId) {
+    return `yansilu:draft:${noteId}`;
+  }
+
+  readDraft(noteId) {
+    try {
+      const raw = window.localStorage?.getItem(this.draftKey(noteId));
+      if (!raw) return null;
+      const draft = JSON.parse(raw);
+      if (!draft || typeof draft.body !== "string") return null;
+      return draft;
+    } catch {
+      return null;
+    }
+  }
+
+  writeDraft(tab) {
+    if (!tab?.noteId || !tab.dirty) return;
+    const note = this.state.notes.find((item) => item.id === tab.noteId) || null;
+    const authorshipState = this.ensureTabAuthorshipState(tab, note);
+    try {
+      window.localStorage?.setItem(
+        this.draftKey(tab.noteId),
+        JSON.stringify({
+          noteId: tab.noteId,
+          title: tab.title,
+          body: tab.body,
+          savedTitle: tab.savedTitle,
+          savedBody: tab.savedBody,
+          authorshipClaim: authorshipState.claim,
+          authorshipConfirmed: authorshipState.confirmed,
+          authorshipConfirmedBody: authorshipState.confirmedBody,
+          updatedAt: new Date().toISOString()
+        })
+      );
+    } catch {}
+  }
+
+  clearDraft(noteId) {
+    if (!noteId) return;
+    try {
+      window.localStorage?.removeItem(this.draftKey(noteId));
+    } catch {}
+  }
+
+  maybeRestoreDraft(tab, note) {
+    if (!tab || !note || tab.dirty) return;
+    const draft = this.readDraft(note.id);
+    if (!draft || draft.body === note.body) {
+      this.clearDraft(note.id);
+      return;
+    }
+    const updatedAt = draft.updatedAt ? `（${new Date(draft.updatedAt).toLocaleString()}）` : "";
+    const shouldRestore = window.confirm(`检测到“${note.title || "未命名笔记"}”有自动保存草稿${updatedAt}，是否恢复？`);
+    if (!shouldRestore) {
+      this.clearDraft(note.id);
+      return;
+    }
+    tab.body = draft.body;
+    tab.title = titleFromBody(draft.body);
+    tab.savedBody = note.body || "";
+    tab.savedTitle = note.title || "未命名笔记";
+    tab.dirty = true;
+    tab.authorshipState = {
+      claim: String(draft.authorshipClaim || authorshipSeedFromBody(draft.body)),
+      confirmed: Boolean(draft.authorshipConfirmed),
+      confirmedBody: String(draft.authorshipConfirmedBody || "")
+    };
+    tab.saveUiState = this.defaultSaveUiState(tab);
+    this.onStatus("已恢复自动保存草稿，保存后会写入 Markdown", "warn");
+  }
+
+  syncTabMetadataFromNote(noteId) {
+    const tab = this.state.tabs.find((item) => item.noteId === noteId);
+    const note = this.state.notes.find((item) => item.id === noteId);
+    if (!tab || !note || tab.dirty) return;
+    tab.authorshipState = this.defaultAuthorshipState(note);
+    tab.saveUiState = this.defaultSaveUiState(tab);
+  }
+
+  openNoteTab(noteId, options = {}) {
     const n = this.state.notes.find((x) => x.id === noteId);
     if (!n) return;
     const tabId = `tab_${noteId}`;
     let t = this.state.tabs.find((x) => x.id === tabId);
     if (!t) {
-      t = { id: tabId, noteId: n.id, title: n.title, body: n.body };
+      t = {
+        id: tabId,
+        noteId: n.id,
+        title: n.title,
+        body: n.body,
+        savedTitle: n.title,
+        savedBody: n.body,
+        dirty: false,
+        authorshipState: this.defaultAuthorshipState(n),
+        saveUiState: this.defaultSaveUiState({ dirty: false }),
+        placeholderTitleArmed: n.title === "未命名笔记"
+      };
       this.state.tabs.push(t);
+      this.maybeRestoreDraft(t, n);
     }
+    if (typeof t.savedBody !== "string") t.savedBody = t.body || "";
+    if (typeof t.savedTitle !== "string") t.savedTitle = t.title || "未命名笔记";
+    if (typeof t.dirty !== "boolean") t.dirty = false;
+    this.ensureTabSaveUiState(t);
+    this.pendingEditorFocus = options.preferTitleSelection ? "select-placeholder-title" : "focus-editor";
     this.state.activeTabId = tabId;
     this.fillEditorFromTab();
   }
@@ -62,50 +1283,81 @@ export class EditorPane {
   closeTab(tabId) {
     const idx = this.state.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return;
+    const tab = this.state.tabs[idx];
+    if (!this.confirmDiscardTab(tab)) return false;
+    this.clearDraft(tab.noteId);
     this.state.tabs.splice(idx, 1);
     if (this.state.activeTabId === tabId) {
       this.state.activeTabId = this.state.tabs[idx]?.id || this.state.tabs[idx - 1]?.id || null;
     }
     this.fillEditorFromTab();
     this.onStateChange("switch-tab");
+    return true;
   }
 
   closeAllTabs() {
+    if (!this.confirmDiscardDirtyTabs()) return false;
+    for (const tab of this.dirtyTabs()) this.clearDraft(tab.noteId);
     this.state.tabs = [];
     this.state.activeTabId = null;
     this.fillEditorFromTab();
     this.onStateChange("switch-tab");
+    return true;
   }
 
   renderTabs() {
+    const activeNote = this.activeNote();
+    const dirtyCount = this.state.tabs.filter((tab) => tab.dirty).length;
     const tabsHtml = this.state.tabs
-      .map(
-        (t) => `
-      <div class="tab ${t.id === this.state.activeTabId ? "active" : ""}" data-tab="${t.id}" title="${t.title}">
-        <span class="tab-title">${t.title}</span>
+      .map((t) => {
+        const note = this.state.notes.find((n) => n.id === t.noteId);
+        const noteType = note?.noteType || typeFromFolder(this.state, note?.folderId || "");
+        return `
+      <div class="tab ${t.id === this.state.activeTabId ? "active" : ""} ${t.dirty ? "dirty" : ""}" data-tab="${t.id}" title="${t.title}">
+        <span class="tab-main">
+          <span class="tab-kind" aria-hidden="true">${noteTypeGlyph(noteType)}</span>
+          <span class="tab-dirty" aria-hidden="true">${t.dirty ? "●" : ""}</span>
+          <span class="tab-title">${t.title}</span>
+        </span>
         <button class="tab-close" data-close-tab="${t.id}" aria-label="关闭">×</button>
       </div>
-    `
-      )
+    `;
+      })
       .join("");
 
     const menuItems = this.state.tabs.length
       ? this.state.tabs
           .map(
-            (t) =>
-              `<button class="tab-menu-item ${t.id === this.state.activeTabId ? "active" : ""}" data-switch-tab="${t.id}">${t.title}${
-                t.id === this.state.activeTabId ? " ✓" : ""
-              }</button>`
+            (t) => {
+              const note = this.state.notes.find((n) => n.id === t.noteId);
+              const noteType = note?.noteType || typeFromFolder(this.state, note?.folderId || "");
+              return `<button class="tab-menu-item ${t.id === this.state.activeTabId ? "active" : ""}" data-switch-tab="${t.id}">
+                <span class="tab-menu-item-shell">
+                  <span class="tab-menu-item-main">
+                    <span class="tab-menu-kind" aria-hidden="true">${noteTypeGlyph(noteType)}</span>
+                    <span class="tab-menu-item-title">${t.title}</span>
+                  </span>
+                  <span>
+                    ${t.dirty ? `<span class="tab-menu-item-note">未保存</span>` : ""}
+                    ${t.id === this.state.activeTabId ? `<span class="tab-menu-item-check">当前</span>` : ""}
+                  </span>
+                </span>
+              </button>`;
+            }
           )
           .join("")
-      : `<div class="tab-menu-empty">暂无打开标签页</div>`;
+      : `<div class="tab-menu-empty">未打开笔记</div>`;
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
-        <div class="tabs-list">${tabsHtml || `<div class="tab active" data-tab="welcome"><span class="tab-title">欢迎</span></div>`}</div>
+        <div class="tabs-list">${tabsHtml || `<div class="tab active" data-tab="welcome"><span class="tab-title">未打开笔记</span></div>`}</div>
+        <div class="tabs-meta">
+          <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
+          ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 未保存</span>` : ""}
+          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">未打开笔记</span>`}
+        </div>
         <div class="tabs-actions">
           <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
-          <button class="tab-act" data-tabs-action="new-window" title="新建编辑窗口">⧉</button>
           <button class="tab-act" data-tabs-action="toggle-menu" title="标签页菜单">▾</button>
         </div>
       </div>
@@ -115,42 +1367,1349 @@ export class EditorPane {
         ${menuItems}
       </div>
     `;
+    this.onChromeChange();
   }
 
   fillEditorFromTab() {
     const t = this.activeTab();
     if (!t) {
-      this.els.body.value = "";
-      this.els.result.innerHTML = "打开一个笔记后，这里显示与当前笔记关联的其他笔记。";
+      this.setEditorValue("");
+      this.els.result.innerHTML = "打开一条笔记后，这里会显示能让观点继续生长的回链、同标签与关联判断。";
+      this.setInspectorVisible(false);
+      this.renderLiteratureWorkspace();
+      this.renderPreview();
+      this.renderPreviewVisibility();
+      this.renderSaveHint();
       return;
     }
-    this.els.body.value = t.body || "";
+    this.ensureTabAuthorshipState(t, this.activeNote());
+    this.setEditorValue(t.body || "");
+    this.renderLiteratureWorkspace();
     this.renderRelated();
+    this.renderPreview();
+    this.renderPreviewVisibility();
+    this.renderInspectorVisibility();
+    this.renderSaveHint();
+    this.updateToolbarFormattingState();
+    this.applyPendingEditorFocus();
   }
 
   updateActiveTabFromEditor() {
     const t = this.activeTab();
     if (!t) return null;
-    t.body = this.els.body.value;
+    t.body = this.getEditorValue();
     t.title = titleFromBody(t.body);
+    this.syncTabDirtyState(t);
     return t;
   }
 
+  syncTabDirtyState(tab) {
+    if (!tab) return;
+    const savedBody = String(tab.savedBody || "");
+    const savedTitle = String(tab.savedTitle || "");
+    tab.dirty = savedBody !== String(tab.body || "") || savedTitle !== String(tab.title || "");
+  }
+
+  renderSaveHint() {
+    if (!this.els.statusHint) return;
+    const tab = this.activeTab();
+    if (!tab) {
+      this.els.statusHint.textContent = "";
+      this.renderSaveButton();
+      this.renderCompleteButton();
+      this.renderAuthorshipPanel();
+      return;
+    }
+    const note = this.activeNote();
+    const saveUiState = this.activeSaveUiState();
+    if (this.isLiteratureWorkspaceActive(note)) {
+      const completion = this.literatureCompletionState(note);
+      this.els.statusHint.textContent = completion.hasParaphrase
+        ? completion.status === "active"
+          ? "文献笔记已完成。你保留的是被你理解过的材料，而不是孤立摘录。"
+          : reflectionQuestionsHint("文献笔记已写转述。")
+        : reflectionQuestionsHint("文献笔记待完成。");
+    } else if (this.isOriginalNote(note)) {
+      if (saveUiState?.mode === "blocked") {
+        this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前保存被拦下。");
+      } else {
+        const authorship = this.activeAuthorshipState();
+        const claim = normalizeFieldText(authorship.claim);
+        this.els.statusHint.textContent = !claim
+          ? "原创笔记待确认。先用一句自己的话写下这条笔记现在代表的判断。"
+          : authorship.confirmed
+            ? "原创笔记作者确认已完成。继续修改正文后需要重新确认。"
+            : "原创笔记已写判断句，但尚未完成作者确认；确认前不会保存到 Markdown。";
+      }
+    } else if (saveUiState?.mode === "blocked") {
+      this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前保存被拦下。");
+    } else {
+      this.els.statusHint.textContent = "";
+    }
+    this.renderSaveButton();
+    this.renderCompleteButton();
+    this.renderLiteratureWorkspace();
+    this.renderAuthorshipPanel();
+  }
+
+  renderAuthorshipPanel() {
+    const panel = this.els.authorshipPanel;
+    if (!panel) return;
+    const note = this.activeNote();
+    const tab = this.activeTab();
+    const visible = Boolean(tab && this.isOriginalNote(note));
+    panel.classList.toggle("hidden", !visible);
+    if (!visible) {
+      if (this.els.authorshipClaimInput) this.els.authorshipClaimInput.value = "";
+      if (this.els.authorshipConfirm) {
+        this.els.authorshipConfirm.checked = false;
+        this.els.authorshipConfirm.disabled = true;
+      }
+      if (this.els.authorshipHint) this.els.authorshipHint.textContent = "";
+      return;
+    }
+    const authorship = this.activeAuthorshipState();
+    const claim = normalizeFieldText(authorship.claim);
+    if (this.els.authorshipClaimInput && this.els.authorshipClaimInput.value !== authorship.claim) {
+      this.els.authorshipClaimInput.value = authorship.claim;
+    }
+    if (this.els.authorshipConfirm) {
+      this.els.authorshipConfirm.disabled = !claim;
+      this.els.authorshipConfirm.checked = Boolean(authorship.confirmed && claim);
+    }
+    if (this.els.authorshipHint) {
+      this.els.authorshipHint.textContent = !claim
+        ? "先写下这条笔记如今真正成立的判断。"
+        : authorship.confirmed
+          ? "已记录作者确认。若继续改正文，请重新确认一次。"
+          : "写完判断句后，再勾选确认；确认之前不会保存到 Markdown。";
+    }
+  }
+
+  renderInspectorVisibility() {
+    const visible = Boolean(this.state.inspectorVisible);
+    this.els.editorWrap?.classList.toggle("inspector-closed", !visible);
+    this.els.relatedPanel?.classList.toggle("hidden", !visible);
+    if (this.els.showRelated) {
+      this.els.showRelated.classList.toggle("active", visible);
+      this.els.showRelated.dataset.tip = visible ? "收起回链侧栏" : "展开回链侧栏";
+      this.els.showRelated.title = visible ? "收起回链侧栏" : "展开回链侧栏";
+    }
+    if (this.els.hideRelated) {
+      this.els.hideRelated.classList.toggle("active", visible);
+      this.els.hideRelated.textContent = visible ? "收起" : "展开";
+      this.els.hideRelated.title = visible ? "收起回链侧栏" : "展开回链侧栏";
+    }
+  }
+
+  setInspectorVisible(nextVisible) {
+    this.state.inspectorVisible = Boolean(nextVisible);
+    this.renderInspectorVisibility();
+  }
+
+  toggleInspector(forceValue = null) {
+    const nextVisible = typeof forceValue === "boolean" ? forceValue : !this.state.inspectorVisible;
+    this.setInspectorVisible(nextVisible);
+    if (nextVisible) this.renderRelated("当前笔记关联总览");
+  }
+
+  setFocusMode(enabled) {
+    if (enabled) {
+      this.closeLinkPicker();
+      this.closeTagPicker();
+      this.setInspectorVisible(false);
+    }
+    this.renderInspectorVisibility();
+    this.focusEditor();
+  }
+
+  renderSaveButton() {
+    const button = this.els.save;
+    if (!button) return;
+    const tab = this.activeTab();
+    const saveUiState = this.activeSaveUiState();
+    const mode = saveUiState?.mode || "idle";
+
+    button.classList.remove("is-dirty", "is-saving", "is-saved", "is-error", "is-blocked");
+    button.removeAttribute("aria-busy");
+
+    const setIcon = (kind) => {
+      button.innerHTML = saveIconMarkup(kind);
+    };
+
+    if (!tab) {
+      button.disabled = true;
+      setIcon("idle");
+      button.dataset.tip = "请先打开一个笔记";
+      button.title = "请先打开一个笔记";
+      return;
+    }
+
+    button.disabled = mode === "saving";
+    if (mode === "saving") {
+      button.classList.add("is-saving");
+      button.setAttribute("aria-busy", "true");
+      setIcon("saving");
+      button.dataset.tip = "正在保存到 Markdown...";
+      button.title = "正在保存到 Markdown...";
+      return;
+    }
+
+    if (mode === "error") {
+      button.classList.add("is-error");
+      setIcon("error");
+      button.dataset.tip = saveUiState.message || "保存失败，请重试";
+      button.title = saveUiState.message || "保存失败，请重试";
+      return;
+    }
+
+    if (mode === "blocked") {
+      button.classList.add("is-blocked");
+      setIcon("blocked");
+      button.dataset.tip = saveUiState.message || "原创性检测阻止保存";
+      button.title = saveUiState.message || "原创性检测阻止保存";
+      return;
+    }
+
+    if (tab.dirty) {
+      button.classList.add("is-dirty");
+      setIcon("idle");
+      button.dataset.tip = "未保存，点击保存 Markdown Ctrl/Cmd+S";
+      button.title = "未保存，点击保存 Markdown Ctrl/Cmd+S";
+      return;
+    }
+
+    button.classList.add("is-saved");
+    setIcon("saved");
+    button.dataset.tip = "已保存到 Markdown，Ctrl/Cmd+S 可再次保存";
+    button.title = "已保存到 Markdown，Ctrl/Cmd+S 可再次保存";
+  }
+
+  renderCompleteButton() {
+    const button = this.els.completeNote;
+    if (!button) return;
+    const note = this.activeNote();
+    const isLiterature = this.isLiteratureWorkspaceActive(note);
+    button.classList.toggle("hidden", !isLiterature);
+    if (!isLiterature) {
+      button.disabled = true;
+      button.classList.remove("active");
+      button.dataset.tip = "仅文献笔记可标记完成";
+      button.title = "仅文献笔记可标记完成";
+      return;
+    }
+    const completion = this.literatureCompletionState(note);
+    button.disabled = !completion.hasParaphrase;
+    button.classList.toggle("active", completion.status === "active");
+    button.dataset.tip =
+      completion.status === "active"
+        ? "文献笔记已完成"
+        : completion.hasParaphrase
+          ? "已写转述，可标记为已完成"
+          : "先写出自己的转述，再标记完成";
+    button.title = button.dataset.tip;
+  }
+
+  renderLiteratureWorkspace() {
+    const note = this.activeNote();
+    const isLiterature = this.isLiteratureWorkspaceActive(note);
+    this.els.literatureWorkspace?.classList.toggle("hidden", !isLiterature);
+    this.els.markdownSplit?.classList.toggle("hidden", isLiterature);
+    this.els.runGuard?.classList.toggle("hidden", isLiterature);
+    this.els.modeEdit?.classList.toggle("hidden", isLiterature);
+    this.els.modePreview?.classList.toggle("hidden", isLiterature);
+    this.els.modeSplit?.classList.toggle("hidden", true);
+
+    for (const el of [this.els.insertLink, this.els.insertAsset, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
+      el?.classList?.toggle?.("hidden", isLiterature);
+    }
+    document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
+
+    if (!isLiterature) {
+      this.renderLiteratureQueue(note);
+      return;
+    }
+    const completion = this.literatureCompletionState(note);
+    if (this.els.literatureCompletionBadge) {
+      this.els.literatureCompletionBadge.textContent = completion.label;
+      this.els.literatureCompletionBadge.dataset.tone = completion.status;
+    }
+    if (this.els.literatureCompletionHint) {
+      this.els.literatureCompletionHint.textContent = completion.hint;
+    }
+    this.renderLiteratureQueue(note);
+  }
+
+  setSaveUiState(mode, message = "") {
+    const tab = this.activeTab();
+    if (tab) tab.saveUiState = { mode, message };
+    else this.saveUiState = { mode, message };
+    this.renderSaveHint();
+  }
+
+  renderPreview() {
+    if (!this.els.preview) return;
+    const tab = this.activeTab();
+    if (!tab) {
+      this.els.preview.innerHTML = `<div class="markdown-preview-empty">打开或新建一条笔记后，这里显示 Markdown 预览。</div>`;
+      return;
+    }
+    const note = this.activeNote();
+    this.els.preview.innerHTML = renderMarkdownPreview(this.getEditorValue(), {
+      noteMarkdownPath: note?.markdownPath || ""
+    });
+  }
+
+  async copyText(text = "", successMessage = "已复制") {
+    const value = String(text || "");
+    if (!value) {
+      this.onStatus("没有可复制的内容", "warn");
+      return false;
+    }
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const temp = document.createElement("textarea");
+        temp.value = value;
+        temp.setAttribute("readonly", "readonly");
+        temp.style.position = "fixed";
+        temp.style.left = "-9999px";
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+      }
+      this.onStatus(successMessage, "ok");
+      return true;
+    } catch (error) {
+      this.onStatus(`复制失败：${String(error?.message || error)}`, "bad");
+      return false;
+    }
+  }
+
+  currentTableBlockModel() {
+    const block = this.currentBlockRange();
+    const lines = String(block?.text || "").replace(/\r\n/g, "\n").split("\n");
+    if (!isMarkdownTableStart(lines, 0)) return null;
+    const header = parseMarkdownTableRow(lines[0]);
+    const body = lines.slice(2).filter((line) => isMarkdownTableRow(line)).map((line) => parseMarkdownTableRow(line));
+    const width = Math.max(2, header.length, ...body.map((row) => row.length));
+    return { block, lines, header, body, width };
+  }
+
+  currentCodeBlockModel() {
+    const block = this.currentBlockRange();
+    const lines = String(block?.text || "").replace(/\r\n/g, "\n").split("\n");
+    if (lines.length < 2 || !isMarkdownCodeFenceLine(lines[0])) return null;
+    let closingIndex = lines.length - 1;
+    if (!isMarkdownCodeFenceLine(lines[closingIndex] || "")) closingIndex = lines.length;
+    const fenceLine = String(lines[0] || "");
+    const language = normalizeCodeLanguage(fenceLine.replace(/^\s*```/, "").trim()) || "text";
+    const content = lines.slice(1, closingIndex).join("\n");
+    return {
+      block,
+      lines,
+      language,
+      content,
+      hasClosingFence: closingIndex < lines.length
+    };
+  }
+
+  setTableBlockModel(model, options = {}) {
+    if (!model) return false;
+    const width = Math.max(2, Number(model.width || 0));
+    const headerRow = formatMarkdownTableRow(model.header || [], width);
+    const separatorRow = formatMarkdownTableSeparator(width);
+    const bodyRows = (model.body?.length ? model.body : [Array.from({ length: width }, (_, index) => (index === 0 ? "内容" : ""))]).map((row) => formatMarkdownTableRow(row, width));
+    const next = [headerRow, separatorRow, ...bodyRows].join("\n");
+    const selectionText = String(options.selectionText || "").trim();
+    let selectionStart = model.block.from + next.length;
+    let selectionEnd = selectionStart;
+    if (selectionText) {
+      const matchIndex = next.indexOf(selectionText);
+      if (matchIndex >= 0) {
+        selectionStart = model.block.from + matchIndex;
+        selectionEnd = selectionStart + selectionText.length;
+      }
+    }
+    this.replaceEditorRange(model.block.from, model.block.to, next, {
+      selectionStart,
+      selectionEnd
+    });
+    return true;
+  }
+
+  addTableRow() {
+    const model = this.currentTableBlockModel();
+    if (!model) {
+      this.formatCurrentBlock("table");
+      return;
+    }
+    const newRow = Array.from({ length: model.width }, (_, index) => (index === 0 ? "内容" : ""));
+    model.body.push(newRow);
+    this.setTableBlockModel(model, { selectionText: "内容" });
+    this.onStatus("已在当前表格末尾新增一行", "ok");
+  }
+
+  addTableColumn() {
+    const model = this.currentTableBlockModel();
+    if (!model) {
+      this.formatCurrentBlock("table");
+      return;
+    }
+    const nextLabel = `列 ${model.width + 1}`;
+    model.header = [...model.header, nextLabel];
+    model.body = model.body.map((row, rowIndex) => [...row, rowIndex === 0 ? "内容" : ""]);
+    model.width += 1;
+    this.setTableBlockModel(model, { selectionText: nextLabel });
+    this.onStatus("已为当前表格新增一列", "ok");
+  }
+
+  setCodeBlockLanguage(nextLanguage = "text") {
+    const model = this.currentCodeBlockModel();
+    if (!model) {
+      this.formatCurrentBlock("code");
+      return false;
+    }
+    const normalizedLanguage = normalizeCodeLanguage(nextLanguage) || "text";
+    const supportedValues = new Set(CODE_BLOCK_LANGUAGE_OPTIONS.map((item) => item.value));
+    const resolvedLanguage = supportedValues.has(normalizedLanguage) ? normalizedLanguage : "text";
+    const currentSelection = this.editorSelection();
+    const offsetFromBlockStart = Math.max(0, currentSelection.from - model.block.from);
+    const currentFence = String(model.lines?.[0] || "").trim();
+    const nextFence = resolvedLanguage === "text" ? "```" : `\`\`\`${resolvedLanguage}`;
+    const next = `${nextFence}\n${model.content}\n\`\`\``;
+    const delta = nextFence.length - currentFence.length;
+    const nextSelection = offsetFromBlockStart <= currentFence.length ? nextFence.length + 1 : offsetFromBlockStart + delta;
+    const anchor = model.block.from + Math.max(0, Math.min(nextSelection, next.length));
+    this.replaceEditorRange(model.block.from, model.block.to, next, {
+      selectionStart: anchor,
+      selectionEnd: anchor
+    });
+    this.onStatus(`已将代码块语言切换为 ${resolvedLanguage}`, "ok");
+    return true;
+  }
+
+  renderPreviewVisibility() {
+    const mode = String(this.state.previewMode || "wysiwyg");
+    const split = this.els.markdownSplit;
+    if (split) {
+      split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
+      split.classList.add(mode === "source" ? "editor-mode-source" : "editor-mode-wysiwyg");
+    }
+    const modeButtons = {
+      wysiwyg: this.els.modeEdit,
+      source: this.els.modePreview
+    };
+    Object.entries(modeButtons).forEach(([key, button]) => {
+      button?.classList.toggle("active", key === mode);
+    });
+    this.els.modeSplit?.classList.add("hidden");
+    if (this.richEditor && this.markdownEditor) {
+      const content = this.isSourceMode() ? this.markdownEditor.getValue() : this.richEditor.getValue();
+      this.setEditorValue(content);
+      if (!this.isLiteratureWorkspaceActive()) {
+        if (this.isSourceMode()) this.markdownEditor.focus();
+        else this.richEditor.focus();
+      }
+    }
+    this.renderLiteratureWorkspace();
+    this.renderContextualToolbarState();
+  }
+
+  renderContextualToolbarState() {
+    const active = this.detectActiveFormatting();
+    const tableTools = this.els.tableTools;
+    const codeTools = this.els.codeTools;
+    const codeLanguage = this.els.codeLanguage;
+    if (tableTools) tableTools.classList.toggle("hidden", !this.isSourceMode() || !active.table);
+    if (codeTools) codeTools.classList.toggle("hidden", !this.isSourceMode() || !active.code);
+    if (codeLanguage) {
+      const model = this.currentCodeBlockModel();
+      const value = model?.language || "text";
+      if (codeLanguage.value !== value) codeLanguage.value = value;
+      codeLanguage.disabled = !this.isSourceMode() || !active.code;
+    }
+  }
+
+  togglePreview(nextMode = null) {
+    const current = String(this.state.previewMode || "wysiwyg");
+    const fallbackOrder = ["wysiwyg", "source"];
+    let resolved = String(nextMode || "").trim();
+    if (!resolved) {
+      const currentIndex = fallbackOrder.indexOf(current);
+      resolved = fallbackOrder[(currentIndex + 1) % fallbackOrder.length] || "wysiwyg";
+    }
+    if (!["wysiwyg", "source"].includes(resolved)) resolved = "wysiwyg";
+    if (resolved === current) {
+      this.renderPreviewVisibility();
+      return;
+    }
+    const latestValue = this.getEditorValue();
+    this.state.previewMode = resolved;
+    this.setEditorValue(latestValue);
+    this.renderPreviewVisibility();
+  }
+
+  async initRichEditor() {
+    if (!this.els.wysiwygHost || this.richEditor) return;
+    try {
+      const { createWysiwygMarkdownEditor } = await import("/vendor/toastui-editor.bundle.js");
+      this.richEditor = createWysiwygMarkdownEditor({
+        parent: this.els.wysiwygHost,
+        doc: this.els.body.value || "",
+        initialMode: "wysiwyg",
+        onChange: (value) => {
+          if (this.suppressRichEditorChange || this.suppressEditorChange) return;
+          this.els.body.value = value;
+          if (this.markdownEditor && this.markdownEditor.getValue() !== value) {
+            this.suppressSourceEditorChange = true;
+            try {
+              this.markdownEditor.setValue(value);
+            } finally {
+              this.suppressSourceEditorChange = false;
+            }
+          }
+          this.handleEditorInput();
+        },
+        onKeydown: (event) => this.handleEditorKeydown(event),
+        onKeyup: () => this.updateToolbarFormattingState(),
+        onClickToken: (token) => this.handleTokenAction(token)
+      });
+      this.els.wysiwygHost.addEventListener("paste", (event) => {
+        if (this.isSourceMode()) return;
+        const files = [...(event.clipboardData?.files || [])].filter((file) => file.type);
+        if (!files.length) return;
+        event.preventDefault();
+        void this.insertAssetFiles(files, { sourceLabel: "粘贴" });
+      });
+      this.els.wysiwygHost.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        this.els.wysiwygHost?.classList.add("dragover");
+      });
+      this.els.wysiwygHost.addEventListener("dragleave", (event) => {
+        if (event.relatedTarget && this.els.wysiwygHost?.contains(event.relatedTarget)) return;
+        this.els.wysiwygHost?.classList.remove("dragover");
+      });
+      this.els.wysiwygHost.addEventListener("drop", (event) => {
+        event.preventDefault();
+        this.els.wysiwygHost?.classList.remove("dragover");
+        const files = [...(event.dataTransfer?.files || [])];
+        if (files.length) void this.insertAssetFiles(files, { sourceLabel: "拖入" });
+      });
+      this.setEditorValue(this.els.body.value || "");
+    } catch (error) {
+      this.onStatus(`可视编辑器加载失败，暂时保留源码模式：${String(error?.message || error)}`, "warn");
+      this.state.previewMode = "source";
+      this.renderPreviewVisibility();
+    }
+  }
+
+  async initMarkdownEditor() {
+    if (!this.els.editorHost || this.markdownEditor) return;
+    try {
+      const { createMarkdownEditor } = await import("/vendor/codemirror-editor.bundle.js");
+      this.markdownEditor = createMarkdownEditor({
+        parent: this.els.editorHost,
+        doc: this.els.body.value || "",
+        onChange: (value) => {
+          if (this.suppressSourceEditorChange || this.suppressEditorChange) return;
+          this.els.body.value = value;
+          if (this.richEditor && this.richEditor.getValue() !== value) {
+            this.suppressRichEditorChange = true;
+            try {
+              this.richEditor.setValue(value);
+            } finally {
+              this.suppressRichEditorChange = false;
+            }
+          }
+          this.handleEditorInput();
+        }
+      });
+      this.els.editorHost.addEventListener("click", (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        const position = this.markdownEditor?.view?.posAtCoords?.({ x: event.clientX, y: event.clientY });
+        if (typeof position !== "number") return;
+        const token = tokenAtCursor(this.getEditorValue(), position);
+        this.handleTokenAction(token);
+      });
+      this.els.editorHost.addEventListener("keydown", (event) => this.handleEditorKeydown(event), true);
+      this.els.editorHost.addEventListener("keyup", () => this.updateToolbarFormattingState());
+      this.els.editorHost.addEventListener("mouseup", () => this.updateToolbarFormattingState());
+      this.els.editorHost.classList.add("ready");
+      this.setEditorValue(this.els.body.value || "");
+      this.updateToolbarFormattingState();
+    } catch (error) {
+      this.onStatus(`CodeMirror 加载失败，已降级为基础 textarea：${String(error?.message || error)}`, "warn");
+      this.els.body.classList.remove("editor-sync-field");
+    }
+  }
+
+  getEditorValue() {
+    if (this.isLiteratureWorkspaceActive()) {
+      return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
+    }
+    const editor = this.currentEditor();
+    if (editor?.getValue) return editor.getValue();
+    return this.els.body.value;
+  }
+
+  setEditorValue(value) {
+    const text = String(value || "");
+    this.setUnderlyingEditorValue(text);
+    this.syncLiteratureWorkspaceFromBody(text);
+  }
+
+  editorSelection() {
+    if (this.isLiteratureWorkspaceActive()) {
+      const active = document.activeElement;
+      if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+        return {
+          from: active.selectionStart || 0,
+          to: active.selectionEnd || 0
+        };
+      }
+      return { from: 0, to: 0 };
+    }
+    const editor = this.currentEditor();
+    if (editor?.selection) return editor.selection();
+    return { from: this.els.body.selectionStart || 0, to: this.els.body.selectionEnd || 0 };
+  }
+
+  focusEditor() {
+    if (this.isLiteratureWorkspaceActive()) {
+      this.els.literatureParaphrase?.focus();
+      return;
+    }
+    const editor = this.currentEditor();
+    if (editor?.focus) editor.focus();
+    else this.els.body.focus();
+  }
+
+  setEditorSelectionRange(from, to) {
+    if (this.isLiteratureWorkspaceActive()) {
+      const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
+      target?.focus();
+      target?.setSelectionRange?.(from, to);
+      return;
+    }
+    const start = Math.max(0, Number(from) || 0);
+    const end = Math.max(start, Number(to) || 0);
+    this.focusEditor();
+    const editor = this.currentEditor();
+    if (editor?.setSelectionRange) {
+      editor.setSelectionRange(start, end);
+      return;
+    }
+    this.els.body.setSelectionRange(start, end);
+  }
+
+  moveVisibleCaretToBlockStart() {
+    return false;
+  }
+
+  moveCaretToBodyStart() {
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    if (!value.startsWith("# ")) return false;
+    const paragraphBreak = value.indexOf("\n\n");
+    if (paragraphBreak >= 0) {
+      this.setEditorSelectionRange(paragraphBreak + 2, paragraphBreak + 2);
+      return true;
+    }
+    const lineEnd = value.indexOf("\n");
+    if (lineEnd >= 0) {
+      this.setEditorSelectionRange(lineEnd + 1, lineEnd + 1);
+      return true;
+    }
+    return false;
+  }
+
+  moveCaretToInsertedStructure(kind) {
+    const { from, to } = this.currentBlockRange();
+    const blockText = String(this.getEditorValue() || "").slice(from, to);
+    if (kind === "h2" && blockText.startsWith("## ")) {
+      this.setEditorSelectionRange(from + 3, to);
+      return true;
+    }
+    if (kind === "quote" && blockText.startsWith("> ")) {
+      this.setEditorSelectionRange(from + 2, to);
+      return true;
+    }
+    if (kind === "ul" && blockText.startsWith("- ")) {
+      this.setEditorSelectionRange(from + 2, to);
+      return true;
+    }
+    if (kind === "code" && blockText.startsWith("```")) {
+      const firstLineEnd = blockText.indexOf("\n");
+      const codeEnd = blockText.lastIndexOf("\n```");
+      if (firstLineEnd >= 0 && codeEnd > firstLineEnd) {
+        this.setEditorSelectionRange(from + firstLineEnd + 1, from + codeEnd);
+        return true;
+      }
+    }
+    if (kind === "table" && blockText.trimStart().startsWith("|")) {
+      const visibleStart = blockText.indexOf("| ");
+      const visibleEnd = blockText.indexOf(" |", Math.max(0, visibleStart + 2));
+      if (visibleStart >= 0 && visibleEnd > visibleStart) {
+        this.setEditorSelectionRange(from + visibleStart + 2, from + visibleEnd);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  placeholderTitleRange(text) {
+    const value = String(text || "");
+    if (!value.startsWith("# ")) return null;
+    const lineEnd = value.indexOf("\n");
+    const end = lineEnd >= 0 ? lineEnd : value.length;
+    const title = value.slice(2, end).trim();
+    if (title !== "未命名笔记") return null;
+    return { from: 2, to: end };
+  }
+
+  firstHeadingEntryContext() {
+    const value = this.getEditorValue();
+    if (!String(value || "").startsWith("# ")) return null;
+    const lineEnd = value.indexOf("\n");
+    const end = lineEnd >= 0 ? lineEnd : value.length;
+    const selection = this.editorSelection();
+    if (selection.from !== selection.to) return null;
+    if (selection.from < 2 || selection.from > end) return null;
+    return {
+      value,
+      headingEnd: end,
+      cursor: selection.from
+    };
+  }
+
+  enterBodyFromTitle() {
+    const context = this.firstHeadingEntryContext();
+    if (!context) return false;
+    const { value, headingEnd } = context;
+    const afterHeading = value.slice(headingEnd);
+    if (afterHeading.startsWith("\n\n")) {
+      this.setEditorSelectionRange(headingEnd + 2, headingEnd + 2);
+      return true;
+    }
+    if (afterHeading.startsWith("\n")) {
+      this.replaceEditorRange(headingEnd, headingEnd + 1, "\n\n", {
+        selectionStart: headingEnd + 2,
+        selectionEnd: headingEnd + 2
+      });
+      return true;
+    }
+    this.replaceEditorRange(headingEnd, headingEnd, "\n\n", {
+      selectionStart: headingEnd + 2,
+      selectionEnd: headingEnd + 2
+    });
+    return true;
+  }
+
+  applyPendingEditorFocus() {
+    const mode = this.pendingEditorFocus;
+    this.pendingEditorFocus = null;
+    if (!mode) return;
+    if (this.isLiteratureWorkspaceActive()) {
+      if (mode === "select-placeholder-title") {
+        const titleInput = this.els.literatureTitle;
+        titleInput?.focus();
+        titleInput?.select?.();
+        return;
+      }
+      this.els.literatureParaphrase?.focus();
+      return;
+    }
+    const applyPlaceholderSelection = () => {
+      if (this.isWysiwygMode() && this.els.wysiwygHost) {
+        const heading = this.els.wysiwygHost.querySelector(".toastui-editor-contents h1");
+        if (!heading?.firstChild) return false;
+        const selection = window.getSelection?.();
+        if (!selection) return false;
+        const range = document.createRange();
+        range.selectNodeContents(heading);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        this.richEditor?.focus?.();
+        return true;
+      }
+      const range = this.placeholderTitleRange(this.getEditorValue());
+      if (!range) return false;
+      this.setEditorSelectionRange(range.from, range.to);
+      return true;
+    };
+    const apply = () => {
+      if (mode === "select-placeholder-title") {
+        if (applyPlaceholderSelection()) {
+          if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+            window.setTimeout(() => {
+              applyPlaceholderSelection();
+            }, 32);
+          }
+          return;
+        }
+      }
+      this.focusEditor();
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => apply());
+      return;
+    }
+    setTimeout(apply, 0);
+  }
+
   insertAtCursor(text) {
-    const el = this.els.body;
-    const s = el.selectionStart;
-    const e = el.selectionEnd;
-    el.setRangeText(text, s, e, "end");
-    el.focus();
+    if (this.isWysiwygMode() && this.richEditor?.insertText) {
+      this.richEditor.insertText(String(text || ""));
+      this.els.body.value = this.richEditor.getValue();
+      this.handleEditorInput();
+      return;
+    }
+    const { from, to } = this.editorSelection();
+    this.replaceEditorRange(from, to, text, { selectionStart: from + String(text || "").length });
   }
 
   wrapSelection(prefix, suffix = "") {
-    const el = this.els.body;
-    const s = el.selectionStart;
-    const e = el.selectionEnd;
-    const sel = el.value.slice(s, e);
-    el.setRangeText(`${prefix}${sel}${suffix}`, s, e, "end");
-    el.focus();
+    if (this.isWysiwygMode() && this.richEditor) {
+      if (prefix === "**" && suffix === "**") {
+        this.richEditor.exec("bold");
+        return;
+      }
+      if (prefix === "*" && suffix === "*") {
+        this.richEditor.exec("italic");
+        return;
+      }
+    }
+    const value = this.getEditorValue();
+    const { from, to } = this.editorSelection();
+    let start = from;
+    let end = to;
+    if (start === end && prefix && suffix) {
+      const tokenRange = this.currentWordRange(value, start);
+      if (tokenRange) {
+        start = tokenRange.from;
+        end = tokenRange.to;
+      }
+    }
+    const sel = value.slice(start, end);
+    if (!sel && prefix && suffix) {
+      const next = `${prefix}${suffix}`;
+      this.replaceEditorRange(start, end, next, {
+        selectionStart: start + prefix.length,
+        selectionEnd: start + prefix.length
+      });
+      return;
+    }
+    const next = `${prefix}${sel}${suffix}`;
+    this.replaceEditorRange(start, end, next, {
+      selectionStart: start + prefix.length,
+      selectionEnd: start + prefix.length + sel.length
+    });
+  }
+
+  currentWordRange(value, cursor) {
+    const text = String(value || "");
+    const index = Math.max(0, Math.min(Number(cursor) || 0, text.length));
+    if (!text) return null;
+    const isTokenChar = (char) => /[\p{L}\p{N}_\-\u4e00-\u9fff]/u.test(char || "");
+    let from = index;
+    let to = index;
+    while (from > 0 && isTokenChar(text[from - 1])) from -= 1;
+    while (to < text.length && isTokenChar(text[to])) to += 1;
+    if (from === to) return null;
+    return { from, to };
+  }
+
+  replaceEditorRange(from, to, text, options = {}) {
+    const insert = String(text || "");
+    const selectionStart = Number.isFinite(options.selectionStart) ? Number(options.selectionStart) : from + insert.length;
+    const selectionEnd = Number.isFinite(options.selectionEnd) ? Number(options.selectionEnd) : selectionStart;
+    const editor = this.currentEditor();
+    if (editor?.replaceRange) {
+      editor.replaceRange(from, to, insert);
+      this.els.body.value = editor.getValue();
+      editor.setSelectionRange(selectionStart, selectionEnd);
+      const syncValue = editor.getValue();
+      if (editor !== this.markdownEditor && this.markdownEditor && this.markdownEditor.getValue() !== syncValue) {
+        this.suppressSourceEditorChange = true;
+        try {
+          this.markdownEditor.setValue(syncValue);
+        } finally {
+          this.suppressSourceEditorChange = false;
+        }
+      }
+      if (editor !== this.richEditor && this.richEditor && this.richEditor.getValue() !== syncValue) {
+        this.suppressRichEditorChange = true;
+        try {
+          this.richEditor.setValue(syncValue);
+        } finally {
+          this.suppressRichEditorChange = false;
+        }
+      }
+      this.handleEditorInput();
+      return;
+    }
+    this.els.body.setRangeText(insert, from, to, "end");
+    this.els.body.focus();
+    this.els.body.setSelectionRange(selectionStart, selectionEnd);
+    this.handleEditorInput();
+  }
+
+  async fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const [, base64 = ""] = result.split(",", 2);
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error(`读取文件失败：${file?.name || "unknown"}`));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  assetMarkdownSnippet(asset = {}) {
+    const rawLabel = String(asset.fileName || "asset").trim();
+    const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
+    if (String(asset.assetKind || "") === "image") {
+      return `![${textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
+    }
+    return `[${rawLabel || textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
+  }
+
+  normalizeAssetInsertText(assets = []) {
+    const snippets = assets.map((item) => this.assetMarkdownSnippet(item)).filter(Boolean);
+    if (!snippets.length) return "";
+    const { from, to } = this.editorSelection();
+    const value = this.getEditorValue();
+    const beforeChar = from > 0 ? value[from - 1] : "";
+    const afterChar = to < value.length ? value[to] : "";
+    const prefix = beforeChar && beforeChar !== "\n" ? "\n\n" : beforeChar === "\n" ? "\n" : "";
+    const suffix = afterChar && afterChar !== "\n" ? "\n\n" : afterChar === "\n" ? "\n" : "";
+    return `${prefix}${snippets.join("\n\n")}${suffix}`;
+  }
+
+  async insertAssetFiles(filesLike, { sourceLabel = "插入" } = {}) {
+    const note = this.activeNote();
+    if (!note) {
+      this.onStatus("请先打开一个笔记", "warn");
+      return;
+    }
+    const files = [...(filesLike || [])].filter(Boolean);
+    if (!files.length) return;
+    this.onStatus(`${sourceLabel}文件处理中...`, "ok");
+    try {
+      const uploaded = [];
+      for (const file of files) {
+        const contentBase64 = await this.fileToBase64(file);
+        const item = await uploadNoteAsset(note.id, {
+          fileName: file.name,
+          mimeType: file.type || "",
+          contentBase64,
+          kind: String(file.type || "").toLowerCase().startsWith("image/") ? "image" : "file"
+        });
+        if (item) uploaded.push(item);
+      }
+      if (!uploaded.length) throw new Error("未能写入任何附件");
+      this.insertAtCursor(this.normalizeAssetInsertText(uploaded));
+      const imageCount = uploaded.filter((item) => item.assetKind === "image").length;
+      const fileCount = uploaded.length - imageCount;
+      const detail = [];
+      if (imageCount) detail.push(`${imageCount} 张图片`);
+      if (fileCount) detail.push(`${fileCount} 个附件`);
+      this.onStatus(`已插入${detail.join("、")}，保存后会写入笔记`, "ok");
+    } catch (error) {
+      this.onStatus(`插入附件失败：${String(error?.message || error)}`, "bad");
+    } finally {
+      this.els.assetInput?.value && (this.els.assetInput.value = "");
+      this.els.editorHost?.classList.remove("dragover");
+    }
+  }
+
+  titleBlockBoundary(value = this.getEditorValue()) {
+    const text = String(value || "").replace(/\r\n/g, "\n");
+    if (!text.startsWith("# ")) return null;
+    const titleEnd = text.indexOf("\n\n");
+    if (titleEnd >= 0) return { from: 0, to: titleEnd };
+    const lineEnd = text.indexOf("\n");
+    return { from: 0, to: lineEnd >= 0 ? lineEnd : text.length };
+  }
+
+  currentBlockRange() {
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    const { from, to } = this.editorSelection();
+    const anchor = Math.max(0, Math.min(from, to));
+    const seekStart = Math.max(0, anchor - 2);
+    let blockStart = value.lastIndexOf("\n\n", seekStart);
+    blockStart = blockStart < 0 ? 0 : blockStart + 2;
+    let blockEnd = value.indexOf("\n\n", Math.max(anchor, to));
+    blockEnd = blockEnd < 0 ? value.length : blockEnd;
+    return {
+      from: blockStart,
+      to: blockEnd,
+      text: value.slice(blockStart, blockEnd),
+      value
+    };
+  }
+
+  stripStructuralMarkdown(text) {
+    return String(text || "")
+      .split("\n")
+      .map((line) => line.replace(/^\s*(#{1,6}\s+|>\s+|-+\s+|\d+[.)]\s+|```+\s*)/, ""))
+      .join("\n");
+  }
+
+  defaultStructuredInsert(kind) {
+    if (kind === "code") {
+      return {
+        text: "```\n代码块\n```",
+        selectionStart: 4,
+        selectionEnd: 7
+      };
+    }
+    if (kind === "table") {
+      const text = "| 列 1 | 列 2 |\n| --- | --- |\n| 内容 | 内容 |";
+      return {
+        text,
+        selectionStart: 2,
+        selectionEnd: 5
+      };
+    }
+    if (kind === "hr") {
+      return {
+        text: "---",
+        selectionStart: 3,
+        selectionEnd: 3
+      };
+    }
+    return null;
+  }
+
+  tableBlockFromText(seed = "") {
+    const source = String(seed || "").replace(/\r\n/g, "\n").trim();
+    if (!source) return "| 列 1 | 列 2 |\n| --- | --- |\n| 内容 | 内容 |";
+
+    const rows = source
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (rows.length >= 2 && isMarkdownTableRow(rows[0]) && isMarkdownTableSeparator(rows[1])) {
+      const parsedRows = [parseMarkdownTableRow(rows[0]), ...rows.slice(2).filter((line) => isMarkdownTableRow(line)).map((line) => parseMarkdownTableRow(line))];
+      const width = Math.max(2, ...parsedRows.map((row) => row.length));
+      return [formatMarkdownTableRow(parsedRows[0], width), formatMarkdownTableSeparator(width), ...parsedRows.slice(1).map((row) => formatMarkdownTableRow(row, width))].join("\n");
+    }
+
+    const firstRow = rows.find((line) => isMarkdownTableRow(line));
+    if (firstRow) {
+      const parsed = rows.filter((line) => isMarkdownTableRow(line)).map((line) => parseMarkdownTableRow(line));
+      const width = Math.max(2, ...parsed.map((row) => row.length));
+      const header = parsed[0];
+      const body = parsed.slice(1);
+      return [formatMarkdownTableRow(header, width), formatMarkdownTableSeparator(width), ...(body.length ? body : [Array.from({ length: width }, (_, index) => (index === 0 ? "内容" : ""))]).map((row) => formatMarkdownTableRow(row, width))].join("\n");
+    }
+
+    const summary = this.stripStructuralMarkdown(source).split(/\n+/).map((line) => line.trim()).filter(Boolean)[0] || "内容";
+    return `| 主题 | 说明 |\n| --- | --- |\n| ${summary.replace(/\|/g, " ")} | 补充说明 |`;
+  }
+
+  formatCurrentBlock(kind) {
+    if (this.isWysiwygMode() && this.richEditor) {
+      if (kind === "h2") {
+        this.richEditor.exec("heading", { level: 2 });
+        return;
+      }
+      if (kind === "quote") {
+        this.richEditor.exec("blockQuote");
+        return;
+      }
+      if (kind === "ul") {
+        this.richEditor.exec("bulletList");
+        return;
+      }
+      if (kind === "checklist") {
+        this.richEditor.exec("taskList");
+        return;
+      }
+      if (kind === "code") {
+        this.richEditor.exec("codeBlock");
+        return;
+      }
+      if (kind === "table") {
+        this.richEditor.exec("table");
+        return;
+      }
+      if (kind === "hr") {
+        this.richEditor.exec("hr");
+        return;
+      }
+    }
+    const block = this.currentBlockRange();
+    const titleBoundary = this.titleBlockBoundary(block.value);
+    const selection = this.editorSelection();
+    const selectionInTitle = Boolean(titleBoundary && selection.from <= titleBoundary.to);
+    const active = this.detectActiveFormatting();
+    const hasExplicitSelection = selection.from !== selection.to;
+    const blockHasContent = Boolean(block.text.trim());
+
+    if (selectionInTitle) {
+      const insertPos = titleBoundary ? titleBoundary.to : 0;
+      const insertMap = {
+        h2: { text: "\n\n## 小标题", selectFrom: "\n\n## ".length, selectLength: "小标题".length },
+        quote: { text: "\n\n> 引用内容", selectFrom: "\n\n> ".length, selectLength: "引用内容".length },
+        ul: { text: "\n\n- 列表项", selectFrom: "\n\n- ".length, selectLength: "列表项".length },
+        checklist: { text: "\n\n- [ ] 待办项", selectFrom: "\n\n- [ ] ".length, selectLength: "待办项".length },
+        code: { text: "\n\n```\n代码块\n```\n\n", selectFrom: "\n\n```\n".length, selectLength: "代码块".length },
+        table: { text: "\n\n| 列 1 | 列 2 |\n| --- | --- |\n| 内容 | 内容 |\n\n", selectFrom: "\n\n| ".length, selectLength: "列 1".length },
+        hr: { text: "\n\n---\n\n", selectFrom: "\n\n---\n\n".length, selectLength: 0 }
+      };
+      const insert = insertMap[kind];
+      if (!insert) return;
+      this.replaceEditorRange(insertPos, insertPos, insert.text, {
+        selectionStart: insertPos + insert.selectFrom,
+        selectionEnd: insertPos + insert.selectFrom + insert.selectLength
+      });
+      return;
+    }
+
+    if (!hasExplicitSelection && blockHasContent && ["code", "table", "hr"].includes(kind) && !active[kind]) {
+      const insert = this.defaultStructuredInsert(kind);
+      if (!insert) return;
+      const prefix = block.to > 0 && !block.value.slice(Math.max(0, block.to - 2), block.to).includes("\n\n") ? "\n\n" : block.to === 0 ? "" : "";
+      const suffix = "\n\n";
+      const insertText = `${prefix}${insert.text}${suffix}`;
+      const anchorBase = block.to + prefix.length;
+      this.replaceEditorRange(block.to, block.to, insertText, {
+        selectionStart: anchorBase + insert.selectionStart,
+        selectionEnd: anchorBase + insert.selectionEnd
+      });
+      return;
+    }
+
+    const raw = block.text.trim() || (kind === "h2" ? "小标题" : kind === "quote" ? "引用内容" : "列表项");
+    if (kind === "checklist") {
+      const checklistSeed = block.text.trim() || "待办项";
+      const lines = this.stripStructuralMarkdown(checklistSeed)
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const next = (lines.length ? lines : ["待办项"]).map((line) => `- [ ] ${line}`).join("\n");
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from + 6,
+        selectionEnd: block.from + next.length
+      });
+      return;
+    }
+    if (kind === "code") {
+      const seed = block.text.trim() || "代码块";
+      const content = seed.replace(/^```[\w-]*\n?/, "").replace(/\n?```$/, "") || "代码块";
+      const inferredLanguage = inferCodeLanguage(content);
+      const fence = inferredLanguage && inferredLanguage !== "text" ? `\`\`\`${inferredLanguage}` : "```";
+      const next = `${fence}\n${content}\n\`\`\``;
+      const selectionOffset = fence.length + 1;
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from + selectionOffset,
+        selectionEnd: block.from + selectionOffset + content.length
+      });
+      return;
+    }
+    if (kind === "table") {
+      const next = this.tableBlockFromText(block.text);
+      const cellStart = next.indexOf("| ");
+      const cellEnd = next.indexOf(" |", Math.max(0, cellStart + 2));
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from + (cellStart >= 0 ? cellStart + 2 : 0),
+        selectionEnd: block.from + (cellEnd > cellStart ? cellEnd : next.length)
+      });
+      return;
+    }
+    if (kind === "hr") {
+      const next = "---";
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from + next.length,
+        selectionEnd: block.from + next.length
+      });
+      return;
+    }
+    const clean = this.stripStructuralMarkdown(raw).trim() || raw.trim();
+    let next = raw;
+    if (kind === "h2") next = `## ${clean.replace(/\s*\n+\s*/g, " ").trim()}`;
+    if (kind === "quote") next = clean.split(/\n+/).map((line) => `> ${line.trim()}`).join("\n");
+    if (kind === "ul") next = clean.split(/\n+/).map((line) => `- ${line.trim()}`).join("\n");
+    this.replaceEditorRange(block.from, block.to, next, {
+      selectionStart: block.from,
+      selectionEnd: block.from + next.length
+    });
+  }
+
+  indentSelection(step = 1) {
+    if (this.isWysiwygMode() && this.richEditor) {
+      this.richEditor.exec(step < 0 ? "outdent" : "indent");
+      return;
+    }
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    const selection = this.editorSelection();
+    const from = Math.max(0, Math.min(selection.from, selection.to));
+    const to = Math.max(selection.from, selection.to);
+    const lineStart = value.lastIndexOf("\n", Math.max(0, from - 1)) + 1;
+    let lineEnd = value.indexOf("\n", to);
+    if (lineEnd < 0) lineEnd = value.length;
+    const block = value.slice(lineStart, lineEnd);
+    const lines = block.split("\n");
+    const isOutdent = step < 0;
+    const nextLines = lines.map((line) => {
+      if (isOutdent) {
+        if (line.startsWith("  ")) return line.slice(2);
+        if (line.startsWith("\t")) return line.slice(1);
+        return line;
+      }
+      return `  ${line}`;
+    });
+    const nextText = nextLines.join("\n");
+    const delta = nextText.length - block.length;
+    const adjustedStart = isOutdent ? Math.max(lineStart, from - 2) : from + 2;
+    const adjustedEnd = isOutdent ? Math.max(adjustedStart, to + delta) : to + (2 * lines.length);
+    this.replaceEditorRange(lineStart, lineEnd, nextText, {
+      selectionStart: adjustedStart,
+      selectionEnd: adjustedEnd
+    });
+  }
+
+  detectActiveFormatting() {
+    if (this.isWysiwygMode()) {
+      return {
+        h2: false,
+        quote: false,
+        ul: false,
+        checklist: false,
+        code: false,
+        table: false,
+        hr: false
+      };
+    }
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    const selection = this.editorSelection();
+    const anchor = Math.max(0, Math.min(selection.from, selection.to));
+    const block = this.currentBlockRange();
+    const text = String(block?.text || "").trimStart();
+    const inTitle = Boolean(this.titleBlockBoundary(value) && anchor <= this.titleBlockBoundary(value).to);
+    const tableLines = String(block?.text || "").replace(/\r\n/g, "\n").split("\n");
+    return {
+      h2: !inTitle && /^##\s+/.test(text),
+      quote: !inTitle && /^>\s+/.test(text),
+      ul: !inTitle && /^-\s+/.test(text) && !/^-\s\[(?: |x|X)\]\s/.test(text),
+      checklist: !inTitle && /^-\s\[(?: |x|X)\]\s/.test(text),
+      code: !inTitle && /^```/.test(text),
+      table: !inTitle && isMarkdownTableStart(tableLines, 0),
+      hr: !inTitle && isHorizontalRuleLine(text)
+    };
+  }
+
+  currentLineContext() {
+    const selection = this.editorSelection();
+    if (selection.from !== selection.to) return null;
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    const cursor = selection.from;
+    const lineStart = value.lastIndexOf("\n", Math.max(0, cursor - 1)) + 1;
+    let lineEnd = value.indexOf("\n", cursor);
+    if (lineEnd < 0) lineEnd = value.length;
+    return {
+      value,
+      cursor,
+      lineStart,
+      lineEnd,
+      lineText: value.slice(lineStart, lineEnd)
+    };
+  }
+
+  handleStructuredEnter() {
+    const context = this.currentLineContext();
+    if (!context) return false;
+    const { cursor, lineStart, lineEnd, lineText } = context;
+    if (cursor !== lineEnd) return false;
+
+    const checklistMatch = lineText.match(/^(\s*[-*+]\s)\[(?: |x|X)\]\s?(.*)$/);
+    if (checklistMatch) {
+      const [, bulletPrefix, body] = checklistMatch;
+      if (!String(body || "").trim()) {
+        this.replaceEditorRange(lineStart, lineEnd, "", {
+          selectionStart: lineStart,
+          selectionEnd: lineStart
+        });
+        return true;
+      }
+      this.replaceEditorRange(cursor, cursor, `\n${bulletPrefix}[ ] `, {
+        selectionStart: cursor + bulletPrefix.length + 6,
+        selectionEnd: cursor + bulletPrefix.length + 6
+      });
+      return true;
+    }
+
+    const orderedMatch = lineText.match(/^(\s*)(\d+)([.)])\s(.*)$/);
+    if (orderedMatch) {
+      const [, indent, number, marker, body] = orderedMatch;
+      if (!String(body || "").trim()) {
+        this.replaceEditorRange(lineStart, lineEnd, "", {
+          selectionStart: lineStart,
+          selectionEnd: lineStart
+        });
+        return true;
+      }
+      const nextNumber = Number(number) + 1;
+      const prefix = `${indent}${nextNumber}${marker} `;
+      this.replaceEditorRange(cursor, cursor, `\n${prefix}`, {
+        selectionStart: cursor + 1 + prefix.length,
+        selectionEnd: cursor + 1 + prefix.length
+      });
+      return true;
+    }
+
+    const bulletMatch = lineText.match(/^(\s*[-*+]\s)(.*)$/);
+    if (bulletMatch) {
+      const [, prefix, body] = bulletMatch;
+      if (!String(body || "").trim()) {
+        this.replaceEditorRange(lineStart, lineEnd, "", {
+          selectionStart: lineStart,
+          selectionEnd: lineStart
+        });
+        return true;
+      }
+      this.replaceEditorRange(cursor, cursor, `\n${prefix}`, {
+        selectionStart: cursor + 1 + prefix.length,
+        selectionEnd: cursor + 1 + prefix.length
+      });
+      return true;
+    }
+
+    const quoteMatch = lineText.match(/^(\s*>\s?)(.*)$/);
+    if (quoteMatch) {
+      const [, prefix, body] = quoteMatch;
+      if (!String(body || "").trim()) {
+        this.replaceEditorRange(lineStart, lineEnd, "", {
+          selectionStart: lineStart,
+          selectionEnd: lineStart
+        });
+        return true;
+      }
+      this.replaceEditorRange(cursor, cursor, `\n${prefix}`, {
+        selectionStart: cursor + 1 + prefix.length,
+        selectionEnd: cursor + 1 + prefix.length
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  updateToolbarFormattingState() {
+    const active = this.detectActiveFormatting();
+    document.querySelectorAll(".tb[data-md]").forEach((btn) => {
+      const type = btn.dataset.md;
+      if (!type || !(type in active)) return;
+      btn.classList.toggle("active", Boolean(active[type]));
+    });
+    this.renderContextualToolbarState();
   }
 
   scopedLinkCandidates() {
@@ -192,9 +2751,34 @@ export class EditorPane {
     return null;
   }
 
+  upsertApiNotes(items = []) {
+    for (const item of items) {
+      const existing = this.state.notes.find((n) => n.id === item.id);
+      if (existing) {
+        existing.title = item.title || existing.title;
+        existing.folderId = item.directoryId || existing.folderId;
+        existing.noteType = item.noteType || existing.noteType;
+        existing.updatedAt = item.updatedAt || existing.updatedAt;
+        continue;
+      }
+      this.state.notes.push({
+        id: item.id,
+        title: item.title || "未命名笔记",
+        folderId: item.directoryId,
+        noteType: item.noteType || "original",
+        body: `# ${item.title || "未命名笔记"}\n`,
+        tags: [],
+        links: [],
+        bodyLoaded: false,
+        updatedAt: item.updatedAt || new Date().toISOString()
+      });
+    }
+  }
+
   detectInlineLinkContext() {
-    const text = this.els.body.value;
-    const cursor = this.els.body.selectionStart || 0;
+    if (this.isWysiwygMode()) return null;
+    const text = this.getEditorValue();
+    const cursor = this.editorSelection().from || 0;
     const left = text.slice(0, cursor);
     const start = left.lastIndexOf("[[");
     if (start < 0) return null;
@@ -205,12 +2789,27 @@ export class EditorPane {
     return { start, end: cursor, query };
   }
 
+  detectInlineTagContext() {
+    if (this.isWysiwygMode()) return null;
+    const text = this.getEditorValue();
+    const cursor = this.editorSelection().from || 0;
+    const left = text.slice(0, cursor);
+    const match = left.match(/(^|[\s([{'"“‘>，。；：!?！？、])#([^\s#\]\[(){}"'“”‘’.,，。！？!?;:：]*)$/u);
+    if (!match) return null;
+    const hashOffset = match[0].lastIndexOf("#");
+    const start = left.length - (match[0].length - hashOffset);
+    const query = match[2] || "";
+    return { start, end: cursor, query };
+  }
+
   renderLinkCandidates(query = "", preferredId = "") {
     const q = String(query || "").trim().toLowerCase();
     const all = this.scopedLinkCandidates();
-    const list = q
-      ? all.filter((n) => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
-      : all;
+    const list = (q
+      ? all
+          .filter((n) => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
+          .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
+      : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
     this.currentLinkCandidates = list;
     this.currentLinkIndex = 0;
     if (preferredId) {
@@ -218,25 +2817,43 @@ export class EditorPane {
       if (idx >= 0) this.currentLinkIndex = idx;
     }
     this.els.linkSearchList.innerHTML = list.length
-      ? list
-          .slice(0, 50)
-          .map(
-            (n, idx) =>
-              `<button class="link-picker-item ${idx === this.currentLinkIndex ? "active" : ""}" data-link-note-id="${n.id}"><strong>${n.title}</strong><br><small>${n.id} · ${this.folderLabel(
-                n.folderId
-              )}</small></button>`
-          )
-          .join("")
-      : `<div style="padding:10px;color:#94a3b8;">无匹配笔记</div>`;
+      ? renderPickerSections(
+          list.slice(0, 50).map((n, idx) => ({ note: n, idx })),
+          ({ note }) => linkCandidateGroupLabel(note, q),
+          ({ note: n, idx }) => {
+            const badge = linkCandidateBadge(n, q);
+            return `<button class="link-picker-item ${idx === this.currentLinkIndex ? "active" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
+              idx === this.currentLinkIndex ? "true" : "false"
+            }"><span class="picker-headline"><strong>${highlightMatch(n.title, q)}</strong>${
+              badge ? `<span class="picker-badge">${escapeHtml(badge)}</span>` : ""
+            }</span><span class="picker-meta">${highlightMatch(n.id, q)} · ${escapeHtml(this.folderLabel(n.folderId))}</span></button>`;
+          }
+        )
+      : `<div class="picker-empty">无匹配笔记</div>`;
+    this.scrollActiveLinkCandidateIntoView();
+  }
+
+  scrollActiveLinkCandidateIntoView() {
+    const active = this.els.linkSearchList.querySelector(".link-picker-item.active");
+    if (!active) return;
+    active.scrollIntoView({ block: "nearest" });
   }
 
   openLinkPicker(initialQuery = "", options = {}) {
+    this.closeTagPicker();
+    this.els.linkPicker.classList.remove("floating");
+    this.els.linkPicker.style.left = "";
+    this.els.linkPicker.style.top = "";
+    this.els.linkPicker.style.width = "";
     this.els.linkPicker.classList.remove("hidden");
     this.els.linkSearchInput.value = initialQuery;
     this.currentLinkContext = options.inlineContext || null;
+    this.lastInlinePickerAnchor = this.currentLinkContext?.end || 0;
     this.renderLinkCandidates(initialQuery, options.preferredId || "");
+    this.els.insertLink?.classList.add("active");
     if (options.keepFocusInEditor) {
-      this.els.body.focus();
+      this.positionInlineLinkPicker();
+      this.focusEditor();
       return;
     }
     this.els.linkSearchInput.focus();
@@ -245,7 +2862,35 @@ export class EditorPane {
 
   closeLinkPicker() {
     this.els.linkPicker.classList.add("hidden");
+    this.els.linkPicker.classList.remove("floating");
+    this.els.linkPicker.style.left = "";
+    this.els.linkPicker.style.top = "";
+    this.els.linkPicker.style.width = "";
     this.currentLinkContext = null;
+    this.lastInlinePickerAnchor = 0;
+    this.els.insertLink?.classList.remove("active");
+  }
+
+  positionInlineLinkPicker() {
+    if (!this.currentLinkContext) return;
+    const panel = this.els.linkPicker;
+    panel.classList.add("floating");
+    const width = Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34)));
+
+    let left = 180;
+    let top = 90;
+    const rect = this.currentSelectionRect();
+    if (rect) {
+      left = rect.left;
+      top = rect.bottom + 8;
+    }
+
+    const maxLeft = Math.max(12, window.innerWidth - width - 12);
+    const clampedLeft = Math.max(12, Math.min(left, maxLeft));
+    const clampedTop = Math.max(12, Math.min(top, window.innerHeight - 240));
+    panel.style.width = `${width}px`;
+    panel.style.left = `${clampedLeft}px`;
+    panel.style.top = `${clampedTop}px`;
   }
 
   insertSelectedLinkNote(noteId) {
@@ -254,8 +2899,7 @@ export class EditorPane {
     if (!target) return;
     if (this.currentLinkContext) {
       const { start, end } = this.currentLinkContext;
-      this.els.body.setRangeText(`[[${target.title}]]`, start, end, "end");
-      this.els.body.focus();
+      this.replaceEditorRange(start, end, `[[${target.title}]]`);
     } else {
       this.insertAtCursor(`[[${target.title}]]`);
     }
@@ -269,13 +2913,149 @@ export class EditorPane {
     this.currentLinkIndex = (this.currentLinkIndex + step + max) % max;
     const preferredId = this.currentLinkCandidates[this.currentLinkIndex]?.id || "";
     this.renderLinkCandidates(this.els.linkSearchInput.value, preferredId);
+    if (this.currentLinkContext) this.positionInlineLinkPicker();
+  }
+
+  activeRootDirectoryId() {
+    const note = this.activeNote();
+    if (!note) return "";
+    return rootBoxIdFromFolder(this.state, note.folderId);
+  }
+
+  async fetchTagCandidates(query = "") {
+    const result = await listTags({
+      rootDirectoryId: this.activeRootDirectoryId(),
+      query,
+      limit: 24
+    });
+    return Array.isArray(result.items) ? result.items : [];
+  }
+
+  renderTagCandidates(list = [], preferredName = "") {
+    const sorted = [...list].sort((a, b) => {
+      const query = this.els.tagSearchInput?.value || "";
+      const rankDiff = tagCandidateRank(a, query) - tagCandidateRank(b, query);
+      if (rankDiff) return rankDiff;
+      const countDiff = Number(b?.noteCount || 0) - Number(a?.noteCount || 0);
+      if (countDiff) return countDiff;
+      return String(a?.name || "").localeCompare(String(b?.name || ""), "zh-CN");
+    });
+    this.currentTagCandidates = sorted;
+    this.currentTagIndex = 0;
+    if (preferredName) {
+      const idx = sorted.findIndex((item) => String(item?.name || "") === preferredName);
+      if (idx >= 0) this.currentTagIndex = idx;
+    }
+    const query = this.els.tagSearchInput?.value || "";
+    this.els.tagSearchList.innerHTML = sorted.length
+      ? renderPickerSections(
+          sorted.map((item, idx) => ({ item, idx })),
+          ({ item }) => tagCandidateGroupLabel(item, query),
+          ({ item, idx }) => {
+            const badge = tagCandidateBadge(item, query);
+            return `<button class="link-picker-item ${idx === this.currentTagIndex ? "active" : ""}" data-tag-name="${escapeHtml(
+              item.name
+            )}" data-tag-index="${idx}" aria-selected="${idx === this.currentTagIndex ? "true" : "false"}"><span class="picker-headline"><strong>#${highlightMatch(
+              item.name,
+              query
+            )}</strong>${badge ? `<span class="picker-badge">${escapeHtml(badge)}</span>` : ""}</span><span class="picker-meta">${Number(
+              item.noteCount || 0
+            )} 条笔记</span></button>`;
+          }
+        )
+      : `<div class="picker-empty"><div style="margin-bottom:8px;">无匹配标签。</div><button class="link-picker-item active" type="button" data-insert-current-tag="1">直接插入 #${escapeHtml(query || "新标签")}</button></div>`;
+    this.scrollActiveTagCandidateIntoView();
+  }
+
+  scrollActiveTagCandidateIntoView() {
+    const active = this.els.tagSearchList.querySelector(".link-picker-item.active");
+    if (!active) return;
+    active.scrollIntoView({ block: "nearest" });
+  }
+
+  async openTagPicker(initialQuery = "", options = {}) {
+    this.closeLinkPicker();
+    this.els.tagPicker.classList.remove("floating");
+    this.els.tagPicker.style.left = "";
+    this.els.tagPicker.style.top = "";
+    this.els.tagPicker.style.width = "";
+    this.els.tagPicker.classList.remove("hidden");
+    this.els.tagSearchInput.value = initialQuery;
+    this.currentTagContext = options.inlineContext || null;
+    this.lastInlinePickerAnchor = this.currentTagContext?.end || 0;
+    const list = await this.fetchTagCandidates(initialQuery);
+    this.renderTagCandidates(list, options.preferredName || "");
+    this.els.insertTag?.classList.add("active");
+    if (options.keepFocusInEditor) {
+      this.positionInlineTagPicker();
+      this.focusEditor();
+      return;
+    }
+    this.els.tagSearchInput.focus();
+    this.els.tagSearchInput.select();
+  }
+
+  closeTagPicker() {
+    this.els.tagPicker.classList.add("hidden");
+    this.els.tagPicker.classList.remove("floating");
+    this.els.tagPicker.style.left = "";
+    this.els.tagPicker.style.top = "";
+    this.els.tagPicker.style.width = "";
+    this.currentTagContext = null;
+    this.els.insertTag?.classList.remove("active");
+  }
+
+  positionInlineTagPicker() {
+    if (!this.currentTagContext) return;
+    const panel = this.els.tagPicker;
+    panel.classList.add("floating");
+    const width = Math.min(320, Math.max(260, Math.floor(window.innerWidth * 0.26)));
+
+    let left = 180;
+    let top = 90;
+    const rect = this.currentSelectionRect();
+    if (rect) {
+      left = rect.left;
+      top = rect.bottom + 8;
+    }
+
+    const maxLeft = Math.max(12, window.innerWidth - width - 12);
+    const clampedLeft = Math.max(12, Math.min(left, maxLeft));
+    const clampedTop = Math.max(12, Math.min(top, window.innerHeight - 240));
+    panel.style.width = `${width}px`;
+    panel.style.left = `${clampedLeft}px`;
+    panel.style.top = `${clampedTop}px`;
+  }
+
+  insertSelectedTag(tagName = "") {
+    const normalized = normalizeClickedTag(tagName);
+    if (!normalized) return;
+    const insertText = `#${normalized}`;
+    if (this.currentTagContext) {
+      const { start, end } = this.currentTagContext;
+      this.replaceEditorRange(start, end, insertText);
+    } else {
+      this.insertAtCursor(insertText);
+    }
+    this.closeTagPicker();
+    this.onStatus(`已插入标签：#${normalized}`, "ok");
+  }
+
+  async moveTagCandidate(step) {
+    if (!this.currentTagCandidates.length) return;
+    const max = this.currentTagCandidates.length;
+    this.currentTagIndex = (this.currentTagIndex + step + max) % max;
+    const preferredName = this.currentTagCandidates[this.currentTagIndex]?.name || "";
+    const list = await this.fetchTagCandidates(this.els.tagSearchInput.value);
+    this.renderTagCandidates(list, preferredName);
+    if (this.currentTagContext) this.positionInlineTagPicker();
   }
 
   renderRelated(extraTitle = "") {
     const note = this.activeNote();
     const tab = this.activeTab();
     if (!note || !tab) {
-      this.els.result.innerHTML = "打开一个笔记后，这里显示与当前笔记关联的其他笔记。";
+      this.els.result.innerHTML = `<div class="related-empty">打开一条笔记后，这里会显示相关观点、引用去向、反向链接和同标签脉络，帮助你继续生长当前判断。</div>`;
       return;
     }
 
@@ -301,37 +3081,122 @@ export class EditorPane {
       ? scoped.filter((n) => (n.tags || []).some((tg) => tags.includes(tg))).slice(0, 20)
       : [];
 
-    const block = (title, list) => `
-      <div style="margin-bottom:10px;">
-        <div style="font-weight:600;color:#334155;margin-bottom:4px;">${title}（${list.length}）</div>
-        ${list.length ? list.map((n) => `<div class="related-item" data-open-note="${n.id}" style="padding:4px 0;cursor:pointer;color:#0f4f8a;">• ${n.title}</div>`).join("") : `<div style="color:#94a3b8;">无</div>`}
-      </div>
+    const renderNoteItem = (n, badgeText = "") => `
+      <button class="related-item" data-open-note="${n.id}">
+        <span class="related-item-title">${escapeHtml(n.title)}</span>
+        <span class="related-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId)))} · ${escapeHtml(this.folderLabel(n.folderId))}</span>
+        ${
+          excerptFromBody(n.body || "", n.title)
+            ? `<span class="related-item-preview">${escapeHtml(excerptFromBody(n.body || "", n.title))}</span>`
+            : ""
+        }
+        <span class="related-item-badges">
+          ${badgeText ? `<span class="related-item-badge">${escapeHtml(badgeText)}</span>` : ""}
+          ${Array.isArray(n.tags) && n.tags.length ? `<span class="related-item-badge">#${escapeHtml(n.tags.slice(0, 2).join(" #"))}</span>` : ""}
+        </span>
+      </button>
+    `;
+
+    const block = (title, noteText, list, emptyText, badgeText = "") => `
+      <section class="inspector-section">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">${title}</div>
+          <div class="inspector-count">${list.length}</div>
+        </div>
+        <div class="inspector-section-note">${noteText}</div>
+        ${
+          list.length
+            ? `<div class="inspector-list">${list
+                .map((n) => renderNoteItem(n, badgeText))
+                .join("")}</div>`
+            : `<div class="related-empty">${emptyText}</div>`
+        }
+      </section>
     `;
 
     this.els.result.innerHTML = `
-      ${extraTitle ? `<div style="margin-bottom:8px;color:#0f4f8a;font-weight:600;">${extraTitle}</div>` : ""}
-      ${block("本笔记引用的笔记", forward)}
-      ${block("引用到本笔记的笔记", backward)}
-      ${block("同标签相关笔记", tagRelated)}
+      <div class="inspector-overview">
+        <div class="inspector-overview-head">
+          <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
+          <div class="inspector-overview-meta">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
+        </div>
+        <div class="inspector-overview-grid">
+          <div class="inspector-overview-row">
+            <span class="inspector-overview-label">标签</span>
+            <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
+          </div>
+          <div class="inspector-overview-row">
+            <span class="inspector-overview-label">出链 / 回链</span>
+            <span class="inspector-overview-value">${forward.length} / ${backward.length}</span>
+          </div>
+        </div>
+      </div>
+      <div class="inspector-summary">
+        <span class="inspector-chip">正向链接 ${forward.length}</span>
+        <span class="inspector-chip">反向链接 ${backward.length}</span>
+        <span class="inspector-chip">标签 ${tags.length}</span>
+      </div>
+      <div class="inspector-sections">
+        ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${block("本笔记引用的笔记", "从当前正文中的 [[关联笔记]] 解析得到。", forward, "当前笔记还没有显式引用其他笔记。", "出链")}
+        ${block("引用到本笔记的笔记", "在同一工作范围内，哪些笔记提到了当前这条笔记。", backward, "暂时还没有其他笔记回链到这里。", "回链")}
+        ${block("同标签相关笔记", tags.length ? "这些笔记和当前笔记共享正文里的标签，可用于继续串联主题。" : "先在正文中写入 #标签，这里才会形成标签上下文。", tagRelated, tags.length ? "当前标签下还没有更多相关笔记。" : "当前笔记还没有标签上下文。", "同标签")}
+      </div>
     `;
   }
 
-  handleTokenAction(token) {
+  async handleTokenAction(token) {
     if (!token) return;
 
     if (token.startsWith("#")) {
-      const tag = token.slice(1);
+      const tag = normalizeClickedTag(token);
       const note = this.activeNote();
       if (!note) return;
       const rootId = rootBoxIdFromFolder(this.state, note.folderId);
-      const list = this.state.notes.filter(
-        (n) => n.id !== note.id && rootBoxIdFromFolder(this.state, n.folderId) === rootId && (n.tags || []).includes(tag)
-      );
+      this.setInspectorVisible(true);
+      this.els.result.innerHTML = `<div class="related-empty">正在从 SQLite 检索 #${escapeHtml(tag)}...</div>`;
+      let list = [];
+      try {
+        const result = await fetchNotesByTag(tag, { rootDirectoryId: rootId });
+        this.upsertApiNotes(result.items);
+        list = result.items.filter((item) => item.id !== note.id);
+      } catch (error) {
+        list = this.state.notes.filter(
+          (n) => n.id !== note.id && rootBoxIdFromFolder(this.state, n.folderId) === rootId && (n.tags || []).includes(tag)
+        );
+        this.onStatus(`标签 API 不可用，已降级本地检索：${String(error?.message || error)}`, "warn");
+      }
       this.els.result.innerHTML = `
-        <div style="margin-bottom:8px;color:#0f4f8a;font-weight:600;">标签 #${tag} 的笔记（${list.length}）</div>
-        ${list.length ? list.map((n) => `<div class="related-item" data-open-note="${n.id}" style="padding:4px 0;cursor:pointer;color:#0f4f8a;">• ${n.title}</div>`).join("") : `<div style="color:#94a3b8;">无</div>`}
+        <div class="inspector-overview">
+          <div class="inspector-overview-head">
+            <div class="inspector-overview-title">标签检索：#${escapeHtml(tag)}</div>
+            <div class="inspector-overview-meta">结果来自当前目录范围的 SQLite 标签查询，不依赖目录树是否已全部展开。</div>
+          </div>
+        </div>
+        <div class="inspector-summary">
+          <span class="inspector-chip">标签 #${escapeHtml(tag)}</span>
+          <span class="inspector-chip">结果 ${list.length}</span>
+        </div>
+        ${
+          list.length
+            ? `<div class="inspector-sections"><section class="inspector-section"><div class="inspector-section-note">点击任意一条结果，直接回到对应笔记继续写作或建立新的关联。</div><div class="inspector-list">${list
+                .map((n) => `
+                  <button class="related-item" data-open-note="${n.id}">
+                    <span class="related-item-title">${escapeHtml(n.title)}</span>
+                    <span class="related-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId)))} · ${escapeHtml(this.folderLabel(n.folderId))}</span>
+                    ${
+                      excerptFromBody(n.body || "", n.title)
+                        ? `<span class="related-item-preview">${escapeHtml(excerptFromBody(n.body || "", n.title))}</span>`
+                        : ""
+                    }
+                    <span class="related-item-badges"><span class="related-item-badge">#${escapeHtml(tag)}</span></span>
+                  </button>
+                `)
+                .join("")}</div></section></div>`
+            : `<div class="related-empty">当前目录下没有更多带 #${escapeHtml(tag)} 的笔记。</div>`
+        }
       `;
-      this.onStatus(`已检索标签 #${tag}`, "ok");
+      this.onStatus(`已从 SQLite 检索标签 #${tag}`, "ok");
       return;
     }
 
@@ -346,6 +3211,7 @@ export class EditorPane {
       );
       const resolved = this.resolveLinkToken(tokenValue, scoped);
       if (resolved?.note) {
+        this.setInspectorVisible(true);
         this.onOpenNote(resolved.note.id);
         this.onStatus(
           resolved.ambiguous ? `已打开关联笔记：${resolved.note.title}（存在重名）` : `已打开关联笔记：${resolved.note.title}`,
@@ -380,7 +3246,7 @@ export class EditorPane {
   }
 
   buildOriginalityPayload(note) {
-    const currentBody = this.els.body.value || note.body || "";
+    const currentBody = this.getEditorValue() || note.body || "";
     const links = parseLinks(currentBody);
     const scoped = this.scopedLinkCandidates();
     const linkedLiterature = links
@@ -398,7 +3264,7 @@ export class EditorPane {
 
     const literature = dedupLiterature.map((ln) => ({
       source_id: `src_from_${ln.id}`,
-      quote_text: String(ln.body || "").trim()
+      quote_text: normalizeFieldText(parseLiteratureWorkspace(ln.body || "").originalText || ln.body || "")
     }));
 
     const citations = dedupLiterature.map((ln) => ({
@@ -432,10 +3298,11 @@ export class EditorPane {
     }
 
     if (evalItem.status === "blocked") {
-      this.onStatus(
-        `blocked：原创性检查未通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`,
-        "bad"
-      );
+      const message = `blocked：原创性检查未通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`;
+      this.onStatus(message, "bad");
+      if (forSave) {
+        this.setSaveUiState("blocked", reflectionQuestionsHint(message));
+      }
       return { ...evalItem, raw: result };
     }
 
@@ -452,8 +3319,9 @@ export class EditorPane {
     this.els.tabs.addEventListener("click", (e) => {
       const closeBtn = e.target.closest("button[data-close-tab]");
       if (closeBtn) {
-        this.closeTab(closeBtn.dataset.closeTab);
-        this.onStatus("已关闭标签页", "ok");
+        if (this.closeTab(closeBtn.dataset.closeTab)) {
+          this.onStatus("已关闭标签页", "ok");
+        }
         return;
       }
 
@@ -474,24 +3342,15 @@ export class EditorPane {
           this.onStateChange("create-note-in-selected-folder");
           return;
         }
-        if (action === "new-window") {
-          const t = this.activeTab();
-          const noteId = t?.noteId;
-          const url = noteId
-            ? `${window.location.origin}${window.location.pathname}?note=${encodeURIComponent(noteId)}`
-            : `${window.location.origin}${window.location.pathname}`;
-          window.open(url, "_blank", "noopener,noreferrer");
-          this.onStatus("已打开独立编辑窗口", "ok");
-          return;
-        }
         if (action === "toggle-menu") {
           const menu = this.els.tabs.querySelector("[data-tab-menu]");
           if (menu) menu.classList.toggle("hidden");
           return;
         }
         if (action === "close-all") {
-          this.closeAllTabs();
-          this.onStatus("已关闭全部标签页", "ok");
+          if (this.closeAllTabs()) {
+            this.onStatus("已关闭全部标签页", "ok");
+          }
           return;
         }
       }
@@ -511,10 +3370,76 @@ export class EditorPane {
       }
     });
 
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        const linkInlineOpen = !this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext;
+        const tagInlineOpen = !this.els.tagPicker.classList.contains("hidden") && this.currentTagContext;
+        if (!linkInlineOpen && !tagInlineOpen) return;
+        if (e.target.closest("#linkSearchInput") || e.target.closest("#tagSearchInput")) return;
+        if (!e.target.closest("#editorHost") && !e.target.closest("#wysiwygHost") && !e.target.closest("#editorBody")) return;
+
+        if (e.key === "ArrowDown") {
+          if (linkInlineOpen) this.moveLinkCandidate(1);
+          else void this.moveTagCandidate(1);
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          if (linkInlineOpen) this.moveLinkCandidate(-1);
+          else void this.moveTagCandidate(-1);
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.key === "Enter") {
+          if (linkInlineOpen) {
+            const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
+            if (chosen) this.insertSelectedLinkNote(chosen.id);
+          } else {
+            const chosen = this.currentTagCandidates[this.currentTagIndex] || this.currentTagCandidates[0];
+            this.insertSelectedTag(chosen?.name || this.els.tagSearchInput.value);
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.key === "Escape") {
+          if (linkInlineOpen) this.closeLinkPicker();
+          if (tagInlineOpen) this.closeTagPicker();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true
+    );
+
     this.els.result.addEventListener("click", (e) => {
       const row = e.target.closest("[data-open-note]");
       if (!row) return;
       this.onOpenNote(row.dataset.openNote);
+    });
+    this.els.preview?.addEventListener("click", (e) => {
+      const copy = e.target.closest("[data-preview-copy-code]");
+      if (copy?.dataset.previewCopyCode) {
+        void this.copyText(decodePreviewPayload(copy.dataset.previewCopyCode), "已复制代码块");
+        return;
+      }
+      const link = e.target.closest("[data-preview-link]");
+      if (link) {
+        this.handleTokenAction(`[[${link.dataset.previewLink}]]`);
+        return;
+      }
+      const tag = e.target.closest("[data-preview-tag]");
+      if (tag) {
+        this.handleTokenAction(`#${tag.dataset.previewTag}`);
+        return;
+      }
+      const asset = e.target.closest("[data-preview-asset-url]");
+      if (asset?.dataset.previewAssetUrl) {
+        window.open(asset.dataset.previewAssetUrl, "_blank", "noopener,noreferrer");
+      }
     });
 
     document.querySelectorAll(".tb[data-md]").forEach((btn) => {
@@ -522,10 +3447,23 @@ export class EditorPane {
         const t = btn.dataset.md;
         if (t === "bold") this.wrapSelection("**", "**");
         if (t === "italic") this.wrapSelection("*", "*");
-        if (t === "h2") this.insertAtCursor("\n## ");
-        if (t === "quote") this.insertAtCursor("\n> ");
-        if (t === "ul") this.insertAtCursor("\n- ");
+        if (t === "h2") this.formatCurrentBlock("h2");
+        if (t === "quote") this.formatCurrentBlock("quote");
+        if (t === "ul") this.formatCurrentBlock("ul");
+        if (t === "checklist") this.formatCurrentBlock("checklist");
+        if (t === "code") this.formatCurrentBlock("code");
+        if (t === "table") this.formatCurrentBlock("table");
+        if (t === "hr") this.formatCurrentBlock("hr");
       });
+    });
+    this.els.tableAddRow?.addEventListener("click", () => {
+      this.addTableRow();
+    });
+    this.els.tableAddColumn?.addEventListener("click", () => {
+      this.addTableColumn();
+    });
+    this.els.codeLanguage?.addEventListener("change", () => {
+      this.setCodeBlockLanguage(this.els.codeLanguage?.value || "text");
     });
 
     this.els.insertLink.addEventListener("click", () => {
@@ -533,7 +3471,27 @@ export class EditorPane {
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前目录下无可关联笔记", "warn");
+      if (this.isWysiwygMode()) {
+        this.openLinkPicker("");
+        return;
+      }
+      this.insertAtCursor("[[");
+      const inline = this.detectInlineLinkContext();
+      if (inline) {
+        this.openLinkPicker("", { inlineContext: inline, keepFocusInEditor: true });
+        return;
+      }
       this.openLinkPicker("");
+    });
+
+    this.els.insertAsset?.addEventListener("click", () => {
+      const note = this.activeNote();
+      if (!note) return this.onStatus("请先打开一个笔记", "warn");
+      this.els.assetInput?.click();
+    });
+    this.els.assetInput?.addEventListener("change", async () => {
+      const files = [...(this.els.assetInput?.files || [])];
+      await this.insertAssetFiles(files, { sourceLabel: "选择" });
     });
 
     this.els.closeLinkPicker.addEventListener("click", () => this.closeLinkPicker());
@@ -564,12 +3522,79 @@ export class EditorPane {
       if (!row) return;
       this.insertSelectedLinkNote(row.dataset.linkNoteId);
     });
+    this.els.linkSearchList.addEventListener("mouseover", (e) => {
+      const row = e.target.closest("[data-link-index]");
+      if (!row) return;
+      const next = Number(row.dataset.linkIndex);
+      if (!Number.isInteger(next) || next === this.currentLinkIndex) return;
+      this.currentLinkIndex = next;
+      this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
+    });
 
-    this.els.insertTag.addEventListener("click", () => {
-      const tag = prompt("输入标签（不含#）：");
-      if (!tag) return;
-      this.insertAtCursor(` #${tag.trim()}`);
-      this.onStatus("已插入标签", "ok");
+    this.els.insertTag.addEventListener("click", async () => {
+      const note = this.activeNote();
+      if (!note) return this.onStatus("请先打开一个笔记", "warn");
+      if (this.isWysiwygMode()) {
+        await this.openTagPicker("");
+        return;
+      }
+      this.insertAtCursor("#");
+      const inline = this.detectInlineTagContext();
+      if (inline) {
+        await this.openTagPicker("", { inlineContext: inline, keepFocusInEditor: true });
+        return;
+      }
+      await this.openTagPicker("");
+    });
+    this.els.modeEdit?.addEventListener("click", () => {
+      this.togglePreview("wysiwyg");
+    });
+    this.els.modePreview?.addEventListener("click", () => {
+      this.togglePreview("source");
+    });
+    this.els.closeTagPicker.addEventListener("click", () => this.closeTagPicker());
+    this.els.tagSearchInput.addEventListener("input", async () => {
+      const list = await this.fetchTagCandidates(this.els.tagSearchInput.value);
+      this.renderTagCandidates(list);
+    });
+    this.els.tagSearchInput.addEventListener("keydown", async (e) => {
+      if (e.key === "Escape") {
+        this.closeTagPicker();
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        await this.moveTagCandidate(1);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        await this.moveTagCandidate(-1);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Enter") {
+        const chosen = this.currentTagCandidates[this.currentTagIndex] || this.currentTagCandidates[0];
+        this.insertSelectedTag(chosen?.name || this.els.tagSearchInput.value);
+        e.preventDefault();
+      }
+    });
+    this.els.tagSearchList.addEventListener("click", (e) => {
+      const insertCurrent = e.target.closest("[data-insert-current-tag]");
+      if (insertCurrent) {
+        this.insertSelectedTag(this.els.tagSearchInput.value);
+        return;
+      }
+      const row = e.target.closest("[data-tag-name]");
+      if (!row) return;
+      this.insertSelectedTag(row.dataset.tagName);
+    });
+    this.els.tagSearchList.addEventListener("mouseover", (e) => {
+      const row = e.target.closest("[data-tag-index]");
+      if (!row) return;
+      const next = Number(row.dataset.tagIndex);
+      if (!Number.isInteger(next) || next === this.currentTagIndex) return;
+      this.currentTagIndex = next;
+      this.renderTagCandidates(this.currentTagCandidates, this.currentTagCandidates[next]?.name || "");
     });
 
     this.els.runGuard.addEventListener("click", async () => {
@@ -587,86 +3612,146 @@ export class EditorPane {
     });
 
     this.els.save.addEventListener("click", async () => {
-      const tab = this.updateActiveTabFromEditor();
-      if (!tab) return this.onStatus("请先打开一个笔记", "warn");
-      const note = this.state.notes.find((n) => n.id === tab.noteId);
-      if (!note) return this.onStatus("找不到对应笔记", "bad");
-
-      note.body = tab.body;
-      note.title = titleFromBody(tab.body);
-      note.noteType = typeFromFolder(this.state, note.folderId);
-      note.tags = parseTags(note.body);
-      note.links = parseLinks(note.body);
-      note.updatedAt = new Date().toISOString();
-
-      tab.title = note.title;
-
-      let originality = null;
-      if (note.noteType === "original") {
-        try {
-          originality = await this.runOriginalityCheck(note, { forSave: true });
-        } catch (error) {
-          this.onStatus(`原创性检查不可用，按 draft 保存：${String(error?.message || error)}`, "warn");
-          originality = { status: "warning", similarity: 0, reasons: ["check_unavailable"] };
-        }
-        if (originality?.status === "blocked") return;
-        note.originalityStatus = originality?.status || "warning";
-        note.originalitySimilarity = Number(originality?.similarity || 0);
-      }
-
-      if (note.noteType !== "original") {
-        this.onStatus("保存成功（标题取正文第一行）", "ok");
-      }
-      this.renderRelated();
-      await this.onStateChange("save-note", {
-        originalityStatus: note.originalityStatus,
-        originalitySimilarity: note.originalitySimilarity
-      });
+      await this.saveActiveNote();
     });
 
-    this.els.body.addEventListener("input", () => {
-      const tab = this.activeTab();
-      if (!tab) return;
-      tab.body = this.els.body.value;
-      tab.title = titleFromBody(tab.body);
-
-      const inline = this.detectInlineLinkContext();
-      if (inline) {
-        this.openLinkPicker(inline.query, { inlineContext: inline, keepFocusInEditor: true });
-      } else if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) {
-        this.closeLinkPicker();
+    this.els.completeNote?.addEventListener("click", async () => {
+      await this.saveActiveNote({ markLiteratureComplete: true });
+    });
+    this.els.literatureOpenNext?.addEventListener("click", () => {
+      const current = this.activeNote();
+      const nextRecord =
+        this.literatureQueueRecords(current).find((item) => !item.isCurrent && item.lane === "pending") ||
+        this.literatureQueueRecords(current).find((item) => !item.isCurrent && item.lane === "refine");
+      if (!nextRecord) {
+        this.onStatus("当前范围没有待处理的书摘条目", "ok");
+        return;
       }
+      this.onOpenNote(nextRecord.note.id);
+      this.onStatus(`已打开下一条${nextRecord.label}：${nextRecord.note.title || nextRecord.note.id}`, "ok");
+    });
+    this.els.literatureQueueList?.addEventListener("click", (event) => {
+      const createButton = event.target.closest("[data-create-original-from-literature]");
+      if (createButton) {
+        const noteId = String(createButton.getAttribute("data-create-original-from-literature") || "").trim();
+        const record = this.literatureQueueRecords(this.activeNote()).find((item) => item.note.id === noteId);
+        if (!record) {
+          this.onStatus("没有找到要提炼的书摘条目", "warn");
+          return;
+        }
+        if (record.lane !== "ready") {
+          this.onStatus("这条书摘还没准备好进入原创笔记，请先补齐转述、保留理由和支持判断", "warn");
+          return;
+        }
+        void this.onStateChange("create-original-from-literature", {
+          sourceNoteId: record.note.id,
+          sourceTitle: record.note.title || "",
+          originalText: record.fields.originalText || "",
+          paraphrase: record.fields.paraphrase || "",
+          whyKeep: record.fields.whyKeep || "",
+          supportsJudgment: record.fields.supportsJudgment || ""
+        });
+        return;
+      }
+      const button = event.target.closest("[data-open-literature-note]");
+      if (!button) return;
+      const noteId = String(button.getAttribute("data-open-literature-note") || "").trim();
+      if (!noteId) return;
+      this.onOpenNote(noteId);
+      const target = this.state.notes.find((item) => item.id === noteId);
+      this.onStatus(`已打开书摘条目：${target?.title || noteId}`, "ok");
+    });
 
-      this.onStateChange("switch-tab");
+    for (const field of [
+      this.els.literatureTitle,
+      this.els.literatureOriginal,
+      this.els.literatureParaphrase,
+      this.els.literatureWhyKeep,
+      this.els.literatureSupportsJudgment
+    ]) {
+      field?.addEventListener("input", () => {
+        if (!this.isLiteratureWorkspaceActive()) return;
+        this.syncLiteratureWorkspaceToEditor();
+        this.handleEditorInput();
+      });
+    }
+
+    this.els.body.addEventListener("input", () => this.handleEditorInput());
+    this.els.authorshipClaimInput?.addEventListener("input", () => {
+      if (!this.isOriginalNote()) return;
+      const authorship = this.activeAuthorshipState();
+      authorship.claim = this.els.authorshipClaimInput.value || "";
+      if (!normalizeFieldText(authorship.claim)) authorship.confirmed = false;
+      this.resetActiveSaveUiState();
+      this.renderAuthorshipPanel();
+      this.renderSaveHint();
+    });
+    this.els.authorshipConfirm?.addEventListener("change", () => {
+      if (!this.isOriginalNote()) return;
+      const authorship = this.activeAuthorshipState();
+      if (!normalizeFieldText(authorship.claim)) {
+        authorship.confirmed = false;
+        this.els.authorshipConfirm.checked = false;
+        this.onStatus("先写下你的判断，再完成作者确认", "warn");
+      } else {
+        authorship.confirmed = Boolean(this.els.authorshipConfirm.checked);
+        authorship.confirmedBody = authorship.confirmed ? this.getEditorValue() : "";
+        if (authorship.confirmed) this.onStatus("作者确认已记录：这条原创笔记现在可以保存到 Markdown", "ok");
+      }
+      this.resetActiveSaveUiState();
+      this.renderAuthorshipPanel();
+      this.renderSaveHint();
+    });
+
+    this.els.editorHost?.addEventListener("paste", (event) => {
+      const clipboardFiles = [...(event.clipboardData?.files || [])];
+      if (!clipboardFiles.length) {
+        const items = [...(event.clipboardData?.items || [])]
+          .filter((item) => item.kind === "file")
+          .map((item) => item.getAsFile())
+          .filter(Boolean);
+        if (!items.length) return;
+        event.preventDefault();
+        void this.insertAssetFiles(items, { sourceLabel: "粘贴" });
+        return;
+      }
+      event.preventDefault();
+      void this.insertAssetFiles(clipboardFiles, { sourceLabel: "粘贴" });
+    });
+    this.els.editorHost?.addEventListener("dragover", (event) => {
+      const hasFiles = [...(event.dataTransfer?.types || [])].includes("Files");
+      if (!hasFiles) return;
+      event.preventDefault();
+      this.els.editorHost?.classList.add("dragover");
+    });
+    this.els.editorHost?.addEventListener("dragleave", (event) => {
+      if (event.relatedTarget && this.els.editorHost?.contains(event.relatedTarget)) return;
+      this.els.editorHost?.classList.remove("dragover");
+    });
+    this.els.editorHost?.addEventListener("drop", (event) => {
+      const files = [...(event.dataTransfer?.files || [])];
+      this.els.editorHost?.classList.remove("dragover");
+      if (!files.length) return;
+      event.preventDefault();
+      void this.insertAssetFiles(files, { sourceLabel: "拖拽" });
     });
 
     this.els.body.addEventListener("keydown", (e) => {
-      if (this.els.linkPicker.classList.contains("hidden")) return;
-      if (!this.currentLinkContext) return;
-
-      if (e.key === "ArrowDown") {
-        this.moveLinkCandidate(1);
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        this.moveLinkCandidate(-1);
-        e.preventDefault();
-        return;
-      }
-      if (e.key === "Enter") {
-        const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-        if (chosen) {
-          this.insertSelectedLinkNote(chosen.id);
-          e.preventDefault();
-        }
-        return;
-      }
-      if (e.key === "Escape") {
-        this.closeLinkPicker();
-        e.preventDefault();
-      }
+      this.handleEditorKeydown(e);
     });
+
+    document.addEventListener(
+      "keydown",
+      (e) => {
+        const mod = e.ctrlKey || e.metaKey;
+        if (!mod || String(e.key || "").toLowerCase() !== "s" || e.isComposing) return;
+        if (!this.activeTab()) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.saveActiveNote();
+      },
+      true
+    );
 
     this.els.body.addEventListener("click", (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
@@ -675,9 +3760,296 @@ export class EditorPane {
       this.handleTokenAction(token);
     });
 
-    this.els.showRelated.addEventListener("click", () => {
-      this.renderRelated("当前笔记关联总览");
+    this.els.body.addEventListener("keyup", () => this.updateToolbarFormattingState());
+    this.els.body.addEventListener("mouseup", () => this.updateToolbarFormattingState());
+
+    document.addEventListener("selectionchange", () => {
+      const active = document.activeElement;
+      if (
+        active?.closest?.("#editorHost") ||
+        active?.closest?.("#wysiwygHost") ||
+        active === this.els.body ||
+        document.getSelection()?.anchorNode?.parentElement?.closest?.("#editorHost") ||
+        document.getSelection()?.anchorNode?.parentElement?.closest?.("#wysiwygHost")
+      ) {
+        this.updateToolbarFormattingState();
+      }
     });
+
+    this.els.showRelated.addEventListener("click", () => {
+      this.toggleInspector();
+    });
+
+    this.els.hideRelated?.addEventListener("click", () => {
+      this.toggleInspector(false);
+    });
+  }
+
+  handleEditorInput() {
+      if (this.suppressEditorChange) return;
+      const tab = this.activeTab();
+      if (!tab) return;
+      tab.body = this.getEditorValue();
+      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode() && tab.placeholderTitleArmed) {
+        const normalized = normalizePlaceholderTitleBody(tab.body);
+        if (normalized !== tab.body) {
+          tab.body = normalized;
+          this.setEditorValue(normalized);
+        }
+        if (titleFromBody(tab.body) !== "未命名笔记") tab.placeholderTitleArmed = false;
+      }
+      tab.title = titleFromBody(tab.body);
+      this.syncTabDirtyState(tab);
+      if (this.isOriginalNote()) {
+        const authorship = this.activeAuthorshipState();
+        if (authorship.confirmed && authorship.confirmedBody !== tab.body) {
+          authorship.confirmed = false;
+        }
+      }
+      tab.saveUiState = {
+        mode: tab.dirty ? "dirty" : "saved",
+        message: tab.dirty ? "" : "当前文件：已保存到 Markdown"
+      };
+      if (tab.dirty) this.writeDraft(tab);
+      else this.clearDraft(tab.noteId);
+      this.renderTabs();
+      this.renderSaveHint();
+      this.renderLiteratureWorkspace();
+      this.renderPreview();
+      this.updateToolbarFormattingState();
+
+      if (this.isLiteratureWorkspaceActive()) return;
+
+      const inline = this.detectInlineLinkContext();
+      if (inline) {
+        void this.openLinkPicker(inline.query, { inlineContext: inline, keepFocusInEditor: true });
+        this.lastInlinePickerAnchor = inline.end;
+      } else if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) {
+        this.closeLinkPicker();
+      }
+
+      const tagInline = this.detectInlineTagContext();
+      if (tagInline) {
+        void this.openTagPicker(tagInline.query, { inlineContext: tagInline, keepFocusInEditor: true });
+        this.lastInlinePickerAnchor = tagInline.end;
+      } else if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) {
+        this.closeTagPicker();
+      }
+  }
+
+  handleEditorKeydown(e) {
+    const mod = e.ctrlKey || e.metaKey;
+    const key = String(e.key || "").toLowerCase();
+
+    if (this.isSourceMode() && !mod && !e.shiftKey && e.key === "Enter" && this.enterBodyFromTitle()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if (mod && key === "s") {
+      e.preventDefault();
+      this.saveActiveNote();
+      return;
+    }
+    if (mod && key === "1") {
+      e.preventDefault();
+      this.togglePreview("wysiwyg");
+      return;
+    }
+    if (mod && key === "2") {
+      e.preventDefault();
+      this.togglePreview("source");
+      return;
+    }
+    if (mod && key === "b") {
+      e.preventDefault();
+      this.wrapSelection("**", "**");
+      return;
+    }
+    if (mod && key === "i") {
+      e.preventDefault();
+      this.wrapSelection("*", "*");
+      return;
+    }
+    if (mod && e.shiftKey && key === "h") {
+      e.preventDefault();
+      this.formatCurrentBlock("h2");
+      return;
+    }
+    if (mod && e.shiftKey && key === "7") {
+      e.preventDefault();
+      this.formatCurrentBlock("ul");
+      return;
+    }
+    if (!mod && e.key === "Tab") {
+      e.preventDefault();
+      this.indentSelection(e.shiftKey ? -1 : 1);
+      return;
+    }
+
+    const linkInlineOpen = !this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext;
+    const tagInlineOpen = !this.els.tagPicker.classList.contains("hidden") && this.currentTagContext;
+    if (!this.markdownEditor && !linkInlineOpen && !tagInlineOpen && !mod && !e.shiftKey && e.key === "Enter" && this.handleStructuredEnter()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!linkInlineOpen && !tagInlineOpen) return;
+
+    if (e.key === "ArrowDown") {
+      if (linkInlineOpen) this.moveLinkCandidate(1);
+      else void this.moveTagCandidate(1);
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      if (linkInlineOpen) this.moveLinkCandidate(-1);
+      else void this.moveTagCandidate(-1);
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "Enter") {
+      if (linkInlineOpen) {
+        const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
+        if (chosen) this.insertSelectedLinkNote(chosen.id);
+      } else {
+        const chosen = this.currentTagCandidates[this.currentTagIndex] || this.currentTagCandidates[0];
+        this.insertSelectedTag(chosen?.name || this.els.tagSearchInput.value);
+      }
+      e.preventDefault();
+      return;
+    }
+    if (e.key === "Escape") {
+      if (linkInlineOpen) this.closeLinkPicker();
+      if (tagInlineOpen) this.closeTagPicker();
+      e.preventDefault();
+    }
+  }
+
+  async saveActiveNote(options = {}) {
+    if (this.savingPromise) return this.savingPromise;
+    this.closeLinkPicker();
+    this.closeTagPicker();
+    this.setSaveUiState("saving", "当前文件：正在保存到 Markdown...");
+    this.savingPromise = this.performSaveActiveNote(options);
+    try {
+      return await this.savingPromise;
+    } finally {
+      this.savingPromise = null;
+    }
+  }
+
+  async performSaveActiveNote(options = {}) {
+    const tab = this.updateActiveTabFromEditor();
+    if (!tab) return this.onStatus("请先打开一个笔记", "warn");
+    const note = this.state.notes.find((n) => n.id === tab.noteId);
+    if (!note) return this.onStatus("找不到对应笔记", "bad");
+    const markLiteratureComplete = options?.markLiteratureComplete === true;
+
+    note.body = tab.body;
+    note.title = titleFromBody(tab.body);
+    note.noteType = typeFromFolder(this.state, note.folderId);
+    note.tags = parseTags(note.body);
+    note.links = parseLinks(note.body);
+    note.updatedAt = new Date().toISOString();
+
+    tab.title = note.title;
+
+    let originality = null;
+    let nextStatus = String(note.status || "draft").trim() || "draft";
+    const authorship = this.activeAuthorshipState();
+    if (note.noteType === "literature") {
+      const completion = this.literatureCompletionState(note);
+      if (markLiteratureComplete && !completion.hasParaphrase) {
+        const message = reflectionQuestionsHint("文献笔记还不能标记完成。");
+        this.setSaveUiState("blocked", message);
+        this.onStatus("文献笔记缺少转述，不能标记为已完成", "warn");
+        return;
+      }
+      if (!completion.hasParaphrase) {
+        nextStatus = "draft";
+      } else if (markLiteratureComplete || nextStatus === "active") {
+        nextStatus = "active";
+      } else {
+        nextStatus = "draft";
+      }
+      note.status = nextStatus;
+    }
+    if (note.noteType === "original") {
+      const authorshipBlockMessage = this.authorshipBlockMessage(note);
+      note.authorship = {
+        ...(note.authorship || {}),
+        user_confirmed: Boolean(authorship.confirmed),
+        ai_assisted: Boolean(note.authorship?.ai_assisted)
+      };
+      if (authorshipBlockMessage) {
+        this.writeDraft(tab);
+        this.setSaveUiState("blocked", reflectionQuestionsHint(authorshipBlockMessage));
+        this.onStatus("原创笔记尚未完成作者确认，当前不会保存到 Markdown", "warn");
+        return;
+      }
+      try {
+        originality = await this.runOriginalityCheck(note, { forSave: true });
+      } catch (error) {
+        this.onStatus(`原创性检查不可用，按 draft 保存：${String(error?.message || error)}`, "warn");
+        originality = { status: "warning", similarity: 0, reasons: ["check_unavailable"] };
+      }
+      if (originality?.status === "blocked") {
+        this.setSaveUiState("blocked", reflectionQuestionsHint("当前文件：原创性检测阻止保存，请先重写。"));
+        return;
+      }
+      note.originalityStatus = originality?.status || "warning";
+      note.originalitySimilarity = Number(originality?.similarity || 0);
+      nextStatus = note.originalityStatus === "pass" && authorship.confirmed ? "active" : "draft";
+      note.status = nextStatus;
+    }
+
+    if (note.noteType !== "original") {
+      this.onStatus(
+        note.noteType === "literature" && nextStatus === "active"
+          ? "文献笔记已保存，并标记为已完成"
+          : "保存成功（标题取正文第一行）",
+        "ok"
+      );
+    }
+    this.renderRelated();
+    const saved = await this.onStateChange("save-note", {
+      status: nextStatus,
+      originalityStatus: note.originalityStatus,
+      originalitySimilarity: note.originalitySimilarity,
+      authorshipConfirmed: note.noteType === "original" ? Boolean(authorship.confirmed) : true,
+      authorshipClaim: note.noteType === "original" ? authorship.claim : ""
+    });
+    if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
+      tab.dirty = true;
+      this.writeDraft(tab);
+      this.setSaveUiState(
+        String(saved?.saveMode || "error").trim() || "error",
+        String(saved?.saveMessage || "当前文件：保存失败，修改仍保留在编辑器中。")
+      );
+      return;
+    }
+    tab.savedBody = tab.body;
+    tab.savedTitle = tab.title;
+    tab.dirty = false;
+    this.clearDraft(tab.noteId);
+    this.setSaveUiState("saved", "当前文件：已保存到 Markdown");
+    this.setEditorValue(tab.body);
+    if (note.noteType === "original") {
+      if (authorship.confirmed) {
+        authorship.confirmedBody = tab.body;
+        this.onStatus(
+          note.originalityStatus === "pass"
+            ? "已保存原创笔记，并记录作者确认"
+            : "已保存原创笔记并记录作者确认，但原创性检查仍建议继续打磨；当前按 draft 处理",
+          note.originalityStatus === "pass" ? "ok" : "warn"
+        );
+      } else {
+        this.onStatus("已保存原创笔记，但尚未完成作者确认；当前仍按 draft 继续推进", "warn");
+      }
+    }
+    this.renderTabs();
   }
 }
 
