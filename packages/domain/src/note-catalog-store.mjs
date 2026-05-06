@@ -186,11 +186,26 @@ function extractCoreClaimFromMarkdown(markdownBody) {
   return lines.join(" ").slice(0, 4000);
 }
 
+function noteValidationError(code, message, details = undefined) {
+  const error = new Error(message);
+  error.code = code;
+  if (details) error.details = details;
+  return error;
+}
+
 function assertLiteratureCompletionAllowed(noteType, status, markdownBody) {
   if (noteType !== "literature") return;
   if (String(status || "").trim().toLowerCase() !== "active") return;
   if (literatureHasParaphrase(markdownBody)) return;
-  throw new Error("Literature notes require a paraphrase before they can be marked active.");
+  throw noteValidationError(
+    "LITERATURE_PARAPHRASE_REQUIRED",
+    "Literature notes require a paraphrase before they can be marked active.",
+    {
+      noteType,
+      requestedStatus: String(status || "").trim().toLowerCase() || "draft",
+      requirement: "paraphrase"
+    }
+  );
 }
 
 function normalizeOptionalText(value) {
@@ -724,7 +739,15 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
         permanentMeta.originalityStatus = originality.status;
         permanentMeta.originalitySimilarity = originality.similarity;
         if (originality.status === "blocked") {
-          throw new Error("Permanent note save blocked: rewrite this note in your own words before saving.");
+          throw noteValidationError(
+            "PERMANENT_ORIGINALITY_BLOCKED",
+            "Permanent note save blocked: rewrite this note in your own words before saving.",
+            {
+              noteType,
+              requestedStatus,
+              originality
+            }
+          );
         }
       }
       status = resolvePermanentSaveStatus(
@@ -1456,7 +1479,15 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
         permanentMeta.originalityStatus = originality.status;
         permanentMeta.originalitySimilarity = originality.similarity;
         if (originality.status === "blocked") {
-          throw new Error("Permanent note save blocked: rewrite this note in your own words before saving.");
+          throw noteValidationError(
+            "PERMANENT_ORIGINALITY_BLOCKED",
+            "Permanent note save blocked: rewrite this note in your own words before saving.",
+            {
+              noteType: row.note_type,
+              requestedStatus,
+              originality
+            }
+          );
         }
       }
       status = resolvePermanentSaveStatus(

@@ -312,6 +312,9 @@ test("literature notes require paraphrase before they can be marked active", asy
     body: "# 概念与语言\n\n## 原文\n\n概念和语言可能让人停留在表层，而未真正进入理解。\n"
   });
   assert.equal(blockedCreate.status, 400);
+  assert.equal(blockedCreate.json.error.code, "LITERATURE_PARAPHRASE_REQUIRED");
+  assert.equal(blockedCreate.json.error.details.requirement, "paraphrase");
+  assert.equal(blockedCreate.json.error.details.requestedStatus, "active");
   assert.match(blockedCreate.json.error.message, /require a paraphrase/i);
 
   const created = await postJson(baseUrl, "/api/v1/notes", {
@@ -329,6 +332,8 @@ test("literature notes require paraphrase before they can be marked active", asy
     body: "# 概念与语言\n\n## 原文\n\n概念和语言可能让人停留在表层，而未真正进入理解。\n\n## 转述\n\n"
   });
   assert.equal(blockedUpdate.status, 400);
+  assert.equal(blockedUpdate.json.error.code, "LITERATURE_PARAPHRASE_REQUIRED");
+  assert.equal(blockedUpdate.json.error.details.requirement, "paraphrase");
   assert.match(blockedUpdate.json.error.message, /require a paraphrase/i);
 
   const activated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(created.json.item.id)}`, {
@@ -390,6 +395,11 @@ test("permanent notes recompute originality against linked literature notes", as
     }
   });
   assert.equal(blockedCreate.status, 400);
+  assert.equal(blockedCreate.json.error.code, "PERMANENT_ORIGINALITY_BLOCKED");
+  assert.equal(blockedCreate.json.error.details.noteType, "permanent");
+  assert.equal(blockedCreate.json.error.details.requestedStatus, "active");
+  assert.equal(blockedCreate.json.error.details.originality.status, "blocked");
+  assert.ok(Number(blockedCreate.json.error.details.originality.similarity) >= 0.8);
   assert.match(blockedCreate.json.error.message, /Permanent note save blocked/i);
 
   const distinctCreate = await postJson(baseUrl, "/api/v1/notes", {

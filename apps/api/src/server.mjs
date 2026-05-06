@@ -14,15 +14,19 @@ import {
 } from "../../../packages/connectors/src/index.mjs";
 import {
   createDirectory,
+  createIndexCard,
   createNoteInDirectory,
   deleteDirectory,
   deleteNoteById,
+  distillIndexCard,
   detectGraphConflicts,
   findNotePath,
   getNoteById,
+  getIndexCard,
   initVault,
   getDirectoryGraph,
   listDirectories,
+  listIndexCards,
   listNoteRelations,
   listTags,
   listNotesByTag,
@@ -31,6 +35,7 @@ import {
   registerMarkdownNoteInCatalog,
   resolveVaultPath,
   saveNoteAsset,
+  updateIndexCard,
   updateDirectory,
   updateNoteContent,
   writeLiteratureNoteIfAbsent,
@@ -49,7 +54,9 @@ import {
   listProjectDraftVersions,
   listProjectScaffolds,
   listWritingProjects,
-  setCurrentDraftNote
+  setCurrentDraftNote,
+  updateDraftNoteVersionNote,
+  updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
@@ -681,7 +688,16 @@ const server = http.createServer(async (req, res) => {
           directoryId: body.directoryId,
           title: body.title,
           body: body.body,
-          status: body.status || "draft"
+          status: body.status || "draft",
+          thesis: body.thesis,
+          threeLineSummary: body.threeLineSummary ?? body.three_line_summary,
+          distillationStatus: body.distillationStatus ?? body.distillation_status,
+          boundaryOrCounterpoint: body.boundaryOrCounterpoint ?? body.boundary_or_counterpoint,
+          originalityStatus: body.originalityStatus ?? body.originality_status,
+          originalitySimilarity: body.originalitySimilarity ?? body.originality_similarity,
+          authorship: body.authorship,
+          authorshipConfirmed: body.authorshipConfirmed,
+          authorshipAiAssisted: body.authorshipAiAssisted
         });
         return sendJson(res, 201, {
           item: created,
@@ -689,7 +705,11 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("NOTE_PAYLOAD_INVALID", String(error?.message || error), rid));
+        return sendJson(
+          res,
+          400,
+          err(error?.code || "NOTE_PAYLOAD_INVALID", String(error?.message || error), rid, error?.details)
+        );
       }
     }
 
@@ -730,7 +750,16 @@ const server = http.createServer(async (req, res) => {
         const item = await updateNoteContent(VAULT_PATH, noteId, {
           title: body.title,
           body: body.body,
-          status: body.status
+          status: body.status,
+          thesis: body.thesis,
+          threeLineSummary: body.threeLineSummary ?? body.three_line_summary,
+          distillationStatus: body.distillationStatus ?? body.distillation_status,
+          boundaryOrCounterpoint: body.boundaryOrCounterpoint ?? body.boundary_or_counterpoint,
+          originalityStatus: body.originalityStatus ?? body.originality_status,
+          originalitySimilarity: body.originalitySimilarity ?? body.originality_similarity,
+          authorship: body.authorship,
+          authorshipConfirmed: body.authorshipConfirmed,
+          authorshipAiAssisted: body.authorshipAiAssisted
         });
         return sendJson(res, 200, {
           item,
@@ -738,7 +767,11 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err("NOTE_UPDATE_INVALID", String(error?.message || error), rid));
+        return sendJson(
+          res,
+          400,
+          err(error?.code || "NOTE_UPDATE_INVALID", String(error?.message || error), rid, error?.details)
+        );
       }
     }
 
@@ -1048,6 +1081,86 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 202, { exportJobId: result.exportJobId, status: result.status, copied: result.copied });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/index-cards") {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await createIndexCard(VAULT_PATH, body);
+        return sendJson(res, 201, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/index-cards") {
+      try {
+        await initVault(VAULT_PATH);
+        const items = await listIndexCards(VAULT_PATH, {
+          directoryId: url.searchParams.get("directoryId") || "",
+          includeDescendants: url.searchParams.get("includeDescendants") || "true",
+          indexType: url.searchParams.get("indexType") || "",
+          limit: Number(url.searchParams.get("limit") || 12)
+        });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const indexCardMatch = url.pathname.match(/^\/api\/v1\/index-cards\/([^/]+)$/);
+    if (req.method === "GET" && indexCardMatch) {
+      try {
+        await initVault(VAULT_PATH);
+        const item = await getIndexCard(VAULT_PATH, decodeURIComponent(indexCardMatch[1]));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "PATCH" && indexCardMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updateIndexCard(VAULT_PATH, decodeURIComponent(indexCardMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const indexCardDistillMatch = url.pathname.match(/^\/api\/v1\/index-cards\/([^/]+)\/distill$/);
+    if (req.method === "POST" && indexCardDistillMatch) {
+      try {
+        await initVault(VAULT_PATH);
+        const item = await distillIndexCard(VAULT_PATH, decodeURIComponent(indexCardDistillMatch[1]));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/writing-projects") {
       const body = await readJson(req);
       try {
@@ -1232,6 +1345,37 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("DRAFT_SCAFFOLD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "PATCH" && draftScaffoldMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updateDraftScaffoldVersionNote(VAULT_PATH, decodeURIComponent(draftScaffoldMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("DRAFT_SCAFFOLD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const draftNoteVersionMatch = url.pathname.match(/^\/api\/v1\/draft-note-versions\/([^/]+)$/);
+    if (req.method === "PATCH" && draftNoteVersionMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updateDraftNoteVersionNote(VAULT_PATH, decodeURIComponent(draftNoteVersionMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_INVALID", String(error?.message || error), rid));
       }
     }
 
