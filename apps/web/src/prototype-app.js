@@ -139,6 +139,120 @@ const writingState = {
 };
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
+let editorHelperDismissed = false;
+const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
+const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
+const FEEDBACK_REPOSITORY_READY =
+  Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
+const APP_VERSION = "0.1.0";
+
+function feedbackBaseUrl() {
+  return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`;
+}
+
+function activePrototypeUrl() {
+  if (typeof window === "undefined") return "/prototype";
+  return window.location.href || `${window.location.origin}/prototype`;
+}
+
+function buildFeedbackUrl(kind = "bug") {
+  const issueType = kind === "feature" ? "feature_request" : "bug_report";
+  const moduleName = moduleLabel(state.module);
+  const note = state.notes.find((item) => item.id === state.selectedFileId);
+  const titlePrefix = kind === "feature" ? "[建议]" : "[反馈]";
+  const title = `${titlePrefix} ${moduleName}：`;
+  const bodyLines = [
+    "## 背景",
+    "",
+    "请描述你遇到的问题或建议改进的体验。",
+    "",
+    "## 当前环境",
+    `- 版本：${APP_VERSION}`,
+    `- 模块：${moduleName}`,
+    `- 页面：${activePrototypeUrl()}`,
+    `- 当前笔记：${note?.title || "未选中"}`,
+    "",
+    "## 补充信息",
+    "- 预期发生什么：",
+    "- 实际发生什么：",
+    "- 复现步骤："
+  ];
+  const url = new URL(feedbackBaseUrl());
+  url.searchParams.set("template", `${issueType}.md`);
+  url.searchParams.set("title", title);
+  url.searchParams.set("body", bodyLines.join("\n"));
+  return url.toString();
+}
+
+function buildFeedbackDiagnosticText() {
+  const note = state.notes.find((item) => item.id === state.selectedFileId);
+  const folder = folderById(state, state.selectedFolderId);
+  const lines = [
+    "# Yansilu Feedback Diagnostics",
+    `capturedAt: ${new Date().toISOString()}`,
+    `repository: ${FEEDBACK_REPOSITORY}`,
+    `appVersion: ${APP_VERSION}`,
+    `module: ${moduleLabel(state.module)}`,
+    `page: ${activePrototypeUrl()}`,
+    `selectedFolder: ${folder?.name || state.selectedFolderId || "未选中"}`,
+    `selectedNote: ${note?.title || "未选中"}`,
+    `userAgent: ${typeof navigator !== "undefined" ? navigator.userAgent || "unknown" : "unknown"}`
+  ];
+  return lines.join("\n");
+}
+
+async function openFeedbackUrl(url = "") {
+  const result = await desktopCommands.openExternalUrl(url);
+  return Boolean(result?.ok);
+}
+
+function generatedOriginalNoteIdFromBody(body = "") {
+  const match = String(body || "").match(GENERATED_ORIGINAL_MARKER_PATTERN);
+  return String(match?.[1] || "").trim();
+}
+
+function stripGeneratedOriginalMarker(body = "") {
+  return String(body || "")
+    .replace(/\n?<!--\s*yansilu:generated-original=[^\s>]+\s*-->\s*\n?/gi, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
+}
+
+function withGeneratedOriginalMarker(body = "", originalNoteId = "") {
+  const cleanId = String(originalNoteId || "").trim();
+  const base = stripGeneratedOriginalMarker(body);
+  if (!cleanId) return base;
+  const separator = base.trim() ? "\n\n" : "";
+  return `${base}${separator}<!-- yansilu:generated-original=${cleanId} -->`;
+}
+
+function withGeneratedOriginalReference(body = "", originalTitle = "") {
+  const cleanTitle = String(originalTitle || "").trim();
+  const base = stripGeneratedOriginalMarker(body);
+  if (!cleanTitle) return base;
+  const visibleLink = `[[${cleanTitle}]]`;
+  const visibleLine = `关联原创：${visibleLink}`;
+  if (base.includes(visibleLine)) return base;
+  const separator = base.trim() ? "\n\n" : "";
+  return `${base}${separator}${visibleLine}`;
+}
+
+function noteGeneratedOriginalNoteId(note = null) {
+  return String(
+    note?.generatedOriginalNoteId ||
+      note?.generated_original_note_id ||
+      generatedOriginalNoteIdFromBody(note?.body || "")
+  ).trim();
+}
+
+function noteHasGeneratedOriginal(note = null) {
+  return Boolean(noteGeneratedOriginalNoteId(note));
+}
+
+function isOriginalRecordableSource(note = null) {
+  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  return noteType === "fleeting" || noteType === "literature";
+}
 
 function setStatus(text, cls = "", options = {}) {
   const requiredRevision = Number(options?.skipIfStaleSince || 0);
@@ -454,7 +568,7 @@ function renderImportWritingActions(payload = {}) {
       <div class="toolbar-note">${
         literatureBatchSummary
           ? `本批次预测：已完成转述 ${literatureBatchSummary.paraphraseDone}/${literatureBatchSummary.total}，剩余待处理 ${literatureBatchSummary.remaining} 条。`
-          : `这 ${literatureNoteIds.length} 条书摘会先进入待转述队列，并默认只显示本次导入范围。`
+          : `这 ${literatureNoteIds.length} 条文献笔记会先进入待转述队列，并默认只显示本次导入范围。`
       }</div>
       `
           : ""
@@ -772,10 +886,10 @@ async function openLiteratureQueueForImportRecord(importRecordId, { preferNextPe
   if (!opened) return false;
   setStatus(
     preferReadyForOriginal
-      ? `已从历史记录定位到可转原创书摘：${cleanImportRecordId}`
+      ? `已从历史记录定位到可转原创文献条目：${cleanImportRecordId}`
       : preferNextPending
-        ? `已从历史记录继续下一条待处理书摘：${cleanImportRecordId}`
-        : `已从历史记录打开书摘队列：${cleanImportRecordId}`,
+        ? `已从历史记录继续下一条待处理文献条目：${cleanImportRecordId}`
+        : `已从历史记录打开文献队列：${cleanImportRecordId}`,
     "ok",
     { requireModule: "explorer" }
   );
@@ -803,7 +917,7 @@ async function openImportedLiteratureQueue() {
   activateModule("explorer");
   const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
   if (!opened) return false;
-  setStatus(`已打开 ${noteIds.length} 条导入书摘中的第一条，并只显示本次导入的待转述队列`, "ok", { requireModule: "explorer" });
+  setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok", { requireModule: "explorer" });
   return true;
 }
 
@@ -1098,6 +1212,7 @@ function mapDirectoryItem(item) {
 }
 
 function mapNoteItem(item) {
+  const body = item.body || `# ${item.title || "未命名笔记"}\n`;
   return {
     id: item.id,
     title: item.title || "未命名笔记",
@@ -1105,21 +1220,82 @@ function mapNoteItem(item) {
     noteType: item.noteType || "original",
     status: item.status || "draft",
     markdownPath: item.markdownPath || "",
-    body: item.body || `# ${item.title || "未命名笔记"}\n`,
+    body,
     originalityStatus: item.originalityStatus || item.originality_status || "",
     originalitySimilarity: normalizeOptionalNumber(item.originalitySimilarity ?? item.originality_similarity),
     authorship: normalizeAuthorshipItem(item.authorship),
+    generatedOriginalNoteId:
+      String(item.generatedOriginalNoteId || item.generated_original_note_id || generatedOriginalNoteIdFromBody(body)).trim(),
     boundaryOrCounterpoint: item.boundaryOrCounterpoint || item.boundary_or_counterpoint || "",
     tags: [],
     links: [],
     bodyLoaded: Boolean(item.body),
-    updatedAt: item.updatedAt || new Date().toISOString()
+    updatedAt: item.updatedAt || new Date().toISOString(),
+    isLocalOnly: Boolean(item.isLocalOnly)
   };
+}
+
+function isLocalOnlyNote(note) {
+  return Boolean(note?.isLocalOnly);
+}
+
+function createLocalDraftNote({ folderId, body }) {
+  const nextBody = ensureEditableNoteBody(body);
+  return {
+    id: uid("local_note"),
+    title: "未命名笔记",
+    folderId,
+    noteType: typeFromFolder(state, folderId),
+    status: "draft",
+    markdownPath: "",
+    body: nextBody,
+    originalityStatus: "",
+    originalitySimilarity: null,
+    authorship: null,
+    generatedOriginalNoteId: generatedOriginalNoteIdFromBody(nextBody),
+    boundaryOrCounterpoint: "",
+    tags: [],
+    links: [],
+    bodyLoaded: true,
+    updatedAt: new Date().toISOString(),
+    isLocalOnly: true
+  };
+}
+
+function replaceLocalNoteIdentity(previousNoteId, savedItem) {
+  const note = state.notes.find((item) => item.id === previousNoteId);
+  if (!note) return null;
+  const mapped = mapNoteItem(savedItem);
+  Object.assign(note, mapped, { bodyLoaded: true, isLocalOnly: false });
+
+  const previousTabId = `tab_${previousNoteId}`;
+  const tab = state.tabs.find((item) => item.noteId === previousNoteId);
+  if (tab) {
+    tab.noteId = note.id;
+    tab.id = `tab_${note.id}`;
+  }
+  if (state.activeTabId === previousTabId && tab) {
+    state.activeTabId = tab.id;
+  }
+  if (state.selectedFileId === previousNoteId) {
+    state.selectedFileId = note.id;
+  }
+  if (Array.isArray(state.literatureQueueFocusNoteIds) && state.literatureQueueFocusNoteIds.length) {
+    state.literatureQueueFocusNoteIds = state.literatureQueueFocusNoteIds.map((item) =>
+      item === previousNoteId ? note.id : item
+    );
+  }
+  const basketIds = parseWritingBasketIds();
+  if (basketIds.includes(previousNoteId)) {
+    setWritingBasketIds(basketIds.map((item) => (item === previousNoteId ? note.id : item)));
+  }
+  return note;
 }
 
 function upsertNotesForDirectory(folderId, mappedNotes) {
   const keep = state.notes.filter((n) => n.folderId !== folderId);
-  state.notes = [...mappedNotes, ...keep];
+  const localOnly = state.notes.filter((n) => n.folderId === folderId && isLocalOnlyNote(n));
+  state.notes = [...localOnly, ...mappedNotes, ...keep];
 }
 
 function replaceFirstMarkdownTitle(body, title) {
@@ -1144,33 +1320,66 @@ function titleFromSeedText(text, fallback = "未命名笔记") {
   return (singleLine || String(fallback || "").trim() || "未命名笔记").slice(0, 48);
 }
 
-function originalDraftBodyFromLiterature(payload = {}) {
-  const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名书摘";
-  const claim = String(payload.paraphrase || "").trim();
-  const whyKeep = String(payload.whyKeep || "").trim();
-  const supportsJudgment = String(payload.supportsJudgment || "").trim();
-  const originalText = String(payload.originalText || "").trim();
-  const titleSeed = titleFromSeedText(claim, sourceTitle === "未命名书摘" ? "未命名原创笔记" : sourceTitle);
+function originalDraftBodyFromSource(payload = {}) {
+  const sourceType = String(payload.sourceType || "").trim().toLowerCase();
+  if (sourceType === "literature") {
+    const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
+    const claim = String(payload.paraphrase || "").trim();
+    const whyKeep = String(payload.whyKeep || "").trim();
+    const supportsJudgment = String(payload.supportsJudgment || "").trim();
+    const originalText = String(payload.originalText || "").trim();
+    const titleSeed = titleFromSeedText(claim, sourceTitle === "未命名文献笔记" ? "未命名原创笔记" : sourceTitle);
+    return [
+      `# ${titleSeed}`,
+      "",
+      "## 核心观点",
+      "",
+      claim || "用你自己的话写下这条原创笔记现在代表的判断。",
+      "",
+      "## 为什么成立",
+      "",
+      whyKeep || "说明这条判断为什么成立，以及你为什么认为它值得留下。",
+      "",
+      "## 边界 / 反例",
+      "",
+      "",
+      "## 证据来源",
+      "",
+      `- 来自文献笔记：[[${sourceTitle}]]`,
+      payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
+      supportsJudgment ? `- 这条材料原本想支持的判断：${supportsJudgment}` : "",
+      originalText ? `- 原文摘录：${originalText}` : "",
+      ""
+    ]
+      .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
+      .join("\n");
+  }
+  const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
+  const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
+  const excerpt = sourceBody
+    .replace(/^#\s+[^\n]*\n?/m, "")
+    .trim();
+  const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名原创笔记" : sourceTitle);
   return [
     `# ${titleSeed}`,
     "",
     "## 核心观点",
     "",
-    claim || "用你自己的话写下这条原创笔记现在代表的判断。",
+    "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
     "",
     "## 为什么成立",
     "",
-    whyKeep || "说明这条判断为什么成立，以及你为什么认为它值得留下。",
+    "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
     "",
     "## 边界 / 反例",
     "",
+    "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
     "",
-    "## 证据来源",
+    "## 来源线索",
     "",
-    `- 来自书摘：[[${sourceTitle}]]`,
+    `- 来自随笔笔记：[[${sourceTitle}]]`,
     payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-    supportsJudgment ? `- 这条材料原本想支持的判断：${supportsJudgment}` : "",
-    originalText ? `- 原文摘录：${originalText}` : "",
+    excerpt ? `- 原始线索摘录：${excerpt}` : "",
     ""
   ]
     .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
@@ -1405,7 +1614,7 @@ function moduleLabel(moduleName = "") {
 function noteTypeLabel(noteType = "") {
   const labels = {
     fleeting: "随笔记",
-    literature: "书摘笔记",
+    literature: "文献笔记",
     original: "原创笔记",
     permanent: "原创笔记"
   };
@@ -1414,10 +1623,10 @@ function noteTypeLabel(noteType = "") {
 
 function displayFolderName(folder) {
   if (!folder) return "目录";
-  if (folder.id === "dir_original_default") return "原创笔记";
-  if (folder.id === "dir_fleeting_default") return "随笔目录";
-  if (folder.id === "dir_literature_default") return "书摘目录";
-  if (!folder.parentId && String(folder.name || "").trim() === "原创目录") return "原创笔记";
+  if (folder.id === "dir_original_default") return "原创卡片盒";
+  if (folder.id === "dir_fleeting_default") return "随笔卡片盒";
+  if (folder.id === "dir_literature_default") return "文献卡片盒";
+  if (!folder.parentId && String(folder.name || "").trim() === "原创目录") return "原创卡片盒";
   return folder.name || "目录";
 }
 
@@ -1459,72 +1668,85 @@ function noteGrowthStage(note, body = "") {
 }
 
 function renderStatusMeta() {
-  const statusMeta = $("statusMeta");
-  if (!statusMeta) return;
-
-  const activeNote = activeEditorNote();
-  const activeBody = activeEditorBody();
-  const dirtyCount = state.tabs.filter((tab) => tab.dirty).length;
-  const openCount = state.tabs.length;
-  const rootFolder = folderById(state, state.browserRootId);
-  const selectedFolder = folderById(state, state.selectedFolderId);
-  const activeTagCount = activeNote ? parseTags(activeBody).length : 0;
-  const activeLinkCount = activeNote ? parseLinks(activeBody).length : 0;
-  const focusActive = state.module === "explorer" && Boolean(state.focusMode);
-
-  const chips = [];
-  chips.push(`<span class="status-chip active"><strong>${escapeHtml(moduleLabel(state.module))}</strong></span>`);
-  if (focusActive) {
-    chips.push(`<span class="status-chip focus">专注提炼</span>`);
-  }
-
-  if (state.module === "explorer") {
-    if (selectedFolder) {
-      chips.push(`<span class="status-chip">研究桌面 <strong>${escapeHtml(directoryPathLabel(selectedFolder.id))}</strong></span>`);
-    } else if (rootFolder) {
-      chips.push(`<span class="status-chip"><strong>${escapeHtml(displayFolderName(rootFolder))}</strong></span>`);
-    }
-  } else if (rootFolder) {
-    chips.push(`<span class="status-chip">工作范围 <strong>${escapeHtml(displayFolderName(rootFolder))}</strong></span>`);
-  }
-
-  if (!focusActive) {
-    chips.push(`<span class="status-chip">展开中 <strong>${openCount}</strong></span>`);
-  }
-  if (dirtyCount) {
-    chips.push(`<span class="status-chip warn">待沉淀 <strong>${dirtyCount}</strong></span>`);
-  }
-  if (state.module === "explorer" && activeNote) {
-    chips.push(`<span class="status-chip">生长阶段 <strong>${escapeHtml(noteGrowthStage(activeNote, activeBody))}</strong></span>`);
-    chips.push(`<span class="status-chip">连接 <strong>${activeLinkCount}</strong></span>`);
-    chips.push(`<span class="status-chip">标签 <strong>${activeTagCount}</strong></span>`);
-    chips.push(`<span class="status-chip">${escapeHtml(noteTypeLabel(activeNote.noteType))}</span>`);
-    chips.push(`<span class="status-chip title">当前笔记 <strong>${escapeHtml(activeNote.title || "未命名笔记")}</strong></span>`);
-  }
-
-  statusMeta.innerHTML = chips.join("");
+  return;
 }
 
 function renderWorkspaceStatusHint() {
-  const statusHint = $("statusHint");
-  if (!statusHint) return;
-  if (state.module !== "explorer") {
-    statusHint.textContent = "";
+  const helper = $("editorHelper");
+  if (!helper) return;
+  if (editorHelperDismissed || state.module !== "explorer") {
+    helper.classList.add("hidden");
     return;
   }
   const activeNote = activeEditorNote();
   const activeBody = activeEditorBody();
+  const kicker = $("editorHelperKicker");
+  const title = $("editorHelperTitle");
+  const body = $("editorHelperBody");
+  const action = $("btnEditorHelperAction");
+  const noteType = String(activeNote?.noteType || "").trim();
+  if (action) {
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
+  }
+  helper.classList.remove("hidden");
+
   if (state.focusMode) {
-    statusHint.textContent = activeNote
-      ? `专注提炼中：先用自己的话写清${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}，再决定是否补连接与标签。`
-      : "专注提炼中：打开一条笔记，让资料先长成自己的判断。";
+    kicker.textContent = "专注提炼";
+    title.textContent = "现在只保留当前笔记";
+    body.textContent = activeNote
+      ? `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}写清楚，再决定是否补连接与标签。`
+      : "专注模式会收起左侧导航和回链，只留下正文与关键按钮。打开一条笔记后再开始提炼。";
+    action.textContent = "保持专注";
     return;
   }
-  if (activeNote) {
-    statusHint.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}：慢一点，优先把观点、证据和边界写清楚。`;
+  if (!activeNote) {
+    kicker.textContent = "下一步推荐";
+    title.textContent = "先打开一条笔记";
+    body.textContent = "从随笔、文献或原创笔记里任选一条开始。小精灵助手后面会接入大模型，继续帮你提示相关任务和推荐下一步。";
+    action.textContent = "知道了";
     return;
   }
-  statusHint.textContent = "打开一条笔记，继续提炼观点、证据与连接。";
+  if (noteType === "literature") {
+    kicker.textContent = "文献笔记";
+    if (noteHasGeneratedOriginal(activeNote)) {
+      const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
+      title.textContent = "这条文献已经长出原创笔记";
+      body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条原创笔记里继续提炼自己的判断。";
+      action.textContent = "打开原创笔记";
+      if (action) {
+        action.dataset.helperAction = "open-generated-original";
+        action.dataset.targetNoteId = targetNoteId;
+      }
+    } else {
+      title.textContent = "先把原文转成你的判断";
+      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录原创”。";
+      action.textContent = "继续整理";
+    }
+    return;
+  }
+  if (noteType === "original") {
+    kicker.textContent = "原创笔记";
+    title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
+    body.textContent = "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。";
+    action.textContent = "继续提炼";
+    return;
+  }
+  kicker.textContent = "随笔笔记";
+  if (noteHasGeneratedOriginal(activeNote)) {
+    const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
+    title.textContent = "这条随笔已经沉淀过原创";
+    body.textContent = "原始线索还可以继续补，但它已经对应到一条原创笔记。你可以直接跳过去继续完善核心判断。";
+    action.textContent = "打开原创笔记";
+    if (action) {
+      action.dataset.helperAction = "open-generated-original";
+      action.dataset.targetNoteId = targetNoteId;
+    }
+  } else {
+    title.textContent = "把这条随笔推进成可复用判断";
+    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录原创”，把判断单独沉淀出来。";
+    action.textContent = "继续记录";
+  }
 }
 
 function applyFocusModeChrome() {
@@ -1535,10 +1757,10 @@ function applyFocusModeChrome() {
   if (focusButton) {
     focusButton.classList.toggle("active", focusActive);
     focusButton.setAttribute("aria-pressed", focusActive ? "true" : "false");
-    focusButton.title = focusActive ? "退出专注提炼模式" : "专注提炼模式";
-    focusButton.dataset.tip = focusActive ? "退出专注提炼模式" : "专注提炼模式";
+    focusButton.title = focusActive ? "退出专注提炼" : "专注提炼：收起导航和回链，只保留当前笔记";
+    focusButton.dataset.tip = focusActive ? "退出专注提炼" : "专注提炼：收起导航和回链，只保留当前笔记";
     const label = focusButton.querySelector("span");
-    if (label) label.textContent = focusActive ? "退出专注" : "专注";
+    if (label) label.textContent = focusActive ? "退出专注" : "专注提炼";
   }
   const intentNote = $("editorIntentNote");
   if (intentNote) {
@@ -1706,11 +1928,30 @@ function renderSettingsPanel() {
       <span class="settings-stat-badge">Markdown 主内容</span>
     `;
     detail.textContent = `默认路径：${vault.defaultVaultPath || "未知"}；当前切换目标会在确认后替换整套目录树与缓存上下文。`;
-    return;
+  } else {
+    stats.innerHTML = `<span class="settings-stat-badge warn">等待读取</span>`;
+    detail.textContent = settingsState.error || "点击“刷新当前 Vault”读取 API 状态。";
   }
 
-  stats.innerHTML = `<span class="settings-stat-badge warn">等待读取</span>`;
-  detail.textContent = settingsState.error || "点击“刷新当前 Vault”读取 API 状态。";
+  const feedbackBadge = $("settingsFeedbackRepoBadge");
+  const feedbackDetail = $("settingsFeedbackDetail");
+  const feedbackLink = $("settingsFeedbackLink");
+  if (feedbackBadge) {
+    feedbackBadge.textContent = FEEDBACK_REPOSITORY_READY ? FEEDBACK_REPOSITORY : "待绑定仓库";
+    feedbackBadge.classList.toggle("ok", FEEDBACK_REPOSITORY_READY);
+    feedbackBadge.classList.toggle("warn", !FEEDBACK_REPOSITORY_READY);
+  }
+  if (feedbackDetail) {
+    feedbackDetail.textContent = FEEDBACK_REPOSITORY_READY
+      ? `当前会跳到 ${FEEDBACK_REPOSITORY} 的 GitHub Issue，新问题和建议会自动带上版本与模块上下文。`
+      : "仓库名已经建议为 yansilu-feedback。把 prototype-app.js 里的 GitHub owner 补上后即可启用。";
+  }
+  if (feedbackLink) {
+    const href = FEEDBACK_REPOSITORY_READY ? feedbackBaseUrl() : "#";
+    feedbackLink.href = href;
+    feedbackLink.textContent = FEEDBACK_REPOSITORY_READY ? href : "等待填写真实 GitHub 仓库";
+    feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
+  }
 }
 
 function isWritingEligibleNote(note) {
@@ -2951,9 +3192,21 @@ async function handleStateChange(reason, payload = {}) {
     return;
   }
 
-  if (reason === "create-original-from-literature") {
-    const body = originalDraftBodyFromLiterature(payload);
-    const title = titleFromSeedText(payload.paraphrase || payload.sourceTitle || "", payload.sourceTitle || "未命名原创笔记");
+  if (reason === "record-original-from-note" || reason === "create-original-from-literature") {
+    const sourceNoteId = String(payload.sourceNoteId || "").trim();
+    const sourceNote = state.notes.find((item) => item.id === sourceNoteId) || null;
+    const sourceType = String(payload.sourceType || sourceNote?.noteType || "").trim().toLowerCase();
+    const sourceTitle = String(payload.sourceTitle || sourceNote?.title || "").trim();
+    const body = originalDraftBodyFromSource({
+      ...payload,
+      sourceType,
+      sourceTitle,
+      sourceBody: payload.sourceBody || sourceNote?.body || ""
+    });
+    const title = titleFromSeedText(
+      payload.paraphrase || payload.sourceBody || payload.sourceTitle || sourceTitle || "",
+      sourceTitle || "未命名原创笔记"
+    );
     const directoryId = "dir_original_default";
     try {
       const created = await createNote({
@@ -2967,11 +3220,43 @@ async function handleStateChange(reason, payload = {}) {
         body: typeof created?.body === "string" ? created.body : body
       });
       state.notes = [note, ...state.notes.filter((item) => item.id !== note.id)];
+        if (sourceNoteId && sourceNote && isOriginalRecordableSource(sourceNote)) {
+          const sourceBodyWithVisibleReference = withGeneratedOriginalReference(
+            String(payload.sourceBody || sourceNote.body || ""),
+            note.title || title
+          );
+          const nextSourceBody = withGeneratedOriginalMarker(sourceBodyWithVisibleReference, note.id);
+        sourceNote.body = nextSourceBody;
+        sourceNote.generatedOriginalNoteId = note.id;
+        sourceNote.tags = parseTags(nextSourceBody);
+        sourceNote.links = parseLinks(nextSourceBody);
+        sourceNote.updatedAt = new Date().toISOString();
+        const sourceTab = state.tabs.find((item) => item.noteId === sourceNote.id);
+        if (sourceTab) {
+          sourceTab.body = nextSourceBody;
+          sourceTab.savedBody = nextSourceBody;
+          sourceTab.title = sourceNote.title;
+          sourceTab.savedTitle = sourceNote.title;
+          sourceTab.dirty = false;
+        }
+        try {
+          const updatedSource = await updateNote(sourceNote.id, {
+            title: sourceNote.title,
+            body: sourceNote.body,
+            status: sourceNote.status || "draft",
+            originalityStatus: sourceNote.originalityStatus || undefined,
+            originalitySimilarity: sourceNote.originalitySimilarity ?? undefined
+          });
+          if (updatedSource) Object.assign(sourceNote, mapNoteItem(updatedSource), { bodyLoaded: true });
+        } catch (sourceError) {
+          setStatus(`原创笔记已创建，但来源笔记标记保存失败：${String(sourceError?.message || sourceError)}`, "warn");
+        }
+      }
       activateModule("explorer");
       openNoteById(note.id, { preferTitleSelection: false });
-      setStatus(`已从书摘生成原创笔记草稿：${note.title || title}`, "ok");
+      setStatus(`已记录原创笔记：${note.title || title}`, "ok");
     } catch (error) {
-      setStatus(`从书摘生成原创笔记失败：${String(error?.message || error)}`, "bad");
+      setStatus(`记录原创笔记失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -3003,15 +3288,11 @@ async function handleStateChange(reason, payload = {}) {
       }
       if (note) {
         try {
+          note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(note) || generatedOriginalNoteIdFromBody(note.body);
           const resolvedStatus =
             String(payload.status || "").trim() ||
-            (payload.originalityStatus === "pass" && payload.authorshipConfirmed !== false ? "active" : note.status || "draft");
+            (payload.originalityStatus === "pass" ? "active" : note.status || "draft");
           note.status = resolvedStatus;
-          note.authorship = {
-            ...(note.authorship || {}),
-            user_confirmed: Boolean(payload.authorshipConfirmed),
-            ai_assisted: Boolean(note.authorship?.ai_assisted)
-          };
           const updated = await updateNote(note.id, {
             title: note.title,
             body: note.body,
@@ -3028,6 +3309,7 @@ async function handleStateChange(reason, payload = {}) {
             note.originalityStatus = updated.originalityStatus || note.originalityStatus;
             note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
             note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
+            note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(updated) || note.generatedOriginalNoteId || generatedOriginalNoteIdFromBody(note.body);
             note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
             note.updatedAt = updated.updatedAt || note.updatedAt;
             note.bodyLoaded = true;
@@ -3235,6 +3517,11 @@ const editor = new EditorPane({
     literatureOpenNext: $("btnLiteratureOpenNext"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
+    assetPreviewMask: $("assetPreviewMask"),
+    assetPreviewTitle: $("assetPreviewTitle"),
+    assetPreviewBody: $("assetPreviewBody"),
+    assetPreviewOpenLink: $("assetPreviewOpenLink"),
+    closeAssetPreview: $("btnCloseAssetPreview"),
     editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
     relatedPanel: $("relatedPanel"),
     result: $("resultArea"),
@@ -3246,18 +3533,23 @@ const editor = new EditorPane({
     tagSearchInput: $("tagSearchInput"),
     tagSearchList: $("tagSearchList"),
     closeTagPicker: $("btnCloseTagPicker"),
+    originalityNotice: $("originalityNotice"),
+    originalityNoticeTitle: $("originalityNoticeTitle"),
+    originalityNoticeBody: $("originalityNoticeBody"),
+    closeOriginalityNotice: $("btnCloseOriginalityNotice"),
     insertLink: $("btnInsertLink"),
     insertAsset: $("btnInsertAsset"),
     insertTag: $("btnInsertTag"),
+    headingLevel: $("headingLevelSelect"),
     codeTools: $("codeTools"),
     codeLanguage: $("codeLanguageSelect"),
     tableTools: $("tableTools"),
     tableAddRow: $("btnTableAddRow"),
     tableAddColumn: $("btnTableAddColumn"),
     assetInput: $("assetFileInput"),
-    modeEdit: $("btnModeEdit"),
+    modeEdit: $("btnModeToggle"),
     modeSplit: $("btnModeSplit"),
-    modePreview: $("btnModePreview"),
+    modePreview: $("btnModeToggle"),
     showRelated: $("btnShowRelated"),
     hideRelated: $("btnHideRelated"),
     runGuard: $("btnRunGuard"),
@@ -3277,13 +3569,36 @@ const editor = new EditorPane({
     renderWorkspaceStatusHint();
   }
 });
+window.__prototypeEditor = editor;
+window.__prototypeState = state;
 
 $("btnFocusMode")?.addEventListener("click", () => {
   state.focusMode = !state.focusMode;
   applyFocusModeChrome();
   editor.setFocusMode(state.focusMode);
-  setStatus(state.focusMode ? "已进入专注提炼模式" : "已退出专注提炼模式", "ok", { requireModule: "explorer" });
+  setStatus(state.focusMode ? "已开启专注提炼" : "已退出专注提炼", "ok", { requireModule: "explorer" });
   renderWorkspaceStatusHint();
+});
+
+$("btnDismissEditorHelper")?.addEventListener("click", () => {
+  editorHelperDismissed = true;
+  $("editorHelper")?.classList.add("hidden");
+});
+
+$("btnEditorHelperAction")?.addEventListener("click", () => {
+  const button = $("btnEditorHelperAction");
+  const helperAction = String(button?.dataset.helperAction || "noop").trim();
+  const targetNoteId = String(button?.dataset.targetNoteId || "").trim();
+  if (helperAction === "open-generated-original" && targetNoteId) {
+    const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
+    if (opened) {
+      setStatus("已打开对应原创笔记", "ok", { requireModule: "explorer" });
+      return;
+    }
+    setStatus("没有找到对应原创笔记", "warn", { requireModule: "explorer" });
+    return;
+  }
+  setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
 });
 
 $("settingsRefreshVault")?.addEventListener("click", async () => {
@@ -3323,6 +3638,39 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   } catch (error) {
     setStatus(`切换 Vault 失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
+  try {
+    await copyTextToClipboard(buildFeedbackDiagnosticText());
+    setStatus("已复制反馈诊断信息", "ok");
+  } catch (error) {
+    setStatus(`复制反馈诊断信息失败：${String(error?.message || error)}`, "bad");
+  }
+});
+
+$("settingsOpenBugReport")?.addEventListener("click", async () => {
+  if (!FEEDBACK_REPOSITORY_READY) {
+    setStatus("反馈仓库还没绑定，先把 FEEDBACK_REPOSITORY 改成真实 owner/repo", "warn");
+    return;
+  }
+  if (await openFeedbackUrl(buildFeedbackUrl("bug"))) {
+    setStatus("已打开问题反馈入口", "ok");
+    return;
+  }
+  setStatus("没有成功打开反馈入口，请检查浏览器是否拦截了新窗口", "warn");
+});
+
+$("settingsOpenFeatureRequest")?.addEventListener("click", async () => {
+  if (!FEEDBACK_REPOSITORY_READY) {
+    setStatus("反馈仓库还没绑定，先把 FEEDBACK_REPOSITORY 改成真实 owner/repo", "warn");
+    return;
+  }
+  if (await openFeedbackUrl(buildFeedbackUrl("feature"))) {
+    setStatus("已打开功能建议入口", "ok");
+    return;
+  }
+  setStatus("没有成功打开建议入口，请检查浏览器是否拦截了新窗口", "warn");
 });
 
 window.addEventListener("beforeunload", (event) => {
@@ -3880,7 +4228,7 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
     state.selectedFileId = null;
     document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === action));
     document.querySelectorAll(".rail-btn[data-module]").forEach((b) => b.classList.toggle("active", b.dataset.module === "explorer"));
-      setStatus(`已切换到 ${folderById(state, state.browserRootId)?.name} 入口`, "ok");
+      setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
       renderAll();
     });
   });
@@ -4101,7 +4449,7 @@ async function bootstrap() {
         code: error?.code || null
       });
       setStatus(
-        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开书摘队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去原创整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
+        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开文献队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去原创整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }
@@ -4193,12 +4541,12 @@ async function bootstrap() {
   } catch {}
 
   renderAll();
-  const initialNoteId = new URLSearchParams(window.location.search).get("note") || state.notes[0]?.id || "pn_001";
-  const initialNote = state.notes.find((n) => n.id === initialNoteId);
+  const explicitNoteId = new URLSearchParams(window.location.search).get("note") || "";
+  const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
   if (initialNote) {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
     state.selectedFolderId = initialNote.folderId;
-    openNoteById(initialNoteId);
+    openNoteById(explicitNoteId);
   }
 }
 

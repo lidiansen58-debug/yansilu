@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 研思录内测反馈入口
+    url: https://github.com/lidiansen58-debug/yansilu-feedback/issues/new
+    about: 如果你是从应用设置页进入反馈，也会跳到这里。
