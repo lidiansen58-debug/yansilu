@@ -1,6 +1,6 @@
 # Yansilu v0.1.0 RC1 Release Status
 
-Updated: 2026-05-09
+Updated: 2026-05-10
 
 ## Release Target
 
@@ -12,21 +12,22 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Branch: `master`
 - Release baseline: `master`
-- Commit: `6d9d60f Editor: restore WYSIWYG default mode`
+- App source commit: `7ac32cb Desktop: fallback packaged API base`
 - Version: `0.1.0`
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,787,307` bytes
+- Size: `3,788,843` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `94C4BA0341D7036663C0205A87D8F92C1ED6AAA67FFEDBB08962FE5A219B4C84`
+- SHA-256: `BC3CADC6577DE7E916C4E78CC9FDD86C4AA2A52FBB39F00B11901C6218F3F774`
 
 ## Completed Verification
 
 - `npm.cmd run mvp:check` passed on the current release candidate working tree.
 - Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
+- Unit coverage confirms packaged desktop API placeholder `__API_BASE__` falls back to `http://localhost:3000`.
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
@@ -36,6 +37,8 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Installed executable launched successfully from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe`.
 - Launch smoke observed process `yansilu-desktop` with window title `研思录`.
 - Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
+- Installed app WebView2 verification confirmed `已连接 API：http://localhost:3000` with packaged `window.__API_BASE__` still set to `__API_BASE__`.
+- Installed app data-flow verification passed: switched to a Chinese/space Vault path, created a directory and note, updated Markdown, uploaded image/file attachments, and read files back from disk.
 
 ## Required Manual Walkthrough Before Sharing
 
