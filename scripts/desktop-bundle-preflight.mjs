@@ -6,6 +6,7 @@ import { commandVersion, hasCommand, withCargoBin } from "./rust-env.mjs";
 const REPO_ROOT = process.cwd();
 const DESKTOP_ROOT = path.resolve(REPO_ROOT, "apps", "desktop", "src-tauri");
 const TAURI_CONFIG_PATH = path.join(DESKTOP_ROOT, "tauri.conf.json");
+const DEFAULT_CAPABILITY_PATH = path.join(DESKTOP_ROOT, "capabilities", "default.json");
 const ICON_PNG_PATH = path.join(DESKTOP_ROOT, "icons", "icon.png");
 const ICON_ICO_PATH = path.join(DESKTOP_ROOT, "icons", "icon.ico");
 const EXPECTED_APP_NAME = "研思录";
@@ -56,18 +57,21 @@ let overallOk = cargoOk && rustcOk;
 
 try {
   const config = readJson(TAURI_CONFIG_PATH);
+  const defaultCapability = readJson(DEFAULT_CAPABILITY_PATH);
   const productName = String(config.productName || "").trim();
   const windowTitle = String(config.app?.windows?.[0]?.title || "").trim();
   const bundleActive = Boolean(config.bundle?.active);
   const bundleIcons = Array.isArray(config.bundle?.icon) ? config.bundle.icon : [];
   const createsUpdaterArtifacts = Boolean(config.bundle?.createUpdaterArtifacts);
   const hasUpdaterConfig = Boolean(config.plugins?.updater);
+  const permissions = Array.isArray(defaultCapability.permissions) ? defaultCapability.permissions : [];
 
   const productOk = productName === EXPECTED_APP_NAME;
   const titleOk = windowTitle === EXPECTED_APP_NAME;
   const bundleOk = bundleActive;
   const iconConfigOk = bundleIcons.includes("icons/icon.png") && bundleIcons.includes("icons/icon.ico");
   const updaterArtifactsOk = !createsUpdaterArtifacts || hasUpdaterConfig;
+  const updaterPermissionOk = !hasUpdaterConfig || permissions.includes("updater:default");
 
   logResult("tauri productName", productOk, productName || "missing");
   logResult("tauri window title", titleOk, windowTitle || "missing");
@@ -78,10 +82,15 @@ try {
     updaterArtifactsOk,
     createsUpdaterArtifacts ? "enabled with updater config" : "disabled"
   );
+  logResult(
+    "tauri updater permission",
+    updaterPermissionOk,
+    updaterPermissionOk ? "updater:default granted" : "missing updater:default"
+  );
 
-  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk;
+  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk && updaterPermissionOk;
 } catch (error) {
-  logResult("tauri config parse", false, String(error?.message || error));
+  logResult("tauri desktop config parse", false, String(error?.message || error));
   overallOk = false;
 }
 

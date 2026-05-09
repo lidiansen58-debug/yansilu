@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default desktop permissions for the Yansilu MVP shell.","local":true,"windows":["main"],"permissions":["core:default","dialog:default","dialog:allow-open","opener:default","opener:allow-open-path"]}}
+{"default":{"identifier":"default","description":"Default desktop permissions for the Yansilu MVP shell.","local":true,"windows":["main"],"permissions":["core:default","dialog:default","dialog:allow-open","opener:default","opener:allow-open-path","updater:default"]}}

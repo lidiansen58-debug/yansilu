@@ -136,7 +136,7 @@ async function optionalPlaywright(t) {
   }
 }
 
-async function startPrototypeStack(t, playwright) {
+async function startPrototypeStack(t, playwright, options = {}) {
   const vaultPath = await makeTempDir("yansilu-browser-e2e-vault-");
   const apiPort = await findFreePort();
   const webPort = await findFreePort();
@@ -184,10 +184,52 @@ async function startPrototypeStack(t, playwright) {
   });
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+  if (typeof options.beforeGoto === "function") await options.beforeGoto(page);
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
 
   return { apiBase, webBase, vaultPath, browser, page };
 }
+
+test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(() => {
+        window.__updaterCommands = [];
+        window.__confirmMessages = [];
+        window.confirm = (message) => {
+          window.__confirmMessages.push(message);
+          return false;
+        };
+        window.__TAURI__ = {
+          core: {
+            async invoke(command, args) {
+              window.__updaterCommands.push({ command, args });
+              if (command === "plugin:updater|check") return { available: false };
+              throw new Error(`unexpected updater command: ${command}`);
+            }
+          }
+        };
+      });
+    }
+  });
+  if (!stack) return;
+
+  const { page } = stack;
+  await waitFor(async () => {
+    const commands = await page.evaluate(() => window.__updaterCommands || []);
+    assert.deepEqual(commands.map((item) => item.command), ["plugin:updater|check"]);
+    const confirms = await page.evaluate(() => window.__confirmMessages || []);
+    assert.deepEqual(confirms, []);
+  }, 7000);
+});
 
 async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   const confirmAuthorship = options.confirmAuthorship !== false;
