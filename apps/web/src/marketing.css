@@ -303,7 +303,7 @@ img {
 }
 
 .hero-proof span::before {
-  content: "•";
+  content: "\2022";
   margin-right: 8px;
   color: var(--brand);
 }
@@ -984,7 +984,7 @@ img {
 }
 
 .pricing-card-featured::before {
-  content: "为持续输出而设计";
+  content: "\4E3A\6301\7EED\8F93\51FA\800C\8BBE\8BA1";
   position: absolute;
   top: 18px;
   right: 18px;
@@ -1252,7 +1252,7 @@ img {
 }
 
 .hero-proof span::before {
-  content: "•";
+  content: "\2022";
 }
 
 .hero-stats {
@@ -1408,7 +1408,7 @@ img {
 }
 
 .hero-compact .hero-proof span::before {
-  content: "•";
+  content: "\2022";
 }
 
 .product-system-grid {
@@ -1419,7 +1419,7 @@ img {
 }
 
 .pricing-card-featured::before {
-  content: "为持续输出而设计";
+  content: "\4E3A\6301\7EED\8F93\51FA\800C\8BBE\8BA1";
 }
 
 .product-system-copy {

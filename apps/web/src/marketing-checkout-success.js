@@ -53,7 +53,7 @@ async function initCheckoutSuccess() {
     if (mode === "stripe") {
       setStatusMessage(
         statusEl,
-        "已从 Stripe 返回，但本地状态还没更新。如果你刚完成支付，稍等几秒让 webhook 同步后再刷新这个页面。",
+        "已从 Stripe 返回，但本地状态还没更新。如果你刚完成支付，稍等几秒，等待 webhook 同步后再刷新这个页面。",
         "info"
       );
       return;

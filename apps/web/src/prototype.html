@@ -8,10 +8,13 @@
   <script>
     (() => {
       const params = new URLSearchParams(window.location.search);
-      const editorOnly = window.location.pathname === "/editor" || params.get("mode") === "editor";
+      const editorOnly =
+        window.location.pathname === "/editor" ||
+        window.location.pathname === "/app/editor" ||
+        params.get("mode") === "editor";
       document.documentElement.classList.toggle("editor-only", editorOnly);
       window.__EDITOR_ONLY__ = editorOnly;
-      if (editorOnly) document.title = "研思录编辑器";
+      document.title = editorOnly ? "研思录编辑器" : "研思录工作台";
     })();
   </script>
   <style>

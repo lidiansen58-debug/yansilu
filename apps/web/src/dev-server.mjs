@@ -184,19 +184,19 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-checkout-cancel.html");
       return;
     }
-    if (url.pathname === "/prototype" || url.pathname === "/editor") {
+    if (url.pathname === "/prototype" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
       await servePrototype(res);
       return;
     }
-    if (url.pathname === "/paper-workspace") {
+    if (url.pathname === "/paper-workspace" || url.pathname === "/app/paper-workspace") {
       await serveApiBackedPage(res, "paper-workspace.html");
       return;
     }
-    if (url.pathname === "/prototype-handoff") {
+    if (url.pathname === "/prototype-handoff" || url.pathname === "/app/handoff") {
       await serveHandoff(res);
       return;
     }
-    if (url.pathname === "/prototype-from-figma") {
+    if (url.pathname === "/prototype-from-figma" || url.pathname === "/app/figma") {
       await serveFromFigma(res);
       return;
     }
