@@ -2,6 +2,14 @@ name: desktop-bundles
 
 on:
   workflow_dispatch:
+    inputs:
+      updater_artifacts:
+        description: "Generate signed Tauri updater artifacts. Requires TAURI_SIGNING_PRIVATE_KEY."
+        type: boolean
+        default: false
+  pull_request:
+    branches:
+      - main
   push:
     tags:
       - "v*"
@@ -26,6 +34,9 @@ jobs:
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ github.event_name == 'push' && 'true' || (github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && 'true' || 'false') }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
     steps:
       - name: Checkout

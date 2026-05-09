@@ -24,7 +24,7 @@ Current gap:
 
 - no public download page
 - no release metadata page for installers
-- no updater plugin enabled in Tauri
+- updater plugin needs a real production endpoint and signing-key workflow
 - no release feed for desktop update checks
 
 ## What The Website Needs
@@ -62,6 +62,14 @@ For each desktop release, publish:
 2. release notes
 3. checksums / manifest
 4. updater metadata feed
+
+## Friend Testing Builds
+
+Use the `desktop-bundles` GitHub Actions workflow for early cross-platform test builds.
+
+For manual `workflow_dispatch` runs, leave `updater_artifacts` unchecked. This produces installable test bundles such as the macOS `.app` / `.dmg` artifacts without requiring a Tauri updater signing key.
+
+For tagged release builds, updater artifacts stay enabled by default and require the `TAURI_SIGNING_PRIVATE_KEY` repository secret.
 
 ## Auto Update Recommendation
 
