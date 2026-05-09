@@ -11,21 +11,22 @@ This release candidate is intended for internal or friend testing, not broad pro
 ## Source
 
 - Branch: `master`
-- Release baseline: `baseline/workspace-2026-05-09`
-- Commit: `cd7d598 Harden MVP updater release checks`
+- Release baseline: `master`
+- Commit: `6d9d60f Editor: restore WYSIWYG default mode`
 - Version: `0.1.0`
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,786,963` bytes
+- Size: `3,787,307` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `71C17D459BA995025FA34D4DBC82D12BE5F7D4307683031644D186914B866154`
+- SHA-256: `94C4BA0341D7036663C0205A87D8F92C1ED6AAA67FFEDBB08962FE5A219B4C84`
 
 ## Completed Verification
 
-- `npm.cmd run mvp:check` passed on the release baseline.
+- `npm.cmd run mvp:check` passed on the current release candidate working tree.
+- Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
@@ -34,6 +35,7 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Silent installer smoke passed with exit code `0`.
 - Installed executable launched successfully from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe`.
 - Launch smoke observed process `yansilu-desktop` with window title `研思录`.
+- Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
 
 ## Required Manual Walkthrough Before Sharing
 
