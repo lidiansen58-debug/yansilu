@@ -1,8 +1,9 @@
 # AI / Agent Layer Requirements V1
 
-> Status: separated requirement track
+> Status: next-step independent requirement track
 > Date: 2026-05-09
 > Scope: AI and Agent intelligence layer only. This document intentionally stays separate from the core note-taking product requirements.
+> Workstream: see `docs/AI_AGENT_LAYER_WORKSTREAM_FRAMEWORK_V1.md`
 
 ## 1. Positioning
 
