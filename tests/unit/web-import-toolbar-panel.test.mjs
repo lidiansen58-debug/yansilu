@@ -17,6 +17,7 @@ test("import toolbar panel renders ids and selected connector", () => {
 
   assert.match(html, /id="importConnector"/);
   assert.match(html, /option value="obsidian" selected/);
+  assert.match(html, />Obsidian<\/option>/);
   assert.match(html, /id="importPath"/);
   assert.ok(html.includes('value="C:\\vault"'));
   assert.match(html, /id="importPayload"/);

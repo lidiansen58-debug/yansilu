@@ -3,6 +3,7 @@ import {
   formatImportTimestamp,
   importHistoryActions,
   importHistoryAlertBadges,
+  importHistoryConnectorLabel,
   importHistoryDetailSummary,
   importHistorySummary,
   importStatusLabel,
@@ -28,7 +29,7 @@ function renderImportHistoryItem(record, activeImportRecordId) {
   return `
     <div class="import-history-item ${recordId && recordId === activeImportRecordId ? "is-active" : ""}" data-import-history-id="${escapeHtml(recordId)}">
       <div class="import-history-item-head">
-        <strong>${escapeHtml(record.connector || "import")}</strong>
+        <strong>${escapeHtml(importHistoryConnectorLabel(record.connector || "import"))}</strong>
         <div class="import-history-badge-row">
           <span class="import-history-badge tone-${escapeHtml(importStatusTone(status))}">${escapeHtml(importStatusLabel(status))}</span>
           ${badges

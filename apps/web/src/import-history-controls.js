@@ -1,3 +1,5 @@
+import { importConnectorFilterOptions } from "./import-connector-labels.js";
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -13,15 +15,6 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "已完成" },
   { value: "rolled_back", label: "已回滚" },
   { value: "cancelled", label: "已取消" }
-];
-
-const CONNECTOR_OPTIONS = [
-  { value: "all", label: "全部连接器" },
-  { value: "markdown", label: "Markdown" },
-  { value: "obsidian", label: "Obsidian" },
-  { value: "zotero", label: "Zotero" },
-  { value: "readwise", label: "Readwise" },
-  { value: "notebooklm", label: "NotebookLM" }
 ];
 
 const RISK_OPTIONS = [
@@ -53,7 +46,7 @@ export function renderImportHistoryControls({ filters = {} } = {}) {
       <label>
         <span>连接器</span>
         <select id="importHistoryConnector">
-          ${renderSelectOptions(CONNECTOR_OPTIONS, connector)}
+          ${renderSelectOptions(importConnectorFilterOptions(), connector)}
         </select>
       </label>
       <label>

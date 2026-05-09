@@ -1,13 +1,7 @@
-﻿const CONNECTOR_OPTIONS = [
-  { value: "markdown", label: "markdown" },
-  { value: "obsidian", label: "obsidian" },
-  { value: "zotero", label: "zotero" },
-  { value: "readwise", label: "readwise" },
-  { value: "notebooklm", label: "notebooklm" }
-];
+import { importConnectorOptions as connectorOptions } from "./import-connector-labels.js";
 
 export function importConnectorOptions() {
-  return CONNECTOR_OPTIONS.map((option) => ({ ...option }));
+  return connectorOptions();
 }
 
 export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, hasMatchingPreview = false } = {}) {

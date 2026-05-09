@@ -1,3 +1,5 @@
+import { importConnectorLabel } from "./import-connector-labels.js";
+
 function primitiveEntries(value = {}) {
   return Object.entries(value || {}).filter(([, item]) => item === null || ["string", "number", "boolean"].includes(typeof item));
 }
@@ -116,7 +118,7 @@ export function resultMetrics(payload = {}) {
 
   if (stage === "preview") {
     push("导入记录", payload.importRecordId);
-    push("连接器", payload.connector);
+    push("连接器", importConnectorLabel(payload.connector));
     pushStatus(payload.status);
     for (const [key, value] of primitiveEntries(payload.summary)) push(metricLabel(key), value);
     push("警告", Array.isArray(payload.warnings) ? payload.warnings.length : 0);
@@ -138,7 +140,7 @@ export function resultMetrics(payload = {}) {
   if (stage === "record") {
     push("导入记录", payload.importRecord?.importRecordId);
     pushStatus(payload.importRecord?.status);
-    push("连接器", payload.importRecord?.connector);
+    push("连接器", importConnectorLabel(payload.importRecord?.connector));
     return metrics;
   }
 

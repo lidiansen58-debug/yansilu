@@ -4,14 +4,17 @@ import {
   filterImportHistoryItems,
   importHistoryActions,
   importHistoryAlertBadges,
+  importHistoryConnectorLabel,
   importHistoryDetailSummary,
   importHistoryOriginalityCounts,
+  importHistoryQueueProgressText,
+  importHistoryRiskHint,
   importHistorySummary,
   importStatusLabel,
   importStatusTone
 } from "../../apps/web/src/import-history-model.js";
 
-test("import history model derives labels, tones, and summaries", () => {
+test("import history model derives labels, tones, connectors, and summaries", () => {
   const record = {
     status: "preview",
     summary: { sources: 1, literatureNotes: 2, permanentNotes: 3, warnings: 4 }
@@ -19,10 +22,11 @@ test("import history model derives labels, tones, and summaries", () => {
 
   assert.equal(importStatusLabel("preview"), "预览中");
   assert.equal(importStatusTone("rolled_back"), "warn");
+  assert.equal(importHistoryConnectorLabel("notebooklm"), "NotebookLM");
   assert.equal(importHistorySummary(record), "来源 1 / 文献 2 / 永久 3 / 警告 4");
 });
 
-test("import history model derives preview badges and details from warnings and originality", () => {
+test("import history model derives preview badges details and risk hints", () => {
   const record = {
     status: "preview",
     summary: { sources: 1, literatureNotes: 1, permanentNotes: 2, warnings: 2 },
@@ -36,18 +40,20 @@ test("import history model derives preview badges and details from warnings and 
     { tone: "warn", text: "警告 2" },
     { tone: "bad", text: "阻断 1" }
   ]);
+  assert.match(importHistoryRiskHint(record), /阻断项默认不会写入/);
 
   const detail = importHistoryDetailSummary(record);
-  assert.equal(detail.length, 2);
+  assert.equal(detail.length, 3);
   assert.match(detail[0], /1 来源卡片/);
   assert.match(detail[0], /1 文献笔记/);
   assert.match(detail[0], /2 永久笔记/);
   assert.match(detail[1], /普通警告 2/);
   assert.match(detail[1], /原创性警告 1/);
   assert.match(detail[1], /原创性阻断 1/);
+  assert.match(detail[2], /显式覆盖原创性保护/);
 });
 
-test("import history model derives rollback modified badges and detail", () => {
+test("import history model derives rollback modified badges detail and hint", () => {
   const record = {
     status: "rolled_back",
     rollbackResult: {
@@ -60,12 +66,14 @@ test("import history model derives rollback modified badges and detail", () => {
   };
 
   assert.deepEqual(importHistoryAlertBadges(record), [{ tone: "warn", text: "保留 1" }]);
+  assert.match(importHistoryRiskHint(record), /已修改文件被保留/);
 
   const detail = importHistoryDetailSummary(record);
-  assert.equal(detail.length, 3);
+  assert.equal(detail.length, 4);
   assert.equal(detail[0], "已回滚 1 项");
   assert.equal(detail[1], "跳过 2 项");
   assert.equal(detail[2], "其中 1 项因已被修改而保留");
+  assert.match(detail[3], /手动核对/);
 });
 
 test("import history model derives completed detail summary and literature queue progress", () => {
@@ -86,15 +94,14 @@ test("import history model derives completed detail summary and literature queue
     }
   };
 
+  assert.equal(importHistoryQueueProgressText(record.literatureBatchProgress), "文献队列 已处理 6/10 / 待转述 1 / 待提炼 2 / 可转原创 3");
+
   const detail = importHistoryDetailSummary(record);
   assert.equal(detail.length, 5);
   assert.equal(detail[0], "已创建 1 来源卡片 / 2 文献笔记 / 3 永久笔记");
   assert.equal(detail[1], "跳过 冲突 1 / 无效 0");
   assert.equal(detail[2], "写入 notes/sources、notes/literature");
-  assert.match(detail[3], /待转述 1/);
-  assert.match(detail[3], /待提炼 2/);
-  assert.match(detail[3], /可转原创 3/);
-  assert.match(detail[3], /剩余待处理 4/);
+  assert.match(detail[3], /已处理 6\/10/);
   assert.equal(detail[4], "下一条待处理 Pending literature note");
 });
 
@@ -158,8 +165,8 @@ test("import history model includes literature batch progress for completed reco
 
   const detail = importHistoryDetailSummary(record);
   assert.equal(detail.length, 4);
+  assert.match(detail[3], /已处理 0\/2/);
   assert.match(detail[3], /待转述 1/);
-  assert.match(detail[3], /剩余待处理 2/);
 });
 
 test("import history model marks cleared batches and exposes queue action", () => {
