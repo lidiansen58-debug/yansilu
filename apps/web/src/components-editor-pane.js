@@ -2029,7 +2029,7 @@ export class EditorPane {
       split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
       split.classList.add(mode === "source" ? "editor-mode-source" : "editor-mode-wysiwyg");
     }
-    const showPreviewPanel = mode === "source";
+    const showPreviewPanel = false;
     this.els.previewPanel?.classList.toggle("hidden", !showPreviewPanel);
     this.els.modeEdit?.classList.toggle("active", mode === "source");
     this.updateModeToggleButton(mode);

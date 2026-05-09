@@ -870,7 +870,7 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
   });
 });
 
-test("prototype editor toggles markdown preview modes and renders current note", async (t) => {
+test("prototype editor defaults to note mode and toggles markdown source", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -884,39 +884,49 @@ test("prototype editor toggles markdown preview modes and renders current note",
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const previewPanel = document.querySelector("#markdownPreviewPanel");
+    return Boolean(
+      split?.classList.contains("editor-mode-wysiwyg") &&
+        previewPanel &&
+        window.getComputedStyle(previewPanel).display === "none"
+    );
+  });
+  await page.locator("#btnModeToggle").click();
   await ensurePlaceholderTitleSelection(page);
-  await page.keyboard.type("Preview Note");
+  await page.keyboard.type("Source Mode Note");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("Body with [[关联目标]] and #标签预览");
+  await page.keyboard.type("Body with [[关联目标]] and #标签源码");
 
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
-    const preview = document.querySelector("#markdownPreview");
+    const content = document.querySelector("#editorHost .cm-content");
+    const previewPanel = document.querySelector("#markdownPreviewPanel");
     return Boolean(
       split?.classList.contains("editor-mode-source") &&
-        /Preview Note/.test(preview?.textContent || "") &&
-        /标签预览/.test(preview?.textContent || "")
+        content &&
+        previewPanel &&
+        window.getComputedStyle(content).display !== "none" &&
+        window.getComputedStyle(previewPanel).display === "none"
     );
   });
-
-  const previewHtml = await page.locator("#markdownPreview").innerHTML();
-  assert.match(previewHtml, /<h1>/);
-  assert.match(previewHtml, /data-preview-link/);
-  assert.match(previewHtml, /data-preview-tag/);
+  const editorValue = await page.locator("#editorBody").inputValue();
+  assert.match(editorValue, /Source Mode Note/);
+  assert.match(editorValue, /标签源码/);
 
   await page.locator("#btnModeToggle").click();
   await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg"));
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
     const content = document.querySelector("#wysiwygHost .toastui-editor-contents");
-    return Boolean(split?.classList.contains("editor-mode-wysiwyg") && content);
-  });
-
-  await page.locator("#btnModeToggle").click();
-  await page.waitForFunction(() => {
-    const split = document.querySelector("#markdownSplit");
-    const content = document.querySelector("#editorHost .cm-content");
-    return Boolean(split?.classList.contains("editor-mode-source") && content);
+    const previewPanel = document.querySelector("#markdownPreviewPanel");
+    return Boolean(
+      split?.classList.contains("editor-mode-wysiwyg") &&
+        content &&
+        previewPanel &&
+        window.getComputedStyle(previewPanel).display === "none"
+    );
   });
 });
 
@@ -1202,7 +1212,7 @@ test("prototype editor contextual code tools can switch the current code block l
   }, 7000);
 });
 
-test("prototype editor preview mode shortcuts switch edit split and preview", async (t) => {
+test("prototype editor mode shortcuts switch note and source", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -1220,10 +1230,26 @@ test("prototype editor preview mode shortcuts switch edit split and preview", as
   await page.keyboard.type("Mode Shortcut Note");
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+2" : "Control+2");
-  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-source"));
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const previewPanel = document.querySelector("#markdownPreviewPanel");
+    return Boolean(
+      split?.classList.contains("editor-mode-source") &&
+        previewPanel &&
+        window.getComputedStyle(previewPanel).display === "none"
+    );
+  });
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+1" : "Control+1");
-  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg"));
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const previewPanel = document.querySelector("#markdownPreviewPanel");
+    return Boolean(
+      split?.classList.contains("editor-mode-wysiwyg") &&
+        previewPanel &&
+        window.getComputedStyle(previewPanel).display === "none"
+    );
+  });
 });
 
 test("prototype new note exposes editable body area below title", async (t) => {
