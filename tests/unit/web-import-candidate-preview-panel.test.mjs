@@ -25,10 +25,10 @@ test("candidate preview panel renders interactive filters and selected summary",
   assert.match(html, /已选 1\/2，已排除 1/);
   assert.match(html, /data-candidate-action="exclude-warning"/);
   assert.match(html, /data-candidate-action="permanent">仅永久笔记/);
-  assert.match(html, /data-candidate-filter="warning">Warning 1/);
+  assert.match(html, /data-candidate-filter="warning">警告 1/);
   assert.match(html, /来源卡片/);
   assert.match(html, /永久笔记/);
-  assert.match(html, /candidate-reason/);
+  assert.match(html, /缺少引用定位/);
 });
 
 test("candidate preview panel renders skip breakdown and focus banner", () => {

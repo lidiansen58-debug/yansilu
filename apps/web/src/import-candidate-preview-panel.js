@@ -93,7 +93,7 @@ export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null
       tone: "warning",
       label: "原创性跳过",
       count: originalitySkipped,
-      detail: "通常是永久笔记在当前 originality plan 下被判定为 warning/invalid，且不允许按 draft 写入。"
+      detail: "通常是永久笔记在当前原创性策略下被判定为警告或无效，且不允许按草稿写入。"
     },
     {
       key: "conflicted",
@@ -160,8 +160,8 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                 <button class="mini-btn" type="button" data-candidate-action="confirmable">仅可确认项</button>
                 <button class="mini-btn" type="button" data-candidate-action="safe">仅安全项</button>
                 <button class="mini-btn" type="button" data-candidate-action="exclude-risky">排除风险项</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-warning">排除 Warning</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除 Blocked</button>
+                <button class="mini-btn" type="button" data-candidate-action="exclude-warning">排除警告项</button>
+                <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除阻断项</button>
                 <button class="mini-btn" type="button" data-candidate-action="permanent">仅永久笔记</button>
               </div>
               <div class="toolbar-note">确认写入会只处理当前勾选的候选。</div>
@@ -169,12 +169,12 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
             <div class="result-candidates-toolbar">
               <div class="toolbar-actions">
                 <button class="mini-btn ${filter === "all" ? "is-filter-active" : ""}" type="button" data-candidate-filter="all">全部 ${filterCounts.all}</button>
-                <button class="mini-btn ${filter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">可确认项 ${filterCounts.confirmable}</button>
-                <button class="mini-btn ${filter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">仅安全项 ${filterCounts.safe}</button>
-                <button class="mini-btn ${filter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">风险项 ${filterCounts.risky}</button>
+                <button class="mini-btn ${filter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">可确认 ${filterCounts.confirmable}</button>
+                <button class="mini-btn ${filter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">安全 ${filterCounts.safe}</button>
+                <button class="mini-btn ${filter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">风险 ${filterCounts.risky}</button>
                 <button class="mini-btn ${filter === "excluded" ? "is-filter-active" : ""}" type="button" data-candidate-filter="excluded">已排除 ${filterCounts.excluded}</button>
-                <button class="mini-btn ${filter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">Warning ${filterCounts.warning}</button>
-                <button class="mini-btn ${filter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">Blocked ${filterCounts.blocked}</button>
+                <button class="mini-btn ${filter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">警告 ${filterCounts.warning}</button>
+                <button class="mini-btn ${filter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">阻断 ${filterCounts.blocked}</button>
               </div>
               <div class="toolbar-note">当前视图：${escapeHtml(filterLabel(filter))}</div>
             </div>`

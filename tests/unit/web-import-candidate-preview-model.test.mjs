@@ -64,7 +64,7 @@ test("candidate preview model derives confirm skipped ids and reason map", () =>
     pn_warn: {
       reason: "invalid",
       tone: "warning",
-      message: "未写入原因：原创性为 warning，当前未允许按 draft 写入。 缺少引用定位。"
+      message: "未写入原因：原创性为警告，当前未允许按草稿写入。 缺少引用定位。"
     }
   });
 });
