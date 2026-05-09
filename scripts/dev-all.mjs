@@ -1,9 +1,12 @@
 import net from "node:net";
 import { spawn } from "node:child_process";
 
+const API_PORT = Number(process.env.API_PORT || 3000);
+const WEB_PORT = Number(process.env.WEB_PORT || 5173);
+
 const commands = [
-  { name: "api", cmd: "node", args: ["./apps/api/src/server.mjs"], port: 3000 },
-  { name: "web", cmd: "node", args: ["./apps/web/src/dev-server.mjs"], port: 5173 },
+  { name: "api", cmd: "node", args: ["./apps/api/src/server.mjs"], port: API_PORT },
+  { name: "web", cmd: "node", args: ["./apps/web/src/dev-server.mjs"], port: WEB_PORT },
   { name: "worker", cmd: "node", args: ["./apps/worker/src/worker.mjs"] }
 ];
 
