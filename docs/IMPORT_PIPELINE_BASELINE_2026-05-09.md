@@ -13,6 +13,17 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - rollback
 - import-to-writing handoff
 
+## Import Hardening Handoff Received
+
+The planned `wt-import-hardening` scope from `docs/WORKTREE_PLAN.md` has been accepted into this branch because there is no separate active `import-hardening` worktree or branch in the current checkout. The accepted scope is:
+
+- real-world Markdown and Obsidian fixtures
+- preview -> confirm -> rollback stability
+- skipped/warning/blocked/excluded behavior
+- import result clarity where needed
+
+Current follow-up coverage includes a realistic nested Obsidian fixture with Chinese filenames, Chinese/mixed tags, aliases, nested wikilinks, embeds, and API preview assertions.
+
 ## Include In Baseline
 
 ### Import pipeline backend

@@ -207,3 +207,31 @@ test("buildMarkdownCandidates parses the edge-case Obsidian fixture vault", asyn
   assert.ok(malformedNote);
   assert.deepEqual(malformedNote.wikilink_targets, ["Target Note"]);
 });
+
+test("buildMarkdownCandidates parses realistic nested Obsidian vault with Chinese tags", async () => {
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-realistic-vault");
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: fixturePath }
+  });
+
+  assert.equal(result.sources.length, 2);
+  assert.equal(result.literature.length, 2);
+  assert.equal(result.permanent.length, 1);
+  assert.deepEqual(result.warnings, []);
+
+  const chineseNote = result.literature.find((note) => note.title === "中文阅读卡片");
+  assert.ok(chineseNote);
+  assert.deepEqual(chineseNote.aliases, ["CN reading note"]);
+  assert.ok(chineseNote.tags.includes("研究/方法"));
+  assert.ok(chineseNote.tags.includes("读书/论文"));
+  assert.ok(chineseNote.tags.includes("产品-策略"));
+  assert.deepEqual(chineseNote.wikilink_targets, ["Research/Spacing Note", "assets/chart 1.png"]);
+  assert.equal(chineseNote.parsed_wikilinks[1].embed, true);
+  assert.match(chineseNote.source_id, /^src_/);
+
+  const permanent = result.permanent[0];
+  assert.equal(permanent.title, "Spacing Note");
+  assert.ok(permanent.tags.includes("学习/记忆"));
+  assert.ok(permanent.from_literature_note_ids[0].startsWith("ln_"));
+});

@@ -300,3 +300,41 @@ test("POST /api/v1/imports/preview records edge-case Obsidian fixture candidates
     await stopApi(api);
   }
 });
+
+test("POST /api/v1/imports/preview records realistic Obsidian vault candidates with Chinese tags", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-preview-obsidian-realistic-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const fixturePath = path.join(FIXTURES_ROOT, "obsidian-realistic-vault");
+    const { response, payload } = await postJson(baseUrl, "/api/v1/imports/preview", {
+      connector: "obsidian",
+      payload: { path: fixturePath },
+      options: { detectWikilinks: true }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.connector, "obsidian");
+    assert.equal(payload.summary.sources, 2);
+    assert.equal(payload.summary.literatureNotes, 2);
+    assert.equal(payload.summary.permanentNotes, 1);
+    assert.equal(payload.summary.warnings, 1);
+    assert.deepEqual(payload.warnings.map((warning) => warning.code), ["ORIGINALITY_GUARD_BLOCKED"]);
+    assert.ok(payload.candidatePreview.literatureNotes.some((item) => item.title === "中文阅读卡片"));
+
+    const recordPath = path.join(vaultPath, "imports", "obsidian", `${payload.importRecordId}.preview.json`);
+    const record = JSON.parse(await fs.readFile(recordPath, "utf8"));
+    const chineseNote = record.candidates.literature.find((note) => note.title === "中文阅读卡片");
+    assert.ok(chineseNote);
+    assert.ok(chineseNote.tags.includes("读书/论文"));
+    assert.ok(chineseNote.tags.includes("产品-策略"));
+    assert.deepEqual(chineseNote.wikilink_targets, ["Research/Spacing Note", "assets/chart 1.png"]);
+    assert.equal(record.candidates.permanent[0].title, "Spacing Note");
+  } finally {
+    await stopApi(api);
+  }
+});
