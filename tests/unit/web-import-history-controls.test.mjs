@@ -14,6 +14,7 @@ test("import history controls render default filter state and refresh button", (
   assert.match(html, /刷新历史/);
   assert.match(html, /option value="all" selected/);
   assert.match(html, /全部状态/);
+  assert.match(html, /全部连接器/);
 });
 
 test("import history controls render selected filter values", () => {

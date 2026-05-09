@@ -26,7 +26,7 @@ test("import result model derives preview title tone metrics subtitle", () => {
   assert.equal(resultStatusLabel("warn"), "需注意");
   assert.deepEqual(resultMetrics(payload), [
     { label: "导入记录", value: "imp_1" },
-    { label: "连接器", value: "markdown" },
+    { label: "连接器", value: "Markdown" },
     { label: "状态", value: "预览中" },
     { label: "来源卡片", value: "1" },
     { label: "文献笔记", value: "2" },

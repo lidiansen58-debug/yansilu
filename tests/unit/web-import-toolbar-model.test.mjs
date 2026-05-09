@@ -4,6 +4,7 @@ import { importConfirmButtonState, importConnectorOptions, importToolbarViewMode
 
 test("import toolbar model exposes connector options", () => {
   assert.deepEqual(importConnectorOptions().map((item) => item.value), ["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
+  assert.deepEqual(importConnectorOptions().map((item) => item.label), ["Markdown", "Obsidian", "Zotero", "Readwise", "NotebookLM"]);
 });
 
 test("import toolbar model derives confirm button state", () => {

@@ -1,3 +1,5 @@
+import { importConnectorLabel } from "./import-connector-labels.js";
+
 function compactValue(value) {
   if (value === null || value === undefined || value === "") return "未知";
   if (typeof value === "boolean") return value ? "是" : "否";
@@ -19,6 +21,10 @@ export function formatImportTimestamp(value) {
     minute: "2-digit",
     hour12: false
   });
+}
+
+export function importHistoryConnectorLabel(connector) {
+  return importConnectorLabel(connector);
 }
 
 export function importStatusLabel(status) {
@@ -113,6 +119,32 @@ export function importHistoryMatchesRisk(record = {}, riskFilter = "all") {
   return true;
 }
 
+export function importHistoryRiskHint(record = {}) {
+  const status = String(record.status || record.state || "").trim();
+  const summaryWarnings = Number(record.summary?.warnings || 0);
+  const originality = importHistoryOriginalityCounts(record);
+  if (originality.blocked > 0) {
+    return "阻断项默认不会写入；先改写高相似度内容，或在确认时显式覆盖原创性保护。";
+  }
+  if (summaryWarnings > 0 || originality.warning > 0) {
+    return "警告项建议先补充引用定位或增强转述，再确认写入。";
+  }
+  if (status === "rolled_back") {
+    const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
+    const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
+    if (modifiedCount > 0) return "已修改文件被保留，请手动核对后再决定合并或删除。";
+  }
+  return "";
+}
+
+export function importHistoryQueueProgressText(progress = null) {
+  if (!progress || Number(progress.total || 0) <= 0) return "";
+  const total = Number(progress.total || 0);
+  const remaining = Number(progress.remaining || 0);
+  const handled = Math.max(0, total - remaining);
+  return `文献队列 已处理 ${handled}/${total} / 待转述 ${Number(progress.pending || 0)} / 待提炼 ${Number(progress.refine || 0)} / 可转原创 ${Number(progress.ready || 0)}`;
+}
+
 export function importHistoryDetailSummary(record = {}) {
   const status = String(record.status || record.state || "").trim();
   if (status === "preview") {
@@ -124,6 +156,8 @@ export function importHistoryDetailSummary(record = {}) {
     if (originality.warning > 0) signals.push(`原创性警告 ${originality.warning}`);
     if (originality.blocked > 0) signals.push(`原创性阻断 ${originality.blocked}`);
     detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项");
+    const hint = importHistoryRiskHint(record);
+    if (hint) detail.push(hint);
     return detail;
   }
   if (status === "completed") {
@@ -135,15 +169,13 @@ export function importHistoryDetailSummary(record = {}) {
       `跳过 冲突 ${Number(skipped.conflicted || 0)} / 无效 ${Number(skipped.invalid || 0)}`,
       writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径"
     ];
-    const progress = record.literatureBatchProgress;
-    if (progress && Number(progress.total || 0) > 0) {
-      detail.push(
-        `文献队列 待转述 ${Number(progress.pending || 0)} / 待提炼 ${Number(progress.refine || 0)} / 可转原创 ${Number(progress.ready || 0)} / 剩余待处理 ${Number(progress.remaining || 0)}`
-      );
-      if (progress.nextPendingTitle) {
-        detail.push(`下一条待处理 ${String(progress.nextPendingTitle)}`);
-      } else if (progress.nextReadyTitle) {
-        detail.push(`下一条可转原创 ${String(progress.nextReadyTitle)}`);
+    const queueText = importHistoryQueueProgressText(record.literatureBatchProgress);
+    if (queueText) {
+      detail.push(queueText);
+      if (record.literatureBatchProgress?.nextPendingTitle) {
+        detail.push(`下一条待处理 ${String(record.literatureBatchProgress.nextPendingTitle)}`);
+      } else if (record.literatureBatchProgress?.nextReadyTitle) {
+        detail.push(`下一条可转原创 ${String(record.literatureBatchProgress.nextReadyTitle)}`);
       }
     }
     return detail;
@@ -152,11 +184,14 @@ export function importHistoryDetailSummary(record = {}) {
     const rolledBack = Array.isArray(record.rollbackResult?.rolledBack) ? record.rollbackResult.rolledBack : [];
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
-    return [
+    const detail = [
       `已回滚 ${rolledBack.length} 项`,
       `跳过 ${skipped.length} 项`,
       modifiedCount ? `其中 ${modifiedCount} 项因已被修改而保留` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
     ];
+    const hint = importHistoryRiskHint(record);
+    if (hint) detail.push(hint);
+    return detail;
   }
   return [];
 }

@@ -17,7 +17,7 @@ test("import history panel renders filtered empty state with counts", () => {
   assert.match(html, /共 1 条历史记录，当前过滤后为 0 条/);
 });
 
-test("import history panel renders active item badges, details, and actions", () => {
+test("import history panel renders active item badges, details, actions, and connector labels", () => {
   const html = renderImportHistoryPanel({
     items: [
       {
@@ -57,6 +57,7 @@ test("import history panel renders active item badges, details, and actions", ()
   });
 
   assert.match(html, /import-history-item is-active/);
+  assert.match(html, />Markdown<\/strong>/);
   assert.match(html, /tone-ok">已写入/);
   assert.match(html, /data-import-history-action="load"/);
   assert.match(html, /data-import-history-action="resume-literature-queue"/);
@@ -65,8 +66,8 @@ test("import history panel renders active item badges, details, and actions", ()
   assert.match(html, /Pending note/);
   assert.match(html, /已创建 1 来源卡片 \/ 2 文献笔记 \/ 3 永久笔记/);
   assert.match(html, /写入 notes\/sources、notes\/literature/);
+  assert.match(html, /已处理 0\/2/);
   assert.match(html, /待转述 1/);
-  assert.match(html, /剩余待处理 2/);
   assert.match(html, /保留 1/);
   assert.match(html, /当前显示 2 条 \/ 全部 4 条/);
 });
