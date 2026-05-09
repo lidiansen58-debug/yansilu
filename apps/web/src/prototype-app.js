@@ -153,8 +153,8 @@ function feedbackBaseUrl() {
 }
 
 function activePrototypeUrl() {
-  if (typeof window === "undefined") return "/prototype";
-  return window.location.href || `${window.location.origin}/prototype`;
+  if (typeof window === "undefined") return "/app";
+  return window.location.href || `${window.location.origin}/app`;
 }
 
 function buildFeedbackUrl(kind = "bug") {
@@ -1854,7 +1854,7 @@ function resolveNotePath(note) {
 }
 
 function standaloneEditorUrl(noteId = "") {
-  const baseUrl = `${window.location.origin}/editor`;
+  const baseUrl = `${window.location.origin}/app/editor`;
   const id = String(noteId || "").trim();
   return id ? `${baseUrl}?note=${encodeURIComponent(id)}` : baseUrl;
 }
@@ -4316,9 +4316,9 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
 
 document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const url = `${window.location.origin}/prototype-handoff`;
+    const url = `${window.location.origin}/app/handoff`;
     window.open(url, "_blank", "noopener,noreferrer");
-    setStatus("已打开原型交付板", "ok");
+    setStatus("已打开工作台交付板", "ok");
   });
 });
 
