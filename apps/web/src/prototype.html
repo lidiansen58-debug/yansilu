@@ -1205,7 +1205,7 @@
       overflow: hidden;
       padding: 8px 10px 10px;
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) 272px;
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
       align-content: stretch;
       align-items: stretch;
@@ -3188,9 +3188,13 @@
       text-align: center;
     }
     .inspector-panel {
-      align-self: start;
-      position: sticky;
-      top: 18px;
+      position: fixed;
+      right: 14px;
+      top: 78px;
+      z-index: 40;
+      width: min(340px, calc(100vw - 28px));
+      max-height: calc(100vh - 92px);
+      overflow: auto;
       padding: 12px;
       background: #fbfbfc;
     }
