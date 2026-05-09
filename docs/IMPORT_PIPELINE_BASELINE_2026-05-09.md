@@ -52,6 +52,7 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - `apps/web/src/import-history-model.js`
 - `apps/web/src/import-history-mount.js`
 - `apps/web/src/import-history-panel.js`
+- `apps/web/src/import-history-summary.js`
 - `apps/web/src/import-page-mount.js`
 - `apps/web/src/import-result-model.js`
 - `apps/web/src/import-result-mount.js`
@@ -66,6 +67,7 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - `tests/unit/web-import-history-model.test.mjs`
 - `tests/unit/web-import-history-mount.test.mjs`
 - `tests/unit/web-import-history-panel.test.mjs`
+- `tests/unit/web-import-history-summary.test.mjs`
 - `tests/unit/web-import-page-mount.test.mjs`
 - `tests/unit/web-import-result-model.test.mjs`
 - `tests/unit/web-import-result-mount.test.mjs`

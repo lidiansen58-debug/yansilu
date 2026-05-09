@@ -2522,7 +2522,7 @@ test("prototype import history highlights modified files skipped during rollback
   await fs.access(markdownPath);
 });
 
-test("prototype import history can open literature queue for a completed batch", async (t) => {
+test("prototype import history recent summary can open literature queue for a completed batch", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -2560,11 +2560,15 @@ test("prototype import history can open literature queue for a completed batch",
   });
 
   await page.selectOption("#importHistoryStatus", "completed");
+  const summary = page.locator(`.import-history-summary[data-import-history-id="${importRecordId}"]`);
+  await summary.waitFor();
+  await summary.locator('[data-import-history-action="resume-literature-queue"]').waitFor();
+  await summary.locator('[data-import-history-action="open-literature-queue"]').waitFor();
   const historyItemText = await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).textContent();
   assert.match(String(historyItemText || ""), /Fixture Import Note/);
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="resume-literature-queue"]`).waitFor();
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="open-literature-queue"]`).waitFor();
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="resume-literature-queue"]`).click();
+  await summary.locator('[data-import-history-action="resume-literature-queue"]').click();
 
   await waitFor(async () => {
     await page.locator("#editorWorkspace:not(.hidden)").waitFor({ timeout: 500 });
