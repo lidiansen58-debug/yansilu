@@ -224,6 +224,8 @@ test("buildMarkdownCandidates parses realistic nested Obsidian vault with Chines
   assert.ok(chineseNote);
   assert.deepEqual(chineseNote.aliases, ["CN reading note"]);
   assert.ok(chineseNote.tags.includes("研究/方法"));
+  assert.ok(chineseNote.tags.includes("来源/访谈"));
+  assert.equal(chineseNote.tags.includes("#来源/访谈"), false);
   assert.ok(chineseNote.tags.includes("读书/论文"));
   assert.ok(chineseNote.tags.includes("产品-策略"));
   assert.deepEqual(chineseNote.wikilink_targets, ["Research/Spacing Note", "assets/chart 1.png"]);

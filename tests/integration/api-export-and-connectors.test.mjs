@@ -330,6 +330,8 @@ test("POST /api/v1/imports/preview records realistic Obsidian vault candidates w
     const record = JSON.parse(await fs.readFile(recordPath, "utf8"));
     const chineseNote = record.candidates.literature.find((note) => note.title === "中文阅读卡片");
     assert.ok(chineseNote);
+    assert.ok(chineseNote.tags.includes("来源/访谈"));
+    assert.equal(chineseNote.tags.includes("#来源/访谈"), false);
     assert.ok(chineseNote.tags.includes("读书/论文"));
     assert.ok(chineseNote.tags.includes("产品-策略"));
     assert.deepEqual(chineseNote.wikilink_targets, ["Research/Spacing Note", "assets/chart 1.png"]);
