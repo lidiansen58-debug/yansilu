@@ -1,0 +1,143 @@
+name: desktop-release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate release tag
+        run: node ./scripts/release-validate-tag.mjs "${GITHUB_REF_NAME}"
+
+  build:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bundle_env: nsis
+            artifact_name: yansilu-windows-nsis
+          - os: ubuntu-24.04
+            bundle_env: deb,appimage
+            artifact_name: yansilu-linux-bundles
+          - os: macos-latest
+            bundle_env: app,dmg
+            artifact_name: yansilu-macos-arm64-bundles
+          - os: macos-15-intel
+            bundle_env: app,dmg
+            artifact_name: yansilu-macos-intel-bundles
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: "true"
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate updater signing key
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            Write-Error "TAURI_SIGNING_PRIVATE_KEY is required for tagged release builds."
+            exit 1
+          }
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Desktop preflight
+        run: npm run build:desktop:check
+
+      - name: Build desktop bundles
+        run: npm run build:desktop
+
+      - name: Upload desktop bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/**
+            !apps/desktop/src-tauri/target/release/bundle/**/*.dSYM/**
+          if-no-files-found: error
+
+  draft-release:
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download desktop bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create or update draft GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          mkdir -p release-assets
+          for artifact_dir in dist/*; do
+            if [ -d "$artifact_dir" ]; then
+              artifact_name="$(basename "$artifact_dir")"
+              (cd "$artifact_dir" && zip -r "../../release-assets/${artifact_name}.zip" .)
+            fi
+          done
+
+          files=(release-assets/*.zip)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts were downloaded."
+            exit 1
+          fi
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "${files[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --generate-notes \
+              --verify-tag \
+              --title "$tag"
+          fi

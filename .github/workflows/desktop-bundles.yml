@@ -1,4 +1,4 @@
-name: desktop-bundles
+name: desktop-ci
 
 on:
   workflow_dispatch:
@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    tags:
-      - "v*"
 
 jobs:
   build:
@@ -34,7 +31,7 @@ jobs:
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
-      YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ github.event_name == 'push' && 'true' || (github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && 'true' || 'false') }}
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && 'true' || 'false' }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
