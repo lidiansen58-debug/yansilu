@@ -145,6 +145,18 @@ CREATE TABLE IF NOT EXISTS writing_basket_items (
 );
 CREATE INDEX IF NOT EXISTS idx_writing_basket_project_order ON writing_basket_items(project_id, order_no);
 
+CREATE TABLE IF NOT EXISTS draft_scaffolds (
+  id TEXT PRIMARY KEY,
+  writing_project_id TEXT NOT NULL REFERENCES writing_projects(id),
+  sections_json TEXT NOT NULL,
+  open_questions_json TEXT NOT NULL,
+  generated_by TEXT NOT NULL,
+  markdown TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_draft_scaffolds_project ON draft_scaffolds(writing_project_id, created_at);
+
 CREATE TABLE IF NOT EXISTS reminder_state (
   id TEXT PRIMARY KEY,
   directory_id TEXT NOT NULL REFERENCES directories(id),
@@ -153,4 +165,3 @@ CREATE TABLE IF NOT EXISTS reminder_state (
   last_triggered_at TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reminder_unique ON reminder_state(directory_id, reminder_type);
-

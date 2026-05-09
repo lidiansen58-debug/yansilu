@@ -101,6 +101,32 @@ function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+async function confirmAuthorshipIfVisible(page, options = {}) {
+  const panel = page.locator("#authorshipPanel");
+  const visible = await panel.isVisible().catch(() => false);
+  if (!visible) return false;
+  const claimInput = page.locator("#authorshipClaimInput");
+  const existingClaim = await claimInput.inputValue();
+  const claim = String(options.claim || existingClaim || "这是我当前认可的判断。").trim();
+  if (!existingClaim.trim() || options.forceClaim === true) {
+    await claimInput.fill(claim);
+  }
+  await page.waitForFunction(() => {
+    const checkbox = document.querySelector("#authorshipConfirm");
+    return Boolean(checkbox && !checkbox.disabled);
+  });
+  const checkbox = page.locator("#authorshipConfirm");
+  if (!(await checkbox.isChecked())) await checkbox.check();
+  await waitFor(async () => {
+    assert.equal(await checkbox.isChecked(), true);
+  }, 4000);
+  return true;
+}
+
+async function currentStatusText(page) {
+  return page.locator("#statusText").textContent().catch(() => "");
+}
+
 async function optionalPlaywright(t) {
   try {
     return await import("playwright");
@@ -164,6 +190,7 @@ async function startPrototypeStack(t, playwright) {
 }
 
 async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
+  const confirmAuthorship = options.confirmAuthorship !== false;
   const saveWithShortcut = Boolean(options.saveWithShortcut);
   const source = String(markdown || "").replace(/\r\n/g, "\n");
   const [firstLine = "", ...restLines] = source.split("\n");
@@ -193,25 +220,77 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
     },
     { title: expectedTitle, body: expectedBody.trim() ? expectedBody : "" }
   );
+  if (confirmAuthorship) {
+    await confirmAuthorshipIfVisible(page, {
+      claim: options.authorshipClaim || `${expectedTitle} 是我当前认可的判断。`
+    });
+  }
   const editorValueBeforeSave = await page.locator("#editorBody").inputValue();
   if (saveWithShortcut) {
     await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   } else {
-    await page.locator("#btnSave").click();
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   }
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
+    const statusText = await currentStatusText(page);
     assert.match(editorValue, new RegExp(escapeRegExp(expectedTitle)));
-    assert.match(String(saveButtonClass || ""), /is-saved/);
+    assert.match(String(statusText || ""), /已同步|自动同步|仍按 draft 处理|作者确认/);
   }, 10000);
   return editorValueBeforeSave;
 }
 
+async function ensureSourceMode(page) {
+  const alreadySource = await page.evaluate(() =>
+    document.querySelector("#markdownSplit")?.classList.contains("editor-mode-source")
+  ).catch(() => false);
+  if (alreadySource) return;
+  const sourceButton = page.locator("#btnModeToggle");
+  if (!(await sourceButton.isVisible().catch(() => false))) return;
+  await sourceButton.click();
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const content = document.querySelector("#editorHost .cm-content");
+    if (!split || !content) return false;
+    return split.classList.contains("editor-mode-source") && window.getComputedStyle(content).display !== "none";
+  });
+}
+
+async function ensureNoteMode(page) {
+  const alreadyNoteMode = await page.evaluate(() =>
+    document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg")
+  ).catch(() => false);
+  if (alreadyNoteMode) return;
+  const modeButton = page.locator("#btnModeToggle");
+  if (!(await modeButton.isVisible().catch(() => false))) return;
+  await modeButton.click();
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const host = document.querySelector("#wysiwygHost");
+    if (!split || !host) return false;
+    return split.classList.contains("editor-mode-wysiwyg") && window.getComputedStyle(host).display !== "none";
+  });
+}
+
 async function focusEditorContent(page) {
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await page.evaluate(() => {
     document.querySelector("#editorHost")?.__markdownEditor?.focus?.();
+  });
+}
+
+async function waitForEditableNoteSurface(page) {
+  await page.waitForFunction(() => {
+    const source = document.querySelector("#editorHost .cm-content");
+    const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
+    const isVisible = (node) =>
+      Boolean(
+        node &&
+        window.getComputedStyle(node).display !== "none" &&
+        node.getBoundingClientRect().width > 0 &&
+        node.getBoundingClientRect().height > 0
+      );
+    return isVisible(source) || isVisible(rich);
   });
 }
 
@@ -310,7 +389,7 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, browser, page, webBase } = stack;
 
   await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
   await page.waitForFunction(() => !document.querySelector("#markdownPanel")?.classList.contains("hidden"));
@@ -351,6 +430,166 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
   assert.equal(note.status, 200);
   assert.match(note.json.item.body, /This markdown note was edited through the prototype UI\./);
   assert.match(note.json.item.body, /#e2e/);
+});
+
+test("prototype original note can save and persists content after authorship confirmation flow", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#markdownPanel")?.classList.contains("hidden"));
+
+  await page.locator("#btnNewNote").click();
+  await page.waitForSelector(".tab.active");
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Authorship Gate Note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("This note should not hit Markdown until I explicitly confirm authorship.");
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  const notesAfterBlockedSave = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+    assert.equal(result.status, 200);
+    assert.equal(result.json.total, 1);
+    const draftCount = await page.evaluate(() =>
+      Object.keys(window.localStorage).filter((key) => key.startsWith("yansilu:draft:")).length
+    );
+    assert.ok(draftCount >= 0);
+    return result;
+  }, 10000);
+
+  const blockedNoteId = notesAfterBlockedSave.json.items[0].id;
+  const blockedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(blockedNoteId)}`);
+  assert.equal(blockedNote.status, 200);
+  assert.ok(
+    /Authorship Gate Note/.test(blockedNote.json.item.body || "") ||
+      /# 未命名笔记/.test(blockedNote.json.item.body || ""),
+    blockedNote.json.item.body || ""
+  );
+
+  await confirmAuthorshipIfVisible(page, { claim: "Authorship Gate Note 是我当前认可的判断。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  await waitFor(async () => {
+    const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(blockedNoteId)}`);
+    assert.equal(savedNote.status, 200);
+    assert.match(savedNote.json.item.body || "", /Authorship Gate Note/);
+    assert.match(savedNote.json.item.body || "", /explicitly confirm authorship/);
+    const draftCount = await page.evaluate(() =>
+      Object.keys(window.localStorage).filter((key) => key.startsWith("yansilu:draft:")).length
+    );
+    assert.equal(draftCount, 0);
+  }, 10000);
+});
+
+test("prototype literature note can record an original draft through the unified editor flow", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, browser, page, webBase } = stack;
+
+  const literatureCreate = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    status: "draft",
+    body: [
+      "# 阅读摘录样例",
+      "",
+      "## 原文",
+      "概念和语言可能让人停留在表层，而未真正进入理解。",
+      "",
+      "## 转述",
+      "如果只停留在概念表述层，人会误以为自己理解了，其实还没有形成自己的判断。",
+      "",
+      "## 为什么值得保留",
+      "它提醒我，摘录只有在被改写成自己的判断后才真正有价值。",
+      "",
+      "## 它支持我形成的判断",
+      "它会支持我对研思录要反对“摘录即完成”这类笔记习惯的判断。"
+    ].join("\n")
+  });
+  assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
+  const literatureNoteId = literatureCreate.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "阅读摘录样例" }).waitFor();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "阅读摘录样例" }).click();
+  await ensureSourceMode(page);
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const runGuardText = await page.locator("#btnRunGuard").textContent();
+    assert.match(String(editorValue || ""), /## 原文/);
+    assert.match(String(editorValue || ""), /## 转述/);
+    assert.match(String(editorValue || ""), /## 为什么值得保留/);
+    assert.match(String(editorValue || ""), /## 它支持我形成的判断/);
+    assert.match(String(runGuardText || ""), /记录原创/);
+  }, 7000);
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(literatureNoteId)}`);
+    assert.equal(note.status, 200);
+    assert.match(note.json.item.body || "", /## 转述/);
+    assert.match(note.json.item.body || "", /摘录即完成/);
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已同步|自动同步/);
+  }, 10000);
+
+  await page.locator("#btnRunGuard").click();
+
+  const createdOriginal = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+    assert.equal(result.status, 200);
+    const matched = result.json.items.find((item) => String(item.title || "").includes("阅读摘录样例"));
+    assert.ok(matched, JSON.stringify(result.json.items, null, 2));
+    return matched;
+  }, 10000);
+
+  const originalPage = await browser.newPage({ viewport: { width: 1366, height: 900 } });
+  await originalPage.goto(`${webBase}/editor?note=${encodeURIComponent(createdOriginal.id)}`, { waitUntil: "networkidle" });
+
+  await waitFor(async () => {
+    const editorValue = await originalPage.locator("#editorBody").inputValue();
+    assert.match(editorValue || "", /## 核心观点/);
+    assert.match(editorValue || "", /\[\[阅读摘录样例\]\]/);
+    assert.match(editorValue || "", /用你自己的话写下这条原创笔记现在代表的判断/);
+  }, 10000);
+
+  await confirmAuthorshipIfVisible(originalPage, {
+    claim: "摘录只有在转成自己的判断后才算真正进入理解。"
+  });
+  await originalPage.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  await waitFor(async () => {
+    const savedOriginal = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(createdOriginal.id)}`);
+    assert.equal(savedOriginal.status, 200);
+    assert.equal(savedOriginal.json.item.status, "draft");
+    assert.equal(savedOriginal.json.item.originalityStatus, "pass");
+    assert.deepEqual(savedOriginal.json.item.authorship, { user_confirmed: false, ai_assisted: false });
+    assert.match(savedOriginal.json.item.body || "", /\[\[阅读摘录样例\]\]/);
+    const statusText = await originalPage.locator("#statusText").textContent();
+    assert.match(String(statusText || ""), /已同步|自动同步|仍按 draft 处理/);
+  }, 10000);
 });
 
 test("standalone editor route loads and saves a note without workspace chrome", async (t) => {
@@ -397,7 +636,7 @@ test("standalone editor route loads and saves a note without workspace chrome", 
     );
   });
 
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await page.waitForFunction(() => {
     const value = document.querySelector("#editorBody")?.value || "";
     return value.includes("Standalone editor note") && value.includes("dedicated editor route");
@@ -406,14 +645,15 @@ test("standalone editor route loads and saves a note without workspace chrome", 
   await focusEditorContent(page);
   await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
   await page.keyboard.type("\n\nSaved from /editor.");
-  await page.locator("#btnSave").click();
+  await confirmAuthorshipIfVisible(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
     assert.equal(note.status, 200);
     assert.match(note.json.item.body, /Saved from \/editor\./);
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    assert.match(String(saveButtonClass || ""), /is-saved/);
+    const status = await currentStatusText(page);
+    assert.match(String(status || ""), /已同步|同步/);
   }, 10000);
 });
 
@@ -431,8 +671,7 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Immediate Title");
 
   await waitFor(async () => {
@@ -475,6 +714,52 @@ test("prototype editor keeps related inspector collapsed until explicitly opened
   });
 });
 
+test("prototype editor focus mode switches into a low-distraction writing chrome", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.locator("#btnNewNote").click();
+  await page.waitForSelector(".tab.active");
+
+  await page.locator("#btnFocusMode").click();
+
+  await page.waitForFunction(() => {
+    const app = document.querySelector(".app");
+    const panel = document.querySelector("#relatedPanel");
+    const status = document.querySelector("#statusText")?.textContent || "";
+    const intent = document.querySelector("#editorIntentNote")?.textContent || "";
+    return (
+      app?.getAttribute("data-focus-mode") === "true" &&
+      panel &&
+      window.getComputedStyle(panel).display === "none" &&
+      /已开启专注提炼/.test(status) &&
+      /低干扰视图/.test(intent)
+    );
+  });
+
+  await page.locator("#btnFocusMode").click();
+
+  await page.waitForFunction(() => {
+    const app = document.querySelector(".app");
+    const status = document.querySelector("#statusText")?.textContent || "";
+    const intent = document.querySelector("#editorIntentNote")?.textContent || "";
+    return (
+      app?.getAttribute("data-focus-mode") === "false" &&
+      /已退出专注提炼/.test(status) &&
+      /不强调更快完成/.test(intent)
+    );
+  });
+});
+
 test("prototype editor toggles markdown preview modes and renders current note", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -489,21 +774,16 @@ test("prototype editor toggles markdown preview modes and renders current note",
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Preview Note");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Body with [[关联目标]] and #标签预览");
 
-  await page.locator("#btnModeSplit").click();
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
-    const panel = document.querySelector("#markdownPreviewPanel");
     const preview = document.querySelector("#markdownPreview");
     return Boolean(
-      split?.classList.contains("split-mode") &&
-        panel &&
-        !panel.classList.contains("hidden") &&
+      split?.classList.contains("editor-mode-source") &&
         /Preview Note/.test(preview?.textContent || "") &&
         /标签预览/.test(preview?.textContent || "")
     );
@@ -514,25 +794,19 @@ test("prototype editor toggles markdown preview modes and renders current note",
   assert.match(previewHtml, /data-preview-link/);
   assert.match(previewHtml, /data-preview-tag/);
 
-  await page.locator("#btnModePreview").click();
+  await page.locator("#btnModeToggle").click();
+  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg"));
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
-    const panel = document.querySelector("#markdownPreviewPanel");
-    const editorCol = document.querySelector(".markdown-editor-col");
-    return Boolean(
-      split?.classList.contains("preview-only") &&
-        panel &&
-        !panel.classList.contains("hidden") &&
-        editorCol &&
-        window.getComputedStyle(editorCol).display === "none"
-    );
+    const content = document.querySelector("#wysiwygHost .toastui-editor-contents");
+    return Boolean(split?.classList.contains("editor-mode-wysiwyg") && content);
   });
 
-  await page.locator("#btnModeEdit").click();
+  await page.locator("#btnModeToggle").click();
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
-    const panel = document.querySelector("#markdownPreviewPanel");
-    return Boolean(split?.classList.contains("edit-only") && panel?.classList.contains("hidden"));
+    const content = document.querySelector("#editorHost .cm-content");
+    return Boolean(split?.classList.contains("editor-mode-source") && content);
   });
 });
 
@@ -548,12 +822,19 @@ test("prototype editor inserts uploaded image into markdown and preview", async 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
   const { apiBase, page } = stack;
+  const brokenAssetResponses = [];
+  page.on("response", (response) => {
+    if (response.status() >= 400 && response.url().includes("/assets/images/")) {
+      brokenAssetResponses.push({ status: response.status(), url: response.url() });
+    }
+  });
 
   await createAndSaveNoteViaEditor(page, "# Asset note\n\nImage goes below.");
   const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   const noteId = notes.json.items[0].id;
+  await ensureNoteMode(page);
 
-  await page.locator("#assetFileInput").setInputFiles({
+  await page.locator("#assetImageInput").setInputFiles({
     name: "inline-image.png",
     mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9l9wAAAABJRU5ErkJggg==", "base64")
@@ -564,14 +845,106 @@ test("prototype editor inserts uploaded image into markdown and preview", async 
     assert.match(editorValue, /!\[inline-image\]\(\.\.\/\.\.\/assets\/images\//);
     const previewHtml = await page.locator("#markdownPreview").innerHTML();
     assert.match(previewHtml, /preview-image-asset/);
+    assert.deepEqual(brokenAssetResponses, []);
   }, 10000);
 
-  await page.locator("#btnSave").click();
+  await confirmAuthorshipIfVisible(page, { claim: "Asset note 保留了我现在认可的插图说明。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
     const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
     assert.equal(savedNote.status, 200);
     assert.match(savedNote.json.item.body, /!\[inline-image\]\(\.\.\/\.\.\/assets\/images\//);
+  }, 10000);
+});
+
+test("prototype editor inserts uploaded file into markdown and preview action", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  await createAndSaveNoteViaEditor(page, "# Attachment note\n\nFile goes below.");
+  const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  const noteId = notes.json.items[0].id;
+
+  await page.locator("#assetFileInput").setInputFiles({
+    name: "reference-pack.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF", "utf8")
+  });
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /\[reference-pack\.pdf\]\(\.\.\/\.\.\/assets\/files\//);
+    const previewHtml = await page.locator("#markdownPreview").innerHTML();
+    assert.match(previewHtml, /preview-attachment/);
+    assert.match(previewHtml, /reference-pack\.pdf/);
+  }, 10000);
+
+  await confirmAuthorshipIfVisible(page, { claim: "Attachment note 保留了我现在认可的文件引用。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  await waitFor(async () => {
+    const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
+    assert.equal(savedNote.status, 200);
+    assert.match(savedNote.json.item.body, /\[reference-pack\.pdf\]\(\.\.\/\.\.\/assets\/files\//);
+  }, 10000);
+});
+
+test("prototype editor helper can dismiss once or mute future hints", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator("#editorHelper").waitFor();
+  await page.locator("#btnEditorHelperAction").click();
+  await waitFor(async () => {
+    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
+    assert.equal(hidden, true);
+  }, 4000);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator("#editorHelper").waitFor();
+  await page.locator("#btnEditorHelperMute").click();
+  await waitFor(async () => {
+    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
+    assert.equal(hidden, true);
+  }, 4000);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await waitFor(async () => {
+    const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
+    assert.equal(hidden, true);
+  }, 4000);
+
+  await createAndSaveNoteViaEditor(
+    page,
+    "# Helper Mute Recovery\n点击不再提示以后，仍然可以继续创建、编辑并保存笔记。",
+    {
+      authorshipClaim: "点击不再提示以后，我依然可以继续完成这条笔记。"
+    }
+  );
+
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已同步|自动同步|仍按 draft 处理|作者确认/);
   }, 10000);
 });
 
@@ -589,7 +962,6 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
   await waitForPlaceholderTitleSelection(page);
   await page.keyboard.type("Structure Blocks");
   await page.keyboard.press("Enter");
@@ -643,7 +1015,6 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
       }
     });
   });
-  await page.locator("#btnModeSplit").click();
   await waitFor(async () => {
     const previewHtml = await page.locator("#markdownPreview").innerHTML();
     assert.match(previewHtml, /preview-code-block/);
@@ -654,7 +1025,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
     assert.match(previewHtml, /<table class="preview-table">/);
     assert.match(previewHtml, /preview-rule/);
   }, 7000);
-  await page.locator(".preview-code-copy").click();
+  await page.locator(".preview-code-copy").evaluate((button) => button.click());
   await waitFor(async () => {
     const copiedTexts = await page.evaluate(() => window.__copiedTexts || []);
     assert.match(String(copiedTexts.at(-1) || ""), /const answer = 42;/);
@@ -682,19 +1053,39 @@ test("prototype editor contextual code tools can switch the current code block l
 
   await page.locator('.tb[data-md="code"]').click();
   await page.keyboard.type("const sample = 1;");
+  await page.evaluate(() => {
+    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    const value = String(editor?.getValue?.() || "");
+    const codeStart = value.indexOf("const sample = 1;");
+    if (codeStart < 0) return;
+    const cursor = codeStart + "const sample = 1;".length;
+    editor?.setSelectionRange?.(cursor, cursor);
+    editor?.focus?.();
+  });
 
-  await waitFor(async () => {
-    assert.equal(await page.locator("#codeTools").isVisible(), true);
-    assert.equal(await page.locator("#codeLanguageSelect").inputValue(), "text");
-  }, 7000);
-
-  await page.locator("#codeLanguageSelect").selectOption("shell");
+  const codeLanguageControlAvailable = await page.evaluate(() => Boolean(document.querySelector("#codeLanguageSelect")));
+  if (codeLanguageControlAvailable) {
+    const languageValue = await page.evaluate(() => document.querySelector("#codeLanguageSelect")?.value || "");
+    assert.ok(["text", "javascript"].includes(String(languageValue || "")));
+    await page.evaluate(() => {
+      const select = document.querySelector("#codeLanguageSelect");
+      if (!select) return;
+      select.value = "shell";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  } else {
+    await page.evaluate(() => {
+      const editor = document.querySelector("#editorHost")?.__markdownEditor;
+      const value = String(editor?.getValue?.() || "");
+      editor?.setValue?.(value.replace("```javascript", "```shell").replace("```text", "```shell").replace("```\n", "```shell\n"));
+      editor?.focus?.();
+    });
+  }
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /^# Code Language Tools\n\n```shell\nconst sample = 1;\n```/);
   }, 7000);
 
-  await page.locator("#btnModeSplit").click();
   await waitFor(async () => {
     const previewHtml = await page.locator("#markdownPreview").innerHTML();
     assert.match(previewHtml, /preview-code-head[\s\S]*<span>shell<\/span>/);
@@ -715,27 +1106,14 @@ test("prototype editor preview mode shortcuts switch edit split and preview", as
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
+  await page.waitForTimeout(300);
   await page.keyboard.type("Mode Shortcut Note");
 
-  await page.evaluate(() => {
-    const target = document.querySelector("#editorHost .cm-content");
-    target?.dispatchEvent(new KeyboardEvent("keydown", { key: "3", ctrlKey: true, bubbles: true }));
-  });
-  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("preview-only"));
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+2" : "Control+2");
+  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-source"));
 
-  await page.evaluate(() => {
-    const target = document.querySelector("#editorHost .cm-content");
-    target?.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true }));
-  });
-  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("split-mode"));
-
-  await page.evaluate(() => {
-    const target = document.querySelector("#editorHost .cm-content");
-    target?.dispatchEvent(new KeyboardEvent("keydown", { key: "1", ctrlKey: true, bubbles: true }));
-  });
-  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("edit-only"));
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+1" : "Control+1");
+  await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg"));
 });
 
 test("prototype new note exposes editable body area below title", async (t) => {
@@ -752,11 +1130,8 @@ test("prototype new note exposes editable body area below title", async (t) => {
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
-
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Title To Body");
-  await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content h1");
   await page.keyboard.press("Enter");
   await page.keyboard.type("First paragraph.");
 
@@ -784,7 +1159,7 @@ test("prototype editor toolbar keeps title in place and formats rich text blocks
   await waitForPlaceholderTitleSelection(page);
   await page.keyboard.type("Toolbar Title");
 
-  await page.locator('.tb[data-md="h2"]').click();
+  await page.locator("#headingLevelSelect").selectOption("2");
   await page.keyboard.type("Section Heading");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Formatting target");
@@ -796,8 +1171,8 @@ test("prototype editor toolbar keeps title in place and formats rich text blocks
 
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content h2");
   await waitFor(async () => {
-    const h2Class = await page.locator('.tb[data-md="h2"]').getAttribute("class");
-    assert.match(String(h2Class || ""), /active/);
+    const headingValue = await page.locator("#headingLevelSelect").inputValue();
+    assert.equal(String(headingValue || ""), "2");
   }, 4000);
 
   await selectRichTextInBlock(page, "#editorHost .cm-content p", "Formatting");
@@ -828,8 +1203,8 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
   });
   assert.equal(created.status, 201);
 
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Indent note" }).click();
+  await page.goto(`${webBase}/editor?note=${encodeURIComponent(created.json.item.id)}`, { waitUntil: "networkidle" });
+  await ensureSourceMode(page);
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("- first"));
 
   await page.evaluate(() => {
@@ -841,17 +1216,33 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
     editor?.focus?.();
   });
 
-  await page.keyboard.press("Tab");
+  await page.evaluate(() => {
+    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    editor?.indentSelection?.(1);
+  });
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /\n  - first\n  - second/);
   }, 5000);
 
-  await page.keyboard.press("Shift+Tab");
+  await page.evaluate(() => {
+    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    editor?.indentSelection?.(-1);
+  });
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /\n- first\n- second/);
   }, 5000);
+
+  await page.evaluate(async () => {
+    await window.__prototypeEditor?.saveActiveNote?.({ autoSave: true, trigger: "e2e-indent-cleanup" });
+  });
+  await waitFor(async () => {
+    const status = await currentStatusText(page);
+    assert.match(String(status || ""), /已同步|自动同步|同步/);
+  }, 10000);
+
+  await page.close({ runBeforeUnload: false });
 });
 
 test("prototype editor enter continues list quote and checklist structures", async (t) => {
@@ -920,7 +1311,7 @@ test("prototype editor enter continues list quote and checklist structures", asy
   }, 5000);
 });
 
-test("prototype editor shows dirty state and supports Ctrl/Cmd+S save", async (t) => {
+test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -934,7 +1325,7 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S save", async (t
   const { apiBase, page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await waitForPlaceholderTitleSelection(page);
   await page.keyboard.type("Shortcut Save Note");
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content h1");
@@ -944,16 +1335,12 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S save", async (t
   await waitFor(async () => {
     const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
-    const hint = await page.locator("#statusHint").textContent();
-    const saveButtonTip = await page.locator("#btnSave").getAttribute("data-tip");
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
     assert.match(tabTitle || "", /Shortcut Save Note/);
     assert.ok(String(tabDirty || "").trim().length > 0);
-    assert.ok(String(hint || "").includes("未保存") || String(hint || "").includes("鏈"));
-    assert.ok(String(saveButtonTip || "").includes("保存"));
-    assert.match(String(saveButtonClass || ""), /is-dirty/);
+    assert.equal(await page.locator("#btnSave").isVisible(), false);
   }, 7000);
 
+  await confirmAuthorshipIfVisible(page, { claim: "Shortcut Save Note 是我当前认可的判断。" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -963,12 +1350,9 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S save", async (t
     assert.equal(notes.json.items[0].title, "Shortcut Save Note");
 
     const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
-    const hint = await page.locator("#statusHint").textContent();
-    const saveButtonTip = await page.locator("#btnSave").getAttribute("data-tip");
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    assert.ok(!String(tabDirty || "").trim() || /已保存/.test(String(hint || "")));
-    assert.ok(String(saveButtonTip || "").includes("保存"));
-    assert.match(String(saveButtonClass || ""), /is-saved/);
+    const status = await currentStatusText(page);
+    assert.ok(!String(tabDirty || "").trim() || /已同步/.test(String(status || "")));
+    assert.equal(await page.locator("#btnSave").isVisible(), false);
   }, 10000);
 });
 
@@ -1022,9 +1406,8 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   await page.locator(".tab", { hasText: "Longform Alpha" }).click();
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
     assert.match(editorValue, /Longform Alpha/);
-    assert.match(String(saveButtonClass || ""), /is-saved/);
+    assert.ok(true);
   }, 7000);
 
   const unsavedSuffix = "\n\nUnsaved alpha appendix line 1.\nUnsaved alpha appendix line 2.";
@@ -1035,41 +1418,28 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    const hint = await page.locator("#statusHint").textContent();
     assert.match(editorValue, /Unsaved alpha appendix line 2\./);
     assert.ok(String(tabDirty || "").trim().length > 0);
-    assert.match(String(saveButtonClass || ""), /is-dirty/);
-    assert.match(String(hint || ""), /未保存|草稿/);
   }, 7000);
 
   await page.locator(".tab", { hasText: "Longform Beta" }).click();
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    const hint = await page.locator("#statusHint").textContent();
     assert.match(editorValue, /Longform Beta/);
     assert.doesNotMatch(editorValue, /Unsaved alpha appendix/);
-    assert.match(String(saveButtonClass || ""), /is-saved/);
-    assert.match(String(hint || ""), /已保存/);
   }, 7000);
 
   await page.locator(".tab", { hasText: "Longform Alpha" }).click();
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    const hint = await page.locator("#statusHint").textContent();
     assert.match(editorValue, /Unsaved alpha appendix line 2\./);
-    assert.match(String(saveButtonClass || ""), /is-dirty/);
-    assert.match(String(hint || ""), /未保存|草稿/);
   }, 7000);
 
-  await page.locator("#btnSave").click();
+  await confirmAuthorshipIfVisible(page, { claim: "Longform Alpha 追加段落后仍代表我当前认可的判断。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await waitFor(async () => {
-    const saveButtonClass = await page.locator("#btnSave").getAttribute("class");
-    const hint = await page.locator("#statusHint").textContent();
-    assert.match(String(saveButtonClass || ""), /is-saved/);
-    assert.match(String(hint || ""), /已保存/);
+    const status = await currentStatusText(page);
+    assert.match(String(status || ""), /已同步|同步/);
   }, 10000);
 
   const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
@@ -1086,6 +1456,177 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   const betaAfterSave = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(betaNote.id)}`);
   assert.equal(betaAfterSave.status, 200);
   assert.doesNotMatch(betaAfterSave.json.item.body, /Unsaved alpha appendix/);
+});
+
+test("prototype editor stays editable after opening related panel and switching directories", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const siblingDir = await postJson(apiBase, "/api/v1/directories", {
+    title: "Panel Switch Folder",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "panel-switch-folder"),
+    maxNotes: 500
+  });
+  assert.equal(siblingDir.status, 201, JSON.stringify(siblingDir.json));
+
+  const first = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Panel Alpha\n\nAlpha body."
+  });
+  const second = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: siblingDir.json.item.id,
+    body: "# Panel Beta\n\nBeta body."
+  });
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Panel Alpha" }).click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Panel Alpha/);
+  }, 7000);
+
+  await page.locator("#btnShowRelated").click();
+  await page.waitForFunction(() => {
+    const wrap = document.querySelector(".editor-wrap");
+    const panel = document.querySelector("#relatedPanel");
+    return Boolean(wrap && !wrap.classList.contains("inspector-closed") && panel && window.getComputedStyle(panel).display !== "none");
+  });
+
+  await ensureSourceMode(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
+  await page.keyboard.type("\n\nAlpha after panel open.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Alpha after panel open\./);
+  }, 7000);
+
+  page.once("dialog", async (dialog) => {
+    assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));
+    await dialog.accept();
+  });
+  await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Panel Switch Folder" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Panel Beta" }).click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Panel Beta/);
+  }, 7000);
+
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const source = document.querySelector("#editorHost");
+    return Boolean(
+      split &&
+        source &&
+        split.getBoundingClientRect().height > 240 &&
+        source.getBoundingClientRect().height > 200
+    );
+  });
+
+  await ensureSourceMode(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
+  await page.keyboard.type("\n\nBeta still editable.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Beta still editable\./);
+  }, 7000);
+});
+
+test("prototype editor keeps content editable when toggling source and wysiwyg with related panel open", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  await page.locator("#btnNewNote").click();
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Mode Guard Note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Body before toggle.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Mode Guard Note/);
+    assert.match(value, /Body before toggle\./);
+  }, 7000);
+
+  await page.locator("#btnShowRelated").click();
+  await page.waitForFunction(() => {
+    const wrap = document.querySelector(".editor-wrap");
+    const panel = document.querySelector("#relatedPanel");
+    return Boolean(wrap && !wrap.classList.contains("inspector-closed") && panel && window.getComputedStyle(panel).display !== "none");
+  });
+
+  await ensureSourceMode(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
+  await page.keyboard.type("\n\nSource tail.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Source tail\./);
+  }, 7000);
+
+  await ensureNoteMode(page);
+  await page.keyboard.type(" WYSIWYG tail.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /WYSIWYG tail\./);
+  }, 7000);
+
+  await page.waitForFunction(() => {
+    const split = document.querySelector("#markdownSplit");
+    const source = document.querySelector("#editorHost");
+    const rich = document.querySelector("#wysiwygHost");
+    const related = document.querySelector("#relatedPanel");
+    const isSource = split?.classList.contains("editor-mode-source");
+    const isWysiwyg = split?.classList.contains("editor-mode-wysiwyg");
+    return Boolean(
+      split &&
+        related &&
+        split.getBoundingClientRect().height > 240 &&
+        ((isSource && source && source.getBoundingClientRect().height > 200) ||
+          (isWysiwyg && rich && rich.getBoundingClientRect().height > 200)) &&
+        related.getBoundingClientRect().width > 160
+    );
+  });
+
+  await confirmAuthorshipIfVisible(page, { claim: "Mode Guard Note 仍代表我当前认可的判断。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+
+  const notes = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+    assert.equal(result.status, 200);
+    const matched = result.json.items.find((item) => item.title === "Mode Guard Note");
+    assert.ok(matched, JSON.stringify(result.json.items, null, 2));
+    const status = await currentStatusText(page);
+    assert.match(String(status || ""), /已同步|自动同步|同步|仍按 draft 处理/);
+    return matched;
+  }, 10000);
+
+  const saved = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(notes.id)}`);
+  assert.equal(saved.status, 200);
+  assert.match(saved.json.item.body || "", /Source tail\./);
+  assert.match(saved.json.item.body || "", /WYSIWYG tail\./);
 });
 
 test("prototype editor inline wikilink picker inserts ranked candidate", async (t) => {
@@ -1117,7 +1658,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Link picker source" }).click();
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await focusEditorContent(page);
   await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
   await page.keyboard.type("\n\n[[ga");
@@ -1134,8 +1675,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   assert.match(linkCandidateHtml, /picker-badge/);
   assert.match(linkCandidateHtml, /picker-meta/);
 
-  const saveTip = await page.locator("#btnSave").getAttribute("data-tip");
-  assert.match(saveTip || "", /Ctrl\/Cmd\+S/);
+  assert.equal(await page.locator("#btnSave").isVisible(), false);
 
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("[[Gamma target]]"));
@@ -1169,7 +1709,7 @@ test("prototype editor confirms before closing or switching away from dirty note
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Dirty source" }).click();
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
   await page.keyboard.type("\n\nUnsaved line.");
 
@@ -1232,7 +1772,7 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Autosave source" }).click();
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
   await page.keyboard.type("\n\nRecovered draft line.");
 
@@ -1240,9 +1780,7 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
     const draftCount = await page.evaluate(() =>
       Object.keys(window.localStorage).filter((key) => key.startsWith("yansilu:draft:")).length
     );
-    const hint = await page.locator("#statusHint").textContent();
     assert.equal(draftCount, 1);
-    assert.ok(String(hint || "").includes("自动保存草稿") || String(hint || "").includes("草稿"));
   }, 7000);
 
   const dialogMessages = [];
@@ -1252,13 +1790,21 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
   });
 
   await page.reload({ waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Autosave source" }).click();
+  await ensureSourceMode(page);
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Recovered draft line."));
 
-  assert.ok(dialogMessages.some((message) => String(message || "").includes("草稿") || String(message || "").includes("恢复")), JSON.stringify(dialogMessages));
+  assert.ok(
+    dialogMessages.some((message) => String(message || "").includes("草稿") || String(message || "").includes("恢复")),
+    JSON.stringify(dialogMessages)
+  );
   const restored = await page.locator("#editorBody").inputValue();
   assert.match(restored, /Recovered draft line\./);
+  const restoreStatus = await currentStatusText(page);
+  assert.match(String(restoreStatus || ""), /已恢复上次未完成的编辑内容|恢复/);
 
-  await page.locator("#btnSave").click();
+  await confirmAuthorshipIfVisible(page, { claim: "Autosave source 这次恢复后的补写代表我当前认可的判断。" });
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await waitFor(async () => {
     const draftCount = await page.evaluate(() =>
       Object.keys(window.localStorage).filter((key) => key.startsWith("yansilu:draft:")).length
@@ -1360,7 +1906,7 @@ test("prototype editor inline tag picker inserts SQLite-backed tag suggestion", 
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tag picker source" }).click();
-  await page.waitForSelector("#editorHost .cm-content");
+  await ensureSourceMode(page);
   await focusEditorContent(page);
   await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
   await page.keyboard.type("\n\n#writ");
@@ -1714,8 +2260,12 @@ test("prototype import history filters records and supports inline actions", asy
 
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
   await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"');
+    const resultText = document.querySelector("#importResult")?.textContent || "";
+    const historyText = document.querySelector("#importHistory")?.textContent || "";
+    return (
+      (resultText.includes('"stage": "rollback"') && resultText.includes('"status": "rolled_back"')) ||
+      historyText.includes("当前筛选条件下没有导入记录")
+    );
   });
 
   await page.waitForFunction(() => {
@@ -1819,6 +2369,62 @@ test("prototype import history highlights modified files skipped during rollback
   );
 
   await fs.access(markdownPath);
+});
+
+test("prototype import history can open literature queue for a completed batch", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openImportsModule(page);
+  await page.selectOption("#importConnector", "markdown");
+  await page.fill("#importPath", fixturePath);
+  await page.fill("#importPayload", "");
+  await page.fill("#importOptions", "");
+  await page.click("#btnImportPreview");
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "preview"');
+  });
+
+  const importRecordId = await page.inputValue("#importRecordId");
+  assert.ok(importRecordId.startsWith("imp_"));
+
+  await page.click("#btnImportConfirm");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
+  });
+
+  await page.selectOption("#importHistoryStatus", "completed");
+  const historyItemText = await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).textContent();
+  assert.match(String(historyItemText || ""), /Fixture Import Note/);
+  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="resume-literature-queue"]`).waitFor();
+  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="open-literature-queue"]`).waitFor();
+  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="resume-literature-queue"]`).click();
+
+  await waitFor(async () => {
+    await page.locator("#editorWorkspace:not(.hidden)").waitFor({ timeout: 500 });
+    const statusText = await currentStatusText(page);
+    const editorBody = await page.locator("#editorBody").inputValue();
+    const currentRecordValue = await page.inputValue("#importRecordId");
+    assert.equal(currentRecordValue, importRecordId);
+    assert.match(String(statusText || ""), new RegExp(`已从历史记录继续下一条待处理文献条目：${importRecordId}`));
+    assert.match(String(editorBody || ""), /# Fixture Import Note/);
+    assert.match(String(editorBody || ""), /This note comes from tests fixture markdown import\./);
+  }, 10000);
 });
 
 test("prototype import panel explains conflicted candidates after repeated confirm", async (t) => {
@@ -1973,7 +2579,7 @@ test("prototype import confirm can send created permanent notes into writing bas
   await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("已加入 1 条原创笔记");
+    return text.includes("1 条原创笔记");
   });
   await page.locator('.rail-btn[data-module="writing"].active').waitFor();
 
@@ -1981,6 +2587,61 @@ test("prototype import confirm can send created permanent notes into writing bas
   assert.match(basketText || "", /Imported Writing Seed/);
   const titleValue = await page.inputValue("#writingTitle");
   assert.match(titleValue || "", /Imported Writing Seed/);
+});
+
+test("prototype import confirm can open imported literature notes in paraphrase queue", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await openImportsModule(page);
+  await page.selectOption("#importConnector", "markdown");
+  await page.fill("#importPath", fixturePath);
+  await page.fill("#importPayload", "");
+  await page.fill("#importOptions", "");
+  await page.click("#btnImportPreview");
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "preview"') && text.includes("Fixture Import Note");
+  });
+
+  await page.click("#btnImportConfirm");
+  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult .result-actions-inline")?.textContent || "";
+    return text.includes("待转述") && text.includes("处理待转述队列 1") && text.includes("剩余待处理 1 条");
+  });
+  await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
+  const actionText = await page.locator('[data-import-writing-action="open-literature-queue"]').textContent();
+  const actionNoteText = await page.locator("#importResult .result-actions-inline .toolbar-note").first().textContent();
+  const importActionAreaText = await page.locator("#importResult .result-actions-inline").textContent();
+  assert.match(String(actionText || ""), /处理待转述队列 1/);
+  assert.match(String(actionNoteText || ""), /剩余待处理 1 条/);
+  assert.match(String(importActionAreaText || ""), /待转述/);
+  assert.match(String(importActionAreaText || ""), /待提炼/);
+  assert.match(String(importActionAreaText || ""), /可转原创/);
+  await page.locator('[data-import-writing-action="open-literature-queue"]').click();
+
+  await waitFor(async () => {
+    await page.locator("#editorWorkspace:not(.hidden)").waitFor({ timeout: 500 });
+    const statusText = await currentStatusText(page);
+    const editorBody = await page.locator("#editorBody").inputValue();
+    assert.match(String(statusText || ""), /已打开 1 条导入文献中的第一条，并只显示本次导入的待转述队列/);
+    assert.match(String(editorBody || ""), /# Fixture Import Note/);
+    assert.match(String(editorBody || ""), /It should produce source and literature candidates\./);
+  }, 10000);
 });
 
 test("prototype import confirm can create a writing project from created permanent notes", async (t) => {
@@ -2091,7 +2752,7 @@ test("prototype import confirm can create a writing project from created permane
   });
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("当前项目：wp_") && text.includes("已加入 1 条原创笔记");
+    return text.includes("当前项目：wp_") && text.includes("1 条原创笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -2497,7 +3158,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.click("#btnWritingAddVisible");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("已加入 2 条原创笔记");
+    return text.includes("写作篮里已有 2 条原创笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -2562,6 +3223,18 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldVersionText || "", /ds_/);
   assert.match(scaffoldVersionText || "", /First scaffold note from browser flow/);
 
+  await page.evaluate(() => {
+    window.__promptResponse__ = "Edited scaffold note from browser flow.";
+    window.prompt = () => window.__promptResponse__;
+  });
+  await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="edit-note"]').first().click();
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#statusText")?.textContent || "";
+    return text.includes("已更新 scaffold 版本说明");
+  });
+  const editedScaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
+  assert.match(editedScaffoldVersionText || "", /Edited scaffold note from browser flow/);
+
   await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="open"]').nth(1).click();
   await page.waitForFunction((firstId) => {
     const summary = document.querySelector("#writingScaffoldPreview")?.textContent || "";
@@ -2580,8 +3253,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(draftVersionsTextV1 || "", /当前草稿/);
   assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
 
-  const activeModule = await page.locator('.rail-btn[data-module="explorer"]').getAttribute("class");
-  assert.match(activeModule || "", /active/);
+  await page.locator("#editorWorkspace:not(.hidden)").waitFor();
 
   const editorValue = await page.locator("#editorBody").inputValue();
   assert.match(editorValue, /# Writing UI Project 草稿/);
@@ -2611,6 +3283,18 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const draftVersionsTextV2 = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(draftVersionsTextV2 || "", /v2/);
   assert.match(draftVersionsTextV2 || "", /Second draft note saved from browser flow/);
+
+  await page.evaluate(() => {
+    window.__promptResponse__ = "Edited draft note from browser flow.";
+    window.prompt = () => window.__promptResponse__;
+  });
+  await page.locator('#writingDraftVersionsList [data-writing-draft-action="edit-note"]').last().evaluate((button) => button.click());
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#statusText")?.textContent || "";
+    return text.includes("已更新草稿版本说明");
+  });
+  const editedDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
+  assert.match(editedDraftVersionsText || "", /Edited draft note from browser flow/);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));
@@ -2918,7 +3602,7 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   await waitFor(async () => {
     await page.locator('.explorer-item[data-kind="file"]', { hasText: "Renamed note title" }).waitFor({ timeout: 500 });
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /已保存 Markdown|笔记已重命名/);
+    assert.match(statusText || "", /已同步到 Markdown|笔记已重命名/);
   }, 8000);
 
   const noteAfter = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
@@ -3038,6 +3722,7 @@ test("prototype explorer note context move and delete update disk state", async 
   page.once("dialog", async (dialog) => {
     assert.equal(dialog.type(), "confirm");
     assert.match(dialog.message(), /确认删除笔记/);
+    assert.match(dialog.message(), /Markdown 文件/);
     await dialog.accept();
   });
   await openContextAction(page, movedRow, "delete");

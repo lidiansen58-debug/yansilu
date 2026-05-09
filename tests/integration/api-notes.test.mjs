@@ -80,9 +80,13 @@ async function deleteJson(baseUrl, pathname) {
   return { status: res.status, json };
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("notes API creates, lists, loads, and updates markdown note", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-notes-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-notes-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -348,7 +352,7 @@ test("literature notes require paraphrase before they can be marked active", asy
 
 test("permanent notes recompute originality against linked literature notes", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-permanent-originality-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-permanent-originality-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -433,7 +437,7 @@ test("permanent notes recompute originality against linked literature notes", as
 
 test("notes API syncs markdown wikilinks and tags into note relations", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-note-relations-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-note-relations-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -589,7 +593,7 @@ test("notes API syncs markdown wikilinks and tags into note relations", async (t
 
 test("graph API finds note paths and duplicate title conflicts", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-graph-tools-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-graph-tools-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -687,7 +691,7 @@ test("graph API finds note paths and duplicate title conflicts", async (t) => {
 
 test("notes API keeps title-based filenames unique inside a directory", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-note-title-path-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-note-title-path-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -737,7 +741,7 @@ test("notes API keeps title-based filenames unique inside a directory", async (t
 
 test("notes API stores note assets and serves them back for preview", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-note-assets-vault-");
-  const noteRoot = await makeTempDir("yansilu-api-note-assets-root-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -790,4 +794,201 @@ test("notes API stores note assets and serves them back for preview", async (t) 
   assert.equal(assetResponse.headers.get("content-type"), "image/png");
   const assetBuffer = Buffer.from(await assetResponse.arrayBuffer());
   assert.ok(assetBuffer.length > 0);
+});
+
+test("notes API rewrites relative asset links when moving a note between directories", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-note-move-assets-vault-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const sourceDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "deep-source",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "nested", "deep-source"),
+    maxNotes: 500
+  });
+  assert.equal(sourceDir.status, 201, JSON.stringify(sourceDir.json));
+
+  const targetDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "target",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "target"),
+    maxNotes: 500
+  });
+  assert.equal(targetDir.status, 201, JSON.stringify(targetDir.json));
+
+  const note = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: sourceDir.json.item.id,
+    body: "# Asset move note\n\nInitial body."
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+
+  const upload = await postJson(baseUrl, "/api/v1/assets", {
+    noteId: note.json.item.id,
+    fileName: "move-check.txt",
+    mimeType: "text/plain",
+    contentBase64: Buffer.from("asset move check").toString("base64"),
+    kind: "file"
+  });
+  assert.equal(upload.status, 201, JSON.stringify(upload.json));
+
+  const attached = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`, {
+    body: `# Asset move note\n\n[move-check.txt](${upload.json.item.markdownLinkPath})`
+  });
+  assert.equal(attached.status, 200, JSON.stringify(attached.json));
+  const beforeMoveBody = attached.json.item.body;
+
+  const moved = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}/move`, {
+    directoryId: targetDir.json.item.id
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.json));
+
+  const fetched = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
+  assert.equal(fetched.status, 200, JSON.stringify(fetched.json));
+
+  const expectedLink = path
+    .posix
+    .relative(path.posix.dirname(fetched.json.item.markdownPath), upload.json.item.assetPath)
+    .replaceAll("\\", "/");
+  assert.match(beforeMoveBody, /assets\/files\//);
+  assert.match(fetched.json.item.body, new RegExp(`\\(${expectedLink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`));
+  assert.ok(!fetched.json.item.body.includes(upload.json.item.markdownLinkPath));
+});
+
+test("notes API handles Chinese and space-containing vault paths with image and file assets", async (t) => {
+  const baseRoot = path.join(os.tmpdir(), "\u7814\u601d\u5f55 MVP \u8def\u5f84 \u6d4b\u8bd5");
+  await fs.mkdir(baseRoot, { recursive: true });
+  const vaultPath = await fs.mkdtemp(path.join(baseRoot, "Vault \u4e2d\u6587 \u7a7a\u683c-"));
+  const noteRoot = path.join(vaultPath, "notes", "original");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const sourceDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "\u8d44\u6599 \u6765\u6e90",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "\u9636\u6bb5 \u4e00", "\u8d44\u6599 \u6765\u6e90"),
+    maxNotes: 500
+  });
+  assert.equal(sourceDir.status, 201, JSON.stringify(sourceDir.json));
+
+  const targetDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "\u8f93\u51fa \u76ee\u6807",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "\u8f93\u51fa \u76ee\u6807 \u4e2d\u6587"),
+    maxNotes: 500
+  });
+  assert.equal(targetDir.status, 201, JSON.stringify(targetDir.json));
+
+  const note = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: sourceDir.json.item.id,
+    body: "# \u4e2d\u6587\u8def\u5f84 \u7b14\u8bb0\n\n\u521d\u59cb\u5185\u5bb9\u3002"
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+  assert.ok(note.json.item.markdownPath.includes("%") === false);
+
+  const originalMarkdownPath = path.join(vaultPath, note.json.item.markdownPath.replaceAll("/", path.sep));
+  await fs.access(originalMarkdownPath);
+
+  const imageUpload = await postJson(baseUrl, "/api/v1/assets", {
+    noteId: note.json.item.id,
+    fileName: "\u56fe\u50cf \u8d44\u6599.png",
+    mimeType: "image/png",
+    contentBase64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9l9wAAAABJRU5ErkJggg==",
+    kind: "image"
+  });
+  assert.equal(imageUpload.status, 201, JSON.stringify(imageUpload.json));
+  assert.equal(imageUpload.json.item.assetKind, "image");
+
+  const fileUpload = await postJson(baseUrl, "/api/v1/assets", {
+    noteId: note.json.item.id,
+    fileName: "\u53c2\u8003 \u6587\u4ef6.txt",
+    mimeType: "text/plain",
+    contentBase64: Buffer.from("asset path with unicode and spaces", "utf8").toString("base64"),
+    kind: "file"
+  });
+  assert.equal(fileUpload.status, 201, JSON.stringify(fileUpload.json));
+  assert.equal(fileUpload.json.item.assetKind, "file");
+
+  await fs.access(path.join(vaultPath, imageUpload.json.item.assetPath.replaceAll("/", path.sep)));
+  await fs.access(path.join(vaultPath, fileUpload.json.item.assetPath.replaceAll("/", path.sep)));
+
+  const imageAssetResponse = await fetch(`${baseUrl}/api/v1/assets/file?path=${encodeURIComponent(imageUpload.json.item.assetPath)}`);
+  assert.equal(imageAssetResponse.status, 200);
+  assert.equal(imageAssetResponse.headers.get("content-type"), "image/png");
+
+  const fileAssetResponse = await fetch(`${baseUrl}/api/v1/assets/file?path=${encodeURIComponent(fileUpload.json.item.assetPath)}`);
+  assert.equal(fileAssetResponse.status, 200);
+  assert.match(fileAssetResponse.headers.get("content-type") || "", /^text\/plain\b/);
+
+  const attached = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`, {
+    body: [
+      "# \u4e2d\u6587\u8def\u5f84 \u7b14\u8bb0",
+      "",
+      `![\u56fe\u50cf \u8d44\u6599](${imageUpload.json.item.markdownLinkPath})`,
+      "",
+      `[\u53c2\u8003 \u6587\u4ef6.txt](${fileUpload.json.item.markdownLinkPath})`
+    ].join("\n")
+  });
+  assert.equal(attached.status, 200, JSON.stringify(attached.json));
+  assert.match(attached.json.item.body, new RegExp(escapeRegExp(imageUpload.json.item.markdownLinkPath)));
+  assert.match(attached.json.item.body, new RegExp(escapeRegExp(fileUpload.json.item.markdownLinkPath)));
+
+  const moved = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}/move`, {
+    directoryId: targetDir.json.item.id
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.json));
+  assert.equal(moved.json.item.directoryId, targetDir.json.item.id);
+
+  const movedMarkdownPath = path.join(vaultPath, moved.json.item.markdownPath.replaceAll("/", path.sep));
+  await assert.rejects(fs.access(originalMarkdownPath));
+  await fs.access(movedMarkdownPath);
+  assert.equal(path.dirname(movedMarkdownPath), path.resolve(targetDir.json.item.fsPath));
+
+  const fetched = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
+  assert.equal(fetched.status, 200, JSON.stringify(fetched.json));
+
+  const expectedImageLink = path
+    .posix
+    .relative(path.posix.dirname(fetched.json.item.markdownPath), imageUpload.json.item.assetPath)
+    .replaceAll("\\", "/");
+  const expectedFileLink = path
+    .posix
+    .relative(path.posix.dirname(fetched.json.item.markdownPath), fileUpload.json.item.assetPath)
+    .replaceAll("\\", "/");
+
+  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedImageLink)}\\)`));
+  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedFileLink)}\\)`));
+  assert.ok(!fetched.json.item.body.includes(imageUpload.json.item.markdownLinkPath));
+  assert.ok(!fetched.json.item.body.includes(fileUpload.json.item.markdownLinkPath));
 });

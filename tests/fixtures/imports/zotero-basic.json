@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "key": "Z1",
+      "title": "Zotero Item",
+      "text": "A careful Zotero quote.",
+      "locator": "p. 9",
+      "tags": ["zotero-tag"]
+    }
+  ]
+}

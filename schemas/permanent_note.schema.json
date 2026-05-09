@@ -6,7 +6,14 @@
     "id": { "type": "string" },
     "title": { "type": "string" },
     "core_claim": { "type": "string" },
+    "thesis": { "type": "string" },
     "rationale": { "type": "string" },
+    "three_line_summary": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "string" }
+    },
     "boundary_or_counterpoint": { "type": "string" },
     "citations": {
       "type": "array",
@@ -23,6 +30,7 @@
     },
     "from_literature_note_ids": { "type": "array", "items": { "type": "string" } },
     "related_index_ids": { "type": "array", "items": { "type": "string" } },
+    "distillation_status": { "type": "string", "enum": ["missing", "draft", "confirmed"] },
     "tags": { "type": "array", "items": { "type": "string" } },
     "authorship": {
       "type": "object",

@@ -1,0 +1,7 @@
+{
+  "highlights": {
+    "id": "R_BAD",
+    "title": "Malformed Readwise payload",
+    "highlight": "This should be ignored because highlights is not an array."
+  }
+}

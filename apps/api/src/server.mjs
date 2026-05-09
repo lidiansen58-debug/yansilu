@@ -2,6 +2,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+
 import {
   appendImportRecord,
   buildExternalCandidates,
@@ -46,6 +47,14 @@ import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
 import {
+  addNotebookLmDraft,
+  createPaperPermanentCandidate,
+  createPaperWorkspace,
+  getPaperWorkspace,
+  savePaperPermanentNote,
+  savePaperTranslation
+} from "../../../packages/paper-workspace/src/index.mjs";
+import {
   bindDraftNoteToProject,
   createDraftScaffold,
   createWritingProject,
@@ -62,19 +71,236 @@ import {
 const PORT = Number(process.env.API_PORT || 3000);
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
 const PROTOTYPE_URL = String(process.env.PROTOTYPE_URL || `http://127.0.0.1:${WEB_PORT}/prototype`);
+const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_PORT}`);
 const CWD = process.cwd();
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 let VAULT_PATH = DEFAULT_VAULT_PATH;
+let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
+const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
+const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || "").trim();
+const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
+let stripeClientPromise = null;
 
 const importRecords = new Map();
 const allowedConnectors = new Set(["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
+const authChallenges = new Map();
+const authSessions = new Map();
+const authUsers = new Map();
+const authBillingByUserId = new Map();
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function defaultUserForEmail(email = "") {
+  const normalized = normalizeEmail(email);
+  return {
+    id: `user_${normalized.replace(/[^a-z0-9]+/gi, "_")}`,
+    email: normalized,
+    createdAt: new Date().toISOString()
+  };
+}
+
+function billingForUserId(userId = "", fallbackEmail = "") {
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedEmail = normalizeEmail(fallbackEmail);
+  const existing = authBillingByUserId.get(normalizedUserId);
+  if (existing) return cloneJson(existing);
+  const initial = defaultBillingForEmail(normalizedEmail);
+  authBillingByUserId.set(normalizedUserId, initial);
+  return cloneJson(initial);
+}
+
+async function persistAuthState() {
+  const authState = {
+    users: [...authUsers.values()],
+    billingByUserId: Object.fromEntries(authBillingByUserId.entries()),
+    sessions: [...authSessions.values()].map((session) => ({
+      token: session.token,
+      userId: session.userId || session.user?.id,
+      email: session.email || session.user?.email,
+      createdAt: session.createdAt
+    }))
+  };
+  await fs.mkdir(path.dirname(AUTH_STATE_PATH), { recursive: true });
+  await fs.writeFile(AUTH_STATE_PATH, JSON.stringify(authState, null, 2), "utf8");
+}
+
+async function loadAuthState() {
+  try {
+    const raw = await fs.readFile(AUTH_STATE_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    authUsers.clear();
+    authBillingByUserId.clear();
+    authSessions.clear();
+
+    for (const user of Array.isArray(parsed?.users) ? parsed.users : []) {
+      if (!user?.id || !user?.email) continue;
+      authUsers.set(String(user.id), user);
+    }
+
+    for (const [userId, billing] of Object.entries(parsed?.billingByUserId || {})) {
+      const normalizedUserId = String(userId || "").trim();
+      if (!normalizedUserId) continue;
+      const email = normalizeEmail(billing?.email || authUsers.get(normalizedUserId)?.email || "");
+      authBillingByUserId.set(normalizedUserId, {
+        ...defaultBillingForEmail(email),
+        ...billing,
+        email
+      });
+    }
+
+    if (Object.keys(parsed?.billingByUserId || {}).length === 0) {
+      for (const [email, billing] of Object.entries(parsed?.billingByEmail || {})) {
+        const normalized = normalizeEmail(email);
+        if (!normalized) continue;
+        const user = [...authUsers.values()].find((item) => normalizeEmail(item.email) === normalized) || defaultUserForEmail(normalized);
+        authUsers.set(String(user.id), user);
+        authBillingByUserId.set(String(user.id), {
+          ...defaultBillingForEmail(normalized),
+          ...billing,
+          email: normalized
+        });
+      }
+    }
+
+    for (const session of Array.isArray(parsed?.sessions) ? parsed.sessions : []) {
+      if (!session?.token) continue;
+      const sessionEmail = normalizeEmail(session.email || session?.user?.email || "");
+      const sessionUserId = String(session.userId || session?.user?.id || "");
+      if (!sessionEmail || !sessionUserId) continue;
+
+      if (!authUsers.has(sessionUserId)) {
+        authUsers.set(sessionUserId, {
+          ...defaultUserForEmail(sessionEmail),
+          id: sessionUserId
+        });
+      }
+      if (!authBillingByUserId.has(sessionUserId)) {
+        authBillingByUserId.set(sessionUserId, {
+          ...defaultBillingForEmail(sessionEmail),
+          ...(session.billing || {}),
+          email: sessionEmail
+        });
+      }
+
+      authSessions.set(String(session.token), {
+        token: String(session.token),
+        userId: sessionUserId,
+        email: sessionEmail,
+        createdAt: session.createdAt || new Date().toISOString()
+      });
+    }
+
+    if (!Array.isArray(parsed?.users) && Array.isArray(parsed?.sessions)) {
+      for (const legacy of parsed.sessions) {
+        const email = normalizeEmail(legacy?.user?.email || legacy?.email || "");
+        if (!email) continue;
+        const user = legacy?.user || defaultUserForEmail(email);
+        authUsers.set(String(user.id), {
+          ...defaultUserForEmail(email),
+          ...user,
+          email
+        });
+        authBillingByUserId.set(String(user.id), {
+          ...defaultBillingForEmail(email),
+          ...(legacy?.billing || {}),
+          email
+        });
+        authSessions.set(String(legacy.token), {
+          token: String(legacy.token),
+          userId: String(user.id),
+          email,
+          createdAt: legacy.createdAt || new Date().toISOString()
+        });
+      }
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      console.warn(`Auth state load failed: ${String(error?.message || error)}`);
+    }
+  }
+}
+
+function normalizeEmail(value = "") {
+  return String(value || "").trim().toLowerCase();
+}
+
+function authTokenFromReq(req) {
+  const header = String(req.headers.authorization || "").trim();
+  if (!header.toLowerCase().startsWith("bearer ")) return "";
+  return header.slice(7).trim();
+}
+
+function defaultBillingForEmail(email = "") {
+  return {
+    plan: "free",
+    status: "free",
+    email,
+    renewsAt: null
+  };
+}
+
+function publicSession(session) {
+  const user = authUsers.get(String(session.userId || "")) || defaultUserForEmail(session.email || "");
+  const billing = billingForUserId(user.id, user.email);
+  return {
+    token: session.token,
+    user,
+    billing
+  };
+}
+
+function sessionFromReq(req) {
+  const token = authTokenFromReq(req);
+  if (!token) return null;
+  const session = authSessions.get(token);
+  if (!session) return null;
+  return { token, session };
+}
+
+async function getStripeClient() {
+  if (!STRIPE_SECRET_KEY) return null;
+  if (!stripeClientPromise) {
+    stripeClientPromise = import("stripe")
+      .then(({ default: Stripe }) => new Stripe(STRIPE_SECRET_KEY))
+      .catch(() => null);
+  }
+  return stripeClientPromise;
+}
+
+function billingMode() {
+  return STRIPE_SECRET_KEY && STRIPE_PRICE_PRO_MONTHLY ? "stripe" : "mock";
+}
+
+function updateBillingForUserId(userId = "", fallbackEmail = "", patch = {}) {
+  const normalizedUserId = String(userId || "").trim();
+  const normalizedEmail = normalizeEmail(fallbackEmail);
+  if (!normalizedUserId) return 0;
+  const next = {
+    ...defaultBillingForEmail(normalizedEmail),
+    ...(authBillingByUserId.get(normalizedUserId) || {}),
+    ...patch,
+    email: normalizeEmail(patch.email || normalizedEmail)
+  };
+  authBillingByUserId.set(normalizedUserId, next);
+  return 1;
+}
+
+async function updateBillingForUserIdAndPersist(userId = "", fallbackEmail = "", patch = {}) {
+  const updated = updateBillingForUserId(userId, fallbackEmail, patch);
+  if (updated > 0) {
+    await persistAuthState();
+  }
+  return updated;
+}
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id"
+    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization"
   });
   res.end(status === 204 ? "" : JSON.stringify(body, null, 2));
 }
@@ -85,7 +311,7 @@ function sendBinary(res, status, contentType, body) {
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id"
+    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization"
   });
   res.end(body);
 }
@@ -96,7 +322,7 @@ function sendHtml(res, status, body) {
     "Cache-Control": "no-store",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id"
+    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization"
   });
   res.end(String(body || ""));
 }
@@ -131,6 +357,12 @@ async function readJson(req) {
   return JSON.parse(raw);
 }
 
+async function readRaw(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
 function parseConfirmPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/imports\/([^/]+)\/confirm$/);
   return m ? m[1] : null;
@@ -149,6 +381,31 @@ function parseImportRecordPath(urlPath) {
 function parseConnectorPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/imports\/(markdown|obsidian|zotero|readwise|notebooklm)$/);
   return m ? m[1] : null;
+}
+
+function parsePaperPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/papers\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePaperNotebookLmDraftsPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/papers\/([^/]+)\/notebooklm-drafts$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePaperTranslationsPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/papers\/([^/]+)\/translations$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePaperPermanentCandidatesPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/papers\/([^/]+)\/permanent-candidates$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePaperPermanentNotesPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/papers\/([^/]+)\/permanent-notes$/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 function bucketFromCandidateId(candidates = {}) {
@@ -473,6 +730,294 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true, service: "api", requestId: rid, vaultPath: VAULT_PATH, time: new Date().toISOString() });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/auth/start") {
+      const body = await readJson(req);
+      const email = normalizeEmail(body.email);
+      if (!email) return sendJson(res, 400, err("AUTH_EMAIL_REQUIRED", "email is required", rid));
+      const challengeId = `authc_${Date.now()}_${randomUUID().slice(0, 8)}`;
+      const code = "123456";
+      authChallenges.set(challengeId, {
+        challengeId,
+        email,
+        code,
+        createdAt: new Date().toISOString()
+      });
+      return sendJson(res, 200, {
+        challengeId,
+        email,
+        delivery: "mock_code",
+        codeHint: code,
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/auth/verify") {
+      const body = await readJson(req);
+      const challengeId = String(body.challengeId || body.challenge_id || "").trim();
+      const code = String(body.code || "").trim();
+      const challenge = authChallenges.get(challengeId);
+      if (!challenge) return sendJson(res, 400, err("AUTH_CHALLENGE_INVALID", "challenge is invalid or expired", rid));
+      if (challenge.code !== code) return sendJson(res, 400, err("AUTH_CODE_INVALID", "verification code is invalid", rid));
+
+      authChallenges.delete(challengeId);
+      const token = `auts_${Date.now()}_${randomUUID().replaceAll("-", "").slice(0, 18)}`;
+      const user = authUsers.get(`user_${challenge.email.replace(/[^a-z0-9]+/gi, "_")}`) || defaultUserForEmail(challenge.email);
+      authUsers.set(String(user.id), user);
+      if (!authBillingByUserId.has(String(user.id))) {
+        authBillingByUserId.set(String(user.id), defaultBillingForEmail(challenge.email));
+      }
+      const session = {
+        token,
+        userId: String(user.id),
+        email: challenge.email,
+        createdAt: new Date().toISOString()
+      };
+      authSessions.set(token, session);
+      await persistAuthState();
+      return sendJson(res, 200, {
+        session: publicSession(session),
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/me") {
+      const token = authTokenFromReq(req);
+      const session = authSessions.get(token);
+      if (!session) return sendJson(res, 401, err("AUTH_REQUIRED", "authentication required", rid));
+      return sendJson(res, 200, {
+        session: publicSession(session),
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/auth/logout") {
+      const token = authTokenFromReq(req);
+      if (token) {
+        authSessions.delete(token);
+        await persistAuthState();
+      }
+      return sendJson(res, 200, {
+        ok: true,
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/billing/status") {
+      const token = authTokenFromReq(req);
+      const session = authSessions.get(token);
+      if (!session) return sendJson(res, 401, err("AUTH_REQUIRED", "authentication required", rid));
+      const billing = billingForUserId(session.userId, session.email);
+      return sendJson(res, 200, {
+        item: billing,
+        mode: billingMode(),
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/billing/checkout-session") {
+      const auth = sessionFromReq(req);
+      if (!auth) return sendJson(res, 401, err("AUTH_REQUIRED", "authentication required", rid));
+      const body = await readJson(req);
+      const plan = String(body.plan || "pro").trim().toLowerCase();
+      if (plan !== "pro") return sendJson(res, 400, err("BILLING_PLAN_INVALID", "only pro is supported in this mock flow", rid));
+      const successUrl = String(body.successUrl || `${APP_BASE_URL}/checkout/success`).trim();
+      const cancelUrl = String(body.cancelUrl || `${APP_BASE_URL}/checkout/cancel`).trim();
+
+      if (billingMode() === "stripe") {
+        const stripe = await getStripeClient();
+        if (!stripe) {
+          return sendJson(res, 500, err("BILLING_STRIPE_UNAVAILABLE", "stripe client failed to initialize", rid));
+        }
+        const sessionView = publicSession(auth.session);
+        try {
+          const session = await stripe.checkout.sessions.create({
+            mode: "subscription",
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            customer_email: sessionView.user.email,
+            line_items: [
+              {
+                price: STRIPE_PRICE_PRO_MONTHLY,
+                quantity: 1
+              }
+            ],
+            metadata: {
+              appUserId: sessionView.user.id,
+              appUserEmail: sessionView.user.email,
+              plan
+            }
+          });
+          return sendJson(res, 200, {
+            item: {
+              plan,
+              mode: "stripe",
+              checkoutUrl: session.url,
+              checkoutSessionId: session.id,
+              cancelUrl
+            },
+            requestId: rid,
+            timestamp: new Date().toISOString()
+          });
+        } catch (stripeError) {
+          return sendJson(res, 400, err("BILLING_STRIPE_CHECKOUT_FAILED", String(stripeError?.message || stripeError), rid));
+        }
+      }
+
+      return sendJson(res, 200, {
+        item: {
+          plan,
+          mode: "mock_checkout",
+          checkoutUrl: `${successUrl}?plan=pro`,
+          cancelUrl
+        },
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/billing/portal-session") {
+      const auth = sessionFromReq(req);
+      if (!auth) return sendJson(res, 401, err("AUTH_REQUIRED", "authentication required", rid));
+
+      const billing = billingForUserId(auth.session.userId, auth.session.email);
+      const returnUrl = String(
+        (await readJson(req).catch(() => ({})))?.returnUrl || `${APP_BASE_URL}/billing`
+      ).trim();
+
+      if (billingMode() === "stripe") {
+        const stripe = await getStripeClient();
+        if (!stripe) {
+          return sendJson(res, 500, err("BILLING_STRIPE_UNAVAILABLE", "stripe client failed to initialize", rid));
+        }
+        if (!billing?.stripeCustomerId) {
+          return sendJson(res, 400, err("BILLING_PORTAL_UNAVAILABLE", "stripe customer is not ready for this account", rid));
+        }
+
+        try {
+          const session = await stripe.billingPortal.sessions.create({
+            customer: String(billing.stripeCustomerId),
+            return_url: returnUrl
+          });
+          return sendJson(res, 200, {
+            item: {
+              mode: "stripe",
+              portalUrl: session.url,
+              returnUrl
+            },
+            requestId: rid,
+            timestamp: new Date().toISOString()
+          });
+        } catch (stripeError) {
+          return sendJson(res, 400, err("BILLING_PORTAL_CREATE_FAILED", String(stripeError?.message || stripeError), rid));
+        }
+      }
+
+      return sendJson(res, 200, {
+        item: {
+          mode: "mock_portal",
+          portalUrl: `${APP_BASE_URL}/billing?portal=mock`,
+          returnUrl
+        },
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/billing/mock-complete") {
+      const auth = sessionFromReq(req);
+      if (!auth) return sendJson(res, 401, err("AUTH_REQUIRED", "authentication required", rid));
+      const nextBilling = {
+        ...billingForUserId(auth.session.userId, auth.session.email),
+        plan: "pro",
+        status: "active",
+        renewsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        email: auth.session.email
+      };
+      authBillingByUserId.set(String(auth.session.userId), nextBilling);
+      await persistAuthState();
+      return sendJson(res, 200, {
+        item: nextBilling,
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/billing/webhook/stripe") {
+      if (!STRIPE_SECRET_KEY) {
+        return sendJson(res, 400, err("BILLING_STRIPE_UNAVAILABLE", "stripe is not configured", rid));
+      }
+      const stripe = await getStripeClient();
+      if (!stripe) {
+        return sendJson(res, 500, err("BILLING_STRIPE_UNAVAILABLE", "stripe client failed to initialize", rid));
+      }
+
+      try {
+        const rawBody = await readRaw(req);
+        const signature = String(req.headers["stripe-signature"] || "");
+        const event = STRIPE_WEBHOOK_SECRET
+          ? stripe.webhooks.constructEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET)
+          : JSON.parse(rawBody.toString("utf8"));
+
+        const type = String(event?.type || "");
+        const object = event?.data?.object || {};
+        let updated = 0;
+
+        if (type === "checkout.session.completed") {
+          const email =
+            object?.customer_details?.email ||
+            object?.customer_email ||
+            object?.metadata?.appUserEmail ||
+            "";
+          const userId = String(object?.metadata?.appUserId || authUsers.get(`user_${email.replace(/[^a-z0-9]+/gi, "_")}`)?.id || "");
+          updated = await updateBillingForUserIdAndPersist(userId, email, {
+            plan: "pro",
+            status: "active",
+            renewsAt: null,
+            stripeCustomerId: object?.customer || null,
+            stripeSubscriptionId: object?.subscription || null
+          });
+        }
+
+        if (type === "customer.subscription.created" || type === "customer.subscription.updated") {
+          const email = object?.metadata?.appUserEmail || "";
+          const userId = String(object?.metadata?.appUserId || authUsers.get(`user_${email.replace(/[^a-z0-9]+/gi, "_")}`)?.id || "");
+          updated = await updateBillingForUserIdAndPersist(userId, email, {
+            plan: "pro",
+            status: String(object?.status || "active"),
+            renewsAt: object?.current_period_end ? new Date(Number(object.current_period_end) * 1000).toISOString() : null,
+            stripeCustomerId: object?.customer || null,
+            stripeSubscriptionId: object?.id || null
+          });
+        }
+
+        if (type === "customer.subscription.deleted") {
+          const email = object?.metadata?.appUserEmail || "";
+          const userId = String(object?.metadata?.appUserId || authUsers.get(`user_${email.replace(/[^a-z0-9]+/gi, "_")}`)?.id || "");
+          updated = await updateBillingForUserIdAndPersist(userId, email, {
+            plan: "free",
+            status: "canceled",
+            renewsAt: null,
+            stripeSubscriptionId: object?.id || null
+          });
+        }
+
+        return sendJson(res, 200, {
+          ok: true,
+          eventType: type,
+          updatedSessions: updated,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("BILLING_STRIPE_WEBHOOK_FAILED", String(error?.message || error), rid));
+      }
+    }
+
     if (req.method === "GET" && url.pathname === "/api/v1/vault") {
       try {
         const layout = await initVault(VAULT_PATH);
@@ -494,7 +1039,9 @@ const server = http.createServer(async (req, res) => {
       try {
         const layout = await initVault(nextVaultPath);
         VAULT_PATH = layout.vaultPath;
+        AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
         importRecords.clear();
+        await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
           requestId: rid,
@@ -867,6 +1414,130 @@ const server = http.createServer(async (req, res) => {
         requestId: rid,
         timestamp: new Date().toISOString()
       });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/papers") {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await createPaperWorkspace(VAULT_PATH, body);
+        return sendJson(res, 201, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error.code || "PAPER_WORKSPACE_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const paperId = parsePaperPath(url.pathname);
+    if (req.method === "GET" && paperId) {
+      try {
+        await initVault(VAULT_PATH);
+        const item = await getPaperWorkspace(VAULT_PATH, paperId);
+        if (!item) return sendJson(res, 404, err("PAPER_WORKSPACE_NOT_FOUND", "paper workspace not found", rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error.code || "PAPER_WORKSPACE_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const paperNotebookLmDraftsId = parsePaperNotebookLmDraftsPath(url.pathname);
+    if (req.method === "POST" && paperNotebookLmDraftsId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const result = await addNotebookLmDraft(VAULT_PATH, paperNotebookLmDraftsId, body.payload || body);
+        return sendJson(res, 201, {
+          item: result.workspace,
+          draft: {
+            id: result.draftId,
+            candidateIds: result.candidates.map((item) => item.id),
+            warnings: result.warnings
+          },
+          candidates: result.candidates,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error.code === "PAPER_WORKSPACE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error.code || "PAPER_NOTEBOOKLM_DRAFT_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const paperTranslationsId = parsePaperTranslationsPath(url.pathname);
+    if (req.method === "POST" && paperTranslationsId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const result = await savePaperTranslation(VAULT_PATH, paperTranslationsId, body);
+        return sendJson(res, 201, {
+          item: result.workspace,
+          translation: result.translation,
+          candidate: result.candidate,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error.code === "PAPER_WORKSPACE_NOT_FOUND" || error.code === "PAPER_CANDIDATE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error.code || "PAPER_TRANSLATION_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const paperPermanentCandidatesId = parsePaperPermanentCandidatesPath(url.pathname);
+    if (req.method === "POST" && paperPermanentCandidatesId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const result = await createPaperPermanentCandidate(VAULT_PATH, paperPermanentCandidatesId, body);
+        return sendJson(res, 201, {
+          item: result.workspace,
+          permanentCandidate: result.permanentCandidate,
+          originalityGuard: result.originalityGuard,
+          evaluation: result.evaluation,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error.code === "PAPER_WORKSPACE_NOT_FOUND" || error.code === "PAPER_CANDIDATE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error.code || "PAPER_PERMANENT_CANDIDATE_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const paperPermanentNotesId = parsePaperPermanentNotesPath(url.pathname);
+    if (req.method === "POST" && paperPermanentNotesId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const result = await savePaperPermanentNote(VAULT_PATH, paperPermanentNotesId, body);
+        await registerImportCatalogNote(result.permanentNote, "permanent", result.writeResult);
+        return sendJson(res, 201, {
+          item: result.workspace,
+          permanentNote: result.permanentNote,
+          permanentCandidate: result.permanentCandidate,
+          writeResult: {
+            written: result.writeResult.written,
+            skipped: result.writeResult.skipped,
+            reason: result.writeResult.reason || null,
+            path: path.relative(VAULT_PATH, result.writeResult.path).replaceAll("\\", "/")
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status =
+          error.code === "PAPER_WORKSPACE_NOT_FOUND" || error.code === "PAPER_PERMANENT_CANDIDATE_NOT_FOUND"
+            ? 404
+            : error.code === "PAPER_PERMANENT_NOTE_EXISTS" || error.code === "PAPER_PERMANENT_NOTE_ALREADY_SAVED"
+              ? 409
+              : 400;
+        return sendJson(res, status, err(error.code || "PAPER_PERMANENT_NOTE_INVALID", String(error?.message || error), rid));
+      }
     }
 
     const importRecordId = parseImportRecordPath(url.pathname);
@@ -1390,6 +2061,8 @@ server.listen(PORT, async () => {
   console.log(`Vault path: ${VAULT_PATH}`);
   try {
     await initVault(VAULT_PATH);
+    AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
+    await loadAuthState();
     console.log("Vault initialized.");
   } catch (error) {
     console.error(`Vault initialization failed: ${String(error?.message || error)}`);

@@ -1,0 +1,33 @@
+import { renderImportHistoryMount } from "./import-history-mount.js";
+import { renderImportResultMount } from "./import-result-mount.js";
+import { renderImportToolbarMount } from "./import-toolbar-mount.js";
+
+function renderResultSection(result = {}) {
+  if (typeof result === "string") return result;
+  if (typeof result?.html === "string") return result.html;
+  if (result?.data) return renderImportResultMount(result);
+  return "还没有导入结果。先选择来源并预览候选。";
+}
+
+export function renderImportPageMount({
+  toolbar = {},
+  history = {},
+  result = null
+} = {}) {
+  return `
+    <div class="import-page-shell">
+      <div id="importToolbarMount">
+        ${renderImportToolbarMount(toolbar)}
+      </div>
+      <div class="import-card">
+        <div class="import-history-head">
+          <div class="import-history-title">导入历史</div>
+        </div>
+        <div id="importHistoryMount">
+          ${renderImportHistoryMount(history)}
+        </div>
+        <div class="import-result" id="importResult">${renderResultSection(result)}</div>
+      </div>
+    </div>
+  `;
+}

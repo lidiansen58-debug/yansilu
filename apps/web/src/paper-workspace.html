@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>论文工作台 · 研思录</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --ink: #1f2a24;
+      --muted: #6f786f;
+      --line: rgba(86, 74, 48, 0.16);
+      --card: rgba(255, 252, 245, 0.88);
+      --accent: #496f5d;
+      --accent-strong: #275442;
+      --warn: #9f641f;
+      --bad: #a43b31;
+      --pass: #207250;
+      --shadow: 0 24px 70px rgba(55, 46, 31, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Iowan Old Style", "LXGW WenKai", "Songti SC", "Microsoft YaHei", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 12%, rgba(91, 133, 111, 0.28), transparent 24%),
+        radial-gradient(circle at 92% 6%, rgba(194, 148, 78, 0.22), transparent 22%),
+        linear-gradient(135deg, #f8f4eb 0%, var(--bg) 48%, #e8eee8 100%);
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid rgba(39, 84, 66, 0.24);
+      border-radius: 999px;
+      padding: 9px 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f4ef 100%);
+      color: var(--accent-strong);
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: 0 10px 22px rgba(39, 84, 66, 0.08);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 28px rgba(39, 84, 66, 0.13);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+      box-shadow: none;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.72);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: #455047;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .paper-shell {
+      width: min(1280px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    .paper-hero {
+      min-height: 220px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 24px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255, 252, 244, 0.92) 0%, rgba(234, 242, 235, 0.82) 100%),
+        repeating-linear-gradient(90deg, rgba(31, 42, 36, 0.035) 0 1px, transparent 1px 28px);
+      box-shadow: var(--shadow);
+    }
+
+    .paper-eyebrow,
+    .paper-card-kicker {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .paper-hero h1 {
+      margin: 10px 0 12px;
+      font-size: clamp(34px, 6vw, 72px);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      max-width: 780px;
+    }
+
+    .paper-hero p {
+      margin: 0;
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    .paper-status {
+      min-width: 220px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .paper-status-ok { color: var(--pass); }
+    .paper-status-bad { color: var(--bad); }
+    .paper-status-loading { color: var(--warn); }
+
+    .paper-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .paper-card {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 20px;
+      background: var(--card);
+      box-shadow: 0 16px 42px rgba(55, 46, 31, 0.07);
+      backdrop-filter: blur(14px);
+    }
+
+    .paper-card h2 {
+      margin: 6px 0 14px;
+      font-size: 23px;
+      letter-spacing: -0.02em;
+    }
+
+    .paper-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .paper-empty,
+    .paper-summary-card {
+      margin-top: 16px;
+    }
+
+    .paper-summary-card {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .paper-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .paper-stats span,
+    .paper-risk,
+    .paper-saved-note {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.62);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .paper-span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .paper-form-grid,
+    .paper-two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .paper-actions,
+    .paper-save-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .paper-candidate-list {
+      display: grid;
+      gap: 10px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .paper-candidate {
+      width: 100%;
+      display: grid;
+      gap: 5px;
+      text-align: left;
+      border-radius: 18px;
+      padding: 13px;
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .paper-candidate.is-active {
+      border-color: rgba(39, 84, 66, 0.52);
+      background: linear-gradient(180deg, rgba(238, 248, 241, 0.96), rgba(255, 255, 255, 0.72));
+    }
+
+    .paper-candidate-title {
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .paper-candidate-meta,
+    .paper-candidate-quote,
+    .paper-muted-box,
+    .paper-result-empty {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .paper-candidate-quote {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .paper-translation-box {
+      display: grid;
+      gap: 12px;
+    }
+
+    .paper-selected-note,
+    .paper-muted-box,
+    .paper-result-empty,
+    .paper-permanent-preview {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+
+    .paper-preview-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .paper-preview-row {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid rgba(86, 74, 48, 0.1);
+    }
+
+    .paper-preview-row span {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .paper-risk-pass { color: var(--pass); }
+    .paper-risk-warning { color: var(--warn); }
+    .paper-risk-blocked { color: var(--bad); }
+
+    .paper-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 620px;
+    }
+
+    .paper-checkbox input {
+      width: auto;
+    }
+
+    .paper-result-json {
+      overflow: auto;
+      max-height: 380px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(30, 38, 33, 0.92);
+      color: #eaf4ec;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 860px) {
+      .paper-shell { width: min(100% - 20px, 1280px); padding-top: 10px; }
+      .paper-hero,
+      .paper-grid,
+      .paper-form-grid,
+      .paper-two-col,
+      .paper-summary-card {
+        grid-template-columns: 1fr;
+      }
+      .paper-summary-card,
+      .paper-hero {
+        align-items: start;
+      }
+      .paper-status {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="paperWorkspaceApp"></div>
+  <script>window.__API_BASE__ = "__API_BASE__";</script>
+  <script type="module" src="/paper-workspace-page.js"></script>
+</body>
+</html>

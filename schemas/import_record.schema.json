@@ -27,6 +27,67 @@
         "permanentNoteIds": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "candidatePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "literatureNotes", "permanentNotes", "total", "truncated"],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["id", "type", "title", "status"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["Source"] },
+              "title": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        },
+        "literatureNotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["id", "type", "title", "status"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["LiteratureNote"] },
+              "title": { "type": "string" },
+              "status": { "type": "string" }
+            }
+          }
+        },
+        "permanentNotes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["id", "type", "title", "status", "originalityStatus"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["PermanentNote"] },
+              "title": { "type": "string" },
+              "status": { "type": "string" },
+              "originalityStatus": { "type": "string" }
+            }
+          }
+        },
+        "total": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources", "literatureNotes", "permanentNotes"],
+          "properties": {
+            "sources": { "type": "number" },
+            "literatureNotes": { "type": "number" },
+            "permanentNotes": { "type": "number" }
+          }
+        },
+        "truncated": { "type": "boolean" }
+      }
+    },
     "warnings": {
       "type": "array",
       "items": {
@@ -46,7 +107,7 @@
     "confirmResult": {
       "type": ["object", "null"],
       "additionalProperties": false,
-      "required": ["created", "skipped", "writtenPaths", "createdFiles", "finishedAt"],
+      "required": ["created", "skipped", "selection", "writtenPaths", "createdFiles", "finishedAt"],
       "properties": {
         "created": {
           "type": "object",
@@ -65,6 +126,27 @@
           "properties": {
             "conflicted": { "type": "number" },
             "invalid": { "type": "number" }
+          }
+        },
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "candidateIds", "totalCandidates", "selectedCandidates", "counts"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["all", "subset"] },
+            "candidateIds": { "type": "array", "items": { "type": "string" } },
+            "totalCandidates": { "type": "number" },
+            "selectedCandidates": { "type": "number" },
+            "counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["sources", "literatureNotes", "permanentNotes"],
+              "properties": {
+                "sources": { "type": "number" },
+                "literatureNotes": { "type": "number" },
+                "permanentNotes": { "type": "number" }
+              }
+            }
           }
         },
         "writtenPaths": { "type": "array", "items": { "type": "string" } },

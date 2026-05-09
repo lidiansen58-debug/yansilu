@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>下载与安装 | 研思录</title>
+  <meta name="description" content="下载研思录桌面版，查看当前可下载版本、安装流程以及自动更新能力的准备状态。" />
+  <link rel="stylesheet" href="/marketing.css" />
+</head>
+<body>
+  <div class="marketing-shell">
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="研思录" />
+          <span class="brand-text">
+            <span class="brand-name">研思录</span>
+            <span class="brand-sub">Thinking in Notes</span>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="主导航">
+          <a href="/product">产品</a>
+          <a href="/pricing">定价</a>
+          <a href="/download">下载</a>
+          <a href="/prototype">原型</a>
+          <a href="/login" data-guest-only>登录</a>
+          <a href="/billing" data-auth-only hidden>账户</a>
+        </nav>
+        <div class="header-actions">
+          <span class="session-chip" data-auth-only hidden>
+            <strong data-session-plan>FREE</strong>
+            <span data-session-email></span>
+          </span>
+          <a class="btn btn-secondary" href="/login" data-guest-only>登录</a>
+          <a class="btn btn-primary" href="/register" data-guest-only>免费开始</a>
+          <a class="btn btn-secondary" href="/" data-session-logout data-auth-only hidden>退出登录</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-hero">
+        <div class="container page-hero-grid">
+          <div class="page-hero-copy">
+            <div class="section-kicker">Download</div>
+            <h1>下载安装研思录桌面版</h1>
+            <p>如果你希望把知识管理、写作准备和本地数据控制放在同一个工作台里，桌面版会是更完整的入口。</p>
+            <div class="meta-row">
+              <span class="meta-chip">Windows NSIS</span>
+              <span class="meta-chip">本地文件驱动</span>
+              <span class="meta-chip">自动更新准备中</span>
+            </div>
+          </div>
+          <aside class="page-badge-card">
+            <h3>当前形态</h3>
+            <p>现阶段以 Windows 桌面安装包为主，后续再扩展更多平台和稳定发布渠道。</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section section-tight">
+        <div class="container spotlight-grid">
+          <article class="spotlight-card">
+            <strong>桌面版是主入口</strong>
+            <p>研思录的长期体验更依赖本地文件、研究路径和持续写作，因此桌面版会是最完整的工作台。</p>
+          </article>
+          <article class="spotlight-card">
+            <strong>可直接承接发布产物</strong>
+            <p>下载页已经接入桌面打包 manifest，可以直接展示当前版本、产物和真实下载入口。</p>
+          </article>
+          <article class="spotlight-card">
+            <strong>会逐步接入自动更新</strong>
+            <p>当前优先保证安装包稳定可用，自动更新会在后续发布通道确定后单独接入。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container stack">
+          <section class="status-card">
+            <div class="section-kicker">Release Status</div>
+            <h3>当前可下载版本</h3>
+            <div class="auth-message" data-download-status data-tone="info">正在读取当前桌面构建状态...</div>
+            <div class="pricing-preview" style="margin-top: 18px;">
+              <article class="pricing-card">
+                <div class="plan-name">应用版本</div>
+                <div class="plan-price" style="font-size: 30px;" data-download-version>0.1.0</div>
+                <div class="plan-meta">官网会优先展示当前桌面版本信息。</div>
+              </article>
+              <article class="pricing-card">
+                <div class="plan-name">最近产物生成</div>
+                <div class="plan-price" style="font-size: 24px;" data-download-generated>读取中</div>
+                <div class="plan-meta">如果已经运行桌面打包脚本，这里会显示最近一次生成时间。</div>
+              </article>
+            </div>
+            <div class="cta-actions">
+              <a class="btn btn-primary" href="/prototype" data-download-primary hidden>下载最新版 Windows 安装包</a>
+            </div>
+            <p class="plan-meta" data-download-primary-note>正在检测当前是否已有可下载产物。</p>
+            <ul class="bullet-list download-files" data-download-files></ul>
+          </section>
+
+          <div class="pricing-preview">
+            <article class="pricing-card">
+              <div class="plan-name">Windows 安装版</div>
+              <div class="plan-price" style="font-size:34px;">NSIS</div>
+              <div class="plan-meta">适合多数 Windows 用户，当前优先支持稳定的标准安装流程。</div>
+              <ul class="plan-points">
+                <li>一步安装到本地桌面环境</li>
+                <li>适合作为默认正式下载入口</li>
+                <li>自动更新会在发布通道确定后接入</li>
+              </ul>
+              <div class="cta-actions">
+                <a class="btn btn-primary" href="/prototype">查看当前版本说明</a>
+              </div>
+            </article>
+
+            <article class="pricing-card">
+              <div class="plan-name">安装前说明</div>
+              <div class="plan-price" style="font-size:26px;">本地优先</div>
+              <div class="plan-meta">研思录的核心体验更偏向本地文件与桌面工作流，因此桌面版会是长期主入口。</div>
+              <ul class="plan-points">
+                <li>内容以本地目录和文件为核心</li>
+                <li>更适合持续研究与长文写作</li>
+                <li>后续规划应用内检查更新与升级</li>
+              </ul>
+              <div class="cta-actions">
+                <a class="btn btn-secondary" href="/product">查看产品能力</a>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container trust-band">
+          <div class="section-kicker">Install Flow</div>
+          <h2>推荐的下载与安装流程</h2>
+          <ul class="trust-list">
+            <li>进入下载页，选择 Windows 安装版</li>
+            <li>下载安装包并完成标准安装</li>
+            <li>首次启动后选择或创建本地 Vault</li>
+            <li>登录账户，同步订阅与授权状态</li>
+            <li>后续通过应用内更新入口获取新版本</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container trust-band">
+          <div class="section-kicker">Auto Update</div>
+          <h2>桌面版将支持自动更新</h2>
+          <p class="section-intro">当前版本先保证安装包、卸载和本地启动稳定。正式发布通道确定后，Windows 安装版会再接入应用内检查更新、下载并安装新版本。</p>
+          <ul class="trust-list">
+            <li>支持发布新版本后自动发现更新</li>
+            <li>支持应用内提示下载与安装</li>
+            <li>未来可扩展为稳定渠道与测试渠道</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container page-cta-strip">
+          <div class="page-cta-copy">
+            <h3>想先看界面，再决定是否下载安装？</h3>
+            <p>你可以先浏览当前原型，确认这套知识到智慧的工作流是否符合你的使用习惯，再回到这里下载安装包。</p>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="/prototype">查看原型</a>
+            <a class="btn btn-secondary" href="/product">了解产品</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <strong>研思录 · Thinking in Notes</strong>
+            <p>桌面版是研思录长期的主入口，适合在本地环境中持续积累知识、观点与写作结构。</p>
+            <p class="footer-meta">© <span data-current-year></span> 研思录</p>
+          </div>
+          <div class="footer-link-group">
+            <h3>了解产品</h3>
+            <a href="/product">产品介绍</a>
+            <a href="/pricing">定价方案</a>
+            <a href="/download">下载桌面版</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>开始使用</h3>
+            <a href="/register">免费开始</a>
+            <a href="/login">登录账户</a>
+            <a href="/billing">账户与订阅</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>当前体验</h3>
+            <a href="/prototype">查看原型</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="/marketing-site.js"></script>
+  <script type="module" src="/marketing-session.js"></script>
+  <script type="module" src="/marketing-download.js"></script>
+</body>
+</html>

@@ -26,6 +26,15 @@ function uniqueIds(ids) {
   return [...new Set((Array.isArray(ids) ? ids : []).map((id) => cleanText(id)).filter(Boolean))];
 }
 
+function parseJsonStringArray(value) {
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return uniqueIds(parsed);
+  } catch {
+    return [];
+  }
+}
+
 function mapProjectRow(row, basketNoteIds = []) {
   return {
     id: row.id,
@@ -33,6 +42,9 @@ function mapProjectRow(row, basketNoteIds = []) {
     goal: row.goal || "",
     audience: row.audience || "",
     tone: row.tone || "",
+    intent: row.intent || "",
+    desired_reader_takeaway: row.desired_reader_takeaway || "",
+    related_index_ids: parseJsonStringArray(row.related_index_ids_json),
     basket_note_ids: basketNoteIds,
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
@@ -75,6 +87,9 @@ function mapProjectListRow(row) {
     goal: row.goal || "",
     audience: row.audience || "",
     tone: row.tone || "",
+    intent: row.intent || "",
+    desired_reader_takeaway: row.desired_reader_takeaway || "",
+    related_index_ids: parseJsonStringArray(row.related_index_ids_json),
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
     status: row.status,
@@ -98,10 +113,16 @@ function mapDraftVersionRow(row, currentDraftNoteId = "") {
 }
 
 function noteExcerpt(note) {
-  return cleanText(note.body)
+  return cleanText(note.thesis || note.body)
     .replace(/^#+\s+/gm, "")
     .replace(/\s+/g, " ")
     .slice(0, 220);
+}
+
+function boundarySummary(note) {
+  return cleanText(note.boundaryOrCounterpoint)
+    .replace(/\s+/g, " ")
+    .slice(0, 180);
 }
 
 async function loadBasketNotes(vaultPath, noteIds) {
@@ -118,7 +139,10 @@ async function loadBasketNotes(vaultPath, noteIds) {
       status: note.status,
       markdown_path: note.markdownPath,
       excerpt: noteExcerpt(note),
-      body: note.body
+      thesis: cleanText(note.thesis),
+      threeLineSummary: Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [],
+      body: note.body,
+      boundaryOrCounterpoint: cleanText(note.boundaryOrCounterpoint)
     });
   }
   return notes;
@@ -181,6 +205,7 @@ export async function createWritingProject(vaultPath, input = {}) {
 
   const basketNoteIds = uniqueIds(input.basketNoteIds || input.basket_note_ids);
   if (!basketNoteIds.length) throw new Error("basketNoteIds is required");
+  const relatedIndexIds = uniqueIds(input.relatedIndexIds || input.related_index_ids);
   const basketNotes = await loadBasketNotes(vaultPath, basketNoteIds);
 
   const now = new Date().toISOString();
@@ -191,6 +216,9 @@ export async function createWritingProject(vaultPath, input = {}) {
     goal: cleanText(input.goal),
     audience: cleanText(input.audience),
     tone: cleanText(input.tone),
+    intent: cleanText(input.intent),
+    desired_reader_takeaway: cleanText(input.desiredReaderTakeaway || input.desired_reader_takeaway),
+    related_index_ids: relatedIndexIds,
     status: cleanText(input.status) || "draft",
     created_at: now,
     updated_at: now
@@ -203,9 +231,21 @@ export async function createWritingProject(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO writing_projects
-          (id, title, goal, audience, tone, status, scaffold_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`
-      ).run(project.id, project.title, project.goal, project.audience, project.tone, project.status, now, now);
+          (id, title, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, status, scaffold_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+      ).run(
+        project.id,
+        project.title,
+        project.goal,
+        project.audience,
+        project.tone,
+        project.intent,
+        project.desired_reader_takeaway,
+        JSON.stringify(project.related_index_ids),
+        project.status,
+        now,
+        now
+      );
 
       basketNoteIds.forEach((noteId, index) => {
         db.prepare(
@@ -237,13 +277,53 @@ function purposeFromNote(note) {
   return excerpt ? `Use this note to support the claim: ${excerpt}` : "Use this note as evidence for the argument.";
 }
 
+function noteLabel(note) {
+  return cleanText(note?.title) || cleanText(note?.id) || "this note";
+}
+
+function gapPromptFromNote(note) {
+  return `What evidence, example, or transition is still missing before "${noteLabel(note)}" can carry a full paragraph?`;
+}
+
+function counterpointPromptFromNote(note) {
+  const boundary = boundarySummary(note);
+  return boundary
+    ? `Address this counterpoint or boundary in "${noteLabel(note)}": ${boundary}`
+    : `What counterpoint, limit, or exception should "${noteLabel(note)}" acknowledge?`;
+}
+
+function conceptShiftPromptFromBasket(basketNotes) {
+  const titledNotes = basketNotes.map((note) => noteLabel(note)).slice(0, 3);
+  if (!titledNotes.length) return "Where do similar concepts in this basket need sharper separation?";
+  return `Where do apparently similar concepts around ${titledNotes.join(", ")} need sharper separation?`;
+}
+
+function scaffoldOpenQuestionsFromBasket(basketNotes) {
+  const questions = [
+    "What evidence is missing?",
+    "What counterpoint should be handled before drafting?",
+    conceptShiftPromptFromBasket(basketNotes)
+  ];
+  const noteWithBoundary = basketNotes.find((note) => boundarySummary(note));
+  if (noteWithBoundary) {
+    questions.push(`Which boundary matters most for the overall argument: ${noteLabel(noteWithBoundary)}?`);
+  }
+  return questions;
+}
+
 function buildSections(project, basketNotes) {
+  const noteWithBoundary = basketNotes.find((note) => boundarySummary(note));
   const sections = [
     {
       heading: "Opening frame",
       purpose: project.goal || `Introduce ${project.title}.`,
       evidence_note_ids: basketNotes.slice(0, 1).map((note) => note.id),
-      open_questions: ["What tension or question makes this piece necessary?"],
+      gaps: ["Need a sharper opening tension, scene, or question before drafting prose."],
+      counterpoints: ["What reader assumption or opposing frame should the opening acknowledge?"],
+      open_questions: [
+        "What tension or question makes this piece necessary?",
+        ...(noteWithBoundary ? [`Which disagreement or limit from "${noteLabel(noteWithBoundary)}" should surface early?`] : [])
+      ],
       order: 1
     }
   ];
@@ -253,7 +333,12 @@ function buildSections(project, basketNotes) {
       heading: note.title,
       purpose: purposeFromNote(note),
       evidence_note_ids: [note.id],
-      open_questions: [],
+      gaps: [gapPromptFromNote(note)],
+      counterpoints: [counterpointPromptFromNote(note)],
+      open_questions: [
+        "How does this note connect to the broader line of argument instead of standing alone?",
+        "Which boundary, counterexample, or opposing use-case should this section make explicit?"
+      ],
       order: index + 2
     });
   });
@@ -262,6 +347,8 @@ function buildSections(project, basketNotes) {
     heading: "Synthesis and next step",
     purpose: "Connect the selected notes into a final implication without drafting the full article.",
     evidence_note_ids: basketNotes.map((note) => note.id),
+    gaps: ["What connective move is still missing to turn the selected notes into one argument?"],
+    counterpoints: ["Which tension between the selected notes should be made explicit instead of smoothed over?"],
     open_questions: ["Which claim still needs stronger evidence before drafting?"],
     order: sections.length + 1
   });
@@ -278,6 +365,8 @@ function renderMarkdown(project, scaffold, basketNotes) {
     `- Goal: ${project.goal || "TBD"}`,
     `- Audience: ${project.audience || "TBD"}`,
     `- Tone: ${project.tone || "TBD"}`,
+    `- Intent: ${project.intent || "TBD"}`,
+    `- Reader takeaway: ${project.desired_reader_takeaway || "TBD"}`,
     "",
     "## Draft Scaffold"
   ];
@@ -291,18 +380,34 @@ function renderMarkdown(project, scaffold, basketNotes) {
         lines.push(`- ${note?.title || noteId} (${noteId})`);
       }
     }
+    if (section.gaps?.length) {
+      lines.push("", "Gaps:");
+      for (const gap of section.gaps) lines.push(`- ${gap}`);
+    }
+    if (section.counterpoints?.length) {
+      lines.push("", "Counterpoints:");
+      for (const counterpoint of section.counterpoints) lines.push(`- ${counterpoint}`);
+    }
     if (section.open_questions?.length) {
       lines.push("", "Open questions:");
       for (const question of section.open_questions) lines.push(`- ${question}`);
     }
   }
 
-  lines.push("", "## Paragraph-Evidence Map", "", "| Section | Evidence notes |", "|---|---|");
+  if (scaffold.open_questions?.length) {
+    lines.push("", "## Draft-level tensions", "");
+    for (const question of scaffold.open_questions) lines.push(`- ${question}`);
+  }
+
+  lines.push("", "## Paragraph-Evidence Map", "", "| Section | Evidence notes | Gaps | Counterpoints | Open questions |", "|---|---|---|---|---|");
   for (const section of scaffold.sections) {
     const evidence = (section.evidence_note_ids || [])
       .map((noteId) => noteById.get(noteId)?.title || noteId)
       .join(", ");
-    lines.push(`| ${section.heading} | ${evidence || "TBD"} |`);
+    const gaps = (section.gaps || []).join(" / ");
+    const counterpoints = (section.counterpoints || []).join(" / ");
+    const questions = (section.open_questions || []).join(" / ");
+    lines.push(`| ${section.heading} | ${evidence || "TBD"} | ${gaps || "TBD"} | ${counterpoints || "TBD"} | ${questions || "TBD"} |`);
   }
 
   return `${lines.join("\n")}\n`;
@@ -319,7 +424,7 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     id: cleanText(input.id) || `ds_${randomUUID().slice(0, 8)}`,
     writing_project_id: project.id,
     sections: buildSections(project, basketNotes),
-    open_questions: ["What evidence is missing?", "What counterpoint should be handled before drafting?"],
+    open_questions: scaffoldOpenQuestionsFromBasket(basketNotes),
     generated_by: GENERATED_BY,
     version_note: cleanText(input.versionNote || input.version_note),
     created_at: now,
@@ -557,6 +662,57 @@ export async function setCurrentDraftNote(vaultPath, input = {}) {
   }
 
   return getWritingProject(vaultPath, writingProjectId);
+}
+
+export async function updateDraftScaffoldVersionNote(vaultPath, draftScaffoldId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(draftScaffoldId);
+  if (!id) throw new Error("draftScaffoldId is required");
+  const versionNote = cleanText(input.versionNote || input.version_note);
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const exists = db.prepare("SELECT id FROM draft_scaffolds WHERE id = ? LIMIT 1").get(id);
+    if (!exists) throw new Error(`draftScaffoldId not found: ${id}`);
+    const now = new Date().toISOString();
+    db.prepare("UPDATE draft_scaffolds SET version_note = ?, updated_at = ? WHERE id = ?").run(versionNote, now, id);
+  } finally {
+    db.close();
+  }
+
+  return getDraftScaffold(vaultPath, id);
+}
+
+export async function updateDraftNoteVersionNote(vaultPath, draftVersionId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(draftVersionId);
+  if (!id) throw new Error("draftVersionId is required");
+  const versionNote = cleanText(input.versionNote || input.version_note);
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const row = db
+      .prepare(
+        `SELECT
+           dnv.*,
+           wp.draft_note_id AS current_draft_note_id
+         FROM draft_note_versions dnv
+         JOIN writing_projects wp ON wp.id = dnv.writing_project_id
+         WHERE dnv.id = ?
+         LIMIT 1`
+      )
+      .get(id);
+    if (!row) throw new Error(`draftVersionId not found: ${id}`);
+    db.prepare("UPDATE draft_note_versions SET version_note = ? WHERE id = ?").run(versionNote, id);
+    return {
+      ...mapDraftVersionRow({ ...row, version_note: versionNote }, row.current_draft_note_id),
+      note: await loadDraftVersionNote(vaultPath, row.draft_note_id)
+    };
+  } finally {
+    db.close();
+  }
 }
 
 export async function getDraftScaffold(vaultPath, draftScaffoldId) {

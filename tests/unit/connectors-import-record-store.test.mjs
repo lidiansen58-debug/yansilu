@@ -7,6 +7,7 @@ import {
   appendImportRecord,
   contentHash,
   createdEntryFromWriteResult,
+  listImportRecords,
   publicImportRecord,
   rollbackCreatedFiles
 } from "../../packages/connectors/src/index.mjs";
@@ -26,6 +27,56 @@ test("appendImportRecord writes stage logs under imports connector directory", a
   assert.deepEqual(JSON.parse(raw), { ok: true });
 });
 
+test("listImportRecords restores records from disk in updated order with limit", async () => {
+  const vaultPath = await makeTempVault();
+  const olderPreview = {
+    importRecordId: "imp_older",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_old"], literatureNoteIds: ["ln_old"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-04-22T00:00:00.000Z"
+  };
+  const newerPreview = {
+    importRecordId: "imp_newer",
+    connector: "readwise",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_new"], literatureNoteIds: ["ln_new"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-04-22T00:01:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_older", "preview", {
+    preview: olderPreview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "readwise", "imp_newer", "preview", {
+    preview: newerPreview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "readwise", "imp_newer", "confirm", {
+    created: { sources: 1, literatureNotes: 1, permanentNotes: 0 },
+    skipped: { conflicted: 0, invalid: 0 },
+    writtenPaths: ["notes/sources", "notes/literature"],
+    createdFiles: [],
+    finishedAt: "2026-04-22T00:02:00.000Z"
+  });
+
+  const records = await listImportRecords(vaultPath, { limit: 1 });
+
+  assert.equal(records.length, 1);
+  assert.equal(records[0].importRecordId, "imp_newer");
+  assert.equal(records[0].state, "completed");
+});
+
 test("publicImportRecord returns the safe API-facing record shape", () => {
   const publicRecord = publicImportRecord({
     importRecordId: "imp_1",
@@ -33,6 +84,12 @@ test("publicImportRecord returns the safe API-facing record shape", () => {
     state: "completed",
     summary: { sources: 1 },
     samples: { sourceIds: ["src_1"] },
+    candidates: {
+      sources: [{ id: "src_1", title: "Source One", source_type: "markdown" }],
+      literature: [{ id: "ln_1", title: "Literature One", quote_text: "Quote body." }],
+      permanent: [],
+      warnings: []
+    },
     payload: { path: "notes" },
     options: { detectWikilinks: true },
     confirmResult: { created: { sources: 1 } },
@@ -42,6 +99,8 @@ test("publicImportRecord returns the safe API-facing record shape", () => {
   assert.equal(publicRecord.importRecordId, "imp_1");
   assert.equal(publicRecord.status, "completed");
   assert.equal(publicRecord.summary.sources, 1);
+  assert.equal(publicRecord.candidatePreview.sources[0].title, "Source One");
+  assert.equal(publicRecord.candidatePreview.literatureNotes[0].title, "Literature One");
   assert.equal(publicRecord.confirmResult.created.sources, 1);
 });
 

@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
 import { writeMarkdownIfAbsent } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
+import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
+import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 
 function catalogDbPath(vaultPath) {
@@ -119,13 +121,6 @@ async function resolveUniqueAssetPath(directoryPath, fileName) {
     if (!(await fileExists(candidate))) return candidate;
   }
   throw new Error(`Unable to allocate asset file path for: ${fileName}`);
-}
-
-function relativeMarkdownLinkPath(noteMarkdownPath, assetRelativePath) {
-  const notePath = String(noteMarkdownPath || "").replaceAll("\\", "/");
-  const assetPath = String(assetRelativePath || "").replaceAll("\\", "/");
-  const noteDir = path.posix.dirname(notePath);
-  return path.posix.relative(noteDir, assetPath) || path.posix.basename(assetPath);
 }
 
 function normalizeMarkdown(inputTitle, inputBody) {
@@ -1653,6 +1648,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
 
     db.exec("BEGIN IMMEDIATE;");
     try {
+      await rewriteAssetLinksInMarkdownFile(newAbsPath, row.markdown_path, relPath, now);
       db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(relPath, now, id);
       ensureSingleDirectoryMembership(db, id, targetDirectoryId);
       db.exec("COMMIT;");

@@ -37,5 +37,25 @@ test("applySqliteMigrations creates three database files when node:sqlite is ava
     const stat = await fs.stat(filePath);
     assert.equal(stat.isFile(), true);
   }
-});
 
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(result.catalogPath);
+  try {
+    const permanentColumns = db.prepare("PRAGMA table_info('permanent_note_meta')").all().map((row) => row.name);
+    const indexCardColumns = db.prepare("PRAGMA table_info('index_cards')").all().map((row) => row.name);
+    const projectColumns = db.prepare("PRAGMA table_info('writing_projects')").all().map((row) => row.name);
+
+    assert.equal(permanentColumns.includes("thesis"), true);
+    assert.equal(permanentColumns.includes("three_line_summary_json"), true);
+    assert.equal(permanentColumns.includes("distillation_status"), true);
+
+    assert.equal(indexCardColumns.includes("thesis"), true);
+    assert.equal(indexCardColumns.includes("three_line_summary_json"), true);
+    assert.equal(indexCardColumns.includes("central_question"), true);
+
+    assert.equal(projectColumns.includes("intent"), true);
+    assert.equal(projectColumns.includes("desired_reader_takeaway"), true);
+  } finally {
+    db.close();
+  }
+});

@@ -1,0 +1,10 @@
+{
+  "highlights": [
+    {
+      "id": "R1",
+      "title": "Readwise Book",
+      "highlight": "A Readwise highlight worth processing.",
+      "tags": ["readwise-tag"]
+    }
+  ]
+}

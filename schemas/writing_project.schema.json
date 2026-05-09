@@ -8,6 +8,8 @@
     "goal": { "type": "string" },
     "audience": { "type": "string" },
     "tone": { "type": "string" },
+    "intent": { "type": "string" },
+    "desired_reader_takeaway": { "type": "string" },
     "related_index_ids": { "type": "array", "items": { "type": "string" } },
     "basket_note_ids": { "type": "array", "items": { "type": "string" } },
     "scaffold_id": { "type": "string" },

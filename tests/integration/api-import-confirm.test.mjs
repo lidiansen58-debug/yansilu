@@ -77,6 +77,10 @@ function assertImportRecordBase(record, status) {
   assert.equal(typeof record.summary.literatureNotes, "number");
   assert.equal(typeof record.summary.permanentNotes, "number");
   assert.equal(typeof record.summary.warnings, "number");
+  assert.ok(record.candidatePreview);
+  assert.ok(Array.isArray(record.candidatePreview.sources));
+  assert.ok(Array.isArray(record.candidatePreview.literatureNotes));
+  assert.ok(Array.isArray(record.candidatePreview.permanentNotes));
   assert.ok(Array.isArray(record.warnings));
 }
 
@@ -95,6 +99,15 @@ function assertConfirmResultContract(record) {
     "sources"
   ]);
   assert.deepEqual(Object.keys(record.confirmResult.skipped).sort(), ["conflicted", "invalid"]);
+  assert.equal(typeof record.confirmResult.selection.mode, "string");
+  assert.ok(Array.isArray(record.confirmResult.selection.candidateIds));
+  assert.equal(typeof record.confirmResult.selection.totalCandidates, "number");
+  assert.equal(typeof record.confirmResult.selection.selectedCandidates, "number");
+  assert.deepEqual(Object.keys(record.confirmResult.selection.counts).sort(), [
+    "literatureNotes",
+    "permanentNotes",
+    "sources"
+  ]);
   assert.ok(Array.isArray(record.confirmResult.writtenPaths));
   assert.ok(Array.isArray(record.confirmResult.createdFiles));
   for (const item of record.confirmResult.createdFiles) assertCreatedFileContract(item);
@@ -104,6 +117,7 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
   assertRequiredFields(schema.properties.confirmResult, [
     "created",
     "skipped",
+    "selection",
     "writtenPaths",
     "createdFiles",
     "finishedAt"
@@ -114,6 +128,18 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "permanentNotes"
   ]);
   assertRequiredFields(schema.properties.confirmResult.properties.skipped, ["conflicted", "invalid"]);
+  assertRequiredFields(schema.properties.confirmResult.properties.selection, [
+    "mode",
+    "candidateIds",
+    "totalCandidates",
+    "selectedCandidates",
+    "counts"
+  ]);
+  assertRequiredFields(schema.properties.confirmResult.properties.selection.properties.counts, [
+    "sources",
+    "literatureNotes",
+    "permanentNotes"
+  ]);
   assertRequiredFields(schema.properties.confirmResult.properties.createdFiles.items, ["noteId", "noteType", "path", "hash"]);
   assertRequiredFields(schema.properties.rollbackResult, ["rolledBack", "skipped", "finishedAt"]);
   assertRequiredFields(schema.properties.rollbackResult.properties.rolledBack.items, ["noteId", "noteType", "path", "hash"]);
@@ -123,6 +149,16 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "path",
     "hash",
     "reason"
+  ]);
+  assertRequiredFields(schema.properties.candidatePreview, ["sources", "literatureNotes", "permanentNotes", "total", "truncated"]);
+  assertRequiredFields(schema.properties.candidatePreview.properties.sources.items, ["id", "type", "title", "status"]);
+  assertRequiredFields(schema.properties.candidatePreview.properties.literatureNotes.items, ["id", "type", "title", "status"]);
+  assertRequiredFields(schema.properties.candidatePreview.properties.permanentNotes.items, [
+    "id",
+    "type",
+    "title",
+    "status",
+    "originalityStatus"
   ]);
 }
 
@@ -270,6 +306,8 @@ test("API import confirm blocks flagged notes by default and allows explicit ori
     literatureNotes: 1,
     permanentNotes: 1
   });
+  assert.equal(confirm.json.result.createdFiles.length, 3);
+  assert.ok(confirm.json.result.createdFiles.some((item) => item.noteType === "permanent"));
 
   const [sourceId] = preview.json.samples.sourceIds;
   const [literatureId] = preview.json.samples.literatureNoteIds;
@@ -295,6 +333,77 @@ test("API import confirm blocks flagged notes by default and allows explicit ori
     permanentNotes: 0
   });
   assert.equal(secondConfirm.json.result.skipped.conflicted, 3);
+});
+
+test("API import confirm can write only selected candidates", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-selected-");
+  const sourceDir = await makeTempDir("yansilu-api-md-selected-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Selected import note",
+      "type: literature",
+      'tags: ["literature", "selected"]',
+      "---",
+      "",
+      "Selective import should let us confirm only the source candidate."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.summary.sources, 1);
+  assert.equal(preview.json.summary.literatureNotes, 1);
+
+  const [selectedSourceId] = preview.json.samples.sourceIds;
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    selectedCandidateIds: [selectedSourceId]
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  assert.deepEqual(confirm.json.result.created, {
+    sources: 1,
+    literatureNotes: 0,
+    permanentNotes: 0
+  });
+  assert.deepEqual(confirm.json.result.selection, {
+    mode: "subset",
+    candidateIds: [selectedSourceId],
+    totalCandidates: 2,
+    selectedCandidates: 1,
+    counts: {
+      sources: 1,
+      literatureNotes: 0,
+      permanentNotes: 0
+    }
+  });
+
+  await fs.access(path.join(vaultPath, "notes", "sources", `${selectedSourceId}.md`));
+  const literatureNotes = await getJson(baseUrl, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(literatureNotes.status, 200);
+  assert.equal(literatureNotes.json.total, 0);
+
+  const completedRecord = await getJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}`);
+  assert.equal(completedRecord.status, 200);
+  assert.equal(completedRecord.json.importRecord.confirmResult.selection.mode, "subset");
+  assert.deepEqual(completedRecord.json.importRecord.confirmResult.selection.candidateIds, [selectedSourceId]);
 });
 
 test("API import confirm skips warning permanent notes when drafts are disallowed", async (t) => {
@@ -549,6 +658,72 @@ test("API import records match schema contract across preview, completed, and ro
     assertCreatedFileContract(item);
     assert.equal(typeof item.reason, "string");
   }
+});
+
+test("API import records can be listed with limit and lifecycle states", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-list-");
+  const previewSourceDir = await makeTempDir("yansilu-api-md-list-preview-");
+  const completedSourceDir = await makeTempDir("yansilu-api-md-list-completed-");
+  const rollbackSourceDir = await makeTempDir("yansilu-api-md-list-rollback-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(path.join(previewSourceDir, "preview.md"), "Preview import body.", "utf8");
+  await fs.writeFile(path.join(completedSourceDir, "completed.md"), "Completed import body.", "utf8");
+  await fs.writeFile(path.join(rollbackSourceDir, "rollback.md"), "Rollback import body.", "utf8");
+
+  const child = startApi(port, vaultPath);
+
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const previewOnly = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: previewSourceDir }
+  });
+  assert.equal(previewOnly.status, 200);
+
+  const completedPreview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: completedSourceDir }
+  });
+  assert.equal(completedPreview.status, 200);
+  const completedConfirm = await postJson(baseUrl, `/api/v1/imports/${completedPreview.json.importRecordId}/confirm`, {
+    confirm: true
+  });
+  assert.equal(completedConfirm.status, 200, JSON.stringify(completedConfirm.json));
+
+  const rollbackPreview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: rollbackSourceDir }
+  });
+  assert.equal(rollbackPreview.status, 200);
+  const rollbackConfirm = await postJson(baseUrl, `/api/v1/imports/${rollbackPreview.json.importRecordId}/confirm`, {
+    confirm: true
+  });
+  assert.equal(rollbackConfirm.status, 200, JSON.stringify(rollbackConfirm.json));
+  const rollback = await postJson(baseUrl, `/api/v1/imports/${rollbackPreview.json.importRecordId}/rollback`, {});
+  assert.equal(rollback.status, 200, JSON.stringify(rollback.json));
+
+  const allRecords = await getJson(baseUrl, "/api/v1/imports");
+  assert.equal(allRecords.status, 200);
+  assert.equal(allRecords.json.count, 3);
+  assert.equal(allRecords.json.total, 3);
+  assert.deepEqual(
+    new Set(allRecords.json.items.map((item) => item.status)),
+    new Set(["preview", "completed", "rolled_back"])
+  );
+
+  const limitedRecords = await getJson(baseUrl, "/api/v1/imports?limit=2");
+  assert.equal(limitedRecords.status, 200);
+  assert.equal(limitedRecords.json.count, 2);
+  assert.equal(limitedRecords.json.total, 3);
+  assert.equal(limitedRecords.json.items[0].importRecordId, rollbackPreview.json.importRecordId);
+  assert.equal(limitedRecords.json.items[0].status, "rolled_back");
+  assert.ok(limitedRecords.json.items.every((item) => item.confirmResult === null || Array.isArray(item.confirmResult.createdFiles)));
 });
 
 test("API import rollback skips files modified after confirm", async (t) => {

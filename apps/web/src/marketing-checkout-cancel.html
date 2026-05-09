@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>支付未完成 | 研思录</title>
+  <meta name="description" content="支付流程中断后，回到研思录定价页或账户页继续处理。" />
+  <link rel="stylesheet" href="/marketing.css" />
+</head>
+<body>
+  <div class="marketing-shell">
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="研思录" />
+          <span class="brand-text">
+            <span class="brand-name">研思录</span>
+            <span class="brand-sub">Thinking in Notes</span>
+          </span>
+        </a>
+      </div>
+    </header>
+
+    <main class="auth-shell">
+      <div class="container auth-layout">
+        <section class="status-card checkout-status-card">
+          <div class="section-kicker">Checkout Cancel</div>
+          <h3>支付流程已中断</h3>
+          <p>你可以稍后继续。当前账户、笔记和订阅状态都不会因为这次取消而丢失。</p>
+          <div class="meta-row">
+            <span class="meta-chip">流程未完成</span>
+            <span class="meta-chip">状态不丢失</span>
+            <span class="meta-chip">可随时返回</span>
+          </div>
+          <div class="auth-message" data-checkout-cancel-status data-tone="info">
+            你可以回到定价页重新发起升级，或者先回到账单页确认当前状态。
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="/pricing">返回定价</a>
+            <a class="btn btn-secondary" href="/billing">查看账户</a>
+          </div>
+          <div class="spotlight-grid">
+            <article class="spotlight-card">
+              <strong>这不是一次“失败的升级”</strong>
+              <p>它只是支付流程被中断，账户和现有积累都还在，你可以在准备好后再继续。</p>
+            </article>
+            <article class="spotlight-card">
+              <strong>先回到账户页也可以</strong>
+              <p>如果你只是想确认当前方案和订阅状态，先看账户页通常会比直接回定价页更安心。</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <strong>研思录 · Thinking in Notes</strong>
+            <p>这次支付中断不会影响你的账户与知识积累，你可以随时回到定价页继续。</p>
+            <p class="footer-meta">© <span data-current-year></span> 研思录</p>
+          </div>
+          <div class="footer-link-group">
+            <h3>了解产品</h3>
+            <a href="/product">产品介绍</a>
+            <a href="/pricing">定价方案</a>
+            <a href="/download">下载桌面版</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>开始使用</h3>
+            <a href="/pricing">返回定价</a>
+            <a href="/billing">查看账户</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>当前体验</h3>
+            <a href="/prototype">查看原型</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="/marketing-site.js"></script>
+</body>
+</html>

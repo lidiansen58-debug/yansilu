@@ -2,11 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
+import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 
 const DEFAULT_DIRECTORY_SPECS = [
   { id: "dir_fleeting_default", type: "fleeting_default", title: "随笔目录", relPath: path.join("notes", "fleeting") },
   { id: "dir_literature_default", type: "literature_default", title: "书摘目录", relPath: path.join("notes", "literature") },
-  { id: "dir_original_default", type: "original_default", title: "原创目录", relPath: path.join("notes", "original") }
+  { id: "dir_original_default", type: "original_default", title: "原创笔记", relPath: path.join("notes", "original") }
 ];
 
 async function loadDatabaseSync() {
@@ -37,10 +38,16 @@ function catalogDbPath(vaultPath) {
   return path.join(path.resolve(vaultPath), ".yansilu", SQLITE_DB_FILES.catalog);
 }
 
-function validateFsPath(fsPath) {
+function validateFsPath(vaultPath, fsPath) {
+  const root = path.resolve(vaultPath);
   const normalized = String(fsPath || "").trim();
   if (!normalized) throw new Error("fsPath is required");
-  return path.resolve(normalized);
+  const resolved = path.resolve(normalized);
+  const rel = path.relative(root, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("fsPath must stay inside vault");
+  }
+  return resolved;
 }
 
 function validateDirectoryType(input) {
@@ -48,6 +55,71 @@ function validateDirectoryType(input) {
   const allowed = new Set(["fleeting_default", "literature_default", "original_default", "custom"]);
   if (!allowed.has(value)) throw new Error(`directoryType invalid: ${value}`);
   return value;
+}
+
+function normalizeRelativePath(relativePath) {
+  return String(relativePath || "").replaceAll("\\", "/");
+}
+
+function isSameOrChildPath(parentPath, candidatePath) {
+  const rel = path.relative(path.resolve(parentPath), path.resolve(candidatePath));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+async function pathExists(targetPath) {
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function moveDirectoryOnDisk(oldFsPath, newFsPath) {
+  const from = path.resolve(oldFsPath);
+  const to = path.resolve(newFsPath);
+  if (from === to) {
+    await fs.mkdir(to, { recursive: true });
+    return;
+  }
+  if (isSameOrChildPath(from, to)) {
+    throw new Error("directory cannot move into itself");
+  }
+
+  const sourceExists = await pathExists(from);
+  if (!sourceExists) {
+    await fs.mkdir(to, { recursive: true });
+    return;
+  }
+
+  await fs.mkdir(path.dirname(to), { recursive: true });
+  try {
+    await fs.rename(from, to);
+    return;
+  } catch (error) {
+    if (error?.code !== "EXDEV") throw error;
+  }
+
+  await fs.cp(from, to, { recursive: true, errorOnExist: true, force: false });
+  await fs.rm(from, { recursive: true, force: true });
+}
+
+function directoryScopeRows(db, directoryId) {
+  return db
+    .prepare(
+      `WITH RECURSIVE directory_scope(id, parent_directory_id, fs_path) AS (
+         SELECT id, parent_directory_id, fs_path
+         FROM directories
+         WHERE id = ?
+         UNION ALL
+         SELECT d.id, d.parent_directory_id, d.fs_path
+         FROM directories d
+         JOIN directory_scope scope ON d.parent_directory_id = scope.id
+       )
+       SELECT id, parent_directory_id, fs_path
+       FROM directory_scope`
+    )
+    .all(directoryId);
 }
 
 export async function ensureDefaultDirectories(vaultPath) {
@@ -99,7 +171,7 @@ export async function createDirectory(vaultPath, input = {}) {
   if (!title) throw new Error("title is required");
   const parentDirectoryId = input.parentDirectoryId ? String(input.parentDirectoryId).trim() : null;
   const directoryType = validateDirectoryType(input.directoryType || "custom");
-  const fsPath = validateFsPath(input.fsPath);
+  const fsPath = validateFsPath(vaultPath, input.fsPath);
   const maxNotesRaw = Number(input.maxNotes);
   const maxNotes = Number.isFinite(maxNotesRaw) && maxNotesRaw > 0 ? Math.floor(maxNotesRaw) : 500;
   const isDefault = input.isDefault === true;
@@ -158,15 +230,18 @@ export async function updateDirectory(vaultPath, directoryId, input = {}) {
 
     const parentDirectoryId =
       input.parentDirectoryId === undefined ? current.parent_directory_id : input.parentDirectoryId ? String(input.parentDirectoryId) : null;
+    const scopedDirectories = directoryScopeRows(db, id);
+    const scopedDirectoryIds = new Set(scopedDirectories.map((row) => row.id));
     if (parentDirectoryId) {
       if (parentDirectoryId === id) throw new Error("directory cannot be parent of itself");
+      if (scopedDirectoryIds.has(parentDirectoryId)) throw new Error("directory cannot be moved into its child directory");
       const parentExists = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(parentDirectoryId);
       if (!parentExists) throw new Error(`parentDirectoryId not found: ${parentDirectoryId}`);
     }
 
     const title = input.title === undefined ? current.title : String(input.title || "").trim();
     if (!title) throw new Error("title is required");
-    const fsPath = input.fsPath === undefined ? current.fs_path : validateFsPath(input.fsPath);
+    const fsPath = input.fsPath === undefined ? current.fs_path : validateFsPath(vaultPath, input.fsPath);
     const isHidden = input.isHidden === undefined ? current.is_hidden === 1 : input.isHidden === true;
     const maxNotes =
       input.maxNotes === undefined
@@ -175,12 +250,74 @@ export async function updateDirectory(vaultPath, directoryId, input = {}) {
           ? Math.floor(Number(input.maxNotes))
           : 500;
 
-    await fs.mkdir(fsPath, { recursive: true });
-    db.prepare(
-      `UPDATE directories
-         SET parent_directory_id = ?, title = ?, fs_path = ?, is_hidden = ?, max_notes = ?, updated_at = ?
-       WHERE id = ?`
-    ).run(parentDirectoryId, title, fsPath, isHidden ? 1 : 0, maxNotes, now, id);
+    const pathChanged = path.resolve(fsPath) !== path.resolve(current.fs_path);
+    if (pathChanged) {
+      await moveDirectoryOnDisk(current.fs_path, fsPath);
+    } else {
+      await fs.mkdir(fsPath, { recursive: true });
+    }
+
+    const scopedNotes = pathChanged
+      ? db
+          .prepare(
+            `WITH RECURSIVE directory_scope(id) AS (
+               SELECT id FROM directories WHERE id = ?
+               UNION ALL
+               SELECT d.id
+               FROM directories d
+               JOIN directory_scope scope ON d.parent_directory_id = scope.id
+             )
+             SELECT n.id, n.markdown_path
+             FROM notes n
+             JOIN note_directory_membership ndm ON ndm.note_id = n.id
+             JOIN directory_scope scope ON scope.id = ndm.directory_id
+             WHERE n.deleted_at IS NULL`
+          )
+          .all(id)
+      : [];
+
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      if (pathChanged) {
+        for (const row of scopedDirectories) {
+          const nextDirectoryPath =
+            row.id === id
+              ? fsPath
+              : isSameOrChildPath(current.fs_path, row.fs_path)
+                ? path.join(fsPath, path.relative(current.fs_path, row.fs_path))
+                : row.fs_path;
+          if (row.id === id) {
+            db.prepare(
+              `UPDATE directories
+                 SET parent_directory_id = ?, title = ?, fs_path = ?, is_hidden = ?, max_notes = ?, updated_at = ?
+               WHERE id = ?`
+            ).run(parentDirectoryId, title, nextDirectoryPath, isHidden ? 1 : 0, maxNotes, now, id);
+          } else {
+            db.prepare("UPDATE directories SET fs_path = ?, updated_at = ? WHERE id = ?").run(nextDirectoryPath, now, row.id);
+          }
+        }
+
+        for (const row of scopedNotes) {
+          const oldAbsNotePath = path.join(path.resolve(vaultPath), row.markdown_path);
+          const nextAbsNotePath = isSameOrChildPath(current.fs_path, oldAbsNotePath)
+            ? path.join(fsPath, path.relative(current.fs_path, oldAbsNotePath))
+            : oldAbsNotePath;
+          const nextMarkdownPath = normalizeRelativePath(path.relative(path.resolve(vaultPath), nextAbsNotePath));
+          await rewriteAssetLinksInMarkdownFile(nextAbsNotePath, row.markdown_path, nextMarkdownPath, now);
+          db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(nextMarkdownPath, now, row.id);
+        }
+      } else {
+        db.prepare(
+          `UPDATE directories
+             SET parent_directory_id = ?, title = ?, fs_path = ?, is_hidden = ?, max_notes = ?, updated_at = ?
+           WHERE id = ?`
+        ).run(parentDirectoryId, title, fsPath, isHidden ? 1 : 0, maxNotes, now, id);
+      }
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
 
     const updated = db
       .prepare(
@@ -207,6 +344,7 @@ export async function deleteDirectory(vaultPath, directoryId) {
     const current = db
       .prepare(
         `SELECT id, is_default
+                , fs_path
          FROM directories
          WHERE id = ?
          LIMIT 1`
@@ -221,6 +359,11 @@ export async function deleteDirectory(vaultPath, directoryId) {
     const hasNotes = db.prepare("SELECT id FROM note_directory_membership WHERE directory_id = ? LIMIT 1").get(id);
     if (hasNotes) throw new Error("directory has notes");
 
+    try {
+      await fs.rmdir(current.fs_path);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
     db.prepare("DELETE FROM directories WHERE id = ?").run(id);
     return { id, deleted: true };
   } finally {

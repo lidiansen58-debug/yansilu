@@ -2,7 +2,7 @@
 
 ## 1. 目标
 
-定义 v1.2 结构化存储层（SQLite/Postgres 等效），支持：
+定义 v1.7 结构化存储层（SQLite/Postgres 等效），支持：
 
 - 目录模型（根目录、默认目录、子目录、容量上限、隐藏）
 - 全笔记 CRUD（随笔记录/书摘笔记/原创笔记/项目笔记）
@@ -138,8 +138,11 @@ CREATE TABLE literature_note_meta (
 CREATE TABLE permanent_note_meta (
   note_id TEXT PRIMARY KEY REFERENCES notes(id),
   core_claim TEXT NOT NULL,
+  thesis TEXT,
   rationale TEXT NOT NULL,
+  three_line_summary_json TEXT,
   boundary_or_counterpoint TEXT,
+  distillation_status TEXT,
   originality_status TEXT NOT NULL,       -- pass | warning | blocked
   originality_similarity REAL,
   user_confirmed INTEGER NOT NULL,        -- 0/1
@@ -152,6 +155,8 @@ CREATE INDEX idx_perm_originality_sim ON permanent_note_meta(originality_similar
 规则：
 
 - 相似度 `>= 0.8` 时必须标记 `blocked`，并禁止保存 Markdown 文件。
+- `thesis` 与 `three_line_summary_json` 用于记录用户确认后的思想压缩结果。
+- `distillation_status` 建议使用：`missing | draft | confirmed`。
 
 ## 3.7 links（显式关系）
 
@@ -207,9 +212,12 @@ CREATE INDEX idx_note_tags_tag ON note_tags(tag_id);
 CREATE TABLE index_cards (
   id TEXT PRIMARY KEY,
   directory_id TEXT NOT NULL REFERENCES directories(id),
-  index_type TEXT NOT NULL,               -- topic | nearby | logic_chain | free_link
+  index_type TEXT NOT NULL,               -- topic | nearby | sequence | free_link
   title TEXT NOT NULL,
   summary TEXT,
+  thesis TEXT,
+  three_line_summary_json TEXT,
+  central_question TEXT,
   ordering_strategy TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -235,6 +243,8 @@ CREATE TABLE writing_projects (
   goal TEXT,
   audience TEXT,
   tone TEXT,
+  intent TEXT,
+  desired_reader_takeaway TEXT,
   status TEXT NOT NULL,
   scaffold_id TEXT,
   created_at TEXT NOT NULL,
@@ -253,6 +263,7 @@ CREATE INDEX idx_writing_basket_project_order ON writing_basket_items(project_id
 约束（服务层）：
 
 - 添加写作篮时，`note_id` 必须属于原创目录且 `note_type = permanent`。
+- `intent` 与 `desired_reader_takeaway` 用于写作意图澄清，应来自用户确认而非静默 AI 落库。
 
 ## 3.11 reminder_state（索引整理提醒）
 
@@ -319,3 +330,4 @@ CREATE INDEX idx_embeddings_object ON embeddings(object_type, object_id);
 3. 导入必须先预览再确认，并生成 ImportRecord。
 4. 不覆盖用户二次编辑内容。
 5. 所有转换关系必须可追溯：随笔 -> 书摘/原创，书摘 -> 原创。
+6. 思想提纯字段属于高密度语义层，AI 仅能提供候选建议，最终写入必须经用户确认。

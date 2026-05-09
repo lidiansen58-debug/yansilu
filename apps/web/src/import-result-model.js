@@ -1,0 +1,238 @@
+function primitiveEntries(value = {}) {
+  return Object.entries(value || {}).filter(([, item]) => item === null || ["string", "number", "boolean"].includes(typeof item));
+}
+
+function compactValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  return String(value);
+}
+
+function uniqueStrings(items = []) {
+  return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+export function resultTitle(stage) {
+  const titles = {
+    preview: "导入预览完成",
+    preview_error: "导入预览失败",
+    confirm: "导入写入完成",
+    confirm_error: "导入写入失败",
+    cancel: "导入已取消",
+    cancel_error: "取消导入失败",
+    record: "导入记录已读取",
+    record_error: "读取导入记录失败",
+    rollback: "导入回滚完成",
+    rollback_error: "导入回滚失败",
+    export_markdown: "Markdown 导出完成",
+    export_error: "Markdown 导出失败",
+    writing_project: "写作项目已创建",
+    writing_project_error: "写作项目创建失败",
+    draft_scaffold: "草稿骨架已生成",
+    draft_scaffold_error: "草稿骨架生成失败",
+    writing_draft_note: "草稿笔记已创建",
+    writing_draft_note_error: "草稿笔记创建失败",
+    writing_copy_scaffold: "Scaffold Markdown 已复制",
+    writing_copy_scaffold_error: "Scaffold 复制失败",
+    writing_export_scaffold: "Scaffold Markdown 已导出",
+    writing_export_scaffold_error: "Scaffold 导出失败"
+  };
+  return titles[stage] || "操作结果";
+}
+
+export function resultTone(payload = {}) {
+  const stage = String(payload.stage || "");
+  if (stage.includes("error")) return "bad";
+  if (Array.isArray(payload.warnings) && payload.warnings.length) return "warn";
+  if (payload.status === "blocked" || payload.status === "failed") return "bad";
+  if (Number(payload.result?.skipped || 0) > 0) return "warn";
+  if (Number(payload.result?.skipped?.invalid || 0) > 0 || Number(payload.result?.skipped?.conflicted || 0) > 0) return "warn";
+  return "ok";
+}
+
+export function resultMetrics(payload = {}) {
+  const stage = String(payload.stage || "");
+  const metrics = [];
+  const push = (label, value) => {
+    if (value !== undefined) metrics.push({ label, value: compactValue(value) });
+  };
+
+  if (stage === "preview") {
+    push("ImportRecord", payload.importRecordId);
+    push("连接器", payload.connector);
+    push("状态", payload.status);
+    for (const [key, value] of primitiveEntries(payload.summary)) push(key, value);
+    push("Warnings", Array.isArray(payload.warnings) ? payload.warnings.length : 0);
+    return metrics;
+  }
+
+  if (stage === "confirm" || stage === "rollback") {
+    push("ImportRecord", payload.importRecordId);
+    push("状态", payload.status);
+    if (payload.result?.selection) {
+      const selection = payload.result.selection;
+      push("已选候选", `${compactValue(selection.selectedCandidates)}/${compactValue(selection.totalCandidates)}`);
+      push("选择模式", selection.mode);
+    }
+    for (const [key, value] of primitiveEntries(payload.result)) push(key, value);
+    return metrics;
+  }
+
+  if (stage === "record") {
+    push("ImportRecord", payload.importRecord?.importRecordId);
+    push("状态", payload.importRecord?.status);
+    push("连接器", payload.importRecord?.connector);
+    return metrics;
+  }
+
+  if (stage === "export_markdown") {
+    push("ExportJob", payload.exportJobId);
+    push("状态", payload.status);
+    push("复制文件", payload.copied);
+    push("目标路径", payload.targetPath);
+    return metrics;
+  }
+
+  if (stage === "writing_project") {
+    push("Project", payload.writingProjectId);
+    push("标题", payload.title);
+    push("篮子笔记", Array.isArray(payload.basketNoteIds) ? payload.basketNoteIds.length : undefined);
+    return metrics;
+  }
+
+  if (stage === "draft_scaffold") {
+    push("Project", payload.writingProjectId);
+    push("Scaffold", payload.draftScaffoldId);
+    push("章节数", Array.isArray(payload.sections) ? payload.sections.length : undefined);
+    return metrics;
+  }
+
+  if (stage === "writing_draft_note") {
+    push("Project", payload.writingProjectId);
+    push("Scaffold", payload.draftScaffoldId);
+    push("Note", payload.noteId);
+    push("目录", payload.directoryId);
+    return metrics;
+  }
+
+  if (stage === "writing_copy_scaffold" || stage === "writing_export_scaffold") {
+    push("Project", payload.writingProjectId);
+    push("Scaffold", payload.draftScaffoldId);
+    push("文件", payload.fileName);
+    push("字符数", payload.characters);
+    return metrics;
+  }
+
+  push("代码", payload.code);
+  push("消息", payload.message);
+  push("状态", payload.status);
+  return metrics;
+}
+
+export function warningItems(payload = {}) {
+  const warnings = [];
+  if (Array.isArray(payload.warnings)) warnings.push(...payload.warnings);
+  if (payload.code) warnings.push({ code: payload.code, message: payload.message || "" });
+  const evaluations = payload.originalityGuard?.evaluations;
+  if (Array.isArray(evaluations)) {
+    for (const item of evaluations) {
+      if (item?.status && item.status !== "pass") {
+        warnings.push({
+          code: `ORIGINALITY_${String(item.status).toUpperCase()}`,
+          message: `${item.id || "note"}: ${item.reasons?.join(", ") || item.status}`
+        });
+      }
+    }
+  }
+  return warnings;
+}
+
+function actionableTextForCode(code, payload = {}) {
+  const normalized = String(code || "").trim();
+  const map = {
+    IMPORT_EMPTY_PAYLOAD: "补充 Payload JSON，或为 Markdown/Obsidian 导入填写一个存在的本机路径。",
+    IMPORT_SOURCE_UNREADABLE: "确认导入路径存在、当前进程有读取权限，并尽量使用绝对路径。",
+    IMPORT_MARKDOWN_FILE_UNREADABLE: "检查被跳过的 Markdown 文件权限或编码，修复后重新预览导入。",
+    IMPORT_MALFORMED_FRONTMATTER: "修正 frontmatter 的 --- 起止边界；预览仍会继续，但建议在确认写入前先处理。",
+    IMPORT_NO_MARKDOWN_FILE: "确认目录中包含 .md 文件；如果是 Obsidian vault，请选择 vault 根目录或目标子目录。",
+    IMPORT_PAYLOAD_INVALID: "检查 connector 名称和 JSON 结构，确认连接器为 markdown、obsidian、zotero、readwise 或 notebooklm。",
+    IMPORT_RECORD_NOT_FOUND: "确认 ImportRecord ID 是否来自当前 Vault；切换 Vault 后需要重新预览。",
+    IMPORT_STATUS_INVALID: "确认导入记录处于正确阶段：只有 preview 可确认，只有 completed 可回滚。",
+    IMPORT_CONFIRM_REQUIRED: "点击“确认写入”时需要明确 confirm=true；如果只是放弃本次导入，请使用取消。",
+    IMPORT_ORIGINALITY_BLOCKED: "先改写被阻止的永久笔记，或在确认接口中显式传入 originalityOverride=true 后再写入。",
+    ORIGINALITY_GUARD_WARNING: "检查 warning 笔记的引用定位和转述质量；需要直接写入时可开启 allowDraftOnWarning。",
+    ORIGINALITY_GUARD_BLOCKED: "把高相似度文本改写成自己的核心主张，并补充来源定位后重新预览。",
+    ORIGINALITY_WARNING: "补充引用定位或增强转述，再重新运行原创性检查。",
+    ORIGINALITY_BLOCKED: "降低与文献摘录的相似度，保留证据链但重写永久笔记表述。",
+    WRITING_PROJECT_INVALID: "确认标题不为空，并且 basket 里只放原创/永久笔记 ID。",
+    DRAFT_SCAFFOLD_INVALID: "先创建有效写作项目，再用返回的 writingProjectId 生成草稿骨架。",
+    WRITING_DRAFT_INVALID: "请先生成 scaffold，再保存成草稿笔记。"
+  };
+  if (map[normalized]) return map[normalized];
+  if (payload.message) return `根据错误信息处理：${payload.message}`;
+  return "";
+}
+
+function actionableTextForReason(reason) {
+  const map = {
+    core_claim_empty: "补充永久笔记的核心主张，避免只留下标题或空正文。",
+    similarity_above_warn_threshold: "把与文献相近的句子改写成自己的判断，并保留引用来源。",
+    similarity_above_block_threshold: "当前文本过于接近来源材料，需要重写后再确认导入。",
+    citation_locator_missing: "为引用补充页码、章节、时间戳或其他可追溯定位。"
+  };
+  return map[String(reason || "")] || "";
+}
+
+export function actionItems(payload = {}, warnings = []) {
+  const actions = [];
+  for (const warning of warnings) {
+    const text = actionableTextForCode(warning?.code, payload);
+    if (text) actions.push(text);
+  }
+
+  const evaluations = Array.isArray(payload.originalityGuard?.evaluations) ? payload.originalityGuard.evaluations : [];
+  for (const item of evaluations) {
+    for (const reason of item?.reasons || []) {
+      const text = actionableTextForReason(reason);
+      if (text) actions.push(text);
+    }
+  }
+
+  const skipped = payload.result?.skipped;
+  if (typeof skipped === "number" && skipped > 0) {
+    actions.push("回滚时有文件被跳过，请查看 skippedFiles；如果 reason 是 modified，需要手动对比后决定是否删除。");
+  }
+  if (Number(skipped?.conflicted || 0) > 0) {
+    actions.push("有目标文件已存在，导入没有覆盖；重命名源文件或清理目标文件后重新确认。");
+  }
+  if (Number(skipped?.invalid || 0) > 0) {
+    actions.push("有永久笔记因为原创性 warning 被跳过；修复引用/转述，或允许 warning 作为 draft 写入。");
+  }
+  if (Array.isArray(payload.result?.skippedFiles) && payload.result.skippedFiles.length) {
+    const modified = payload.result.skippedFiles.some((item) => item?.reason === "modified");
+    actions.push(modified ? "被修改过的文件不会自动回滚；请打开对应路径手动合并或删除。" : "检查 skippedFiles 中的 reason 和 path，再手动处理未回滚文件。");
+  }
+
+  if (payload.stage === "writing_project_error" && /only accepts permanent notes/i.test(payload.message || "")) {
+    actions.push("先在原创笔记目录中选择 PermanentNote，再加入写作篮子。");
+  }
+  if (payload.stage === "writing_project_error" && /basketNoteIds/i.test(payload.message || "")) {
+    actions.push("至少加入一条原创笔记 ID；可以先打开一条原创笔记后点击“加入当前笔记”。");
+  }
+  if (payload.stage === "writing_project_error" && /title/i.test(payload.message || "")) {
+    actions.push("补充写作项目标题后再创建。");
+  }
+  if (payload.stage === "writing_draft_note_error" && /scaffold/i.test(payload.message || "")) {
+    actions.push("先点击“生成草稿骨架”，确认预览区已经出现章节和 Markdown。");
+  }
+
+  return uniqueStrings(actions).slice(0, 5);
+}
+
+export function resultSubtitle(data = {}) {
+  return data.importRecordId || data.exportJobId || data.writingProjectId || data.draftScaffoldId || data.code || data.status || "";
+}
+
+export function resultStatusLabel(tone) {
+  return tone === "bad" ? "failed" : tone === "warn" ? "warning" : "ok";
+}

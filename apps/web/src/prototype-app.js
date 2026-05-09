@@ -140,6 +140,8 @@ const writingState = {
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
 let editorHelperDismissed = false;
+const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
+let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
@@ -265,6 +267,38 @@ function setStatus(text, cls = "", options = {}) {
   const statusBar = $("statusBar");
   if (statusBar) statusBar.dataset.tone = cls || "";
   return true;
+}
+
+function readStoredBoolean(key, fallback = false) {
+  try {
+    const raw = window.localStorage?.getItem(String(key || ""));
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+  } catch {}
+  return fallback;
+}
+
+function writeStoredBoolean(key, value) {
+  try {
+    window.localStorage?.setItem(String(key || ""), value ? "1" : "0");
+  } catch {}
+}
+
+function hideEditorHelper() {
+  const helper = $("editorHelper");
+  if (!helper) return;
+  helper.classList.add("hidden");
+  helper.hidden = true;
+  helper.setAttribute("aria-hidden", "true");
+  helper.style.pointerEvents = "none";
+  const action = $("btnEditorHelperAction");
+  if (action) {
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
+  }
+  if (typeof document !== "undefined" && helper.contains(document.activeElement)) {
+    document.activeElement?.blur?.();
+  }
 }
 
 function setImportRecordId(value) {
@@ -1475,7 +1509,7 @@ function renderSidebarTitle() {
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
-    $("sidebarFoot").textContent = "";
+    if ($("sidebarFoot")) $("sidebarFoot").textContent = "";
     return;
   }
 
@@ -1488,7 +1522,7 @@ function renderSidebarTitle() {
   listArea?.classList.add("hidden");
   moduleSidebar?.classList.add("visible");
   if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
-  $("sidebarFoot").textContent = moduleUi.sidebarFoot;
+  if ($("sidebarFoot")) $("sidebarFoot").textContent = moduleUi.sidebarFoot;
 }
 
 function currentModuleUi() {
@@ -1674,8 +1708,8 @@ function renderStatusMeta() {
 function renderWorkspaceStatusHint() {
   const helper = $("editorHelper");
   if (!helper) return;
-  if (editorHelperDismissed || state.module !== "explorer") {
-    helper.classList.add("hidden");
+  if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
+    hideEditorHelper();
     return;
   }
   const activeNote = activeEditorNote();
@@ -1689,10 +1723,13 @@ function renderWorkspaceStatusHint() {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
   }
+  helper.hidden = false;
+  helper.setAttribute("aria-hidden", "false");
+  helper.style.pointerEvents = "";
   helper.classList.remove("hidden");
 
   if (state.focusMode) {
-    kicker.textContent = "专注提炼";
+    kicker.textContent = "专注模式";
     title.textContent = "现在只保留当前笔记";
     body.textContent = activeNote
       ? `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}写清楚，再决定是否补连接与标签。`
@@ -1757,10 +1794,10 @@ function applyFocusModeChrome() {
   if (focusButton) {
     focusButton.classList.toggle("active", focusActive);
     focusButton.setAttribute("aria-pressed", focusActive ? "true" : "false");
-    focusButton.title = focusActive ? "退出专注提炼" : "专注提炼：收起导航和回链，只保留当前笔记";
-    focusButton.dataset.tip = focusActive ? "退出专注提炼" : "专注提炼：收起导航和回链，只保留当前笔记";
+    focusButton.title = focusActive ? "退出专注模式" : "专注模式：收起导航和关联，只保留当前笔记";
+    focusButton.dataset.tip = focusActive ? "退出专注模式" : "专注模式：收起导航和关联，只保留当前笔记";
     const label = focusButton.querySelector("span");
-    if (label) label.textContent = focusActive ? "退出专注" : "专注提炼";
+    if (label) label.textContent = focusActive ? "退出专注" : "专注模式";
   }
   const intentNote = $("editorIntentNote");
   if (intentNote) {
@@ -3152,7 +3189,7 @@ async function ensureNoteBodyLoaded(noteId) {
 function openNoteById(id, options = {}) {
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
   if (activeTab?.dirty && activeTab.noteId !== id) {
-    const ok = editor.confirmDiscardDirtyTabs(`当前笔记“${activeTab.title || "未命名笔记"}”有未保存更改，打开其他笔记会保留旧 Tab，但当前视图会切走。是否继续？`);
+    const ok = editor.confirmDiscardDirtyTabs(`当前笔记“${activeTab.title || "未命名笔记"}”有未同步更改，打开其他笔记会保留旧 Tab，但当前视图会切走。是否继续？`);
     if (!ok) {
       state.selectedFileId = activeTab.noteId;
       const activeNote = state.notes.find((n) => n.id === activeTab.noteId);
@@ -3317,12 +3354,12 @@ async function handleStateChange(reason, payload = {}) {
           if (note.noteType === "original") {
             setStatus(
               resolvedStatus === "active"
-                ? "已保存 Markdown（已落盘），原创笔记已完成作者确认"
-                : "已保存 Markdown（已落盘），但当前原创笔记仍按 draft 处理",
+                ? "已同步到 Markdown，原创笔记已完成作者确认"
+                : "已同步到 Markdown，但当前原创笔记仍按 draft 处理",
               resolvedStatus === "active" ? "ok" : "warn"
             );
           } else {
-            setStatus("已保存 Markdown（已落盘）", "ok");
+            setStatus("已同步到 Markdown", "ok");
           }
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
@@ -3538,7 +3575,8 @@ const editor = new EditorPane({
     originalityNoticeBody: $("originalityNoticeBody"),
     closeOriginalityNotice: $("btnCloseOriginalityNotice"),
     insertLink: $("btnInsertLink"),
-    insertAsset: $("btnInsertAsset"),
+    insertImage: $("btnInsertImage"),
+    insertFile: $("btnInsertFile"),
     insertTag: $("btnInsertTag"),
     headingLevel: $("headingLevelSelect"),
     codeTools: $("codeTools"),
@@ -3546,7 +3584,8 @@ const editor = new EditorPane({
     tableTools: $("tableTools"),
     tableAddRow: $("btnTableAddRow"),
     tableAddColumn: $("btnTableAddColumn"),
-    assetInput: $("assetFileInput"),
+    assetImageInput: $("assetImageInput"),
+    assetFileInput: $("assetFileInput"),
     modeEdit: $("btnModeToggle"),
     modeSplit: $("btnModeSplit"),
     modePreview: $("btnModeToggle"),
@@ -3576,19 +3615,24 @@ $("btnFocusMode")?.addEventListener("click", () => {
   state.focusMode = !state.focusMode;
   applyFocusModeChrome();
   editor.setFocusMode(state.focusMode);
-  setStatus(state.focusMode ? "已开启专注提炼" : "已退出专注提炼", "ok", { requireModule: "explorer" });
+  setStatus(state.focusMode ? "已开启专注模式" : "已退出专注模式", "ok", { requireModule: "explorer" });
   renderWorkspaceStatusHint();
 });
 
 $("btnDismissEditorHelper")?.addEventListener("click", () => {
   editorHelperDismissed = true;
-  $("editorHelper")?.classList.add("hidden");
+  hideEditorHelper();
 });
 
 $("btnEditorHelperAction")?.addEventListener("click", () => {
   const button = $("btnEditorHelperAction");
   const helperAction = String(button?.dataset.helperAction || "noop").trim();
   const targetNoteId = String(button?.dataset.targetNoteId || "").trim();
+  if (helperAction === "noop") {
+    editorHelperDismissed = true;
+    hideEditorHelper();
+    return;
+  }
   if (helperAction === "open-generated-original" && targetNoteId) {
     const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
     if (opened) {
@@ -3610,6 +3654,14 @@ $("settingsRefreshVault")?.addEventListener("click", async () => {
   }
 });
 
+$("btnEditorHelperMute")?.addEventListener("click", () => {
+  editorHelperDismissed = true;
+  editorHelperMuted = true;
+  writeStoredBoolean(EDITOR_HELPER_MUTE_KEY, true);
+  hideEditorHelper();
+  setStatus("后续将不再显示这类编辑提示", "ok", { requireModule: "explorer" });
+});
+
 $("settingsBrowseVault")?.addEventListener("click", async () => {
   const picked = await desktopCommands.pickVaultDirectory({ defaultPath: $("settingsVaultPath")?.value || settingsState.vault?.vaultPath || "" });
   if (picked.path) {
@@ -3621,7 +3673,7 @@ $("settingsBrowseVault")?.addEventListener("click", async () => {
 $("settingsSwitchVault")?.addEventListener("click", async () => {
   const vaultPath = String($("settingsVaultPath")?.value || "").trim();
   if (!vaultPath) return setStatus("请先选择或输入 Vault 路径", "warn");
-  if (!editor.confirmDiscardDirtyTabs("切换 Vault 会关闭当前所有打开的笔记，未保存更改会丢失。是否继续？")) return;
+  if (!editor.confirmDiscardDirtyTabs("切换 Vault 会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
   try {
     const vault = await desktopCommands.switchVault(vaultPath);
     settingsState.vault = vault;
@@ -4484,6 +4536,16 @@ async function bootstrap() {
     await importToolbarActions.handlePreview();
   });
 
+  $("btnBrowseImportPath")?.addEventListener("click", async () => {
+    const picked = await desktopCommands.browseDirectory({
+      defaultPath: $("importPath")?.value || "",
+      purpose: "导入目录"
+    });
+    if (!picked.path) return;
+    $("importPath").value = picked.path;
+    setStatus(`已选择导入目录（${picked.source}）`, "ok");
+  });
+
   $("btnImportConfirm")?.addEventListener("click", async () => {
     await importToolbarActions.handleConfirm();
   });
@@ -4523,6 +4585,16 @@ async function bootstrap() {
       });
       setStatus(`Markdown 导出失败：${String(error?.message || error)}`, "bad");
     }
+  });
+
+  $("btnBrowseExportPath")?.addEventListener("click", async () => {
+    const picked = await desktopCommands.browseDirectory({
+      defaultPath: $("exportTargetPath")?.value || "",
+      purpose: "导出目录"
+    });
+    if (!picked.path) return;
+    $("exportTargetPath").value = picked.path;
+    setStatus(`已选择导出目录（${picked.source}）`, "ok");
   });
 
   try {

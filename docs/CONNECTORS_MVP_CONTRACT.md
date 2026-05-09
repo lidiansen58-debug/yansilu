@@ -4,7 +4,7 @@
 
 本契约定义研思录与外部笔记/资料系统在 v1.0 的接口边界。
 
-v1.0 仅支持：
+v1.0 发布门槛仅支持：
 
 - 单次导入（one-shot import）
 - 单次导出（one-shot export）
@@ -15,19 +15,34 @@ v1.0 仅支持：
 - 自动增量同步
 - 无确认自动写入
 
-## 2. 支持的连接器
+## 2. 支持的连接器与阶段顺序
 
-导入连接器：
+### 2.1 v1.0 / Phase 1 发布门槛
 
 - Markdown
 - Obsidian
-- Zotero
-- Readwise
-- NotebookLM
 
 导出连接器：
 
 - Markdown（优先保证 Obsidian 兼容）
+
+### 2.2 Phase 2 计划
+
+- Notion
+- Readwise
+- Zotero
+
+### 2.3 Phase 3 计划
+
+- Evernote
+- Logseq
+- Roam
+- 评估 OneNote / Apple Notes
+
+说明：
+
+- 代码中若提前出现某些连接器的实验性实现，不自动等于该连接器已经成为当前发布承诺。
+- 只有进入对应阶段并补齐统一的预览、确认、记录、回滚流程后，才算正式进入连接器范围。
 
 ## 3. 统一流程（导入）
 
@@ -185,6 +200,7 @@ v1.0 仅支持：
 - 不覆盖用户二次编辑内容
 - 可导出 Markdown
 - 导入失败可定位并可回滚
+- 当前发布门槛只要求 Markdown / Obsidian 导入与 Markdown 导出满足以上标准
 
 ## 9. 非目标（v1.0 不做）
 

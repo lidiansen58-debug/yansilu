@@ -6,6 +6,18 @@ The current implementation has a runnable backend core for the Yansilu vault, Ma
 
 The API server now mainly coordinates request parsing, route dispatch, and response shaping. Most business behavior has been moved into packages.
 
+Current MVP alignment snapshot:
+
+- See [MVP_ALIGNMENT_2026-05-09.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/MVP_ALIGNMENT_2026-05-09.md) for the release-facing MVP scope.
+- V1.1 planning, paper workspace, marketing/auth/billing, and broader connector work are adjacent workstreams, not blockers for the current MVP release gate.
+- The current MVP release gate remains: local vault, note/editor flows, Markdown/Obsidian import, Markdown export, graph, writing scaffold, originality boundaries, and desktop file operations.
+
+Note on planning vs. implementation:
+
+- The codebase already contains preview-generation support for several non-Phase-1 connectors.
+- The product plan and release gate now distinguish between "implemented experimentally" and "required for current MVP release".
+- Until the roadmap advances, the blocking import/export promise remains: Markdown import, Obsidian import, and Markdown export.
+
 ## Runnable Verification
 
 Run all tests from the project root:
@@ -17,7 +29,7 @@ Run all tests from the project root:
 Current expected result:
 
 ```text
-64 pass / 0 fail / 34 skipped (browser e2e requires RUN_BROWSER_E2E=1)
+131 pass / 0 fail / 50 skipped (browser e2e requires RUN_BROWSER_E2E=1)
 ```
 
 Run API syntax check:
@@ -32,10 +44,12 @@ Run the full browser e2e suite when Playwright Chromium is available:
 $env:RUN_BROWSER_E2E="1"; node --test --test-isolation=none .\tests\e2e\prototype-browser.test.mjs
 ```
 
-Current local browser e2e result:
+Current browser e2e expectation:
 
 ```text
-34 pass / 0 fail
+`npm run test:e2e:browser:mvp` passes for the quick real-browser MVP path.
+The targeted editor image/file/helper browser regression passes with 3 pass / 0 fail.
+Use the full browser e2e command when Playwright Chromium is available and the runner has enough time budget.
 ```
 
 ## Recent UX and shell polish
@@ -58,8 +72,13 @@ Recent prototype polish that is already reflected in the implementation:
 - Note-first default workspace with cleaner tree, tabs, and toolbar hierarchy.
 - Unified visual language across import, graph, writing, and settings workspaces.
 - Desktop-style context menus and modal polish for directory and note actions.
+- Windows NSIS silent install, silent uninstall, reinstall, and installed-executable launch have been smoke-tested locally.
+- Tauri updater artifacts and runtime updater plugin are disabled for the MVP build to avoid unconfigured updater startup/bundling failures.
 - Dirty-state/save-state feedback, autosave draft restore, and inline `[[wikilink]]` / `#tag` suggestion flows.
 - Unified empty states and bottom status feedback so unfinished or zero-result views still read like product UI instead of debug panels.
+- Editor image and file insertion now use separate entry points while preserving Markdown asset-link storage.
+- Editor helper hints can be dismissed once or muted persistently.
+- Moving notes or directories now preserves image/file asset links by rewriting relative Markdown paths.
 
 ## Package Boundaries
 
@@ -74,6 +93,8 @@ Owns local vault primitives and user content storage.
 - Directory note creation/listing.
 - Note lookup and content update.
 - Non-destructive note writes.
+- Vault-scoped directory paths.
+- Asset upload pathing and relative Markdown asset-link rewriting during moves.
 
 ### `packages/markdown-engine`
 
@@ -130,6 +151,7 @@ Owns writing project and scaffold generation.
 - Draft scaffold section generation.
 - Paragraph-evidence mapping.
 - Markdown and JSON scaffold output.
+- Draft note binding and version metadata updates.
 
 ## API Server Responsibilities
 
@@ -165,9 +187,12 @@ It should not regain parsing, storage, originality, connector, rollback, or expo
 - `DELETE /api/v1/notes/:id`
 - `GET /api/v1/notes/:id/relations`
 - `GET /api/v1/tags/:tag/notes`
+- `GET /api/v1/tags`
 - `GET /api/v1/graph`
 - `GET /api/v1/graph/path`
 - `GET /api/v1/graph/conflicts`
+- `POST /api/v1/assets`
+- `GET /api/v1/assets/file`
 - `POST /api/v1/imports/preview`
 - `POST /api/v1/imports/:connector`
 - `GET /api/v1/imports`
@@ -177,12 +202,21 @@ It should not regain parsing, storage, originality, connector, rollback, or expo
 - `POST /api/v1/originality/check`
 - `POST /api/v1/exports/markdown`
 - `POST /api/v1/writing-projects`
+- `GET /api/v1/writing-projects`
+- `GET /api/v1/writing-projects/:id`
+- `POST /api/v1/writing-projects/:id/draft-note`
+- `POST /api/v1/writing-projects/:id/current-draft`
+- `GET /api/v1/writing-projects/:id/draft-versions`
+- `GET /api/v1/writing-projects/:id/scaffolds`
 - `POST /api/v1/draft-scaffolds`
+- `GET /api/v1/draft-scaffolds/:id`
+- `PATCH /api/v1/draft-scaffolds/:id`
+- `PATCH /api/v1/draft-note-versions/:id`
 
 ## Next Recommended Work
 
 1. Keep `docs/API.md` synchronized with the currently implemented API routes in `apps/api/src/server.mjs`.
-2. Run the desktop-shell validation sequence in [MVP_RUNTIME_CHECKLIST.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/MVP_RUNTIME_CHECKLIST.md) on a machine with Rust + Tauri + Windows desktop prerequisites fully installed.
+2. Run the final packaged Windows desktop walkthrough in [MVP_RUNTIME_CHECKLIST.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/MVP_RUNTIME_CHECKLIST.md).
 3. Expand fixture coverage under `tests/fixtures/` for larger real-world connector exports and multi-folder production vaults.
-4. Add the full browser e2e mode to CI when Playwright runtime is available.
-5. Continue product-shell polish only after the desktop file-dialog, opener, and vault-switch flows are proven on real machines.
+4. Split or budget the full browser e2e mode for CI when Playwright runtime is available.
+5. Keep V1.1, paper workspace, and marketing/auth/billing work separate from the current MVP release gate.

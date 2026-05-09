@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>升级成功 | 研思录</title>
+  <meta name="description" content="查看研思录升级结果、当前订阅状态与下一步入口。" />
+  <link rel="stylesheet" href="/marketing.css" />
+</head>
+<body>
+  <div class="marketing-shell">
+    <header class="site-header">
+      <div class="container site-header-inner">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="研思录" />
+          <span class="brand-text">
+            <span class="brand-name">研思录</span>
+            <span class="brand-sub">Thinking in Notes</span>
+          </span>
+        </a>
+      </div>
+    </header>
+
+    <main class="auth-shell">
+      <div class="container auth-layout">
+        <section class="status-card checkout-status-card">
+          <div class="section-kicker">Checkout Success</div>
+          <h3>升级请求已经提交</h3>
+          <p>你的 Pro 权益正在生效。这个页面会确认当前方案、订阅状态，以及下一步该去哪里继续使用。</p>
+          <div class="meta-row">
+            <span class="meta-chip">升级结果</span>
+            <span class="meta-chip">订阅状态</span>
+            <span class="meta-chip">下一步入口</span>
+          </div>
+          <div class="auth-message" data-checkout-status data-tone="info">正在确认订阅状态...</div>
+          <div class="checkout-summary">
+            <div class="billing-note-row">
+              <span class="billing-note-label">当前方案</span>
+              <strong data-checkout-plan>FREE</strong>
+            </div>
+            <div class="billing-note-row">
+              <span class="billing-note-label">订阅状态</span>
+              <strong data-checkout-billing-status>pending</strong>
+            </div>
+            <div class="billing-note-row">
+              <span class="billing-note-label">支付模式</span>
+              <strong data-checkout-mode>MOCK</strong>
+            </div>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="/billing">查看订阅</a>
+            <a class="btn btn-secondary" href="/download">下载桌面版</a>
+          </div>
+          <div class="spotlight-grid">
+            <article class="spotlight-card">
+              <strong>升级完成后先看订阅状态</strong>
+              <p>账单页会比成功提示页更完整地展示当前方案、续费时间和管理入口。</p>
+            </article>
+            <article class="spotlight-card">
+              <strong>继续进入桌面版使用</strong>
+              <p>如果你已经准备好开始长期积累，下一步最自然的是进入桌面版，把工作流落到本地环境。</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div class="footer-grid">
+          <div class="footer-brand">
+            <strong>研思录 · Thinking in Notes</strong>
+            <p>升级后的重点不是更多生成，而是更稳地把知识压缩成观点、结构和写作准备。</p>
+            <p class="footer-meta">© <span data-current-year></span> 研思录</p>
+          </div>
+          <div class="footer-link-group">
+            <h3>了解产品</h3>
+            <a href="/product">产品介绍</a>
+            <a href="/pricing">定价方案</a>
+            <a href="/download">下载桌面版</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>开始使用</h3>
+            <a href="/billing">账户与订阅</a>
+            <a href="/prototype">查看原型</a>
+          </div>
+          <div class="footer-link-group">
+            <h3>当前体验</h3>
+            <a href="/download">桌面版入口</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="/marketing-site.js"></script>
+  <script type="module" src="/marketing-checkout-success.js"></script>
+</body>
+</html>
