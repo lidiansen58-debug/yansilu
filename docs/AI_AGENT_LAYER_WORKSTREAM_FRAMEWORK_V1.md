@@ -73,6 +73,7 @@ Primary AI / Agent documents:
 - `docs/MODEL_SWITCHING_PROBLEM_MATRIX.md`: risks and decisions for multi-model switching.
 - `docs/MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
 - `docs/AI_TOOL_CONTRACTS_V1.md`: stable tool boundary between the note app and the Agent layer.
+- `docs/AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
 
 Relevant existing product documents:
 
@@ -86,7 +87,6 @@ The next useful documents for this workstream are:
 
 - `MODEL_PROVIDER_CAPABILITY_MATRIX.md`: provider/model capabilities, cost, region, and tool support.
 - `AGENT_HARNESS_ARCHITECTURE_V1.md`: runtime, scheduler, tracing, and tool execution architecture.
-- `AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
 
 ## 6. Near-Term Decision Questions
 
