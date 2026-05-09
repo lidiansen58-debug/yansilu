@@ -70,6 +70,8 @@ Primary AI / Agent documents:
 
 - `docs/AI_AGENT_LAYER_REQUIREMENTS_V1.md`: product and architecture requirements for the AI / Agent layer.
 - `docs/AI_AGENT_LAYER_WORKSTREAM_FRAMEWORK_V1.md`: this workstream boundary, phase plan, and collaboration model.
+- `docs/MODEL_SWITCHING_PROBLEM_MATRIX.md`: risks and decisions for multi-model switching.
+- `docs/MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
 
 Relevant existing product documents:
 
@@ -81,9 +83,7 @@ Relevant existing product documents:
 
 The next useful documents for this workstream are:
 
-- `MODEL_SWITCHING_PROBLEM_MATRIX.md`: risks and decisions for multi-model switching.
 - `MODEL_PROVIDER_CAPABILITY_MATRIX.md`: provider/model capabilities, cost, region, and tool support.
-- `MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
 - `AGENT_HARNESS_ARCHITECTURE_V1.md`: runtime, scheduler, tracing, and tool execution architecture.
 - `AI_TOOL_CONTRACTS_V1.md`: stable tool boundary between the note app and the Agent layer.
 - `AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
@@ -124,4 +124,3 @@ This workstream can start merging pieces into `master/main` when:
 - The platform-managed versus BYOK decision is clear.
 - AI artifacts are separate from human-authored notes.
 - Tracing and usage capture are designed before background agents ship.
-
