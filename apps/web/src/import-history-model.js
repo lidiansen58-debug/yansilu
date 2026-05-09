@@ -1,7 +1,11 @@
 function compactValue(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (value === null || value === undefined || value === "") return "未知";
+  if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
+}
+
+function candidateCountText(summary = {}) {
+  return `${Number(summary.sources || 0)} 来源卡片 / ${Number(summary.literatureNotes || 0)} 文献笔记 / ${Number(summary.permanentNotes || 0)} 永久笔记`;
 }
 
 export function formatImportTimestamp(value) {
@@ -19,7 +23,7 @@ export function formatImportTimestamp(value) {
 
 export function importStatusLabel(status) {
   const labels = {
-    preview: "预览",
+    preview: "预览中",
     completed: "已写入",
     rolled_back: "已回滚",
     cancelled: "已取消"
@@ -39,7 +43,7 @@ export function importStatusTone(status) {
 
 export function importHistorySummary(record = {}) {
   const summary = record.summary || {};
-  return `S${Number(summary.sources || 0)} · L${Number(summary.literatureNotes || 0)} · P${Number(summary.permanentNotes || 0)} · W${Number(summary.warnings || 0)}`;
+  return `来源 ${Number(summary.sources || 0)} / 文献 ${Number(summary.literatureNotes || 0)} / 永久 ${Number(summary.permanentNotes || 0)} / 警告 ${Number(summary.warnings || 0)}`;
 }
 
 export function importHistoryOriginalityCounts(record = {}) {
@@ -60,13 +64,13 @@ export function importHistoryAlertBadges(record = {}) {
   if (warningCount > 0) {
     badges.push({
       tone: "warn",
-      text: `Warning ${warningCount}`
+      text: `警告 ${warningCount}`
     });
   }
   if (originality.blocked > 0) {
     badges.push({
       tone: "bad",
-      text: `Blocked ${originality.blocked}`
+      text: `阻断 ${originality.blocked}`
     });
   }
   if (status === "rolled_back") {
@@ -75,14 +79,14 @@ export function importHistoryAlertBadges(record = {}) {
     if (modifiedCount > 0) {
       badges.push({
         tone: "warn",
-        text: `Modified ${modifiedCount}`
+        text: `保留 ${modifiedCount}`
       });
     }
   }
   if (status === "completed" && progress && Number(progress.total || 0) > 0 && Number(progress.remaining || 0) === 0) {
     badges.push({
       tone: "ok",
-      text: "本批次已处理完"
+      text: "文献队列已清空"
     });
   }
   return badges;
@@ -114,14 +118,12 @@ export function importHistoryDetailSummary(record = {}) {
   if (status === "preview") {
     const summary = record.summary || {};
     const originality = importHistoryOriginalityCounts(record);
-    const detail = [
-      `候选 ${Number(summary.sources || 0)} Source · ${Number(summary.literatureNotes || 0)} Literature · ${Number(summary.permanentNotes || 0)} Permanent`
-    ];
+    const detail = [`候选 ${candidateCountText(summary)}`];
     const signals = [];
-    if (Number(summary.warnings || 0) > 0) signals.push(`warning ${Number(summary.warnings || 0)}`);
-    if (originality.warning > 0) signals.push(`originality warning ${originality.warning}`);
-    if (originality.blocked > 0) signals.push(`blocked ${originality.blocked}`);
-    detail.push(signals.length ? `需人工检查：${signals.join(" · ")}` : "当前预览未发现需要额外处理的 warning");
+    if (Number(summary.warnings || 0) > 0) signals.push(`普通警告 ${Number(summary.warnings || 0)}`);
+    if (originality.warning > 0) signals.push(`原创性警告 ${originality.warning}`);
+    if (originality.blocked > 0) signals.push(`原创性阻断 ${originality.blocked}`);
+    detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项");
     return detail;
   }
   if (status === "completed") {
@@ -129,14 +131,14 @@ export function importHistoryDetailSummary(record = {}) {
     const skipped = record.confirmResult?.skipped || {};
     const writtenPaths = Array.isArray(record.confirmResult?.writtenPaths) ? record.confirmResult.writtenPaths.filter(Boolean) : [];
     const detail = [
-      `已创建 S${Number(created.sources || 0)} · L${Number(created.literatureNotes || 0)} · P${Number(created.permanentNotes || 0)}`,
-      `跳过 冲突 ${Number(skipped.conflicted || 0)} · 无效 ${Number(skipped.invalid || 0)}`,
+      `已创建 ${candidateCountText(created)}`,
+      `跳过 冲突 ${Number(skipped.conflicted || 0)} / 无效 ${Number(skipped.invalid || 0)}`,
       writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径"
     ];
     const progress = record.literatureBatchProgress;
     if (progress && Number(progress.total || 0) > 0) {
       detail.push(
-        `文献队列 待转述 ${Number(progress.pending || 0)} · 待提炼 ${Number(progress.refine || 0)} · 可转原创 ${Number(progress.ready || 0)} · 剩余待处理 ${Number(progress.remaining || 0)}`
+        `文献队列 待转述 ${Number(progress.pending || 0)} / 待提炼 ${Number(progress.refine || 0)} / 可转原创 ${Number(progress.ready || 0)} / 剩余待处理 ${Number(progress.remaining || 0)}`
       );
       if (progress.nextPendingTitle) {
         detail.push(`下一条待处理 ${String(progress.nextPendingTitle)}`);

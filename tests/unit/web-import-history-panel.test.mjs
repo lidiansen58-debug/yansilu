@@ -63,10 +63,10 @@ test("import history panel renders active item badges, details, and actions", ()
   assert.match(html, /data-import-history-action="open-literature-queue"/);
   assert.match(html, /data-import-history-action="rollback"/);
   assert.match(html, /Pending note/);
-  assert.match(html, /已创建 S1 · L2 · P3/);
+  assert.match(html, /已创建 1 来源卡片 \/ 2 文献笔记 \/ 3 永久笔记/);
   assert.match(html, /写入 notes\/sources、notes\/literature/);
-  assert.match(html, /1/);
-  assert.match(html, /2/);
-  assert.match(html, /Modified 1/);
-  assert.match(html, /当前显示 2 条 \/ 共 4 条/);
+  assert.match(html, /待转述 1/);
+  assert.match(html, /剩余待处理 2/);
+  assert.match(html, /保留 1/);
+  assert.match(html, /当前显示 2 条 \/ 全部 4 条/);
 });
