@@ -987,8 +987,11 @@ test("notes API handles Chinese and space-containing vault paths with image and 
     .relative(path.posix.dirname(fetched.json.item.markdownPath), fileUpload.json.item.assetPath)
     .replaceAll("\\", "/");
 
-  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedImageLink)}\\)`));
-  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedFileLink)}\\)`));
+  const expectedImageTarget = /\s/.test(expectedImageLink) ? `<${expectedImageLink}>` : expectedImageLink;
+  const expectedFileTarget = /\s/.test(expectedFileLink) ? `<${expectedFileLink}>` : expectedFileLink;
+
+  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedImageTarget)}\\)`));
+  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedFileTarget)}\\)`));
   assert.ok(!fetched.json.item.body.includes(imageUpload.json.item.markdownLinkPath));
   assert.ok(!fetched.json.item.body.includes(fileUpload.json.item.markdownLinkPath));
 });
