@@ -68,6 +68,7 @@ Note App Host
       -> Agent Registry
       -> Model Policy
       -> Model Provider Layer
+      -> Model Gateway / Adapter Layer
       -> Tool Layer
       -> Scheduler
       -> Provenance Layer
@@ -224,6 +225,66 @@ The product should support three configuration levels:
 - `Admin / Enterprise`: provider allowlist, secret management, compliance, audit logs, and workspace-wide budget policy.
 
 The default onboarding should only ask users to pick between platform-managed AI and BYOK if billing or deployment requires it. All other settings should have safe defaults.
+
+### 8.5 Model Gateway Strategy
+
+The product should support a model gateway or adapter layer to reduce integration cost and accelerate access to many providers.
+
+The gateway strategy should not depend on a single vendor. It should support multiple gateway modes:
+
+- `direct_provider`: first-class integration with strategic providers, such as OpenAI or selected domestic providers.
+- `aggregated_gateway`: services such as OpenRouter or similar products for broad model access through one compatible API surface.
+- `self_hosted_gateway`: LiteLLM, Portkey-like gateways, or an internal gateway when the product needs stronger control over routing, budget, observability, and secrets.
+- `local_gateway`: local OpenAI-compatible endpoints for private or offline models.
+
+OpenRouter or a similar aggregator can be valuable for MVP and power-user flexibility because it reduces the number of provider integrations required at launch. However, the product should treat it as one provider adapter behind the Model Provider Layer, not as the whole architecture.
+
+Recommended approach:
+
+- Use direct OpenAI integration as the highest-confidence baseline.
+- Add one aggregated OpenAI-compatible gateway for broad model coverage.
+- Keep the internal Provider Adapter interface stable so future providers can be added or replaced.
+- For enterprise or privacy-focused deployments, support a self-hosted or local gateway.
+- Keep model routing, task policy, budget policy, and user-facing modes inside the product, not inside a third-party gateway only.
+
+The gateway should normalize:
+
+- Request and response shape.
+- Streaming behavior.
+- Tool calling support or fallback behavior.
+- Structured output support or validation.
+- Error classes.
+- Rate limits and retry behavior.
+- Token usage and cost accounting.
+- Provider and model availability.
+
+### 8.6 User Key and Authentication Strategy
+
+User API keys are a major onboarding risk for novice users. The default product experience should not require users to understand model provider accounts, API keys, billing dashboards, or model ids.
+
+The product should support several authentication modes:
+
+- `platform_managed`: the product owns provider keys and bills users through the product subscription or credit system.
+- `workspace_managed`: an organization admin configures provider keys once for the workspace.
+- `byok_advanced`: power users provide their own provider keys in advanced settings.
+- `local_no_key`: local/private models run without cloud provider keys.
+- `enterprise_secret`: enterprise deployment stores secrets in managed infrastructure.
+
+Recommended default:
+
+- Consumer novice users start with `platform_managed` and `Auto` model mode.
+- Power users can enable BYOK from advanced settings.
+- Teams can use `workspace_managed` keys to avoid every user configuring credentials.
+- Privacy-sensitive users can choose `Local / Private` when a local or enterprise provider is configured.
+
+The product should make key setup progressive:
+
+- First run: ask for no model key if platform-managed AI is available.
+- Settings: expose simple AI mode and monthly budget first.
+- Advanced settings: expose provider keys, raw model choices, fallback policy, and per-agent overrides.
+- Failure states: explain key errors in plain language and offer a one-click fallback where allowed.
+
+BYOK should be treated as an advanced capability, not the main onboarding path.
 
 ## 9. Initial Agent Types
 
@@ -458,6 +519,8 @@ Recommended AI / Agent layer MVP:
 - Agent Registry.
 - Model Policy with at least three model tiers.
 - Model Provider Layer with at least OpenAI plus one OpenAI-compatible provider adapter.
+- Model Gateway / Adapter Layer with one aggregated gateway candidate and one direct provider baseline.
+- Platform-managed AI as the default novice onboarding path, with BYOK only in advanced settings.
 - Simple user-facing model modes: Auto, Economy, Balanced, Deep Thinking, and Local / Private.
 - At least one novice-friendly model pack, with raw model ids hidden by default.
 - Context Builder for current note plus related notes.
@@ -479,6 +542,10 @@ Out of scope for this separate track:
 
 - Should scheduled research run locally, in cloud, or both?
 - Should users bring their own OpenAI key, use platform billing, or support both?
+- Should OpenRouter, LiteLLM, Portkey, or an internal gateway be used for the first aggregated gateway implementation?
+- Which provider integrations must be direct because of reliability, pricing, compliance, or capability reasons?
+- How should the product price platform-managed AI usage without surprising users?
+- Where should user-provided keys be stored on desktop, cloud, and enterprise deployments?
 - Which providers should ship as first-class integrations versus generic OpenAI-compatible endpoints?
 - Which Chinese commercial models should be included in the first provider pack?
 - Which open-source hosted or local model runtimes should be supported in the first privacy-focused pack?
