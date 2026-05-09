@@ -79,6 +79,7 @@ Primary AI / Agent documents:
 - `docs/CONTEXT_PACK_SCHEMA_V1.md`: bounded context package schema for agent runs.
 - `docs/AGENT_RUN_LOG_SCHEMA_V1.md`: trace, usage, cost, fallback, and tool-call record schema.
 - `docs/SCHEDULED_AGENT_TASKS_V1.md`: recurring research, scan, digest, and notification behavior.
+- `docs/AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
 
 Relevant existing product documents:
 
@@ -90,7 +91,7 @@ Relevant existing product documents:
 
 The next useful documents for this workstream are:
 
-- `AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
+No additional core planning documents are required before implementation discovery. Add narrower specs only when a concrete implementation question appears.
 
 ## 6. Near-Term Decision Questions
 
