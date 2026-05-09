@@ -12,20 +12,23 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Branch: `master`
 - Release baseline: `baseline/workspace-2026-05-09`
-- Commit: `222ee09 Stabilize markdown asset links`
+- Commit: `cd7d598 Harden MVP updater release checks`
 - Version: `0.1.0`
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,787,052` bytes
+- Size: `3,786,963` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `971F9E677C88DAC32F4CFE27CF5387886D327BBD3C5D220437C7142ADC3D9E40`
+- SHA-256: `71C17D459BA995025FA34D4DBC82D12BE5F7D4307683031644D186914B866154`
 
 ## Completed Verification
 
 - `npm.cmd run mvp:check` passed on the release baseline.
+- Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
+- Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
+- Browser E2E covers the Tauri updater check no-op path when no update is available.
 - Windows NSIS build passed with updater artifacts disabled for this local RC build.
 - Bundle manifest and checksum were generated.
 - Silent installer smoke passed with exit code `0`.
@@ -50,7 +53,7 @@ Run this from the installed app, not the dev server:
 ## Known Limitations
 
 - The Windows installer is unsigned, so Windows SmartScreen may warn during install or first launch.
-- Automatic updates are not advertised for RC1. The app has updater configuration, but the production update feed is not populated and tested yet.
+- Automatic update checks are enabled as best-effort desktop behavior, but production tagged releases still require signing secrets and a populated update feed before updates should be advertised.
 - macOS and Linux bundles are CI/build artifacts only until real target-machine smoke tests pass.
 - MSI packaging is not the recommended RC1 path.
 - Users should back up their local Vault before testing.
