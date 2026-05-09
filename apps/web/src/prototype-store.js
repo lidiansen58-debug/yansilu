@@ -10,7 +10,7 @@
     folders: [
       {
         id: "dir_fleeting_default",
-        name: "随笔目录",
+        name: "随笔卡片盒",
         parentId: null,
         isDefault: true,
         hidden: false,
@@ -19,7 +19,7 @@
       },
       {
         id: "dir_literature_default",
-        name: "书摘目录",
+        name: "文献卡片盒",
         parentId: null,
         isDefault: true,
         hidden: false,
@@ -28,7 +28,7 @@
       },
       {
         id: "dir_original_default",
-        name: "原创目录",
+        name: "原创卡片盒",
         parentId: null,
         isDefault: true,
         hidden: false,
@@ -69,9 +69,13 @@
     ],
     tabs: [],
     activeTabId: null,
-    searchQuery: ""
-  };
-}
+    searchQuery: "",
+    searchVisible: false,
+    inspectorVisible: false,
+  previewMode: "wysiwyg",
+    focusMode: false
+    };
+  }
 
 export function uid(prefix) {
   return `${prefix}_${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 99)}`;
@@ -101,7 +105,7 @@ export function typeFromFolder(state, folderId) {
 }
 
 export function typeLabel(type) {
-  return type === "fleeting" ? "随手记" : type === "literature" ? "文献笔记" : "原创笔记";
+  return type === "fleeting" ? "随笔笔记" : type === "literature" ? "文献笔记" : "原创笔记";
 }
 
 export function folderById(state, id) {

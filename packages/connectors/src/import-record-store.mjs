@@ -33,6 +33,77 @@ export async function createdEntryFromWriteResult(vaultPath, result) {
   };
 }
 
+function excerpt(value, max = 140) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}...`;
+}
+
+function candidateTitle(candidate, fallback) {
+  return String(candidate?.title || candidate?.id || fallback || "Untitled").trim();
+}
+
+function summarizeSource(candidate) {
+  return {
+    id: String(candidate?.id || ""),
+    type: "Source",
+    title: candidateTitle(candidate, "Source"),
+    sourceType: candidate?.source_type || "",
+    importedFrom: candidate?.imported_from || candidate?.connector || "",
+    status: candidate?.status || "candidate",
+    tags: Array.isArray(candidate?.tags) ? candidate.tags.slice(0, 8) : []
+  };
+}
+
+function summarizeLiterature(candidate) {
+  return {
+    id: String(candidate?.id || ""),
+    type: "LiteratureNote",
+    title: candidateTitle(candidate, "LiteratureNote"),
+    sourceId: candidate?.source_id || "",
+    importedFrom: candidate?.imported_from || candidate?.connector || "",
+    status: candidate?.status || "draft",
+    locator: candidate?.locator || "",
+    excerpt: excerpt(candidate?.quote_text || candidate?.paraphrase_text || ""),
+    tags: Array.isArray(candidate?.tags) ? candidate.tags.slice(0, 8) : []
+  };
+}
+
+function summarizePermanent(candidate, evaluationById) {
+  const evaluation = evaluationById.get(candidate?.id) || null;
+  return {
+    id: String(candidate?.id || ""),
+    type: "PermanentNote",
+    title: candidateTitle(candidate, "PermanentNote"),
+    status: candidate?.status || "draft",
+    originalityStatus: evaluation?.status || candidate?.originality_status || "warning",
+    reasons: Array.isArray(evaluation?.reasons) ? evaluation.reasons : [],
+    excerpt: excerpt(candidate?.core_claim || candidate?.rationale || ""),
+    tags: Array.isArray(candidate?.tags) ? candidate.tags.slice(0, 8) : []
+  };
+}
+
+export function summarizeImportCandidates(candidates = {}, originalityGuard = null, limit = 12) {
+  const sources = Array.isArray(candidates.sources) ? candidates.sources : [];
+  const literature = Array.isArray(candidates.literature) ? candidates.literature : [];
+  const permanent = Array.isArray(candidates.permanent) ? candidates.permanent : [];
+  const evaluationById = new Map(
+    (Array.isArray(originalityGuard?.evaluations) ? originalityGuard.evaluations : []).map((item) => [item.permanentId || item.id, item])
+  );
+
+  return {
+    sources: sources.slice(0, limit).map(summarizeSource),
+    literatureNotes: literature.slice(0, limit).map(summarizeLiterature),
+    permanentNotes: permanent.slice(0, limit).map((candidate) => summarizePermanent(candidate, evaluationById)),
+    total: {
+      sources: sources.length,
+      literatureNotes: literature.length,
+      permanentNotes: permanent.length
+    },
+    truncated: sources.length > limit || literature.length > limit || permanent.length > limit
+  };
+}
+
 export function publicImportRecord(record) {
   if (!record) return null;
   return {
@@ -42,6 +113,7 @@ export function publicImportRecord(record) {
     state: record.state,
     summary: record.summary,
     samples: record.samples,
+    candidatePreview: record.candidatePreview || summarizeImportCandidates(record.candidates, record.originalityGuard),
     warnings: record.warnings || [],
     originalityGuard: record.originalityGuard || null,
     createdAt: record.createdAt,
@@ -134,6 +206,39 @@ export async function loadImportRecord(vaultPath, recordId) {
     rollbackResult,
     updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || preview.createdAt
   };
+}
+
+export async function listImportRecords(vaultPath, { limit = 50 } = {}) {
+  const importsDir = path.join(vaultPath, "imports");
+  let connectorDirs = [];
+  try {
+    connectorDirs = await fs.readdir(importsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+
+  const records = [];
+  for (const connectorDir of connectorDirs) {
+    if (!connectorDir.isDirectory()) continue;
+    const connectorPath = path.join(importsDir, connectorDir.name);
+    const files = await fs.readdir(connectorPath, { withFileTypes: true });
+    for (const file of files) {
+      if (!file.isFile() || !file.name.endsWith(".preview.json")) continue;
+      const recordId = file.name.slice(0, -".preview.json".length);
+      const record = await loadImportRecord(vaultPath, recordId);
+      if (record) records.push(record);
+    }
+  }
+
+  records.sort((a, b) => {
+    const byUpdatedAt = String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""));
+    if (byUpdatedAt !== 0) return byUpdatedAt;
+    return String(b.importRecordId || "").localeCompare(String(a.importRecordId || ""));
+  });
+
+  const n = Number.isFinite(Number(limit)) ? Math.max(0, Number(limit)) : 50;
+  return records.slice(0, n);
 }
 
 export async function rollbackCreatedFiles(vaultPath, createdFiles) {

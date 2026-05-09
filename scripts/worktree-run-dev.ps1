@@ -31,6 +31,6 @@ $scriptName = switch ($Target) {
 Write-Output "Using $EnvFile"
 Write-Output "API_PORT=$env:API_PORT WEB_PORT=$env:WEB_PORT"
 Write-Output "VAULT_PATH=$env:VAULT_PATH"
-Write-Output "Running npm run $scriptName"
+Write-Output "Running npm.cmd run $scriptName"
 
-npm run $scriptName
+& npm.cmd run $scriptName

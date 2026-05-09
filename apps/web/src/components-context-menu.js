@@ -20,8 +20,9 @@ export class ContextMenu {
         if (a.type === "separator") return `<div class="ctx-sep" aria-hidden="true"></div>`;
         const classes = [a.danger ? "danger" : "", a.disabled ? "disabled" : ""].filter(Boolean).join(" ");
         const right = a.shortcut ? `<span class="ctx-shortcut">${a.shortcut}</span>` : "";
+        const icon = a.icon ? `<span class="ctx-icon" aria-hidden="true">${a.icon}</span>` : `<span class="ctx-icon ctx-icon-empty" aria-hidden="true"></span>`;
         return `<button data-action="${a.key}" class="${classes}" ${a.disabled ? "disabled" : ""}>
-          <span>${a.label}</span>${right}
+          <span class="ctx-main">${icon}<span class="ctx-label">${a.label}</span></span>${right}
         </button>`;
       })
       .join("");

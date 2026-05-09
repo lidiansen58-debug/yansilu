@@ -1,0 +1,21 @@
+[package]
+name = "yansilu-desktop"
+version = "0.1.0"
+description = "研思录桌面壳"
+authors = ["Yansilu Team"]
+edition = "2021"
+license = "UNLICENSED"
+
+[lib]
+name = "yansilu_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"

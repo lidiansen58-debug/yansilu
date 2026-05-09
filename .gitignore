@@ -1,4 +1,8 @@
+.env.worktree
+.tmp/
 .tmp-fig-import/
+apps/desktop/src-tauri/tauri.conf.no-updater-artifacts.json
+apps/desktop/src-tauri/target/
 node_modules/
 .DS_Store
 Thumbs.db

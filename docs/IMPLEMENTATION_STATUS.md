@@ -6,6 +6,12 @@ The current implementation has a runnable backend core for the Yansilu vault, Ma
 
 The API server now mainly coordinates request parsing, route dispatch, and response shaping. Most business behavior has been moved into packages.
 
+Note on planning vs. implementation:
+
+- The codebase already contains preview-generation support for several non-Phase-1 connectors.
+- The product plan and release gate now distinguish between "implemented experimentally" and "required for current MVP release".
+- Until the roadmap advances, the blocking import/export promise remains: Markdown import, Obsidian import, and Markdown export.
+
 ## Runnable Verification
 
 Run all tests from the project root:

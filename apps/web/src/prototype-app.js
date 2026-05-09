@@ -140,6 +140,8 @@ const writingState = {
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
 let editorHelperDismissed = false;
+const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
+let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
@@ -265,6 +267,38 @@ function setStatus(text, cls = "", options = {}) {
   const statusBar = $("statusBar");
   if (statusBar) statusBar.dataset.tone = cls || "";
   return true;
+}
+
+function readStoredBoolean(key, fallback = false) {
+  try {
+    const raw = window.localStorage?.getItem(String(key || ""));
+    if (raw === "1") return true;
+    if (raw === "0") return false;
+  } catch {}
+  return fallback;
+}
+
+function writeStoredBoolean(key, value) {
+  try {
+    window.localStorage?.setItem(String(key || ""), value ? "1" : "0");
+  } catch {}
+}
+
+function hideEditorHelper() {
+  const helper = $("editorHelper");
+  if (!helper) return;
+  helper.classList.add("hidden");
+  helper.hidden = true;
+  helper.setAttribute("aria-hidden", "true");
+  helper.style.pointerEvents = "none";
+  const action = $("btnEditorHelperAction");
+  if (action) {
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
+  }
+  if (typeof document !== "undefined" && helper.contains(document.activeElement)) {
+    document.activeElement?.blur?.();
+  }
 }
 
 function setImportRecordId(value) {
@@ -1674,8 +1708,8 @@ function renderStatusMeta() {
 function renderWorkspaceStatusHint() {
   const helper = $("editorHelper");
   if (!helper) return;
-  if (editorHelperDismissed || state.module !== "explorer") {
-    helper.classList.add("hidden");
+  if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
+    hideEditorHelper();
     return;
   }
   const activeNote = activeEditorNote();
@@ -1689,6 +1723,9 @@ function renderWorkspaceStatusHint() {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
   }
+  helper.hidden = false;
+  helper.setAttribute("aria-hidden", "false");
+  helper.style.pointerEvents = "";
   helper.classList.remove("hidden");
 
   if (state.focusMode) {
@@ -3538,7 +3575,8 @@ const editor = new EditorPane({
     originalityNoticeBody: $("originalityNoticeBody"),
     closeOriginalityNotice: $("btnCloseOriginalityNotice"),
     insertLink: $("btnInsertLink"),
-    insertAsset: $("btnInsertAsset"),
+    insertImage: $("btnInsertImage"),
+    insertFile: $("btnInsertFile"),
     insertTag: $("btnInsertTag"),
     headingLevel: $("headingLevelSelect"),
     codeTools: $("codeTools"),
@@ -3546,7 +3584,8 @@ const editor = new EditorPane({
     tableTools: $("tableTools"),
     tableAddRow: $("btnTableAddRow"),
     tableAddColumn: $("btnTableAddColumn"),
-    assetInput: $("assetFileInput"),
+    assetImageInput: $("assetImageInput"),
+    assetFileInput: $("assetFileInput"),
     modeEdit: $("btnModeToggle"),
     modeSplit: $("btnModeSplit"),
     modePreview: $("btnModeToggle"),
@@ -3582,13 +3621,18 @@ $("btnFocusMode")?.addEventListener("click", () => {
 
 $("btnDismissEditorHelper")?.addEventListener("click", () => {
   editorHelperDismissed = true;
-  $("editorHelper")?.classList.add("hidden");
+  hideEditorHelper();
 });
 
 $("btnEditorHelperAction")?.addEventListener("click", () => {
   const button = $("btnEditorHelperAction");
   const helperAction = String(button?.dataset.helperAction || "noop").trim();
   const targetNoteId = String(button?.dataset.targetNoteId || "").trim();
+  if (helperAction === "noop") {
+    editorHelperDismissed = true;
+    hideEditorHelper();
+    return;
+  }
   if (helperAction === "open-generated-original" && targetNoteId) {
     const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
     if (opened) {
@@ -3608,6 +3652,14 @@ $("settingsRefreshVault")?.addEventListener("click", async () => {
   } catch (error) {
     setStatus(`刷新 Vault 信息失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("btnEditorHelperMute")?.addEventListener("click", () => {
+  editorHelperDismissed = true;
+  editorHelperMuted = true;
+  writeStoredBoolean(EDITOR_HELPER_MUTE_KEY, true);
+  hideEditorHelper();
+  setStatus("后续将不再显示这类编辑提示", "ok", { requireModule: "explorer" });
 });
 
 $("settingsBrowseVault")?.addEventListener("click", async () => {
@@ -4484,6 +4536,16 @@ async function bootstrap() {
     await importToolbarActions.handlePreview();
   });
 
+  $("btnBrowseImportPath")?.addEventListener("click", async () => {
+    const picked = await desktopCommands.browseDirectory({
+      defaultPath: $("importPath")?.value || "",
+      purpose: "导入目录"
+    });
+    if (!picked.path) return;
+    $("importPath").value = picked.path;
+    setStatus(`已选择导入目录（${picked.source}）`, "ok");
+  });
+
   $("btnImportConfirm")?.addEventListener("click", async () => {
     await importToolbarActions.handleConfirm();
   });
@@ -4523,6 +4585,16 @@ async function bootstrap() {
       });
       setStatus(`Markdown 导出失败：${String(error?.message || error)}`, "bad");
     }
+  });
+
+  $("btnBrowseExportPath")?.addEventListener("click", async () => {
+    const picked = await desktopCommands.browseDirectory({
+      defaultPath: $("exportTargetPath")?.value || "",
+      purpose: "导出目录"
+    });
+    if (!picked.path) return;
+    $("exportTargetPath").value = picked.path;
+    setStatus(`已选择导出目录（${picked.source}）`, "ok");
   });
 
   try {

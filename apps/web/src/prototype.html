@@ -606,6 +606,16 @@
       display: grid;
       gap: 12px;
     }
+    .modal-note {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.7;
+      border: 1px solid #e5ecf4;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7fbff 100%);
+      padding: 10px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    }
     .modal-body > div {
       display: grid;
       gap: 6px;
@@ -614,6 +624,11 @@
       font-size: 12px;
       font-weight: 700;
       color: #334155;
+    }
+    .modal-field-note {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.55;
     }
     .path-picker {
       display: grid;
@@ -628,6 +643,17 @@
       justify-content: flex-end;
       gap: 8px;
       background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    }
+    .modal-foot .primary {
+      border-color: #0f7d50;
+      background: linear-gradient(180deg, #1e8c62 0%, #13764f 100%);
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(19, 118, 79, 0.2);
+    }
+    .modal-foot .primary:hover {
+      border-color: #0d6f47;
+      background: linear-gradient(180deg, #239b6c 0%, #157a53 100%);
+      color: #ffffff;
     }
 
     /* Editor area */
@@ -1157,27 +1183,34 @@
     #btnShowRelated { --tb-accent: #0f766e; }
     #btnRunGuard { --tb-accent: #dc2626; }
     #btnSave { --tb-accent: #16a34a; }
-    #btnInsertAsset { --tb-accent: #0284c7; }
+    #btnInsertImage,
+    #btnInsertFile { --tb-accent: #0284c7; }
     #btnInsertLink { --tb-accent: #2563eb; }
     #btnInsertTag { --tb-accent: #db2777; }
     .editor-wrap {
+      flex: 1 1 auto;
       min-height: 0;
-      overflow: auto;
-      padding: 18px 22px 24px;
+      height: auto;
+      overflow: hidden;
+      padding: 8px 10px 10px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 300px;
-      gap: 20px;
-      align-content: start;
+      grid-template-columns: minmax(0, 1.2fr) 272px;
+      gap: 12px;
+      align-content: stretch;
+      align-items: stretch;
+      align-self: stretch;
       max-width: none;
     }
     .editor-wrap.inspector-closed {
       grid-template-columns: minmax(0, 1fr);
     }
     .markdown-split {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
       gap: 0;
+      flex: 1 1 auto;
       min-height: 0;
+      height: 100%;
     }
     .literature-workspace {
       display: grid;
@@ -1380,6 +1413,14 @@
     .markdown-source-col {
       min-width: 0;
       min-height: 0;
+      height: 100%;
+    }
+    .markdown-editor-col,
+    .markdown-wysiwyg-col,
+    .markdown-source-col {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
     }
     .markdown-split.editor-mode-wysiwyg .markdown-source-col,
     .markdown-split.editor-mode-source .markdown-wysiwyg-col {
@@ -2278,6 +2319,10 @@
       box-shadow: 0 18px 40px rgba(146, 64, 14, 0.14);
       padding: 14px 15px 15px;
       z-index: 60;
+      pointer-events: none;
+    }
+    .floating-notice .tb {
+      pointer-events: auto;
     }
     .floating-notice-head {
       display: flex;
@@ -2404,31 +2449,37 @@
       border-top: 1px solid #e8eef5;
     }
     .md-panel {
-      min-height: 560px;
-      padding: 16px 12px 14px;
+      min-height: 0;
+      height: 100%;
+      padding: 8px 6px 6px;
       border: 0;
-      border-radius: 34px;
+      border-radius: 28px;
       box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
       background:
         radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 26%),
         linear-gradient(180deg, rgba(244, 241, 234, 0.72) 0%, rgba(236, 232, 223, 0.52) 100%);
     }
     .md-panel .panel-head,
-    .md-panel .editor-host {
+    .md-panel .editor-host,
+    .md-panel .wysiwyg-host {
       width: 100%;
-      max-width: 880px;
+      max-width: 1020px;
       margin-inline: auto;
     }
     .md-panel .panel-head {
       display: flex;
-      padding: 16px 18px;
+      padding: 10px 14px;
       border: 1px solid rgba(215, 209, 196, 0.94);
-      border-radius: 22px;
+      border-radius: 18px;
       background:
         radial-gradient(circle at top right, rgba(218, 230, 214, 0.5), transparent 28%),
         linear-gradient(180deg, #fffdf8 0%, #f7f2e8 100%);
-      box-shadow: 0 18px 36px rgba(94, 78, 47, 0.08);
-      margin-bottom: 18px;
+      box-shadow: 0 10px 22px rgba(94, 78, 47, 0.06);
+      margin-bottom: 0;
     }
     .panel-head {
       display: flex;
@@ -2440,22 +2491,22 @@
     .panel-title {
       font-weight: 800;
       color: #172033;
-      font-size: 14px;
+      font-size: 13px;
       letter-spacing: .01em;
     }
     .panel-eyebrow {
-      margin-bottom: 5px;
-      font-size: 11px;
+      margin-bottom: 3px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: .08em;
       text-transform: uppercase;
       color: #56715d;
     }
     .panel-note {
-      margin-top: 5px;
+      margin-top: 3px;
       color: #64748b;
-      font-size: 12px;
-      line-height: 1.65;
+      font-size: 11px;
+      line-height: 1.5;
     }
     .editor-intent {
       align-items: center;
@@ -2495,10 +2546,12 @@
     }
     .editor-host,
     .wysiwyg-host {
-      min-height: 420px;
+      min-height: 0;
+      height: 100%;
+      flex: 1 1 auto;
       border: 1px solid rgba(214, 202, 182, 0.98);
       border-radius: 30px;
-      padding: 28px 0 34px;
+      padding: 18px 0 10px;
       background:
         radial-gradient(circle at top, rgba(255, 255, 255, 0.92), transparent 32%),
         linear-gradient(180deg, rgba(255, 254, 251, 1) 0%, rgba(251, 246, 237, 0.99) 100%);
@@ -2555,24 +2608,26 @@
       z-index: 3;
     }
     .editor-host .cm-editor {
-      min-height: 420px;
+      min-height: 0;
+      height: 100%;
       height: 100%;
       position: relative;
       z-index: 1;
       background: transparent;
     }
     .editor-host .cm-scroller {
-      min-height: 420px;
+      min-height: 0;
+      height: 100%;
       overflow: auto;
       position: relative;
       z-index: 1;
-      padding: 16px 0 64px;
+      padding: 8px 0 10px;
     }
     .editor-host .cm-content {
-      min-height: 420px;
+      min-height: calc(100% - 4px);
       outline: none;
       caret-color: #0f172a;
-      max-width: 800px;
+      max-width: 920px;
       margin: 0 auto;
       font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
       font-size: 19px;
@@ -2603,7 +2658,10 @@
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       position: relative;
       z-index: 1;
-      min-height: 420px;
+      min-height: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
     .wysiwyg-host .toastui-editor-toolbar,
     .wysiwyg-host .toastui-editor-md-tab-container,
@@ -2615,7 +2673,9 @@
     .wysiwyg-host .toastui-editor-ww-container {
       border: 0;
       background: transparent;
-      min-height: 420px;
+      min-height: 0;
+      height: 100%;
+      flex: 1 1 auto;
       position: relative;
       z-index: 1;
     }
@@ -2631,9 +2691,9 @@
       z-index: 0;
     }
     .wysiwyg-host .toastui-editor-contents {
-      max-width: 780px;
+      max-width: 900px;
       margin: 0 auto;
-      padding: 34px 48px 84px 76px;
+      padding: 18px 40px 14px 66px;
       color: #213039;
       font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
       font-size: 19px;
@@ -3074,7 +3134,7 @@
       align-self: start;
       position: sticky;
       top: 18px;
-      padding: 14px;
+      padding: 12px;
       background: #fbfbfc;
     }
     .editor-wrap.inspector-closed .inspector-panel {
@@ -3555,6 +3615,12 @@
       grid-template-rows: auto auto auto 1fr;
       overflow: hidden;
     }
+    #editorWorkspace {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
     .module-workspace {
       min-height: 0;
       grid-template-rows: auto 1fr;
@@ -3698,6 +3764,12 @@
       color: #526173;
       margin-bottom: 12px;
     }
+    .editor-helper-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .editor-helper-action {
       min-height: 34px;
       padding: 0 12px;
@@ -3708,6 +3780,11 @@
       font-size: 12px;
       font-weight: 800;
       cursor: pointer;
+    }
+    .editor-helper-action.is-secondary {
+      border-color: rgba(203, 213, 225, 0.94);
+      background: rgba(255, 255, 255, 0.92);
+      color: #475569;
     }
     .asset-preview-mask {
       position: fixed;
@@ -4157,7 +4234,8 @@
             <button class="tb tb-label has-icon" id="btnSave" title="保存 Markdown Ctrl/Cmd+S" data-tip="保存 Ctrl/Cmd+S" aria-label="保存 Markdown"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
           <div class="toolbar-group toolbar-group-structure">
-              <button class="tb tb-label has-icon" id="btnInsertAsset" title="插入图片或附件" data-tip="插入图片或附件" aria-label="插入图片或附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.1 5.1h5.8a2 2 0 0 1 0 4H6.7a1.45 1.45 0 1 1 0-2.9h4.15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.2 11.7l-1.95 1.3a1.5 1.5 0 0 1-2.2-.48 1.5 1.5 0 0 1 .48-2.08l3.65-2.55" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round" opacity=".72"/></svg><span>图片/附件</span></button>
+              <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
+              <button class="tb tb-label has-icon" id="btnInsertFile" title="插入文件附件" data-tip="插入文件附件" aria-label="插入文件附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.35h5.05l2.95 2.95v6.9a1.45 1.45 0 0 1-1.45 1.45h-6.1A1.45 1.45 0 0 1 3 12.2v-8.4A1.45 1.45 0 0 1 4.45 2.35z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M9.05 2.35v2.4a1 1 0 0 0 1 1h2.4M5.3 9.2h5.35M5.3 11h3.65" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>附件</span></button>
             <button class="tb tb-label has-icon" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联</span></button>
             <button class="tb tb-label has-icon" id="btnInsertTag" title="插入标签 #" data-tip="插入标签 #" aria-label="插入标签"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.1 2.75h5.05l2.1 2.1v5.05l-4.9 4.1a1.2 1.2 0 0 1-1.66-.1L2.1 9.3a1.2 1.2 0 0 1-.1-1.66z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.6" cy="5.9" r="1" fill="currentColor"/></svg><span>标签</span></button>
           </div>
@@ -4274,7 +4352,8 @@
               <div class="markdown-editor-col markdown-source-col">
                 <div id="editorHost" class="editor-host" aria-label="Markdown 源码编辑器"></div>
                 <textarea id="editorBody" class="editor-sync-field" aria-hidden="true" tabindex="-1"></textarea>
-                <input id="assetFileInput" type="file" accept="image/*,.pdf,.txt,.md,.doc,.docx" hidden multiple />
+                <input id="assetImageInput" type="file" accept="image/*" hidden multiple />
+                <input id="assetFileInput" type="file" accept=".pdf,.txt,.md,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.zip,.rar" hidden multiple />
               </div>
               <aside class="markdown-preview-col hidden" id="markdownPreviewPanel">
                 <div class="markdown-preview-head">
@@ -4326,7 +4405,10 @@
                       </select>
 
                       <label for="importPath">导入路径</label>
-                      <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
+                      <div class="path-picker">
+                        <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
+                        <button class="mini-btn" id="btnBrowseImportPath" type="button">浏览...</button>
+                      </div>
                     </div>
                     <div class="import-actions">
                       <button class="mini-btn" id="btnImportPreview">预览候选</button>
@@ -4405,7 +4487,10 @@
             <p class="import-card-note">导出是独立动作，不和导入参数混在一起。先选导出目录，再执行 Markdown 导出。</p>
             <div class="import-grid" style="margin-top:10px;">
               <label for="exportTargetPath">导出目标路径</label>
-              <input id="exportTargetPath" placeholder="例如：E:\Projects\Thinking in Notes\markdown-export" />
+              <div class="path-picker">
+                <input id="exportTargetPath" placeholder="例如：E:\Projects\Thinking in Notes\markdown-export" />
+                <button class="mini-btn" id="btnBrowseExportPath" type="button">浏览...</button>
+              </div>
             </div>
             <div class="import-actions">
               <button class="mini-btn" id="btnExportMarkdown">导出 Markdown</button>
@@ -4667,7 +4752,10 @@
         <div class="editor-helper-kicker" id="editorHelperKicker">当前任务</div>
         <div class="editor-helper-title" id="editorHelperTitle">把资料慢慢提炼成自己的判断</div>
         <div class="editor-helper-body" id="editorHelperBody">这里会根据你当前正在处理的笔记，提示下一步推荐、相关任务和未来的大模型协作入口。</div>
-        <button class="editor-helper-action" id="btnEditorHelperAction" type="button">知道了</button>
+        <div class="editor-helper-actions">
+          <button class="editor-helper-action" id="btnEditorHelperAction" type="button">知道了</button>
+          <button class="editor-helper-action is-secondary" id="btnEditorHelperMute" type="button">不再提示</button>
+        </div>
       </div>
       <div class="asset-preview-mask hidden" id="assetPreviewMask">
         <div class="asset-preview-card">
@@ -4689,10 +4777,10 @@
   <div id="contextMenu" class="ctx-menu hidden"></div>
   <div id="newBoxModal" class="modal-mask hidden">
     <div class="modal">
-      <div class="modal-head">新建目录</div>
+      <div class="modal-head">新建卡片盒目录</div>
       <div class="modal-body">
-        <div style="font-size:12px;color:#64748b;line-height:1.7;border:1px solid #e7edf4;border-radius:12px;background:#f8fbff;padding:10px 12px;">
-          目录会出现在当前知识树中，并绑定一个本机保存位置。后续新建的 Markdown 笔记会写入这个目录。
+        <div class="modal-note">
+          目录会挂到当前卡片盒下，并绑定一个本机保存位置。路径会先根据父目录和你输入的名称自动建议；如果你想落到别处，也可以手动改写。
         </div>
         <div>
           <label>目录名称</label>
@@ -4708,8 +4796,8 @@
             <input id="modalFsPath" placeholder="例如：E:\Users\you\Documents\yansilu-vault\notes\original" />
             <button class="mini-btn" id="modalBrowsePath" type="button">浏览...</button>
           </div>
-          <div style="margin-top:6px;font-size:12px;color:#64748b;">
-            桌面端（Tauri）将调用系统目录选择器；浏览器环境自动降级为手动输入。
+          <div class="modal-field-note">
+            桌面端（Tauri）会调用系统目录选择器；浏览器环境自动降级为手动输入。
           </div>
         </div>
         <div>
@@ -4719,7 +4807,7 @@
       </div>
       <div class="modal-foot">
         <button class="mini-btn" id="modalCancel">取消</button>
-        <button class="mini-btn" id="modalCreate">创建</button>
+        <button class="mini-btn primary" id="modalCreate">创建目录</button>
       </div>
     </div>
   </div>

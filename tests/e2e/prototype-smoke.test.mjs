@@ -50,7 +50,7 @@ async function postJson(baseUrl, pathname, body) {
 
 test("prototype web server loads against a real API service", async (t) => {
   const vaultPath = await makeTempDir("yansilu-e2e-vault-");
-  const directoryRoot = await makeTempDir("yansilu-e2e-dirs-");
+  const directoryRoot = path.join(vaultPath, "notes", "original", "yansilu-e2e-dirs");
   const apiPort = await findFreePort();
   const webPort = await findFreePort();
   const apiBase = `http://127.0.0.1:${apiPort}`;
@@ -61,6 +61,7 @@ test("prototype web server loads against a real API service", async (t) => {
     env: {
       ...process.env,
       API_PORT: String(apiPort),
+      WEB_PORT: String(webPort),
       VAULT_PATH: vaultPath
     },
     stdio: ["ignore", "pipe", "pipe"]
@@ -85,11 +86,36 @@ test("prototype web server loads against a real API service", async (t) => {
   const webHealth = await waitForJsonHealth(`${webBase}/health`);
   assert.equal(webHealth.apiBase, apiBase);
 
+  const apiRoot = await fetch(`${apiBase}/`);
+  assert.equal(apiRoot.status, 200);
+  const apiRootHtml = await apiRoot.text();
+  assert.match(apiRootHtml, /研思录开发服务已启动/);
+  assert.match(apiRootHtml, new RegExp(`http://127\\.0\\.0\\.1:${webPort}/prototype`));
+
   const page = await fetch(`${webBase}/prototype`);
   assert.equal(page.status, 200);
   const html = await page.text();
   assert.ok(html.includes(`window.__API_BASE__ = "${apiBase}"`));
   assert.match(html, /prototype-app\.js/);
+  assert.match(html, /id="importPageMount"/);
+  assert.match(html, /id="importHistory"/);
+  assert.match(html, /id="btnImportHistoryRefresh"/);
+  assert.match(html, /id="importHistoryStatus"/);
+  assert.match(html, /id="importHistoryConnector"/);
+  assert.match(html, /id="importHistoryRisk"/);
+  assert.match(html, /id="exportTargetPath"/);
+  assert.match(html, /id="btnExportMarkdown"/);
+  assert.match(html, /id="writingPanel"/);
+  assert.match(html, /id="btnWritingCreateProject"/);
+  assert.match(html, /id="btnWritingCreateScaffold"/);
+  assert.match(html, /id="literatureWorkspace"/);
+  assert.match(html, /id="literatureQueueSummary"/);
+  assert.match(html, /id="literatureQueueList"/);
+  assert.match(html, /id="btnLiteratureOpenNext"/);
+  assert.match(html, /id="btnFocusMode"/);
+  assert.match(html, /id="editorIntentNote"/);
+  assert.match(html, /id="originalityNotice"/);
+  assert.match(html, /id="editorHelper"/);
 
   const createdDirectory = await postJson(apiBase, "/api/v1/directories", {
     title: "e2e-directory",

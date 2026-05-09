@@ -21,10 +21,23 @@ Monorepo scaffold for Yansilu (Thinking in Notes).
 - `npm run dev:worker` starts Worker only.
 - Web prototype page: `http://localhost:5173/` (same as `/prototype`).
 
+## Desktop Bundles
+- `npm run build:desktop` uses platform defaults:
+- Windows: `nsis`
+- Linux: `deb` + `appimage`
+- macOS: `app` + `dmg`
+- `npm run build:desktop:nsis` builds Windows NSIS installer explicitly.
+- `npm run build:desktop:msi` builds Windows MSI explicitly.
+- `npm run build:desktop:linux` builds Linux `deb` and `appimage`.
+- `npm run build:desktop:mac` builds macOS `app` and `dmg`.
+- Set `YANSILU_DESKTOP_BUNDLES=...` to override bundle targets in CI or local runs.
+
 ## Tests
 - `npm test` runs unit, integration, and smoke e2e tests.
 - `npm run test:e2e:smoke` starts temporary API/Web services and verifies the prototype can load against a real API.
+- `npm run test:e2e:browser:mvp` runs a smaller real-browser MVP flow covering note edit/save, vault switch, import/export, writing, graph, and note move/delete.
 - `npm run test:e2e:browser` runs the real browser prototype flow when Playwright and Chromium are installed.
+- `npm run mvp:check` runs the core MVP validation path: tests, smoke e2e, desktop dev preflight, and desktop bundle preflight.
 - Set `RUN_BROWSER_E2E=1` to enable browser e2e execution; without it, browser tests are skipped by design.
 
 MVP API routes:
@@ -45,7 +58,7 @@ Key docs:
 - Each worktree gets isolated ports and vault path via `.env.worktree`
 
 Create a worktree:
-- `npm run wt:create -- -Name fleeting-note -Kind feat -Base main`
+- `npm run wt:create -- -Name fleeting-note -Kind feat -Base master`
 
 List worktrees:
 - `npm run wt:list`

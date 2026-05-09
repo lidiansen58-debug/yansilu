@@ -78,14 +78,16 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   const noteA = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "active",
-    body: "# Writing from claims\n\nA draft should start from durable original claims."
+    body: "# Writing from claims\n\nA draft should start from durable original claims.",
+    boundaryOrCounterpoint: "This claim weakens when the paragraph cannot point back to a stable note."
   });
   assert.equal(noteA.status, 201);
 
   const noteB = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "active",
-    body: "# Evidence mapping\n\nEach paragraph should trace back to source notes."
+    body: "# Evidence mapping\n\nEach paragraph should trace back to source notes.",
+    boundaryOrCounterpoint: "Evidence mapping is not enough when two similar concepts are still being conflated."
   });
   assert.equal(noteB.status, 201);
 
@@ -94,6 +96,58 @@ test("writing APIs create project basket and draft scaffold from permanent notes
     body: "# Literature excerpt\n\nThis should not enter the writing basket directly."
   });
   assert.equal(literature.status, 201);
+
+  const invalidIndex = await postJson(baseUrl, "/api/v1/index-cards", {
+    directoryId: "dir_original_default",
+    indexType: "topic",
+    title: "Invalid topic index",
+    noteIds: [literature.json.item.id]
+  });
+  assert.equal(invalidIndex.status, 400);
+  assert.equal(invalidIndex.json.error.code, "INDEX_CARD_INVALID");
+  assert.match(invalidIndex.json.error.message, /only accept permanent notes/);
+
+  const topicIndex = await postJson(baseUrl, "/api/v1/index-cards", {
+    directoryId: "dir_original_default",
+    indexType: "topic",
+    title: "Writing themes",
+    summary: "A reusable topic entry for the current writing direction.",
+    thesis: "This topic is about turning notes into compressed writing inputs.",
+    threeLineSummary: [
+      "The topic centers on turning notes into compressed writing inputs.",
+      "It matters because structure is easier when claims are already distilled.",
+      "It connects note quality directly to writing quality."
+    ],
+    centralQuestion: "How can a note system force better compression before drafting begins?",
+    items: [
+      { noteId: noteA.json.item.id, shortLabel: "claim", rationale: "Sets the main writing stance." },
+      { noteId: noteB.json.item.id, shortLabel: "evidence", rationale: "Keeps each paragraph tied to notes." }
+    ]
+  });
+  assert.equal(topicIndex.status, 201, JSON.stringify(topicIndex.json));
+  assert.match(topicIndex.json.item.id, /^idx_/);
+  assert.equal(topicIndex.json.item.index_type, "topic");
+  assert.equal(topicIndex.json.item.thesis, "This topic is about turning notes into compressed writing inputs.");
+  assert.deepEqual(topicIndex.json.item.three_line_summary, [
+    "The topic centers on turning notes into compressed writing inputs.",
+    "It matters because structure is easier when claims are already distilled.",
+    "It connects note quality directly to writing quality."
+  ]);
+  assert.equal(topicIndex.json.item.central_question, "How can a note system force better compression before drafting begins?");
+  assert.equal(topicIndex.json.item.note_count, 2);
+  assert.deepEqual(topicIndex.json.item.item_note_ids, [noteA.json.item.id, noteB.json.item.id]);
+
+  const listedIndexes = await getJson(baseUrl, "/api/v1/index-cards?directoryId=dir_original_default&indexType=topic&includeDescendants=true&limit=8");
+  assert.equal(listedIndexes.status, 200, JSON.stringify(listedIndexes.json));
+  assert.equal(listedIndexes.json.items.length, 1);
+  assert.equal(listedIndexes.json.items[0].id, topicIndex.json.item.id);
+
+  const fetchedIndex = await getJson(baseUrl, `/api/v1/index-cards/${encodeURIComponent(topicIndex.json.item.id)}`);
+  assert.equal(fetchedIndex.status, 200, JSON.stringify(fetchedIndex.json));
+  assert.equal(fetchedIndex.json.item.id, topicIndex.json.item.id);
+  assert.equal(fetchedIndex.json.item.thesis, "This topic is about turning notes into compressed writing inputs.");
+  assert.equal(fetchedIndex.json.item.central_question, "How can a note system force better compression before drafting begins?");
+  assert.equal(fetchedIndex.json.item.items[0].note.noteType, "permanent");
 
   const rejected = await postJson(baseUrl, "/api/v1/writing-projects", {
     title: "Rejected project",
@@ -108,11 +162,17 @@ test("writing APIs create project basket and draft scaffold from permanent notes
     goal: "Turn selected original notes into a draft scaffold.",
     audience: "Knowledge workers",
     tone: "clear",
-    basketNoteIds: [noteA.json.item.id, noteB.json.item.id]
+    intent: "Explain why writing should begin from distilled notes rather than blank prompts.",
+    desiredReaderTakeaway: "Readers should see thought compression as the bridge between note-taking and writing.",
+    basketNoteIds: [noteA.json.item.id, noteB.json.item.id],
+    relatedIndexIds: [topicIndex.json.item.id]
   });
   assert.equal(project.status, 201, JSON.stringify(project.json));
   assert.match(project.json.item.id, /^wp_/);
   assert.deepEqual(project.json.item.basket_note_ids, [noteA.json.item.id, noteB.json.item.id]);
+  assert.deepEqual(project.json.item.related_index_ids, [topicIndex.json.item.id]);
+  assert.equal(project.json.item.intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
+  assert.equal(project.json.item.desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
   assert.equal(project.json.item.basket_notes.length, 2);
 
   const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
@@ -125,9 +185,21 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(scaffold.json.item.generated_by, "writing-engine:v1");
   assert.equal(scaffold.json.item.version_note, "First scaffold pass from two permanent notes.");
   assert.ok(scaffold.json.item.sections.length >= 4);
+  assert.ok(scaffold.json.item.sections.every((section) => Array.isArray(section.evidence_note_ids)));
+  assert.ok(scaffold.json.item.sections.every((section) => Array.isArray(section.gaps)));
+  assert.ok(scaffold.json.item.sections.every((section) => Array.isArray(section.counterpoints)));
+  assert.ok(scaffold.json.item.sections.some((section) => section.counterpoints.some((item) => /stable note|conflated/i.test(item))));
+  assert.ok(scaffold.json.item.sections.some((section) => section.open_questions.some((item) => /boundary|counterexample/i.test(item))));
+  assert.ok(scaffold.json.item.open_questions.some((item) => /counterpoint|sharper separation|boundary/i.test(item)));
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
   assert.match(scaffold.json.export.markdown, /## Paragraph-Evidence Map/);
+  assert.match(scaffold.json.export.markdown, /Intent: Explain why writing should begin from distilled notes rather than blank prompts\./);
+  assert.match(scaffold.json.export.markdown, /Reader takeaway: Readers should see thought compression as the bridge between note-taking and writing\./);
+  assert.match(scaffold.json.export.markdown, /Gaps:/);
+  assert.match(scaffold.json.export.markdown, /Counterpoints:/);
+  assert.match(scaffold.json.export.markdown, /Address this counterpoint or boundary/);
+  assert.match(scaffold.json.export.markdown, /sharper separation/i);
   assert.match(scaffold.json.export.markdown, /Writing from claims/);
   assert.equal(scaffold.json.export.json.sections.length, scaffold.json.item.sections.length);
 
@@ -135,6 +207,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(fetchedScaffold.status, 200, JSON.stringify(fetchedScaffold.json));
   assert.equal(fetchedScaffold.json.item.id, scaffold.json.item.id);
   assert.match(fetchedScaffold.json.export.markdown, /Paragraph-Evidence Map/);
+  assert.match(fetchedScaffold.json.export.markdown, /Counterpoints:/);
 
   const scaffoldV2 = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
     writingProjectId: project.json.item.id,
@@ -151,6 +224,14 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(scaffoldVersions.json.items[0].version_note, "Second scaffold pass with a tighter structure.");
   assert.equal(scaffoldVersions.json.items[1].id, scaffold.json.item.id);
   assert.equal(scaffoldVersions.json.items[1].version_note, "First scaffold pass from two permanent notes.");
+
+  const updatedScaffoldNote = await fetch(`${baseUrl}/api/v1/draft-scaffolds/${encodeURIComponent(scaffold.json.item.id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ versionNote: "Updated scaffold explanation after review." })
+  }).then(async (res) => ({ status: res.status, json: await res.json() }));
+  assert.equal(updatedScaffoldNote.status, 200, JSON.stringify(updatedScaffoldNote.json));
+  assert.equal(updatedScaffoldNote.json.item.version_note, "Updated scaffold explanation after review.");
 
   const draftNote = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
@@ -198,6 +279,24 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(draftVersions.json.items[1].source_scaffold_id, scaffold.json.item.id);
   assert.equal(draftVersions.json.items[1].version_note, "First prose pass from scaffold v1.");
 
+  const updatedDraftVersionNote = await fetch(
+    `${baseUrl}/api/v1/draft-note-versions/${encodeURIComponent(draftVersions.json.items[1].id)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ versionNote: "Updated prose explanation after comparison." })
+    }
+  ).then(async (res) => ({ status: res.status, json: await res.json() }));
+  assert.equal(updatedDraftVersionNote.status, 200, JSON.stringify(updatedDraftVersionNote.json));
+  assert.equal(updatedDraftVersionNote.json.item.version_note, "Updated prose explanation after comparison.");
+  assert.equal(updatedDraftVersionNote.json.item.version_no, 1);
+  assert.equal(updatedDraftVersionNote.json.item.source_scaffold_id, scaffold.json.item.id);
+  assert.equal(updatedDraftVersionNote.json.item.is_current, false);
+
+  const rereadDraftVersions = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/draft-versions?limit=12`);
+  assert.equal(rereadDraftVersions.status, 200, JSON.stringify(rereadDraftVersions.json));
+  assert.equal(rereadDraftVersions.json.items[1].version_note, "Updated prose explanation after comparison.");
+
   const rebindCurrent = await postJson(
     baseUrl,
     `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}/current-draft`,
@@ -222,6 +321,9 @@ test("writing APIs create project basket and draft scaffold from permanent notes
 
   const fetchedProject = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`);
   assert.equal(fetchedProject.status, 200, JSON.stringify(fetchedProject.json));
+  assert.deepEqual(fetchedProject.json.item.related_index_ids, [topicIndex.json.item.id]);
+  assert.equal(fetchedProject.json.item.intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
+  assert.equal(fetchedProject.json.item.desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
   assert.equal(fetchedProject.json.item.scaffold_id, scaffoldV2.json.item.id);
   assert.equal(fetchedProject.json.item.draft_note_id, draftNote.json.item.id);
   assert.equal(fetchedProject.json.item.draft_note.id, draftNote.json.item.id);
@@ -230,6 +332,9 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(listedProjects.status, 200, JSON.stringify(listedProjects.json));
   assert.ok(Array.isArray(listedProjects.json.items));
   assert.equal(listedProjects.json.items[0].id, project.json.item.id);
+  assert.deepEqual(listedProjects.json.items[0].related_index_ids, [topicIndex.json.item.id]);
+  assert.equal(listedProjects.json.items[0].intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
+  assert.equal(listedProjects.json.items[0].desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
   assert.equal(listedProjects.json.items[0].draft_note_id, draftNote.json.item.id);
   assert.equal(listedProjects.json.items[0].scaffold_id, scaffoldV2.json.item.id);
 

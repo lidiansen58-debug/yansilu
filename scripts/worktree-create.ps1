@@ -5,7 +5,7 @@ param(
   [ValidateSet("feat", "fix", "docs", "chore", "spike")]
   [string]$Kind = "feat",
 
-  [string]$Base = "main",
+  [string]$Base = "master",
   [string]$Root = "",
   [int]$ApiPort = 0,
   [int]$WebPort = 0
@@ -31,10 +31,10 @@ function Read-EnvMap([string]$FilePath) {
   $map = @{}
   if (-not (Test-Path -LiteralPath $FilePath)) { return $map }
 
-  Get-Content -Encoding UTF8 -LiteralPath $FilePath | ForEach-Object {
-    $line = $_.Trim()
-    if (-not $line) { return }
-    if ($line.StartsWith("#")) { return }
+  foreach ($rawLine in (Get-Content -Encoding UTF8 -LiteralPath $FilePath)) {
+    $line = $rawLine.Trim()
+    if (-not $line) { continue }
+    if ($line.StartsWith("#")) { continue }
     $parts = $line.Split("=", 2)
     if ($parts.Count -eq 2) {
       $map[$parts[0].Trim()] = $parts[1].Trim()
@@ -45,7 +45,7 @@ function Read-EnvMap([string]$FilePath) {
 
 function Get-UsedPorts([string]$RootDir) {
   $used = [System.Collections.Generic.HashSet[int]]::new()
-  if (-not (Test-Path -LiteralPath $RootDir)) { return $used }
+  if (-not (Test-Path -LiteralPath $RootDir)) { return (, $used) }
 
   Get-ChildItem -Recurse -File -LiteralPath $RootDir -Filter ".env.worktree" -ErrorAction SilentlyContinue | ForEach-Object {
     $envMap = Read-EnvMap $_.FullName
@@ -58,7 +58,7 @@ function Get-UsedPorts([string]$RootDir) {
       }
     }
   }
-  return $used
+  return (, $used)
 }
 
 function Next-FreePort([int]$Start, [int]$Step, [System.Collections.Generic.HashSet[int]]$Used) {
@@ -99,7 +99,11 @@ $slug = Normalize-Slug $Name
 if (-not $slug) { throw "Name must contain at least one letter or number." }
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
-  $Root = Join-Path ([System.IO.Path]::GetDirectoryName($repoRoot)) "yansilu-wt"
+  $repoParent = Split-Path -Parent $repoRoot
+  if ([string]::IsNullOrWhiteSpace($repoParent)) {
+    throw "Unable to determine the parent directory for repo root: $repoRoot"
+  }
+  $Root = Join-Path $repoParent "yansilu-wt"
 }
 
 New-Item -ItemType Directory -Force -Path $Root | Out-Null

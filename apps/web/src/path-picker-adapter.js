@@ -1,4 +1,4 @@
-function normalizePickedPath(result) {
+﻿function normalizePickedPath(result) {
   if (!result) return "";
   if (typeof result === "string") return result.trim();
   if (Array.isArray(result)) {
@@ -9,7 +9,7 @@ function normalizePickedPath(result) {
 }
 
 async function pickByTauri(defaultPath = "") {
-  const tauri = window.__TAURI__;
+  const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
   if (!tauri) return "";
 
   if (typeof tauri?.dialog?.open === "function") {
@@ -36,12 +36,14 @@ async function pickByTauri(defaultPath = "") {
 }
 
 async function pickByBrowser(defaultPath = "") {
+  if (typeof window === "undefined") return "";
+
   if ("showDirectoryPicker" in window) {
     try {
       const dir = await window.showDirectoryPicker();
       if (dir?.name) return String(dir.name).trim();
     } catch {
-      return "";
+      // Fall through to prompt-based fallback in browser test/prototype environments.
     }
   }
 

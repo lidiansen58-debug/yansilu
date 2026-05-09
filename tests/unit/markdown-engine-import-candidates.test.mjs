@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 import { buildMarkdownCandidates } from "../../packages/markdown-engine/src/index.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -163,4 +167,43 @@ test("buildMarkdownCandidates warns on malformed frontmatter but keeps preview c
   assert.equal(result.literature.length, 1);
   assert.equal(result.warnings[0].code, "IMPORT_MALFORMED_FRONTMATTER");
   assert.deepEqual(result.literature[0].wikilink_targets, ["Target"]);
+});
+
+test("buildMarkdownCandidates parses the edge-case Obsidian fixture vault", async () => {
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-edge-vault");
+  const result = await buildMarkdownCandidates({
+    connector: "obsidian",
+    payload: { path: fixturePath }
+  });
+
+  assert.equal(result.sources.length, 5);
+  assert.equal(result.literature.length, 5);
+  assert.equal(result.permanent.length, 1);
+  assert.equal(result.warnings.length, 1);
+  assert.equal(result.warnings[0].code, "IMPORT_MALFORMED_FRONTMATTER");
+
+  const sourceNote = result.literature.find((note) => note.title === "Source Note");
+  assert.ok(sourceNote);
+  assert.deepEqual(sourceNote.aliases, ["Source Alias", "Source Alt"]);
+  assert.ok(sourceNote.tags.includes("edge"));
+  assert.ok(sourceNote.tags.includes("writing"));
+  assert.deepEqual(sourceNote.wikilink_targets, ["Target Note", "image.png"]);
+  assert.deepEqual(sourceNote.parsed_wikilinks[0], {
+    raw: "Target Note|Readable target",
+    target: "Target Note",
+    heading: null,
+    block: null,
+    alias: "Readable target",
+    display: "Readable target",
+    embed: false
+  });
+  assert.equal(sourceNote.parsed_wikilinks[2].target, null);
+  assert.equal(sourceNote.parsed_wikilinks[3].embed, true);
+
+  const duplicateNotes = result.literature.filter((note) => note.title === "Duplicate Idea");
+  assert.equal(duplicateNotes.length, 2);
+
+  const malformedNote = result.literature.find((note) => note.title === "malformed-frontmatter");
+  assert.ok(malformedNote);
+  assert.deepEqual(malformedNote.wikilink_targets, ["Target Note"]);
 });

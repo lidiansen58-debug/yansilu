@@ -52,7 +52,9 @@ function titleFromBody(body) {
 
 function normalizePlaceholderTitleBody(body = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
-  return text.replace(/^#\s*未命名笔记(?=\S)/, "# ");
+  return text
+    .replace(/^#\s*未命名笔记(?=\S)/, "# ")
+    .replace(/\n{2,}(?:<br>\n)+/g, "\n\n");
 }
 
 const LITERATURE_SECTION_LABELS = {
@@ -67,6 +69,7 @@ const REFLECTION_QUESTIONS = [
   "你为什么要保留它？",
   "它会支持什么判断？"
 ];
+const AUTO_SAVE_IDLE_MS = 12000;
 
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -215,6 +218,39 @@ function previewAssetUrl(rawPath, noteMarkdownPath = "") {
   const assetPath = resolveAssetPathForNote(rawPath, noteMarkdownPath);
   if (!assetPath || /^(https?:|data:)/i.test(assetPath)) return assetPath;
   return assetPreviewUrl(assetPath);
+}
+
+function resolvePreviewableAsset(rawPath, noteMarkdownPath = "") {
+  const assetPath = resolveAssetPathForNote(rawPath, noteMarkdownPath);
+  if (!assetPath) return { assetPath: "", previewUrl: "", isVaultAsset: false };
+  if (/^(https?:|data:)/i.test(assetPath)) {
+    return {
+      assetPath,
+      previewUrl: assetPath,
+      isVaultAsset: false
+    };
+  }
+  if (!assetPath.startsWith("assets/")) {
+    return {
+      assetPath,
+      previewUrl: "",
+      isVaultAsset: false
+    };
+  }
+  return {
+    assetPath,
+    previewUrl: assetPreviewUrl(assetPath),
+    isVaultAsset: true
+  };
+}
+
+function isPreviewImageUrl(url = "") {
+  const value = String(url || "").trim();
+  return /^data:image\//i.test(value) || /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?|$)/i.test(value);
+}
+
+function isPreviewPdfUrl(url = "") {
+  return /\.pdf(\?|$)/i.test(String(url || "").trim());
 }
 
 function attachmentLabelFromPath(rawPath) {
@@ -610,7 +646,7 @@ function renderMarkdownPreview(markdown, options = {}) {
       }
       blocks.push(`
         <figure class="preview-figure">
-          <img class="preview-image-asset" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" data-preview-asset-url="${escapeHtml(url)}">
+          <img class="preview-image-asset" src="${escapeHtml(url)}" alt="${escapeHtml(label)}" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(label)}">
           <figcaption>${escapeHtml(label)}</figcaption>
         </figure>
       `);
@@ -773,13 +809,13 @@ function renderPickerSections(items = [], groupLabelForItem, renderItem) {
 
 function noteTypeGlyph(type) {
   if (type === "fleeting") return "随";
-  if (type === "literature") return "摘";
+  if (type === "literature") return "文";
   return "原";
 }
 
 function noteTypeText(type) {
-  if (type === "fleeting") return "随笔记";
-  if (type === "literature") return "书摘笔记";
+  if (type === "fleeting") return "随笔笔记";
+  if (type === "literature") return "文献笔记";
   return "原创笔记";
 }
 
@@ -817,8 +853,11 @@ export class EditorPane {
     this.suppressSourceEditorChange = false;
     this.suppressLiteratureWorkspaceChange = false;
     this.savingPromise = null;
+    this.autoSaveTimer = null;
     this.saveUiState = { mode: "idle", message: "" };
+    this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
+    this.pendingEditorSelection = null;
     this.bind();
     this.renderPreviewVisibility();
     this.initRichEditor();
@@ -843,14 +882,27 @@ export class EditorPane {
     return String(note?.noteType || "").trim() === "original";
   }
 
+  isOriginalRecordableSource(note = this.activeNote()) {
+    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    return noteType === "fleeting" || noteType === "literature";
+  }
+
+  generatedOriginalNoteId(note = this.activeNote()) {
+    return String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
+  }
+
+  hasGeneratedOriginal(note = this.activeNote()) {
+    return Boolean(this.generatedOriginalNoteId(note));
+  }
+
   isLiteratureWorkspaceActive(note = this.activeNote()) {
-    return this.isLiteratureNote(note) && Boolean(this.els.literatureWorkspace);
+    return false;
   }
 
   defaultAuthorshipState(note = null) {
     return {
-      claim: this.isOriginalNote(note) ? authorshipSeedFromBody(note?.body || "") : "",
-      confirmed: Boolean(note?.authorship?.user_confirmed),
+      claim: "",
+      confirmed: true,
       confirmedBody: ""
     };
   }
@@ -879,11 +931,6 @@ export class EditorPane {
   }
 
   authorshipBlockMessage(note = this.activeNote()) {
-    if (!this.isOriginalNote(note)) return "";
-    const authorship = this.activeAuthorshipState();
-    const claim = normalizeFieldText(authorship.claim);
-    if (!claim) return "当前文件：先用一句自己的话写下这条笔记现在代表的判断，再保存到 Markdown。";
-    if (!authorship.confirmed) return "当前文件：先完成作者确认，再保存到 Markdown。";
     return "";
   }
 
@@ -907,7 +954,7 @@ export class EditorPane {
       label: hasParaphrase && status === "active" ? "已完成" : "待完成",
       hint: hasParaphrase
         ? status === "active"
-          ? "原文与转述已配对保存。"
+          ? "原文与转述已配对整理。"
           : "已写转述，点击完成即可将文献笔记标为已完成。"
         : "先写出你自己的转述，再标记完成。"
     };
@@ -957,7 +1004,7 @@ export class EditorPane {
       label,
       tone,
       noteText,
-      excerpt: excerpt ? excerpt.slice(0, 96) : "这条书摘还没有写入任何内容。"
+          excerpt: excerpt ? excerpt.slice(0, 96) : "这条文献笔记还没有写入任何内容。"
     };
   }
 
@@ -1017,7 +1064,7 @@ export class EditorPane {
     const paraphraseDoneCount = focusCount ? focusCount - pendingCount : 0;
     const remainingCount = pendingCount + refineCount;
     queueNote.textContent = focusCount
-      ? `当前范围：${scopeFolder?.name || "当前目录"}。当前只显示${focusLabel || "本次导入"}的 ${focusCount} 条书摘；已完成转述 ${paraphraseDoneCount}/${focusCount}，已可转原创 ${readyCount}/${focusCount}，剩余待处理 ${remainingCount} 条。`
+      ? `当前范围：${scopeFolder?.name || "当前目录"}。当前只显示${focusLabel || "本次导入"}的 ${focusCount} 条文献笔记；已完成转述 ${paraphraseDoneCount}/${focusCount}，已可转原创 ${readyCount}/${focusCount}，剩余待处理 ${remainingCount} 条。`
       : `当前范围：${scopeFolder?.name || "当前目录"}。先清空待转述，再补齐待提炼，最后再把成熟材料送去原创笔记。`;
     summary.innerHTML = `
       <div class="literature-queue-metric"><strong>${pendingCount}</strong><span>待转述</span></div>
@@ -1043,8 +1090,10 @@ export class EditorPane {
                 <div class="literature-queue-item-actions">
                   <button class="mini-btn" type="button" data-open-literature-note="${escapeHtml(item.note.id)}">${item.isCurrent ? "继续编辑当前条目" : "打开条目"}</button>
                   ${
-                    item.lane === "ready"
-                      ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">新建原创笔记</button>`
+                    this.hasGeneratedOriginal(item.note)
+                      ? `<span class="item-badge">已生成原创</span>`
+                      : item.lane === "ready"
+                        ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录原创笔记</button>`
                       : ""
                   }
                 </div>
@@ -1052,7 +1101,7 @@ export class EditorPane {
             `
           )
           .join("")
-      : `<div class="literature-queue-item"><div class="literature-queue-item-note">当前目录还没有书摘笔记。先创建一条，再把它放进待转述流程。</div></div>`;
+      : `<div class="literature-queue-item"><div class="literature-queue-item-note">当前目录还没有文献笔记。先创建一条，再把它放进待转述流程。</div></div>`;
   }
 
   isSourceMode() {
@@ -1067,6 +1116,17 @@ export class EditorPane {
     if (this.isSourceMode() && this.markdownEditor) return this.markdownEditor;
     if (this.richEditor) return this.richEditor;
     return this.markdownEditor;
+  }
+
+  setMarkdownSelectionOverride(from = 0, to = from) {
+    this.markdownSelectionOverride = {
+      from: Math.max(0, Number(from) || 0),
+      to: Math.max(0, Number(to) || 0)
+    };
+  }
+
+  clearMarkdownSelectionOverride() {
+    this.markdownSelectionOverride = null;
   }
 
   setUnderlyingEditorValue(value) {
@@ -1092,6 +1152,7 @@ export class EditorPane {
         this.suppressEditorChange = false;
       }
     }
+    this.scheduleRichAssetRefresh();
   }
 
   syncLiteratureWorkspaceFromBody(body = "") {
@@ -1158,7 +1219,7 @@ export class EditorPane {
 
   confirmDiscardTab(tab) {
     if (!tab?.dirty) return true;
-    return window.confirm(`“${tab.title || "未命名笔记"}”有未保存更改，关闭后会丢失这些更改。是否继续？`);
+    return window.confirm(`“${tab.title || "未命名笔记"}”还有未同步的修改，关闭后会丢失这些更改。是否继续？`);
   }
 
   confirmDiscardDirtyTabs(message = "") {
@@ -1166,7 +1227,7 @@ export class EditorPane {
     if (!dirty.length) return true;
     const text =
       message ||
-      `还有 ${dirty.length} 个打开的笔记未保存，继续操作会丢失这些更改。是否继续？`;
+        `还有 ${dirty.length} 个打开的笔记带着未同步的修改，继续操作会丢失这些更改。是否继续？`;
     return window.confirm(text);
   }
 
@@ -1215,6 +1276,34 @@ export class EditorPane {
     } catch {}
   }
 
+  clearAutoSaveTimer() {
+    if (!this.autoSaveTimer) return;
+    clearTimeout(this.autoSaveTimer);
+    this.autoSaveTimer = null;
+  }
+
+  scheduleAutoSave() {
+    this.clearAutoSaveTimer();
+    const tab = this.activeTab();
+    if (!tab?.dirty) return;
+    this.autoSaveTimer = setTimeout(() => {
+      this.autoSaveTimer = null;
+      void this.autoSaveActiveNote("idle");
+    }, AUTO_SAVE_IDLE_MS);
+  }
+
+  async autoSaveActiveNote(trigger = "idle") {
+    const tab = this.updateActiveTabFromEditor();
+    if (!tab?.dirty) return true;
+    if (this.savingPromise) return false;
+    try {
+      await this.saveActiveNote({ autoSave: true, trigger });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   maybeRestoreDraft(tab, note) {
     if (!tab || !note || tab.dirty) return;
     const draft = this.readDraft(note.id);
@@ -1223,7 +1312,7 @@ export class EditorPane {
       return;
     }
     const updatedAt = draft.updatedAt ? `（${new Date(draft.updatedAt).toLocaleString()}）` : "";
-    const shouldRestore = window.confirm(`检测到“${note.title || "未命名笔记"}”有自动保存草稿${updatedAt}，是否恢复？`);
+    const shouldRestore = window.confirm(`检测到“${note.title || "未命名笔记"}”有上次未完成的编辑内容${updatedAt}，是否恢复？`);
     if (!shouldRestore) {
       this.clearDraft(note.id);
       return;
@@ -1239,7 +1328,7 @@ export class EditorPane {
       confirmedBody: String(draft.authorshipConfirmedBody || "")
     };
     tab.saveUiState = this.defaultSaveUiState(tab);
-    this.onStatus("已恢复自动保存草稿，保存后会写入 Markdown", "warn");
+    this.onStatus("已恢复上次未完成的编辑内容", "warn");
   }
 
   syncTabMetadataFromNote(noteId) {
@@ -1284,6 +1373,7 @@ export class EditorPane {
     const idx = this.state.tabs.findIndex((t) => t.id === tabId);
     if (idx < 0) return;
     const tab = this.state.tabs[idx];
+    this.clearAutoSaveTimer();
     if (!this.confirmDiscardTab(tab)) return false;
     this.clearDraft(tab.noteId);
     this.state.tabs.splice(idx, 1);
@@ -1296,6 +1386,7 @@ export class EditorPane {
   }
 
   closeAllTabs() {
+    this.clearAutoSaveTimer();
     if (!this.confirmDiscardDirtyTabs()) return false;
     for (const tab of this.dirtyTabs()) this.clearDraft(tab.noteId);
     this.state.tabs = [];
@@ -1338,7 +1429,7 @@ export class EditorPane {
                     <span class="tab-menu-item-title">${t.title}</span>
                   </span>
                   <span>
-                    ${t.dirty ? `<span class="tab-menu-item-note">未保存</span>` : ""}
+                    ${t.dirty ? `<span class="tab-menu-item-note">编辑中</span>` : ""}
                     ${t.id === this.state.activeTabId ? `<span class="tab-menu-item-check">当前</span>` : ""}
                   </span>
                 </span>
@@ -1353,7 +1444,7 @@ export class EditorPane {
         <div class="tabs-list">${tabsHtml || `<div class="tab active" data-tab="welcome"><span class="tab-title">未打开笔记</span></div>`}</div>
         <div class="tabs-meta">
           <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
-          ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 未保存</span>` : ""}
+          ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 编辑中</span>` : ""}
           ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">未打开笔记</span>`}
         </div>
         <div class="tabs-actions">
@@ -1411,10 +1502,9 @@ export class EditorPane {
   }
 
   renderSaveHint() {
-    if (!this.els.statusHint) return;
     const tab = this.activeTab();
     if (!tab) {
-      this.els.statusHint.textContent = "";
+      if (this.els.statusHint) this.els.statusHint.textContent = "";
       this.renderSaveButton();
       this.renderCompleteButton();
       this.renderAuthorshipPanel();
@@ -1424,26 +1514,22 @@ export class EditorPane {
     const saveUiState = this.activeSaveUiState();
     if (this.isLiteratureWorkspaceActive(note)) {
       const completion = this.literatureCompletionState(note);
-      this.els.statusHint.textContent = completion.hasParaphrase
-        ? completion.status === "active"
-          ? "文献笔记已完成。你保留的是被你理解过的材料，而不是孤立摘录。"
-          : reflectionQuestionsHint("文献笔记已写转述。")
-        : reflectionQuestionsHint("文献笔记待完成。");
-    } else if (this.isOriginalNote(note)) {
-      if (saveUiState?.mode === "blocked") {
-        this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前保存被拦下。");
-      } else {
-        const authorship = this.activeAuthorshipState();
-        const claim = normalizeFieldText(authorship.claim);
-        this.els.statusHint.textContent = !claim
-          ? "原创笔记待确认。先用一句自己的话写下这条笔记现在代表的判断。"
-          : authorship.confirmed
-            ? "原创笔记作者确认已完成。继续修改正文后需要重新确认。"
-            : "原创笔记已写判断句，但尚未完成作者确认；确认前不会保存到 Markdown。";
+      if (this.els.statusHint) {
+        this.els.statusHint.textContent = completion.hasParaphrase
+          ? completion.status === "active"
+            ? "文献笔记已完成。你保留的是被你理解过的材料，而不是孤立摘录。"
+            : reflectionQuestionsHint("文献笔记已写转述。")
+          : reflectionQuestionsHint("文献笔记待完成。");
       }
-    } else if (saveUiState?.mode === "blocked") {
-      this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前保存被拦下。");
-    } else {
+    } else if (this.isOriginalNote(note)) {
+      if (this.els.statusHint && saveUiState?.mode === "blocked") {
+        this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前修改被拦下了。");
+      } else if (this.els.statusHint) {
+        this.els.statusHint.textContent = "";
+      }
+    } else if (this.els.statusHint && saveUiState?.mode === "blocked") {
+      this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前修改被拦下了。");
+    } else if (this.els.statusHint) {
       this.els.statusHint.textContent = "";
     }
     this.renderSaveButton();
@@ -1453,37 +1539,7 @@ export class EditorPane {
   }
 
   renderAuthorshipPanel() {
-    const panel = this.els.authorshipPanel;
-    if (!panel) return;
-    const note = this.activeNote();
-    const tab = this.activeTab();
-    const visible = Boolean(tab && this.isOriginalNote(note));
-    panel.classList.toggle("hidden", !visible);
-    if (!visible) {
-      if (this.els.authorshipClaimInput) this.els.authorshipClaimInput.value = "";
-      if (this.els.authorshipConfirm) {
-        this.els.authorshipConfirm.checked = false;
-        this.els.authorshipConfirm.disabled = true;
-      }
-      if (this.els.authorshipHint) this.els.authorshipHint.textContent = "";
-      return;
-    }
-    const authorship = this.activeAuthorshipState();
-    const claim = normalizeFieldText(authorship.claim);
-    if (this.els.authorshipClaimInput && this.els.authorshipClaimInput.value !== authorship.claim) {
-      this.els.authorshipClaimInput.value = authorship.claim;
-    }
-    if (this.els.authorshipConfirm) {
-      this.els.authorshipConfirm.disabled = !claim;
-      this.els.authorshipConfirm.checked = Boolean(authorship.confirmed && claim);
-    }
-    if (this.els.authorshipHint) {
-      this.els.authorshipHint.textContent = !claim
-        ? "先写下这条笔记如今真正成立的判断。"
-        : authorship.confirmed
-          ? "已记录作者确认。若继续改正文，请重新确认一次。"
-          : "写完判断句后，再勾选确认；确认之前不会保存到 Markdown。";
-    }
+    return;
   }
 
   renderInspectorVisibility() {
@@ -1530,6 +1586,8 @@ export class EditorPane {
     const saveUiState = this.activeSaveUiState();
     const mode = saveUiState?.mode || "idle";
 
+    button.classList.remove("hidden");
+    button.removeAttribute("aria-hidden");
     button.classList.remove("is-dirty", "is-saving", "is-saved", "is-error", "is-blocked");
     button.removeAttribute("aria-busy");
 
@@ -1588,56 +1646,29 @@ export class EditorPane {
   renderCompleteButton() {
     const button = this.els.completeNote;
     if (!button) return;
-    const note = this.activeNote();
-    const isLiterature = this.isLiteratureWorkspaceActive(note);
-    button.classList.toggle("hidden", !isLiterature);
-    if (!isLiterature) {
-      button.disabled = true;
-      button.classList.remove("active");
-      button.dataset.tip = "仅文献笔记可标记完成";
-      button.title = "仅文献笔记可标记完成";
-      return;
-    }
-    const completion = this.literatureCompletionState(note);
-    button.disabled = !completion.hasParaphrase;
-    button.classList.toggle("active", completion.status === "active");
-    button.dataset.tip =
-      completion.status === "active"
-        ? "文献笔记已完成"
-        : completion.hasParaphrase
-          ? "已写转述，可标记为已完成"
-          : "先写出自己的转述，再标记完成";
-    button.title = button.dataset.tip;
+    button.classList.add("hidden");
+    button.disabled = true;
+    button.classList.remove("active");
+    button.dataset.tip = "所有笔记现在都使用同一个编辑器";
+    button.title = "所有笔记现在都使用同一个编辑器";
   }
 
   renderLiteratureWorkspace() {
     const note = this.activeNote();
-    const isLiterature = this.isLiteratureWorkspaceActive(note);
-    this.els.literatureWorkspace?.classList.toggle("hidden", !isLiterature);
-    this.els.markdownSplit?.classList.toggle("hidden", isLiterature);
-    this.els.runGuard?.classList.toggle("hidden", isLiterature);
-    this.els.modeEdit?.classList.toggle("hidden", isLiterature);
-    this.els.modePreview?.classList.toggle("hidden", isLiterature);
+    const isLiterature = false;
+    this.els.literatureWorkspace?.classList.add("hidden");
+    this.els.markdownSplit?.classList.remove("hidden");
+    this.els.modeEdit?.classList.remove("hidden");
     this.els.modeSplit?.classList.toggle("hidden", true);
+    if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
 
-    for (const el of [this.els.insertLink, this.els.insertAsset, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
+    for (const el of [this.els.insertLink, this.els.insertImage, this.els.insertFile, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
       el?.classList?.toggle?.("hidden", isLiterature);
     }
     document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
 
-    if (!isLiterature) {
-      this.renderLiteratureQueue(note);
-      return;
-    }
-    const completion = this.literatureCompletionState(note);
-    if (this.els.literatureCompletionBadge) {
-      this.els.literatureCompletionBadge.textContent = completion.label;
-      this.els.literatureCompletionBadge.dataset.tone = completion.status;
-    }
-    if (this.els.literatureCompletionHint) {
-      this.els.literatureCompletionHint.textContent = completion.hint;
-    }
     this.renderLiteratureQueue(note);
+    this.renderOriginalActionButton(note);
   }
 
   setSaveUiState(mode, message = "") {
@@ -1658,6 +1689,41 @@ export class EditorPane {
     this.els.preview.innerHTML = renderMarkdownPreview(this.getEditorValue(), {
       noteMarkdownPath: note?.markdownPath || ""
     });
+  }
+
+  closeAssetPreview() {
+    this.els.assetPreviewMask?.classList.add("hidden");
+    if (this.els.assetPreviewBody) this.els.assetPreviewBody.innerHTML = "";
+    if (this.els.assetPreviewTitle) this.els.assetPreviewTitle.textContent = "附件预览";
+    if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = "#";
+  }
+
+  openAssetPreview(url = "", label = "") {
+    const cleanUrl = String(url || "").trim();
+    if (!cleanUrl) {
+      this.onStatus("这条附件当前没有可预览地址", "warn");
+      return;
+    }
+    const previewLabel = String(label || "附件预览").trim() || "附件预览";
+    if (!this.els.assetPreviewMask || !this.els.assetPreviewBody || !this.els.assetPreviewTitle) {
+      window.open(cleanUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    this.els.assetPreviewTitle.textContent = previewLabel;
+    if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = cleanUrl;
+    if (isPreviewImageUrl(cleanUrl)) {
+      this.els.assetPreviewBody.innerHTML = `<img class="asset-preview-image" src="${escapeHtml(cleanUrl)}" alt="${escapeHtml(previewLabel)}">`;
+    } else if (isPreviewPdfUrl(cleanUrl)) {
+      this.els.assetPreviewBody.innerHTML = `<iframe class="asset-preview-frame" src="${escapeHtml(cleanUrl)}" title="${escapeHtml(previewLabel)}"></iframe>`;
+    } else {
+      this.els.assetPreviewBody.innerHTML = `
+        <div class="asset-preview-empty">
+          <div><strong>${escapeHtml(previewLabel)}</strong></div>
+          <div>这类附件暂时不做站内内容渲染，但你可以直接在新窗口打开查看。</div>
+        </div>
+      `;
+    }
+    this.els.assetPreviewMask.classList.remove("hidden");
   }
 
   async copyText(text = "", successMessage = "已复制") {
@@ -1793,18 +1859,17 @@ export class EditorPane {
 
   renderPreviewVisibility() {
     const mode = String(this.state.previewMode || "wysiwyg");
+    const pendingSelection = this.pendingEditorSelection;
+    this.pendingEditorSelection = null;
     const split = this.els.markdownSplit;
     if (split) {
       split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
       split.classList.add(mode === "source" ? "editor-mode-source" : "editor-mode-wysiwyg");
     }
-    const modeButtons = {
-      wysiwyg: this.els.modeEdit,
-      source: this.els.modePreview
-    };
-    Object.entries(modeButtons).forEach(([key, button]) => {
-      button?.classList.toggle("active", key === mode);
-    });
+    const showPreviewPanel = mode === "source";
+    this.els.previewPanel?.classList.toggle("hidden", !showPreviewPanel);
+    this.els.modeEdit?.classList.toggle("active", mode === "source");
+    this.updateModeToggleButton(mode);
     this.els.modeSplit?.classList.add("hidden");
     if (this.richEditor && this.markdownEditor) {
       const content = this.isSourceMode() ? this.markdownEditor.getValue() : this.richEditor.getValue();
@@ -1812,25 +1877,85 @@ export class EditorPane {
       if (!this.isLiteratureWorkspaceActive()) {
         if (this.isSourceMode()) this.markdownEditor.focus();
         else this.richEditor.focus();
+        if (
+          pendingSelection &&
+          Number.isFinite(pendingSelection.from) &&
+          Number.isFinite(pendingSelection.to)
+        ) {
+          this.setEditorSelectionRange(pendingSelection.from, pendingSelection.to);
+        }
       }
     }
     this.renderLiteratureWorkspace();
     this.renderContextualToolbarState();
   }
 
+  updateModeToggleButton(mode = "wysiwyg") {
+    const button = this.els.modeEdit;
+    if (!button) return;
+    if (mode === "source") {
+      button.title = "切换到笔记模式 Ctrl/Cmd+1";
+      button.dataset.tip = "切换到笔记模式 Ctrl/Cmd+1";
+      button.setAttribute("aria-label", "切换到笔记模式");
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg><span>笔记模式</span>`;
+      return;
+    }
+    button.title = "切换到源码模式 Ctrl/Cmd+2";
+    button.dataset.tip = "切换到源码模式 Ctrl/Cmd+2";
+    button.setAttribute("aria-label", "切换到源码模式");
+    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.2h10v9.6H3z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 6.05l1.4 1.95L5 9.95M11 6.05L9.6 8 11 9.95M7.4 10.55l1.2-5.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/></svg><span>源码模式</span>`;
+  }
+
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
     const tableTools = this.els.tableTools;
     const codeTools = this.els.codeTools;
-    const codeLanguage = this.els.codeLanguage;
     if (tableTools) tableTools.classList.toggle("hidden", !this.isSourceMode() || !active.table);
     if (codeTools) codeTools.classList.toggle("hidden", !this.isSourceMode() || !active.code);
-    if (codeLanguage) {
-      const model = this.currentCodeBlockModel();
-      const value = model?.language || "text";
-      if (codeLanguage.value !== value) codeLanguage.value = value;
-      codeLanguage.disabled = !this.isSourceMode() || !active.code;
+    if (this.els.headingLevel) {
+      const value = Number(active.headingLevel || 0);
+      this.els.headingLevel.value = value ? String(value) : this.activeTab() ? "p" : "";
     }
+    this.renderOriginalActionButton();
+  }
+
+  renderOriginalActionButton(note = this.activeNote()) {
+    const button = this.els.runGuard;
+    if (!button) return;
+    const isOriginal = this.isOriginalNote(note);
+    const isSource = this.isOriginalRecordableSource(note);
+    const hasGenerated = this.hasGeneratedOriginal(note);
+    if (!note || (!isOriginal && !isSource)) {
+      button.classList.add("hidden");
+      button.disabled = true;
+      return;
+    }
+    button.classList.remove("hidden");
+    button.classList.remove("active");
+    button.classList.remove("state-generated-original");
+    if (isOriginal) {
+      button.disabled = false;
+      button.title = "原创性检测";
+      button.dataset.tip = "原创性检测";
+      button.setAttribute("aria-label", "原创性检测");
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l4.5 1.6v3.95c0 2.7-1.55 4.77-4.5 6.65-2.95-1.88-4.5-3.95-4.5-6.65V3.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 7.95l1.3 1.3 2.75-2.75" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>原创性检测</span>`;
+      return;
+    }
+    if (hasGenerated) {
+      button.disabled = true;
+      button.classList.add("active");
+      button.classList.add("state-generated-original");
+      button.title = "这条笔记已经生成过原创笔记";
+      button.dataset.tip = "已生成原创";
+      button.setAttribute("aria-label", "已生成原创");
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.3 8.35l2.55 2.55 6.1-6.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>已生成原创</span>`;
+      return;
+    }
+    button.disabled = false;
+    button.title = this.isLiteratureNote(note) ? "把这条文献笔记记录成原创笔记" : "把这条随笔记录成原创笔记";
+    button.dataset.tip = "记录原创笔记";
+    button.setAttribute("aria-label", "记录原创笔记");
+    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>记录原创</span>`;
   }
 
   togglePreview(nextMode = null) {
@@ -1847,6 +1972,7 @@ export class EditorPane {
       return;
     }
     const latestValue = this.getEditorValue();
+    this.pendingEditorSelection = this.isLiteratureWorkspaceActive() ? null : this.editorSelection();
     this.state.previewMode = resolved;
     this.setEditorValue(latestValue);
     this.renderPreviewVisibility();
@@ -1862,6 +1988,7 @@ export class EditorPane {
         initialMode: "wysiwyg",
         onChange: (value) => {
           if (this.suppressRichEditorChange || this.suppressEditorChange) return;
+          this.clearMarkdownSelectionOverride();
           this.els.body.value = value;
           if (this.markdownEditor && this.markdownEditor.getValue() !== value) {
             this.suppressSourceEditorChange = true;
@@ -1872,11 +1999,50 @@ export class EditorPane {
             }
           }
           this.handleEditorInput();
+          this.scheduleRichAssetRefresh();
         },
         onKeydown: (event) => this.handleEditorKeydown(event),
         onKeyup: () => this.updateToolbarFormattingState(),
         onClickToken: (token) => this.handleTokenAction(token)
       });
+      this.els.wysiwygHost.addEventListener(
+        "mousedown",
+        (event) => {
+          this.clearMarkdownSelectionOverride();
+          if (this.extractRichAssetFromEvent(event)) {
+            event.preventDefault();
+            return;
+          }
+          if (!this.extractRichTokenFromEvent(event)) return;
+          event.preventDefault();
+        },
+        true
+      );
+      this.els.wysiwygHost.addEventListener(
+        "click",
+        (event) => {
+          const asset = this.extractRichAssetFromEvent(event);
+          if (asset?.url) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.openAssetPreview(asset.url, asset.label);
+            return;
+          }
+          const token = this.extractRichTokenFromEvent(event);
+          if (!token) return;
+          event.preventDefault();
+          event.stopPropagation();
+          this.handleTokenAction(token);
+        },
+        true
+      );
+      if (!this.richAssetObserver && typeof MutationObserver !== "undefined") {
+        this.richAssetObserver = new MutationObserver(() => this.scheduleRichAssetRefresh());
+        this.richAssetObserver.observe(this.els.wysiwygHost, {
+          childList: true,
+          subtree: true
+        });
+      }
       this.els.wysiwygHost.addEventListener("paste", (event) => {
         if (this.isSourceMode()) return;
         const files = [...(event.clipboardData?.files || [])].filter((file) => file.type);
@@ -1899,11 +2065,83 @@ export class EditorPane {
         if (files.length) void this.insertAssetFiles(files, { sourceLabel: "拖入" });
       });
       this.setEditorValue(this.els.body.value || "");
+      this.scheduleRichAssetRefresh();
     } catch (error) {
-      this.onStatus(`可视编辑器加载失败，暂时保留源码模式：${String(error?.message || error)}`, "warn");
+      this.onStatus(`所见即所得编辑器加载失败，暂时保留源代码模式：${String(error?.message || error)}`, "warn");
       this.state.previewMode = "source";
       this.renderPreviewVisibility();
     }
+  }
+
+  extractRichTokenFromEvent(event) {
+    const target = event?.target?.closest?.("[data-wikilink],[data-tag-token]");
+    if (!target) return "";
+    if (target.dataset.wikilink) return `[[${target.dataset.wikilink}]]`;
+    if (target.dataset.tagToken) return `#${target.dataset.tagToken}`;
+    return "";
+  }
+
+  extractRichAssetFromEvent(event) {
+    const target = event?.target?.closest?.("img[data-preview-asset-url], a[data-preview-asset-url]");
+    if (!target?.dataset?.previewAssetUrl) return null;
+    return {
+      url: String(target.dataset.previewAssetUrl || "").trim(),
+      label: String(target.dataset.previewAssetLabel || target.getAttribute?.("alt") || target.textContent || "").trim()
+    };
+  }
+
+  scheduleRichAssetRefresh() {
+    if (!this.els.wysiwygHost) return;
+    if (this.richAssetRefreshTimer) return;
+    const flush = () => {
+      this.richAssetRefreshTimer = 0;
+      this.refreshRichAssetBindings();
+    };
+    if (typeof requestAnimationFrame === "function") {
+      this.richAssetRefreshTimer = requestAnimationFrame(flush);
+      return;
+    }
+    this.richAssetRefreshTimer = window.setTimeout(flush, 0);
+  }
+
+  refreshRichAssetBindings() {
+    const host = this.els.wysiwygHost;
+    const noteMarkdownPath = this.activeNote()?.markdownPath || "";
+    if (!host) return;
+
+    host.querySelectorAll("img").forEach((node) => {
+      const rawPath = String(node.dataset.assetSourcePath || node.getAttribute("src") || "").trim();
+      if (!rawPath) return;
+      const resolved = resolvePreviewableAsset(rawPath, noteMarkdownPath);
+      const previewUrl = String(resolved.previewUrl || "").trim();
+      if (!previewUrl) return;
+      node.dataset.assetSourcePath = rawPath;
+      node.dataset.previewAssetUrl = previewUrl;
+      node.dataset.previewAssetLabel = String(node.getAttribute("alt") || attachmentLabelFromPath(rawPath)).trim() || "图片";
+      if (node.getAttribute("src") !== previewUrl) node.setAttribute("src", previewUrl);
+      node.setAttribute("loading", "lazy");
+      node.setAttribute("decoding", "async");
+      node.setAttribute("role", "button");
+      node.setAttribute("tabindex", "0");
+      node.classList.add("wysiwyg-inline-image", "wysiwyg-inline-asset");
+    });
+
+    host.querySelectorAll("a[href]").forEach((node) => {
+      const rawPath = String(node.dataset.assetSourcePath || node.getAttribute("href") || "").trim();
+      if (!rawPath) return;
+      if (/^(#|mailto:|tel:|javascript:)/i.test(rawPath)) return;
+      const resolved = resolvePreviewableAsset(rawPath, noteMarkdownPath);
+      if (!resolved.isVaultAsset) return;
+      const previewUrl = String(resolved.previewUrl || "").trim();
+      if (!previewUrl) return;
+      node.dataset.assetSourcePath = rawPath;
+      node.dataset.previewAssetUrl = previewUrl;
+      node.dataset.previewAssetLabel = String(node.textContent || attachmentLabelFromPath(rawPath)).trim() || "附件";
+      node.setAttribute("href", previewUrl);
+      node.setAttribute("target", "_blank");
+      node.setAttribute("rel", "noopener noreferrer");
+      node.classList.add("wysiwyg-inline-attachment", "wysiwyg-inline-asset");
+    });
   }
 
   async initMarkdownEditor() {
@@ -1927,6 +2165,9 @@ export class EditorPane {
           this.handleEditorInput();
         }
       });
+      this.markdownEditor.indentSelection = (step = 1) => {
+        this.indentSelection(step);
+      };
       this.els.editorHost.addEventListener("click", (event) => {
         if (!event.ctrlKey && !event.metaKey) return;
         const position = this.markdownEditor?.view?.posAtCoords?.({ x: event.clientX, y: event.clientY });
@@ -1934,6 +2175,18 @@ export class EditorPane {
         const token = tokenAtCursor(this.getEditorValue(), position);
         this.handleTokenAction(token);
       });
+      this.markdownEditor?.view?.contentDOM?.addEventListener(
+        "keydown",
+        (event) => {
+          if (String(event.key || "") !== "Tab" || event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          this.indentSelection(event.shiftKey ? -1 : 1);
+        },
+        true
+      );
       this.els.editorHost.addEventListener("keydown", (event) => this.handleEditorKeydown(event), true);
       this.els.editorHost.addEventListener("keyup", () => this.updateToolbarFormattingState());
       this.els.editorHost.addEventListener("mouseup", () => this.updateToolbarFormattingState());
@@ -1941,7 +2194,7 @@ export class EditorPane {
       this.setEditorValue(this.els.body.value || "");
       this.updateToolbarFormattingState();
     } catch (error) {
-      this.onStatus(`CodeMirror 加载失败，已降级为基础 textarea：${String(error?.message || error)}`, "warn");
+      this.onStatus(`源代码编辑器加载失败，已降级为基础 textarea：${String(error?.message || error)}`, "warn");
       this.els.body.classList.remove("editor-sync-field");
     }
   }
@@ -1972,6 +2225,9 @@ export class EditorPane {
       }
       return { from: 0, to: 0 };
     }
+    if (this.isWysiwygMode() && this.markdownSelectionOverride) {
+      return this.markdownSelectionOverride;
+    }
     const editor = this.currentEditor();
     if (editor?.selection) return editor.selection();
     return { from: this.els.body.selectionStart || 0, to: this.els.body.selectionEnd || 0 };
@@ -1999,7 +2255,11 @@ export class EditorPane {
     this.focusEditor();
     const editor = this.currentEditor();
     if (editor?.setSelectionRange) {
-      editor.setSelectionRange(start, end);
+      try {
+        editor.setSelectionRange(start, end);
+      } catch {
+        editor.focus?.();
+      }
       return;
     }
     this.els.body.setSelectionRange(start, end);
@@ -2084,6 +2344,10 @@ export class EditorPane {
     };
   }
 
+  isEditingTitleLine() {
+    return Boolean(this.firstHeadingEntryContext());
+  }
+
   enterBodyFromTitle() {
     const context = this.firstHeadingEntryContext();
     if (!context) return false;
@@ -2124,14 +2388,17 @@ export class EditorPane {
     const applyPlaceholderSelection = () => {
       if (this.isWysiwygMode() && this.els.wysiwygHost) {
         const heading = this.els.wysiwygHost.querySelector(".toastui-editor-contents h1");
-        if (!heading?.firstChild) return false;
+        const titleNode = heading?.firstChild;
+        const titleText = String(heading?.textContent || "");
+        if (!titleNode || !titleText) return false;
+        this.richEditor?.focus?.();
         const selection = window.getSelection?.();
         if (!selection) return false;
         const range = document.createRange();
-        range.selectNodeContents(heading);
+        range.setStart(titleNode, 0);
+        range.setEnd(titleNode, titleText.length);
         selection.removeAllRanges();
         selection.addRange(range);
-        this.richEditor?.focus?.();
         return true;
       }
       const range = this.placeholderTitleRange(this.getEditorValue());
@@ -2146,17 +2413,45 @@ export class EditorPane {
             window.setTimeout(() => {
               applyPlaceholderSelection();
             }, 32);
+            window.setTimeout(() => {
+              applyPlaceholderSelection();
+            }, 96);
           }
           return;
         }
       }
       this.focusEditor();
     };
-    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      window.requestAnimationFrame(() => apply());
-      return;
-    }
-    setTimeout(apply, 0);
+    const scheduleApply = (attempt = 0) => {
+      const run = () => {
+        if (mode !== "select-placeholder-title") {
+          apply();
+          return;
+        }
+        if (applyPlaceholderSelection()) {
+          if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+            window.setTimeout(() => {
+              applyPlaceholderSelection();
+            }, 32);
+            window.setTimeout(() => {
+              applyPlaceholderSelection();
+            }, 96);
+          }
+          return;
+        }
+        if (attempt >= 7) {
+          this.focusEditor();
+          return;
+        }
+        scheduleApply(attempt + 1);
+      };
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(run);
+        return;
+      }
+      setTimeout(run, 16);
+    };
+    scheduleApply();
   }
 
   insertAtCursor(text) {
@@ -2229,7 +2524,13 @@ export class EditorPane {
     if (editor?.replaceRange) {
       editor.replaceRange(from, to, insert);
       this.els.body.value = editor.getValue();
-      editor.setSelectionRange(selectionStart, selectionEnd);
+      if (editor !== this.richEditor || this.isSourceMode()) {
+        try {
+          editor.setSelectionRange(selectionStart, selectionEnd);
+        } catch {
+          editor.focus?.();
+        }
+      }
       const syncValue = editor.getValue();
       if (editor !== this.markdownEditor && this.markdownEditor && this.markdownEditor.getValue() !== syncValue) {
         this.suppressSourceEditorChange = true;
@@ -2312,17 +2613,42 @@ export class EditorPane {
         if (item) uploaded.push(item);
       }
       if (!uploaded.length) throw new Error("未能写入任何附件");
-      this.insertAtCursor(this.normalizeAssetInsertText(uploaded));
+      const insertText = this.normalizeAssetInsertText(uploaded);
+      const { from, to } = this.editorSelection();
+      const nextCursor = from + insertText.length;
+      if (this.isWysiwygMode() && this.markdownEditor?.replaceRange) {
+        this.markdownEditor.replaceRange(from, to, insertText);
+        const syncValue = this.markdownEditor.getValue();
+        this.els.body.value = syncValue;
+        if (this.richEditor && this.richEditor.getValue() !== syncValue) {
+          this.suppressRichEditorChange = true;
+          try {
+            this.richEditor.setValue(syncValue);
+          } finally {
+            this.suppressRichEditorChange = false;
+          }
+        }
+        this.setMarkdownSelectionOverride(nextCursor, nextCursor);
+        this.richEditor?.focus?.();
+        this.handleEditorInput();
+        this.scheduleRichAssetRefresh();
+      } else {
+        this.replaceEditorRange(from, to, insertText, {
+          selectionStart: nextCursor,
+          selectionEnd: nextCursor
+        });
+      }
       const imageCount = uploaded.filter((item) => item.assetKind === "image").length;
       const fileCount = uploaded.length - imageCount;
       const detail = [];
       if (imageCount) detail.push(`${imageCount} 张图片`);
       if (fileCount) detail.push(`${fileCount} 个附件`);
-      this.onStatus(`已插入${detail.join("、")}，保存后会写入笔记`, "ok");
+      this.onStatus(`已插入${detail.join("、")}`, "ok");
     } catch (error) {
       this.onStatus(`插入附件失败：${String(error?.message || error)}`, "bad");
     } finally {
-      this.els.assetInput?.value && (this.els.assetInput.value = "");
+      if (this.els.assetImageInput?.value) this.els.assetImageInput.value = "";
+      if (this.els.assetFileInput?.value) this.els.assetFileInput.value = "";
       this.els.editorHost?.classList.remove("dragover");
     }
   }
@@ -2415,20 +2741,36 @@ export class EditorPane {
   }
 
   formatCurrentBlock(kind) {
+    const headingMatch = /^h([1-6])$/.exec(String(kind || ""));
+    const headingLevel = headingMatch ? Number(headingMatch[1]) : 0;
+    const active = this.detectActiveFormatting();
     if (this.isWysiwygMode() && this.richEditor) {
-      if (kind === "h2") {
-        this.richEditor.exec("heading", { level: 2 });
+      if (headingLevel) {
+        this.suppressInlinePickersOnce();
+        this.richEditor.exec("heading", { level: headingLevel });
         return;
       }
       if (kind === "quote") {
+        if (active.quote) {
+          this.clearCurrentBlockStructure();
+          return;
+        }
         this.richEditor.exec("blockQuote");
         return;
       }
       if (kind === "ul") {
+        if (active.ul) {
+          this.clearCurrentBlockStructure();
+          return;
+        }
         this.richEditor.exec("bulletList");
         return;
       }
       if (kind === "checklist") {
+        if (active.checklist) {
+          this.clearCurrentBlockStructure();
+          return;
+        }
         this.richEditor.exec("taskList");
         return;
       }
@@ -2449,14 +2791,18 @@ export class EditorPane {
     const titleBoundary = this.titleBlockBoundary(block.value);
     const selection = this.editorSelection();
     const selectionInTitle = Boolean(titleBoundary && selection.from <= titleBoundary.to);
-    const active = this.detectActiveFormatting();
     const hasExplicitSelection = selection.from !== selection.to;
     const blockHasContent = Boolean(block.text.trim());
 
     if (selectionInTitle) {
       const insertPos = titleBoundary ? titleBoundary.to : 0;
       const insertMap = {
+        h1: { text: "\n\n# 标题", selectFrom: "\n\n# ".length, selectLength: "标题".length },
         h2: { text: "\n\n## 小标题", selectFrom: "\n\n## ".length, selectLength: "小标题".length },
+        h3: { text: "\n\n### 小标题", selectFrom: "\n\n### ".length, selectLength: "小标题".length },
+        h4: { text: "\n\n#### 小标题", selectFrom: "\n\n#### ".length, selectLength: "小标题".length },
+        h5: { text: "\n\n##### 小标题", selectFrom: "\n\n##### ".length, selectLength: "小标题".length },
+        h6: { text: "\n\n###### 小标题", selectFrom: "\n\n###### ".length, selectLength: "小标题".length },
         quote: { text: "\n\n> 引用内容", selectFrom: "\n\n> ".length, selectLength: "引用内容".length },
         ul: { text: "\n\n- 列表项", selectFrom: "\n\n- ".length, selectLength: "列表项".length },
         checklist: { text: "\n\n- [ ] 待办项", selectFrom: "\n\n- [ ] ".length, selectLength: "待办项".length },
@@ -2466,6 +2812,7 @@ export class EditorPane {
       };
       const insert = insertMap[kind];
       if (!insert) return;
+      if (headingLevel) this.suppressInlinePickersOnce();
       this.replaceEditorRange(insertPos, insertPos, insert.text, {
         selectionStart: insertPos + insert.selectFrom,
         selectionEnd: insertPos + insert.selectFrom + insert.selectLength
@@ -2487,7 +2834,7 @@ export class EditorPane {
       return;
     }
 
-    const raw = block.text.trim() || (kind === "h2" ? "小标题" : kind === "quote" ? "引用内容" : "列表项");
+    const raw = block.text.trim() || (headingLevel ? "小标题" : kind === "quote" ? "引用内容" : "列表项");
     if (kind === "checklist") {
       const checklistSeed = block.text.trim() || "待办项";
       const lines = this.stripStructuralMarkdown(checklistSeed)
@@ -2533,13 +2880,109 @@ export class EditorPane {
       return;
     }
     const clean = this.stripStructuralMarkdown(raw).trim() || raw.trim();
+    if (kind === "quote" && active.quote) {
+      const next = clean.split(/\n+/).map((line) => line.trim()).filter(Boolean).join("\n") || "正文";
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from,
+        selectionEnd: block.from + next.length
+      });
+      return;
+    }
+    if (kind === "ul" && active.ul) {
+      const next = clean.split(/\n+/).map((line) => line.trim()).filter(Boolean).join("\n") || "正文";
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from,
+        selectionEnd: block.from + next.length
+      });
+      return;
+    }
+    if (kind === "checklist" && active.checklist) {
+      const next = clean.split(/\n+/).map((line) => line.trim()).filter(Boolean).join("\n") || "正文";
+      this.replaceEditorRange(block.from, block.to, next, {
+        selectionStart: block.from,
+        selectionEnd: block.from + next.length
+      });
+      return;
+    }
     let next = raw;
-    if (kind === "h2") next = `## ${clean.replace(/\s*\n+\s*/g, " ").trim()}`;
+    if (headingLevel) next = `${"#".repeat(headingLevel)} ${clean.replace(/\s*\n+\s*/g, " ").trim()}`;
     if (kind === "quote") next = clean.split(/\n+/).map((line) => `> ${line.trim()}`).join("\n");
     if (kind === "ul") next = clean.split(/\n+/).map((line) => `- ${line.trim()}`).join("\n");
+    const selectionStart = headingLevel ? block.from + headingLevel + 1 : block.from;
+    const selectionEnd = block.from + next.length;
+    if (headingLevel) this.suppressInlinePickersOnce();
     this.replaceEditorRange(block.from, block.to, next, {
+      selectionStart,
+      selectionEnd
+    });
+  }
+
+  clearCurrentHeading() {
+    const block = this.currentBlockRange();
+    const text = String(block?.text || "");
+    const match = text.match(/^(\s*)#{1,6}\s+/);
+    if (!match) return;
+    const next = `${match[1] || ""}${text.slice(match[0].length)}`;
+    const selection = this.editorSelection();
+    const removed = match[0].length - (match[1] || "").length;
+    const nextStart = Math.max(block.from, selection.from - removed);
+    const nextEnd = Math.max(nextStart, selection.to - removed);
+    if (this.isWysiwygMode() && this.markdownEditor?.replaceRange) {
+      this.suppressInlinePickersOnce();
+      this.markdownEditor.replaceRange(block.from, block.to, next);
+      const syncValue = this.markdownEditor.getValue();
+      this.els.body.value = syncValue;
+      if (this.richEditor && this.richEditor.getValue() !== syncValue) {
+        this.suppressRichEditorChange = true;
+        try {
+          this.richEditor.setValue(syncValue);
+        } finally {
+          this.suppressRichEditorChange = false;
+        }
+      }
+      this.richEditor?.setSelectionRange?.(nextStart, nextEnd);
+      this.handleEditorInput();
+      return;
+    }
+    this.suppressInlinePickersOnce();
+    this.replaceEditorRange(block.from, block.to, next, {
+      selectionStart: nextStart,
+      selectionEnd: nextEnd
+    });
+  }
+
+  clearCurrentBlockStructure(fallback = "正文") {
+    const block = this.currentBlockRange();
+    const text = String(block?.text || "");
+    const clean = this.stripStructuralMarkdown(text)
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n") || fallback;
+    const selection = this.editorSelection();
+    const nextStart = Math.max(block.from, Math.min(block.from + clean.length, selection.from));
+    const nextEnd = Math.max(nextStart, Math.min(block.from + clean.length, selection.to));
+    if (this.isWysiwygMode() && this.markdownEditor?.replaceRange) {
+      this.suppressInlinePickersOnce();
+      this.markdownEditor.replaceRange(block.from, block.to, clean);
+      const syncValue = this.markdownEditor.getValue();
+      this.els.body.value = syncValue;
+      if (this.richEditor && this.richEditor.getValue() !== syncValue) {
+        this.suppressRichEditorChange = true;
+        try {
+          this.richEditor.setValue(syncValue);
+        } finally {
+          this.suppressRichEditorChange = false;
+        }
+      }
+      this.richEditor?.setSelectionRange?.(nextStart, nextEnd);
+      this.handleEditorInput();
+      return;
+    }
+    this.suppressInlinePickersOnce();
+    this.replaceEditorRange(block.from, block.to, clean, {
       selectionStart: block.from,
-      selectionEnd: block.from + next.length
+      selectionEnd: block.from + clean.length
     });
   }
 
@@ -2577,17 +3020,6 @@ export class EditorPane {
   }
 
   detectActiveFormatting() {
-    if (this.isWysiwygMode()) {
-      return {
-        h2: false,
-        quote: false,
-        ul: false,
-        checklist: false,
-        code: false,
-        table: false,
-        hr: false
-      };
-    }
     const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
     const selection = this.editorSelection();
     const anchor = Math.max(0, Math.min(selection.from, selection.to));
@@ -2595,8 +3027,15 @@ export class EditorPane {
     const text = String(block?.text || "").trimStart();
     const inTitle = Boolean(this.titleBlockBoundary(value) && anchor <= this.titleBlockBoundary(value).to);
     const tableLines = String(block?.text || "").replace(/\r\n/g, "\n").split("\n");
+    const headingLevel = inTitle ? 0 : Number((/^#{1,6}(?=\s)/.exec(text)?.[0] || "").length || 0);
     return {
-      h2: !inTitle && /^##\s+/.test(text),
+      headingLevel,
+      h1: headingLevel === 1,
+      h2: headingLevel === 2,
+      h3: headingLevel === 3,
+      h4: headingLevel === 4,
+      h5: headingLevel === 5,
+      h6: headingLevel === 6,
       quote: !inTitle && /^>\s+/.test(text),
       ul: !inTitle && /^-\s+/.test(text) && !/^-\s\[(?: |x|X)\]\s/.test(text),
       checklist: !inTitle && /^-\s\[(?: |x|X)\]\s/.test(text),
@@ -2702,6 +3141,51 @@ export class EditorPane {
     return false;
   }
 
+  handleStructuredBackspace() {
+    const context = this.currentLineContext();
+    if (!context) return false;
+    const { cursor, lineStart, lineEnd, lineText } = context;
+    if (cursor !== lineEnd || cursor !== lineStart + lineText.length) return false;
+
+    const checklistMatch = lineText.match(/^(\s*[-*+]\s)\[(?: |x|X)\]\s?$/);
+    if (checklistMatch) {
+      this.replaceEditorRange(lineStart, lineEnd, "", {
+        selectionStart: lineStart,
+        selectionEnd: lineStart
+      });
+      return true;
+    }
+
+    const orderedMatch = lineText.match(/^(\s*)(\d+)([.)])\s$/);
+    if (orderedMatch) {
+      this.replaceEditorRange(lineStart, lineEnd, "", {
+        selectionStart: lineStart,
+        selectionEnd: lineStart
+      });
+      return true;
+    }
+
+    const bulletMatch = lineText.match(/^(\s*[-*+]\s)$/);
+    if (bulletMatch) {
+      this.replaceEditorRange(lineStart, lineEnd, "", {
+        selectionStart: lineStart,
+        selectionEnd: lineStart
+      });
+      return true;
+    }
+
+    const quoteMatch = lineText.match(/^(\s*>\s?)$/);
+    if (quoteMatch) {
+      this.replaceEditorRange(lineStart, lineEnd, "", {
+        selectionStart: lineStart,
+        selectionEnd: lineStart
+      });
+      return true;
+    }
+
+    return false;
+  }
+
   updateToolbarFormattingState() {
     const active = this.detectActiveFormatting();
     document.querySelectorAll(".tb[data-md]").forEach((btn) => {
@@ -2776,30 +3260,48 @@ export class EditorPane {
   }
 
   detectInlineLinkContext() {
-    if (this.isWysiwygMode()) return null;
+    const selection = this.editorSelection();
+    if (selection.from !== selection.to) return null;
     const text = this.getEditorValue();
-    const cursor = this.editorSelection().from || 0;
-    const left = text.slice(0, cursor);
-    const start = left.lastIndexOf("[[");
-    if (start < 0) return null;
-    const lastClose = left.lastIndexOf("]]");
-    if (lastClose > start) return null;
-    const query = left.slice(start + 2);
-    if (query.includes("\n")) return null;
-    return { start, end: cursor, query };
+    const cursor = selection.from || 0;
+    const tryCursor = (candidateCursor) => {
+      const left = text.slice(0, candidateCursor);
+      const start = left.lastIndexOf("[[");
+      if (start < 0) return null;
+      const lastClose = left.lastIndexOf("]]");
+      if (lastClose > start) return null;
+      const query = left.slice(start + 2);
+      if (query.includes("\n")) return null;
+      return { start, end: candidateCursor, query };
+    };
+    const direct = tryCursor(cursor);
+    if (direct) return direct;
+    if (this.isWysiwygMode() && cursor < text.length) return tryCursor(cursor + 1);
+    return null;
   }
 
   detectInlineTagContext() {
-    if (this.isWysiwygMode()) return null;
+    const selection = this.editorSelection();
+    if (selection.from !== selection.to) return null;
     const text = this.getEditorValue();
-    const cursor = this.editorSelection().from || 0;
-    const left = text.slice(0, cursor);
-    const match = left.match(/(^|[\s([{'"“‘>，。；：!?！？、])#([^\s#\]\[(){}"'“”‘’.,，。！？!?;:：]*)$/u);
-    if (!match) return null;
-    const hashOffset = match[0].lastIndexOf("#");
-    const start = left.length - (match[0].length - hashOffset);
-    const query = match[2] || "";
-    return { start, end: cursor, query };
+    const cursor = selection.from || 0;
+    const tryCursor = (candidateCursor) => {
+      const left = text.slice(0, candidateCursor);
+      const match = left.match(/(^|[\s([{'"“‘>，。；：!?！？、])#([^\s#\]\[(){}"'“”‘’.,，。！？!?;:：]*)$/u);
+      if (!match) return null;
+      const hashOffset = match[0].lastIndexOf("#");
+      const start = left.length - (match[0].length - hashOffset);
+      const query = match[2] || "";
+      return { start, end: candidateCursor, query };
+    };
+    const direct = tryCursor(cursor);
+    if (direct) return direct;
+    if (this.isWysiwygMode() && cursor < text.length) return tryCursor(cursor + 1);
+    return null;
+  }
+
+  suppressInlinePickersOnce() {
+    this.skipInlinePickersOnce = true;
   }
 
   renderLinkCandidates(query = "", preferredId = "") {
@@ -2841,7 +3343,10 @@ export class EditorPane {
 
   openLinkPicker(initialQuery = "", options = {}) {
     this.closeTagPicker();
+    const inlineMode = Boolean(options.inlineContext);
+    const anchorAtCursor = Boolean(options.anchorAtCursor);
     this.els.linkPicker.classList.remove("floating");
+    this.els.linkPicker.classList.toggle("inline-picker", inlineMode);
     this.els.linkPicker.style.left = "";
     this.els.linkPicker.style.top = "";
     this.els.linkPicker.style.width = "";
@@ -2851,10 +3356,13 @@ export class EditorPane {
     this.lastInlinePickerAnchor = this.currentLinkContext?.end || 0;
     this.renderLinkCandidates(initialQuery, options.preferredId || "");
     this.els.insertLink?.classList.add("active");
-    if (options.keepFocusInEditor) {
+    if (inlineMode) {
       this.positionInlineLinkPicker();
       this.focusEditor();
       return;
+    }
+    if (anchorAtCursor) {
+      this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
     }
     this.els.linkSearchInput.focus();
     this.els.linkSearchInput.select();
@@ -2863,6 +3371,7 @@ export class EditorPane {
   closeLinkPicker() {
     this.els.linkPicker.classList.add("hidden");
     this.els.linkPicker.classList.remove("floating");
+    this.els.linkPicker.classList.remove("inline-picker");
     this.els.linkPicker.style.left = "";
     this.els.linkPicker.style.top = "";
     this.els.linkPicker.style.width = "";
@@ -2873,24 +3382,7 @@ export class EditorPane {
 
   positionInlineLinkPicker() {
     if (!this.currentLinkContext) return;
-    const panel = this.els.linkPicker;
-    panel.classList.add("floating");
-    const width = Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34)));
-
-    let left = 180;
-    let top = 90;
-    const rect = this.currentSelectionRect();
-    if (rect) {
-      left = rect.left;
-      top = rect.bottom + 8;
-    }
-
-    const maxLeft = Math.max(12, window.innerWidth - width - 12);
-    const clampedLeft = Math.max(12, Math.min(left, maxLeft));
-    const clampedTop = Math.max(12, Math.min(top, window.innerHeight - 240));
-    panel.style.width = `${width}px`;
-    panel.style.left = `${clampedLeft}px`;
-    panel.style.top = `${clampedTop}px`;
+    this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
   }
 
   insertSelectedLinkNote(noteId) {
@@ -2975,7 +3467,10 @@ export class EditorPane {
 
   async openTagPicker(initialQuery = "", options = {}) {
     this.closeLinkPicker();
+    const inlineMode = Boolean(options.inlineContext);
+    const anchorAtCursor = Boolean(options.anchorAtCursor);
     this.els.tagPicker.classList.remove("floating");
+    this.els.tagPicker.classList.toggle("inline-picker", inlineMode);
     this.els.tagPicker.style.left = "";
     this.els.tagPicker.style.top = "";
     this.els.tagPicker.style.width = "";
@@ -2986,10 +3481,13 @@ export class EditorPane {
     const list = await this.fetchTagCandidates(initialQuery);
     this.renderTagCandidates(list, options.preferredName || "");
     this.els.insertTag?.classList.add("active");
-    if (options.keepFocusInEditor) {
+    if (inlineMode) {
       this.positionInlineTagPicker();
       this.focusEditor();
       return;
+    }
+    if (anchorAtCursor) {
+      this.positionFloatingPicker(this.els.tagPicker, Math.min(320, Math.max(260, Math.floor(window.innerWidth * 0.26))));
     }
     this.els.tagSearchInput.focus();
     this.els.tagSearchInput.select();
@@ -2998,6 +3496,7 @@ export class EditorPane {
   closeTagPicker() {
     this.els.tagPicker.classList.add("hidden");
     this.els.tagPicker.classList.remove("floating");
+    this.els.tagPicker.classList.remove("inline-picker");
     this.els.tagPicker.style.left = "";
     this.els.tagPicker.style.top = "";
     this.els.tagPicker.style.width = "";
@@ -3007,9 +3506,12 @@ export class EditorPane {
 
   positionInlineTagPicker() {
     if (!this.currentTagContext) return;
-    const panel = this.els.tagPicker;
+    this.positionFloatingPicker(this.els.tagPicker, Math.min(320, Math.max(260, Math.floor(window.innerWidth * 0.26))));
+  }
+
+  positionFloatingPicker(panel, width) {
+    if (!panel) return;
     panel.classList.add("floating");
-    const width = Math.min(320, Math.max(260, Math.floor(window.innerWidth * 0.26)));
 
     let left = 180;
     let top = 90;
@@ -3299,6 +3801,7 @@ export class EditorPane {
 
     if (evalItem.status === "blocked") {
       const message = `blocked：原创性检查未通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`;
+      this.showOriginalityNotice("需要重写", "bad", message);
       this.onStatus(message, "bad");
       if (forSave) {
         this.setSaveUiState("blocked", reflectionQuestionsHint(message));
@@ -3308,15 +3811,30 @@ export class EditorPane {
 
     if (evalItem.status === "warning") {
       const base = `warning：建议补充转述/引用定位（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`;
-      this.onStatus(forSave ? `${base}，将按 draft 保存` : base, "warn");
+      this.showOriginalityNotice("建议继续打磨", "warn", base);
+      this.onStatus(forSave ? `${base}，将暂时保持草稿状态` : base, "warn");
       return { ...evalItem, raw: result };
     }
 
+    this.showOriginalityNotice("原创性通过", "ok", `pass：原创性检测通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`);
     this.onStatus(`pass：原创性检测通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`, "ok");
     return { ...evalItem, raw: result };
   }
+
+  showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
+    const panel = this.els.originalityNotice;
+    if (!panel) return;
+    this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = title);
+    this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = message);
+    panel.classList.remove("hidden");
+    panel.dataset.tone = String(tone || "");
+  }
+
+  hideOriginalityNotice() {
+    this.els.originalityNotice?.classList.add("hidden");
+  }
   bind() {
-    this.els.tabs.addEventListener("click", (e) => {
+    this.els.tabs.addEventListener("click", async (e) => {
       const closeBtn = e.target.closest("button[data-close-tab]");
       if (closeBtn) {
         if (this.closeTab(closeBtn.dataset.closeTab)) {
@@ -3327,7 +3845,11 @@ export class EditorPane {
 
       const switchBtn = e.target.closest("button[data-switch-tab]");
       if (switchBtn) {
-        this.state.activeTabId = switchBtn.dataset.switchTab;
+        const nextTabId = switchBtn.dataset.switchTab;
+        if (nextTabId !== this.state.activeTabId) {
+          await this.autoSaveActiveNote("switch-tab");
+        }
+        this.state.activeTabId = nextTabId;
         this.fillEditorFromTab();
         this.onStateChange("switch-tab");
         const menu = this.els.tabs.querySelector("[data-tab-menu]");
@@ -3358,6 +3880,9 @@ export class EditorPane {
       const tab = e.target.closest(".tab[data-tab]");
       if (!tab) return;
       if (tab.dataset.tab === "welcome") return;
+      if (tab.dataset.tab !== this.state.activeTabId) {
+        await this.autoSaveActiveNote("switch-tab");
+      }
       this.state.activeTabId = tab.dataset.tab;
       this.fillEditorFromTab();
       this.onStateChange("switch-tab");
@@ -3438,8 +3963,12 @@ export class EditorPane {
       }
       const asset = e.target.closest("[data-preview-asset-url]");
       if (asset?.dataset.previewAssetUrl) {
-        window.open(asset.dataset.previewAssetUrl, "_blank", "noopener,noreferrer");
+        this.openAssetPreview(asset.dataset.previewAssetUrl, asset.dataset.previewAssetLabel || "");
       }
+    });
+    this.els.closeAssetPreview?.addEventListener("click", () => this.closeAssetPreview());
+    this.els.assetPreviewMask?.addEventListener("click", (event) => {
+      if (event.target === this.els.assetPreviewMask) this.closeAssetPreview();
     });
 
     document.querySelectorAll(".tb[data-md]").forEach((btn) => {
@@ -3455,6 +3984,17 @@ export class EditorPane {
         if (t === "table") this.formatCurrentBlock("table");
         if (t === "hr") this.formatCurrentBlock("hr");
       });
+    });
+    this.els.headingLevel?.addEventListener("change", () => {
+      const rawValue = String(this.els.headingLevel?.value || "").trim();
+      if (rawValue === "p") {
+        this.clearCurrentHeading();
+        this.renderContextualToolbarState();
+        return;
+      }
+      const level = Number(rawValue || 0);
+      if (level >= 1 && level <= 6) this.formatCurrentBlock(`h${level}`);
+      this.renderContextualToolbarState();
     });
     this.els.tableAddRow?.addEventListener("click", () => {
       this.addTableRow();
@@ -3472,30 +4012,49 @@ export class EditorPane {
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前目录下无可关联笔记", "warn");
       if (this.isWysiwygMode()) {
-        this.openLinkPicker("");
+        this.openLinkPicker("", { anchorAtCursor: true });
         return;
       }
       this.insertAtCursor("[[");
       const inline = this.detectInlineLinkContext();
       if (inline) {
-        this.openLinkPicker("", { inlineContext: inline, keepFocusInEditor: true });
+        this.openLinkPicker("", { inlineContext: inline });
         return;
       }
       this.openLinkPicker("");
     });
 
-    this.els.insertAsset?.addEventListener("click", () => {
+    this.els.insertImage?.addEventListener("click", () => {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
-      this.els.assetInput?.click();
+      this.els.assetImageInput?.click();
     });
-    this.els.assetInput?.addEventListener("change", async () => {
-      const files = [...(this.els.assetInput?.files || [])];
-      await this.insertAssetFiles(files, { sourceLabel: "选择" });
+    this.els.insertFile?.addEventListener("click", () => {
+      const note = this.activeNote();
+      if (!note) return this.onStatus("请先打开一个笔记", "warn");
+      this.els.assetFileInput?.click();
+    });
+    this.els.assetImageInput?.addEventListener("change", async () => {
+      const files = [...(this.els.assetImageInput?.files || [])];
+      await this.insertAssetFiles(files, { sourceLabel: "选择图片" });
+    });
+    this.els.assetFileInput?.addEventListener("change", async () => {
+      const files = [...(this.els.assetFileInput?.files || [])];
+      await this.insertAssetFiles(files, { sourceLabel: "选择附件" });
     });
 
+    const preserveInlinePickerFocus = (event) => {
+      if (!event.target.closest("#linkPicker") && !event.target.closest("#tagPicker")) return;
+      event.preventDefault();
+    };
+    this.els.linkPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
+    this.els.tagPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
+
     this.els.closeLinkPicker.addEventListener("click", () => this.closeLinkPicker());
-    this.els.linkSearchInput.addEventListener("input", () => this.renderLinkCandidates(this.els.linkSearchInput.value));
+    this.els.linkSearchInput.addEventListener("input", () => {
+      this.renderLinkCandidates(this.els.linkSearchInput.value);
+      if (this.currentLinkContext) this.positionInlineLinkPicker();
+    });
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         this.closeLinkPicker();
@@ -3535,24 +4094,22 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       if (this.isWysiwygMode()) {
-        await this.openTagPicker("");
+        await this.openTagPicker("", { anchorAtCursor: true });
         return;
       }
       this.insertAtCursor("#");
       const inline = this.detectInlineTagContext();
       if (inline) {
-        await this.openTagPicker("", { inlineContext: inline, keepFocusInEditor: true });
+        await this.openTagPicker("", { inlineContext: inline });
         return;
       }
       await this.openTagPicker("");
     });
     this.els.modeEdit?.addEventListener("click", () => {
-      this.togglePreview("wysiwyg");
-    });
-    this.els.modePreview?.addEventListener("click", () => {
-      this.togglePreview("source");
+      this.togglePreview();
     });
     this.els.closeTagPicker.addEventListener("click", () => this.closeTagPicker());
+    this.els.closeOriginalityNotice?.addEventListener("click", () => this.hideOriginalityNotice());
     this.els.tagSearchInput.addEventListener("input", async () => {
       const list = await this.fetchTagCandidates(this.els.tagSearchInput.value);
       this.renderTagCandidates(list);
@@ -3600,15 +4157,28 @@ export class EditorPane {
     this.els.runGuard.addEventListener("click", async () => {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
-      if (note.noteType !== "original") {
-        this.onStatus("仅原创笔记执行原创性检测", "warn");
+      if (this.isOriginalNote(note)) {
+        try {
+          await this.runOriginalityCheck(note, { forSave: false });
+        } catch (error) {
+          this.onStatus(`检测失败：${String(error?.message || error)}`, "warn");
+        }
         return;
       }
-      try {
-        await this.runOriginalityCheck(note, { forSave: false });
-      } catch (error) {
-        this.onStatus(`检测失败：${String(error?.message || error)}`, "warn");
+      if (!this.isOriginalRecordableSource(note)) {
+        this.onStatus("当前笔记不支持记录原创", "warn");
+        return;
       }
+      if (this.hasGeneratedOriginal(note)) {
+        this.onStatus("这条笔记已经生成过原创笔记", "ok");
+        return;
+      }
+      void this.onStateChange("record-original-from-note", {
+        sourceNoteId: note.id,
+        sourceTitle: note.title || "",
+        sourceType: note.noteType,
+        sourceBody: this.getEditorValue()
+      });
     });
 
     this.els.save.addEventListener("click", async () => {
@@ -3624,7 +4194,7 @@ export class EditorPane {
         this.literatureQueueRecords(current).find((item) => !item.isCurrent && item.lane === "pending") ||
         this.literatureQueueRecords(current).find((item) => !item.isCurrent && item.lane === "refine");
       if (!nextRecord) {
-        this.onStatus("当前范围没有待处理的书摘条目", "ok");
+        this.onStatus("当前范围没有待处理的文献条目", "ok");
         return;
       }
       this.onOpenNote(nextRecord.note.id);
@@ -3636,16 +4206,18 @@ export class EditorPane {
         const noteId = String(createButton.getAttribute("data-create-original-from-literature") || "").trim();
         const record = this.literatureQueueRecords(this.activeNote()).find((item) => item.note.id === noteId);
         if (!record) {
-          this.onStatus("没有找到要提炼的书摘条目", "warn");
+          this.onStatus("没有找到要提炼的文献条目", "warn");
           return;
         }
         if (record.lane !== "ready") {
-          this.onStatus("这条书摘还没准备好进入原创笔记，请先补齐转述、保留理由和支持判断", "warn");
+          this.onStatus("这条文献笔记还没准备好进入原创笔记，请先补齐转述、保留理由和支持判断", "warn");
           return;
         }
-        void this.onStateChange("create-original-from-literature", {
+        void this.onStateChange("record-original-from-note", {
           sourceNoteId: record.note.id,
           sourceTitle: record.note.title || "",
+          sourceType: record.note.noteType || "literature",
+          sourceBody: record.note.body || "",
           originalText: record.fields.originalText || "",
           paraphrase: record.fields.paraphrase || "",
           whyKeep: record.fields.whyKeep || "",
@@ -3659,7 +4231,7 @@ export class EditorPane {
       if (!noteId) return;
       this.onOpenNote(noteId);
       const target = this.state.notes.find((item) => item.id === noteId);
-      this.onStatus(`已打开书摘条目：${target?.title || noteId}`, "ok");
+      this.onStatus(`已打开文献条目：${target?.title || noteId}`, "ok");
     });
 
     for (const field of [
@@ -3677,31 +4249,6 @@ export class EditorPane {
     }
 
     this.els.body.addEventListener("input", () => this.handleEditorInput());
-    this.els.authorshipClaimInput?.addEventListener("input", () => {
-      if (!this.isOriginalNote()) return;
-      const authorship = this.activeAuthorshipState();
-      authorship.claim = this.els.authorshipClaimInput.value || "";
-      if (!normalizeFieldText(authorship.claim)) authorship.confirmed = false;
-      this.resetActiveSaveUiState();
-      this.renderAuthorshipPanel();
-      this.renderSaveHint();
-    });
-    this.els.authorshipConfirm?.addEventListener("change", () => {
-      if (!this.isOriginalNote()) return;
-      const authorship = this.activeAuthorshipState();
-      if (!normalizeFieldText(authorship.claim)) {
-        authorship.confirmed = false;
-        this.els.authorshipConfirm.checked = false;
-        this.onStatus("先写下你的判断，再完成作者确认", "warn");
-      } else {
-        authorship.confirmed = Boolean(this.els.authorshipConfirm.checked);
-        authorship.confirmedBody = authorship.confirmed ? this.getEditorValue() : "";
-        if (authorship.confirmed) this.onStatus("作者确认已记录：这条原创笔记现在可以保存到 Markdown", "ok");
-      }
-      this.resetActiveSaveUiState();
-      this.renderAuthorshipPanel();
-      this.renderSaveHint();
-    });
 
     this.els.editorHost?.addEventListener("paste", (event) => {
       const clipboardFiles = [...(event.clipboardData?.files || [])];
@@ -3790,12 +4337,14 @@ export class EditorPane {
       const tab = this.activeTab();
       if (!tab) return;
       tab.body = this.getEditorValue();
-      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode() && tab.placeholderTitleArmed) {
+      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode()) {
         const normalized = normalizePlaceholderTitleBody(tab.body);
         if (normalized !== tab.body) {
           tab.body = normalized;
           this.setEditorValue(normalized);
         }
+      }
+      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode() && tab.placeholderTitleArmed) {
         if (titleFromBody(tab.body) !== "未命名笔记") tab.placeholderTitleArmed = false;
       }
       tab.title = titleFromBody(tab.body);
@@ -3808,10 +4357,12 @@ export class EditorPane {
       }
       tab.saveUiState = {
         mode: tab.dirty ? "dirty" : "saved",
-        message: tab.dirty ? "" : "当前文件：已保存到 Markdown"
+        message: tab.dirty ? "" : "当前文件：已同步"
       };
       if (tab.dirty) this.writeDraft(tab);
       else this.clearDraft(tab.noteId);
+      if (tab.dirty) this.scheduleAutoSave();
+      else this.clearAutoSaveTimer();
       this.renderTabs();
       this.renderSaveHint();
       this.renderLiteratureWorkspace();
@@ -3819,10 +4370,22 @@ export class EditorPane {
       this.updateToolbarFormattingState();
 
       if (this.isLiteratureWorkspaceActive()) return;
+      if (this.isEditingTitleLine()) {
+        if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
+        if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        return;
+      }
+
+      if (this.skipInlinePickersOnce) {
+        this.skipInlinePickersOnce = false;
+        if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
+        if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        return;
+      }
 
       const inline = this.detectInlineLinkContext();
       if (inline) {
-        void this.openLinkPicker(inline.query, { inlineContext: inline, keepFocusInEditor: true });
+        void this.openLinkPicker(inline.query, { inlineContext: inline });
         this.lastInlinePickerAnchor = inline.end;
       } else if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) {
         this.closeLinkPicker();
@@ -3830,7 +4393,7 @@ export class EditorPane {
 
       const tagInline = this.detectInlineTagContext();
       if (tagInline) {
-        void this.openTagPicker(tagInline.query, { inlineContext: tagInline, keepFocusInEditor: true });
+        void this.openTagPicker(tagInline.query, { inlineContext: tagInline });
         this.lastInlinePickerAnchor = tagInline.end;
       } else if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) {
         this.closeTagPicker();
@@ -3838,10 +4401,11 @@ export class EditorPane {
   }
 
   handleEditorKeydown(e) {
+    if (this.isWysiwygMode()) this.clearMarkdownSelectionOverride();
     const mod = e.ctrlKey || e.metaKey;
     const key = String(e.key || "").toLowerCase();
 
-    if (this.isSourceMode() && !mod && !e.shiftKey && e.key === "Enter" && this.enterBodyFromTitle()) {
+    if (!mod && !e.shiftKey && e.key === "Enter" && this.enterBodyFromTitle()) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -3890,7 +4454,12 @@ export class EditorPane {
 
     const linkInlineOpen = !this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext;
     const tagInlineOpen = !this.els.tagPicker.classList.contains("hidden") && this.currentTagContext;
-    if (!this.markdownEditor && !linkInlineOpen && !tagInlineOpen && !mod && !e.shiftKey && e.key === "Enter" && this.handleStructuredEnter()) {
+    if (this.isWysiwygMode() && !linkInlineOpen && !tagInlineOpen && !mod && !e.shiftKey && e.key === "Enter" && this.handleStructuredEnter()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!linkInlineOpen && !tagInlineOpen && !mod && e.key === "Backspace" && this.handleStructuredBackspace()) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -3929,14 +4498,16 @@ export class EditorPane {
 
   async saveActiveNote(options = {}) {
     if (this.savingPromise) return this.savingPromise;
+    this.clearAutoSaveTimer();
     this.closeLinkPicker();
     this.closeTagPicker();
-    this.setSaveUiState("saving", "当前文件：正在保存到 Markdown...");
+    this.setSaveUiState("saving", "当前文件：正在同步...");
     this.savingPromise = this.performSaveActiveNote(options);
     try {
       return await this.savingPromise;
     } finally {
       this.savingPromise = null;
+      if (this.activeTab()?.dirty) this.scheduleAutoSave();
     }
   }
 
@@ -3958,7 +4529,6 @@ export class EditorPane {
 
     let originality = null;
     let nextStatus = String(note.status || "draft").trim() || "draft";
-    const authorship = this.activeAuthorshipState();
     if (note.noteType === "literature") {
       const completion = this.literatureCompletionState(note);
       if (markLiteratureComplete && !completion.hasParaphrase) {
@@ -3977,39 +4547,27 @@ export class EditorPane {
       note.status = nextStatus;
     }
     if (note.noteType === "original") {
-      const authorshipBlockMessage = this.authorshipBlockMessage(note);
-      note.authorship = {
-        ...(note.authorship || {}),
-        user_confirmed: Boolean(authorship.confirmed),
-        ai_assisted: Boolean(note.authorship?.ai_assisted)
-      };
-      if (authorshipBlockMessage) {
-        this.writeDraft(tab);
-        this.setSaveUiState("blocked", reflectionQuestionsHint(authorshipBlockMessage));
-        this.onStatus("原创笔记尚未完成作者确认，当前不会保存到 Markdown", "warn");
-        return;
-      }
       try {
         originality = await this.runOriginalityCheck(note, { forSave: true });
       } catch (error) {
-        this.onStatus(`原创性检查不可用，按 draft 保存：${String(error?.message || error)}`, "warn");
+        this.onStatus(`原创性检查不可用，当前先按草稿处理：${String(error?.message || error)}`, "warn");
         originality = { status: "warning", similarity: 0, reasons: ["check_unavailable"] };
       }
       if (originality?.status === "blocked") {
-        this.setSaveUiState("blocked", reflectionQuestionsHint("当前文件：原创性检测阻止保存，请先重写。"));
+        this.setSaveUiState("blocked", reflectionQuestionsHint("当前文件：原创性检测阻止继续推进，请先重写。"));
         return;
       }
       note.originalityStatus = originality?.status || "warning";
       note.originalitySimilarity = Number(originality?.similarity || 0);
-      nextStatus = note.originalityStatus === "pass" && authorship.confirmed ? "active" : "draft";
+      nextStatus = note.originalityStatus === "pass" ? "active" : "draft";
       note.status = nextStatus;
     }
 
     if (note.noteType !== "original") {
       this.onStatus(
         note.noteType === "literature" && nextStatus === "active"
-          ? "文献笔记已保存，并标记为已完成"
-          : "保存成功（标题取正文第一行）",
+          ? "文献笔记已完成"
+          : "当前修改已同步",
         "ok"
       );
     }
@@ -4018,15 +4576,15 @@ export class EditorPane {
       status: nextStatus,
       originalityStatus: note.originalityStatus,
       originalitySimilarity: note.originalitySimilarity,
-      authorshipConfirmed: note.noteType === "original" ? Boolean(authorship.confirmed) : true,
-      authorshipClaim: note.noteType === "original" ? authorship.claim : ""
+      authorshipConfirmed: true,
+      authorshipClaim: ""
     });
     if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
       tab.dirty = true;
       this.writeDraft(tab);
       this.setSaveUiState(
         String(saved?.saveMode || "error").trim() || "error",
-        String(saved?.saveMessage || "当前文件：保存失败，修改仍保留在编辑器中。")
+        String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
       );
       return;
     }
@@ -4034,20 +4592,13 @@ export class EditorPane {
     tab.savedTitle = tab.title;
     tab.dirty = false;
     this.clearDraft(tab.noteId);
-    this.setSaveUiState("saved", "当前文件：已保存到 Markdown");
+    this.setSaveUiState("saved", "当前文件：已同步");
     this.setEditorValue(tab.body);
     if (note.noteType === "original") {
-      if (authorship.confirmed) {
-        authorship.confirmedBody = tab.body;
-        this.onStatus(
-          note.originalityStatus === "pass"
-            ? "已保存原创笔记，并记录作者确认"
-            : "已保存原创笔记并记录作者确认，但原创性检查仍建议继续打磨；当前按 draft 处理",
-          note.originalityStatus === "pass" ? "ok" : "warn"
-        );
-      } else {
-        this.onStatus("已保存原创笔记，但尚未完成作者确认；当前仍按 draft 继续推进", "warn");
-      }
+      this.onStatus(
+        note.originalityStatus === "pass" ? "原创笔记已同步" : "原创笔记已同步，但仍建议继续打磨",
+        note.originalityStatus === "pass" ? "ok" : "warn"
+      );
     }
     this.renderTabs();
   }

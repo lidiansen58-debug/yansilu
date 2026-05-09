@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "index_id",
+    "thesis",
+    "three_line_summary",
+    "central_question",
+    "quality_checks",
+    "rationale",
+    "needs_user_confirmation"
+  ],
+  "properties": {
+    "index_id": { "type": "string" },
+    "thesis": { "type": "string" },
+    "three_line_summary": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "string" }
+    },
+    "central_question": { "type": "string" },
+    "quality_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "clear",
+          "too_generic",
+          "missing_tension",
+          "missing_scope",
+          "needs_user_judgment"
+        ]
+      }
+    },
+    "rationale": { "type": "string" },
+    "needs_user_confirmation": { "type": "boolean" }
+  }
+}

@@ -264,6 +264,36 @@ export async function exportMarkdown(targetPath) {
   });
 }
 
+export async function createIndexCard(payload) {
+  const json = await request("/api/v1/index-cards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function listIndexCards(options = {}) {
+  const params = new URLSearchParams();
+  const directoryId = String(options?.directoryId || "").trim();
+  const indexType = String(options?.indexType || "").trim();
+  const includeDescendants = options?.includeDescendants !== false;
+  const limit = Math.max(1, Math.min(50, Number(options?.limit || 12) || 12));
+  if (directoryId) params.set("directoryId", directoryId);
+  if (indexType) params.set("indexType", indexType);
+  params.set("includeDescendants", includeDescendants ? "true" : "false");
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/index-cards?${params.toString()}`);
+  return Array.isArray(json.items) ? json.items : [];
+}
+
+export async function fetchIndexCard(indexCardId) {
+  const cleanIndexCardId = String(indexCardId || "").trim();
+  if (!cleanIndexCardId) throw new Error("indexCardId is required");
+  const json = await request(`/api/v1/index-cards/${encodeURIComponent(cleanIndexCardId)}`);
+  return json.item || null;
+}
+
 export async function createWritingProject(payload) {
   const json = await request("/api/v1/writing-projects", {
     method: "POST",
@@ -299,6 +329,17 @@ export async function fetchDraftScaffold(draftScaffoldId) {
   return request(`/api/v1/draft-scaffolds/${encodeURIComponent(cleanDraftScaffoldId)}`);
 }
 
+export async function updateDraftScaffoldVersionNote(draftScaffoldId, versionNote = "") {
+  const cleanDraftScaffoldId = String(draftScaffoldId || "").trim();
+  if (!cleanDraftScaffoldId) throw new Error("draftScaffoldId is required");
+  const json = await request(`/api/v1/draft-scaffolds/${encodeURIComponent(cleanDraftScaffoldId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ versionNote: String(versionNote || "").trim() })
+  });
+  return json.item || null;
+}
+
 export async function listProjectScaffolds(writingProjectId, limit = 12) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   const size = Math.max(1, Math.min(50, Number(limit || 12) || 12));
@@ -313,6 +354,17 @@ export async function listProjectDraftVersions(writingProjectId, limit = 12) {
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
   const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/draft-versions?limit=${encodeURIComponent(String(size))}`);
   return Array.isArray(json.items) ? json.items : [];
+}
+
+export async function updateDraftNoteVersionNote(draftVersionId, versionNote = "") {
+  const cleanDraftVersionId = String(draftVersionId || "").trim();
+  if (!cleanDraftVersionId) throw new Error("draftVersionId is required");
+  const json = await request(`/api/v1/draft-note-versions/${encodeURIComponent(cleanDraftVersionId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ versionNote: String(versionNote || "").trim() })
+  });
+  return json.item || null;
 }
 
 export async function bindWritingDraftNote(writingProjectId, draftNoteId, sourceScaffoldId = "", versionNote = "") {

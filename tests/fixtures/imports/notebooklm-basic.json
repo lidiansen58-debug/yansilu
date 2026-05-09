@@ -1,0 +1,10 @@
+{
+  "notebookName": "Notebook A",
+  "notes": [
+    {
+      "id": "N1",
+      "title": "NotebookLM Note",
+      "content": "A NotebookLM synthesis fragment."
+    }
+  ]
+}

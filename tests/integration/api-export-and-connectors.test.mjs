@@ -9,6 +9,11 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+const FIXTURES_ROOT = path.join(REPO_ROOT, "tests", "fixtures", "imports");
+
+async function readJsonFixture(...segments) {
+  return JSON.parse(await fs.readFile(path.join(FIXTURES_ROOT, ...segments), "utf8"));
+}
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -143,17 +148,7 @@ test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candi
         connector: "zotero",
         body: {
           connector: "zotero",
-          payload: {
-            items: [
-              {
-                key: "Z1",
-                title: "Zotero Item",
-                text: "A careful Zotero quote.",
-                locator: "p. 9",
-                tags: ["zotero-tag"]
-              }
-            ]
-          }
+          payload: await readJsonFixture("zotero-basic.json")
         },
         assertRecord(record) {
           assert.equal(record.preview.summary.sources, 1);
@@ -168,16 +163,7 @@ test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candi
         connector: "readwise",
         body: {
           connector: "readwise",
-          payload: {
-            highlights: [
-              {
-                id: "R1",
-                title: "Readwise Book",
-                highlight: "A Readwise highlight worth processing.",
-                tags: ["readwise-tag"]
-              }
-            ]
-          }
+          payload: await readJsonFixture("readwise-basic.json")
         },
         assertRecord(record) {
           assert.equal(record.preview.summary.sources, 1);
@@ -192,16 +178,7 @@ test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candi
         connector: "notebooklm",
         body: {
           connector: "notebooklm",
-          payload: {
-            notebookName: "Notebook A",
-            notes: [
-              {
-                id: "N1",
-                title: "NotebookLM Note",
-                content: "A NotebookLM synthesis fragment."
-              }
-            ]
-          }
+          payload: await readJsonFixture("notebooklm-basic.json")
         },
         assertRecord(record) {
           assert.equal(record.preview.summary.sources, 1);
@@ -224,6 +201,10 @@ test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candi
       assert.equal(payload.samples.literatureNoteIds.length, 1);
       assert.equal(payload.summary.sources, 1);
       assert.equal(payload.summary.literatureNotes, 1);
+      assert.equal(payload.candidatePreview.sources.length, 1);
+      assert.equal(payload.candidatePreview.literatureNotes.length, 1);
+      assert.equal(payload.candidatePreview.sources[0].type, "Source");
+      assert.equal(payload.candidatePreview.literatureNotes[0].type, "LiteratureNote");
 
       const recordPath = path.join(
         vaultPath,
@@ -237,6 +218,84 @@ test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candi
       assert.equal(record.preview.importRecordId, payload.importRecordId);
       testCase.assertRecord(record);
     }
+  } finally {
+    await stopApi(api);
+  }
+});
+
+test("POST /api/v1/imports/preview returns warnings for malformed external fixture payloads", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-preview-warning-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const { response, payload } = await postJson(baseUrl, "/api/v1/imports/preview", {
+      connector: "readwise",
+      payload: await readJsonFixture("malformed", "readwise-highlights-not-array.json")
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.connector, "readwise");
+    assert.equal(payload.summary.sources, 0);
+    assert.equal(payload.summary.literatureNotes, 0);
+    assert.equal(payload.summary.warnings, 1);
+    assert.deepEqual(payload.candidatePreview.total, { sources: 0, literatureNotes: 0, permanentNotes: 0 });
+    assert.equal(payload.warnings[0].code, "IMPORT_EMPTY_PAYLOAD");
+
+    const recordPath = path.join(vaultPath, "imports", "readwise", `${payload.importRecordId}.preview.json`);
+    const record = JSON.parse(await fs.readFile(recordPath, "utf8"));
+    assert.deepEqual(record.candidates.sources, []);
+    assert.deepEqual(record.candidates.literature, []);
+    assert.equal(record.candidates.warnings[0].code, "IMPORT_EMPTY_PAYLOAD");
+  } finally {
+    await stopApi(api);
+  }
+});
+
+test("POST /api/v1/imports/preview records edge-case Obsidian fixture candidates", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-preview-obsidian-edge-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const fixturePath = path.join(FIXTURES_ROOT, "obsidian-edge-vault");
+    const { response, payload } = await postJson(baseUrl, "/api/v1/imports/preview", {
+      connector: "obsidian",
+      payload: { path: fixturePath },
+      options: { detectWikilinks: true, detectAliases: true }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.connector, "obsidian");
+    assert.equal(payload.summary.sources, 5);
+    assert.equal(payload.summary.literatureNotes, 5);
+    assert.equal(payload.summary.permanentNotes, 1);
+    assert.equal(payload.summary.warnings, 2);
+    assert.ok(payload.candidatePreview.permanentNotes.some((item) => item.title === "Source Note"));
+    assert.equal(payload.candidatePreview.permanentNotes[0].type, "PermanentNote");
+    assert.deepEqual(
+      payload.warnings.map((warning) => warning.code).sort(),
+      ["IMPORT_MALFORMED_FRONTMATTER", "ORIGINALITY_GUARD_BLOCKED"]
+    );
+
+    const recordPath = path.join(vaultPath, "imports", "obsidian", `${payload.importRecordId}.preview.json`);
+    const record = JSON.parse(await fs.readFile(recordPath, "utf8"));
+    const sourceNote = record.candidates.literature.find((note) => note.title === "Source Note");
+    assert.ok(sourceNote);
+    assert.deepEqual(sourceNote.aliases, ["Source Alias", "Source Alt"]);
+    assert.deepEqual(sourceNote.wikilink_targets, ["Target Note", "image.png"]);
+    assert.equal(sourceNote.parsed_wikilinks[3].embed, true);
+
+    const duplicateNotes = record.candidates.literature.filter((note) => note.title === "Duplicate Idea");
+    assert.equal(duplicateNotes.length, 2);
+    assert.equal(record.candidates.permanent[0].title, "Source Note");
+    assert.equal(record.candidates.warnings[0].code, "IMPORT_MALFORMED_FRONTMATTER");
   } finally {
     await stopApi(api);
   }

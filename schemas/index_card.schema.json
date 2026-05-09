@@ -4,9 +4,17 @@
   "required": ["id", "index_type", "title", "items", "created_at", "updated_at"],
   "properties": {
     "id": { "type": "string" },
-    "index_type": { "type": "string", "enum": ["topic", "nearby", "logic_chain", "free_link"] },
+    "index_type": { "type": "string", "enum": ["topic", "nearby", "sequence", "free_link"] },
     "title": { "type": "string" },
     "summary": { "type": "string" },
+    "thesis": { "type": "string" },
+    "three_line_summary": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "string" }
+    },
+    "central_question": { "type": "string" },
     "items": {
       "type": "array",
       "items": {
