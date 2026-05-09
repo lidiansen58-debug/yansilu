@@ -511,16 +511,28 @@ test("prototype literature note can record an original draft through the unified
     body: [
       "# 阅读摘录样例",
       "",
+      "## 引用信息",
+      "",
+      "- 标题：概念理解研究",
+      "- 作者：王一",
+      "- 年份：2024",
+      "- 容器：认知写作评论",
+      "- 出版社 / 来源：研思录资料库",
+      "- 页码 / 定位：p. 12",
+      "- 版本：",
+      "- 译者 / 编者：",
+      "- DOI / ISBN / arXiv / URL / PDF：https://example.com/concept-understanding",
+      "",
       "## 原文",
       "概念和语言可能让人停留在表层，而未真正进入理解。",
       "",
       "## 转述",
       "如果只停留在概念表述层，人会误以为自己理解了，其实还没有形成自己的判断。",
       "",
-      "## 为什么值得保留",
+      "## 保留原因",
       "它提醒我，摘录只有在被改写成自己的判断后才真正有价值。",
       "",
-      "## 它支持我形成的判断",
+      "## 支持判断",
       "它会支持我对研思录要反对“摘录即完成”这类笔记习惯的判断。"
     ].join("\n")
   });
@@ -537,10 +549,12 @@ test("prototype literature note can record an original draft through the unified
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     const runGuardText = await page.locator("#btnRunGuard").textContent();
+    assert.match(String(editorValue || ""), /## 引用信息/);
+    assert.match(String(editorValue || ""), /DOI \/ ISBN \/ arXiv \/ URL \/ PDF/);
     assert.match(String(editorValue || ""), /## 原文/);
     assert.match(String(editorValue || ""), /## 转述/);
-    assert.match(String(editorValue || ""), /## 为什么值得保留/);
-    assert.match(String(editorValue || ""), /## 它支持我形成的判断/);
+    assert.match(String(editorValue || ""), /## 保留原因/);
+    assert.match(String(editorValue || ""), /## 支持判断/);
     assert.match(String(runGuardText || ""), /记录原创/);
   }, 7000);
 
@@ -572,7 +586,10 @@ test("prototype literature note can record an original draft through the unified
     const editorValue = await originalPage.locator("#editorBody").inputValue();
     assert.match(editorValue || "", /## 核心观点/);
     assert.match(editorValue || "", /\[\[阅读摘录样例\]\]/);
-    assert.match(editorValue || "", /用你自己的话写下这条原创笔记现在代表的判断/);
+    assert.match(editorValue || "", /不要直接复述摘录或文献笔记原句/);
+    assert.match(editorValue || "", /文献标题：概念理解研究/);
+    assert.match(editorValue || "", /页码 \/ 定位：p\. 12/);
+    assert.match(editorValue || "", /https:\/\/example\.com\/concept-understanding/);
   }, 10000);
 
   await confirmAuthorshipIfVisible(originalPage, {
@@ -590,6 +607,57 @@ test("prototype literature note can record an original draft through the unified
     const statusText = await originalPage.locator("#statusText").textContent();
     assert.match(String(statusText || ""), /已同步|自动同步|仍按 draft 处理/);
   }, 10000);
+});
+
+test("prototype literature note requires citation metadata before recording original", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const literatureCreate = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    status: "draft",
+    body: [
+      "# 缺引用信息样例",
+      "",
+      "## 原文",
+      "这条摘录还没有可用于参考文献的来源信息。",
+      "",
+      "## 转述",
+      "我已经用自己的话理解了这条材料，但还不能追溯引用。",
+      "",
+      "## 保留原因",
+      "它能提醒我引用信息不能事后再猜。",
+      "",
+      "## 支持判断",
+      "它支持文献笔记必须先保留来源字段的判断。"
+    ].join("\n")
+  });
+  assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "缺引用信息样例" }).click();
+  await page.locator("#btnRunGuard").click();
+
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /先补齐引用信息/);
+    assert.match(String(statusText || ""), /标题|作者|年份|页码|DOI/);
+  }, 7000);
+
+  const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  assert.equal(originals.status, 200);
+  assert.equal(originals.json.total, 0);
 });
 
 test("standalone editor route loads and saves a note without workspace chrome", async (t) => {
@@ -741,7 +809,7 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
       app?.getAttribute("data-focus-mode") === "true" &&
       panel &&
       window.getComputedStyle(panel).display === "none" &&
-      /已开启专注提炼/.test(status) &&
+      /已开启专注模式/.test(status) &&
       /低干扰视图/.test(intent)
     );
   });
@@ -754,7 +822,7 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
     const intent = document.querySelector("#editorIntentNote")?.textContent || "";
     return (
       app?.getAttribute("data-focus-mode") === "false" &&
-      /已退出专注提炼/.test(status) &&
+      /已退出专注模式/.test(status) &&
       /不强调更快完成/.test(intent)
     );
   });
@@ -1308,6 +1376,89 @@ test("prototype editor enter continues list quote and checklist structures", asy
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /\n- \[ \] todo\n- \[ \] todo next/);
+  }, 5000);
+});
+
+test("prototype editor enter preserves ordinary blank paragraphs", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const created = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Blank paragraph\n\nLine one"
+  });
+  assert.equal(created.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Blank paragraph" }).click();
+  await ensureSourceMode(page);
+  await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Line one"));
+
+  await page.evaluate(() => {
+    const editor = document.querySelector("#editorHost")?.__markdownEditor;
+    const value = String(editor?.getValue?.() || "");
+    const pos = value.indexOf("Line one") + "Line one".length;
+    editor?.setSelectionRange?.(pos, pos);
+    editor?.focus?.();
+  });
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Line two");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /\nLine one\n\nLine two/);
+  }, 5000);
+});
+
+test("prototype editor enter preserves ordinary blank paragraphs in wysiwyg", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const created = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# WYSIWYG blank paragraph\n\nLine one"
+  });
+  assert.equal(created.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "WYSIWYG blank paragraph" }).click();
+  await ensureNoteMode(page);
+  await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Line one"));
+
+  const paragraph = page.locator("#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p", {
+    hasText: "Line one"
+  });
+  await waitFor(async () => {
+    assert.equal(await paragraph.count(), 1);
+  }, 5000);
+  await paragraph.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowRight" : "End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Line two");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /\nLine one\n\nLine two/);
   }, 5000);
 });
 

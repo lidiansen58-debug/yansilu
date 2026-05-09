@@ -1354,25 +1354,41 @@ function titleFromSeedText(text, fallback = "未命名笔记") {
   return (singleLine || String(fallback || "").trim() || "未命名笔记").slice(0, 48);
 }
 
+function citationSummaryLines(citation = {}) {
+  const fields = citation && typeof citation === "object" ? citation : {};
+  const lines = [
+    fields.sourceTitle ? `- 文献标题：${fields.sourceTitle}` : "",
+    fields.authors ? `- 作者：${fields.authors}` : "",
+    fields.year ? `- 年份：${fields.year}` : "",
+    fields.container ? `- 容器：${fields.container}` : "",
+    fields.publisher ? `- 出版社 / 来源：${fields.publisher}` : "",
+    fields.locator ? `- 页码 / 定位：${fields.locator}` : "",
+    fields.identifier ? `- DOI / ISBN / arXiv / URL / PDF：${fields.identifier}` : ""
+  ].filter(Boolean);
+  return lines.length ? lines : ["- 引用信息：尚未补齐"];
+}
+
 function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
+    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "");
     const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
-    const claim = String(payload.paraphrase || "").trim();
-    const whyKeep = String(payload.whyKeep || "").trim();
-    const supportsJudgment = String(payload.supportsJudgment || "").trim();
-    const originalText = String(payload.originalText || "").trim();
-    const titleSeed = titleFromSeedText(claim, sourceTitle === "未命名文献笔记" ? "未命名原创笔记" : sourceTitle);
+    const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
+    const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
+    const supportsJudgment = String(payload.supportsJudgment || parsed.supportsJudgment || "").trim();
+    const originalText = String(payload.originalText || parsed.originalText || "").trim();
+    const citation = payload.citation && typeof payload.citation === "object" ? payload.citation : parsed.citation;
+    const titleSeed = sourceTitle === "未命名文献笔记" ? titleFromSeedText(citation?.sourceTitle || claim || originalText, "未命名原创笔记") : sourceTitle;
     return [
       `# ${titleSeed}`,
       "",
       "## 核心观点",
       "",
-      claim || "用你自己的话写下这条原创笔记现在代表的判断。",
+      "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
       "",
       "## 为什么成立",
       "",
-      whyKeep || "说明这条判断为什么成立，以及你为什么认为它值得留下。",
+      "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
       "",
       "## 边界 / 反例",
       "",
@@ -1381,8 +1397,9 @@ function originalDraftBodyFromSource(payload = {}) {
       "",
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-      supportsJudgment ? `- 这条材料原本想支持的判断：${supportsJudgment}` : "",
-      originalText ? `- 原文摘录：${originalText}` : "",
+      ...citationSummaryLines(citation),
+      claim ? "- 已有用户转述：见来源文献笔记，不在原创草稿中直接复制。" : "",
+      whyKeep || supportsJudgment || originalText ? "- 证据、保留原因与原文摘录请回到来源文献笔记核对。" : "",
       ""
     ]
       .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
@@ -1857,6 +1874,18 @@ function ensureEditableNoteBody(body = "") {
 function literatureNoteTemplateBody(title = "未命名笔记") {
   return [
     `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
+    "",
+    "## 引用信息",
+    "",
+    "- 标题：",
+    "- 作者：",
+    "- 年份：",
+    "- 容器：",
+    "- 出版社 / 来源：",
+    "- 页码 / 定位：",
+    "- 版本：",
+    "- 译者 / 编者：",
+    "- DOI / ISBN / arXiv / URL / PDF：",
     "",
     "## 原文",
     "",

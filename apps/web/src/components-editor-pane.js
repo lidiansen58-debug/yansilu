@@ -58,11 +58,26 @@ function normalizePlaceholderTitleBody(body = "") {
 }
 
 const LITERATURE_SECTION_LABELS = {
+  citation: "引用信息",
   originalText: "原文",
   paraphrase: "转述",
   whyKeep: "保留原因",
   supportsJudgment: "支持判断"
 };
+
+const LITERATURE_CITATION_FIELD_LABELS = {
+  sourceTitle: "标题",
+  authors: "作者",
+  year: "年份",
+  container: "容器",
+  publisher: "出版社 / 来源",
+  locator: "页码 / 定位",
+  version: "版本",
+  contributors: "译者 / 编者",
+  identifier: "DOI / ISBN / arXiv / URL / PDF"
+};
+
+const REQUIRED_LITERATURE_CITATION_FIELDS = ["sourceTitle", "authors", "year", "locator", "identifier"];
 
 const REFLECTION_QUESTIONS = [
   "这段材料你真正理解成什么？",
@@ -98,15 +113,55 @@ function extractLiteratureSection(body = "", label = "") {
   return section.replace(/^\n+|\n+$/g, "");
 }
 
+function emptyLiteratureCitationFields() {
+  return Object.fromEntries(Object.keys(LITERATURE_CITATION_FIELD_LABELS).map((key) => [key, ""]));
+}
+
+function parseLiteratureCitationFields(section = "") {
+  const text = String(section || "").replace(/\r\n/g, "\n");
+  const fields = emptyLiteratureCitationFields();
+  for (const [key, label] of Object.entries(LITERATURE_CITATION_FIELD_LABELS)) {
+    const pattern = new RegExp(`^[^\\S\\r\\n]*(?:[-*+][^\\S\\r\\n]*)?${escapeRegExp(label)}[^\\S\\r\\n]*[：:][^\\S\\r\\n]*(.*)$`, "m");
+    fields[key] = normalizeFieldText(pattern.exec(text)?.[1] || "");
+  }
+  return fields;
+}
+
+function normalizeLiteratureCitationFields(fields = {}) {
+  const normalized = emptyLiteratureCitationFields();
+  for (const key of Object.keys(normalized)) normalized[key] = normalizeFieldText(fields?.[key] || "");
+  return normalized;
+}
+
+function composeLiteratureCitationLines(citation = {}) {
+  const fields = normalizeLiteratureCitationFields(citation);
+  return Object.entries(LITERATURE_CITATION_FIELD_LABELS).map(([key, label]) => `- ${label}：${fields[key] || ""}`);
+}
+
+function literatureCitationState(citation = {}) {
+  const fields = normalizeLiteratureCitationFields(citation);
+  const missingKeys = REQUIRED_LITERATURE_CITATION_FIELDS.filter((key) => !fields[key]);
+  return {
+    fields,
+    complete: missingKeys.length === 0,
+    missingKeys,
+    missingLabels: missingKeys.map((key) => LITERATURE_CITATION_FIELD_LABELS[key])
+  };
+}
+
 export function parseLiteratureWorkspace(body = "") {
   const title = titleFromBody(body);
   const content = stripMarkdownTitle(body);
   const structured = Object.values(LITERATURE_SECTION_LABELS).some((label) =>
     new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
   );
+  const citation = structured
+    ? parseLiteratureCitationFields(extractLiteratureSection(content, LITERATURE_SECTION_LABELS.citation))
+    : emptyLiteratureCitationFields();
   const originalText = structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.originalText) : content.trim();
   return {
     title,
+    citation,
     originalText,
     paraphrase: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.paraphrase) : "",
     whyKeep: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.whyKeep) : "",
@@ -116,12 +171,17 @@ export function parseLiteratureWorkspace(body = "") {
 
 function composeLiteratureWorkspace(fields = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const citation = normalizeLiteratureCitationFields(fields.citation || {});
   const originalText = normalizeFieldText(fields.originalText);
   const paraphrase = normalizeFieldText(fields.paraphrase);
   const whyKeep = normalizeFieldText(fields.whyKeep);
   const supportsJudgment = normalizeFieldText(fields.supportsJudgment);
   return [
     `# ${title}`,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.citation}`,
+    "",
+    ...composeLiteratureCitationLines(citation),
     "",
     `## ${LITERATURE_SECTION_LABELS.originalText}`,
     "",
@@ -301,6 +361,67 @@ function isMarkdownTableRow(line = "") {
 
 function isMarkdownTableStart(lines = [], index = 0) {
   return isMarkdownTableRow(lines[index]) && isMarkdownTableSeparator(lines[index + 1] || "");
+}
+
+function isMarkdownOrderedListLine(line = "") {
+  return /^\s*\d+[.)]\s/.test(String(line || ""));
+}
+
+function isMarkdownQuoteLine(line = "") {
+  return /^\s*>\s?/.test(String(line || ""));
+}
+
+function isMarkdownListLikeLine(line = "") {
+  return isMarkdownChecklistLine(line) || isMarkdownBulletLine(line) || isMarkdownOrderedListLine(line);
+}
+
+function isMarkdownIndentedContinuation(line = "") {
+  return /^\s{2,}\S/.test(String(line || "")) && !isMarkdownListLikeLine(line);
+}
+
+function shouldKeepTightWysiwygLineBreak(lines = [], index = 0, options = {}) {
+  if (options.inCodeFence) return true;
+  const current = String(lines[index] || "");
+  const next = String(lines[index + 1] || "");
+  if (!current.trim() || !next.trim()) return true;
+  if (isMarkdownTableRow(current) && (isMarkdownTableRow(next) || isMarkdownTableSeparator(next))) return true;
+  if (isMarkdownTableSeparator(current) && isMarkdownTableRow(next)) return true;
+  if (isMarkdownQuoteLine(current) && isMarkdownQuoteLine(next)) return true;
+  if (isMarkdownListLikeLine(current) && (isMarkdownListLikeLine(next) || isMarkdownIndentedContinuation(next))) return true;
+  if (isMarkdownIndentedContinuation(current) && (isMarkdownIndentedContinuation(next) || isMarkdownListLikeLine(next))) return true;
+  return false;
+}
+
+function normalizeWysiwygMarkdownValue(markdown = "", offsets = []) {
+  const source = String(markdown || "").replace(/\r\n/g, "\n");
+  const mappedOffsets = offsets.map((offset) => Math.max(0, Math.min(source.length, Number(offset) || 0)));
+  const lines = source.split("\n");
+  let value = "";
+  let sourceOffset = 0;
+  let inCodeFence = false;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] || "";
+    value += line;
+    sourceOffset += line.length;
+
+    if (index >= lines.length - 1) continue;
+
+    const boundaryInCodeFence = inCodeFence || isMarkdownCodeFenceLine(line);
+    if (isMarkdownCodeFenceLine(line)) inCodeFence = !inCodeFence;
+
+    value += "\n";
+    sourceOffset += 1;
+
+    if (!shouldKeepTightWysiwygLineBreak(lines, index, { inCodeFence: boundaryInCodeFence })) {
+      value += "\n";
+      for (let offsetIndex = 0; offsetIndex < mappedOffsets.length; offsetIndex += 1) {
+        if (mappedOffsets[offsetIndex] >= sourceOffset) mappedOffsets[offsetIndex] += 1;
+      }
+    }
+  }
+
+  return { value, offsets: mappedOffsets };
 }
 
 function parseMarkdownTableRow(line = "") {
@@ -935,8 +1056,10 @@ export class EditorPane {
   }
 
   literatureFieldsFromInputs() {
+    const currentCitation = parseLiteratureWorkspace(this.els.body?.value || "").citation;
     return {
       title: this.els.literatureTitle?.value || "未命名笔记",
+      citation: currentCitation,
       originalText: this.els.literatureOriginal?.value || "",
       paraphrase: this.els.literatureParaphrase?.value || "",
       whyKeep: this.els.literatureWhyKeep?.value || "",
@@ -947,16 +1070,23 @@ export class EditorPane {
   literatureCompletionState(note = this.activeNote()) {
     const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
-    const status = hasParaphrase && String(note?.status || "").trim() === "active" ? "active" : "draft";
+    const citation = literatureCitationState(fields.citation);
+    const ready = hasParaphrase && citation.complete;
+    const status = ready && String(note?.status || "").trim() === "active" ? "active" : "draft";
+    const missingCitationText = citation.missingLabels.length ? `缺少引用信息：${citation.missingLabels.join("、")}` : "";
     return {
       status,
       hasParaphrase,
-      label: hasParaphrase && status === "active" ? "已完成" : "待完成",
-      hint: hasParaphrase
+      hasCitationMetadata: citation.complete,
+      missingCitationFields: citation.missingLabels,
+      label: ready && status === "active" ? "已完成" : "待完成",
+      hint: ready
         ? status === "active"
           ? "原文与转述已配对整理。"
           : "已写转述，点击完成即可将文献笔记标为已完成。"
-        : "先写出你自己的转述，再标记完成。"
+        : hasParaphrase
+          ? `${missingCitationText}。补齐后才能用于参考引用。`
+          : "先写出你自己的转述，并补齐引用信息。"
     };
   }
 
@@ -1988,12 +2118,13 @@ export class EditorPane {
         initialMode: "wysiwyg",
         onChange: (value) => {
           if (this.suppressRichEditorChange || this.suppressEditorChange) return;
+          const normalizedValue = normalizeWysiwygMarkdownValue(value).value;
           this.clearMarkdownSelectionOverride();
-          this.els.body.value = value;
-          if (this.markdownEditor && this.markdownEditor.getValue() !== value) {
+          this.els.body.value = normalizedValue;
+          if (this.markdownEditor && this.markdownEditor.getValue() !== normalizedValue) {
             this.suppressSourceEditorChange = true;
             try {
-              this.markdownEditor.setValue(value);
+              this.markdownEditor.setValue(normalizedValue);
             } finally {
               this.suppressSourceEditorChange = false;
             }
@@ -2203,6 +2334,9 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
     }
+    if (this.isWysiwygMode()) {
+      return String(this.els.body.value || "").replace(/\r\n/g, "\n");
+    }
     const editor = this.currentEditor();
     if (editor?.getValue) return editor.getValue();
     return this.els.body.value;
@@ -2227,6 +2361,15 @@ export class EditorPane {
     }
     if (this.isWysiwygMode() && this.markdownSelectionOverride) {
       return this.markdownSelectionOverride;
+    }
+    if (this.isWysiwygMode() && this.richEditor?.selection) {
+      const richValue = this.richEditor.getValue?.() || "";
+      const selection = this.richEditor.selection();
+      const normalized = normalizeWysiwygMarkdownValue(richValue, [selection.from, selection.to]);
+      return {
+        from: normalized.offsets[0],
+        to: normalized.offsets[1]
+      };
     }
     const editor = this.currentEditor();
     if (editor?.selection) return editor.selection();
@@ -3652,7 +3795,7 @@ export class EditorPane {
           <div class="inspector-section-title">${title}</div>
           <div class="inspector-count">${list.length}</div>
         </div>
-        <div class="inspector-section-note">${noteText}</div>
+        ${noteText ? `<div class="inspector-section-note">${noteText}</div>` : ""}
         ${
           list.length
             ? `<div class="inspector-list">${list
@@ -3687,9 +3830,9 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${block("本笔记引用", "从正文里的 [[关联笔记]] 解析得到。", forward, "当前还没有引用其他笔记。", "出链")}
-        ${block("谁引用了它", "同一工作范围里，哪些笔记提到了这条笔记。", backward, "暂时还没有回链。", "回链")}
-        ${block("同标签笔记", tags.length ? "共享当前正文里的 #标签。" : "先写入 #标签，这里才会出现结果。", tagRelated, tags.length ? "当前标签下还没有更多结果。" : "当前笔记还没有标签。", "同标签")}
+        ${block("引用", "", forward, "还没有引用。", "出链")}
+        ${block("回链", "", backward, "还没有回链。", "回链")}
+        ${block("同标签", "", tagRelated, tags.length ? "没有更多结果。" : "还没有标签。", "同标签")}
       </div>
     `;
   }
@@ -3719,7 +3862,7 @@ export class EditorPane {
         <div class="inspector-overview">
           <div class="inspector-overview-head">
             <div class="inspector-overview-title">标签检索：#${escapeHtml(tag)}</div>
-            <div class="inspector-overview-meta">结果来自当前目录范围的 SQLite 标签查询，不依赖目录树是否已全部展开。</div>
+            <div class="inspector-overview-meta">当前目录范围</div>
           </div>
         </div>
         <div class="inspector-summary">
@@ -3728,7 +3871,7 @@ export class EditorPane {
         </div>
         ${
           list.length
-            ? `<div class="inspector-sections"><section class="inspector-section"><div class="inspector-section-note">点击任意一条结果，直接回到对应笔记继续写作或建立新的关联。</div><div class="inspector-list">${list
+            ? `<div class="inspector-sections"><section class="inspector-section"><div class="inspector-list">${list
                 .map((n) => `
                   <button class="related-item" data-open-note="${n.id}">
                     <span class="related-item-title">${escapeHtml(n.title)}</span>
@@ -4226,11 +4369,33 @@ export class EditorPane {
         this.onStatus("这条笔记已经生成过原创笔记", "ok");
         return;
       }
+      const sourceBody = this.getEditorValue();
+      const literatureFields = this.isLiteratureNote(note) ? parseLiteratureWorkspace(sourceBody) : null;
+      if (literatureFields && !normalizeFieldText(literatureFields.paraphrase)) {
+        this.onStatus("先写出自己的转述，再记录原创笔记", "warn");
+        return;
+      }
+      if (literatureFields) {
+        const citation = literatureCitationState(literatureFields.citation);
+        if (!citation.complete) {
+          this.onStatus(`先补齐引用信息：${citation.missingLabels.join("、")}`, "warn");
+          return;
+        }
+      }
       void this.onStateChange("record-original-from-note", {
         sourceNoteId: note.id,
         sourceTitle: note.title || "",
         sourceType: note.noteType,
-        sourceBody: this.getEditorValue()
+        sourceBody,
+        ...(literatureFields
+          ? {
+              citation: literatureFields.citation,
+              originalText: literatureFields.originalText,
+              paraphrase: literatureFields.paraphrase,
+              whyKeep: literatureFields.whyKeep,
+              supportsJudgment: literatureFields.supportsJudgment
+            }
+          : {})
       });
     });
 
@@ -4596,7 +4761,14 @@ export class EditorPane {
         this.onStatus("文献笔记缺少转述，不能标记为已完成", "warn");
         return;
       }
-      if (!completion.hasParaphrase) {
+      if (markLiteratureComplete && !completion.hasCitationMetadata) {
+        const missing = completion.missingCitationFields.join("、");
+        const message = `文献笔记还不能标记完成。缺少引用信息：${missing}`;
+        this.setSaveUiState("blocked", message);
+        this.onStatus(`文献笔记缺少引用信息：${missing}`, "warn");
+        return;
+      }
+      if (!completion.hasParaphrase || !completion.hasCitationMetadata) {
         nextStatus = "draft";
       } else if (markLiteratureComplete || nextStatus === "active") {
         nextStatus = "active";
