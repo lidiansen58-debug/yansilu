@@ -149,7 +149,7 @@ export function resultFocusLabel(reason) {
     invalid: "原创性跳过",
     conflicted: "文件冲突跳过"
   };
-  return labels[String(reason || "").trim()] || "候选";
+  return labels[String(reason || "").trim()] || "候选项";
 }
 
 export function excludedCandidateItems(candidatePreview, selectedIds) {
@@ -215,10 +215,11 @@ export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
   for (const candidateId of skippedIds.invalid) {
     const evaluation = evaluationById.get(candidateId);
     const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.map(candidateReasonText).filter(Boolean) : [];
+    const reasonText = reasons.length ? ` ${reasons.join("。")}。` : "";
     map[candidateId] = {
       reason: "invalid",
       tone: "warning",
-      message: `未写入原因：原创性 warning，当前未允许按 draft 写入。${reasons.length ? ` ${reasons.join("、")}。` : ""}`.trim()
+      message: `未写入原因：原创性为 warning，当前未允许按 draft 写入。${reasonText}`.trim()
     };
   }
   for (const candidateId of skippedIds.conflicted) {
