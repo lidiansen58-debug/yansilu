@@ -147,6 +147,59 @@ const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
 const APP_VERSION = "0.1.0";
+const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+function tauriGlobal() {
+  return typeof window !== "undefined" ? window.__TAURI__ : null;
+}
+
+function shouldCheckForUpdatesNow() {
+  const tauri = tauriGlobal();
+  if (!tauri) return false;
+  const last = Number(localStorage.getItem(AUTO_UPDATE_CHECK_KEY) || 0);
+  return !last || Date.now() - last > AUTO_UPDATE_CHECK_INTERVAL_MS;
+}
+
+async function checkForDesktopUpdate(options = {}) {
+  const tauri = tauriGlobal();
+  if (!tauri) return { ok: false, skipped: true };
+  if (!options.force && !shouldCheckForUpdatesNow()) return { ok: false, skipped: true };
+
+  localStorage.setItem(AUTO_UPDATE_CHECK_KEY, String(Date.now()));
+
+  const call = async (name, args) => {
+    if (typeof tauri?.updater?.[name] === "function") return await tauri.updater[name](args);
+    if (typeof tauri?.core?.invoke === "function") {
+      const mapping = {
+        check: "plugin:updater|check",
+        downloadAndInstall: "plugin:updater|download_and_install"
+      };
+      const command = mapping[name];
+      if (!command) return null;
+      return await tauri.core.invoke(command, args || {});
+    }
+    return null;
+  };
+
+  try {
+    const result = await call("check");
+    const available = Boolean(result?.available ?? result?.shouldUpdate ?? result?.updateAvailable);
+    if (!available) return { ok: true, available: false };
+
+    const version = String(result?.version || result?.latestVersion || "").trim();
+    const prompt = options.prompt !== false;
+    if (prompt) {
+      const confirmed = window.confirm(`发现新版本${version ? `：${version}` : ""}。现在下载安装并重启吗？`);
+      if (!confirmed) return { ok: true, available: true, installed: false };
+    }
+
+    await call("downloadAndInstall");
+    return { ok: true, available: true, installed: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+}
 
 function feedbackBaseUrl() {
   return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`;
@@ -4649,6 +4702,13 @@ async function bootstrap() {
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
   }
+
+  // MVP: if running inside Tauri, periodically check for updates and offer one-click install.
+  // This is best-effort and will quietly no-op in browsers.
+  setTimeout(async () => {
+    const result = await checkForDesktopUpdate();
+    if (result?.installed) setStatus("更新已开始下载，完成后会自动重启", "ok");
+  }, 1200);
 }
 
 bootstrap();

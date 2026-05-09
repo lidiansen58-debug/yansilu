@@ -73,7 +73,7 @@ Recent prototype polish that is already reflected in the implementation:
 - Unified visual language across import, graph, writing, and settings workspaces.
 - Desktop-style context menus and modal polish for directory and note actions.
 - Windows NSIS silent install, silent uninstall, reinstall, and installed-executable launch have been smoke-tested locally.
-- Tauri updater artifacts and runtime updater plugin are disabled for the MVP build to avoid unconfigured updater startup/bundling failures.
+- MVP: desktop builds include the Tauri updater plugin and a best-effort in-app update check flow. Tagged releases still require updater signing secrets plus a working update feed.
 - Dirty-state/save-state feedback, autosave draft restore, and inline `[[wikilink]]` / `#tag` suggestion flows.
 - Unified empty states and bottom status feedback so unfinished or zero-result views still read like product UI instead of debug panels.
 - Editor image and file insertion now use separate entry points while preserving Markdown asset-link storage.

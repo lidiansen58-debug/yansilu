@@ -56,7 +56,7 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
 - The Windows NSIS installer has completed a local silent install with exit code 0.
 - The installed Windows app has completed a local silent uninstall and reinstall cycle with exit code 0.
 - The installed executable at `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` has launched successfully with the `研思录` window title.
-- Tauri updater artifacts and runtime updater plugin are disabled for this MVP build until update endpoints and signing are configured.
+- Desktop app checks for updates (best-effort) when running inside Tauri; tagged releases still require signing secrets and a working update feed.
 - Tauri dialog/opener UI branches now have automated coverage for:
   - Vault browse fallback path picking
   - reveal current Markdown file through desktop opener
