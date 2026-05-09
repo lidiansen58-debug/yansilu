@@ -1527,6 +1527,52 @@
       font-size: 15px;
       letter-spacing: .01em;
     }
+    .import-history-summary {
+      margin-top: 10px;
+      border: 1px solid #dbe3ec;
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px 12px;
+      display: grid;
+      gap: 7px;
+    }
+    .import-history-summary.tone-warn {
+      border-color: #ead28a;
+      background: #fffaf0;
+    }
+    .import-history-summary.tone-bad {
+      border-color: #f0b8b3;
+      background: #fff5f4;
+    }
+    .import-history-summary-main {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .import-history-summary-kicker {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .import-history-summary-main strong {
+      display: block;
+      color: #172033;
+      font-size: 14px;
+      margin-top: 1px;
+    }
+    .import-history-summary-subtitle,
+    .import-history-summary-detail {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .import-history-summary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
     .import-history-controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4407,11 +4453,11 @@
                     <div class="import-grid" style="margin-top:10px;">
                       <label for="importConnector">连接器</label>
                       <select id="importConnector">
-                        <option value="markdown">markdown</option>
-                        <option value="obsidian">obsidian</option>
-                        <option value="zotero">zotero</option>
-                        <option value="readwise">readwise</option>
-                        <option value="notebooklm">notebooklm</option>
+                        <option value="markdown">Markdown</option>
+                        <option value="obsidian">Obsidian</option>
+                        <option value="zotero">Zotero</option>
+                        <option value="readwise">Readwise</option>
+                        <option value="notebooklm">NotebookLM</option>
                       </select>
 
                       <label for="importPath">导入路径</label>
@@ -4456,30 +4502,30 @@
                         <span>状态</span>
                         <select id="importHistoryStatus">
                           <option value="all">全部状态</option>
-                          <option value="preview">preview</option>
-                          <option value="completed">completed</option>
-                          <option value="rolled_back">rolled_back</option>
-                          <option value="cancelled">cancelled</option>
+                          <option value="preview">预览中</option>
+                          <option value="completed">已完成</option>
+                          <option value="rolled_back">已回滚</option>
+                          <option value="cancelled">已取消</option>
                         </select>
                       </label>
                       <label>
                         <span>连接器</span>
                         <select id="importHistoryConnector">
                           <option value="all">全部连接器</option>
-                          <option value="markdown">markdown</option>
-                          <option value="obsidian">obsidian</option>
-                          <option value="zotero">zotero</option>
-                          <option value="readwise">readwise</option>
-                          <option value="notebooklm">notebooklm</option>
+                          <option value="markdown">Markdown</option>
+                          <option value="obsidian">Obsidian</option>
+                          <option value="zotero">Zotero</option>
+                          <option value="readwise">Readwise</option>
+                          <option value="notebooklm">NotebookLM</option>
                         </select>
                       </label>
                       <label>
                         <span>风险</span>
                         <select id="importHistoryRisk">
                           <option value="all">全部风险</option>
-                          <option value="warning">warning</option>
-                          <option value="blocked">blocked</option>
-                          <option value="modified">modified</option>
+                          <option value="warning">有警告</option>
+                          <option value="blocked">有阻断</option>
+                          <option value="modified">回滚保留</option>
                         </select>
                       </label>
                       <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
