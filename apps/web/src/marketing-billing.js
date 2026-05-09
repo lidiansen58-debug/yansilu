@@ -85,7 +85,7 @@ async function initBillingPage() {
     if (renewEl) {
       renewEl.textContent = billingPayload?.item?.renewsAt
         ? new Date(billingPayload.item.renewsAt).toLocaleString()
-        : "—";
+        : "-";
     }
 
     if (manageButtonEl) {
