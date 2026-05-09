@@ -2250,7 +2250,7 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   });
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   await page.locator("#importResult .result-candidates", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-group", { hasText: "LiteratureNote" }).waitFor();
+  await page.locator("#importResult .candidate-group", { hasText: "文献笔记" }).waitFor();
 
   const previewResultText = await page.locator("#importResult").textContent();
   assert.match(previewResultText || "", /"importRecordId":\s*"/);
@@ -2258,10 +2258,10 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   assert.ok(importRecordId.startsWith("imp_"));
 
   const sourceGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^Source$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
   });
   const literatureGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^LiteratureNote$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^文献笔记$/ })
   });
   await sourceGroup.waitFor();
   const sourceCheckbox = sourceGroup.locator(".candidate-checkbox").first();
@@ -2293,7 +2293,7 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   await page.locator("#importResult .candidate-item.is-focused", { hasText: "Fixture Import Note" }).waitFor();
   await page.locator("#importResult .candidate-inline-note", { hasText: "确认前取消勾选" }).waitFor();
   const sourceConfirmGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^Source$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
   });
   await sourceConfirmGroup.locator(".candidate-item.is-muted").waitFor();
   await page.locator('#importResult [data-clear-candidate-focus="1"]').click();
@@ -2401,7 +2401,7 @@ test("prototype import history filters records and supports inline actions", asy
       return Boolean(
         item &&
           /已写入/.test(text) &&
-          /已创建 S1 · L1 · P0/.test(text) &&
+          /已创建 1 来源卡片 \/ 1 文献笔记 \/ 0 永久笔记/.test(text) &&
           /写入 notes\/sources/.test(text) &&
           item.querySelector('[data-import-history-action="rollback"]')
       );
@@ -2512,7 +2512,7 @@ test("prototype import history highlights modified files skipped during rollback
         item &&
           /已回滚 1 项/.test(text) &&
           /跳过 1 项/.test(text) &&
-          /Modified 1/.test(text) &&
+          /保留 1/.test(text) &&
           /已被修改而保留/.test(text)
       );
     },
@@ -2993,11 +2993,11 @@ test("prototype import panel can focus blocked and excluded candidates", async (
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
       const text = item?.textContent || "";
-      return Boolean(item && /Blocked 1/.test(text));
+      return Boolean(item && /阻断 1/.test(text));
     },
     importRecordId
   );
-  await page.locator('[data-candidate-filter="blocked"]', { hasText: "Blocked 1" }).click();
+  await page.locator('[data-candidate-filter="blocked"]', { hasText: "阻断 1" }).click();
   await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Blocked candidate note" }).waitFor();
   await page.locator("#importResult .candidate-reason").first().waitFor();
 
@@ -3166,10 +3166,10 @@ test("prototype import panel can exclude warning candidates with one action", as
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /Warning 2/.test(text) &&
-          /Blocked 1/.test(text) &&
-          /候选 1 Source · 1 Literature · 2 Permanent/.test(text) &&
-          /需人工检查：warning 2 · originality warning 1 · blocked 1/.test(text)
+          /警告 2/.test(text) &&
+          /阻断 1/.test(text) &&
+          /候选 1 来源卡片 \/ 1 文献笔记 \/ 2 永久笔记/.test(text) &&
+          /需要人工检查：普通警告 2 \/ 原创性警告 1 \/ 原创性阻断 1/.test(text)
       );
     },
     recordId

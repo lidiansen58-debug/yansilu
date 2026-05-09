@@ -81,7 +81,7 @@ export function renderImportHistoryPanel({
     return `<div class="import-history-empty">正在读取导入历史…</div>`;
   }
   if (!allItems.length) {
-    return `<div class="import-history-empty">还没有导入记录。先预览一次 Markdown/Obsidian 导入，这里就会出现历史。</div>`;
+    return `<div class="import-history-empty">还没有导入记录。先预览一次 Markdown 或 Obsidian 导入，这里就会出现历史。</div>`;
   }
 
   const filteredItems = filterImportHistoryItems(allItems, filters);
@@ -92,10 +92,12 @@ export function renderImportHistoryPanel({
     `;
   }
 
+  const loadedText = allItems.length !== filteredItems.length ? ` / 已加载 ${allItems.length} 条` : "";
+  const totalText = total > allItems.length ? ` / 全部 ${total} 条` : "";
   return `
     <div class="import-history-list">
       ${filteredItems.map((record) => renderImportHistoryItem(record, String(activeImportRecordId || "").trim())).join("")}
     </div>
-    <div class="toolbar-note">当前显示 ${filteredItems.length} 条${allItems.length !== filteredItems.length ? ` / 已加载 ${allItems.length} 条` : ""}${total > allItems.length ? ` / 共 ${total} 条` : ""}。</div>
+    <div class="toolbar-note">当前显示 ${filteredItems.length} 条${loadedText}${totalText}。</div>
   `;
 }

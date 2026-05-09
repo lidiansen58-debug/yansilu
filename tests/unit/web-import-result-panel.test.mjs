@@ -8,8 +8,8 @@ test("import result panel renders metrics warnings actions and raw json", () => 
     title: "导入预览完成",
     subtitle: "imp_1",
     tone: "warn",
-    statusLabel: "warning",
-    metrics: [{ label: "ImportRecord", value: "imp_1" }],
+    statusLabel: "需注意",
+    metrics: [{ label: "导入记录", value: "imp_1" }],
     warnings: [{ code: "IMPORT_EMPTY_PAYLOAD", message: "payload missing" }],
     actions: ["补充 Payload JSON"],
     writingActionsHtml: '<div class="writing-actions">x</div>',
@@ -21,7 +21,8 @@ test("import result panel renders metrics warnings actions and raw json", () => 
 
   assert.match(html, /result-card/);
   assert.match(html, /导入预览完成/);
-  assert.match(html, /warning/);
+  assert.match(html, /需注意/);
+  assert.match(html, /需要注意/);
   assert.match(html, /IMPORT_EMPTY_PAYLOAD/);
   assert.match(html, /补充 Payload JSON/);
   assert.match(html, /result-candidates/);

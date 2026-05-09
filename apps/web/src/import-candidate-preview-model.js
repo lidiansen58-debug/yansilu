@@ -43,11 +43,19 @@ export function isConfirmableCandidate(item = {}, originalityGuard = null) {
 }
 
 export function candidateBadge(item = {}) {
-  return item.originalityStatus || item.status || item.sourceType || item.type || "candidate";
+  const value = item.originalityStatus || item.status || item.sourceType || item.type || "candidate";
+  const labels = {
+    warning: "警告",
+    blocked: "阻断",
+    pass: "通过",
+    draft: "草稿",
+    candidate: "候选"
+  };
+  return labels[String(value || "").trim()] || String(value || "");
 }
 
 export function candidateMeta(item = {}) {
-  return uniqueStrings([item.id, item.importedFrom, item.locator, item.sourceId]).join(" · ");
+  return uniqueStrings([item.id, item.importedFrom, item.locator, item.sourceId]).join(" / ");
 }
 
 export function candidateReasonText(reason) {
@@ -133,12 +141,12 @@ export function matchesCandidateFilter(item, filter, selectedIds, originalityGua
 export function filterLabel(filter) {
   const labels = {
     all: "全部",
-    confirmable: "仅可确认项",
-    safe: "仅安全项",
-    risky: "仅风险项",
+    confirmable: "可确认项",
+    safe: "安全项",
+    risky: "风险项",
     excluded: "已排除",
-    warning: "仅 Warning",
-    blocked: "仅 Blocked"
+    warning: "警告项",
+    blocked: "阻断项"
   };
   return labels[filter] || "全部";
 }
@@ -149,7 +157,7 @@ export function resultFocusLabel(reason) {
     invalid: "原创性跳过",
     conflicted: "文件冲突跳过"
   };
-  return labels[String(reason || "").trim()] || "候选";
+  return labels[String(reason || "").trim()] || "候选项";
 }
 
 export function excludedCandidateItems(candidatePreview, selectedIds) {
@@ -215,10 +223,11 @@ export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
   for (const candidateId of skippedIds.invalid) {
     const evaluation = evaluationById.get(candidateId);
     const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.map(candidateReasonText).filter(Boolean) : [];
+    const reasonText = reasons.length ? ` ${reasons.join("、")}。` : "";
     map[candidateId] = {
       reason: "invalid",
       tone: "warning",
-      message: `未写入原因：原创性 warning，当前未允许按 draft 写入。${reasons.length ? ` ${reasons.join("、")}。` : ""}`.trim()
+      message: `未写入原因：原创性为警告，当前未允许按草稿写入。${reasonText}`.trim()
     };
   }
   for (const candidateId of skippedIds.conflicted) {

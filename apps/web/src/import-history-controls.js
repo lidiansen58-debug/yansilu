@@ -9,26 +9,26 @@ function escapeHtml(value) {
 
 const STATUS_OPTIONS = [
   { value: "all", label: "全部状态" },
-  { value: "preview", label: "preview" },
-  { value: "completed", label: "completed" },
-  { value: "rolled_back", label: "rolled_back" },
-  { value: "cancelled", label: "cancelled" }
+  { value: "preview", label: "预览中" },
+  { value: "completed", label: "已完成" },
+  { value: "rolled_back", label: "已回滚" },
+  { value: "cancelled", label: "已取消" }
 ];
 
 const CONNECTOR_OPTIONS = [
   { value: "all", label: "全部连接器" },
-  { value: "markdown", label: "markdown" },
-  { value: "obsidian", label: "obsidian" },
-  { value: "zotero", label: "zotero" },
-  { value: "readwise", label: "readwise" },
-  { value: "notebooklm", label: "notebooklm" }
+  { value: "markdown", label: "Markdown" },
+  { value: "obsidian", label: "Obsidian" },
+  { value: "zotero", label: "Zotero" },
+  { value: "readwise", label: "Readwise" },
+  { value: "notebooklm", label: "NotebookLM" }
 ];
 
 const RISK_OPTIONS = [
   { value: "all", label: "全部风险" },
-  { value: "warning", label: "warning" },
-  { value: "blocked", label: "blocked" },
-  { value: "modified", label: "modified" }
+  { value: "warning", label: "有警告" },
+  { value: "blocked", label: "有阻断" },
+  { value: "modified", label: "回滚保留" }
 ];
 
 function renderSelectOptions(options, selectedValue) {

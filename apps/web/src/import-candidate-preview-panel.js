@@ -31,6 +31,19 @@ function candidateReasonBadges(item = {}) {
     .join("");
 }
 
+function candidateGroupLabel(groupTitle = "") {
+  const labels = {
+    Source: "来源卡片",
+    LiteratureNote: "文献笔记",
+    PermanentNote: "永久笔记"
+  };
+  return labels[String(groupTitle || "").trim()] || String(groupTitle || "");
+}
+
+function candidateTotalText(total = {}) {
+  return `${Number(total.sources || 0)} 来源卡片 / ${Number(total.literatureNotes || 0)} 文献笔记 / ${Number(total.permanentNotes || 0)} 永久笔记`;
+}
+
 function renderExcludedCandidateSummary(candidatePreview, options = {}) {
   const excludedItems = excludedCandidateItems(candidatePreview, options.selectedIds);
   if (!excludedItems.length) return "";
@@ -45,7 +58,7 @@ function renderExcludedCandidateSummary(candidatePreview, options = {}) {
             (item) => `
               <div class="candidate-summary-item">
                 <strong>${escapeHtml(item.title || item.id)}</strong>
-                <span>${escapeHtml(item.candidateGroup)}</span>
+                <span>${escapeHtml(candidateGroupLabel(item.candidateGroup))}</span>
               </div>
             `
           )
@@ -80,7 +93,7 @@ export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null
       tone: "warning",
       label: "原创性跳过",
       count: originalitySkipped,
-      detail: "通常是 PermanentNote 在当前 originality plan 下被判定为 warning/invalid，且不允许按 draft 写入。"
+      detail: "通常是永久笔记在当前原创性策略下被判定为警告或无效，且不允许按草稿写入。"
     },
     {
       key: "conflicted",
@@ -130,9 +143,7 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
   const hasFocus = !interactive && focusCandidateIds.size > 0;
   const visibleFocusCount = hasFocus ? candidatePreviewItems(candidatePreview).filter((item) => focusCandidateIds.has(String(item.id || ""))).length : 0;
   const total = candidatePreview.total || {};
-  const totalText = `${Number(total.sources || 0)} Source / ${Number(total.literatureNotes || 0)} LiteratureNote / ${Number(
-    total.permanentNotes || 0
-  )} PermanentNote`;
+  const totalText = candidateTotalText(total);
 
   return `
     <div class="result-candidates">
@@ -149,21 +160,21 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                 <button class="mini-btn" type="button" data-candidate-action="confirmable">仅可确认项</button>
                 <button class="mini-btn" type="button" data-candidate-action="safe">仅安全项</button>
                 <button class="mini-btn" type="button" data-candidate-action="exclude-risky">排除风险项</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-warning">排除 Warning</button>
-                <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除 Blocked</button>
-                <button class="mini-btn" type="button" data-candidate-action="permanent">仅 PermanentNote</button>
+                <button class="mini-btn" type="button" data-candidate-action="exclude-warning">排除警告项</button>
+                <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除阻断项</button>
+                <button class="mini-btn" type="button" data-candidate-action="permanent">仅永久笔记</button>
               </div>
               <div class="toolbar-note">确认写入会只处理当前勾选的候选。</div>
             </div>
             <div class="result-candidates-toolbar">
               <div class="toolbar-actions">
                 <button class="mini-btn ${filter === "all" ? "is-filter-active" : ""}" type="button" data-candidate-filter="all">全部 ${filterCounts.all}</button>
-                <button class="mini-btn ${filter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">可确认项 ${filterCounts.confirmable}</button>
-                <button class="mini-btn ${filter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">仅安全项 ${filterCounts.safe}</button>
-                <button class="mini-btn ${filter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">风险项 ${filterCounts.risky}</button>
+                <button class="mini-btn ${filter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">可确认 ${filterCounts.confirmable}</button>
+                <button class="mini-btn ${filter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">安全 ${filterCounts.safe}</button>
+                <button class="mini-btn ${filter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">风险 ${filterCounts.risky}</button>
                 <button class="mini-btn ${filter === "excluded" ? "is-filter-active" : ""}" type="button" data-candidate-filter="excluded">已排除 ${filterCounts.excluded}</button>
-                <button class="mini-btn ${filter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">Warning ${filterCounts.warning}</button>
-                <button class="mini-btn ${filter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">Blocked ${filterCounts.blocked}</button>
+                <button class="mini-btn ${filter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">警告 ${filterCounts.warning}</button>
+                <button class="mini-btn ${filter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">阻断 ${filterCounts.blocked}</button>
               </div>
               <div class="toolbar-note">当前视图：${escapeHtml(filterLabel(filter))}</div>
             </div>`
@@ -192,7 +203,7 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
           if (!visibleItems.length) return "";
           return `
             <div class="candidate-group">
-              <div class="candidate-group-title">${escapeHtml(group.title)}</div>
+              <div class="candidate-group-title">${escapeHtml(candidateGroupLabel(group.title))}</div>
               <div class="candidate-list">
                 ${visibleItems
                   .map((item) => {

@@ -12,7 +12,7 @@ export function renderImportResultPanel({
   title = "操作结果",
   subtitle = "",
   tone = "ok",
-  statusLabel = "ok",
+  statusLabel = "完成",
   metrics = [],
   warnings = [],
   actions = [],
