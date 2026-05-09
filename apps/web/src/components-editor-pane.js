@@ -277,6 +277,7 @@ function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
 function previewAssetUrl(rawPath, noteMarkdownPath = "") {
   const assetPath = resolveAssetPathForNote(rawPath, noteMarkdownPath);
   if (!assetPath || /^(https?:|data:)/i.test(assetPath)) return assetPath;
+  if (!assetPath.startsWith("assets/")) return "";
   return assetPreviewUrl(assetPath);
 }
 
@@ -633,7 +634,11 @@ function renderInlinePreview(text, options = {}) {
       const [, label, href] = markdownLink;
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
-      html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
+      if (!url) {
+        html += `<a class="preview-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(textLabel)}</a>`;
+      } else {
+        html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
+      }
       index += markdownLink[0].length;
       continue;
     }
@@ -802,14 +807,25 @@ function renderMarkdownPreview(markdown, options = {}) {
       const [, label, href] = attachmentMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
-      blocks.push(`
-        <div class="preview-attachment-block">
-          <button class="preview-attachment" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">
-            <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
-            <span class="preview-attachment-path">${escapeHtml(href)}</span>
-          </button>
-        </div>
-      `);
+      if (!url) {
+        blocks.push(`
+          <div class="preview-attachment-block">
+            <a class="preview-attachment" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+              <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
+              <span class="preview-attachment-path">${escapeHtml(href)}</span>
+            </a>
+          </div>
+        `);
+      } else {
+        blocks.push(`
+          <div class="preview-attachment-block">
+            <button class="preview-attachment" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">
+              <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
+              <span class="preview-attachment-path">${escapeHtml(href)}</span>
+            </button>
+          </div>
+        `);
+      }
       index += 1;
       continue;
     }
