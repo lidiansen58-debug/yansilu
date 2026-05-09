@@ -10,6 +10,7 @@ const DEFAULT_CAPABILITY_PATH = path.join(DESKTOP_ROOT, "capabilities", "default
 const ICON_PNG_PATH = path.join(DESKTOP_ROOT, "icons", "icon.png");
 const ICON_ICO_PATH = path.join(DESKTOP_ROOT, "icons", "icon.ico");
 const EXPECTED_APP_NAME = "研思录";
+const EXPECTED_FRONTEND_ENTRY = "index.html";
 
 function logResult(label, ok, detail = "") {
   const status = ok ? "PASS" : "FAIL";
@@ -65,6 +66,9 @@ try {
   const createsUpdaterArtifacts = Boolean(config.bundle?.createUpdaterArtifacts);
   const hasUpdaterConfig = Boolean(config.plugins?.updater);
   const permissions = Array.isArray(defaultCapability.permissions) ? defaultCapability.permissions : [];
+  const frontendDist = String(config.build?.frontendDist || "").trim();
+  const frontendDistPath = frontendDist ? path.resolve(DESKTOP_ROOT, frontendDist) : "";
+  const frontendEntryPath = frontendDistPath ? path.join(frontendDistPath, EXPECTED_FRONTEND_ENTRY) : "";
 
   const productOk = productName === EXPECTED_APP_NAME;
   const titleOk = windowTitle === EXPECTED_APP_NAME;
@@ -72,11 +76,15 @@ try {
   const iconConfigOk = bundleIcons.includes("icons/icon.png") && bundleIcons.includes("icons/icon.ico");
   const updaterArtifactsOk = !createsUpdaterArtifacts || hasUpdaterConfig;
   const updaterPermissionOk = !hasUpdaterConfig || permissions.includes("updater:default");
+  const frontendDistOk = Boolean(frontendDist) && fs.existsSync(frontendDistPath);
+  const frontendEntryOk = frontendDistOk && fs.existsSync(frontendEntryPath);
 
   logResult("tauri productName", productOk, productName || "missing");
   logResult("tauri window title", titleOk, windowTitle || "missing");
   logResult("tauri bundle active", bundleOk, bundleActive ? "enabled" : "disabled");
   logResult("tauri bundle icons", iconConfigOk, bundleIcons.join(", ") || "missing");
+  logResult("tauri frontendDist", frontendDistOk, frontendDist || "missing");
+  logResult("tauri frontend entry", frontendEntryOk, frontendEntryOk ? EXPECTED_FRONTEND_ENTRY : `missing ${EXPECTED_FRONTEND_ENTRY}`);
   logResult(
     "tauri updater artifacts",
     updaterArtifactsOk,
@@ -88,7 +96,7 @@ try {
     updaterPermissionOk ? "updater:default granted" : "missing updater:default"
   );
 
-  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk && updaterPermissionOk;
+  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && frontendDistOk && frontendEntryOk && updaterArtifactsOk && updaterPermissionOk;
 } catch (error) {
   logResult("tauri desktop config parse", false, String(error?.message || error));
   overallOk = false;

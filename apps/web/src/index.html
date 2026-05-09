@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yansilu</title>
+  <script>
+    const target = new URL("./prototype.html", window.location.href);
+    target.search = window.location.search;
+    target.hash = window.location.hash;
+    window.location.replace(target.href);
+  </script>
+</head>
+<body>
+  <a href="./prototype.html">Open Yansilu</a>
+</body>
+</html>
