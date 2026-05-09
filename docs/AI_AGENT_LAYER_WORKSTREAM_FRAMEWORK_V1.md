@@ -74,6 +74,7 @@ Primary AI / Agent documents:
 - `docs/MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
 - `docs/MODEL_NEUTRALITY_AND_PORTABILITY_PRINCIPLES.md`: anti-lock-in architecture principles for providers, models, gateways, and deployment modes.
 - `docs/AI_TOOL_CONTRACTS_V1.md`: stable tool boundary between the note app and the Agent layer.
+- `docs/PROVIDER_ADAPTER_INTERFACE_V1.md`: normalized provider/gateway/local runtime interface for model portability.
 - `docs/AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
 - `docs/AGENT_HARNESS_ARCHITECTURE_V1.md`: runtime, scheduler, tracing, and tool execution architecture.
 - `docs/MODEL_PROVIDER_CAPABILITY_MATRIX.md`: provider/model capabilities, cost, region, and tool support.
