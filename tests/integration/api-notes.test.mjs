@@ -84,6 +84,11 @@ function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function markdownDestinationPattern(target) {
+  const escaped = escapeRegExp(target);
+  return new RegExp(`\\((?:<${escaped}>|${escaped})\\)`);
+}
+
 test("notes API creates, lists, loads, and updates markdown note", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-notes-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
@@ -867,7 +872,7 @@ test("notes API rewrites relative asset links when moving a note between directo
     .relative(path.posix.dirname(fetched.json.item.markdownPath), upload.json.item.assetPath)
     .replaceAll("\\", "/");
   assert.match(beforeMoveBody, /assets\/files\//);
-  assert.match(fetched.json.item.body, new RegExp(`\\(${expectedLink.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\)`));
+  assert.match(fetched.json.item.body, markdownDestinationPattern(expectedLink));
   assert.ok(!fetched.json.item.body.includes(upload.json.item.markdownLinkPath));
 });
 
@@ -987,8 +992,8 @@ test("notes API handles Chinese and space-containing vault paths with image and 
     .relative(path.posix.dirname(fetched.json.item.markdownPath), fileUpload.json.item.assetPath)
     .replaceAll("\\", "/");
 
-  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedImageLink)}\\)`));
-  assert.match(fetched.json.item.body, new RegExp(`\\(${escapeRegExp(expectedFileLink)}\\)`));
+  assert.match(fetched.json.item.body, markdownDestinationPattern(expectedImageLink));
+  assert.match(fetched.json.item.body, markdownDestinationPattern(expectedFileLink));
   assert.ok(!fetched.json.item.body.includes(imageUpload.json.item.markdownLinkPath));
   assert.ok(!fetched.json.item.body.includes(fileUpload.json.item.markdownLinkPath));
 });

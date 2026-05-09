@@ -90,6 +90,23 @@ function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function formatMarkdownLinkDestination(value = "") {
+  const target = String(value || "").trim();
+  if (!target) return "";
+  if (target.startsWith("<") && target.endsWith(">")) return target;
+  return /\s|[()]/.test(target) ? `<${target}>` : target;
+}
+
+export function assetMarkdownSnippet(asset = {}) {
+  const rawLabel = String(asset.fileName || "asset").trim();
+  const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
+  const destination = formatMarkdownLinkDestination(asset.markdownLinkPath);
+  if (String(asset.assetKind || "") === "image") {
+    return `![${textLabel}](${destination})`;
+  }
+  return `[${rawLabel || textLabel}](${destination})`;
+}
+
 export function normalizeFieldText(value = "") {
   return String(value || "").replace(/\r\n/g, "\n").trim();
 }
@@ -2736,12 +2753,7 @@ export class EditorPane {
   }
 
   assetMarkdownSnippet(asset = {}) {
-    const rawLabel = String(asset.fileName || "asset").trim();
-    const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
-    if (String(asset.assetKind || "") === "image") {
-      return `![${textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
-    }
-    return `[${rawLabel || textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
+    return assetMarkdownSnippet(asset);
   }
 
   normalizeAssetInsertText(assets = []) {

@@ -903,14 +903,14 @@ test("prototype editor inserts uploaded image into markdown and preview", async 
   await ensureNoteMode(page);
 
   await page.locator("#assetImageInput").setInputFiles({
-    name: "inline-image.png",
+    name: "inline image \u8d44\u6599.png",
     mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9l9wAAAABJRU5ErkJggg==", "base64")
   });
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /!\[inline-image\]\(\.\.\/\.\.\/assets\/images\//);
+    assert.match(editorValue, /!\[inline image \u8d44\u6599\]\(<\.\.\/\.\.\/assets\/images\//);
     const previewHtml = await page.locator("#markdownPreview").innerHTML();
     assert.match(previewHtml, /preview-image-asset/);
     assert.deepEqual(brokenAssetResponses, []);
@@ -922,7 +922,7 @@ test("prototype editor inserts uploaded image into markdown and preview", async 
   await waitFor(async () => {
     const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
     assert.equal(savedNote.status, 200);
-    assert.match(savedNote.json.item.body, /!\[inline-image\]\(\.\.\/\.\.\/assets\/images\//);
+    assert.match(savedNote.json.item.body, /!\[inline image \u8d44\u6599\]\(<\.\.\/\.\.\/assets\/images\//);
   }, 10000);
 });
 
@@ -944,17 +944,17 @@ test("prototype editor inserts uploaded file into markdown and preview action", 
   const noteId = notes.json.items[0].id;
 
   await page.locator("#assetFileInput").setInputFiles({
-    name: "reference-pack.pdf",
+    name: "reference pack \u8d44\u6599.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF", "utf8")
   });
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\[reference-pack\.pdf\]\(\.\.\/\.\.\/assets\/files\//);
+    assert.match(editorValue, /\[reference pack \u8d44\u6599\.pdf\]\(<\.\.\/\.\.\/assets\/files\//);
     const previewHtml = await page.locator("#markdownPreview").innerHTML();
     assert.match(previewHtml, /preview-attachment/);
-    assert.match(previewHtml, /reference-pack\.pdf/);
+    assert.match(previewHtml, /reference pack \u8d44\u6599\.pdf/);
   }, 10000);
 
   await confirmAuthorshipIfVisible(page, { claim: "Attachment note 保留了我现在认可的文件引用。" });
@@ -963,7 +963,7 @@ test("prototype editor inserts uploaded file into markdown and preview action", 
   await waitFor(async () => {
     const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
     assert.equal(savedNote.status, 200);
-    assert.match(savedNote.json.item.body, /\[reference-pack\.pdf\]\(\.\.\/\.\.\/assets\/files\//);
+    assert.match(savedNote.json.item.body, /\[reference pack \u8d44\u6599\.pdf\]\(<\.\.\/\.\.\/assets\/files\//);
   }, 10000);
 });
 
