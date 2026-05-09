@@ -27,12 +27,21 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "category": "Productivity",
     "icon": [
       "icons/icon.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://downloads.yansilu.app/updates/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyQ0JCMjdENTlDNzA4RDMKUldUVENNZFpmYkxMRW9hRHNIbi9OeVB6ck84cktaY1p1bDBQaWgyM0ZzQjFRb3lrME04a2FKa0EK"
+    }
   }
 }
