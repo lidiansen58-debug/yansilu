@@ -4709,7 +4709,7 @@ async function bootstrap() {
         }
       } catch {}
     } else {
-      setStatus(`API 连接失败，使用本地原型数据：${String(error?.message || error)}`, "warn");
+      setStatus(`API 连接失败，使用本地工作台数据：${String(error?.message || error)}`, "warn");
     }
   }
 

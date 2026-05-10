@@ -108,7 +108,7 @@ export class CreateBoxDialog {
       }
     }
 
-    const selected = prompt("请输入目录路径（原型降级模式）", defaultPath || "");
+    const selected = prompt("请输入目录路径（浏览器降级模式）", defaultPath || "");
     if (selected) {
       this.manualPathOverride = true;
       this.suggestedFsPath = selected.trim();
