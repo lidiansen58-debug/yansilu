@@ -4,11 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>下载与安装 | 研思录</title>
-  <meta name="description" content="下载研思录桌面版，查看当前可下载版本、安装流程以及自动更新能力的准备状态。" />
+  <meta name="description" content="下载研思录桌面版，查看当前可下载版本、安装流程和自动更新能力的准备状态。" />
   <link rel="stylesheet" href="/marketing.css" />
   <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body>
+<body class="site-v2 page-download-v2">
+  <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
       <div class="container site-header-inner">
@@ -39,59 +40,52 @@
       </div>
     </header>
 
-    <main>
-      <section class="page-hero">
-        <div class="container page-hero-grid">
-          <div class="page-hero-copy">
-            <div class="section-kicker">Download</div>
-            <h1>下载安装研思录桌面版</h1>
-            <p>如果你希望把知识管理、写作准备和本地数据控制放在同一个工作台里，桌面版会是更完整的入口。</p>
-            <div class="meta-row">
-              <span class="meta-chip">Windows NSIS</span>
-              <span class="meta-chip">本地文件驱动</span>
-              <span class="meta-chip">自动更新准备</span>
+    <main id="main" class="site-v2-main">
+      <section class="v2-page-hero" aria-labelledby="downloadHeroTitle">
+        <div class="container v2-page-hero-grid">
+          <div class="v2-page-hero-copy">
+            <h1 id="downloadHeroTitle">把长期研究和写作放回你的本地工作台。</h1>
+            <p>
+              桌面版是研思录最完整的入口。它更适合本地 Vault、长期资料积累、结构化笔记和持续写作。
+            </p>
+            <div class="v2-hero-actions">
+              <a class="btn btn-primary" href="/app">先进入工作台</a>
+              <a class="btn btn-secondary" href="/product">了解产品</a>
             </div>
           </div>
-          <aside class="page-badge-card">
-            <h3>当前形态</h3>
-            <p>现阶段以 Windows 桌面安装包为主，后续再扩展更多平台和稳定发布渠道。</p>
+          <aside class="v2-download-device" aria-label="桌面版状态概览">
+            <div class="v2-device-top">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <strong>Yansilu Desktop</strong>
+            <p>Windows installer channel</p>
+            <div class="v2-device-line"></div>
+            <small>Local-first vault · Research workflow · Writing scaffold</small>
           </aside>
         </div>
       </section>
 
-      <section class="section section-tight">
-        <div class="container spotlight-grid">
-          <article class="spotlight-card">
-            <strong>桌面版是主入口</strong>
-            <p>研思录的长期体验更依赖本地文件、研究路径和持续写作，因此桌面版会是最完整的工作台。</p>
-          </article>
-          <article class="spotlight-card">
-            <strong>可直接承接发布产物</strong>
-            <p>下载页已经接入桌面打包 manifest，可以直接展示当前版本、产物和真实下载入口。</p>
-          </article>
-          <article class="spotlight-card">
-            <strong>会逐步接入自动更新</strong>
-            <p>当前优先保证安装包稳定可用，自动更新会在后续发布通道确定后单独接入。</p>
-          </article>
-        </div>
-      </section>
+      <section class="v2-section" aria-labelledby="releaseTitle">
+        <div class="container">
+          <div class="v2-section-header">
+            <h2 id="releaseTitle">当前发布状态</h2>
+            <p>下载页会优先展示真实构建产物。没有安装包时，也会明确说明当前状态。</p>
+          </div>
 
-      <section class="section">
-        <div class="container stack">
-          <section class="status-card">
-            <div class="section-kicker">Release Status</div>
-            <h3>当前可下载版本</h3>
+          <section class="status-card v2-release-card">
             <div class="auth-message" data-download-status data-tone="info">正在读取当前桌面构建状态...</div>
-            <div class="pricing-preview" style="margin-top: 18px;">
+            <div class="v2-release-grid">
               <article class="pricing-card">
                 <div class="plan-name">应用版本</div>
-                <div class="plan-price" style="font-size: 30px;" data-download-version>0.1.0</div>
-                <div class="plan-meta">官网会优先展示当前桌面版本信息。</div>
+                <div class="plan-price" data-download-version>0.1.0</div>
+                <div class="plan-meta">官网会优先展示当前桌面版版本信息。</div>
               </article>
               <article class="pricing-card">
                 <div class="plan-name">最近产物生成</div>
-                <div class="plan-price" style="font-size: 24px;" data-download-generated>读取中</div>
-                <div class="plan-meta">如果已经运行桌面打包脚本，这里会显示最近一次生成时间。</div>
+                <div class="plan-price" data-download-generated>读取中</div>
+                <div class="plan-meta">运行桌面打包后，这里会显示最近一次生成时间。</div>
               </article>
             </div>
             <div class="cta-actions">
@@ -100,72 +94,57 @@
             <p class="plan-meta" data-download-primary-note>正在检测当前是否已有可下载产物。</p>
             <ul class="bullet-list download-files" data-download-files></ul>
           </section>
+        </div>
+      </section>
 
-          <div class="pricing-preview">
-            <article class="pricing-card">
-              <div class="plan-name">Windows 安装包</div>
-              <div class="plan-price" style="font-size:34px;">NSIS</div>
-              <div class="plan-meta">适合多数 Windows 用户，当前优先支持稳定的标准安装流程。</div>
-              <ul class="plan-points">
-                <li>一步安装到本地桌面环境</li>
-                <li>适合作为默认正式下载入口</li>
-                <li>自动更新会在发布通道确定后接入</li>
-              </ul>
-              <div class="cta-actions">
-                <a class="btn btn-primary" href="/app">进入工作台</a>
-              </div>
+      <section class="v2-section v2-split-section" aria-labelledby="installerTitle">
+        <div class="container v2-split-grid">
+          <div class="v2-sticky-copy">
+            <h2 id="installerTitle">Windows 安装包先作为主入口。</h2>
+            <p>当前发布策略先保证标准安装、卸载和本地启动稳定。自动更新会在发布通道确定后继续接入。</p>
+          </div>
+          <div class="v2-capability-grid">
+            <article>
+              <strong>安装格式</strong>
+              <h3>Windows NSIS</h3>
+              <p>适合大多数 Windows 用户，作为正式下载和分发入口。</p>
             </article>
-
-            <article class="pricing-card">
-              <div class="plan-name">安装前说明</div>
-              <div class="plan-price" style="font-size:26px;">本地优先</div>
-              <div class="plan-meta">研思录的核心体验更偏向本地文件与桌面工作流，因此桌面版会是长期主入口。</div>
-              <ul class="plan-points">
-                <li>内容以本地目录和文件为核心</li>
-                <li>更适合持续研究与长文写作</li>
-                <li>后续规划应用内检查更新与升级</li>
-              </ul>
-              <div class="cta-actions">
-                <a class="btn btn-secondary" href="/product">查看产品能力</a>
-              </div>
+            <article>
+              <strong>数据模式</strong>
+              <h3>本地 Vault</h3>
+              <p>内容以本地目录和文件为核心，更适合长期研究与写作。</p>
+            </article>
+            <article>
+              <strong>发布状态</strong>
+              <h3>Manifest 驱动</h3>
+              <p>下载页读取当前构建 manifest，展示真实版本与产物。</p>
+            </article>
+            <article>
+              <strong>后续能力</strong>
+              <h3>自动更新准备</h3>
+              <p>未来会接入应用内检查、下载和安装新版本。</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container trust-band">
-          <div class="section-kicker">Install Flow</div>
-          <h2>推荐的下载与安装流程</h2>
-          <ul class="trust-list">
-            <li>进入下载页，选择 Windows 安装包</li>
-            <li>下载安装包并完成标准安装</li>
-            <li>首次启动后选择或创建本地 Vault</li>
-            <li>登录账户，同步订阅与授权状态</li>
-            <li>后续通过应用内更新入口获取新版本</li>
-          </ul>
+      <section class="v2-section" aria-labelledby="installFlowTitle">
+        <div class="container v2-install-panel">
+          <h2 id="installFlowTitle">推荐安装流程</h2>
+          <ol class="v2-step-list">
+            <li><span>01</span><p>进入下载页，选择 Windows 安装包。</p></li>
+            <li><span>02</span><p>下载安装包，并完成标准安装。</p></li>
+            <li><span>03</span><p>首次启动后选择或创建本地 Vault。</p></li>
+            <li><span>04</span><p>登录账户，同步订阅和授权状态。</p></li>
+            <li><span>05</span><p>后续通过应用内更新入口获取新版本。</p></li>
+          </ol>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container trust-band">
-          <div class="section-kicker">Auto Update</div>
-          <h2>桌面版将支持自动更新</h2>
-          <p class="section-intro">当前版本先保证安装包、卸载和本地启动稳定。正式发布通道确定后，Windows 安装版会再接入应用内检查更新、下载并安装新版本。</p>
-          <ul class="trust-list">
-            <li>支持发布新版本后自动发现更新</li>
-            <li>支持应用内提示下载与安装</li>
-            <li>未来可扩展为稳定渠道与测试渠道</li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container page-cta-strip">
-          <div class="page-cta-copy">
-            <h3>想先看界面，再决定是否下载安装？</h3>
-            <p>你可以先进入工作台，确认这套知识到智慧的工作流是否符合你的使用习惯，再回到这里下载安装包。</p>
-          </div>
+      <section class="v2-final-cta" aria-labelledby="downloadCtaTitle">
+        <div class="container v2-final-inner">
+          <h2 id="downloadCtaTitle">想先看界面，再决定是否安装？</h2>
+          <p>可以先进入工作台确认这套知识到智慧的工作流是否适合你，再回到这里下载桌面版。</p>
           <div class="cta-actions">
             <a class="btn btn-primary" href="/app">进入工作台</a>
             <a class="btn btn-secondary" href="/product">了解产品</a>
