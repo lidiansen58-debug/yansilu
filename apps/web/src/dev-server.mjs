@@ -144,6 +144,23 @@ async function serveAssetProxy(res, relativePath) {
   res.end(body);
 }
 
+async function serveLocalStaticFile(res, relativePath) {
+  const candidate = path.resolve(ROOT, relativePath);
+  if (!candidate.startsWith(ROOT)) return false;
+  try {
+    const stat = await fs.stat(candidate);
+    if (!stat.isFile()) return false;
+    const ext = path.extname(candidate).toLowerCase();
+    const mime = MIME_TYPES[ext] || "application/octet-stream";
+    const content = await fs.readFile(candidate);
+    res.writeHead(200, { "Content-Type": mime });
+    res.end(content);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -228,27 +245,17 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith("/assets/")) {
       const relativePath = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+      if (await serveLocalStaticFile(res, relativePath)) {
+        return;
+      }
       await serveAssetProxy(res, relativePath);
       return;
     }
 
     // Static files under apps/web/src (for module-based prototype)
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-    const candidate = path.resolve(ROOT, relative);
-    if (candidate.startsWith(ROOT)) {
-      try {
-        const stat = await fs.stat(candidate);
-        if (stat.isFile()) {
-          const ext = path.extname(candidate).toLowerCase();
-          const mime = MIME_TYPES[ext] || "application/octet-stream";
-          const content = await fs.readFile(candidate);
-          res.writeHead(200, { "Content-Type": mime });
-          res.end(content);
-          return;
-        }
-      } catch {
-        // fallthrough to 404
-      }
+    if (await serveLocalStaticFile(res, relative)) {
+      return;
     }
 
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
