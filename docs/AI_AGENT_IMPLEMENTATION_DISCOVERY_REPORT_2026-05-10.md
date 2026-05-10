@@ -12,7 +12,7 @@ The current codebase is ready for an AI / Agent layer to begin as an isolated pa
 Recommended first implementation slice:
 
 ```text
-packages/ai-agent-layer
+packages/ai-orchestrator
   -> mock provider adapter
   -> in-memory run log
   -> artifact schema validation
@@ -41,7 +41,7 @@ Observed structure:
 
 Implication:
 
-- AI layer should start as `packages/ai-agent-layer`.
+- AI layer should start in the existing `packages/ai-orchestrator` placeholder package.
 - API/UI integration can come after package-level tests pass.
 
 ## 3. Existing Core Note Capabilities
@@ -170,23 +170,23 @@ Implication:
 Create:
 
 ```text
-packages/ai-agent-layer/src/index.mjs
-packages/ai-agent-layer/src/harness.mjs
-packages/ai-agent-layer/src/agent-registry.mjs
-packages/ai-agent-layer/src/provider-adapter.mjs
-packages/ai-agent-layer/src/mock-provider-adapter.mjs
-packages/ai-agent-layer/src/run-log.mjs
-packages/ai-agent-layer/src/artifacts.mjs
-packages/ai-agent-layer/src/context-pack.mjs
+packages/ai-orchestrator/src/index.mjs
+packages/ai-orchestrator/src/harness.mjs
+packages/ai-orchestrator/src/agent-registry.mjs
+packages/ai-orchestrator/src/provider-adapter.mjs
+packages/ai-orchestrator/src/mock-provider-adapter.mjs
+packages/ai-orchestrator/src/run-log.mjs
+packages/ai-orchestrator/src/artifacts.mjs
+packages/ai-orchestrator/src/context-pack.mjs
 ```
 
 Unit tests:
 
 ```text
-tests/unit/ai-agent-layer-harness.test.mjs
-tests/unit/ai-agent-layer-provider-adapter.test.mjs
-tests/unit/ai-agent-layer-artifacts.test.mjs
-tests/unit/ai-agent-layer-context-pack.test.mjs
+tests/unit/ai-orchestrator-harness.test.mjs
+tests/unit/ai-orchestrator-provider-adapter.test.mjs
+tests/unit/ai-orchestrator-artifacts.test.mjs
+tests/unit/ai-orchestrator-context-pack.test.mjs
 ```
 
 ## 10. First Slice Behavior
@@ -246,7 +246,7 @@ Before adding OpenAI or any real provider:
 Next concrete step:
 
 ```text
-Implement packages/ai-agent-layer skeleton with mock provider and in-memory run log.
+Implement packages/ai-orchestrator skeleton with mock provider and in-memory run log.
 ```
 
 Do not yet:
@@ -257,4 +257,3 @@ Do not yet:
 - Add note mutation.
 - Add provider key storage.
 - Add AI DB migrations.
-
