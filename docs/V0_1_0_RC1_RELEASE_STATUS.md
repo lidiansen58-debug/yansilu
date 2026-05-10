@@ -12,24 +12,24 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Local branch: `main`
 - Remote baseline: `origin/main`
-- App source commit used for the rebuilt installer: `e7e3bb5 docs(release): update RC1 verification status`
+- App source commit used for the rebuilt installer: `1d9ff2b test(marketing): assert auth route structure`
 - Version: `0.1.0`
 - CI state: local release-gate verification passed against the current app code; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,805,153` bytes
+- Size: `3,805,709` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `8D318B74BEADA6FC0374B59F575E1B8955782BB7D27DC9C26295310D0DED3B7A`
+- SHA-256: `9956433D07A2CF28391E78F81A51F9BF9B0E74C63576266FB85FF1ED85C28290`
 
 ## Completed Verification
 
-- `npm.cmd run mvp:check` passed on the current release candidate working tree with `161 pass / 0 fail / 59 skipped` in the core suite.
+- `npm.cmd run mvp:check` passed on 2026-05-11 against the current release candidate working tree with `161 pass / 0 fail / 59 skipped` in the core suite, plus smoke e2e, Browser MVP e2e, desktop dev preflight, and desktop bundle preflight.
 - `npm.cmd run test:e2e:browser:mvp` passed through note, Vault, import, export, graph, and explorer move/delete browser paths.
 - Full browser E2E passed with `59 pass / 0 fail` after the editor helper and wrapped asset-link fixes.
-- Marketing route coverage passed for `/about`, `/privacy`, `/terms`, and static asset proxy HTML refusal.
+- Marketing route coverage passed for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, static asset proxy HTML refusal, and auth/billing DOM hooks.
 - Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
 - Targeted browser E2E passed for uploaded image preview with Chinese/spaced filenames and editor helper dismiss/mute behavior.
 - Unit coverage confirms packaged desktop API placeholder `__API_BASE__` falls back to `http://localhost:3000`.
@@ -38,7 +38,7 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
 - Windows NSIS build passed from `npm.cmd run build:desktop:nsis` with updater artifacts disabled for this local RC build.
 - Bundle manifest and checksum were generated.
-- Clean Windows NSIS uninstall/reinstall smoke passed on 2026-05-11 with exit code `0`.
+- Clean Windows NSIS uninstall/reinstall smoke passed from the final rebuilt installer on 2026-05-11 with uninstall and install exit code `0`.
 - The installed executable lands at `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` after clearing stale local installer state from earlier smoke tests.
 - Launch smoke observed process `yansilu-desktop` with window title `研思录` and `Responding=true`.
 - Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
