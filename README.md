@@ -63,7 +63,7 @@ Key docs:
 - Each worktree gets isolated ports and vault path via `.env.worktree`
 
 Create a worktree:
-- `npm run wt:create -- -Name fleeting-note -Kind feat -Base master`
+- `npm run wt:create -- -Name fleeting-note -Kind feat -Base main`
 
 List worktrees:
 - `npm run wt:list`

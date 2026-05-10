@@ -85,12 +85,13 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
   - note delete
   - import/export/writing/graph flows
 - Current verified test baselines:
-  - `npm.cmd test` -> `146 pass / 0 fail / 55 skipped`
+  - `npm.cmd test` -> `161 pass / 0 fail / 59 skipped`
   - `npm.cmd run mvp:check` -> core tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight passed locally on 2026-05-10.
   - `npm.cmd run test:e2e:browser:mvp` -> quick real-browser MVP path passed locally for note, Vault, import, export, graph, and explorer move/delete paths.
   - Targeted browser regression for import/export after the asset-flow merge -> `7 pass / 0 fail`
-  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `7BC4A75F90BB63B89C1133D0C277159FC587825A4C5B35678589B1EE76312B50`.
-  - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow when Playwright Chromium is available
+  - Marketing route coverage for `/about`, `/privacy`, `/terms`, and asset-proxy HTML refusal -> `2 pass / 0 fail`
+  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `8D318B74BEADA6FC0374B59F575E1B8955782BB7D27DC9C26295310D0DED3B7A`.
+  - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow has passed locally with `59 pass / 0 fail`
 
 ## Not Yet Completed
 
