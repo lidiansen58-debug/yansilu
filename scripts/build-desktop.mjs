@@ -57,6 +57,16 @@ function resolveTauriConfigPath() {
 
 const bundles = resolveBundles();
 const tauriConfigPath = resolveTauriConfigPath();
+const bundleRoot = path.resolve(process.cwd(), "apps", "desktop", "src-tauri", "target", "release", "bundle");
+
+for (const bundle of bundles) {
+  const bundleDir = path.join(bundleRoot, bundle);
+  if (!bundleDir.startsWith(bundleRoot)) {
+    console.error(`Refusing to clean bundle output outside release bundle directory: ${bundleDir}`);
+    process.exit(1);
+  }
+  fs.rmSync(bundleDir, { recursive: true, force: true });
+}
 
 if (!hasCommand("cargo", env) || !hasCommand("rustc", env)) {
   console.error("Rust toolchain not found. Expected cargo/rustc in PATH or ~/.cargo/bin.");

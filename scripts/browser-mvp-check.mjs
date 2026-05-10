@@ -7,7 +7,11 @@ const testNames = [
   "prototype import panel previews confirms and rolls back markdown import",
   "prototype export panel exports markdown files through real API",
   "prototype graph panel renders directory wikilinks and opens graph nodes",
-  "prototype explorer note context move and delete update disk state"
+  "prototype explorer note context move and delete update disk state",
+  "prototype editor preserves consecutive blank lines in wysiwyg",
+  "prototype editor opens external links without navigating the app",
+  "prototype editor can insert image and attachment",
+  "prototype editor opens wikilinks and tag results from wysiwyg tokens"
 ];
 
 for (const testName of testNames) {
