@@ -44,11 +44,15 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Installed app editor layout verification passed: editor intent copy is hidden, related clues are hidden by default, and the next-step helper stays collapsed as a small floating pill until hover/focus.
 - Installed app WebView2 verification confirmed `已连接 API：http://localhost:3000` with packaged `window.__API_BASE__` still set to `__API_BASE__`.
 - Installed app data-flow verification passed: switched to a Chinese/space Vault path, created a directory and note, updated Markdown, uploaded image/file attachments, and read files back from disk.
+- Packaged-app API-backed walkthrough passed on 2026-05-10 with `localhost:3000` restarted from the current `feat-desktop-runtime` worktree and active Vault `E:\Projects\Thinking in Notes\yansilu-wt\_manual-walkthrough\研思录 Vault 手动走查`.
+- API-backed walkthrough covered Chinese/space custom directories, note persistence, image/file attachments, wikilinks, tags, graph path lookup, Markdown import confirm/history/rollback, Obsidian import confirm/history/asset rollback, Markdown export, writing project creation, and draft scaffold generation.
 - Installed app shows a blocking dialog when API is not running, instead of silently falling back to local prototype data.
 
 ## Required Manual Walkthrough Before Sharing
 
 Run this from the installed app, not the dev server:
+
+The API-backed portion of this checklist has passed against the same `localhost:3000` API used by the packaged app. The remaining sign-off is the human UI pass through the installed WebView, especially native dialogs and opener actions.
 
 1. Create or switch to a Vault path with Chinese characters and spaces.
 2. Create a directory and a note.
