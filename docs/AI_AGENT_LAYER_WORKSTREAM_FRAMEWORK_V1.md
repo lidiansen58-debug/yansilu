@@ -70,6 +70,7 @@ Primary AI / Agent documents:
 
 - `docs/AI_AGENT_LAYER_REQUIREMENTS_V1.md`: product and architecture requirements for the AI / Agent layer.
 - `docs/AI_AGENT_LAYER_WORKSTREAM_FRAMEWORK_V1.md`: this workstream boundary, phase plan, and collaboration model.
+- `docs/AI_PRIVACY_PERMISSION_AND_ORIGINALITY_POLICY_V1.md`: privacy, permission, cloud-use, background-agent, and originality guardrail policy.
 - `docs/MODEL_SWITCHING_PROBLEM_MATRIX.md`: risks and decisions for multi-model switching.
 - `docs/MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
 - `docs/MODEL_NEUTRALITY_AND_PORTABILITY_PRINCIPLES.md`: anti-lock-in architecture principles for providers, models, gateways, and deployment modes.
