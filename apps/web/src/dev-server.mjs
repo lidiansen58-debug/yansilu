@@ -132,6 +132,13 @@ async function serveAssetProxy(res, relativePath) {
     res.end("Invalid asset path");
     return;
   }
+  // Avoid accidentally proxying HTML documents (e.g. index.html) through the assets pipeline.
+  // This commonly happens when a host or client misroutes the default document into /assets/.
+  if (assetPath.toLowerCase().endsWith(".html")) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Asset not found");
+    return;
+  }
   const upstream = await fetch(`${API_BASE}/api/v1/assets/file?path=${encodeURIComponent(assetPath)}`);
   if (!upstream.ok) {
     res.writeHead(upstream.status, { "Content-Type": "text/plain; charset=utf-8" });
@@ -183,6 +190,18 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/register") {
       await serveStaticPage(res, "marketing-register.html");
+      return;
+    }
+    if (url.pathname === "/about") {
+      await serveStaticPage(res, "marketing-about.html");
+      return;
+    }
+    if (url.pathname === "/privacy") {
+      await serveStaticPage(res, "marketing-privacy.html");
+      return;
+    }
+    if (url.pathname === "/terms") {
+      await serveStaticPage(res, "marketing-terms.html");
       return;
     }
     if (url.pathname === "/login") {
@@ -256,6 +275,14 @@ const server = http.createServer(async (req, res) => {
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
     if (await serveLocalStaticFile(res, relative)) {
       return;
+    }
+    // Convenience rewrite: `/about` -> `marketing-about.html` (and same for other marketing pages).
+    // This keeps routes working even if the caller omits the `.html` filename.
+    if (relative && !relative.includes(".") && !relative.includes("/")) {
+      const marketingCandidate = `marketing-${relative}.html`;
+      if (await serveLocalStaticFile(res, marketingCandidate)) {
+        return;
+      }
     }
 
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
