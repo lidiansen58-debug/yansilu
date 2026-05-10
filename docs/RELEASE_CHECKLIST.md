@@ -132,4 +132,3 @@ Do not advertise automatic updates until that endpoint is populated from the rel
 - Tauri updater artifacts and signatures: https://v2.tauri.app/plugin/updater/
 - Tauri macOS signing and notarization: https://v2.tauri.app/distribute/sign/macos/
 - GitHub-hosted runner labels: https://docs.github.com/actions/reference/runners/github-hosted-runners
-

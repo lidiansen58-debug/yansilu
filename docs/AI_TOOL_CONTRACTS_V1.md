@@ -331,4 +331,3 @@ This is enough to support:
 - Should AI artifacts live in the same database as notes or in a separate store?
 - What is the final user action that promotes an artifact into note content?
 - Should link suggestions become real graph edges only after user approval?
-

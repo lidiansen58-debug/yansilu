@@ -260,4 +260,3 @@ MVP should avoid:
 - Should enterprise customers be able to disable all platform-managed providers?
 - Should the product expose an OpenAI-compatible local gateway setup wizard?
 - How should the UI explain `Auto` while still respecting user desire for control?
-

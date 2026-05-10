@@ -1,4 +1,4 @@
-﻿export function createInitialState() {
+export function createInitialState() {
   const VAULT_ROOT = "E:\\Projects\\Thinking in Notes\\yansilu-vault";
 
   return {

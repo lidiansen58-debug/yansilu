@@ -1,4 +1,4 @@
-﻿import {
+import {
   childFolders,
   createInitialState,
   folderById,

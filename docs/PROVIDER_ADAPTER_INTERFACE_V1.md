@@ -322,4 +322,3 @@ Implementation should avoid:
 - Should model capability tests run in CI, admin setup, or both?
 - Should gateways expose real provider names to users, or only model packs?
 - How should local runtime discovery work on desktop?
-

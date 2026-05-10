@@ -211,4 +211,3 @@ MVP can defer:
 - Should private note titles be visible in omitted logs?
 - What is the first token estimation strategy?
 - Should Context Packs store exact text or references plus hashes?
-

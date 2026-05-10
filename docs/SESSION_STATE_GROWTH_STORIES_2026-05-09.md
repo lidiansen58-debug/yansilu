@@ -68,4 +68,3 @@ Those modifications were not made by the story handoff work. Do not revert them 
 ```text
 请阅读 docs/SESSION_STATE_GROWTH_STORIES_2026-05-09.md 和 docs/CONTEXT_HANDOFF_GROWTH_STORIES_2026-05-09.md，继续把客户故事落到言思录增长站点。优先把内容创作者、研究者、PKM 重度用户三条故事线改成首页故事区和 3 分钟 demo 脚本。
 ```
-

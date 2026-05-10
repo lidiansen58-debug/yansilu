@@ -46,8 +46,8 @@ It was no longer a saved idea. It was a claim she could write from.
 
 She turned it into a permanent note and added a three-line compression:
 
-> AI reduces the effort required to produce a draft.  
-> But lower production cost increases the amount of mediocre output.  
+> AI reduces the effort required to produce a draft.
+> But lower production cost increases the amount of mediocre output.
 > The scarce skill becomes deciding what is worth making, not merely making more.
 
 Maya noticed something immediately: this note had future value. It could belong in an essay about AI. It could also belong in an essay about taste, education, creative careers, or the economics of attention.
@@ -111,4 +111,3 @@ The experienced value:
 You already saved the source. Yansilu helps you form the claim.
 
 Turn reading notes into reusable arguments, organize them into theme-level index cards, and start each essay from structured understanding instead of a blank page.
-

@@ -1,4 +1,4 @@
-﻿import { importConnectorOptions, importToolbarViewModel } from "./import-toolbar-model.js";
+import { importConnectorOptions, importToolbarViewModel } from "./import-toolbar-model.js";
 
 function escapeHtml(value) {
   return String(value ?? "")

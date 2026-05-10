@@ -409,4 +409,3 @@ Post-MVP:
 - Can users manually create an artifact-like research card?
 - Should artifact confidence be shown to users or used only internally?
 - What is the exact rule for when accepted AI text becomes `user_accepted` versus `user_rewritten`?
-

@@ -54,4 +54,3 @@ if (mismatches.length) {
 }
 
 console.log(`Release tag ${tagName} matches project version ${version}.`);
-

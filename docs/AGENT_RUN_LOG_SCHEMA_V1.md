@@ -334,4 +334,3 @@ MVP can defer:
 - How should cost be displayed when provider cost data is unavailable?
 - How much tracing should be exposed in the normal UI?
 - Should scheduled background runs have stricter retention than user-triggered runs?
-

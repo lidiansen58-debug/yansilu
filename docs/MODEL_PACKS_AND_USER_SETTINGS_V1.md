@@ -310,4 +310,3 @@ MVP can defer:
 - Should model packs be workspace defaults or user preferences?
 - Should China Optimized be auto-suggested based on locale or manually selected?
 - Should Local / Private appear before a local provider is configured?
-

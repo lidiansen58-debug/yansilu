@@ -342,4 +342,3 @@ MVP can defer:
 - How should dangling references behave after notes are deleted?
 - Should user AI preferences be per workspace, per vault, or global?
 - Should scheduled tasks be disabled automatically when provider config is removed?
-

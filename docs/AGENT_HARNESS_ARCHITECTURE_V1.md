@@ -420,4 +420,3 @@ Out of scope for MVP:
 - How will provider keys be injected into local runs securely?
 - What is the first implementation language boundary for the harness?
 - Should Context Packs be stored permanently, temporarily, or only as hashed references?
-

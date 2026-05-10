@@ -140,4 +140,4 @@ jobs:
               --generate-notes \
               --verify-tag \
               --title "$tag"
-
+          fi

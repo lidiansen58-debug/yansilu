@@ -1,4 +1,4 @@
-﻿function normalizePickedPath(result) {
+function normalizePickedPath(result) {
   if (!result) return "";
   if (typeof result === "string") return result.trim();
   if (Array.isArray(result)) {

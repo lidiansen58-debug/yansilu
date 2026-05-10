@@ -98,4 +98,3 @@ These decisions should be made before implementation:
 - What is the minimum cost warning that is understandable to a novice user?
 - Should users be allowed to disable all cloud fallback?
 - Should the product keep a public model capability list, an internal one, or both?
-

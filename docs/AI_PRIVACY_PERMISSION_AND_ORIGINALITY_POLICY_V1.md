@@ -275,4 +275,3 @@ MVP can defer:
 - Should users be able to permanently delete run logs for privacy?
 - Should source-derived claims require citation before artifact creation succeeds?
 - What is the first version of secret/credential detection?
-

@@ -233,4 +233,3 @@ routeModel(task, contextPack, userMode, workspacePolicy):
 - Which provider should be the first aggregated gateway adapter?
 - Which local runtime should define the first `local_private` capability profile?
 - How much provider/model detail should be shown in the run log for novice users?
-

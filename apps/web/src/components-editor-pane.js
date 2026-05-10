@@ -1,4 +1,4 @@
-﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { assetPreviewUrl, checkOriginality, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
 
 function saveIconMarkup(kind = "idle") {
@@ -4862,6 +4862,3 @@ export class EditorPane {
     this.renderTabs();
   }
 }
-
-
-

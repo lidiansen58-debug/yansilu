@@ -116,4 +116,3 @@ Before opening a new thread on a reusable directory:
 3. Run `git pull --ff-only` in the main checkout if the remote is expected to be current.
 4. Create a new branch only when code or docs will be changed.
 5. Keep runtime DB and generated local files out of commits unless the task explicitly asks for them.
-

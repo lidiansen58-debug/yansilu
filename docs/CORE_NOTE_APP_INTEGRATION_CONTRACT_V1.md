@@ -268,4 +268,3 @@ This supports:
 - Should artifact promotion be handled by the core app or AI package command handlers?
 - What is the first privacy metadata field core notes can expose?
 - Should note update events be persisted or emitted only in-process?
-
