@@ -12,8 +12,9 @@ It covers the remaining proof before sharing the RC installer with internal or f
 - Base: `origin/main`
 - Worktree: `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime`
 - Local env file: `.env.worktree`
-- API port: `3100`
-- Web port: `5273`
+- API port for worktree dev/preflight: `3100`
+- Web port for worktree dev/preflight: `5273`
+- Packaged app API base for this RC: `http://localhost:3000`
 - Vault: `E:\Projects\Thinking in Notes\yansilu-wt\_vaults\feat-desktop-runtime\yansilu-vault`
 
 ## Automated Preconditions
@@ -79,7 +80,7 @@ Expected:
 
 Run from the installed desktop app, not only from the browser dev server.
 
-1. Start the local API and web stack for this worktree.
+1. Start the local API used by the installed app. For this RC package, the packaged frontend falls back to `http://localhost:3000`; the `3100/5273` ports above are for worktree dev/preflight checks.
 2. Launch the installed desktop app.
 3. Confirm the app connects to the intended local API.
 4. Switch to a Vault path containing Chinese characters and spaces.
@@ -107,4 +108,17 @@ Run from the installed desktop app, not only from the browser dev server.
 
 ## Current Status
 
-Automated installer and launch smoke passed from the integration checkout after the `origin/main` publish. The remaining gate is the manual packaged-app walkthrough above.
+Automated installer and launch smoke passed from the integration checkout after the `origin/main` publish.
+
+Automated validation from `feat/desktop-runtime` also passed on 2026-05-10:
+
+- `npm.cmd test`: `146 pass / 0 fail / 55 skipped`.
+- `npm.cmd run build:desktop:check`: passed, including `cargo check`.
+- `npm.cmd run dev:desktop:check`: passed against `API_PORT=3100` and `WEB_PORT=5273`.
+- `npm.cmd run build:desktop:nsis`: produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`.
+- Installer SHA-256: `8A6312412DFB3E677737F3FF0C714051216E70C7C0A4246BBFA276D3B7D59B84`.
+- Installer size: `3,790,458` bytes.
+- Silent install smoke: exit code `0`.
+- Launch smoke: `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` started as `yansilu-desktop`, window title `研思录`, responding `true`.
+
+The remaining gate is the manual packaged-app walkthrough above. No automated P0 was found in this branch validation.
