@@ -3295,6 +3295,47 @@ img {
   color: var(--site-cyan);
 }
 
+.page-login-v2 .page-badge-card,
+.page-register-v2 .page-badge-card,
+.page-billing-v2 .status-card,
+.page-billing-v2 .page-cta-strip,
+.page-billing-v2 .spotlight-card {
+  color: #111a22;
+}
+
+.page-login-v2 .page-badge-card h2,
+.page-login-v2 .page-badge-card h3,
+.page-login-v2 .page-badge-card strong,
+.page-register-v2 .page-badge-card h2,
+.page-register-v2 .page-badge-card h3,
+.page-register-v2 .page-badge-card strong,
+.page-billing-v2 .status-card h3,
+.page-billing-v2 .page-cta-strip h3,
+.page-billing-v2 .spotlight-card strong {
+  color: #101820;
+}
+
+.page-login-v2 .page-badge-card p,
+.page-login-v2 .page-badge-card .section-intro,
+.page-login-v2 .page-badge-card .spotlight-card p,
+.page-register-v2 .page-badge-card p,
+.page-register-v2 .page-badge-card .section-intro,
+.page-register-v2 .page-badge-card .spotlight-card p,
+.page-register-v2 .page-badge-card .bullet-list,
+.page-billing-v2 .status-card p,
+.page-billing-v2 .page-cta-strip p,
+.page-billing-v2 .spotlight-card p,
+.page-billing-v2 .billing-note-row,
+.page-billing-v2 .billing-note-label {
+  color: #51616d;
+}
+
+.page-billing-v2 .status-card .auth-message {
+  border-color: rgba(26, 214, 255, 0.24);
+  background: rgba(26, 214, 255, 0.1);
+  color: #51616d;
+}
+
 .site-v2 .compare-table-wrap {
   border-color: var(--site-line);
   background: rgba(11, 19, 36, 0.72);
