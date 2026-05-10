@@ -7,17 +7,36 @@ function cleanText(value) {
 function defaultArtifactForRequest(request = {}) {
   const artifactType = cleanText(request.expectedArtifactType) || "ReflectionPrompt";
   const firstContextItem = request.contextPack?.items?.[0] || {};
+  const secondContextItem = request.contextPack?.items?.[1] || {};
   if (artifactType === "LinkSuggestion") {
+    const fromId = firstContextItem.sourceId || "note_a";
+    const toId = secondContextItem.sourceId || "mock_related_note";
     return {
       type: "LinkSuggestion",
       title: "Possible related note",
       summary: "Mock link suggestion created by the AI orchestrator harness.",
       body: "This is a mock link suggestion. It is not a final graph edge.",
       payload: {
-        from: { id: firstContextItem.sourceId || "note_a", kind: "note" },
-        to: { id: "mock_related_note", kind: "note" },
+        from: { id: fromId, kind: "note" },
+        to: { id: toId, kind: "note" },
         relationType: "related",
-        rationale: "Mock provider generated a candidate relation.",
+        rationale: secondContextItem.sourceId
+          ? "Mock provider generated a candidate relation between two context notes."
+          : "Mock provider generated a candidate relation.",
+        evidence: [
+          {
+            sourceId: fromId,
+            summary: firstContextItem.title || "First context note"
+          },
+          ...(secondContextItem.sourceId
+            ? [
+                {
+                  sourceId: toId,
+                  summary: secondContextItem.title || "Second context note"
+                }
+              ]
+            : [])
+        ],
         suggestedAction: "create_link"
       }
     };
@@ -50,6 +69,7 @@ export function createMockProviderAdapter(options = {}) {
   });
 
   let callCount = 0;
+  let lastRequest = null;
   const queuedResponses = Array.isArray(options.responses) ? [...options.responses] : [];
 
   return {
@@ -57,8 +77,12 @@ export function createMockProviderAdapter(options = {}) {
     get callCount() {
       return callCount;
     },
+    get lastRequest() {
+      return lastRequest;
+    },
     async complete(request = {}) {
       callCount += 1;
+      lastRequest = request;
       const response = queuedResponses.length
         ? queuedResponses.shift()
         : {

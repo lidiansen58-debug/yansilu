@@ -81,6 +81,9 @@ export function normalizeArtifact(input = {}, context = {}) {
     },
     confidence: input.confidence || { score: null, label: "medium", reason: "" },
     privacy: input.privacy || context.privacy || { mode: "normal", cloudModelUsed: false },
+    userDecisions: Array.isArray(input.userDecisions || input.user_decisions)
+      ? [...(input.userDecisions || input.user_decisions)]
+      : [],
     payload: input.payload || {}
   };
 }

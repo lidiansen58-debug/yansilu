@@ -21,6 +21,22 @@ function normalizePrivacyMode(value) {
   return mode;
 }
 
+function noteId(note = {}) {
+  return cleanText(note.id || note.noteId || note.note_id);
+}
+
+function strongestPrivacyMode(modes = []) {
+  const priority = {
+    normal: 0,
+    private_project: 1,
+    enterprise_restricted: 2,
+    local_only: 3
+  };
+  return modes
+    .map((mode) => normalizePrivacyMode(mode))
+    .sort((a, b) => priority[b] - priority[a])[0] || "normal";
+}
+
 export function createContextItem(input = {}) {
   const kind = cleanText(input.kind || "note");
   const sourceId = cleanText(input.sourceId || input.source_id || input.id);
@@ -124,5 +140,51 @@ export function createCurrentNoteContextPack({ taskId, agentRunId, note, privacy
         selectedCount: 1
       }
     ]
+  });
+}
+
+export function createNotesContextPack({
+  taskId,
+  agentRunId,
+  notes = [],
+  privacyMode = "normal",
+  includedReason = "selected_note",
+  retrievalTrace = [],
+  omitted = [],
+  taskType = "reflection",
+  agentId = "reflection_agent",
+  trigger = "user_command"
+} = {}) {
+  const validNotes = notes.filter((note) => noteId(note));
+  if (!validNotes.length) {
+    const error = new Error("at least one note is required for context pack");
+    error.code = "AI_CONTEXT_NOTES_REQUIRED";
+    throw error;
+  }
+
+  const packPrivacyMode = strongestPrivacyMode([
+    privacyMode,
+    ...validNotes.map((note) => note.privacyMode || note.privacy_mode || note.privacy?.mode || "normal")
+  ]);
+
+  return createContextPack({
+    taskId,
+    agentRunId,
+    privacyMode: packPrivacyMode,
+    task: { taskType, agentId, trigger },
+    items: validNotes.map((note) =>
+      createContextItem({
+        kind: "note",
+        sourceId: noteId(note),
+        title: note.title,
+        content: note.body || note.content || "",
+        origin: note.origin || "human_authored",
+        includedReason,
+        relevance: note.relevance || { score: 1, method: includedReason },
+        privacyMode: note.privacyMode || note.privacy_mode || packPrivacyMode
+      })
+    ),
+    omitted,
+    retrievalTrace
   });
 }
