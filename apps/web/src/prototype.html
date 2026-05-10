@@ -956,21 +956,21 @@
     }
     .toolbar {
       position: sticky;
-      top: 14px;
+      top: 8px;
       z-index: 60;
-      margin: 12px 14px 0 auto;
+      margin: 8px 10px 0 auto;
       width: fit-content;
-      max-width: calc(100% - 28px);
+      max-width: calc(100% - 20px);
       border: 1px solid rgba(214, 223, 220, 0.92);
       border-radius: 18px;
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       background:
         linear-gradient(180deg, rgba(253, 253, 252, 0.94) 0%, rgba(246, 248, 246, 0.94) 100%);
       align-items: center;
-      min-height: 48px;
+      min-height: 42px;
       box-shadow:
         0 18px 34px rgba(15, 23, 42, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.82);
@@ -2523,13 +2523,13 @@
     .md-panel {
       min-height: 0;
       height: 100%;
-      padding: 8px 6px 6px;
+      padding: 6px 4px 4px;
       border: 0;
       border-radius: 28px;
       box-shadow: none;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0;
       overflow: hidden;
       background:
         radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 26%),
@@ -2539,7 +2539,7 @@
     .md-panel .editor-host,
     .md-panel .wysiwyg-host {
       width: 100%;
-      max-width: 1020px;
+      max-width: 1240px;
       margin-inline: auto;
     }
     .md-panel .panel-head {
@@ -2552,6 +2552,9 @@
         linear-gradient(180deg, #fffdf8 0%, #f7f2e8 100%);
       box-shadow: 0 10px 22px rgba(94, 78, 47, 0.06);
       margin-bottom: 0;
+    }
+    .md-panel .panel-head.editor-intent {
+      display: none;
     }
     .panel-head {
       display: flex;
@@ -2622,8 +2625,8 @@
       height: 100%;
       flex: 1 1 auto;
       border: 1px solid rgba(214, 202, 182, 0.98);
-      border-radius: 30px;
-      padding: 18px 0 10px;
+      border-radius: 24px;
+      padding: 12px 0 8px;
       background:
         radial-gradient(circle at top, rgba(255, 255, 255, 0.92), transparent 32%),
         linear-gradient(180deg, rgba(255, 254, 251, 1) 0%, rgba(251, 246, 237, 0.99) 100%);
@@ -2651,10 +2654,10 @@
     .wysiwyg-host::after {
       content: "";
       position: absolute;
-      inset: 16px 18px 18px 18px;
+      inset: 12px 14px 14px;
       border: 1px solid rgba(227, 218, 202, 0.86);
       border-left: 3px solid rgba(195, 125, 125, 0.24);
-      border-radius: 22px;
+      border-radius: 18px;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
       pointer-events: none;
       z-index: 0;
@@ -2699,7 +2702,7 @@
       min-height: calc(100% - 4px);
       outline: none;
       caret-color: #0f172a;
-      max-width: 920px;
+      max-width: 1080px;
       margin: 0 auto;
       font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
       font-size: 19px;
@@ -2763,9 +2766,9 @@
       z-index: 0;
     }
     .wysiwyg-host .toastui-editor-contents {
-      max-width: 900px;
+      max-width: 1080px;
       margin: 0 auto;
-      padding: 18px 40px 14px 66px;
+      padding: 14px 40px 12px 62px;
       color: #213039;
       font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
       font-size: 19px;
@@ -3793,23 +3796,33 @@
     .editor-helper {
       position: fixed;
       right: 22px;
-      bottom: 74px;
-      width: min(332px, calc(100vw - 44px));
+      bottom: 58px;
+      width: min(172px, calc(100vw - 44px));
       border: 1px solid rgba(209, 218, 229, 0.88);
-      border-radius: 22px;
-      padding: 16px 16px 14px;
+      border-radius: 999px;
+      padding: 10px 40px 10px 14px;
       background:
         radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 28%),
         radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 26%),
         rgba(255, 255, 255, 0.95);
-      box-shadow: 0 22px 45px rgba(15, 23, 42, 0.16);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.13);
       backdrop-filter: blur(18px);
       z-index: 115;
+      overflow: hidden;
+      transition: width .16s ease, border-radius .16s ease, padding .16s ease, box-shadow .16s ease;
+    }
+    .editor-helper:hover,
+    .editor-helper:focus-within {
+      width: min(332px, calc(100vw - 44px));
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+      box-shadow: 0 22px 45px rgba(15, 23, 42, 0.16);
     }
     .editor-helper-close {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
       width: 26px;
       height: 26px;
       border: 0;
@@ -3819,6 +3832,7 @@
       cursor: pointer;
     }
     .editor-helper-kicker {
+      display: none;
       font-size: 11px;
       font-weight: 800;
       letter-spacing: .08em;
@@ -3827,24 +3841,53 @@
       margin-bottom: 8px;
     }
     .editor-helper-title {
-      font-size: 15px;
+      font-size: 12px;
       font-weight: 800;
-      line-height: 1.4;
+      line-height: 1.2;
       color: #172033;
-      margin-bottom: 8px;
-      padding-right: 20px;
+      margin-bottom: 0;
+      padding-right: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .editor-helper-body {
+      display: none;
       font-size: 12px;
       line-height: 1.75;
       color: #526173;
       margin-bottom: 12px;
     }
     .editor-helper-actions {
-      display: flex;
+      display: none;
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .editor-helper:hover .editor-helper-close,
+    .editor-helper:focus-within .editor-helper-close {
+      top: 12px;
+      transform: none;
+    }
+    .editor-helper:hover .editor-helper-kicker,
+    .editor-helper:focus-within .editor-helper-kicker {
+      display: block;
+    }
+    .editor-helper:hover .editor-helper-title,
+    .editor-helper:focus-within .editor-helper-title {
+      font-size: 15px;
+      line-height: 1.4;
+      margin-bottom: 8px;
+      padding-right: 20px;
+      white-space: normal;
+    }
+    .editor-helper:hover .editor-helper-body,
+    .editor-helper:focus-within .editor-helper-body {
+      display: block;
+    }
+    .editor-helper:hover .editor-helper-actions,
+    .editor-helper:focus-within .editor-helper-actions {
+      display: flex;
     }
     .editor-helper-action {
       min-height: 34px;
@@ -4108,15 +4151,21 @@
       .editor-helper {
         right: 14px;
         bottom: 58px;
-        width: min(280px, calc(100vw - 84px));
+        width: min(152px, calc(100vw - 72px));
+      }
+      .editor-helper:hover,
+      .editor-helper:focus-within {
+        width: min(280px, calc(100vw - 72px));
         border-radius: 18px;
         padding: 14px 14px 12px;
       }
-      .editor-helper-title {
+      .editor-helper:hover .editor-helper-title,
+      .editor-helper:focus-within .editor-helper-title {
         font-size: 14px;
         line-height: 1.35;
       }
-      .editor-helper-body {
+      .editor-helper:hover .editor-helper-body,
+      .editor-helper:focus-within .editor-helper-body {
         font-size: 11px;
         line-height: 1.65;
         margin-bottom: 10px;
@@ -4165,18 +4214,25 @@
     }
     @media (max-width: 700px) {
       .editor-helper {
-        width: min(244px, calc(100vw - 72px));
+        width: min(138px, calc(100vw - 72px));
         bottom: 54px;
+      }
+      .editor-helper:hover,
+      .editor-helper:focus-within {
+        width: min(244px, calc(100vw - 72px));
         padding: 12px 12px 10px;
       }
-      .editor-helper-kicker {
+      .editor-helper:hover .editor-helper-kicker,
+      .editor-helper:focus-within .editor-helper-kicker {
         margin-bottom: 6px;
       }
-      .editor-helper-title {
+      .editor-helper:hover .editor-helper-title,
+      .editor-helper:focus-within .editor-helper-title {
         margin-bottom: 6px;
         padding-right: 16px;
       }
-      .editor-helper-body {
+      .editor-helper:hover .editor-helper-body,
+      .editor-helper:focus-within .editor-helper-body {
         margin-bottom: 8px;
       }
       .status-pill {
