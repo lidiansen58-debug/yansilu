@@ -72,7 +72,7 @@
     searchQuery: "",
     searchVisible: false,
     inspectorVisible: false,
-    previewMode: "source",
+    previewMode: "wysiwyg",
     focusMode: false
     };
   }

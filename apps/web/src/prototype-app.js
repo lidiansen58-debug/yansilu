@@ -951,7 +951,7 @@ async function openImportedLiteratureQueue() {
   activateModule("explorer");
   const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
   if (!opened) return false;
-  setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok", { requireModule: "explorer" });
+  setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok");
   return true;
 }
 
@@ -1736,6 +1736,10 @@ function renderWorkspaceStatusHint() {
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
   const noteType = String(activeNote?.noteType || "").trim();
+  if (activeNote && !state.focusMode) {
+    hideEditorHelper();
+    return;
+  }
   if (action) {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
@@ -1963,7 +1967,7 @@ function renderModulePanels() {
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
   $("importPanel")?.classList.toggle("hidden", !importsMode);
   $("markdownPanel")?.classList.toggle("hidden", !editorMode);
-  $("relatedPanel")?.classList.toggle("hidden", !editorMode);
+  $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
   renderModuleWorkspaceHeader();
 }
 
@@ -3627,7 +3631,8 @@ const editor = new EditorPane({
     authorshipPanel: $("authorshipPanel"),
     authorshipClaimInput: $("authorshipClaimInput"),
     authorshipConfirm: $("authorshipConfirm"),
-    authorshipHint: $("authorshipHint")
+    authorshipHint: $("authorshipHint"),
+    openExternalUrl: desktopCommands.openExternalUrl
   },
   onStatus: setStatus,
   onStateChange: handleStateChange,
@@ -4500,7 +4505,9 @@ async function bootstrap() {
 
     const actionButton = event.target?.closest?.("[data-import-history-action]");
     const item = event.target?.closest?.("[data-import-history-id]");
-    const importRecordId = String((actionButton || item)?.getAttribute("data-import-history-id") || "").trim();
+    const importRecordId = String(
+      actionButton?.getAttribute("data-import-history-id") || item?.getAttribute("data-import-history-id") || ""
+    ).trim();
     if (!importRecordId) return;
     try {
       const action = String(actionButton?.getAttribute("data-import-history-action") || "load").trim();
