@@ -85,7 +85,7 @@ test("path picker falls back to browser prompt when tauri is unavailable", async
     const result = await pickDirectoryPath({ defaultPath: "E:\\Vaults\\default" });
     assert.deepEqual(prompts, [
       {
-        message: "请输入目录路径（浏览器原型降级模式）",
+        message: "请输入目录路径（浏览器降级模式）",
         defaultPath: "E:\\Vaults\\default"
       }
     ]);
