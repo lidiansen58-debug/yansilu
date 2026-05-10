@@ -52,6 +52,14 @@ async function waitFor(assertFn, timeoutMs = 6000, intervalMs = 120) {
   throw lastError || new Error("waitFor timeout");
 }
 
+async function expandEditorHelper(page) {
+  await page.locator("#editorHelper").hover();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#btnEditorHelperAction").isVisible(), true);
+    assert.equal(await page.locator("#btnEditorHelperMute").isVisible(), true);
+  }, 4000);
+}
+
 async function fetchJson(baseUrl, pathname) {
   const res = await fetch(`${baseUrl}${pathname}`);
   const json = await res.json();
@@ -1035,6 +1043,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator("#editorHelper").waitFor();
+  await expandEditorHelper(page);
   await page.locator("#btnEditorHelperAction").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
@@ -1043,6 +1052,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
 
   await page.reload({ waitUntil: "networkidle" });
   await page.locator("#editorHelper").waitFor();
+  await expandEditorHelper(page);
   await page.locator("#btnEditorHelperMute").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));

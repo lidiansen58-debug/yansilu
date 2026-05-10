@@ -96,6 +96,12 @@ export function formatMarkdownLinkDestination(value = "") {
   return /\s|[()]/.test(target) ? `<${target}>` : target;
 }
 
+function unwrapMarkdownLinkDestination(value = "") {
+  const target = String(value || "").trim();
+  if (target.startsWith("<") && target.endsWith(">")) return target.slice(1, -1).trim();
+  return target;
+}
+
 export function assetMarkdownSnippet(asset = {}) {
   const rawLabel = String(asset.fileName || "asset").trim();
   const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
@@ -282,7 +288,7 @@ function normalizePosixPath(input) {
 }
 
 function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
-  const target = String(rawPath || "").trim();
+  const target = unwrapMarkdownLinkDestination(rawPath);
   if (!target) return "";
   if (/^(https?:|data:)/i.test(target)) return target;
   if (target.startsWith("assets/")) return normalizePosixPath(target);
@@ -692,7 +698,7 @@ function renderInlinePreview(text, options = {}) {
   return html;
 }
 
-function renderMarkdownPreview(markdown, options = {}) {
+export function renderMarkdownPreview(markdown, options = {}) {
   const text = String(markdown || "").replace(/\r\n/g, "\n");
   const lines = text.split("\n");
   const blocks = [];
@@ -787,7 +793,7 @@ function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    const imageMatch = line.match(/^!\[([^\]]*)\]\((<[^>]+>|[^)]+)\)$/);
     if (imageMatch) {
       const [, alt, href] = imageMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);
@@ -830,7 +836,7 @@ function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    const attachmentMatch = line.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    const attachmentMatch = line.match(/^\[([^\]]+)\]\((<[^>]+>|[^)]+)\)$/);
     if (attachmentMatch) {
       const [, label, href] = attachmentMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);

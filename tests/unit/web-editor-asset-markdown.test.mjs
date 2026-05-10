@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
-  formatMarkdownLinkDestination
+  formatMarkdownLinkDestination,
+  renderMarkdownPreview
 } from "../../apps/web/src/components-editor-pane.js";
 
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
@@ -41,4 +42,15 @@ test("assetMarkdownSnippet inserts stable Markdown for image and file assets wit
     }),
     "[reference file.txt](<../../../assets/files/pn_1/reference file.txt>)"
   );
+});
+
+test("renderMarkdownPreview resolves angle-wrapped vault image destinations", () => {
+  const html = renderMarkdownPreview(
+    "![\u56fe\u50cf \u8d44\u6599](<../../assets/images/pn_1/\u56fe\u50cf \u8d44\u6599.png>)",
+    { noteMarkdownPath: "notes/original/source.md" }
+  );
+
+  assert.match(html, /preview-image-asset/);
+  assert.match(html, /assets%2Fimages%2Fpn_1%2F/);
+  assert.doesNotMatch(html, /preview-attachment-block/);
 });
