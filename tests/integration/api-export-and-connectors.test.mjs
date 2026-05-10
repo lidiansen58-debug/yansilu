@@ -94,6 +94,7 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
 
     await fs.mkdir(path.join(vaultPath, "notes", "literature"), { recursive: true });
     await fs.mkdir(path.join(vaultPath, "notes", "sources"), { recursive: true });
+    await fs.mkdir(path.join(vaultPath, "assets"), { recursive: true });
     await fs.writeFile(
       path.join(vaultPath, "notes", "literature", "ln_api_export.md"),
       "---\ntype: literature\n---\n\n# Literature API export\n",
@@ -104,6 +105,7 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
       "---\ntype: source\n---\n\n# Source API export\n",
       "utf8"
     );
+    await fs.writeFile(path.join(vaultPath, "assets", "export-asset.txt"), "asset", "utf8");
 
     const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
       targetPath
@@ -112,15 +114,22 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(response.status, 202);
     assert.equal(payload.status, "queued");
     assert.match(payload.exportJobId, /^exp_/);
-    assert.equal(payload.copied, 2);
+    assert.equal(payload.copied, 3);
+    assert.deepEqual(payload.copiedBreakdown, {
+      markdownFiles: 2,
+      assetFiles: 1,
+      totalFiles: 3
+    });
 
     const literatureCopy = await fs.readFile(
       path.join(targetPath, "literature", "ln_api_export.md"),
       "utf8"
     );
     const sourceCopy = await fs.readFile(path.join(targetPath, "sources", "src_api_export.md"), "utf8");
+    const assetCopy = await fs.readFile(path.join(targetPath, "assets", "export-asset.txt"), "utf8");
     assert.match(literatureCopy, /Literature API export/);
     assert.match(sourceCopy, /Source API export/);
+    assert.equal(assetCopy, "asset");
 
     const record = JSON.parse(
       await fs.readFile(path.join(vaultPath, "exports", `${payload.exportJobId}.json`), "utf8")
@@ -128,7 +137,8 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(record.exportJobId, payload.exportJobId);
     assert.match(record.requestId, /^req_/);
     assert.equal(record.targetPath, targetPath);
-    assert.equal(record.copied, 2);
+    assert.equal(record.copied, 3);
+    assert.deepEqual(record.copiedBreakdown, payload.copiedBreakdown);
   } finally {
     await stopApi(api);
   }

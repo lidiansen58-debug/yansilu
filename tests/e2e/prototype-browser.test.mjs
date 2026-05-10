@@ -2391,6 +2391,86 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   assert.equal(literatureNotesAfterRollback.json.total, 0);
 });
 
+test("prototype import panel confirms and rolls back realistic Obsidian vault import", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath } = stack;
+
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-realistic-vault");
+
+  await openImportsModule(page);
+  await page.selectOption("#importConnector", "obsidian");
+  await page.fill("#importPath", fixturePath);
+  await page.fill("#importPayload", "");
+  await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true }));
+  await page.click("#btnImportPreview");
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "preview"') && text.includes("中文阅读卡片") && text.includes('"blocked"');
+  });
+  await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
+  await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Spacing Note" }).waitFor();
+
+  const importRecordId = await page.inputValue("#importRecordId");
+  assert.ok(importRecordId.startsWith("imp_"));
+
+  await page.locator('[data-candidate-action="exclude-blocked"]').click();
+  await page.locator("#btnImportConfirm", { hasText: "4/5" }).waitFor();
+  await expectChecked(page.locator("#importResult .candidate-item.tone-blocked .candidate-checkbox").first(), false);
+
+  await page.click("#btnImportConfirm");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
+  });
+  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
+
+  const confirmResultText = await page.locator("#importResult").textContent();
+  assert.match(confirmResultText || "", /"sources":\s*2/);
+  assert.match(confirmResultText || "", /"literatureNotes":\s*2/);
+  assert.match(confirmResultText || "", /"permanentNotes":\s*0/);
+  assert.match(confirmResultText || "", /"selectedCandidates":\s*4/);
+
+  const importedLiteratureNotes = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+    assert.equal(result.status, 200);
+    assert.equal(result.json.total, 2);
+    return result;
+  }, 7000);
+  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "中文阅读卡片");
+  assert.ok(chineseNote, JSON.stringify(importedLiteratureNotes.json.items, null, 2));
+  const chineseMarkdownPath = path.join(vaultPath, String(chineseNote.markdownPath || "").replaceAll("/", path.sep));
+  const chineseMarkdown = await fs.readFile(chineseMarkdownPath, "utf8");
+  assert.match(chineseMarkdown, /来源\/访谈/);
+  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英文材料\]\]/);
+
+  await page.selectOption("#importHistoryStatus", "completed");
+  await page.selectOption("#importHistoryConnector", "obsidian");
+  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
+  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"');
+  });
+
+  const literatureNotesAfterRollback = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+    assert.equal(result.status, 200);
+    assert.equal(result.json.total, 0);
+    return result;
+  }, 7000);
+  assert.equal(literatureNotesAfterRollback.json.total, 0);
+});
+
 test("prototype import history filters records and supports inline actions", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -3295,13 +3375,15 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page } = stack;
+  const { apiBase, page, vaultPath } = stack;
 
   const createdNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     body: "# Export panel note\n\nThis note should be exported from the browser UI."
   });
   assert.equal(createdNote.status, 201);
+  await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "assets", "browser-export", "asset.txt"), "browser asset", "utf8");
 
   const exportTargetPath = await makeTempDir("yansilu-browser-export-target-");
   await openImportsModule(page);
@@ -3310,16 +3392,20 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 1');
+    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 2') && text.includes("资源文件");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
   assert.match(exportResultText || "", /"status":\s*"queued"/);
+  assert.match(exportResultText || "", /Markdown 文件/);
+  assert.match(exportResultText || "", /资源文件/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
   assert.equal(exportedFiles.length, 1, JSON.stringify(exportedFiles, null, 2));
+  const exportedAsset = await fs.readFile(path.join(exportTargetPath, "assets", "browser-export", "asset.txt"), "utf8");
+  assert.equal(exportedAsset, "browser asset");
 
   const exportedContent = await fs.readFile(exportedFiles[0], "utf8");
   assert.match(exportedContent, /# Export panel note/);

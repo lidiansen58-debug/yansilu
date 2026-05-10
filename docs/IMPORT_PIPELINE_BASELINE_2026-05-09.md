@@ -22,7 +22,7 @@ The planned `wt-import-hardening` scope from `docs/WORKTREE_PLAN.md` has been ac
 - skipped/warning/blocked/excluded behavior
 - import result clarity where needed
 
-Current follow-up coverage includes a realistic nested Obsidian fixture with Chinese filenames, Chinese/mixed body tags, frontmatter hash-tag normalization, aliases, nested wikilinks, embeds, API preview assertions, and selective confirm -> rollback assertions.
+Current follow-up coverage includes a realistic nested Obsidian fixture with Chinese filenames, Chinese/mixed body tags, frontmatter hash-tag normalization, aliases, nested wikilinks, embeds, API preview assertions, API selective confirm -> rollback assertions, and a browser-level confirm -> rollback smoke path.
 
 ## Include In Baseline
 

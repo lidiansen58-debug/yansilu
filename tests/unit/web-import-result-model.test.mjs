@@ -83,3 +83,52 @@ test("import result model derives confirm metrics with selection", () => {
     { label: "已创建", value: "3" }
   ]);
 });
+
+test("import result model includes created asset file metrics", () => {
+  const payload = {
+    stage: "confirm",
+    importRecordId: "imp_assets",
+    status: "completed",
+    result: {
+      selection: { selectedCandidates: 2, totalCandidates: 2, mode: "all" },
+      createdFiles: [
+        { noteId: "ln_1", noteType: "literature", path: "notes/literature/ln_1.md" },
+        { noteId: "asset_1", noteType: "asset", path: "assets/imports/imp_assets/chart.png" }
+      ]
+    }
+  };
+
+  assert.deepEqual(resultMetrics(payload), [
+    { label: "导入记录", value: "imp_assets" },
+    { label: "状态", value: "已写入" },
+    { label: "已选候选", value: "2/2" },
+    { label: "选择模式", value: "全部候选" },
+    { label: "写入文件", value: "2" },
+    { label: "资源文件", value: "1" }
+  ]);
+});
+
+test("import result model derives export copied breakdown metrics", () => {
+  const payload = {
+    stage: "export_markdown",
+    exportJobId: "exp_1",
+    status: "queued",
+    copied: 3,
+    copiedBreakdown: {
+      markdownFiles: 2,
+      assetFiles: 1,
+      totalFiles: 3
+    },
+    targetPath: "E:\\exports"
+  };
+
+  assert.deepEqual(resultMetrics(payload), [
+    { label: "导出任务", value: "exp_1" },
+    { label: "状态", value: "queued" },
+    { label: "已复制文件", value: "3" },
+    { label: "Markdown 文件", value: "2" },
+    { label: "资源文件", value: "1" },
+    { label: "文件总数", value: "3" },
+    { label: "目标路径", value: "E:\\exports" }
+  ]);
+});

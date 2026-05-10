@@ -3,7 +3,9 @@ import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 export function contentHash(content) {
-  return createHash("sha1").update(String(content ?? "")).digest("hex");
+  // Prefer hashing raw bytes (Buffer) when available so both text + binary files are supported.
+  const input = Buffer.isBuffer(content) ? content : Buffer.from(String(content ?? ""), "utf8");
+  return createHash("sha1").update(input).digest("hex");
 }
 
 export function vaultRelativePath(vaultPath, filePath) {
@@ -23,14 +25,22 @@ export function resolveVaultRelativePath(vaultPath, relativePath) {
   return fullPath;
 }
 
-export async function createdEntryFromWriteResult(vaultPath, result) {
-  const content = await fs.readFile(result.path, "utf8");
+export async function createdEntryFromVaultPath(vaultPath, { noteId, noteType, filePath }) {
+  const content = await fs.readFile(filePath);
   return {
-    noteId: result.noteId,
-    noteType: result.noteType,
-    path: vaultRelativePath(vaultPath, result.path),
+    noteId,
+    noteType,
+    path: vaultRelativePath(vaultPath, filePath),
     hash: contentHash(content)
   };
+}
+
+export async function createdEntryFromWriteResult(vaultPath, result) {
+  return createdEntryFromVaultPath(vaultPath, {
+    noteId: result.noteId,
+    noteType: result.noteType,
+    filePath: result.path
+  });
 }
 
 function excerpt(value, max = 140) {
@@ -248,7 +258,7 @@ export async function rollbackCreatedFiles(vaultPath, createdFiles) {
   for (const item of Array.isArray(createdFiles) ? createdFiles : []) {
     const fullPath = resolveVaultRelativePath(vaultPath, item.path);
     try {
-      const current = await fs.readFile(fullPath, "utf8");
+      const current = await fs.readFile(fullPath);
       const currentHash = contentHash(current);
       if (currentHash !== item.hash) {
         skipped.push({ ...item, reason: "modified" });

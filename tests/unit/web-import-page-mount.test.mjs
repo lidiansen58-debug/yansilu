@@ -24,7 +24,10 @@ test("import page mount renders toolbar, history, summary, and result placeholde
   assert.match(html, /id="importHistoryMount"/);
   assert.match(html, /id="importResult"/);
   assert.match(html, /开始一次导入/);
+  assert.match(html, /预览候选/);
+  assert.match(html, /历史回滚/);
   assert.match(html, /导入历史/);
+  assert.match(html, /最近 12 条/);
   assert.match(html, /最近导入/);
   assert.match(html, /暂无记录/);
   assert.match(html, /还没有导入结果/);

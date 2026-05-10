@@ -226,6 +226,23 @@
       color: #111827;
       box-shadow: 0 8px 16px rgba(23, 34, 33, 0.06);
     }
+    .mini-btn.primary {
+      border-color: #0f7d50;
+      background: #13764f;
+      color: #ffffff;
+      box-shadow: 0 10px 22px rgba(19, 118, 79, 0.16);
+    }
+    .mini-btn.primary:hover {
+      background: #0f6f48;
+      border-color: #0f6f48;
+      color: #ffffff;
+    }
+    .mini-btn:disabled {
+      opacity: .46;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
     .mini-btn:active {
       transform: translateY(1px);
     }
@@ -1466,14 +1483,22 @@
       gap: 8px 10px;
       align-items: center;
     }
+    .import-page-shell {
+      display: grid;
+      grid-template-columns: minmax(320px, .86fr) minmax(420px, 1.14fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .import-page-primary {
+      min-width: 0;
+    }
     .import-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
-      border-radius: 16px;
-      background:
-        radial-gradient(circle at top right, rgba(218, 236, 226, 0.26), transparent 26%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 249, 0.94) 100%);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 249, 0.96) 100%);
       padding: 18px;
-      box-shadow: 0 18px 34px rgba(23, 34, 33, 0.06);
+      box-shadow: 0 12px 26px rgba(23, 34, 33, 0.05);
+      min-width: 0;
     }
     .import-card + .import-card {
       margin-top: 16px;
@@ -1485,17 +1510,69 @@
       gap: 12px;
       margin-bottom: 12px;
     }
+    .import-card-kicker {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #0f766e;
+      margin-bottom: 2px;
+    }
     .import-card-head strong {
       font-size: 15px;
       font-weight: 800;
       letter-spacing: .01em;
       color: #0f172a;
     }
+    .import-card-badge {
+      border: 1px solid #d8e2dd;
+      border-radius: 999px;
+      background: #f6faf7;
+      color: #416458;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .import-card-note {
       margin: 0;
       font-size: 12px;
       line-height: 1.7;
       color: #64748b;
+    }
+    .import-flow-steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .import-flow-steps div {
+      border: 1px solid #dfe8e5;
+      border-radius: 10px;
+      background: #fbfdfb;
+      padding: 8px;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .import-flow-steps span {
+      display: inline-grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #e9f5ee;
+      color: #13764f;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .import-flow-steps strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .import-actions {
       display: flex;
@@ -1533,7 +1610,6 @@
       padding: 12px 14px 14px;
     }
     .import-history-head {
-      margin-top: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -1548,9 +1624,9 @@
     .import-history-summary {
       margin-top: 10px;
       border: 1px solid #dbe3ec;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #fff;
-      padding: 10px 12px;
+      padding: 12px;
       display: grid;
       gap: 7px;
     }
@@ -1593,9 +1669,10 @@
     }
     .import-history-controls {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
       gap: 8px;
       align-items: end;
+      margin-top: 10px;
     }
     .import-history-controls label {
       display: grid;
@@ -1606,7 +1683,7 @@
     .import-history {
       margin-top: 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      border-radius: 10px;
       background: #f8fafc;
       padding: 10px;
       display: grid;
@@ -1732,13 +1809,13 @@
 	    .import-result {
 	      margin-top: 12px;
 	      border: 1px solid #e2e8f0;
-	      border-radius: 12px;
+	      border-radius: 10px;
 	      background: #fbfdff;
 	      padding: 12px;
 	      font-size: 12px;
 	      line-height: 1.6;
 	      color: #334155;
-	      max-height: 220px;
+	      max-height: 360px;
 	      overflow: auto;
 	      word-break: break-word;
 	    }
@@ -1819,6 +1896,66 @@
 	    .result-warnings ul {
 	      margin: 0;
 	      padding-left: 18px;
+	    }
+	    .result-file-inventory {
+	      border: 1px solid #dbe5ef;
+	      border-radius: 10px;
+	      background: #ffffff;
+	      padding: 9px;
+	      display: grid;
+	      gap: 8px;
+	    }
+	    .result-file-inventory-head {
+	      display: flex;
+	      align-items: center;
+	      justify-content: space-between;
+	      gap: 10px;
+	    }
+	    .result-file-inventory-head strong {
+	      color: #172033;
+	      font-size: 12px;
+	      font-weight: 800;
+	    }
+	    .result-file-inventory-head span,
+	    .result-file-more {
+	      color: #64748b;
+	      font-size: 11px;
+	      font-weight: 700;
+	    }
+	    .result-file-types {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 6px;
+	    }
+	    .result-file-types span,
+	    .result-file-type {
+	      border: 1px solid #d6e5dd;
+	      border-radius: 999px;
+	      background: #f1f8f4;
+	      color: #13764f;
+	      padding: 2px 7px;
+	      font-size: 11px;
+	      font-weight: 800;
+	      white-space: nowrap;
+	    }
+	    .result-file-list {
+	      display: grid;
+	      gap: 5px;
+	    }
+	    .result-file-row {
+	      display: grid;
+	      grid-template-columns: auto minmax(0, 1fr);
+	      gap: 8px;
+	      align-items: center;
+	      min-width: 0;
+	    }
+	    .result-file-row code {
+	      overflow: hidden;
+	      text-overflow: ellipsis;
+	      white-space: nowrap;
+	      color: #425466;
+	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	      font-size: 11px;
 	    }
 	    .result-actions {
 	      border: 1px solid #c7d7ef;
@@ -4101,6 +4238,9 @@
 
     @media (max-width: 1180px) {
       .app { grid-template-columns: 56px 320px 1fr; }
+      .import-page-shell {
+        grid-template-columns: 1fr;
+      }
       .toolbar {
         margin-inline: 14px;
         width: auto;
@@ -4140,6 +4280,15 @@
     @media (max-width: 920px) {
       .app { grid-template-columns: 56px 1fr; }
       .sidebar { display: none; }
+      .module-stage {
+        padding: 16px;
+      }
+      .import-history-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .import-history-controls .mini-btn {
+        min-height: 38px;
+      }
       .toolbar-group {
         padding-inline: 6px;
       }
@@ -4213,6 +4362,27 @@
       }
     }
     @media (max-width: 700px) {
+      .import-card {
+        padding: 14px;
+      }
+      .import-grid,
+      .path-picker,
+      .result-file-row {
+        grid-template-columns: 1fr;
+      }
+      .import-flow-steps {
+        grid-template-columns: 1fr;
+      }
+      .import-history-controls {
+        grid-template-columns: 1fr;
+      }
+      .import-history-item-head,
+      .import-history-item-meta,
+      .import-history-summary-main,
+      .result-card-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
       .editor-helper {
         width: min(138px, calc(100vw - 72px));
         bottom: 54px;
@@ -4524,12 +4694,21 @@
           <div class="panel hidden" id="importPanel">
             <div id="importPageMount">
               <div class="import-page-shell">
-                <div id="importToolbarMount">
-                  <div class="import-card">
+                <section class="import-page-primary" id="importToolbarMount">
+                  <div class="import-card import-toolbar-card">
                     <div class="import-card-head">
-                      <strong>开始一次导入</strong>
+                      <div>
+                        <div class="import-card-kicker">Import</div>
+                        <strong>开始一次导入</strong>
+                      </div>
+                      <span class="import-card-badge">预览后写入</span>
                     </div>
-                    <p class="import-card-note">先选来源与路径，先预览候选，再确认写入。高级参数、记录读取和回滚都收进二级区域，避免第一次进入就被复杂选项打断。</p>
+                    <div class="import-flow-steps" aria-label="导入流程">
+                      <div><span>1</span><strong>预览候选</strong></div>
+                      <div><span>2</span><strong>确认写入</strong></div>
+                      <div><span>3</span><strong>历史回滚</strong></div>
+                    </div>
+                    <p class="import-card-note">先选来源与路径，预览候选质量，再把确认过的内容写入 Vault。高级参数和记录操作收进下方区域。</p>
                     <div class="import-grid" style="margin-top:10px;">
                       <label for="importConnector">连接器</label>
                       <select id="importConnector">
@@ -4543,11 +4722,11 @@
                       <label for="importPath">导入路径</label>
                       <div class="path-picker">
                         <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
-                        <button class="mini-btn" id="btnBrowseImportPath" type="button">浏览...</button>
+                        <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">浏览...</button>
                       </div>
                     </div>
                     <div class="import-actions">
-                      <button class="mini-btn" id="btnImportPreview">预览候选</button>
+                      <button class="mini-btn primary" id="btnImportPreview">预览候选</button>
                       <button class="mini-btn" id="btnImportConfirm">确认写入</button>
                     </div>
                     <details class="import-advanced" id="importAdvanced">
@@ -4571,10 +4750,14 @@
                       </div>
                     </details>
                   </div>
-                </div>
-                <div class="import-card">
+                </section>
+                <section class="import-card import-history-card">
                   <div class="import-history-head">
-                    <div class="import-history-title">导入历史</div>
+                    <div>
+                      <div class="import-card-kicker">History</div>
+                      <div class="import-history-title">导入历史</div>
+                    </div>
+                    <span class="import-card-badge">最近 12 条</span>
                   </div>
                   <div id="importHistoryMount">
                     <div class="import-history-controls">
@@ -4613,23 +4796,27 @@
                     <div class="import-history" id="importHistory">正在读取导入历史…</div>
                   </div>
                   <div class="import-result" id="importResult">还没有导入结果。先选择来源并预览候选。</div>
-                </div>
+                </section>
               </div>
             </div>
-            <div class="import-card">
+            <div class="import-card export-card">
               <div class="import-card-head">
-                <strong>Markdown 导出</strong>
-            </div>
-            <p class="import-card-note">导出是独立动作，不和导入参数混在一起。先选导出目录，再执行 Markdown 导出。</p>
+                <div>
+                  <div class="import-card-kicker">Export</div>
+                  <strong>Markdown 导出</strong>
+                </div>
+                <span class="import-card-badge">包含 assets</span>
+              </div>
+            <p class="import-card-note">导出会复制 Vault 中的 Markdown 笔记和资源文件。先选目标目录，再执行导出。</p>
             <div class="import-grid" style="margin-top:10px;">
               <label for="exportTargetPath">导出目标路径</label>
               <div class="path-picker">
                 <input id="exportTargetPath" placeholder="例如：E:\Projects\Thinking in Notes\markdown-export" />
-                <button class="mini-btn" id="btnBrowseExportPath" type="button">浏览...</button>
+                <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">浏览...</button>
               </div>
             </div>
             <div class="import-actions">
-              <button class="mini-btn" id="btnExportMarkdown">导出 Markdown</button>
+              <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown</button>
             </div>
             <div class="import-result" id="exportResult">还没有导出结果。选择目标路径后即可导出 Markdown。</div>
           </div>

@@ -10,6 +10,14 @@ function candidateCountText(summary = {}) {
   return `${Number(summary.sources || 0)} 来源卡片 / ${Number(summary.literatureNotes || 0)} 文献笔记 / ${Number(summary.permanentNotes || 0)} 永久笔记`;
 }
 
+function createdFileCounts(record = {}) {
+  const files = Array.isArray(record.confirmResult?.createdFiles) ? record.confirmResult.createdFiles : [];
+  return {
+    total: files.length,
+    assets: files.filter((item) => String(item?.noteType || "").trim() === "asset").length
+  };
+}
+
 export function formatImportTimestamp(value) {
   if (!value) return "时间未知";
   const date = new Date(value);
@@ -164,11 +172,13 @@ export function importHistoryDetailSummary(record = {}) {
     const created = record.confirmResult?.created || {};
     const skipped = record.confirmResult?.skipped || {};
     const writtenPaths = Array.isArray(record.confirmResult?.writtenPaths) ? record.confirmResult.writtenPaths.filter(Boolean) : [];
+    const files = createdFileCounts(record);
     const detail = [
       `已创建 ${candidateCountText(created)}`,
       `跳过 冲突 ${Number(skipped.conflicted || 0)} / 无效 ${Number(skipped.invalid || 0)}`,
       writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径"
     ];
+    if (files.assets > 0) detail.push(`随导入写入资源 ${files.assets} 个 / 文件总数 ${files.total}`);
     const queueText = importHistoryQueueProgressText(record.literatureBatchProgress);
     if (queueText) {
       detail.push(queueText);

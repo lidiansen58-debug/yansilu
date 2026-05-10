@@ -16,18 +16,22 @@ export function renderImportPageMount({
 } = {}) {
   return `
     <div class="import-page-shell">
-      <div id="importToolbarMount">
+      <section class="import-page-primary" id="importToolbarMount">
         ${renderImportToolbarMount(toolbar)}
-      </div>
-      <div class="import-card">
+      </section>
+      <section class="import-card import-history-card">
         <div class="import-history-head">
-          <div class="import-history-title">导入历史</div>
+          <div>
+            <div class="import-card-kicker">History</div>
+            <div class="import-history-title">导入历史</div>
+          </div>
+          <span class="import-card-badge">最近 12 条</span>
         </div>
         <div id="importHistoryMount">
           ${renderImportHistoryMount(history)}
         </div>
         <div class="import-result" id="importResult">${renderResultSection(result)}</div>
-      </div>
+      </section>
     </div>
   `;
 }
