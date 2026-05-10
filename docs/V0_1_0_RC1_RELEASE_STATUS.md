@@ -12,16 +12,16 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Branch: `master`
 - Release baseline: `master`
-- App source commit: `7ac32cb Desktop: fallback packaged API base`
+- App source commit: `47691f0 Desktop: warn when API is not running`
 - Version: `0.1.0`
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,788,843` bytes
+- Size: `3,786,920` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `BC3CADC6577DE7E916C4E78CC9FDD86C4AA2A52FBB39F00B11901C6218F3F774`
+- SHA-256: `1F027F7D01CDD83CEBAB5C365E352357E11BE9E8BBB35EAB30D17025073578EF`
 
 ## Completed Verification
 
@@ -39,6 +39,7 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
 - Installed app WebView2 verification confirmed `已连接 API：http://localhost:3000` with packaged `window.__API_BASE__` still set to `__API_BASE__`.
 - Installed app data-flow verification passed: switched to a Chinese/space Vault path, created a directory and note, updated Markdown, uploaded image/file attachments, and read files back from disk.
+- Installed app shows a blocking dialog when API is not running, instead of silently falling back to local prototype data.
 
 ## Required Manual Walkthrough Before Sharing
 
@@ -58,6 +59,7 @@ Run this from the installed app, not the dev server:
 ## Known Limitations
 
 - The Windows installer is unsigned, so Windows SmartScreen may warn during install or first launch.
+- RC1 still depends on an external local API service (`http://localhost:3000`) and does not yet ship with an embedded backend.
 - Automatic update checks are enabled as best-effort desktop behavior, but production tagged releases still require signing secrets and a populated update feed before updates should be advertised.
 - macOS and Linux bundles are CI/build artifacts only until real target-machine smoke tests pass.
 - MSI packaging is not the recommended RC1 path.

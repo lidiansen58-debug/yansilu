@@ -4686,7 +4686,31 @@ async function bootstrap() {
     setStatus(`已连接 API：${getApiBase()}`, "ok");
   } catch (error) {
     renderImportHistory();
-    setStatus(`API 连接失败，使用本地原型数据：${String(error?.message || error)}`, "warn");
+
+    const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
+    if (tauri) {
+      setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
+      try {
+        const message =
+          `无法连接到本地 API（${getApiBase()}）。\n\n` +
+          `当前桌面版需要本地 API 服务在后台运行。\n\n` +
+          `解决办法：\n` +
+          `1) 在项目目录运行：npm run dev:api\n` +
+          `2) 保持窗口打开，然后重启桌面应用\n\n` +
+          `如果你是安装包用户，请联系开发者获取“内置 API”的版本。`;
+
+        if (typeof tauri?.dialog?.message === "function") {
+          await tauri.dialog.message(message, { title: "API 未启动", kind: "error" });
+        } else if (typeof tauri?.core?.invoke === "function") {
+          await tauri.core.invoke("plugin:dialog|message", {
+            message,
+            options: { title: "API 未启动", kind: "error" }
+          });
+        }
+      } catch {}
+    } else {
+      setStatus(`API 连接失败，使用本地原型数据：${String(error?.message || error)}`, "warn");
+    }
   }
 
   try {
