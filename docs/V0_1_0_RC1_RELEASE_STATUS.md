@@ -10,28 +10,32 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 ## Source
 
-- Branch: `master`
-- Release baseline: `master`
-- App source commit: `5b069d7 UI: give editor more primary space`
+- Local branch: `master`
+- Remote baseline: `origin/main`
+- App source commit: `87ffb7d Fix release workflow review issues`
 - Version: `0.1.0`
+- Post-push CI state: no workflow run was triggered for `87ffb7d` because the current workflows run on PRs, manual dispatch, and `v*` tags, not ordinary `main` pushes.
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,786,483` bytes
+- Size: `3,790,884` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `96CBAD1238A8CBE09AFC18B2A8E96C06E46DD4690CB492CBC9F2C5EE13130262`
+- SHA-256: `7BC4A75F90BB63B89C1133D0C277159FC587825A4C5B35678589B1EE76312B50`
 
 ## Completed Verification
 
-- `npm.cmd run mvp:check` passed on the current release candidate working tree.
+- `master` was pushed to `origin/main` and verified at `87ffb7d`.
+- GitHub Actions inspection found no failed runs for the pushed commit; recent visible Actions runs were earlier PR-triggered successes.
+- `npm.cmd run mvp:check` passed on the current release candidate working tree with `146 pass / 0 fail / 55 skipped` in the core suite.
+- `npm.cmd run test:e2e:browser:mvp` passed through note, Vault, import, export, graph, and explorer move/delete browser paths.
 - Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
 - Unit coverage confirms packaged desktop API placeholder `__API_BASE__` falls back to `http://localhost:3000`.
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
-- Windows NSIS build passed with updater artifacts disabled for this local RC build.
+- Windows NSIS build passed from `npm.cmd run build:desktop:nsis` with updater artifacts disabled for this local RC build.
 - Bundle manifest and checksum were generated.
 - Silent installer smoke passed with exit code `0`.
 - Installed executable launched successfully from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe`.
