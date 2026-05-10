@@ -1560,9 +1560,19 @@ function renderSidebarTitle() {
   const moduleSidebar = $("moduleSidebar");
   const listArea = $("listArea");
   const searchToggle = $("btnToggleSearch");
+  const sidebarSubtitle = $("sidebarSubtitle");
+  const sidebarFoot = $("sidebarFoot");
 
   if (editorMode) {
     $("sidebarTitle").textContent = displayFolderName(root);
+    if (sidebarSubtitle) {
+      sidebarSubtitle.textContent =
+        state.browserRootId === "dir_fleeting_default"
+          ? "先记下线索、问题和还没成形的判断。"
+          : state.browserRootId === "dir_literature_default"
+            ? "把原文、转述和保留理由放进同一条加工路径。"
+            : "把已经成形的判断沉淀成可复用的观点单元。";
+    }
     const quickAction =
       state.browserRootId === "dir_fleeting_default"
         ? "quick-fleeting"
@@ -1579,12 +1589,20 @@ function renderSidebarTitle() {
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
-    if ($("sidebarFoot")) $("sidebarFoot").textContent = "";
+    if (sidebarFoot) {
+      sidebarFoot.textContent =
+        state.browserRootId === "dir_fleeting_default"
+          ? "随手记用来捕捉还不成熟的线索。等判断开始变清楚，再继续推进到原创笔记。"
+          : state.browserRootId === "dir_literature_default"
+            ? "文献笔记不以摘录结束。只有完成转述，它才真正进入你的理解结构。"
+            : "原创笔记承接你已经想清楚的判断。连接、标签和写作都应该从这里继续长出来。";
+    }
     return;
   }
 
   const moduleUi = currentModuleUi();
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
+  if (sidebarSubtitle) sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
   sidebarPrimaryActions?.classList.add("hidden");
@@ -1592,7 +1610,7 @@ function renderSidebarTitle() {
   listArea?.classList.add("hidden");
   moduleSidebar?.classList.add("visible");
   if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
-  if ($("sidebarFoot")) $("sidebarFoot").textContent = moduleUi.sidebarFoot;
+  if (sidebarFoot) sidebarFoot.textContent = moduleUi.sidebarFoot;
 }
 
 function currentModuleUi() {
@@ -1601,6 +1619,7 @@ function currentModuleUi() {
   const configs = {
     imports: {
       sidebarTitle: "导入中心",
+      sidebarSubtitle: "先预览，再确认写入。",
       sidebarFoot: "导入是独立流程：选择来源、预览候选、确认写入，再按需回滚。",
       title: "导入与导出",
       summary: "\u628a\u5916\u90e8 Markdown\u3001Obsidian\u3001Zotero\u3001Readwise \u7b49\u5185\u5bb9\u5e26\u5165\u7814\u601d\u5f55\u65f6\uff0c\u8fd9\u91cc\u53ea\u670d\u52a1\u5bfc\u5165\u4e0e\u521d\u7b5b\uff0c\u4e0d\u628a\u8d44\u6599\u5165\u5e93\u91cf\u5305\u88c5\u6210\u8fdb\u5c55\u3002\u771f\u6b63\u7684\u8fdb\u5c55\u53d1\u751f\u5728\u540e\u7eed\u8f6c\u8ff0\u3001\u63d0\u70bc\u4e0e\u5199\u4f5c\u3002",
@@ -1621,6 +1640,7 @@ function currentModuleUi() {
     },
     graph: {
       sidebarTitle: "关系图谱",
+      sidebarSubtitle: "只看当前范围，不看全局噪音。",
       sidebarFoot: "图谱默认围绕当前目录或当前主题，不展示全局大图。",
       title: "关系图谱",
       summary: "图谱页不只看连接，还要帮助你看见重名冲突、孤立观点、待补链接理由，以及哪些概念其实还没有真正对齐。",
@@ -1641,6 +1661,7 @@ function currentModuleUi() {
     },
     writing: {
       sidebarTitle: "写作中心",
+      sidebarSubtitle: "从成熟笔记进入写作准备。",
       sidebarFoot: "写作中心应从成熟笔记出发，不替代笔记编辑器。",
       title: "写作中心",
       summary: "这里不是囤积观点卡的地方，而是把已经成熟的原创笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
@@ -1661,6 +1682,7 @@ function currentModuleUi() {
     },
     settings: {
       sidebarTitle: "设置",
+      sidebarSubtitle: "系统配置不应打断写作流程。",
       sidebarFoot: "设置页只处理系统与卡片盒配置，不打断正在写的笔记流程。",
       title: "设置",
       summary: "这里处理 Vault 路径、初始化状态和桌面文件能力。它应该像应用设置页，而不是混进笔记编辑视图。",
@@ -1681,6 +1703,7 @@ function currentModuleUi() {
   };
   return configs[state.module] || {
     sidebarTitle: "功能页",
+    sidebarSubtitle: "当前功能页。",
     sidebarFoot: "当前功能页。",
     title: "功能页",
     summary: "当前模块说明。",

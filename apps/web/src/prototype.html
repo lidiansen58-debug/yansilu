@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>研思录工作台</title>
+  <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
   <link rel="stylesheet" href="/vendor/toastui-editor.css" />
   <script>
     (() => {
@@ -192,6 +193,12 @@
       color: #27343a;
       font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
     }
+    .vault-subtitle {
+      margin-top: 4px;
+      color: #6b746d;
+      font-size: 12px;
+      line-height: 1.5;
+    }
     .sidebar-actions {
       display: grid;
       gap: 0;
@@ -251,6 +258,14 @@
       padding-top: 8px;
       padding-bottom: 8px;
       background: rgba(247, 244, 237, 0.82);
+    }
+    .sidebar-foot {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--line);
+      color: #5e6a63;
+      font-size: 12px;
+      line-height: 1.65;
+      background: rgba(250, 248, 242, 0.84);
     }
     input, select, textarea {
       width: 100%;
@@ -4176,7 +4191,7 @@
   <div class="app">
     <aside class="rail">
       <div class="rail-group">
-        <button class="rail-btn quick-entry" data-action="quick-fleeting" title="随笔笔记" data-tip="随笔笔记" aria-label="随笔笔记">
+        <button class="rail-btn quick-entry" data-action="quick-fleeting" title="随手记" data-tip="随手记" aria-label="随手记">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.15 12.8l1.2-4.25L9.95 3a1.6 1.6 0 0 1 2.25 2.25L6.6 10.85 3.15 12.8z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
             <path d="M8.9 4.05l3.05 3.05" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
@@ -4235,6 +4250,7 @@
         <div class="vault-head-main">
           <h2 id="sidebarTitle">目录</h2>
         </div>
+        <div class="vault-subtitle" id="sidebarSubtitle">三种笔记，一条生长路径。</div>
         <div class="sidebar-actions" id="sidebarPrimaryActions">
           <div class="sidebar-actions-main">
             <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建卡片盒" data-tip="新建卡片盒" aria-label="新建卡片盒"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.45 4.15h4.2l1.05 1.3h5.75a1.05 1.05 0 0 1 1.02 1.26l-.67 3.46a1.5 1.5 0 0 1-1.47 1.22H3.68a1.5 1.5 0 0 1-1.47-1.22L1.54 6.7a1.05 1.05 0 0 1 .91-1.29z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M8 6.55v3.15M6.42 8.12h3.16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg></button>
@@ -4250,6 +4266,7 @@
       </div>
       <div class="module-sidebar" id="moduleSidebar"></div>
       <div class="list-area" id="listArea"></div>
+      <div class="sidebar-foot" id="sidebarFoot">从随手记开始捕捉线索，再把文献笔记和原创笔记慢慢组织成自己的结构。</div>
     </aside>
 
     <main class="main">
