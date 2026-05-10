@@ -59,7 +59,10 @@ test("marketing routes expose static legal and about pages", async (t) => {
   const routes = [
     ["/about", "page-about-v2"],
     ["/privacy", "page-privacy-v2"],
-    ["/terms", "page-terms-v2"]
+    ["/terms", "page-terms-v2"],
+    ["/login", "page-login-v2"],
+    ["/register", "page-register-v2"],
+    ["/billing", "page-billing-v2"]
   ];
 
   for (const [route, bodyClass] of routes) {

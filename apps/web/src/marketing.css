@@ -3264,6 +3264,37 @@ img {
   color: var(--site-ink-soft);
 }
 
+.site-v2 .auth-card {
+  background:
+    radial-gradient(circle at top left, rgba(125, 223, 255, 0.14), transparent 34%),
+    rgba(11, 19, 36, 0.78);
+  border: 1px solid var(--site-line);
+  box-shadow: var(--site-shadow);
+}
+
+.site-v2 .auth-card p,
+.site-v2 .auth-note,
+.site-v2 .billing-note-label,
+.site-v2 .auth-sent {
+  color: var(--site-muted);
+}
+
+.site-v2 .field label,
+.site-v2 .billing-note-row {
+  color: var(--site-ink-soft);
+}
+
+.site-v2 .field input {
+  border-color: var(--site-line);
+  background: rgba(3, 7, 17, 0.55);
+  color: var(--site-ink);
+  font: 700 15px/1 var(--site-font-body);
+}
+
+.site-v2 .auth-link {
+  color: var(--site-cyan);
+}
+
 .site-v2 .compare-table-wrap {
   border-color: var(--site-line);
   background: rgba(11, 19, 36, 0.72);
