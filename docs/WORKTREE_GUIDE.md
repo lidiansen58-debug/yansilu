@@ -1,5 +1,11 @@
 # Worktree Guide
 
+## Current Baseline
+
+The current post-cleanup directory ownership and thread mapping is recorded in `docs/WORKTREE_OWNERSHIP_2026-05-10.md`.
+
+That baseline supersedes the older long-lived feature-branch convention in this guide: keep reusable directories, but start new short-lived branches from current `master` when a new thread begins work.
+
 ## Goal
 
 This guide defines a practical worktree split for the current Yansilu monorepo so feature work, release work, and QA work can move in parallel without turning every merge into a cross-cutting integration event.
