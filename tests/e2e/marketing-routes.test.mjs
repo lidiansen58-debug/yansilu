@@ -71,7 +71,16 @@ test("marketing routes expose static legal and about pages", async (t) => {
     assert.match(res.headers.get("content-type") || "", /text\/html/);
     const html = await res.text();
     assert.match(html, new RegExp(`body class="[^"]*${bodyClass}`));
+    assert.match(html, /<main id="main"/);
     assert.match(html, /marketing-site\.js/);
+    if (route === "/login" || route === "/register") {
+      assert.match(html, /id="authForm"/);
+      assert.match(html, /class="auth-card"/);
+    }
+    if (route === "/billing") {
+      assert.match(html, /data-billing-plan/);
+      assert.match(html, /data-billing-status/);
+    }
   }
 });
 
