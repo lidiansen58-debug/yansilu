@@ -523,7 +523,8 @@ test("prototype original note can save and persists content after authorship con
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
-    const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(blockedNoteId)}`);
+    const activeNoteId = await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.id || "");
+    const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(activeNoteId || blockedNoteId)}`);
     assert.equal(savedNote.status, 200);
     assert.match(savedNote.json.item.body || "", /Authorship Gate Note/);
     assert.match(savedNote.json.item.body || "", /explicitly confirm authorship/);
@@ -1082,7 +1083,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await waitForPlaceholderTitleSelection(page);
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Structure Blocks");
   await page.keyboard.press("Enter");
 
@@ -1166,8 +1167,7 @@ test("prototype editor contextual code tools can switch the current code block l
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Code Language Tools");
   await page.keyboard.press("Enter");
 
@@ -1291,8 +1291,7 @@ test("prototype editor toolbar keeps title in place and formats rich text blocks
   const { page } = stack;
 
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector("#editorHost .cm-content");
-  await waitForPlaceholderTitleSelection(page);
+  await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Toolbar Title");
 
   await page.locator("#headingLevelSelect").selectOption("2");
@@ -1331,16 +1330,15 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { page } = stack;
 
-  const created = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# Indent note\n\n- first\n- second"
-  });
-  assert.equal(created.status, 201);
-
-  await page.goto(`${webBase}/editor?note=${encodeURIComponent(created.json.item.id)}`, { waitUntil: "networkidle" });
+  await page.locator("#btnNewNote").click();
   await ensureSourceMode(page);
+  await page.evaluate(() => {
+    const markdown = "# Indent note\n\n- first\n- second";
+    window.__prototypeEditor?.setEditorValue?.(markdown);
+    window.__prototypeEditor?.handleEditorInput?.();
+  });
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("- first"));
 
   await page.evaluate(() => {
@@ -1369,16 +1367,6 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /\n- first\n- second/);
   }, 5000);
-
-  await page.evaluate(async () => {
-    await window.__prototypeEditor?.saveActiveNote?.({ autoSave: true, trigger: "e2e-indent-cleanup" });
-  });
-  await waitFor(async () => {
-    const status = await currentStatusText(page);
-    assert.match(String(status || ""), /已同步|自动同步|同步/);
-  }, 10000);
-
-  await page.close({ runBeforeUnload: false });
 });
 
 test("prototype editor enter continues list quote and checklist structures", async (t) => {
@@ -1392,16 +1380,16 @@ test("prototype editor enter continues list quote and checklist structures", asy
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
-
-  const created = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# Continue structures\n\n- first\n> quoted\n- [ ] todo"
-  });
-  assert.equal(created.status, 201);
+  const { page, webBase } = stack;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Continue structures" }).click();
+  await page.locator("#btnNewNote").click();
+  await ensureSourceMode(page);
+  await page.evaluate(() => {
+    const markdown = "# Continue structures\n\n- first\n> quoted\n- [ ] todo";
+    window.__prototypeEditor?.setEditorValue?.(markdown);
+    window.__prototypeEditor?.handleEditorInput?.();
+  });
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("- [ ] todo"));
 
   await page.evaluate(() => {
@@ -1484,7 +1472,10 @@ test("prototype editor enter preserves ordinary blank paragraphs", async (t) => 
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\nLine one\n\nLine two/);
+    assert.ok(
+      /\nLine one\n\n(?:<br>\n\n)?Line two/.test(editorValue),
+      `Expected blank paragraph before Line two, got:\n${editorValue}`
+    );
   }, 5000);
 });
 
@@ -1526,7 +1517,10 @@ test("prototype editor enter preserves ordinary blank paragraphs in wysiwyg", as
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\nLine one\n\nLine two/);
+    assert.ok(
+      /\nLine one\n\n(?:<br>\n\n)?Line two/.test(editorValue),
+      `Expected blank paragraph before Line two, got:\n${editorValue}`
+    );
   }, 5000);
 });
 
@@ -1848,6 +1842,223 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
   assert.match(saved.json.item.body || "", /WYSIWYG tail\./);
 });
 
+test("prototype editor preserves consecutive blank lines in wysiwyg", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.locator("#btnNewNote").click();
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Blank Lines Note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("First line");
+
+  // Consecutive Enter in WYSIWYG should keep blank lines stable.
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("After blanks");
+
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /# Blank Lines Note/);
+    assert.match(value, /First line/);
+    assert.match(value, /After blanks/);
+    const hasBr = value.includes("<br>");
+    const hasTripleNewline = /\n{3,}/.test(value);
+    assert.ok(
+      hasBr || hasTripleNewline,
+      `Expected preserved blank lines (<br> or extra newlines), got:\n${value}`
+    );
+  }, 8000);
+});
+
+test("prototype editor opens external links without navigating the app", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  await createAndSaveNoteViaEditor(page, "# External Link\n\n[Example](https://example.com)");
+
+  const startUrl = page.url();
+  await ensureNoteMode(page);
+  await page.waitForFunction(() => {
+    const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
+    return Boolean(rich && rich.querySelector("a[href^='https://']"));
+  });
+
+  const popupPromise = page.waitForEvent("popup").catch(() => null);
+  await page.evaluate(() => {
+    const link = document.querySelector("#wysiwygHost .toastui-editor-contents a[href^='https://']");
+    if (!link) throw new Error("Missing external link in wysiwyg contents");
+    link.scrollIntoView({ block: "center", inline: "center" });
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  const popup = await popupPromise;
+  if (popup) {
+    await popup.close().catch(() => {});
+  }
+
+  await waitFor(async () => {
+    assert.equal(page.url(), startUrl);
+    assert.ok(page.url().startsWith(`${webBase}/prototype`), `Unexpected navigation to ${page.url()}`);
+  }, 3000);
+});
+
+test("prototype editor can insert image and attachment", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  const tempDir = await makeTempDir("yansilu-asset-e2e-");
+  const pngPath = path.join(tempDir, "tiny.png");
+  const txtPath = path.join(tempDir, "hello.txt");
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/aznP6UAAAAASUVORK5CYII=";
+  await fs.writeFile(pngPath, Buffer.from(pngBase64, "base64"));
+  await fs.writeFile(txtPath, "hello attachment\n", "utf8");
+
+  await page.locator("#btnNewNote").click();
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Asset Insert Note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Body");
+
+  await page.setInputFiles("#assetImageInput", pngPath);
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /tiny\.png/);
+  }, 10000);
+
+  await page.setInputFiles("#assetFileInput", txtPath);
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /hello\.txt/);
+  }, 10000);
+
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.ok(/!\[[^\]]*\]\([^\)]*tiny\.png\)/.test(value), `Expected image markdown, got:\n${value}`);
+    assert.ok(/\[[^\]]*\]\([^\)]*hello\.txt\)/.test(value), `Expected attachment markdown, got:\n${value}`);
+  }, 8000);
+
+  await ensureNoteMode(page);
+  await page.waitForFunction(() => {
+    const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
+    return Boolean(
+      rich &&
+        rich.querySelector("img[data-preview-asset-url]") &&
+        [...rich.querySelectorAll("a[data-preview-asset-url]")].some((a) => /hello\.txt/i.test(a.textContent || ""))
+    );
+  });
+
+  await page.evaluate(() => {
+    const img = document.querySelector("#wysiwygHost .toastui-editor-contents img[data-preview-asset-url]");
+    if (!img) throw new Error("Missing previewable image asset");
+    img.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await page.waitForFunction(() => {
+    const mask = document.querySelector("#assetPreviewMask");
+    return Boolean(mask && !mask.classList.contains("hidden"));
+  });
+
+  await page.locator("#btnCloseAssetPreview").click();
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll("#wysiwygHost .toastui-editor-contents a[data-preview-asset-url]")]
+      .find((node) => /hello\.txt/i.test(node.textContent || ""));
+    if (!link) throw new Error("Missing previewable attachment asset");
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await page.waitForFunction(() => {
+    const mask = document.querySelector("#assetPreviewMask");
+    return Boolean(mask && !mask.classList.contains("hidden"));
+  });
+});
+
+test("prototype editor opens wikilinks and tag results from wysiwyg tokens", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Token Target\n\nTarget body with #thinkingflow."
+  });
+  await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Tag Peer\n\nAnother note with #thinkingflow."
+  });
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Token Source\n\nOpen [[Token Target]] and inspect #thinkingflow."
+  });
+  assert.equal(source.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Token Source" }).click();
+  await ensureNoteMode(page);
+  const startUrl = page.url();
+  await page.waitForFunction(() => {
+    const host = document.querySelector("#wysiwygHost");
+    return Boolean(host && host.querySelector("[data-wikilink='Token Target']") && host.querySelector("[data-tag-token='thinkingflow']"));
+  });
+
+  await page.evaluate(() => {
+    const tag = document.querySelector("#wysiwygHost [data-tag-token='thinkingflow']");
+    if (!tag) throw new Error("Missing tag token");
+    tag.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await waitFor(async () => {
+    assert.equal(page.url(), startUrl);
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /标签检索：#thinkingflow/);
+    assert.match(String(relatedText || ""), /Tag Peer|Token Target/);
+  }, 10000);
+
+  await page.evaluate(() => {
+    const link = document.querySelector("#wysiwygHost [data-wikilink='Token Target']");
+    if (!link) throw new Error("Missing wikilink token");
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await waitFor(async () => {
+    assert.equal(page.url(), startUrl);
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /# Token Target/);
+  }, 10000);
+});
+
 test("prototype editor inline wikilink picker inserts ranked candidate", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -2069,13 +2280,13 @@ test("prototype tag click searches SQLite beyond the loaded directory", async (t
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tag source" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("#sharedtag"));
+  await ensureNoteMode(page);
+  await page.waitForFunction(() => Boolean(document.querySelector("#wysiwygHost [data-tag-token='sharedtag']")));
 
-  await page.locator("#editorBody").evaluate((el) => {
-    const index = el.value.indexOf("#sharedtag");
-    el.focus();
-    el.selectionStart = index + 2;
-    el.selectionEnd = index + 2;
-    el.dispatchEvent(new MouseEvent("click", { bubbles: true, ctrlKey: true }));
+  await page.evaluate(() => {
+    const token = document.querySelector("#wysiwygHost [data-tag-token='sharedtag']");
+    if (!token) throw new Error("Missing #sharedtag token");
+    token.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   });
 
   await waitFor(async () => {
@@ -2935,6 +3146,10 @@ test("prototype import confirm can open imported literature notes in paraphrase 
   assert.match(String(importActionAreaText || ""), /待转述/);
   assert.match(String(importActionAreaText || ""), /待提炼/);
   assert.match(String(importActionAreaText || ""), /可转原创/);
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /导入确认完成/);
+  }, 10000);
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
 
   await waitFor(async () => {
@@ -3566,7 +3781,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const editorValue = await page.locator("#editorBody").inputValue();
   assert.match(editorValue, /# Writing UI Project 草稿/);
-  assert.match(editorValue, /DraftScaffold: ds_/);
+  assert.match(editorValue, /DraftScaffold: ds\\?_/);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => {

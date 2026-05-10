@@ -70,6 +70,7 @@ Primary AI / Agent documents:
 
 - `docs/AI_AGENT_LAYER_REQUIREMENTS_V1.md`: product and architecture requirements for the AI / Agent layer.
 - `docs/AI_AGENT_LAYER_WORKSTREAM_FRAMEWORK_V1.md`: this workstream boundary, phase plan, and collaboration model.
+- `docs/AI_AGENT_EVALUATION_AND_ACCEPTANCE_V1.md`: task, model, privacy, cost, scheduled-task, and UX acceptance plan.
 - `docs/AI_PRIVACY_PERMISSION_AND_ORIGINALITY_POLICY_V1.md`: privacy, permission, cloud-use, background-agent, and originality guardrail policy.
 - `docs/MODEL_SWITCHING_PROBLEM_MATRIX.md`: risks and decisions for multi-model switching.
 - `docs/MODEL_ROUTING_POLICY_V1.md`: which tasks use which model tiers and why.
@@ -86,6 +87,8 @@ Primary AI / Agent documents:
 - `docs/AGENT_RUN_LOG_SCHEMA_V1.md`: trace, usage, cost, fallback, and tool-call record schema.
 - `docs/SCHEDULED_AGENT_TASKS_V1.md`: recurring research, scan, digest, and notification behavior.
 - `docs/AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
+- `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_CHECKLIST.md`: codebase discovery checklist before starting implementation.
+- `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_REPORT_2026-05-10.md`: current codebase discovery findings and first implementation slice recommendation.
 
 Relevant existing product documents:
 
