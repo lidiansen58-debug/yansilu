@@ -75,8 +75,10 @@ Primary AI / Agent documents:
 - `docs/MODEL_NEUTRALITY_AND_PORTABILITY_PRINCIPLES.md`: anti-lock-in architecture principles for providers, models, gateways, and deployment modes.
 - `docs/MODEL_PACKS_AND_USER_SETTINGS_V1.md`: novice-friendly model modes, model packs, BYOK, team, and enterprise settings.
 - `docs/AI_TOOL_CONTRACTS_V1.md`: stable tool boundary between the note app and the Agent layer.
+- `docs/CORE_NOTE_APP_INTEGRATION_CONTRACT_V1.md`: minimum API and event boundary needed from the core note app.
 - `docs/PROVIDER_ADAPTER_INTERFACE_V1.md`: normalized provider/gateway/local runtime interface for model portability.
 - `docs/AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
+- `docs/AI_AGENT_LAYER_STORAGE_SCHEMA_V1.md`: AI-owned storage boundary for artifacts, run logs, context packs, scheduled tasks, and provider settings.
 - `docs/AGENT_HARNESS_ARCHITECTURE_V1.md`: runtime, scheduler, tracing, and tool execution architecture.
 - `docs/MODEL_PROVIDER_CAPABILITY_MATRIX.md`: provider/model capabilities, cost, region, and tool support.
 - `docs/CONTEXT_PACK_SCHEMA_V1.md`: bounded context package schema for agent runs.
