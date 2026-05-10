@@ -9,6 +9,7 @@ const TAURI_CONFIG_PATH = path.join(DESKTOP_ROOT, "tauri.conf.json");
 const ICON_PNG_PATH = path.join(DESKTOP_ROOT, "icons", "icon.png");
 const ICON_ICO_PATH = path.join(DESKTOP_ROOT, "icons", "icon.ico");
 const EXPECTED_APP_NAME = "研思录";
+const DEFAULT_FRONTEND_DIST = path.resolve(REPO_ROOT, "apps", "web", "src");
 
 function logResult(label, ok, detail = "") {
   const status = ok ? "PASS" : "FAIL";
@@ -62,6 +63,11 @@ try {
   const bundleIcons = Array.isArray(config.bundle?.icon) ? config.bundle.icon : [];
   const createsUpdaterArtifacts = Boolean(config.bundle?.createUpdaterArtifacts);
   const hasUpdaterConfig = Boolean(config.plugins?.updater);
+  const frontendDistRel = String(config.build?.frontendDist || "").trim();
+  const frontendDistDir = frontendDistRel ? path.resolve(DESKTOP_ROOT, frontendDistRel) : DEFAULT_FRONTEND_DIST;
+  const frontendIndexPath = path.join(frontendDistDir, "index.html");
+  const frontendDistOk = fs.existsSync(frontendDistDir);
+  const frontendIndexOk = fs.existsSync(frontendIndexPath);
 
   const productOk = productName === EXPECTED_APP_NAME;
   const titleOk = windowTitle === EXPECTED_APP_NAME;
@@ -78,8 +84,10 @@ try {
     updaterArtifactsOk,
     createsUpdaterArtifacts ? "enabled with updater config" : "disabled"
   );
+  logResult("tauri frontendDist exists", frontendDistOk, frontendDistDir);
+  logResult("tauri frontendDist index.html", frontendIndexOk, frontendIndexOk ? frontendIndexPath : "missing");
 
-  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk;
+  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk && frontendDistOk && frontendIndexOk;
 } catch (error) {
   logResult("tauri config parse", false, String(error?.message || error));
   overallOk = false;
