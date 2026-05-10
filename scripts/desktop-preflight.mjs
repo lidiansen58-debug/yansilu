@@ -53,6 +53,8 @@ const rustcOk = hasCommand("rustc", env);
 const tauriVersion = commandVersion("tauri", env) || npmExecTauriVersion(env);
 const tauriShim = localTauriShim();
 const tauriOk = Boolean(tauriVersion || tauriShim);
+const webPort = Number.parseInt(process.env.WEB_PORT || "5173", 10);
+const apiPort = Number.parseInt(process.env.API_PORT || "3000", 10);
 
 logResult("cargo", cargoOk, cargoOk ? commandVersion("cargo", env) : "~/.cargo/bin not detected in PATH");
 logResult("rustc", rustcOk, rustcOk ? commandVersion("rustc", env) : "~/.cargo/bin not detected in PATH");
@@ -62,10 +64,10 @@ logResult(
   tauriVersion || (tauriShim ? `local shim found at ${tauriShim}` : "npm devDependency exists but CLI is not runnable in current shell")
 );
 
-const webUp = await canConnect(5173);
-const apiUp = await canConnect(3000);
-logResult("web dev server :5173", webUp, webUp ? "reachable" : "not running");
-logResult("api server :3000", apiUp, apiUp ? "reachable" : "not running");
+const webUp = await canConnect(webPort);
+const apiUp = await canConnect(apiPort);
+logResult(`web dev server :${webPort}`, webUp, webUp ? "reachable" : "not running");
+logResult(`api server :${apiPort}`, apiUp, apiUp ? "reachable" : "not running");
 
 if (!cargoOk || !rustcOk || !tauriOk) {
   process.exit(1);
