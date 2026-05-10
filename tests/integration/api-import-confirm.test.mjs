@@ -88,7 +88,7 @@ function assertImportRecordBase(record, status) {
 
 function assertCreatedFileContract(item) {
   assert.equal(typeof item.noteId, "string");
-  assert.match(item.noteType, /^(source|literature|permanent)$/);
+  assert.match(item.noteType, /^(source|literature|permanent|asset)$/);
   assert.equal(typeof item.path, "string");
   assert.equal(typeof item.hash, "string");
 }
@@ -465,12 +465,13 @@ test("API selective Obsidian confirm writes realistic Chinese vault notes and ro
   const completedRecord = await getJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}`);
   assert.equal(completedRecord.status, 200);
   assert.equal(completedRecord.json.importRecord.status, "completed");
-  assert.equal(completedRecord.json.importRecord.confirmResult.createdFiles.length, 4);
+  assert.equal(completedRecord.json.importRecord.confirmResult.createdFiles.length, 5);
 
   const createdFiles = completedRecord.json.importRecord.confirmResult.createdFiles;
   for (const item of createdFiles) {
     await fs.access(path.join(vaultPath, item.path));
   }
+  assert.ok(createdFiles.some((item) => item.noteType === "asset"));
 
   const chineseLiteratureFile = createdFiles.find((item) => item.noteId === chinesePreview.id);
   assert.ok(chineseLiteratureFile);
@@ -493,7 +494,7 @@ test("API selective Obsidian confirm writes realistic Chinese vault notes and ro
   const rollback = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/rollback`, {});
   assert.equal(rollback.status, 200, JSON.stringify(rollback.json));
   assert.equal(rollback.json.status, "rolled_back");
-  assert.equal(rollback.json.result.rolledBack, 4);
+  assert.equal(rollback.json.result.rolledBack, 5);
   assert.equal(rollback.json.result.skipped, 0);
 
   for (const item of createdFiles) {

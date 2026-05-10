@@ -4677,7 +4677,8 @@ async function bootstrap() {
         targetPath,
         exportJobId: result.exportJobId,
         status: result.status,
-        copied: result.copied
+        copied: result.copied,
+        copiedBreakdown: result.copiedBreakdown || null
       });
       setStatus(`Markdown 导出已提交：${result.exportJobId}，复制 ${result.copied} 个文件`, "ok");
     } catch (error) {

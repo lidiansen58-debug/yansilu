@@ -873,7 +873,7 @@ Response status: `201`
 
 ### `POST /api/v1/exports/markdown`
 
-Copies all Markdown files under `vault/notes` to the target directory and writes an export record under `vault/exports`.
+Copies all Markdown files under `vault/notes` and all files under `vault/assets` to the target directory, then writes an export record under `vault/exports`.
 
 Request:
 
@@ -889,7 +889,12 @@ Response status: `202`
 {
   "exportJobId": "exp_1776900000000_abcd1234",
   "status": "queued",
-  "copied": 2
+  "copied": 3,
+  "copiedBreakdown": {
+    "markdownFiles": 2,
+    "assetFiles": 1,
+    "totalFiles": 3
+  }
 }
 ```
 
@@ -898,7 +903,12 @@ Export record shape:
 ```json
 {
   "exportJobId": "exp_1776900000000_abcd1234",
-  "copied": 2,
+  "copied": 3,
+  "copiedBreakdown": {
+    "markdownFiles": 2,
+    "assetFiles": 1,
+    "totalFiles": 3
+  },
   "targetPath": "E:/exports/yansilu-markdown",
   "requestId": "req_1776900000000_123",
   "time": "2026-04-23T03:00:00.000Z"

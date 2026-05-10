@@ -158,7 +158,7 @@
             "required": ["noteId", "noteType", "path", "hash"],
             "properties": {
               "noteId": { "type": "string" },
-              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent", "asset"] },
               "path": { "type": "string" },
               "hash": { "type": "string" }
             }
@@ -180,7 +180,7 @@
             "required": ["noteId", "noteType", "path", "hash"],
             "properties": {
               "noteId": { "type": "string" },
-              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent", "asset"] },
               "path": { "type": "string" },
               "hash": { "type": "string" }
             }
@@ -194,7 +194,7 @@
             "required": ["noteId", "noteType", "path", "hash", "reason"],
             "properties": {
               "noteId": { "type": "string" },
-              "noteType": { "type": "string", "enum": ["source", "literature", "permanent"] },
+              "noteType": { "type": "string", "enum": ["source", "literature", "permanent", "asset"] },
               "path": { "type": "string" },
               "hash": { "type": "string" },
               "reason": { "type": "string" }

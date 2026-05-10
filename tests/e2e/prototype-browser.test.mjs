@@ -3375,13 +3375,15 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page } = stack;
+  const { apiBase, page, vaultPath } = stack;
 
   const createdNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     body: "# Export panel note\n\nThis note should be exported from the browser UI."
   });
   assert.equal(createdNote.status, 201);
+  await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "assets", "browser-export", "asset.txt"), "browser asset", "utf8");
 
   const exportTargetPath = await makeTempDir("yansilu-browser-export-target-");
   await openImportsModule(page);
@@ -3390,16 +3392,20 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 1');
+    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 2') && text.includes("资源文件");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
   assert.match(exportResultText || "", /"status":\s*"queued"/);
+  assert.match(exportResultText || "", /Markdown 文件/);
+  assert.match(exportResultText || "", /资源文件/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
   assert.equal(exportedFiles.length, 1, JSON.stringify(exportedFiles, null, 2));
+  const exportedAsset = await fs.readFile(path.join(exportTargetPath, "assets", "browser-export", "asset.txt"), "utf8");
+  assert.equal(exportedAsset, "browser asset");
 
   const exportedContent = await fs.readFile(exportedFiles[0], "utf8");
   assert.match(exportedContent, /# Export panel note/);

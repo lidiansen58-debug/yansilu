@@ -18,11 +18,20 @@ function renderConnectorOptions(selectedValue) {
 export function renderImportToolbarPanel(input = {}) {
   const model = importToolbarViewModel(input);
   return `
-    <div class="import-card">
+    <div class="import-card import-toolbar-card">
       <div class="import-card-head">
-        <strong>开始一次导入</strong>
+        <div>
+          <div class="import-card-kicker">Import</div>
+          <strong>开始一次导入</strong>
+        </div>
+        <span class="import-card-badge">预览后写入</span>
       </div>
-      <p class="import-card-note">先选来源与路径，先预览候选，再确认写入。高级参数、记录读取和回滚都收进二级区域，避免第一次进入就被复杂选项打断。</p>
+      <div class="import-flow-steps" aria-label="导入流程">
+        <div><span>1</span><strong>预览候选</strong></div>
+        <div><span>2</span><strong>确认写入</strong></div>
+        <div><span>3</span><strong>历史回滚</strong></div>
+      </div>
+      <p class="import-card-note">先选来源与路径，预览候选质量，再把确认过的内容写入 Vault。高级参数和记录操作收进下方区域。</p>
       <div class="import-grid" style="margin-top:10px;">
         <label for="importConnector">连接器</label>
         <select id="importConnector">
@@ -32,11 +41,11 @@ export function renderImportToolbarPanel(input = {}) {
         <label for="importPath">导入路径</label>
         <div class="path-picker">
           <input id="importPath" placeholder="例如：E:\\Projects\\Thinking in Notes\\notes-source" value="${escapeHtml(model.path)}" />
-          <button class="mini-btn" id="btnBrowseImportPath" type="button">浏览...</button>
+          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">浏览...</button>
         </div>
       </div>
       <div class="import-actions">
-        <button class="mini-btn" id="btnImportPreview">预览候选</button>
+        <button class="mini-btn primary" id="btnImportPreview">预览候选</button>
         <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
       </div>
       <details class="import-advanced" id="importAdvanced">
