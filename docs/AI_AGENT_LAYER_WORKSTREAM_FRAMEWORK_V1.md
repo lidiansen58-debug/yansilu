@@ -87,6 +87,7 @@ Primary AI / Agent documents:
 - `docs/AGENT_RUN_LOG_SCHEMA_V1.md`: trace, usage, cost, fallback, and tool-call record schema.
 - `docs/SCHEDULED_AGENT_TASKS_V1.md`: recurring research, scan, digest, and notification behavior.
 - `docs/AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
+- `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_CHECKLIST.md`: codebase discovery checklist before starting implementation.
 
 Relevant existing product documents:
 
