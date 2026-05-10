@@ -4,6 +4,8 @@ Date: 2026-05-10
 
 This document records the post-cleanup worktree layout. The active feature branches have been closed or archived. The directories remain reusable workspaces for new threads.
 
+Update 2026-05-10: a new desktop runtime slice is active at `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime` on branch `feat/desktop-runtime`.
+
 ## Current Rule
 
 Use `E:\Projects\Thinking in Notes\yansilu` as the only integration surface.
@@ -25,6 +27,7 @@ git -C "E:\Projects\Thinking in Notes\yansilu-wt\feat-core-workflow" switch -c f
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-core-workflow` | detached `master` | editor, explorer, graph, writing workflow | create a new core workflow thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-import-pipeline` | detached `master` | import preview, confirm, rollback, fixtures | create a new import thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-release` | detached `master` | Tauri shell, desktop packaging, updater, installer QA | create a new desktop release thread |
+| `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime` | `feat/desktop-runtime` | final packaged-app walkthrough, worktree desktop preflight, desktop runtime fixes | active desktop runtime slice |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-growth-site` | detached `master` | marketing site, auth, billing, public copy | create a new growth/website thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-ai-agent-layer` | detached `master` | AI layer docs, model routing, future agent harness | create a new AI layer thread |
 
@@ -70,6 +73,8 @@ Desktop release owns:
 - `scripts/desktop-*.mjs`
 - `scripts/release-*.mjs`
 - desktop bridge files such as `apps/web/src/desktop-*` and `apps/web/src/path-picker-adapter.js`
+
+The active `feat/desktop-runtime` branch currently owns the immediate RC1 packaged-app walkthrough and any small fixes needed to make desktop preflight, installer smoke, dialog/opener validation, and Windows path behavior reliable. Its generated `.env.worktree` uses `API_PORT=3100` and `WEB_PORT=5273` so it can run beside the main checkout's default `3000/5173` stack.
 
 Growth site owns:
 
