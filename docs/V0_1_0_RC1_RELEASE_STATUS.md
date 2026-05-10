@@ -1,6 +1,6 @@
 # Yansilu v0.1.0 RC1 Release Status
 
-Updated: 2026-05-10
+Updated: 2026-05-11
 
 ## Release Target
 
@@ -12,9 +12,9 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Local branch: `main`
 - Remote baseline: `origin/main`
-- App source commit: `bda724f test(marketing): cover static MVP routes`
+- App source commit used for the rebuilt installer: `e7e3bb5 docs(release): update RC1 verification status`
 - Version: `0.1.0`
-- CI state: local release-gate verification passed on `bda724f`; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
+- CI state: local release-gate verification passed against the current app code; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
 
 ## Build Artifact
 
@@ -38,9 +38,9 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
 - Windows NSIS build passed from `npm.cmd run build:desktop:nsis` with updater artifacts disabled for this local RC build.
 - Bundle manifest and checksum were generated.
-- Silent installer smoke passed with exit code `0`.
-- Installed executable launched successfully from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe`.
-- Launch smoke observed process `yansilu-desktop` with window title `研思录`.
+- Clean Windows NSIS uninstall/reinstall smoke passed on 2026-05-11 with exit code `0`.
+- The installed executable lands at `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` after clearing stale local installer state from earlier smoke tests.
+- Launch smoke observed process `yansilu-desktop` with window title `研思录` and `Responding=true`.
 - Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
 - Installed app editor layout verification passed: editor intent copy is hidden, related clues are hidden by default, and the next-step helper stays collapsed as a small floating pill until hover/focus.
 - Installed app WebView2 verification confirmed `已连接 API：http://localhost:3000` with packaged `window.__API_BASE__` still set to `__API_BASE__`.
@@ -69,6 +69,7 @@ The API-backed portion of this checklist has passed against the same `localhost:
 ## Known Limitations
 
 - The Windows installer is unsigned, so Windows SmartScreen may warn during install or first launch.
+- Local smoke machines that previously installed test builds to temporary directories may need `HKCU\Software\notesprout\研思录` cleared before verifying the fresh default install path; this is installer state, not user Vault content.
 - RC1 still depends on an external local API service (`http://localhost:3000`) and does not yet ship with an embedded backend.
 - Automatic update checks are enabled as best-effort desktop behavior, but production tagged releases still require signing secrets and a populated update feed before updates should be advertised.
 - macOS and Linux bundles are CI/build artifacts only until real target-machine smoke tests pass.
