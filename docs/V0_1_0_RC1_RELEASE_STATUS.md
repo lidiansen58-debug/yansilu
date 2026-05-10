@@ -10,27 +10,28 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 ## Source
 
-- Local branch: `master`
+- Local branch: `main`
 - Remote baseline: `origin/main`
-- App source commit: `87ffb7d Fix release workflow review issues`
+- App source commit: `bda724f test(marketing): cover static MVP routes`
 - Version: `0.1.0`
-- Post-push CI state: no workflow run was triggered for `87ffb7d` because the current workflows run on PRs, manual dispatch, and `v*` tags, not ordinary `main` pushes.
+- CI state: local release-gate verification passed on `bda724f`; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,790,884` bytes
+- Size: `3,805,153` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `7BC4A75F90BB63B89C1133D0C277159FC587825A4C5B35678589B1EE76312B50`
+- SHA-256: `8D318B74BEADA6FC0374B59F575E1B8955782BB7D27DC9C26295310D0DED3B7A`
 
 ## Completed Verification
 
-- `master` was pushed to `origin/main` and verified at `87ffb7d`.
-- GitHub Actions inspection found no failed runs for the pushed commit; recent visible Actions runs were earlier PR-triggered successes.
-- `npm.cmd run mvp:check` passed on the current release candidate working tree with `146 pass / 0 fail / 55 skipped` in the core suite.
+- `npm.cmd run mvp:check` passed on the current release candidate working tree with `161 pass / 0 fail / 59 skipped` in the core suite.
 - `npm.cmd run test:e2e:browser:mvp` passed through note, Vault, import, export, graph, and explorer move/delete browser paths.
+- Full browser E2E passed with `59 pass / 0 fail` after the editor helper and wrapped asset-link fixes.
+- Marketing route coverage passed for `/about`, `/privacy`, `/terms`, and static asset proxy HTML refusal.
 - Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
+- Targeted browser E2E passed for uploaded image preview with Chinese/spaced filenames and editor helper dismiss/mute behavior.
 - Unit coverage confirms packaged desktop API placeholder `__API_BASE__` falls back to `http://localhost:3000`.
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
