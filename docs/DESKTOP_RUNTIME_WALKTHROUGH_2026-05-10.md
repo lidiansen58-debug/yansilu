@@ -16,6 +16,7 @@ It covers the remaining proof before sharing the RC installer with internal or f
 - Web port for worktree dev/preflight: `5273`
 - Packaged app API base for this RC: `http://localhost:3000`
 - Vault: `E:\Projects\Thinking in Notes\yansilu-wt\_vaults\feat-desktop-runtime\yansilu-vault`
+- Manual walkthrough Vault: `E:\Projects\Thinking in Notes\yansilu-wt\_manual-walkthrough\研思录 Vault 手动走查`
 
 ## Automated Preconditions
 
@@ -121,4 +122,17 @@ Automated validation from `feat/desktop-runtime` also passed on 2026-05-10:
 - Silent install smoke: exit code `0`.
 - Launch smoke: `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` started as `yansilu-desktop`, window title `研思录`, responding `true`.
 
-The remaining gate is the manual packaged-app walkthrough above. No automated P0 was found in this branch validation.
+Packaged-app API-backed walkthrough also passed on 2026-05-10 after restarting `localhost:3000` from the `feat-desktop-runtime` worktree:
+
+- Installed app launched from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` with title `研思录` and `Responding=true`.
+- Active API Vault was `E:\Projects\Thinking in Notes\yansilu-wt\_manual-walkthrough\研思录 Vault 手动走查`.
+- Created custom directories and notes under Chinese/space-containing paths.
+- Edited and fetched saved Markdown content, including `[[wikilink]]` and `#tag` metadata.
+- Uploaded image and non-image attachments with Chinese/space-containing filenames, then read them back from `assets/`.
+- Verified tag search, note relations, and graph path lookup.
+- Markdown import preview/confirm/history/rollback passed.
+- Obsidian import preview/confirm/history/rollback passed, including embedded asset copy and rollback.
+- Markdown export passed for custom `fsPath` notes and default Vault notes.
+- Writing project creation and draft scaffold generation passed.
+
+No automated P0 was found in this branch validation. The remaining gate is the human UI portion of the manual packaged-app walkthrough: click through the installed WebView, confirm native dialogs are not hidden, and verify desktop opener actions for revealing a Markdown file and opening a directory.
