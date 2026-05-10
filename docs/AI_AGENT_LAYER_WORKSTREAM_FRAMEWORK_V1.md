@@ -88,6 +88,7 @@ Primary AI / Agent documents:
 - `docs/SCHEDULED_AGENT_TASKS_V1.md`: recurring research, scan, digest, and notification behavior.
 - `docs/AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
 - `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_CHECKLIST.md`: codebase discovery checklist before starting implementation.
+- `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_REPORT_2026-05-10.md`: current codebase discovery findings and first implementation slice recommendation.
 
 Relevant existing product documents:
 
