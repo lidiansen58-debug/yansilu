@@ -78,6 +78,7 @@ Primary AI / Agent documents:
 - `docs/CORE_NOTE_APP_INTEGRATION_CONTRACT_V1.md`: minimum API and event boundary needed from the core note app.
 - `docs/PROVIDER_ADAPTER_INTERFACE_V1.md`: normalized provider/gateway/local runtime interface for model portability.
 - `docs/AI_ARTIFACT_SCHEMA_V1.md`: schemas for research cards, link suggestions, reflection prompts, and synthesis drafts.
+- `docs/AI_AGENT_LAYER_STORAGE_SCHEMA_V1.md`: AI-owned storage boundary for artifacts, run logs, context packs, scheduled tasks, and provider settings.
 - `docs/AGENT_HARNESS_ARCHITECTURE_V1.md`: runtime, scheduler, tracing, and tool execution architecture.
 - `docs/MODEL_PROVIDER_CAPABILITY_MATRIX.md`: provider/model capabilities, cost, region, and tool support.
 - `docs/CONTEXT_PACK_SCHEMA_V1.md`: bounded context package schema for agent runs.
