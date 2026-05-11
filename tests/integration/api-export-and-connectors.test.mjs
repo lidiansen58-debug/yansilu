@@ -139,6 +139,23 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(record.targetPath, targetPath);
     assert.equal(record.copied, 3);
     assert.deepEqual(record.copiedBreakdown, payload.copiedBreakdown);
+    assert.deepEqual(record.exportedFiles, [
+      {
+        kind: "markdown",
+        sourcePath: "notes/literature/ln_api_export.md",
+        targetPath: "literature/ln_api_export.md"
+      },
+      {
+        kind: "markdown",
+        sourcePath: "notes/sources/src_api_export.md",
+        targetPath: "sources/src_api_export.md"
+      },
+      {
+        kind: "asset",
+        sourcePath: "assets/export-asset.txt",
+        targetPath: "assets/export-asset.txt"
+      }
+    ]);
   } finally {
     await stopApi(api);
   }
