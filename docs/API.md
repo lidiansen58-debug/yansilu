@@ -879,9 +879,12 @@ Request:
 
 ```json
 {
-  "targetPath": "E:/exports/yansilu-markdown"
+  "targetPath": "E:/exports/yansilu-markdown",
+  "noteIds": ["ln_selected_note"]
 }
 ```
+
+`noteIds` is optional. When omitted, the API exports all Markdown notes. When provided, it exports only those notes and the Vault assets linked from those notes.
 
 Response status: `202`
 
@@ -889,11 +892,15 @@ Response status: `202`
 {
   "exportJobId": "exp_1776900000000_abcd1234",
   "status": "queued",
-  "copied": 3,
+  "copied": 2,
   "copiedBreakdown": {
-    "markdownFiles": 2,
+    "markdownFiles": 1,
     "assetFiles": 1,
-    "totalFiles": 3
+    "totalFiles": 2
+  },
+  "scope": {
+    "type": "noteIds",
+    "noteIds": ["ln_selected_note"]
   }
 }
 ```
@@ -903,11 +910,15 @@ Export record shape:
 ```json
 {
   "exportJobId": "exp_1776900000000_abcd1234",
-  "copied": 3,
+  "copied": 2,
   "copiedBreakdown": {
-    "markdownFiles": 2,
+    "markdownFiles": 1,
     "assetFiles": 1,
-    "totalFiles": 3
+    "totalFiles": 2
+  },
+  "scope": {
+    "type": "noteIds",
+    "noteIds": ["ln_selected_note"]
   },
   "targetPath": "E:/exports/yansilu-markdown",
   "requestId": "req_1776900000000_123",
@@ -970,6 +981,6 @@ These ideas exist in product/spec discussions but are not active API contracts i
 - Explicit link CRUD APIs
 - Thought-distillation routes such as `/api/v1/permanent-notes/:id/distill` and `/api/v1/index-cards/:id/distill`
 - Idempotency-key persistence
-- Export scopes other than "all Markdown under `vault/notes`"
+- Export scopes other than all Markdown or explicit `noteIds`
 
 Planned thought-distillation contract is tracked in [THOUGHT_DISTILLATION_V1_CONTRACT.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/THOUGHT_DISTILLATION_V1_CONTRACT.md).

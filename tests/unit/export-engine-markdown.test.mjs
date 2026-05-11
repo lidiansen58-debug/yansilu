@@ -4,6 +4,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import { exportMarkdown } from "../../packages/export-engine/src/index.mjs";
+import { createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -92,4 +93,57 @@ test("exportMarkdown rejects targets inside the active vault", async () => {
     () => fs.access(targetPath),
     /ENOENT/
   );
+});
+
+test("exportMarkdown can export selected noteIds and only their linked assets", async () => {
+  const vaultPath = await makeTempDir("yansilu-export-noteids-vault-");
+  const targetPath = await makeTempDir("yansilu-export-noteids-target-");
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(vaultPath, "assets", "scoped"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "assets", "scoped", "chart.txt"), "selected asset", "utf8");
+  await fs.writeFile(path.join(vaultPath, "assets", "scoped", "unused.txt"), "unused asset", "utf8");
+
+  const selected = await createNoteInDirectory(vaultPath, {
+    directoryId: "dir_literature_default",
+    title: "Selected export note",
+    body: "Selected body.\n\n![Chart](../../assets/scoped/chart.txt)"
+  });
+  const omitted = await createNoteInDirectory(vaultPath, {
+    directoryId: "dir_literature_default",
+    title: "Omitted export note",
+    body: "Omitted body."
+  });
+
+  const result = await exportMarkdown({
+    vaultPath,
+    targetPath,
+    noteIds: [selected.id],
+    requestId: "req_noteids",
+    now: new Date("2026-05-11T00:00:00.000Z")
+  });
+
+  assert.equal(result.copied, 2);
+  assert.deepEqual(result.scope, { type: "noteIds", noteIds: [selected.id] });
+  assert.deepEqual(result.exportedFiles, [
+    {
+      kind: "markdown",
+      sourcePath: selected.markdownPath,
+      targetPath: path.posix.relative("notes", selected.markdownPath)
+    },
+    {
+      kind: "asset",
+      sourcePath: "assets/scoped/chart.txt",
+      targetPath: "assets/scoped/chart.txt"
+    }
+  ]);
+
+  assert.match(
+    await fs.readFile(path.join(targetPath, path.posix.relative("notes", selected.markdownPath)), "utf8"),
+    /Selected body/
+  );
+  await assert.rejects(
+    () => fs.access(path.join(targetPath, path.posix.relative("notes", omitted.markdownPath))),
+    /ENOENT/
+  );
+  await assert.rejects(() => fs.access(path.join(targetPath, "assets", "scoped", "unused.txt")), /ENOENT/);
 });

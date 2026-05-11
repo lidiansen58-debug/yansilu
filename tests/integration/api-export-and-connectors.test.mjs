@@ -184,6 +184,61 @@ test("POST /api/v1/exports/markdown rejects targets inside the active vault", as
   }
 });
 
+test("POST /api/v1/exports/markdown can export selected noteIds", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-export-noteids-vault-");
+  const targetPath = await makeTempDir("yansilu-api-export-noteids-target-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const selected = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_literature_default",
+      title: "Selected API export",
+      body: "Selected API export body."
+    });
+    const omitted = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_literature_default",
+      title: "Omitted API export",
+      body: "Omitted API export body."
+    });
+
+    assert.equal(selected.response.status, 201, JSON.stringify(selected.payload));
+    assert.equal(omitted.response.status, 201, JSON.stringify(omitted.payload));
+
+    const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
+      targetPath,
+      noteIds: [selected.payload.item.id]
+    });
+
+    assert.equal(response.status, 202);
+    assert.deepEqual(payload.scope, { type: "noteIds", noteIds: [selected.payload.item.id] });
+    assert.equal(payload.copiedBreakdown.markdownFiles, 1);
+
+    const selectedTargetPath = path.join(
+      targetPath,
+      path.posix.relative("notes", selected.payload.item.markdownPath).replaceAll("/", path.sep)
+    );
+    const omittedTargetPath = path.join(
+      targetPath,
+      path.posix.relative("notes", omitted.payload.item.markdownPath).replaceAll("/", path.sep)
+    );
+
+    assert.match(await fs.readFile(selectedTargetPath, "utf8"), /Selected API export body/);
+    await assert.rejects(() => fs.access(omittedTargetPath), /ENOENT/);
+
+    const record = JSON.parse(
+      await fs.readFile(path.join(vaultPath, "exports", `${payload.exportJobId}.json`), "utf8")
+    );
+    assert.deepEqual(record.scope, payload.scope);
+    assert.deepEqual(record.exportedFiles.map((item) => item.sourcePath), [selected.payload.item.markdownPath]);
+  } finally {
+    await stopApi(api);
+  }
+});
+
 test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candidates", async () => {
   const vaultPath = await makeTempDir("yansilu-api-preview-vault-");
   const port = await findFreePort();
