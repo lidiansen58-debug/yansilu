@@ -2265,7 +2265,7 @@ function renderAiRoutePreview() {
   const access = preview.access || {};
   stats.innerHTML = [
     `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
-    `<span class="settings-stat-badge ${access.requiresKey ? "warn" : "ok"}">${access.requiresKey ? "需要 Key" : "无需用户 Key"}</span>`,
+    `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "可直接使用" : "需要配置 Key"}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
   ].join("");
   detail.innerHTML = `
@@ -2273,6 +2273,7 @@ function renderAiRoutePreview() {
     <div>模型包：${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")}</div>
     <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
+    <div>${escapeHtml(access.message || "")}</div>
   `;
 }
 

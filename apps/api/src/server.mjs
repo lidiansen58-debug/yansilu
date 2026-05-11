@@ -102,7 +102,7 @@ function advancedModelRefFrom(input = {}) {
   return cleanText(input.modelRef || input.model_ref || advancedSettings.modelRef || advancedSettings.model_ref);
 }
 
-function authSummary(authMode = "") {
+function authSummary(authMode = "", options = {}) {
   const mode = cleanText(authMode);
   const labels = {
     platform_managed: "platform_managed",
@@ -111,10 +111,33 @@ function authSummary(authMode = "") {
     local_no_key: "no_key",
     enterprise_secret: "enterprise_secret"
   };
+  const requiresKey = ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(mode);
+  const secretRef = cleanText(options.secretRef || options.secret_ref);
+  const secretRefConfigured = Boolean(secretRef);
+  const ready = !requiresKey || secretRefConfigured;
+  const nextActions = {
+    workspace_managed: "configure_workspace_key",
+    byok_advanced: "add_user_key",
+    enterprise_secret: "configure_enterprise_secret"
+  };
+  const messages = {
+    platform_managed: "Platform-managed AI can run without a user-provided key.",
+    local_no_key: "Local/private mode does not require a cloud API key.",
+    workspace_managed: secretRefConfigured
+      ? "Workspace key reference is configured."
+      : "A workspace provider key reference is required before this model pack can run.",
+    byok_advanced: secretRefConfigured ? "User key reference is configured." : "A user provider key reference is required before this override can run.",
+    enterprise_secret: secretRefConfigured ? "Enterprise secret reference is configured." : "An enterprise secret reference is required before this provider can run."
+  };
   return {
     authMode: mode,
     keyMode: labels[mode] || "unknown",
-    requiresKey: ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(mode)
+    requiresKey,
+    secretRefConfigured,
+    ready,
+    status: ready ? "ready" : "needs_key",
+    nextAction: ready ? "none" : nextActions[mode] || "configure_provider",
+    message: messages[mode] || "Provider access mode is unknown."
   };
 }
 
@@ -131,6 +154,9 @@ async function buildAiRoutePreview(input = {}) {
     ...storedSettings,
     userMode: input.userMode || input.user_mode || storedSettings.userMode,
     modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
+    providerPreset: input.providerPreset || input.provider_preset || storedSettings.providerPreset,
+    authMode: input.authMode || input.auth_mode || storedSettings.authMode,
+    secretRef: input.secretRef || input.secret_ref || storedSettings.secretRef,
     privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
     budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
     fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
@@ -185,7 +211,9 @@ async function buildAiRoutePreview(input = {}) {
       mode: route.privacyMode,
       localPreferred: userSettings.privacy.localPreferred === true
     },
-    access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode)
+    access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode, {
+      secretRef: providerDescriptor.secretRef || settingsInput.secretRef
+    })
   };
 }
 

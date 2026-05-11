@@ -117,6 +117,7 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(initial.json.item.userMode, "Auto");
   assert.equal(initial.json.item.provider.providerId, "platform_managed_openai");
   assert.equal(initial.json.item.access.keyMode, "platform_managed");
+  assert.equal(initial.json.item.access.ready, true);
 
   const chinaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "China Optimized",
@@ -125,6 +126,17 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(chinaPreview.status, 200, JSON.stringify(chinaPreview.json));
   assert.equal(chinaPreview.json.item.modelPack, "China Optimized");
   assert.equal(chinaPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(chinaPreview.json.item.access.ready, false);
+  assert.equal(chinaPreview.json.item.access.nextAction, "configure_workspace_key");
+
+  const configuredGateway = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto",
+    secretRef: "secret_china_gateway"
+  });
+  assert.equal(configuredGateway.status, 200, JSON.stringify(configuredGateway.json));
+  assert.equal(configuredGateway.json.item.access.ready, true);
+  assert.equal(configuredGateway.json.item.access.secretRefConfigured, true);
 
   const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
     userMode: "Local / Private",
@@ -141,4 +153,5 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(preview.json.item.route.advancedOverride, true);
   assert.equal(preview.json.item.route.localOnly, true);
   assert.equal(preview.json.item.access.keyMode, "no_key");
+  assert.equal(preview.json.item.access.ready, true);
 });
