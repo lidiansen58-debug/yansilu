@@ -33,6 +33,18 @@ test("exportMarkdown copies vault notes markdown files and writes an export reco
     assetFiles: 1,
     totalFiles: 2
   });
+  assert.deepEqual(result.exportedFiles, [
+    {
+      kind: "markdown",
+      sourcePath: "notes/literature/ln_1.md",
+      targetPath: "literature/ln_1.md"
+    },
+    {
+      kind: "asset",
+      sourcePath: "assets/images/chart.txt",
+      targetPath: "assets/images/chart.txt"
+    }
+  ]);
 
   const copied = await fs.readFile(path.join(targetPath, "literature", "ln_1.md"), "utf8");
   const copiedAsset = await fs.readFile(path.join(targetPath, "assets", "images", "chart.txt"), "utf8");
@@ -43,6 +55,7 @@ test("exportMarkdown copies vault notes markdown files and writes an export reco
   assert.equal(record.exportJobId, result.exportJobId);
   assert.equal(record.copied, 2);
   assert.deepEqual(record.copiedBreakdown, result.copiedBreakdown);
+  assert.deepEqual(record.exportedFiles, result.exportedFiles);
   assert.equal(record.requestId, "req_test");
   assert.equal(record.time, "2026-04-22T00:00:00.000Z");
 });
@@ -60,5 +73,6 @@ test("exportMarkdown succeeds with zero copied files when notes directory is abs
     assetFiles: 0,
     totalFiles: 0
   });
+  assert.deepEqual(result.exportedFiles, []);
   await fs.access(result.recordPath);
 });

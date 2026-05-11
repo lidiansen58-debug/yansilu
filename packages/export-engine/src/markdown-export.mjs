@@ -22,6 +22,10 @@ async function listAllFiles(root) {
   return out;
 }
 
+function toPortablePath(value) {
+  return String(value || "").split(path.sep).join("/");
+}
+
 export async function exportMarkdown({ vaultPath, targetPath, requestId = null, now = new Date() }) {
   if (!vaultPath) throw new Error("vaultPath is required");
   if (!targetPath) throw new Error("targetPath is required");
@@ -33,11 +37,17 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
   const exportJobId = `exp_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
   await fs.mkdir(targetPath, { recursive: true });
+  const exportedFiles = [];
   for (const src of files) {
     const rel = path.relative(sourceRoot, src);
     const dest = path.join(targetPath, rel);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.copyFile(src, dest);
+    exportedFiles.push({
+      kind: "markdown",
+      sourcePath: toPortablePath(path.join("notes", rel)),
+      targetPath: toPortablePath(rel)
+    });
   }
 
   if (assetFiles.length) {
@@ -46,6 +56,11 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
       const dest = path.join(targetPath, "assets", rel);
       await fs.mkdir(path.dirname(dest), { recursive: true });
       await fs.copyFile(src, dest);
+      exportedFiles.push({
+        kind: "asset",
+        sourcePath: toPortablePath(path.join("assets", rel)),
+        targetPath: toPortablePath(path.join("assets", rel))
+      });
     }
   }
 
@@ -61,6 +76,7 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
     copiedBreakdown,
     targetPath,
     requestId,
+    exportedFiles,
     time: now.toISOString()
   };
 
@@ -74,6 +90,7 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
     status: "queued",
     copied: record.copied,
     copiedBreakdown,
+    exportedFiles,
     recordPath,
     record
   };

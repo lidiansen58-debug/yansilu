@@ -911,6 +911,18 @@ Export record shape:
   },
   "targetPath": "E:/exports/yansilu-markdown",
   "requestId": "req_1776900000000_123",
+  "exportedFiles": [
+    {
+      "kind": "markdown",
+      "sourcePath": "notes/literature/ln_api_export.md",
+      "targetPath": "literature/ln_api_export.md"
+    },
+    {
+      "kind": "asset",
+      "sourcePath": "assets/export-asset.txt",
+      "targetPath": "assets/export-asset.txt"
+    }
+  ],
   "time": "2026-04-23T03:00:00.000Z"
 }
 ```
