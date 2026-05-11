@@ -90,6 +90,10 @@ function mergeObjects(...values) {
   return Object.assign({}, ...values.filter((value) => value && typeof value === "object" && !Array.isArray(value)));
 }
 
+function modelRefFromSettings(input = {}) {
+  return cleanText(input.modelRef || input.model_ref || input.advancedSettings?.modelRef || input.advancedSettings?.model_ref);
+}
+
 function runIdentity(input = {}, options = {}) {
   return {
     userId: cleanText(input.userId || input.user_id || options.userId || options.user_id) || "local_user",
@@ -125,6 +129,11 @@ async function resolveRunSettings({ options, input, aiPreferencesStore }) {
       ...callSettings,
       budget: mergeObjects(options.budget, storedSettings.budget, callSettings.budget),
       budgetState: mergeObjects(options.budgetState || options.budget_state, storedSettings.budgetState, callSettings.budgetState || callSettings.budget_state),
+      advancedSettings: mergeObjects(
+        options.advancedSettings || options.advanced_settings,
+        storedSettings.advancedSettings,
+        callSettings.advancedSettings || callSettings.advanced_settings
+      ),
       fallbackPolicy: mergeObjects(
         options.fallbackPolicy || options.fallback_policy,
         storedSettings.fallbackPolicy,
@@ -400,7 +409,7 @@ export function createAiHarness(options = {}) {
           modelPack: userSettings.modelPack,
           modelPackId: userSettings.modelPackId,
           modelTier: settingsInput.modelTier || settingsInput.model_tier || agent.defaultModelTier,
-          modelRef: settingsInput.modelRef || settingsInput.model_ref,
+          modelRef: modelRefFromSettings(settingsInput),
           requiredCapabilities: agent.requiredCapabilities
         });
         runLog.addEvent(run.agentRunId, {

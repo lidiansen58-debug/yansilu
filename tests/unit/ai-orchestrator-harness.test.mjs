@@ -851,6 +851,41 @@ test("harness loads user AI preferences for model mode and budget state", async 
   assert.equal(budgetEvent.summary.monthlySpent, 3.25);
 });
 
+test("harness applies stored advanced model override from AI preferences", async () => {
+  const provider = createMockProviderAdapter({
+    descriptor: {
+      modelMap: {
+        standard: "mock_provider:standard-model"
+      }
+    }
+  });
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    userId: "user_advanced_model",
+    workspaceId: "workspace_advanced_model",
+    userMode: "Balanced",
+    advancedSettings: { modelRef: "mock_provider:manual-model" }
+  });
+  const harness = createAiHarness({ providerAdapter: provider, aiPreferencesStore });
+
+  const result = await harness.runTask({
+    taskId: "task_advanced_model_pref",
+    userId: "user_advanced_model",
+    workspaceId: "workspace_advanced_model",
+    currentNote: {
+      id: "note_advanced_model_pref",
+      title: "Advanced model preference note",
+      body: "Advanced model preference note\n\nA stored advanced model ID should override automatic tier routing."
+    }
+  });
+  const routeEvent = result.run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(routeEvent.summary.modelRef, "mock_provider:manual-model");
+  assert.equal(routeEvent.summary.advancedOverride, true);
+  assert.equal(provider.lastRequest.modelRef, "mock_provider:manual-model");
+});
+
 test("harness dynamically selects provider adapter from stored model pack", async () => {
   const aiPreferencesStore = createInMemoryAiPreferencesStore();
   aiPreferencesStore.setUserPreferences({
@@ -1433,7 +1468,8 @@ test("sqlite AI preferences store persists user settings", async (t) => {
     monthlyBudget: 12,
     confirmationThreshold: 0.5,
     budgetState: { monthlySpent: 4.75 },
-    fallbackPolicy: { allowCrossProviderFallback: false }
+    fallbackPolicy: { allowCrossProviderFallback: false },
+    advancedSettings: { modelRef: "china_optimized_gateway:manual-model" }
   });
 
   assert.equal(saved.userMode, "Balanced");
@@ -1451,6 +1487,7 @@ test("sqlite AI preferences store persists user settings", async (t) => {
   assert.equal(persisted.modelPack, "China Optimized");
   assert.equal(persisted.budgetState.monthlySpent, 4.75);
   assert.equal(persisted.fallbackPolicy.allowCrossProviderFallback, false);
+  assert.equal(persisted.advancedSettings.modelRef, "china_optimized_gateway:manual-model");
   assert.equal(store.listUserPreferences({ workspaceId: "workspace_sqlite_pref" }).length, 1);
   store.close();
 });
