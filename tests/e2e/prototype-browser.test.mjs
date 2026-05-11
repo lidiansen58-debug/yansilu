@@ -794,6 +794,76 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
   }, 7000);
 });
 
+test("prototype mobile viewport keeps new note entry discoverable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.waitForSelector("#btnMobileNewNote");
+
+  const mobileLayout = await page.evaluate(() => {
+    const fab = document.querySelector("#btnMobileNewNote");
+    const sidebarNew = document.querySelector("#btnNewNote");
+    const toolbar = document.querySelector("#editorWorkspace > .toolbar");
+    const rect = (el) => {
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return { width: box.width, height: box.height, left: box.left, right: box.right };
+    };
+    const isVisible = (el) => {
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+    };
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      fab: { visible: isVisible(fab), text: fab?.textContent?.trim() || "", rect: rect(fab) },
+      sidebarNew: { visible: isVisible(sidebarNew), rect: rect(sidebarNew) },
+      toolbar: {
+        rect: rect(toolbar),
+        scrollWidth: toolbar?.scrollWidth || 0,
+        clientWidth: toolbar?.clientWidth || 0,
+        overflowX: toolbar ? window.getComputedStyle(toolbar).overflowX : "",
+        flexWrap: toolbar ? window.getComputedStyle(toolbar).flexWrap : ""
+      }
+    };
+  });
+
+  assert.equal(mobileLayout.fab.visible, true);
+  assert.match(mobileLayout.fab.text, /新建/);
+  assert.equal(mobileLayout.sidebarNew.visible, false);
+  assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
+  assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
+  assert.equal(mobileLayout.toolbar.overflowX, "auto");
+  assert.equal(mobileLayout.toolbar.flexWrap, "nowrap");
+  assert.ok(mobileLayout.toolbar.scrollWidth > mobileLayout.toolbar.clientWidth);
+
+  await page.locator("#btnMobileNewNote").click();
+  await page.waitForSelector(".tab.active");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const activeTabText = await page.locator(".tab.active").textContent();
+    assert.match(editorValue, /^#\s*\S/);
+    assert.ok(String(activeTabText || "").trim().length > 0);
+  }, 7000);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

@@ -2151,6 +2151,7 @@ function renderModulePanels() {
   $("importPanel")?.classList.toggle("hidden", !importsMode);
   $("markdownPanel")?.classList.toggle("hidden", !editorMode);
   $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
+  $("btnMobileNewNote")?.classList.toggle("hidden", !editorMode);
   renderModuleWorkspaceHeader();
 }
 
@@ -4487,6 +4488,10 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	    }
 	  });
 	});
+
+$("btnMobileNewNote")?.addEventListener("click", () => {
+  handleStateChange("create-note-in-selected-folder");
+});
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
   btn.addEventListener("click", () => {
