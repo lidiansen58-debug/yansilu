@@ -87,7 +87,8 @@ export function toProviderPresetConfig(input = {}) {
     novice_visible: input.noviceVisible === true || input.novice_visible === true,
     local_execution: input.localExecution === true || input.local_execution === true,
     capabilities: { ...(input.capabilities || {}) },
-    model_map: { ...(input.modelMap || input.model_map || {}) }
+    model_map: { ...(input.modelMap || input.model_map || {}) },
+    runtime_model_map: { ...(input.runtimeModelMap || input.runtime_model_map || {}) }
   };
 }
 
@@ -176,6 +177,24 @@ function validateProviderPresets(errors, providerPresets) {
     for (const tier of Object.keys(modelMap)) {
       requireEnum(errors, tier, MODEL_PACK_TIERS, `${path}.model_map.${tier}`);
       if (!cleanText(modelMap[tier])) addError(errors, `${path}.model_map.${tier}`, "required_model_ref", "model ref is required");
+    }
+
+    const runtimeModelMap = preset.runtime_model_map || {};
+    if (!runtimeModelMap || typeof runtimeModelMap !== "object" || Array.isArray(runtimeModelMap)) {
+      addError(errors, `${path}.runtime_model_map`, "invalid_object", "runtime_model_map must be an object");
+    } else {
+      const knownLogicalModelRefs = new Set(Object.values(modelMap).map(cleanText).filter(Boolean));
+      for (const [logicalModelRef, runtimeModelRef] of Object.entries(runtimeModelMap)) {
+        if (!cleanText(logicalModelRef)) {
+          addError(errors, `${path}.runtime_model_map`, "runtime_model_ref_key_required", "runtime model map keys must be logical model refs");
+        }
+        if (knownLogicalModelRefs.size && !knownLogicalModelRefs.has(cleanText(logicalModelRef))) {
+          addError(errors, `${path}.runtime_model_map.${logicalModelRef}`, "runtime_model_ref_unknown", "runtime model map keys must reference model_map values");
+        }
+        if (!cleanText(runtimeModelRef)) {
+          addError(errors, `${path}.runtime_model_map.${logicalModelRef}`, "runtime_model_ref_required", "runtime model refs must be non-empty strings");
+        }
+      }
     }
 
     if (preset.adapter_type === "local_gateway" && preset.local_execution !== true) {

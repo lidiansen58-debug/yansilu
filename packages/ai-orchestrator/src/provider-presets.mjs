@@ -40,6 +40,13 @@ const PROVIDER_PRESETS = {
       standard: "platform_managed_openai:standard",
       strong_reasoning: "platform_managed_openai:strong_reasoning",
       guardrail: "platform_managed_openai:guardrail"
+    },
+    runtimeModelMap: {
+      "platform_managed_openai:router_fast": "gpt-5.4-mini",
+      "platform_managed_openai:cheap_fast": "gpt-5.4-mini",
+      "platform_managed_openai:standard": "gpt-5.4",
+      "platform_managed_openai:strong_reasoning": "gpt-5.5",
+      "platform_managed_openai:guardrail": "gpt-5.4-mini"
     }
   },
   openai_compatible_gateway: {
@@ -62,7 +69,8 @@ const PROVIDER_PRESETS = {
       standard: "openai_compatible_gateway:standard",
       strong_reasoning: "openai_compatible_gateway:strong_reasoning",
       guardrail: "openai_compatible_gateway:guardrail"
-    }
+    },
+    runtimeModelMap: {}
   },
   china_optimized_gateway: {
     providerId: "china_optimized_gateway",
@@ -84,7 +92,8 @@ const PROVIDER_PRESETS = {
       standard: "china_optimized_gateway:standard",
       strong_reasoning: "china_optimized_gateway:strong_reasoning",
       guardrail: "china_optimized_gateway:guardrail"
-    }
+    },
+    runtimeModelMap: {}
   },
   local_private_gateway: {
     providerId: "local_private_gateway",
@@ -113,7 +122,8 @@ const PROVIDER_PRESETS = {
       strong_reasoning: "local_private_gateway:strong_reasoning",
       guardrail: "local_private_gateway:guardrail",
       local_private: "local_private_gateway:local_private"
-    }
+    },
+    runtimeModelMap: {}
   }
 };
 
@@ -144,11 +154,16 @@ export function resolveProviderDescriptor(input = {}) {
     return normalizeProviderDescriptor(input.providerDescriptor || input.provider_descriptor);
   }
   const userSettings = resolveAiUserSettings(input);
+  const base = getProviderPreset(resolvePresetId(input));
   return normalizeProviderDescriptor({
-    ...getProviderPreset(resolvePresetId(input)),
+    ...base,
     authMode: cleanText(input.authMode || input.auth_mode) || userSettings.authMode,
     secretRef: cleanText(input.secretRef || input.secret_ref),
-    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url)
+    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url),
+    runtimeModelMap: {
+      ...(base.runtimeModelMap || {}),
+      ...(input.runtimeModelMap || input.runtime_model_map || {})
+    }
   });
 }
 

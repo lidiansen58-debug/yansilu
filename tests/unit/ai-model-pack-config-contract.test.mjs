@@ -38,6 +38,7 @@ test("model pack config schema declares the multi-model contract", async () => {
   assert.ok(modelPackSchema.required.includes("fallback_policy"));
   assert.ok(modelPackSchema.required.includes("privacy"));
   assert.ok(providerPresetSchema.required.includes("model_map"));
+  assert.ok(providerPresetSchema.required.includes("runtime_model_map"));
   assert.ok(providerPresetSchema.properties.adapter_type.enum.includes("aggregated_gateway"));
   assert.ok(providerPresetSchema.properties.adapter_type.enum.includes("local_gateway"));
 });
@@ -49,6 +50,7 @@ test("built-in model packs compile into a valid config bundle", () => {
   const providerPresets = bundle.provider_presets.map((preset) => preset.provider_preset).sort();
   const privacyFirst = bundle.model_packs.find((pack) => pack.model_pack_id === "privacy_first");
   const starterAuto = bundle.model_packs.find((pack) => pack.model_pack_id === "starter_auto");
+  const platformProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "platform_managed_openai");
 
   assert.equal(result.valid, true, JSON.stringify(result.errors, null, 2));
   assert.doesNotThrow(() => assertValidModelPackConfigBundle(bundle));
@@ -62,6 +64,7 @@ test("built-in model packs compile into a valid config bundle", () => {
   );
   assert.equal(starterAuto.provider_visibility, "hidden");
   assert.equal(starterAuto.auth_mode, "platform_managed");
+  assert.equal(platformProvider.runtime_model_map["platform_managed_openai:strong_reasoning"], "gpt-5.5");
   assert.equal(privacyFirst.default_user_mode, "Local / Private");
   assert.equal(privacyFirst.privacy.default_mode, "local_only");
   assert.equal(privacyFirst.privacy.allow_cloud, false);
@@ -110,4 +113,18 @@ test("model pack config rejects incomplete local gateway presets", () => {
   assert.equal(result.valid, false);
   assert.ok(errorCodes(result).includes("local_gateway_requires_local_execution"));
   assert.ok(errorCodes(result).includes("required_model_tier"));
+});
+
+test("model pack config rejects runtime model refs that bypass model_map", () => {
+  const bundle = createModelPackConfigBundle();
+  const broken = clone(bundle);
+  const platform = broken.provider_presets.find((preset) => preset.provider_preset === "platform_managed_openai");
+  platform.runtime_model_map = {
+    standard: "gpt-custom-standard"
+  };
+
+  const result = validateModelPackConfigBundle(broken);
+
+  assert.equal(result.valid, false);
+  assert.ok(errorCodes(result).includes("runtime_model_ref_unknown"));
 });
