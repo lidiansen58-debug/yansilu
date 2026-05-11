@@ -38,6 +38,9 @@ Executable schema and validation binding:
   "model_map": {
     "standard": "openai_compatible_gateway:standard"
   },
+  "runtime_model_map": {
+    "openai_compatible_gateway:standard": "gateway-standard-model"
+  },
   "health_check": {
     "enabled": true,
     "endpoint_url": "https://gateway.example.test/health",
@@ -151,6 +154,7 @@ Provider config owns:
 - Non-secret headers.
 - Health check settings.
 - Provider-specific model map overrides.
+- Runtime model id aliases for the selected provider or gateway.
 - Workspace or user-specific provider status.
 
 Provider config must not own:
@@ -172,3 +176,25 @@ MVP should support these provider config paths:
 - `local_private_gateway`: local/private endpoint path, disabled until configured.
 
 The UI can hide this from novice users. Advanced users and workspace admins can configure it after the core note-taking experience is stable.
+
+## 9. Runtime Model Map
+
+`model_map` and `runtime_model_map` deliberately solve different problems.
+
+- `model_map` maps product tiers such as `standard` or `strong_reasoning` to internal logical model refs.
+- `runtime_model_map` maps those logical refs to the concrete model ids a runtime or gateway should call.
+- Keys in `runtime_model_map` must reference values from `model_map`, not user-facing tier names.
+- Novice settings should never require raw model ids. The product compiles simple modes into logical refs first, then the provider config resolves the runtime model id.
+
+Example:
+
+```json
+{
+  "model_map": {
+    "standard": "openai_compatible_gateway:standard"
+  },
+  "runtime_model_map": {
+    "openai_compatible_gateway:standard": "gateway-standard-model"
+  }
+}
+```

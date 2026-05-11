@@ -61,6 +61,7 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
   const base = basePreset(providerId);
   const capabilities = cleanObject(input.capabilities || existing.capabilities || {});
   const modelMap = cleanObject(input.modelMap || input.model_map || existing.modelMap || {});
+  const runtimeModelMap = cleanObject(input.runtimeModelMap || input.runtime_model_map || existing.runtimeModelMap || {});
   const headers = cleanObject(input.headers || input.headers_json || existing.headers || {});
   const endpointUrl = cleanText(input.endpointUrl || input.endpoint_url || existing.endpointUrl);
 
@@ -76,6 +77,7 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
     headers,
     capabilities,
     modelMap,
+    runtimeModelMap,
     healthCheck: normalizeHealthCheck(input.healthCheck || input.health_check || existing.healthCheck || existing.health_check || {}, endpointUrl),
     createdAt: cleanText(existing.createdAt || existing.created_at || input.createdAt || input.created_at) || now,
     updatedAt: cleanText(input.updatedAt || input.updated_at) || now
@@ -112,6 +114,10 @@ export function providerConfigToDescriptorInput(config = null) {
       ...(config.capabilities || {})
     },
     modelMap: Object.keys(config.modelMap || {}).length ? config.modelMap : base.modelMap || {},
+    runtimeModelMap: {
+      ...(base.runtimeModelMap || {}),
+      ...(config.runtimeModelMap || {})
+    },
     healthCheck: config.healthCheck,
     configId: config.id
   };
@@ -128,6 +134,7 @@ export function providerConfigToSettingsInput(config = null) {
     secretRef: config.secretRef,
     endpointUrl: config.endpointUrl,
     headers: jsonClone(config.headers || {}),
+    runtimeModelMap: jsonClone(config.runtimeModelMap || {}),
     healthCheck: jsonClone(config.healthCheck || {})
   };
 }
@@ -146,6 +153,7 @@ export function aiProviderConfigToSchemaConfig(input = {}) {
     headers: { ...(config.headers || {}) },
     capabilities: { ...(config.capabilities || {}) },
     model_map: { ...(config.modelMap || {}) },
+    runtime_model_map: { ...(config.runtimeModelMap || {}) },
     health_check: {
       enabled: config.healthCheck.enabled,
       endpoint_url: config.healthCheck.endpointUrl,
@@ -283,6 +291,20 @@ export function validateAiProviderConfig(input = {}) {
 
   for (const tier of Object.keys(config.modelMap || {})) {
     requireEnum(errors, tier, AI_PROVIDER_CONFIG_MODEL_TIERS, `modelMap.${tier}`);
+  }
+
+  const descriptorModelMap = Object.keys(config.modelMap || {}).length ? config.modelMap : base.modelMap || {};
+  const knownLogicalModelRefs = new Set(Object.values(descriptorModelMap || {}).map(cleanText).filter(Boolean));
+  for (const [logicalModelRef, runtimeModelRef] of Object.entries(config.runtimeModelMap || {})) {
+    if (!cleanText(logicalModelRef)) {
+      addError(errors, "runtimeModelMap", "runtime_model_ref_key_required", "runtime model map keys must be logical model refs");
+    }
+    if (knownLogicalModelRefs.size && !knownLogicalModelRefs.has(cleanText(logicalModelRef))) {
+      addError(errors, `runtimeModelMap.${logicalModelRef}`, "runtime_model_ref_unknown", "runtime model map keys must reference model_map values");
+    }
+    if (!cleanText(runtimeModelRef)) {
+      addError(errors, `runtimeModelMap.${logicalModelRef}`, "runtime_model_ref_required", "runtime model refs must be non-empty strings");
+    }
   }
 
   validateSecretBoundary(errors, input, config);

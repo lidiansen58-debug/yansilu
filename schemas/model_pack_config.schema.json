@@ -35,7 +35,8 @@
           "regions",
           "novice_visible",
           "capabilities",
-          "model_map"
+          "model_map",
+          "runtime_model_map"
         ],
         "properties": {
           "provider_preset": { "type": "string", "minLength": 1 },
@@ -70,6 +71,10 @@
               "guardrail": { "type": "string", "minLength": 1 },
               "local_private": { "type": "string", "minLength": 1 }
             }
+          },
+          "runtime_model_map": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "minLength": 1 }
           }
         }
       }

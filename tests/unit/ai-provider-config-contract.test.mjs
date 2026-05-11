@@ -29,6 +29,7 @@ test("provider config schema declares endpoint secret and health-check boundarie
   assert.ok(schema.required.includes("secret_ref"));
   assert.ok(schema.required.includes("endpoint_url"));
   assert.ok(schema.required.includes("health_check"));
+  assert.ok(schema.required.includes("runtime_model_map"));
   assert.ok(schema.properties.adapter_type.enum.includes("aggregated_gateway"));
   assert.ok(schema.properties.adapter_type.enum.includes("local_gateway"));
   assert.ok(schema.properties.auth_mode.enum.includes("byok_advanced"));
@@ -47,6 +48,7 @@ test("valid gateway provider config compiles to descriptor and settings inputs",
     endpointUrl: "https://gateway.example.test/v1/chat/completions",
     headers: { "x-workspace-id": "workspace_01" },
     modelMap: { standard: "openai_compatible_gateway:standard_override" },
+    runtimeModelMap: { "openai_compatible_gateway:standard_override": "gateway-standard-model" },
     healthCheck: {
       enabled: true,
       endpointUrl: "https://gateway.example.test/health",
@@ -67,8 +69,11 @@ test("valid gateway provider config compiles to descriptor and settings inputs",
   assert.equal(descriptor.endpointUrl, "https://gateway.example.test/v1/chat/completions");
   assert.equal(descriptor.secretRef, "secret_gateway");
   assert.equal(descriptor.modelMap.standard, "openai_compatible_gateway:standard_override");
+  assert.equal(descriptor.runtimeModelMap["openai_compatible_gateway:standard_override"], "gateway-standard-model");
+  assert.equal(schemaConfig.runtime_model_map["openai_compatible_gateway:standard_override"], "gateway-standard-model");
   assert.equal(settings.providerConfigId, config.id);
   assert.equal(settings.secretRef, "secret_gateway");
+  assert.equal(settings.runtimeModelMap["openai_compatible_gateway:standard_override"], "gateway-standard-model");
 });
 
 test("provider config rejects raw secrets and auth headers", () => {
@@ -137,6 +142,23 @@ test("provider config rejects insecure non-local endpoints", () => {
 
   assert.equal(result.valid, false);
   assert.ok(errorCodes(result).includes("endpoint_url_insecure"));
+});
+
+test("provider config validates runtime model map against logical model refs", () => {
+  const valid = validateAiProviderConfig({
+    providerId: "platform_managed_openai",
+    authMode: "platform_managed",
+    runtimeModelMap: { "platform_managed_openai:standard": "gpt-custom-standard" }
+  });
+  const invalid = validateAiProviderConfig({
+    providerId: "platform_managed_openai",
+    authMode: "platform_managed",
+    runtimeModelMap: { standard: "gpt-custom-standard" }
+  });
+
+  assert.equal(valid.valid, true, JSON.stringify(valid.errors, null, 2));
+  assert.equal(invalid.valid, false);
+  assert.ok(errorCodes(invalid).includes("runtime_model_ref_unknown"));
 });
 
 test("provider config store validates configs and indexes by provider id", () => {

@@ -248,11 +248,14 @@ test("agent runtime request maps harness state into a portable SDK run spec", ()
 
   assert.equal(runtimeRequest.agent.agentId, "reflection_agent");
   assert.equal(runtimeRequest.model.modelRef, "platform_managed_openai:standard");
+  assert.equal(runtimeRequest.provider.runtimeModelMap["platform_managed_openai:standard"], "gpt-5.4");
   assert.equal(runtimeRequest.context.contextPackId, "ctx_runtime_spec");
   assert.equal(runtimeRequest.tools[0].name, "search_notes");
   assert.equal(sdkSpec.agent.name, "reflection_agent");
   assert.equal(sdkSpec.agent.instructions, "System instruction");
   assert.equal(sdkSpec.agent.developerInstructions, "Developer instruction");
+  assert.equal(sdkSpec.model.modelRef, "gpt-5.4");
+  assert.equal(sdkSpec.model.logicalModelRef, "platform_managed_openai:standard");
   assert.equal(sdkSpec.model.providerId, "platform_managed_openai");
   assert.equal(sdkSpec.input.context.itemCount, 1);
   assert.equal(sdkSpec.policy.allowCloud, true);
@@ -445,8 +448,7 @@ test("OpenAI Agents SDK runtime builds an SDK agent and normalizes final output"
     }
   };
   const agentRuntime = createOpenAiAgentsSdkRuntime({
-    sdk: fakeSdk,
-    modelAliases: { "platform_managed_openai:standard": "gpt-test-standard" }
+    sdk: fakeSdk
   });
   const harness = createAiHarness({
     agentRuntime,
@@ -492,7 +494,7 @@ test("OpenAI Agents SDK runtime builds an SDK agent and normalizes final output"
 
   assert.equal(result.run.status, "succeeded");
   assert.equal(capturedAgentConfig.name, "sdk_runtime_agent");
-  assert.equal(capturedAgentConfig.model, "gpt-test-standard");
+  assert.equal(capturedAgentConfig.model, "gpt-5.4");
   assert.equal(capturedAgentConfig.tools[0].parameters.properties.value.type, "string");
   assert.match(capturedAgentConfig.instructions, /Human-authored notes are the user's source of truth/);
   assert.match(capturedInput, /Context index/);
@@ -502,7 +504,7 @@ test("OpenAI Agents SDK runtime builds an SDK agent and normalizes final output"
   assert.match(capturedToolOutput, /via_sdk/);
   assert.equal(modelEvent.summary.runtimeType, "agents_sdk");
   assert.equal(modelEvent.usage.totalTokens, 18);
-  assert.equal(result.run.modelRef, "gpt-test-standard");
+  assert.equal(result.run.modelRef, "gpt-5.4");
   assert.equal(result.artifacts[0].type, "ReflectionPrompt");
 });
 
@@ -630,6 +632,7 @@ test("provider presets expose normalized descriptors and model maps", () => {
   const ids = presets.map((preset) => preset.providerId).sort();
   const local = getProviderPreset("local_private_gateway");
   const gateway = getProviderPreset("openai_compatible_gateway");
+  const openai = getProviderPreset("platform_managed_openai");
 
   assert.deepEqual(
     ids,
@@ -640,6 +643,7 @@ test("provider presets expose normalized descriptors and model maps", () => {
   assert.equal(local.modelMap.local_private, "local_private_gateway:local_private");
   assert.equal(gateway.adapterType, "aggregated_gateway");
   assert.equal(gateway.modelMap.standard, "openai_compatible_gateway:standard");
+  assert.equal(openai.runtimeModelMap["platform_managed_openai:strong_reasoning"], "gpt-5.5");
   assert.ok(gateway.authModes.includes("byok_advanced"));
 });
 

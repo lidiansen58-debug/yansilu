@@ -41,14 +41,6 @@ function toolMetadata(tool = {}) {
   };
 }
 
-const DEFAULT_OPENAI_MODEL_ALIASES = {
-  "platform_managed_openai:router_fast": "gpt-5.4-mini",
-  "platform_managed_openai:cheap_fast": "gpt-5.4-mini",
-  "platform_managed_openai:standard": "gpt-5.4",
-  "platform_managed_openai:strong_reasoning": "gpt-5.5",
-  "platform_managed_openai:guardrail": "gpt-5.4-mini"
-};
-
 function allowedToolSet(input = {}) {
   const names = Array.isArray(input.allowedToolNames || input.allowed_tool_names || input.allowedTools || input.allowed_tools)
     ? input.allowedToolNames || input.allowed_tool_names || input.allowedTools || input.allowed_tools
@@ -163,7 +155,8 @@ export function createAgentRuntimeRequest(input = {}) {
       providerId: cleanText(providerDescriptor.providerId || providerDescriptor.provider_id),
       adapterType: cleanText(providerDescriptor.adapterType || providerDescriptor.adapter_type),
       authMode: cleanText(providerDescriptor.authMode || providerDescriptor.auth_mode),
-      localExecution: providerDescriptor.localExecution === true || providerDescriptor.local_execution === true
+      localExecution: providerDescriptor.localExecution === true || providerDescriptor.local_execution === true,
+      runtimeModelMap: cloneObject(providerDescriptor.runtimeModelMap || providerDescriptor.runtime_model_map) || {}
     },
     model: {
       modelRef: cleanText(input.modelRef || input.model_ref || modelRoute.modelRef || modelRoute.model_ref),
@@ -187,7 +180,7 @@ export function createAgentRuntimeRequest(input = {}) {
 export function buildOpenAiAgentsSdkRunSpec(input = {}) {
   const request = input.runtimeRequest || input.runtime_request || createAgentRuntimeRequest(input);
   const modelAliases = {
-    ...DEFAULT_OPENAI_MODEL_ALIASES,
+    ...(request.provider?.runtimeModelMap || {}),
     ...(input.modelAliases || input.model_aliases || {})
   };
   const modelRef = cleanText(modelAliases[request.model.modelRef]) || request.model.modelRef;

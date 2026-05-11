@@ -150,6 +150,9 @@ Provider presets are not user-facing model packs. They are implementation hints 
     "standard": "openai_compatible_gateway:standard",
     "strong_reasoning": "openai_compatible_gateway:strong_reasoning",
     "guardrail": "openai_compatible_gateway:guardrail"
+  },
+  "runtime_model_map": {
+    "openai_compatible_gateway:standard": "gateway-standard-model"
   }
 }
 ```
@@ -158,7 +161,8 @@ Rules:
 
 - `provider_preset` can point to OpenAI direct, OpenRouter-like gateways, LiteLLM-like gateways, domestic providers, or local/private runtimes.
 - `model_map` contains internal model refs, not novice UI labels.
-- Actual provider model ids should remain inside adapter config, admin settings, or secret-backed provider descriptors.
+- `runtime_model_map` resolves internal model refs into concrete runtime or gateway model ids.
+- Actual provider model ids should remain inside runtime model maps, adapter config, admin settings, or secret-backed provider descriptors.
 - `novice_visible: false` means the user can use the capability without seeing provider complexity.
 
 ## 6. Default Packs
@@ -458,6 +462,7 @@ Model pack config is valid only if:
 - `Local / Private` implies no silent cloud fallback.
 - `allow_cloud_fallback_for_private` defaults to `false`.
 - Raw provider model ids do not appear in novice UI copy.
+- `runtime_model_map` keys must reference values from `model_map`, not user-facing tier names.
 - Fallback policy cannot override privacy policy.
 
 ## 10. Implementation Binding

@@ -13,6 +13,7 @@
     "headers",
     "capabilities",
     "model_map",
+    "runtime_model_map",
     "health_check",
     "created_at",
     "updated_at"
@@ -41,6 +42,10 @@
       "additionalProperties": { "type": ["string", "boolean", "number"] }
     },
     "model_map": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "runtime_model_map": {
       "type": "object",
       "additionalProperties": { "type": "string", "minLength": 1 }
     },
