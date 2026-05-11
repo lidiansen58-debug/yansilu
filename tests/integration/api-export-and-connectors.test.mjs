@@ -161,6 +161,29 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
   }
 });
 
+test("POST /api/v1/exports/markdown rejects targets inside the active vault", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-export-target-guard-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const targetPath = path.join(vaultPath, "notes", "export-copy");
+    const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
+      targetPath
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(payload.error.code, "EXPORT_TARGET_INVALID");
+    assert.match(payload.error.message, /outside the active vault/);
+    await assert.rejects(() => fs.access(targetPath), /ENOENT/);
+  } finally {
+    await stopApi(api);
+  }
+});
+
 test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candidates", async () => {
   const vaultPath = await makeTempDir("yansilu-api-preview-vault-");
   const port = await findFreePort();

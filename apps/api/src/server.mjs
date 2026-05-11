@@ -1806,7 +1806,15 @@ const server = http.createServer(async (req, res) => {
       const targetPathRaw = String(body.targetPath || "").trim();
       if (!targetPathRaw) return sendJson(res, 400, err("EXPORT_SCOPE_INVALID", "targetPath required", rid));
       const targetPath = path.isAbsolute(targetPathRaw) ? targetPathRaw : path.resolve(CWD, targetPathRaw);
-      const result = await exportMarkdown({ vaultPath: VAULT_PATH, targetPath, requestId: rid });
+      let result;
+      try {
+        result = await exportMarkdown({ vaultPath: VAULT_PATH, targetPath, requestId: rid });
+      } catch (error) {
+        if (error?.code === "EXPORT_TARGET_INSIDE_VAULT") {
+          return sendJson(res, 400, err("EXPORT_TARGET_INVALID", String(error.message || error), rid));
+        }
+        throw error;
+      }
       return sendJson(res, 202, {
         exportJobId: result.exportJobId,
         status: result.status,
