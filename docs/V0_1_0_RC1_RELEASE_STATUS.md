@@ -72,7 +72,7 @@ The API-backed portion of this checklist has passed against the same `localhost:
 - The Windows installer is unsigned, so Windows SmartScreen may warn during install or first launch.
 - Local smoke machines that previously installed test builds to temporary directories may need `HKCU\Software\notesprout\研思录` cleared before verifying the fresh default install path; this is installer state, not user Vault content.
 - RC1 still depends on an external local API service (`http://localhost:3000`) and does not yet ship with an embedded backend.
-- Automatic update checks are enabled as best-effort desktop behavior, but production tagged releases still require signing secrets and a populated update feed before updates should be advertised.
+- Automatic update checks are enabled as best-effort desktop behavior, but v0.1.0 tagged bundles keep updater artifacts disabled until signing secrets and a populated update feed are ready.
 - macOS and Linux bundles are CI/build artifacts only until real target-machine smoke tests pass.
 - MSI packaging is not the recommended RC1 path.
 - Users should back up their local Vault before testing.

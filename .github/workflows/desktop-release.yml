@@ -47,7 +47,7 @@ jobs:
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
-      YANSILU_DESKTOP_UPDATER_ARTIFACTS: "true"
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: "false"
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
@@ -63,14 +63,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Validate updater signing key
-        shell: pwsh
-        run: |
-          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
-            Write-Error "TAURI_SIGNING_PRIVATE_KEY is required for tagged release builds."
-            exit 1
-          }
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
