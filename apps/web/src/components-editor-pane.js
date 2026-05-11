@@ -96,6 +96,12 @@ export function formatMarkdownLinkDestination(value = "") {
   return /\s|[()]/.test(target) ? `<${target}>` : target;
 }
 
+function unformatMarkdownLinkDestination(value = "") {
+  const target = String(value || "").trim();
+  if (target.startsWith("<") && target.endsWith(">")) return target.slice(1, -1).trim();
+  return target;
+}
+
 export function assetMarkdownSnippet(asset = {}) {
   const rawLabel = String(asset.fileName || "asset").trim();
   const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
@@ -282,7 +288,7 @@ function normalizePosixPath(input) {
 }
 
 function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
-  const target = String(rawPath || "").trim();
+  const target = unformatMarkdownLinkDestination(rawPath);
   if (!target) return "";
   if (/^(https?:|data:)/i.test(target)) return target;
   if (target.startsWith("assets/")) return normalizePosixPath(target);
@@ -1616,11 +1622,11 @@ export class EditorPane {
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
-        <div class="tabs-list">${tabsHtml || `<div class="tab active" data-tab="welcome"><span class="tab-title">未打开笔记</span></div>`}</div>
+        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
         <div class="tabs-meta">
           <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
           ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 编辑中</span>` : ""}
-          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">未打开笔记</span>`}
+          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">准备记录</span>`}
         </div>
         <div class="tabs-actions">
           <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
@@ -1633,13 +1639,31 @@ export class EditorPane {
         ${menuItems}
       </div>
     `;
+    this.renderEmptyEditorState();
     this.onChromeChange();
+  }
+
+  renderEmptyEditorState() {
+    const empty = !this.activeTab();
+    const panel = this.els.markdownSplit?.closest?.(".md-panel");
+    panel?.classList.toggle("editor-empty", empty);
+    this.els.emptyStart?.classList.toggle("hidden", !empty);
+  }
+
+  requestCreateNoteFromEmptyState() {
+    if (this.activeTab() || this.creatingEmptyNote) return false;
+    this.creatingEmptyNote = true;
+    Promise.resolve(this.onStateChange("create-note-in-selected-folder")).finally(() => {
+      this.creatingEmptyNote = false;
+    });
+    return true;
   }
 
   fillEditorFromTab() {
     const t = this.activeTab();
     if (!t) {
       this.setEditorValue("");
+      this.renderEmptyEditorState();
       this.els.result.innerHTML = "打开一条笔记后，这里会显示能让观点继续生长的回链、同标签与关联判断。";
       this.setInspectorVisible(false);
       this.renderLiteratureWorkspace();
@@ -1649,6 +1673,7 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
+    this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
     this.renderLiteratureWorkspace();
     this.renderRelated();
@@ -4176,6 +4201,22 @@ export class EditorPane {
       this.state.activeTabId = tab.dataset.tab;
       this.fillEditorFromTab();
       this.onStateChange("switch-tab");
+    });
+
+    const startEmptyNote = (event) => {
+      if (!this.requestCreateNoteFromEmptyState()) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    this.els.emptyStart?.addEventListener("click", startEmptyNote);
+    this.els.emptyStart?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      startEmptyNote(event);
+    });
+    this.els.markdownSplit?.addEventListener("click", (event) => {
+      if (!this.els.markdownSplit?.closest?.(".editor-empty")) return;
+      if (event.target.closest("button, input, textarea, select, a")) return;
+      startEmptyNote(event);
     });
 
     document.addEventListener("click", (e) => {

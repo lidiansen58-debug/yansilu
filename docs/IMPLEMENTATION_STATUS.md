@@ -29,7 +29,7 @@ Run all tests from the project root:
 Current expected result:
 
 ```text
-131 pass / 0 fail / 50 skipped (browser e2e requires RUN_BROWSER_E2E=1)
+161 pass / 0 fail / 59 skipped (browser e2e requires RUN_BROWSER_E2E=1)
 ```
 
 Run API syntax check:
@@ -48,7 +48,9 @@ Current browser e2e expectation:
 
 ```text
 `npm run test:e2e:browser:mvp` passes for the quick real-browser MVP path.
-The targeted editor image/file/helper browser regression passes with 3 pass / 0 fail.
+The full browser E2E suite has passed locally with 59 pass / 0 fail when `RUN_BROWSER_E2E=1` is enabled.
+The targeted editor image/file/helper browser regression passes, including Chinese/spaced attachment names and helper dismiss/mute behavior.
+Marketing route coverage passes for `/about`, `/privacy`, `/terms`, and HTML refusal through the asset proxy.
 Use the full browser e2e command when Playwright Chromium is available and the runner has enough time budget.
 ```
 

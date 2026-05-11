@@ -4,7 +4,7 @@
 
 The current post-cleanup directory ownership and thread mapping is recorded in `docs/WORKTREE_OWNERSHIP_2026-05-10.md`.
 
-That baseline supersedes the older long-lived feature-branch convention in this guide: keep reusable directories, but start new short-lived branches from current `master` when a new thread begins work.
+That baseline supersedes the older long-lived feature-branch convention in this guide: keep reusable directories, but start new short-lived branches from current `main` when a new thread begins work.
 
 ## Goal
 
@@ -246,7 +246,7 @@ Rules:
 
 ## Suggested Commands
 
-The repository's default branch is currently `master`, and `scripts/worktree-create.ps1` defaults to `master` as well.
+The repository's default branch is currently `main`, and `scripts/worktree-create.ps1` defaults to `main` as well.
 
 Create the default long-lived worktrees:
 

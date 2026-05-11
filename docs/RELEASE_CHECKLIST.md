@@ -13,7 +13,7 @@ This checklist keeps desktop releases repeatable and separates three different c
 Use this for every desktop change.
 
 - Workflow: `desktop-ci`
-- Trigger: pull request into `master`
+- Trigger: pull request into `main`
 - Updater artifacts: off by default
 - Output: short-lived GitHub Actions artifacts
 - Audience: maintainers only
@@ -38,7 +38,7 @@ Use this only after signing, notarization, and update feed checks are ready.
 
 ## Before Tagging
 
-1. Merge the release PR into `master`.
+1. Merge the release PR into `main`.
 2. Confirm the working tree is clean.
 3. Update all version fields to the same value:
    - `package.json`
@@ -71,7 +71,7 @@ Future production signing should also add:
 Create a beta tag:
 
 ```powershell
-git switch master
+git switch main
 git pull --ff-only
 # First update version fields to 0.1.0-beta.1 and merge that change.
 git tag v0.1.0-beta.1
@@ -81,7 +81,7 @@ git push origin v0.1.0-beta.1
 Create a production tag:
 
 ```powershell
-git switch master
+git switch main
 git pull --ff-only
 # First update version fields to 0.1.0 and merge that change.
 git tag v0.1.0

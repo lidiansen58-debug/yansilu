@@ -111,6 +111,16 @@ Run from the installed desktop app, not only from the browser dev server.
 
 Automated installer and launch smoke passed from the integration checkout after the `origin/main` publish.
 
+Clean reinstall validation from `main` also passed on 2026-05-11 using rebuilt source commit `1d9ff2b`:
+
+- `npm.cmd run build:desktop:nsis` produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`.
+- Installer SHA-256: `9956433D07A2CF28391E78F81A51F9BF9B0E74C63576266FB85FF1ED85C28290`.
+- Installer size: `3,805,709` bytes.
+- Silent uninstall of the previous smoke install exited with `0`.
+- A stale local installer-state key from an earlier smoke install, `HKCU\Software\notesprout\研思录`, restored a temporary install path until cleared. This key records the previous install directory only; it is not Vault/user content.
+- After clearing that stale installer state, silent reinstall exited with `0` and installed to `%LOCALAPPDATA%\研思录`.
+- Launch smoke started `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` as `yansilu-desktop`, window title `研思录`, responding `true`.
+
 Automated validation from `feat/desktop-runtime` also passed on 2026-05-10:
 
 - `npm.cmd test`: `146 pass / 0 fail / 55 skipped`.

@@ -3649,6 +3649,7 @@ const editor = new EditorPane({
     wysiwygHost: $("wysiwygHost"),
     editorHost: $("editorHost"),
     markdownSplit: $("markdownSplit"),
+    emptyStart: $("editorEmptyStart"),
     literatureWorkspace: $("literatureWorkspace"),
     literatureTitle: $("literatureTitleInput"),
     literatureOriginal: $("literatureOriginalInput"),
