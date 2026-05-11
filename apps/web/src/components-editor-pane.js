@@ -371,13 +371,54 @@ function isPreviewImageUrl(url = "") {
 }
 
 function isPreviewPdfUrl(url = "") {
-  return /\.pdf(\?|$)/i.test(String(url || "").trim());
+  return /\.pdf(\?|$)/i.test(decodePreviewUrl(url));
+}
+
+function decodePreviewUrl(url = "") {
+  const value = String(url || "").trim();
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function isPreviewDocumentUrl(url = "") {
+  return /\.(pdf|txt|md|markdown|csv|json|log)(\?|$)/i.test(decodePreviewUrl(url));
 }
 
 function attachmentLabelFromPath(rawPath) {
   const normalized = String(rawPath || "").replaceAll("\\", "/");
   const parts = normalized.split("/").filter(Boolean);
   return parts[parts.length - 1] || normalized || "附件";
+}
+
+const ALLOWED_ATTACHMENT_EXTENSIONS = new Set([".pdf", ".txt", ".md", ".markdown", ".csv", ".json", ".log"]);
+const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/json",
+  "application/x-ndjson",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/csv"
+]);
+
+function fileExtension(fileName = "") {
+  const match = String(fileName || "").trim().toLowerCase().match(/(\.[^.\\/]+)$/);
+  return match?.[1] || "";
+}
+
+function isImageFile(file) {
+  const mimeType = String(file?.type || "").trim().toLowerCase();
+  return mimeType.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)$/i.test(String(file?.name || ""));
+}
+
+function isAllowedAttachmentFile(file) {
+  if (isImageFile(file)) return true;
+  const mimeType = String(file?.type || "").trim().toLowerCase();
+  const ext = fileExtension(file?.name || "");
+  return ALLOWED_ATTACHMENT_MIME_TYPES.has(mimeType) || ALLOWED_ATTACHMENT_EXTENSIONS.has(ext);
 }
 
 function isMarkdownCodeFenceLine(line = "") {
@@ -1561,6 +1602,7 @@ export class EditorPane {
   openNoteTab(noteId, options = {}) {
     const n = this.state.notes.find((x) => x.id === noteId);
     if (!n) return;
+    this.closeTransientPanels({ closeInspector: true });
     const tabId = `tab_${noteId}`;
     let t = this.state.tabs.find((x) => x.id === tabId);
     if (!t) {
@@ -1616,8 +1658,6 @@ export class EditorPane {
   }
 
   renderTabs() {
-    const activeNote = this.activeNote();
-    const dirtyCount = this.state.tabs.filter((tab) => tab.dirty).length;
     const tabsHtml = this.state.tabs
       .map((t) => {
         const note = this.state.notes.find((n) => n.id === t.noteId);
@@ -1661,14 +1701,8 @@ export class EditorPane {
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
         <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
-        <div class="tabs-meta ${this.state.tabs.length ? "" : "hidden"}">
-          <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
-          ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 编辑中</span>` : ""}
-          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">准备记录</span>`}
-        </div>
         <div class="tabs-actions">
           <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
-          <button class="tab-act ${this.state.tabs.length ? "" : "hidden"}" data-tabs-action="toggle-menu" title="标签页菜单">▾</button>
         </div>
       </div>
       <div class="tab-menu hidden" data-tab-menu>
@@ -1929,6 +1963,14 @@ export class EditorPane {
     });
   }
 
+  closeTransientPanels({ closeInspector = false } = {}) {
+    this.closeLinkPicker();
+    this.closeTagPicker();
+    this.closeAssetPreview();
+    this.hideOriginalityNotice();
+    if (closeInspector) this.setInspectorVisible(false);
+  }
+
   closeAssetPreview() {
     this.els.assetPreviewMask?.classList.add("hidden");
     if (this.els.assetPreviewBody) this.els.assetPreviewBody.innerHTML = "";
@@ -1951,13 +1993,13 @@ export class EditorPane {
     if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = cleanUrl;
     if (isPreviewImageUrl(cleanUrl)) {
       this.els.assetPreviewBody.innerHTML = `<img class="asset-preview-image" src="${escapeHtml(cleanUrl)}" alt="${escapeHtml(previewLabel)}">`;
-    } else if (isPreviewPdfUrl(cleanUrl)) {
+    } else if (isPreviewPdfUrl(cleanUrl) || isPreviewDocumentUrl(cleanUrl)) {
       this.els.assetPreviewBody.innerHTML = `<iframe class="asset-preview-frame" src="${escapeHtml(cleanUrl)}" title="${escapeHtml(previewLabel)}"></iframe>`;
     } else {
       this.els.assetPreviewBody.innerHTML = `
         <div class="asset-preview-empty">
           <div><strong>${escapeHtml(previewLabel)}</strong></div>
-          <div>这类附件暂时不做站内内容渲染，但你可以直接在新窗口打开查看。</div>
+          <div>这类附件不支持站内预览。请用浏览器打开后查看。</div>
         </div>
       `;
     }
@@ -2934,8 +2976,14 @@ export class EditorPane {
       this.onStatus("请先打开一个笔记", "warn");
       return;
     }
-    const files = [...(filesLike || [])].filter(Boolean);
-    if (!files.length) return;
+    const incomingFiles = [...(filesLike || [])].filter(Boolean);
+    if (!incomingFiles.length) return;
+    const files = incomingFiles.filter(isAllowedAttachmentFile);
+    const skipped = incomingFiles.length - files.length;
+    if (!files.length) {
+      this.onStatus("附件只支持图片、PDF、Markdown、TXT、CSV、JSON 和日志文本", "warn");
+      return;
+    }
     this.onStatus(`${sourceLabel}文件处理中...`, "ok");
     try {
       const uploaded = [];
@@ -2945,7 +2993,7 @@ export class EditorPane {
           fileName: file.name,
           mimeType: file.type || "",
           contentBase64,
-          kind: String(file.type || "").toLowerCase().startsWith("image/") ? "image" : "file"
+          kind: isImageFile(file) ? "image" : "file"
         });
         if (item) uploaded.push(item);
       }
@@ -2980,7 +3028,7 @@ export class EditorPane {
       const detail = [];
       if (imageCount) detail.push(`${imageCount} 张图片`);
       if (fileCount) detail.push(`${fileCount} 个附件`);
-      this.onStatus(`已插入${detail.join("、")}`, "ok");
+      this.onStatus(`已插入${detail.join("、")}${skipped ? `，已跳过 ${skipped} 个不支持的文件` : ""}`, skipped ? "warn" : "ok");
     } catch (error) {
       this.onStatus(`插入附件失败：${String(error?.message || error)}`, "bad");
     } finally {
@@ -4248,7 +4296,8 @@ export class EditorPane {
     }
 
     if (evalItem.status === "blocked") {
-      const message = `blocked：原创性检查未通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`;
+      const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
+      const message = `原创性检查未通过：相似度 ${similarity}%。请先改写成自己的判断，再保存。`;
       this.showOriginalityNotice("需要重写", "bad", message);
       this.onStatus(message, "bad");
       if (forSave) {
@@ -4258,14 +4307,16 @@ export class EditorPane {
     }
 
     if (evalItem.status === "warning") {
-      const base = `warning：建议补充转述/引用定位（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`;
+      const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
+      const base = `原创性提醒：相似度 ${similarity}%。请补充自己的判断依据，或为引用内容标明来源位置。`;
       this.showOriginalityNotice("建议继续打磨", "warn", base);
       this.onStatus(forSave ? `${base}，将暂时保持草稿状态` : base, "warn");
       return { ...evalItem, raw: result };
     }
 
-    this.showOriginalityNotice("原创性通过", "ok", `pass：原创性检测通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`);
-    this.onStatus(`pass：原创性检测通过（相似度 ${Math.round((Number(evalItem.similarity) || 0) * 100)}%）`, "ok");
+    const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
+    this.showOriginalityNotice("原创性通过", "ok", `原创性检查通过：相似度 ${similarity}%。`);
+    this.onStatus(`原创性检查通过：相似度 ${similarity}%。`, "ok");
     return { ...evalItem, raw: result };
   }
 
@@ -4296,6 +4347,7 @@ export class EditorPane {
         const nextTabId = switchBtn.dataset.switchTab;
         if (nextTabId !== this.state.activeTabId) {
           await this.autoSaveActiveNote("switch-tab");
+          this.closeTransientPanels({ closeInspector: true });
         }
         this.state.activeTabId = nextTabId;
         this.fillEditorFromTab();
@@ -4330,6 +4382,7 @@ export class EditorPane {
       if (tab.dataset.tab === "welcome") return;
       if (tab.dataset.tab !== this.state.activeTabId) {
         await this.autoSaveActiveNote("switch-tab");
+        this.closeTransientPanels({ closeInspector: true });
       }
       this.state.activeTabId = tab.dataset.tab;
       this.fillEditorFromTab();
@@ -4468,6 +4521,15 @@ export class EditorPane {
     this.els.closeAssetPreview?.addEventListener("click", () => this.closeAssetPreview());
     this.els.assetPreviewMask?.addEventListener("click", (event) => {
       if (event.target === this.els.assetPreviewMask) this.closeAssetPreview();
+    });
+    this.els.assetPreviewOpenLink?.addEventListener("click", (event) => {
+      const url = String(this.els.assetPreviewOpenLink?.getAttribute("href") || "").trim();
+      if (!url || url === "#") {
+        event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      void this.openExternalUrl(url);
     });
 
     document.querySelectorAll(".tb[data-md]").forEach((btn) => {

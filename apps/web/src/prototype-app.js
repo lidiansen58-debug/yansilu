@@ -1349,6 +1349,72 @@ function createLocalDraftNote({ folderId, body }) {
   };
 }
 
+const UNTITLED_NOTE_TITLE = "未命名笔记";
+const STARTUP_NOTE_FOLDER_ID = "dir_original_default";
+
+function isUntitledTitle(title = "") {
+  return String(title || "").trim() === UNTITLED_NOTE_TITLE;
+}
+
+function isEmptyUntitledMarkdown(body = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return true;
+  return !text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim();
+}
+
+function noteTabFor(noteId = "") {
+  return state.tabs.find((item) => item.noteId === noteId) || null;
+}
+
+function isUntitledPlaceholderNote(note) {
+  if (!note) return false;
+  const tab = noteTabFor(note.id);
+  if (tab?.dirty) return false;
+  if (!tab && !note.bodyLoaded && !isLocalOnlyNote(note)) return false;
+  const title = tab?.title || note.title;
+  const body = typeof tab?.body === "string" ? tab.body : note.body;
+  return isUntitledTitle(title) && isEmptyUntitledMarkdown(body);
+}
+
+async function ensureNoteLoadedForPlaceholderCheck(note) {
+  if (!note || note.bodyLoaded || isLocalOnlyNote(note)) return note;
+  try {
+    const full = await fetchNote(note.id);
+    if (!full) return note;
+    Object.assign(note, mapNoteItem(full), { bodyLoaded: typeof full.body === "string" });
+  } catch {}
+  return note;
+}
+
+async function cleanupDuplicateUntitledPlaceholders(folderId) {
+  const candidates = state.notes.filter((item) => item.folderId === folderId && isUntitledTitle(item.title));
+  for (const note of candidates) {
+    await ensureNoteLoadedForPlaceholderCheck(note);
+  }
+  const placeholders = candidates.filter(isUntitledPlaceholderNote);
+  if (placeholders.length <= 1) {
+    return { kept: placeholders[0] || null, removed: 0 };
+  }
+
+  const [kept, ...duplicates] = placeholders;
+  const duplicateIds = new Set(duplicates.map((item) => item.id));
+  for (const note of duplicates) {
+    if (isLocalOnlyNote(note)) continue;
+    try {
+      await deleteNote(note.id);
+    } catch {}
+  }
+  state.notes = state.notes.filter((item) => !duplicateIds.has(item.id));
+  state.tabs = state.tabs.filter((item) => !duplicateIds.has(item.noteId));
+  if (state.activeTabId && !state.tabs.some((item) => item.id === state.activeTabId)) {
+    state.activeTabId = state.tabs[0]?.id || null;
+  }
+  if (duplicateIds.has(state.selectedFileId)) {
+    state.selectedFileId = kept?.id || null;
+  }
+  return { kept, removed: duplicateIds.size };
+}
+
 function replaceLocalNoteIdentity(previousNoteId, savedItem) {
   const note = state.notes.find((item) => item.id === previousNoteId);
   if (!note) return null;
@@ -1998,7 +2064,17 @@ async function createNoteInSelectedFolder(options = {}) {
   const folderId = state.selectedFolderId;
   const preferTitleSelection = options.preferTitleSelection !== false;
   const openInStandalone = options.openInStandalone === true;
+  const reuseUntitled = options.reuseUntitled !== false;
   try {
+    const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
+    if (reuseUntitled && cleanup.kept) {
+      if (openInStandalone) {
+        openStandaloneEditorWindow(cleanup.kept.id);
+      } else {
+        openNoteById(cleanup.kept.id, { preferTitleSelection });
+      }
+      return { note: cleanup.kept, remote: !isLocalOnlyNote(cleanup.kept), reused: true, cleanedCount: cleanup.removed };
+    }
     const initialBody = initialBodyForFolder(folderId);
     const created = await createNote({
       directoryId: folderId,
@@ -2015,7 +2091,7 @@ async function createNoteInSelectedFolder(options = {}) {
     } else {
       openNoteById(note.id, { preferTitleSelection });
     }
-    return { note, remote: true };
+    return { note, remote: true, cleanedCount: cleanup.removed };
   } catch (error) {
     const fallback = {
       id: uid("pn"),
@@ -2026,7 +2102,9 @@ async function createNoteInSelectedFolder(options = {}) {
       body: ensureEditableNoteBody(initialBodyForFolder(folderId)),
       tags: [],
       links: [],
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      bodyLoaded: true,
+      isLocalOnly: true
     };
     state.notes.unshift(fallback);
     if (openInStandalone) {
@@ -2036,6 +2114,27 @@ async function createNoteInSelectedFolder(options = {}) {
     }
     return { note: fallback, remote: false, error };
   }
+}
+
+async function openStartupUntitledNote() {
+  if (folderById(state, STARTUP_NOTE_FOLDER_ID)) {
+    state.browserRootId = rootBoxIdFromFolder(state, STARTUP_NOTE_FOLDER_ID);
+    state.selectedFolderId = STARTUP_NOTE_FOLDER_ID;
+  }
+  const result = await createNoteInSelectedFolder({ preferTitleSelection: true });
+  if (result.reused) {
+    setStatus(
+      result.cleanedCount
+        ? `已打开未命名笔记，并清理 ${result.cleanedCount} 条空白占位`
+        : "已打开未命名笔记",
+      result.cleanedCount ? "warn" : "ok"
+    );
+  } else if (result.remote) {
+    setStatus("已打开新的未命名笔记", "ok");
+  } else {
+    setStatus(`API 不可用，已打开本地未命名笔记：${String(result.error?.message || result.error)}`, "warn");
+  }
+  return result;
 }
 
 function renderModulePanels() {
@@ -3338,7 +3437,14 @@ function openNoteById(id, options = {}) {
 async function handleStateChange(reason, payload = {}) {
   if (reason === "create-note-in-selected-folder") {
     const result = await createNoteInSelectedFolder({ preferTitleSelection: true });
-    if (result.remote) {
+    if (result.reused) {
+      setStatus(
+        result.cleanedCount
+          ? `已打开现有未命名笔记，并清理 ${result.cleanedCount} 条空白占位`
+          : "已打开现有未命名笔记",
+        result.cleanedCount ? "warn" : "ok"
+      );
+    } else if (result.remote) {
       setStatus("已在当前目录创建 Markdown 文件（已落盘）", "ok");
     } else {
       setStatus(`API 不可用，已降级本地创建：${String(result.error?.message || result.error)}`, "warn");
@@ -4767,6 +4873,8 @@ async function bootstrap() {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
+  } else {
+    await openStartupUntitledNote();
   }
 
   // MVP: if running inside Tauri, periodically check for updates and offer one-click install.

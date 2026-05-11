@@ -713,7 +713,7 @@
     }
     .tabs-shell {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 8px;
       min-height: 44px;
@@ -2524,10 +2524,11 @@
       line-height: 1.6;
     }
     .floating-notice {
-      position: absolute;
-      right: 24px;
-      top: 74px;
-      width: min(360px, calc(100vw - 72px));
+      position: fixed;
+      right: clamp(16px, 3vw, 46px);
+      bottom: 72px;
+      top: auto;
+      width: min(420px, calc(100vw - 32px));
       border: 1px solid rgba(250, 204, 21, 0.42);
       border-radius: 18px;
       background:
@@ -2535,8 +2536,8 @@
         linear-gradient(180deg, rgba(255, 254, 248, 0.98), rgba(255, 250, 235, 0.96));
       box-shadow: 0 18px 40px rgba(146, 64, 14, 0.14);
       padding: 14px 15px 15px;
-      z-index: 60;
-      pointer-events: none;
+      z-index: 130;
+      pointer-events: auto;
     }
     .floating-notice .tb {
       pointer-events: auto;
@@ -6283,7 +6284,7 @@
                 <div id="editorHost" class="editor-host" aria-label="Markdown 源码编辑器"></div>
                 <textarea id="editorBody" class="editor-sync-field" aria-hidden="true" tabindex="-1"></textarea>
                 <input id="assetImageInput" type="file" accept="image/*" hidden multiple />
-                <input id="assetFileInput" type="file" accept="*/*" hidden multiple />
+                <input id="assetFileInput" type="file" accept=".pdf,.txt,.md,.markdown,.csv,.json,.log,application/pdf,text/plain,text/markdown,text/csv,application/json" hidden multiple />
               </div>
               <aside class="markdown-preview-col hidden" id="markdownPreviewPanel">
                 <div class="markdown-preview-head">
@@ -6716,7 +6717,7 @@
           </div>
           <div class="asset-preview-body" id="assetPreviewBody"></div>
           <div class="asset-preview-foot">
-            <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">在新窗口打开</a>
+            <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">用浏览器打开</a>
           </div>
         </div>
       </div>
