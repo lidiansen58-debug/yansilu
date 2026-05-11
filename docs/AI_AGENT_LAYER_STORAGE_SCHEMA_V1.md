@@ -234,6 +234,8 @@ Stores recurring tasks.
 
 Stores provider descriptors and non-secret configuration.
 
+Executable config contract: `PROVIDER_CONFIG_CONTRACT_V1.md` and `schemas/ai_provider_config.schema.json`.
+
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | text primary key | Provider config id |
@@ -265,6 +267,29 @@ Stores user-level AI settings.
 | `created_at` | datetime | |
 | `updated_at` | datetime | |
 
+### 4.12 `provider_health_checks`
+
+Stores provider health check results and safe provider-error-derived health signals.
+
+Detailed contract: `PROVIDER_HEALTH_STORE_V1.md`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | text primary key | Health record id |
+| `provider_id` | text | Provider preset/config id |
+| `provider_config_id` | text nullable | Specific configured provider |
+| `status` | text | healthy, degraded, down, unknown |
+| `latency_ms` | integer | Measured or estimated latency |
+| `checked_at` | datetime | When health was measured |
+| `source` | text | health_check, model_error, manual_override, etc. |
+| `trigger` | text nullable | user_command, scheduled_task, background_task |
+| `agent_run_id` | text nullable | Optional source run |
+| `message` | text nullable | Safe diagnostic summary |
+| `error_type` | text nullable | Normalized provider error |
+| `retryable` | integer | 0 or 1 |
+| `payload_json` | json/text | Safe non-secret details |
+| `created_at` | datetime | Store write time |
+
 ## 5. Suggested Indexes
 
 Suggested indexes:
@@ -281,6 +306,9 @@ Suggested indexes:
 - `context_packs(agent_run_id)`
 - `context_pack_items(context_pack_id)`
 - `scheduled_agent_tasks(status, next_run_at)`
+- `provider_health_checks(provider_id, checked_at desc)`
+- `provider_health_checks(status, checked_at desc)`
+- `provider_health_checks(agent_run_id)`
 
 ## 6. Retention Defaults
 
@@ -294,6 +322,7 @@ Suggested indexes:
 | Context Pack item exact content | Short-term or off | Prefer hashes/refs |
 | Scheduled task config | Until deleted | User configuration |
 | Provider config | Until disabled/deleted | No raw secrets |
+| Provider health history | Short/medium-term | Operational telemetry only |
 
 ## 7. Deletion and Privacy Rules
 
@@ -325,13 +354,13 @@ MVP should implement:
 - `scheduled_agent_tasks`
 - `model_provider_configs`
 - `user_ai_preferences`
+- `provider_health_checks`
 
 MVP can defer:
 
 - `context_pack_omissions` as a separate table if omissions are stored in JSON initially.
 - Full encrypted prompt/output blob storage.
 - Enterprise audit export tables.
-- Provider health history tables.
 - Automated eval result tables.
 
 ## 9. Open Questions

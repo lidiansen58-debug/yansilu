@@ -232,6 +232,8 @@ Health should influence Model Policy fallback choices, especially for scheduled 
 
 Adapters should support one or more auth modes.
 
+Provider-specific endpoint, secret reference, non-secret headers, and health-check configuration are defined in `PROVIDER_CONFIG_CONTRACT_V1.md`.
+
 ```json
 {
   "auth_mode": "platform_managed | workspace_managed | byok_advanced | local_no_key | enterprise_secret",

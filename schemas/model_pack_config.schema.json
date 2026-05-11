@@ -1,0 +1,144 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "user_modes", "model_tiers", "auth_modes", "provider_presets", "model_packs"],
+  "properties": {
+    "version": { "type": "string", "enum": ["model_pack_config.v1"] },
+    "user_modes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["Auto", "Economy", "Balanced", "Deep Thinking", "Local / Private"] },
+      "minItems": 5
+    },
+    "model_tiers": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"] },
+      "minItems": 6
+    },
+    "auth_modes": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["platform_managed", "workspace_managed", "byok_advanced", "local_no_key", "enterprise_secret"] },
+      "minItems": 5
+    },
+    "provider_presets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider_preset",
+          "provider_id",
+          "display_name",
+          "adapter_type",
+          "status",
+          "auth_modes",
+          "regions",
+          "novice_visible",
+          "capabilities",
+          "model_map"
+        ],
+        "properties": {
+          "provider_preset": { "type": "string", "minLength": 1 },
+          "provider_id": { "type": "string", "minLength": 1 },
+          "display_name": { "type": "string", "minLength": 1 },
+          "adapter_type": {
+            "type": "string",
+            "enum": ["direct_provider", "aggregated_gateway", "self_hosted_gateway", "local_gateway"]
+          },
+          "status": { "type": "string", "enum": ["enabled", "disabled", "experimental", "deprecated"] },
+          "auth_modes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "enum": ["platform_managed", "workspace_managed", "byok_advanced", "local_no_key", "enterprise_secret"] }
+          },
+          "regions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "novice_visible": { "type": "boolean" },
+          "local_execution": { "type": "boolean" },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": { "type": ["string", "boolean", "number"] }
+          },
+          "model_map": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": { "type": "string", "minLength": 1 },
+            "properties": {
+              "router_fast": { "type": "string", "minLength": 1 },
+              "cheap_fast": { "type": "string", "minLength": 1 },
+              "standard": { "type": "string", "minLength": 1 },
+              "strong_reasoning": { "type": "string", "minLength": 1 },
+              "guardrail": { "type": "string", "minLength": 1 },
+              "local_private": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "model_packs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_pack_id",
+          "model_pack",
+          "description",
+          "default_user_mode",
+          "provider_preset",
+          "auth_mode",
+          "provider_visibility",
+          "byok_required",
+          "fallback_policy",
+          "budget",
+          "privacy"
+        ],
+        "properties": {
+          "model_pack_id": { "type": "string", "minLength": 1 },
+          "model_pack": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "default_user_mode": { "type": "string", "enum": ["Auto", "Economy", "Balanced", "Deep Thinking", "Local / Private"] },
+          "provider_preset": { "type": "string", "minLength": 1 },
+          "auth_mode": { "type": "string", "enum": ["platform_managed", "workspace_managed", "byok_advanced", "local_no_key", "enterprise_secret"] },
+          "provider_visibility": { "type": "string", "enum": ["hidden", "advanced", "admin"] },
+          "byok_required": { "type": "boolean" },
+          "fallback_policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "allow_same_provider_fallback": { "type": "boolean" },
+              "allow_cross_provider_fallback": { "type": "boolean" },
+              "allow_cloud_fallback": { "type": "boolean" },
+              "allow_cloud_fallback_for_private": { "type": "boolean" },
+              "requires_confirmation_for_cloud": { "type": "boolean" },
+              "requires_confirmation_for_strong_reasoning": { "type": "boolean" },
+              "requires_confirmation_for_broad_context": { "type": "boolean" },
+              "requires_confirmation_for_international_fallback": { "type": "boolean" }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["monthly_limit", "confirmation_threshold_per_run", "scheduled_task_hard_cap", "currency"],
+            "properties": {
+              "monthly_limit": { "type": "number", "minimum": 0 },
+              "confirmation_threshold_per_run": { "type": "number", "minimum": 0 },
+              "scheduled_task_hard_cap": { "type": "number", "minimum": 0 },
+              "currency": { "type": "string", "minLength": 1 }
+            }
+          },
+          "privacy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["default_mode", "allow_cloud", "local_preferred"],
+            "properties": {
+              "default_mode": { "type": "string", "enum": ["normal", "private_project", "local_only", "enterprise_restricted"] },
+              "allow_cloud": { "type": "boolean" },
+              "local_preferred": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
