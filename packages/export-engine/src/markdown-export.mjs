@@ -1,7 +1,8 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { listMarkdownFiles } from "../../domain/src/index.mjs";
+import { getNoteById, listMarkdownFiles } from "../../domain/src/index.mjs";
+import { findVaultAssetLinks } from "../../domain/src/markdown-asset-links.mjs";
 
 async function listAllFiles(root) {
   const out = [];
@@ -37,7 +38,88 @@ function exportTargetInsideVaultError() {
   return error;
 }
 
-export async function exportMarkdown({ vaultPath, targetPath, requestId = null, now = new Date() }) {
+function exportScopeError(message) {
+  const error = new Error(message);
+  error.code = "EXPORT_SCOPE_INVALID";
+  return error;
+}
+
+function uniqueNonEmptyStrings(values = []) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const normalized = String(value || "").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+async function resolveMarkdownFiles({ vaultPath, sourceRoot, noteIds }) {
+  if (noteIds === undefined) {
+    const files = await listMarkdownFiles(sourceRoot).catch(() => []);
+    return {
+      files,
+      scope: { type: "all" }
+    };
+  }
+
+  if (!Array.isArray(noteIds)) {
+    throw exportScopeError("noteIds must be an array when provided");
+  }
+
+  const ids = uniqueNonEmptyStrings(noteIds);
+  if (!ids.length) throw exportScopeError("noteIds must contain at least one note id");
+
+  const files = [];
+  for (const noteId of ids) {
+    let note;
+    try {
+      note = await getNoteById(vaultPath, noteId);
+    } catch {
+      throw exportScopeError(`noteId not found: ${noteId}`);
+    }
+
+    const relPath = String(note.markdownPath || "").replaceAll("\\", "/").trim();
+    const fullPath = path.resolve(vaultPath, relPath);
+    if (!relPath || !isPathInsideOrEqual(sourceRoot, fullPath) || !fullPath.toLowerCase().endsWith(".md")) {
+      throw exportScopeError(`noteId has invalid markdown path: ${noteId}`);
+    }
+    files.push(fullPath);
+  }
+
+  return {
+    files,
+    scope: { type: "noteIds", noteIds: ids }
+  };
+}
+
+async function resolveAssetFiles({ vaultPath, assetsRoot, sourceRoot, files, scope }) {
+  if (scope.type === "all") return listAllFiles(assetsRoot);
+
+  const assetPaths = new Set();
+  for (const file of files) {
+    const markdown = await fs.readFile(file, "utf8");
+    const noteRelPath = toPortablePath(path.join("notes", path.relative(sourceRoot, file)));
+    for (const assetRelPath of findVaultAssetLinks(markdown, noteRelPath)) {
+      assetPaths.add(assetRelPath);
+    }
+  }
+
+  const out = [];
+  for (const assetRelPath of [...assetPaths].sort((a, b) => a.localeCompare(b))) {
+    const fullPath = path.resolve(vaultPath, assetRelPath);
+    if (!isPathInsideOrEqual(assetsRoot, fullPath)) continue;
+    try {
+      const stat = await fs.stat(fullPath);
+      if (stat.isFile()) out.push(fullPath);
+    } catch {}
+  }
+  return out;
+}
+
+export async function exportMarkdown({ vaultPath, targetPath, noteIds, requestId = null, now = new Date() }) {
   if (!vaultPath) throw new Error("vaultPath is required");
   if (!targetPath) throw new Error("targetPath is required");
 
@@ -48,9 +130,19 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
   }
 
   const sourceRoot = path.join(resolvedVaultPath, "notes");
-  const files = await listMarkdownFiles(sourceRoot).catch(() => []);
+  const { files, scope } = await resolveMarkdownFiles({
+    vaultPath: resolvedVaultPath,
+    sourceRoot,
+    noteIds
+  });
   const assetsRoot = path.join(resolvedVaultPath, "assets");
-  const assetFiles = await listAllFiles(assetsRoot);
+  const assetFiles = await resolveAssetFiles({
+    vaultPath: resolvedVaultPath,
+    assetsRoot,
+    sourceRoot,
+    files,
+    scope
+  });
   const exportJobId = `exp_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
   await fs.mkdir(resolvedTargetPath, { recursive: true });
@@ -91,6 +183,7 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
     exportJobId,
     copied: copiedBreakdown.totalFiles,
     copiedBreakdown,
+    scope,
     targetPath: resolvedTargetPath,
     requestId,
     exportedFiles,
@@ -107,6 +200,7 @@ export async function exportMarkdown({ vaultPath, targetPath, requestId = null, 
     status: "queued",
     copied: record.copied,
     copiedBreakdown,
+    scope,
     exportedFiles,
     recordPath,
     record
