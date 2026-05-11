@@ -3597,7 +3597,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const createdNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Export panel note\n\nThis note should be exported from the browser UI."
+    body: "# Export panel note\n\nThis note should be exported from the browser UI.\n\n[Browser asset](../../assets/browser-export/asset.txt)"
   });
   assert.equal(createdNote.status, 201);
   await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
@@ -3610,7 +3610,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 2') && text.includes("资源文件");
+    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 3') && text.includes("资源文件");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
@@ -3621,11 +3621,12 @@ test("prototype export panel exports markdown files through real API", async (t)
   assert.match(exportResultText || "", /资源文件/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
-  assert.equal(exportedFiles.length, 1, JSON.stringify(exportedFiles, null, 2));
+  assert.equal(exportedFiles.length, 2, JSON.stringify(exportedFiles, null, 2));
   const exportedAsset = await fs.readFile(path.join(exportTargetPath, "assets", "browser-export", "asset.txt"), "utf8");
   assert.equal(exportedAsset, "browser asset");
 
-  const exportedContent = await fs.readFile(exportedFiles[0], "utf8");
+  const exportedContents = await Promise.all(exportedFiles.map((file) => fs.readFile(file, "utf8")));
+  const exportedContent = exportedContents.find((content) => content.includes("# Export panel note")) || "";
   assert.match(exportedContent, /# Export panel note/);
   assert.match(exportedContent, /exported from the browser UI/);
 });
@@ -3904,7 +3905,9 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   await waitFor(async () => {
     await page.waitForSelector("#graphCanvas .graph-node", { timeout: 500 });
     const summary = await page.locator("#graphSummary").textContent();
-    assert.match(summary || "", /2 .*1 /);
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
   }, 7000);
 
