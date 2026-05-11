@@ -3428,6 +3428,7 @@ async function handleStateChange(reason, payload = {}) {
 
   if (reason === "save-note") {
     const noteId = payload.noteId || state.tabs.find((t) => t.id === state.activeTabId)?.noteId || null;
+    let savedNote = null;
     if (noteId) {
       const note = state.notes.find((n) => n.id === noteId);
       if (note && payload.title) {
@@ -3467,6 +3468,7 @@ async function handleStateChange(reason, payload = {}) {
             note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
             note.updatedAt = updated.updatedAt || note.updatedAt;
             note.bodyLoaded = true;
+            savedNote = updated;
           }
           if (note.noteType === "original") {
             setStatus(
@@ -3488,7 +3490,7 @@ async function handleStateChange(reason, payload = {}) {
 	      }
 	    }
 	    renderAll();
-	    return true;
+	    return savedNote || true;
 	  }
 
   if (reason === "note-move") {
