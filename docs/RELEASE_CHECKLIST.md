@@ -54,12 +54,12 @@ Use this only after signing, notarization, and update feed checks are ready.
 
 ## Required Repository Secrets
 
-The tagged release workflow requires:
+Signed updater artifact generation requires:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
-Add these before pushing a `v*` tag. They sign Tauri updater artifacts, not the operating system installer itself.
+For v0.1.0, tagged release workflows keep updater artifacts disabled by default. Add these secrets before enabling signed updater artifacts; they sign Tauri updater metadata, not the operating system installer itself.
 
 Future production signing should also add:
 
@@ -104,7 +104,7 @@ Before publishing the draft release:
 1. Download every uploaded artifact.
 2. Compare `bundle-manifest.sha256.txt` against the release assets.
 3. Install and launch on each target platform.
-4. Confirm updater artifacts exist when this is a production tag.
+4. Confirm updater artifacts exist only when signed updater generation was intentionally enabled for this release.
 5. Confirm release notes mention known limitations and signing status.
 6. Keep the previous release available for rollback.
 

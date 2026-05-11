@@ -46,7 +46,7 @@ These may exist as docs, experiments, or early implementation, but they should n
 - Writing project, scaffold, draft binding, and draft version APIs are implemented.
 - Windows desktop build and release executable launch have been verified locally.
 - Windows NSIS silent install, silent uninstall, reinstall, and installed executable launch have been verified locally.
-- MVP desktop builds should support in-app auto update checks; tagged releases still require signing secrets and a working update feed.
+- MVP desktop builds should support in-app auto update checks; v0.1.0 tagged bundles keep updater artifacts disabled until signing secrets and a working update feed are ready.
 
 ### Still Needs Final Human Validation
 
