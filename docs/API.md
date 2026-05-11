@@ -955,6 +955,7 @@ Export record shape:
 | `IMPORT_CONFIRM_REQUIRED` | 400 | Confirm request must include `confirm: true` or `confirm: false`. |
 | `IMPORT_ORIGINALITY_BLOCKED` | 409 | Originality guard blocked confirm. |
 | `EXPORT_SCOPE_INVALID` | 400 | Export request is missing `targetPath`. |
+| `EXPORT_TARGET_INVALID` | 400 | Export target is unsafe, such as a path inside the active Vault. |
 | `WRITING_PROJECT_INVALID` | 400 | Writing project request is invalid. |
 | `DRAFT_SCAFFOLD_INVALID` | 400 | Draft scaffold request is invalid. |
 | `NOT_FOUND` | 404 | Route not found. |

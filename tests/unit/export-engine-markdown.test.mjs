@@ -76,3 +76,20 @@ test("exportMarkdown succeeds with zero copied files when notes directory is abs
   assert.deepEqual(result.exportedFiles, []);
   await fs.access(result.recordPath);
 });
+
+test("exportMarkdown rejects targets inside the active vault", async () => {
+  const vaultPath = await makeTempDir("yansilu-export-target-guard-vault-");
+  const targetPath = path.join(vaultPath, "notes", "export-copy");
+
+  await assert.rejects(
+    () => exportMarkdown({ vaultPath, targetPath }),
+    (error) =>
+      error?.code === "EXPORT_TARGET_INSIDE_VAULT" &&
+      String(error.message || "").includes("outside the active vault")
+  );
+
+  await assert.rejects(
+    () => fs.access(targetPath),
+    /ENOENT/
+  );
+});
