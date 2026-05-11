@@ -11,12 +11,17 @@ export function normalizeProviderDescriptor(input = {}) {
     adapterType: cleanText(input.adapterType || input.adapter_type) || "direct_provider",
     status: cleanText(input.status) || "enabled",
     authModes: Array.isArray(input.authModes || input.auth_modes) ? [...(input.authModes || input.auth_modes)] : [],
+    authMode: cleanText(input.authMode || input.auth_mode),
+    secretRef: cleanText(input.secretRef || input.secret_ref),
+    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url),
     regions: Array.isArray(input.regions) ? [...input.regions] : [],
     noviceVisible: input.noviceVisible === true || input.novice_visible === true,
     supportsHealthCheck: input.supportsHealthCheck !== false && input.supports_health_check !== false,
     supportsUsageReporting: input.supportsUsageReporting !== false && input.supports_usage_reporting !== false,
     supportsCostEstimation: input.supportsCostEstimation !== false && input.supports_cost_estimation !== false,
-    localExecution: input.localExecution === true || input.local_execution === true
+    localExecution: input.localExecution === true || input.local_execution === true,
+    capabilities: input.capabilities || {},
+    modelMap: input.modelMap || input.model_map || {}
   };
 }
 

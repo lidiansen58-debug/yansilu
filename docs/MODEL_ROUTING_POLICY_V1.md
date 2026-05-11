@@ -3,7 +3,7 @@
 > Status: draft policy
 > Date: 2026-05-09
 > Workstream: `feat/ai-agent-layer`
-> Related: `AI_AGENT_LAYER_REQUIREMENTS_V1.md`, `MODEL_SWITCHING_PROBLEM_MATRIX.md`
+> Related: `AI_AGENT_LAYER_REQUIREMENTS_V1.md`, `MODEL_SWITCHING_PROBLEM_MATRIX.md`, `MODEL_PACK_CONFIG_CONTRACT_V1.md`, `PROVIDER_HEALTH_AND_FALLBACK_POLICY_V1.md`
 
 ## 1. Purpose
 
@@ -145,6 +145,8 @@ MVP behavior:
 
 Fallback should be explicit and logged.
 
+Provider health-aware fallback behavior is defined in `PROVIDER_HEALTH_AND_FALLBACK_POLICY_V1.md`.
+
 Fallback reasons:
 
 - Provider unavailable.
@@ -224,6 +226,8 @@ routeModel(task, contextPack, userMode, workspacePolicy):
 - Store every routing decision in the Run Log.
 - Keep model ids hidden from novice users.
 - Allow advanced overrides, but never let overrides bypass privacy policy.
+- Treat model packs as compiled policy inputs using `MODEL_PACK_CONFIG_CONTRACT_V1.md`.
+- Apply provider health and fallback rules using `PROVIDER_HEALTH_AND_FALLBACK_POLICY_V1.md`.
 
 ## 14. Open Questions
 
