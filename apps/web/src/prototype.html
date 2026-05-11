@@ -6652,6 +6652,33 @@
                     切换后会重新加载目录树，并清空当前打开的编辑标签页；主内容仍以本地 Markdown 为准，SQLite 缓存可重建。
                   </div>
                 </section>
+
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">AI 模式</div>
+                      <div class="settings-card-note">
+                        这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。高级用户可以填模型 ID 直接覆盖，但默认不需要。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="import-grid">
+                    <label for="settingsAiUserMode">使用模式</label>
+                    <select id="settingsAiUserMode">
+                      <option value="Auto">自动</option>
+                      <option value="Economy">省钱</option>
+                      <option value="Balanced">均衡</option>
+                      <option value="Deep Thinking">深度思考</option>
+                      <option value="Local / Private">本地 / 私密</option>
+                    </select>
+
+                    <label for="settingsAiAdvancedModelRef">模型 ID（高级）</label>
+                    <input id="settingsAiAdvancedModelRef" placeholder="留空=自动选择（例如：platform_managed_openai:standard）" />
+                  </div>
+                  <div class="settings-footnote">
+                    说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。
+                  </div>
+                </section>
               </div>
 
               <section class="settings-card">

@@ -116,6 +116,10 @@ const graphState = {
 };
 const settingsState = {
   vault: null,
+  ai: {
+    userMode: "Auto",
+    advancedModelRef: ""
+  },
   error: ""
 };
 const writingState = {
@@ -142,12 +146,15 @@ let statusRevision = 0;
 let editorHelperDismissed = false;
 const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
+loadAiSettingsFromStorage();
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
 const APP_VERSION = "0.1.0";
 const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
+const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
+const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function tauriGlobal() {
@@ -335,6 +342,35 @@ function writeStoredBoolean(key, value) {
   try {
     window.localStorage?.setItem(String(key || ""), value ? "1" : "0");
   } catch {}
+}
+
+function readStoredText(key, fallback = "") {
+  try {
+    const raw = window.localStorage?.getItem(String(key || ""));
+    if (raw === null || raw === undefined) return fallback;
+    return String(raw);
+  } catch {}
+  return fallback;
+}
+
+function writeStoredText(key, value) {
+  try {
+    const clean = String(value ?? "");
+    if (!clean) window.localStorage?.removeItem(String(key || ""));
+    else window.localStorage?.setItem(String(key || ""), clean);
+  } catch {}
+}
+
+function loadAiSettingsFromStorage() {
+  const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
+  const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
+  if (storedMode) settingsState.ai.userMode = storedMode;
+  settingsState.ai.advancedModelRef = storedModelRef;
+}
+
+function persistAiSettingsToStorage() {
+  writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
+  writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
 }
 
 function hideEditorHelper() {
@@ -2205,6 +2241,17 @@ function renderSettingsPanel() {
     feedbackLink.textContent = FEEDBACK_REPOSITORY_READY ? href : "等待填写真实 GitHub 仓库";
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
+
+  const aiMode = $("settingsAiUserMode");
+  if (aiMode) {
+    const stored = String(settingsState.ai.userMode || "Auto").trim() || "Auto";
+    if (aiMode.value !== stored) aiMode.value = stored;
+  }
+  const aiRef = $("settingsAiAdvancedModelRef");
+  if (aiRef) {
+    const stored = String(settingsState.ai.advancedModelRef || "").trim();
+    if (String(aiRef.value || "") !== stored) aiRef.value = stored;
+  }
 }
 
 function isWritingEligibleNote(note) {
@@ -3917,6 +3964,22 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   } catch (error) {
     setStatus(`切换 Vault 失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("settingsAiUserMode")?.addEventListener("change", (event) => {
+  const next = String(event?.target?.value || "Auto").trim() || "Auto";
+  settingsState.ai.userMode = next;
+  persistAiSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`AI 模式已切换为：${next}`, "ok");
+});
+
+$("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.advancedModelRef = next;
+  persistAiSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(next ? "AI 高级模型 ID 已保存" : "AI 高级模型 ID 已清空（恢复自动选择）", "ok");
 });
 
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
