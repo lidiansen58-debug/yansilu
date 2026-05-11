@@ -90,7 +90,7 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
   - `npm.cmd run test:e2e:browser:mvp` -> quick real-browser MVP path passed locally for note, Vault, import, export, graph, and explorer move/delete paths.
   - Targeted browser regression for import/export after the asset-flow merge -> `7 pass / 0 fail`
   - Marketing route coverage for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, auth/billing DOM hooks, and asset-proxy HTML refusal -> `2 pass / 0 fail`
-  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `9956433D07A2CF28391E78F81A51F9BF9B0E74C63576266FB85FF1ED85C28290`.
+  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `B4A6B11A0BAC93F209A25E8191C3D1D8B9C5A98EDCB058F6F2114C6DE380A030`.
   - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow has passed locally with `59 pass / 0 fail`
 
 ## Not Yet Completed
