@@ -8,7 +8,12 @@
     "dialog:default",
     "dialog:allow-open",
     "opener:default",
-    "opener:allow-open-path",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "**" }
+      ]
+    },
     "updater:default"
   ]
 }

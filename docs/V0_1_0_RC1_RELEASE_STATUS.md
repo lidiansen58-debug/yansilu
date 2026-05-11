@@ -1,6 +1,6 @@
 # Yansilu v0.1.0 RC1 Release Status
 
-Updated: 2026-05-10
+Updated: 2026-05-11
 
 ## Release Target
 
@@ -47,12 +47,13 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Packaged-app API-backed walkthrough passed on 2026-05-10 with `localhost:3000` restarted from the current `feat-desktop-runtime` worktree and active Vault `E:\Projects\Thinking in Notes\yansilu-wt\_manual-walkthrough\研思录 Vault 手动走查`.
 - API-backed walkthrough covered Chinese/space custom directories, note persistence, image/file attachments, wikilinks, tags, graph path lookup, Markdown import confirm/history/rollback, Obsidian import confirm/history/asset rollback, Markdown export, writing project creation, and draft scaffold generation.
 - Installed app shows a blocking dialog when API is not running, instead of silently falling back to local prototype data.
+- Installed app opener actions verified on 2026-05-11: open directory and reveal item both work for Chinese/space paths (uses a custom `open_in_explorer` command to avoid Windows hangs).
 
 ## Required Manual Walkthrough Before Sharing
 
 Run this from the installed app, not the dev server:
 
-The API-backed portion of this checklist has passed against the same `localhost:3000` API used by the packaged app. The remaining sign-off is the human UI pass through the installed WebView, especially native dialogs and opener actions.
+The API-backed portion of this checklist has passed against the same `localhost:3000` API used by the packaged app. Opener actions have also passed; the remaining sign-off is the human UI pass through the installed WebView (native dialogs, layout, and end-to-end feel).
 
 1. Create or switch to a Vault path with Chinese characters and spaces.
 2. Create a directory and a note.
@@ -63,7 +64,7 @@ The API-backed portion of this checklist has passed against the same `localhost:
 7. Export Markdown and confirm files are written to the expected target.
 8. Open the graph and jump back from a graph node to the note.
 9. Create a writing project from permanent notes and generate a scaffold.
-10. Verify desktop opener actions: open directory and reveal Markdown file.
+10. Verify desktop opener actions: open directory and reveal Markdown file. (Passed on 2026-05-11)
 
 ## Known Limitations
 
