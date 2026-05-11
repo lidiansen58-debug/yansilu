@@ -1812,6 +1812,21 @@ function renderWorkspaceStatusHint() {
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
   const noteType = String(activeNote?.noteType || "").trim();
+  if (!activeNote) {
+    if (action) {
+      action.dataset.helperAction = "noop";
+      action.dataset.targetNoteId = "";
+    }
+    helper.hidden = false;
+    helper.setAttribute("aria-hidden", "false");
+    helper.style.pointerEvents = "";
+    helper.classList.remove("hidden");
+    kicker.textContent = "下一步推荐";
+    title.textContent = "先打开一条笔记";
+    body.textContent = "从随笔、文献或原创笔记里任选一条开始。后续会根据当前上下文提示相关任务和推荐下一步。";
+    action.textContent = "知道了";
+    return;
+  }
   if (activeNote && !state.focusMode) {
     hideEditorHelper();
     return;
@@ -1832,13 +1847,6 @@ function renderWorkspaceStatusHint() {
       ? `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}写清楚，再决定是否补连接与标签。`
       : "专注模式会收起左侧导航和回链，只留下正文与关键按钮。打开一条笔记后再开始提炼。";
     action.textContent = "保持专注";
-    return;
-  }
-  if (!activeNote) {
-    kicker.textContent = "下一步推荐";
-    title.textContent = "先打开一条笔记";
-    body.textContent = "从随笔、文献或原创笔记里任选一条开始。小精灵助手后面会接入大模型，继续帮你提示相关任务和推荐下一步。";
-    action.textContent = "知道了";
     return;
   }
   if (noteType === "literature") {

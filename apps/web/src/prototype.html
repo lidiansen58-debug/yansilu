@@ -5865,6 +5865,158 @@
         padding-right: 16px;
       }
     }
+
+    /* UX correction: keep the primary editor actions visible above the editor. */
+    .rail {
+      background:
+        linear-gradient(180deg, rgba(12, 26, 34, 0.98) 0%, rgba(13, 43, 44, 0.96) 62%, rgba(43, 37, 26, 0.96) 100%) !important;
+      border-right-color: rgba(255, 255, 255, 0.12) !important;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.1), 12px 0 30px rgba(10, 20, 26, 0.12) !important;
+    }
+
+    .rail-btn {
+      color: rgba(232, 246, 243, 0.78) !important;
+    }
+
+    .rail-svg {
+      width: 19px;
+      height: 19px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
+    }
+
+    .rail-btn:hover,
+    .rail-btn:focus-visible {
+      background: rgba(255, 255, 255, 0.11) !important;
+      border-color: rgba(255, 255, 255, 0.18) !important;
+      color: #ffffff !important;
+      outline: none;
+    }
+
+    .rail-btn.active,
+    .quick-entry.current-root {
+      color: #ffffff !important;
+      border-color: rgba(105, 235, 215, 0.42) !important;
+      background: linear-gradient(135deg, rgba(0, 143, 122, 0.42), rgba(188, 134, 44, 0.2)) !important;
+      box-shadow: inset 2px 0 0 rgba(105, 235, 215, 0.86), 0 10px 22px rgba(0, 0, 0, 0.18) !important;
+    }
+
+    #editorWorkspace > .toolbar,
+    .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
+    html.editor-only #editorWorkspace > .toolbar {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      left: auto !important;
+      transform: none !important;
+      z-index: 70 !important;
+      width: auto !important;
+      max-width: min(1040px, calc(100% - 32px)) !important;
+      max-height: none !important;
+      margin: 10px auto 0 !important;
+      padding: 6px !important;
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      overflow: visible !important;
+      border-radius: 16px !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group,
+    #editorWorkspace > .toolbar .toolbar-group:first-child,
+    #editorWorkspace > .toolbar .toolbar-group-structure {
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 0 0 6px !important;
+      border-top: 0 !important;
+      border-left: 1px solid rgba(36, 58, 70, 0.12) !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group:first-child {
+      padding-left: 0 !important;
+      border-left: 0 !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group-structure {
+      order: -1;
+      padding-left: 0 !important;
+      border-left: 0 !important;
+      padding-right: 6px !important;
+      border-right: 1px solid rgba(36, 58, 70, 0.12) !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-segment {
+      width: auto !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+
+    #editorWorkspace > .toolbar .heading-segment,
+    #editorWorkspace > .toolbar .tb,
+    #editorWorkspace > .toolbar .toolbar-segment .tb,
+    #editorWorkspace > .toolbar .tb-icon,
+    #editorWorkspace > .toolbar .tb-label,
+    #editorWorkspace > .toolbar .tb-label.has-icon,
+    #editorWorkspace > .toolbar #btnFocusMode,
+    #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon,
+    #editorWorkspace > .toolbar #btnRunGuard,
+    #editorWorkspace > .toolbar #btnSave {
+      width: 40px !important;
+      min-width: 40px !important;
+      height: 40px !important;
+      padding: 0 !important;
+      border-radius: 12px !important;
+      gap: 0 !important;
+    }
+
+    #editorWorkspace > .toolbar .tb-label.has-icon span,
+    #editorWorkspace > .toolbar #btnFocusMode span,
+    #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon span {
+      display: none !important;
+    }
+
+    #editorWorkspace > .editor-wrap,
+    .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
+    html.editor-only #editorWorkspace > .editor-wrap {
+      padding: 12px clamp(18px, 4vw, 58px) 22px !important;
+    }
+
+    .panel.floating,
+    .panel.floating.inline-picker {
+      z-index: 120 !important;
+      overflow-y: auto !important;
+      overscroll-behavior: contain;
+    }
+
+    .editor-empty-start {
+      display: none !important;
+    }
+
+    @media (max-width: 920px) {
+      #editorWorkspace > .toolbar,
+      .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
+      html.editor-only #editorWorkspace > .toolbar {
+        max-width: calc(100% - 24px) !important;
+        justify-content: flex-start !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+      }
+
+      #editorWorkspace > .editor-wrap,
+      .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
+      html.editor-only #editorWorkspace > .editor-wrap {
+        padding: 10px 12px 16px !important;
+      }
+    }
   </style>
 </head>
 <body>

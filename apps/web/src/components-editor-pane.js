@@ -1020,6 +1020,8 @@ export class EditorPane {
     this.richEditor = null;
     this.markdownEditor = null;
     this.lastInlinePickerAnchor = 0;
+    this.lastPlainEnterAt = 0;
+    this.lastTagTriggerAt = 0;
     this.suppressEditorChange = false;
     this.suppressRichEditorChange = false;
     this.suppressSourceEditorChange = false;
@@ -1618,19 +1620,19 @@ export class EditorPane {
             }
           )
           .join("")
-      : `<div class="tab-menu-empty">未打开笔记</div>`;
+      : "";
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
         <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
-        <div class="tabs-meta">
+        <div class="tabs-meta ${this.state.tabs.length ? "" : "hidden"}">
           <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
           ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 编辑中</span>` : ""}
           ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">准备记录</span>`}
         </div>
         <div class="tabs-actions">
           <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
-          <button class="tab-act" data-tabs-action="toggle-menu" title="标签页菜单">▾</button>
+          <button class="tab-act ${this.state.tabs.length ? "" : "hidden"}" data-tabs-action="toggle-menu" title="标签页菜单">▾</button>
         </div>
       </div>
       <div class="tab-menu hidden" data-tab-menu>
@@ -1647,7 +1649,7 @@ export class EditorPane {
     const empty = !this.activeTab();
     const panel = this.els.markdownSplit?.closest?.(".md-panel");
     panel?.classList.toggle("editor-empty", empty);
-    this.els.emptyStart?.classList.toggle("hidden", !empty);
+    this.els.emptyStart?.classList.add("hidden");
   }
 
   requestCreateNoteFromEmptyState() {
@@ -1664,7 +1666,7 @@ export class EditorPane {
     if (!t) {
       this.setEditorValue("");
       this.renderEmptyEditorState();
-      this.els.result.innerHTML = "打开一条笔记后，这里会显示能让观点继续生长的回链、同标签与关联判断。";
+      this.els.result.innerHTML = "";
       this.setInspectorVisible(false);
       this.renderLiteratureWorkspace();
       this.renderPreview();
@@ -3654,6 +3656,7 @@ export class EditorPane {
     this.els.linkPicker.style.left = "";
     this.els.linkPicker.style.top = "";
     this.els.linkPicker.style.width = "";
+    this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
     this.els.linkSearchInput.value = initialQuery;
     this.currentLinkContext = options.inlineContext || null;
@@ -3684,6 +3687,7 @@ export class EditorPane {
     this.els.linkPicker.style.left = "";
     this.els.linkPicker.style.top = "";
     this.els.linkPicker.style.width = "";
+    this.els.linkPicker.style.maxHeight = "";
     this.currentLinkContext = null;
     this.lastInlinePickerAnchor = 0;
     this.els.insertLink?.classList.remove("active");
@@ -3784,6 +3788,7 @@ export class EditorPane {
     this.els.tagPicker.style.left = "";
     this.els.tagPicker.style.top = "";
     this.els.tagPicker.style.width = "";
+    this.els.tagPicker.style.maxHeight = "";
     this.els.tagPicker.classList.remove("hidden");
     this.els.tagSearchInput.value = initialQuery;
     this.currentTagContext = options.inlineContext || null;
@@ -3815,6 +3820,7 @@ export class EditorPane {
     this.els.tagPicker.style.left = "";
     this.els.tagPicker.style.top = "";
     this.els.tagPicker.style.width = "";
+    this.els.tagPicker.style.maxHeight = "";
     this.currentTagContext = null;
     this.els.insertTag?.classList.remove("active");
   }
@@ -3838,10 +3844,13 @@ export class EditorPane {
 
     const maxLeft = Math.max(12, window.innerWidth - width - 12);
     const clampedLeft = Math.max(12, Math.min(left, maxLeft));
-    const clampedTop = Math.max(12, Math.min(top, window.innerHeight - 240));
+    const estimatedHeight = Math.min(panel.scrollHeight || 360, window.innerHeight - 24);
+    const maxTop = Math.max(12, window.innerHeight - estimatedHeight - 12);
+    const clampedTop = Math.max(12, Math.min(top, maxTop));
     panel.style.width = `${width}px`;
     panel.style.left = `${clampedLeft}px`;
     panel.style.top = `${clampedTop}px`;
+    panel.style.maxHeight = `calc(100dvh - ${Math.ceil(clampedTop + 12)}px)`;
   }
 
   insertSelectedTag(tagName = "") {
@@ -4748,6 +4757,16 @@ export class EditorPane {
       }
 
       const inline = this.detectInlineLinkContext();
+      const tagInline = this.detectInlineTagContext();
+      const explicitEmptyTagTrigger = tagInline && !tagInline.query && Date.now() - this.lastTagTriggerAt < 700;
+      const wantsInlinePicker = Boolean(inline?.query || (tagInline && (tagInline.query || explicitEmptyTagTrigger)));
+
+      if (!wantsInlinePicker && Date.now() - this.lastPlainEnterAt < 260) {
+        if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
+        if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        return;
+      }
+
       if (inline) {
         void this.openLinkPicker(inline.query, { inlineContext: inline });
         this.lastInlinePickerAnchor = inline.end;
@@ -4755,8 +4774,7 @@ export class EditorPane {
         this.closeLinkPicker();
       }
 
-      const tagInline = this.detectInlineTagContext();
-      if (tagInline) {
+      if (tagInline && (tagInline.query || explicitEmptyTagTrigger)) {
         void this.openTagPicker(tagInline.query, { inlineContext: tagInline });
         this.lastInlinePickerAnchor = tagInline.end;
       } else if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) {
@@ -4769,6 +4787,11 @@ export class EditorPane {
     if (e.isComposing || e.keyCode === 229) return;
     const mod = e.ctrlKey || e.metaKey;
     const key = String(e.key || "").toLowerCase();
+    const inlinePickerOpenBeforeEnter =
+      (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) ||
+      (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext);
+    if (!mod && e.key === "#") this.lastTagTriggerAt = Date.now();
+    if (!mod && !e.shiftKey && e.key === "Enter" && !inlinePickerOpenBeforeEnter) this.lastPlainEnterAt = Date.now();
 
     if (!mod && !e.shiftKey && e.key === "Enter" && this.enterBodyFromTitle()) {
       e.preventDefault();
