@@ -253,13 +253,22 @@ Runtime request mapping:
 - `createAgentRuntimeRequest` builds a portable execution envelope from the agent definition, selected model route, provider descriptor, Context Pack summary, messages, tools, output schema, and policy.
 - `buildOpenAiAgentsSdkRunSpec` turns that envelope into an SDK-facing run specification without changing product-owned contracts.
 - The SDK-facing spec should be treated as an adapter input, not durable product state. Durable state remains Context Packs, AI artifacts, Run Logs, tool calls, and user decisions.
+- Logical model refs such as `platform_managed_openai:standard` are resolved inside the runtime adapter through model aliases. Advanced users and provider packs can override those aliases without changing agent definitions.
 
 Runtime tool bridge:
 
 - `createRuntimeToolBridge` exposes only tools listed in the agent definition and present in the Tool Registry.
 - Runtime tool calls still execute through `ToolRegistry.call`, so privacy mode, background execution rules, network boundaries, and forbidden tool checks remain centralized.
 - Runtime-originated tool calls are written as normal `tool_call` Run Log events with `runtimeTool: true`.
+- Tool definitions may expose `parameters` / `inputSchema` metadata. The OpenAI Agents SDK runtime converts those into SDK function tools while still executing through the harness bridge.
 - The SDK runtime must not call app internals directly.
+
+OpenAI Agents SDK adapter:
+
+- The JavaScript SDK dependency is `@openai/agents`.
+- The adapter constructs an SDK `Agent`, wraps allowed harness tools with SDK function tools, runs through `Runner` when available, then normalizes `finalOutput`, usage, model ref, and raw response id back into the provider response contract.
+- The adapter defaults SDK trace sensitive-data capture to off. Non-`normal` privacy modes disable SDK tracing unless explicitly overridden; local Run Log remains the product-owned audit record.
+- Tests can inject either `{ Agent, tool, run }` or `{ Agent, tool, Runner }`, which keeps runtime behavior replaceable and avoids network calls in unit tests.
 
 ### 3.9 Tool Layer
 

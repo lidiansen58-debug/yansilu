@@ -40,7 +40,9 @@
     "playwright": "^1.59.1"
   },
   "dependencies": {
+    "@openai/agents": "^0.11.3",
+    "@toast-ui/editor": "^3.2.2",
     "stripe": "^19.2.0",
-    "@toast-ui/editor": "^3.2.2"
+    "zod": "^4.4.3"
   }
 }

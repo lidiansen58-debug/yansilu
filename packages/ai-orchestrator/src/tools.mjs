@@ -12,6 +12,11 @@ function normalizeDataBoundary(input) {
   return "local";
 }
 
+function normalizeToolParameters(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  return JSON.parse(JSON.stringify(input));
+}
+
 function isBackgroundContext(context = {}) {
   const trigger = cleanText(context.trigger || context.triggerType || context.trigger_type).toLowerCase();
   return context.background === true || BACKGROUND_TRIGGERS.has(trigger);
@@ -53,6 +58,7 @@ export function normalizeToolDefinition(input = {}) {
     dataBoundary: normalizeDataBoundary(input.dataBoundary || input.data_boundary),
     requiresNetwork: input.requiresNetwork === true || input.requires_network === true,
     requiresCloud: input.requiresCloud === true || input.requires_cloud === true,
+    parameters: normalizeToolParameters(input.parameters || input.inputSchema || input.input_schema),
     handler: input.handler
   };
 }
