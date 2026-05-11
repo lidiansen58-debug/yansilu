@@ -118,8 +118,17 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(initial.json.item.provider.providerId, "platform_managed_openai");
   assert.equal(initial.json.item.access.keyMode, "platform_managed");
 
+  const chinaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto"
+  });
+  assert.equal(chinaPreview.status, 200, JSON.stringify(chinaPreview.json));
+  assert.equal(chinaPreview.json.item.modelPack, "China Optimized");
+  assert.equal(chinaPreview.json.item.provider.providerId, "china_optimized_gateway");
+
   const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
     userMode: "Local / Private",
+    modelPack: "Privacy First",
     advancedSettings: { modelRef: "local_private_gateway:manual-model" }
   });
   assert.equal(saved.status, 200, JSON.stringify(saved.json));

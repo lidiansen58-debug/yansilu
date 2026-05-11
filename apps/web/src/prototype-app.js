@@ -121,6 +121,7 @@ const settingsState = {
   vault: null,
   ai: {
     userMode: "Auto",
+    modelPack: "Starter Auto",
     advancedModelRef: "",
     routePreview: null,
     routePreviewLoading: false,
@@ -152,7 +153,6 @@ let statusRevision = 0;
 let editorHelperDismissed = false;
 const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
-loadAiSettingsFromStorage();
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
@@ -160,8 +160,10 @@ const FEEDBACK_REPOSITORY_READY =
 const APP_VERSION = "0.1.0";
 const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
 const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
+const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+loadAiSettingsFromStorage();
 
 function tauriGlobal() {
   return typeof window !== "undefined" ? window.__TAURI__ : null;
@@ -369,19 +371,23 @@ function writeStoredText(key, value) {
 
 function loadAiSettingsFromStorage() {
   const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
+  const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   if (storedMode) settingsState.ai.userMode = storedMode;
+  if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
 }
 
 function persistAiSettingsToStorage() {
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
+  writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
 }
 
 function aiSettingsPayload() {
   return {
     userMode: settingsState.ai.userMode,
+    modelPack: settingsState.ai.modelPack,
     advancedSettings: {
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {})
     }
@@ -2264,6 +2270,7 @@ function renderAiRoutePreview() {
   ].join("");
   detail.innerHTML = `
     <div><strong>${escapeHtml(provider.displayName || provider.providerId || "未知 Provider")}</strong></div>
+    <div>模型包：${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")}</div>
     <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
   `;
@@ -2325,6 +2332,11 @@ function renderSettingsPanel() {
   if (aiMode) {
     const stored = String(settingsState.ai.userMode || "Auto").trim() || "Auto";
     if (aiMode.value !== stored) aiMode.value = stored;
+  }
+  const aiPack = $("settingsAiModelPack");
+  if (aiPack) {
+    const stored = String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
+    if (aiPack.value !== stored) aiPack.value = stored;
   }
   const aiRef = $("settingsAiAdvancedModelRef");
   if (aiRef) {
@@ -3189,6 +3201,8 @@ async function refreshVaultSettings() {
     if (prefs) {
       const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
       if (userMode) settingsState.ai.userMode = userMode;
+      const modelPack = String(prefs.modelPack || prefs.model_pack || "").trim();
+      if (modelPack) settingsState.ai.modelPack = modelPack;
       const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
       settingsState.ai.advancedModelRef = advancedRef;
       persistAiSettingsToStorage();
@@ -4063,6 +4077,16 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
   refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(`AI 模式已切换为：${next}`, "ok");
+});
+
+$("settingsAiModelPack")?.addEventListener("change", (event) => {
+  const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
+  settingsState.ai.modelPack = next;
+  persistAiSettingsToStorage();
+  syncAiSettingsToApi();
+  refreshAiRoutePreview();
+  renderSettingsPanel();
+  setStatus(`AI 模型包已切换为：${next}`, "ok");
 });
 
 $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
