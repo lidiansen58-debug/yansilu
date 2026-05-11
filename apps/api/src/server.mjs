@@ -1806,9 +1806,20 @@ const server = http.createServer(async (req, res) => {
       const targetPathRaw = String(body.targetPath || "").trim();
       if (!targetPathRaw) return sendJson(res, 400, err("EXPORT_SCOPE_INVALID", "targetPath required", rid));
       const targetPath = path.isAbsolute(targetPathRaw) ? targetPathRaw : path.resolve(CWD, targetPathRaw);
+      const includeDescendants =
+        body.includeDescendants === undefined
+          ? true
+          : body.includeDescendants !== false && String(body.includeDescendants).trim().toLowerCase() !== "false";
       let result;
       try {
-        result = await exportMarkdown({ vaultPath: VAULT_PATH, targetPath, noteIds: body.noteIds, requestId: rid });
+        result = await exportMarkdown({
+          vaultPath: VAULT_PATH,
+          targetPath,
+          noteIds: body.noteIds,
+          directoryId: body.directoryId,
+          includeDescendants,
+          requestId: rid
+        });
       } catch (error) {
         if (error?.code === "EXPORT_TARGET_INSIDE_VAULT") {
           return sendJson(res, 400, err("EXPORT_TARGET_INVALID", String(error.message || error), rid));
