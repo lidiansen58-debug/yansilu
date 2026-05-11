@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
-  formatMarkdownLinkDestination
+  formatMarkdownLinkDestination,
+  parseMarkdownLinkSyntax
 } from "../../apps/web/src/components-editor-pane.js";
 
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
@@ -41,4 +42,21 @@ test("assetMarkdownSnippet inserts stable Markdown for image and file assets wit
     }),
     "[reference file.txt](<../../../assets/files/pn_1/reference file.txt>)"
   );
+});
+
+test("parseMarkdownLinkSyntax supports angle-wrapped asset destinations", () => {
+  assert.deepEqual(parseMarkdownLinkSyntax("![chart](<../../../assets/images/pn_1/chart (1).png>)"), {
+    isImage: true,
+    label: "chart",
+    href: "<../../../assets/images/pn_1/chart (1).png>",
+    raw: "![chart](<../../../assets/images/pn_1/chart (1).png>)",
+    length: 53
+  });
+  assert.deepEqual(parseMarkdownLinkSyntax("[reference file.txt](<../../../assets/files/pn_1/reference file.txt>)"), {
+    isImage: false,
+    label: "reference file.txt",
+    href: "<../../../assets/files/pn_1/reference file.txt>",
+    raw: "[reference file.txt](<../../../assets/files/pn_1/reference file.txt>)",
+    length: 69
+  });
 });

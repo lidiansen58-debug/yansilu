@@ -2055,7 +2055,10 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   await waitFor(async () => {
     assert.equal(page.url(), startUrl);
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /# Token Target/);
+    assert.match(value, /# Token Source/);
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /Token Target/);
+    assert.match(String(relatedText || ""), /Target body with #thinkingflow/);
   }, 10000);
 });
 

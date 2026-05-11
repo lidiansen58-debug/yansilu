@@ -1004,6 +1004,14 @@
       margin-left: auto;
       padding-right: 0;
     }
+    .toolbar-group-insert {
+      margin-left: auto;
+      padding: 3px;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+      border-radius: 14px;
+      background: rgba(239, 249, 242, 0.86);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+    }
     .toolbar-group:first-child {
       border-left: 0;
       padding-left: 0;
@@ -4618,6 +4626,14 @@
       gap: 4px;
     }
 
+    .toolbar-group-insert {
+      margin-top: 8px;
+      padding: 6px 0;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+      border-radius: 14px;
+      background: rgba(239, 249, 242, 0.76);
+    }
+
     .toolbar-group:first-child {
       padding-top: 0;
       border-top: 0;
@@ -6147,7 +6163,7 @@
             <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
-          <div class="toolbar-group toolbar-group-structure">
+          <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
               <button class="tb tb-label has-icon" id="btnInsertFile" title="插入文件附件" data-tip="插入文件附件" aria-label="插入文件附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.35h5.05l2.95 2.95v6.9a1.45 1.45 0 0 1-1.45 1.45h-6.1A1.45 1.45 0 0 1 3 12.2v-8.4A1.45 1.45 0 0 1 4.45 2.35z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M9.05 2.35v2.4a1 1 0 0 0 1 1h2.4M5.3 9.2h5.35M5.3 11h3.65" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>附件</span></button>
             <button class="tb tb-label has-icon" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联</span></button>
@@ -6288,6 +6304,7 @@
                 <div class="panel-title">关联线索</div>
                 <div class="panel-note">这里看引用、回链和同标签。</div>
               </div>
+              <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起关联窗口" data-tip="收起关联窗口" aria-label="收起关联窗口">×</button>
             </div>
             <div id="resultArea">打开笔记后，这里会显示相关引用、回链和标签结果。</div>
           </div>

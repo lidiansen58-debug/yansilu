@@ -1,5 +1,5 @@
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
-import { assetPreviewUrl, checkOriginality, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
+import { assetPreviewUrl, checkOriginality, fetchNote, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -100,6 +100,38 @@ function unformatMarkdownLinkDestination(value = "") {
   const target = String(value || "").trim();
   if (target.startsWith("<") && target.endsWith(">")) return target.slice(1, -1).trim();
   return target;
+}
+
+export function parseMarkdownLinkSyntax(source = "") {
+  const text = String(source || "");
+  const head = text.match(/^(!?)\[([^\]]*)\]\(/);
+  if (!head) return null;
+
+  const isImage = head[1] === "!";
+  const label = head[2] || "";
+  let cursor = head[0].length;
+  let href = "";
+  let closeParen = -1;
+
+  if (text[cursor] === "<") {
+    const closeAngle = text.indexOf(">", cursor + 1);
+    if (closeAngle < 0 || text[closeAngle + 1] !== ")") return null;
+    href = text.slice(cursor, closeAngle + 1);
+    closeParen = closeAngle + 1;
+  } else {
+    closeParen = text.indexOf(")", cursor);
+    if (closeParen < 0) return null;
+    href = text.slice(cursor, closeParen);
+  }
+
+  const raw = text.slice(0, closeParen + 1);
+  return {
+    isImage,
+    label,
+    href,
+    raw,
+    length: raw.length
+  };
 }
 
 export function assetMarkdownSnippet(asset = {}) {
@@ -365,11 +397,15 @@ function isMarkdownBulletLine(line = "") {
 }
 
 function isMarkdownImageLine(line = "") {
-  return /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.test(String(line || ""));
+  const trimmed = String(line || "").trim();
+  const link = parseMarkdownLinkSyntax(trimmed);
+  return Boolean(link?.isImage && link.length === trimmed.length);
 }
 
 function isMarkdownAttachmentLine(line = "") {
-  return /^\[([^\]]+)\]\(([^)]+)\)\s*$/.test(String(line || ""));
+  const trimmed = String(line || "").trim();
+  const link = parseMarkdownLinkSyntax(trimmed);
+  return Boolean(link && !link.isImage && link.length === trimmed.length && link.label);
 }
 
 function isMarkdownTableSeparator(line = "") {
@@ -657,22 +693,22 @@ function renderInlinePreview(text, options = {}) {
       }
     }
 
-    const markdownLink = source.slice(index).match(/^\[([^\]]+)\]\(([^)]+)\)/);
-    if (markdownLink) {
-      const [, label, href] = markdownLink;
+    const markdownLink = parseMarkdownLinkSyntax(source.slice(index));
+    if (markdownLink && !markdownLink.isImage) {
+      const { label, href } = markdownLink;
       if (isExternalLinkUrl(href)) {
         html += `<button class="preview-wikilink" type="button" data-preview-external-url="${escapeHtml(href)}">${escapeHtml(label || href)}</button>`;
-        index += markdownLink[0].length;
+        index += markdownLink.length;
         continue;
       }
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
       if (!url) {
-        html += `<a class="preview-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(textLabel)}</a>`;
+        html += `<button class="preview-link" type="button" data-preview-missing-asset="${escapeHtml(href)}">${escapeHtml(textLabel)}</button>`;
       } else {
         html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
       }
-      index += markdownLink[0].length;
+      index += markdownLink.length;
       continue;
     }
 
@@ -793,13 +829,13 @@ function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-    if (imageMatch) {
-      const [, alt, href] = imageMatch;
+    const imageMatch = parseMarkdownLinkSyntax(line.trim());
+    if (imageMatch?.isImage && imageMatch.length === line.trim().length) {
+      const { label: alt, href } = imageMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);
       const label = alt || attachmentLabelFromPath(href);
       if (!url) {
-        blocks.push(`<div class="preview-attachment-block"><button class="preview-attachment" type="button"><span class="preview-attachment-name">${escapeHtml(label)}</span><span class="preview-attachment-path">${escapeHtml(href)}</span></button></div>`);
+        blocks.push(`<div class="preview-attachment-block"><button class="preview-attachment" type="button" data-preview-missing-asset="${escapeHtml(href)}"><span class="preview-attachment-name">${escapeHtml(label)}</span><span class="preview-attachment-path">${escapeHtml(href)}</span></button></div>`);
         index += 1;
         continue;
       }
@@ -836,18 +872,18 @@ function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    const attachmentMatch = line.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-    if (attachmentMatch) {
-      const [, label, href] = attachmentMatch;
+    const attachmentMatch = parseMarkdownLinkSyntax(line.trim());
+    if (attachmentMatch && !attachmentMatch.isImage && attachmentMatch.length === line.trim().length) {
+      const { label, href } = attachmentMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
       if (!url) {
         blocks.push(`
           <div class="preview-attachment-block">
-            <a class="preview-attachment" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+            <button class="preview-attachment" type="button" data-preview-missing-asset="${escapeHtml(href)}">
               <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
               <span class="preview-attachment-path">${escapeHtml(href)}</span>
-            </a>
+            </button>
           </div>
         `);
       } else {
@@ -2216,6 +2252,10 @@ export class EditorPane {
             event.preventDefault();
             return;
           }
+          if (this.extractRichMissingAssetFromEvent(event)) {
+            event.preventDefault();
+            return;
+          }
           if (this.extractRichExternalLinkFromEvent(event)) {
             event.preventDefault();
             return;
@@ -2233,6 +2273,13 @@ export class EditorPane {
             event.preventDefault();
             event.stopPropagation();
             this.openAssetPreview(asset.url, asset.label);
+            return;
+          }
+          const missingAsset = this.extractRichMissingAssetFromEvent(event);
+          if (missingAsset?.path) {
+            event.preventDefault();
+            event.stopPropagation();
+            this.onStatus(`附件路径不可预览：${missingAsset.path}`, "warn");
             return;
           }
           const externalLink = this.extractRichExternalLinkFromEvent(event);
@@ -2304,6 +2351,12 @@ export class EditorPane {
     };
   }
 
+  extractRichMissingAssetFromEvent(event) {
+    const target = event?.target?.closest?.("[data-preview-missing-asset]");
+    const path = String(target?.dataset?.previewMissingAsset || "").trim();
+    return path ? { path } : null;
+  }
+
   scheduleRichAssetRefresh() {
     if (!this.els.wysiwygHost) return;
     if (this.richAssetRefreshTimer) return;
@@ -2345,7 +2398,15 @@ export class EditorPane {
       if (!rawPath) return;
       if (/^(#|mailto:|tel:|javascript:)/i.test(rawPath)) return;
       const resolved = resolvePreviewableAsset(rawPath, noteMarkdownPath);
-      if (!resolved.isVaultAsset) return;
+      if (!resolved.isVaultAsset) {
+        if (!isExternalLinkUrl(rawPath)) {
+          node.dataset.previewMissingAsset = rawPath;
+          node.setAttribute("href", "#");
+          node.setAttribute("role", "button");
+          node.classList.add("wysiwyg-inline-attachment", "wysiwyg-inline-asset");
+        }
+        return;
+      }
       const previewUrl = String(resolved.previewUrl || "").trim();
       if (!previewUrl) return;
       node.dataset.assetSourcePath = rawPath;
@@ -3547,18 +3608,27 @@ export class EditorPane {
         existing.title = item.title || existing.title;
         existing.folderId = item.directoryId || existing.folderId;
         existing.noteType = item.noteType || existing.noteType;
+        existing.markdownPath = item.markdownPath || existing.markdownPath;
+        if (typeof item.body === "string") {
+          existing.body = item.body;
+          existing.tags = parseTags(item.body);
+          existing.links = parseLinks(item.body);
+          existing.bodyLoaded = true;
+        }
         existing.updatedAt = item.updatedAt || existing.updatedAt;
         continue;
       }
+      const body = typeof item.body === "string" ? item.body : `# ${item.title || "未命名笔记"}\n`;
       this.state.notes.push({
         id: item.id,
         title: item.title || "未命名笔记",
         folderId: item.directoryId,
         noteType: item.noteType || "original",
-        body: `# ${item.title || "未命名笔记"}\n`,
-        tags: [],
-        links: [],
-        bodyLoaded: false,
+        markdownPath: item.markdownPath || "",
+        body,
+        tags: parseTags(body),
+        links: parseLinks(body),
+        bodyLoaded: typeof item.body === "string",
         updatedAt: item.updatedAt || new Date().toISOString()
       });
     }
@@ -3908,7 +3978,7 @@ export class EditorPane {
       : [];
 
     const renderNoteItem = (n, badgeText = "") => `
-      <button class="related-item" data-open-note="${n.id}">
+      <button class="related-item" data-preview-note="${n.id}">
         <span class="related-item-title">${escapeHtml(n.title)}</span>
         <span class="related-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId)))} · ${escapeHtml(this.folderLabel(n.folderId))}</span>
         ${
@@ -4007,7 +4077,7 @@ export class EditorPane {
           list.length
             ? `<div class="inspector-sections"><section class="inspector-section"><div class="inspector-list">${list
                 .map((n) => `
-                  <button class="related-item" data-open-note="${n.id}">
+                  <button class="related-item" data-preview-note="${n.id}">
                     <span class="related-item-title">${escapeHtml(n.title)}</span>
                     <span class="related-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId)))} · ${escapeHtml(this.folderLabel(n.folderId))}</span>
                     ${
@@ -4038,15 +4108,69 @@ export class EditorPane {
       const resolved = this.resolveLinkToken(tokenValue, scoped);
       if (resolved?.note) {
         this.setInspectorVisible(true);
-        this.onOpenNote(resolved.note.id);
+        await this.showNotePreviewInInspector(resolved.note.id, {
+          eyebrow: "关联笔记",
+          badge: resolved.ambiguous ? "重名匹配" : "已匹配"
+        });
         this.onStatus(
-          resolved.ambiguous ? `已打开关联笔记：${resolved.note.title}（存在重名）` : `已打开关联笔记：${resolved.note.title}`,
+          resolved.ambiguous ? `已显示关联笔记：${resolved.note.title}（存在重名）` : `已显示关联笔记：${resolved.note.title}`,
           resolved.ambiguous ? "warn" : "ok"
         );
       } else {
         this.onStatus(`未找到关联笔记：${tokenValue}`, "warn");
       }
     }
+  }
+
+  async loadNoteForPreview(noteId) {
+    const cleanId = String(noteId || "").trim();
+    if (!cleanId) return null;
+    let note = this.state.notes.find((item) => item.id === cleanId) || null;
+    if (note?.bodyLoaded && typeof note.body === "string") return note;
+    try {
+      const fetched = await fetchNote(cleanId);
+      if (fetched) {
+        this.upsertApiNotes([fetched]);
+        note = this.state.notes.find((item) => item.id === cleanId) || note;
+      }
+    } catch (error) {
+      this.onStatus(`预览笔记加载失败：${String(error?.message || error)}`, "warn");
+    }
+    return note;
+  }
+
+  async showNotePreviewInInspector(noteId, options = {}) {
+    const note = await this.loadNoteForPreview(noteId);
+    if (!note) {
+      this.els.result.innerHTML = `<div class="related-empty bad">没有找到这条笔记。</div>`;
+      return;
+    }
+    const body = typeof note.body === "string" && note.body.trim() ? note.body : `# ${note.title || "未命名笔记"}\n`;
+    const tags = parseTags(body);
+    const links = parseLinks(body);
+    this.setInspectorVisible(true);
+    this.els.result.innerHTML = `
+      <div class="inspector-overview">
+        <div class="inspector-overview-head">
+          <div>
+            <div class="inspector-overview-meta">${escapeHtml(options.eyebrow || "笔记预览")}</div>
+            <div class="inspector-overview-title">${escapeHtml(note.title || "未命名笔记")}</div>
+          </div>
+          ${options.badge ? `<span class="inspector-chip">${escapeHtml(options.badge)}</span>` : ""}
+        </div>
+      </div>
+      <div class="inspector-summary">
+        <span class="inspector-chip">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))}</span>
+        <span class="inspector-chip">${escapeHtml(this.folderLabel(note.folderId))}</span>
+        <span class="inspector-chip">关联 ${links.length}</span>
+        <span class="inspector-chip">标签 ${tags.length}</span>
+      </div>
+      <section class="inspector-section note-peek-section">
+        <div class="markdown-preview note-peek-preview">
+          ${renderMarkdownPreview(body, { noteMarkdownPath: note.markdownPath || "" })}
+        </div>
+      </section>
+    `;
   }
 
   extractCoreClaimFromBody(body) {
@@ -4281,9 +4405,34 @@ export class EditorPane {
     );
 
     this.els.result.addEventListener("click", (e) => {
+      const previewRow = e.target.closest("[data-preview-note]");
+      if (previewRow) {
+        void this.showNotePreviewInInspector(previewRow.dataset.previewNote, { eyebrow: "相关内容" });
+        return;
+      }
+      const link = e.target.closest("[data-preview-link]");
+      if (link) {
+        void this.handleTokenAction(`[[${link.dataset.previewLink}]]`);
+        return;
+      }
+      const tag = e.target.closest("[data-preview-tag]");
+      if (tag) {
+        void this.handleTokenAction(`#${tag.dataset.previewTag}`);
+        return;
+      }
+      const asset = e.target.closest("[data-preview-asset-url]");
+      if (asset?.dataset.previewAssetUrl) {
+        this.openAssetPreview(asset.dataset.previewAssetUrl, asset.dataset.previewAssetLabel || "");
+        return;
+      }
+      const missingAsset = e.target.closest("[data-preview-missing-asset]");
+      if (missingAsset?.dataset.previewMissingAsset) {
+        this.onStatus(`附件路径不可预览：${missingAsset.dataset.previewMissingAsset}`, "warn");
+        return;
+      }
       const row = e.target.closest("[data-open-note]");
       if (!row) return;
-      this.onOpenNote(row.dataset.openNote);
+      void this.showNotePreviewInInspector(row.dataset.openNote, { eyebrow: "相关内容" });
     });
     this.els.preview?.addEventListener("click", (e) => {
       const copy = e.target.closest("[data-preview-copy-code]");
@@ -4309,6 +4458,11 @@ export class EditorPane {
       const asset = e.target.closest("[data-preview-asset-url]");
       if (asset?.dataset.previewAssetUrl) {
         this.openAssetPreview(asset.dataset.previewAssetUrl, asset.dataset.previewAssetLabel || "");
+        return;
+      }
+      const missingAsset = e.target.closest("[data-preview-missing-asset]");
+      if (missingAsset?.dataset.previewMissingAsset) {
+        this.onStatus(`附件路径不可预览：${missingAsset.dataset.previewMissingAsset}`, "warn");
       }
     });
     this.els.closeAssetPreview?.addEventListener("click", () => this.closeAssetPreview());
@@ -4758,8 +4912,12 @@ export class EditorPane {
 
       const inline = this.detectInlineLinkContext();
       const tagInline = this.detectInlineTagContext();
-      const explicitEmptyTagTrigger = tagInline && !tagInline.query && Date.now() - this.lastTagTriggerAt < 700;
-      const wantsInlinePicker = Boolean(inline?.query || (tagInline && (tagInline.query || explicitEmptyTagTrigger)));
+      const explicitEmptyLinkTrigger = inline && !inline.query && this.getEditorValue().slice(inline.start, inline.end) === "[[";
+      const explicitEmptyTagTrigger = tagInline && !tagInline.query;
+      const wantsInlinePicker = Boolean(
+        (inline && (inline.query || explicitEmptyLinkTrigger)) ||
+          (tagInline && (tagInline.query || explicitEmptyTagTrigger))
+      );
 
       if (!wantsInlinePicker && Date.now() - this.lastPlainEnterAt < 260) {
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
@@ -4767,7 +4925,7 @@ export class EditorPane {
         return;
       }
 
-      if (inline) {
+      if (inline && (inline.query || explicitEmptyLinkTrigger)) {
         void this.openLinkPicker(inline.query, { inlineContext: inline });
         this.lastInlinePickerAnchor = inline.end;
       } else if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) {
@@ -4987,6 +5145,19 @@ export class EditorPane {
         String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
       );
       return;
+    }
+    if (saved && typeof saved === "object" && saved.id) {
+      const savedBody = typeof saved.body === "string" ? saved.body : tab.body;
+      note.title = saved.title || titleFromBody(savedBody);
+      note.body = savedBody;
+      note.markdownPath = saved.markdownPath || note.markdownPath;
+      note.status = saved.status || note.status;
+      note.tags = parseTags(savedBody);
+      note.links = parseLinks(savedBody);
+      note.updatedAt = saved.updatedAt || note.updatedAt;
+      note.bodyLoaded = true;
+      tab.title = note.title;
+      tab.body = savedBody;
     }
     tab.savedBody = tab.body;
     tab.savedTitle = tab.title;

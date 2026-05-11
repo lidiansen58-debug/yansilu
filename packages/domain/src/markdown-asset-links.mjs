@@ -39,7 +39,7 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
   const toPath = normalizePosixRelativePath(toNoteMarkdownPath);
   if (!body || !fromPath || !toPath || fromPath === toPath) return body;
 
-  return body.replace(/(!?\[[^\]]*?\]\()([^)]+)(\))/g, (fullMatch, prefix, rawTarget, suffix) => {
+  return body.replace(/(!?\[[^\]]*?\]\()(<[^>]+>|[^)]+)(\))/g, (fullMatch, prefix, rawTarget, suffix) => {
     const assetPath = resolveVaultAssetPath(rawTarget, fromPath);
     if (!assetPath) return fullMatch;
     let nextTarget = relativeMarkdownLinkPath(toPath, assetPath);
