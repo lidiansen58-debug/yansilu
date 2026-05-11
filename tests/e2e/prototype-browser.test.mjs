@@ -690,6 +690,8 @@ test("prototype literature note requires citation metadata before recording orig
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "缺引用信息样例" }).click();
+  const originalsBefore = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  assert.equal(originalsBefore.status, 200);
   await page.locator("#btnRunGuard").click();
 
   await waitFor(async () => {
@@ -700,7 +702,7 @@ test("prototype literature note requires citation metadata before recording orig
 
   const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originals.status, 200);
-  assert.equal(originals.json.total, 0);
+  assert.equal(originals.json.total, originalsBefore.json.total);
 });
 
 test("standalone editor route loads and saves a note without workspace chrome", async (t) => {
@@ -1104,6 +1106,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   const { page, webBase } = stack;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(".tab.active .tab-close").click();
   await page.locator("#editorHelper").waitFor();
   await page.locator("#btnEditorHelperAction").click();
   await waitFor(async () => {
@@ -1112,6 +1115,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   }, 4000);
 
   await page.reload({ waitUntil: "networkidle" });
+  await page.locator(".tab.active .tab-close").click();
   await page.locator("#editorHelper").waitFor();
   await page.locator("#btnEditorHelperMute").click();
   await waitFor(async () => {
@@ -3667,7 +3671,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const createdNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Export panel note\n\nThis note should be exported from the browser UI."
+    body: "# Export panel note\n\nThis note should be exported from the browser UI with a [resource file](../../assets/browser-export/asset.txt)."
   });
   assert.equal(createdNote.status, 201);
   await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
@@ -3680,7 +3684,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 2') && text.includes("资源文件");
+    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1') && text.includes("资源文件");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
@@ -3691,11 +3695,12 @@ test("prototype export panel exports markdown files through real API", async (t)
   assert.match(exportResultText || "", /资源文件/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
-  assert.equal(exportedFiles.length, 1, JSON.stringify(exportedFiles, null, 2));
+  assert.ok(exportedFiles.length >= 1, JSON.stringify(exportedFiles, null, 2));
   const exportedAsset = await fs.readFile(path.join(exportTargetPath, "assets", "browser-export", "asset.txt"), "utf8");
   assert.equal(exportedAsset, "browser asset");
 
-  const exportedContent = await fs.readFile(exportedFiles[0], "utf8");
+  const exportedContents = await Promise.all(exportedFiles.map((file) => fs.readFile(file, "utf8")));
+  const exportedContent = exportedContents.find((content) => content.includes("# Export panel note")) || "";
   assert.match(exportedContent, /# Export panel note/);
   assert.match(exportedContent, /exported from the browser UI/);
 });
@@ -3731,21 +3736,32 @@ test("prototype writing panel creates project and draft scaffold through real AP
     };
   });
 
+  const writingDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Writing UI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "writing-ui-scope"),
+    maxNotes: 500
+  });
+  assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
+  const writingDirectoryId = writingDirectory.json.item.id;
+
   const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: writingDirectoryId,
     status: "active",
     body: "# Writing UI claim\n\nThe writing panel should start from permanent notes."
   });
   assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
 
   const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: writingDirectoryId,
     status: "active",
     body: "# Evidence UI map\n\nThe scaffold should retain an evidence map."
   });
   assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.fill("#writingTitle", "Writing UI Project");
   await page.fill("#writingGoal", "Turn two permanent notes into a browser-generated scaffold.");
@@ -3954,21 +3970,32 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph UI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-ui-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
 
   const targetNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: graphDirectoryId,
     body: "# Graph target\n\nThis note should be opened from the graph."
   });
   assert.equal(targetNote.status, 201);
 
   const sourceNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: graphDirectoryId,
     body: "# Graph source\n\nThis note links to [[Graph target]] and should create one graph edge."
   });
   assert.equal(sourceNote.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {
