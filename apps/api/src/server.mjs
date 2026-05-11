@@ -68,6 +68,7 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
+import { createSqliteAiPreferencesStore } from "../../../packages/ai-orchestrator/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
@@ -81,6 +82,14 @@ const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
 const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || "").trim();
 const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
 let stripeClientPromise = null;
+let aiPreferencesStorePromise = null;
+
+async function aiPreferencesStore() {
+  if (!aiPreferencesStorePromise) {
+    aiPreferencesStorePromise = createSqliteAiPreferencesStore({ vaultPath: VAULT_PATH });
+  }
+  return aiPreferencesStorePromise;
+}
 
 const importRecords = new Map();
 const allowedConnectors = new Set(["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
@@ -1056,6 +1065,7 @@ const server = http.createServer(async (req, res) => {
         VAULT_PATH = layout.vaultPath;
         AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
         importRecords.clear();
+        aiPreferencesStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -1064,6 +1074,49 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("VAULT_SWITCH_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/preferences") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiPreferencesStore();
+        const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
+        return sendJson(res, 200, {
+          item: prefs,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/preferences") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiPreferencesStore();
+        const updated = store.setUserPreferences({
+          workspaceId: "local_workspace",
+          userId: "local_user",
+          userMode: body.userMode ?? body.user_mode,
+          modelPack: body.modelPack ?? body.model_pack,
+          monthlyBudget: body.monthlyBudget ?? body.monthly_budget,
+          confirmationThreshold: body.confirmationThreshold ?? body.confirmation_threshold,
+          fallbackPolicy: body.fallbackPolicy ?? body.fallback_policy,
+          privacy: body.privacy,
+          budget: body.budget,
+          budgetState: body.budgetState ?? body.budget_state,
+          advancedSettings: body.advancedSettings ?? body.advanced_settings
+        });
+        return sendJson(res, 200, {
+          item: updated,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PREFERENCES_SAVE_FAILED", String(error?.message || error), rid));
       }
     }
 
