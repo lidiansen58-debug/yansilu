@@ -1,5 +1,5 @@
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
-import { assetPreviewUrl, checkOriginality, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
+import { assetPreviewUrl, checkOriginality, fetchNote, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -1020,6 +1020,8 @@ export class EditorPane {
     this.richEditor = null;
     this.markdownEditor = null;
     this.lastInlinePickerAnchor = 0;
+    this.lastEditorValue = "";
+    this.lastLinkTriggerAt = 0;
     this.lastPlainEnterAt = 0;
     this.lastTagTriggerAt = 0;
     this.suppressEditorChange = false;
@@ -1315,6 +1317,7 @@ export class EditorPane {
   setUnderlyingEditorValue(value) {
     const text = String(value || "");
     this.els.body.value = text;
+    this.lastEditorValue = text;
     if (this.markdownEditor && this.markdownEditor.getValue() !== text) {
       this.suppressEditorChange = true;
       try {
@@ -1898,6 +1901,79 @@ export class EditorPane {
     if (this.els.assetPreviewBody) this.els.assetPreviewBody.innerHTML = "";
     if (this.els.assetPreviewTitle) this.els.assetPreviewTitle.textContent = "附件预览";
     if (this.els.assetPreviewOpenLink) this.els.assetPreviewOpenLink.href = "#";
+  }
+
+  closeTokenPreview() {
+    this.els.tokenPreviewMask?.classList.add("hidden");
+    if (this.els.tokenPreviewBody) this.els.tokenPreviewBody.innerHTML = "";
+    if (this.els.tokenPreviewTitle) this.els.tokenPreviewTitle.textContent = "内容预览";
+  }
+
+  openTokenPreview(title = "内容预览", html = "") {
+    if (!this.els.tokenPreviewMask || !this.els.tokenPreviewBody || !this.els.tokenPreviewTitle) return;
+    this.els.tokenPreviewTitle.textContent = String(title || "内容预览").trim() || "内容预览";
+    this.els.tokenPreviewBody.innerHTML = html || `<div class="related-empty">没有可显示的内容。</div>`;
+    this.els.tokenPreviewMask.classList.remove("hidden");
+  }
+
+  async ensurePreviewNoteLoaded(note) {
+    if (!note?.id || (note.bodyLoaded && note.body)) return note;
+    try {
+      const full = await fetchNote(note.id);
+      if (full) {
+        note.title = full.title || note.title;
+        note.body = typeof full.body === "string" ? full.body : note.body;
+        note.markdownPath = full.markdownPath || note.markdownPath;
+        note.folderId = full.directoryId || note.folderId;
+        note.noteType = full.noteType || note.noteType;
+        note.updatedAt = full.updatedAt || note.updatedAt;
+        note.tags = parseTags(note.body || "");
+        note.links = parseLinks(note.body || "");
+        note.bodyLoaded = true;
+      }
+    } catch (error) {
+      this.onStatus(`预览笔记加载失败：${String(error?.message || error)}`, "warn");
+    }
+    return note;
+  }
+
+  renderTokenNotePreview(note, badgeText = "关联笔记") {
+    const body = note?.body || `# ${note?.title || "未命名笔记"}\n`;
+    const preview = renderMarkdownPreview(body, { noteMarkdownPath: note?.markdownPath || "" });
+    return `
+      <div class="token-preview-note">
+        <div class="token-preview-meta">
+          <span>${escapeHtml(badgeText)}</span>
+          <span>${escapeHtml(noteTypeText(note?.noteType || typeFromFolder(this.state, note?.folderId || "")))}</span>
+          <span>${escapeHtml(this.folderLabel(note?.folderId || ""))}</span>
+        </div>
+        <div class="markdown-preview token-preview-markdown">${preview}</div>
+      </div>
+    `;
+  }
+
+  renderTokenResultList(list = [], emptyText = "没有结果。") {
+    const items = Array.isArray(list) ? list : [];
+    if (!items.length) return `<div class="related-empty">${escapeHtml(emptyText)}</div>`;
+    return `
+      <div class="token-preview-list">
+        ${items
+          .map(
+            (n) => `
+              <article class="token-preview-item">
+                <div class="token-preview-item-title">${escapeHtml(n.title || "未命名笔记")}</div>
+                <div class="token-preview-item-meta">${escapeHtml(noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId || "")))} · ${escapeHtml(this.folderLabel(n.folderId || ""))}</div>
+                ${
+                  excerptFromBody(n.body || "", n.title || "")
+                    ? `<div class="token-preview-item-body">${escapeHtml(excerptFromBody(n.body || "", n.title || ""))}</div>`
+                    : ""
+                }
+              </article>
+            `
+          )
+          .join("")}
+      </div>
+    `;
   }
 
   openAssetPreview(url = "", label = "") {
@@ -4709,6 +4785,7 @@ export class EditorPane {
       if (this.suppressEditorChange) return;
       const tab = this.activeTab();
       if (!tab) return;
+      const previousValue = this.lastEditorValue || "";
       tab.body = this.getEditorValue();
       if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode()) {
         const normalized = normalizePlaceholderTitleBody(tab.body);
@@ -4742,10 +4819,14 @@ export class EditorPane {
       this.renderPreview();
       this.updateToolbarFormattingState();
 
-      if (this.isLiteratureWorkspaceActive()) return;
+      if (this.isLiteratureWorkspaceActive()) {
+        this.lastEditorValue = tab.body;
+        return;
+      }
       if (this.isEditingTitleLine()) {
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
         if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        this.lastEditorValue = tab.body;
         return;
       }
 
@@ -4753,21 +4834,33 @@ export class EditorPane {
         this.skipInlinePickersOnce = false;
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
         if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        this.lastEditorValue = tab.body;
         return;
       }
 
       const inline = this.detectInlineLinkContext();
       const tagInline = this.detectInlineTagContext();
-      const explicitEmptyTagTrigger = tagInline && !tagInline.query && Date.now() - this.lastTagTriggerAt < 700;
-      const wantsInlinePicker = Boolean(inline?.query || (tagInline && (tagInline.query || explicitEmptyTagTrigger)));
+      const explicitEmptyLinkTrigger =
+        inline &&
+        !inline.query &&
+        (Date.now() - this.lastLinkTriggerAt < 900 || previousValue.slice(inline.start, inline.end) !== "[[");
+      const explicitEmptyTagTrigger =
+        tagInline &&
+        !tagInline.query &&
+        (Date.now() - this.lastTagTriggerAt < 900 || previousValue.slice(tagInline.start, tagInline.end) !== "#");
+      const wantsInlinePicker = Boolean(
+        (inline && (inline.query || explicitEmptyLinkTrigger)) ||
+          (tagInline && (tagInline.query || explicitEmptyTagTrigger))
+      );
 
       if (!wantsInlinePicker && Date.now() - this.lastPlainEnterAt < 260) {
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
         if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
+        this.lastEditorValue = tab.body;
         return;
       }
 
-      if (inline) {
+      if (inline && (inline.query || explicitEmptyLinkTrigger)) {
         void this.openLinkPicker(inline.query, { inlineContext: inline });
         this.lastInlinePickerAnchor = inline.end;
       } else if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) {
@@ -4780,6 +4873,7 @@ export class EditorPane {
       } else if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) {
         this.closeTagPicker();
       }
+      this.lastEditorValue = tab.body;
   }
 
   handleEditorKeydown(e) {
@@ -4790,6 +4884,7 @@ export class EditorPane {
     const inlinePickerOpenBeforeEnter =
       (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) ||
       (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext);
+    if (!mod && e.key === "[") this.lastLinkTriggerAt = Date.now();
     if (!mod && e.key === "#") this.lastTagTriggerAt = Date.now();
     if (!mod && !e.shiftKey && e.key === "Enter" && !inlinePickerOpenBeforeEnter) this.lastPlainEnterAt = Date.now();
 
