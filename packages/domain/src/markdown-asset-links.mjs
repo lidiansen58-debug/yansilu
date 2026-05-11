@@ -48,3 +48,14 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
     return `${prefix}${nextTarget}${suffix}`;
   });
 }
+
+export function findVaultAssetLinks(markdownBody, noteMarkdownPath) {
+  const body = String(markdownBody || "");
+  const matches = new Set();
+  body.replace(/(!?\[[^\]]*?\]\()([^)]+)(\))/g, (_fullMatch, _prefix, rawTarget) => {
+    const assetPath = resolveVaultAssetPath(rawTarget, noteMarkdownPath);
+    if (assetPath) matches.add(assetPath);
+    return "";
+  });
+  return [...matches].sort((a, b) => a.localeCompare(b));
+}

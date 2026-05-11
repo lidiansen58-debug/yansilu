@@ -902,6 +902,44 @@ export async function listNotesInDirectory(vaultPath, directoryId) {
   }
 }
 
+export async function listNotesInDirectoryScope(vaultPath, directoryId, options = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(directoryId || "").trim();
+  if (!id) throw new Error("directoryId is required");
+  const includeDescendants = options.includeDescendants !== false;
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const directory = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(id);
+    if (!directory) throw new Error(`directoryId not found: ${id}`);
+
+    const rows = includeDescendants
+      ? db
+          .prepare(
+            `${directoryScopeClause("scope")}
+             SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+             FROM note_directory_membership ndm
+             JOIN scope ON scope.id = ndm.directory_id
+             JOIN notes n ON n.id = ndm.note_id
+             WHERE n.deleted_at IS NULL
+             ORDER BY lower(n.title), n.updated_at DESC`
+          )
+          .all(id)
+      : db
+          .prepare(
+            `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+             FROM note_directory_membership ndm
+             JOIN notes n ON n.id = ndm.note_id
+             WHERE ndm.directory_id = ? AND n.deleted_at IS NULL
+             ORDER BY lower(n.title), n.updated_at DESC`
+          )
+          .all(id);
+    return rows.map(mapNoteRow);
+  } finally {
+    db.close();
+  }
+}
+
 export async function getDirectoryGraph(vaultPath, directoryId) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(directoryId || "").trim();

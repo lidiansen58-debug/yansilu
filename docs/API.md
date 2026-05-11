@@ -873,15 +873,30 @@ Response status: `201`
 
 ### `POST /api/v1/exports/markdown`
 
-Copies all Markdown files under `vault/notes` and all files under `vault/assets` to the target directory, then writes an export record under `vault/exports`.
+Copies Markdown files to the target directory, then writes an export record under `vault/exports`.
+
+By default, this exports all Markdown files under `vault/notes` and all files under `vault/assets`. Scoped exports can use either `noteIds` or `directoryId`.
 
 Request:
 
 ```json
 {
-  "targetPath": "E:/exports/yansilu-markdown"
+  "targetPath": "E:/exports/yansilu-markdown",
+  "noteIds": ["ln_selected_note"]
 }
 ```
+
+Directory-scoped request:
+
+```json
+{
+  "targetPath": "E:/exports/yansilu-markdown",
+  "directoryId": "dir_literature_default",
+  "includeDescendants": true
+}
+```
+
+`noteIds` and `directoryId` are optional and mutually exclusive. When omitted, the API exports all Markdown notes and assets. When `noteIds` or `directoryId` is provided, it exports only the matching notes and the Vault assets linked from those notes. `includeDescendants` applies only to `directoryId` and defaults to `true`.
 
 Response status: `202`
 
@@ -889,11 +904,15 @@ Response status: `202`
 {
   "exportJobId": "exp_1776900000000_abcd1234",
   "status": "queued",
-  "copied": 3,
+  "copied": 2,
   "copiedBreakdown": {
-    "markdownFiles": 2,
+    "markdownFiles": 1,
     "assetFiles": 1,
-    "totalFiles": 3
+    "totalFiles": 2
+  },
+  "scope": {
+    "type": "noteIds",
+    "noteIds": ["ln_selected_note"]
   }
 }
 ```
@@ -903,14 +922,30 @@ Export record shape:
 ```json
 {
   "exportJobId": "exp_1776900000000_abcd1234",
-  "copied": 3,
+  "copied": 2,
   "copiedBreakdown": {
-    "markdownFiles": 2,
+    "markdownFiles": 1,
     "assetFiles": 1,
-    "totalFiles": 3
+    "totalFiles": 2
+  },
+  "scope": {
+    "type": "noteIds",
+    "noteIds": ["ln_selected_note"]
   },
   "targetPath": "E:/exports/yansilu-markdown",
   "requestId": "req_1776900000000_123",
+  "exportedFiles": [
+    {
+      "kind": "markdown",
+      "sourcePath": "notes/literature/ln_api_export.md",
+      "targetPath": "literature/ln_api_export.md"
+    },
+    {
+      "kind": "asset",
+      "sourcePath": "assets/export-asset.txt",
+      "targetPath": "assets/export-asset.txt"
+    }
+  ],
   "time": "2026-04-23T03:00:00.000Z"
 }
 ```
@@ -942,7 +977,8 @@ Export record shape:
 | `IMPORT_STATUS_INVALID` | 400 | Import lifecycle state does not allow this operation. |
 | `IMPORT_CONFIRM_REQUIRED` | 400 | Confirm request must include `confirm: true` or `confirm: false`. |
 | `IMPORT_ORIGINALITY_BLOCKED` | 409 | Originality guard blocked confirm. |
-| `EXPORT_SCOPE_INVALID` | 400 | Export request is missing `targetPath`. |
+| `EXPORT_SCOPE_INVALID` | 400 | Export request is missing `targetPath` or has an invalid scope. |
+| `EXPORT_TARGET_INVALID` | 400 | Export target is unsafe, such as a path inside the active Vault. |
 | `WRITING_PROJECT_INVALID` | 400 | Writing project request is invalid. |
 | `DRAFT_SCAFFOLD_INVALID` | 400 | Draft scaffold request is invalid. |
 | `NOT_FOUND` | 404 | Route not found. |
@@ -957,6 +993,6 @@ These ideas exist in product/spec discussions but are not active API contracts i
 - Explicit link CRUD APIs
 - Thought-distillation routes such as `/api/v1/permanent-notes/:id/distill` and `/api/v1/index-cards/:id/distill`
 - Idempotency-key persistence
-- Export scopes other than "all Markdown under `vault/notes`"
+- Export scopes other than all Markdown, explicit `noteIds`, or directory trees
 
 Planned thought-distillation contract is tracked in [THOUGHT_DISTILLATION_V1_CONTRACT.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/THOUGHT_DISTILLATION_V1_CONTRACT.md).
