@@ -4,7 +4,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import { exportMarkdown } from "../../packages/export-engine/src/index.mjs";
-import { createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
+import { createDirectory, createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -146,4 +146,81 @@ test("exportMarkdown can export selected noteIds and only their linked assets", 
     /ENOENT/
   );
   await assert.rejects(() => fs.access(path.join(targetPath, "assets", "scoped", "unused.txt")), /ENOENT/);
+});
+
+test("exportMarkdown can export a directory tree and only linked assets", async () => {
+  const vaultPath = await makeTempDir("yansilu-export-directory-vault-");
+  const targetPath = await makeTempDir("yansilu-export-directory-target-");
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(vaultPath, "assets", "directory-scope"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "assets", "directory-scope", "included.txt"), "included asset", "utf8");
+  await fs.writeFile(path.join(vaultPath, "assets", "directory-scope", "outside.txt"), "outside asset", "utf8");
+
+  const parentDir = await createDirectory(vaultPath, {
+    title: "Directory export parent",
+    fsPath: path.join(vaultPath, "notes", "original", "directory-export-parent")
+  });
+  const childDir = await createDirectory(vaultPath, {
+    title: "Directory export child",
+    parentDirectoryId: parentDir.id,
+    fsPath: path.join(vaultPath, "notes", "original", "directory-export-parent", "child")
+  });
+  const outsideDir = await createDirectory(vaultPath, {
+    title: "Directory export outside",
+    fsPath: path.join(vaultPath, "notes", "original", "directory-export-outside")
+  });
+
+  const parentNote = await createNoteInDirectory(vaultPath, {
+    directoryId: parentDir.id,
+    title: "Parent scoped note",
+    body: "Parent directory body."
+  });
+  const childNote = await createNoteInDirectory(vaultPath, {
+    directoryId: childDir.id,
+    title: "Child scoped note",
+    body: "Child directory body.\n\n[Included](../../../../assets/directory-scope/included.txt)"
+  });
+  const outsideNote = await createNoteInDirectory(vaultPath, {
+    directoryId: outsideDir.id,
+    title: "Outside scoped note",
+    body: "Outside directory body.\n\n[Outside](../../../assets/directory-scope/outside.txt)"
+  });
+
+  const result = await exportMarkdown({
+    vaultPath,
+    targetPath,
+    directoryId: parentDir.id,
+    includeDescendants: true,
+    requestId: "req_directory_scope",
+    now: new Date("2026-05-11T01:00:00.000Z")
+  });
+
+  assert.deepEqual(result.scope, { type: "directory", directoryId: parentDir.id, includeDescendants: true });
+  assert.equal(result.copied, 3);
+  assert.deepEqual(
+    result.exportedFiles.map((item) => item.sourcePath).sort(),
+    [parentNote.markdownPath, childNote.markdownPath, "assets/directory-scope/included.txt"].sort()
+  );
+
+  await fs.access(path.join(targetPath, path.posix.relative("notes", parentNote.markdownPath)));
+  await fs.access(path.join(targetPath, path.posix.relative("notes", childNote.markdownPath)));
+  await assert.rejects(
+    () => fs.access(path.join(targetPath, path.posix.relative("notes", outsideNote.markdownPath))),
+    /ENOENT/
+  );
+  await assert.rejects(() => fs.access(path.join(targetPath, "assets", "directory-scope", "outside.txt")), /ENOENT/);
+
+  const shallowTargetPath = await makeTempDir("yansilu-export-directory-shallow-target-");
+  const shallow = await exportMarkdown({
+    vaultPath,
+    targetPath: shallowTargetPath,
+    directoryId: parentDir.id,
+    includeDescendants: false
+  });
+  assert.deepEqual(shallow.scope, { type: "directory", directoryId: parentDir.id, includeDescendants: false });
+  assert.deepEqual(shallow.exportedFiles.map((item) => item.sourcePath), [parentNote.markdownPath]);
+  await assert.rejects(
+    () => fs.access(path.join(shallowTargetPath, path.posix.relative("notes", childNote.markdownPath))),
+    /ENOENT/
+  );
 });

@@ -239,6 +239,89 @@ test("POST /api/v1/exports/markdown can export selected noteIds", async () => {
   }
 });
 
+test("POST /api/v1/exports/markdown can export a directory tree", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-export-directory-vault-");
+  const targetPath = await makeTempDir("yansilu-api-export-directory-target-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const parentDir = await postJson(baseUrl, "/api/v1/directories", {
+      title: "API export parent",
+      fsPath: path.join(vaultPath, "notes", "original", "api-export-parent")
+    });
+    assert.equal(parentDir.response.status, 201, JSON.stringify(parentDir.payload));
+
+    const childDir = await postJson(baseUrl, "/api/v1/directories", {
+      title: "API export child",
+      parentDirectoryId: parentDir.payload.item.id,
+      fsPath: path.join(vaultPath, "notes", "original", "api-export-parent", "child")
+    });
+    assert.equal(childDir.response.status, 201, JSON.stringify(childDir.payload));
+
+    const parentNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: parentDir.payload.item.id,
+      title: "API parent directory export note",
+      body: "Parent directory export body."
+    });
+    const childNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: childDir.payload.item.id,
+      title: "API child directory export note",
+      body: "Child directory export body."
+    });
+    const outsideNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_literature_default",
+      title: "API outside directory export note",
+      body: "Outside directory export body."
+    });
+
+    assert.equal(parentNote.response.status, 201, JSON.stringify(parentNote.payload));
+    assert.equal(childNote.response.status, 201, JSON.stringify(childNote.payload));
+    assert.equal(outsideNote.response.status, 201, JSON.stringify(outsideNote.payload));
+
+    const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
+      targetPath,
+      directoryId: parentDir.payload.item.id,
+      includeDescendants: true
+    });
+
+    assert.equal(response.status, 202);
+    assert.deepEqual(payload.scope, {
+      type: "directory",
+      directoryId: parentDir.payload.item.id,
+      includeDescendants: true
+    });
+    assert.equal(payload.copiedBreakdown.markdownFiles, 2);
+
+    const exportedRecord = JSON.parse(
+      await fs.readFile(path.join(vaultPath, "exports", `${payload.exportJobId}.json`), "utf8")
+    );
+    assert.deepEqual(
+      exportedRecord.exportedFiles.map((item) => item.sourcePath).sort(),
+      [parentNote.payload.item.markdownPath, childNote.payload.item.markdownPath].sort()
+    );
+
+    await fs.access(
+      path.join(targetPath, path.posix.relative("notes", parentNote.payload.item.markdownPath).replaceAll("/", path.sep))
+    );
+    await fs.access(
+      path.join(targetPath, path.posix.relative("notes", childNote.payload.item.markdownPath).replaceAll("/", path.sep))
+    );
+    await assert.rejects(
+      () =>
+        fs.access(
+          path.join(targetPath, path.posix.relative("notes", outsideNote.payload.item.markdownPath).replaceAll("/", path.sep))
+        ),
+      /ENOENT/
+    );
+  } finally {
+    await stopApi(api);
+  }
+});
+
 test("POST /api/v1/imports/preview builds Zotero, Readwise, and NotebookLM candidates", async () => {
   const vaultPath = await makeTempDir("yansilu-api-preview-vault-");
   const port = await findFreePort();

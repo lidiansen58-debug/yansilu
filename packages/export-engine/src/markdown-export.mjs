@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { getNoteById, listMarkdownFiles } from "../../domain/src/index.mjs";
+import { getNoteById, listMarkdownFiles, listNotesInDirectoryScope } from "../../domain/src/index.mjs";
 import { findVaultAssetLinks } from "../../domain/src/markdown-asset-links.mjs";
 
 async function listAllFiles(root) {
@@ -56,13 +56,36 @@ function uniqueNonEmptyStrings(values = []) {
   return out;
 }
 
-async function resolveMarkdownFiles({ vaultPath, sourceRoot, noteIds }) {
-  if (noteIds === undefined) {
+function validateNotePath({ vaultPath, sourceRoot, note }) {
+  const relPath = String(note.markdownPath || "").replaceAll("\\", "/").trim();
+  const fullPath = path.resolve(vaultPath, relPath);
+  if (!relPath || !isPathInsideOrEqual(sourceRoot, fullPath) || !fullPath.toLowerCase().endsWith(".md")) {
+    throw exportScopeError(`noteId has invalid markdown path: ${note.id || ""}`.trim());
+  }
+  return fullPath;
+}
+
+async function resolveMarkdownFiles({ vaultPath, sourceRoot, noteIds, directoryId, includeDescendants = true }) {
+  const requestedDirectoryId = String(directoryId || "").trim();
+  if (noteIds !== undefined && requestedDirectoryId) {
+    throw exportScopeError("noteIds and directoryId cannot be used together");
+  }
+
+  if (noteIds === undefined && !requestedDirectoryId) {
     const files = await listMarkdownFiles(sourceRoot).catch(() => []);
     return {
       files,
       scope: { type: "all" }
     };
+  }
+
+  if (requestedDirectoryId) {
+    return resolveDirectoryMarkdownFiles({
+      vaultPath,
+      sourceRoot,
+      directoryId: requestedDirectoryId,
+      includeDescendants
+    });
   }
 
   if (!Array.isArray(noteIds)) {
@@ -81,17 +104,26 @@ async function resolveMarkdownFiles({ vaultPath, sourceRoot, noteIds }) {
       throw exportScopeError(`noteId not found: ${noteId}`);
     }
 
-    const relPath = String(note.markdownPath || "").replaceAll("\\", "/").trim();
-    const fullPath = path.resolve(vaultPath, relPath);
-    if (!relPath || !isPathInsideOrEqual(sourceRoot, fullPath) || !fullPath.toLowerCase().endsWith(".md")) {
-      throw exportScopeError(`noteId has invalid markdown path: ${noteId}`);
-    }
-    files.push(fullPath);
+    files.push(validateNotePath({ vaultPath, sourceRoot, note }));
   }
 
   return {
     files,
     scope: { type: "noteIds", noteIds: ids }
+  };
+}
+
+async function resolveDirectoryMarkdownFiles({ vaultPath, sourceRoot, directoryId, includeDescendants }) {
+  let notes;
+  try {
+    notes = await listNotesInDirectoryScope(vaultPath, directoryId, { includeDescendants });
+  } catch (error) {
+    throw exportScopeError(String(error?.message || error));
+  }
+
+  return {
+    files: notes.map((note) => validateNotePath({ vaultPath, sourceRoot, note })),
+    scope: { type: "directory", directoryId, includeDescendants }
   };
 }
 
@@ -119,7 +151,15 @@ async function resolveAssetFiles({ vaultPath, assetsRoot, sourceRoot, files, sco
   return out;
 }
 
-export async function exportMarkdown({ vaultPath, targetPath, noteIds, requestId = null, now = new Date() }) {
+export async function exportMarkdown({
+  vaultPath,
+  targetPath,
+  noteIds,
+  directoryId,
+  includeDescendants = true,
+  requestId = null,
+  now = new Date()
+}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   if (!targetPath) throw new Error("targetPath is required");
 
@@ -133,7 +173,9 @@ export async function exportMarkdown({ vaultPath, targetPath, noteIds, requestId
   const { files, scope } = await resolveMarkdownFiles({
     vaultPath: resolvedVaultPath,
     sourceRoot,
-    noteIds
+    noteIds,
+    directoryId,
+    includeDescendants
   });
   const assetsRoot = path.join(resolvedVaultPath, "assets");
   const assetFiles = await resolveAssetFiles({
