@@ -12,8 +12,12 @@ import {
   createCoreNoteTools,
   createInMemoryAiPreferencesStore,
   createInMemoryArtifactStore,
+  createAgentRuntimeRequest,
+  createRuntimeToolBridge,
   createContextPack,
   createMockProviderAdapter,
+  createOpenAiAgentsSdkRuntime,
+  buildOpenAiAgentsSdkRunSpec,
   createProviderAdapterRegistry,
   buildOpenAiCompatibleFetchRequest,
   buildOpenAiCompatibleRequest,
@@ -118,6 +122,245 @@ test("runtime factory creates memory harness with audit stores", async () => {
   assert.equal(harness.artifactInbox.listItems({ view: "pending" })[0].artifactId, result.artifacts[0].id);
   assert.equal(harness.runLog.getRun(result.run.agentRunId).artifactIds[0], result.artifacts[0].id);
   harness.close();
+});
+
+test("harness exposes a default provider adapter runtime boundary", async () => {
+  const provider = createMockProviderAdapter();
+  const harness = createAiHarness({ providerAdapter: provider });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_runtime",
+    currentNote: {
+      id: "note_provider_runtime",
+      title: "Provider runtime note",
+      body: "Provider runtime note\n\nThe default runtime should still delegate to the provider adapter."
+    }
+  });
+  const runtimeEvent = result.run.events.find((event) => event.eventType === "agent_runtime_selected");
+  const modelEvent = result.run.events.find((event) => event.eventType === "model_call");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(provider.callCount, 1);
+  assert.equal(harness.agentRuntime.runtimeType, "provider_adapter");
+  assert.equal(runtimeEvent.summary.runtimeType, "provider_adapter");
+  assert.equal(modelEvent.summary.runtimeType, "provider_adapter");
+});
+
+test("harness can execute through an OpenAI Agents SDK runtime adapter", async () => {
+  const provider = createMockProviderAdapter();
+  let capturedRequest = null;
+  const agentRuntime = createOpenAiAgentsSdkRuntime({
+    async execute(request) {
+      capturedRequest = request;
+      return {
+        status: "succeeded",
+        providerId: "agents_sdk_provider",
+        modelRef: request.modelRef,
+        output: {
+          type: "json",
+          json: {
+            artifacts: [
+              {
+                type: request.expectedArtifactType,
+                title: "Runtime artifact",
+                summary: "Artifact returned by a custom agent runtime.",
+                body: "This output came through the runtime boundary rather than direct provider adapter execution.",
+                payload: { prompt: "Which assumption should be tested next?", relatedNoteIds: ["note_agents_runtime"] }
+              }
+            ]
+          }
+        },
+        usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30, estimatedCost: 0, currency: "USD" }
+      };
+    }
+  });
+  const harness = createAiHarness({ providerAdapter: provider, agentRuntime });
+
+  const result = await harness.runTask({
+    taskId: "task_agents_runtime",
+    currentNote: {
+      id: "note_agents_runtime",
+      title: "Agents runtime note",
+      body: "Agents runtime note\n\nThe harness should allow an SDK runtime to own execution."
+    }
+  });
+  const runtimeEvent = result.run.events.find((event) => event.eventType === "agent_runtime_selected");
+  const modelEvent = result.run.events.find((event) => event.eventType === "model_call");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(provider.callCount, 0);
+  assert.equal(capturedRequest.runtimeType, "agents_sdk");
+  assert.equal(capturedRequest.runtimeRequest.agent.agentId, "reflection_agent");
+  assert.equal(capturedRequest.sdkRunSpec.agent.name, "reflection_agent");
+  assert.equal(capturedRequest.sdkRunSpec.metadata.contextPackId, result.contextPack.contextPackId);
+  assert.equal(capturedRequest.providerDescriptor.providerId, "mock_provider");
+  assert.equal(runtimeEvent.summary.runtimeType, "agents_sdk");
+  assert.equal(modelEvent.summary.providerId, "agents_sdk_provider");
+  assert.equal(result.artifacts[0].model.provider, "agents_sdk_provider");
+});
+
+test("agent runtime request maps harness state into a portable SDK run spec", () => {
+  const contextPack = createContextPack({
+    contextPackId: "ctx_runtime_spec",
+    taskId: "task_runtime_spec",
+    privacyMode: "normal",
+    items: [{ kind: "note", sourceId: "note_runtime_spec", title: "Runtime spec", content: "Runtime mapping context." }]
+  });
+  const runtimeRequest = createAgentRuntimeRequest({
+    requestId: "req_runtime_spec",
+    agentRunId: "run_runtime_spec",
+    runtimeId: "openai_agents_sdk_runtime",
+    runtimeType: "agents_sdk",
+    purpose: "agent_reasoning",
+    agent: {
+      agentId: "reflection_agent",
+      agentVersion: "v1",
+      purpose: "Create reflection prompts.",
+      requiredCapabilities: ["structured_output"],
+      outputArtifactTypes: ["ReflectionPrompt"]
+    },
+    providerDescriptor: getProviderPreset("platform_managed_openai"),
+    modelRoute: {
+      modelRef: "platform_managed_openai:standard",
+      selectedTier: "standard",
+      requestedTier: "strong_reasoning",
+      userMode: "Balanced",
+      modelPack: "Starter Auto"
+    },
+    contextPack,
+    messages: [
+      { role: "system", content: "System instruction" },
+      { role: "developer", content: "Developer instruction" },
+      { role: "user", content: "User task" }
+    ],
+    tools: [
+      {
+        name: "search_notes",
+        description: "Search notes",
+        permissionLevel: "read_public",
+        dataBoundary: "workspace"
+      }
+    ],
+    output: { mode: "schema", schema: { artifactType: "ReflectionPrompt" } },
+    policy: { privacyMode: "normal", allowCloud: true, allowFallback: true }
+  });
+  const sdkSpec = buildOpenAiAgentsSdkRunSpec({ runtimeRequest });
+
+  assert.equal(runtimeRequest.agent.agentId, "reflection_agent");
+  assert.equal(runtimeRequest.model.modelRef, "platform_managed_openai:standard");
+  assert.equal(runtimeRequest.context.contextPackId, "ctx_runtime_spec");
+  assert.equal(runtimeRequest.tools[0].name, "search_notes");
+  assert.equal(sdkSpec.agent.name, "reflection_agent");
+  assert.equal(sdkSpec.agent.instructions, "System instruction");
+  assert.equal(sdkSpec.agent.developerInstructions, "Developer instruction");
+  assert.equal(sdkSpec.model.providerId, "platform_managed_openai");
+  assert.equal(sdkSpec.input.context.itemCount, 1);
+  assert.equal(sdkSpec.policy.allowCloud, true);
+  assert.equal(sdkSpec.metadata.agentRunId, "run_runtime_spec");
+});
+
+test("runtime tool bridge exposes only allowed tool metadata and blocks unknown calls", async () => {
+  const registry = createToolRegistry([
+    {
+      name: "runtime_echo",
+      description: "Echo a runtime payload",
+      permissionLevel: "read_public",
+      dataBoundary: "workspace",
+      async handler(input) {
+        return { echoed: input.value };
+      }
+    }
+  ]);
+  const calls = [];
+  const bridge = createRuntimeToolBridge({
+    toolRegistry: registry,
+    allowedToolNames: ["runtime_echo", "missing_tool"],
+    toolContext: { trigger: "user_command", privacyMode: "normal" },
+    onToolCall(call) {
+      calls.push(call);
+    }
+  });
+
+  const allowed = await bridge.callTool("runtime_echo", { value: "hello" });
+  const denied = await bridge.callTool("read_note", { noteId: "note_blocked" });
+
+  assert.deepEqual(bridge.tools.map((tool) => tool.name), ["runtime_echo"]);
+  assert.equal(allowed.status, "succeeded");
+  assert.equal(allowed.output.echoed, "hello");
+  assert.equal(denied.status, "failed");
+  assert.equal(denied.error.errorType, "AI_RUNTIME_TOOL_NOT_ALLOWED");
+  assert.equal(calls.length, 2);
+});
+
+test("agent runtime tool calls are routed through the harness tool registry and run log", async () => {
+  let runtimeToolOutput = null;
+  const agentRuntime = createOpenAiAgentsSdkRuntime({
+    async execute(request) {
+      const toolCall = await request.toolBridge.callTool("runtime_echo", { value: "from_runtime" });
+      runtimeToolOutput = toolCall.output;
+      return {
+        status: "succeeded",
+        providerId: "agents_sdk_provider",
+        modelRef: request.modelRef,
+        output: {
+          type: "json",
+          json: {
+            artifacts: [
+              {
+                type: request.expectedArtifactType,
+                title: "Runtime tool artifact",
+                summary: "Artifact created after a runtime tool call.",
+                body: "The runtime used a harness-approved tool before returning this artifact.",
+                payload: { prompt: "What did the runtime tool return?", relatedNoteIds: ["note_runtime_tool"] }
+              }
+            ]
+          }
+        },
+        usage: { inputTokens: 4, outputTokens: 8, totalTokens: 12, estimatedCost: 0, currency: "USD" }
+      };
+    }
+  });
+  const harness = createAiHarness({
+    agentRuntime,
+    agentDefinitions: [
+      {
+        agentId: "runtime_tool_agent",
+        agentVersion: "v1",
+        defaultModelTier: "standard",
+        requiredCapabilities: ["structured_output", "tool_calling"],
+        allowedTools: ["runtime_echo"],
+        outputArtifactTypes: ["ReflectionPrompt"]
+      }
+    ],
+    tools: [
+      {
+        name: "runtime_echo",
+        description: "Echo runtime input",
+        permissionLevel: "read_public",
+        dataBoundary: "workspace",
+        async handler(input) {
+          return { echoed: input.value };
+        }
+      }
+    ]
+  });
+
+  const result = await harness.runTask({
+    taskId: "task_runtime_tool",
+    agentId: "runtime_tool_agent",
+    currentNote: {
+      id: "note_runtime_tool",
+      title: "Runtime tool note",
+      body: "Runtime tool note\n\nThe SDK runtime should call tools through the harness boundary."
+    }
+  });
+  const runtimeToolEvent = result.run.events.find((event) => event.eventType === "tool_call" && event.summary.runtimeTool === true);
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(runtimeToolOutput.echoed, "from_runtime");
+  assert.equal(runtimeToolEvent.summary.toolName, "runtime_echo");
+  assert.equal(runtimeToolEvent.status, "succeeded");
+  assert.equal(result.artifacts[0].type, "ReflectionPrompt");
 });
 
 test("model router maps simple user modes to model tiers", () => {

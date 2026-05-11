@@ -240,6 +240,27 @@ Responsibilities:
 - Capture tracing data.
 - Return structured output for artifact creation.
 
+Implementation boundary:
+
+- The harness uses an `agentRuntime` abstraction before model execution.
+- The default runtime delegates to the normalized Provider Adapter.
+- The OpenAI Agents SDK runtime is a replaceable runtime adapter, not a hard dependency of agent definitions.
+- Runtime output must normalize back into the same model response shape used by artifacts, usage, and Run Log events.
+- This keeps Context Packs, tool contracts, budget checks, model routing, and artifact writing portable if another runtime is needed later.
+
+Runtime request mapping:
+
+- `createAgentRuntimeRequest` builds a portable execution envelope from the agent definition, selected model route, provider descriptor, Context Pack summary, messages, tools, output schema, and policy.
+- `buildOpenAiAgentsSdkRunSpec` turns that envelope into an SDK-facing run specification without changing product-owned contracts.
+- The SDK-facing spec should be treated as an adapter input, not durable product state. Durable state remains Context Packs, AI artifacts, Run Logs, tool calls, and user decisions.
+
+Runtime tool bridge:
+
+- `createRuntimeToolBridge` exposes only tools listed in the agent definition and present in the Tool Registry.
+- Runtime tool calls still execute through `ToolRegistry.call`, so privacy mode, background execution rules, network boundaries, and forbidden tool checks remain centralized.
+- Runtime-originated tool calls are written as normal `tool_call` Run Log events with `runtimeTool: true`.
+- The SDK runtime must not call app internals directly.
+
 ### 3.9 Tool Layer
 
 Implements `AI_TOOL_CONTRACTS_V1.md`.

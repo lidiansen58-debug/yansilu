@@ -1,5 +1,6 @@
 export * from "./agent-registry.mjs";
 export * from "./agent-prompts.mjs";
+export * from "./agent-runtime.mjs";
 export * from "./ai-preferences.mjs";
 export * from "./ai-provider-configs.mjs";
 export * from "./ai-stores.mjs";
