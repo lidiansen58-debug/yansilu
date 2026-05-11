@@ -47,6 +47,15 @@ export async function saveAiPreferences(payload) {
   return json.item || null;
 }
 
+export async function previewAiRoute(payload = {}) {
+  const json = await request("/api/v1/ai/route-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");

@@ -93,3 +93,43 @@ test("vault API initializes default vault and can switch active vault path", asy
   assert.equal(directories.status, 200);
   assert.ok(directories.json.items.some((item) => item.id === "dir_original_default"));
 });
+
+test("AI preferences API previews the effective model route", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-route-preview-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const initial = await getJson(baseUrl, "/api/v1/ai/route-preview");
+  assert.equal(initial.status, 200, JSON.stringify(initial.json));
+  assert.equal(initial.json.item.userMode, "Auto");
+  assert.equal(initial.json.item.provider.providerId, "platform_managed_openai");
+  assert.equal(initial.json.item.access.keyMode, "platform_managed");
+
+  const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    userMode: "Local / Private",
+    advancedSettings: { modelRef: "local_private_gateway:manual-model" }
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.item.userMode, "Local / Private");
+  assert.equal(preview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(preview.json.item.route.modelRef, "local_private_gateway:manual-model");
+  assert.equal(preview.json.item.route.advancedOverride, true);
+  assert.equal(preview.json.item.route.localOnly, true);
+  assert.equal(preview.json.item.access.keyMode, "no_key");
+});

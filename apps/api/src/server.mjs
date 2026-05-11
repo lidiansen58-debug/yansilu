@@ -68,7 +68,13 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
-import { createSqliteAiPreferencesStore } from "../../../packages/ai-orchestrator/src/index.mjs";
+import {
+  createSqliteAiPreferencesStore,
+  preferencesToSettingsInput,
+  resolveAiUserSettings,
+  resolveModelRoute,
+  resolveProviderDescriptor
+} from "../../../packages/ai-orchestrator/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
@@ -89,6 +95,98 @@ async function aiPreferencesStore() {
     aiPreferencesStorePromise = createSqliteAiPreferencesStore({ vaultPath: VAULT_PATH });
   }
   return aiPreferencesStorePromise;
+}
+
+function advancedModelRefFrom(input = {}) {
+  const advancedSettings = input.advancedSettings || input.advanced_settings || {};
+  return cleanText(input.modelRef || input.model_ref || advancedSettings.modelRef || advancedSettings.model_ref);
+}
+
+function authSummary(authMode = "") {
+  const mode = cleanText(authMode);
+  const labels = {
+    platform_managed: "platform_managed",
+    workspace_managed: "workspace_key",
+    byok_advanced: "user_key",
+    local_no_key: "no_key",
+    enterprise_secret: "enterprise_secret"
+  };
+  return {
+    authMode: mode,
+    keyMode: labels[mode] || "unknown",
+    requiresKey: ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(mode)
+  };
+}
+
+async function buildAiRoutePreview(input = {}) {
+  await initVault(VAULT_PATH);
+  const store = await aiPreferencesStore();
+  const storedPreferences = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
+  const storedSettings = preferencesToSettingsInput(storedPreferences);
+  const advancedSettings = {
+    ...(storedSettings.advancedSettings || {}),
+    ...(input.advancedSettings || input.advanced_settings || {})
+  };
+  const settingsInput = {
+    ...storedSettings,
+    userMode: input.userMode || input.user_mode || storedSettings.userMode,
+    modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
+    privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
+    budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
+    fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
+    advancedSettings
+  };
+  const modelRef = advancedModelRefFrom({ ...settingsInput, ...input, advancedSettings });
+  if (modelRef) settingsInput.modelRef = modelRef;
+
+  const userSettings = resolveAiUserSettings(settingsInput);
+  const providerDescriptor = resolveProviderDescriptor(settingsInput);
+  const privacyMode = cleanText(input.privacyMode || input.privacy_mode || userSettings.privacy.defaultMode) || "normal";
+  const cloudAllowed = userSettings.privacy.allowCloud !== false && privacyMode !== "local_only";
+  const route = resolveModelRoute({
+    ...settingsInput,
+    providerDescriptor,
+    contextPack: {
+      privacy: {
+        mode: privacyMode,
+        cloudAllowed
+      }
+    },
+    agent: {
+      agentId: "settings_preview_agent",
+      defaultModelTier: cleanText(input.modelTier || input.model_tier) || "standard",
+      requiredCapabilities: ["structured_output"]
+    },
+    modelRef
+  });
+
+  return {
+    userMode: route.userMode,
+    modelPack: route.modelPack,
+    modelPackId: route.modelPackId,
+    providerPreset: route.providerPreset,
+    provider: {
+      providerId: providerDescriptor.providerId,
+      displayName: providerDescriptor.displayName,
+      adapterType: providerDescriptor.adapterType,
+      localExecution: providerDescriptor.localExecution === true,
+      noviceVisible: providerDescriptor.noviceVisible === true
+    },
+    route: {
+      modelRef: route.modelRef,
+      requestedTier: route.requestedTier,
+      selectedTier: route.selectedTier,
+      localOnly: route.localOnly === true,
+      cloudAllowed: route.cloudAllowed === true,
+      advancedOverride: route.advancedOverride === true,
+      confirmationRequired: route.confirmationRequired === true
+    },
+    privacy: {
+      mode: route.privacyMode,
+      localPreferred: userSettings.privacy.localPreferred === true
+    },
+    access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode)
+  };
 }
 
 const importRecords = new Map();
@@ -114,6 +212,10 @@ function normalizeRelativeFileTarget(value) {
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function cleanText(value) {
+  return String(value || "").trim();
 }
 
 function defaultUserForEmail(email = "") {
@@ -1089,6 +1191,33 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/route-preview") {
+      try {
+        const item = await buildAiRoutePreview();
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/route-preview") {
+      try {
+        const body = await readJson(req);
+        const item = await buildAiRoutePreview(body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
       }
     }
 

@@ -83,6 +83,7 @@ import {
   saveAiPreferences,
   getApiBase,
   moveNote,
+  previewAiRoute,
   previewImport,
   rollbackImport,
   switchVault,
@@ -120,7 +121,10 @@ const settingsState = {
   vault: null,
   ai: {
     userMode: "Auto",
-    advancedModelRef: ""
+    advancedModelRef: "",
+    routePreview: null,
+    routePreviewLoading: false,
+    routePreviewError: ""
   },
   error: ""
 };
@@ -375,19 +379,38 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
 }
 
+function aiSettingsPayload() {
+  return {
+    userMode: settingsState.ai.userMode,
+    advancedSettings: {
+      ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {})
+    }
+  };
+}
+
 async function syncAiSettingsToApi() {
   try {
-    const payload = {
-      userMode: settingsState.ai.userMode,
-      advancedSettings: {
-        ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {})
-      }
-    };
-    await saveAiPreferences(payload);
+    await saveAiPreferences(aiSettingsPayload());
     return true;
   } catch {
     return false;
   }
+}
+
+async function refreshAiRoutePreview(options = {}) {
+  settingsState.ai.routePreviewLoading = true;
+  settingsState.ai.routePreviewError = "";
+  if (options.render !== false) renderSettingsPanel();
+  try {
+    settingsState.ai.routePreview = await previewAiRoute(aiSettingsPayload());
+  } catch (error) {
+    settingsState.ai.routePreview = null;
+    settingsState.ai.routePreviewError = String(error?.message || error);
+  } finally {
+    settingsState.ai.routePreviewLoading = false;
+    if (options.render !== false) renderSettingsPanel();
+  }
+  return settingsState.ai.routePreview;
 }
 
 function hideEditorHelper() {
@@ -2207,6 +2230,45 @@ function renderModulePanels() {
   renderModuleWorkspaceHeader();
 }
 
+function renderAiRoutePreview() {
+  const stats = $("settingsAiRouteStats");
+  const detail = $("settingsAiRoutePreview");
+  if (!stats || !detail) return;
+
+  if (settingsState.ai.routePreviewLoading) {
+    stats.innerHTML = `<span class="settings-stat-badge warn">正在预览</span>`;
+    detail.textContent = "正在根据当前模式计算模型路由...";
+    return;
+  }
+
+  if (settingsState.ai.routePreviewError) {
+    stats.innerHTML = `<span class="settings-stat-badge warn">预览不可用</span>`;
+    detail.textContent = settingsState.ai.routePreviewError;
+    return;
+  }
+
+  const preview = settingsState.ai.routePreview;
+  if (!preview) {
+    stats.innerHTML = `<span class="settings-stat-badge warn">等待同步</span>`;
+    detail.textContent = "刷新当前 Vault 后会显示这套模式实际使用的模型路由。";
+    return;
+  }
+
+  const provider = preview.provider || {};
+  const route = preview.route || {};
+  const access = preview.access || {};
+  stats.innerHTML = [
+    `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
+    `<span class="settings-stat-badge ${access.requiresKey ? "warn" : "ok"}">${access.requiresKey ? "需要 Key" : "无需用户 Key"}</span>`,
+    route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
+  ].join("");
+  detail.innerHTML = `
+    <div><strong>${escapeHtml(provider.displayName || provider.providerId || "未知 Provider")}</strong></div>
+    <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
+    <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
+  `;
+}
+
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
   state.module = normalizedModule;
@@ -2269,6 +2331,7 @@ function renderSettingsPanel() {
     const stored = String(settingsState.ai.advancedModelRef || "").trim();
     if (String(aiRef.value || "") !== stored) aiRef.value = stored;
   }
+  renderAiRoutePreview();
 }
 
 function isWritingEligibleNote(note) {
@@ -3130,6 +3193,7 @@ async function refreshVaultSettings() {
       settingsState.ai.advancedModelRef = advancedRef;
       persistAiSettingsToStorage();
     }
+    await refreshAiRoutePreview({ render: false });
     settingsState.error = "";
     renderSettingsPanel();
     return settingsState.vault;
@@ -3996,6 +4060,7 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
   settingsState.ai.userMode = next;
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
+  refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(`AI 模式已切换为：${next}`, "ok");
 });
@@ -4005,6 +4070,7 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   settingsState.ai.advancedModelRef = next;
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
+  refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(next ? "AI 高级模型 ID 已保存" : "AI 高级模型 ID 已清空（恢复自动选择）", "ok");
 });
