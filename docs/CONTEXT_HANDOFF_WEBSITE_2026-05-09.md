@@ -123,8 +123,8 @@ Stripe 相关环境变量预留：
 
 桌面端 Tauri 更新骨架已经接入：
 
-- Tauri updater is intentionally not enabled for the MVP installer build.
-- `tauri.conf.json` keeps `createUpdaterArtifacts` disabled until updater endpoints/signing are configured.
+- MVP builds should support in-app auto update checks when running inside the desktop app.
+- `tauri.conf.json` enables the updater plugin; tagged release builds require updater signing secrets and a working update feed.
 
 最近一次 manifest 状态记录：
 

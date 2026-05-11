@@ -132,6 +132,13 @@ async function serveAssetProxy(res, relativePath) {
     res.end("Invalid asset path");
     return;
   }
+  // Avoid accidentally proxying HTML documents (e.g. index.html) through the assets pipeline.
+  // This commonly happens when a host or client misroutes the default document into /assets/.
+  if (assetPath.toLowerCase().endsWith(".html")) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Asset not found");
+    return;
+  }
   const upstream = await fetch(`${API_BASE}/api/v1/assets/file?path=${encodeURIComponent(assetPath)}`);
   if (!upstream.ok) {
     res.writeHead(upstream.status, { "Content-Type": "text/plain; charset=utf-8" });
@@ -142,6 +149,23 @@ async function serveAssetProxy(res, relativePath) {
   const body = Buffer.from(await upstream.arrayBuffer());
   res.writeHead(200, { "Content-Type": contentType });
   res.end(body);
+}
+
+async function serveLocalStaticFile(res, relativePath) {
+  const candidate = path.resolve(ROOT, relativePath);
+  if (!candidate.startsWith(ROOT)) return false;
+  try {
+    const stat = await fs.stat(candidate);
+    if (!stat.isFile()) return false;
+    const ext = path.extname(candidate).toLowerCase();
+    const mime = MIME_TYPES[ext] || "application/octet-stream";
+    const content = await fs.readFile(candidate);
+    res.writeHead(200, { "Content-Type": mime });
+    res.end(content);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 const server = http.createServer(async (req, res) => {
@@ -168,6 +192,18 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-register.html");
       return;
     }
+    if (url.pathname === "/about") {
+      await serveStaticPage(res, "marketing-about.html");
+      return;
+    }
+    if (url.pathname === "/privacy") {
+      await serveStaticPage(res, "marketing-privacy.html");
+      return;
+    }
+    if (url.pathname === "/terms") {
+      await serveStaticPage(res, "marketing-terms.html");
+      return;
+    }
     if (url.pathname === "/login") {
       await serveStaticPage(res, "marketing-login.html");
       return;
@@ -184,19 +220,19 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-checkout-cancel.html");
       return;
     }
-    if (url.pathname === "/prototype" || url.pathname === "/editor") {
+    if (url.pathname === "/prototype" || url.pathname === "/editor" || url.pathname === "/app" || url.pathname === "/app/editor") {
       await servePrototype(res);
       return;
     }
-    if (url.pathname === "/paper-workspace") {
+    if (url.pathname === "/paper-workspace" || url.pathname === "/app/paper-workspace") {
       await serveApiBackedPage(res, "paper-workspace.html");
       return;
     }
-    if (url.pathname === "/prototype-handoff") {
+    if (url.pathname === "/prototype-handoff" || url.pathname === "/app/handoff") {
       await serveHandoff(res);
       return;
     }
-    if (url.pathname === "/prototype-from-figma") {
+    if (url.pathname === "/prototype-from-figma" || url.pathname === "/app/figma") {
       await serveFromFigma(res);
       return;
     }
@@ -228,26 +264,24 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith("/assets/")) {
       const relativePath = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+      if (await serveLocalStaticFile(res, relativePath)) {
+        return;
+      }
       await serveAssetProxy(res, relativePath);
       return;
     }
 
     // Static files under apps/web/src (for module-based prototype)
     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, "");
-    const candidate = path.resolve(ROOT, relative);
-    if (candidate.startsWith(ROOT)) {
-      try {
-        const stat = await fs.stat(candidate);
-        if (stat.isFile()) {
-          const ext = path.extname(candidate).toLowerCase();
-          const mime = MIME_TYPES[ext] || "application/octet-stream";
-          const content = await fs.readFile(candidate);
-          res.writeHead(200, { "Content-Type": mime });
-          res.end(content);
-          return;
-        }
-      } catch {
-        // fallthrough to 404
+    if (await serveLocalStaticFile(res, relative)) {
+      return;
+    }
+    // Convenience rewrite: `/about` -> `marketing-about.html` (and same for other marketing pages).
+    // This keeps routes working even if the caller omits the `.html` filename.
+    if (relative && !relative.includes(".") && !relative.includes("/")) {
+      const marketingCandidate = `marketing-${relative}.html`;
+      if (await serveLocalStaticFile(res, marketingCandidate)) {
+        return;
       }
     }
 

@@ -1,4 +1,4 @@
-﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
 import { assetPreviewUrl, checkOriginality, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
 
 function saveIconMarkup(kind = "idle") {
@@ -53,8 +53,7 @@ function titleFromBody(body) {
 function normalizePlaceholderTitleBody(body = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
   return text
-    .replace(/^#\s*未命名笔记(?=\S)/, "# ")
-    .replace(/\n{2,}(?:<br>\n)+/g, "\n\n");
+    .replace(/^#\s*未命名笔记(?=\S)/, "# ");
 }
 
 const LITERATURE_SECTION_LABELS = {
@@ -88,6 +87,29 @@ const AUTO_SAVE_IDLE_MS = 12000;
 
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function formatMarkdownLinkDestination(value = "") {
+  const target = String(value || "").trim();
+  if (!target) return "";
+  if (target.startsWith("<") && target.endsWith(">")) return target;
+  return /\s|[()]/.test(target) ? `<${target}>` : target;
+}
+
+function unformatMarkdownLinkDestination(value = "") {
+  const target = String(value || "").trim();
+  if (target.startsWith("<") && target.endsWith(">")) return target.slice(1, -1).trim();
+  return target;
+}
+
+export function assetMarkdownSnippet(asset = {}) {
+  const rawLabel = String(asset.fileName || "asset").trim();
+  const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
+  const destination = formatMarkdownLinkDestination(asset.markdownLinkPath);
+  if (String(asset.assetKind || "") === "image") {
+    return `![${textLabel}](${destination})`;
+  }
+  return `[${rawLabel || textLabel}](${destination})`;
 }
 
 export function normalizeFieldText(value = "") {
@@ -235,10 +257,12 @@ function normalizeText(value) {
 }
 
 function normalizeClickedTag(token) {
-  return String(token || "")
+  const value = String(token || "")
     .replace(/^#/, "")
     .replace(/[，。！？、；：.!?;:,]+$/u, "")
     .trim();
+  const match = value.match(/^[A-Za-z0-9_\-\u4e00-\u9fff]+/u);
+  return match ? match[0] : value;
 }
 
 function escapeHtml(value) {
@@ -264,7 +288,7 @@ function normalizePosixPath(input) {
 }
 
 function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
-  const target = String(rawPath || "").trim();
+  const target = unformatMarkdownLinkDestination(rawPath);
   if (!target) return "";
   if (/^(https?:|data:)/i.test(target)) return target;
   if (target.startsWith("assets/")) return normalizePosixPath(target);
@@ -277,7 +301,12 @@ function resolveAssetPathForNote(rawPath, noteMarkdownPath = "") {
 function previewAssetUrl(rawPath, noteMarkdownPath = "") {
   const assetPath = resolveAssetPathForNote(rawPath, noteMarkdownPath);
   if (!assetPath || /^(https?:|data:)/i.test(assetPath)) return assetPath;
+  if (!assetPath.startsWith("assets/")) return "";
   return assetPreviewUrl(assetPath);
+}
+
+function isExternalLinkUrl(url = "") {
+  return /^(https?:|mailto:|tel:)/i.test(String(url || "").trim());
 }
 
 function resolvePreviewableAsset(rawPath, noteMarkdownPath = "") {
@@ -631,9 +660,18 @@ function renderInlinePreview(text, options = {}) {
     const markdownLink = source.slice(index).match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (markdownLink) {
       const [, label, href] = markdownLink;
+      if (isExternalLinkUrl(href)) {
+        html += `<button class="preview-wikilink" type="button" data-preview-external-url="${escapeHtml(href)}">${escapeHtml(label || href)}</button>`;
+        index += markdownLink[0].length;
+        continue;
+      }
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
-      html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
+      if (!url) {
+        html += `<a class="preview-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(textLabel)}</a>`;
+      } else {
+        html += `<button class="preview-attachment inline" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">${escapeHtml(textLabel)}</button>`;
+      }
       index += markdownLink[0].length;
       continue;
     }
@@ -787,10 +825,11 @@ function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    if (line.startsWith("- ")) {
+    if (isMarkdownBulletLine(line)) {
       const items = [];
-      while (index < lines.length && lines[index].startsWith("- ")) {
-        items.push(`<li>${renderInlinePreview(lines[index].slice(2), options)}</li>`);
+      while (index < lines.length && isMarkdownBulletLine(lines[index])) {
+        const match = lines[index].match(/^\s*[-*+]\s?(.*)$/);
+        items.push(`<li>${renderInlinePreview(match?.[1] || "", options)}</li>`);
         index += 1;
       }
       blocks.push(`<ul>${items.join("")}</ul>`);
@@ -802,14 +841,25 @@ function renderMarkdownPreview(markdown, options = {}) {
       const [, label, href] = attachmentMatch;
       const url = previewAssetUrl(href, noteMarkdownPath);
       const textLabel = label || attachmentLabelFromPath(href);
-      blocks.push(`
-        <div class="preview-attachment-block">
-          <button class="preview-attachment" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">
-            <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
-            <span class="preview-attachment-path">${escapeHtml(href)}</span>
-          </button>
-        </div>
-      `);
+      if (!url) {
+        blocks.push(`
+          <div class="preview-attachment-block">
+            <a class="preview-attachment" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">
+              <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
+              <span class="preview-attachment-path">${escapeHtml(href)}</span>
+            </a>
+          </div>
+        `);
+      } else {
+        blocks.push(`
+          <div class="preview-attachment-block">
+            <button class="preview-attachment" type="button" data-preview-asset-url="${escapeHtml(url)}" data-preview-asset-label="${escapeHtml(textLabel)}">
+              <span class="preview-attachment-name">${escapeHtml(textLabel)}</span>
+              <span class="preview-attachment-path">${escapeHtml(href)}</span>
+            </button>
+          </div>
+        `);
+      }
       index += 1;
       continue;
     }
@@ -959,6 +1009,7 @@ export class EditorPane {
     this.onStatus = onStatus;
     this.onStateChange = onStateChange;
     this.onOpenNote = onOpenNote;
+    this.onOpenExternalUrl = typeof elements?.openExternalUrl === "function" ? elements.openExternalUrl : null;
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
@@ -1571,11 +1622,11 @@ export class EditorPane {
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
-        <div class="tabs-list">${tabsHtml || `<div class="tab active" data-tab="welcome"><span class="tab-title">未打开笔记</span></div>`}</div>
+        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
         <div class="tabs-meta">
           <span class="tabs-meta-pill"><strong>${this.state.tabs.length}</strong> 打开中</span>
           ${dirtyCount ? `<span class="tabs-meta-pill warn"><strong>${dirtyCount}</strong> 编辑中</span>` : ""}
-          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">未打开笔记</span>`}
+          ${activeNote ? `<span class="tabs-meta-pill"><strong>${noteTypeText(activeNote.noteType)}</strong></span>` : `<span class="tabs-meta-pill">准备记录</span>`}
         </div>
         <div class="tabs-actions">
           <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
@@ -1588,13 +1639,31 @@ export class EditorPane {
         ${menuItems}
       </div>
     `;
+    this.renderEmptyEditorState();
     this.onChromeChange();
+  }
+
+  renderEmptyEditorState() {
+    const empty = !this.activeTab();
+    const panel = this.els.markdownSplit?.closest?.(".md-panel");
+    panel?.classList.toggle("editor-empty", empty);
+    this.els.emptyStart?.classList.toggle("hidden", !empty);
+  }
+
+  requestCreateNoteFromEmptyState() {
+    if (this.activeTab() || this.creatingEmptyNote) return false;
+    this.creatingEmptyNote = true;
+    Promise.resolve(this.onStateChange("create-note-in-selected-folder")).finally(() => {
+      this.creatingEmptyNote = false;
+    });
+    return true;
   }
 
   fillEditorFromTab() {
     const t = this.activeTab();
     if (!t) {
       this.setEditorValue("");
+      this.renderEmptyEditorState();
       this.els.result.innerHTML = "打开一条笔记后，这里会显示能让观点继续生长的回链、同标签与关联判断。";
       this.setInspectorVisible(false);
       this.renderLiteratureWorkspace();
@@ -1604,6 +1673,7 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
+    this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
     this.renderLiteratureWorkspace();
     this.renderRelated();
@@ -1996,7 +2066,7 @@ export class EditorPane {
       split.classList.remove("editor-mode-wysiwyg", "editor-mode-source");
       split.classList.add(mode === "source" ? "editor-mode-source" : "editor-mode-wysiwyg");
     }
-    const showPreviewPanel = mode === "source";
+    const showPreviewPanel = false;
     this.els.previewPanel?.classList.toggle("hidden", !showPreviewPanel);
     this.els.modeEdit?.classList.toggle("active", mode === "source");
     this.updateModeToggleButton(mode);
@@ -2144,6 +2214,10 @@ export class EditorPane {
             event.preventDefault();
             return;
           }
+          if (this.extractRichExternalLinkFromEvent(event)) {
+            event.preventDefault();
+            return;
+          }
           if (!this.extractRichTokenFromEvent(event)) return;
           event.preventDefault();
         },
@@ -2157,6 +2231,13 @@ export class EditorPane {
             event.preventDefault();
             event.stopPropagation();
             this.openAssetPreview(asset.url, asset.label);
+            return;
+          }
+          const externalLink = this.extractRichExternalLinkFromEvent(event);
+          if (externalLink?.url) {
+            event.preventDefault();
+            event.stopPropagation();
+            void this.openExternalUrl(externalLink.url);
             return;
           }
           const token = this.extractRichTokenFromEvent(event);
@@ -2285,7 +2366,7 @@ export class EditorPane {
         onChange: (value) => {
           if (this.suppressSourceEditorChange || this.suppressEditorChange) return;
           this.els.body.value = value;
-          if (this.richEditor && this.richEditor.getValue() !== value) {
+          if (!this.isSourceMode() && this.richEditor && this.richEditor.getValue() !== value) {
             this.suppressRichEditorChange = true;
             try {
               this.richEditor.setValue(value);
@@ -2495,23 +2576,56 @@ export class EditorPane {
     const context = this.firstHeadingEntryContext();
     if (!context) return false;
     const { value, headingEnd } = context;
+    const replaceHeadingBreak = (from, to, text, selectionStart) => {
+      const options = {
+        selectionStart,
+        selectionEnd: selectionStart
+      };
+      if (this.isWysiwygMode()) return this.replaceMarkdownWhileInWysiwyg(from, to, text, options);
+      this.replaceEditorRange(from, to, text, options);
+      return true;
+    };
     const afterHeading = value.slice(headingEnd);
     if (afterHeading.startsWith("\n\n")) {
       this.setEditorSelectionRange(headingEnd + 2, headingEnd + 2);
       return true;
     }
     if (afterHeading.startsWith("\n")) {
-      this.replaceEditorRange(headingEnd, headingEnd + 1, "\n\n", {
-        selectionStart: headingEnd + 2,
-        selectionEnd: headingEnd + 2
-      });
-      return true;
+      return replaceHeadingBreak(headingEnd, headingEnd + 1, "\n\n", headingEnd + 2);
     }
-    this.replaceEditorRange(headingEnd, headingEnd, "\n\n", {
-      selectionStart: headingEnd + 2,
-      selectionEnd: headingEnd + 2
-    });
-    return true;
+    return replaceHeadingBreak(headingEnd, headingEnd, "\n\n", headingEnd + 2);
+  }
+
+  extractRichExternalLinkFromEvent(event) {
+    const target = event?.target?.closest?.("a[href]");
+    if (!target || target.dataset?.previewAssetUrl) return null;
+    const url = String(target.getAttribute("href") || "").trim();
+    if (!isExternalLinkUrl(url)) return null;
+    return { url };
+  }
+
+  async openExternalUrl(url = "") {
+    const cleanUrl = String(url || "").trim();
+    if (!cleanUrl) return false;
+    try {
+      if (this.onOpenExternalUrl) {
+        const result = await this.onOpenExternalUrl(cleanUrl);
+        if (result !== false) {
+          this.onStatus("已在外部浏览器打开链接", "ok");
+          return true;
+        }
+      }
+      const opened = window.open(cleanUrl, "_blank", "noopener,noreferrer");
+      if (opened) {
+        this.onStatus("已在新窗口打开链接", "ok");
+        return true;
+      }
+    } catch (error) {
+      this.onStatus(`打开链接失败：${String(error?.message || error)}`, "bad");
+      return false;
+    }
+    this.onStatus("没有成功打开外部链接", "warn");
+    return false;
   }
 
   applyPendingEditorFocus() {
@@ -2683,7 +2797,7 @@ export class EditorPane {
           this.suppressSourceEditorChange = false;
         }
       }
-      if (editor !== this.richEditor && this.richEditor && this.richEditor.getValue() !== syncValue) {
+      if (editor !== this.richEditor && !this.isSourceMode() && this.richEditor && this.richEditor.getValue() !== syncValue) {
         this.suppressRichEditorChange = true;
         try {
           this.richEditor.setValue(syncValue);
@@ -2736,12 +2850,7 @@ export class EditorPane {
   }
 
   assetMarkdownSnippet(asset = {}) {
-    const rawLabel = String(asset.fileName || "asset").trim();
-    const textLabel = rawLabel.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "").trim() || "asset";
-    if (String(asset.assetKind || "") === "image") {
-      return `![${textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
-    }
-    return `[${rawLabel || textLabel}](${String(asset.markdownLinkPath || "").trim()})`;
+    return assetMarkdownSnippet(asset);
   }
 
   normalizeAssetInsertText(assets = []) {
@@ -3178,10 +3287,20 @@ export class EditorPane {
     const delta = nextText.length - block.length;
     const adjustedStart = isOutdent ? Math.max(lineStart, from - 2) : from + 2;
     const adjustedEnd = isOutdent ? Math.max(adjustedStart, to + delta) : to + (2 * lines.length);
-    this.replaceEditorRange(lineStart, lineEnd, nextText, {
-      selectionStart: adjustedStart,
-      selectionEnd: adjustedEnd
-    });
+    const nextValue = `${value.slice(0, lineStart)}${nextText}${value.slice(lineEnd)}`;
+    this.els.body.value = nextValue;
+    if (this.markdownEditor && this.markdownEditor.getValue() !== nextValue) {
+      this.suppressEditorChange = true;
+      this.suppressSourceEditorChange = true;
+      try {
+        this.markdownEditor.setValue(nextValue);
+      } finally {
+        this.suppressSourceEditorChange = false;
+        this.suppressEditorChange = false;
+      }
+    }
+    this.markdownEditor?.setSelectionRange?.(adjustedStart, adjustedEnd);
+    this.handleEditorInput();
   }
 
   detectActiveFormatting() {
@@ -3308,14 +3427,20 @@ export class EditorPane {
 
   handlePlainParagraphEnter() {
     if (!this.isWysiwygMode()) return false;
-    const context = this.currentLineContext();
-    if (!context) return false;
-    const { cursor, lineEnd, lineText } = context;
-    if (cursor !== lineEnd) return false;
-    if (/^\s*(#{1,6}\s|>\s?|[-*+]\s(?:\[(?: |x|X)\]\s?)?|\d+[.)]\s|\|)/.test(lineText)) return false;
-    return this.replaceMarkdownWhileInWysiwyg(cursor, cursor, "\n\n", {
-      selectionStart: cursor + 2,
-      selectionEnd: cursor + 2
+    const selection = this.editorSelection();
+    if (selection.from !== selection.to) return false;
+    const value = String(this.getEditorValue() || "").replace(/\r\n/g, "\n");
+    if (!value.endsWith("\n\n") || selection.from < value.length - 1) return false;
+    const hasBodyParagraph = value
+      .slice(0, -2)
+      .split("\n")
+      .map((line) => line.trim())
+      .some((line) => line && !/^#{1,6}\s/.test(line) && line !== "<br>");
+    if (!hasBodyParagraph) return false;
+    const insert = "<br>\n\n";
+    return this.replaceMarkdownWhileInWysiwyg(value.length, value.length, insert, {
+      selectionStart: value.length + insert.length,
+      selectionEnd: value.length + insert.length
     });
   }
 
@@ -4078,6 +4203,22 @@ export class EditorPane {
       this.onStateChange("switch-tab");
     });
 
+    const startEmptyNote = (event) => {
+      if (!this.requestCreateNoteFromEmptyState()) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    this.els.emptyStart?.addEventListener("click", startEmptyNote);
+    this.els.emptyStart?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      startEmptyNote(event);
+    });
+    this.els.markdownSplit?.addEventListener("click", (event) => {
+      if (!this.els.markdownSplit?.closest?.(".editor-empty")) return;
+      if (event.target.closest("button, input, textarea, select, a")) return;
+      startEmptyNote(event);
+    });
+
     document.addEventListener("click", (e) => {
       if (!e.target.closest("#tabs")) {
         const menu = this.els.tabs.querySelector("[data-tab-menu]");
@@ -4144,6 +4285,11 @@ export class EditorPane {
       const link = e.target.closest("[data-preview-link]");
       if (link) {
         this.handleTokenAction(`[[${link.dataset.previewLink}]]`);
+        return;
+      }
+      const external = e.target.closest("[data-preview-external-url]");
+      if (external?.dataset.previewExternalUrl) {
+        void this.openExternalUrl(external.dataset.previewExternalUrl);
         return;
       }
       const tag = e.target.closest("[data-preview-tag]");
@@ -4834,6 +4980,3 @@ export class EditorPane {
     this.renderTabs();
   }
 }
-
-
-

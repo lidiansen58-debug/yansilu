@@ -85,10 +85,10 @@ export function createImportToolbarActions({
         return null;
       }
       const result = await confirmImport(importRecordId, selectedIds ? { selectedCandidateIds: selectedIds } : {});
+      setStatus?.(`导入确认完成：${importRecordId}`, "ok");
       await onConfirmSuccess?.({ importRecordId, result, preview });
       await refreshImportHistory?.({ silent: true });
       await refreshImportedNotesView?.();
-      setStatus?.(`导入确认完成：${importRecordId}`, "ok");
       return result;
     } catch (error) {
       showImportResult?.({

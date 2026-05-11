@@ -56,7 +56,7 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
 - The Windows NSIS installer has completed a local silent install with exit code 0.
 - The installed Windows app has completed a local silent uninstall and reinstall cycle with exit code 0.
 - The installed executable at `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` has launched successfully with the `研思录` window title.
-- Tauri updater artifacts and runtime updater plugin are disabled for this MVP build until update endpoints and signing are configured.
+- Desktop app checks for updates (best-effort) when running inside Tauri; tagged releases still require signing secrets and a working update feed.
 - Tauri dialog/opener UI branches now have automated coverage for:
   - Vault browse fallback path picking
   - reveal current Markdown file through desktop opener
@@ -85,11 +85,13 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
   - note delete
   - import/export/writing/graph flows
 - Current verified test baselines:
-  - `npm.cmd test` -> `131 pass / 0 fail / 50 skipped`
-  - `npm.cmd run mvp:check` -> core tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight passed locally
-  - `npm.cmd run test:e2e:browser:mvp` -> quick real-browser MVP path passed locally
-  - Targeted browser regression for editor image insertion, file insertion, and helper dismiss/mute -> `3 pass / 0 fail`
-  - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow when Playwright Chromium is available
+  - `npm.cmd test` -> `161 pass / 0 fail / 59 skipped`
+  - `npm.cmd run mvp:check` -> core tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight passed locally on 2026-05-11.
+  - `npm.cmd run test:e2e:browser:mvp` -> quick real-browser MVP path passed locally for note, Vault, import, export, graph, and explorer move/delete paths.
+  - Targeted browser regression for import/export after the asset-flow merge -> `7 pass / 0 fail`
+  - Marketing route coverage for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, auth/billing DOM hooks, and asset-proxy HTML refusal -> `2 pass / 0 fail`
+  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `9956433D07A2CF28391E78F81A51F9BF9B0E74C63576266FB85FF1ED85C28290`.
+  - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow has passed locally with `59 pass / 0 fail`
 
 ## Not Yet Completed
 
@@ -118,6 +120,7 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
 - E2E coverage for desktop-only Tauri dialog and opener behavior.
 - Broader import fixtures for large real-world Markdown/Obsidian vaults.
 - CI job that runs browser E2E automatically.
+- CI currently does not run on ordinary `main` pushes; desktop workflows run on PRs, manual dispatch, and `v*` tags.
 - Full browser E2E should be split or budgeted before CI because the one-shot local run exceeded the current 10-minute shell timeout.
 - A final human walkthrough of the cleaned-up note/import/graph/writing workspaces.
 

@@ -1,4 +1,4 @@
-﻿import {
+import {
   childFolders,
   createInitialState,
   folderById,
@@ -147,14 +147,67 @@ const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
 const APP_VERSION = "0.1.0";
+const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+function tauriGlobal() {
+  return typeof window !== "undefined" ? window.__TAURI__ : null;
+}
+
+function shouldCheckForUpdatesNow() {
+  const tauri = tauriGlobal();
+  if (!tauri) return false;
+  const last = Number(localStorage.getItem(AUTO_UPDATE_CHECK_KEY) || 0);
+  return !last || Date.now() - last > AUTO_UPDATE_CHECK_INTERVAL_MS;
+}
+
+async function checkForDesktopUpdate(options = {}) {
+  const tauri = tauriGlobal();
+  if (!tauri) return { ok: false, skipped: true };
+  if (!options.force && !shouldCheckForUpdatesNow()) return { ok: false, skipped: true };
+
+  localStorage.setItem(AUTO_UPDATE_CHECK_KEY, String(Date.now()));
+
+  const call = async (name, args) => {
+    if (typeof tauri?.updater?.[name] === "function") return await tauri.updater[name](args);
+    if (typeof tauri?.core?.invoke === "function") {
+      const mapping = {
+        check: "plugin:updater|check",
+        downloadAndInstall: "plugin:updater|download_and_install"
+      };
+      const command = mapping[name];
+      if (!command) return null;
+      return await tauri.core.invoke(command, args || {});
+    }
+    return null;
+  };
+
+  try {
+    const result = await call("check");
+    const available = Boolean(result?.available ?? result?.shouldUpdate ?? result?.updateAvailable);
+    if (!available) return { ok: true, available: false };
+
+    const version = String(result?.version || result?.latestVersion || "").trim();
+    const prompt = options.prompt !== false;
+    if (prompt) {
+      const confirmed = window.confirm(`发现新版本${version ? `：${version}` : ""}。现在下载安装并重启吗？`);
+      if (!confirmed) return { ok: true, available: true, installed: false };
+    }
+
+    await call("downloadAndInstall");
+    return { ok: true, available: true, installed: true };
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+}
 
 function feedbackBaseUrl() {
   return `https://github.com/${FEEDBACK_REPOSITORY}/issues/new`;
 }
 
 function activePrototypeUrl() {
-  if (typeof window === "undefined") return "/prototype";
-  return window.location.href || `${window.location.origin}/prototype`;
+  if (typeof window === "undefined") return "/app";
+  return window.location.href || `${window.location.origin}/app`;
 }
 
 function buildFeedbackUrl(kind = "bug") {
@@ -951,7 +1004,7 @@ async function openImportedLiteratureQueue() {
   activateModule("explorer");
   const opened = openNoteById(noteIds[0], { preferTitleSelection: false });
   if (!opened) return false;
-  setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok", { requireModule: "explorer" });
+  setStatus(`已打开 ${noteIds.length} 条导入文献中的第一条，并只显示本次导入的待转述队列`, "ok");
   return true;
 }
 
@@ -1507,9 +1560,19 @@ function renderSidebarTitle() {
   const moduleSidebar = $("moduleSidebar");
   const listArea = $("listArea");
   const searchToggle = $("btnToggleSearch");
+  const sidebarSubtitle = $("sidebarSubtitle");
+  const sidebarFoot = $("sidebarFoot");
 
   if (editorMode) {
     $("sidebarTitle").textContent = displayFolderName(root);
+    if (sidebarSubtitle) {
+      sidebarSubtitle.textContent =
+        state.browserRootId === "dir_fleeting_default"
+          ? "先记下线索、问题和还没成形的判断。"
+          : state.browserRootId === "dir_literature_default"
+            ? "把原文、转述和保留理由放进同一条加工路径。"
+            : "把已经成形的判断沉淀成可复用的观点单元。";
+    }
     const quickAction =
       state.browserRootId === "dir_fleeting_default"
         ? "quick-fleeting"
@@ -1526,12 +1589,20 @@ function renderSidebarTitle() {
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
-    if ($("sidebarFoot")) $("sidebarFoot").textContent = "";
+    if (sidebarFoot) {
+      sidebarFoot.textContent =
+        state.browserRootId === "dir_fleeting_default"
+          ? "随手记用来捕捉还不成熟的线索。等判断开始变清楚，再继续推进到原创笔记。"
+          : state.browserRootId === "dir_literature_default"
+            ? "文献笔记不以摘录结束。只有完成转述，它才真正进入你的理解结构。"
+            : "原创笔记承接你已经想清楚的判断。连接、标签和写作都应该从这里继续长出来。";
+    }
     return;
   }
 
   const moduleUi = currentModuleUi();
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
+  if (sidebarSubtitle) sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
   sidebarPrimaryActions?.classList.add("hidden");
@@ -1539,7 +1610,7 @@ function renderSidebarTitle() {
   listArea?.classList.add("hidden");
   moduleSidebar?.classList.add("visible");
   if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
-  if ($("sidebarFoot")) $("sidebarFoot").textContent = moduleUi.sidebarFoot;
+  if (sidebarFoot) sidebarFoot.textContent = moduleUi.sidebarFoot;
 }
 
 function currentModuleUi() {
@@ -1548,6 +1619,7 @@ function currentModuleUi() {
   const configs = {
     imports: {
       sidebarTitle: "导入中心",
+      sidebarSubtitle: "先预览，再确认写入。",
       sidebarFoot: "导入是独立流程：选择来源、预览候选、确认写入，再按需回滚。",
       title: "导入与导出",
       summary: "\u628a\u5916\u90e8 Markdown\u3001Obsidian\u3001Zotero\u3001Readwise \u7b49\u5185\u5bb9\u5e26\u5165\u7814\u601d\u5f55\u65f6\uff0c\u8fd9\u91cc\u53ea\u670d\u52a1\u5bfc\u5165\u4e0e\u521d\u7b5b\uff0c\u4e0d\u628a\u8d44\u6599\u5165\u5e93\u91cf\u5305\u88c5\u6210\u8fdb\u5c55\u3002\u771f\u6b63\u7684\u8fdb\u5c55\u53d1\u751f\u5728\u540e\u7eed\u8f6c\u8ff0\u3001\u63d0\u70bc\u4e0e\u5199\u4f5c\u3002",
@@ -1568,6 +1640,7 @@ function currentModuleUi() {
     },
     graph: {
       sidebarTitle: "关系图谱",
+      sidebarSubtitle: "只看当前范围，不看全局噪音。",
       sidebarFoot: "图谱默认围绕当前目录或当前主题，不展示全局大图。",
       title: "关系图谱",
       summary: "图谱页不只看连接，还要帮助你看见重名冲突、孤立观点、待补链接理由，以及哪些概念其实还没有真正对齐。",
@@ -1588,6 +1661,7 @@ function currentModuleUi() {
     },
     writing: {
       sidebarTitle: "写作中心",
+      sidebarSubtitle: "从成熟笔记进入写作准备。",
       sidebarFoot: "写作中心应从成熟笔记出发，不替代笔记编辑器。",
       title: "写作中心",
       summary: "这里不是囤积观点卡的地方，而是把已经成熟的原创笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
@@ -1608,6 +1682,7 @@ function currentModuleUi() {
     },
     settings: {
       sidebarTitle: "设置",
+      sidebarSubtitle: "系统配置不应打断写作流程。",
       sidebarFoot: "设置页只处理系统与卡片盒配置，不打断正在写的笔记流程。",
       title: "设置",
       summary: "这里处理 Vault 路径、初始化状态和桌面文件能力。它应该像应用设置页，而不是混进笔记编辑视图。",
@@ -1628,6 +1703,7 @@ function currentModuleUi() {
   };
   return configs[state.module] || {
     sidebarTitle: "功能页",
+    sidebarSubtitle: "当前功能页。",
     sidebarFoot: "当前功能页。",
     title: "功能页",
     summary: "当前模块说明。",
@@ -1736,6 +1812,10 @@ function renderWorkspaceStatusHint() {
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
   const noteType = String(activeNote?.noteType || "").trim();
+  if (activeNote && !state.focusMode) {
+    hideEditorHelper();
+    return;
+  }
   if (action) {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
@@ -1854,7 +1934,7 @@ function resolveNotePath(note) {
 }
 
 function standaloneEditorUrl(noteId = "") {
-  const baseUrl = `${window.location.origin}/editor`;
+  const baseUrl = `${window.location.origin}/app/editor`;
   const id = String(noteId || "").trim();
   return id ? `${baseUrl}?note=${encodeURIComponent(id)}` : baseUrl;
 }
@@ -1963,7 +2043,7 @@ function renderModulePanels() {
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
   $("importPanel")?.classList.toggle("hidden", !importsMode);
   $("markdownPanel")?.classList.toggle("hidden", !editorMode);
-  $("relatedPanel")?.classList.toggle("hidden", !editorMode);
+  $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
   renderModuleWorkspaceHeader();
 }
 
@@ -3569,6 +3649,7 @@ const editor = new EditorPane({
     wysiwygHost: $("wysiwygHost"),
     editorHost: $("editorHost"),
     markdownSplit: $("markdownSplit"),
+    emptyStart: $("editorEmptyStart"),
     literatureWorkspace: $("literatureWorkspace"),
     literatureTitle: $("literatureTitleInput"),
     literatureOriginal: $("literatureOriginalInput"),
@@ -3627,7 +3708,8 @@ const editor = new EditorPane({
     authorshipPanel: $("authorshipPanel"),
     authorshipClaimInput: $("authorshipClaimInput"),
     authorshipConfirm: $("authorshipConfirm"),
-    authorshipHint: $("authorshipHint")
+    authorshipHint: $("authorshipHint"),
+    openExternalUrl: desktopCommands.openExternalUrl
   },
   onStatus: setStatus,
   onStateChange: handleStateChange,
@@ -4316,9 +4398,9 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
 
 document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
   btn.addEventListener("click", () => {
-    const url = `${window.location.origin}/prototype-handoff`;
+    const url = `${window.location.origin}/app/handoff`;
     window.open(url, "_blank", "noopener,noreferrer");
-    setStatus("已打开原型交付板", "ok");
+    setStatus("已打开工作台交付板", "ok");
   });
 });
 
@@ -4500,7 +4582,9 @@ async function bootstrap() {
 
     const actionButton = event.target?.closest?.("[data-import-history-action]");
     const item = event.target?.closest?.("[data-import-history-id]");
-    const importRecordId = String((actionButton || item)?.getAttribute("data-import-history-id") || "").trim();
+    const importRecordId = String(
+      actionButton?.getAttribute("data-import-history-id") || item?.getAttribute("data-import-history-id") || ""
+    ).trim();
     if (!importRecordId) return;
     try {
       const action = String(actionButton?.getAttribute("data-import-history-action") || "load").trim();
@@ -4601,7 +4685,8 @@ async function bootstrap() {
         targetPath,
         exportJobId: result.exportJobId,
         status: result.status,
-        copied: result.copied
+        copied: result.copied,
+        copiedBreakdown: result.copiedBreakdown || null
       });
       setStatus(`Markdown 导出已提交：${result.exportJobId}，复制 ${result.copied} 个文件`, "ok");
     } catch (error) {
@@ -4633,7 +4718,31 @@ async function bootstrap() {
     setStatus(`已连接 API：${getApiBase()}`, "ok");
   } catch (error) {
     renderImportHistory();
-    setStatus(`API 连接失败，使用本地原型数据：${String(error?.message || error)}`, "warn");
+
+    const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
+    if (tauri) {
+      setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
+      try {
+        const message =
+          `无法连接到本地 API（${getApiBase()}）。\n\n` +
+          `当前桌面版需要本地 API 服务在后台运行。\n\n` +
+          `解决办法：\n` +
+          `1) 在项目目录运行：npm run dev:api\n` +
+          `2) 保持窗口打开，然后重启桌面应用\n\n` +
+          `如果你是安装包用户，请联系开发者获取“内置 API”的版本。`;
+
+        if (typeof tauri?.dialog?.message === "function") {
+          await tauri.dialog.message(message, { title: "API 未启动", kind: "error" });
+        } else if (typeof tauri?.core?.invoke === "function") {
+          await tauri.core.invoke("plugin:dialog|message", {
+            message,
+            options: { title: "API 未启动", kind: "error" }
+          });
+        }
+      } catch {}
+    } else {
+      setStatus(`API 连接失败，使用本地工作台数据：${String(error?.message || error)}`, "warn");
+    }
   }
 
   try {
@@ -4649,6 +4758,13 @@ async function bootstrap() {
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
   }
+
+  // MVP: if running inside Tauri, periodically check for updates and offer one-click install.
+  // This is best-effort and will quietly no-op in browsers.
+  setTimeout(async () => {
+    const result = await checkForDesktopUpdate();
+    if (result?.installed) setStatus("更新已开始下载，完成后会自动重启", "ok");
+  }, 1200);
 }
 
 bootstrap();

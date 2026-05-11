@@ -1,11 +1,12 @@
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   appendImportRecord,
   buildExternalCandidates,
+  createdEntryFromVaultPath,
   createdEntryFromWriteResult,
   listImportRecords,
   loadImportRecord,
@@ -87,6 +88,20 @@ const authChallenges = new Map();
 const authSessions = new Map();
 const authUsers = new Map();
 const authBillingByUserId = new Map();
+
+function stableAssetId(importRecordId, relativePath) {
+  const hash = createHash("sha1").update(`${importRecordId}:${relativePath}`).digest("hex").slice(0, 12);
+  return `asset_${hash}`;
+}
+
+function normalizeRelativeFileTarget(value) {
+  const raw = String(value || "").trim().replaceAll("\\", "/");
+  if (!raw) return null;
+  if (raw.startsWith("/") || raw.includes("://")) return null;
+  const normalized = path.posix.normalize(raw);
+  if (!normalized || normalized === "." || normalized.startsWith("..") || normalized.includes("/../")) return null;
+  return normalized;
+}
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -1634,6 +1649,49 @@ const server = http.createServer(async (req, res) => {
           await registerImportCatalogNote(ln, "literature", result);
         } else skipped.conflicted += 1;
       }
+
+      if (record.connector === "obsidian") {
+        const importRootRaw = String(record.payload?.path || "").trim();
+        const importRoot = importRootRaw ? (path.isAbsolute(importRootRaw) ? importRootRaw : path.resolve(CWD, importRootRaw)) : null;
+        const assetTargets = new Set();
+
+        for (const note of selected.candidates.literature) {
+          for (const link of Array.isArray(note?.parsed_wikilinks) ? note["parsed_wikilinks"] : []) {
+            if (!link?.embed || !link?.target) continue;
+            const normalizedTarget = normalizeRelativeFileTarget(link.target);
+            if (!normalizedTarget) continue;
+            if (normalizedTarget.toLowerCase().endsWith(".md")) continue;
+            assetTargets.add(normalizedTarget);
+          }
+        }
+
+        if (importRoot && assetTargets.size) {
+          for (const normalizedTarget of assetTargets) {
+            const sourcePath = path.resolve(importRoot, normalizedTarget);
+            const relToImportRoot = path.relative(importRoot, sourcePath);
+            if (relToImportRoot.startsWith("..") || path.isAbsolute(relToImportRoot)) continue;
+
+            try {
+              await fs.access(sourcePath);
+            } catch {
+              continue;
+            }
+
+            const destRel = path.posix.join("assets", "imports", confirmId, normalizedTarget);
+            const destFull = path.join(VAULT_PATH, destRel);
+            await fs.mkdir(path.dirname(destFull), { recursive: true });
+            await fs.copyFile(sourcePath, destFull);
+            writtenPaths.add(path.dirname(destFull));
+            createdFiles.push(
+              await createdEntryFromVaultPath(VAULT_PATH, {
+                noteId: stableAssetId(confirmId, destRel),
+                noteType: "asset",
+                filePath: destFull
+              })
+            );
+          }
+        }
+      }
       for (const pn of selected.candidates.permanent) {
         const evalItem = evaluationById.get(pn.id);
         if (evalItem?.status === "warning" && !confirmPlan.allowDraftOnWarning) {
@@ -1749,7 +1807,12 @@ const server = http.createServer(async (req, res) => {
       if (!targetPathRaw) return sendJson(res, 400, err("EXPORT_SCOPE_INVALID", "targetPath required", rid));
       const targetPath = path.isAbsolute(targetPathRaw) ? targetPathRaw : path.resolve(CWD, targetPathRaw);
       const result = await exportMarkdown({ vaultPath: VAULT_PATH, targetPath, requestId: rid });
-      return sendJson(res, 202, { exportJobId: result.exportJobId, status: result.status, copied: result.copied });
+      return sendJson(res, 202, {
+        exportJobId: result.exportJobId,
+        status: result.status,
+        copied: result.copied,
+        copiedBreakdown: result.copiedBreakdown
+      });
     }
 
     if (req.method === "POST" && url.pathname === "/api/v1/index-cards") {

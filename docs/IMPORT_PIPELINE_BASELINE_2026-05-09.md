@@ -13,6 +13,17 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - rollback
 - import-to-writing handoff
 
+## Import Hardening Handoff Received
+
+The planned `wt-import-hardening` scope from `docs/WORKTREE_PLAN.md` has been accepted into this branch because there is no separate active `import-hardening` worktree or branch in the current checkout. The accepted scope is:
+
+- real-world Markdown and Obsidian fixtures
+- preview -> confirm -> rollback stability
+- skipped/warning/blocked/excluded behavior
+- import result clarity where needed
+
+Current follow-up coverage includes a realistic nested Obsidian fixture with Chinese filenames, Chinese/mixed body tags, frontmatter hash-tag normalization, aliases, nested wikilinks, embeds, API preview assertions, API selective confirm -> rollback assertions, and a browser-level confirm -> rollback smoke path.
+
 ## Include In Baseline
 
 ### Import pipeline backend
@@ -52,6 +63,7 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - `apps/web/src/import-history-model.js`
 - `apps/web/src/import-history-mount.js`
 - `apps/web/src/import-history-panel.js`
+- `apps/web/src/import-history-summary.js`
 - `apps/web/src/import-page-mount.js`
 - `apps/web/src/import-result-model.js`
 - `apps/web/src/import-result-mount.js`
@@ -66,6 +78,7 @@ This baseline is not the whole repository state. It is the subset needed to keep
 - `tests/unit/web-import-history-model.test.mjs`
 - `tests/unit/web-import-history-mount.test.mjs`
 - `tests/unit/web-import-history-panel.test.mjs`
+- `tests/unit/web-import-history-summary.test.mjs`
 - `tests/unit/web-import-page-mount.test.mjs`
 - `tests/unit/web-import-result-model.test.mjs`
 - `tests/unit/web-import-result-mount.test.mjs`

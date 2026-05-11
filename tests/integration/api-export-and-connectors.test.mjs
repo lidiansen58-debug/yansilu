@@ -94,6 +94,7 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
 
     await fs.mkdir(path.join(vaultPath, "notes", "literature"), { recursive: true });
     await fs.mkdir(path.join(vaultPath, "notes", "sources"), { recursive: true });
+    await fs.mkdir(path.join(vaultPath, "assets"), { recursive: true });
     await fs.writeFile(
       path.join(vaultPath, "notes", "literature", "ln_api_export.md"),
       "---\ntype: literature\n---\n\n# Literature API export\n",
@@ -104,6 +105,7 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
       "---\ntype: source\n---\n\n# Source API export\n",
       "utf8"
     );
+    await fs.writeFile(path.join(vaultPath, "assets", "export-asset.txt"), "asset", "utf8");
 
     const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
       targetPath
@@ -112,15 +114,22 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(response.status, 202);
     assert.equal(payload.status, "queued");
     assert.match(payload.exportJobId, /^exp_/);
-    assert.equal(payload.copied, 2);
+    assert.equal(payload.copied, 3);
+    assert.deepEqual(payload.copiedBreakdown, {
+      markdownFiles: 2,
+      assetFiles: 1,
+      totalFiles: 3
+    });
 
     const literatureCopy = await fs.readFile(
       path.join(targetPath, "literature", "ln_api_export.md"),
       "utf8"
     );
     const sourceCopy = await fs.readFile(path.join(targetPath, "sources", "src_api_export.md"), "utf8");
+    const assetCopy = await fs.readFile(path.join(targetPath, "assets", "export-asset.txt"), "utf8");
     assert.match(literatureCopy, /Literature API export/);
     assert.match(sourceCopy, /Source API export/);
+    assert.equal(assetCopy, "asset");
 
     const record = JSON.parse(
       await fs.readFile(path.join(vaultPath, "exports", `${payload.exportJobId}.json`), "utf8")
@@ -128,7 +137,8 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(record.exportJobId, payload.exportJobId);
     assert.match(record.requestId, /^req_/);
     assert.equal(record.targetPath, targetPath);
-    assert.equal(record.copied, 2);
+    assert.equal(record.copied, 3);
+    assert.deepEqual(record.copiedBreakdown, payload.copiedBreakdown);
   } finally {
     await stopApi(api);
   }
@@ -296,6 +306,46 @@ test("POST /api/v1/imports/preview records edge-case Obsidian fixture candidates
     assert.equal(duplicateNotes.length, 2);
     assert.equal(record.candidates.permanent[0].title, "Source Note");
     assert.equal(record.candidates.warnings[0].code, "IMPORT_MALFORMED_FRONTMATTER");
+  } finally {
+    await stopApi(api);
+  }
+});
+
+test("POST /api/v1/imports/preview records realistic Obsidian vault candidates with Chinese tags", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-preview-obsidian-realistic-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const fixturePath = path.join(FIXTURES_ROOT, "obsidian-realistic-vault");
+    const { response, payload } = await postJson(baseUrl, "/api/v1/imports/preview", {
+      connector: "obsidian",
+      payload: { path: fixturePath },
+      options: { detectWikilinks: true }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(payload.connector, "obsidian");
+    assert.equal(payload.summary.sources, 2);
+    assert.equal(payload.summary.literatureNotes, 2);
+    assert.equal(payload.summary.permanentNotes, 1);
+    assert.equal(payload.summary.warnings, 1);
+    assert.deepEqual(payload.warnings.map((warning) => warning.code), ["ORIGINALITY_GUARD_BLOCKED"]);
+    assert.ok(payload.candidatePreview.literatureNotes.some((item) => item.title === "中文阅读卡片"));
+
+    const recordPath = path.join(vaultPath, "imports", "obsidian", `${payload.importRecordId}.preview.json`);
+    const record = JSON.parse(await fs.readFile(recordPath, "utf8"));
+    const chineseNote = record.candidates.literature.find((note) => note.title === "中文阅读卡片");
+    assert.ok(chineseNote);
+    assert.ok(chineseNote.tags.includes("来源/访谈"));
+    assert.equal(chineseNote.tags.includes("#来源/访谈"), false);
+    assert.ok(chineseNote.tags.includes("读书/论文"));
+    assert.ok(chineseNote.tags.includes("产品-策略"));
+    assert.deepEqual(chineseNote.wikilink_targets, ["Research/Spacing Note", "assets/chart 1.png"]);
+    assert.equal(record.candidates.permanent[0].title, "Spacing Note");
   } finally {
     await stopApi(api);
   }

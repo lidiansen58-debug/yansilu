@@ -1,4 +1,4 @@
-﻿function normalizePickedPath(result) {
+function normalizePickedPath(result) {
   if (!result) return "";
   if (typeof result === "string") return result.trim();
   if (Array.isArray(result)) {
@@ -47,7 +47,7 @@ async function pickByBrowser(defaultPath = "") {
     }
   }
 
-  const selected = window.prompt("请输入目录路径（浏览器原型降级模式）", defaultPath || "");
+  const selected = window.prompt("请输入目录路径（浏览器降级模式）", defaultPath || "");
   return selected ? String(selected).trim() : "";
 }
 

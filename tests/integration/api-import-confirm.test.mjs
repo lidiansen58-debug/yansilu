@@ -6,9 +6,11 @@ import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { parseMarkdownWithFrontmatter } from "../../packages/domain/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
+const FIXTURES_ROOT = path.join(REPO_ROOT, "tests", "fixtures", "imports");
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -86,7 +88,7 @@ function assertImportRecordBase(record, status) {
 
 function assertCreatedFileContract(item) {
   assert.equal(typeof item.noteId, "string");
-  assert.match(item.noteType, /^(source|literature|permanent)$/);
+  assert.match(item.noteType, /^(source|literature|permanent|asset)$/);
   assert.equal(typeof item.path, "string");
   assert.equal(typeof item.hash, "string");
 }
@@ -404,6 +406,104 @@ test("API import confirm can write only selected candidates", async (t) => {
   assert.equal(completedRecord.status, 200);
   assert.equal(completedRecord.json.importRecord.confirmResult.selection.mode, "subset");
   assert.deepEqual(completedRecord.json.importRecord.confirmResult.selection.candidateIds, [selectedSourceId]);
+});
+
+test("API selective Obsidian confirm writes realistic Chinese vault notes and rolls them back", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-obsidian-realistic-confirm-");
+  const fixturePath = path.join(FIXTURES_ROOT, "obsidian-realistic-vault");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "obsidian",
+    payload: { path: fixturePath },
+    options: { detectWikilinks: true }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.summary.sources, 2);
+  assert.equal(preview.json.summary.literatureNotes, 2);
+  assert.equal(preview.json.summary.permanentNotes, 1);
+  assert.deepEqual(preview.json.warnings.map((warning) => warning.code), ["ORIGINALITY_GUARD_BLOCKED"]);
+
+  const chinesePreview = preview.json.candidatePreview.literatureNotes.find((item) => item.title === "中文阅读卡片");
+  assert.ok(chinesePreview);
+  const selectedCandidateIds = [...preview.json.samples.sourceIds, ...preview.json.samples.literatureNoteIds];
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    selectedCandidateIds
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  assert.deepEqual(confirm.json.result.created, {
+    sources: 2,
+    literatureNotes: 2,
+    permanentNotes: 0
+  });
+  assert.deepEqual(confirm.json.result.skipped, {
+    conflicted: 0,
+    invalid: 0
+  });
+  assert.deepEqual(confirm.json.result.selection, {
+    mode: "subset",
+    candidateIds: selectedCandidateIds,
+    totalCandidates: 5,
+    selectedCandidates: 4,
+    counts: {
+      sources: 2,
+      literatureNotes: 2,
+      permanentNotes: 0
+    }
+  });
+
+  const completedRecord = await getJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}`);
+  assert.equal(completedRecord.status, 200);
+  assert.equal(completedRecord.json.importRecord.status, "completed");
+  assert.equal(completedRecord.json.importRecord.confirmResult.createdFiles.length, 5);
+
+  const createdFiles = completedRecord.json.importRecord.confirmResult.createdFiles;
+  for (const item of createdFiles) {
+    await fs.access(path.join(vaultPath, item.path));
+  }
+  assert.ok(createdFiles.some((item) => item.noteType === "asset"));
+
+  const chineseLiteratureFile = createdFiles.find((item) => item.noteId === chinesePreview.id);
+  assert.ok(chineseLiteratureFile);
+  const chineseMarkdown = await fs.readFile(path.join(vaultPath, chineseLiteratureFile.path), "utf8");
+  const chineseParsed = parseMarkdownWithFrontmatter(chineseMarkdown);
+  assert.match(chineseMarkdown, /中文阅读卡片/);
+  assert.match(chineseMarkdown, /来源\/访谈/);
+  assert.ok(chineseParsed.frontmatter.tags.includes("来源/访谈"));
+  assert.equal(chineseParsed.frontmatter.tags.includes("#来源/访谈"), false);
+  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英文材料\]\]/);
+
+  const [permanentId] = preview.json.samples.permanentNoteIds;
+  await assert.rejects(fs.access(path.join(vaultPath, "notes", "permanent", `${permanentId}.md`)));
+
+  const catalogNotes = await getJson(baseUrl, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(catalogNotes.status, 200);
+  assert.equal(catalogNotes.json.total, 2);
+  assert.ok(catalogNotes.json.items.some((item) => item.title === "中文阅读卡片"));
+
+  const rollback = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/rollback`, {});
+  assert.equal(rollback.status, 200, JSON.stringify(rollback.json));
+  assert.equal(rollback.json.status, "rolled_back");
+  assert.equal(rollback.json.result.rolledBack, 5);
+  assert.equal(rollback.json.result.skipped, 0);
+
+  for (const item of createdFiles) {
+    await assert.rejects(fs.access(path.join(vaultPath, item.path)));
+  }
+
+  const catalogAfterRollback = await getJson(baseUrl, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(catalogAfterRollback.status, 200);
+  assert.equal(catalogAfterRollback.json.total, 0);
 });
 
 test("API import confirm skips warning permanent notes when drafts are disallowed", async (t) => {

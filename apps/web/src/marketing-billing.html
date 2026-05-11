@@ -6,8 +6,10 @@
   <title>账户与订阅 | 研思录</title>
   <meta name="description" content="查看研思录当前账户、订阅状态、续费时间与账单管理入口。" />
   <link rel="stylesheet" href="/marketing.css" />
+  <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body>
+<body class="site-v2 page-billing-v2">
+  <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
       <div class="container site-header-inner">
@@ -22,7 +24,7 @@
           <a href="/product">产品</a>
           <a href="/pricing">定价</a>
           <a href="/download">下载</a>
-          <a href="/prototype">原型</a>
+          <a href="/app">工作台</a>
         </nav>
         <div class="header-actions">
           <span class="session-chip" data-auth-only hidden>
@@ -35,7 +37,7 @@
       </div>
     </header>
 
-    <main class="auth-shell">
+    <main id="main" class="auth-shell site-v2-main">
       <div class="container stack">
         <section class="status-card">
           <div class="section-kicker">Billing</div>
@@ -71,8 +73,8 @@
           <article class="pricing-card">
             <div class="plan-name">订阅状态</div>
             <div class="plan-price" style="font-size:28px;" data-billing-status>未登录</div>
-            <div class="plan-meta">当前账号：<span data-billing-email>—</span></div>
-            <div class="plan-meta">下次续费时间：<span data-billing-renews>—</span></div>
+            <div class="plan-meta">当前账号：<span data-billing-email>-</span></div>
+            <div class="plan-meta">下次续费时间：<span data-billing-renews>-</span></div>
             <div class="cta-actions">
               <a class="btn btn-secondary" href="/pricing">查看定价</a>
             </div>
@@ -96,12 +98,12 @@
             <p>方案、续费时间和支付模式都集中在一个页面，避免在官网与桌面端之间来回确认。</p>
           </article>
           <article class="spotlight-card">
-            <strong>升级与管理在同一路径里</strong>
+            <strong>升级与管理在同一路径</strong>
             <p>如果还是 Free，就直接看到升级入口；如果已经是 Pro，就会自然切到订阅管理动作。</p>
           </article>
           <article class="spotlight-card">
             <strong>桌面版与账户状态打通</strong>
-            <p>后续正式桌面版会把登录、授权和更新一起串起来，让这页成为官网和应用之间的桥。</p>
+            <p>后续正式桌面版会把登录、授权和更新一起串起来，让这页成为官网和应用之间的桥梁。</p>
           </article>
         </section>
       </div>
@@ -128,8 +130,10 @@
             <a href="/billing">账户与订阅</a>
           </div>
           <div class="footer-link-group">
-            <h3>当前体验</h3>
-            <a href="/prototype">查看原型</a>
+            <h3>合规</h3>
+            <a href="/privacy">隐私</a>
+            <a href="/terms">条款</a>
+            <a href="/about">关于</a>
           </div>
         </div>
       </div>

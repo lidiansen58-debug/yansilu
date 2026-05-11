@@ -1,6 +1,6 @@
 export function extractTags(text) {
   const tags = new Set();
-  for (const match of String(text ?? "").matchAll(/(^|\s)#([a-zA-Z0-9_\-/]+)/g)) {
+  for (const match of String(text ?? "").matchAll(/(^|[^\p{L}\p{N}_/-])#([\p{L}\p{N}_/-]+)/gu)) {
     tags.add(match[2]);
   }
   return [...tags];

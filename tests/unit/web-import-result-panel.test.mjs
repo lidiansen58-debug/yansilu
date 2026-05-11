@@ -29,3 +29,26 @@ test("import result panel renders metrics warnings actions and raw json", () => 
   assert.match(html, /原始 JSON/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
 });
+
+test("import result panel renders created files inventory with assets", () => {
+  const html = renderImportResultPanel({
+    data: {
+      stage: "confirm",
+      result: {
+        createdFiles: [
+          { noteId: "src_1", noteType: "source", path: "notes/sources/src_1.md" },
+          { noteId: "asset_1", noteType: "asset", path: "assets/imports/imp_1/chart.png" }
+        ]
+      }
+    },
+    title: "导入写入完成",
+    statusLabel: "完成",
+    raw: "{}"
+  });
+
+  assert.match(html, /result-file-inventory/);
+  assert.match(html, /写入文件/);
+  assert.match(html, /来源 1/);
+  assert.match(html, /资源 1/);
+  assert.match(html, /assets\/imports\/imp_1\/chart\.png/);
+});

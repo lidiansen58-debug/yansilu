@@ -12,19 +12,18 @@ The target for this phase is:
 
 ## Current Reality
 
-As of this plan:
+As of the 2026-05-10 post-push baseline:
 
-1. The repository default branch is `master`, not `main`.
-2. `scripts/worktree-create.ps1` defaults to `Base = "main"` and must be aligned before bulk worktree creation.
-3. The desktop preflight already detects working Rust and Tauri tooling on this machine.
-4. The current baseline is not fully green yet:
-   - `npm test` currently reports `88 pass / 2 fail / 45 skipped`
-   - the active failures are in:
-     - `tests/integration/api-notes.test.mjs`
-     - `tests/unit/web-import-toolbar-panel.test.mjs`
-5. `npm run dev:desktop:check` currently fails only because the web and API dev servers are not already running on `:5173` and `:3000`; it does not indicate a missing Rust toolchain.
+1. The local integration branch is `master`, tracking remote `origin/main`.
+2. `scripts/worktree-create.ps1` now defaults to `Base = "master"`.
+3. `master` and `origin/main` are aligned at `87ffb7d Fix release workflow review issues`.
+4. The baseline is green:
+   - `npm.cmd test` reports `146 pass / 0 fail / 55 skipped`.
+   - `npm.cmd run mvp:check` passes core tests, smoke E2E, browser MVP E2E, desktop dev preflight, and desktop bundle preflight.
+   - `npm.cmd run build:desktop:nsis` produces a Windows NSIS installer.
+5. The current GitHub workflows do not run on ordinary `main` pushes. They run on PRs, manual dispatch, and `v*` tags.
 
-This means the first step is not "open many worktrees". The first step is "freeze a stable baseline".
+This means the baseline is frozen enough to move into the desktop runtime validation slice. The remaining release gate is a final packaged-app walkthrough on Windows.
 
 ## Delivery Standard
 
@@ -226,17 +225,15 @@ To keep merges sane:
 
 ### Phase 0: Freeze baseline
 
-Do this before creating the four feature worktrees:
+Status: completed for the 2026-05-10 baseline.
 
-1. Align `scripts/worktree-create.ps1` with the actual base branch:
-   - either change default `Base` from `main` to `master`
-   - or rename the main branch to `main`
-2. Fix the current two failing tests.
-3. Run:
-   - `npm test`
-   - `npm run dev:desktop:check`
-4. Create a baseline commit and tag, for example:
-   - `mvp-baseline-2026-05-04`
+Completed checks:
+
+1. `scripts/worktree-create.ps1` defaults to `master`.
+2. `npm.cmd test` is green.
+3. `npm.cmd run mvp:check` is green.
+4. `npm.cmd run build:desktop:nsis` produces the Windows RC installer.
+5. The baseline is pushed to `origin/main` at `87ffb7d`.
 
 ### Phase 1: Critical path
 
@@ -269,10 +266,10 @@ Once the baseline is stable:
 
 Baseline freeze:
 
-1. fix branch/worktree base mismatch
-2. fix the two failing tests
-3. tag the baseline
-4. create worktrees from the frozen base
+1. branch/worktree base mismatch is resolved
+2. test baseline is green
+3. baseline is pushed to `origin/main`
+4. new worktrees should be created from `master`
 
 Exit:
 
@@ -401,10 +398,7 @@ If the main branch is renamed to `main`, update the commands and the script defa
 
 Do these next, in order:
 
-1. Fix `scripts/worktree-create.ps1` base-branch mismatch.
-2. Fix the two currently failing tests.
-3. Re-run `npm test`.
-4. Create the baseline commit/tag.
-5. Create the four worktrees.
-6. Start `wt-desktop-runtime` first.
-
+1. Start `wt-desktop-runtime` for the final packaged-app Windows walkthrough.
+2. Record the walkthrough result in `docs/V0_1_0_RC1_RELEASE_STATUS.md`.
+3. If the walkthrough passes, decide whether to create a `v0.1.0` or beta tag.
+4. If the walkthrough finds P0/P1 issues, keep fixes scoped to desktop runtime, release QA, or demo-blocking shell polish.

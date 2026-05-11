@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>研思录 | 把知识变成你的智慧</title>
+  <title>研思录 | 把知识变成你的智慧。</title>
   <meta
     name="description"
     content="研思录是一套为研究、写作与长期知识积累设计的思维工作台，帮助你把知识逐步转化成自己的智慧。"
   />
   <link rel="stylesheet" href="/marketing.css" />
+  <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body>
+<body class="home-v2">
+  <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
       <div class="container site-header-inner">
@@ -25,7 +27,7 @@
           <a href="/product">产品</a>
           <a href="/pricing">定价</a>
           <a href="/download">下载</a>
-          <a href="/prototype">原型</a>
+          <a href="/app">工作台</a>
           <a href="/login" data-guest-only>登录</a>
           <a href="/billing" data-auth-only hidden>账户</a>
         </nav>
@@ -41,183 +43,179 @@
       </div>
     </header>
 
-    <main>
-      <section class="hero hero-compact">
-        <div class="container hero-grid">
-          <div class="hero-copy">
-            <div class="hero-kicker">Knowledge to Wisdom</div>
-            <h1>把知识变成你的智慧。</h1>
-            <p class="hero-lead">
-              研思录不是帮你收藏更多，而是帮你把阅读、笔记、判断和写作连接成一条持续生长的路径，让知识最终沉淀为自己的智慧。
+    <main id="main">
+      <section class="home-hero" aria-labelledby="homeHeroTitle">
+        <div class="home-starfield" aria-hidden="true"></div>
+        <div class="container home-hero-inner">
+          <div class="home-hero-copy">
+            <h1 id="homeHeroTitle">研思录</h1>
+            <p class="home-hero-claim">把知识变成你的智慧。</p>
+            <p class="home-hero-lead">
+              面向研究、写作和长期知识积累的思维工作台。它把资料、笔记、观点和写作连接成一条清晰路径，让 AI 服务于理解，而不是替代判断。
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary" href="/register">免费开始</a>
               <a class="btn btn-secondary" href="/download">下载桌面版</a>
             </div>
-            <div class="hero-proof" aria-label="产品特性">
-              <span>本地优先</span>
-              <span>可追溯写作</span>
-              <span>有边界的 AI</span>
-            </div>
-            <div class="hero-stats">
-              <article class="mini-stat">
-                <strong>4 步</strong>
-                <span>从阅读走到可写</span>
-              </article>
-              <article class="mini-stat">
-                <strong>1 句</strong>
-                <span>把每条笔记压成论点</span>
-              </article>
-              <article class="mini-stat">
-                <strong>0 次</strong>
-                <span>尽量少从零重整材料</span>
-              </article>
-            </div>
           </div>
 
-          <div class="hero-card" aria-label="产品工作流预览">
-            <div class="board">
-              <div class="board-top">
-                <div class="board-title">
-                  <span class="board-label">Research Workflow</span>
-                  <span class="board-heading">从知识输入到智慧成形</span>
-                </div>
-                <span class="board-status">思维工作台</span>
-              </div>
-              <div class="board-summary-mobile">
-                <p>4 步完成从阅读到写作的过渡：文献笔记、永久笔记、索引组织、写作脚手架。</p>
-              </div>
-              <div class="board-flow board-flow-compact">
-                <article class="flow-card">
-                  <div class="flow-step">01</div>
-                  <h3>文献笔记</h3>
-                  <p>记录来源并完成转述。</p>
-                </article>
-                <article class="flow-card">
-                  <div class="flow-step">02</div>
-                  <h3>永久笔记</h3>
-                  <p>把理解压缩成观点单元。</p>
-                </article>
-                <article class="flow-card">
-                  <div class="flow-step">03</div>
-                  <h3>索引组织</h3>
-                  <p>围绕主题建立结构。</p>
-                </article>
-                <article class="flow-card">
-                  <div class="flow-step">04</div>
-                  <h3>写作脚手架</h3>
-                  <p>动笔前先搭起论证路径。</p>
-                </article>
-              </div>
-              <div class="thesis-panel">
-                <div class="thesis-label">Core Idea</div>
-                <div class="thesis-text">不是停留在知道更多，而是逐步长出属于你的智慧。</div>
-              </div>
+          <div class="home-observatory" aria-label="研思录知识工作流预览">
+            <div class="observatory-axis" aria-hidden="true"></div>
+            <article class="observatory-panel panel-source">
+              <span>01</span>
+              <h2>资料输入</h2>
+              <p>保存来源、摘录重点、留下问题。</p>
+            </article>
+            <article class="observatory-panel panel-note">
+              <span>02</span>
+              <h2>观点提炼</h2>
+              <p>用自己的语言完成转述和判断。</p>
+            </article>
+            <article class="observatory-panel panel-index">
+              <span>03</span>
+              <h2>索引组织</h2>
+              <p>围绕主题建立可复用结构。</p>
+            </article>
+            <article class="observatory-panel panel-write">
+              <span>04</span>
+              <h2>进入写作</h2>
+              <p>带着来源、论点和结构动笔。</p>
+            </article>
+            <div class="observatory-core">
+              <img src="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" alt="" />
+              <strong>Thinking<br />in Notes</strong>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="section section-tight">
-        <div class="container manifesto-grid">
-          <article class="manifesto-quote">
-            <div class="section-kicker">Brand Thesis</div>
-            <h2>研思录关心的不是你知道了多少，而是这些知识有没有真的长成你的智慧。</h2>
-            <p class="section-intro">所以它不会把笔记做成收藏仓库，也不会把 AI 做成替你完成判断的捷径。它更像一个慢变量工具，帮助你把长期阅读、研究与写作，变成一条稳定生长的路径。</p>
+      <section class="home-proof-strip" aria-label="产品承诺">
+        <div class="container home-proof-grid">
+          <article>
+            <strong>本地优先</strong>
+            <span>你的知识资产先属于你自己。</span>
           </article>
-          <div class="manifesto-stack">
-            <article class="manifesto-card">
-              <div class="feature-label">Own The Thinking</div>
-              <h3>作者位置始终属于你</h3>
-              <p>AI 可以帮你压缩、整理和提醒冲突，但最终的判断、结构和写作方向都不该被系统替代。</p>
+          <article>
+            <strong>可追溯写作</strong>
+            <span>观点、结构和来源之间保持连接。</span>
+          </article>
+          <article>
+            <strong>AI 有边界</strong>
+            <span>辅助提炼、检查和组织，不接管作者位置。</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="home-section home-path-section" aria-labelledby="homePathTitle">
+        <div class="container home-section-grid">
+          <div class="home-section-copy">
+            <h2 id="homePathTitle">从收藏资料，到形成自己的判断。</h2>
+            <p>
+              普通笔记工具解决“放在哪里”，研思录更关心“如何被你理解、压缩、连接，并在未来写出来”。官网首页不再堆功能，而是先把这条路讲清楚。
+            </p>
+          </div>
+          <div class="home-path-list">
+            <article>
+              <span>输入</span>
+              <h3>把外部知识带进来</h3>
+              <p>资料、摘录、来源和问题意识进入同一个工作台。</p>
             </article>
-            <article class="manifesto-card">
-              <div class="feature-label">Slow Compounding</div>
-              <h3>让知识慢慢复利</h3>
-              <p>阅读不是一次性消费，笔记也不是临时缓存。每一次压缩、连接和写作，都是在给未来的智慧打地基。</p>
+            <article>
+              <span>提炼</span>
+              <h3>把阅读变成观点</h3>
+              <p>每条重要笔记都要经过转述、压缩和一句话论点。</p>
+            </article>
+            <article>
+              <span>写作</span>
+              <h3>让积累进入表达</h3>
+              <p>写作脚手架把笔记、索引和来源组织成可推进的结构。</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section section-tight">
+      <section class="home-section home-tour-section" aria-labelledby="homeTourTitle">
         <div class="container">
-          <div class="section-header compact-header">
-            <div class="section-kicker">Quick Tour</div>
-            <h2>首页不再靠一路下滑，而是按你最关心的内容切换。</h2>
-            <p class="section-intro">先看核心，再按需展开细节。长内容被压缩进一个可切换的信息面板里。</p>
+          <div class="home-section-header">
+            <h2 id="homeTourTitle">四个问题，快速理解研思录。</h2>
+            <p>如果只给用户一分钟，首页需要回答这些问题：为什么需要它、怎么工作、特别在哪里、适合谁。</p>
           </div>
-          <div class="tour-shell">
+
+          <div class="tour-shell home-tour-shell">
             <div class="tour-tabs" role="tablist" aria-label="首页导览">
               <button class="tour-tab is-active" type="button" role="tab" aria-selected="true" data-tour-tab="problem">为什么需要它</button>
               <button class="tour-tab" type="button" role="tab" aria-selected="false" data-tour-tab="workflow">怎么工作</button>
               <button class="tour-tab" type="button" role="tab" aria-selected="false" data-tour-tab="features">有什么特别</button>
               <button class="tour-tab" type="button" role="tab" aria-selected="false" data-tour-tab="audience">适合谁用</button>
             </div>
+
             <div class="tour-panel is-active" role="tabpanel" data-tour-panel="problem">
               <div class="tour-grid">
                 <article class="problem-card">
                   <h3 class="card-title">资料越积越多</h3>
-                  <p class="card-body">你保存了大量知识材料，却没有把它们真正纳入自己的思考结构。</p>
+                  <p class="card-body">收藏没有自动变成理解，材料越多，越容易在写作时重新开始。</p>
                 </article>
                 <article class="problem-card">
-                  <h3 class="card-title">笔记没有长成智慧</h3>
-                  <p class="card-body">你写了很多笔记，但它们还没有压缩成可复用、可判断、可写作的内在理解。</p>
+                  <h3 class="card-title">笔记停在摘录</h3>
+                  <p class="card-body">很多记录只是外部知识的缓存，还没有被压缩成你自己的判断。</p>
                 </article>
                 <article class="problem-card">
-                  <h3 class="card-title">写作总在重开</h3>
-                  <p class="card-body">一到写作阶段又重新找资料、重建结构，前面的阅读积累没能真正转化成自己的智慧。</p>
+                  <h3 class="card-title">AI 速度很快</h3>
+                  <p class="card-body">但真正重要的是作者位置、来源脉络和长期可复用的思考结构。</p>
                 </article>
               </div>
             </div>
+
             <div class="tour-panel" role="tabpanel" data-tour-panel="workflow" hidden>
               <div class="workflow-strip">
                 <article class="workflow-pill">
                   <strong>01</strong>
-                  <span>资料输入</span>
-                  <p>保存来源、摘录重点并保留问题意识。</p>
+                  <span>文献笔记</span>
+                  <p>记录来源，完成转述，把阅读从摘录推进到理解。</p>
                 </article>
                 <article class="workflow-pill">
                   <strong>02</strong>
-                  <span>文献笔记</span>
-                  <p>把外部知识转成结构化阅读记录。</p>
+                  <span>永久笔记</span>
+                  <p>把理解压缩成清晰、可复用、可连接的观点。</p>
                 </article>
                 <article class="workflow-pill">
                   <strong>03</strong>
-                  <span>永久笔记</span>
-                  <p>用一句话论点压缩理解。</p>
+                  <span>索引组织</span>
+                  <p>围绕主题和问题建立结构，而不只是堆标签。</p>
                 </article>
                 <article class="workflow-pill">
                   <strong>04</strong>
                   <span>写作脚手架</span>
-                  <p>在动笔前组织章节与论证路径。</p>
+                  <p>动笔前先搭好论证路径，让积累真正向输出流动。</p>
                 </article>
               </div>
             </div>
+
             <div class="tour-panel" role="tabpanel" data-tour-panel="features" hidden>
               <div class="feature-grid compact-grid">
                 <article class="feature-card">
-                  <div class="feature-label">Paraphrase First</div>
+                  <div class="feature-label">Paraphrase</div>
                   <h3>转述优先</h3>
-                  <p>不鼓励原文堆积，而是推动你用自己的语言完成理解。</p>
+                  <p>不让笔记停在复制原文，而是逼近你自己的理解。</p>
                 </article>
                 <article class="feature-card">
-                  <div class="feature-label">Clear Thesis</div>
+                  <div class="feature-label">Thesis</div>
                   <h3>一句话论点</h3>
-                  <p>每条永久笔记都应该有清晰判断，不只是主题标签。</p>
+                  <p>重要笔记必须能说清楚“我到底判断了什么”。</p>
                 </article>
                 <article class="feature-card">
-                  <div class="feature-label">Wisdom Growth</div>
-                  <h3>知识慢慢长成智慧</h3>
-                  <p>不是一次性总结，而是让知识经过压缩、连接和写作，逐步沉淀成自己的智慧。</p>
-                </article>
-                <article class="feature-card">
-                  <div class="feature-label">Traceability</div>
+                  <div class="feature-label">Trace</div>
                   <h3>写作可追溯</h3>
-                  <p>脚手架里的每一段都能回到对应笔记与来源。</p>
+                  <p>写作结构可以回到笔记、来源和形成过程。</p>
+                </article>
+                <article class="feature-card">
+                  <div class="feature-label">Boundary</div>
+                  <h3>AI 有边界</h3>
+                  <p>AI 做辅助，不把自动生成伪装成你的原创判断。</p>
                 </article>
               </div>
             </div>
+
             <div class="tour-panel" role="tabpanel" data-tour-panel="audience" hidden>
               <div class="audience-grid compact-grid">
                 <article class="audience-card">
@@ -230,7 +228,7 @@
                 </article>
                 <article class="audience-card">
                   <h3>长期创作者</h3>
-                  <p>在高频输出之外，持续沉淀观点，并让知识最终长成智慧。</p>
+                  <p>在高频输出之外，持续沉淀主题、观点和表达结构。</p>
                 </article>
               </div>
             </div>
@@ -238,50 +236,58 @@
         </div>
       </section>
 
-      <section class="section section-tight">
-        <div class="container final-band">
-          <div class="trust-band final-band-card">
-            <div class="section-kicker">Trust</div>
-            <h2>你的知识属于你，你的智慧也属于你。</h2>
-            <p class="section-intro">本地优先、可导出、可追溯，也强调 AI 的边界。它的目标不是替代作者，而是帮助作者更稳定地形成自己的智慧。</p>
-            <ul class="trust-list">
-              <li>本地优先，内容可导出</li>
-              <li>写作结构可回到来源与笔记</li>
-              <li>AI 提供辅助，不替代作者判断</li>
-            </ul>
+      <section class="home-section home-difference-section" aria-labelledby="homeDifferenceTitle">
+        <div class="container home-section-grid">
+          <div class="home-section-copy">
+            <h2 id="homeDifferenceTitle">它不是替你思考的 AI，而是保护你思考的系统。</h2>
+            <p>
+              研思录的核心不是“生成更多”，而是让每一次阅读、压缩、连接和写作都留下可追溯的结构。技术感应该服务于清晰，而不是制造负担。
+            </p>
           </div>
-          <div class="cta-band final-band-card">
-            <div class="section-kicker">Start Now</div>
-            <h2>不要只收集知识，开始把知识变成你的智慧。</h2>
-            <p class="section-intro">如果你关心的是长期研究、写作和思考积累，这套工作流会比普通笔记工具更贴近你的真实过程。</p>
-            <div class="cta-actions">
-              <a class="btn btn-primary" href="/register">免费开始</a>
-              <a class="btn btn-secondary" href="/download">下载桌面版</a>
-            </div>
+          <div class="home-difference-grid">
+            <article>
+              <h3>理解先于存储</h3>
+              <p>一条笔记是否有价值，取决于它是否被你重新理解过。</p>
+            </article>
+            <article>
+              <h3>压缩先于表达</h3>
+              <p>先形成判断，再进入写作，而不是在空白页里重新找方向。</p>
+            </article>
+            <article>
+              <h3>连接先于堆积</h3>
+              <p>索引不是标签仓库，而是主题、问题和论证之间的结构。</p>
+            </article>
+            <article>
+              <h3>辅助不等于替代</h3>
+              <p>AI 可以提醒、整理、检查冲突，但最后的作者位置属于你。</p>
+            </article>
           </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container">
-          <div class="section-header compact-header">
-            <div class="section-kicker">What You Build</div>
-            <h2>你最终得到的不是更多笔记，而是一套更稳的知识生产系统。</h2>
-            <p class="section-intro">当阅读、判断、索引和写作开始互相支撑，你会明显减少“重新开一遍”的次数，也更容易形成自己的长期表达。</p>
+      <section class="home-section home-trust-section" aria-labelledby="homeTrustTitle">
+        <div class="container home-trust-grid">
+          <div>
+            <h2 id="homeTrustTitle">你的知识属于你，你的智慧也属于你。</h2>
+            <p>
+              长期研究和写作最怕失去上下文。研思录坚持本地优先、可导出、可追溯，让系统成为思考的仪器，而不是吞掉思考的黑箱。
+            </p>
           </div>
-          <div class="insight-strip">
-            <article class="insight-card">
-              <strong>更少重复整理</strong>
-              <p>写作前不再从零翻资料，而是直接回到已经压缩好的观点与结构。</p>
-            </article>
-            <article class="insight-card">
-              <strong>更清楚地表达判断</strong>
-              <p>不是“这个主题我看过”，而是“这个问题我的立场是什么”。</p>
-            </article>
-            <article class="insight-card">
-              <strong>更长期地积累智慧</strong>
-              <p>知识不再一阵一阵地用完，而是通过写作和链接不断沉淀。</p>
-            </article>
+          <ul class="home-trust-list">
+            <li>本地优先，内容可导出</li>
+            <li>写作结构可以回到来源与笔记</li>
+            <li>AI 输出保持可审查、可取舍</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="home-final-cta" aria-labelledby="homeFinalTitle">
+        <div class="container home-final-inner">
+          <h2 id="homeFinalTitle">别只管理知识，开始生成自己的判断。</h2>
+          <p>从免费账户开始，也可以先下载桌面版，把长期研究和写作放进一个更稳定的工作台。</p>
+          <div class="cta-actions">
+            <a class="btn btn-primary" href="/register">免费开始</a>
+            <a class="btn btn-secondary" href="/download">下载桌面版</a>
           </div>
         </div>
       </section>
@@ -292,7 +298,7 @@
         <div class="footer-grid">
           <div class="footer-brand">
             <strong>研思录 · Thinking in Notes</strong>
-            <p>为研究、写作与长期知识积累设计的思维工作台，核心不是保存更多，而是把知识变成你的智慧。</p>
+            <p>不是另一款 AI 笔记工具，而是一条把知识慢慢长成智慧的路径。</p>
             <p class="footer-meta">© <span data-current-year></span> 研思录</p>
           </div>
           <div class="footer-link-group">
@@ -308,9 +314,10 @@
             <a href="/billing">账户与订阅</a>
           </div>
           <div class="footer-link-group">
-            <h3>当前体验</h3>
-            <a href="/prototype">查看原型</a>
-            <a href="/download">安装说明</a>
+            <h3>合规</h3>
+            <a href="/privacy">隐私</a>
+            <a href="/terms">条款</a>
+            <a href="/about">关于</a>
           </div>
         </div>
       </div>

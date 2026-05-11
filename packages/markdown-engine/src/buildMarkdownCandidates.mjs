@@ -24,6 +24,14 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function normalizeTag(value) {
+  return String(value || "").trim().replace(/^#+/, "").trim();
+}
+
+function normalizeTags(values = []) {
+  return unique((Array.isArray(values) ? values : []).map(normalizeTag));
+}
+
 function extractRawFrontmatter(markdown) {
   const normalized = String(markdown ?? "").replace(/^\uFEFF/, "");
   const opening = normalized.match(/^---\r?\n/);
@@ -147,7 +155,7 @@ export async function buildMarkdownCandidates({ connector, payload = {}, options
     const sourceId = stableId("src", `${connector}:${file}`);
     const literatureId = stableId("ln", `${connector}:${file}`);
     const permanentId = stableId("pn", `${connector}:${file}`);
-    const tags = unique([...toArray(frontmatter.tags), ...extractTags(body)]);
+    const tags = normalizeTags([...toArray(frontmatter.tags), ...extractTags(body)]);
     const aliases = extractAliases(frontmatter, rawFrontmatter);
     const parsedWikilinks = options.detectWikilinks === false ? [] : parseWikilinks(body);
     const wikilinkTargets = unique(parsedWikilinks.map((link) => link.target));

@@ -1,5 +1,9 @@
 const API_BASE =
-  (typeof window !== "undefined" && typeof window.__API_BASE__ === "string" && window.__API_BASE__.trim()) ||
+  (typeof window !== "undefined" &&
+    typeof window.__API_BASE__ === "string" &&
+    window.__API_BASE__.trim() &&
+    window.__API_BASE__ !== "__API_BASE__" &&
+    window.__API_BASE__) ||
   "http://localhost:3000";
 
 async function request(pathname, options = {}) {

@@ -5,7 +5,7 @@ param(
   [ValidateSet("feat", "fix", "docs", "chore", "spike")]
   [string]$Kind = "feat",
 
-  [string]$Base = "master",
+  [string]$Base = "main",
   [string]$Root = "",
   [int]$ApiPort = 0,
   [int]$WebPort = 0

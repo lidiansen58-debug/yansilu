@@ -6,10 +6,11 @@ import { commandVersion, hasCommand, withCargoBin } from "./rust-env.mjs";
 const REPO_ROOT = process.cwd();
 const DESKTOP_ROOT = path.resolve(REPO_ROOT, "apps", "desktop", "src-tauri");
 const TAURI_CONFIG_PATH = path.join(DESKTOP_ROOT, "tauri.conf.json");
+const DEFAULT_CAPABILITY_PATH = path.join(DESKTOP_ROOT, "capabilities", "default.json");
 const ICON_PNG_PATH = path.join(DESKTOP_ROOT, "icons", "icon.png");
 const ICON_ICO_PATH = path.join(DESKTOP_ROOT, "icons", "icon.ico");
 const EXPECTED_APP_NAME = "研思录";
-const DEFAULT_FRONTEND_DIST = path.resolve(REPO_ROOT, "apps", "web", "src");
+const EXPECTED_FRONTEND_ENTRY = "index.html";
 
 function logResult(label, ok, detail = "") {
   const status = ok ? "PASS" : "FAIL";
@@ -57,39 +58,59 @@ let overallOk = cargoOk && rustcOk;
 
 try {
   const config = readJson(TAURI_CONFIG_PATH);
+  const defaultCapability = readJson(DEFAULT_CAPABILITY_PATH);
   const productName = String(config.productName || "").trim();
   const windowTitle = String(config.app?.windows?.[0]?.title || "").trim();
   const bundleActive = Boolean(config.bundle?.active);
   const bundleIcons = Array.isArray(config.bundle?.icon) ? config.bundle.icon : [];
   const createsUpdaterArtifacts = Boolean(config.bundle?.createUpdaterArtifacts);
   const hasUpdaterConfig = Boolean(config.plugins?.updater);
-  const frontendDistRel = String(config.build?.frontendDist || "").trim();
-  const frontendDistDir = frontendDistRel ? path.resolve(DESKTOP_ROOT, frontendDistRel) : DEFAULT_FRONTEND_DIST;
-  const frontendIndexPath = path.join(frontendDistDir, "index.html");
-  const frontendDistOk = fs.existsSync(frontendDistDir);
-  const frontendIndexOk = fs.existsSync(frontendIndexPath);
+  const permissions = Array.isArray(defaultCapability.permissions) ? defaultCapability.permissions : [];
+  const frontendDist = String(config.build?.frontendDist || "").trim();
+  const frontendDistPath = frontendDist ? path.resolve(DESKTOP_ROOT, frontendDist) : "";
+  const frontendEntryPath = frontendDistPath ? path.join(frontendDistPath, EXPECTED_FRONTEND_ENTRY) : "";
 
   const productOk = productName === EXPECTED_APP_NAME;
   const titleOk = windowTitle === EXPECTED_APP_NAME;
   const bundleOk = bundleActive;
   const iconConfigOk = bundleIcons.includes("icons/icon.png") && bundleIcons.includes("icons/icon.ico");
   const updaterArtifactsOk = !createsUpdaterArtifacts || hasUpdaterConfig;
+  const updaterPermissionOk = !hasUpdaterConfig || permissions.includes("updater:default");
+  const frontendDistOk = Boolean(frontendDist) && fs.existsSync(frontendDistPath);
+  const frontendEntryOk = frontendDistOk && fs.existsSync(frontendEntryPath);
 
   logResult("tauri productName", productOk, productName || "missing");
   logResult("tauri window title", titleOk, windowTitle || "missing");
   logResult("tauri bundle active", bundleOk, bundleActive ? "enabled" : "disabled");
   logResult("tauri bundle icons", iconConfigOk, bundleIcons.join(", ") || "missing");
+  logResult("tauri frontendDist", frontendDistOk, frontendDist || "missing");
+  logResult(
+    "tauri frontend entry",
+    frontendEntryOk,
+    frontendEntryOk ? EXPECTED_FRONTEND_ENTRY : `missing ${EXPECTED_FRONTEND_ENTRY}`
+  );
   logResult(
     "tauri updater artifacts",
     updaterArtifactsOk,
     createsUpdaterArtifacts ? "enabled with updater config" : "disabled"
   );
-  logResult("tauri frontendDist exists", frontendDistOk, frontendDistDir);
-  logResult("tauri frontendDist index.html", frontendIndexOk, frontendIndexOk ? frontendIndexPath : "missing");
+  logResult(
+    "tauri updater permission",
+    updaterPermissionOk,
+    updaterPermissionOk ? "updater:default granted" : "missing updater:default"
+  );
 
-  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && updaterArtifactsOk && frontendDistOk && frontendIndexOk;
+  overallOk &&=
+    productOk &&
+    titleOk &&
+    bundleOk &&
+    iconConfigOk &&
+    frontendDistOk &&
+    frontendEntryOk &&
+    updaterArtifactsOk &&
+    updaterPermissionOk;
 } catch (error) {
-  logResult("tauri config parse", false, String(error?.message || error));
+  logResult("tauri desktop config parse", false, String(error?.message || error));
   overallOk = false;
 }
 
@@ -113,7 +134,11 @@ if (pngExists) {
 
 if (cargoOk && rustcOk) {
   const cargoCheck = runCargoCheck(env);
-  logResult("cargo check", cargoCheck.ok, cargoCheck.ok ? "passed" : cargoCheck.detail.split(/\r?\n/).slice(-1)[0] || "failed");
+  logResult(
+    "cargo check",
+    cargoCheck.ok,
+    cargoCheck.ok ? "passed" : cargoCheck.detail.split(/\r?\n/).slice(-1)[0] || "failed"
+  );
   overallOk &&= cargoCheck.ok;
 }
 

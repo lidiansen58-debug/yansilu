@@ -29,7 +29,7 @@ Run all tests from the project root:
 Current expected result:
 
 ```text
-131 pass / 0 fail / 50 skipped (browser e2e requires RUN_BROWSER_E2E=1)
+161 pass / 0 fail / 59 skipped (browser e2e requires RUN_BROWSER_E2E=1)
 ```
 
 Run API syntax check:
@@ -48,7 +48,9 @@ Current browser e2e expectation:
 
 ```text
 `npm run test:e2e:browser:mvp` passes for the quick real-browser MVP path.
-The targeted editor image/file/helper browser regression passes with 3 pass / 0 fail.
+The full browser E2E suite has passed locally with 59 pass / 0 fail when `RUN_BROWSER_E2E=1` is enabled.
+The targeted editor image/file/helper browser regression passes, including Chinese/spaced attachment names and helper dismiss/mute behavior.
+Marketing route coverage passes for `/about`, `/privacy`, `/terms`, and HTML refusal through the asset proxy.
 Use the full browser e2e command when Playwright Chromium is available and the runner has enough time budget.
 ```
 
@@ -73,7 +75,7 @@ Recent prototype polish that is already reflected in the implementation:
 - Unified visual language across import, graph, writing, and settings workspaces.
 - Desktop-style context menus and modal polish for directory and note actions.
 - Windows NSIS silent install, silent uninstall, reinstall, and installed-executable launch have been smoke-tested locally.
-- Tauri updater artifacts and runtime updater plugin are disabled for the MVP build to avoid unconfigured updater startup/bundling failures.
+- MVP: desktop builds include the Tauri updater plugin and a best-effort in-app update check flow. Tagged releases still require updater signing secrets plus a working update feed.
 - Dirty-state/save-state feedback, autosave draft restore, and inline `[[wikilink]]` / `#tag` suggestion flows.
 - Unified empty states and bottom status feedback so unfinished or zero-result views still read like product UI instead of debug panels.
 - Editor image and file insertion now use separate entry points while preserving Markdown asset-link storage.

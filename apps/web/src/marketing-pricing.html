@@ -4,10 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>定价 | 研思录</title>
-  <meta name="description" content="查看研思录 Free 与 Pro 的差异，了解什么样的研究、阅读和写作用户适合升级。" />
+  <meta name="description" content="查看研思录 Free 与 Pro 的差异，了解什么时候适合为更完整的知识到智慧工作流升级。" />
   <link rel="stylesheet" href="/marketing.css" />
+  <link rel="icon" type="image/png" href="/assets/icons/%E7%A0%94%E6%80%9D%E5%BD%95icon/256.png" />
 </head>
-<body>
+<body class="site-v2 page-pricing-v2">
+  <a class="skip-link" href="#main">跳到主要内容</a>
   <div class="marketing-shell">
     <header class="site-header">
       <div class="container site-header-inner">
@@ -22,7 +24,7 @@
           <a href="/product">产品</a>
           <a href="/pricing">定价</a>
           <a href="/download">下载</a>
-          <a href="/prototype">原型</a>
+          <a href="/app">工作台</a>
           <a href="/login" data-guest-only>登录</a>
           <a href="/billing" data-auth-only hidden>账户</a>
         </nav>
@@ -38,47 +40,31 @@
       </div>
     </header>
 
-    <main>
-      <section class="page-hero">
-        <div class="container page-hero-grid">
-          <div class="page-hero-copy">
-            <div class="section-kicker">Pricing</div>
-            <h1>先建立你的思考工作流，再按需要升级。</h1>
-            <p>研思录卖的不是“更多 AI 输出”，而是更完整的知识到智慧路径、更强的结构化辅助，以及更稳定的长期写作支持。</p>
-            <div class="meta-row">
-              <span class="meta-chip">本地优先</span>
-              <span class="meta-chip">可追溯写作</span>
-              <span class="meta-chip">支持订阅管理</span>
+    <main id="main" class="site-v2-main">
+      <section class="v2-page-hero" aria-labelledby="pricingHeroTitle">
+        <div class="container v2-page-hero-grid">
+          <div class="v2-page-hero-copy">
+            <h1 id="pricingHeroTitle">先建立你的思考工作流，再按需要升级。</h1>
+            <p>
+              Free 适合开始搭建路径。Pro 面向长期研究、写作和高频输出，让观点压缩、索引组织和写作准备更稳定。
+            </p>
+            <div class="v2-hero-actions">
+              <a class="btn btn-primary" href="/register">免费开始</a>
+              <a class="btn btn-secondary" href="/product">查看产品</a>
             </div>
           </div>
-          <aside class="page-badge-card">
-            <h3>适合长期使用者</h3>
-            <p>如果你已经进入持续阅读、研究、写作的节奏，Pro 会让你更稳定地形成观点，而不是每次重新整理材料。</p>
+          <aside class="v2-price-signal">
+            <span>Pro</span>
+            <strong>¥39</strong>
+            <p>每月。为持续研究、知识写作和深度整理设计。</p>
           </aside>
         </div>
       </section>
 
-      <section class="section section-tight">
-        <div class="container spotlight-grid">
-          <article class="spotlight-card">
-            <strong>先用 Free 建系统</strong>
-            <p>如果你还在打磨自己的阅读与笔记方法，Free 已经足够让你开始形成稳定工作流。</p>
-          </article>
-          <article class="spotlight-card">
-            <strong>Pro 卖的是完整路径</strong>
-            <p>升级的核心不是更多生成，而是更强的观点压缩、索引组织与写作准备能力。</p>
-          </article>
-          <article class="spotlight-card">
-            <strong>适合高频研究与输出</strong>
-            <p>当你开始长期写作、频繁回到同一批主题，Pro 的价值会更明显地被感受到。</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="container stack">
+      <section class="v2-section v2-pricing-section" aria-label="定价方案">
+        <div class="container">
           <div class="auth-message pricing-status-message" data-pricing-status hidden></div>
-          <div class="pricing-preview">
+          <div class="v2-pricing-grid">
             <article class="pricing-card">
               <div class="plan-name">Free</div>
               <div class="plan-price">¥0</div>
@@ -91,13 +77,13 @@
                 <li>基础导入与导出</li>
               </ul>
               <div class="cta-actions">
-                <a class="btn btn-primary" href="/register">免费开始</a>
+                <a class="btn btn-secondary" href="/register">免费开始</a>
               </div>
             </article>
 
             <article class="pricing-card pricing-card-featured">
               <div class="plan-name">Pro</div>
-              <div class="plan-price">¥39<span style="font-size:18px;font-weight:700;"> / 月</span></div>
+              <div class="plan-price">¥39<span> / 月</span></div>
               <div class="plan-meta" data-pricing-pro-meta>适合长期研究、知识写作和高频输出的用户。</div>
               <ul class="plan-points">
                 <li>完整的知识到智慧辅助链路</li>
@@ -115,62 +101,96 @@
         </div>
       </section>
 
-      <section class="section">
-        <div class="container compare-table-wrap">
-          <table class="compare-table">
-            <thead>
-              <tr>
-                <th>功能</th>
-                <th>Free</th>
-                <th>Pro</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>来源与文献笔记</td><td>支持</td><td>支持</td></tr>
-              <tr><td>永久笔记</td><td>支持</td><td>支持</td></tr>
-              <tr><td>基础索引组织</td><td>支持</td><td>支持</td></tr>
-              <tr><td>AI 辅助</td><td>有限</td><td>完整</td></tr>
-              <tr><td>一句话论点与三句话压缩</td><td>基础</td><td>增强</td></tr>
-              <tr><td>写作脚手架支持</td><td>基础</td><td>完整</td></tr>
-            </tbody>
-          </table>
+      <section class="v2-section v2-split-section" aria-labelledby="upgradeTitle">
+        <div class="container v2-split-grid">
+          <div class="v2-sticky-copy">
+            <h2 id="upgradeTitle">升级不是为了生成更多，而是为了更少从零开始。</h2>
+            <p>当资料变多、主题变深、写作变频繁，真正稀缺的是把知识压缩成判断并进入表达的能力。</p>
+          </div>
+          <div class="v2-capability-grid">
+            <article>
+              <strong>更快进入思考阶段</strong>
+              <h3>观点压缩</h3>
+              <p>帮助你把材料压成清晰论点，而不是只扩充资料库。</p>
+            </article>
+            <article>
+              <strong>减少写作重启</strong>
+              <h3>结构建议</h3>
+              <p>让已有索引和笔记更自然地进入章节、论证和草稿。</p>
+            </article>
+            <article>
+              <strong>保持作者位置</strong>
+              <h3>AI 有边界</h3>
+              <p>辅助整理、检查和提示，不把自动生成伪装成你的判断。</p>
+            </article>
+            <article>
+              <strong>适合长期主题</strong>
+              <h3>持续沉淀</h3>
+              <p>同一批主题反复推进时，Pro 的结构化能力会更明显。</p>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section class="section">
+      <section class="v2-section" aria-labelledby="compareTitle">
         <div class="container">
-          <div class="section-header compact-header">
-            <div class="section-kicker">FAQ</div>
-            <h2>升级前你可能会关心这些问题</h2>
-            <p class="section-intro">研思录更关注长期积累与写作质量，所以定价逻辑也围绕“知识到智慧”的过程，而不是单纯卖更多生成次数。</p>
+          <div class="v2-section-header">
+            <h2 id="compareTitle">两种方案都保留核心笔记路径。</h2>
+            <p>差异主要在更深的辅助链路，而不是内容归属或基础工作流。</p>
           </div>
-          <div class="faq-grid">
-            <article class="faq-card">
+          <div class="compare-table-wrap">
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th>能力</th>
+                  <th>Free</th>
+                  <th>Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>来源与文献笔记</td><td>支持</td><td>支持</td></tr>
+                <tr><td>永久笔记</td><td>支持</td><td>支持</td></tr>
+                <tr><td>基础索引组织</td><td>支持</td><td>支持</td></tr>
+                <tr><td>本地优先与导出</td><td>支持</td><td>支持</td></tr>
+                <tr><td>AI 辅助</td><td>有限</td><td>完整</td></tr>
+                <tr><td>一句话论点与压缩</td><td>基础</td><td>增强</td></tr>
+                <tr><td>写作脚手架支持</td><td>基础</td><td>完整</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="v2-section" aria-labelledby="pricingFaqTitle">
+        <div class="container">
+          <div class="v2-section-header">
+            <h2 id="pricingFaqTitle">升级前，最该确认的是边界。</h2>
+          </div>
+          <div class="v2-faq-grid">
+            <article>
               <h3>Free 可以长期使用吗？</h3>
-              <p>可以。Free 足够你建立基础的阅读、笔记和索引工作流。Pro 更适合已经进入长期研究与高频写作状态的用户。</p>
+              <p>可以。Free 足够建立基础阅读、笔记和索引工作流。Pro 更适合已经进入长期研究和高频写作的人。</p>
             </article>
-            <article class="faq-card">
-              <h3>Pro 主要提升在哪里？</h3>
-              <p>不是单纯增加 AI 输出，而是给你更完整的观点压缩、结构建议、写作脚手架与追溯能力。</p>
-            </article>
-            <article class="faq-card">
+            <article>
               <h3>升级后内容还属于我吗？</h3>
-              <p>属于你。研思录坚持本地优先与可导出，升级不会改变内容归属，只会增强你处理知识和写作的能力链。</p>
+              <p>属于你。研思录坚持本地优先和可导出，升级只增强能力链，不改变内容归属。</p>
             </article>
-            <article class="faq-card">
+            <article>
+              <h3>Pro 主要提升在哪里？</h3>
+              <p>更完整的观点压缩、结构建议、写作脚手架和追溯能力，而不是简单增加生成次数。</p>
+            </article>
+            <article>
               <h3>可以取消订阅吗？</h3>
-              <p>可以。当前 mock 和 Stripe 两条流程都已经为账户页预留了订阅管理入口，后续正式上线会直接在账单页完成管理。</p>
+              <p>可以。账户页会展示订阅状态和管理入口，当前 mock 与 Stripe 流程都保留了对应位置。</p>
             </article>
           </div>
         </div>
       </section>
 
-      <section class="section">
-        <div class="container page-cta-strip">
-          <div class="page-cta-copy">
-            <h3>先从免费方案开始，再决定是否升级</h3>
-            <p>如果你还在搭建自己的工作流，先用 Free 感受这条“从知识到智慧”的路径，等真正进入高频使用再升级会更自然。</p>
-          </div>
+      <section class="v2-final-cta" aria-labelledby="pricingCtaTitle">
+        <div class="container v2-final-inner">
+          <h2 id="pricingCtaTitle">先从 Free 开始，等工作流真的跑起来再升级。</h2>
+          <p>如果你已经在持续研究、写作和复用同一批主题，Pro 会更自然地发挥价值。</p>
           <div class="cta-actions">
             <a class="btn btn-primary" href="/register">免费开始</a>
             <a class="btn btn-secondary" href="/download">下载桌面版</a>
@@ -200,8 +220,10 @@
             <a href="/billing">账户与订阅</a>
           </div>
           <div class="footer-link-group">
-            <h3>当前体验</h3>
-            <a href="/prototype">查看原型</a>
+            <h3>合规</h3>
+            <a href="/privacy">隐私</a>
+            <a href="/terms">条款</a>
+            <a href="/about">关于</a>
           </div>
         </div>
       </div>

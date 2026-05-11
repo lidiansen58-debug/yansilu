@@ -15,6 +15,11 @@ test("extractTags and extractWikilinks return unique markdown metadata", () => {
   assert.deepEqual(extractWikilinks(text), ["Alpha", "Beta|B"]);
 });
 
+test("extractTags supports Chinese and mixed Obsidian tags", () => {
+  const text = "中文标签 #读书/论文 #产品-策略 (#AI/研究) and inline#not-a-tag";
+  assert.deepEqual(extractTags(text), ["读书/论文", "产品-策略", "AI/研究"]);
+});
+
 test("buildMarkdownCandidates preserves frontmatter, aliases, tags, and wikilinks", async () => {
   const cwd = await makeTempDir();
   const notesDir = path.join(cwd, "vault");

@@ -105,6 +105,26 @@ test("import history model derives completed detail summary and literature queue
   assert.equal(detail[4], "下一条待处理 Pending literature note");
 });
 
+test("import history model exposes imported asset file counts", () => {
+  const record = {
+    status: "completed",
+    confirmResult: {
+      created: { sources: 1, literatureNotes: 1, permanentNotes: 0 },
+      skipped: { conflicted: 0, invalid: 0 },
+      writtenPaths: ["notes/sources", "assets/imports/imp_assets"],
+      createdFiles: [
+        { noteType: "source", path: "notes/sources/src_1.md" },
+        { noteType: "literature", path: "notes/literature/ln_1.md" },
+        { noteType: "asset", path: "assets/imports/imp_assets/chart.png" }
+      ]
+    }
+  };
+
+  const detail = importHistoryDetailSummary(record);
+  assert.match(detail[3], /随导入写入资源 1 个/);
+  assert.match(detail[3], /文件总数 3/);
+});
+
 test("import history model filters by status, connector, and risk", () => {
   const items = [
     {

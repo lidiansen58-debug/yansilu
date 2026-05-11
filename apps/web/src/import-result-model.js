@@ -38,6 +38,9 @@ function metricLabel(key) {
     warnings: "警告",
     created: "已创建",
     copied: "已复制",
+    markdownFiles: "Markdown 文件",
+    assetFiles: "资源文件",
+    totalFiles: "文件总数",
     targetPath: "目标路径",
     title: "标题",
     basketNoteIds: "篮子笔记",
@@ -49,6 +52,18 @@ function metricLabel(key) {
     message: "消息"
   };
   return labels[String(key || "").trim()] || compactValue(key);
+}
+
+function createdFilesFromPayload(payload = {}) {
+  const stage = String(payload.stage || "").trim();
+  if (stage === "confirm") return Array.isArray(payload.result?.createdFiles) ? payload.result.createdFiles : [];
+  if (stage === "record") return Array.isArray(payload.importRecord?.confirmResult?.createdFiles) ? payload.importRecord.confirmResult.createdFiles : [];
+  return [];
+}
+
+function createdFileCountByType(payload = {}, noteType = "") {
+  const normalizedType = String(noteType || "").trim();
+  return createdFilesFromPayload(payload).filter((item) => String(item?.noteType || "").trim() === normalizedType).length;
 }
 
 function selectionModeValue(mode) {
@@ -133,6 +148,12 @@ export function resultMetrics(payload = {}) {
       push("已选候选", `${compactValue(selection.selectedCandidates)}/${compactValue(selection.totalCandidates)}`);
       push("选择模式", selectionModeValue(selection.mode));
     }
+    const createdFiles = createdFilesFromPayload(payload);
+    if (createdFiles.length) {
+      push("写入文件", createdFiles.length);
+      const assetCount = createdFileCountByType(payload, "asset");
+      if (assetCount > 0) push("资源文件", assetCount);
+    }
     for (const [key, value] of primitiveEntries(payload.result)) push(metricLabel(key), value);
     return metrics;
   }
@@ -141,6 +162,12 @@ export function resultMetrics(payload = {}) {
     push("导入记录", payload.importRecord?.importRecordId);
     pushStatus(payload.importRecord?.status);
     push("连接器", importConnectorLabel(payload.importRecord?.connector));
+    const createdFiles = createdFilesFromPayload(payload);
+    if (createdFiles.length) {
+      push("写入文件", createdFiles.length);
+      const assetCount = createdFileCountByType(payload, "asset");
+      if (assetCount > 0) push("资源文件", assetCount);
+    }
     return metrics;
   }
 
@@ -148,6 +175,7 @@ export function resultMetrics(payload = {}) {
     push("导出任务", payload.exportJobId);
     pushStatus(payload.status);
     push("已复制文件", payload.copied);
+    for (const [key, value] of primitiveEntries(payload.copiedBreakdown)) push(metricLabel(key), value);
     push("目标路径", payload.targetPath);
     return metrics;
   }
