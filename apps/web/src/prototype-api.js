@@ -33,6 +33,20 @@ export async function fetchVaultInfo() {
   return json.item || null;
 }
 
+export async function fetchAiPreferences() {
+  const json = await request("/api/v1/ai/preferences");
+  return json.item || null;
+}
+
+export async function saveAiPreferences(payload) {
+  const json = await request("/api/v1/ai/preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");

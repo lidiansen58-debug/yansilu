@@ -68,6 +68,7 @@ import {
   fetchIndexCard,
   fetchDirectoryNotes,
   fetchImportRecord,
+  fetchAiPreferences,
   listImportRecords,
   listIndexCards,
   fetchNote,
@@ -79,6 +80,7 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote,
   fetchVaultInfo,
+  saveAiPreferences,
   getApiBase,
   moveNote,
   previewImport,
@@ -371,6 +373,21 @@ function loadAiSettingsFromStorage() {
 function persistAiSettingsToStorage() {
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
+}
+
+async function syncAiSettingsToApi() {
+  try {
+    const payload = {
+      userMode: settingsState.ai.userMode,
+      advancedSettings: {
+        ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {})
+      }
+    };
+    await saveAiPreferences(payload);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function hideEditorHelper() {
@@ -3105,6 +3122,14 @@ function renderWritingPanel() {
 async function refreshVaultSettings() {
   try {
     settingsState.vault = await fetchVaultInfo();
+    const prefs = await fetchAiPreferences().catch(() => null);
+    if (prefs) {
+      const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
+      if (userMode) settingsState.ai.userMode = userMode;
+      const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
+      settingsState.ai.advancedModelRef = advancedRef;
+      persistAiSettingsToStorage();
+    }
     settingsState.error = "";
     renderSettingsPanel();
     return settingsState.vault;
@@ -3970,6 +3995,7 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Auto").trim() || "Auto";
   settingsState.ai.userMode = next;
   persistAiSettingsToStorage();
+  syncAiSettingsToApi();
   renderSettingsPanel();
   setStatus(`AI 模式已切换为：${next}`, "ok");
 });
@@ -3978,6 +4004,7 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   const next = String(event?.target?.value || "").trim();
   settingsState.ai.advancedModelRef = next;
   persistAiSettingsToStorage();
+  syncAiSettingsToApi();
   renderSettingsPanel();
   setStatus(next ? "AI 高级模型 ID 已保存" : "AI 高级模型 ID 已清空（恢复自动选择）", "ok");
 });
