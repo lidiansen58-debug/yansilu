@@ -21,7 +21,8 @@ export function normalizeProviderDescriptor(input = {}) {
     supportsCostEstimation: input.supportsCostEstimation !== false && input.supports_cost_estimation !== false,
     localExecution: input.localExecution === true || input.local_execution === true,
     capabilities: input.capabilities || {},
-    modelMap: input.modelMap || input.model_map || {}
+    modelMap: input.modelMap || input.model_map || {},
+    runtimeModelMap: input.runtimeModelMap || input.runtime_model_map || {}
   };
 }
 

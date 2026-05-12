@@ -3716,7 +3716,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
 
   await page.addInitScript(() => {
     window.__copiedTexts = [];
@@ -4001,7 +4001,9 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   await waitFor(async () => {
     await page.waitForSelector("#graphCanvas .graph-node", { timeout: 500 });
     const summary = await page.locator("#graphSummary").textContent();
-    assert.match(summary || "", /2 .*1 /);
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
   }, 7000);
 

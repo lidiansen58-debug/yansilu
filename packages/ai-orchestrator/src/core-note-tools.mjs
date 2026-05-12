@@ -173,6 +173,17 @@ export function createCoreNoteTools({ vaultPath } = {}) {
       description: "Search notes by title, body text, tag, or directory scope.",
       permissionLevel: "read_note",
       dataBoundary: "local",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          limit: { type: "number" },
+          tag: { type: "string" },
+          directoryId: { type: "string" },
+          rootDirectoryId: { type: "string" }
+        },
+        additionalProperties: true
+      },
       async handler(input = {}) {
         const limit = normalizeLimit(input.limit);
         const filters = input.filters || {};
@@ -198,6 +209,14 @@ export function createCoreNoteTools({ vaultPath } = {}) {
       description: "Read a note by stable note id.",
       permissionLevel: "read_note",
       dataBoundary: "local",
+      parameters: {
+        type: "object",
+        properties: {
+          noteId: { type: "string" }
+        },
+        required: ["noteId"],
+        additionalProperties: true
+      },
       async handler(input = {}) {
         const noteId = cleanText(input.noteId || input.note_id);
         if (!noteId) {
@@ -214,6 +233,14 @@ export function createCoreNoteTools({ vaultPath } = {}) {
       description: "List tags, outgoing links, and backlinks for a note.",
       permissionLevel: "read_public",
       dataBoundary: "local",
+      parameters: {
+        type: "object",
+        properties: {
+          noteId: { type: "string" }
+        },
+        required: ["noteId"],
+        additionalProperties: true
+      },
       async handler(input = {}) {
         const noteId = cleanText(input.noteId || input.note_id);
         if (!noteId) {
@@ -229,6 +256,14 @@ export function createCoreNoteTools({ vaultPath } = {}) {
       description: "List note metadata in a directory.",
       permissionLevel: "read_public",
       dataBoundary: "local",
+      parameters: {
+        type: "object",
+        properties: {
+          directoryId: { type: "string" }
+        },
+        required: ["directoryId"],
+        additionalProperties: true
+      },
       async handler(input = {}) {
         const directoryId = cleanText(input.directoryId || input.directory_id);
         if (!directoryId) {

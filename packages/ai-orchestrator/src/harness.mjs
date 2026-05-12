@@ -1,5 +1,6 @@
 import { createAgentRegistry } from "./agent-registry.mjs";
 import { buildAgentMessages } from "./agent-prompts.mjs";
+import { createProviderAgentRuntime, createRuntimeToolBridge, normalizeAgentRuntime } from "./agent-runtime.mjs";
 import { preferencesToSettingsInput } from "./ai-preferences.mjs";
 import { createAiInbox } from "./artifact-inbox.mjs";
 import { createInMemoryArtifactStore } from "./artifact-store.mjs";
@@ -140,6 +141,8 @@ export function createAiHarness(options = {}) {
   const providerAdapterRegistry = options.providerAdapterRegistry || createProviderAdapterRegistry(options);
   const fixedProviderAdapter = options.providerAdapter || null;
   let activeProviderAdapter = fixedProviderAdapter || providerAdapterRegistry.getAdapter(options).adapter;
+  const fixedAgentRuntime = options.agentRuntime || options.agent_runtime ? normalizeAgentRuntime(options.agentRuntime || options.agent_runtime) : null;
+  let activeAgentRuntime = fixedAgentRuntime || createProviderAgentRuntime({ providerAdapter: activeProviderAdapter });
   const toolRegistry = options.toolRegistry || createToolRegistry(options.tools || []);
   const artifactStore = options.artifactStore || createInMemoryArtifactStore();
   const artifactInbox = options.artifactInbox || createAiInbox({ artifactStore });
@@ -151,6 +154,9 @@ export function createAiHarness(options = {}) {
     runLog,
     get providerAdapter() {
       return activeProviderAdapter;
+    },
+    get agentRuntime() {
+      return activeAgentRuntime;
     },
     providerAdapterRegistry,
     toolRegistry,
@@ -169,6 +175,8 @@ export function createAiHarness(options = {}) {
         : providerAdapterRegistry.getAdapter(settingsInput);
       const providerAdapter = adapterSelection.adapter;
       activeProviderAdapter = providerAdapter;
+      const agentRuntime = fixedAgentRuntime || createProviderAgentRuntime({ providerAdapter });
+      activeAgentRuntime = agentRuntime;
       const privacyMode =
         cleanText(input.contextPack?.privacy?.mode || input.privacyMode || input.privacy_mode) ||
         userSettings.privacy.defaultMode ||
@@ -215,8 +223,7 @@ export function createAiHarness(options = {}) {
           privacyMode,
           background: input.background === true
         };
-        const callToolAndLog = async (toolName, toolInput = {}, summary = {}) => {
-          const toolCall = await toolRegistry.call(toolName, toolInput, toolContext);
+        const logToolCall = (toolCall, summary = {}) =>
           runLog.addEvent(run.agentRunId, {
             eventType: "tool_call",
             status: toolCall.status,
@@ -228,6 +235,9 @@ export function createAiHarness(options = {}) {
             },
             error: toolCall.error || null
           });
+        const callToolAndLog = async (toolName, toolInput = {}, summary = {}) => {
+          const toolCall = await toolRegistry.call(toolName, toolInput, toolContext);
+          logToolCall(toolCall, summary);
           if (toolCall.status !== "succeeded") {
             const error = new Error(toolCall.error?.message || `${toolName} tool failed`);
             error.code = toolCall.error?.errorType || "AI_TOOL_CALL_FAILED";
@@ -486,15 +496,39 @@ export function createAiHarness(options = {}) {
             expectedArtifactType
           }
         });
-        const providerResponse = await providerAdapter.complete({
+        runLog.addEvent(run.agentRunId, {
+          eventType: "agent_runtime_selected",
+          summary: {
+            runtimeId: agentRuntime.runtimeId,
+            runtimeType: agentRuntime.runtimeType,
+            sdk: agentRuntime.sdk || "",
+            providerId: providerAdapter.descriptor.providerId
+          }
+        });
+        const runtimeToolBridge = createRuntimeToolBridge({
+          toolRegistry,
+          allowedToolNames: agent.allowedTools,
+          toolContext,
+          onToolCall(toolCall) {
+            logToolCall(toolCall, { runtimeTool: true });
+          }
+        });
+        const providerResponse = await agentRuntime.execute({
           requestId: `${run.agentRunId}_model_1`,
           agentRunId: run.agentRunId,
           purpose: "agent_reasoning",
+          runtimeId: agentRuntime.runtimeId,
+          runtimeType: agentRuntime.runtimeType,
+          providerAdapter,
+          providerDescriptor: providerAdapter.descriptor,
+          agent,
+          modelRoute,
           modelRef: modelRoute.modelRef,
           expectedArtifactType,
           contextPack,
           messages,
-          tools: [],
+          tools: runtimeToolBridge.tools,
+          toolBridge: runtimeToolBridge,
           output: { mode: "schema", schema: { artifactType: expectedArtifactType } },
           settings: { stream: false },
           policy: {
@@ -512,7 +546,9 @@ export function createAiHarness(options = {}) {
           summary: {
             providerId: providerResponse.providerId,
             modelRef: providerResponse.modelRef,
-            purpose: "agent_reasoning"
+            purpose: "agent_reasoning",
+            runtimeId: agentRuntime.runtimeId,
+            runtimeType: agentRuntime.runtimeType
           },
           usage: providerResponse.usage,
           error: providerResponse.error
@@ -529,7 +565,7 @@ export function createAiHarness(options = {}) {
           agentRunId: run.agentRunId,
           contextPackId: contextPack.contextPackId,
           model: {
-            provider: providerAdapter.descriptor.providerId,
+            provider: providerResponse.providerId || providerAdapter.descriptor.providerId,
             model: providerResponse.modelRef,
             tier: modelRoute.selectedTier,
             mode: modelRoute.userMode
