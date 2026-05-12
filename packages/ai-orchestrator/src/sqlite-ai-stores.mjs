@@ -1,5 +1,6 @@
 import { createAiInbox } from "./artifact-inbox.mjs";
 import { createSqliteAiPreferencesStore } from "./sqlite-ai-preferences-store.mjs";
+import { createSqliteAiProviderConfigStore } from "./sqlite-ai-provider-config-store.mjs";
 import { createSqliteArtifactStore } from "./sqlite-artifact-store.mjs";
 import { createSqliteContextPackStore } from "./sqlite-context-pack-store.mjs";
 import { createSqliteProviderHealthStore } from "./sqlite-provider-health-store.mjs";
@@ -22,6 +23,9 @@ export async function createSqliteAiStores(options = {}) {
     const aiPreferencesStore = await createSqliteAiPreferencesStore({ ...options, dbPath: runLog.dbPath });
     opened.push(aiPreferencesStore);
 
+    const providerConfigStore = await createSqliteAiProviderConfigStore({ ...options, dbPath: runLog.dbPath });
+    opened.push(providerConfigStore);
+
     const providerHealthStore = await createSqliteProviderHealthStore({ ...options, dbPath: runLog.dbPath });
     opened.push(providerHealthStore);
 
@@ -38,10 +42,11 @@ export async function createSqliteAiStores(options = {}) {
       artifactInbox,
       contextPackStore,
       aiPreferencesStore,
+      providerConfigStore,
       providerHealthStore,
       scheduledTaskStore,
       close() {
-        for (const store of [scheduledTaskStore, providerHealthStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
+        for (const store of [scheduledTaskStore, providerHealthStore, providerConfigStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
           if (typeof store.close === "function") store.close();
         }
       }

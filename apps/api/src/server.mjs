@@ -70,7 +70,9 @@ import {
 } from "../../../packages/writing-engine/src/index.mjs";
 import {
   createSqliteAiPreferencesStore,
+  createSqliteAiProviderConfigStore,
   preferencesToSettingsInput,
+  providerConfigToSettingsInput,
   resolveAiUserSettings,
   resolveModelRoute,
   resolveProviderDescriptor
@@ -89,6 +91,7 @@ const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || 
 const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
 let stripeClientPromise = null;
 let aiPreferencesStorePromise = null;
+let aiProviderConfigStorePromise = null;
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -97,9 +100,21 @@ async function aiPreferencesStore() {
   return aiPreferencesStorePromise;
 }
 
+async function aiProviderConfigStore() {
+  if (!aiProviderConfigStorePromise) {
+    aiProviderConfigStorePromise = createSqliteAiProviderConfigStore({ vaultPath: VAULT_PATH });
+  }
+  return aiProviderConfigStorePromise;
+}
+
 function advancedModelRefFrom(input = {}) {
   const advancedSettings = input.advancedSettings || input.advanced_settings || {};
   return cleanText(input.modelRef || input.model_ref || advancedSettings.modelRef || advancedSettings.model_ref);
+}
+
+function advancedSecretRefFrom(input = {}) {
+  const advancedSettings = input.advancedSettings || input.advanced_settings || {};
+  return cleanText(input.secretRef || input.secret_ref || advancedSettings.secretRef || advancedSettings.secret_ref);
 }
 
 function authSummary(authMode = "", options = {}) {
@@ -156,7 +171,7 @@ async function buildAiRoutePreview(input = {}) {
     modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
     providerPreset: input.providerPreset || input.provider_preset || storedSettings.providerPreset,
     authMode: input.authMode || input.auth_mode || storedSettings.authMode,
-    secretRef: input.secretRef || input.secret_ref || storedSettings.secretRef,
+    secretRef: advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings }),
     privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
     budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
     fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
@@ -166,6 +181,25 @@ async function buildAiRoutePreview(input = {}) {
   if (modelRef) settingsInput.modelRef = modelRef;
 
   const userSettings = resolveAiUserSettings(settingsInput);
+  const configStore = await aiProviderConfigStore();
+  const providerConfig = configStore.getProviderConfig({ providerId: settingsInput.providerPreset || userSettings.providerPreset });
+  if (providerConfig) {
+    const configSettings = providerConfigToSettingsInput(providerConfig);
+    const secretRef = settingsInput.secretRef || configSettings.secretRef;
+    const providerDescriptorInput = {
+      ...(configSettings.providerDescriptor || {}),
+      secretRef
+    };
+    Object.assign(settingsInput, {
+      ...configSettings,
+      secretRef,
+      providerDescriptor: providerDescriptorInput,
+      runtimeModelMap: {
+        ...(configSettings.runtimeModelMap || {}),
+        ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
+      }
+    });
+  }
   const providerDescriptor = resolveProviderDescriptor(settingsInput);
   const privacyMode = cleanText(input.privacyMode || input.privacy_mode || userSettings.privacy.defaultMode) || "normal";
   const cloudAllowed = userSettings.privacy.allowCloud !== false && privacyMode !== "local_only";
@@ -1196,6 +1230,7 @@ const server = http.createServer(async (req, res) => {
         AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
         importRecords.clear();
         aiPreferencesStorePromise = null;
+        aiProviderConfigStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -1219,6 +1254,58 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/provider-configs") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiProviderConfigStore();
+        const items = store.listProviderConfigs({
+          status: url.searchParams.get("status") || "",
+          limit: url.searchParams.get("limit") || 50
+        });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PROVIDER_CONFIGS_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/v1/ai/provider-configs/")) {
+      try {
+        await initVault(VAULT_PATH);
+        const providerId = decodeURIComponent(url.pathname.slice("/api/v1/ai/provider-configs/".length));
+        const store = await aiProviderConfigStore();
+        const item = store.getProviderConfig({ id: providerId, providerId });
+        if (!item) return sendJson(res, 404, err("AI_PROVIDER_CONFIG_NOT_FOUND", "provider config not found", rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PROVIDER_CONFIG_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/provider-configs") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiProviderConfigStore();
+        const item = store.setProviderConfig(body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PROVIDER_CONFIG_SAVE_FAILED", String(error?.message || error), rid));
       }
     }
 

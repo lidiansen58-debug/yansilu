@@ -6700,6 +6700,16 @@
 
                     <label for="settingsAiAdvancedModelRef">模型 ID（高级）</label>
                     <input id="settingsAiAdvancedModelRef" placeholder="留空=自动选择（例如：platform_managed_openai:standard）" />
+
+                    <label for="settingsAiSecretRef">密钥引用（高级）</label>
+                    <input id="settingsAiSecretRef" placeholder="只填引用名，不填真实 Key（例如：secret_china_gateway）" />
+
+                    <label for="settingsAiProviderEndpointUrl">Provider endpoint（高级）</label>
+                    <input id="settingsAiProviderEndpointUrl" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
+                  </div>
+                  <div class="settings-stat-row">
+                    <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前 Provider 配置</button>
+                    <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                   </div>
                   <div class="settings-stat-row" id="settingsAiRouteStats">
                     <span class="settings-stat-badge warn">等待同步</span>

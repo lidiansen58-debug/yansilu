@@ -1,16 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import {
   aiProviderConfigToSchemaConfig,
   assertValidAiProviderConfig,
   createInMemoryAiProviderConfigStore,
+  createSqliteAiProviderConfigStore,
   providerConfigToDescriptorInput,
   providerConfigToSettingsInput,
   validateAiProviderConfig
 } from "../../packages/ai-orchestrator/src/index.mjs";
+
+async function hasNodeSqlite() {
+  try {
+    await import("node:sqlite");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function makeTempVault() {
+  return fs.mkdtemp(path.join(os.tmpdir(), "yansilu-ai-provider-config-"));
+}
 
 async function readProviderConfigSchema() {
   const raw = await fs.readFile(path.join(process.cwd(), "schemas", "ai_provider_config.schema.json"), "utf8");
@@ -178,4 +193,52 @@ test("provider config store validates configs and indexes by provider id", () =>
     authMode: "workspace_managed",
     endpointUrl: "https://gateway.example.test/v1/chat/completions"
   }), { code: "AI_PROVIDER_CONFIG_INVALID" });
+  assert.throws(() => store.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions",
+    apiKey: "sk-test-raw-secret"
+  }), { code: "AI_PROVIDER_CONFIG_INVALID" });
+});
+
+test("sqlite provider config store persists configs without raw secrets", async (t) => {
+  if (!(await hasNodeSqlite())) {
+    t.skip("node:sqlite is not available in current runtime");
+    return;
+  }
+
+  const vaultPath = await makeTempVault();
+  let store = await createSqliteAiProviderConfigStore({ vaultPath });
+  const saved = store.setProviderConfig({
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "china_optimized_gateway:standard": "qwen-plus"
+    }
+  });
+
+  assert.equal(saved.providerId, "china_optimized_gateway");
+  assert.equal(saved.secretRef, "secret_china_gateway");
+  assert.equal(store.getProviderConfig({ providerId: "china_optimized_gateway" }).runtimeModelMap["china_optimized_gateway:standard"], "qwen-plus");
+  assert.throws(() => store.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions",
+    apiKey: "sk-test-raw-secret"
+  }), { code: "AI_PROVIDER_CONFIG_INVALID" });
+  const dbPath = store.dbPath;
+  store.close();
+
+  store = await createSqliteAiProviderConfigStore({ dbPath });
+  const persisted = store.getProviderConfig({ providerId: "china_optimized_gateway" });
+
+  assert.equal(persisted.secretRef, "secret_china_gateway");
+  assert.equal(store.listProviderConfigs({ status: "enabled" }).length, 1);
+  assert.equal(store.deleteProviderConfig({ providerId: "china_optimized_gateway" }), true);
+  assert.equal(store.getProviderConfig({ providerId: "china_optimized_gateway" }), null);
+  store.close();
 });

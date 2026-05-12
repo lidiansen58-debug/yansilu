@@ -67,6 +67,7 @@ import {
   fetchDirectoryGraph,
   fetchIndexCard,
   fetchDirectoryNotes,
+  fetchAiProviderConfigs,
   fetchImportRecord,
   fetchAiPreferences,
   listImportRecords,
@@ -81,6 +82,7 @@ import {
   updateDraftScaffoldVersionNote,
   fetchVaultInfo,
   saveAiPreferences,
+  saveAiProviderConfig,
   getApiBase,
   moveNote,
   previewAiRoute,
@@ -123,6 +125,11 @@ const settingsState = {
     userMode: "Auto",
     modelPack: "Starter Auto",
     advancedModelRef: "",
+    secretRef: "",
+    providerEndpointUrl: "",
+    providerConfigs: [],
+    providerConfigSaving: false,
+    providerConfigError: "",
     routePreview: null,
     routePreviewLoading: false,
     routePreviewError: ""
@@ -162,6 +169,8 @@ const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
 const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
 const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
+const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
+const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
 
@@ -373,15 +382,54 @@ function loadAiSettingsFromStorage() {
   const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
+  const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
+  const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
+  settingsState.ai.secretRef = storedSecretRef;
+  settingsState.ai.providerEndpointUrl = storedEndpointUrl;
 }
 
 function persistAiSettingsToStorage() {
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
+  writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
+  writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
+}
+
+function providerPresetForModelPack(modelPack = "") {
+  const normalized = String(modelPack || "").trim().toLowerCase();
+  if (normalized === "low cost research" || normalized === "global optimized") return "openai_compatible_gateway";
+  if (normalized === "china optimized") return "china_optimized_gateway";
+  if (normalized === "privacy first") return "local_private_gateway";
+  return "platform_managed_openai";
+}
+
+function authModeForProvider(providerId = "", preview = null) {
+  const authMode = String(preview?.access?.authMode || "").trim();
+  if (authMode) return authMode;
+  const id = String(providerId || "").trim();
+  if (id === "platform_managed_openai") return "platform_managed";
+  if (id === "local_private_gateway") return settingsState.ai.secretRef ? "enterprise_secret" : "local_no_key";
+  return "workspace_managed";
+}
+
+function currentAiProviderId() {
+  return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim();
+}
+
+function activeAiProviderConfig() {
+  const providerId = currentAiProviderId();
+  return settingsState.ai.providerConfigs.find((config) => String(config?.providerId || config?.provider_id || "").trim() === providerId) || null;
+}
+
+function applyActiveAiProviderConfigToState() {
+  const config = activeAiProviderConfig();
+  if (!config) return;
+  settingsState.ai.providerEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
+  settingsState.ai.secretRef = String(config.secretRef || config.secret_ref || settingsState.ai.secretRef || "").trim();
 }
 
 function aiSettingsPayload() {
@@ -389,9 +437,31 @@ function aiSettingsPayload() {
     userMode: settingsState.ai.userMode,
     modelPack: settingsState.ai.modelPack,
     advancedSettings: {
-      ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {})
+      ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
+      ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
     }
   };
+}
+
+function aiProviderConfigPayload() {
+  const providerId = currentAiProviderId();
+  return {
+    providerId,
+    authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
+    status: "enabled",
+    ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {}),
+    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {})
+  };
+}
+
+function upsertAiProviderConfig(config = null) {
+  if (!config) return;
+  const providerId = String(config.providerId || config.provider_id || "").trim();
+  if (!providerId) return;
+  settingsState.ai.providerConfigs = [
+    ...settingsState.ai.providerConfigs.filter((item) => String(item?.providerId || item?.provider_id || "").trim() !== providerId),
+    config
+  ];
 }
 
 async function syncAiSettingsToApi() {
@@ -409,6 +479,7 @@ async function refreshAiRoutePreview(options = {}) {
   if (options.render !== false) renderSettingsPanel();
   try {
     settingsState.ai.routePreview = await previewAiRoute(aiSettingsPayload());
+    applyActiveAiProviderConfigToState();
   } catch (error) {
     settingsState.ai.routePreview = null;
     settingsState.ai.routePreviewError = String(error?.message || error);
@@ -417,6 +488,31 @@ async function refreshAiRoutePreview(options = {}) {
     if (options.render !== false) renderSettingsPanel();
   }
   return settingsState.ai.routePreview;
+}
+
+async function syncAiProviderConfigToApi() {
+  const providerId = currentAiProviderId();
+  if (!providerId) return false;
+  settingsState.ai.providerConfigSaving = true;
+  settingsState.ai.providerConfigError = "";
+  renderSettingsPanel();
+  try {
+    const saved = await saveAiProviderConfig(aiProviderConfigPayload());
+    upsertAiProviderConfig(saved);
+    applyActiveAiProviderConfigToState();
+    persistAiSettingsToStorage();
+    await syncAiSettingsToApi();
+    await refreshAiRoutePreview({ render: false });
+    setStatus(`AI Provider 配置已保存：${providerId}`, "ok");
+    return true;
+  } catch (error) {
+    settingsState.ai.providerConfigError = String(error?.message || error);
+    setStatus(`AI Provider 配置保存失败：${settingsState.ai.providerConfigError}`, "bad");
+    return false;
+  } finally {
+    settingsState.ai.providerConfigSaving = false;
+    renderSettingsPanel();
+  }
 }
 
 function hideEditorHelper() {
@@ -2277,6 +2373,40 @@ function renderAiRoutePreview() {
   `;
 }
 
+function renderAiProviderConfigControls() {
+  const endpointInput = $("settingsAiProviderEndpointUrl");
+  if (endpointInput) {
+    const stored = String(settingsState.ai.providerEndpointUrl || "").trim();
+    if (String(endpointInput.value || "") !== stored) endpointInput.value = stored;
+  }
+
+  const providerId = currentAiProviderId();
+  const config = activeAiProviderConfig();
+  const badge = $("settingsAiProviderConfigBadge");
+  if (badge) {
+    badge.classList.toggle("ok", Boolean(config));
+    badge.classList.toggle("warn", !config && providerId !== "platform_managed_openai");
+    const endpointReady = Boolean(String(config?.endpointUrl || config?.endpoint_url || settingsState.ai.providerEndpointUrl || "").trim());
+    const secretReady = Boolean(String(config?.secretRef || config?.secret_ref || settingsState.ai.secretRef || "").trim());
+    if (settingsState.ai.providerConfigSaving) badge.textContent = "保存中";
+    else if (settingsState.ai.providerConfigError) badge.textContent = "配置失败";
+    else if (providerId === "platform_managed_openai") badge.textContent = "平台托管";
+    else if (config) badge.textContent = endpointReady || secretReady ? "已配置" : "已保存";
+    else badge.textContent = "未配置";
+  }
+
+  const saveButton = $("settingsAiSaveProviderConfig");
+  if (saveButton) {
+    const platformManaged = providerId === "platform_managed_openai";
+    saveButton.disabled = settingsState.ai.providerConfigSaving || !providerId || platformManaged;
+    saveButton.textContent = settingsState.ai.providerConfigSaving
+      ? "保存中..."
+      : platformManaged
+        ? "平台托管无需配置"
+        : "保存当前 Provider 配置";
+  }
+}
+
 function activateModule(moduleName) {
   const normalizedModule = moduleName === "search" ? "imports" : moduleName;
   state.module = normalizedModule;
@@ -2344,6 +2474,12 @@ function renderSettingsPanel() {
     const stored = String(settingsState.ai.advancedModelRef || "").trim();
     if (String(aiRef.value || "") !== stored) aiRef.value = stored;
   }
+  const aiSecretRef = $("settingsAiSecretRef");
+  if (aiSecretRef) {
+    const stored = String(settingsState.ai.secretRef || "").trim();
+    if (String(aiSecretRef.value || "") !== stored) aiSecretRef.value = stored;
+  }
+  renderAiProviderConfigControls();
   renderAiRoutePreview();
 }
 
@@ -3206,8 +3342,12 @@ async function refreshVaultSettings() {
       if (modelPack) settingsState.ai.modelPack = modelPack;
       const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
       settingsState.ai.advancedModelRef = advancedRef;
+      const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
+      settingsState.ai.secretRef = secretRef;
       persistAiSettingsToStorage();
     }
+    settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
+    applyActiveAiProviderConfigToState();
     await refreshAiRoutePreview({ render: false });
     settingsState.error = "";
     renderSettingsPanel();
@@ -4083,6 +4223,11 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
   settingsState.ai.modelPack = next;
+  settingsState.ai.routePreview = null;
+  settingsState.ai.providerEndpointUrl = "";
+  settingsState.ai.secretRef = "";
+  settingsState.ai.providerConfigError = "";
+  applyActiveAiProviderConfigToState();
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
   refreshAiRoutePreview();
@@ -4098,6 +4243,39 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(next ? "AI 高级模型 ID 已保存" : "AI 高级模型 ID 已清空（恢复自动选择）", "ok");
+});
+
+$("settingsAiSecretRef")?.addEventListener("blur", (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.secretRef = next;
+  persistAiSettingsToStorage();
+  syncAiSettingsToApi();
+  refreshAiRoutePreview();
+  renderSettingsPanel();
+  setStatus(next ? "AI 密钥引用已保存" : "AI 密钥引用已清空", "ok");
+});
+
+$("settingsAiSecretRef")?.addEventListener("input", (event) => {
+  settingsState.ai.secretRef = String(event?.target?.value || "").trim();
+  settingsState.ai.providerConfigError = "";
+  persistAiSettingsToStorage();
+});
+
+$("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
+  settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
+  settingsState.ai.providerConfigError = "";
+  persistAiSettingsToStorage();
+});
+
+$("settingsAiProviderEndpointUrl")?.addEventListener("blur", (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.providerEndpointUrl = next;
+  persistAiSettingsToStorage();
+  renderSettingsPanel();
+});
+
+$("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
+  await syncAiProviderConfigToApi();
 });
 
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {

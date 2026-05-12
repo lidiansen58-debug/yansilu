@@ -1469,7 +1469,10 @@ test("sqlite AI preferences store persists user settings", async (t) => {
     confirmationThreshold: 0.5,
     budgetState: { monthlySpent: 4.75 },
     fallbackPolicy: { allowCrossProviderFallback: false },
-    advancedSettings: { modelRef: "china_optimized_gateway:manual-model" }
+    advancedSettings: {
+      modelRef: "china_optimized_gateway:manual-model",
+      secretRef: "secret_china_gateway"
+    }
   });
 
   assert.equal(saved.userMode, "Balanced");
@@ -1488,6 +1491,7 @@ test("sqlite AI preferences store persists user settings", async (t) => {
   assert.equal(persisted.budgetState.monthlySpent, 4.75);
   assert.equal(persisted.fallbackPolicy.allowCrossProviderFallback, false);
   assert.equal(persisted.advancedSettings.modelRef, "china_optimized_gateway:manual-model");
+  assert.equal(persisted.advancedSettings.secretRef, "secret_china_gateway");
   assert.equal(store.listUserPreferences({ workspaceId: "workspace_sqlite_pref" }).length, 1);
   store.close();
 });
@@ -1639,6 +1643,12 @@ test("sqlite ai stores factory wires harness audit stores and inbox", async (t) 
     userMode: "Economy",
     modelPack: "Low Cost Research"
   });
+  stores.providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions"
+  });
 
   const dbPath = stores.dbPath;
   stores.close();
@@ -1651,6 +1661,7 @@ test("sqlite ai stores factory wires harness audit stores and inbox", async (t) 
     stores.aiPreferencesStore.getUserPreferences({ userId: "user_factory_pref", workspaceId: "workspace_factory_pref" }).modelPack,
     "Low Cost Research"
   );
+  assert.equal(stores.providerConfigStore.getProviderConfig({ providerId: "openai_compatible_gateway" }).secretRef, "secret_gateway");
   stores.close();
 });
 

@@ -334,7 +334,7 @@ export function createInMemoryAiProviderConfigStore(options = {}) {
   function setProviderConfig(input = {}) {
     const lookup = cleanText(input.id || input.configId || input.config_id);
     const existing = lookup ? configs.get(lookup) : providerIdIndex.get(cleanText(input.providerId || input.provider_id));
-    const normalized = assertValidAiProviderConfig(normalizeAiProviderConfig(input, existing || {}));
+    const normalized = assertValidAiProviderConfig({ ...(existing || {}), ...input });
     configs.set(normalized.id, normalized);
     providerIdIndex.set(normalized.providerId, normalized);
     return jsonClone(normalized);

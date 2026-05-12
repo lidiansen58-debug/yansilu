@@ -129,6 +129,29 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(chinaPreview.json.item.access.ready, false);
   assert.equal(chinaPreview.json.item.access.nextAction, "configure_workspace_key");
 
+  const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway.example.test/v1/chat/completions"
+  });
+  assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
+  assert.equal(providerConfig.json.item.secretRef, "secret_china_gateway");
+
+  const providerConfigs = await getJson(baseUrl, "/api/v1/ai/provider-configs");
+  assert.equal(providerConfigs.status, 200, JSON.stringify(providerConfigs.json));
+  assert.equal(providerConfigs.json.total, 1);
+  assert.equal(providerConfigs.json.items[0].providerId, "china_optimized_gateway");
+
+  const configuredFromProviderConfig = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto"
+  });
+  assert.equal(configuredFromProviderConfig.status, 200, JSON.stringify(configuredFromProviderConfig.json));
+  assert.equal(configuredFromProviderConfig.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(configuredFromProviderConfig.json.item.access.ready, true);
+  assert.equal(configuredFromProviderConfig.json.item.access.secretRefConfigured, true);
+
   const configuredGateway = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "China Optimized",
     userMode: "Auto",
@@ -137,6 +160,19 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(configuredGateway.status, 200, JSON.stringify(configuredGateway.json));
   assert.equal(configuredGateway.json.item.access.ready, true);
   assert.equal(configuredGateway.json.item.access.secretRefConfigured, true);
+
+  const savedGateway = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    userMode: "Auto",
+    modelPack: "China Optimized",
+    advancedSettings: { secretRef: "secret_china_gateway" }
+  });
+  assert.equal(savedGateway.status, 200, JSON.stringify(savedGateway.json));
+
+  const storedGatewayPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(storedGatewayPreview.status, 200, JSON.stringify(storedGatewayPreview.json));
+  assert.equal(storedGatewayPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(storedGatewayPreview.json.item.access.ready, true);
+  assert.equal(storedGatewayPreview.json.item.access.secretRefConfigured, true);
 
   const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
     userMode: "Local / Private",

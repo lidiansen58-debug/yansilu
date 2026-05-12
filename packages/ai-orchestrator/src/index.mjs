@@ -27,6 +27,7 @@ export * from "./provider-presets.mjs";
 export * from "./run-log.mjs";
 export * from "./scheduled-agent-tasks.mjs";
 export * from "./sqlite-ai-stores.mjs";
+export * from "./sqlite-ai-provider-config-store.mjs";
 export * from "./sqlite-ai-preferences-store.mjs";
 export * from "./sqlite-artifact-store.mjs";
 export * from "./sqlite-context-pack-store.mjs";

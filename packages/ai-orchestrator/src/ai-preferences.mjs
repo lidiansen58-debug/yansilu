@@ -60,10 +60,12 @@ export function preferencesToSettingsInput(preferences = null) {
   if (!preferences) return {};
   const advancedSettings = preferences.advancedSettings || {};
   const advancedModelRef = cleanText(advancedSettings.modelRef || advancedSettings.model_ref);
+  const advancedSecretRef = cleanText(advancedSettings.secretRef || advancedSettings.secret_ref);
   return {
     userMode: preferences.userMode,
     modelPack: preferences.modelPack,
     ...(advancedModelRef ? { modelRef: advancedModelRef } : {}),
+    ...(advancedSecretRef ? { secretRef: advancedSecretRef } : {}),
     fallbackPolicy: preferences.fallbackPolicy || {},
     privacy: preferences.privacy || {},
     budget: preferences.budget || {},
