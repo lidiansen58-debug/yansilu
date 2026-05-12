@@ -690,8 +690,15 @@ test("prototype literature note requires citation metadata before recording orig
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "缺引用信息样例" }).click();
+  await waitFor(async () => {
+    const editorBody = await page.locator("#editorBody").inputValue();
+    assert.match(editorBody || "", /缺引用信息样例/);
+    assert.match(editorBody || "", /我已经用自己的话理解了这条材料/);
+  }, 7000);
   const originalsBefore = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originalsBefore.status, 200);
+  const originalIdsBefore = originalsBefore.json.items.map((item) => item.id).sort();
+
   await page.locator("#btnRunGuard").click();
 
   await waitFor(async () => {
@@ -702,7 +709,10 @@ test("prototype literature note requires citation metadata before recording orig
 
   const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originals.status, 200);
-  assert.equal(originals.json.total, originalsBefore.json.total);
+  assert.deepEqual(
+    originals.json.items.map((item) => item.id).sort(),
+    originalIdsBefore
+  );
 });
 
 test("standalone editor route loads and saves a note without workspace chrome", async (t) => {
@@ -1104,10 +1114,22 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
   const { page, webBase } = stack;
+  const showEditorHelper = async () => {
+    const helper = page.locator("#editorHelper");
+    const hidden = await helper.evaluate((node) => node.classList.contains("hidden")).catch(() => true);
+    if (!hidden) return;
+    const activeTabClose = page.locator(".tab.active .tab-close");
+    if (await activeTabClose.isVisible().catch(() => false)) {
+      await activeTabClose.click();
+      if (await helper.waitFor({ state: "visible", timeout: 2000 }).then(() => true).catch(() => false)) return;
+    }
+    const focusButton = page.locator("#btnFocusMode");
+    if (await focusButton.isVisible().catch(() => false)) await focusButton.click();
+    await helper.waitFor({ state: "visible", timeout: 7000 });
+  };
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator(".tab.active .tab-close").click();
-  await page.locator("#editorHelper").waitFor();
+  await showEditorHelper();
   await page.locator("#btnEditorHelperAction").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
@@ -1115,8 +1137,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   }, 4000);
 
   await page.reload({ waitUntil: "networkidle" });
-  await page.locator(".tab.active .tab-close").click();
-  await page.locator("#editorHelper").waitFor();
+  await showEditorHelper();
   await page.locator("#btnEditorHelperMute").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
@@ -3761,7 +3782,10 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Writing UI claim" }).waitFor();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Evidence UI map" }).waitFor();
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.fill("#writingTitle", "Writing UI Project");
   await page.fill("#writingGoal", "Turn two permanent notes into a browser-generated scaffold.");
@@ -3769,6 +3793,20 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.fill("#writingTone", "clear");
   await page.fill("#writingVersionNote", "First scaffold note from browser flow.");
   await page.click("#btnWritingAddVisible");
+  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id];
+  await page.waitForFunction(
+    (ids) => {
+      const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "").split(/\s+/);
+      return ids.every((id) => basketIds.includes(id));
+    },
+    targetBasketIds
+  );
+  const extraBasketIds = (await page.locator("#writingBasketNoteIds").inputValue())
+    .split(/\s+/)
+    .filter((id) => id && !targetBasketIds.includes(id));
+  for (const noteId of extraBasketIds) {
+    await page.locator(`#writingBasketList [data-writing-action="remove"][data-writing-note-id="${noteId}"]`).click();
+  }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
     return text.includes("写作篮里已有 2 条原创笔记");

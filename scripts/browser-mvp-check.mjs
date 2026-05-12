@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 
 const testFile = "./tests/e2e/prototype-browser.test.mjs";
+function exactTestPattern(testName) {
+  return `^${String(testName).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
+}
+
 const testNames = [
   "prototype browser flow creates, edits, and persists a markdown note",
   "prototype settings switches and initializes the active vault",
@@ -18,7 +22,7 @@ for (const testName of testNames) {
   console.log(`\n== ${testName} ==`);
   const result = spawnSync(
     process.execPath,
-    ["--test", "--test-isolation=none", "--test-name-pattern", testName, testFile],
+    ["--test", "--test-isolation=none", "--test-name-pattern", exactTestPattern(testName), testFile],
     {
       cwd: process.cwd(),
       env: {
