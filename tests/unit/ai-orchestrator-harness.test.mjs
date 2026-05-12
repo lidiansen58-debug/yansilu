@@ -11,6 +11,7 @@ import {
   createAiInbox,
   createCoreNoteTools,
   createInMemoryAiPreferencesStore,
+  createInMemoryAiProviderConfigStore,
   createInMemoryArtifactStore,
   createAgentRuntimeRequest,
   createRuntimeToolBridge,
@@ -915,6 +916,55 @@ test("harness dynamically selects provider adapter from stored model pack", asyn
   assert.equal(adapterEvent.summary.adapterSource, "factory");
   assert.equal(routeEvent.summary.providerId, "china_optimized_gateway");
   assert.equal(routeEvent.summary.modelRef, "china_optimized_gateway:strong_reasoning");
+});
+
+test("harness applies stored provider config to runtime adapter selection", async () => {
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    userId: "user_provider_config",
+    workspaceId: "workspace_provider_config",
+    modelPack: "Global Optimized",
+    budget: { monthlyLimit: 10, confirmationThresholdPerRun: 10 }
+  });
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions",
+    modelMap: {
+      strong_reasoning: "openai_compatible_gateway:strong_override"
+    },
+    runtimeModelMap: {
+      "openai_compatible_gateway:strong_override": "gateway-strong-model"
+    }
+  });
+  const harness = createAiHarness({ aiPreferencesStore, providerConfigStore });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_config_runtime",
+    userId: "user_provider_config",
+    workspaceId: "workspace_provider_config",
+    currentNote: {
+      id: "note_provider_config_runtime",
+      title: "Provider config note",
+      body: "Provider config note\n\nA stored provider config should drive runtime adapter selection."
+    }
+  });
+  const adapterEvent = result.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const configEvent = result.run.events.find((event) => event.eventType === "ai_provider_config_loaded");
+  const routeEvent = result.run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(harness.providerAdapter.descriptor.providerId, "openai_compatible_gateway");
+  assert.equal(harness.providerAdapter.descriptor.endpointUrl, "https://gateway.example.test/v1/chat/completions");
+  assert.equal(harness.providerAdapter.descriptor.secretRef, "secret_gateway");
+  assert.equal(adapterEvent.summary.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(adapterEvent.summary.endpointConfigured, true);
+  assert.equal(adapterEvent.summary.secretRefConfigured, true);
+  assert.equal(configEvent.summary.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(routeEvent.summary.modelRef, "openai_compatible_gateway:strong_override");
+  assert.equal(providerConfigStore.getProviderConfig({ providerId: "openai_compatible_gateway" }).secretRef, "secret_gateway");
 });
 
 test("harness can switch provider adapters between users", async () => {

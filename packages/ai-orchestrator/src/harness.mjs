@@ -1,6 +1,7 @@
 import { createAgentRegistry } from "./agent-registry.mjs";
 import { buildAgentMessages } from "./agent-prompts.mjs";
 import { createProviderAgentRuntime, createRuntimeToolBridge, normalizeAgentRuntime } from "./agent-runtime.mjs";
+import { providerConfigToSettingsInput } from "./ai-provider-configs.mjs";
 import { preferencesToSettingsInput } from "./ai-preferences.mjs";
 import { createAiInbox } from "./artifact-inbox.mjs";
 import { createInMemoryArtifactStore } from "./artifact-store.mjs";
@@ -144,6 +145,32 @@ async function resolveRunSettings({ options, input, aiPreferencesStore }) {
   };
 }
 
+async function loadProviderConfig(providerConfigStore, settingsInput = {}, userSettings = {}) {
+  if (!providerConfigStore || typeof providerConfigStore.getProviderConfig !== "function") return null;
+  const providerId = cleanText(settingsInput.providerId || settingsInput.provider_id || settingsInput.providerPreset || settingsInput.provider_preset || userSettings.providerPreset);
+  if (!providerId) return null;
+  return providerConfigStore.getProviderConfig({ providerId });
+}
+
+function settingsWithProviderConfig(settingsInput = {}, providerConfig = null) {
+  if (!providerConfig) return settingsInput;
+  const configSettings = providerConfigToSettingsInput(providerConfig);
+  const secretRef = cleanText(settingsInput.secretRef || settingsInput.secret_ref) || configSettings.secretRef;
+  return {
+    ...settingsInput,
+    ...configSettings,
+    secretRef,
+    providerDescriptor: {
+      ...(configSettings.providerDescriptor || {}),
+      secretRef
+    },
+    runtimeModelMap: {
+      ...(configSettings.runtimeModelMap || {}),
+      ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
+    }
+  };
+}
+
 export function createAiHarness(options = {}) {
   const registry = options.agentRegistry || createAgentRegistry(options.agentDefinitions);
   const runLog = options.runLog || createInMemoryRunLog();
@@ -157,6 +184,7 @@ export function createAiHarness(options = {}) {
   const artifactInbox = options.artifactInbox || createAiInbox({ artifactStore });
   const contextPackStore = options.contextPackStore || null;
   const aiPreferencesStore = options.aiPreferencesStore || null;
+  const providerConfigStore = options.providerConfigStore || null;
 
   return {
     registry,
@@ -173,11 +201,15 @@ export function createAiHarness(options = {}) {
     artifactInbox,
     contextPackStore,
     aiPreferencesStore,
+    providerConfigStore,
     async runTask(input = {}) {
       const taskId = cleanText(input.taskId || input.task_id) || generatedId("task");
       const agentId = cleanText(input.agentId || input.agent_id) || "reflection_agent";
       const agent = registry.get(agentId);
-      const { identity, storedPreferences, settingsInput } = await resolveRunSettings({ options, input, aiPreferencesStore });
+      const { identity, storedPreferences, settingsInput: baseSettingsInput } = await resolveRunSettings({ options, input, aiPreferencesStore });
+      const baseUserSettings = resolveAiUserSettings(baseSettingsInput);
+      const providerConfig = fixedProviderAdapter ? null : await loadProviderConfig(providerConfigStore, baseSettingsInput, baseUserSettings);
+      const settingsInput = settingsWithProviderConfig(baseSettingsInput, providerConfig);
       const userSettings = resolveAiUserSettings(settingsInput);
       const adapterSelection = fixedProviderAdapter
         ? { adapter: fixedProviderAdapter, source: "explicit", descriptor: fixedProviderAdapter.descriptor }
@@ -210,9 +242,24 @@ export function createAiHarness(options = {}) {
             adapterType: providerAdapter.descriptor.adapterType,
             providerPreset: userSettings.providerPreset,
             adapterSource: adapterSelection.source,
-            authMode: providerAdapter.descriptor.authMode || userSettings.authMode
+            authMode: providerAdapter.descriptor.authMode || userSettings.authMode,
+            providerConfigId: providerConfig?.id || "",
+            endpointConfigured: Boolean(providerAdapter.descriptor.endpointUrl),
+            secretRefConfigured: Boolean(providerAdapter.descriptor.secretRef)
           }
         });
+        if (providerConfig) {
+          runLog.addEvent(run.agentRunId, {
+            eventType: "ai_provider_config_loaded",
+            summary: {
+              providerConfigId: providerConfig.id,
+              providerId: providerConfig.providerId,
+              authMode: providerConfig.authMode,
+              endpointConfigured: Boolean(providerConfig.endpointUrl),
+              secretRefConfigured: Boolean(providerConfig.secretRef)
+            }
+          });
+        }
         if (storedPreferences) {
           runLog.addEvent(run.agentRunId, {
             eventType: "user_ai_preferences_loaded",
