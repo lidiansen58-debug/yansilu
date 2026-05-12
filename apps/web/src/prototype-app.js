@@ -52,6 +52,7 @@ import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-fi
 import {
   bindWritingDraftNote,
   cancelImport,
+  checkAiProviderHealth,
   confirmImport,
   createDirectory,
   createDraftScaffold,
@@ -127,8 +128,11 @@ const settingsState = {
     advancedModelRef: "",
     secretRef: "",
     providerEndpointUrl: "",
+    providerHealthEndpointUrl: "",
     providerConfigs: [],
     providerConfigSaving: false,
+    providerHealthChecking: false,
+    providerHealthResult: null,
     providerConfigError: "",
     routePreview: null,
     routePreviewLoading: false,
@@ -171,6 +175,7 @@ const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
+const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
 
@@ -384,11 +389,13 @@ function loadAiSettingsFromStorage() {
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
   settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
+  settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
 }
 
 function persistAiSettingsToStorage() {
@@ -397,6 +404,7 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
+  writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
 }
 
 function providerPresetForModelPack(modelPack = "") {
@@ -429,6 +437,12 @@ function applyActiveAiProviderConfigToState() {
   const config = activeAiProviderConfig();
   if (!config) return;
   settingsState.ai.providerEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
+  settingsState.ai.providerHealthEndpointUrl = String(
+    config.healthCheck?.endpointUrl ||
+      config.health_check?.endpoint_url ||
+      settingsState.ai.providerHealthEndpointUrl ||
+      ""
+  ).trim();
   settingsState.ai.secretRef = String(config.secretRef || config.secret_ref || settingsState.ai.secretRef || "").trim();
 }
 
@@ -450,7 +464,19 @@ function aiProviderConfigPayload() {
     authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
     status: "enabled",
     ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {}),
-    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {})
+    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
+    ...((settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl)
+      ? {
+          healthCheck: {
+            enabled: true,
+            endpointUrl: settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl,
+            method: "GET",
+            timeoutMs: 5000,
+            expectedStatus: 200,
+            intervalSeconds: 300
+          }
+        }
+      : {})
   };
 }
 
@@ -511,6 +537,43 @@ async function syncAiProviderConfigToApi() {
     return false;
   } finally {
     settingsState.ai.providerConfigSaving = false;
+    renderSettingsPanel();
+  }
+}
+
+async function checkCurrentAiProviderHealth() {
+  const providerId = currentAiProviderId();
+  if (!providerId || providerId === "platform_managed_openai") return false;
+  settingsState.ai.providerHealthChecking = true;
+  settingsState.ai.providerConfigError = "";
+  renderSettingsPanel();
+  try {
+    const saved = await saveAiProviderConfig(aiProviderConfigPayload());
+    upsertAiProviderConfig(saved);
+    applyActiveAiProviderConfigToState();
+    const result = await checkAiProviderHealth(providerId, {
+      networkEnabled: true,
+      healthCheck: {
+        enabled: true,
+        endpointUrl: settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl,
+        method: "GET",
+        timeoutMs: 5000,
+        expectedStatus: 200,
+        intervalSeconds: 300
+      }
+    });
+    settingsState.ai.providerHealthResult = result;
+    const record = result?.record || {};
+    const label = record.status === "healthy" ? "连接正常" : `连接状态：${record.status || "unknown"}`;
+    setStatus(`AI Provider ${label}`, record.status === "healthy" ? "ok" : "warn");
+    return true;
+  } catch (error) {
+    settingsState.ai.providerHealthResult = null;
+    settingsState.ai.providerConfigError = String(error?.message || error);
+    setStatus(`AI Provider 连接测试失败：${settingsState.ai.providerConfigError}`, "bad");
+    return false;
+  } finally {
+    settingsState.ai.providerHealthChecking = false;
     renderSettingsPanel();
   }
 }
@@ -2379,16 +2442,29 @@ function renderAiProviderConfigControls() {
     const stored = String(settingsState.ai.providerEndpointUrl || "").trim();
     if (String(endpointInput.value || "") !== stored) endpointInput.value = stored;
   }
+  const healthEndpointInput = $("settingsAiProviderHealthEndpointUrl");
+  if (healthEndpointInput) {
+    const stored = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+    if (String(healthEndpointInput.value || "") !== stored) healthEndpointInput.value = stored;
+  }
 
   const providerId = currentAiProviderId();
   const config = activeAiProviderConfig();
+  const healthRecord = settingsState.ai.providerHealthResult?.record || null;
   const badge = $("settingsAiProviderConfigBadge");
   if (badge) {
     badge.classList.toggle("ok", Boolean(config));
     badge.classList.toggle("warn", !config && providerId !== "platform_managed_openai");
+    if (healthRecord) {
+      badge.classList.toggle("ok", healthRecord.status === "healthy");
+      badge.classList.toggle("warn", healthRecord.status !== "healthy");
+    }
     const endpointReady = Boolean(String(config?.endpointUrl || config?.endpoint_url || settingsState.ai.providerEndpointUrl || "").trim());
     const secretReady = Boolean(String(config?.secretRef || config?.secret_ref || settingsState.ai.secretRef || "").trim());
-    if (settingsState.ai.providerConfigSaving) badge.textContent = "保存中";
+    if (settingsState.ai.providerHealthChecking) badge.textContent = "测试中";
+    else if (healthRecord?.status === "healthy") badge.textContent = `健康 ${healthRecord.latencyMs || 0}ms`;
+    else if (healthRecord) badge.textContent = `状态 ${healthRecord.status || "unknown"}`;
+    else if (settingsState.ai.providerConfigSaving) badge.textContent = "保存中";
     else if (settingsState.ai.providerConfigError) badge.textContent = "配置失败";
     else if (providerId === "platform_managed_openai") badge.textContent = "平台托管";
     else if (config) badge.textContent = endpointReady || secretReady ? "已配置" : "已保存";
@@ -2398,12 +2474,28 @@ function renderAiProviderConfigControls() {
   const saveButton = $("settingsAiSaveProviderConfig");
   if (saveButton) {
     const platformManaged = providerId === "platform_managed_openai";
-    saveButton.disabled = settingsState.ai.providerConfigSaving || !providerId || platformManaged;
+    saveButton.disabled = settingsState.ai.providerConfigSaving || settingsState.ai.providerHealthChecking || !providerId || platformManaged;
     saveButton.textContent = settingsState.ai.providerConfigSaving
       ? "保存中..."
       : platformManaged
         ? "平台托管无需配置"
         : "保存当前 Provider 配置";
+  }
+
+  const checkButton = $("settingsAiCheckProviderHealth");
+  if (checkButton) {
+    const platformManaged = providerId === "platform_managed_openai";
+    checkButton.disabled =
+      settingsState.ai.providerConfigSaving ||
+      settingsState.ai.providerHealthChecking ||
+      !providerId ||
+      platformManaged ||
+      !String(settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl || "").trim();
+    checkButton.textContent = settingsState.ai.providerHealthChecking
+      ? "测试中..."
+      : platformManaged
+        ? "平台托管"
+        : "测试连接";
   }
 }
 
@@ -4225,8 +4317,10 @@ $("settingsAiModelPack")?.addEventListener("change", (event) => {
   settingsState.ai.modelPack = next;
   settingsState.ai.routePreview = null;
   settingsState.ai.providerEndpointUrl = "";
+  settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.secretRef = "";
   settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
   applyActiveAiProviderConfigToState();
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
@@ -4258,12 +4352,14 @@ $("settingsAiSecretRef")?.addEventListener("blur", (event) => {
 $("settingsAiSecretRef")?.addEventListener("input", (event) => {
   settingsState.ai.secretRef = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
   persistAiSettingsToStorage();
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
   settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
   persistAiSettingsToStorage();
 });
 
@@ -4274,8 +4370,26 @@ $("settingsAiProviderEndpointUrl")?.addEventListener("blur", (event) => {
   renderSettingsPanel();
 });
 
+$("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
+  settingsState.ai.providerHealthEndpointUrl = String(event?.target?.value || "").trim();
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+  persistAiSettingsToStorage();
+});
+
+$("settingsAiProviderHealthEndpointUrl")?.addEventListener("blur", (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.providerHealthEndpointUrl = next;
+  persistAiSettingsToStorage();
+  renderSettingsPanel();
+});
+
 $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
   await syncAiProviderConfigToApi();
+});
+
+$("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
+  await checkCurrentAiProviderHealth();
 });
 
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {

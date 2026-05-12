@@ -71,11 +71,13 @@ import {
 import {
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
+  createSqliteProviderHealthStore,
   preferencesToSettingsInput,
   providerConfigToSettingsInput,
   resolveAiUserSettings,
   resolveModelRoute,
-  resolveProviderDescriptor
+  resolveProviderDescriptor,
+  runProviderHealthCheck
 } from "../../../packages/ai-orchestrator/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
@@ -92,6 +94,7 @@ const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").tr
 let stripeClientPromise = null;
 let aiPreferencesStorePromise = null;
 let aiProviderConfigStorePromise = null;
+let aiProviderHealthStorePromise = null;
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -105,6 +108,13 @@ async function aiProviderConfigStore() {
     aiProviderConfigStorePromise = createSqliteAiProviderConfigStore({ vaultPath: VAULT_PATH });
   }
   return aiProviderConfigStorePromise;
+}
+
+async function aiProviderHealthStore() {
+  if (!aiProviderHealthStorePromise) {
+    aiProviderHealthStorePromise = createSqliteProviderHealthStore({ vaultPath: VAULT_PATH });
+  }
+  return aiProviderHealthStorePromise;
 }
 
 function advancedModelRefFrom(input = {}) {
@@ -153,6 +163,24 @@ function authSummary(authMode = "", options = {}) {
     status: ready ? "ready" : "needs_key",
     nextAction: ready ? "none" : nextActions[mode] || "configure_provider",
     message: messages[mode] || "Provider access mode is unknown."
+  };
+}
+
+function providerConfigWithRunnableHealthCheck(config = {}, input = {}) {
+  const healthCheck = {
+    ...(config.healthCheck || {}),
+    ...(input.healthCheck || input.health_check || {})
+  };
+  return {
+    ...config,
+    healthCheck: {
+      enabled: true,
+      endpointUrl: cleanText(healthCheck.endpointUrl || healthCheck.endpoint_url || config.endpointUrl),
+      method: cleanText(healthCheck.method || "GET").toUpperCase(),
+      timeoutMs: Number(healthCheck.timeoutMs ?? healthCheck.timeout_ms ?? 5000),
+      expectedStatus: Number(healthCheck.expectedStatus ?? healthCheck.expected_status ?? 200),
+      intervalSeconds: Number(healthCheck.intervalSeconds ?? healthCheck.interval_seconds ?? 300)
+    }
   };
 }
 
@@ -1231,6 +1259,7 @@ const server = http.createServer(async (req, res) => {
         importRecords.clear();
         aiPreferencesStorePromise = null;
         aiProviderConfigStorePromise = null;
+        aiProviderHealthStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -1306,6 +1335,44 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("AI_PROVIDER_CONFIG_SAVE_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/api/v1/ai/provider-configs/") && url.pathname.endsWith("/health-check")) {
+      try {
+        await initVault(VAULT_PATH);
+        const providerId = decodeURIComponent(url.pathname.slice("/api/v1/ai/provider-configs/".length, -"/health-check".length));
+        const body = await readJson(req);
+        const configStore = await aiProviderConfigStore();
+        const providerConfig = configStore.getProviderConfig({ id: providerId, providerId });
+        if (!providerConfig) return sendJson(res, 404, err("AI_PROVIDER_CONFIG_NOT_FOUND", "provider config not found", rid));
+        const healthStore = await aiProviderHealthStore();
+        const result = await runProviderHealthCheck({
+          providerConfig: providerConfigWithRunnableHealthCheck(providerConfig, body),
+          providerHealthStore: healthStore,
+          trigger: "user_command",
+          networkEnabled: body.networkEnabled !== false && body.network_enabled !== false
+        });
+        return sendJson(res, 200, {
+          item: {
+            status: result.status,
+            record: result.record,
+            request: result.request
+              ? {
+                  providerId: result.request.providerId,
+                  providerConfigId: result.request.providerConfigId,
+                  url: result.request.url,
+                  method: result.request.init?.method || "GET",
+                  expectedStatus: result.request.expectedStatus,
+                  timeoutMs: result.request.timeoutMs
+                }
+              : null
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PROVIDER_HEALTH_CHECK_FAILED", String(error?.message || error), rid));
       }
     }
 

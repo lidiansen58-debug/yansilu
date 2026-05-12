@@ -61,6 +61,17 @@ export async function saveAiProviderConfig(payload = {}) {
   return json.item || null;
 }
 
+export async function checkAiProviderHealth(providerId, payload = {}) {
+  const cleanProviderId = String(providerId || "").trim();
+  if (!cleanProviderId) throw new Error("providerId is required");
+  const json = await request(`/api/v1/ai/provider-configs/${encodeURIComponent(cleanProviderId)}/health-check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function previewAiRoute(payload = {}) {
   const json = await request("/api/v1/ai/route-preview", {
     method: "POST",

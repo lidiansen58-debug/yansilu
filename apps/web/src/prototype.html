@@ -6706,9 +6706,13 @@
 
                     <label for="settingsAiProviderEndpointUrl">Provider endpoint（高级）</label>
                     <input id="settingsAiProviderEndpointUrl" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
+
+                    <label for="settingsAiProviderHealthEndpointUrl">健康检查 endpoint（可选）</label>
+                    <input id="settingsAiProviderHealthEndpointUrl" placeholder="留空=使用 Provider endpoint；例如：http://localhost:11434/api/tags" />
                   </div>
                   <div class="settings-stat-row">
                     <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前 Provider 配置</button>
+                    <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
                     <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                   </div>
                   <div class="settings-stat-row" id="settingsAiRouteStats">
