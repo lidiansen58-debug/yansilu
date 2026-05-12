@@ -171,6 +171,19 @@ function settingsWithProviderConfig(settingsInput = {}, providerConfig = null) {
   };
 }
 
+function latestProviderHealth(providerHealthStore = null, providerDescriptor = {}) {
+  if (!providerHealthStore || typeof providerHealthStore.getLatestProviderHealth !== "function") return null;
+  const providerId = cleanText(providerDescriptor.providerId || providerDescriptor.provider_id);
+  if (!providerId) return null;
+  return providerHealthStore.getLatestProviderHealth({ providerId });
+}
+
+function shouldBlockForProviderHealth(health = null, input = {}) {
+  if (!health || cleanText(health.status) !== "down") return false;
+  const trigger = cleanText(input.trigger) || "user_command";
+  return trigger === "scheduled_task" || input.background === true;
+}
+
 export function createAiHarness(options = {}) {
   const registry = options.agentRegistry || createAgentRegistry(options.agentDefinitions);
   const runLog = options.runLog || createInMemoryRunLog();
@@ -185,6 +198,7 @@ export function createAiHarness(options = {}) {
   const contextPackStore = options.contextPackStore || null;
   const aiPreferencesStore = options.aiPreferencesStore || null;
   const providerConfigStore = options.providerConfigStore || null;
+  const providerHealthStore = options.providerHealthStore || null;
 
   return {
     registry,
@@ -202,6 +216,7 @@ export function createAiHarness(options = {}) {
     contextPackStore,
     aiPreferencesStore,
     providerConfigStore,
+    providerHealthStore,
     async runTask(input = {}) {
       const taskId = cleanText(input.taskId || input.task_id) || generatedId("task");
       const agentId = cleanText(input.agentId || input.agent_id) || "reflection_agent";
@@ -259,6 +274,27 @@ export function createAiHarness(options = {}) {
               secretRefConfigured: Boolean(providerConfig.secretRef)
             }
           });
+        }
+        const providerHealth = latestProviderHealth(providerHealthStore, providerAdapter.descriptor);
+        if (providerHealth) {
+          runLog.addEvent(run.agentRunId, {
+            eventType: "provider_health_observed",
+            status: providerHealth.status,
+            summary: {
+              providerId: providerAdapter.descriptor.providerId,
+              status: providerHealth.status,
+              checkedAt: providerHealth.checkedAt,
+              latencyMs: providerHealth.latencyMs,
+              errorType: providerHealth.errorType,
+              retryable: providerHealth.retryable === true
+            }
+          });
+        }
+        if (shouldBlockForProviderHealth(providerHealth, input)) {
+          const error = new Error("Provider health is down; scheduled/background run skipped before model call.");
+          error.code = "AI_PROVIDER_HEALTH_BLOCKED";
+          error.runStatus = "skipped";
+          throw error;
         }
         if (storedPreferences) {
           runLog.addEvent(run.agentRunId, {

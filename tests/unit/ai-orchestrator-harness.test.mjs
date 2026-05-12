@@ -12,6 +12,7 @@ import {
   createCoreNoteTools,
   createInMemoryAiPreferencesStore,
   createInMemoryAiProviderConfigStore,
+  createInMemoryProviderHealthStore,
   createInMemoryArtifactStore,
   createAgentRuntimeRequest,
   createRuntimeToolBridge,
@@ -1081,6 +1082,39 @@ test("harness blocks runs that exceed remaining monthly budget", async () => {
   assert.equal(budgetEvent.status, "blocked");
   assert.equal(budgetEvent.summary.reasons[0], "monthly_budget_exceeded");
   assert.equal(guardrailEvent.error.errorType, "AI_BUDGET_EXCEEDED");
+});
+
+test("harness blocks scheduled runs when latest provider health is down", async () => {
+  const provider = createMockProviderAdapter();
+  const providerHealthStore = createInMemoryProviderHealthStore({
+    records: [
+      {
+        id: "health_mock_down",
+        providerId: "mock_provider",
+        status: "down",
+        checkedAt: "2026-05-12T01:00:00.000Z",
+        errorType: "provider_unavailable"
+      }
+    ]
+  });
+  const harness = createAiHarness({ providerAdapter: provider, providerHealthStore });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_health_blocked",
+    trigger: "scheduled_task",
+    currentNote: {
+      id: "note_provider_health_blocked",
+      title: "Provider health blocked note",
+      body: "Provider health blocked note\n\nA down provider should stop scheduled work before model calls."
+    }
+  });
+  const healthEvent = result.run.events.find((event) => event.eventType === "provider_health_observed");
+
+  assert.equal(result.run.status, "skipped");
+  assert.equal(result.run.error.errorType, "AI_PROVIDER_HEALTH_BLOCKED");
+  assert.equal(provider.callCount, 0);
+  assert.equal(healthEvent.status, "down");
+  assert.equal(healthEvent.summary.errorType, "provider_unavailable");
 });
 
 test("harness can run a simple model pack selection through provider presets", async () => {
