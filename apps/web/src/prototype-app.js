@@ -2422,9 +2422,22 @@ function renderAiRoutePreview() {
   const provider = preview.provider || {};
   const route = preview.route || {};
   const access = preview.access || {};
+  const health = preview.health || {};
+  const healthStatus = String(health.status || "unknown").trim() || "unknown";
+  const healthLabels = {
+    healthy: "健康",
+    degraded: "降级",
+    down: "不可用",
+    unknown: "未检测"
+  };
+  const healthTone = healthStatus === "healthy" ? "ok" : healthStatus === "unknown" ? "" : "warn";
+  const healthDetail = healthStatus === "unknown"
+    ? "Provider 健康：尚未测试连接"
+    : `Provider 健康：${healthLabels[healthStatus] || healthStatus}${health.latencyMs ? ` / ${health.latencyMs}ms` : ""}`;
   stats.innerHTML = [
     `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
     `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "可直接使用" : "需要配置 Key"}</span>`,
+    `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
   ].join("");
   detail.innerHTML = `
@@ -2432,6 +2445,7 @@ function renderAiRoutePreview() {
     <div>模型包：${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")}</div>
     <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
+    <div>${escapeHtml(healthDetail)}</div>
     <div>${escapeHtml(access.message || "")}</div>
   `;
 }

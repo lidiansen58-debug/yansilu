@@ -184,6 +184,27 @@ function providerConfigWithRunnableHealthCheck(config = {}, input = {}) {
   };
 }
 
+function providerHealthPreview(record = null) {
+  if (!record) {
+    return {
+      status: "unknown",
+      checkedAt: "",
+      latencyMs: 0,
+      message: "No provider health check has run yet.",
+      errorType: "",
+      retryable: false
+    };
+  }
+  return {
+    status: cleanText(record.status) || "unknown",
+    checkedAt: cleanText(record.checkedAt || record.checked_at),
+    latencyMs: Number(record.latencyMs || record.latency_ms || 0),
+    message: cleanText(record.message),
+    errorType: cleanText(record.errorType || record.error_type),
+    retryable: record.retryable === true
+  };
+}
+
 async function buildAiRoutePreview(input = {}) {
   await initVault(VAULT_PATH);
   const store = await aiPreferencesStore();
@@ -247,6 +268,8 @@ async function buildAiRoutePreview(input = {}) {
     },
     modelRef
   });
+  const healthStore = await aiProviderHealthStore();
+  const latestProviderHealth = healthStore.getLatestProviderHealth({ providerId: providerDescriptor.providerId });
 
   return {
     userMode: route.userMode,
@@ -275,7 +298,8 @@ async function buildAiRoutePreview(input = {}) {
     },
     access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode, {
       secretRef: providerDescriptor.secretRef || settingsInput.secretRef
-    })
+    }),
+    health: providerHealthPreview(latestProviderHealth)
   };
 }
 

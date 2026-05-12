@@ -222,6 +222,14 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(localHealth.json.item.record.status, "healthy");
   assert.equal(localHealth.json.item.record.payload.endpointUrl, `${healthProbe.baseUrl}/health`);
 
+  const localHealthPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    userMode: "Local / Private",
+    modelPack: "Privacy First"
+  });
+  assert.equal(localHealthPreview.status, 200, JSON.stringify(localHealthPreview.json));
+  assert.equal(localHealthPreview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(localHealthPreview.json.item.health.status, "healthy");
+
   const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
     userMode: "Local / Private",
     modelPack: "Privacy First",
