@@ -73,7 +73,14 @@ const LITERATURE_SECTION_LABELS = {
   originalText: "原文",
   paraphrase: "转述",
   whyKeep: "保留原因",
-  supportsJudgment: "支持判断"
+  supportsJudgment: "判断种子",
+  question: "追问",
+  boundary: "边界 / 反例"
+};
+
+const LITERATURE_SECTION_ALIASES = {
+  supportsJudgment: ["支持判断"],
+  boundary: ["边界/反例", "边界与反例", "不适用范围"]
 };
 
 const LITERATURE_CITATION_FIELD_LABELS = {
@@ -167,16 +174,29 @@ function stripMarkdownTitle(body = "") {
   return lines.slice(1).join("\n").replace(/^\n+/, "");
 }
 
-function extractLiteratureSection(body = "", label = "") {
+function literatureSectionLabelsFor(key = "") {
+  const primary = LITERATURE_SECTION_LABELS[key];
+  return [...new Set([primary, ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
+}
+
+function allLiteratureSectionLabels() {
+  return Object.keys(LITERATURE_SECTION_LABELS).flatMap((key) => literatureSectionLabelsFor(key));
+}
+
+function extractLiteratureSection(body = "", labels = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
-  const headingRegex = new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*\\n`, "m");
-  const match = headingRegex.exec(text);
-  if (!match) return "";
-  const start = match.index + match[0].length;
-  const rest = text.slice(start);
-  const nextHeading = /\n##\s+[^\n]+\s*\n/m.exec(rest);
-  const section = nextHeading ? rest.slice(0, nextHeading.index) : rest;
-  return section.replace(/^\n+|\n+$/g, "");
+  const candidates = Array.isArray(labels) ? labels : [labels];
+  for (const label of candidates.filter(Boolean)) {
+    const headingRegex = new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*\\n`, "m");
+    const match = headingRegex.exec(text);
+    if (!match) continue;
+    const start = match.index + match[0].length;
+    const rest = text.slice(start);
+    const nextHeading = /\n##\s+[^\n]+\s*\n/m.exec(rest);
+    const section = nextHeading ? rest.slice(0, nextHeading.index) : rest;
+    return section.replace(/^\n+|\n+$/g, "");
+  }
+  return "";
 }
 
 function emptyLiteratureCitationFields() {
@@ -218,20 +238,22 @@ function literatureCitationState(citation = {}) {
 export function parseLiteratureWorkspace(body = "") {
   const title = titleFromBody(body);
   const content = stripMarkdownTitle(body);
-  const structured = Object.values(LITERATURE_SECTION_LABELS).some((label) =>
+  const structured = allLiteratureSectionLabels().some((label) =>
     new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
   );
   const citation = structured
-    ? parseLiteratureCitationFields(extractLiteratureSection(content, LITERATURE_SECTION_LABELS.citation))
+    ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation")))
     : emptyLiteratureCitationFields();
-  const originalText = structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.originalText) : content.trim();
+  const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText")) : content.trim();
   return {
     title,
     citation,
     originalText,
-    paraphrase: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.paraphrase) : "",
-    whyKeep: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.whyKeep) : "",
-    supportsJudgment: structured ? extractLiteratureSection(content, LITERATURE_SECTION_LABELS.supportsJudgment) : ""
+    paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase")) : "",
+    whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep")) : "",
+    supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment")) : "",
+    question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question")) : "",
+    boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary")) : ""
   };
 }
 
@@ -242,6 +264,8 @@ function composeLiteratureWorkspace(fields = {}) {
   const paraphrase = normalizeFieldText(fields.paraphrase);
   const whyKeep = normalizeFieldText(fields.whyKeep);
   const supportsJudgment = normalizeFieldText(fields.supportsJudgment);
+  const question = normalizeFieldText(fields.question);
+  const boundary = normalizeFieldText(fields.boundary);
   return [
     `# ${title}`,
     "",
@@ -257,13 +281,21 @@ function composeLiteratureWorkspace(fields = {}) {
     "",
     paraphrase,
     "",
-    `## ${LITERATURE_SECTION_LABELS.whyKeep}`,
-    "",
-    whyKeep,
-    "",
     `## ${LITERATURE_SECTION_LABELS.supportsJudgment}`,
     "",
     supportsJudgment,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.question}`,
+    "",
+    question,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.boundary}`,
+    "",
+    boundary,
+    "",
+    `## ${LITERATURE_SECTION_LABELS.whyKeep}`,
+    "",
+    whyKeep,
     ""
   ].join("\n");
 }
@@ -1329,30 +1361,60 @@ export class EditorPane {
       originalText: this.els.literatureOriginal?.value || "",
       paraphrase: this.els.literatureParaphrase?.value || "",
       whyKeep: this.els.literatureWhyKeep?.value || "",
-      supportsJudgment: this.els.literatureSupportsJudgment?.value || ""
+      supportsJudgment: this.els.literatureSupportsJudgment?.value || "",
+      question: this.els.literatureQuestion?.value || "",
+      boundary: this.els.literatureBoundary?.value || ""
     };
   }
 
   literatureCompletionState(note = this.activeNote()) {
     const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
+    const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
+    const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
+    const hasQuestion = Boolean(normalizeFieldText(fields.question));
+    const readyForOriginal = hasOriginalText && hasParaphrase && (hasJudgmentSeed || hasQuestion);
+    const generatedOriginal = this.hasGeneratedOriginal(note);
     const citation = literatureCitationState(fields.citation);
-    const ready = hasParaphrase && citation.complete;
+    const ready = hasOriginalText && hasParaphrase && citation.complete;
     const status = ready && String(note?.status || "").trim() === "active" ? "active" : "draft";
     const missingCitationText = citation.missingLabels.length ? `缺少引用信息：${citation.missingLabels.join("、")}` : "";
+    let label = "待转述";
+    let tone = "draft";
+    let hint = "先写出你自己的转述，再提炼它可能长出的原创判断。";
+    if (generatedOriginal) {
+      label = "已转原创";
+      tone = "active";
+      hint = "这条文献已经作为证据长出原创笔记，可以回到原创笔记继续建立关联。";
+    } else if (!citation.complete || !hasOriginalText) {
+      label = "待补来源";
+      tone = "draft";
+      hint = missingCitationText || "先补齐来源信息和原文摘录，避免材料脱离证据链。";
+    } else if (!hasParaphrase) {
+      label = "待转述";
+      tone = "draft";
+      hint = "先用自己的话说明这段材料真正表达了什么。";
+    } else if (!readyForOriginal) {
+      label = "待提炼判断";
+      tone = "refine";
+      hint = "已经有转述，下一步写出判断种子或追问，让材料能进入原创笔记。";
+    } else {
+      label = "可转原创";
+      tone = "active";
+      hint = "这条材料已经具备转为原创笔记的条件。";
+    }
     return {
       status,
       hasParaphrase,
+      hasOriginalText,
+      hasJudgmentSeed,
+      hasQuestion,
+      readyForOriginal,
       hasCitationMetadata: citation.complete,
       missingCitationFields: citation.missingLabels,
-      label: ready && status === "active" ? "已完成" : "待完成",
-      hint: ready
-        ? status === "active"
-          ? "原文与转述已配对整理。"
-          : "已写转述，点击完成即可将文献笔记标为已完成。"
-        : hasParaphrase
-          ? `${missingCitationText}。补齐后才能用于参考引用。`
-          : "先写出你自己的转述，并补齐引用信息。"
+      label,
+      tone,
+      hint
     };
   }
 
@@ -1375,22 +1437,38 @@ export class EditorPane {
   literatureQueueRecord(note) {
     const fields = parseLiteratureWorkspace(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
+    const citation = literatureCitationState(fields.citation);
+    const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
     const hasWhyKeep = Boolean(normalizeFieldText(fields.whyKeep));
     const hasSupportsJudgment = Boolean(normalizeFieldText(fields.supportsJudgment));
+    const hasQuestion = Boolean(normalizeFieldText(fields.question));
+    const hasGenerated = this.hasGeneratedOriginal(note);
     let lane = "ready";
     let label = "可转原创";
     let tone = "active";
-    let noteText = "转述、保留理由和支持判断都已具备，可以继续提炼为原创笔记。";
-    if (!hasParaphrase) {
+    let noteText = "转述和判断种子已经具备，可以继续转为原创笔记。";
+    if (hasGenerated) {
+      lane = "ready";
+      label = "已转原创";
+      tone = "active";
+      noteText = "这条文献已经长出原创笔记，现在作为证据保留。";
+    } else if (!citation.complete || !hasOriginalText) {
+      lane = "refine";
+      label = "待补来源";
+      tone = "draft";
+      noteText = "先补齐来源信息和原文摘录，后续原创笔记才能保留证据链。";
+    } else if (!hasParaphrase) {
       lane = "pending";
       label = "待转述";
       tone = "draft";
       noteText = "先把原文改写成你自己的判断表达，再决定它是否值得留下。";
-    } else if (!hasWhyKeep || !hasSupportsJudgment) {
+    } else if (!hasSupportsJudgment && !hasQuestion) {
       lane = "refine";
-      label = "待提炼";
+      label = "待提炼判断";
       tone = "refine";
-      noteText = "已经有转述，但还需要说明为什么保留它，以及它未来支持什么判断。";
+      noteText = "已经有转述，下一步写出判断种子或追问，让它能转为原创笔记。";
+    } else if (!hasWhyKeep) {
+      noteText = "已经可转原创；补一句保留原因能帮助以后判断这条证据为什么重要。";
     }
     const excerpt = normalizeFieldText(fields.paraphrase || fields.originalText || "");
     return {
@@ -1562,6 +1640,8 @@ export class EditorPane {
       if (this.els.literatureParaphrase) this.els.literatureParaphrase.value = parsed.paraphrase || "";
       if (this.els.literatureWhyKeep) this.els.literatureWhyKeep.value = parsed.whyKeep || "";
       if (this.els.literatureSupportsJudgment) this.els.literatureSupportsJudgment.value = parsed.supportsJudgment || "";
+      if (this.els.literatureQuestion) this.els.literatureQuestion.value = parsed.question || "";
+      if (this.els.literatureBoundary) this.els.literatureBoundary.value = parsed.boundary || "";
     } finally {
       this.suppressLiteratureWorkspaceChange = false;
     }
@@ -5434,14 +5514,23 @@ export class EditorPane {
       }
       const sourceBody = this.getEditorValue();
       const literatureFields = this.isLiteratureNote(note) ? parseLiteratureWorkspace(sourceBody) : null;
-      if (literatureFields && !normalizeFieldText(literatureFields.paraphrase)) {
-        this.onStatus("先写出自己的转述，再记录原创笔记", "warn");
-        return;
-      }
       if (literatureFields) {
+        const completion = this.literatureCompletionState({ ...note, body: sourceBody });
+        if (!completion.hasOriginalText) {
+          this.onStatus("先补上原文摘录，再记录原创笔记", "warn");
+          return;
+        }
+        if (!completion.hasParaphrase) {
+          this.onStatus("先写出自己的转述，再记录原创笔记", "warn");
+          return;
+        }
         const citation = literatureCitationState(literatureFields.citation);
         if (!citation.complete) {
           this.onStatus(`先补齐引用信息：${citation.missingLabels.join("、")}`, "warn");
+          return;
+        }
+        if (!completion.readyForOriginal) {
+          this.onStatus("先写出判断种子或追问，再记录原创笔记", "warn");
           return;
         }
       }
@@ -5456,7 +5545,9 @@ export class EditorPane {
               originalText: literatureFields.originalText,
               paraphrase: literatureFields.paraphrase,
               whyKeep: literatureFields.whyKeep,
-              supportsJudgment: literatureFields.supportsJudgment
+              supportsJudgment: literatureFields.supportsJudgment,
+              question: literatureFields.question,
+              boundary: literatureFields.boundary
             }
           : {})
       });
@@ -5491,7 +5582,7 @@ export class EditorPane {
           return;
         }
         if (record.lane !== "ready") {
-          this.onStatus("这条文献笔记还没准备好进入原创笔记，请先补齐转述、保留理由和支持判断", "warn");
+          this.onStatus("这条文献笔记还没准备好进入原创笔记，请先补齐来源、转述、判断种子或追问", "warn");
           return;
         }
         void this.onStateChange("record-original-from-note", {
@@ -5499,10 +5590,13 @@ export class EditorPane {
           sourceTitle: record.note.title || "",
           sourceType: record.note.noteType || "literature",
           sourceBody: record.note.body || "",
+          citation: record.fields.citation || {},
           originalText: record.fields.originalText || "",
           paraphrase: record.fields.paraphrase || "",
           whyKeep: record.fields.whyKeep || "",
-          supportsJudgment: record.fields.supportsJudgment || ""
+          supportsJudgment: record.fields.supportsJudgment || "",
+          question: record.fields.question || "",
+          boundary: record.fields.boundary || ""
         });
         return;
       }
@@ -5520,7 +5614,9 @@ export class EditorPane {
       this.els.literatureOriginal,
       this.els.literatureParaphrase,
       this.els.literatureWhyKeep,
-      this.els.literatureSupportsJudgment
+      this.els.literatureSupportsJudgment,
+      this.els.literatureQuestion,
+      this.els.literatureBoundary
     ]) {
       field?.addEventListener("input", () => {
         if (!this.isLiteratureWorkspaceActive()) return;
@@ -5855,6 +5951,12 @@ export class EditorPane {
         const message = reflectionQuestionsHint("文献笔记还不能标记完成。");
         this.setSaveUiState("blocked", message);
         this.onStatus("文献笔记缺少转述，不能标记为已完成", "warn");
+        return;
+      }
+      if (markLiteratureComplete && !completion.hasOriginalText) {
+        const message = reflectionQuestionsHint("文献笔记还不能标记完成。");
+        this.setSaveUiState("blocked", message);
+        this.onStatus("文献笔记缺少原文摘录，不能标记为已完成", "warn");
         return;
       }
       if (markLiteratureComplete && !completion.hasCitationMetadata) {

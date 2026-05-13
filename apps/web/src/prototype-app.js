@@ -1163,13 +1163,22 @@ function importHistoryRecordById(importRecordId = "") {
   return importState.historyItems.find((item) => String(item?.importRecordId || "").trim() === id) || null;
 }
 
+const REQUIRED_LITERATURE_QUEUE_CITATION_FIELDS = ["sourceTitle", "authors", "year", "locator", "identifier"];
+
+function hasRequiredLiteratureCitation(citation = {}) {
+  return REQUIRED_LITERATURE_QUEUE_CITATION_FIELDS.every((key) => Boolean(normalizeFieldText(citation?.[key])));
+}
+
 function literatureQueueLaneForNote(note) {
   const fields = parseLiteratureWorkspace(note?.body || "");
   const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
-  const hasWhyKeep = Boolean(normalizeFieldText(fields.whyKeep));
-  const hasSupportsJudgment = Boolean(normalizeFieldText(fields.supportsJudgment));
+  const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
+  const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
+  const hasQuestion = Boolean(normalizeFieldText(fields.question));
+  const hasSource = hasOriginalText && hasRequiredLiteratureCitation(fields.citation);
+  if (!hasSource) return "refine";
   if (!hasParaphrase) return "pending";
-  if (!hasWhyKeep || !hasSupportsJudgment) return "refine";
+  if (!hasJudgmentSeed && !hasQuestion) return "refine";
   return "ready";
 }
 
@@ -1741,30 +1750,39 @@ function originalDraftBodyFromSource(payload = {}) {
     const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
     const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
     const supportsJudgment = String(payload.supportsJudgment || parsed.supportsJudgment || "").trim();
+    const question = String(payload.question || parsed.question || "").trim();
+    const boundary = String(payload.boundary || parsed.boundary || "").trim();
     const originalText = String(payload.originalText || parsed.originalText || "").trim();
     const citation = payload.citation && typeof payload.citation === "object" ? payload.citation : parsed.citation;
-    const titleSeed = sourceTitle === "未命名文献笔记" ? titleFromSeedText(citation?.sourceTitle || claim || originalText, "未命名原创笔记") : sourceTitle;
+    const titleSeed =
+      sourceTitle === "未命名文献笔记"
+        ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名原创笔记")
+        : sourceTitle;
     return [
       `# ${titleSeed}`,
       "",
       "## 核心观点",
       "",
-      "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+      supportsJudgment
+        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
+        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
       "",
       "## 为什么成立",
       "",
-      "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
+      question
+        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
+        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
       "",
       "## 边界 / 反例",
       "",
-      "",
+      boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "",
       "## 证据来源",
       "",
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
       ...citationSummaryLines(citation),
       claim ? "- 已有用户转述：见来源文献笔记，不在原创草稿中直接复制。" : "",
-      whyKeep || supportsJudgment || originalText ? "- 证据、保留原因与原文摘录请回到来源文献笔记核对。" : "",
+      whyKeep || supportsJudgment || question || boundary || originalText ? "- 证据、判断种子、追问、边界与原文摘录请回到来源文献笔记核对。" : "",
       ""
     ]
       .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
@@ -2392,10 +2410,16 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
     "## 转述",
     "",
     "",
+    "## 判断种子",
+    "",
+    "",
+    "## 追问",
+    "",
+    "",
+    "## 边界 / 反例",
+    "",
+    "",
     "## 保留原因",
-    "",
-    "",
-    "## 支持判断",
     "",
     ""
   ].join("\n");
@@ -4429,6 +4453,8 @@ const editor = new EditorPane({
     literatureParaphrase: $("literatureParaphraseInput"),
     literatureWhyKeep: $("literatureWhyKeepInput"),
     literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
+    literatureQuestion: $("literatureQuestionInput"),
+    literatureBoundary: $("literatureBoundaryInput"),
     literatureCompletionBadge: $("literatureCompletionBadge"),
     literatureCompletionHint: $("literatureCompletionHint"),
     literatureQueueNote: $("literatureQueueNote"),

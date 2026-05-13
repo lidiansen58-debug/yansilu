@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
   formatMarkdownLinkDestination,
+  parseLiteratureWorkspace,
   parseMarkdownLinkSyntax,
   renderMarkdownPreview
 } from "../../apps/web/src/components-editor-pane.js";
@@ -71,4 +72,70 @@ test("renderMarkdownPreview resolves angle-wrapped vault image destinations", ()
   assert.match(html, /preview-image-asset/);
   assert.match(html, /assets%2Fimages%2Fpn_1%2F/);
   assert.doesNotMatch(html, /preview-attachment-block/);
+});
+
+test("parseLiteratureWorkspace reads judgment seed, question, and boundary sections", () => {
+  const parsed = parseLiteratureWorkspace(`# 文献 A
+
+## 引用信息
+
+- 标题：Source
+- 作者：Author
+- 年份：2026
+- 页码 / 定位：p. 7
+- DOI / ISBN / arXiv / URL / PDF：doi:10/example
+
+## 原文
+
+原文摘录
+
+## 转述
+
+用户转述
+
+## 判断种子
+
+一个可继续发展的判断
+
+## 追问
+
+还需要验证什么？
+
+## 边界 / 反例
+
+不适用的条件
+
+## 保留原因
+
+为什么保留
+`);
+
+  assert.equal(parsed.supportsJudgment, "一个可继续发展的判断");
+  assert.equal(parsed.question, "还需要验证什么？");
+  assert.equal(parsed.boundary, "不适用的条件");
+  assert.equal(parsed.whyKeep, "为什么保留");
+});
+
+test("parseLiteratureWorkspace keeps backward-compatible literature headings", () => {
+  const parsed = parseLiteratureWorkspace(`# 文献 B
+
+## 原文
+
+旧原文
+
+## 转述
+
+旧转述
+
+## 支持判断
+
+旧判断
+
+## 边界与反例
+
+旧边界
+`);
+
+  assert.equal(parsed.supportsJudgment, "旧判断");
+  assert.equal(parsed.boundary, "旧边界");
 });
