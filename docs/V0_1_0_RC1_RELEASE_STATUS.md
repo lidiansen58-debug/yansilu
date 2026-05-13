@@ -12,26 +12,27 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Local branch: `main`
 - Remote baseline: `origin/main`
-- App source commit used for the rebuilt installer: `1d9ff2b test(marketing): assert auth route structure`
+- App source commit used for the rebuilt installer: `b3da8ce fix(editor): stabilize MVP toolbar and inline pickers`
 - Version: `0.1.0`
 - CI state: local release-gate verification passed against the current app code; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,805,709` bytes
+- Size: `3,818,980` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `9956433D07A2CF28391E78F81A51F9BF9B0E74C63576266FB85FF1ED85C28290`
+- SHA-256: `B4A6B11A0BAC93F209A25E8191C3D1D8B9C5A98EDCB058F6F2114C6DE380A030`
 
 ## Completed Verification
 
 - `npm.cmd run mvp:check` passed on 2026-05-11 against the current release candidate working tree with `161 pass / 0 fail / 59 skipped` in the core suite, plus smoke e2e, Browser MVP e2e, desktop dev preflight, and desktop bundle preflight.
 - `npm.cmd run test:e2e:browser:mvp` passed through note, Vault, import, export, graph, and explorer move/delete browser paths.
-- Full browser E2E passed with `59 pass / 0 fail` after the editor helper and wrapped asset-link fixes.
+- Full browser E2E passed with `59 pass / 0 fail` after the editor helper, wrapped asset-link, toolbar, and inline picker fixes.
 - Marketing route coverage passed for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, static asset proxy HTML refusal, and auth/billing DOM hooks.
 - Targeted browser E2E passed for default WYSIWYG note mode and source-mode toggling without the Markdown preview panel.
 - Targeted browser E2E passed for uploaded image preview with Chinese/spaced filenames and editor helper dismiss/mute behavior.
+- Targeted browser E2E passed for inline wikilink and tag picker insertion after multiline editing.
 - Unit coverage confirms packaged desktop API placeholder `__API_BASE__` falls back to `http://localhost:3000`.
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
@@ -71,7 +72,7 @@ The API-backed portion of this checklist has passed against the same `localhost:
 - The Windows installer is unsigned, so Windows SmartScreen may warn during install or first launch.
 - Local smoke machines that previously installed test builds to temporary directories may need `HKCU\Software\notesprout\研思录` cleared before verifying the fresh default install path; this is installer state, not user Vault content.
 - RC1 still depends on an external local API service (`http://localhost:3000`) and does not yet ship with an embedded backend.
-- Automatic update checks are enabled as best-effort desktop behavior, but production tagged releases still require signing secrets and a populated update feed before updates should be advertised.
+- Automatic update checks are enabled as best-effort desktop behavior, but v0.1.0 tagged bundles keep updater artifacts disabled until signing secrets and a populated update feed are ready.
 - macOS and Linux bundles are CI/build artifacts only until real target-machine smoke tests pass.
 - MSI packaging is not the recommended RC1 path.
 - Users should back up their local Vault before testing.

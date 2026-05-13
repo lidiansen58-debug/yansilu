@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "provider_id",
+    "display_name",
+    "adapter_type",
+    "status",
+    "auth_mode",
+    "secret_ref",
+    "endpoint_url",
+    "headers",
+    "capabilities",
+    "model_map",
+    "runtime_model_map",
+    "health_check",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "provider_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1 },
+    "adapter_type": {
+      "type": "string",
+      "enum": ["direct_provider", "aggregated_gateway", "self_hosted_gateway", "local_gateway"]
+    },
+    "status": { "type": "string", "enum": ["enabled", "disabled", "experimental", "deprecated"] },
+    "auth_mode": {
+      "type": "string",
+      "enum": ["platform_managed", "workspace_managed", "byok_advanced", "local_no_key", "enterprise_secret"]
+    },
+    "secret_ref": { "type": "string" },
+    "endpoint_url": { "type": "string" },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "boolean", "number"] }
+    },
+    "model_map": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "runtime_model_map": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "health_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "endpoint_url", "method", "timeout_ms", "expected_status", "interval_seconds"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "endpoint_url": { "type": "string" },
+        "method": { "type": "string", "enum": ["GET", "POST"] },
+        "timeout_ms": { "type": "number", "minimum": 100 },
+        "expected_status": { "type": "number", "minimum": 100, "maximum": 599 },
+        "interval_seconds": { "type": "number", "minimum": 10 }
+      }
+    },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

@@ -69,7 +69,9 @@ Use the `desktop-bundles` GitHub Actions workflow for early cross-platform test 
 
 For manual `workflow_dispatch` runs, leave `updater_artifacts` unchecked. This produces installable test bundles such as the macOS `.app` / `.dmg` artifacts without requiring a Tauri updater signing key.
 
-For tagged release builds, updater artifacts stay enabled by default and require the `TAURI_SIGNING_PRIVATE_KEY` repository secret.
+For v0.1.0 tagged release builds, updater artifacts stay disabled by default so the workflow can produce installable MVP bundles before the production update feed is live.
+
+Enable `updater_artifacts` only after `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and the update endpoint/feed are ready.
 
 ## Auto Update Recommendation
 

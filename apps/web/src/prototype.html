@@ -264,6 +264,47 @@
       display: inline-grid;
       place-items: center;
     }
+    .mobile-new-note-fab {
+      display: none;
+      position: fixed;
+      left: 62px;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      z-index: 96;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      max-width: calc(100vw - 126px);
+      padding: 0 14px 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      background: linear-gradient(135deg, #0f7d64 0%, #0f6f48 100%);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0;
+      box-shadow: 0 18px 38px rgba(8, 47, 37, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .mobile-new-note-fab svg {
+      width: 17px;
+      height: 17px;
+      flex: 0 0 17px;
+    }
+    .mobile-new-note-fab span {
+      white-space: nowrap;
+    }
+    .mobile-new-note-fab:hover,
+    .mobile-new-note-fab:focus-visible {
+      background: linear-gradient(135deg, #108c70 0%, #0e7a51 100%);
+      outline: none;
+      box-shadow: var(--focus-ring), 0 18px 38px rgba(8, 47, 37, 0.24);
+    }
+    .mobile-new-note-fab.hidden,
+    html.editor-only .mobile-new-note-fab {
+      display: none !important;
+    }
     .filter {
       padding: 12px 12px 10px;
       border-bottom: 1px solid var(--line);
@@ -713,7 +754,7 @@
     }
     .tabs-shell {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 8px;
       min-height: 44px;
@@ -1003,6 +1044,14 @@
     .toolbar-group-structure {
       margin-left: auto;
       padding-right: 0;
+    }
+    .toolbar-group-insert {
+      margin-left: auto;
+      padding: 3px;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+      border-radius: 14px;
+      background: rgba(239, 249, 242, 0.86);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
     }
     .toolbar-group:first-child {
       border-left: 0;
@@ -2516,10 +2565,11 @@
       line-height: 1.6;
     }
     .floating-notice {
-      position: absolute;
-      right: 24px;
-      top: 74px;
-      width: min(360px, calc(100vw - 72px));
+      position: fixed;
+      right: clamp(16px, 3vw, 46px);
+      bottom: 72px;
+      top: auto;
+      width: min(420px, calc(100vw - 32px));
       border: 1px solid rgba(250, 204, 21, 0.42);
       border-radius: 18px;
       background:
@@ -2527,8 +2577,8 @@
         linear-gradient(180deg, rgba(255, 254, 248, 0.98), rgba(255, 250, 235, 0.96));
       box-shadow: 0 18px 40px rgba(146, 64, 14, 0.14);
       padding: 14px 15px 15px;
-      z-index: 60;
-      pointer-events: none;
+      z-index: 130;
+      pointer-events: auto;
     }
     .floating-notice .tb {
       pointer-events: auto;
@@ -4618,6 +4668,14 @@
       gap: 4px;
     }
 
+    .toolbar-group-insert {
+      margin-top: 8px;
+      padding: 6px 0;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+      border-radius: 14px;
+      background: rgba(239, 249, 242, 0.76);
+    }
+
     .toolbar-group:first-child {
       padding-top: 0;
       border-top: 0;
@@ -5865,6 +5923,179 @@
         padding-right: 16px;
       }
     }
+
+    /* UX correction: keep the primary editor actions visible above the editor. */
+    .rail {
+      background:
+        linear-gradient(180deg, rgba(12, 26, 34, 0.98) 0%, rgba(13, 43, 44, 0.96) 62%, rgba(43, 37, 26, 0.96) 100%) !important;
+      border-right-color: rgba(255, 255, 255, 0.12) !important;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.1), 12px 0 30px rgba(10, 20, 26, 0.12) !important;
+    }
+
+    .rail-btn {
+      color: rgba(232, 246, 243, 0.78) !important;
+    }
+
+    .rail-svg {
+      width: 19px;
+      height: 19px;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.16));
+    }
+
+    .rail-btn:hover,
+    .rail-btn:focus-visible {
+      background: rgba(255, 255, 255, 0.11) !important;
+      border-color: rgba(255, 255, 255, 0.18) !important;
+      color: #ffffff !important;
+      outline: none;
+    }
+
+    .rail-btn.active,
+    .quick-entry.current-root {
+      color: #ffffff !important;
+      border-color: rgba(105, 235, 215, 0.42) !important;
+      background: linear-gradient(135deg, rgba(0, 143, 122, 0.42), rgba(188, 134, 44, 0.2)) !important;
+      box-shadow: inset 2px 0 0 rgba(105, 235, 215, 0.86), 0 10px 22px rgba(0, 0, 0, 0.18) !important;
+    }
+
+    #editorWorkspace > .toolbar,
+    .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
+    html.editor-only #editorWorkspace > .toolbar {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      left: auto !important;
+      transform: none !important;
+      z-index: 70 !important;
+      width: auto !important;
+      max-width: min(1040px, calc(100% - 32px)) !important;
+      max-height: none !important;
+      margin: 10px auto 0 !important;
+      padding: 6px !important;
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      overflow: visible !important;
+      border-radius: 16px !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group,
+    #editorWorkspace > .toolbar .toolbar-group:first-child,
+    #editorWorkspace > .toolbar .toolbar-group-structure {
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 0 0 6px !important;
+      border-top: 0 !important;
+      border-left: 1px solid rgba(36, 58, 70, 0.12) !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group:first-child {
+      padding-left: 0 !important;
+      border-left: 0 !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-group-structure {
+      order: -1;
+      padding-left: 0 !important;
+      border-left: 0 !important;
+      padding-right: 6px !important;
+      border-right: 1px solid rgba(36, 58, 70, 0.12) !important;
+    }
+
+    #editorWorkspace > .toolbar .toolbar-segment {
+      width: auto !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+
+    #editorWorkspace > .toolbar .heading-segment,
+    #editorWorkspace > .toolbar .tb,
+    #editorWorkspace > .toolbar .toolbar-segment .tb,
+    #editorWorkspace > .toolbar .tb-icon,
+    #editorWorkspace > .toolbar .tb-label,
+    #editorWorkspace > .toolbar .tb-label.has-icon,
+    #editorWorkspace > .toolbar #btnFocusMode,
+    #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon,
+    #editorWorkspace > .toolbar #btnRunGuard,
+    #editorWorkspace > .toolbar #btnSave {
+      width: 40px !important;
+      min-width: 40px !important;
+      height: 40px !important;
+      padding: 0 !important;
+      border-radius: 12px !important;
+      gap: 0 !important;
+    }
+
+    #editorWorkspace > .toolbar .tb-label.has-icon span,
+    #editorWorkspace > .toolbar #btnFocusMode span,
+    #editorWorkspace > .toolbar .toolbar-group-structure .tb-label.has-icon span {
+      display: none !important;
+    }
+
+    #editorWorkspace > .editor-wrap,
+    .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
+    html.editor-only #editorWorkspace > .editor-wrap {
+      padding: 12px clamp(18px, 4vw, 58px) 22px !important;
+    }
+
+    .panel.floating,
+    .panel.floating.inline-picker {
+      z-index: 120 !important;
+      overflow-y: auto !important;
+      overscroll-behavior: contain;
+    }
+
+    .editor-empty-start {
+      display: none !important;
+    }
+
+    @media (max-width: 920px) {
+      #editorWorkspace > .toolbar,
+      .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
+      html.editor-only #editorWorkspace > .toolbar {
+        max-width: calc(100% - 24px) !important;
+        justify-content: flex-start !important;
+        flex-wrap: nowrap !important;
+        align-content: center !important;
+        padding-inline: 8px !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      #editorWorkspace > .toolbar::-webkit-scrollbar,
+      .app[data-focus-mode="true"] #editorWorkspace > .toolbar::-webkit-scrollbar,
+      html.editor-only #editorWorkspace > .toolbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      #editorWorkspace > .toolbar .toolbar-group,
+      #editorWorkspace > .toolbar .toolbar-group:first-child,
+      #editorWorkspace > .toolbar .toolbar-group-structure {
+        flex: 0 0 auto !important;
+      }
+
+      .mobile-new-note-fab {
+        display: inline-flex;
+      }
+
+      #editorWorkspace > .editor-wrap,
+      .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
+      html.editor-only #editorWorkspace > .editor-wrap {
+        padding: 10px 12px 16px !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -5925,6 +6156,15 @@
         </button>
       </div>
     </aside>
+
+    <button class="mobile-new-note-fab" id="btnMobileNewNote" type="button" title="新建笔记" aria-label="新建笔记">
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span>新建</span>
+    </button>
 
     <aside class="sidebar">
       <div class="vault-head">
@@ -5995,7 +6235,7 @@
             <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
-          <div class="toolbar-group toolbar-group-structure">
+          <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
               <button class="tb tb-label has-icon" id="btnInsertFile" title="插入文件附件" data-tip="插入文件附件" aria-label="插入文件附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.35h5.05l2.95 2.95v6.9a1.45 1.45 0 0 1-1.45 1.45h-6.1A1.45 1.45 0 0 1 3 12.2v-8.4A1.45 1.45 0 0 1 4.45 2.35z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M9.05 2.35v2.4a1 1 0 0 0 1 1h2.4M5.3 9.2h5.35M5.3 11h3.65" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>附件</span></button>
             <button class="tb tb-label has-icon" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联</span></button>
@@ -6115,7 +6355,7 @@
                 <div id="editorHost" class="editor-host" aria-label="Markdown 源码编辑器"></div>
                 <textarea id="editorBody" class="editor-sync-field" aria-hidden="true" tabindex="-1"></textarea>
                 <input id="assetImageInput" type="file" accept="image/*" hidden multiple />
-                <input id="assetFileInput" type="file" accept="*/*" hidden multiple />
+                <input id="assetFileInput" type="file" accept=".pdf,.txt,.md,.markdown,.csv,.json,.log,application/pdf,text/plain,text/markdown,text/csv,application/json" hidden multiple />
               </div>
               <aside class="markdown-preview-col hidden" id="markdownPreviewPanel">
                 <div class="markdown-preview-head">
@@ -6136,6 +6376,7 @@
                 <div class="panel-title">关联线索</div>
                 <div class="panel-note">这里看引用、回链和同标签。</div>
               </div>
+              <button class="tb tb-icon" id="btnHideRelated" type="button" title="收起关联窗口" data-tip="收起关联窗口" aria-label="收起关联窗口">×</button>
             </div>
             <div id="resultArea">打开笔记后，这里会显示相关引用、回链和标签结果。</div>
           </div>
@@ -6547,7 +6788,7 @@
           </div>
           <div class="asset-preview-body" id="assetPreviewBody"></div>
           <div class="asset-preview-foot">
-            <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">在新窗口打开</a>
+            <a class="asset-preview-link" id="assetPreviewOpenLink" href="#" target="_blank" rel="noopener noreferrer">用浏览器打开</a>
           </div>
         </div>
       </div>

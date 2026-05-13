@@ -24,7 +24,8 @@
     "test": "node --test",
     "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",
     "test:e2e:browser:mvp": "node ./scripts/browser-mvp-check.mjs",
-    "test:e2e:browser": "node --test --test-isolation=none ./tests/e2e/prototype-browser.test.mjs",
+    "test:e2e:browser": "node ./scripts/browser-e2e-check.mjs",
+    "test:e2e:browser:file": "node --test --test-isolation=none ./tests/e2e/prototype-browser.test.mjs",
     "wt:create": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-create.ps1",
     "wt:list": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-list.ps1",
     "wt:remove": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-remove.ps1",
@@ -40,7 +41,9 @@
     "playwright": "^1.59.1"
   },
   "dependencies": {
+    "@openai/agents": "^0.11.3",
+    "@toast-ui/editor": "^3.2.2",
     "stripe": "^19.2.0",
-    "@toast-ui/editor": "^3.2.2"
+    "zod": "^4.4.3"
   }
 }

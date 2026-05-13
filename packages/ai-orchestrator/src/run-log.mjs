@@ -31,6 +31,7 @@ export function createInMemoryRunLog() {
         taskType: cleanText(input.taskType || input.task_type) || "reflection",
         status: "running",
         userMode: cleanText(input.userMode || input.user_mode) || "Auto",
+        modelPack: cleanText(input.modelPack || input.model_pack) || "Starter Auto",
         privacyMode: cleanText(input.privacyMode || input.privacy_mode) || "normal",
         providerId: "",
         modelRef: "",

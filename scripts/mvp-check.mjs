@@ -39,7 +39,7 @@ function runStep(label, args, extraEnv = {}) {
   }
 }
 
-runStep("Core tests", ["test"]);
+runStep("Core tests", ["test"], { RUN_BROWSER_E2E: "" });
 runStep("Smoke e2e", ["run", "test:e2e:smoke"]);
 runStep("Browser MVP e2e", ["run", "test:e2e:browser:mvp"]);
 runStep("Desktop dev preflight", ["run", "dev:desktop:check"]);

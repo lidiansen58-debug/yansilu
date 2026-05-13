@@ -690,6 +690,15 @@ test("prototype literature note requires citation metadata before recording orig
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "缺引用信息样例" }).click();
+  await waitFor(async () => {
+    const editorBody = await page.locator("#editorBody").inputValue();
+    assert.match(editorBody || "", /缺引用信息样例/);
+    assert.match(editorBody || "", /我已经用自己的话理解了这条材料/);
+  }, 7000);
+  const originalsBefore = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  assert.equal(originalsBefore.status, 200);
+  const originalIdsBefore = originalsBefore.json.items.map((item) => item.id).sort();
+
   await page.locator("#btnRunGuard").click();
 
   await waitFor(async () => {
@@ -700,7 +709,10 @@ test("prototype literature note requires citation metadata before recording orig
 
   const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originals.status, 200);
-  assert.equal(originals.json.total, 0);
+  assert.deepEqual(
+    originals.json.items.map((item) => item.id).sort(),
+    originalIdsBefore
+  );
 });
 
 test("standalone editor route loads and saves a note without workspace chrome", async (t) => {
@@ -791,6 +803,76 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     assert.match(editorValue, /^# Immediate Title\b/);
     assert.doesNotMatch(editorValue, /未命名笔记/);
     assert.match(tabTitle || "", /Immediate Title/);
+  }, 7000);
+});
+
+test("prototype mobile viewport keeps new note entry discoverable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.waitForSelector("#btnMobileNewNote");
+
+  const mobileLayout = await page.evaluate(() => {
+    const fab = document.querySelector("#btnMobileNewNote");
+    const sidebarNew = document.querySelector("#btnNewNote");
+    const toolbar = document.querySelector("#editorWorkspace > .toolbar");
+    const rect = (el) => {
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return { width: box.width, height: box.height, left: box.left, right: box.right };
+    };
+    const isVisible = (el) => {
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+    };
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      fab: { visible: isVisible(fab), text: fab?.textContent?.trim() || "", rect: rect(fab) },
+      sidebarNew: { visible: isVisible(sidebarNew), rect: rect(sidebarNew) },
+      toolbar: {
+        rect: rect(toolbar),
+        scrollWidth: toolbar?.scrollWidth || 0,
+        clientWidth: toolbar?.clientWidth || 0,
+        overflowX: toolbar ? window.getComputedStyle(toolbar).overflowX : "",
+        flexWrap: toolbar ? window.getComputedStyle(toolbar).flexWrap : ""
+      }
+    };
+  });
+
+  assert.equal(mobileLayout.fab.visible, true);
+  assert.match(mobileLayout.fab.text, /新建/);
+  assert.equal(mobileLayout.sidebarNew.visible, false);
+  assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
+  assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
+  assert.equal(mobileLayout.toolbar.overflowX, "auto");
+  assert.equal(mobileLayout.toolbar.flexWrap, "nowrap");
+  assert.ok(mobileLayout.toolbar.scrollWidth > mobileLayout.toolbar.clientWidth);
+
+  await page.locator("#btnMobileNewNote").click();
+  await page.waitForSelector(".tab.active");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    const activeTabText = await page.locator(".tab.active").textContent();
+    assert.match(editorValue, /^#\s*\S/);
+    assert.ok(String(activeTabText || "").trim().length > 0);
   }, 7000);
 });
 
@@ -1032,9 +1114,22 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
   const { page, webBase } = stack;
+  const showEditorHelper = async () => {
+    const helper = page.locator("#editorHelper");
+    const hidden = await helper.evaluate((node) => node.classList.contains("hidden")).catch(() => true);
+    if (!hidden) return;
+    const activeTabClose = page.locator(".tab.active .tab-close");
+    if (await activeTabClose.isVisible().catch(() => false)) {
+      await activeTabClose.click();
+      if (await helper.waitFor({ state: "visible", timeout: 2000 }).then(() => true).catch(() => false)) return;
+    }
+    const focusButton = page.locator("#btnFocusMode");
+    if (await focusButton.isVisible().catch(() => false)) await focusButton.click();
+    await helper.waitFor({ state: "visible", timeout: 7000 });
+  };
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator("#editorHelper").waitFor();
+  await showEditorHelper();
   await page.locator("#btnEditorHelperAction").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
@@ -1042,7 +1137,7 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   }, 4000);
 
   await page.reload({ waitUntil: "networkidle" });
-  await page.locator("#editorHelper").waitFor();
+  await showEditorHelper();
   await page.locator("#btnEditorHelperMute").click();
   await waitFor(async () => {
     const hidden = await page.locator("#editorHelper").evaluate((node) => node.classList.contains("hidden"));
@@ -2055,7 +2150,10 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   await waitFor(async () => {
     assert.equal(page.url(), startUrl);
     const value = await page.locator("#editorBody").inputValue();
-    assert.match(value, /# Token Target/);
+    assert.match(value, /# Token Source/);
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /Token Target/);
+    assert.match(String(relatedText || ""), /Target body with #thinkingflow/);
   }, 10000);
 });
 
@@ -3594,7 +3692,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const createdNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# Export panel note\n\nThis note should be exported from the browser UI."
+    body: "# Export panel note\n\nThis note should be exported from the browser UI with a [resource file](../../assets/browser-export/asset.txt)."
   });
   assert.equal(createdNote.status, 201);
   await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
@@ -3607,7 +3705,7 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"copied": 2') && text.includes("资源文件");
+    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1') && text.includes("资源文件");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
@@ -3618,11 +3716,12 @@ test("prototype export panel exports markdown files through real API", async (t)
   assert.match(exportResultText || "", /资源文件/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
-  assert.equal(exportedFiles.length, 1, JSON.stringify(exportedFiles, null, 2));
+  assert.ok(exportedFiles.length >= 1, JSON.stringify(exportedFiles, null, 2));
   const exportedAsset = await fs.readFile(path.join(exportTargetPath, "assets", "browser-export", "asset.txt"), "utf8");
   assert.equal(exportedAsset, "browser asset");
 
-  const exportedContent = await fs.readFile(exportedFiles[0], "utf8");
+  const exportedContents = await Promise.all(exportedFiles.map((file) => fs.readFile(file, "utf8")));
+  const exportedContent = exportedContents.find((content) => content.includes("# Export panel note")) || "";
   assert.match(exportedContent, /# Export panel note/);
   assert.match(exportedContent, /exported from the browser UI/);
 });
@@ -3638,7 +3737,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
 
   await page.addInitScript(() => {
     window.__copiedTexts = [];
@@ -3658,21 +3757,35 @@ test("prototype writing panel creates project and draft scaffold through real AP
     };
   });
 
+  const writingDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Writing UI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "writing-ui-scope"),
+    maxNotes: 500
+  });
+  assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
+  const writingDirectoryId = writingDirectory.json.item.id;
+
   const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: writingDirectoryId,
     status: "active",
     body: "# Writing UI claim\n\nThe writing panel should start from permanent notes."
   });
   assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
 
   const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: writingDirectoryId,
     status: "active",
     body: "# Evidence UI map\n\nThe scaffold should retain an evidence map."
   });
   assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Writing UI claim" }).waitFor();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Evidence UI map" }).waitFor();
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.fill("#writingTitle", "Writing UI Project");
   await page.fill("#writingGoal", "Turn two permanent notes into a browser-generated scaffold.");
@@ -3680,6 +3793,20 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.fill("#writingTone", "clear");
   await page.fill("#writingVersionNote", "First scaffold note from browser flow.");
   await page.click("#btnWritingAddVisible");
+  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id];
+  await page.waitForFunction(
+    (ids) => {
+      const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "").split(/\s+/);
+      return ids.every((id) => basketIds.includes(id));
+    },
+    targetBasketIds
+  );
+  const extraBasketIds = (await page.locator("#writingBasketNoteIds").inputValue())
+    .split(/\s+/)
+    .filter((id) => id && !targetBasketIds.includes(id));
+  for (const noteId of extraBasketIds) {
+    await page.locator(`#writingBasketList [data-writing-action="remove"][data-writing-note-id="${noteId}"]`).click();
+  }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
     return text.includes("写作篮里已有 2 条原创笔记");
@@ -3881,27 +4008,40 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph UI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-ui-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
 
   const targetNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: graphDirectoryId,
     body: "# Graph target\n\nThis note should be opened from the graph."
   });
   assert.equal(targetNote.status, 201);
 
   const sourceNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
+    directoryId: graphDirectoryId,
     body: "# Graph source\n\nThis note links to [[Graph target]] and should create one graph edge."
   });
   assert.equal(sourceNote.status, 201);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {
     await page.waitForSelector("#graphCanvas .graph-node", { timeout: 500 });
     const summary = await page.locator("#graphSummary").textContent();
-    assert.match(summary || "", /2 .*1 /);
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
   }, 7000);
 

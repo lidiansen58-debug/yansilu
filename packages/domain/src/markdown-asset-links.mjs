@@ -39,7 +39,7 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
   const toPath = normalizePosixRelativePath(toNoteMarkdownPath);
   if (!body || !fromPath || !toPath || fromPath === toPath) return body;
 
-  return body.replace(/(!?\[[^\]]*?\]\()([^)]+)(\))/g, (fullMatch, prefix, rawTarget, suffix) => {
+  return body.replace(/(!?\[[^\]]*?\]\()(<[^>]+>|[^)]+)(\))/g, (fullMatch, prefix, rawTarget, suffix) => {
     const assetPath = resolveVaultAssetPath(rawTarget, fromPath);
     if (!assetPath) return fullMatch;
     let nextTarget = relativeMarkdownLinkPath(toPath, assetPath);
@@ -47,4 +47,15 @@ export function rewriteVaultAssetLinks(markdownBody, fromNoteMarkdownPath, toNot
     if (wrapped || /\s/.test(nextTarget)) nextTarget = `<${nextTarget}>`;
     return `${prefix}${nextTarget}${suffix}`;
   });
+}
+
+export function findVaultAssetLinks(markdownBody, noteMarkdownPath) {
+  const body = String(markdownBody || "");
+  const matches = new Set();
+  body.replace(/(!?\[[^\]]*?\]\()([^)]+)(\))/g, (_fullMatch, _prefix, rawTarget) => {
+    const assetPath = resolveVaultAssetPath(rawTarget, noteMarkdownPath);
+    if (assetPath) matches.add(assetPath);
+    return "";
+  });
+  return [...matches].sort((a, b) => a.localeCompare(b));
 }

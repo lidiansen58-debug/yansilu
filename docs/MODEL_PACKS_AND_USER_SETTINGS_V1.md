@@ -3,7 +3,7 @@
 > Status: draft UX and settings spec
 > Date: 2026-05-09
 > Workstream: `feat/ai-agent-layer`
-> Related: `MODEL_ROUTING_POLICY_V1.md`, `MODEL_NEUTRALITY_AND_PORTABILITY_PRINCIPLES.md`, `PROVIDER_ADAPTER_INTERFACE_V1.md`
+> Related: `MODEL_ROUTING_POLICY_V1.md`, `MODEL_PACK_CONFIG_CONTRACT_V1.md`, `MODEL_NEUTRALITY_AND_PORTABILITY_PRINCIPLES.md`, `PROVIDER_ADAPTER_INTERFACE_V1.md`
 
 ## 1. Purpose
 
@@ -246,6 +246,8 @@ P2:
 ## 9. Mapping To Model Policy
 
 Settings should compile into policy, not special-case logic.
+
+The implementation-facing config shape is defined in `MODEL_PACK_CONFIG_CONTRACT_V1.md`. This document owns the user experience, while that contract owns field names, validation rules, provider preset shape, and routing examples.
 
 ```json
 {

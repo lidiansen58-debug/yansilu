@@ -10,6 +10,15 @@ async function openByTauri(targetPath) {
   const tauri = tauriGlobal();
   if (!tauri || !targetPath) return false;
 
+  // Prefer a custom command to open local paths in Explorer.
+  // tauri_plugin_opener.openPath has been observed to hang on some CJK paths on Windows.
+  if (typeof tauri?.core?.invoke === "function") {
+    try {
+      await tauri.core.invoke("open_in_explorer", { path: targetPath });
+      return true;
+    } catch {}
+  }
+
   if (typeof tauri?.opener?.revealItemInDir === "function") {
     await tauri.opener.revealItemInDir(targetPath);
     return true;

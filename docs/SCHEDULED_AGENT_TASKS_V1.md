@@ -260,11 +260,36 @@ Post-MVP:
 - Provider health-aware scheduling.
 - User feedback-based task tuning.
 
-## 13. Open Questions
+## 13. Current Implementation Slice
+
+The first implementation slice now covers:
+
+- Normalized scheduled task records.
+- In-memory scheduled task store.
+- SQLite scheduled task store.
+- Due-task listing for active tasks.
+- Pause, resume, delete, and run-state updates.
+- A thin scheduled-task runner that converts due tasks into Agent Harness runs with `trigger: scheduled_task`.
+- Novice-safe templates for weekly link suggestions and reflection reminders.
+- A contract-only weekly research scan template that stays paused until source-reader contracts and Research Agent support are ready.
+- Provider health preflight before scheduled model calls.
+- Scheduled-task skip behavior when the primary provider is down and no allowed fallback exists.
+- Healthy fallback provider selection when policy allows it.
+- Persisted skipped-run reason for later settings/UI explanation.
+- Scheduled-task budget preflight before provider health and harness execution.
+- Run-count, per-run planned cost, and period-spend skip reasons for background tasks.
+- Skipped scheduled runs now create Agent Run Log records with `scheduled_task_preflight` events.
+- Scheduled task records store the skipped run id, status, and reason for later diagnostics.
+
+This slice intentionally does not yet include a real desktop/cloud scheduler, paper/RSS fetching, notification delivery, or adaptive scheduling. Those should be added after core note APIs and source-reading contracts are stable.
+
+## 14. Open Questions
 
 - Should scheduled tasks run when the desktop app is closed?
 - Should cloud-hosted scheduled tasks be available for local-first users?
 - How many scheduled tasks should novice users see at onboarding?
 - Should scheduled tasks be workspace-level, user-level, or project-level?
+
+Provider health-aware skip and fallback behavior is defined in `PROVIDER_HEALTH_AND_FALLBACK_POLICY_V1.md`. Health check execution is defined in `PROVIDER_HEALTH_CHECK_RUNNER_V1.md`.
 - Should sources be fetched before or after model budget checks?
 - How should repeated low-value task outputs reduce future frequency?
