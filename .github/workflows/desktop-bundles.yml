@@ -1,4 +1,4 @@
-name: desktop-bundles
+name: desktop-ci
 
 on:
   workflow_dispatch:
@@ -10,9 +10,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    tags:
-      - "v*"
 
 jobs:
   build:

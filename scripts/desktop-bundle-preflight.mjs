@@ -84,7 +84,11 @@ try {
   logResult("tauri bundle active", bundleOk, bundleActive ? "enabled" : "disabled");
   logResult("tauri bundle icons", iconConfigOk, bundleIcons.join(", ") || "missing");
   logResult("tauri frontendDist", frontendDistOk, frontendDist || "missing");
-  logResult("tauri frontend entry", frontendEntryOk, frontendEntryOk ? EXPECTED_FRONTEND_ENTRY : `missing ${EXPECTED_FRONTEND_ENTRY}`);
+  logResult(
+    "tauri frontend entry",
+    frontendEntryOk,
+    frontendEntryOk ? EXPECTED_FRONTEND_ENTRY : `missing ${EXPECTED_FRONTEND_ENTRY}`
+  );
   logResult(
     "tauri updater artifacts",
     updaterArtifactsOk,
@@ -96,7 +100,15 @@ try {
     updaterPermissionOk ? "updater:default granted" : "missing updater:default"
   );
 
-  overallOk &&= productOk && titleOk && bundleOk && iconConfigOk && frontendDistOk && frontendEntryOk && updaterArtifactsOk && updaterPermissionOk;
+  overallOk &&=
+    productOk &&
+    titleOk &&
+    bundleOk &&
+    iconConfigOk &&
+    frontendDistOk &&
+    frontendEntryOk &&
+    updaterArtifactsOk &&
+    updaterPermissionOk;
 } catch (error) {
   logResult("tauri desktop config parse", false, String(error?.message || error));
   overallOk = false;
@@ -122,7 +134,11 @@ if (pngExists) {
 
 if (cargoOk && rustcOk) {
   const cargoCheck = runCargoCheck(env);
-  logResult("cargo check", cargoCheck.ok, cargoCheck.ok ? "passed" : cargoCheck.detail.split(/\r?\n/).slice(-1)[0] || "failed");
+  logResult(
+    "cargo check",
+    cargoCheck.ok,
+    cargoCheck.ok ? "passed" : cargoCheck.detail.split(/\r?\n/).slice(-1)[0] || "failed"
+  );
   overallOk &&= cargoCheck.ok;
 }
 

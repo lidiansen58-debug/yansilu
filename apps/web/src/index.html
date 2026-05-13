@@ -1,17 +1,18 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Yansilu</title>
-  <script>
-    const target = new URL("./prototype.html", window.location.href);
-    target.search = window.location.search;
-    target.hash = window.location.hash;
-    window.location.replace(target.href);
-  </script>
-</head>
-<body>
-  <a href="./prototype.html">Open Yansilu</a>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>研思录</title>
+    <meta http-equiv="refresh" content="0; url=./prototype.html" />
+    <script>
+      const target = new URL("./prototype.html", window.location.href);
+      target.search = window.location.search;
+      target.hash = window.location.hash;
+      window.location.replace(target.href);
+    </script>
+  </head>
+  <body>
+    <a href="./prototype.html">打开研思录</a>
+  </body>
 </html>
