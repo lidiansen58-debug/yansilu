@@ -2,6 +2,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
 import { getNoteById } from "../../domain/src/index.mjs";
+import { deriveWritingProjectThinkingStatus } from "../../domain/src/thinking-status.mjs";
 
 const GENERATED_BY = "writing-engine:v1";
 
@@ -36,7 +37,7 @@ function parseJsonStringArray(value) {
 }
 
 function mapProjectRow(row, basketNoteIds = []) {
-  return {
+  const project = {
     id: row.id,
     title: row.title,
     goal: row.goal || "",
@@ -51,6 +52,10 @@ function mapProjectRow(row, basketNoteIds = []) {
     status: row.status,
     created_at: row.created_at,
     updated_at: row.updated_at
+  };
+  return {
+    ...project,
+    thinkingStatus: deriveWritingProjectThinkingStatus(project)
   };
 }
 
@@ -81,7 +86,7 @@ function mapScaffoldListRow(row) {
 }
 
 function mapProjectListRow(row) {
-  return {
+  const project = {
     id: row.id,
     title: row.title,
     goal: row.goal || "",
@@ -96,6 +101,10 @@ function mapProjectListRow(row) {
     basket_count: Number(row.basket_count || 0),
     created_at: row.created_at,
     updated_at: row.updated_at
+  };
+  return {
+    ...project,
+    thinkingStatus: deriveWritingProjectThinkingStatus(project)
   };
 }
 
@@ -262,13 +271,17 @@ export async function createWritingProject(vaultPath, input = {}) {
     db.close();
   }
 
-  return {
+  const result = {
     ...project,
     basket_note_ids: basketNoteIds,
     scaffold_id: null,
     draft_note_id: null,
     draft_note: null,
     basket_notes: basketNotes.map(({ body, ...note }) => note)
+  };
+  return {
+    ...result,
+    thinkingStatus: deriveWritingProjectThinkingStatus(result)
   };
 }
 
@@ -467,7 +480,8 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     markdown,
     writing_project: {
       ...project,
-      scaffold_id: scaffold.id
+      scaffold_id: scaffold.id,
+      thinkingStatus: deriveWritingProjectThinkingStatus({ ...project, scaffold_id: scaffold.id })
     },
     basket_notes: basketNotes.map(({ body, ...note }) => note)
   };

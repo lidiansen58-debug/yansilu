@@ -454,6 +454,15 @@
       color: #0f6f44;
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
     }
+    .item-badge-thinking {
+      border-color: rgba(0, 143, 122, 0.22);
+      background: rgba(232, 248, 244, 0.9);
+      color: #075f55;
+      max-width: 86px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .item-badge-root { display: none; }
     .item-badge-note { display: none; }
     .tree-indent {
@@ -3017,6 +3026,12 @@
       color: #64748b;
       word-break: break-word;
     }
+    .writing-thinking-status {
+      min-height: 22px;
+      max-width: 104px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .writing-note-actions {
       display: flex;
       flex-wrap: wrap;
@@ -3104,7 +3119,7 @@
       margin-bottom: 0;
     }
     .md-panel .panel-head.editor-intent {
-      display: none;
+      display: flex;
     }
     .panel-head {
       display: flex;
@@ -3155,6 +3170,49 @@
       font-weight: 700;
       display: inline-flex;
       align-items: center;
+      white-space: nowrap;
+    }
+    .thinking-status-inline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
+      max-width: min(420px, 46vw);
+      color: #486356;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .thinking-status-inline.hidden {
+      display: none;
+    }
+    .thinking-status-chip,
+    .thinking-status-badge {
+      min-height: 24px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 143, 122, 0.24);
+      background: rgba(232, 248, 244, 0.92);
+      color: #075f55;
+      font-size: 11px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .thinking-status-inline[data-tone="ready"] .thinking-status-chip,
+    .thinking-status-badge[data-tone="ready"],
+    .item-badge-thinking[data-severity="ready"] {
+      border-color: rgba(142, 179, 154, 0.92);
+      background: rgba(240, 250, 243, 0.96);
+      color: #0f6f44;
+    }
+    .thinking-status-next {
+      min-width: 0;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
     .panel-head.compact {
@@ -5276,6 +5334,12 @@
     .item-trail {
       display: none;
     }
+    .explorer-item.has-thinking-status .left {
+      width: auto;
+    }
+    .explorer-item.has-thinking-status .item-trail {
+      display: inline-flex;
+    }
 
     .explorer-item {
       border-radius: 12px;
@@ -7115,6 +7179,7 @@
                 <div class="panel-note" id="editorIntentNote">这里不强调更快完成，而强调更清楚地形成观点、边界与连接。</div>
               </div>
               <div class="editor-intent-meta">
+                <div class="thinking-status-inline hidden" id="editorThinkingStatus" aria-live="polite"></div>
                 <span class="intent-pill">低干扰编辑</span>
                 <span class="intent-pill">先理解，再沉淀</span>
               </div>

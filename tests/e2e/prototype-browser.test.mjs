@@ -832,11 +832,13 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   const { page } = stack;
 
   await page.waitForSelector("#btnMobileNewNote");
+  await page.locator("#editorThinkingStatus", { hasText: "待写论点" }).waitFor();
 
   const mobileLayout = await page.evaluate(() => {
     const fab = document.querySelector("#btnMobileNewNote");
     const sidebarNew = document.querySelector("#btnNewNote");
     const toolbar = document.querySelector("#editorWorkspace > .toolbar");
+    const thinkingStatus = document.querySelector("#editorThinkingStatus");
     const rect = (el) => {
       if (!el) return null;
       const box = el.getBoundingClientRect();
@@ -853,6 +855,7 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
       documentWidth: document.documentElement.scrollWidth,
       bodyWidth: document.body.scrollWidth,
       fab: { visible: isVisible(fab), text: fab?.textContent?.trim() || "", rect: rect(fab) },
+      thinkingStatus: { visible: isVisible(thinkingStatus), text: thinkingStatus?.textContent?.trim() || "", rect: rect(thinkingStatus) },
       sidebarNew: { visible: isVisible(sidebarNew), rect: rect(sidebarNew) },
       toolbar: {
         rect: rect(toolbar),
@@ -865,7 +868,9 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   });
 
   assert.equal(mobileLayout.fab.visible, true);
-  assert.match(mobileLayout.fab.text, /新建/);
+  assert.match(mobileLayout.fab.text, /新建|原创/);
+  assert.equal(mobileLayout.thinkingStatus.visible, true);
+  assert.match(mobileLayout.thinkingStatus.text, /待写论点/);
   assert.equal(mobileLayout.sidebarNew.visible, false);
   assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
   assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
@@ -882,6 +887,53 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
     assert.match(editorValue, /^#\s*\S/);
     assert.ok(String(activeTabText || "").trim().length > 0);
   }, 7000);
+});
+
+test("prototype renders thinking status in note tree and editor header", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.locator("#editorThinkingStatus", { hasText: "待写论点" }).waitFor();
+  await page.waitForFunction(() => {
+    const listText = document.querySelector("#listArea")?.textContent || "";
+    return listText.includes("待写论点");
+  });
+
+  const thinkingUi = await page.evaluate(() => {
+    const header = document.querySelector("#editorThinkingStatus");
+    const treeBadge = document.querySelector(".item-badge-thinking");
+    const isVisible = (el) => {
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    };
+    return {
+      headerText: header?.textContent?.trim() || "",
+      headerTone: header?.getAttribute("data-tone") || "",
+      treeBadgeVisible: isVisible(treeBadge),
+      treeBadgeText: treeBadge?.textContent?.trim() || "",
+      treeBadgeStatus: treeBadge?.getAttribute("data-status") || "",
+      treeBadgeTitle: treeBadge?.getAttribute("title") || ""
+    };
+  });
+
+  assert.match(thinkingUi.headerText, /待写论点/);
+  assert.match(thinkingUi.headerText, /写一句话看法/);
+  assert.equal(thinkingUi.headerTone, "next");
+  assert.equal(thinkingUi.treeBadgeVisible, true);
+  assert.match(thinkingUi.treeBadgeText, /待写论点/);
+  assert.equal(thinkingUi.treeBadgeStatus, "needs_thesis");
+  assert.match(thinkingUi.treeBadgeTitle, /写一句话看法/);
 });
 
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
@@ -2035,6 +2087,107 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   const betaAfterSave = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(betaNote.id)}`);
   assert.equal(betaAfterSave.status, 200);
   assert.doesNotMatch(betaAfterSave.json.item.body, /Unsaved alpha appendix/);
+});
+
+test("prototype tab switch syncs the left navigation to the active note location", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const childDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Tab Sync Child",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "tab-sync-child"),
+    maxNotes: 500
+  });
+  assert.equal(childDirectory.status, 201, JSON.stringify(childDirectory.json));
+  const childDirectoryId = childDirectory.json.item.id;
+
+  const originalNote = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: childDirectoryId,
+    body: "# Tab Sync Original Child\n\nThis original note lives below a child card box."
+  });
+  const literatureNote = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    status: "draft",
+    body: "# Tab Sync Literature\n\n## 原文\n\nA quoted source fragment.\n\n## 转述\n\nI restate the source in my own words."
+  });
+  assert.equal(originalNote.status, 201, JSON.stringify(originalNote.json));
+  assert.equal(literatureNote.status, 201, JSON.stringify(literatureNote.json));
+  const originalNoteId = originalNote.json.item.id;
+  const literatureNoteId = literatureNote.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Tab Sync Child" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tab Sync Original Child" }).click();
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Tab Sync Literature" }).click();
+
+  await page.locator("#tabs .tab", { hasText: "Tab Sync Original Child" }).click();
+  await waitFor(async () => {
+    const nav = await page.evaluate(({ childDirectoryId, originalNoteId }) => {
+      const visible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      };
+      const activeFile = document.querySelector('.explorer-item.file-row.active[data-kind="file"]');
+      const childFolder = document.querySelector(`.explorer-item[data-kind="folder"][data-id="${childDirectoryId}"]`);
+      return {
+        quickAction: document.querySelector(".quick-entry.current-root")?.getAttribute("data-action") || "",
+        activeFileId: activeFile?.getAttribute("data-id") || "",
+        activeFileText: activeFile?.textContent || "",
+        childFolderVisible: visible(childFolder),
+        activeFileVisible: visible(activeFile),
+        listText: document.querySelector("#listArea")?.textContent || "",
+        expectedOriginal: originalNoteId
+      };
+    }, { childDirectoryId, originalNoteId });
+    assert.equal(nav.quickAction, "quick-original");
+    assert.equal(nav.activeFileId, originalNoteId);
+    assert.equal(nav.activeFileVisible, true);
+    assert.equal(nav.childFolderVisible, true);
+    assert.match(nav.activeFileText, /Tab Sync Original Child/);
+    assert.match(nav.listText, /Tab Sync Child/);
+  }, 7000);
+
+  await page.locator("#tabs .tab", { hasText: "Tab Sync Literature" }).click();
+  await waitFor(async () => {
+    const nav = await page.evaluate(({ literatureNoteId }) => {
+      const visible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      };
+      const activeFile = document.querySelector('.explorer-item.file-row.active[data-kind="file"]');
+      return {
+        quickAction: document.querySelector(".quick-entry.current-root")?.getAttribute("data-action") || "",
+        activeFileId: activeFile?.getAttribute("data-id") || "",
+        activeFileText: activeFile?.textContent || "",
+        activeFileVisible: visible(activeFile),
+        listText: document.querySelector("#listArea")?.textContent || "",
+        expectedLiterature: literatureNoteId
+      };
+    }, { literatureNoteId });
+    assert.equal(nav.quickAction, "quick-literature");
+    assert.equal(nav.activeFileId, literatureNoteId);
+    assert.equal(nav.activeFileVisible, true);
+    assert.match(nav.activeFileText, /Tab Sync Literature/);
+    assert.match(nav.listText, /Tab Sync Literature/);
+  }, 7000);
 });
 
 test("prototype editor stays editable after opening related panel and switching directories", async (t) => {

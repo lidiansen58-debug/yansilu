@@ -6,6 +6,7 @@ import { writeMarkdownIfAbsent } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
+import { deriveNoteThinkingStatus } from "./thinking-status.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 
 function catalogDbPath(vaultPath) {
@@ -318,6 +319,26 @@ function distillationFieldsFromInput(input = {}, fallbackFrontmatter = {}) {
   };
 }
 
+function inputRequestsConfirmedDistillation(input = {}) {
+  const explicitValue = input.distillationStatus ?? input.distillation_status;
+  return explicitValue !== undefined && normalizeDistillationStatus(explicitValue) === "confirmed";
+}
+
+function assertConfirmedDistillationAllowed(noteType, input = {}, permanentMeta = null) {
+  if (noteType !== "permanent") return;
+  if (!inputRequestsConfirmedDistillation(input)) return;
+  if (permanentMeta?.authorship?.user_confirmed === true) return;
+  throw noteValidationError(
+    "PERMANENT_DISTILLATION_CONFIRMATION_REQUIRED",
+    "Confirmed permanent-note distillation requires explicit user authorship confirmation.",
+    {
+      noteType,
+      requestedDistillationStatus: "confirmed",
+      requirement: "authorshipConfirmed"
+    }
+  );
+}
+
 function permanentMetadataFromFrontmatter(frontmatter = {}) {
   const authorship = normalizeAuthorshipInput(frontmatter.authorship, {
     user_confirmed: frontmatter.user_confirmed,
@@ -416,6 +437,44 @@ function mapNoteRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function attachNoteThinkingStatus(note) {
+  return {
+    ...note,
+    thinkingStatus: deriveNoteThinkingStatus(note)
+  };
+}
+
+async function mapNoteRowsWithThinkingStatus(vaultPath, rows = []) {
+  const root = path.resolve(vaultPath);
+  return Promise.all(
+    rows.map(async (row) => {
+      const note = mapNoteRow(row);
+      if (!["permanent", "literature"].includes(note.noteType)) return attachNoteThinkingStatus(note);
+      try {
+        const markdown = await fs.readFile(path.join(root, row.markdown_path), "utf8");
+        const parsed = parseMarkdownWithFrontmatter(markdown);
+        const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
+        const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
+        return attachNoteThinkingStatus({
+          ...note,
+          body: parsed.body,
+          ...(permanentMeta
+            ? {
+                thesis: permanentMeta.thesis,
+                threeLineSummary: permanentMeta.threeLineSummary,
+                distillationStatus: permanentMeta.distillationStatus,
+                authorship: permanentMeta.authorship
+              }
+            : {}),
+          ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
+        });
+      } catch {
+        return attachNoteThinkingStatus(note);
+      }
+    })
+  );
 }
 
 const NOTE_SEARCH_RANKING_PRIORITY = [
@@ -918,6 +977,7 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
     const noteId = String(input.id || makeNoteId(noteType));
     const boundaryOrCounterpoint = noteType === "permanent" ? boundaryValueFromInput(input) : "";
     const permanentMeta = noteType === "permanent" ? permanentMetadataFromInput(input, {}) : null;
+    assertConfirmedDistillationAllowed(noteType, input, permanentMeta);
     let status = requestedStatus;
     if (noteType === "permanent") {
       const originality = await evaluatePermanentOriginality(db, vaultPath, noteId, normalized.markdownBody);
@@ -984,7 +1044,7 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       throw error;
     }
 
-    return {
+    return attachNoteThinkingStatus({
       id: noteId,
       noteType,
       title: normalized.title,
@@ -1008,7 +1068,7 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {}),
       createdAt: now,
       updatedAt: now
-    };
+    });
   } finally {
     db.close();
   }
@@ -1087,7 +1147,7 @@ export async function listNotesInDirectory(vaultPath, directoryId) {
          ORDER BY n.updated_at DESC`
       )
       .all(id);
-    return rows.map(mapNoteRow);
+    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
   } finally {
     db.close();
   }
@@ -1125,7 +1185,7 @@ export async function listNotesInDirectoryScope(vaultPath, directoryId, options 
              ORDER BY lower(n.title), n.updated_at DESC`
           )
           .all(id);
-    return rows.map(mapNoteRow);
+    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
   } finally {
     db.close();
   }
@@ -1609,7 +1669,7 @@ export async function getNoteById(vaultPath, noteId) {
     const parsed = parseMarkdownWithFrontmatter(markdown);
     const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
     const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
-    return {
+    return attachNoteThinkingStatus({
       ...mapNoteRow(row),
       body: parsed.body,
       markdown,
@@ -1626,7 +1686,7 @@ export async function getNoteById(vaultPath, noteId) {
           }
         : {}),
       ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
-    };
+    });
   } finally {
     db.close();
   }
@@ -1929,6 +1989,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
     assertLiteratureCompletionAllowed(row.note_type, requestedStatus, normalized.markdownBody);
     const now = new Date().toISOString();
     const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromInput(input, preservedFrontmatter) : null;
+    assertConfirmedDistillationAllowed(row.note_type, input, permanentMeta);
     let status = requestedStatus;
     if (row.note_type === "permanent") {
       const originality = await evaluatePermanentOriginality(db, vaultPath, row.id, normalized.markdownBody);
@@ -2046,7 +2107,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
          LIMIT 1`
       )
       .get(row.id);
-    return {
+    return attachNoteThinkingStatus({
       ...mapNoteRow(refreshed),
       body: normalized.markdownBody,
       markdown,
@@ -2063,7 +2124,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
           }
         : {}),
       ...(nextFrontmatter.boundary_or_counterpoint ? { boundaryOrCounterpoint: nextFrontmatter.boundary_or_counterpoint } : {})
-    };
+    });
   } finally {
     db.close();
   }

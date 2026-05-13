@@ -1241,6 +1241,27 @@ function excerptFromBody(body = "", fallbackTitle = "") {
   return content.slice(0, 120);
 }
 
+function normalizedThinkingStatus(value = null) {
+  if (!value || typeof value !== "object") return null;
+  const label = String(value.label || "").trim();
+  const nextAction = String(value.nextAction || "").trim();
+  if (!label && !nextAction) return null;
+  return {
+    status: String(value.status || "").trim(),
+    label,
+    nextAction,
+    targetField: String(value.targetField || "").trim(),
+    severity: String(value.severity || "next").trim() || "next"
+  };
+}
+
+function thinkingStatusTone(thinkingStatus = null) {
+  const severity = String(thinkingStatus?.severity || "").trim().toLowerCase();
+  if (severity === "ready") return "ready";
+  if (String(thinkingStatus?.status || "").startsWith("ready_")) return "ready";
+  return "next";
+}
+
 export class EditorPane {
   constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange }) {
     this.state = state;
@@ -1991,6 +2012,7 @@ export class EditorPane {
   }
 
   renderSaveHint() {
+    this.renderThinkingStatus();
     const tab = this.activeTab();
     if (!tab) {
       if (this.els.statusHint) this.els.statusHint.textContent = "";
@@ -2025,6 +2047,27 @@ export class EditorPane {
     this.renderCompleteButton();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
+  }
+
+  renderThinkingStatus() {
+    const el = this.els.editorThinkingStatus;
+    if (!el) return;
+    const thinkingStatus = normalizedThinkingStatus(this.activeNote()?.thinkingStatus);
+    if (!thinkingStatus) {
+      el.classList.add("hidden");
+      el.innerHTML = "";
+      el.dataset.tone = "";
+      return;
+    }
+    el.classList.remove("hidden");
+    el.dataset.tone = thinkingStatusTone(thinkingStatus);
+    const title = thinkingStatus.nextAction
+      ? `${thinkingStatus.label}：${thinkingStatus.nextAction}`
+      : thinkingStatus.label;
+    el.innerHTML = `
+      <span class="thinking-status-chip" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>
+      ${thinkingStatus.nextAction ? `<span class="thinking-status-next">${escapeHtml(thinkingStatus.nextAction)}</span>` : ""}
+    `;
   }
 
   renderAuthorshipPanel() {
@@ -3947,6 +3990,9 @@ export class EditorPane {
         existing.folderId = item.directoryId || existing.folderId;
         existing.noteType = item.noteType || existing.noteType;
         existing.markdownPath = item.markdownPath || existing.markdownPath;
+        if (Object.prototype.hasOwnProperty.call(item, "thinkingStatus")) {
+          existing.thinkingStatus = item.thinkingStatus || null;
+        }
         if (typeof item.body === "string") {
           existing.body = item.body;
           existing.tags = parseTags(item.body);
@@ -3963,6 +4009,7 @@ export class EditorPane {
         folderId: item.directoryId,
         noteType: item.noteType || "original",
         markdownPath: item.markdownPath || "",
+        thinkingStatus: item.thinkingStatus || null,
         body,
         tags: parseTags(body),
         links: parseLinks(body),
@@ -6023,6 +6070,7 @@ export class EditorPane {
       note.body = savedBody;
       note.markdownPath = saved.markdownPath || note.markdownPath;
       note.status = saved.status || note.status;
+      note.thinkingStatus = saved.thinkingStatus || note.thinkingStatus || null;
       note.tags = parseTags(savedBody);
       note.links = parseLinks(savedBody);
       note.updatedAt = saved.updatedAt || note.updatedAt;
@@ -6043,5 +6091,6 @@ export class EditorPane {
       );
     }
     this.renderTabs();
+    this.renderThinkingStatus();
   }
 }

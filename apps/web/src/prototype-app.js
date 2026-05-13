@@ -1242,6 +1242,36 @@ function normalizeAuthorshipItem(value) {
   };
 }
 
+function normalizeThinkingStatusItem(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const label = String(value.label || "").trim();
+  const nextAction = String(value.nextAction || "").trim();
+  if (!label && !nextAction) return null;
+  return {
+    status: String(value.status || "").trim(),
+    label,
+    nextAction,
+    targetField: String(value.targetField || "").trim(),
+    severity: String(value.severity || "next").trim() || "next"
+  };
+}
+
+function thinkingStatusTone(thinkingStatus = null) {
+  const severity = String(thinkingStatus?.severity || "").trim().toLowerCase();
+  if (severity === "ready") return "ready";
+  if (String(thinkingStatus?.status || "").startsWith("ready_")) return "ready";
+  return "next";
+}
+
+function renderThinkingStatusBadge(value, className = "thinking-status-badge") {
+  const thinkingStatus = normalizeThinkingStatusItem(value);
+  if (!thinkingStatus) return "";
+  const title = thinkingStatus.nextAction
+    ? `${thinkingStatus.label}：${thinkingStatus.nextAction}`
+    : thinkingStatus.label;
+  return `<span class="${escapeHtml(className)}" data-tone="${escapeHtml(thinkingStatusTone(thinkingStatus))}" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>`;
+}
+
 function renderImportHistory() {
   const el = $("importHistoryMount");
   if (!el) return;
@@ -2054,6 +2084,7 @@ function mapNoteItem(item) {
     originalityStatus: item.originalityStatus || item.originality_status || "",
     originalitySimilarity: normalizeOptionalNumber(item.originalitySimilarity ?? item.originality_similarity),
     authorship: normalizeAuthorshipItem(item.authorship),
+    thinkingStatus: normalizeThinkingStatusItem(item.thinkingStatus),
     generatedOriginalNoteId:
       String(item.generatedOriginalNoteId || item.generated_original_note_id || generatedOriginalNoteIdFromBody(body)).trim(),
     boundaryOrCounterpoint: item.boundaryOrCounterpoint || item.boundary_or_counterpoint || "",
@@ -2082,6 +2113,7 @@ function createLocalDraftNote({ folderId, body }) {
     originalityStatus: "",
     originalitySimilarity: null,
     authorship: null,
+    thinkingStatus: null,
     generatedOriginalNoteId: generatedOriginalNoteIdFromBody(nextBody),
     boundaryOrCounterpoint: "",
     tags: [],
@@ -2717,6 +2749,36 @@ function activeEditorNote() {
 function activeEditorBody() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   return String(activeTab?.body || activeEditorNote()?.body || "");
+}
+
+function noteMatchesSearchQuery(note = null, query = "") {
+  const normalized = String(query || "").trim().toLowerCase();
+  if (!normalized) return true;
+  const target = `${note?.title || ""}\n${note?.body || ""}\n${(note?.tags || []).join(" ")}`.toLowerCase();
+  return target.includes(normalized);
+}
+
+function syncExplorerContextToNote(note = null) {
+  if (!note?.id) return false;
+  const folder = folderById(state, note.folderId);
+  if (!folder) return false;
+  state.selectedFileId = note.id;
+  state.selectedFolderId = folder.id;
+  state.browserRootId = rootBoxIdFromFolder(state, folder.id);
+  if (!noteMatchesSearchQuery(note, state.searchQuery)) {
+    state.searchQuery = "";
+    const searchInput = $("searchInput");
+    if (searchInput) searchInput.value = "";
+  }
+  explorer.expandFolderPath(folder.id);
+  return true;
+}
+
+function syncExplorerContextToActiveTab() {
+  const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (!activeTab?.noteId) return false;
+  const note = state.notes.find((item) => item.id === activeTab.noteId) || null;
+  return syncExplorerContextToNote(note);
 }
 
 function noteGrowthStage(note, body = "") {
@@ -3548,6 +3610,7 @@ function writingNoteMeta(note) {
 }
 
 function renderWritingNoteCard(note, { selected = false, action = "add", actionLabel = "加入篮子" } = {}) {
+  const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">
       <div class="writing-note-card-head">
@@ -3555,6 +3618,7 @@ function renderWritingNoteCard(note, { selected = false, action = "add", actionL
           <div class="writing-note-title">${escapeHtml(note.title || note.id)}</div>
           <div class="writing-note-meta">${escapeHtml(writingNoteMeta(note))}</div>
         </div>
+        ${thinkingBadge}
       </div>
       <div class="writing-note-meta">${escapeHtml(writingNoteExcerpt(note))}</div>
       <div class="writing-note-actions">
@@ -3596,6 +3660,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const preview = itemTitles.join("、");
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
+  const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
       <div class="writing-note-card-head">
@@ -3603,6 +3668,7 @@ function renderWritingThemeIndexCard(indexCard) {
           <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
           <div class="writing-note-meta">${escapeHtml(indexCard.id)} · ${escapeHtml(indexCard.index_type || "topic")} · 条目 ${escapeHtml(noteCount)}</div>
         </div>
+        ${thinkingBadge}
       </div>
       <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟原创笔记当成后续写作入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
@@ -3638,6 +3704,7 @@ function renderWritingProjectCard(project) {
   const scaffoldLabel = project?.scaffold_id || "未生成";
   const hasScaffold = Boolean(project?.scaffold_id);
   const sourceCount = Array.isArray(project?.related_index_ids) ? project.related_index_ids.length : 0;
+  const thinkingBadge = renderThinkingStatusBadge(project?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project.id)}">
       <div class="writing-note-card-head">
@@ -3645,6 +3712,7 @@ function renderWritingProjectCard(project) {
           <div class="writing-note-title">${escapeHtml(project.title || project.id)}</div>
           <div class="writing-note-meta">${escapeHtml(project.id)} · ${escapeHtml(project.status || "draft")} · 篮子 ${escapeHtml(project.basket_count || 0)}</div>
         </div>
+        ${thinkingBadge}
       </div>
       <div class="writing-note-meta">Scaffold：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；主题入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project.goal || "暂无写作目标说明。")}</div>
@@ -4566,6 +4634,7 @@ async function ensureNoteBodyLoaded(noteId) {
     note.originalityStatus = full.originalityStatus || note.originalityStatus;
     note.originalitySimilarity = normalizeOptionalNumber(full.originalitySimilarity ?? note.originalitySimilarity);
     note.authorship = normalizeAuthorshipItem(full.authorship) || note.authorship;
+    note.thinkingStatus = normalizeThinkingStatusItem(full.thinkingStatus) || note.thinkingStatus || null;
     note.boundaryOrCounterpoint = full.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
     note.updatedAt = full.updatedAt || note.updatedAt;
     note.bodyLoaded = true;
@@ -4589,10 +4658,7 @@ function openNoteById(id, options = {}) {
     if (!ok) {
       state.selectedFileId = activeTab.noteId;
       const activeNote = state.notes.find((n) => n.id === activeTab.noteId);
-      if (activeNote) {
-        state.selectedFolderId = activeNote.folderId;
-        state.browserRootId = rootBoxIdFromFolder(state, activeNote.folderId);
-      }
+      if (activeNote) syncExplorerContextToNote(activeNote);
       renderAll();
       return false;
     }
@@ -4604,10 +4670,7 @@ function openNoteById(id, options = {}) {
     const keepFocus = String(note?.noteType || "").trim() === "literature" && focusedIds.includes(String(id || "").trim());
     if (!keepFocus) clearLiteratureQueueFocus();
   }
-  if (note) {
-    state.selectedFolderId = note.folderId;
-    state.browserRootId = rootBoxIdFromFolder(state, note.folderId);
-  }
+  if (note) syncExplorerContextToNote(note);
   editor.openNoteTab(id, options);
   renderAll();
   ensureNoteBodyLoaded(id);
@@ -4767,6 +4830,7 @@ async function handleStateChange(reason, payload = {}) {
             note.originalityStatus = updated.originalityStatus || note.originalityStatus;
             note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
             note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
+            note.thinkingStatus = normalizeThinkingStatusItem(updated.thinkingStatus) || note.thinkingStatus || null;
             note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(updated) || note.generatedOriginalNoteId || generatedOriginalNoteIdFromBody(note.body);
             note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
             note.updatedAt = updated.updatedAt || note.updatedAt;
@@ -4892,6 +4956,7 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "switch-tab" || reason === "folder-context-action" || reason === "file-context-action" || reason === "list-context-action") {
+    if (reason === "switch-tab") syncExplorerContextToActiveTab();
     renderAll();
   }
 }
@@ -4979,6 +5044,7 @@ const editor = new EditorPane({
     literatureOpenNext: $("btnLiteratureOpenNext"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
+    editorThinkingStatus: $("editorThinkingStatus"),
     assetPreviewMask: $("assetPreviewMask"),
     assetPreviewTitle: $("assetPreviewTitle"),
     assetPreviewBody: $("assetPreviewBody"),
@@ -5691,9 +5757,11 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
     writingState.scaffold = result.item || null;
     writingState.scaffoldMarkdown = result.export?.markdown || "";
     if (writingState.project) {
+      const returnedProject = result.item?.writing_project || null;
       writingState.project = {
         ...writingState.project,
-        scaffold_id: result.item?.id || null
+        ...(returnedProject || {}),
+        scaffold_id: returnedProject?.scaffold_id || result.item?.id || null
       };
     }
     showWritingResult({
@@ -6006,6 +6074,7 @@ document.addEventListener("keydown", (e) => {
       const next = e.key === "ArrowLeft" ? (idx - 1 + state.tabs.length) % state.tabs.length : (idx + 1) % state.tabs.length;
       state.activeTabId = state.tabs[next].id;
       editor.fillEditorFromTab();
+      syncExplorerContextToActiveTab();
       renderAll();
       e.preventDefault();
     }

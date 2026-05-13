@@ -118,6 +118,20 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.equal(createDir.status, 201);
   const directoryId = createDir.json.item.id;
 
+  const rejectedConfirmedCreate = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Unconfirmed distillation\n\nThis should not become a confirmed judgment.",
+    thesis: "Unconfirmed requests should not become stable judgments.",
+    threeLineSummary: [
+      "Unconfirmed requests should not become stable judgments.",
+      "The user must explicitly confirm authorship first.",
+      "That keeps AI or automation from silently owning the conclusion."
+    ],
+    distillationStatus: "confirmed"
+  });
+  assert.equal(rejectedConfirmedCreate.status, 400);
+  assert.equal(rejectedConfirmedCreate.json.error.code, "PERMANENT_DISTILLATION_CONFIRMATION_REQUIRED");
+
   const createNote = await postJson(baseUrl, "/api/v1/notes", {
     directoryId,
     body: "# Writing starts from note units\n\nThis is test content.",
@@ -128,13 +142,14 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
       "It matters when the user wants to move from notes into structured prose."
     ],
     distillationStatus: "confirmed",
+    authorshipConfirmed: true,
     boundaryOrCounterpoint: "This breaks down when the claim cannot be traced to a concrete note."
   });
   assert.equal(createNote.status, 201);
   assert.equal(createNote.json.item.noteType, "permanent");
   assert.equal(createNote.json.item.title, "Writing starts from note units");
   assert.equal(createNote.json.item.originalityStatus, "warning");
-  assert.deepEqual(createNote.json.item.authorship, { user_confirmed: false, ai_assisted: false });
+  assert.deepEqual(createNote.json.item.authorship, { user_confirmed: true, ai_assisted: false });
   assert.equal(createNote.json.item.thesis, "Writing should start from reusable note units instead of blank drafting.");
   assert.deepEqual(createNote.json.item.threeLineSummary, [
     "Writing should start from reusable note units.",
@@ -142,6 +157,8 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
     "It matters when the user wants to move from notes into structured prose."
   ]);
   assert.equal(createNote.json.item.distillationStatus, "confirmed");
+  assert.equal(createNote.json.item.thinkingStatus.status, "ready_for_index");
+  assert.equal(createNote.json.item.thinkingStatus.label, "待加入主题");
   assert.equal(
     createNote.json.item.boundaryOrCounterpoint,
     "This breaks down when the claim cannot be traced to a concrete note."
@@ -157,17 +174,19 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.match(markdown, /three_line_summary:/);
   assert.match(markdown, /distillation_status: confirmed/);
   assert.match(markdown, /originality_status: warning/);
-  assert.match(markdown, /authorship: \{"user_confirmed":false,"ai_assisted":false\}/);
+  assert.match(markdown, /authorship: \{"user_confirmed":true,"ai_assisted":false\}/);
   assert.match(markdown, /boundary_or_counterpoint: This breaks down when the claim cannot be traced to a concrete note\./);
 
   const list = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(directoryId)}/notes`);
   assert.equal(list.status, 200);
   assert.equal(list.json.total, 1);
   assert.equal(list.json.items[0].id, noteId);
+  assert.equal(list.json.items[0].thinkingStatus.status, "ready_for_index");
 
   const getNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`);
   assert.equal(getNote.status, 200);
   assert.equal(getNote.json.item.id, noteId);
+  assert.equal(getNote.json.item.thinkingStatus.status, "ready_for_index");
   assert.equal(getNote.json.item.thesis, "Writing should start from reusable note units instead of blank drafting.");
   assert.deepEqual(getNote.json.item.threeLineSummary, [
     "Writing should start from reusable note units.",
@@ -176,7 +195,7 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   ]);
   assert.equal(getNote.json.item.distillationStatus, "confirmed");
   assert.equal(getNote.json.item.originalityStatus, "warning");
-  assert.deepEqual(getNote.json.item.authorship, { user_confirmed: false, ai_assisted: false });
+  assert.deepEqual(getNote.json.item.authorship, { user_confirmed: true, ai_assisted: false });
   assert.equal(
     getNote.json.item.boundaryOrCounterpoint,
     "This breaks down when the claim cannot be traced to a concrete note."
@@ -212,11 +231,29 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
     "It is most useful when the system turns notes into writing inputs."
   ]);
   assert.equal(update.json.item.distillationStatus, "draft");
+  assert.equal(update.json.item.thinkingStatus.status, "ready_for_index");
   assert.equal(update.json.item.originalityStatus, "pass");
   assert.equal(update.json.item.originalitySimilarity, 0.18);
   assert.deepEqual(update.json.item.authorship, { user_confirmed: true, ai_assisted: false });
   assert.equal(update.json.item.boundaryOrCounterpoint, "This does not hold when the paragraph has no source trace.");
   assert.equal(path.basename(update.json.item.markdownPath), "Updated title line.md");
+
+  const rejectedConfirmedUpdate = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
+    body: "# Updated title line\n\nUpdated paragraph.",
+    thesis: "A durable writing flow begins from compressed claims, not blank pages.",
+    threeLineSummary: [
+      "A durable writing flow begins from compressed claims.",
+      "That lowers the cost of structuring paragraphs and arguments.",
+      "It is most useful when the system turns notes into writing inputs."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: false,
+      ai_assisted: false
+    }
+  });
+  assert.equal(rejectedConfirmedUpdate.status, 400);
+  assert.equal(rejectedConfirmedUpdate.json.error.code, "PERMANENT_DISTILLATION_CONFIRMATION_REQUIRED");
 
   const getAfterUpdate = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`);
   assert.equal(getAfterUpdate.status, 200);

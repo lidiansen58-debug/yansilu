@@ -1,6 +1,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
+import { deriveIndexCardThinkingStatus } from "./thinking-status.mjs";
 
 const ALLOWED_INDEX_TYPES = new Set(["topic", "nearby", "sequence", "free_link"]);
 const ALLOWED_ORDERING_STRATEGIES = new Set(["manual", "chronological", "logical", "clustered"]);
@@ -110,7 +111,7 @@ function mapIndexItemRow(row) {
 }
 
 function mapIndexCardRow(row, items = []) {
-  return {
+  const item = {
     id: row.id,
     directory_id: row.directory_id,
     directory_title: row.directory_title || "",
@@ -126,6 +127,10 @@ function mapIndexCardRow(row, items = []) {
     items,
     created_at: row.created_at,
     updated_at: row.updated_at
+  };
+  return {
+    ...item,
+    thinkingStatus: deriveIndexCardThinkingStatus(item)
   };
 }
 

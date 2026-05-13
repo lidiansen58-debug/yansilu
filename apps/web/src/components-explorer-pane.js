@@ -45,6 +45,17 @@ function generatedOriginalBadge(state, note = null) {
   return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成原创</span>`;
 }
 
+function thinkingStatusBadge(note = null) {
+  const thinkingStatus = note?.thinkingStatus && typeof note.thinkingStatus === "object" ? note.thinkingStatus : null;
+  const label = String(thinkingStatus?.label || "").trim();
+  if (!label) return "";
+  const nextAction = String(thinkingStatus?.nextAction || "").trim();
+  const severity = String(thinkingStatus?.severity || "").trim() || "next";
+  const status = String(thinkingStatus?.status || "").trim();
+  const title = nextAction ? `${label}：${nextAction}` : label;
+  return `<span class="item-badge item-badge-thinking" data-severity="${escapeHtml(severity)}" data-status="${escapeHtml(status)}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+}
+
 function displayFolderName(folder) {
   if (!folder) return "目录";
   if (folder.id === "dir_original_default") return "原创卡片盒";
@@ -85,6 +96,14 @@ export class ExplorerPane {
     );
 
     this.bind();
+  }
+
+  expandFolderPath(folderId) {
+    let cursor = folderById(this.state, folderId);
+    while (cursor) {
+      this.expandedFolders.add(cursor.id);
+      cursor = cursor.parentId ? folderById(this.state, cursor.parentId) : null;
+    }
   }
 
   bind() {
@@ -588,19 +607,22 @@ export class ExplorerPane {
     if (!expanded) return folderRow;
 
     const fileRows = allFiles
-      .map(
-        (n) => `
-      <div class="explorer-item tree-row file-row ${this.state.selectedFileId === n.id ? "active" : ""}" data-kind="file" data-id="${n.id}" draggable="true" style="--depth:${depth + 1};">
+      .map((n) => {
+        const thinkingBadge = thinkingStatusBadge(n);
+        const originalBadge = generatedOriginalBadge(this.state, n);
+        const thinkingClass = thinkingBadge ? "has-thinking-status" : "";
+        return `
+      <div class="explorer-item tree-row file-row ${thinkingClass} ${this.state.selectedFileId === n.id ? "active" : ""}" data-kind="file" data-id="${n.id}" draggable="true" style="--depth:${depth + 1};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
           <span class="icon">${fileIconSvg()}</span>
           <span class="name"><strong>${n.title}</strong></span>
         </div>
-          <div class="item-trail">${generatedOriginalBadge(this.state, n)}</div>
+          <div class="item-trail">${thinkingBadge}${originalBadge}</div>
         </div>
-      `
-        )
+      `;
+      })
         .join("");
 
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
