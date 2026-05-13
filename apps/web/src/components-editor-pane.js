@@ -787,7 +787,7 @@ function renderInlinePreview(text, options = {}) {
   return html;
 }
 
-function renderMarkdownPreview(markdown, options = {}) {
+export function renderMarkdownPreview(markdown, options = {}) {
   const text = String(markdown || "").replace(/\r\n/g, "\n");
   const lines = text.split("\n");
   const blocks = [];
