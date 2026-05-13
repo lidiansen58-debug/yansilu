@@ -40,7 +40,8 @@ import {
   normalizeOpenAiCompatibleError,
   normalizeOpenAiCompatibleResponse,
   resolveProviderDescriptor,
-  resolveModelRoute
+  resolveModelRoute,
+  artifactTypes
 } from "../../packages/ai-orchestrator/src/index.mjs";
 import {
   createNoteRelation,
@@ -70,6 +71,27 @@ async function createOriginalNote(vaultPath, input = {}) {
     ...input
   });
 }
+
+test("artifact schema supports insight and writing artifact types", () => {
+  const store = createInMemoryArtifactStore();
+  const expectedTypes = ["InsightCard", "BridgeCard", "TensionCard", "SourceGap", "WritingMove"];
+  assert.deepEqual(expectedTypes.every((type) => artifactTypes().includes(type)), true);
+
+  for (const type of expectedTypes) {
+    const artifact = store.createArtifact({
+      id: `artifact_${type}`,
+      type,
+      title: `${type} example`,
+      agentRunId: "run_insight_types",
+      sources: { noteIds: ["note_insight"], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+      payload: { suggestedAction: "review" }
+    });
+    assert.equal(artifact.type, type);
+    assert.equal(artifact.status, "pending_review");
+  }
+
+  assert.equal(store.listArtifacts({ sourceNoteId: "note_insight" }).length, expectedTypes.length);
+});
 
 test("mock harness creates a reflection artifact and run log without note mutation", async () => {
   const provider = createMockProviderAdapter();

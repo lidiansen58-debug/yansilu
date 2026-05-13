@@ -1443,7 +1443,7 @@ Query parameters:
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `view` | string | `pending` | One of `pending`, `reviewed`, `archived`, or `all`. |
-| `type` | string | none | Filter by artifact type, such as `ReflectionPrompt` or `LinkSuggestion`. |
+| `type` | string | none | Filter by artifact type, such as `ReflectionPrompt`, `LinkSuggestion`, `InsightCard`, `BridgeCard`, `TensionCard`, `SourceGap`, or `WritingMove`. |
 | `sourceNoteId` | string | none | Filter to artifacts sourced from a note id. |
 | `privacyMode` | string | none | Filter by artifact privacy mode. |
 | `limit` | number | `50` | Maximum items to return, clamped by the AI inbox implementation. |

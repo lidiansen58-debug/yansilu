@@ -330,6 +330,30 @@ Acceptance:
 - A promoted artifact creates exactly one draft note and preserves artifact/source provenance in the note body.
 - Re-promoting the same artifact is blocked with the already-created note id.
 
+### Slice H: Insight Artifact Types
+
+Status:
+
+- First implementation slice completed in the artifact schema and web AI Inbox model.
+- `InsightCard`, `BridgeCard`, `TensionCard`, `SourceGap`, and `WritingMove` are now accepted reviewable artifact types.
+- AI Inbox type filters expose these product-specific insight and writing artifact labels.
+- Schema docs define the expected payload shape and preserve review-first promotion rules.
+
+Files likely touched:
+
+- `packages/ai-orchestrator/src/artifacts.mjs`
+- `apps/web/src/ai-inbox-model.js`
+- `docs/AI_ARTIFACT_SCHEMA_V1.md`
+- `docs/API.md`
+- `tests/unit/ai-orchestrator-harness.test.mjs`
+- `tests/unit/web-ai-inbox-model.test.mjs`
+
+Acceptance:
+
+- Stores accept all five insight/writing artifact types as `pending_review` artifacts.
+- AI Inbox can filter and label the five new artifact types.
+- The change does not add any silent note, relation, or writing-project mutation path.
+
 ## 6. Do Not Build Yet
 
 - Full autonomous vault-wide scanning.

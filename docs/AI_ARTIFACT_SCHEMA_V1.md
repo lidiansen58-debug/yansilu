@@ -349,6 +349,99 @@ Use for periodic summaries of a project, theme, or research area.
 }
 ```
 
+### 6.10 `InsightCard`
+
+Use for a concise possible judgment derived from bounded notes.
+
+```json
+{
+  "type": "InsightCard",
+  "claim": "string",
+  "why_it_matters": "string",
+  "source_note_ids": ["note_01"],
+  "confidence_reason": "string",
+  "suggested_action": "review | promote_to_note | add_source | connect_notes"
+}
+```
+
+Default behavior:
+
+- Create a pending, reviewable artifact.
+- Do not merge the claim into a permanent note until the user rewrites or explicitly promotes it.
+
+### 6.11 `BridgeCard`
+
+Use for a possible bridge between two notes, concepts, or clusters.
+
+```json
+{
+  "type": "BridgeCard",
+  "bridge": "string",
+  "from": {
+    "id": "note_01",
+    "kind": "note | concept | cluster"
+  },
+  "to": {
+    "id": "note_02",
+    "kind": "note | concept | cluster"
+  },
+  "rationale": "string",
+  "suggested_action": "create_link | create_bridge_note | review"
+}
+```
+
+### 6.12 `TensionCard`
+
+Use for an unresolved contradiction, assumption, boundary, or productive conflict.
+
+```json
+{
+  "type": "TensionCard",
+  "tension": "string",
+  "claim_a": {
+    "text": "string",
+    "source_id": "note_01"
+  },
+  "claim_b": {
+    "text": "string",
+    "source_id": "note_02"
+  },
+  "why_it_matters": "string",
+  "suggested_action": "clarify_boundary | add_counterexample | review_sources"
+}
+```
+
+### 6.13 `SourceGap`
+
+Use for a missing evidence, citation, source, or verification requirement.
+
+```json
+{
+  "type": "SourceGap",
+  "gap": "string",
+  "claim": "string",
+  "required_source_type": "paper | book | webpage | dataset | user_note | citation",
+  "related_note_ids": ["note_01"],
+  "suggested_action": "find_source | mark_uncertain | revise_claim"
+}
+```
+
+### 6.14 `WritingMove`
+
+Use for a claim, counterpoint, transition, section move, or structural suggestion inside a writing project.
+
+```json
+{
+  "type": "WritingMove",
+  "move_type": "claim | counterpoint | transition | section | example | caveat",
+  "text": "string",
+  "project_id": "project_01",
+  "source_note_ids": ["note_01"],
+  "suggested_location": "section id or heading",
+  "suggested_action": "insert_after_review | revise | find_supporting_note"
+}
+```
+
 ## 7. Promotion Rules
 
 Artifacts can become part of the user's knowledge base only through explicit user action.
@@ -360,6 +453,7 @@ Allowed promotions:
 - LinkSuggestion to graph edge.
 - ResearchCard to source note.
 - QuestionCard to task or question inbox.
+- InsightCard, BridgeCard, TensionCard, SourceGap, or WritingMove to a draft note or writing scaffold after review.
 
 Promotion should create a UserDecision event.
 
@@ -409,16 +503,13 @@ MVP artifact types:
 - `ReflectionPrompt`
 - `SynthesisDraft`
 - `QuestionCard`
-
-Near-term product-specific artifact types needed for note-linking, insight generation, and writing assistance:
-
 - `InsightCard`: a concise possible new judgment derived from bounded notes.
 - `BridgeCard`: a possible bridge between two notes, concepts, or clusters.
 - `TensionCard`: an unresolved contradiction, assumption, or productive conflict.
 - `SourceGap`: a missing evidence/citation/source requirement.
 - `WritingMove`: a claim, counterpoint, transition, or section move useful for a writing project.
 
-Post-MVP:
+Additional supported artifact types:
 
 - `ConflictSuggestion`
 - `OutlineDraft`

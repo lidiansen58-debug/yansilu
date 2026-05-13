@@ -10,7 +10,12 @@ const TYPE_VALUES = [
   "SynthesisDraft",
   "OutlineDraft",
   "SourceSummary",
-  "ProjectDigest"
+  "ProjectDigest",
+  "InsightCard",
+  "BridgeCard",
+  "TensionCard",
+  "SourceGap",
+  "WritingMove"
 ];
 
 function cleanText(value) {
@@ -50,7 +55,12 @@ export function aiInboxTypeOptions() {
     { value: "SynthesisDraft", label: "Synthesis drafts" },
     { value: "OutlineDraft", label: "Outlines" },
     { value: "SourceSummary", label: "Source summaries" },
-    { value: "ProjectDigest", label: "Project digests" }
+    { value: "ProjectDigest", label: "Project digests" },
+    { value: "InsightCard", label: "Insight cards" },
+    { value: "BridgeCard", label: "Bridge cards" },
+    { value: "TensionCard", label: "Tension cards" },
+    { value: "SourceGap", label: "Source gaps" },
+    { value: "WritingMove", label: "Writing moves" }
   ];
 }
 

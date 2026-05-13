@@ -5,6 +5,8 @@ import {
   aiInboxCounts,
   aiInboxEvaluationMetrics,
   aiInboxSummary,
+  aiInboxTypeLabel,
+  aiInboxTypeOptions,
   isNoteToNoteLinkSuggestion,
   isPromotableNoteArtifact,
   latestFeedbackFlags,
@@ -28,6 +30,20 @@ test("AI inbox model normalizes filters and counts", () => {
     archived: 0,
     all: 0
   });
+  assert.equal(normalizeAiInboxFilters({ type: "InsightCard" }).type, "InsightCard");
+  assert.equal(normalizeAiInboxFilters({ type: "WritingMove" }).type, "WritingMove");
+});
+
+test("AI inbox model exposes labels for insight artifact types", () => {
+  const optionValues = aiInboxTypeOptions().map((item) => item.value);
+  for (const type of ["InsightCard", "BridgeCard", "TensionCard", "SourceGap", "WritingMove"]) {
+    assert.equal(optionValues.includes(type), true);
+  }
+  assert.equal(aiInboxTypeLabel("InsightCard"), "Insight cards");
+  assert.equal(aiInboxTypeLabel("BridgeCard"), "Bridge cards");
+  assert.equal(aiInboxTypeLabel("TensionCard"), "Tension cards");
+  assert.equal(aiInboxTypeLabel("SourceGap"), "Source gaps");
+  assert.equal(aiInboxTypeLabel("WritingMove"), "Writing moves");
 });
 
 test("AI inbox model picks selected item and summarizes visible view", () => {
