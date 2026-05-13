@@ -2787,12 +2787,30 @@
       font-size: 12px;
       line-height: 1.6;
     }
+    .graph-review-summary {
+      border: 1px solid #dbe5ef;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 5px;
+    }
+    .graph-review-summary strong {
+      color: #1f2937;
+      font-size: 13px;
+    }
+    .graph-review-summary small {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
     .graph-list {
       display: grid;
       gap: 8px;
     }
     .graph-node,
-    .graph-edge {
+    .graph-edge,
+    .graph-review-card {
       border: 1px solid #dbe5ef;
       background: #fff;
       border-radius: 9px;
@@ -2805,19 +2823,22 @@
       gap: 8px;
     }
     .graph-node:hover,
-    .graph-edge:hover {
+    .graph-edge:hover,
+    .graph-review-card:hover {
       background: #eef6f1;
       border-color: #b9ddc9;
     }
     .graph-node-text,
-    .graph-edge-text {
+    .graph-edge-text,
+    .graph-review-main {
       display: grid;
       gap: 3px;
       min-width: 0;
       flex: 1;
     }
     .graph-node-title,
-    .graph-edge-title {
+    .graph-edge-title,
+    .graph-review-title {
       font-weight: 700;
       color: #1f2937;
       white-space: nowrap;
@@ -2825,16 +2846,22 @@
       text-overflow: ellipsis;
     }
     .graph-node-meta,
-    .graph-edge-meta {
+    .graph-edge-meta,
+    .graph-review-meta {
       color: #64748b;
       font-size: 12px;
       line-height: 1.5;
     }
     .graph-node small,
-    .graph-edge small {
+    .graph-edge small,
+    .graph-review-card small {
       color: #64748b;
       margin-left: auto;
       font-size: 11px;
+    }
+    .graph-review-card small {
+      margin-left: 0;
+      line-height: 1.55;
     }
     .graph-dot {
       width: 9px;

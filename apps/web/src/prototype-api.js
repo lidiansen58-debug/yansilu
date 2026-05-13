@@ -298,6 +298,39 @@ export async function fetchGraphConflicts({ directoryId, includeDescendants = tr
   return json.item || null;
 }
 
+export async function fetchRelationReviewQueue({
+  directoryId,
+  includeDescendants = false,
+  qualityLevels = ["empty", "basic"],
+  relationType = "all",
+  status = "all",
+  limit = 20
+} = {}) {
+  if (!directoryId) throw new Error("directoryId is required");
+  const levels = Array.isArray(qualityLevels) ? qualityLevels.filter(Boolean).join(",") : String(qualityLevels || "");
+  const params = new URLSearchParams({
+    directoryId,
+    includeDescendants: includeDescendants ? "true" : "false",
+    qualityLevels: levels || "empty,basic",
+    relationType: relationType || "all",
+    status: status || "all",
+    limit: String(Math.max(1, Math.min(100, Number(limit || 20) || 20)))
+  });
+  const json = await request(`/api/v1/relations/review-queue?${params.toString()}`);
+  return {
+    directoryId: json.directoryId || directoryId,
+    directoryTitle: json.directoryTitle || "",
+    includeDescendants: Boolean(json.includeDescendants),
+    qualityLevels: Array.isArray(json.qualityLevels) ? json.qualityLevels : [],
+    relationType: json.relationType || "all",
+    status: json.status || "all",
+    limit: Number(json.limit || limit || 20),
+    items: Array.isArray(json.items) ? json.items : [],
+    summary: json.summary && typeof json.summary === "object" ? json.summary : {},
+    total: Number(json.total || 0)
+  };
+}
+
 export async function seedYijingKnowledgeNetwork() {
   const json = await request("/api/v1/demo/knowledge-network/yijing", {
     method: "POST",

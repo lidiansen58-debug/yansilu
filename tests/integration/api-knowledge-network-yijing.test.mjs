@@ -195,6 +195,33 @@ test("Yijing fixture builds and validates a semantic knowledge-network graph", a
   assert.equal(tagNotes.status, 200, JSON.stringify(tagNotes.json));
   assert.equal(tagNotes.json.total, fixture.expected.connectedNodeCount);
 
+  const weakRelation = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(isolatedNoteId)}/relations`, {
+    toNoteId: noteIdsByFixtureId.get("YJ-13"),
+    relationType: "same_topic",
+    rationale: "相关",
+    status: "draft"
+  });
+  assert.equal(weakRelation.status, 201, JSON.stringify(weakRelation.json));
+  assert.equal(weakRelation.json.item.rationaleQualityLevel, "empty");
+
+  const reviewQueue = await getJson(
+    baseUrl,
+    `/api/v1/relations/review-queue?directoryId=${encodeURIComponent(directoryId)}&qualityLevels=empty,basic&limit=5`
+  );
+  assert.equal(reviewQueue.status, 200, JSON.stringify(reviewQueue.json));
+  assert.ok(reviewQueue.json.items.some((item) => item.id === weakRelation.json.item.id));
+  const weakReviewItem = reviewQueue.json.items.find((item) => item.id === weakRelation.json.item.id);
+  assert.equal(weakReviewItem.reviewReason, "missing_rationale");
+  assert.equal(weakReviewItem.reviewPriority, 0);
+  assert.equal(weakReviewItem.source.id, isolatedNoteId);
+  assert.equal(weakReviewItem.target.id, noteIdsByFixtureId.get("YJ-13"));
+  assert.ok(reviewQueue.json.summary.byQualityLevel.empty >= 1);
+
+  const deleteWeakRelation = await fetch(`${baseUrl}/api/v1/relations/${encodeURIComponent(weakRelation.json.item.id)}`, {
+    method: "DELETE"
+  });
+  assert.equal(deleteWeakRelation.status, 200, JSON.stringify(await deleteWeakRelation.json()));
+
   const seedRelation = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(isolatedNoteId)}/relations`, {
     toNoteId: noteIdsByFixtureId.get("YJ-13"),
     relationType: "complements",
