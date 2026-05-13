@@ -4193,6 +4193,62 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .scheduled-task-form {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+    .scheduled-task-form-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .scheduled-task-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .scheduled-task-form-grid label {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .scheduled-task-form-grid input,
+    .scheduled-task-form-grid select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid #d7e0ea;
+      border-radius: 8px;
+      background: #fff;
+      color: #1f2937;
+      padding: 0 9px;
+      font: inherit;
+    }
+    .scheduled-task-form-grid .scheduled-task-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding-top: 18px;
+    }
+    .scheduled-task-form-grid .scheduled-task-checkbox input {
+      width: 16px;
+      min-height: 16px;
+      padding: 0;
+    }
+    .scheduled-task-form-actions {
+      display: flex;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
     .scheduled-task-list {
       display: grid;
       gap: 10px;

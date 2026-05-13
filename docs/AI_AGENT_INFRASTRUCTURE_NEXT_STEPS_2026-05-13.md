@@ -404,6 +404,8 @@ Acceptance:
 Status:
 
 - First implementation slice completed in the Settings panel.
+- Settings can create and edit scheduled tasks from implementation-ready templates (`weekly_link_suggestions` and `reflection_reminder`).
+- New scheduled-task drafts default to paused, can bind scope to current note/current directory or typed note/directory/tag/keyword scopes, and require confirmation before saving an active task with no scope.
 - Scheduled tasks can be listed with status/type filters, schedule, scope, budget, next run, last run, last reason, and agent run metadata.
 - Users can pause or resume scheduled tasks through the existing status API.
 - Users can manually run due scheduled tasks from the UI after an explicit confirmation prompt.
@@ -416,6 +418,10 @@ Files likely touched:
 - `apps/web/src/prototype-api.js`
 - `apps/web/src/prototype-app.js`
 - `apps/web/src/prototype.html`
+- `packages/ai-orchestrator/src/core-note-tools.mjs`
+- `packages/ai-orchestrator/src/scheduled-agent-tasks.mjs`
+- `tests/unit/ai-orchestrator-harness.test.mjs`
+- `tests/unit/ai-scheduled-agent-tasks.test.mjs`
 - `tests/unit/web-scheduled-tasks-model.test.mjs`
 - `tests/unit/web-scheduled-tasks-panel.test.mjs`
 - `tests/unit/web-prototype-api.test.mjs`
@@ -423,6 +429,8 @@ Files likely touched:
 Acceptance:
 
 - Settings can show scheduled agent tasks without leaving the main app.
+- Users can create and edit scheduled tasks from safe templates without exposing raw model/provider controls.
+- Scheduled task scope can target selected notes, directories, tags, or keywords; explicit note ids take precedence over search scopes.
 - Users can pause and resume tasks without deleting task configuration.
 - Manual due-task execution requires a visible confirmation step.
 - Generated outputs stay in AI Inbox and must still be reviewed before they affect notes or graph relations.

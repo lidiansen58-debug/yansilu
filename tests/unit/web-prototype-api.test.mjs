@@ -136,6 +136,30 @@ test("prototype API manages scheduled tasks", async () => {
         }
       };
     }
+    if (String(url).includes("/scheduled-task-templates")) {
+      return {
+        ok: true,
+        async json() {
+          return { items: [{ templateId: "reflection_reminder" }], total: 1 };
+        }
+      };
+    }
+    if (options.method === "POST" && String(url).endsWith("/scheduled-tasks")) {
+      return {
+        ok: true,
+        async json() {
+          return { item: { scheduledTaskId: "sched_created", status: "paused" } };
+        }
+      };
+    }
+    if (options.method === "DELETE") {
+      return {
+        ok: true,
+        async json() {
+          return { ok: true, deleted: true };
+        }
+      };
+    }
     return {
       ok: true,
       async json() {
@@ -162,6 +186,21 @@ test("prototype API manages scheduled tasks", async () => {
     assert.equal(due.succeeded, 1);
     assert.equal(calls[2].url, "http://127.0.0.1:3999/api/v1/ai/scheduled-tasks/run-due");
     assert.equal(JSON.parse(calls[2].options.body).limit, 100);
+
+    const templates = await api.fetchAiScheduledTaskTemplates({ implementationReady: true });
+    assert.equal(templates.items[0].templateId, "reflection_reminder");
+    const templateUrl = new URL(calls[3].url);
+    assert.equal(templateUrl.pathname, "/api/v1/ai/scheduled-task-templates");
+    assert.equal(templateUrl.searchParams.get("implementationReady"), "true");
+
+    const saved = await api.saveAiScheduledTask({ templateId: "reflection_reminder", status: "paused" });
+    assert.equal(saved.scheduledTaskId, "sched_created");
+    assert.equal(calls[4].url, "http://127.0.0.1:3999/api/v1/ai/scheduled-tasks");
+    assert.equal(JSON.parse(calls[4].options.body).templateId, "reflection_reminder");
+
+    const deleted = await api.deleteAiScheduledTask("sched_created");
+    assert.equal(deleted.deleted, true);
+    assert.equal(calls[5].url, "http://127.0.0.1:3999/api/v1/ai/scheduled-tasks/sched_created");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

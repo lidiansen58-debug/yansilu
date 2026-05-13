@@ -22,6 +22,10 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   const html = renderScheduledTasksPanel({
     items: [task],
     total: 1,
+    templates: [{ templateId: "reflection_reminder", name: "Reflection reminder", implementationReady: true }],
+    form: { templateId: "reflection_reminder", name: "Reflection reminder", status: "paused" },
+    currentNoteId: "note_1",
+    currentDirectoryId: "dir_original_default",
     filters: { status: "active", taskType: "reflection_prompt" },
     runSummary: { total: 1, succeeded: 1, skipped: 0, failed: 0 }
   });
@@ -31,11 +35,16 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);
+  assert.match(html, /id="scheduledTaskForm"/);
+  assert.match(html, /id="scheduledTaskTemplateSelect"/);
+  assert.match(html, /id="btnScheduledTaskSave"/);
+  assert.match(html, /id="btnScheduledTaskUseCurrentNote"/);
   assert.match(html, /Reflection reminder/);
   assert.match(html, /Every 30 min/);
   assert.match(html, /1 notes/);
   assert.match(html, /1\/3 runs per week, cap 2/);
   assert.match(html, /data-scheduled-task-id="sched_reflection"/);
+  assert.match(html, /data-scheduled-task-edit="sched_reflection"/);
   assert.match(html, /data-scheduled-task-status="paused"/);
   assert.match(html, /1 succeeded/);
 });

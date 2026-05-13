@@ -1258,6 +1258,8 @@ Response:
       },
       "scope": {
         "noteIds": ["note_01"],
+        "directoryIds": ["dir_original_default"],
+        "tags": ["writing"],
         "keywords": []
       },
       "nextRunAt": "2026-05-11T08:00:00.000Z"
@@ -1293,6 +1295,8 @@ Request:
   },
   "scope": {
     "noteIds": ["note_01"],
+    "directoryIds": ["dir_original_default"],
+    "tags": ["writing"],
     "keywords": []
   },
   "nextRunAt": "2026-05-11T08:00:00.000Z"
@@ -1307,13 +1311,22 @@ Response status: `201`
     "scheduledTaskId": "sched_api_reflection",
     "status": "active",
     "scope": {
-      "noteIds": ["note_01"]
+      "noteIds": ["note_01"],
+      "directoryIds": ["dir_original_default"],
+      "tags": ["writing"]
     }
   },
   "requestId": "req_...",
   "timestamp": "2026-05-13T03:00:00.000Z"
 }
 ```
+
+Scope rules:
+
+- `noteIds` are explicit selected notes and take precedence over search scopes.
+- `directoryIds` are stored as root directory scopes for note search.
+- `tags` and `keywords` are passed through the core `search_notes` tool when no explicit `noteIds` are present.
+- Scheduled runs still produce reviewable AI artifacts; scopes do not grant permission for silent note, relation, or writing-project mutation.
 
 ### `GET /api/v1/ai/scheduled-tasks/:id`
 

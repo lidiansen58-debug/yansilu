@@ -45,6 +45,7 @@ import {
   buildAgentMessages
 } from "../../packages/ai-orchestrator/src/index.mjs";
 import {
+  createDirectory,
   createNoteRelation,
   createNoteInDirectory,
   initVault,
@@ -2165,7 +2166,17 @@ test("search_notes core tool finds note content without mutating notes", async (
   const target = await createNoteInDirectory(vaultPath, {
     directoryId: originalDirectory.id,
     title: "Retrieval target",
-    body: "Retrieval target\n\nThis note contains the bridge concept for agent retrieval."
+    body: "Retrieval target\n\nThis note contains the bridge concept for agent retrieval and a shared scope marker."
+  });
+  const secondDirectory = await createDirectory(vaultPath, {
+    parentDirectoryId: originalDirectory.id,
+    title: "Scheduled scope",
+    fsPath: path.join(vaultPath, "notes", "original", "scheduled-scope")
+  });
+  const scopedTarget = await createNoteInDirectory(vaultPath, {
+    directoryId: secondDirectory.id,
+    title: "Scoped retrieval target",
+    body: "Scoped retrieval target\n\nThis note contains a shared scope marker for multi-directory retrieval. #ai-scope"
   });
   await createNoteInDirectory(vaultPath, {
     directoryId: originalDirectory.id,
@@ -2174,12 +2185,31 @@ test("search_notes core tool finds note content without mutating notes", async (
   });
   const registry = createToolRegistry(createCoreNoteTools({ vaultPath }));
 
-  const result = await registry.call("search_notes", { query: "bridge concept", limit: 5 }, { privacyMode: "normal" });
+  const result = await registry.call("search_notes", { query: "agent retrieval", limit: 5 }, { privacyMode: "normal" });
 
   assert.equal(result.status, "succeeded");
   assert.equal(result.output.total, 1);
   assert.equal(result.output.results[0].noteId, target.id);
   assert.equal(result.output.results[0].matchedReason, "body");
+
+  const scopedResult = await registry.call(
+    "search_notes",
+    { query: "shared scope marker", directoryIds: [originalDirectory.id, secondDirectory.id], limit: 5 },
+    { privacyMode: "normal" }
+  );
+  assert.equal(scopedResult.status, "succeeded");
+  assert.deepEqual(
+    scopedResult.output.results.map((item) => item.noteId).sort(),
+    [target.id, scopedTarget.id].sort()
+  );
+
+  const tagResult = await registry.call(
+    "search_notes",
+    { tag: ["ai-scope"], rootDirectoryIds: [originalDirectory.id], limit: 5 },
+    { privacyMode: "normal" }
+  );
+  assert.equal(tagResult.status, "succeeded");
+  assert.equal(tagResult.output.results[0].noteId, scopedTarget.id);
 });
 
 test("harness builds bounded context pack from selected note ids", async (t) => {

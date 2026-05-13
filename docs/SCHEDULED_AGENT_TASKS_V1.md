@@ -272,6 +272,8 @@ The first implementation slice now covers:
 - A thin scheduled-task runner that converts due tasks into Agent Harness runs with `trigger: scheduled_task`.
 - HTTP API endpoints for scheduled task templates, task listing/detail, creation from templates, status changes, deletion, and manual due-task execution.
 - API due-task execution now wires SQLite AI stores with core note tools so scoped scheduled runs can read selected/search-matched notes through the harness boundary.
+- Scheduled task scopes support explicit `noteIds` plus search scopes for `directoryIds`, `tags`, and `keywords`; explicit notes take precedence over search scopes.
+- Settings UI now creates and edits tasks from implementation-ready templates, defaulting new drafts to paused and confirming active tasks that have no scope.
 - Local worker cycle for due scheduled tasks using SQLite AI stores, core note tools, and a non-overlapping interval loop.
 - Novice-safe templates for weekly link suggestions and reflection reminders.
 - A contract-only weekly research scan template that stays paused until source-reader contracts and Research Agent support are ready.

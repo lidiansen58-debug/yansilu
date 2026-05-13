@@ -59,6 +59,9 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  scheduledTaskFormDefaults,
+  scheduledTaskFormFromTask,
+  scheduledTaskPayloadFromForm,
   normalizeScheduledTaskFilters
 } from "./scheduled-tasks-model.js";
 import {
@@ -83,6 +86,7 @@ import {
   fetchAiInboxEvaluationSummary,
   fetchAiInboxItem,
   fetchAiScheduledTasks,
+  fetchAiScheduledTaskTemplates,
   fetchIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
@@ -109,6 +113,7 @@ import {
   recordAiInboxDecision,
   rollbackImport,
   runDueAiScheduledTasks,
+  saveAiScheduledTask,
   switchVault,
   updateDirectory,
   updateAiScheduledTaskStatus,
@@ -182,6 +187,10 @@ const settingsState = {
     routePreviewError: "",
     scheduledTasks: [],
     scheduledTasksTotal: 0,
+    scheduledTaskTemplates: [],
+    scheduledTaskTemplatesLoading: false,
+    scheduledTaskTemplatesError: "",
+    scheduledTaskForm: scheduledTaskFormDefaults(),
     scheduledTaskFilters: {
       status: "all",
       taskType: "all",
@@ -741,6 +750,12 @@ function renderScheduledTasksWorkspace() {
   el.innerHTML = renderScheduledTasksPanel({
     items: settingsState.ai.scheduledTasks,
     total: settingsState.ai.scheduledTasksTotal,
+    templates: settingsState.ai.scheduledTaskTemplates,
+    templatesLoading: settingsState.ai.scheduledTaskTemplatesLoading,
+    templatesError: settingsState.ai.scheduledTaskTemplatesError,
+    form: settingsState.ai.scheduledTaskForm,
+    currentNoteId: state.selectedFileId || state.activeTabId || "",
+    currentDirectoryId: state.selectedFolderId || "",
     filters: settingsState.ai.scheduledTaskFilters,
     loading: settingsState.ai.scheduledTasksLoading,
     actionLoading: settingsState.ai.scheduledTaskActionLoading,
@@ -755,6 +770,119 @@ function scheduledTaskFiltersFromUi() {
     status: $("scheduledTaskStatusFilter")?.value || settingsState.ai.scheduledTaskFilters.status,
     taskType: $("scheduledTaskTypeFilter")?.value || settingsState.ai.scheduledTaskFilters.taskType
   });
+}
+
+function scheduledTaskTemplateById(templateId = "") {
+  const id = String(templateId || "").trim();
+  return settingsState.ai.scheduledTaskTemplates.find((template) => String(template.templateId || "").trim() === id) || null;
+}
+
+function scheduledTaskFormFromUi() {
+  return {
+    ...settingsState.ai.scheduledTaskForm,
+    templateId: $("scheduledTaskTemplateSelect")?.value || settingsState.ai.scheduledTaskForm.templateId,
+    name: $("scheduledTaskNameInput")?.value || "",
+    status: $("scheduledTaskStatusSelect")?.value || "paused",
+    scheduleType: $("scheduledTaskScheduleTypeSelect")?.value || "weekly",
+    dayOfWeek: $("scheduledTaskDaySelect")?.value || "monday",
+    time: $("scheduledTaskTimeInput")?.value || "09:00",
+    intervalMinutes: $("scheduledTaskIntervalInput")?.value || 30,
+    noteIdsText: $("scheduledTaskNoteIdsInput")?.value || "",
+    directoryIdsText: $("scheduledTaskDirectoryIdsInput")?.value || "",
+    tagsText: $("scheduledTaskTagsInput")?.value || "",
+    keywordsText: $("scheduledTaskKeywordsInput")?.value || "",
+    includePrivateNotes: $("scheduledTaskIncludePrivateInput")?.checked === true
+  };
+}
+
+function resetScheduledTaskForm(overrides = {}) {
+  settingsState.ai.scheduledTaskForm = {
+    ...scheduledTaskFormDefaults({
+      templates: settingsState.ai.scheduledTaskTemplates,
+      currentNoteId: state.selectedFileId || state.activeTabId || "",
+      currentDirectoryId: state.selectedFolderId || ""
+    }),
+    ...overrides
+  };
+  renderScheduledTasksWorkspace();
+}
+
+function applyScheduledTaskTemplateToForm(templateId = "") {
+  const template = scheduledTaskTemplateById(templateId);
+  if (!template) return;
+  const task = template.task || {};
+  const schedule = task.schedule || {};
+  settingsState.ai.scheduledTaskForm = {
+    ...settingsState.ai.scheduledTaskForm,
+    templateId: template.templateId,
+    name: template.name || settingsState.ai.scheduledTaskForm.name,
+    scheduleType: schedule.type || settingsState.ai.scheduledTaskForm.scheduleType,
+    dayOfWeek: schedule.dayOfWeek || schedule.day_of_week || settingsState.ai.scheduledTaskForm.dayOfWeek,
+    time: schedule.time || settingsState.ai.scheduledTaskForm.time
+  };
+  renderScheduledTasksWorkspace();
+}
+
+async function refreshScheduledTaskTemplates(options = {}) {
+  if (!options.silent) {
+    settingsState.ai.scheduledTaskTemplatesLoading = true;
+    settingsState.ai.scheduledTaskTemplatesError = "";
+    renderScheduledTasksWorkspace();
+  }
+  try {
+    const result = await fetchAiScheduledTaskTemplates({ implementationReady: true });
+    settingsState.ai.scheduledTaskTemplates = result.items;
+    settingsState.ai.scheduledTaskTemplatesError = "";
+    if (!String(settingsState.ai.scheduledTaskForm.templateId || "").trim()) resetScheduledTaskForm();
+    return result;
+  } catch (error) {
+    settingsState.ai.scheduledTaskTemplatesError = String(error?.message || error);
+    setStatus(`Scheduled task templates failed: ${settingsState.ai.scheduledTaskTemplatesError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.scheduledTaskTemplatesLoading = false;
+    renderScheduledTasksWorkspace();
+  }
+}
+
+function scheduledTaskPayloadHasScope(payload = {}) {
+  const scope = payload.scope || {};
+  return ["noteIds", "directoryIds", "tags", "keywords"].some((key) => Array.isArray(scope[key]) && scope[key].length);
+}
+
+async function saveScheduledTaskFromUi() {
+  const form = scheduledTaskFormFromUi();
+  settingsState.ai.scheduledTaskForm = form;
+  const payload = scheduledTaskPayloadFromForm(form);
+  if (payload.status === "active" && !scheduledTaskPayloadHasScope(payload)) {
+    const confirmed = window.confirm("Create an active scheduled task without a note, directory, tag, or keyword scope?");
+    if (!confirmed) return null;
+  }
+
+  settingsState.ai.scheduledTaskActionLoading = true;
+  renderScheduledTasksWorkspace();
+  try {
+    const item = await saveAiScheduledTask(payload);
+    settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(item);
+    await refreshScheduledTasks({ silent: true });
+    setStatus(`Scheduled task saved: ${item?.name || item?.scheduledTaskId || ""}`, "ok");
+    return item;
+  } catch (error) {
+    setStatus(`Scheduled task save failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    settingsState.ai.scheduledTaskActionLoading = false;
+    renderScheduledTasksWorkspace();
+  }
+}
+
+function editScheduledTaskFromList(scheduledTaskId = "") {
+  const id = String(scheduledTaskId || "").trim();
+  const task = settingsState.ai.scheduledTasks.find((item) => String(item.scheduledTaskId || "").trim() === id);
+  if (!task) return setStatus("Scheduled task not found in the current list", "warn");
+  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(task);
+  renderScheduledTasksWorkspace();
+  setStatus(`Editing scheduled task: ${task.name || id}`, "ok");
 }
 
 function aiInboxFiltersFromUi() {
@@ -3841,6 +3969,7 @@ async function refreshVaultSettings() {
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
     await refreshAiRoutePreview({ render: false });
+    await refreshScheduledTaskTemplates({ silent: true });
     await refreshScheduledTasks({ silent: true });
     settingsState.error = "";
     renderSettingsPanel();
@@ -4812,12 +4941,66 @@ $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("#btnScheduledTaskUseCurrentNote")) {
+    const noteId = String(state.selectedFileId || state.activeTabId || "").trim();
+    if (!noteId) return setStatus("No current note selected", "warn");
+    settingsState.ai.scheduledTaskForm = {
+      ...scheduledTaskFormFromUi(),
+      noteIdsText: noteId,
+      directoryIdsText: ""
+    };
+    renderScheduledTasksWorkspace();
+    return;
+  }
+
+  if (event.target.closest("#btnScheduledTaskUseCurrentDirectory")) {
+    const directoryId = String(state.selectedFolderId || "").trim();
+    if (!directoryId) return setStatus("No current directory selected", "warn");
+    settingsState.ai.scheduledTaskForm = {
+      ...scheduledTaskFormFromUi(),
+      noteIdsText: "",
+      directoryIdsText: directoryId
+    };
+    renderScheduledTasksWorkspace();
+    return;
+  }
+
+  if (event.target.closest("#btnScheduledTaskClearForm")) {
+    resetScheduledTaskForm();
+    setStatus("Scheduled task draft reset", "ok");
+    return;
+  }
+
+  if (event.target.closest("#btnScheduledTaskSave")) {
+    await saveScheduledTaskFromUi();
+    return;
+  }
+
+  const editButton = event.target.closest("[data-scheduled-task-edit]");
+  if (editButton) {
+    editScheduledTaskFromList(editButton.getAttribute("data-scheduled-task-edit"));
+    return;
+  }
+
   const statusButton = event.target.closest("[data-scheduled-task-status]");
   if (statusButton) {
     await setScheduledTaskStatus(
       statusButton.getAttribute("data-scheduled-task-id"),
       statusButton.getAttribute("data-scheduled-task-status")
     );
+  }
+});
+
+$("settingsScheduledTasksPanel")?.addEventListener("input", (event) => {
+  if (!event.target.closest("#scheduledTaskForm")) return;
+  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
+});
+
+$("settingsScheduledTasksPanel")?.addEventListener("change", (event) => {
+  if (!event.target.closest("#scheduledTaskForm")) return;
+  settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
+  if (event.target.closest("#scheduledTaskTemplateSelect")) {
+    applyScheduledTaskTemplateToForm(event.target.value);
   }
 });
 

@@ -133,6 +133,8 @@ function normalizeScope(input = {}) {
   return {
     projectIds: Array.isArray(scope.projectIds || scope.project_ids) ? [...(scope.projectIds || scope.project_ids)] : [],
     noteIds: Array.isArray(scope.noteIds || scope.note_ids) ? [...(scope.noteIds || scope.note_ids)] : [],
+    directoryIds: Array.isArray(scope.directoryIds || scope.directory_ids) ? [...(scope.directoryIds || scope.directory_ids)] : [],
+    tags: Array.isArray(scope.tags) ? [...scope.tags] : [],
     sourceFeedIds: Array.isArray(scope.sourceFeedIds || scope.source_feed_ids) ? [...(scope.sourceFeedIds || scope.source_feed_ids)] : [],
     keywords: Array.isArray(scope.keywords) ? [...scope.keywords] : [],
     includePrivateNotes: scope.includePrivateNotes === true || scope.include_private_notes === true
@@ -574,7 +576,18 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
   const scope = task.scope || {};
   const keywords = Array.isArray(scope.keywords) ? scope.keywords.map(cleanText).filter(Boolean) : [];
   const noteIds = Array.isArray(scope.noteIds) ? scope.noteIds.map(cleanText).filter(Boolean) : [];
+  const directoryIds = Array.isArray(scope.directoryIds) ? scope.directoryIds.map(cleanText).filter(Boolean) : [];
+  const tags = Array.isArray(scope.tags) ? scope.tags.map((tag) => cleanText(tag).replace(/^#/, "")).filter(Boolean) : [];
   const outputArtifactTypes = task.output?.artifactTypes || [];
+  const searchNotes =
+    tags.length || keywords.length || directoryIds.length
+      ? {
+          ...(keywords.length ? { query: keywords.join(" ") } : {}),
+          ...(tags.length ? { tag: tags } : {}),
+          ...(directoryIds.length ? { rootDirectoryIds: directoryIds } : {}),
+          limit: 10
+        }
+      : null;
 
   return {
     taskId: `scheduled_${task.scheduledTaskId}_${Date.now()}`,
@@ -596,7 +609,7 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
       scheduledTaskSpent: task.budget?.spentThisPeriod
     },
     ...(noteIds.length ? { noteIds } : {}),
-    ...(keywords.length ? { searchNotes: { query: keywords.join(" "), limit: 10 } } : {}),
+    ...(!noteIds.length && searchNotes ? { searchNotes } : {}),
     ...(task.taskType === "relation_scan"
       ? {
           graphContext: {

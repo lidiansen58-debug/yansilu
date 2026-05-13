@@ -40,7 +40,7 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
     templateId: "weekly_link_suggestions",
     workspaceId: "workspace_templates",
     userId: "user_templates",
-    scope: { keywords: ["model neutrality", "note links"] },
+    scope: { directoryIds: ["dir_original_default"], tags: ["writing"], keywords: ["model neutrality", "note links"] },
     now: "2026-05-11T00:00:00.000Z"
   });
 
@@ -57,6 +57,14 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
   assert.equal(linkTask.budget.maxEstimatedCostPerPeriod, 0.5);
   assert.equal(linkTask.privacy.requireConfirmationForPrivateNotes, true);
   assert.equal(linkTask.nextRunAt, "2026-05-18T00:00:00.000Z");
+  assert.deepEqual(linkTask.scope.directoryIds, ["dir_original_default"]);
+  assert.deepEqual(linkTask.scope.tags, ["writing"]);
+  assert.deepEqual(buildScheduledTaskHarnessInput(linkTask).searchNotes, {
+    query: "model neutrality note links",
+    tag: ["writing"],
+    rootDirectoryIds: ["dir_original_default"],
+    limit: 10
+  });
 });
 
 test("contract-only research template stays paused unless explicitly allowed", () => {

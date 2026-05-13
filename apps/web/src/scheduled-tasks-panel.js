@@ -3,12 +3,14 @@ import {
   scheduledRunSummary,
   scheduledTaskAction,
   scheduledTaskBudgetSummary,
+  scheduledTaskFormDefaults,
   scheduledTaskScheduleLabel,
   scheduledTasksSummary,
   scheduledTaskScopeSummary,
   scheduledTaskStatusLabel,
   scheduledTaskStatusOptions,
   scheduledTaskStatusTone,
+  scheduledTaskTemplateOptions,
   scheduledTaskTypeLabel,
   scheduledTaskTypeOptions
 } from "./scheduled-tasks-model.js";
@@ -69,6 +71,105 @@ function renderControls(state = {}) {
   `;
 }
 
+function renderTaskForm(state = {}) {
+  const templates = scheduledTaskTemplateOptions(state.templates || []);
+  const fallbackForm = scheduledTaskFormDefaults({
+    templates: state.templates || [],
+    currentNoteId: state.currentNoteId || "",
+    currentDirectoryId: state.currentDirectoryId || ""
+  });
+  const form = { ...fallbackForm, ...(state.form || {}) };
+  const editing = Boolean(String(form.scheduledTaskId || "").trim());
+  return `
+    <form class="scheduled-task-form" id="scheduledTaskForm">
+      <div class="scheduled-task-form-head">
+        <div>
+          <div class="settings-card-title">${editing ? "Edit scheduled task" : "Create scheduled task"}</div>
+          <div class="settings-card-note">Safe templates only. New outputs still land in AI Inbox for review.</div>
+        </div>
+        <div class="settings-stat-row">
+          ${editing ? badge(`Editing ${form.scheduledTaskId}`, "warn") : badge("Draft", "muted")}
+          ${state.templatesLoading ? badge("Loading templates", "warn") : ""}
+          ${state.templatesError ? badge("Template load failed", "bad") : ""}
+        </div>
+      </div>
+      <div class="scheduled-task-form-grid">
+        <label>
+          <span>Template</span>
+          <select id="scheduledTaskTemplateSelect" ${editing ? "disabled" : ""}>
+            ${templates
+              .map((template) => `<option value="${attr(template.value)}" ${template.value === form.templateId ? "selected" : ""}>${escapeHtml(template.label)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>
+          <span>Name</span>
+          <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="Weekly link suggestions" />
+        </label>
+        <label>
+          <span>Status</span>
+          <select id="scheduledTaskStatusSelect">
+            <option value="paused" ${form.status === "paused" ? "selected" : ""}>Paused</option>
+            <option value="active" ${form.status === "active" ? "selected" : ""}>Active</option>
+          </select>
+        </label>
+        <label>
+          <span>Schedule</span>
+          <select id="scheduledTaskScheduleTypeSelect">
+            <option value="weekly" ${form.scheduleType === "weekly" ? "selected" : ""}>Weekly</option>
+            <option value="interval" ${form.scheduleType === "interval" ? "selected" : ""}>Interval</option>
+            <option value="manual_only" ${form.scheduleType === "manual_only" ? "selected" : ""}>Manual only</option>
+          </select>
+        </label>
+        <label>
+          <span>Day</span>
+          <select id="scheduledTaskDaySelect">
+            ${["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+              .map((day) => `<option value="${day}" ${day === form.dayOfWeek ? "selected" : ""}>${day}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <label>
+          <span>Time</span>
+          <input id="scheduledTaskTimeInput" type="time" value="${attr(form.time)}" />
+        </label>
+        <label>
+          <span>Interval minutes</span>
+          <input id="scheduledTaskIntervalInput" type="number" min="5" step="5" value="${attr(form.intervalMinutes)}" />
+        </label>
+        <label>
+          <span>Note IDs</span>
+          <input id="scheduledTaskNoteIdsInput" value="${attr(form.noteIdsText)}" placeholder="note_1, note_2" />
+        </label>
+        <label>
+          <span>Directory IDs</span>
+          <input id="scheduledTaskDirectoryIdsInput" value="${attr(form.directoryIdsText)}" placeholder="dir_original_default" />
+        </label>
+        <label>
+          <span>Tags</span>
+          <input id="scheduledTaskTagsInput" value="${attr(form.tagsText)}" placeholder="writing, source-gap" />
+        </label>
+        <label>
+          <span>Keywords</span>
+          <input id="scheduledTaskKeywordsInput" value="${attr(form.keywordsText)}" placeholder="bridge concept" />
+        </label>
+        <label class="scheduled-task-checkbox">
+          <input id="scheduledTaskIncludePrivateInput" type="checkbox" ${form.includePrivateNotes ? "checked" : ""} />
+          <span>Include private notes</span>
+        </label>
+      </div>
+      <div class="scheduled-task-form-actions">
+        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentNote" type="button" ${state.currentNoteId ? "" : "disabled"}>Use current note</button>
+        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentDirectory" type="button" ${state.currentDirectoryId ? "" : "disabled"}>Use current directory</button>
+        <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">New</button>
+        <button class="mini-btn primary" id="btnScheduledTaskSave" type="button" ${state.actionLoading || !templates.length ? "disabled" : ""}>
+          ${editing ? "Save task" : "Create task"}
+        </button>
+      </div>
+    </form>
+  `;
+}
+
 function renderRunSummary(runSummary = null) {
   if (!runSummary) return "";
   const summary = scheduledRunSummary(runSummary);
@@ -111,6 +212,14 @@ function renderTask(task = {}, actionLoading = false) {
           ? `
             <div class="scheduled-task-actions">
               <button
+                class="mini-btn is-ghost"
+                type="button"
+                data-scheduled-task-edit="${attr(id)}"
+                ${actionLoading ? "disabled" : ""}
+              >
+                Edit
+              </button>
+              <button
                 class="mini-btn"
                 type="button"
                 data-scheduled-task-status="${attr(action.nextStatus)}"
@@ -152,6 +261,7 @@ export function renderScheduledTasksPanel(state = {}) {
         </div>
       </div>
       ${renderControls(state)}
+      ${renderTaskForm(state)}
       ${renderRunSummary(state.runSummary)}
       ${renderList(state)}
     </div>

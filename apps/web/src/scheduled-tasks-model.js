@@ -24,6 +24,14 @@ function normalizeLimit(value, fallback = 50) {
   return Math.max(1, Math.min(100, Math.floor(number)));
 }
 
+function splitList(value) {
+  if (Array.isArray(value)) return value.map(cleanText).filter(Boolean);
+  return String(value || "")
+    .split(/[\n,]+/)
+    .map(cleanText)
+    .filter(Boolean);
+}
+
 export function scheduledTaskStatusOptions() {
   return [
     { value: "all", label: "All statuses" },
@@ -44,6 +52,20 @@ export function scheduledTaskTypeOptions() {
     { value: "project_digest", label: "Project digests" },
     { value: "originality_check", label: "Originality checks" }
   ];
+}
+
+export function scheduledTaskTemplateOptions(templates = []) {
+  const list = Array.isArray(templates) ? templates : [];
+  return list
+    .filter((template) => template?.implementationReady === true)
+    .map((template) => ({
+      value: cleanText(template.templateId),
+      label: cleanText(template.name) || cleanText(template.templateId),
+      taskType: cleanText(template.task?.taskType || template.task_type),
+      agentId: cleanText(template.task?.agentId || template.agent_id),
+      description: cleanText(template.description)
+    }))
+    .filter((template) => template.value);
 }
 
 export function normalizeScheduledTaskFilters(filters = {}) {
@@ -103,9 +125,13 @@ export function scheduledTaskScheduleLabel(schedule = {}) {
 export function scheduledTaskScopeSummary(scope = {}) {
   const parts = [];
   const noteIds = Array.isArray(scope.noteIds || scope.note_ids) ? (scope.noteIds || scope.note_ids) : [];
+  const directoryIds = Array.isArray(scope.directoryIds || scope.directory_ids) ? (scope.directoryIds || scope.directory_ids) : [];
+  const tags = Array.isArray(scope.tags) ? scope.tags : [];
   const projectIds = Array.isArray(scope.projectIds || scope.project_ids) ? (scope.projectIds || scope.project_ids) : [];
   const keywords = Array.isArray(scope.keywords) ? scope.keywords : [];
   if (noteIds.length) parts.push(`${noteIds.length} notes`);
+  if (directoryIds.length) parts.push(`${directoryIds.length} directories`);
+  if (tags.length) parts.push(`${tags.length} tags`);
   if (projectIds.length) parts.push(`${projectIds.length} projects`);
   if (keywords.length) parts.push(`${keywords.length} keywords`);
   if (scope.includePrivateNotes || scope.include_private_notes) parts.push("private included");
@@ -144,5 +170,74 @@ export function scheduledRunSummary(summary = {}) {
     succeeded: normalizeCount(summary.succeeded),
     skipped: normalizeCount(summary.skipped),
     failed: normalizeCount(summary.failed)
+  };
+}
+
+export function scheduledTaskFormDefaults({ templates = [], currentNoteId = "", currentDirectoryId = "" } = {}) {
+  const templateOptions = scheduledTaskTemplateOptions(templates);
+  const templateId = templateOptions[0]?.value || "reflection_reminder";
+  return {
+    scheduledTaskId: "",
+    templateId,
+    name: templateOptions[0]?.label || "Reflection reminder",
+    status: "paused",
+    scheduleType: "weekly",
+    dayOfWeek: "friday",
+    time: "16:00",
+    intervalMinutes: 30,
+    noteIdsText: cleanText(currentNoteId),
+    directoryIdsText: currentNoteId ? "" : cleanText(currentDirectoryId),
+    tagsText: "",
+    keywordsText: "",
+    includePrivateNotes: false
+  };
+}
+
+export function scheduledTaskFormFromTask(task = {}) {
+  const schedule = task.schedule || {};
+  const scope = task.scope || {};
+  return {
+    scheduledTaskId: cleanText(task.scheduledTaskId),
+    templateId: task.taskType === "relation_scan" ? "weekly_link_suggestions" : "reflection_reminder",
+    name: cleanText(task.name),
+    status: cleanText(task.status) || "paused",
+    scheduleType: cleanText(schedule.type) || "weekly",
+    dayOfWeek: cleanText(schedule.dayOfWeek || schedule.day_of_week) || "monday",
+    time: cleanText(schedule.time) || "09:00",
+    intervalMinutes: normalizeCount(schedule.intervalMinutes ?? schedule.interval_minutes) || 30,
+    noteIdsText: (scope.noteIds || scope.note_ids || []).join(", "),
+    directoryIdsText: (scope.directoryIds || scope.directory_ids || []).join(", "),
+    tagsText: (scope.tags || []).join(", "),
+    keywordsText: (scope.keywords || []).join(", "),
+    includePrivateNotes: scope.includePrivateNotes === true || scope.include_private_notes === true
+  };
+}
+
+export function scheduledTaskPayloadFromForm(form = {}) {
+  const scheduleType = cleanText(form.scheduleType) || "weekly";
+  const schedule = {
+    type: scheduleType,
+    timezone: "local"
+  };
+  if (scheduleType === "interval") {
+    schedule.intervalMinutes = Math.max(5, normalizeCount(form.intervalMinutes || 30));
+  } else if (scheduleType === "weekly") {
+    schedule.dayOfWeek = cleanText(form.dayOfWeek) || "monday";
+    schedule.time = cleanText(form.time) || "09:00";
+  }
+
+  return {
+    ...(cleanText(form.scheduledTaskId) ? { scheduledTaskId: cleanText(form.scheduledTaskId) } : {}),
+    templateId: cleanText(form.templateId) || "reflection_reminder",
+    name: cleanText(form.name) || "Scheduled agent task",
+    status: cleanText(form.status) || "paused",
+    schedule,
+    scope: {
+      noteIds: splitList(form.noteIdsText),
+      directoryIds: splitList(form.directoryIdsText),
+      tags: splitList(form.tagsText).map((tag) => tag.replace(/^#/, "")),
+      keywords: splitList(form.keywordsText),
+      includePrivateNotes: form.includePrivateNotes === true
+    }
   };
 }

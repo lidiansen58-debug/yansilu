@@ -81,6 +81,10 @@ function uniqueNotes(notes = []) {
   return [...byId.values()];
 }
 
+function uniqueStrings(values = []) {
+  return [...new Set(values.map(cleanText).filter(Boolean))];
+}
+
 function snippetFromText(text, query) {
   const compact = String(text || "").replace(/\s+/g, " ").trim();
   if (!compact) return "";
@@ -133,10 +137,23 @@ async function collectSearchCandidates(root, input = {}) {
 
   const rootDirectoryId = cleanText(input.rootDirectoryId || input.root_directory_id || filters.rootDirectoryId || filters.root_directory_id);
   const directoryId = cleanText(input.directoryId || input.directory_id || filters.directoryId || filters.directory_id);
+  const rootDirectoryIds = uniqueStrings([
+    ...toArray(input.rootDirectoryIds || input.root_directory_ids),
+    ...toArray(filters.rootDirectoryIds || filters.root_directory_ids),
+    ...(rootDirectoryId ? [rootDirectoryId] : [])
+  ]);
+  const directoryIds = uniqueStrings([
+    ...toArray(input.directoryIds || input.directory_ids),
+    ...toArray(filters.directoryIds || filters.directory_ids),
+    ...(directoryId ? [directoryId] : [])
+  ]);
 
   if (tagNames.length) {
     const tagged = await Promise.all(
-      [...new Set(tagNames)].map((tagName) => listNotesByTag(root, tagName, { rootDirectoryId }))
+      uniqueStrings(tagNames).flatMap((tagName) => {
+        const roots = rootDirectoryIds.length ? rootDirectoryIds : [""];
+        return roots.map((id) => listNotesByTag(root, tagName, { rootDirectoryId: id }));
+      })
     );
     return {
       reason: "tag",
@@ -145,19 +162,20 @@ async function collectSearchCandidates(root, input = {}) {
     };
   }
 
-  if (directoryId) {
+  if (directoryIds.length) {
+    const listed = await Promise.all(directoryIds.map((id) => listNotesInDirectory(root, id)));
     return {
       reason: query ? "body" : "recent",
       query,
-      notes: await listNotesInDirectory(root, directoryId)
+      notes: uniqueNotes(listed.flat())
     };
   }
 
   const directories = await listDirectories(root);
-  const directoryIds = rootDirectoryId
-    ? descendantDirectoryIds(directories, rootDirectoryId)
+  const scopedDirectoryIds = rootDirectoryIds.length
+    ? uniqueStrings(rootDirectoryIds.flatMap((id) => descendantDirectoryIds(directories, id)))
     : directories.map((directory) => directory.id).filter(Boolean);
-  const listed = await Promise.all(directoryIds.map((id) => listNotesInDirectory(root, id)));
+  const listed = await Promise.all(scopedDirectoryIds.map((id) => listNotesInDirectory(root, id)));
   return {
     reason: query ? "body" : "recent",
     query,
@@ -180,7 +198,9 @@ export function createCoreNoteTools({ vaultPath } = {}) {
           limit: { type: "number" },
           tag: { type: "string" },
           directoryId: { type: "string" },
-          rootDirectoryId: { type: "string" }
+          directoryIds: { type: "array", items: { type: "string" } },
+          rootDirectoryId: { type: "string" },
+          rootDirectoryIds: { type: "array", items: { type: "string" } }
         },
         additionalProperties: true
       },

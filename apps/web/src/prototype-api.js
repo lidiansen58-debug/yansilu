@@ -173,6 +173,28 @@ export async function fetchAiScheduledTasks(options = {}) {
   };
 }
 
+export async function fetchAiScheduledTaskTemplates(options = {}) {
+  const params = new URLSearchParams();
+  if (options?.implementationReady !== undefined) {
+    params.set("implementationReady", options.implementationReady === false ? "false" : "true");
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const json = await request(`/api/v1/ai/scheduled-task-templates${suffix}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0)
+  };
+}
+
+export async function saveAiScheduledTask(payload = {}) {
+  const json = await request("/api/v1/ai/scheduled-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function updateAiScheduledTaskStatus(scheduledTaskId, status) {
   const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
   const cleanStatus = String(status || "").trim();
@@ -184,6 +206,14 @@ export async function updateAiScheduledTaskStatus(scheduledTaskId, status) {
     body: JSON.stringify({ status: cleanStatus })
   });
   return json.item || null;
+}
+
+export async function deleteAiScheduledTask(scheduledTaskId) {
+  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
+  if (!cleanScheduledTaskId) throw new Error("scheduledTaskId is required");
+  return request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}`, {
+    method: "DELETE"
+  });
 }
 
 export async function runDueAiScheduledTasks(payload = {}) {
