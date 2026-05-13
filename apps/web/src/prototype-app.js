@@ -87,6 +87,7 @@ import {
   fetchAiInboxItem,
   fetchAiScheduledTasks,
   fetchAiScheduledTaskTemplates,
+  fetchRelationReviewQueue,
   fetchIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
@@ -144,6 +145,7 @@ const importState = {
 const graphState = {
   item: null,
   conflicts: null,
+  reviewQueue: null,
   loading: false,
   error: "",
   filters: {
@@ -4244,6 +4246,29 @@ function graphRelationStatusLabel(status) {
   return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
 }
 
+const GRAPH_RELATION_QUALITY_LABELS = {
+  empty: "缺说明",
+  basic: "待补强",
+  good: "较清楚",
+  strong: "清楚"
+};
+
+const GRAPH_RELATION_REVIEW_REASON_LABELS = {
+  missing_rationale: "补关系说明",
+  thin_rationale: "补证据或边界",
+  needs_review: "复查关系"
+};
+
+function graphRelationQualityLabel(level) {
+  const key = String(level || "empty").trim().toLowerCase();
+  return GRAPH_RELATION_QUALITY_LABELS[key] || key || "待整理";
+}
+
+function graphRelationReviewReasonLabel(reason) {
+  const key = String(reason || "needs_review").trim().toLowerCase();
+  return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
+}
+
 function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
   const counts = edges.reduce((acc, edge) => {
     const fallback = field === "status" ? "confirmed" : "associated_with";
@@ -4267,6 +4292,60 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
   const filterType = String(filters.relationType || "all").trim().toLowerCase();
   const filterStatus = String(filters.status || "all").trim().toLowerCase();
   return (filterType === "all" || type === filterType) && (filterStatus === "all" || status === filterStatus);
+}
+
+function renderRelationReviewQueueSection(reviewQueue) {
+  const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
+  const total = Number(reviewQueue?.total || items.length || 0);
+  const error = String(reviewQueue?.error || "").trim();
+  const summary = reviewQueue?.summary && typeof reviewQueue.summary === "object" ? reviewQueue.summary : {};
+  const byQuality = summary.byQualityLevel && typeof summary.byQualityLevel === "object" ? summary.byQualityLevel : {};
+  const emptyCount = Number(byQuality.empty || 0);
+  const basicCount = Number(byQuality.basic || 0);
+  return `
+      <section class="graph-section graph-review-section">
+        <div class="graph-section-head">
+          <div>
+            <div class="graph-section-title">关系整理队列</div>
+            <div class="graph-section-note">优先处理说明缺失或理由偏薄的关系，让图谱从“连上了”继续走到“说清楚”。</div>
+          </div>
+        </div>
+        ${
+          error
+            ? `<div class="graph-empty bad">整理队列加载失败：${escapeHtml(error)}</div>`
+            : items.length
+              ? `
+                <div class="graph-review-summary">
+                  <strong>${total} 条待整理关系</strong>
+                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。打开源笔记后可在右侧关系面板补理由、问题或状态。</small>
+                </div>
+                <div class="graph-list">
+                  ${items
+                    .map((item) => {
+                      const source = item.source || {};
+                      const target = item.target || {};
+                      const sourceTitle = source.title || item.fromNoteId || "源笔记";
+                      const targetTitle = target.title || item.toNoteId || "目标笔记";
+                      const rationale = String(item.rationale || "").trim();
+                      return `
+                        <button class="graph-review-card" type="button" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
+                          <span class="graph-review-main">
+                            <span class="graph-review-title">${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</span>
+                            <span class="graph-review-meta">${escapeHtml(graphRelationReviewReasonLabel(item.reviewReason))} · ${escapeHtml(
+                              graphRelationQualityLabel(item.rationaleQualityLevel)
+                            )} · ${escapeHtml(graphRelationTypeLabel(item.relationType))} · ${escapeHtml(graphRelationStatusLabel(item.status))}</span>
+                            <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
+                          </span>
+                        </button>
+                      `;
+                    })
+                    .join("")}
+                </div>
+              `
+              : `<div class="graph-empty">当前目录没有缺说明或理由偏薄的关系；可以继续补新关系，或切换筛选查看完整图谱。</div>`
+        }
+      </section>
+  `;
 }
 
 function renderGraphPanel() {
@@ -4475,6 +4554,7 @@ function renderGraphPanel() {
             : `<div class="graph-empty">当前目录还没有显性冲突；如果结构看起来过于顺滑，可以回到笔记里补上反方、边界或例外条件。</div>`
         }
       </section>
+      ${renderRelationReviewQueueSection(graphState.reviewQueue)}
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
@@ -4566,16 +4646,23 @@ async function refreshDirectoryGraph() {
   renderGraphPanel();
   try {
     const directoryId = state.selectedFolderId;
-    const [graph, conflicts] = await Promise.all([
+    const [graph, conflicts, reviewQueue] = await Promise.all([
       fetchDirectoryGraph(directoryId),
-      fetchGraphConflicts({ directoryId, includeDescendants: false }).catch(() => null)
+      fetchGraphConflicts({ directoryId, includeDescendants: false }).catch(() => null),
+      fetchRelationReviewQueue({ directoryId, includeDescendants: false, limit: 8 }).catch((error) => ({
+        error: String(error?.message || error),
+        items: [],
+        total: 0
+      }))
     ]);
     graphState.item = graph;
     graphState.conflicts = conflicts;
+    graphState.reviewQueue = reviewQueue;
   } catch (error) {
     graphState.error = String(error?.message || error);
     graphState.item = null;
     graphState.conflicts = null;
+    graphState.reviewQueue = null;
   } finally {
     graphState.loading = false;
     renderGraphPanel();

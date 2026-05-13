@@ -32,6 +32,7 @@ import {
   listDirectories,
   listIndexCards,
   listNoteRelations,
+  listRelationReviewQueue,
   listTags,
   listNotesByTag,
   listNotesInDirectory,
@@ -2064,6 +2065,27 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("GRAPH_CONFLICTS_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/relations/review-queue") {
+      try {
+        await initVault(VAULT_PATH);
+        const result = await listRelationReviewQueue(VAULT_PATH, {
+          directoryId: url.searchParams.get("directoryId"),
+          includeDescendants: url.searchParams.get("includeDescendants") === "true",
+          qualityLevels: url.searchParams.get("qualityLevels") || url.searchParams.get("qualityLevel"),
+          relationType: url.searchParams.get("relationType"),
+          status: url.searchParams.get("status"),
+          limit: Number(url.searchParams.get("limit") || 20)
+        });
+        return sendJson(res, 200, {
+          ...result,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "RELATION_REVIEW_QUEUE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

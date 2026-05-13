@@ -601,6 +601,7 @@ const LINK_RELATION_TYPES = new Set([
 ]);
 const LINK_CREATED_BY = new Set(["user", "ai_suggestion", "import"]);
 const LINK_STATUSES = new Set(["suggested", "draft", "confirmed", "dismissed", "archived"]);
+const RELATION_RATIONALE_QUALITY_LEVELS = new Set(["empty", "basic", "good", "strong"]);
 const RELATION_RATIONALE_ACTION_PATTERN =
   /support|contradict|qualif|extend|bridge|reframe|example|counterexample|because|therefore|however|evidence|boundary|tension|conflict|支持|反驳|限定|补充|推进|前提|后续|例子|反例|桥接|重述|改写|因为|所以|但是|然而|边界|证据|张力|冲突/i;
 
@@ -639,6 +640,25 @@ function normalizeRelationStatus(value, createdBy = "user") {
     });
   }
   return status;
+}
+
+function normalizeRelationQualityLevels(value, fallback = ["empty", "basic"]) {
+  const rawLevels = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+  const levels = rawLevels.length ? rawLevels : fallback;
+  const normalized = [...new Set(levels.map((level) => String(level || "").trim().toLowerCase()).filter(Boolean))];
+  const unsupported = normalized.filter((level) => !RELATION_RATIONALE_QUALITY_LEVELS.has(level));
+  if (unsupported.length) {
+    throw noteValidationError("RELATION_QUALITY_LEVEL_UNSUPPORTED", `Unsupported relation quality level: ${unsupported[0]}`, {
+      qualityLevel: unsupported[0],
+      supportedQualityLevels: [...RELATION_RATIONALE_QUALITY_LEVELS]
+    });
+  }
+  return normalized.length ? normalized : fallback;
 }
 
 function normalizeRelationCreatedBy(value) {
@@ -1323,6 +1343,134 @@ export async function getDirectoryGraph(vaultPath, directoryId) {
       insights: buildGraphInsights(nodes, edges),
       totalNodes: nodes.length,
       totalEdges: edges.length
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function relationReviewReason(relation) {
+  const level = String(relation?.rationaleQualityLevel || "empty").trim().toLowerCase();
+  if (level === "empty") return "missing_rationale";
+  if (level === "basic") return "thin_rationale";
+  return "needs_review";
+}
+
+function summarizeRelationReviewQueue(items) {
+  const byQualityLevel = {};
+  const byStatus = {};
+  const byRelationType = {};
+  for (const item of items) {
+    const qualityLevel = String(item.rationaleQualityLevel || "empty").trim().toLowerCase();
+    const status = String(item.status || "confirmed").trim().toLowerCase();
+    const relationType = String(item.relationType || "associated_with").trim().toLowerCase();
+    byQualityLevel[qualityLevel] = (byQualityLevel[qualityLevel] || 0) + 1;
+    byStatus[status] = (byStatus[status] || 0) + 1;
+    byRelationType[relationType] = (byRelationType[relationType] || 0) + 1;
+  }
+  return { byQualityLevel, byStatus, byRelationType };
+}
+
+export async function listRelationReviewQueue(vaultPath, options = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const directoryId = String(options.directoryId || "").trim();
+  if (!directoryId) throw new Error("directoryId is required");
+  const includeDescendants = options.includeDescendants === true || String(options.includeDescendants || "") === "true";
+  const qualityLevels = normalizeRelationQualityLevels(options.qualityLevels ?? options.qualityLevel);
+  const relationTypeInput = String(options.relationType || "all").trim().toLowerCase();
+  const relationType = relationTypeInput && relationTypeInput !== "all" ? normalizeRelationType(relationTypeInput) : "all";
+  const statusInput = String(options.status || "all").trim().toLowerCase();
+  const status = statusInput && statusInput !== "all" ? normalizeRelationStatus(statusInput, "user") : "all";
+  const limit = Math.max(1, Math.min(100, Number(options.limit || 20) || 20));
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const directory = db.prepare("SELECT id, title FROM directories WHERE id = ? LIMIT 1").get(directoryId);
+    if (!directory) throw new Error(`directoryId not found: ${directoryId}`);
+
+    const scopeClause = includeDescendants
+      ? directoryScopeClause("scope")
+      : "WITH scope(id) AS (SELECT id FROM directories WHERE id = ?)";
+    const qualityPlaceholders = qualityLevels.map(() => "?").join(", ");
+    const statusClause =
+      status === "all" ? "AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')" : "AND COALESCE(l.status, 'confirmed') = ?";
+    const relationTypeClause = relationType === "all" ? "" : "AND l.relation_type = ?";
+    const args = [directoryId, ...qualityLevels];
+    if (status !== "all") args.push(status);
+    if (relationType !== "all") args.push(relationType);
+    args.push(limit);
+
+    const rows = db
+      .prepare(
+        `${scopeClause}
+         SELECT l.*,
+                to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
+                to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+                from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
+                from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+         FROM links l
+         JOIN notes from_note ON from_note.id = l.from_note_id
+         JOIN notes to_note ON to_note.id = l.to_note_id
+         WHERE from_note.deleted_at IS NULL
+           AND to_note.deleted_at IS NULL
+           AND COALESCE(l.rationale_quality_level, 'empty') IN (${qualityPlaceholders})
+           ${statusClause}
+           ${relationTypeClause}
+           AND (
+             EXISTS (
+               SELECT 1
+               FROM note_directory_membership from_member
+               JOIN scope ON scope.id = from_member.directory_id
+               WHERE from_member.note_id = l.from_note_id
+             )
+             OR EXISTS (
+               SELECT 1
+               FROM note_directory_membership to_member
+               JOIN scope ON scope.id = to_member.directory_id
+               WHERE to_member.note_id = l.to_note_id
+             )
+           )
+         ORDER BY
+           CASE COALESCE(l.rationale_quality_level, 'empty')
+             WHEN 'empty' THEN 0
+             WHEN 'basic' THEN 1
+             WHEN 'good' THEN 2
+             WHEN 'strong' THEN 3
+             ELSE 4
+           END ASC,
+           CASE COALESCE(l.status, 'confirmed')
+             WHEN 'suggested' THEN 0
+             WHEN 'draft' THEN 1
+             WHEN 'confirmed' THEN 2
+             ELSE 3
+           END ASC,
+           COALESCE(l.updated_at, l.created_at) ASC
+         LIMIT ?`
+      )
+      .all(...args);
+
+    const items = rows.map((row) => {
+      const relation = mapRelationLinkRow(row);
+      const reviewReason = relationReviewReason(relation);
+      return {
+        ...relation,
+        reviewReason,
+        reviewPriority: reviewReason === "missing_rationale" ? 0 : reviewReason === "thin_rationale" ? 1 : 2
+      };
+    });
+
+    return {
+      directoryId,
+      directoryTitle: directory.title,
+      includeDescendants,
+      qualityLevels,
+      relationType,
+      status,
+      limit,
+      total: items.length,
+      items,
+      summary: summarizeRelationReviewQueue(items)
     };
   } finally {
     db.close();

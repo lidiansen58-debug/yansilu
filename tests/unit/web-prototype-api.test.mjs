@@ -111,6 +111,55 @@ test("prototype API searches notes through the public endpoint", async () => {
   }
 });
 
+test("prototype API fetches relation review queue through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        directoryId: "dir_original_default",
+        directoryTitle: "Original",
+        includeDescendants: false,
+        qualityLevels: ["empty", "basic"],
+        relationType: "all",
+        status: "all",
+        limit: 8,
+        items: [{ id: "lnk_weak", reviewReason: "missing_rationale" }],
+        summary: { byQualityLevel: { empty: 1 } },
+        total: 1
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("relation-review-queue", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.fetchRelationReviewQueue({
+      directoryId: "dir_original_default",
+      includeDescendants: false,
+      qualityLevels: ["empty", "basic"],
+      limit: 8
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      "http://127.0.0.1:3999/api/v1/relations/review-queue?directoryId=dir_original_default&includeDescendants=false&qualityLevels=empty%2Cbasic&relationType=all&status=all&limit=8"
+    );
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(result.total, 1);
+    assert.equal(result.items[0].id, "lnk_weak");
+    assert.equal(result.summary.byQualityLevel.empty, 1);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API creates note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

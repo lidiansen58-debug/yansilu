@@ -374,6 +374,50 @@ Updates a semantic relation's type, rationale, insight question, confidence, or 
 
 Deletes an explicit semantic relation.
 
+### `GET /api/v1/relations/review-queue`
+
+Returns directory-scoped semantic relations whose rationale quality needs attention. By default the queue includes active `empty` and `basic` relations and excludes `dismissed` / `archived` relations.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `directoryId` | string | required | Directory whose relations should be reviewed. A relation is included when either endpoint is in scope. |
+| `includeDescendants` | boolean | `false` | Include child directories in the review scope. |
+| `qualityLevels` | comma string | `empty,basic` | Rationale quality levels to include. Supported values: `empty`, `basic`, `good`, `strong`. |
+| `relationType` | string | `all` | Optional relation type filter. |
+| `status` | string | `all` | Optional status filter. |
+| `limit` | number | `20` | Clamped to `1..100`. |
+
+Response:
+
+```json
+{
+  "directoryId": "dir_...",
+  "directoryTitle": "Original notes",
+  "qualityLevels": ["empty", "basic"],
+  "items": [
+    {
+      "id": "lnk_...",
+      "fromNoteId": "pn_source",
+      "toNoteId": "pn_target",
+      "relationType": "same_topic",
+      "rationaleQualityLevel": "empty",
+      "reviewReason": "missing_rationale",
+      "reviewPriority": 0,
+      "source": { "id": "pn_source", "title": "Source" },
+      "target": { "id": "pn_target", "title": "Target" }
+    }
+  ],
+  "summary": {
+    "byQualityLevel": { "empty": 1 },
+    "byStatus": { "draft": 1 },
+    "byRelationType": { "same_topic": 1 }
+  },
+  "total": 1
+}
+```
+
 ### `GET /api/v1/notes/search`
 
 Searches cataloged notes by title, id, or Markdown path. Relation creation uses this endpoint so the target note does not need to be loaded in the current browser pane.
