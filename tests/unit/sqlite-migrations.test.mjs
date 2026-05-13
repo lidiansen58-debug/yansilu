@@ -44,6 +44,7 @@ test("applySqliteMigrations creates three database files when node:sqlite is ava
     const permanentColumns = db.prepare("PRAGMA table_info('permanent_note_meta')").all().map((row) => row.name);
     const indexCardColumns = db.prepare("PRAGMA table_info('index_cards')").all().map((row) => row.name);
     const projectColumns = db.prepare("PRAGMA table_info('writing_projects')").all().map((row) => row.name);
+    const linkColumns = db.prepare("PRAGMA table_info('links')").all().map((row) => row.name);
 
     assert.equal(permanentColumns.includes("thesis"), true);
     assert.equal(permanentColumns.includes("three_line_summary_json"), true);
@@ -55,6 +56,12 @@ test("applySqliteMigrations creates three database files when node:sqlite is ava
 
     assert.equal(projectColumns.includes("intent"), true);
     assert.equal(projectColumns.includes("desired_reader_takeaway"), true);
+
+    assert.equal(linkColumns.includes("insight_question"), true);
+    assert.equal(linkColumns.includes("status"), true);
+    assert.equal(linkColumns.includes("updated_at"), true);
+    assert.equal(linkColumns.includes("rationale_quality_score"), true);
+    assert.equal(linkColumns.includes("rationale_quality_level"), true);
   } finally {
     db.close();
   }

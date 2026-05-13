@@ -1,6 +1,7 @@
 export * from "./catalog-store.mjs";
 export * from "./frontmatter.mjs";
 export * from "./index-card-store.mjs";
+export * from "./knowledge-network-seed.mjs";
 export * from "./note-catalog-store.mjs";
 export * from "./note-store.mjs";
 export * from "./sqlite-migrations.mjs";
