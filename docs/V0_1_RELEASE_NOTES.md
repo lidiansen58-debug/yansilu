@@ -1,8 +1,8 @@
 # 研思录 v0.1.0 Release Notes
 
-发布日期：2026-05-13  
-版本基线：`v0.1.0-66-g0473a0f`  
-发布对象：Windows 桌面版内测 / 朋友测试
+- 发布日期：2026-05-13
+- 版本基线：`v0.1.0-67-g15653f8`
+- 发布对象：Windows 桌面版内测 / 朋友测试
 
 研思录 v0.1.0 是第一个可真实走完整 MVP 链路的本地优先桌面版本。它仍然是内测候选，不建议作为公开生产版本大范围分发；但已经可以用于验证从资料收集、文献转述、原创判断、关系网络、导入导出到写作准备的核心工作流。
 
@@ -98,11 +98,11 @@
 
 - `node --test tests\unit\web-editor-asset-markdown.test.mjs` 通过：6/6。
 - `npm.cmd run mvp:check` 通过。
-- Core tests：267 pass / 0 fail / 65 skipped。
+- Core tests：309 pass / 0 fail / 67 skipped。
 - Smoke E2E 通过。
-- Browser MVP E2E 通过，覆盖笔记、Vault、导入、导出、图谱、Explorer 移动 / 删除等主路径。
+- Browser MVP E2E 通过，覆盖 10 条 MVP 浏览器主路径：笔记、Vault、导入、导出、图谱、Explorer 移动 / 删除、编辑器空行、外部链接、图片 / 附件、wikilink / tag token。
+- Desktop dev preflight 通过，包括 Rust / Tauri CLI、web dev server `:5173` 和 api server `:3000`。
 - Desktop bundle preflight 通过，包括 Tauri 配置、图标、updater 权限和 `cargo check`。
-- `mvp:check` 中 desktop dev preflight 曾提示 `web dev server :5173 - not running`，但脚本整体最终为 `MVP check passed`。
 - 合并 AI agent layer 与 V1.5 thinking status 后，`npm.cmd test` 通过：309 pass / 0 fail / 67 skipped。
 
 完整浏览器 E2E 默认不在 `mvp:check` 中运行。需要完整验证时可单独执行：
