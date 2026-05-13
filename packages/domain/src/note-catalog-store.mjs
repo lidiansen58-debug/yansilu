@@ -1473,6 +1473,74 @@ export async function listNoteRelations(vaultPath, noteId) {
   }
 }
 
+export async function createNoteRelation(vaultPath, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const fromNoteId = normalizeOptionalText(input.fromNoteId || input.from_note_id);
+  const toNoteId = normalizeOptionalText(input.toNoteId || input.to_note_id);
+  const relationType = normalizeOptionalText(input.relationType || input.relation_type || "related").toLowerCase();
+  const rationale = normalizeOptionalText(input.rationale);
+  const createdBy = normalizeOptionalText(input.createdBy || input.created_by || "user");
+  const confidence = normalizeOptionalNumber(input.confidence);
+  if (!fromNoteId) throw new Error("fromNoteId is required");
+  if (!toNoteId) throw new Error("toNoteId is required");
+  if (fromNoteId === toNoteId) throw new Error("fromNoteId and toNoteId must be different");
+  if (!relationType) throw new Error("relationType is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const endpoints = db
+      .prepare(
+        `SELECT id, note_type, title, status, markdown_path, created_at, updated_at
+         FROM notes
+         WHERE id IN (?, ?) AND deleted_at IS NULL`
+      )
+      .all(fromNoteId, toNoteId);
+    if (!endpoints.find((note) => note.id === fromNoteId)) throw new Error(`fromNoteId not found: ${fromNoteId}`);
+    if (!endpoints.find((note) => note.id === toNoteId)) throw new Error(`toNoteId not found: ${toNoteId}`);
+
+    const existing = db
+      .prepare(
+        `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
+                l.confidence, l.created_at,
+                from_note.title AS from_title,
+                to_note.title AS to_title
+         FROM links l
+         JOIN notes from_note ON from_note.id = l.from_note_id
+         JOIN notes to_note ON to_note.id = l.to_note_id
+         WHERE l.from_note_id = ? AND l.to_note_id = ? AND l.relation_type = ?
+         LIMIT 1`
+      )
+      .get(fromNoteId, toNoteId, relationType);
+    if (existing) return { ...mapGraphEdgeRow(existing), created: false };
+
+    const now = new Date().toISOString();
+    const relationId = `lnk_${randomUUID().slice(0, 8)}`;
+    db.prepare(
+      `INSERT INTO links
+       (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(relationId, fromNoteId, toNoteId, relationType, rationale, createdBy, confidence, now);
+
+    const row = db
+      .prepare(
+        `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
+                l.confidence, l.created_at,
+                from_note.title AS from_title,
+                to_note.title AS to_title
+         FROM links l
+         JOIN notes from_note ON from_note.id = l.from_note_id
+         JOIN notes to_note ON to_note.id = l.to_note_id
+         WHERE l.id = ?
+         LIMIT 1`
+      )
+      .get(relationId);
+    return { ...mapGraphEdgeRow(row), created: true };
+  } finally {
+    db.close();
+  }
+}
+
 export async function updateNoteContent(vaultPath, noteId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();

@@ -81,6 +81,70 @@ export async function previewAiRoute(payload = {}) {
   return json.item || null;
 }
 
+export async function fetchAiInbox(options = {}) {
+  const params = new URLSearchParams();
+  const view = String(options?.view || "pending").trim();
+  const type = String(options?.type || "").trim();
+  const sourceNoteId = String(options?.sourceNoteId || "").trim();
+  const privacyMode = String(options?.privacyMode || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
+  if (view) params.set("view", view);
+  if (type && type !== "all") params.set("type", type);
+  if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
+  if (privacyMode) params.set("privacyMode", privacyMode);
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/ai/inbox?${params.toString()}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0),
+    counts: json.counts || {},
+    views: Array.isArray(json.views) ? json.views : []
+  };
+}
+
+export async function fetchAiInboxEvaluationSummary(options = {}) {
+  const params = new URLSearchParams();
+  const view = String(options?.view || "all").trim();
+  const type = String(options?.type || "").trim();
+  const sourceNoteId = String(options?.sourceNoteId || "").trim();
+  const privacyMode = String(options?.privacyMode || "").trim();
+  if (view) params.set("view", view);
+  if (type && type !== "all") params.set("type", type);
+  if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
+  if (privacyMode) params.set("privacyMode", privacyMode);
+  const json = await request(`/api/v1/ai/inbox/evaluation-summary?${params.toString()}`);
+  return json.item || null;
+}
+
+export async function fetchAiInboxItem(artifactId) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}`);
+}
+
+export async function recordAiInboxDecision(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export async function acceptAiInboxLink(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/accept-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      confirm: true
+    })
+  });
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");

@@ -39,7 +39,8 @@ function statusBelongsToView(status, view) {
 }
 
 function artifactMatchesInboxFilter(artifact = {}, filter = {}) {
-  const type = cleanText(filter.type || filter.artifactType || filter.artifact_type);
+  const rawType = cleanText(filter.type || filter.artifactType || filter.artifact_type);
+  const type = rawType === "all" ? "" : rawType;
   const sourceNoteId = cleanText(filter.sourceNoteId || filter.source_note_id);
   const privacyMode = cleanText(filter.privacyMode || filter.privacy_mode);
 
@@ -58,6 +59,43 @@ function itemActionState(status) {
 function latestDecision(artifact = {}) {
   const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
   return decisions[decisions.length - 1] || null;
+}
+
+function normalizedSummaryFilter(filter = {}) {
+  const rawType = cleanText(filter.type || filter.artifactType || filter.artifact_type);
+  const view = cleanText(filter.view) ? normalizeView(filter.view) : "all";
+  return {
+    view,
+    type: rawType === "all" ? "" : rawType,
+    sourceNoteId: cleanText(filter.sourceNoteId || filter.source_note_id),
+    privacyMode: cleanText(filter.privacyMode || filter.privacy_mode)
+  };
+}
+
+function incrementCount(target, key, amount = 1) {
+  const cleanKey = cleanText(key) || "unknown";
+  target[cleanKey] = (target[cleanKey] || 0) + amount;
+}
+
+function emptyFeedbackCounts() {
+  return {
+    useful: 0,
+    noisy: 0,
+    wrong: 0,
+    alreadyKnown: 0,
+    privacyConcern: 0
+  };
+}
+
+function addFeedbackCounts(target, feedback = {}) {
+  let hasFlag = false;
+  for (const key of Object.keys(target)) {
+    if (feedback[key] === true) {
+      target[key] += 1;
+      hasFlag = true;
+    }
+  }
+  return hasFlag;
 }
 
 export function toAiInboxItem(artifact = {}) {
@@ -93,20 +131,29 @@ export function createAiInbox({ artifactStore } = {}) {
     throw error;
   }
 
-  function listSourceArtifacts(filter = {}) {
-    return artifactStore.listArtifacts({
-      type: filter.type || filter.artifactType || filter.artifact_type,
-      sourceNoteId: filter.sourceNoteId || filter.source_note_id,
-      privacyMode: filter.privacyMode || filter.privacy_mode,
-      limit: 200
-    });
+  function listSourceArtifacts(filter = {}, statuses = INBOX_VIEWS.all) {
+    const byId = new Map();
+    const rawType = cleanText(filter.type || filter.artifactType || filter.artifact_type);
+    const type = rawType === "all" ? "" : rawType;
+    for (const status of statuses) {
+      for (const artifact of artifactStore.listArtifacts({
+        status,
+        type,
+        sourceNoteId: filter.sourceNoteId || filter.source_note_id,
+        privacyMode: filter.privacyMode || filter.privacy_mode,
+        limit: 200
+      })) {
+        byId.set(artifact.id, artifact);
+      }
+    }
+    return [...byId.values()];
   }
 
   return {
     listItems(filter = {}) {
       const view = normalizeView(filter.view);
       const limit = normalizeLimit(filter.limit);
-      return listSourceArtifacts(filter)
+      return listSourceArtifacts(filter, INBOX_VIEWS[view])
         .filter((artifact) => artifactMatchesInboxFilter(artifact, filter))
         .filter((artifact) => statusBelongsToView(artifact.status, view))
         .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
@@ -119,12 +166,74 @@ export function createAiInbox({ artifactStore } = {}) {
       return artifact ? toAiInboxItem(artifact) : null;
     },
     counts(filter = {}) {
-      const artifacts = listSourceArtifacts(filter).filter((artifact) => artifactMatchesInboxFilter(artifact, filter));
+      const artifacts = listSourceArtifacts(filter, INBOX_VIEWS.all).filter((artifact) => artifactMatchesInboxFilter(artifact, filter));
       return {
         pending: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "pending")).length,
         reviewed: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "reviewed")).length,
         archived: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "archived")).length,
         all: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "all")).length
+      };
+    },
+    evaluationSummary(filter = {}) {
+      const normalizedFilter = normalizedSummaryFilter(filter);
+      const artifacts = listSourceArtifacts(normalizedFilter, INBOX_VIEWS[normalizedFilter.view])
+        .filter((artifact) => artifactMatchesInboxFilter(artifact, normalizedFilter))
+        .filter((artifact) => statusBelongsToView(artifact.status, normalizedFilter.view));
+      const statusCounts = {};
+      const typeCounts = {};
+      const agentRunCounts = {};
+      const latestDecisionCounts = {};
+      const allDecisionCounts = {};
+      const feedbackCounts = emptyFeedbackCounts();
+      const latestFeedbackCounts = emptyFeedbackCounts();
+      let totalDecisions = 0;
+      let artifactsWithDecision = 0;
+      let decisionsWithFeedback = 0;
+      let artifactsWithLatestFeedback = 0;
+
+      for (const artifact of artifacts) {
+        incrementCount(statusCounts, artifact.status);
+        incrementCount(typeCounts, artifact.type);
+        incrementCount(agentRunCounts, artifact.agentRunId);
+        const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
+        const decision = latestDecision(artifact);
+        totalDecisions += decisions.length;
+        if (decision) {
+          artifactsWithDecision += 1;
+          incrementCount(latestDecisionCounts, decision.decision);
+          if (addFeedbackCounts(latestFeedbackCounts, decision.feedback || {})) artifactsWithLatestFeedback += 1;
+        }
+        for (const item of decisions) {
+          incrementCount(allDecisionCounts, item.decision);
+          if (addFeedbackCounts(feedbackCounts, item.feedback || {})) decisionsWithFeedback += 1;
+        }
+      }
+
+      return {
+        filter: normalizedFilter,
+        artifacts: {
+          total: artifacts.length,
+          pending: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "pending")).length,
+          reviewed: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "reviewed")).length,
+          archived: artifacts.filter((artifact) => statusBelongsToView(artifact.status, "archived")).length,
+          withDecision: artifactsWithDecision,
+          withoutDecision: Math.max(0, artifacts.length - artifactsWithDecision)
+        },
+        statusCounts,
+        typeCounts,
+        agentRunCounts,
+        decisions: {
+          total: totalDecisions,
+          artifactsWithDecision,
+          latest: latestDecisionCounts,
+          all: allDecisionCounts
+        },
+        feedback: {
+          decisionsWithFeedback,
+          artifactsWithLatestFeedback,
+          all: feedbackCounts,
+          latest: latestFeedbackCounts
+        }
       };
     },
     views() {

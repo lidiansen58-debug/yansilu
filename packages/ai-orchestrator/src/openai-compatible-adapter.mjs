@@ -12,6 +12,12 @@ function providerModelId(modelRef = "") {
   return separatorIndex >= 0 ? value.slice(separatorIndex + 1) : value;
 }
 
+function runtimeModelRef(modelRef = "", descriptor = {}) {
+  const logicalModelRef = cleanText(modelRef);
+  const runtimeMap = descriptor.runtimeModelMap || descriptor.runtime_model_map || {};
+  return cleanText(runtimeMap[logicalModelRef]) || logicalModelRef;
+}
+
 function normalizeMessages(messages = []) {
   return (Array.isArray(messages) ? messages : []).map((message = {}) => {
     const role = cleanText(message.role) || "user";
@@ -90,8 +96,10 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
   const tools = normalizeTools(request.tools);
   const format = responseFormat(request.output || {});
   const settings = requestSettings(request.settings || {});
+  const logicalModelRef = cleanText(request.modelRef || request.model_ref);
+  const mappedModelRef = runtimeModelRef(logicalModelRef, descriptor);
   const body = {
-    model: providerModelId(request.modelRef || request.model_ref),
+    model: providerModelId(mappedModelRef),
     messages: normalizeMessages(request.messages),
     ...settings
   };
@@ -116,7 +124,8 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
       agentRunId: cleanText(request.agentRunId || request.agent_run_id),
       purpose: cleanText(request.purpose),
       providerId: descriptor.providerId,
-      modelRef: cleanText(request.modelRef || request.model_ref),
+      modelRef: logicalModelRef,
+      runtimeModelRef: mappedModelRef,
       privacyMode: cleanText(request.policy?.privacyMode || request.policy?.privacy_mode),
       allowCloud: request.policy?.allowCloud === true || request.policy?.allow_cloud === true,
       allowFallback: request.policy?.allowFallback === true || request.policy?.allow_fallback === true

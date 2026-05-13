@@ -7,7 +7,7 @@ import { createAiInbox } from "./artifact-inbox.mjs";
 import { createInMemoryArtifactStore } from "./artifact-store.mjs";
 import { normalizeArtifacts } from "./artifacts.mjs";
 import { evaluateBudgetPrecheck } from "./budget-policy.mjs";
-import { createCurrentNoteContextPack, createContextPack, createNotesContextPack } from "./context-pack.mjs";
+import { createCurrentNoteContextPack, createContextItem, createContextPack, createNotesContextPack } from "./context-pack.mjs";
 import { resolveAiUserSettings } from "./model-packs.mjs";
 import { resolveModelRoute } from "./model-router.mjs";
 import { createProviderAdapterRegistry } from "./provider-adapter-registry.mjs";
@@ -87,6 +87,20 @@ function searchSpecFromInput(input = {}) {
   return query ? { query } : null;
 }
 
+function graphContextSpecFromInput(input = {}) {
+  const raw = input.graphContext || input.graph_context;
+  const requested = raw || input.includeGraphContext === true || input.include_graph_context === true;
+  if (!requested) return null;
+  const spec = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  return {
+    includeTags: spec.includeTags !== false && spec.include_tags !== false,
+    includeOutgoingLinks: spec.includeOutgoingLinks !== false && spec.include_outgoing_links !== false,
+    includeBacklinks: spec.includeBacklinks !== false && spec.include_backlinks !== false,
+    maxLinksPerNote: normalizeLimit(spec.maxLinksPerNote || spec.max_links_per_note, 12),
+    maxSourceNotes: normalizeLimit(spec.maxSourceNotes || spec.max_source_notes || spec.maxGraphNotes || spec.max_graph_notes, 12)
+  };
+}
+
 function mergeObjects(...values) {
   return Object.assign({}, ...values.filter((value) => value && typeof value === "object" && !Array.isArray(value)));
 }
@@ -104,10 +118,131 @@ function runIdentity(input = {}, options = {}) {
 
 function explicitSettingsInput(input = {}) {
   const result = { ...input };
-  for (const key of ["taskId", "task_id", "agentId", "agent_id", "currentNote", "current_note", "contextPack", "context_pack", "noteId", "note_id", "noteIds", "note_ids", "searchNotes", "search_notes"]) {
+  for (const key of [
+    "taskId",
+    "task_id",
+    "agentId",
+    "agent_id",
+    "currentNote",
+    "current_note",
+    "contextPack",
+    "context_pack",
+    "noteId",
+    "note_id",
+    "noteIds",
+    "note_ids",
+    "searchNotes",
+    "search_notes",
+    "graphContext",
+    "graph_context",
+    "includeGraphContext",
+    "include_graph_context"
+  ]) {
     delete result[key];
   }
   return result;
+}
+
+function relationSummary(link = {}, direction = "outgoing") {
+  const adjacent = direction === "backlink" ? link.source || {} : link.target || {};
+  return {
+    id: cleanText(link.id),
+    fromNoteId: cleanText(link.fromNoteId || link.from_note_id),
+    toNoteId: cleanText(link.toNoteId || link.to_note_id),
+    relationType: cleanText(link.relationType || link.relation_type),
+    rationale: cleanText(link.rationale),
+    confidence: link.confidence ?? null,
+    adjacentNote: {
+      id: cleanText(adjacent.id),
+      title: cleanText(adjacent.title),
+      noteType: cleanText(adjacent.noteType || adjacent.note_type),
+      status: cleanText(adjacent.status)
+    }
+  };
+}
+
+function graphPayloadFromRelations(relations = {}, spec = {}) {
+  const maxLinks = spec.maxLinksPerNote;
+  return {
+    noteId: cleanText(relations.noteId || relations.note_id),
+    tags: spec.includeTags ? relations.tags || [] : [],
+    outgoingLinks: spec.includeOutgoingLinks
+      ? (relations.outgoingLinks || relations.outgoing_links || []).slice(0, maxLinks).map((link) => relationSummary(link, "outgoing"))
+      : [],
+    backlinks: spec.includeBacklinks
+      ? (relations.backlinks || []).slice(0, maxLinks).map((link) => relationSummary(link, "backlink"))
+      : []
+  };
+}
+
+function graphContextItem(relations = {}, spec = {}, privacyMode = "normal") {
+  const payload = graphPayloadFromRelations(relations, spec);
+  return createContextItem({
+    kind: "graph_neighborhood",
+    sourceId: payload.noteId,
+    title: `Graph neighborhood for ${payload.noteId}`,
+    content: JSON.stringify(payload, null, 2),
+    contentFormat: "json",
+    origin: "system_retrieved",
+    includedReason: "graph_neighborhood",
+    relevance: { score: 0.75, method: "graph_neighborhood" },
+    privacyMode,
+    sourcePointer: {
+      noteId: payload.noteId,
+      blockIds: [],
+      sourceDocId: null,
+      artifactId: null
+    }
+  });
+}
+
+function sourceNoteIdsForGraphContext(contextPack = {}) {
+  const ids = new Set();
+  for (const item of contextPack.items || []) {
+    if (item.kind !== "note") continue;
+    const sourceId = cleanText(item.sourceId || item.source_id);
+    if (sourceId) ids.add(sourceId);
+  }
+  return [...ids];
+}
+
+async function enrichContextPackWithGraphContext({ contextPack, spec, callToolAndLog } = {}) {
+  if (!spec) return contextPack;
+  const noteIds = sourceNoteIdsForGraphContext(contextPack);
+  const selectedNoteIds = noteIds.slice(0, spec.maxSourceNotes);
+  const graphItems = [];
+  for (const noteId of selectedNoteIds) {
+    const toolCall = await callToolAndLog("list_note_relations", { noteId }, { noteId, includedReason: "graph_neighborhood" });
+    graphItems.push(graphContextItem(toolCall.output, spec, contextPack.privacy?.mode || "normal"));
+  }
+
+  return createContextPack({
+    ...contextPack,
+    privacyMode: contextPack.privacy?.mode || "normal",
+    targetInputTokens: contextPack.budget?.targetInputTokens,
+    maxItems: contextPack.budget?.maxItems,
+    items: [...(contextPack.items || []), ...graphItems],
+    omitted: [
+      ...(contextPack.omitted || []),
+      ...noteIds.slice(spec.maxSourceNotes).map((noteId) => ({
+        kind: "graph_neighborhood",
+        sourceId: noteId,
+        reason: "graph_context_item_limit"
+      }))
+    ],
+    retrievalTrace: [
+      ...(contextPack.retrievalTrace || []),
+      {
+        step: "graph_neighborhood",
+        tool: "list_note_relations",
+        resultCount: noteIds.length,
+        selectedCount: graphItems.length,
+        includeTags: spec.includeTags,
+        includeOutgoingLinks: spec.includeOutgoingLinks,
+        includeBacklinks: spec.includeBacklinks
+      }
+    ]
+  });
 }
 
 async function loadStoredPreferences(aiPreferencesStore, identity) {
@@ -461,6 +596,12 @@ export function createAiHarness(options = {}) {
           error.code = "AI_CONTEXT_INPUT_REQUIRED";
           throw error;
         }
+
+        contextPack = await enrichContextPackWithGraphContext({
+          contextPack,
+          spec: graphContextSpecFromInput(input),
+          callToolAndLog
+        });
 
         assertProviderAllowedForContext(providerAdapter.descriptor, contextPack);
         if (contextPackStore) {

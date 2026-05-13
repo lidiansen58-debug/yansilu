@@ -20,6 +20,25 @@ function normalizeLimit(value) {
   return Math.max(1, Math.min(200, Math.floor(limit)));
 }
 
+function booleanFeedback(input = {}, feedback = {}, camelKey, snakeKey) {
+  if (typeof input[camelKey] === "boolean") return input[camelKey];
+  if (typeof input[snakeKey] === "boolean") return input[snakeKey];
+  if (typeof feedback[camelKey] === "boolean") return feedback[camelKey];
+  if (typeof feedback[snakeKey] === "boolean") return feedback[snakeKey];
+  return false;
+}
+
+function normalizeFeedback(input = {}) {
+  const feedback = input.feedback && typeof input.feedback === "object" ? input.feedback : {};
+  return {
+    useful: booleanFeedback(input, feedback, "useful", "useful"),
+    noisy: booleanFeedback(input, feedback, "noisy", "noisy"),
+    wrong: booleanFeedback(input, feedback, "wrong", "wrong"),
+    alreadyKnown: booleanFeedback(input, feedback, "alreadyKnown", "already_known"),
+    privacyConcern: booleanFeedback(input, feedback, "privacyConcern", "privacy_concern")
+  };
+}
+
 function normalizeDecision(input = {}, artifactId) {
   const decision = cleanText(input.decision || input.status);
   if (!DECISION_STATUSES.has(decision)) {
@@ -35,6 +54,7 @@ function normalizeDecision(input = {}, artifactId) {
     userId: cleanText(input.userId || input.user_id) || "local_user",
     noteId: cleanText(input.noteId || input.note_id),
     comment: cleanText(input.comment),
+    feedback: normalizeFeedback(input),
     createdAt: cleanText(input.createdAt || input.created_at) || new Date().toISOString()
   };
 }

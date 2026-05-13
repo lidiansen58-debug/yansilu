@@ -50,7 +50,14 @@ import {
 } from "./import-candidate-preview-panel.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
+  renderAiInboxPanel
+} from "./ai-inbox-panel.js";
+import {
+  normalizeAiInboxFilters
+} from "./ai-inbox-model.js";
+import {
   bindWritingDraftNote,
+  acceptAiInboxLink,
   cancelImport,
   checkAiProviderHealth,
   confirmImport,
@@ -66,6 +73,9 @@ import {
   fetchDirectories,
   fetchGraphConflicts,
   fetchDirectoryGraph,
+  fetchAiInbox,
+  fetchAiInboxEvaluationSummary,
+  fetchAiInboxItem,
   fetchIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
@@ -88,6 +98,7 @@ import {
   moveNote,
   previewAiRoute,
   previewImport,
+  recordAiInboxDecision,
   rollbackImport,
   switchVault,
   updateDirectory,
@@ -119,6 +130,28 @@ const graphState = {
   conflicts: null,
   loading: false,
   error: ""
+};
+const aiInboxState = {
+  items: [],
+  counts: { pending: 0, reviewed: 0, archived: 0, all: 0 },
+  views: [],
+  filters: {
+    view: "pending",
+    type: "all",
+    sourceNoteId: "",
+    privacyMode: "",
+    limit: 50
+  },
+  selectedArtifactId: "",
+  detail: null,
+  loading: false,
+  detailLoading: false,
+  evaluationLoading: false,
+  actionLoading: false,
+  error: "",
+  detailError: "",
+  evaluationError: "",
+  evaluationSummary: null
 };
 const settingsState = {
   vault: null,
@@ -673,6 +706,186 @@ function renderImportPageShell() {
         }
       : null
   });
+}
+
+function renderAiInboxWorkspace() {
+  const el = $("aiInboxPanel");
+  if (!el) return;
+  el.innerHTML = renderAiInboxPanel(aiInboxState);
+}
+
+function aiInboxFiltersFromUi() {
+  return normalizeAiInboxFilters({
+    ...aiInboxState.filters,
+    type: $("aiInboxTypeFilter")?.value || aiInboxState.filters.type,
+    sourceNoteId: $("aiInboxSourceNoteFilter")?.value || "",
+    privacyMode: $("aiInboxPrivacyFilter")?.value || ""
+  });
+}
+
+function aiInboxFeedbackFromUi() {
+  const feedback = {};
+  document.querySelectorAll("[data-ai-inbox-feedback]").forEach((input) => {
+    const key = String(input.getAttribute("data-ai-inbox-feedback") || "").trim();
+    if (key) feedback[key] = Boolean(input.checked);
+  });
+  return feedback;
+}
+
+async function loadAiInboxDetail(artifactId) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) {
+    aiInboxState.selectedArtifactId = "";
+    aiInboxState.detail = null;
+    aiInboxState.detailError = "";
+    renderAiInboxWorkspace();
+    return null;
+  }
+  aiInboxState.selectedArtifactId = cleanArtifactId;
+  aiInboxState.detailLoading = true;
+  aiInboxState.detailError = "";
+  renderAiInboxWorkspace();
+  try {
+    const detail = await fetchAiInboxItem(cleanArtifactId);
+    aiInboxState.detail = detail;
+    return detail;
+  } catch (error) {
+    aiInboxState.detail = null;
+    aiInboxState.detailError = String(error?.message || error);
+    setStatus(`AI Inbox detail failed: ${aiInboxState.detailError}`, "warn");
+    return null;
+  } finally {
+    aiInboxState.detailLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
+  aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
+  if (!silent) {
+    aiInboxState.loading = true;
+    aiInboxState.error = "";
+    renderAiInboxWorkspace();
+  }
+  const previousSelectedId = String(aiInboxState.selectedArtifactId || "").trim();
+  try {
+    const result = await fetchAiInbox(aiInboxState.filters);
+    aiInboxState.items = result.items;
+    aiInboxState.counts = result.counts || aiInboxState.counts;
+    aiInboxState.views = result.views || [];
+    aiInboxState.error = "";
+    const selectedStillVisible = result.items.some((item) => String(item.artifactId || "").trim() === previousSelectedId);
+    if (!preserveDetail) {
+      aiInboxState.selectedArtifactId = selectedStillVisible ? previousSelectedId : result.items[0]?.artifactId || "";
+      if (!aiInboxState.selectedArtifactId) aiInboxState.detail = null;
+    }
+    return result;
+  } catch (error) {
+    aiInboxState.error = String(error?.message || error);
+    setStatus(`AI Inbox load failed: ${aiInboxState.error}`, "warn");
+    return null;
+  } finally {
+    aiInboxState.loading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
+  aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
+  if (!silent) {
+    aiInboxState.evaluationLoading = true;
+    aiInboxState.evaluationError = "";
+    renderAiInboxWorkspace();
+  }
+  try {
+    aiInboxState.evaluationSummary = await fetchAiInboxEvaluationSummary({
+      ...aiInboxState.filters,
+      view: "all"
+    });
+    aiInboxState.evaluationError = "";
+    return aiInboxState.evaluationSummary;
+  } catch (error) {
+    aiInboxState.evaluationSummary = null;
+    aiInboxState.evaluationError = String(error?.message || error);
+    setStatus(`AI Inbox evaluation summary failed: ${aiInboxState.evaluationError}`, "warn");
+    return null;
+  } finally {
+    aiInboxState.evaluationLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function openAiInboxModule() {
+  await Promise.all([
+    refreshAiInbox(),
+    refreshAiInboxEvaluationSummary()
+  ]);
+  if (aiInboxState.selectedArtifactId && !aiInboxState.detail) {
+    await loadAiInboxDetail(aiInboxState.selectedArtifactId);
+  }
+}
+
+async function applyAiInboxFiltersFromUi() {
+  aiInboxState.filters = aiInboxFiltersFromUi();
+  aiInboxState.detail = null;
+  aiInboxState.selectedArtifactId = "";
+  await openAiInboxModule();
+  setStatus("AI Inbox refreshed", "ok");
+}
+
+async function recordAiInboxReviewDecision(decision) {
+  const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
+  if (!artifactId) return setStatus("Select an AI artifact first", "warn");
+  aiInboxState.actionLoading = true;
+  renderAiInboxWorkspace();
+  try {
+    const result = await recordAiInboxDecision(artifactId, {
+      decision,
+      comment: $("aiInboxDecisionComment")?.value || "",
+      feedback: aiInboxFeedbackFromUi()
+    });
+    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.selectedArtifactId = artifactId;
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    setStatus(`AI artifact ${decision}`, "ok");
+    return result;
+  } catch (error) {
+    setStatus(`AI Inbox decision failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function acceptAiInboxLinkSuggestion(artifactId) {
+  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
+  if (!cleanArtifactId) return setStatus("Select a LinkSuggestion first", "warn");
+  aiInboxState.actionLoading = true;
+  renderAiInboxWorkspace();
+  try {
+    const result = await acceptAiInboxLink(cleanArtifactId, {
+      comment: $("aiInboxDecisionComment")?.value || ""
+    });
+    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.selectedArtifactId = cleanArtifactId;
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    if (state.module === "graph") await refreshDirectoryGraph();
+    setStatus(result.relation?.created === false ? "Relation already existed; artifact marked linked" : "LinkSuggestion accepted as a note relation", "ok");
+    return result;
+  } catch (error) {
+    setStatus(`LinkSuggestion accept failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    renderAiInboxWorkspace();
+  }
 }
 
 function normalizeOptionalNumber(value) {
@@ -1945,6 +2158,27 @@ function currentModuleUi() {
         </div>
       `
     },
+    aiInbox: {
+      sidebarTitle: "AI Inbox",
+      sidebarSubtitle: "Review suggestions before they change notes.",
+      sidebarFoot: "AI artifacts stay proposals until the user accepts, ignores, archives, or promotes them through an explicit action.",
+      title: "AI Inbox",
+      summary: "Review AI-generated artifacts with their sources, provenance, feedback flags, and promotion actions. Link suggestions can become graph relations only after confirmation.",
+      sidebarHtml: `
+        <div class="module-sidebar-card">
+          <h3>Review loop</h3>
+          <p>Artifacts are proposals: read the source notes, inspect provenance, then decide whether the suggestion is useful, noisy, wrong, already known, or privacy-sensitive.</p>
+        </div>
+        <div class="module-sidebar-card">
+          <h3>First action</h3>
+          <ol class="module-sidebar-list">
+            <li>Open pending artifacts</li>
+            <li>Accept or archive review prompts</li>
+            <li>Promote note-to-note LinkSuggestion items into real relations only when confirmed</li>
+          </ol>
+        </div>
+      `
+    },
     graph: {
       sidebarTitle: "关系图谱",
       sidebarSubtitle: "只看当前范围，不看全局噪音。",
@@ -2038,6 +2272,7 @@ function moduleLabel(moduleName = "") {
   const labels = {
     explorer: "笔记编辑",
     imports: "导入导出",
+    aiInbox: "AI Inbox",
     graph: "关系图谱",
     writing: "写作中心",
     settings: "设置"
@@ -2223,6 +2458,7 @@ function renderAll() {
   ensureSelection();
   renderSidebarTitle();
   renderModulePanels();
+  renderAiInboxWorkspace();
   renderGraphPanel();
   renderSettingsPanel();
   renderWritingPanel();
@@ -2380,12 +2616,14 @@ async function openStartupUntitledNote() {
 
 function renderModulePanels() {
   const graphMode = state.module === "graph";
+  const aiInboxMode = state.module === "aiInbox";
   const settingsMode = state.module === "settings";
   const writingMode = state.module === "writing";
   const importsMode = state.module === "imports";
-  const editorMode = !graphMode && !settingsMode && !writingMode && !importsMode;
+  const editorMode = !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode;
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
+  $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
@@ -4947,6 +5185,66 @@ $("graphRefresh")?.addEventListener("click", async () => {
   setStatus("当前目录图谱已刷新", "ok");
 });
 
+$("aiInboxPanel")?.addEventListener("click", async (event) => {
+  const viewButton = event.target.closest("[data-ai-inbox-view]");
+  if (viewButton) {
+    aiInboxState.filters = normalizeAiInboxFilters({
+      ...aiInboxState.filters,
+      view: viewButton.getAttribute("data-ai-inbox-view")
+    });
+    aiInboxState.detail = null;
+    aiInboxState.selectedArtifactId = "";
+    await openAiInboxModule();
+    return;
+  }
+
+  if (event.target.closest("#btnAiInboxApplyFilters")) {
+    await applyAiInboxFiltersFromUi();
+    return;
+  }
+
+  if (event.target.closest("#btnAiInboxRefresh")) {
+    await openAiInboxModule();
+    setStatus("AI Inbox refreshed", "ok");
+    return;
+  }
+
+  const itemButton = event.target.closest("[data-ai-inbox-artifact-id]");
+  if (itemButton) {
+    await loadAiInboxDetail(itemButton.getAttribute("data-ai-inbox-artifact-id"));
+    return;
+  }
+
+  const noteButton = event.target.closest("[data-ai-inbox-open-note]");
+  if (noteButton) {
+    const noteId = String(noteButton.getAttribute("data-ai-inbox-open-note") || "").trim();
+    if (!noteId) return;
+    try {
+      if (!state.notes.some((item) => item.id === noteId)) {
+        const fetched = await fetchNote(noteId);
+        if (fetched) state.notes = [mapNoteItem(fetched), ...state.notes.filter((item) => item.id !== noteId)];
+      }
+      activateModule("explorer");
+      openNoteById(noteId);
+      setStatus(`Opened source note ${noteId}`, "ok");
+    } catch (error) {
+      setStatus(`Open source note failed: ${String(error?.message || error)}`, "warn");
+    }
+    return;
+  }
+
+  const decisionButton = event.target.closest("[data-ai-inbox-decision]");
+  if (decisionButton) {
+    await recordAiInboxReviewDecision(decisionButton.getAttribute("data-ai-inbox-decision"));
+    return;
+  }
+
+  const acceptLinkButton = event.target.closest("[data-ai-inbox-accept-link]");
+  if (acceptLinkButton) {
+    await acceptAiInboxLinkSuggestion(acceptLinkButton.getAttribute("data-ai-inbox-accept-link"));
+  }
+});
+
 $("graphCanvas")?.addEventListener("click", (event) => {
   const row = event.target.closest("[data-open-note]");
   if (!row) return;
@@ -4960,6 +5258,10 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     if (state.module === "graph") {
       await refreshDirectoryGraph();
       setStatus("已打开当前目录关系图谱", "ok");
+	    }
+	    if (state.module === "aiInbox") {
+	      await openAiInboxModule();
+	      setStatus("AI Inbox opened", "ok");
 	    }
 	    if (state.module === "settings") {
 	      try {

@@ -282,7 +282,67 @@ Use when:
 - Chinese notes, Chinese sources, or mixed Chinese/English synthesis are common.
 - Domestic providers should be packaged behind simple modes instead of exposed during onboarding.
 
-### 6.6 Global Optimized
+### 6.6 MiniCPM Local
+
+```json
+{
+  "model_pack_id": "minicpm_local",
+  "model_pack": "MiniCPM Local",
+  "default_user_mode": "Local / Private",
+  "provider_preset": "minicpm_local_gateway",
+  "auth_mode": "local_no_key",
+  "provider_visibility": "advanced",
+  "fallback_policy": {
+    "allow_cross_provider_fallback": false,
+    "allow_cloud_fallback": false,
+    "allow_cloud_fallback_for_private": false,
+    "requires_confirmation_for_cloud": true
+  },
+  "privacy": {
+    "default_mode": "local_only",
+    "allow_cloud": false,
+    "local_preferred": true
+  }
+}
+```
+
+Use when:
+
+- MiniCPM should be the first named local model family.
+- The user has a local OpenAI-compatible runtime or desktop gateway.
+- Private notes should not leave the local machine.
+
+### 6.7 MiniCPM Remote
+
+```json
+{
+  "model_pack_id": "minicpm_remote",
+  "model_pack": "MiniCPM Remote",
+  "default_user_mode": "Balanced",
+  "provider_preset": "minicpm_remote_gateway",
+  "auth_mode": "workspace_managed",
+  "provider_visibility": "advanced",
+  "fallback_policy": {
+    "allow_cross_provider_fallback": false,
+    "allow_cloud_fallback": true,
+    "allow_cloud_fallback_for_private": false,
+    "requires_confirmation_for_international_fallback": true
+  },
+  "privacy": {
+    "default_mode": "normal",
+    "allow_cloud": true,
+    "local_preferred": false
+  }
+}
+```
+
+Use when:
+
+- Early MiniCPM testing should not depend on local runtime setup.
+- A third-party MiniCPM-compatible gateway is configured with workspace-managed credentials.
+- The user understands that this is a remote provider path, not `local_only`.
+
+### 6.8 Global Optimized
 
 ```json
 {
@@ -493,6 +553,8 @@ The MVP should ship with these built-in packs:
 - `Low Cost Research`
 - `Deep Work`
 - `Privacy First`
+- `MiniCPM Local`
+- `MiniCPM Remote`
 - `China Optimized`
 - `Global Optimized`
 

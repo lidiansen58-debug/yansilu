@@ -113,7 +113,14 @@ User decisions should be stored as explicit events.
   "user_id": "user_01",
   "created_at": "iso_datetime",
   "note_id": "note_01",
-  "comment": "optional string"
+  "comment": "optional string",
+  "feedback": {
+    "useful": false,
+    "noisy": false,
+    "wrong": false,
+    "alreadyKnown": false,
+    "privacyConcern": false
+  }
 }
 ```
 
@@ -123,6 +130,8 @@ This is important for:
 - Personalization.
 - Future model evaluation.
 - Trust and auditability.
+
+Feedback flags capture the user's quality signal without changing the artifact's review status. They are intentionally small and evaluable: useful, noisy, wrong, already known, and privacy concern.
 
 ## 6. Artifact Types
 
@@ -191,6 +200,7 @@ Default behavior:
 
 - Create a pending suggestion.
 - Do not create final graph edge until user accepts.
+- Current API promotion path: `POST /api/v1/ai/inbox/:artifactId/accept-link` requires explicit confirmation, creates the note relation, and records a `linked_to_note` decision.
 
 ### 6.3 `ConflictSuggestion`
 
@@ -393,6 +403,14 @@ MVP artifact types:
 - `ReflectionPrompt`
 - `SynthesisDraft`
 - `QuestionCard`
+
+Near-term product-specific artifact types needed for note-linking, insight generation, and writing assistance:
+
+- `InsightCard`: a concise possible new judgment derived from bounded notes.
+- `BridgeCard`: a possible bridge between two notes, concepts, or clusters.
+- `TensionCard`: an unresolved contradiction, assumption, or productive conflict.
+- `SourceGap`: a missing evidence/citation/source requirement.
+- `WritingMove`: a claim, counterpoint, transition, or section move useful for a writing project.
 
 Post-MVP:
 

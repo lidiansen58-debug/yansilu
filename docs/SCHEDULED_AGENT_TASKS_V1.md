@@ -81,7 +81,7 @@ Scheduled tasks should create AI artifacts and inbox items by default. They shou
 | --- | --- | --- | --- | --- |
 | `research_scan` | Research Agent | `ResearchCard`, `SourceSummary` | Yes | Reads papers, feeds, newsletters, webpages |
 | `source_monitor` | Research Agent | `ResearchCard` | Yes | Watches selected sources or keywords |
-| `relation_scan` | Connection Agent | `LinkSuggestion`, `ConflictSuggestion` | Yes | Scans candidate relations, not full vault by default |
+| `relation_scan` | Connection Agent | `LinkSuggestion`, `ConflictSuggestion` | Yes | Scans candidate relations, not full vault by default; implemented runs include graph-neighborhood metadata for scoped notes |
 | `project_digest` | Synthesis Agent or Digest Agent | `ProjectDigest` | Yes with budget | Summarizes recent changes in a project |
 | `reflection_prompt` | Reflection Agent | `ReflectionPrompt`, `QuestionCard` | Limited | Should be sparse and high-signal |
 | `originality_check` | Originality Guard Agent | Guardrail event or artifact | Yes | Checks AI/human boundary on accepted content |
@@ -270,6 +270,9 @@ The first implementation slice now covers:
 - Due-task listing for active tasks.
 - Pause, resume, delete, and run-state updates.
 - A thin scheduled-task runner that converts due tasks into Agent Harness runs with `trigger: scheduled_task`.
+- HTTP API endpoints for scheduled task templates, task listing/detail, creation from templates, status changes, deletion, and manual due-task execution.
+- API due-task execution now wires SQLite AI stores with core note tools so scoped scheduled runs can read selected/search-matched notes through the harness boundary.
+- Local worker cycle for due scheduled tasks using SQLite AI stores, core note tools, and a non-overlapping interval loop.
 - Novice-safe templates for weekly link suggestions and reflection reminders.
 - A contract-only weekly research scan template that stays paused until source-reader contracts and Research Agent support are ready.
 - Provider health preflight before scheduled model calls.
@@ -281,7 +284,7 @@ The first implementation slice now covers:
 - Skipped scheduled runs now create Agent Run Log records with `scheduled_task_preflight` events.
 - Scheduled task records store the skipped run id, status, and reason for later diagnostics.
 
-This slice intentionally does not yet include a real desktop/cloud scheduler, paper/RSS fetching, notification delivery, or adaptive scheduling. Those should be added after core note APIs and source-reading contracts are stable.
+This slice intentionally does not yet include desktop lifecycle integration, cloud scheduling, paper/RSS fetching, notification delivery, or adaptive scheduling. Those should be added after core note APIs and source-reading contracts are stable.
 
 ## 14. Open Questions
 

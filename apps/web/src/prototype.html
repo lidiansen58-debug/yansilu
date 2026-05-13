@@ -1814,6 +1814,323 @@
       display: grid;
       gap: 4px;
     }
+    .ai-inbox-shell {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+    .ai-inbox-topline,
+    .ai-inbox-controls,
+    .ai-inbox-evaluation-summary,
+    .ai-inbox-list-pane,
+    .ai-inbox-detail-pane,
+    .ai-inbox-action-card,
+    .ai-inbox-detail-section {
+      border: 1px solid #dbe3ec;
+      border-radius: 12px;
+      background: #fff;
+      padding: 14px;
+      min-width: 0;
+    }
+    .ai-inbox-topline,
+    .ai-inbox-evaluation-head,
+    .ai-inbox-detail-head,
+    .ai-inbox-item-head,
+    .ai-inbox-filter-row,
+    .ai-inbox-actions {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ai-inbox-topline strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 15px;
+      color: #172033;
+    }
+    .ai-inbox-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .ai-inbox-tab,
+    .ai-inbox-item {
+      border: 1px solid #dbe3ec;
+      background: #fbfcfe;
+      color: #172033;
+      text-align: left;
+      cursor: pointer;
+    }
+    .ai-inbox-tab {
+      border-radius: 10px;
+      padding: 9px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .ai-inbox-tab.is-active,
+    .ai-inbox-item.is-active {
+      border-color: #94b9dc;
+      background: #eef6ff;
+      box-shadow: inset 0 0 0 1px #d7e9fb;
+    }
+    .ai-inbox-filter-row {
+      margin-top: 10px;
+      align-items: end;
+      justify-content: flex-start;
+    }
+    .ai-inbox-filter-row label {
+      display: grid;
+      gap: 4px;
+      min-width: 150px;
+      color: #64748b;
+      font-size: 12px;
+    }
+    .ai-inbox-evaluation-summary {
+      display: grid;
+      gap: 10px;
+    }
+    .ai-inbox-evaluation-summary.is-bad {
+      border-color: #f0b8b3;
+      background: #fff8f7;
+    }
+    .ai-inbox-evaluation-head h3 {
+      margin: 0;
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .ai-inbox-evaluation-head p {
+      margin: 3px 0 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .ai-inbox-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(82px, 1fr));
+      gap: 8px;
+    }
+    .ai-inbox-metric {
+      min-width: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fbfdff;
+      padding: 9px;
+      display: grid;
+      gap: 2px;
+    }
+    .ai-inbox-metric strong {
+      color: #172033;
+      font-size: 17px;
+      line-height: 1.15;
+    }
+    .ai-inbox-metric span {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ai-inbox-metric.tone-ok {
+      border-color: #bfd9c9;
+      background: #f4fbf6;
+    }
+    .ai-inbox-metric.tone-warn {
+      border-color: #ead28a;
+      background: #fffaf0;
+    }
+    .ai-inbox-metric.tone-muted {
+      background: #f8fafc;
+    }
+    .ai-inbox-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, .42fr) minmax(420px, .58fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .ai-inbox-list {
+      display: grid;
+      gap: 8px;
+    }
+    .ai-inbox-item {
+      width: 100%;
+      border-radius: 10px;
+      padding: 11px;
+      display: grid;
+      gap: 7px;
+    }
+    .ai-inbox-item-summary,
+    .ai-inbox-item-meta,
+    .ai-inbox-detail-muted,
+    .ai-inbox-detail p,
+    .ai-inbox-decision p {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .ai-inbox-item-meta,
+    .ai-inbox-feedback-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .ai-inbox-badge {
+      border: 1px solid #d3dbe5;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ai-inbox-badge.tone-ok {
+      border-color: #bfd9c9;
+      background: #eef8f2;
+      color: #147a48;
+    }
+    .ai-inbox-badge.tone-warn {
+      border-color: #ead28a;
+      background: #fff8df;
+      color: #8a5a00;
+    }
+    .ai-inbox-badge.tone-muted {
+      border-color: #d5dde7;
+      background: #f4f7fa;
+      color: #64748b;
+    }
+    .ai-inbox-empty {
+      border: 1px dashed #d7e0ea;
+      border-radius: 12px;
+      background: #f8fbfe;
+      padding: 14px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .ai-inbox-empty.is-bad {
+      border-color: #f0b8b3;
+      background: #fff5f4;
+      color: #b42318;
+    }
+    .ai-inbox-detail {
+      display: grid;
+      gap: 12px;
+    }
+    .ai-inbox-detail.is-busy {
+      opacity: .7;
+      pointer-events: none;
+    }
+    .ai-inbox-detail-kicker,
+    .ai-inbox-detail h3 {
+      color: #0f766e;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    .ai-inbox-detail h2 {
+      margin: 3px 0 4px;
+      font-size: 20px;
+      color: #0f172a;
+    }
+    .ai-inbox-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .ai-inbox-source-list,
+    .ai-inbox-feedback-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .ai-inbox-feedback-controls label {
+      border: 1px solid #dbe3ec;
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: #f8fafc;
+      font-size: 12px;
+      color: #475569;
+    }
+    .ai-inbox-kv {
+      display: grid;
+      grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+      gap: 6px 10px;
+      margin: 0;
+      font-size: 12px;
+    }
+    .ai-inbox-kv dt {
+      color: #64748b;
+      font-weight: 800;
+    }
+    .ai-inbox-kv dd {
+      margin: 0;
+      min-width: 0;
+      word-break: break-word;
+      color: #1f2937;
+    }
+    .ai-inbox-action-card {
+      display: grid;
+      gap: 10px;
+    }
+    .ai-inbox-action-card.is-muted {
+      background: #f8fafc;
+    }
+    .ai-inbox-action-card textarea {
+      min-height: 62px;
+      resize: vertical;
+    }
+    .ai-inbox-json {
+      max-height: 280px;
+      overflow: auto;
+      margin: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      padding: 12px;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .ai-inbox-decision-list {
+      display: grid;
+      gap: 8px;
+    }
+    .ai-inbox-decision {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: #fbfdff;
+    }
+    .ai-inbox-decision > div:first-child {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #64748b;
+      font-size: 12px;
+    }
+    @media (max-width: 980px) {
+      .ai-inbox-grid,
+      .ai-inbox-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .ai-inbox-tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ai-inbox-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
 	    .import-result {
 	      margin-top: 12px;
 	      border: 1px solid #e2e8f0;
@@ -4236,6 +4553,7 @@
     html.editor-only .rail,
     html.editor-only .sidebar,
     html.editor-only #importPanel,
+    html.editor-only #aiInboxPanel,
     html.editor-only #graphPanel,
     html.editor-only #writingPanel,
     html.editor-only #settingsPanel,
@@ -6081,6 +6399,12 @@
             <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+        <button class="rail-btn" data-module="aiInbox" title="AI Inbox" data-tip="AI Inbox" aria-label="AI Inbox">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2.6 9.1l1.15-5.6h8.5l1.15 5.6v2.45a1.25 1.25 0 0 1-1.25 1.25h-8.3a1.25 1.25 0 0 1-1.25-1.25z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
+            <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱" aria-label="关系图谱">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <circle cx="4" cy="4" r="1.7" fill="none" stroke="currentColor" stroke-width="1.2"/>
@@ -6465,6 +6789,9 @@
             </div>
             <div class="import-result" id="exportResult">还没有导出结果。选择目标路径后即可导出 Markdown。</div>
           </div>
+          </div>
+          <div class="panel hidden" id="aiInboxPanel">
+            <div class="ai-inbox-empty">AI Inbox is ready to load reviewable artifacts.</div>
           </div>
           <div class="panel graph-panel hidden" id="graphPanel">
           <div class="graph-head">

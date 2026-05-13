@@ -154,6 +154,61 @@ const MODEL_PACKS = {
       localPreferred: true
     }
   },
+  minicpm_local: {
+    modelPackId: "minicpm_local",
+    modelPack: "MiniCPM Local",
+    description: "Run eligible AI work through a local MiniCPM-compatible endpoint first.",
+    defaultUserMode: "Local / Private",
+    providerPreset: "minicpm_local_gateway",
+    authMode: "local_no_key",
+    providerVisibility: "advanced",
+    byokRequired: false,
+    fallbackPolicy: {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: false,
+      allowCloudFallback: false,
+      allowCloudFallbackForPrivate: false,
+      requiresConfirmationForCloud: true
+    },
+    budget: {
+      monthlyLimit: 0,
+      confirmationThresholdPerRun: 0,
+      scheduledTaskHardCap: 0
+    },
+    privacy: {
+      defaultMode: "local_only",
+      allowCloud: false,
+      localPreferred: true
+    }
+  },
+  minicpm_remote: {
+    modelPackId: "minicpm_remote",
+    modelPack: "MiniCPM Remote",
+    description: "Use a configured third-party MiniCPM-compatible gateway when local runtime is unavailable.",
+    defaultUserMode: "Balanced",
+    providerPreset: "minicpm_remote_gateway",
+    authMode: "workspace_managed",
+    providerVisibility: "advanced",
+    byokRequired: false,
+    fallbackPolicy: {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: false,
+      allowCloudFallback: true,
+      allowCloudFallbackForPrivate: false,
+      requiresConfirmationForCloud: false,
+      requiresConfirmationForInternationalFallback: true
+    },
+    budget: {
+      monthlyLimit: 5,
+      confirmationThresholdPerRun: 0.1,
+      scheduledTaskHardCap: 0.5
+    },
+    privacy: {
+      defaultMode: "normal",
+      allowCloud: true,
+      localPreferred: false
+    }
+  },
   china_optimized: {
     modelPackId: "china_optimized",
     modelPack: "China Optimized",
@@ -223,6 +278,10 @@ const MODEL_PACK_ALIASES = {
   privacy: "privacy_first",
   privacy_first: "privacy_first",
   local: "privacy_first",
+  minicpm: "minicpm_local",
+  minicpm_local: "minicpm_local",
+  minicpm_remote: "minicpm_remote",
+  minicpm_third_party: "minicpm_remote",
   china: "china_optimized",
   china_optimized: "china_optimized",
   global: "global_optimized",

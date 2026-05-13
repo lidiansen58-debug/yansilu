@@ -43,6 +43,7 @@ import {
   resolveModelRoute
 } from "../../packages/ai-orchestrator/src/index.mjs";
 import {
+  createNoteRelation,
   createNoteInDirectory,
   initVault,
   listDirectories
@@ -633,16 +634,32 @@ test("provider presets expose normalized descriptors and model maps", () => {
   const presets = listProviderPresets();
   const ids = presets.map((preset) => preset.providerId).sort();
   const local = getProviderPreset("local_private_gateway");
+  const minicpmLocal = getProviderPreset("minicpm_local_gateway");
+  const minicpmRemote = getProviderPreset("minicpm_remote_gateway");
   const gateway = getProviderPreset("openai_compatible_gateway");
   const openai = getProviderPreset("platform_managed_openai");
 
   assert.deepEqual(
     ids,
-    ["china_optimized_gateway", "local_private_gateway", "openai_compatible_gateway", "platform_managed_openai"].sort()
+    [
+      "china_optimized_gateway",
+      "local_private_gateway",
+      "minicpm_local_gateway",
+      "minicpm_remote_gateway",
+      "openai_compatible_gateway",
+      "platform_managed_openai"
+    ].sort()
   );
   assert.equal(local.adapterType, "local_gateway");
   assert.equal(local.localExecution, true);
   assert.equal(local.modelMap.local_private, "local_private_gateway:local_private");
+  assert.equal(minicpmLocal.adapterType, "local_gateway");
+  assert.equal(minicpmLocal.localExecution, true);
+  assert.equal(minicpmLocal.modelMap.local_private, "minicpm_local_gateway:local_private");
+  assert.equal(minicpmLocal.runtimeModelMap["minicpm_local_gateway:standard"], "minicpm");
+  assert.equal(minicpmRemote.adapterType, "aggregated_gateway");
+  assert.equal(minicpmRemote.localExecution, false);
+  assert.equal(minicpmRemote.runtimeModelMap["minicpm_remote_gateway:standard"], "minicpm");
   assert.equal(gateway.adapterType, "aggregated_gateway");
   assert.equal(gateway.modelMap.standard, "openai_compatible_gateway:standard");
   assert.equal(openai.runtimeModelMap["platform_managed_openai:strong_reasoning"], "gpt-5.5");
@@ -654,6 +671,8 @@ test("model packs compile simple user choices into provider policy", () => {
   const starter = getModelPack("Starter Auto");
   const china = resolveAiUserSettings({ modelPack: "China Optimized" });
   const localMode = resolveAiUserSettings({ userMode: "local" });
+  const minicpmLocal = resolveAiUserSettings({ modelPack: "MiniCPM Local" });
+  const minicpmRemote = resolveAiUserSettings({ modelPack: "MiniCPM Remote" });
   const descriptor = resolveProviderDescriptor({ userMode: "Local / Private" });
 
   assert.ok(packIds.includes("starter_auto"));
@@ -666,6 +685,11 @@ test("model packs compile simple user choices into provider policy", () => {
   assert.equal(localMode.providerPreset, "local_private_gateway");
   assert.equal(localMode.privacy.defaultMode, "local_only");
   assert.equal(localMode.fallbackPolicy.allowCloudFallback, false);
+  assert.equal(minicpmLocal.providerPreset, "minicpm_local_gateway");
+  assert.equal(minicpmLocal.privacy.defaultMode, "local_only");
+  assert.equal(minicpmLocal.fallbackPolicy.allowCloudFallback, false);
+  assert.equal(minicpmRemote.providerPreset, "minicpm_remote_gateway");
+  assert.equal(minicpmRemote.privacy.allowCloud, true);
   assert.equal(descriptor.providerId, "local_private_gateway");
   assert.equal(descriptor.authMode, "local_no_key");
 });
@@ -1219,6 +1243,29 @@ test("openai-compatible adapter builds request shape without network", () => {
   assert.equal(request.metadata.allowFallback, true);
 });
 
+test("openai-compatible adapter applies runtime model map for MiniCPM gateways", () => {
+  const request = buildOpenAiCompatibleRequest(
+    {
+      requestId: "req_minicpm",
+      agentRunId: "run_minicpm",
+      purpose: "agent_reasoning",
+      modelRef: "minicpm_local_gateway:local_private",
+      messages: [{ role: "user", content: "Hello MiniCPM." }]
+    },
+    {
+      descriptor: getProviderPreset("minicpm_local_gateway"),
+      endpointUrl: "http://localhost:11434/v1/chat/completions",
+      authMode: "local_no_key"
+    }
+  );
+
+  assert.equal(request.endpointUrl, "http://localhost:11434/v1/chat/completions");
+  assert.equal(request.auth.authMode, "local_no_key");
+  assert.equal(request.body.model, "minicpm");
+  assert.equal(request.metadata.modelRef, "minicpm_local_gateway:local_private");
+  assert.equal(request.metadata.runtimeModelRef, "minicpm");
+});
+
 test("openai-compatible executor builds authenticated fetch requests through secret refs", async () => {
   const compatibleRequest = buildOpenAiCompatibleRequest(
     {
@@ -1404,12 +1451,23 @@ test("artifact store records review decisions without mutating source notes", ()
     decision: "accepted",
     userId: "user_1",
     noteId: "note_review",
-    comment: "Useful prompt."
+    comment: "Useful prompt.",
+    feedback: {
+      useful: true,
+      already_known: true
+    }
   });
 
   assert.equal(updated.status, "accepted");
   assert.equal(updated.provenance.humanAccepted, true);
   assert.equal(updated.userDecisions.length, 1);
+  assert.deepEqual(updated.userDecisions[0].feedback, {
+    useful: true,
+    noisy: false,
+    wrong: false,
+    alreadyKnown: true,
+    privacyConcern: false
+  });
   assert.deepEqual(updated.sources.noteIds, ["note_review"]);
   assert.equal(store.listArtifacts({ status: "accepted" }).length, 1);
 });
@@ -1446,6 +1504,37 @@ test("AI inbox groups artifacts into pending reviewed and archived views", () =>
   assert.equal(inbox.getItem(reviewed.id).latestDecision.decision, "accepted");
 });
 
+test("AI inbox applies view filters before the artifact store page cap", () => {
+  const store = createInMemoryArtifactStore();
+  const pending = store.createArtifact({
+    id: "artifact_old_pending",
+    type: "ReflectionPrompt",
+    title: "Old pending prompt",
+    agentRunId: "run_inbox_limit",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    sources: { noteIds: ["note_old"], sourceDocIds: [], artifactIds: [], externalUrls: [] }
+  });
+
+  for (let i = 0; i < 205; i += 1) {
+    const createdAt = `2026-05-${String(1 + (i % 28)).padStart(2, "0")}T${String(Math.floor(i / 28)).padStart(2, "0")}:00:00.000Z`;
+    const artifact = store.createArtifact({
+      id: `artifact_reviewed_${i}`,
+      type: "ReflectionPrompt",
+      title: `Reviewed prompt ${i}`,
+      agentRunId: "run_inbox_limit",
+      createdAt,
+      updatedAt: createdAt,
+      sources: { noteIds: [`note_reviewed_${i}`], sourceDocIds: [], artifactIds: [], externalUrls: [] }
+    });
+    store.recordDecision(artifact.id, { decision: "accepted", userId: "user_1" });
+  }
+
+  const inbox = createAiInbox({ artifactStore: store });
+  assert.deepEqual(inbox.listItems({ view: "pending" }).map((item) => item.artifactId), [pending.id]);
+  assert.equal(inbox.counts().pending, 1);
+});
+
 test("sqlite artifact store persists artifacts decisions and inbox views", async (t) => {
   if (!(await hasNodeSqlite())) {
     t.skip("node:sqlite is not available in current runtime");
@@ -1468,11 +1557,13 @@ test("sqlite artifact store persists artifacts decisions and inbox views", async
     decision: "accepted",
     userId: "user_1",
     noteId: "note_sqlite",
-    comment: "Keep this."
+    comment: "Keep this.",
+    privacy_concern: true
   });
   const inbox = createAiInbox({ artifactStore: store });
 
   assert.equal(updated.status, "accepted");
+  assert.equal(updated.userDecisions[0].feedback.privacyConcern, true);
   assert.equal(inbox.counts().reviewed, 1);
   assert.equal(inbox.listItems({ view: "reviewed", sourceNoteId: "note_sqlite" })[0].artifactId, artifact.id);
 
@@ -1484,6 +1575,13 @@ test("sqlite artifact store persists artifacts decisions and inbox views", async
   assert.equal(persisted.payload.prompt, "What should be tested next?");
   assert.equal(persisted.userDecisions.length, 1);
   assert.equal(persisted.userDecisions[0].decision, "accepted");
+  assert.deepEqual(persisted.userDecisions[0].feedback, {
+    useful: false,
+    noisy: false,
+    wrong: false,
+    alreadyKnown: false,
+    privacyConcern: true
+  });
   assert.equal(store.listArtifacts({ sourceNoteId: "note_sqlite" }).length, 1);
   store.close();
 });
@@ -2058,4 +2156,68 @@ test("harness builds connection context through search_notes then read_note", as
   assert.match(provider.lastRequest.messages[2].content, /find candidate relationships/);
   assert.ok(result.run.events.some((event) => event.eventType === "tool_call" && event.summary.toolName === "search_notes"));
   assert.equal(result.run.events.filter((event) => event.eventType === "tool_call" && event.summary.toolName === "read_note").length, 2);
+});
+
+test("harness can enrich connection context with graph neighborhoods", async (t) => {
+  if (!(await hasNodeSqlite())) {
+    t.skip("node:sqlite is not available in current runtime");
+    return;
+  }
+
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const first = await createOriginalNote(vaultPath, {
+    title: "Graph bridge alpha",
+    body: "Graph bridge alpha\n\nThis note mentions the graph bridge concept. #shared"
+  });
+  const second = await createOriginalNote(vaultPath, {
+    title: "Graph bridge beta",
+    body: "Graph bridge beta\n\nA second note mentions the graph bridge concept."
+  });
+  const backlink = await createOriginalNote(vaultPath, {
+    title: "Backlink source",
+    body: "Backlink source\n\nThis note does not match the retrieval query."
+  });
+  await createNoteRelation(vaultPath, {
+    fromNoteId: first.id,
+    toNoteId: second.id,
+    relationType: "supports",
+    rationale: "Alpha supports beta."
+  });
+  await createNoteRelation(vaultPath, {
+    fromNoteId: backlink.id,
+    toNoteId: first.id,
+    relationType: "asks",
+    rationale: "Backlink asks about alpha."
+  });
+  const provider = createMockProviderAdapter();
+  const harness = createAiHarness({
+    providerAdapter: provider,
+    tools: createCoreNoteTools({ vaultPath })
+  });
+
+  const result = await harness.runTask({
+    taskId: "task_graph_context",
+    agentId: "connection_agent",
+    searchNotes: { query: "graph bridge concept", limit: 10 },
+    maxContextNotes: 2,
+    graphContext: {
+      includeTags: true,
+      includeOutgoingLinks: true,
+      includeBacklinks: true,
+      maxLinksPerNote: 5
+    }
+  });
+
+  assert.equal(result.run.status, "succeeded");
+  const graphItems = result.contextPack.items.filter((item) => item.kind === "graph_neighborhood");
+  assert.equal(graphItems.length, 2);
+  const firstGraph = graphItems.find((item) => item.sourceId === first.id);
+  const firstPayload = JSON.parse(firstGraph.content);
+
+  assert.ok(firstPayload.tags.some((tag) => tag.name === "shared"));
+  assert.ok(firstPayload.outgoingLinks.some((link) => link.toNoteId === second.id && link.relationType === "supports"));
+  assert.ok(firstPayload.backlinks.some((link) => link.fromNoteId === backlink.id && link.relationType === "asks"));
+  assert.ok(result.run.events.some((event) => event.eventType === "tool_call" && event.summary.toolName === "list_note_relations"));
+  assert.match(provider.lastRequest.messages[2].content, /"kind": "graph_neighborhood"/);
 });

@@ -134,6 +134,7 @@ Inputs:
 - Search results.
 - Source documents.
 - Existing graph links.
+- Opt-in graph-neighborhood metadata from `list_note_relations`: tags, outgoing links, and backlinks.
 - Project metadata.
 - Recent activity.
 
@@ -152,6 +153,14 @@ Context Pack:
       "content": "bounded text",
       "origin": "human_authored",
       "included_reason": "current_note"
+    },
+    {
+      "kind": "graph_neighborhood",
+      "id": "note_01",
+      "title": "Graph neighborhood for note_01",
+      "content": "{\"noteId\":\"note_01\",\"tags\":[],\"outgoingLinks\":[],\"backlinks\":[]}",
+      "origin": "system_retrieved",
+      "included_reason": "graph_neighborhood"
     }
   ],
   "omitted": [
@@ -434,6 +443,17 @@ MVP flows:
 - User-triggered reflection.
 - Scheduled research card generation.
 - Background link suggestion.
+
+Implemented first infrastructure slices after the harness/scheduled-task foundation:
+
+- AI Inbox review API for pending artifacts and user decisions.
+- LinkSuggestion acceptance API into real note relations with explicit confirmation.
+- Local worker scheduler that runs due tasks through SQLite AI stores and core note tools.
+- Graph-aware context enrichment for connection runs, including tags, outgoing links, backlinks, and scheduled relation-scan defaults.
+
+Remaining near-term infrastructure additions:
+
+- Writing Bridge Agent that turns selected notes into source-grounded outline/scaffold artifacts.
 
 Out of scope for MVP:
 

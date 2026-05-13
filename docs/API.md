@@ -1,6 +1,6 @@
 # Yansilu API Reference
 
-Last synced with `apps/api/src/server.mjs` on 2026-04-23.
+Last updated for AI configuration, scheduled task, and AI Inbox additions on 2026-05-13.
 
 This document describes the API routes that are currently implemented and covered by automated tests. Planned product APIs are intentionally not listed as active contracts here.
 
@@ -869,6 +869,861 @@ Response status: `201`
 }
 ```
 
+## AI
+
+### `GET /api/v1/ai/preferences`
+
+Returns the local user's stored AI preferences for the active vault.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "userId": "local_user",
+    "workspaceId": "local_workspace",
+    "userMode": "Local / Private",
+    "modelPack": "Privacy First",
+    "budget": {
+      "monthlyLimit": 10,
+      "confirmationThresholdPerRun": 0.25
+    },
+    "privacy": {},
+    "fallbackPolicy": {},
+    "advancedSettings": {
+      "modelRef": "local_private_gateway:manual-model",
+      "secretRef": "secret_gateway"
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/preferences`
+
+Stores local AI preferences for route preview and harness execution.
+
+Request:
+
+```json
+{
+  "userMode": "Local / Private",
+  "modelPack": "Privacy First",
+  "monthlyBudget": 10,
+  "confirmationThreshold": 0.25,
+  "fallbackPolicy": {
+    "allowCloudFallback": false
+  },
+  "privacy": {
+    "defaultMode": "local_only"
+  },
+  "budget": {},
+  "budgetState": {},
+  "advancedSettings": {
+    "modelRef": "local_private_gateway:manual-model",
+    "secretRef": "secret_local"
+  }
+}
+```
+
+`snake_case` aliases are accepted for the main fields.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "userId": "local_user",
+    "workspaceId": "local_workspace",
+    "userMode": "Local / Private",
+    "modelPack": "Privacy First",
+    "advancedSettings": {
+      "modelRef": "local_private_gateway:manual-model"
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/route-preview`
+
+Builds the effective model route from stored preferences and configured provider state. This route does not call a model.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "userMode": "Auto",
+    "modelPack": "Starter Auto",
+    "modelPackId": "starter_auto",
+    "providerPreset": "platform_managed_openai",
+    "provider": {
+      "providerId": "platform_managed_openai",
+      "displayName": "Platform-managed OpenAI",
+      "adapterType": "direct_provider",
+      "localExecution": false,
+      "noviceVisible": true
+    },
+    "route": {
+      "modelRef": "platform_managed_openai:standard",
+      "requestedTier": "standard",
+      "selectedTier": "standard",
+      "localOnly": false,
+      "cloudAllowed": true,
+      "advancedOverride": false,
+      "confirmationRequired": false
+    },
+    "privacy": {
+      "mode": "normal",
+      "localPreferred": false
+    },
+    "access": {
+      "authMode": "platform_managed",
+      "keyMode": "platform_managed",
+      "requiresKey": false,
+      "secretRefConfigured": false,
+      "ready": true,
+      "status": "ready",
+      "nextAction": "none"
+    },
+    "health": {
+      "status": "unknown",
+      "checkedAt": "",
+      "latencyMs": 0
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/route-preview`
+
+Builds the effective model route using request overrides merged with stored preferences. This is useful for settings screens before saving a mode or provider choice.
+
+Request:
+
+```json
+{
+  "userMode": "Auto",
+  "modelPack": "China Optimized",
+  "providerPreset": "china_optimized_gateway",
+  "privacyMode": "normal",
+  "modelTier": "standard",
+  "advancedSettings": {
+    "secretRef": "secret_china_gateway"
+  }
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "modelPack": "China Optimized",
+    "provider": {
+      "providerId": "china_optimized_gateway"
+    },
+    "access": {
+      "ready": true,
+      "secretRefConfigured": true
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/provider-configs`
+
+Lists provider configs stored for the active vault. Raw secrets are never returned; provider configs store `secretRef` only.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `status` | string | none | Filter by provider config status, such as `enabled` or `disabled`. |
+| `limit` | number | `50` | Maximum configs to return. |
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "id": "provider_china_optimized_gateway",
+      "providerId": "china_optimized_gateway",
+      "displayName": "China Optimized Gateway",
+      "adapterType": "aggregated_gateway",
+      "status": "enabled",
+      "authMode": "workspace_managed",
+      "secretRef": "secret_china_gateway",
+      "endpointUrl": "https://china-gateway.example.test/v1/chat/completions",
+      "headers": {},
+      "capabilities": {},
+      "modelMap": {},
+      "runtimeModelMap": {},
+      "healthCheck": {
+        "enabled": false,
+        "endpointUrl": "https://china-gateway.example.test/v1/chat/completions",
+        "method": "GET",
+        "timeoutMs": 5000,
+        "expectedStatus": 200,
+        "intervalSeconds": 300
+      }
+    }
+  ],
+  "total": 1,
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/provider-configs/:providerId`
+
+Returns one provider config by config id or provider id.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "id": "provider_local_private_gateway",
+    "providerId": "local_private_gateway",
+    "authMode": "local_no_key",
+    "endpointUrl": "http://localhost:11434/v1/chat/completions"
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+Missing configs return `404` with `AI_PROVIDER_CONFIG_NOT_FOUND`.
+
+### `POST /api/v1/ai/provider-configs`
+
+Creates or updates a provider config. The API validates provider id, adapter type, auth mode, endpoint rules, model maps, and secret boundaries.
+
+Request:
+
+```json
+{
+  "providerId": "minicpm_local_gateway",
+  "displayName": "MiniCPM Local",
+  "adapterType": "local_gateway",
+  "status": "enabled",
+  "authMode": "local_no_key",
+  "endpointUrl": "http://localhost:11434/v1/chat/completions",
+  "runtimeModelMap": {
+    "minicpm_local_gateway:local_private": "minicpm"
+  },
+  "healthCheck": {
+    "enabled": true,
+    "endpointUrl": "http://localhost:11434/api/tags",
+    "method": "GET",
+    "timeoutMs": 1000,
+    "expectedStatus": 200,
+    "intervalSeconds": 30
+  }
+}
+```
+
+Do not send raw keys or auth headers. Fields such as `apiKey`, `api_key`, `secret`, `rawSecret`, `token`, `authorization`, or `x-api-key` are rejected by provider config validation.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "id": "provider_minicpm_local_gateway",
+    "providerId": "minicpm_local_gateway",
+    "authMode": "local_no_key",
+    "endpointUrl": "http://localhost:11434/v1/chat/completions",
+    "runtimeModelMap": {
+      "minicpm_local_gateway:local_private": "minicpm"
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/provider-configs/:providerId/health-check`
+
+Runs a provider health check for an existing provider config and stores the health record. By default, the route can make the configured network request; send `networkEnabled: false` to produce a safe non-network check result.
+
+Request:
+
+```json
+{
+  "networkEnabled": true,
+  "healthCheck": {
+    "endpointUrl": "http://localhost:11434/api/tags",
+    "method": "GET",
+    "timeoutMs": 1000,
+    "expectedStatus": 200
+  }
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "status": "succeeded",
+    "record": {
+      "providerId": "local_private_gateway",
+      "status": "healthy",
+      "latencyMs": 25,
+      "message": "Provider health check succeeded."
+    },
+    "request": {
+      "providerId": "local_private_gateway",
+      "providerConfigId": "provider_local_private_gateway",
+      "url": "http://localhost:11434/api/tags",
+      "method": "GET",
+      "expectedStatus": 200,
+      "timeoutMs": 1000
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/scheduled-task-templates`
+
+Lists built-in scheduled agent task templates.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `implementationReady` | boolean | none | When present, filters templates by implementation readiness. |
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "templateId": "reflection_reminder",
+      "name": "Reflection reminder",
+      "description": "Surface one high-signal question from a selected note or theme.",
+      "implementationReady": true,
+      "defaultStatus": "active",
+      "task": {
+        "taskType": "reflection_prompt",
+        "agentId": "reflection_agent"
+      }
+    }
+  ],
+  "total": 1,
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/scheduled-tasks`
+
+Lists local scheduled agent tasks for the active vault.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `status` | string | none | Filter by task status, such as `active` or `paused`. |
+| `taskType` | string | none | Filter by task type, such as `relation_scan` or `reflection_prompt`. |
+| `limit` | number | `50` | Maximum tasks to return. |
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "scheduledTaskId": "sched_api_reflection",
+      "name": "API reflection reminder",
+      "status": "active",
+      "taskType": "reflection_prompt",
+      "agentId": "reflection_agent",
+      "schedule": {
+        "type": "interval",
+        "intervalMinutes": 30
+      },
+      "scope": {
+        "noteIds": ["note_01"],
+        "keywords": []
+      },
+      "nextRunAt": "2026-05-11T08:00:00.000Z"
+    }
+  ],
+  "total": 1,
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/scheduled-tasks`
+
+Creates or updates a scheduled task. When `templateId` is provided, the API expands the built-in template and then applies request overrides.
+
+Request:
+
+```json
+{
+  "templateId": "reflection_reminder",
+  "scheduledTaskId": "sched_api_reflection",
+  "name": "API reflection reminder",
+  "status": "active",
+  "schedule": {
+    "type": "interval",
+    "intervalMinutes": 30
+  },
+  "budget": {
+    "maxRunsPerPeriod": 3,
+    "maxEstimatedCostPerRun": 0.35,
+    "maxEstimatedCostPerPeriod": 2,
+    "period": "week"
+  },
+  "scope": {
+    "noteIds": ["note_01"],
+    "keywords": []
+  },
+  "nextRunAt": "2026-05-11T08:00:00.000Z"
+}
+```
+
+Response status: `201`
+
+```json
+{
+  "item": {
+    "scheduledTaskId": "sched_api_reflection",
+    "status": "active",
+    "scope": {
+      "noteIds": ["note_01"]
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/scheduled-tasks/:id`
+
+Returns one scheduled task.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "scheduledTaskId": "sched_api_reflection",
+    "status": "active",
+    "lastRunStatus": "succeeded",
+    "lastRunAt": "2026-05-11T09:00:00.000Z"
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/scheduled-tasks/:id/status`
+
+Updates a scheduled task status.
+
+Request:
+
+```json
+{
+  "status": "paused"
+}
+```
+
+Allowed statuses are `active`, `paused`, `disabled`, and `failed`.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "scheduledTaskId": "sched_api_reflection",
+    "status": "paused"
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `DELETE /api/v1/ai/scheduled-tasks/:id`
+
+Deletes a scheduled task.
+
+Response status: `200`
+
+```json
+{
+  "ok": true,
+  "deleted": true,
+  "scheduledTaskId": "sched_api_reflection",
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/scheduled-tasks/run-due`
+
+Manually runs due scheduled tasks for the active vault. The API path wires SQLite AI stores with core note tools, so scoped tasks can read selected or search-matched notes through harness permission boundaries.
+
+Request:
+
+```json
+{
+  "now": "2026-05-11T09:00:00.000Z",
+  "limit": 10
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "total": 1,
+    "succeeded": 1,
+    "failed": 0,
+    "skipped": 0,
+    "runs": [
+      {
+        "scheduledTaskId": "sched_api_reflection",
+        "status": "succeeded",
+        "result": {
+          "run": {
+            "status": "succeeded",
+            "contextPackId": "ctx_abc123"
+          },
+          "contextPack": {
+            "items": [
+              {
+                "kind": "note",
+                "sourceId": "note_01"
+              }
+            ]
+          },
+          "artifacts": [
+            {
+              "id": "artifact_abc123",
+              "type": "ReflectionPrompt",
+              "status": "pending_review"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+Scheduled runs create reviewable AI artifacts only. `relation_scan` runs include graph-neighborhood context for scoped notes, but still do not write graph edges unless the user later accepts a promotion route such as `accept-link`.
+
+### `GET /api/v1/ai/inbox`
+
+Lists reviewable AI artifacts from the active vault's local AI store. The default view is pending review.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `view` | string | `pending` | One of `pending`, `reviewed`, `archived`, or `all`. |
+| `type` | string | none | Filter by artifact type, such as `ReflectionPrompt` or `LinkSuggestion`. |
+| `sourceNoteId` | string | none | Filter to artifacts sourced from a note id. |
+| `privacyMode` | string | none | Filter by artifact privacy mode. |
+| `limit` | number | `50` | Maximum items to return, clamped by the AI inbox implementation. |
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "artifactId": "artifact_abc123",
+      "type": "ReflectionPrompt",
+      "title": "Mock insight prompt",
+      "summary": "A reviewable AI artifact.",
+      "status": "pending_review",
+      "actionState": "needs_review",
+      "primarySourceNoteId": "note_01",
+      "sourceNoteIds": ["note_01"],
+      "decisionCount": 0,
+      "latestDecision": null
+    }
+  ],
+  "total": 1,
+  "counts": {
+    "pending": 1,
+    "reviewed": 0,
+    "archived": 0,
+    "all": 1
+  },
+  "views": ["pending", "reviewed", "archived", "all"],
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/inbox/evaluation-summary`
+
+Returns aggregate review and feedback counts for AI artifacts. By default it summarizes all inbox views; the same type/source/privacy filters from the inbox list route can narrow the result.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `view` | string | `all` | One of `pending`, `reviewed`, `archived`, or `all`. |
+| `type` | string | none | Filter by artifact type. |
+| `sourceNoteId` | string | none | Filter to artifacts sourced from a note id. |
+| `privacyMode` | string | none | Filter by artifact privacy mode. |
+
+Response:
+
+```json
+{
+  "item": {
+    "filter": {
+      "view": "all",
+      "type": "",
+      "sourceNoteId": "note_01",
+      "privacyMode": ""
+    },
+    "artifacts": {
+      "total": 3,
+      "pending": 0,
+      "reviewed": 2,
+      "archived": 1,
+      "withDecision": 3,
+      "withoutDecision": 0
+    },
+    "statusCounts": {
+      "accepted": 1,
+      "ignored": 1,
+      "archived": 1
+    },
+    "typeCounts": {
+      "ReflectionPrompt": 3
+    },
+    "agentRunCounts": {
+      "run_abc123": 3
+    },
+    "decisions": {
+      "total": 3,
+      "artifactsWithDecision": 3,
+      "latest": {
+        "accepted": 1,
+        "ignored": 1,
+        "archived": 1
+      },
+      "all": {
+        "accepted": 1,
+        "ignored": 1,
+        "archived": 1
+      }
+    },
+    "feedback": {
+      "decisionsWithFeedback": 2,
+      "artifactsWithLatestFeedback": 2,
+      "all": {
+        "useful": 1,
+        "noisy": 1,
+        "wrong": 0,
+        "alreadyKnown": 1,
+        "privacyConcern": 0
+      },
+      "latest": {
+        "useful": 1,
+        "noisy": 1,
+        "wrong": 0,
+        "alreadyKnown": 1,
+        "privacyConcern": 0
+      }
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `GET /api/v1/ai/inbox/:artifactId`
+
+Returns the inbox summary plus the full stored artifact, including body, payload, model, provenance, sources, privacy, and user decision history.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "artifactId": "artifact_abc123",
+    "status": "pending_review"
+  },
+  "artifact": {
+    "id": "artifact_abc123",
+    "type": "ReflectionPrompt",
+    "status": "pending_review",
+    "sources": {
+      "noteIds": ["note_01"],
+      "sourceDocIds": [],
+      "artifactIds": [],
+      "externalUrls": []
+    },
+    "provenance": {
+      "contentOrigin": "ai_generated",
+      "citationRequired": false,
+      "humanAccepted": false,
+      "humanRewritten": false
+    },
+    "userDecisions": []
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/inbox/:artifactId/decision`
+
+Records a user review decision for an AI artifact. This updates artifact status and appends an explicit decision event. It does not mutate human-authored notes or create graph relations; those promotion flows require separate explicit APIs.
+
+Request:
+
+```json
+{
+  "action": "accept",
+  "noteId": "note_01",
+  "comment": "Useful prompt.",
+  "feedback": {
+    "useful": true,
+    "noisy": false,
+    "wrong": false,
+    "alreadyKnown": false,
+    "privacyConcern": false
+  }
+}
+```
+
+`action` accepts `accept`, `ignore`, or `archive` aliases. `decision` or `status` may also be sent directly with `accepted`, `ignored`, `archived`, or `revised`. Promotion states such as `linked_to_note` use dedicated promotion APIs like `accept-link`.
+
+Feedback flags can be sent inside `feedback` or as top-level fields. The API accepts both camelCase and snake_case for `alreadyKnown`/`already_known` and `privacyConcern`/`privacy_concern`, then stores normalized camelCase fields on the decision event.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "artifactId": "artifact_abc123",
+    "status": "accepted",
+    "latestDecision": {
+      "decision": "accepted",
+      "noteId": "note_01",
+      "comment": "Useful prompt.",
+      "feedback": {
+        "useful": true,
+        "noisy": false,
+        "wrong": false,
+        "alreadyKnown": false,
+        "privacyConcern": false
+      }
+    }
+  },
+  "artifact": {
+    "id": "artifact_abc123",
+    "status": "accepted",
+    "provenance": {
+      "humanAccepted": true
+    }
+  },
+  "latestDecision": {
+    "decision": "accepted",
+    "noteId": "note_01",
+    "comment": "Useful prompt.",
+    "feedback": {
+      "useful": true,
+      "noisy": false,
+      "wrong": false,
+      "alreadyKnown": false,
+      "privacyConcern": false
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/ai/inbox/:artifactId/accept-link`
+
+Accepts a `LinkSuggestion` artifact into a real note-to-note relation. This route requires explicit confirmation and only supports note endpoints in the artifact payload.
+
+Request:
+
+```json
+{
+  "confirm": true,
+  "comment": "This bridge is useful."
+}
+```
+
+Optional overrides:
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `fromNoteId` | string | Override the source note id from the artifact payload. |
+| `toNoteId` | string | Override the target note id from the artifact payload. |
+| `relationType` | string | Override the suggested relation type. |
+| `rationale` | string | Override the relation rationale. |
+| `confidence` | number | Override the stored relation confidence. |
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "artifactId": "artifact_link_01",
+    "status": "linked_to_note",
+    "latestDecision": {
+      "decision": "linked_to_note",
+      "comment": "This bridge is useful."
+    }
+  },
+  "artifact": {
+    "id": "artifact_link_01",
+    "type": "LinkSuggestion",
+    "status": "linked_to_note"
+  },
+  "relation": {
+    "id": "lnk_abcd1234",
+    "fromNoteId": "note_a",
+    "toNoteId": "note_b",
+    "relationType": "related",
+    "rationale": "The notes share a bridge concept.",
+    "createdBy": "user",
+    "created": true
+  },
+  "latestDecision": {
+    "decision": "linked_to_note",
+    "comment": "This bridge is useful."
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+If the relation already exists, the response returns the existing relation with `created: false` and still records the artifact decision.
+
 ## Export
 
 ### `POST /api/v1/exports/markdown`
@@ -972,6 +1827,34 @@ Export record shape:
 | `VAULT_INIT_FAILED` | 500 | Active vault could not be initialized. |
 | `VAULT_PATH_REQUIRED` | 400 | Vault switch request is missing `vaultPath`. |
 | `VAULT_SWITCH_FAILED` | 400 | Requested vault path could not be initialized or selected. |
+| `AI_PREFERENCES_LOAD_FAILED` | 500 | AI preferences could not be loaded. |
+| `AI_PREFERENCES_SAVE_FAILED` | 400 | AI preferences could not be saved. |
+| `AI_ROUTE_PREVIEW_FAILED` | 400 | AI route preview could not be built. |
+| `AI_PROVIDER_CONFIGS_LOAD_FAILED` | 500 | Provider config list could not be loaded. |
+| `AI_PROVIDER_CONFIG_NOT_FOUND` | 404 | Provider config was not found. |
+| `AI_PROVIDER_CONFIG_LOAD_FAILED` | 500 | Provider config detail could not be loaded. |
+| `AI_PROVIDER_CONFIG_SAVE_FAILED` | 400 | Provider config could not be saved or failed validation. |
+| `AI_PROVIDER_HEALTH_CHECK_FAILED` | 400 | Provider health check could not run. |
+| `AI_SCHEDULED_TASK_TEMPLATES_LOAD_FAILED` | 500 | Scheduled task templates could not be loaded. |
+| `AI_SCHEDULED_TASKS_LOAD_FAILED` | 500 | Scheduled task list could not be loaded. |
+| `AI_SCHEDULED_TASK_TEMPLATE_NOT_FOUND` | 400 | Requested scheduled task template does not exist. |
+| `AI_SCHEDULED_TASK_TEMPLATE_NOT_READY` | 400 | Requested scheduled task template is not implementation-ready. |
+| `AI_SCHEDULED_TASK_SAVE_FAILED` | 400 | Scheduled task could not be created or updated. |
+| `AI_SCHEDULED_TASK_RUN_DUE_FAILED` | 400 | Due scheduled tasks could not be executed. |
+| `AI_SCHEDULED_TASK_NOT_FOUND` | 404 | Scheduled task was not found. |
+| `AI_SCHEDULED_TASK_STATUS_FAILED` | 400 | Scheduled task status could not be changed. |
+| `AI_SCHEDULED_TASK_LOAD_FAILED` | 500 | Scheduled task detail could not be loaded. |
+| `AI_SCHEDULED_TASK_DELETE_FAILED` | 400 | Scheduled task could not be deleted. |
+| `AI_ARTIFACT_NOT_FOUND` | 404 | AI artifact was not found. |
+| `AI_ARTIFACT_DECISION_INVALID` | 400 | AI artifact decision is not supported. |
+| `AI_INBOX_VIEW_INVALID` | 400 | AI inbox view is not supported. |
+| `AI_INBOX_LOAD_FAILED` | 400 | AI inbox list query failed. |
+| `AI_INBOX_ITEM_LOAD_FAILED` | 500 | AI inbox item query failed. |
+| `AI_INBOX_DECISION_FAILED` | 400 | AI inbox decision request failed. |
+| `AI_LINK_SUGGESTION_CONFIRMATION_REQUIRED` | 400 | LinkSuggestion acceptance was requested without `confirm: true`. |
+| `AI_LINK_SUGGESTION_REQUIRED` | 400 | Link acceptance was requested for a non-LinkSuggestion artifact. |
+| `AI_LINK_SUGGESTION_NOTE_ENDPOINT_REQUIRED` | 400 | LinkSuggestion acceptance only supports note-to-note endpoints. |
+| `AI_LINK_SUGGESTION_ACCEPT_FAILED` | 400 | LinkSuggestion acceptance failed. |
 | `IMPORT_PAYLOAD_INVALID` | 400 | Connector payload is invalid. |
 | `IMPORT_RECORD_NOT_FOUND` | 404 | Import record was not found. |
 | `IMPORT_STATUS_INVALID` | 400 | Import lifecycle state does not allow this operation. |

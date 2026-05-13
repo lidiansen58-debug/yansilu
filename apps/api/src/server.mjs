@@ -18,6 +18,7 @@ import {
   createDirectory,
   createIndexCard,
   createNoteInDirectory,
+  createNoteRelation,
   deleteDirectory,
   deleteNoteById,
   distillIndexCard,
@@ -71,12 +72,20 @@ import {
 import {
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
+  createSqliteScheduledAgentTaskStore,
+  createSqliteArtifactStore,
+  createAiInbox,
   createSqliteProviderHealthStore,
+  createAiHarnessRuntime,
+  createCoreNoteTools,
+  createScheduledTaskFromTemplate,
+  listScheduledAgentTaskTemplates,
   preferencesToSettingsInput,
   providerConfigToSettingsInput,
   resolveAiUserSettings,
   resolveModelRoute,
   resolveProviderDescriptor,
+  runDueScheduledAgentTasks,
   runProviderHealthCheck
 } from "../../../packages/ai-orchestrator/src/index.mjs";
 
@@ -95,6 +104,8 @@ let stripeClientPromise = null;
 let aiPreferencesStorePromise = null;
 let aiProviderConfigStorePromise = null;
 let aiProviderHealthStorePromise = null;
+let aiScheduledTaskStorePromise = null;
+let aiArtifactStorePromise = null;
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -115,6 +126,20 @@ async function aiProviderHealthStore() {
     aiProviderHealthStorePromise = createSqliteProviderHealthStore({ vaultPath: VAULT_PATH });
   }
   return aiProviderHealthStorePromise;
+}
+
+async function aiScheduledTaskStore() {
+  if (!aiScheduledTaskStorePromise) {
+    aiScheduledTaskStorePromise = createSqliteScheduledAgentTaskStore({ vaultPath: VAULT_PATH });
+  }
+  return aiScheduledTaskStorePromise;
+}
+
+async function aiArtifactStore() {
+  if (!aiArtifactStorePromise) {
+    aiArtifactStorePromise = createSqliteArtifactStore({ vaultPath: VAULT_PATH });
+  }
+  return aiArtifactStorePromise;
 }
 
 function advancedModelRefFrom(input = {}) {
@@ -762,6 +787,31 @@ function parseMoveNotePath(urlPath) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function parseScheduledTaskPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/scheduled-tasks\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseScheduledTaskStatusPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/scheduled-tasks\/([^/]+)\/status$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseAiInboxItemPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseAiInboxDecisionPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/decision$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseAiInboxAcceptLinkPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/accept-link$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function assetContentType(filePath) {
   const ext = path.extname(String(filePath || "")).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -781,6 +831,63 @@ function defaultDirectoryIdForImportNoteType(noteType) {
   if (noteType === "literature") return "dir_literature_default";
   if (noteType === "fleeting") return "dir_fleeting_default";
   return "dir_original_default";
+}
+
+function normalizeAiInboxDecision(body = {}) {
+  const raw = cleanText(body.decision || body.action || body.status);
+  const aliases = {
+    accept: "accepted",
+    accepted: "accepted",
+    ignore: "ignored",
+    ignored: "ignored",
+    archive: "archived",
+    archived: "archived"
+  };
+  return aliases[raw] || raw;
+}
+
+function assertReviewDecision(decision) {
+  if (["accepted", "revised", "ignored", "archived"].includes(decision)) return;
+  const error = new Error("Use a dedicated promotion API for promoted_to_note or linked_to_note decisions");
+  error.code = "AI_ARTIFACT_DECISION_INVALID";
+  throw error;
+}
+
+function hasExplicitConfirmation(body = {}) {
+  return body.confirm === true || body.confirmed === true || body.userConfirmed === true || body.user_confirmed === true;
+}
+
+function noteEndpointId(endpoint = {}) {
+  const kind = cleanText(endpoint.kind || endpoint.type || "note").toLowerCase();
+  if (kind && kind !== "note") {
+    const error = new Error("LinkSuggestion acceptance only supports note-to-note relations");
+    error.code = "AI_LINK_SUGGESTION_NOTE_ENDPOINT_REQUIRED";
+    throw error;
+  }
+  return cleanText(endpoint.id || endpoint.noteId || endpoint.note_id);
+}
+
+function relationInputFromLinkSuggestion(artifact = {}, body = {}) {
+  if (artifact.type !== "LinkSuggestion") {
+    const error = new Error("artifact must be a LinkSuggestion");
+    error.code = "AI_LINK_SUGGESTION_REQUIRED";
+    throw error;
+  }
+  const payload = artifact.payload || {};
+  const suggestedFromNoteId = noteEndpointId(payload.from || {});
+  const suggestedToNoteId = noteEndpointId(payload.to || {});
+  const fromNoteId = cleanText(body.fromNoteId || body.from_note_id) || suggestedFromNoteId;
+  const toNoteId = cleanText(body.toNoteId || body.to_note_id) || suggestedToNoteId;
+  const relationType = cleanText(body.relationType || body.relation_type || payload.relationType || payload.relation_type || "related").toLowerCase();
+  const rationale = cleanText(body.rationale || payload.rationale || artifact.summary);
+  const confidence = body.confidence ?? body.confidenceScore ?? body.confidence_score ?? artifact.confidence?.score;
+  return {
+    fromNoteId,
+    toNoteId,
+    relationType,
+    rationale,
+    confidence
+  };
 }
 
 function titleForCatalogNote(candidate) {
@@ -1284,6 +1391,8 @@ const server = http.createServer(async (req, res) => {
         aiPreferencesStorePromise = null;
         aiProviderConfigStorePromise = null;
         aiProviderHealthStorePromise = null;
+        aiScheduledTaskStorePromise = null;
+        aiArtifactStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -1452,6 +1561,292 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("AI_PREFERENCES_SAVE_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/inbox") {
+      try {
+        await initVault(VAULT_PATH);
+        const artifactStore = await aiArtifactStore();
+        const inbox = createAiInbox({ artifactStore });
+        const filter = {
+          view: url.searchParams.get("view") || "pending",
+          type: url.searchParams.get("type") || url.searchParams.get("artifactType") || "",
+          sourceNoteId: url.searchParams.get("sourceNoteId") || url.searchParams.get("source_note_id") || "",
+          privacyMode: url.searchParams.get("privacyMode") || url.searchParams.get("privacy_mode") || "",
+          limit: url.searchParams.get("limit") || 50
+        };
+        const items = inbox.listItems(filter);
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          counts: inbox.counts(filter),
+          views: inbox.views(),
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_INBOX_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/inbox/evaluation-summary") {
+      try {
+        await initVault(VAULT_PATH);
+        const artifactStore = await aiArtifactStore();
+        const inbox = createAiInbox({ artifactStore });
+        const filter = {
+          view: url.searchParams.get("view") || "all",
+          type: url.searchParams.get("type") || url.searchParams.get("artifactType") || "",
+          sourceNoteId: url.searchParams.get("sourceNoteId") || url.searchParams.get("source_note_id") || "",
+          privacyMode: url.searchParams.get("privacyMode") || url.searchParams.get("privacy_mode") || ""
+        };
+        return sendJson(res, 200, {
+          item: inbox.evaluationSummary(filter),
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_INBOX_EVALUATION_SUMMARY_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    const aiInboxDecisionId = parseAiInboxDecisionPath(url.pathname);
+    if (req.method === "POST" && aiInboxDecisionId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const artifactStore = await aiArtifactStore();
+        const decision = normalizeAiInboxDecision(body);
+        assertReviewDecision(decision);
+        const artifact = artifactStore.recordDecision(aiInboxDecisionId, {
+          ...body,
+          decision,
+          userId: body.userId || body.user_id || "local_user"
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const item = inbox.getItem(aiInboxDecisionId);
+        return sendJson(res, 200, {
+          item,
+          artifact,
+          latestDecision: item?.latestDecision || null,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "AI_INBOX_DECISION_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    const aiInboxAcceptLinkId = parseAiInboxAcceptLinkPath(url.pathname);
+    if (req.method === "POST" && aiInboxAcceptLinkId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        if (!hasExplicitConfirmation(body)) {
+          return sendJson(
+            res,
+            400,
+            err("AI_LINK_SUGGESTION_CONFIRMATION_REQUIRED", "confirm: true is required before creating a note relation", rid)
+          );
+        }
+
+        const artifactStore = await aiArtifactStore();
+        const existingArtifact = artifactStore.getArtifact(aiInboxAcceptLinkId);
+        if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
+
+        const relationInput = relationInputFromLinkSuggestion(existingArtifact, body);
+        const relation = await createNoteRelation(VAULT_PATH, {
+          ...relationInput,
+          createdBy: "user"
+        });
+        const artifact = artifactStore.recordDecision(aiInboxAcceptLinkId, {
+          decision: "linked_to_note",
+          userId: body.userId || body.user_id || "local_user",
+          noteId: relation.fromNoteId,
+          comment: body.comment || `Accepted LinkSuggestion as ${relation.relationType} relation.`
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const item = inbox.getItem(aiInboxAcceptLinkId);
+        return sendJson(res, 200, {
+          item,
+          artifact,
+          relation,
+          latestDecision: item?.latestDecision || null,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "AI_LINK_SUGGESTION_ACCEPT_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    const aiInboxItemId = parseAiInboxItemPath(url.pathname);
+    if (req.method === "GET" && aiInboxItemId) {
+      try {
+        await initVault(VAULT_PATH);
+        const artifactStore = await aiArtifactStore();
+        const artifact = artifactStore.getArtifact(aiInboxItemId);
+        if (!artifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
+        const inbox = createAiInbox({ artifactStore });
+        return sendJson(res, 200, {
+          item: inbox.getItem(aiInboxItemId),
+          artifact,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_INBOX_ITEM_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/scheduled-task-templates") {
+      try {
+        const implementationReady = url.searchParams.has("implementationReady")
+          ? url.searchParams.get("implementationReady") === "true"
+          : undefined;
+        const items = listScheduledAgentTaskTemplates({ implementationReady });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_SCHEDULED_TASK_TEMPLATES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/scheduled-tasks") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiScheduledTaskStore();
+        const items = store.listScheduledTasks({
+          workspaceId: "local_workspace",
+          userId: "local_user",
+          status: url.searchParams.get("status") || "",
+          taskType: url.searchParams.get("taskType") || url.searchParams.get("task_type") || "",
+          limit: url.searchParams.get("limit") || 50
+        });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_SCHEDULED_TASKS_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/scheduled-tasks") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiScheduledTaskStore();
+        const input = {
+          ...body,
+          workspaceId: "local_workspace",
+          userId: "local_user"
+        };
+        const item = body.templateId || body.template_id ? store.upsertScheduledTask(createScheduledTaskFromTemplate(input)) : store.upsertScheduledTask(input);
+        return sendJson(res, 201, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_SCHEDULED_TASK_SAVE_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/scheduled-tasks/run-due") {
+      let runtime = null;
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        runtime = await createAiHarnessRuntime({
+          storageMode: "sqlite",
+          vaultPath: VAULT_PATH,
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+        });
+        const summary = await runDueScheduledAgentTasks({
+          harness: runtime,
+          scheduledTaskStore: runtime.stores.scheduledTaskStore,
+          providerConfigStore: runtime.stores.providerConfigStore,
+          providerHealthStore: runtime.stores.providerHealthStore,
+          now: body.now || body.nowAt || body.now_at,
+          workspaceId: "local_workspace",
+          userId: "local_user",
+          limit: body.limit
+        });
+        return sendJson(res, 200, {
+          item: summary,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_SCHEDULED_TASK_RUN_DUE_FAILED", String(error?.message || error), rid));
+      } finally {
+        if (runtime && typeof runtime.close === "function") runtime.close();
+      }
+    }
+
+    const scheduledTaskStatusId = parseScheduledTaskStatusPath(url.pathname);
+    if (req.method === "POST" && scheduledTaskStatusId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiScheduledTaskStore();
+        const item = store.updateScheduledTaskStatus({
+          scheduledTaskId: scheduledTaskStatusId,
+          status: body.status
+        });
+        if (!item) return sendJson(res, 404, err("AI_SCHEDULED_TASK_NOT_FOUND", "scheduled task not found", rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_SCHEDULED_TASK_STATUS_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    const scheduledTaskId = parseScheduledTaskPath(url.pathname);
+    if (req.method === "GET" && scheduledTaskId) {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiScheduledTaskStore();
+        const item = store.getScheduledTask(scheduledTaskId);
+        if (!item) return sendJson(res, 404, err("AI_SCHEDULED_TASK_NOT_FOUND", "scheduled task not found", rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_SCHEDULED_TASK_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "DELETE" && scheduledTaskId) {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiScheduledTaskStore();
+        const deleted = store.deleteScheduledTask({ scheduledTaskId });
+        if (!deleted) return sendJson(res, 404, err("AI_SCHEDULED_TASK_NOT_FOUND", "scheduled task not found", rid));
+        return sendJson(res, 200, {
+          ok: true,
+          deleted: true,
+          scheduledTaskId,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_SCHEDULED_TASK_DELETE_FAILED", String(error?.message || error), rid));
       }
     }
 
