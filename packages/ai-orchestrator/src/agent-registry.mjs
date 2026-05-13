@@ -20,6 +20,17 @@ const DEFAULT_AGENTS = [
     outputArtifactTypes: ["LinkSuggestion", "ConflictSuggestion"],
     canRunInBackground: true,
     canWriteHumanNote: false
+  },
+  {
+    agentId: "writing_bridge_agent",
+    agentVersion: "v1",
+    purpose: "Create source-grounded writing moves and scaffold suggestions from selected notes.",
+    defaultModelTier: "strong_reasoning",
+    requiredCapabilities: ["structured_output"],
+    allowedTools: ["search_notes", "read_note", "create_ai_artifact"],
+    outputArtifactTypes: ["WritingMove", "OutlineDraft", "SourceGap"],
+    canRunInBackground: false,
+    canWriteHumanNote: false
   }
 ];
 

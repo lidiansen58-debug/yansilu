@@ -27,6 +27,24 @@ Stage 6: Product hardening and evaluation
 
 The implementation should avoid direct note mutation until originality and artifact boundaries are stable.
 
+## 2.1 Infrastructure Priority Update 2026-05-13
+
+Related: `AI_AGENT_INFRASTRUCTURE_NEXT_STEPS_2026-05-13.md`
+
+After the first scheduled-task and provider-config slices, the most important gap is no longer "can an agent run?" but "can agent outputs become reviewable, useful product objects?"
+
+Priority order:
+
+1. Local Worker Scheduler: automatically run due scheduled tasks using the same SQLite stores and core note tools used by the API path.
+2. AI Inbox and Review Workflow: list artifacts, record decisions, accept/archive/ignore, and show provenance.
+3. LinkSuggestion Acceptance: turn accepted relationship suggestions into real note relations with explicit user confirmation.
+4. Graph-Aware Connection Agent: first context-enrichment slice is implemented for backlinks, outgoing links, tags, directory scope, and graph-neighborhood metadata.
+5. Insight Artifact Types: formalize `InsightCard`, `BridgeCard`, `TensionCard`, `SourceGap`, and `WritingMove`.
+6. Writing Bridge Agent: turn selected notes into source-grounded outline/scaffold artifacts, not full auto-written essays.
+7. Feedback and Evaluation Loop: track accepted/noisy/wrong artifacts by agent, model tier, scope, and task type.
+
+Do not prioritize broad vault-wide background scanning or direct AI editing of human-authored notes.
+
 ## 3. Stage 0: Contracts and Architecture
 
 Status: mostly drafted in this workstream.

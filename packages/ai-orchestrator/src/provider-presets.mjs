@@ -124,6 +124,78 @@ const PROVIDER_PRESETS = {
       local_private: "local_private_gateway:local_private"
     },
     runtimeModelMap: {}
+  },
+  minicpm_local_gateway: {
+    providerId: "minicpm_local_gateway",
+    displayName: "MiniCPM Local Gateway",
+    adapterType: "local_gateway",
+    status: "experimental",
+    authModes: ["local_no_key", "enterprise_secret"],
+    regions: ["local", "enterprise_private"],
+    noviceVisible: false,
+    localExecution: true,
+    supportsUsageReporting: false,
+    supportsCostEstimation: false,
+    capabilities: {
+      ...BASE_CAPABILITIES,
+      openai_compatible: "partial",
+      structured_output: "model_dependent",
+      tool_calling: "model_dependent",
+      multimodal: "model_dependent",
+      local_execution: "yes",
+      local_private: "yes",
+      budget_controls: "local_free",
+      model_family: "minicpm"
+    },
+    modelMap: {
+      router_fast: "minicpm_local_gateway:router_fast",
+      cheap_fast: "minicpm_local_gateway:cheap_fast",
+      standard: "minicpm_local_gateway:standard",
+      strong_reasoning: "minicpm_local_gateway:strong_reasoning",
+      guardrail: "minicpm_local_gateway:guardrail",
+      local_private: "minicpm_local_gateway:local_private"
+    },
+    runtimeModelMap: {
+      "minicpm_local_gateway:router_fast": "minicpm",
+      "minicpm_local_gateway:cheap_fast": "minicpm",
+      "minicpm_local_gateway:standard": "minicpm",
+      "minicpm_local_gateway:strong_reasoning": "minicpm",
+      "minicpm_local_gateway:guardrail": "minicpm",
+      "minicpm_local_gateway:local_private": "minicpm"
+    }
+  },
+  minicpm_remote_gateway: {
+    providerId: "minicpm_remote_gateway",
+    displayName: "MiniCPM Remote Gateway",
+    adapterType: "aggregated_gateway",
+    status: "experimental",
+    authModes: ["workspace_managed", "byok_advanced"],
+    regions: ["china", "global"],
+    noviceVisible: false,
+    capabilities: {
+      ...BASE_CAPABILITIES,
+      openai_compatible: "yes",
+      structured_output: "model_dependent",
+      tool_calling: "model_dependent",
+      multimodal: "model_dependent",
+      routing_fallback: "via_policy",
+      region_fit: "third_party",
+      model_family: "minicpm"
+    },
+    modelMap: {
+      router_fast: "minicpm_remote_gateway:router_fast",
+      cheap_fast: "minicpm_remote_gateway:cheap_fast",
+      standard: "minicpm_remote_gateway:standard",
+      strong_reasoning: "minicpm_remote_gateway:strong_reasoning",
+      guardrail: "minicpm_remote_gateway:guardrail"
+    },
+    runtimeModelMap: {
+      "minicpm_remote_gateway:router_fast": "minicpm",
+      "minicpm_remote_gateway:cheap_fast": "minicpm",
+      "minicpm_remote_gateway:standard": "minicpm",
+      "minicpm_remote_gateway:strong_reasoning": "minicpm",
+      "minicpm_remote_gateway:guardrail": "minicpm"
+    }
   }
 };
 

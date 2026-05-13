@@ -236,6 +236,8 @@ MVP:
 P1:
 
 - Detect local OpenAI-compatible endpoint.
+- Offer `MiniCPM Local` as the first named local model pack when a MiniCPM-compatible runtime is available.
+- Allow `MiniCPM Remote` through a configured third-party gateway for early testing when local setup is not ready.
 - Let user test connection.
 - Allow local model for private Context Packs.
 

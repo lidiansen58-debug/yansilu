@@ -7,6 +7,7 @@ import path from "node:path";
 import {
   buildScheduledTaskHarnessInput,
   createAiHarness,
+  createInMemoryAiProviderConfigStore,
   createInMemoryProviderHealthStore,
   createInMemoryScheduledAgentTaskStore,
   createMockProviderAdapter,
@@ -39,7 +40,7 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
     templateId: "weekly_link_suggestions",
     workspaceId: "workspace_templates",
     userId: "user_templates",
-    scope: { keywords: ["model neutrality", "note links"] },
+    scope: { directoryIds: ["dir_original_default"], tags: ["writing"], keywords: ["model neutrality", "note links"] },
     now: "2026-05-11T00:00:00.000Z"
   });
 
@@ -56,6 +57,14 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
   assert.equal(linkTask.budget.maxEstimatedCostPerPeriod, 0.5);
   assert.equal(linkTask.privacy.requireConfirmationForPrivateNotes, true);
   assert.equal(linkTask.nextRunAt, "2026-05-18T00:00:00.000Z");
+  assert.deepEqual(linkTask.scope.directoryIds, ["dir_original_default"]);
+  assert.deepEqual(linkTask.scope.tags, ["writing"]);
+  assert.deepEqual(buildScheduledTaskHarnessInput(linkTask).searchNotes, {
+    query: "model neutrality note links",
+    tag: ["writing"],
+    rootDirectoryIds: ["dir_original_default"],
+    limit: 10
+  });
 });
 
 test("contract-only research template stays paused unless explicitly allowed", () => {
@@ -352,6 +361,132 @@ test("scheduled task runner can route through a healthy fallback provider", asyn
   assert.equal(summary.runs[0].providerHealthPreflight.fallbackUsed, true);
   assert.equal(summary.runs[0].harnessInput.providerDescriptor.providerId, "openai_compatible_gateway");
   assert.equal(harness.providerAdapter.descriptor.providerId, "openai_compatible_gateway");
+});
+
+test("scheduled task preflight uses stored provider config descriptor", async () => {
+  const harness = createAiHarness();
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions",
+    modelMap: {
+      standard: "openai_compatible_gateway:standard_override"
+    },
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard_override": "gateway-standard-model"
+    }
+  });
+  const providerHealthStore = createInMemoryProviderHealthStore({
+    records: [
+      {
+        providerId: "openai_compatible_gateway",
+        status: "healthy",
+        checkedAt: "2026-05-11T08:55:00.000Z"
+      }
+    ]
+  });
+  const scheduledTaskStore = createInMemoryScheduledAgentTaskStore({
+    tasks: [
+      {
+        scheduledTaskId: "sched_configured_gateway",
+        status: "active",
+        taskType: "reflection_prompt",
+        agentId: "reflection_agent",
+        schedule: { type: "interval", intervalMinutes: 30 },
+        model: { userMode: "Auto", modelPack: "Global Optimized", maxTier: "standard" },
+        nextRunAt: "2026-05-11T08:00:00.000Z"
+      }
+    ]
+  });
+
+  const summary = await runDueScheduledAgentTasks({
+    harness,
+    scheduledTaskStore,
+    providerConfigStore,
+    providerHealthStore,
+    now: "2026-05-11T09:00:00.000Z",
+    buildInput(task) {
+      return {
+        ...buildScheduledTaskHarnessInput(task),
+        currentNote: {
+          id: "note_configured_gateway",
+          title: "Configured gateway note",
+          body: "Configured gateway note\n\nScheduled tasks should use the stored provider config."
+        }
+      };
+    }
+  });
+  const run = summary.runs[0].result.run;
+  const routeEvent = run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(summary.succeeded, 1);
+  assert.equal(summary.runs[0].providerHealthPreflight.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(summary.runs[0].harnessInput.providerDescriptor.endpointUrl, "https://gateway.example.test/v1/chat/completions");
+  assert.equal(summary.runs[0].harnessInput.providerDescriptor.secretRef, "secret_gateway");
+  assert.equal(summary.runs[0].harnessInput.modelRef, "openai_compatible_gateway:standard_override");
+  assert.equal(harness.providerAdapter.descriptor.endpointUrl, "https://gateway.example.test/v1/chat/completions");
+  assert.equal(routeEvent.summary.modelRef, "openai_compatible_gateway:standard_override");
+});
+
+test("scheduled task runner uses stored provider config without provider health checks", async () => {
+  const harness = createAiHarness();
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway_no_health",
+    endpointUrl: "https://gateway-no-health.example.test/v1/chat/completions",
+    modelMap: {
+      standard: "openai_compatible_gateway:no_health_standard"
+    },
+    runtimeModelMap: {
+      "openai_compatible_gateway:no_health_standard": "gateway-no-health-model"
+    }
+  });
+  const scheduledTaskStore = createInMemoryScheduledAgentTaskStore({
+    tasks: [
+      {
+        scheduledTaskId: "sched_configured_gateway_no_health",
+        status: "active",
+        taskType: "reflection_prompt",
+        agentId: "reflection_agent",
+        schedule: { type: "interval", intervalMinutes: 30 },
+        model: { userMode: "Auto", modelPack: "Global Optimized", maxTier: "standard" },
+        nextRunAt: "2026-05-11T08:00:00.000Z"
+      }
+    ]
+  });
+
+  const summary = await runDueScheduledAgentTasks({
+    harness,
+    scheduledTaskStore,
+    providerConfigStore,
+    now: "2026-05-11T09:00:00.000Z",
+    buildInput(task) {
+      return {
+        ...buildScheduledTaskHarnessInput(task),
+        currentNote: {
+          id: "note_configured_gateway_no_health",
+          title: "Configured gateway without health note",
+          body: "Configured gateway without health note\n\nScheduled tasks should still use the stored provider config."
+        }
+      };
+    }
+  });
+  const run = summary.runs[0].result.run;
+  const routeEvent = run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(summary.succeeded, 1);
+  assert.equal(summary.runs[0].providerHealthPreflight.status, "not_checked");
+  assert.equal(summary.runs[0].providerHealthPreflight.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(summary.runs[0].providerHealthPreflight.selectedModelRef, "openai_compatible_gateway:no_health_standard");
+  assert.equal(summary.runs[0].harnessInput.providerDescriptor.endpointUrl, "https://gateway-no-health.example.test/v1/chat/completions");
+  assert.equal(summary.runs[0].harnessInput.providerDescriptor.secretRef, "secret_gateway_no_health");
+  assert.equal(summary.runs[0].harnessInput.modelRef, "openai_compatible_gateway:no_health_standard");
+  assert.equal(harness.providerAdapter.descriptor.endpointUrl, "https://gateway-no-health.example.test/v1/chat/completions");
+  assert.equal(routeEvent.summary.modelRef, "openai_compatible_gateway:no_health_standard");
 });
 
 test("sqlite scheduled task store persists due tasks and run state", async (t) => {

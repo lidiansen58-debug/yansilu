@@ -94,6 +94,7 @@ Primary AI / Agent documents:
 - `docs/AGENT_RUN_LOG_SCHEMA_V1.md`: trace, usage, cost, fallback, and tool-call record schema.
 - `docs/SCHEDULED_AGENT_TASKS_V1.md`: recurring research, scan, digest, and notification behavior.
 - `docs/AI_AGENT_LAYER_MVP_IMPLEMENTATION_PLAN.md`: implementation slices, dependencies, and validation plan.
+- `docs/AI_AGENT_INFRASTRUCTURE_NEXT_STEPS_2026-05-13.md`: current product-specific infrastructure gaps and recommended build sequence for AI Inbox, graph-aware connection, insight artifacts, writing bridge, worker scheduling, and feedback loops.
 - `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_CHECKLIST.md`: codebase discovery checklist before starting implementation.
 - `docs/AI_AGENT_IMPLEMENTATION_DISCOVERY_REPORT_2026-05-10.md`: current codebase discovery findings and first implementation slice recommendation.
 
@@ -105,9 +106,12 @@ Relevant existing product documents:
 
 ## 5. Next Documents To Add
 
-The next useful documents for this workstream are:
+The next useful implementation docs are:
 
-No additional core planning documents are required before implementation discovery. Add narrower specs only when a concrete implementation question appears.
+- AI Inbox API and artifact decision flow.
+- LinkSuggestion acceptance into real note relations.
+- Worker scheduled-task loop.
+- Writing Bridge Agent from selected notes to draft scaffold.
 
 ## 6. Near-Term Decision Questions
 

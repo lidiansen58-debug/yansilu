@@ -32,6 +32,25 @@ function normalizeLimit(value) {
   return Math.max(1, Math.min(200, Math.floor(limit)));
 }
 
+function booleanFeedback(input = {}, feedback = {}, camelKey, snakeKey) {
+  if (typeof input[camelKey] === "boolean") return input[camelKey];
+  if (typeof input[snakeKey] === "boolean") return input[snakeKey];
+  if (typeof feedback[camelKey] === "boolean") return feedback[camelKey];
+  if (typeof feedback[snakeKey] === "boolean") return feedback[snakeKey];
+  return false;
+}
+
+function normalizeFeedback(input = {}) {
+  const feedback = input.feedback && typeof input.feedback === "object" ? input.feedback : {};
+  return {
+    useful: booleanFeedback(input, feedback, "useful", "useful"),
+    noisy: booleanFeedback(input, feedback, "noisy", "noisy"),
+    wrong: booleanFeedback(input, feedback, "wrong", "wrong"),
+    alreadyKnown: booleanFeedback(input, feedback, "alreadyKnown", "already_known"),
+    privacyConcern: booleanFeedback(input, feedback, "privacyConcern", "privacy_concern")
+  };
+}
+
 async function loadDatabaseSync() {
   try {
     const mod = await import("node:sqlite");
@@ -94,6 +113,7 @@ function ensureSchema(db) {
       decision TEXT NOT NULL,
       note_id TEXT,
       comment TEXT,
+      feedback_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
       FOREIGN KEY (artifact_id) REFERENCES ai_artifacts(id) ON DELETE CASCADE
     );
@@ -104,6 +124,11 @@ function ensureSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_ai_artifact_sources_source ON ai_artifact_sources(source_kind, source_id);
     CREATE INDEX IF NOT EXISTS idx_ai_artifact_decisions_artifact ON ai_artifact_decisions(artifact_id, created_at);
   `);
+
+  const decisionColumns = new Set(db.prepare("PRAGMA table_info(ai_artifact_decisions)").all().map((row) => row.name));
+  if (!decisionColumns.has("feedback_json")) {
+    db.exec("ALTER TABLE ai_artifact_decisions ADD COLUMN feedback_json TEXT NOT NULL DEFAULT '{}';");
+  }
 }
 
 function normalizeDecision(input = {}, artifactId) {
@@ -121,6 +146,7 @@ function normalizeDecision(input = {}, artifactId) {
     userId: cleanText(input.userId || input.user_id) || "local_user",
     noteId: cleanText(input.noteId || input.note_id),
     comment: cleanText(input.comment),
+    feedback: normalizeFeedback(input),
     createdAt: cleanText(input.createdAt || input.created_at) || new Date().toISOString()
   };
 }
@@ -146,7 +172,7 @@ function sourcesForArtifact(db, artifactId) {
 function decisionsForArtifact(db, artifactId) {
   return db
     .prepare(
-      `SELECT id, artifact_id, user_id, decision, note_id, comment, created_at
+      `SELECT id, artifact_id, user_id, decision, note_id, comment, feedback_json, created_at
        FROM ai_artifact_decisions
        WHERE artifact_id = ?
        ORDER BY created_at ASC, id ASC`
@@ -159,6 +185,7 @@ function decisionsForArtifact(db, artifactId) {
       userId: row.user_id,
       noteId: row.note_id || "",
       comment: row.comment || "",
+      feedback: normalizeFeedback({ feedback: parseJson(row.feedback_json, {}) }),
       createdAt: row.created_at
     }));
 }
@@ -216,8 +243,8 @@ function insertSources(db, artifact) {
 function insertDecision(db, decision) {
   db.prepare(
     `INSERT INTO ai_artifact_decisions
-      (id, artifact_id, user_id, decision, note_id, comment, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+      (id, artifact_id, user_id, decision, note_id, comment, feedback_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     decision.decisionId,
     decision.artifactId,
@@ -225,6 +252,7 @@ function insertDecision(db, decision) {
     decision.decision,
     decision.noteId || "",
     decision.comment || "",
+    jsonString(decision.feedback || normalizeFeedback()),
     decision.createdAt
   );
 }

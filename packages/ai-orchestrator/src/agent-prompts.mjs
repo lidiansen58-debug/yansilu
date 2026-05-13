@@ -62,8 +62,43 @@ function reflectionAgentTask() {
   ].join("\n");
 }
 
+function writingBridgeAgentTask(expectedArtifactType) {
+  const common = [
+    "Task: find source-grounded writing moves from the selected notes.",
+    "Help the user turn accepted notes and relations into a stronger draft structure.",
+    "Do not write a full essay, final section, or human-authored note.",
+    "Only propose reviewable writing support that keeps source note ids visible."
+  ];
+  if (expectedArtifactType === "OutlineDraft") {
+    return [
+      ...common,
+      "Create one OutlineDraft artifact with payload sections, sectionPurposes, sourceNoteIds, gaps, and suggestedNextAction.",
+      "Mark unsupported sections as gaps instead of inventing support."
+    ].join("\n");
+  }
+  if (expectedArtifactType === "SourceGap") {
+    return [
+      ...common,
+      "Create SourceGap artifacts for claims or sections that need evidence, citation, or verification.",
+      "Each payload must include gap, claim, requiredSourceType, relatedNoteIds, and suggestedAction."
+    ].join("\n");
+  }
+  return [
+    ...common,
+    "Create WritingMove artifacts for claims, counterpoints, transitions, caveats, examples, or section moves.",
+    "Each payload must include moveType, text, sourceNoteIds, suggestedLocation, whyItMatters, and suggestedAction.",
+    'Use suggestedAction "insert_after_review", "revise", or "find_supporting_note".'
+  ].join("\n");
+}
+
 function taskPromptForAgent(agent = {}, expectedArtifactType) {
   if (agent.agentId === "connection_agent" || expectedArtifactType === "LinkSuggestion") return connectionAgentTask();
+  if (
+    agent.agentId === "writing_bridge_agent" ||
+    ["WritingMove", "OutlineDraft", "SourceGap"].includes(cleanText(expectedArtifactType))
+  ) {
+    return writingBridgeAgentTask(cleanText(expectedArtifactType));
+  }
   return reflectionAgentTask();
 }
 

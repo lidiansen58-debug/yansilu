@@ -145,6 +145,47 @@ Use when domestic or China-region-friendly providers sit behind one product-cont
 
 Use for Ollama, LM Studio, vLLM local endpoints, or enterprise private runtimes exposed through a compatible local gateway.
 
+### 6.4 MiniCPM Local Gateway
+
+```json
+{
+  "provider_id": "minicpm_local_gateway",
+  "adapter_type": "local_gateway",
+  "auth_mode": "local_no_key",
+  "endpoint_url": "http://localhost:11434/v1/chat/completions",
+  "runtime_model_map": {
+    "minicpm_local_gateway:local_private": "minicpm"
+  },
+  "health_check": {
+    "enabled": true,
+    "endpoint_url": "http://localhost:11434/api/tags",
+    "method": "GET",
+    "timeout_ms": 1000,
+    "expected_status": 200,
+    "interval_seconds": 30
+  }
+}
+```
+
+Use for a local MiniCPM-compatible model exposed through an OpenAI-compatible desktop or local server. The concrete runtime model id should be overridden in `runtime_model_map` when the local runtime uses a different model name.
+
+### 6.5 MiniCPM Remote Gateway
+
+```json
+{
+  "provider_id": "minicpm_remote_gateway",
+  "adapter_type": "aggregated_gateway",
+  "auth_mode": "workspace_managed",
+  "secret_ref": "secret_minicpm_gateway",
+  "endpoint_url": "https://minicpm-gateway.example.test/v1/chat/completions",
+  "runtime_model_map": {
+    "minicpm_remote_gateway:standard": "minicpm"
+  }
+}
+```
+
+Use for a remote third-party MiniCPM-compatible provider when local runtime setup is not available. This path is not `local_only`; privacy-sensitive runs should stay on `minicpm_local_gateway` or another local/private provider.
+
 ## 7. Ownership Boundary
 
 Provider config owns:
@@ -174,6 +215,8 @@ MVP should support these provider config paths:
 - `openai_compatible_gateway`: OpenRouter-like or LiteLLM-like adapter path.
 - `china_optimized_gateway`: China-friendly gateway or direct provider pack path.
 - `local_private_gateway`: local/private endpoint path, disabled until configured.
+- `minicpm_local_gateway`: named local MiniCPM endpoint path.
+- `minicpm_remote_gateway`: third-party remote MiniCPM-compatible endpoint path.
 
 The UI can hide this from novice users. Advanced users and workspace admins can configure it after the core note-taking experience is stable.
 

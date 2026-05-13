@@ -128,13 +128,17 @@ async function upsertYijingDemoRelation(vaultPath, noteIdsByFixtureId, relation,
   };
 
   try {
+    const item = await createNoteRelation(vaultPath, fromNoteId, payload);
+    if (item?.created === false) {
+      counters.updatedRelations += 1;
+      return updateNoteRelation(vaultPath, item.id, payload);
+    }
     counters.createdRelations += 1;
-    return await createNoteRelation(vaultPath, fromNoteId, payload);
+    return item;
   } catch (error) {
     const isExistingRelation =
       error?.code === "RELATION_DUPLICATE" || String(error?.message || "").includes("UNIQUE constraint failed");
     if (!isExistingRelation) throw error;
-    counters.createdRelations -= 1;
     const existingRelationId = error?.details?.relationId || relationId;
     counters.updatedRelations += 1;
     return updateNoteRelation(vaultPath, existingRelationId, payload);

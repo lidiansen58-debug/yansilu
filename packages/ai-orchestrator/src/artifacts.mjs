@@ -7,7 +7,12 @@ const ARTIFACT_TYPES = new Set([
   "OutlineDraft",
   "QuestionCard",
   "SourceSummary",
-  "ProjectDigest"
+  "ProjectDigest",
+  "InsightCard",
+  "BridgeCard",
+  "TensionCard",
+  "SourceGap",
+  "WritingMove"
 ]);
 
 const ARTIFACT_STATUSES = new Set([

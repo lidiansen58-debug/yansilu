@@ -66,6 +66,8 @@ Values:
 | DashScope / Qwen direct | Domestic and Qwen family path | OpenAI-compatible | Strong China-region fit, Qwen ecosystem | Per-model capability variance | P1 China Optimized pack |
 | DeepSeek direct | Domestic reasoning/cost candidate | OpenAI/Anthropic-compatible | Reasoning models, JSON/tool docs, agent tool ecosystem | Model naming and capability changes | P1 China Optimized / low-cost reasoning candidate |
 | Kimi / Moonshot direct | Domestic long-context and agent candidate | OpenAI-compatible | Kimi ecosystem, tool use, file/token endpoints | Parameter extensions and per-model variance | P1 long-context domestic candidate |
+| MiniCPM local | Local/private model family | OpenAI-compatible local gateway | Local-first AI, privacy, low marginal cost, good early desktop experimentation | Runtime setup and per-model capability variance | P1 MiniCPM Local pack |
+| MiniCPM remote third-party | Hosted MiniCPM-compatible model path | OpenAI-compatible third-party gateway | Lets early users try MiniCPM without local runtime setup | Third-party data boundary, model id variance, gateway reliability | P1 MiniCPM Remote pack |
 | Ollama local | Local/private model runner | Partial OpenAI-compatible local API | No cloud key, privacy, offline/local experimentation | Model quality and tool reliability vary | P1/P2 Local / Private mode |
 | LM Studio local | Local/private desktop runner | OpenAI-compatible local server | User-friendly local model setup | Desktop-only operational variance | P2 Local / Private mode |
 | vLLM / enterprise inference | Private/self-hosted inference | OpenAI-compatible server patterns | Enterprise control, private deployment | Requires infra expertise | P2 enterprise private path |
@@ -80,6 +82,8 @@ Values:
 | DashScope / Qwen direct | no | yes | model_dependent | model_dependent | model_dependent | yes | model_dependent | model_dependent | via_policy | via_product | no | China/global regions |
 | DeepSeek direct | no | yes | partial | yes | model_dependent | yes | unknown | unknown | via_policy | via_product | no | China/global |
 | Kimi / Moonshot direct | no | yes | partial | model_dependent | model_dependent | yes | unknown | model_dependent | via_policy | via_product | no | China/global |
+| MiniCPM local | no | partial | model_dependent | model_dependent | model_dependent | partial | model_dependent | model_dependent | via_policy | local/free | yes | local/offline |
+| MiniCPM remote third-party | no | yes | model_dependent | model_dependent | model_dependent | yes | model_dependent | model_dependent | via_policy | gateway/provider | no | China/global |
 | Ollama local | no | partial | model_dependent | model_dependent | model_dependent | partial | model_dependent | model_dependent | via_policy | local/free | yes | local/offline |
 | LM Studio local | no | partial | model_dependent | model_dependent | model_dependent | partial | model_dependent | model_dependent | via_policy | local/free | yes | local/offline |
 | vLLM / enterprise inference | no | partial | model_dependent | model_dependent | model_dependent | partial | model_dependent | model_dependent | via_gateway | enterprise | yes | enterprise/private |
@@ -152,9 +156,11 @@ Support local/private providers after the core cloud path is stable.
 
 Candidate paths:
 
+- MiniCPM local gateway as the first named local model family.
 - Ollama.
 - LM Studio.
 - vLLM or enterprise inference server.
+- MiniCPM remote third-party gateway as an optional early fallback when local runtime setup is not ready.
 
 Use cases:
 

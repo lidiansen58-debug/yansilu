@@ -1,4 +1,5 @@
 import { createAgentRegistry } from "./agent-registry.mjs";
+import { providerConfigToSettingsInput } from "./ai-provider-configs.mjs";
 import { resolveModelRoute } from "./model-router.mjs";
 import { providerHealthCandidateInput } from "./provider-health-store.mjs";
 import { selectProviderForRoute, providerHealthSummary } from "./provider-health-policy.mjs";
@@ -132,6 +133,8 @@ function normalizeScope(input = {}) {
   return {
     projectIds: Array.isArray(scope.projectIds || scope.project_ids) ? [...(scope.projectIds || scope.project_ids)] : [],
     noteIds: Array.isArray(scope.noteIds || scope.note_ids) ? [...(scope.noteIds || scope.note_ids)] : [],
+    directoryIds: Array.isArray(scope.directoryIds || scope.directory_ids) ? [...(scope.directoryIds || scope.directory_ids)] : [],
+    tags: Array.isArray(scope.tags) ? [...scope.tags] : [],
     sourceFeedIds: Array.isArray(scope.sourceFeedIds || scope.source_feed_ids) ? [...(scope.sourceFeedIds || scope.source_feed_ids)] : [],
     keywords: Array.isArray(scope.keywords) ? [...scope.keywords] : [],
     includePrivateNotes: scope.includePrivateNotes === true || scope.include_private_notes === true
@@ -247,6 +250,41 @@ function providerDescriptorForSelection(providerCandidates = [], providerId = ""
   return providerDescriptor || provider_descriptor || descriptor || rest;
 }
 
+function providerConfigFromStore(providerConfigStore = null, providerDescriptor = {}) {
+  if (!providerConfigStore || typeof providerConfigStore.getProviderConfig !== "function") return null;
+  const providerId = cleanText(providerDescriptor.providerId || providerDescriptor.provider_id);
+  if (!providerId) return null;
+  return providerConfigStore.getProviderConfig({ providerId });
+}
+
+function scheduledProviderDescriptor(input = {}, task = {}) {
+  const baseDescriptor = resolveProviderDescriptor({
+    userMode: task.model?.userMode,
+    modelPack: task.model?.modelPack,
+    providerDescriptor: input.providerDescriptor || input.provider_descriptor,
+    providerPreset: input.providerPreset || input.provider_preset,
+    authMode: input.authMode || input.auth_mode,
+    privacy: {
+      defaultMode: task.privacy?.mode,
+      allowCloud: task.privacy?.allowCloudModels !== false
+    },
+    fallbackPolicy: input.fallbackPolicy || input.fallback_policy
+  });
+  const explicitConfig = input.providerConfig || input.provider_config || null;
+  const providerConfig = explicitConfig || providerConfigFromStore(input.providerConfigStore || input.provider_config_store, baseDescriptor);
+  if (!providerConfig) return { providerDescriptor: baseDescriptor, providerConfig: null };
+
+  const configSettings = providerConfigToSettingsInput(providerConfig);
+  return {
+    providerDescriptor: resolveProviderDescriptor({
+      ...configSettings,
+      providerDescriptor: configSettings.providerDescriptor,
+      secretRef: input.secretRef || input.secret_ref || configSettings.secretRef
+    }),
+    providerConfig
+  };
+}
+
 function matchesFilter(task = {}, filter = {}) {
   const workspaceId = cleanText(filter.workspaceId || filter.workspace_id);
   const userId = cleanText(filter.userId || filter.user_id);
@@ -352,38 +390,8 @@ export function preflightScheduledTaskProviderHealth(input = {}) {
     ? input.providerCandidates || input.provider_candidates
     : [];
 
-  if (!providerHealthStore && rawCandidates.length === 0 && !input.primaryProvider && !input.primary_provider) {
-    return {
-      status: "not_checked",
-      allowed: true,
-      action: "not_checked",
-      fallbackUsed: false,
-      reason: "provider_health_not_configured",
-      route: null,
-      selection: null,
-      summary: {
-        action: "not_checked",
-        fallbackUsed: false,
-        fallbackReason: "provider_health_not_configured"
-      },
-      selectedProviderDescriptor: null,
-      selectedModelRef: ""
-    };
-  }
-
   const agent = agentForScheduledTask(task, input);
-  const providerDescriptor = resolveProviderDescriptor({
-    userMode: task.model?.userMode,
-    modelPack: task.model?.modelPack,
-    providerDescriptor: input.providerDescriptor || input.provider_descriptor,
-    providerPreset: input.providerPreset || input.provider_preset,
-    authMode: input.authMode || input.auth_mode,
-    privacy: {
-      defaultMode: task.privacy?.mode,
-      allowCloud: task.privacy?.allowCloudModels !== false
-    },
-    fallbackPolicy: input.fallbackPolicy || input.fallback_policy
-  });
+  const { providerDescriptor, providerConfig } = scheduledProviderDescriptor(input, task);
   const route = resolveModelRoute({
     agent,
     contextPack: {
@@ -399,6 +407,27 @@ export function preflightScheduledTaskProviderHealth(input = {}) {
     fallbackPolicy: input.fallbackPolicy || input.fallback_policy,
     requiredCapabilities: agent.requiredCapabilities || ["structured_output"]
   });
+
+  if (!providerHealthStore && rawCandidates.length === 0 && !input.primaryProvider && !input.primary_provider) {
+    return {
+      status: "not_checked",
+      allowed: true,
+      action: "not_checked",
+      fallbackUsed: false,
+      reason: "provider_health_not_configured",
+      route,
+      selection: null,
+      summary: {
+        action: "not_checked",
+        fallbackUsed: false,
+        fallbackReason: "provider_health_not_configured"
+      },
+      selectedProviderDescriptor: providerDescriptor,
+      selectedModelRef: route.modelRef,
+      providerConfigId: providerConfig?.id || ""
+    };
+  }
+
   const primaryProvider = providerCandidateWithHealth(input.primaryProvider || input.primary_provider || providerDescriptor, providerHealthStore);
   const providerCandidates = rawCandidates.map((candidate) => providerCandidateWithHealth(candidate, providerHealthStore));
   const selection = selectProviderForRoute({
@@ -422,7 +451,8 @@ export function preflightScheduledTaskProviderHealth(input = {}) {
     selection,
     summary,
     selectedProviderDescriptor: providerDescriptorForSelection(allCandidates, selection.selectedProviderId),
-    selectedModelRef: selection.selectedModelRef
+    selectedModelRef: selection.selectedModelRef,
+    providerConfigId: providerConfig?.id || ""
   };
 }
 
@@ -546,7 +576,18 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
   const scope = task.scope || {};
   const keywords = Array.isArray(scope.keywords) ? scope.keywords.map(cleanText).filter(Boolean) : [];
   const noteIds = Array.isArray(scope.noteIds) ? scope.noteIds.map(cleanText).filter(Boolean) : [];
+  const directoryIds = Array.isArray(scope.directoryIds) ? scope.directoryIds.map(cleanText).filter(Boolean) : [];
+  const tags = Array.isArray(scope.tags) ? scope.tags.map((tag) => cleanText(tag).replace(/^#/, "")).filter(Boolean) : [];
   const outputArtifactTypes = task.output?.artifactTypes || [];
+  const searchNotes =
+    tags.length || keywords.length || directoryIds.length
+      ? {
+          ...(keywords.length ? { query: keywords.join(" ") } : {}),
+          ...(tags.length ? { tag: tags } : {}),
+          ...(directoryIds.length ? { rootDirectoryIds: directoryIds } : {}),
+          limit: 10
+        }
+      : null;
 
   return {
     taskId: `scheduled_${task.scheduledTaskId}_${Date.now()}`,
@@ -568,7 +609,17 @@ export function buildScheduledTaskHarnessInput(task = {}, input = {}) {
       scheduledTaskSpent: task.budget?.spentThisPeriod
     },
     ...(noteIds.length ? { noteIds } : {}),
-    ...(keywords.length ? { searchNotes: { query: keywords.join(" "), limit: 10 } } : {}),
+    ...(!noteIds.length && searchNotes ? { searchNotes } : {}),
+    ...(task.taskType === "relation_scan"
+      ? {
+          graphContext: {
+            includeTags: true,
+            includeOutgoingLinks: true,
+            includeBacklinks: true,
+            maxLinksPerNote: 12
+          }
+        }
+      : {}),
     ...baseInput,
     ...overrideInput
   };

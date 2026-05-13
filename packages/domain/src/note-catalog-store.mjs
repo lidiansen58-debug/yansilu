@@ -517,9 +517,13 @@ const EXPLICIT_SUPPORT_RELATION_TYPES = new Set(["supports"]);
 const EXPLICIT_CONFLICT_RELATION_TYPES = new Set(["contradicts"]);
 const LINK_RELATION_TYPES = new Set([
   "supports",
+  "related",
+  "asks",
   "complements",
   "contrasts",
   "contradicts",
+  "duplicates",
+  "cites",
   "extends",
   "precedes",
   "follows",
@@ -1679,9 +1683,17 @@ export async function saveNoteAsset(vaultPath, noteId, input = {}) {
   }
 }
 
-export async function createNoteRelation(vaultPath, fromNoteId, input = {}) {
+export async function createNoteRelation(vaultPath, fromNoteIdOrInput, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
-  const payload = normalizeRelationPayload(input, { fromNoteId });
+  const relationInput =
+    fromNoteIdOrInput && typeof fromNoteIdOrInput === "object" && !Array.isArray(fromNoteIdOrInput)
+      ? fromNoteIdOrInput
+      : input;
+  const fromNoteId =
+    fromNoteIdOrInput && typeof fromNoteIdOrInput === "object" && !Array.isArray(fromNoteIdOrInput)
+      ? relationInput.fromNoteId ?? relationInput.from_note_id
+      : fromNoteIdOrInput;
+  const payload = normalizeRelationPayload(relationInput, { fromNoteId });
   const now = new Date().toISOString();
   const relationId = String(input.id || `lnk_${randomUUID().slice(0, 8)}`).trim();
 
@@ -1699,12 +1711,10 @@ export async function createNoteRelation(vaultPath, fromNoteId, input = {}) {
       )
       .get(payload.fromNoteId, payload.toNoteId, payload.relationType);
     if (duplicate) {
-      throw noteValidationError("RELATION_DUPLICATE", "A relation of this type already exists between these notes.", {
-        relationId: duplicate.id,
-        fromNoteId: payload.fromNoteId,
-        toNoteId: payload.toNoteId,
-        relationType: payload.relationType
-      });
+      return {
+        ...mapRelationLinkRow(getRelationByIdRow(db, duplicate.id)),
+        created: false
+      };
     }
 
     db.prepare(
@@ -1728,7 +1738,10 @@ export async function createNoteRelation(vaultPath, fromNoteId, input = {}) {
       now
     );
 
-    return mapRelationLinkRow(getRelationByIdRow(db, relationId));
+    return {
+      ...mapRelationLinkRow(getRelationByIdRow(db, relationId)),
+      created: true
+    };
   } finally {
     db.close();
   }

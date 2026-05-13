@@ -147,6 +147,33 @@ test("provider config permits localhost local gateway without a secret", () => {
   assert.equal(result.config.secretRef, "");
 });
 
+test("provider config supports MiniCPM local and remote gateway paths", () => {
+  const local = validateAiProviderConfig({
+    providerId: "minicpm_local_gateway",
+    authMode: "local_no_key",
+    endpointUrl: "http://127.0.0.1:11434/v1/chat/completions",
+    runtimeModelMap: {
+      "minicpm_local_gateway:local_private": "minicpm-local"
+    }
+  });
+  const remote = validateAiProviderConfig({
+    providerId: "minicpm_remote_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_minicpm_gateway",
+    endpointUrl: "https://minicpm-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "minicpm_remote_gateway:standard": "third-party-minicpm"
+    }
+  });
+
+  assert.equal(local.valid, true, JSON.stringify(local.errors, null, 2));
+  assert.equal(local.config.adapterType, "local_gateway");
+  assert.equal(local.config.secretRef, "");
+  assert.equal(remote.valid, true, JSON.stringify(remote.errors, null, 2));
+  assert.equal(remote.config.adapterType, "aggregated_gateway");
+  assert.equal(remote.config.secretRef, "secret_minicpm_gateway");
+});
+
 test("provider config rejects insecure non-local endpoints", () => {
   const result = validateAiProviderConfig({
     providerId: "openai_compatible_gateway",

@@ -56,11 +56,27 @@ test("built-in model packs compile into a valid config bundle", () => {
   assert.doesNotThrow(() => assertValidModelPackConfigBundle(bundle));
   assert.deepEqual(
     packIds,
-    ["china_optimized", "deep_work", "global_optimized", "low_cost_research", "privacy_first", "starter_auto"].sort()
+    [
+      "china_optimized",
+      "deep_work",
+      "global_optimized",
+      "low_cost_research",
+      "minicpm_local",
+      "minicpm_remote",
+      "privacy_first",
+      "starter_auto"
+    ].sort()
   );
   assert.deepEqual(
     providerPresets,
-    ["china_optimized_gateway", "local_private_gateway", "openai_compatible_gateway", "platform_managed_openai"].sort()
+    [
+      "china_optimized_gateway",
+      "local_private_gateway",
+      "minicpm_local_gateway",
+      "minicpm_remote_gateway",
+      "openai_compatible_gateway",
+      "platform_managed_openai"
+    ].sort()
   );
   assert.equal(starterAuto.provider_visibility, "hidden");
   assert.equal(starterAuto.auth_mode, "platform_managed");
@@ -70,6 +86,18 @@ test("built-in model packs compile into a valid config bundle", () => {
   assert.equal(privacyFirst.privacy.allow_cloud, false);
   assert.equal(privacyFirst.fallback_policy.allow_cloud_fallback, false);
   assert.equal(privacyFirst.fallback_policy.allow_cloud_fallback_for_private, false);
+  const minicpmLocal = bundle.model_packs.find((pack) => pack.model_pack_id === "minicpm_local");
+  const minicpmRemote = bundle.model_packs.find((pack) => pack.model_pack_id === "minicpm_remote");
+  const minicpmLocalProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "minicpm_local_gateway");
+  const minicpmRemoteProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "minicpm_remote_gateway");
+  assert.equal(minicpmLocal.provider_preset, "minicpm_local_gateway");
+  assert.equal(minicpmLocal.privacy.default_mode, "local_only");
+  assert.equal(minicpmRemote.provider_preset, "minicpm_remote_gateway");
+  assert.equal(minicpmRemote.privacy.allow_cloud, true);
+  assert.equal(minicpmLocalProvider.local_execution, true);
+  assert.equal(minicpmLocalProvider.runtime_model_map["minicpm_local_gateway:local_private"], "minicpm");
+  assert.equal(minicpmRemoteProvider.adapter_type, "aggregated_gateway");
+  assert.equal(minicpmRemoteProvider.runtime_model_map["minicpm_remote_gateway:standard"], "minicpm");
 });
 
 test("model pack config rejects unsupported provider auth modes", () => {

@@ -67,13 +67,13 @@ Each item should be typed and provenance-aware.
 ```json
 {
   "item_id": "ctx_item_01",
-  "kind": "note | source_doc | artifact | project | graph_relation | user_preference | selection",
+  "kind": "note | source_doc | artifact | project | graph_relation | graph_neighborhood | user_preference | selection",
   "source_id": "note_01",
   "title": "string",
   "content": "bounded text",
   "content_format": "markdown | plain_text | json | summary",
-  "origin": "human_authored | ai_generated | source_derived | user_accepted | user_rewritten | system",
-  "included_reason": "current_note | user_selected | semantic_match | graph_neighbor | recent_activity | scheduled_source | project_scope | preference",
+  "origin": "human_authored | ai_generated | source_derived | user_accepted | user_rewritten | system | system_retrieved",
+  "included_reason": "current_note | user_selected | semantic_match | graph_neighbor | graph_neighborhood | recent_activity | scheduled_source | project_scope | preference",
   "relevance": {
     "score": 0.87,
     "method": "text | semantic | hybrid | graph | recency | explicit"
@@ -91,6 +91,8 @@ Each item should be typed and provenance-aware.
   }
 }
 ```
+
+For connection-agent runs, `graph_neighborhood` items may be appended beside note items. Their JSON content contains the source `noteId`, normalized tags, outgoing links, and backlinks gathered through the `list_note_relations` tool boundary. These items are metadata context only; they do not create graph edges.
 
 ## 5. Omitted Item
 

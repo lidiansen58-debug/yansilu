@@ -134,6 +134,7 @@ Inputs:
 - Search results.
 - Source documents.
 - Existing graph links.
+- Opt-in graph-neighborhood metadata from `list_note_relations`: tags, outgoing links, and backlinks.
 - Project metadata.
 - Recent activity.
 
@@ -152,6 +153,14 @@ Context Pack:
       "content": "bounded text",
       "origin": "human_authored",
       "included_reason": "current_note"
+    },
+    {
+      "kind": "graph_neighborhood",
+      "id": "note_01",
+      "title": "Graph neighborhood for note_01",
+      "content": "{\"noteId\":\"note_01\",\"tags\":[],\"outgoingLinks\":[],\"backlinks\":[]}",
+      "origin": "system_retrieved",
+      "included_reason": "graph_neighborhood"
     }
   ],
   "omitted": [
@@ -184,6 +193,12 @@ Definition:
   "can_write_human_note": false
 }
 ```
+
+Current built-in registry entries:
+
+- `reflection_agent`: creates `ReflectionPrompt` and `QuestionCard` artifacts from bounded note context.
+- `connection_agent`: creates `LinkSuggestion` and `ConflictSuggestion` artifacts from note relationship context.
+- `writing_bridge_agent`: creates `WritingMove`, `OutlineDraft`, and `SourceGap` artifacts from selected notes for source-grounded writing support.
 
 ### 3.6 Model Policy
 
@@ -367,6 +382,20 @@ Scheduler or note update triggers scan
   -> User can accept or ignore
 ```
 
+### 4.4 User-Triggered Writing Bridge
+
+```text
+User selects notes for a writing project or draft section
+  -> Task Intake
+  -> Privacy Gate
+  -> Task Router selects Writing Bridge Agent
+  -> Context Builder includes selected/source notes
+  -> Model Policy selects strong_reasoning if budget allows
+  -> SDK Runner executes
+  -> Artifact Writer creates WritingMove, OutlineDraft, or SourceGap
+  -> User reviews artifact before inserting, revising, or promoting
+```
+
 ## 5. Failure Handling
 
 Failure categories:
@@ -434,6 +463,19 @@ MVP flows:
 - User-triggered reflection.
 - Scheduled research card generation.
 - Background link suggestion.
+
+Implemented first infrastructure slices after the harness/scheduled-task foundation:
+
+- AI Inbox review API for pending artifacts and user decisions.
+- LinkSuggestion acceptance API into real note relations with explicit confirmation.
+- Local worker scheduler that runs due tasks through SQLite AI stores and core note tools.
+- Graph-aware context enrichment for connection runs, including tags, outgoing links, backlinks, and scheduled relation-scan defaults.
+- Insight and writing artifact types: `InsightCard`, `BridgeCard`, `TensionCard`, `SourceGap`, and `WritingMove`.
+- Writing Bridge Agent registry and prompt path for review-only `WritingMove`, `OutlineDraft`, and `SourceGap` outputs.
+
+Remaining near-term infrastructure additions:
+
+- Writing Bridge UI/API affordances that let users request writing moves from selected note baskets.
 
 Out of scope for MVP:
 

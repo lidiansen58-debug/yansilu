@@ -81,6 +81,152 @@ export async function previewAiRoute(payload = {}) {
   return json.item || null;
 }
 
+export async function fetchAiInbox(options = {}) {
+  const params = new URLSearchParams();
+  const view = String(options?.view || "pending").trim();
+  const type = String(options?.type || "").trim();
+  const sourceNoteId = String(options?.sourceNoteId || "").trim();
+  const privacyMode = String(options?.privacyMode || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
+  if (view) params.set("view", view);
+  if (type && type !== "all") params.set("type", type);
+  if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
+  if (privacyMode) params.set("privacyMode", privacyMode);
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/ai/inbox?${params.toString()}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0),
+    counts: json.counts || {},
+    views: Array.isArray(json.views) ? json.views : []
+  };
+}
+
+export async function fetchAiInboxEvaluationSummary(options = {}) {
+  const params = new URLSearchParams();
+  const view = String(options?.view || "all").trim();
+  const type = String(options?.type || "").trim();
+  const sourceNoteId = String(options?.sourceNoteId || "").trim();
+  const privacyMode = String(options?.privacyMode || "").trim();
+  if (view) params.set("view", view);
+  if (type && type !== "all") params.set("type", type);
+  if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
+  if (privacyMode) params.set("privacyMode", privacyMode);
+  const json = await request(`/api/v1/ai/inbox/evaluation-summary?${params.toString()}`);
+  return json.item || null;
+}
+
+export async function fetchAiInboxItem(artifactId) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}`);
+}
+
+export async function recordAiInboxDecision(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+}
+
+export async function acceptAiInboxLink(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/accept-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      confirm: true
+    })
+  });
+}
+
+export async function promoteAiInboxNote(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/promote-note`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      confirm: true
+    })
+  });
+}
+
+export async function fetchAiScheduledTasks(options = {}) {
+  const params = new URLSearchParams();
+  const status = String(options?.status || "").trim();
+  const taskType = String(options?.taskType || options?.task_type || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
+  if (status && status !== "all") params.set("status", status);
+  if (taskType && taskType !== "all") params.set("taskType", taskType);
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/ai/scheduled-tasks?${params.toString()}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0)
+  };
+}
+
+export async function fetchAiScheduledTaskTemplates(options = {}) {
+  const params = new URLSearchParams();
+  if (options?.implementationReady !== undefined) {
+    params.set("implementationReady", options.implementationReady === false ? "false" : "true");
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const json = await request(`/api/v1/ai/scheduled-task-templates${suffix}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0)
+  };
+}
+
+export async function saveAiScheduledTask(payload = {}) {
+  const json = await request("/api/v1/ai/scheduled-tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function updateAiScheduledTaskStatus(scheduledTaskId, status) {
+  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
+  const cleanStatus = String(status || "").trim();
+  if (!cleanScheduledTaskId) throw new Error("scheduledTaskId is required");
+  if (!cleanStatus) throw new Error("status is required");
+  const json = await request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: cleanStatus })
+  });
+  return json.item || null;
+}
+
+export async function deleteAiScheduledTask(scheduledTaskId) {
+  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
+  if (!cleanScheduledTaskId) throw new Error("scheduledTaskId is required");
+  return request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}`, {
+    method: "DELETE"
+  });
+}
+
+export async function runDueAiScheduledTasks(payload = {}) {
+  const body = { ...(payload || {}) };
+  if (body.limit !== undefined) body.limit = Math.max(1, Math.min(100, Number(body.limit || 10) || 10));
+  const json = await request("/api/v1/ai/scheduled-tasks/run-due", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  return json.item || null;
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");
