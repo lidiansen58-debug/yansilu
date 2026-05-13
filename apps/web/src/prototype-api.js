@@ -145,6 +145,19 @@ export async function acceptAiInboxLink(artifactId, payload = {}) {
   });
 }
 
+export async function promoteAiInboxNote(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/promote-note`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      confirm: true
+    })
+  });
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");

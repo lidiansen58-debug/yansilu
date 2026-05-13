@@ -275,6 +275,7 @@ Acceptance:
 - User can record accept/ignore/archive review decisions with feedback flags.
 - User can open source notes from artifact detail.
 - User can promote only note-to-note `LinkSuggestion` artifacts into real note relations.
+- User can promote `QuestionCard` and `ReflectionPrompt` artifacts into draft notes through an explicit confirmation action.
 - UI does not silently mutate notes or graph relations.
 
 ### Slice F: AI Evaluation Summary API
@@ -299,6 +300,35 @@ Acceptance:
 - Product can compute useful/noisy/wrong/already-known/privacy-concern counts and decision/agent/type distributions without scanning UI state.
 - Summary can be scoped to all artifacts, a specific inbox view, artifact type, source note, or privacy mode.
 - The API remains read-only and does not mutate artifacts, notes, or graph relations.
+
+### Slice G: Question And Reflection Note Promotion
+
+Status:
+
+- First implementation slice completed in the API and web AI Inbox.
+- `POST /api/v1/ai/inbox/:artifactId/promote-note` promotes `QuestionCard` and `ReflectionPrompt` artifacts into draft notes only after `confirm: true`.
+- The promotion records a `promoted_to_note` artifact decision with the created note id.
+- The web AI Inbox shows a guarded `Create draft note` action for eligible artifacts and disables it after promotion.
+
+Files likely touched:
+
+- `apps/api/src/server.mjs`
+- `apps/web/src/ai-inbox-model.js`
+- `apps/web/src/ai-inbox-panel.js`
+- `apps/web/src/prototype-api.js`
+- `apps/web/src/prototype-app.js`
+- `docs/API.md`
+- `tests/integration/api-vault-settings.test.mjs`
+- `tests/unit/web-ai-inbox-model.test.mjs`
+- `tests/unit/web-ai-inbox-panel.test.mjs`
+- `tests/unit/web-prototype-api.test.mjs`
+
+Acceptance:
+
+- Generic review decisions still cannot record `promoted_to_note`.
+- Missing confirmation is rejected before note creation.
+- A promoted artifact creates exactly one draft note and preserves artifact/source provenance in the note body.
+- Re-promoting the same artifact is blocked with the already-created note id.
 
 ## 6. Do Not Build Yet
 

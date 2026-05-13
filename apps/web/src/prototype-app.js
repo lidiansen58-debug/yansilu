@@ -98,6 +98,7 @@ import {
   moveNote,
   previewAiRoute,
   previewImport,
+  promoteAiInboxNote,
   recordAiInboxDecision,
   rollbackImport,
   switchVault,
@@ -881,6 +882,39 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
     return result;
   } catch (error) {
     setStatus(`LinkSuggestion accept failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function promoteAiInboxArtifactToNote(artifactId) {
+  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
+  if (!cleanArtifactId) return setStatus("Select a QuestionCard or ReflectionPrompt first", "warn");
+  aiInboxState.actionLoading = true;
+  renderAiInboxWorkspace();
+  try {
+    const result = await promoteAiInboxNote(cleanArtifactId, {
+      comment: $("aiInboxDecisionComment")?.value || ""
+    });
+    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.selectedArtifactId = cleanArtifactId;
+    if (result.note?.id) {
+      state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
+    }
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    if (result.note?.id) {
+      activateModule("explorer");
+      openNoteById(result.note.id);
+    }
+    setStatus(result.note?.id ? `Draft note created from AI artifact: ${result.note.id}` : "AI artifact promoted", "ok");
+    return result;
+  } catch (error) {
+    setStatus(`AI note promotion failed: ${String(error?.message || error)}`, "bad");
     return null;
   } finally {
     aiInboxState.actionLoading = false;
@@ -5242,6 +5276,12 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const acceptLinkButton = event.target.closest("[data-ai-inbox-accept-link]");
   if (acceptLinkButton) {
     await acceptAiInboxLinkSuggestion(acceptLinkButton.getAttribute("data-ai-inbox-accept-link"));
+    return;
+  }
+
+  const promoteNoteButton = event.target.closest("[data-ai-inbox-promote-note]");
+  if (promoteNoteButton) {
+    await promoteAiInboxArtifactToNote(promoteNoteButton.getAttribute("data-ai-inbox-promote-note"));
   }
 });
 

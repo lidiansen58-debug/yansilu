@@ -367,6 +367,12 @@ Promotion should preserve source provenance.
 
 Promotion should not automatically change `human_authored` status unless the user rewrites or explicitly accepts the content under a product-defined rule.
 
+Current implementation notes:
+
+- `LinkSuggestion` to graph edge uses `POST /api/v1/ai/inbox/:artifactId/accept-link` and records `linked_to_note`.
+- `QuestionCard` and `ReflectionPrompt` to draft note use `POST /api/v1/ai/inbox/:artifactId/promote-note` and record `promoted_to_note`.
+- Generic review decisions may accept, revise, ignore, or archive artifacts, but promotion statuses require dedicated confirmation routes.
+
 ## 8. Storage Recommendations
 
 MVP storage can use the same database as notes if it preserves separate tables or collections.

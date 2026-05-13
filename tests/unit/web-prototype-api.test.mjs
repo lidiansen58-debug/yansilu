@@ -88,3 +88,28 @@ test("prototype API forces accept-link confirmation", async () => {
     else globalThis.fetch = previousFetch;
   }
 });
+
+test("prototype API forces promote-note confirmation", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ai-inbox-promote-note", { __API_BASE__: "http://127.0.0.1:3999" });
+  let capturedBody = "";
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), "http://127.0.0.1:3999/api/v1/ai/inbox/artifact_2/promote-note");
+    capturedBody = options.body;
+    return {
+      ok: true,
+      async json() {
+        return { item: { artifactId: "artifact_2" }, note: { id: "note_1" } };
+      }
+    };
+  };
+
+  try {
+    await api.promoteAiInboxNote("artifact_2", { confirm: false, comment: "Make a draft." });
+    assert.equal(JSON.parse(capturedBody).confirm, true);
+    assert.equal(JSON.parse(capturedBody).comment, "Make a draft.");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});

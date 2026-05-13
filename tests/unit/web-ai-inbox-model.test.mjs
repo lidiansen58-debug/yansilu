@@ -6,8 +6,10 @@ import {
   aiInboxEvaluationMetrics,
   aiInboxSummary,
   isNoteToNoteLinkSuggestion,
+  isPromotableNoteArtifact,
   latestFeedbackFlags,
   linkSuggestionSummary,
+  notePromotionSummary,
   normalizeAiInboxFilters,
   selectedAiInboxItem
 } from "../../apps/web/src/ai-inbox-model.js";
@@ -128,4 +130,45 @@ test("AI inbox model normalizes latest feedback aliases", () => {
       privacyConcern: true
     }
   );
+});
+
+test("AI inbox model gates note promotion to unpromoted question and reflection artifacts", () => {
+  const question = {
+    id: "artifact_question_1",
+    type: "QuestionCard",
+    title: "Where does spacing fail?",
+    payload: { question: "Where does spacing fail?" },
+    userDecisions: []
+  };
+  assert.equal(isPromotableNoteArtifact(question), true);
+  assert.deepEqual(notePromotionSummary(question), {
+    canPromote: true,
+    promotedNoteId: "",
+    suggestedTitle: "Where does spacing fail?",
+    artifactType: "QuestionCard"
+  });
+
+  assert.equal(
+    isPromotableNoteArtifact({
+      ...question,
+      userDecisions: [{ decision: "promoted_to_note", noteId: "note_1" }]
+    }),
+    false
+  );
+  assert.deepEqual(
+    notePromotionSummary({
+      id: "artifact_reflection_1",
+      type: "ReflectionPrompt",
+      title: "Try the opposite case",
+      payload: { prompt: "Try the opposite case" },
+      userDecisions: []
+    }),
+    {
+      canPromote: true,
+      promotedNoteId: "",
+      suggestedTitle: "Try the opposite case",
+      artifactType: "ReflectionPrompt"
+    }
+  );
+  assert.equal(isPromotableNoteArtifact({ type: "LinkSuggestion" }), false);
 });

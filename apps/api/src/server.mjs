@@ -812,6 +812,11 @@ function parseAiInboxAcceptLinkPath(urlPath) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function parseAiInboxPromoteNotePath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/promote-note$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function assetContentType(filePath) {
   const ext = path.extname(String(filePath || "")).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -887,6 +892,95 @@ function relationInputFromLinkSuggestion(artifact = {}, body = {}) {
     relationType,
     rationale,
     confidence
+  };
+}
+
+const NOTE_PROMOTION_ARTIFACT_TYPES = new Set(["QuestionCard", "ReflectionPrompt"]);
+
+function latestPromotedNoteDecision(artifact = {}) {
+  const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
+  return decisions
+    .slice()
+    .reverse()
+    .find((decision) => decision?.decision === "promoted_to_note" && cleanText(decision.noteId || decision.note_id));
+}
+
+function firstCleanText(...values) {
+  for (const value of values) {
+    const text = cleanText(value);
+    if (text) return text;
+  }
+  return "";
+}
+
+function promoteNoteInputFromArtifact(artifact = {}, body = {}) {
+  if (!NOTE_PROMOTION_ARTIFACT_TYPES.has(artifact.type)) {
+    const error = new Error("artifact must be a QuestionCard or ReflectionPrompt");
+    error.code = "AI_NOTE_PROMOTION_ARTIFACT_TYPE_INVALID";
+    throw error;
+  }
+
+  const existingPromotion = latestPromotedNoteDecision(artifact);
+  if (existingPromotion) {
+    const error = new Error("artifact has already been promoted to a note");
+    error.code = "AI_ARTIFACT_ALREADY_PROMOTED";
+    error.details = { noteId: existingPromotion.noteId || existingPromotion.note_id };
+    throw error;
+  }
+
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const title = firstCleanText(
+    body.title,
+    payload.noteTitle,
+    payload.note_title,
+    payload.title,
+    payload.question,
+    payload.prompt,
+    artifact.title,
+    "AI artifact draft"
+  );
+  const mainBody = firstCleanText(
+    body.body,
+    payload.draft,
+    payload.question,
+    payload.prompt,
+    payload.body,
+    artifact.body,
+    artifact.summary
+  );
+  const sourceNoteIds = Array.isArray(artifact.sources?.noteIds) ? artifact.sources.noteIds.filter(Boolean) : [];
+  const sourceLines = sourceNoteIds.length
+    ? ["", "## Source notes", ...sourceNoteIds.map((noteId) => `- ${noteId}`)]
+    : [];
+  const contextLines = [
+    "",
+    "## AI artifact context",
+    `- Artifact: ${artifact.id}`,
+    `- Type: ${artifact.type}`,
+    `- Agent run: ${artifact.agentRunId || "unknown"}`,
+    `- Context pack: ${artifact.contextPackId || "none"}`,
+    `- Privacy: ${artifact.privacy?.mode || "normal"}`
+  ];
+  const summaryLines = artifact.summary ? ["", "## Summary", artifact.summary] : [];
+  const payloadRationale = firstCleanText(payload.rationale, payload.whyItMatters, payload.why_it_matters);
+  const rationaleLines = payloadRationale ? ["", "## Rationale", payloadRationale] : [];
+
+  return {
+    directoryId: cleanText(body.directoryId || body.directory_id) || "dir_fleeting_default",
+    title,
+    body: [
+      `# ${title}`,
+      "",
+      "AI artifact draft. Review, revise, or delete before treating it as your own note.",
+      "",
+      "## Draft",
+      mainBody || "No draft body recorded.",
+      ...summaryLines,
+      ...rationaleLines,
+      ...sourceLines,
+      ...contextLines
+    ].join("\n"),
+    status: cleanText(body.status) || "draft"
   };
 }
 
@@ -1680,6 +1774,47 @@ const server = http.createServer(async (req, res) => {
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "AI_LINK_SUGGESTION_ACCEPT_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    const aiInboxPromoteNoteId = parseAiInboxPromoteNotePath(url.pathname);
+    if (req.method === "POST" && aiInboxPromoteNoteId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        if (!hasExplicitConfirmation(body)) {
+          return sendJson(
+            res,
+            400,
+            err("AI_NOTE_PROMOTION_CONFIRMATION_REQUIRED", "confirm: true is required before creating a draft note", rid)
+          );
+        }
+
+        const artifactStore = await aiArtifactStore();
+        const existingArtifact = artifactStore.getArtifact(aiInboxPromoteNoteId);
+        if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
+
+        const noteInput = promoteNoteInputFromArtifact(existingArtifact, body);
+        const note = await createNoteInDirectory(VAULT_PATH, noteInput);
+        const artifact = artifactStore.recordDecision(aiInboxPromoteNoteId, {
+          decision: "promoted_to_note",
+          userId: body.userId || body.user_id || "local_user",
+          noteId: note.id,
+          comment: body.comment || `Promoted ${existingArtifact.type} into draft note ${note.id}.`
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const item = inbox.getItem(aiInboxPromoteNoteId);
+        return sendJson(res, 201, {
+          item,
+          artifact,
+          note,
+          latestDecision: item?.latestDecision || null,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : error?.code === "AI_ARTIFACT_ALREADY_PROMOTED" ? 409 : 400;
+        return sendJson(res, status, err(error?.code || "AI_NOTE_PROMOTION_FAILED", String(error?.message || error), rid, error?.details));
       }
     }
 

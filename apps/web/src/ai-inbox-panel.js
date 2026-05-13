@@ -11,6 +11,7 @@ import {
   isNoteToNoteLinkSuggestion,
   latestFeedbackFlags,
   linkSuggestionSummary,
+  notePromotionSummary,
   normalizeAiInboxFilters,
   selectedAiInboxItem
 } from "./ai-inbox-model.js";
@@ -292,6 +293,32 @@ function renderLinkSuggestionAction(artifact = {}) {
   `;
 }
 
+function renderNotePromotionAction(artifact = {}) {
+  const promotion = notePromotionSummary(artifact);
+  if (!promotion.artifactType || !["QuestionCard", "ReflectionPrompt"].includes(promotion.artifactType)) return "";
+  return `
+    <div class="ai-inbox-action-card ${promotion.canPromote ? "" : "is-muted"}">
+      <div>
+        <h3>Draft note</h3>
+        <p>${escapeHtml(promotion.suggestedTitle || "Create a reviewable draft note from this artifact.")}</p>
+      </div>
+      ${
+        promotion.promotedNoteId
+          ? `<div class="ai-inbox-detail-muted">Already promoted to note ${escapeHtml(promotion.promotedNoteId)}.</div>`
+          : `<div class="ai-inbox-detail-muted">Creates a draft fleeting note. Review and rewrite it before treating it as your own thought.</div>`
+      }
+      <button
+        class="mini-btn primary"
+        type="button"
+        data-ai-inbox-promote-note="${attr(artifact.id)}"
+        ${promotion.canPromote ? "" : "disabled"}
+      >
+        Create draft note
+      </button>
+    </div>
+  `;
+}
+
 function renderDecisions(decisions = []) {
   const items = Array.isArray(decisions) ? decisions : [];
   if (!items.length) return `<div class="ai-inbox-detail-muted">No decisions yet.</div>`;
@@ -377,6 +404,7 @@ function renderDetail(state = {}) {
       </div>
 
       ${renderLinkSuggestionAction(activeArtifact)}
+      ${renderNotePromotionAction(activeArtifact)}
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">

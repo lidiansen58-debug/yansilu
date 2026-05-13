@@ -1616,7 +1616,7 @@ Request:
 }
 ```
 
-`action` accepts `accept`, `ignore`, or `archive` aliases. `decision` or `status` may also be sent directly with `accepted`, `ignored`, `archived`, or `revised`. Promotion states such as `linked_to_note` use dedicated promotion APIs like `accept-link`.
+`action` accepts `accept`, `ignore`, or `archive` aliases. `decision` or `status` may also be sent directly with `accepted`, `ignored`, `archived`, or `revised`. Promotion states such as `linked_to_note` and `promoted_to_note` use dedicated promotion APIs like `accept-link` and `promote-note`.
 
 Feedback flags can be sent inside `feedback` or as top-level fields. The API accepts both camelCase and snake_case for `alreadyKnown`/`already_known` and `privacyConcern`/`privacy_concern`, then stores normalized camelCase fields on the decision event.
 
@@ -1723,6 +1723,62 @@ Response status: `200`
 ```
 
 If the relation already exists, the response returns the existing relation with `created: false` and still records the artifact decision.
+
+### `POST /api/v1/ai/inbox/:artifactId/promote-note`
+
+Promotes a `QuestionCard` or `ReflectionPrompt` artifact into a new draft note. This route requires explicit confirmation and records a `promoted_to_note` decision. It creates a draft fleeting note by default and preserves artifact/source provenance in the note body.
+
+Request:
+
+```json
+{
+  "confirm": true,
+  "comment": "Keep this as a draft question note."
+}
+```
+
+Optional overrides:
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `directoryId` | string | Target directory id. Defaults to `dir_fleeting_default`. |
+| `title` | string | Override the note title derived from the artifact. |
+| `body` | string | Override the draft body derived from the artifact. |
+| `status` | string | Note status. Defaults to `draft`. |
+
+Response status: `201`
+
+```json
+{
+  "item": {
+    "artifactId": "artifact_question_01",
+    "status": "promoted_to_note",
+    "latestDecision": {
+      "decision": "promoted_to_note",
+      "noteId": "fn_abcd1234"
+    }
+  },
+  "artifact": {
+    "id": "artifact_question_01",
+    "type": "QuestionCard",
+    "status": "promoted_to_note"
+  },
+  "note": {
+    "id": "fn_abcd1234",
+    "noteType": "fleeting",
+    "title": "Where does spaced repetition fail?",
+    "status": "draft"
+  },
+  "latestDecision": {
+    "decision": "promoted_to_note",
+    "noteId": "fn_abcd1234"
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-13T03:00:00.000Z"
+}
+```
+
+If the artifact has already been promoted to a note, the route returns `409 AI_ARTIFACT_ALREADY_PROMOTED` with the promoted `noteId`.
 
 ## Export
 

@@ -504,3 +504,101 @@ test("AI inbox accepts LinkSuggestion artifacts into explicit note relations", a
   assert.equal(blockedEndpointOverride.status, 400, JSON.stringify(blockedEndpointOverride.json));
   assert.equal(blockedEndpointOverride.json.error.code, "AI_LINK_SUGGESTION_NOTE_ENDPOINT_REQUIRED");
 });
+
+test("AI inbox promotes QuestionCard artifacts into explicit draft notes", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-note-promotion-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const source = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Spacing repetition source\n\nThis note needs a follow-up question."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const artifactStore = await createSqliteArtifactStore({ vaultPath });
+  artifactStore.createArtifact({
+    id: "artifact_question_promote",
+    type: "QuestionCard",
+    title: "Where does spaced repetition fail?",
+    summary: "Turn this question into a small draft note for later reflection.",
+    body: "Where does spaced repetition fail when the learner cannot define the target skill?",
+    agentRunId: "run_question_promote",
+    sources: { noteIds: [source.json.item.id], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+    payload: {
+      question: "Where does spaced repetition fail?",
+      rationale: "The source note hints at an unresolved boundary."
+    }
+  });
+  artifactStore.createArtifact({
+    id: "artifact_reflection_promote",
+    type: "ReflectionPrompt",
+    title: "Try the opposite case",
+    summary: "Invite the user to test the source note against a counterexample.",
+    body: "Try the opposite case: when does this note stop being true?",
+    agentRunId: "run_reflection_promote",
+    sources: { noteIds: [source.json.item.id], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+    payload: {
+      prompt: "Try the opposite case",
+      rationale: "The source note would become more useful if its boundary were visible."
+    }
+  });
+  artifactStore.close();
+
+  const missingConfirmation = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {});
+  assert.equal(missingConfirmation.status, 400, JSON.stringify(missingConfirmation.json));
+  assert.equal(missingConfirmation.json.error.code, "AI_NOTE_PROMOTION_CONFIRMATION_REQUIRED");
+
+  const blockedGenericPromotion = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/decision", {
+    status: "promoted_to_note"
+  });
+  assert.equal(blockedGenericPromotion.status, 400, JSON.stringify(blockedGenericPromotion.json));
+  assert.equal(blockedGenericPromotion.json.error.code, "AI_ARTIFACT_DECISION_INVALID");
+
+  const promoted = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {
+    confirm: true,
+    comment: "Keep this as a draft question note."
+  });
+  assert.equal(promoted.status, 201, JSON.stringify(promoted.json));
+  assert.equal(promoted.json.item.status, "promoted_to_note");
+  assert.equal(promoted.json.latestDecision.decision, "promoted_to_note");
+  assert.equal(promoted.json.latestDecision.noteId, promoted.json.note.id);
+  assert.equal(promoted.json.note.noteType, "fleeting");
+  assert.equal(promoted.json.note.status, "draft");
+  assert.match(promoted.json.note.body, /AI artifact draft/);
+  assert.match(promoted.json.note.body, new RegExp(source.json.item.id));
+
+  const fetchedNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(promoted.json.note.id)}`);
+  assert.equal(fetchedNote.status, 200, JSON.stringify(fetchedNote.json));
+  assert.equal(fetchedNote.json.item.id, promoted.json.note.id);
+
+  const promotedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {
+    confirm: true
+  });
+  assert.equal(promotedAgain.status, 409, JSON.stringify(promotedAgain.json));
+  assert.equal(promotedAgain.json.error.code, "AI_ARTIFACT_ALREADY_PROMOTED");
+  assert.equal(promotedAgain.json.error.details.noteId, promoted.json.note.id);
+
+  const promotedReflection = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_reflection_promote/promote-note", {
+    confirm: true
+  });
+  assert.equal(promotedReflection.status, 201, JSON.stringify(promotedReflection.json));
+  assert.equal(promotedReflection.json.item.status, "promoted_to_note");
+  assert.equal(promotedReflection.json.latestDecision.noteId, promotedReflection.json.note.id);
+  assert.equal(promotedReflection.json.note.noteType, "fleeting");
+  assert.match(promotedReflection.json.note.body, /Try the opposite case/);
+  assert.match(promotedReflection.json.note.body, new RegExp(source.json.item.id));
+});

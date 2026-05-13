@@ -87,6 +87,49 @@ test("AI inbox panel disables accept-link for non-note endpoints", () => {
   assert.match(html, /data-ai-inbox-accept-link="artifact_link_2"[\s\S]*disabled/);
 });
 
+test("AI inbox panel renders draft note promotion for QuestionCard artifacts", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_question_1", type: "QuestionCard", title: "A question" }],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_question_1",
+    detail: {
+      item: { ...item, artifactId: "artifact_question_1", type: "QuestionCard", title: "A question" },
+      artifact: {
+        ...artifact,
+        id: "artifact_question_1",
+        type: "QuestionCard",
+        title: "A question",
+        payload: { question: "What needs testing?" }
+      }
+    }
+  });
+
+  assert.match(html, /Draft note/);
+  assert.match(html, /Create draft note/);
+  assert.match(html, /data-ai-inbox-promote-note="artifact_question_1"/);
+});
+
+test("AI inbox panel disables draft note promotion after an artifact is promoted", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_question_2", type: "QuestionCard", status: "promoted_to_note" }],
+    counts: { reviewed: 1 },
+    selectedArtifactId: "artifact_question_2",
+    detail: {
+      item: { ...item, artifactId: "artifact_question_2", type: "QuestionCard", status: "promoted_to_note" },
+      artifact: {
+        ...artifact,
+        id: "artifact_question_2",
+        type: "QuestionCard",
+        status: "promoted_to_note",
+        userDecisions: [{ decision: "promoted_to_note", noteId: "note_1" }]
+      }
+    }
+  });
+
+  assert.match(html, /Already promoted to note note_1/);
+  assert.match(html, /data-ai-inbox-promote-note="artifact_question_2"[\s\S]*disabled/);
+});
+
 test("AI inbox panel renders loading and empty states", () => {
   assert.match(renderAiInboxPanel({ loading: true }), /Loading AI artifacts/);
   assert.match(renderAiInboxPanel({ evaluationLoading: true }), /Loading evaluation summary/);

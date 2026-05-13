@@ -1,4 +1,5 @@
 const VIEW_VALUES = ["pending", "reviewed", "archived", "all"];
+const NOTE_PROMOTION_TYPES = new Set(["QuestionCard", "ReflectionPrompt"]);
 const TYPE_VALUES = [
   "all",
   "LinkSuggestion",
@@ -170,6 +171,26 @@ export function linkSuggestionSummary(artifact = {}) {
     rationale: cleanText(payload.rationale || artifact.summary),
     confidence: artifact.confidence?.score ?? payload.confidence ?? null,
     canAccept: isNoteToNoteLinkSuggestion(artifact)
+  };
+}
+
+export function isPromotableNoteArtifact(artifact = {}) {
+  if (!NOTE_PROMOTION_TYPES.has(cleanText(artifact?.type))) return false;
+  const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
+  return !decisions.some((decision) => cleanText(decision?.decision) === "promoted_to_note" && cleanText(decision?.noteId || decision?.note_id));
+}
+
+export function notePromotionSummary(artifact = {}) {
+  const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
+  const promoted = decisions
+    .slice()
+    .reverse()
+    .find((decision) => cleanText(decision?.decision) === "promoted_to_note" && cleanText(decision?.noteId || decision?.note_id));
+  return {
+    canPromote: isPromotableNoteArtifact(artifact),
+    promotedNoteId: cleanText(promoted?.noteId || promoted?.note_id),
+    suggestedTitle: cleanText(artifact?.payload?.noteTitle || artifact?.payload?.note_title || artifact?.payload?.title || artifact?.payload?.question || artifact?.payload?.prompt || artifact?.title),
+    artifactType: cleanText(artifact?.type)
   };
 }
 
