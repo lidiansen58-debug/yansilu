@@ -1,6 +1,6 @@
 # Yansilu v0.1.1-beta.1 Release Status
 
-Updated: 2026-05-13
+Updated: 2026-05-14
 
 ## Release Target
 
@@ -42,21 +42,30 @@ This candidate supersedes the older local v0.1.0 RC artifact for tester sharing 
   - Process: `yansilu-desktop`
   - Window title: `研思录`
   - Responding: `True`
+- Installed app visual smoke passed on 2026-05-14 against a temporary local API and Vault:
+  - API: `http://localhost:3000`
+  - Vault: `E:\Projects\Thinking in Notes\release-artifacts\v0.1.1-beta.1\走查 Vault 空格`
+  - Screenshot: `E:\Projects\Thinking in Notes\release-artifacts\v0.1.1-beta.1\installed-app-window-smoke.png`
+- API-backed walkthrough passed on 2026-05-14 with run id `run-mp4js3xv`:
+  - Vault initialization against a Chinese/space-containing path
+  - custom directory creation
+  - note create/fetch/update/move
+  - wikilink, tag, and graph relation lookup
+  - image and file attachments with Chinese/space-containing filenames
+  - Markdown import preview/confirm/rollback
+  - Markdown export to a target outside the active Vault
+  - writing project creation and draft scaffold generation
 
 ## Required Before Sharing
 
 Complete one manual walkthrough from the installed desktop app:
 
-1. Create or switch to a Vault path with Chinese characters and spaces.
-2. Create a directory and a note.
-3. Edit and save the note, restart the app, and confirm persistence.
-4. Insert an image and a file attachment with Chinese characters and spaces in the file names.
-5. Add a `[[wikilink]]` and click a `#tag`.
-6. Import a Markdown or Obsidian sample, preview it, confirm it, inspect import history, and test rollback.
-7. Export Markdown and confirm files are written to the expected target.
-8. Open the graph and jump back from a graph node to the note.
-9. Create a writing project from permanent notes and generate a scaffold.
-10. Verify desktop opener actions: open directory and reveal Markdown file.
+The data-flow portion has passed through the installed app's `localhost:3000` API target. The remaining sign-off is the human UI pass through the installed WebView, especially native shell behavior:
+
+1. Use the installed app UI to switch or browse to a Vault path with Chinese characters and spaces.
+2. Confirm native path picker dialogs are visible and not hidden behind the main window.
+3. Confirm the UI can edit/save a note and still shows the created Vault content after app restart.
+4. Verify desktop opener actions from the installed app UI: open directory and reveal Markdown file.
 
 ## Known Limitations
 
