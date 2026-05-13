@@ -61,6 +61,17 @@ test("AI inbox evaluation summary aggregates decisions and feedback flags", () =
   assert.equal(summary.feedback.all.wrong, 1);
   assert.equal(summary.feedback.all.alreadyKnown, 1);
   assert.equal(summary.feedback.latest.useful, 1);
+  assert.equal(summary.quality.overall.total, 3);
+  assert.equal(summary.quality.overall.reviewed, 2);
+  assert.equal(summary.quality.overall.accepted, 1);
+  assert.equal(summary.quality.overall.reviewRate, 0.6667);
+  assert.equal(summary.quality.overall.acceptanceRate, 0.5);
+  assert.equal(summary.quality.overall.noisyRate, 0.5);
+  assert.equal(summary.quality.byType.ReflectionPrompt.acceptanceRate, 1);
+  assert.equal(summary.quality.byType.QuestionCard.noisyRate, 1);
+  assert.equal(summary.quality.byType.LinkSuggestion.reviewRate, 0);
+  assert.equal(summary.quality.byAgentRun.run_inbox_eval.total, 3);
+  assert.equal(summary.quality.byModelTier.unknown.total, 3);
 });
 
 test("AI inbox evaluation summary honors view and type filters", () => {

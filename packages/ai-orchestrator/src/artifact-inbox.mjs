@@ -13,6 +13,7 @@ const INBOX_VIEWS = {
     "expired"
   ]
 };
+const ACCEPTED_DECISIONS = new Set(["accepted", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -96,6 +97,61 @@ function addFeedbackCounts(target, feedback = {}) {
     }
   }
   return hasFlag;
+}
+
+function emptyQualityBucket() {
+  return {
+    total: 0,
+    reviewed: 0,
+    accepted: 0,
+    useful: 0,
+    noisy: 0,
+    wrong: 0,
+    privacyConcern: 0
+  };
+}
+
+function rate(numerator, denominator) {
+  if (!denominator) return 0;
+  return Math.round((numerator / denominator) * 10000) / 10000;
+}
+
+function qualityKey(value) {
+  return cleanText(value) || "unknown";
+}
+
+function qualityBucket(target, key) {
+  const cleanKey = qualityKey(key);
+  if (!target[cleanKey]) target[cleanKey] = emptyQualityBucket();
+  return target[cleanKey];
+}
+
+function addQualitySignal(bucket, artifact = {}, decision = null) {
+  bucket.total += 1;
+  if (!decision) return;
+  bucket.reviewed += 1;
+  if (ACCEPTED_DECISIONS.has(decision.decision)) bucket.accepted += 1;
+  const feedback = decision.feedback || {};
+  if (feedback.useful === true) bucket.useful += 1;
+  if (feedback.noisy === true) bucket.noisy += 1;
+  if (feedback.wrong === true) bucket.wrong += 1;
+  if (feedback.privacyConcern === true) bucket.privacyConcern += 1;
+}
+
+function finalizeQualityBucket(bucket = emptyQualityBucket()) {
+  return {
+    ...bucket,
+    reviewRate: rate(bucket.reviewed, bucket.total),
+    acceptanceRate: rate(bucket.accepted, bucket.reviewed),
+    usefulRate: rate(bucket.useful, bucket.reviewed),
+    noisyRate: rate(bucket.noisy, bucket.reviewed),
+    wrongRate: rate(bucket.wrong, bucket.reviewed),
+    privacyConcernRate: rate(bucket.privacyConcern, bucket.reviewed)
+  };
+}
+
+function finalizeQualityGroups(groups = {}) {
+  return Object.fromEntries(Object.entries(groups).map(([key, bucket]) => [key, finalizeQualityBucket(bucket)]));
 }
 
 export function toAiInboxItem(artifact = {}) {
@@ -186,6 +242,10 @@ export function createAiInbox({ artifactStore } = {}) {
       const allDecisionCounts = {};
       const feedbackCounts = emptyFeedbackCounts();
       const latestFeedbackCounts = emptyFeedbackCounts();
+      const overallQuality = emptyQualityBucket();
+      const qualityByType = {};
+      const qualityByAgentRun = {};
+      const qualityByModelTier = {};
       let totalDecisions = 0;
       let artifactsWithDecision = 0;
       let decisionsWithFeedback = 0;
@@ -203,6 +263,10 @@ export function createAiInbox({ artifactStore } = {}) {
           incrementCount(latestDecisionCounts, decision.decision);
           if (addFeedbackCounts(latestFeedbackCounts, decision.feedback || {})) artifactsWithLatestFeedback += 1;
         }
+        addQualitySignal(overallQuality, artifact, decision);
+        addQualitySignal(qualityBucket(qualityByType, artifact.type), artifact, decision);
+        addQualitySignal(qualityBucket(qualityByAgentRun, artifact.agentRunId), artifact, decision);
+        addQualitySignal(qualityBucket(qualityByModelTier, artifact.model?.tier), artifact, decision);
         for (const item of decisions) {
           incrementCount(allDecisionCounts, item.decision);
           if (addFeedbackCounts(feedbackCounts, item.feedback || {})) decisionsWithFeedback += 1;
@@ -233,6 +297,12 @@ export function createAiInbox({ artifactStore } = {}) {
           artifactsWithLatestFeedback,
           all: feedbackCounts,
           latest: latestFeedbackCounts
+        },
+        quality: {
+          overall: finalizeQualityBucket(overallQuality),
+          byType: finalizeQualityGroups(qualityByType),
+          byAgentRun: finalizeQualityGroups(qualityByAgentRun),
+          byModelTier: finalizeQualityGroups(qualityByModelTier)
         }
       };
     },

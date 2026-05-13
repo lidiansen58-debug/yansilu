@@ -80,10 +80,18 @@ test("AI inbox model derives evaluation metrics", () => {
           alreadyKnown: 1,
           privacyConcern: 0
         }
+      },
+      quality: {
+        overall: {
+          reviewRate: 0.75,
+          acceptanceRate: 0.5
+        }
       }
     }).map((item) => [item.key, item.value]),
     [
       ["artifacts", 4],
+      ["review_rate", "75%"],
+      ["acceptance_rate", "50%"],
       ["decisions", 3],
       ["accepted", 2],
       ["useful", 2],

@@ -376,6 +376,29 @@ Acceptance:
 - The run preserves source note ids and AI Inbox review state.
 - No note, relation, or writing project is mutated by the agent run.
 
+### Slice J: Feedback Quality Rates
+
+Status:
+
+- First implementation slice completed in AI Inbox evaluation summary.
+- Evaluation summary now reports quality buckets for overall artifacts, artifact type, agent run, and model tier.
+- Each bucket includes review rate, acceptance rate, useful rate, noisy rate, wrong rate, and privacy-concern rate.
+- The web AI Inbox evaluation band shows reviewed and accepted percentages alongside existing counts.
+
+Files likely touched:
+
+- `packages/ai-orchestrator/src/artifact-inbox.mjs`
+- `apps/web/src/ai-inbox-model.js`
+- `docs/API.md`
+- `tests/unit/ai-artifact-inbox.test.mjs`
+- `tests/unit/web-ai-inbox-model.test.mjs`
+
+Acceptance:
+
+- Product can evaluate artifact quality without scanning UI state.
+- Accepted/promoted/linked artifacts count as accepted for acceptance-rate calculations.
+- No model training, personalization, note mutation, or automated workflow change is introduced.
+
 ## 6. Do Not Build Yet
 
 - Full autonomous vault-wide scanning.

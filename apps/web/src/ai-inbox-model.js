@@ -27,6 +27,13 @@ function normalizeCount(value) {
   return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
 }
 
+function formatRate(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return "0%";
+  const clamped = Math.max(0, Math.min(1, number));
+  return `${Math.round(clamped * 100)}%`;
+}
+
 function endpointKind(endpoint = {}) {
   return cleanText(endpoint.kind || endpoint.type || "note").toLowerCase() || "note";
 }
@@ -145,11 +152,14 @@ export function aiInboxEvaluationMetrics(summary = {}) {
   const latestDecisions = decisions.latest || {};
   const feedback = summary.feedback || {};
   const allFeedback = feedback.all || {};
+  const quality = summary.quality?.overall || {};
   const accepted = normalizeCount(latestDecisions.accepted) +
     normalizeCount(latestDecisions.promoted_to_note) +
     normalizeCount(latestDecisions.linked_to_note);
   return [
     { key: "artifacts", label: "Artifacts", value: normalizeCount(artifacts.total) },
+    { key: "review_rate", label: "Reviewed %", value: formatRate(quality.reviewRate), tone: "muted" },
+    { key: "acceptance_rate", label: "Accepted %", value: formatRate(quality.acceptanceRate), tone: "ok" },
     { key: "decisions", label: "Decisions", value: normalizeCount(decisions.total) },
     { key: "accepted", label: "Accepted", value: accepted, tone: "ok" },
     { key: "useful", label: "Useful", value: normalizeCount(allFeedback.useful), tone: "ok" },

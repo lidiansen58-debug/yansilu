@@ -1553,6 +1553,47 @@ Response:
         "alreadyKnown": 1,
         "privacyConcern": 0
       }
+    },
+    "quality": {
+      "overall": {
+        "total": 3,
+        "reviewed": 3,
+        "accepted": 1,
+        "useful": 1,
+        "noisy": 1,
+        "wrong": 0,
+        "privacyConcern": 0,
+        "reviewRate": 1,
+        "acceptanceRate": 0.3333,
+        "usefulRate": 0.3333,
+        "noisyRate": 0.3333,
+        "wrongRate": 0,
+        "privacyConcernRate": 0
+      },
+      "byType": {
+        "ReflectionPrompt": {
+          "total": 3,
+          "reviewed": 3,
+          "accepted": 1,
+          "acceptanceRate": 0.3333
+        }
+      },
+      "byAgentRun": {
+        "run_abc123": {
+          "total": 3,
+          "reviewed": 3,
+          "accepted": 1,
+          "acceptanceRate": 0.3333
+        }
+      },
+      "byModelTier": {
+        "strong_reasoning": {
+          "total": 3,
+          "reviewed": 3,
+          "accepted": 1,
+          "acceptanceRate": 0.3333
+        }
+      }
     }
   },
   "requestId": "req_...",
