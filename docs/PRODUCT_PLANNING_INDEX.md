@@ -52,12 +52,14 @@
 再读：
 
 1. [PRODUCT_ROADMAP_REPLANNED_2026.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_ROADMAP_REPLANNED_2026.md)
+2. [ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN.md)
 
 解决的问题：
 
 1. 未来路线为什么按 Phase 0 到 Phase 5 推进？
 2. 当前产品处于哪个阶段？
 3. 为什么下一步应该先做思想提纯，而不是重型 AI 或大连接器？
+4. 为什么原创笔记必须成为默认主对象，而随笔和文献只作为辅助入口？
 
 ---
 
@@ -83,6 +85,8 @@
 继续读：
 
 1. [PHASE_2_INDEX_CARD_AND_RELATION_MODEL.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PHASE_2_INDEX_CARD_AND_RELATION_MODEL.md)
+2. [PERMANENT_NOTE_LINKING_SPEC.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PERMANENT_NOTE_LINKING_SPEC.md)
+3. [PERMANENT_NOTE_LINKING_YIJING_SIMULATION.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PERMANENT_NOTE_LINKING_YIJING_SIMULATION.md)
 
 解决的问题：
 
@@ -90,6 +94,8 @@
 2. 关系如何从普通链接升级为认知结构？
 3. 主题张力、反方、桥接缺口如何成为产品对象？
 4. 图谱如何真正服务思考？
+5. 永久笔记关联如何变成思想生长反馈，而不是整理动作？
+6. 一个小型主题网络如何验证孤岛、洞见候选和写作准备度？
 
 ---
 
@@ -136,11 +142,13 @@
 
 当前最应该优先规划和验证的是：
 
-1. 原创笔记的 `thesis` 与 `three_line_summary`
-2. 提纯工作区
-3. 索引卡的 `central_question`
-4. 写作项目的 `intent`
-5. AI 候选态 UI 与保存确认规则
+1. 原创笔记优先的信息架构改版
+2. 文献笔记默认界面减负
+3. 原创笔记的 `thesis` 与 `three_line_summary`
+4. 永久笔记关联的当前节点视角、孤岛处理和洞见候选
+5. 索引卡的 `central_question`
+6. 写作项目的 `intent`
+7. AI 候选态 UI 与保存确认规则
 
 ---
 
@@ -221,10 +229,13 @@ flowchart TB
   A1["PRODUCT_VISION_AND_PHILOSOPHY"] --> A
   A2["THINKING_AND_AI_BOUNDARIES"] --> A
   B1["PRODUCT_ROADMAP_REPLANNED_2026"] --> B
+  B2["ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN"] --> B
   C1["V1_1_SPEC_DRAFT"] --> C
   C2["V1_1_INFORMATION_ARCHITECTURE_AND_FLOWS"] --> C
   C3["V1_1_DISTILLATION_WORKSPACE_AND_AI_SUGGESTION_RULES"] --> C
   D1["PHASE_2_INDEX_CARD_AND_RELATION_MODEL"] --> D
+  D2["PERMANENT_NOTE_LINKING_SPEC"] --> D
+  D3["PERMANENT_NOTE_LINKING_YIJING_SIMULATION"] --> D
   E1["PHASE_3_AI_AGENT_ROLES_AND_PERMISSION_BOUNDARIES"] --> E
   F1["PHASE_4_KNOWLEDGE_WORK_CREATION_WORKFLOW"] --> F
 ```
@@ -235,12 +246,12 @@ flowchart TB
 
 下一轮最适合继续做三件事之一：
 
-1. 把 V1.1 拆成可执行的产品需求清单
-2. 为提纯工作区画文字版线框稿
-3. 把数据模型和 API contract 对齐到 V1.1 的提纯字段与候选态状态机
+1. 把原创笔记优先改版拆成 UI 实施切片
+2. 把永久笔记关联系统拆成 UI/API/schema 实施切片
+3. 为原创笔记详情页画文字版线框稿
 
 如果目标是尽快进入未来实施，建议优先做：
 
-`V1.1 可执行需求清单`
+`原创笔记优先界面改版`
 
-因为目前方向已经足够清楚，下一步需要把“规划语言”压缩为“可进入研发评估的需求语言”。
+因为当前实现已经具备素材转原创、写作篮和主题索引基础能力，最快的收益不是先加重功能，而是把默认入口、文献界面和原创笔记详情页调整到正确的产品重心。

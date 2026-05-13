@@ -112,7 +112,7 @@ export class ExplorerPane {
     });
 
     this.els.newNoteBtn.addEventListener("click", () => {
-      this.onStateChange("create-note-in-selected-folder");
+      this.onStateChange("create-primary-note");
     });
 
     this.els.listArea.addEventListener("click", (e) => {

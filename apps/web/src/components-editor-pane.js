@@ -1,5 +1,17 @@
 import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
-import { assetPreviewUrl, checkOriginality, fetchNote, fetchNotesByTag, listTags, uploadNoteAsset } from "./prototype-api.js";
+import {
+  assetPreviewUrl,
+  checkOriginality,
+  createNoteRelation,
+  deleteNoteRelation,
+  fetchNote,
+  fetchNoteRelations,
+  fetchNotesByTag,
+  listTags,
+  searchNotes,
+  updateNoteRelation,
+  uploadNoteAsset
+} from "./prototype-api.js";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -1067,6 +1079,124 @@ function noteTypeText(type) {
   return "原创笔记";
 }
 
+const RELATION_TYPE_LABELS = {
+  supports: "支持",
+  complements: "补充",
+  contrasts: "对比",
+  contradicts: "反驳",
+  extends: "推进",
+  precedes: "前提",
+  follows: "后续",
+  qualifies: "限定",
+  example_of: "例子",
+  counterexample_to: "反例",
+  same_topic: "同主题",
+  unexpected_connection: "意外相关",
+  bridges: "桥接",
+  restates: "重述",
+  reframes: "改写问题",
+  appears_in_draft: "进入写作",
+  belongs_to_topic: "归属主题",
+  associated_with: "关联",
+  free_link: "自由关联"
+};
+
+const RELATION_STATUS_LABELS = {
+  suggested: "建议",
+  draft: "草稿",
+  confirmed: "已确认",
+  dismissed: "已忽略",
+  archived: "已归档"
+};
+
+const RELATION_CREATE_TYPES = [
+  "supports",
+  "complements",
+  "contrasts",
+  "contradicts",
+  "extends",
+  "precedes",
+  "follows",
+  "qualifies",
+  "example_of",
+  "counterexample_to",
+  "same_topic",
+  "unexpected_connection",
+  "bridges",
+  "restates",
+  "reframes",
+  "appears_in_draft"
+];
+
+const RELATION_EDIT_STATUSES = ["confirmed", "draft", "suggested", "dismissed", "archived"];
+
+const RELATION_TENSION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts", "qualifies"]);
+const RELATION_BRIDGE_TYPES = new Set(["bridges", "reframes", "unexpected_connection", "extends"]);
+
+function relationTypeLabel(type) {
+  const key = String(type || "").trim().toLowerCase();
+  return RELATION_TYPE_LABELS[key] || key || "关联";
+}
+
+function relationStatusLabel(status) {
+  const key = String(status || "").trim().toLowerCase();
+  return RELATION_STATUS_LABELS[key] || key || "已确认";
+}
+
+function isHiddenRelation(link) {
+  const status = String(link?.status || "confirmed").trim().toLowerCase();
+  return status === "dismissed" || status === "archived";
+}
+
+function isMarkdownWikilinkRelation(link) {
+  return String(link?.relationType || "").trim().toLowerCase() === "associated_with" && String(link?.rationale || "").trim() === "markdown_wikilink";
+}
+
+function relationTone(link) {
+  const type = String(link?.relationType || "").trim().toLowerCase();
+  if (RELATION_TENSION_TYPES.has(type)) return "tension";
+  if (RELATION_BRIDGE_TYPES.has(type)) return "bridge";
+  if (type === "supports" || type === "example_of") return "support";
+  return "neutral";
+}
+
+function relationQualityEvaluation(rationale = "", insightQuestion = "") {
+  const reason = String(rationale || "").trim();
+  const question = String(insightQuestion || "").trim();
+  const hasReason = reason.length >= 12;
+  const namesRelation = /支持|反驳|限定|补充|推进|前提|后续|例子|反例|桥接|重述|改写|因为|所以|但是|然而|边界|证据|张力|冲突/.test(reason);
+  const hasQuestion = question.length >= 8 && /[?？]/.test(question);
+  const score = [hasReason, namesRelation, hasQuestion].filter(Boolean).length;
+  if (score >= 3) {
+    return { level: "strong", label: "可复用", message: "理由、关系动作和后续问题都比较清楚，可以进入网络继续生长。" };
+  }
+  if (score === 2) {
+    return { level: "good", label: "较清楚", message: "已经能保存；再补一个边界、证据或后续问题会更适合长期复用。" };
+  }
+  if (score === 1) {
+    return { level: "basic", label: "可保存", message: "可以先保存为草稿式关系，但最好写清它是在支持、限定、反驳还是桥接。" };
+  }
+  return { level: "empty", label: "待补充", message: "先写一句关系为什么成立，再补一个下一步要验证的问题。" };
+}
+
+function relationQualityLabel(level = "") {
+  const key = String(level || "").trim().toLowerCase();
+  if (key === "strong") return "质量 可复用";
+  if (key === "good") return "质量 较清楚";
+  if (key === "basic") return "质量 可保存";
+  return "质量 待补充";
+}
+
+function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
+  const quality = relationQualityEvaluation(rationale, insightQuestion);
+  return `
+    <div class="semantic-relation-quality-meter" data-relation-quality data-quality-level="${escapeHtml(quality.level)}">
+      <strong>理由质量：${escapeHtml(quality.label)}</strong>
+      <small>${escapeHtml(quality.message)}</small>
+    </div>
+  `;
+}
+
 function excerptFromBody(body = "", fallbackTitle = "") {
   const lines = String(body || "")
     .replace(/\r\n/g, "\n")
@@ -1108,6 +1238,10 @@ export class EditorPane {
     this.savingPromise = null;
     this.autoSaveTimer = null;
     this.saveUiState = { mode: "idle", message: "" };
+    this.relationsRequestSerial = 0;
+    this.currentSemanticRelations = null;
+    this.relationTargetSearchSerial = 0;
+    this.relationTargetSearchTimer = null;
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
@@ -1705,7 +1839,7 @@ export class EditorPane {
       <div class="tabs-shell">
         <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
         <div class="tabs-actions">
-          <button class="tab-act" data-tabs-action="new" title="新建笔记">+</button>
+          <button class="tab-act" data-tabs-action="new" title="新建原创笔记" aria-label="新建原创笔记">+</button>
         </div>
       </div>
       <div class="tab-menu hidden" data-tab-menu>
@@ -1728,7 +1862,7 @@ export class EditorPane {
   requestCreateNoteFromEmptyState() {
     if (this.activeTab() || this.creatingEmptyNote) return false;
     this.creatingEmptyNote = true;
-    Promise.resolve(this.onStateChange("create-note-in-selected-folder")).finally(() => {
+    Promise.resolve(this.onStateChange("create-primary-note")).finally(() => {
       this.creatingEmptyNote = false;
     });
     return true;
@@ -4071,13 +4205,463 @@ export class EditorPane {
     if (this.currentTagContext) this.positionInlineTagPicker();
   }
 
+  relationEndpoint(link, direction) {
+    const endpointId = direction === "outgoing" ? link?.toNoteId : link?.fromNoteId;
+    const apiNote = direction === "outgoing" ? link?.target : link?.source;
+    const cached = this.state.notes.find((item) => item.id === endpointId) || null;
+    return {
+      id: endpointId || apiNote?.id || "",
+      title: apiNote?.title || cached?.title || endpointId || "未命名笔记",
+      noteType: apiNote?.noteType || cached?.noteType || "original",
+      folderId: cached?.folderId || "",
+      status: apiNote?.status || cached?.status || ""
+    };
+  }
+
+  renderSemanticRelationItem(link, direction) {
+    const endpoint = this.relationEndpoint(link, direction);
+    const type = String(link?.relationType || "").trim().toLowerCase();
+    const directionLabel = direction === "outgoing" ? "当前指向" : "指向当前";
+    const createdBy = String(link?.createdBy || "user").trim();
+    const createdByLabel = createdBy === "ai_suggestion" ? "AI 建议" : createdBy === "import" ? "导入" : "手动";
+    const confidence =
+      link?.confidence === null || link?.confidence === undefined || link?.confidence === ""
+        ? ""
+        : `可信度 ${Math.round(Number(link.confidence) * 100)}%`;
+    const qualityLabel = relationQualityLabel(link?.rationaleQualityLevel);
+    const folderText = endpoint.folderId ? this.folderLabel(endpoint.folderId) : noteTypeText(endpoint.noteType);
+    const insightQuestion = String(link?.insightQuestion || "").trim();
+    const rationale = String(link?.rationale || "").trim();
+    const preview = isMarkdownWikilinkRelation(link) ? "由 [[wikilink]] 建立的基础关联。" : rationale;
+
+    return `
+      <article class="related-item semantic-relation-item" data-relation-tone="${escapeHtml(relationTone(link))}" data-relation-id="${escapeHtml(link?.id || "")}">
+        <button class="semantic-relation-open" type="button" data-preview-note="${escapeHtml(endpoint.id)}">
+          <span class="related-item-title">${escapeHtml(endpoint.title)}</span>
+          <span class="related-item-meta">${escapeHtml(directionLabel)} · ${escapeHtml(relationTypeLabel(type))} · ${escapeHtml(relationStatusLabel(link?.status))} · ${escapeHtml(folderText)}</span>
+          ${preview ? `<span class="related-item-preview">${escapeHtml(preview)}</span>` : ""}
+          ${insightQuestion ? `<span class="relation-question">${escapeHtml(insightQuestion)}</span>` : ""}
+        </button>
+        <div class="related-item-badges">
+          <span class="related-item-badge">${escapeHtml(relationTypeLabel(type))}</span>
+          <span class="related-item-badge">${escapeHtml(createdByLabel)}</span>
+          <span class="related-item-badge">${escapeHtml(qualityLabel)}</span>
+          ${confidence ? `<span class="related-item-badge">${escapeHtml(confidence)}</span>` : ""}
+        </div>
+        <div class="semantic-relation-card-actions">
+          <button class="mini-btn is-ghost" type="button" data-relation-action="open-edit" data-relation-id="${escapeHtml(link?.id || "")}">编辑</button>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="delete" data-relation-id="${escapeHtml(link?.id || "")}">删除</button>
+        </div>
+      </article>
+    `;
+  }
+
+  renderSemanticRelationsLoadingSection(noteId) {
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">语义关系</div>
+          <div class="semantic-relation-head-actions">
+            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">建立关系</button>
+            <div class="inspector-count">读取中</div>
+          </div>
+        </div>
+        <div class="related-empty">正在读取带理由的关系。</div>
+      </section>
+    `;
+  }
+
+  renderRelationTargetOptions(candidates = [], selectedId = "") {
+    const selected = String(selectedId || "").trim();
+    return candidates
+      .map((n) => {
+        const meta = `${noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId))} · ${this.folderLabel(n.folderId)}`;
+        return `<option value="${escapeHtml(n.id)}"${n.id === selected ? " selected" : ""}>${escapeHtml(n.title || n.id)} · ${escapeHtml(meta)}</option>`;
+      })
+      .join("");
+  }
+
+  renderCreateRelationFormSection(noteId) {
+    const candidates = this.scopedLinkCandidates();
+    const typeOptions = RELATION_CREATE_TYPES.map(
+      (type) => `<option value="${escapeHtml(type)}">${escapeHtml(relationTypeLabel(type))}</option>`
+    ).join("");
+    const noteOptions = this.renderRelationTargetOptions(candidates);
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">建立语义关系</div>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
+        </div>
+        <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
+          <label>
+            <span>目标笔记</span>
+            <input class="semantic-relation-target-search" name="targetQuery" data-relation-target-search autocomplete="off" placeholder="搜索标题、ID 或路径" />
+            <select name="toNoteId" data-relation-target-select required ${candidates.length ? "" : "disabled"}>${noteOptions}</select>
+            <small class="semantic-relation-target-status" data-relation-target-status>${
+              candidates.length ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"
+            }</small>
+          </label>
+          <label>
+            <span>关系类型</span>
+            <select name="relationType" required>${typeOptions}</select>
+          </label>
+          <label>
+            <span>连接理由</span>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="这条关系成立，因为..."></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+          </label>
+          <label>
+            <span>洞见问题</span>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="这条连接提出了什么新问题？"></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+          </label>
+          ${renderRelationQualityMeter("", "")}
+          <div class="semantic-relation-form-error" data-relation-form-error></div>
+          <div class="semantic-relation-actions">
+            <button class="mini-btn primary" type="submit" ${candidates.length ? "" : "disabled"}>确认建立</button>
+          </div>
+        </form>
+      </section>
+    `;
+  }
+
+  renderRelationTypeOptions(selectedType = "") {
+    const selected = String(selectedType || "").trim().toLowerCase();
+    return RELATION_CREATE_TYPES.map(
+      (type) => `<option value="${escapeHtml(type)}"${type === selected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
+    ).join("");
+  }
+
+  renderRelationStatusOptions(selectedStatus = "confirmed") {
+    const selected = String(selectedStatus || "confirmed").trim().toLowerCase();
+    return RELATION_EDIT_STATUSES.map(
+      (status) => `<option value="${escapeHtml(status)}"${status === selected ? " selected" : ""}>${escapeHtml(relationStatusLabel(status))}</option>`
+    ).join("");
+  }
+
+  renderEditRelationFormSection(noteId, link) {
+    const endpoint = this.relationEndpoint(link, link?.fromNoteId === noteId ? "outgoing" : "incoming");
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">编辑语义关系</div>
+            <div class="inspector-section-note">${escapeHtml(endpoint.title || "未命名笔记")}</div>
+          </div>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-edit">取消</button>
+        </div>
+        <form class="semantic-relation-form" data-edit-relation-form data-note-id="${escapeHtml(noteId)}" data-relation-id="${escapeHtml(link?.id || "")}">
+          <label>
+            <span>关系类型</span>
+            <select name="relationType" required>${this.renderRelationTypeOptions(link?.relationType || "supports")}</select>
+          </label>
+          <label>
+            <span>关系状态</span>
+            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "confirmed")}</select>
+          </label>
+          <label>
+            <span>连接理由</span>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="这条关系成立，因为...">${escapeHtml(link?.rationale || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+          </label>
+          <label>
+            <span>洞见问题</span>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="这条连接提出了什么新问题？">${escapeHtml(link?.insightQuestion || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+          </label>
+          ${renderRelationQualityMeter(link?.rationale || "", link?.insightQuestion || "")}
+          <div class="semantic-relation-form-error" data-relation-form-error></div>
+          <div class="semantic-relation-actions">
+            <button class="mini-btn primary" type="submit">保存修改</button>
+          </div>
+        </form>
+      </section>
+    `;
+  }
+
+  renderSemanticRelationsSection(relations, noteId) {
+    const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link)) : [];
+    const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks.filter((link) => !isHiddenRelation(link)) : [];
+    const visibleLinks = [...outgoing, ...backlinks];
+    const explicitOutgoing = outgoing.filter((link) => !isMarkdownWikilinkRelation(link));
+    const explicitBacklinks = backlinks.filter((link) => !isMarkdownWikilinkRelation(link));
+    const explicitLinks = [...explicitOutgoing, ...explicitBacklinks];
+    const markdownCount = visibleLinks.length - explicitLinks.length;
+    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "confirmed") === "confirmed").length;
+    const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
+    const bridgeCount = explicitLinks.filter((link) => relationTone(link) === "bridge").length;
+    const networkState = confirmedCount ? "已接入" : explicitLinks.length ? "待确认" : "未安置";
+
+    const group = (title, direction, list, emptyText) => `
+      <div class="semantic-relation-group">
+        <div class="semantic-relation-group-head">
+          <span>${escapeHtml(title)}</span>
+          <span>${list.length}</span>
+        </div>
+        ${
+          list.length
+            ? `<div class="inspector-list">${list.map((link) => this.renderSemanticRelationItem(link, direction)).join("")}</div>`
+            : `<div class="related-empty">${escapeHtml(emptyText)}</div>`
+        }
+      </div>
+    `;
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">语义关系</div>
+          <div class="semantic-relation-head-actions">
+            <button class="mini-btn is-ghost" type="button" data-relation-action="open-create">建立关系</button>
+            <div class="inspector-count">${explicitLinks.length}</div>
+          </div>
+        </div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">${escapeHtml(networkState)}</span>
+          <span class="inspector-chip">确认 ${confirmedCount}</span>
+          <span class="inspector-chip">张力 ${tensionCount}</span>
+          <span class="inspector-chip">桥接 ${bridgeCount}</span>
+          ${markdownCount ? `<span class="inspector-chip">wikilink ${markdownCount}</span>` : ""}
+        </div>
+        ${
+          explicitLinks.length
+            ? `
+              <div class="semantic-relation-groups">
+                ${group("向外连接", "outgoing", explicitOutgoing, "当前笔记还没有向外建立带理由的关系。")}
+                ${group("被它连接", "incoming", explicitBacklinks, "还没有其他笔记以带理由的关系指向当前笔记。")}
+              </div>
+            `
+            : `<div class="related-empty">${markdownCount ? "已有 wikilink 基础关联，带理由的语义关系还没有建立。" : "还没有带理由的语义关系。"}</div>`
+        }
+      </section>
+    `;
+  }
+
+  async refreshSemanticRelations(noteId, requestSerial) {
+    try {
+      const relations = await fetchNoteRelations(noteId);
+      if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
+      this.currentSemanticRelations = relations;
+      const section = this.els.result?.querySelector?.("[data-note-relations-section]");
+      if (!section || section.getAttribute("data-note-id") !== noteId) return;
+      section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
+    } catch (error) {
+      if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
+      const section = this.els.result?.querySelector?.("[data-note-relations-section]");
+      if (!section || section.getAttribute("data-note-id") !== noteId) return;
+      section.outerHTML = `
+        <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+          <div class="inspector-section-head">
+            <div class="inspector-section-title">语义关系</div>
+            <div class="inspector-count">不可用</div>
+          </div>
+          <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error))}</div>
+        </section>
+      `;
+    }
+  }
+
+  findSemanticRelation(relationId) {
+    const id = String(relationId || "").trim();
+    if (!id) return null;
+    const outgoing = Array.isArray(this.currentSemanticRelations?.outgoingLinks) ? this.currentSemanticRelations.outgoingLinks : [];
+    const backlinks = Array.isArray(this.currentSemanticRelations?.backlinks) ? this.currentSemanticRelations.backlinks : [];
+    return [...outgoing, ...backlinks].find((link) => link?.id === id) || null;
+  }
+
+  openCreateRelationForm() {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const section = this.els.result?.querySelector?.("[data-note-relations-section]");
+    if (!section) return;
+    section.outerHTML = this.renderCreateRelationFormSection(note.id);
+    void this.refreshRelationTargetSearch("");
+  }
+
+  openEditRelationForm(relationId) {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const link = this.findSemanticRelation(relationId);
+    if (!link) {
+      this.onStatus("这条关系还没有加载完成", "warn");
+      return;
+    }
+    const section = this.els.result?.querySelector?.("[data-note-relations-section]");
+    if (!section) return;
+    section.outerHTML = this.renderEditRelationFormSection(note.id, link);
+  }
+
+  relationTargetSearchRootId(note = this.activeNote()) {
+    return rootBoxIdFromFolder(this.state, note?.folderId);
+  }
+
+  async refreshRelationTargetSearch(query = "") {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const form = this.els.result?.querySelector?.("[data-create-relation-form]");
+    if (!form || form.dataset.noteId !== note.id) return;
+
+    const serial = ++this.relationTargetSearchSerial;
+    const select = form.querySelector("[data-relation-target-select]");
+    const status = form.querySelector("[data-relation-target-status]");
+    const submit = form.querySelector('button[type="submit"]');
+    const selectedBefore = String(select?.value || "").trim();
+    if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
+
+    try {
+      const result = await searchNotes({
+        query,
+        rootDirectoryId: this.relationTargetSearchRootId(note),
+        excludeNoteId: note.id,
+        limit: 30
+      });
+      if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
+      const items = Array.isArray(result?.items) ? result.items : [];
+      this.upsertApiNotes(items);
+      if (!form.isConnected) return;
+      if (select) {
+        select.innerHTML = this.renderRelationTargetOptions(items, selectedBefore);
+        select.disabled = items.length === 0;
+      }
+      if (submit) submit.disabled = items.length === 0;
+      if (status) {
+        const cleanQuery = String(query || "").trim();
+        status.textContent = items.length
+          ? `${cleanQuery ? "搜索命中" : "当前范围"} ${items.length} 条可连接笔记。`
+          : cleanQuery
+            ? "没有找到匹配笔记，换个标题、ID 或路径试试。"
+            : "当前范围里还没有可连接的其他笔记。";
+      }
+    } catch (error) {
+      if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
+      if (status) status.textContent = `目标搜索失败：${String(error?.message || error)}`;
+      if (select && !select.options.length) select.disabled = true;
+      if (submit && select?.disabled) submit.disabled = true;
+    }
+  }
+
+  queueRelationTargetSearch(input) {
+    window.clearTimeout(this.relationTargetSearchTimer);
+    this.relationTargetSearchTimer = window.setTimeout(() => {
+      void this.refreshRelationTargetSearch(input?.value || "");
+    }, 180);
+  }
+
+  refreshRelationQualityMeter(form) {
+    const meter = form?.querySelector?.("[data-relation-quality]");
+    if (!meter) return;
+    const rationale = form.querySelector('textarea[name="rationale"]')?.value || "";
+    const insightQuestion = form.querySelector('textarea[name="insightQuestion"]')?.value || "";
+    meter.outerHTML = renderRelationQualityMeter(rationale, insightQuestion);
+  }
+
+  async handleCreateRelationForm(form) {
+    const note = this.activeNote();
+    const formNoteId = String(form?.dataset?.noteId || "").trim();
+    if (!note?.id || formNoteId !== note.id) return;
+
+    const data = new FormData(form);
+    const toNoteId = String(data.get("toNoteId") || "").trim();
+    const relationType = String(data.get("relationType") || "").trim();
+    const rationale = String(data.get("rationale") || "").trim();
+    const insightQuestion = String(data.get("insightQuestion") || "").trim();
+    const errorEl = form.querySelector("[data-relation-form-error]");
+    const submit = form.querySelector('button[type="submit"]');
+
+    if (!toNoteId || !relationType || !rationale) {
+      if (errorEl) errorEl.textContent = "请选择目标笔记、关系类型，并写下一句连接理由。";
+      return;
+    }
+
+    if (submit) submit.disabled = true;
+    if (errorEl) errorEl.textContent = "";
+    try {
+      await createNoteRelation(note.id, {
+        toNoteId,
+        relationType,
+        rationale,
+        insightQuestion,
+        confidence: 1,
+        status: "confirmed"
+      });
+      const target = this.state.notes.find((item) => item.id === toNoteId);
+      this.onStatus(`关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`, "ok");
+      this.renderRelated("关系已建立。");
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (errorEl) errorEl.textContent = message;
+      this.onStatus(`关系创建失败：${message}`, "warn");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  }
+
+  async handleEditRelationForm(form) {
+    const note = this.activeNote();
+    const formNoteId = String(form?.dataset?.noteId || "").trim();
+    const relationId = String(form?.dataset?.relationId || "").trim();
+    if (!note?.id || formNoteId !== note.id || !relationId) return;
+
+    const data = new FormData(form);
+    const relationType = String(data.get("relationType") || "").trim();
+    const status = String(data.get("status") || "").trim();
+    const rationale = String(data.get("rationale") || "").trim();
+    const insightQuestion = String(data.get("insightQuestion") || "").trim();
+    const errorEl = form.querySelector("[data-relation-form-error]");
+    const submit = form.querySelector('button[type="submit"]');
+
+    if (!relationType || !status || !rationale) {
+      if (errorEl) errorEl.textContent = "关系类型、状态和连接理由不能为空。";
+      return;
+    }
+
+    if (submit) submit.disabled = true;
+    if (errorEl) errorEl.textContent = "";
+    try {
+      await updateNoteRelation(relationId, {
+        relationType,
+        status,
+        rationale,
+        insightQuestion
+      });
+      this.onStatus("关系已更新", "ok");
+      this.renderRelated("关系已更新。");
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (errorEl) errorEl.textContent = message;
+      this.onStatus(`关系更新失败：${message}`, "warn");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  }
+
+  async deleteSemanticRelation(relationId) {
+    const id = String(relationId || "").trim();
+    if (!id) return;
+    const link = this.findSemanticRelation(id);
+    const endpoint = link ? this.relationEndpoint(link, link.fromNoteId === this.activeNote()?.id ? "outgoing" : "incoming") : null;
+    const label = endpoint?.title || "这条关系";
+    if (!window.confirm(`删除与“${label}”的这条关系？`)) return;
+    try {
+      await deleteNoteRelation(id);
+      this.onStatus("关系已删除", "ok");
+      this.renderRelated("关系已删除。");
+    } catch (error) {
+      this.onStatus(`关系删除失败：${String(error?.message || error)}`, "warn");
+    }
+  }
+
   renderRelated(extraTitle = "") {
     const note = this.activeNote();
     const tab = this.activeTab();
     if (!note || !tab) {
+      this.relationsRequestSerial += 1;
+      this.currentSemanticRelations = null;
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
       return;
     }
+    const relationRequestSerial = ++this.relationsRequestSerial;
 
     const links = parseLinks(tab.body || "");
     const tags = parseTags(tab.body || "");
@@ -4158,11 +4742,13 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${this.renderSemanticRelationsLoadingSection(note.id)}
         ${block("引用", "", forward, "还没有引用。", "出链")}
         ${block("回链", "", backward, "还没有回链。", "回链")}
         ${block("同标签", "", tagRelated, tags.length ? "没有更多结果。" : "还没有标签。", "同标签")}
       </div>
     `;
+    void this.refreshSemanticRelations(note.id, relationRequestSerial);
   }
 
   async handleTokenAction(token) {
@@ -4437,7 +5023,7 @@ export class EditorPane {
       if (actBtn) {
         const action = actBtn.dataset.tabsAction;
         if (action === "new") {
-          this.onStateChange("create-note-in-selected-folder");
+          this.onStateChange("create-primary-note");
           return;
         }
         if (action === "toggle-menu") {
@@ -4534,6 +5120,17 @@ export class EditorPane {
     );
 
     this.els.result.addEventListener("click", (e) => {
+      const relationAction = e.target.closest("[data-relation-action]");
+      if (relationAction) {
+        const action = relationAction.dataset.relationAction;
+        if (action === "open-create") this.openCreateRelationForm();
+        if (action === "cancel-create") this.renderRelated();
+        if (action === "open-edit") this.openEditRelationForm(relationAction.dataset.relationId);
+        if (action === "cancel-edit") this.renderRelated();
+        if (action === "delete") void this.deleteSemanticRelation(relationAction.dataset.relationId);
+        return;
+      }
+
       const previewRow = e.target.closest("[data-preview-note]");
       if (previewRow) {
         void this.showNotePreviewInInspector(previewRow.dataset.previewNote, { eyebrow: "相关内容" });
@@ -4562,6 +5159,25 @@ export class EditorPane {
       const row = e.target.closest("[data-open-note]");
       if (!row) return;
       void this.showNotePreviewInInspector(row.dataset.openNote, { eyebrow: "相关内容" });
+    });
+    this.els.result.addEventListener("input", (e) => {
+      const targetSearch = e.target.closest("[data-relation-target-search]");
+      if (targetSearch) {
+        this.queueRelationTargetSearch(targetSearch);
+        return;
+      }
+      const relationTextInput = e.target.closest('textarea[name="rationale"], textarea[name="insightQuestion"]');
+      if (relationTextInput) {
+        const form = relationTextInput.closest("[data-create-relation-form], [data-edit-relation-form]");
+        if (form) this.refreshRelationQualityMeter(form);
+      }
+    });
+    this.els.result.addEventListener("submit", (e) => {
+      const form = e.target.closest("[data-create-relation-form], [data-edit-relation-form]");
+      if (!form) return;
+      e.preventDefault();
+      if (form.matches("[data-create-relation-form]")) void this.handleCreateRelationForm(form);
+      if (form.matches("[data-edit-relation-form]")) void this.handleEditRelationForm(form);
     });
     this.els.preview?.addEventListener("click", (e) => {
       const copy = e.target.closest("[data-preview-copy-code]");

@@ -104,6 +104,15 @@ export async function fetchGraphConflicts({ directoryId, includeDescendants = tr
   return json.item || null;
 }
 
+export async function seedYijingKnowledgeNetwork() {
+  const json = await request("/api/v1/demo/knowledge-network/yijing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  return json.item || null;
+}
+
 export async function fetchNotesByTag(tag, { rootDirectoryId = "" } = {}) {
   const normalized = String(tag || "").replace(/^#/, "").trim();
   if (!normalized) return { tag: "", items: [], total: 0 };
@@ -132,6 +141,22 @@ export async function listTags({ rootDirectoryId = "", query = "", limit = 20 } 
   };
 }
 
+export async function searchNotes({ query = "", rootDirectoryId = "", directoryId = "", excludeNoteId = "", limit = 20 } = {}) {
+  const params = new URLSearchParams();
+  params.set("q", String(query || "").trim());
+  const rootId = String(rootDirectoryId || directoryId || "").trim();
+  if (rootId) params.set("rootDirectoryId", rootId);
+  if (excludeNoteId) params.set("excludeNoteId", String(excludeNoteId).trim());
+  params.set("limit", String(Math.max(1, Math.min(100, Number(limit || 20) || 20))));
+  const json = await request(`/api/v1/notes/search?${params.toString()}`);
+  return {
+    rootDirectoryId: json.rootDirectoryId || null,
+    query: json.query || "",
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0)
+  };
+}
+
 export async function createNote(payload) {
   const json = await request("/api/v1/notes", {
     method: "POST",
@@ -145,6 +170,37 @@ export async function fetchNote(noteId) {
   if (!noteId) return null;
   const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}`);
   return json.item || null;
+}
+
+export async function fetchNoteRelations(noteId) {
+  if (!noteId) return null;
+  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}/relations`);
+  return json.item || null;
+}
+
+export async function createNoteRelation(noteId, payload) {
+  if (!noteId) throw new Error("noteId is required");
+  const json = await request(`/api/v1/notes/${encodeURIComponent(noteId)}/relations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function updateNoteRelation(relationId, payload) {
+  if (!relationId) throw new Error("relationId is required");
+  const json = await request(`/api/v1/relations/${encodeURIComponent(relationId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function deleteNoteRelation(relationId) {
+  if (!relationId) throw new Error("relationId is required");
+  return request(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "DELETE" });
 }
 
 export async function updateNote(noteId, payload) {

@@ -907,6 +907,267 @@ test("prototype editor keeps related inspector collapsed until explicitly opened
   });
 });
 
+test("prototype related inspector renders explicit semantic relations", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 关系目标\n\n这条笔记提供一个可被支持的判断。"
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 关系源\n\n这条笔记要通过语义关系接入另一条判断。"
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "关系源为关系目标提供了判断支撑。",
+    insightQuestion: "这条支持关系能否进入一个更大的论证链？",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "关系源" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /语义关系/);
+    assert.match(String(relatedText || ""), /已接入/);
+    assert.match(String(relatedText || ""), /关系目标/);
+    assert.match(String(relatedText || ""), /支持/);
+    assert.match(String(relatedText || ""), /关系源为关系目标提供了判断支撑/);
+    assert.match(String(relatedText || ""), /更大的论证链/);
+  }, 10000);
+});
+
+test("prototype related inspector can create an explicit semantic relation", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 可连接目标\n\n这条笔记等待被一条带理由的关系连接。"
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 可连接来源\n\n这条笔记需要主动建立语义关系。"
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "可连接来源" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+  await page.locator('[data-relation-action="open-create"]').click();
+
+  const createFormText = await page.locator("[data-create-relation-form]").textContent();
+  assert.match(String(createFormText || ""), /可检验的判断/);
+  assert.match(String(createFormText || ""), /下一步要验证的疑问/);
+  assert.match(String(createFormText || ""), /理由质量：待补充/);
+
+  await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
+  await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("supports");
+  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("可连接来源为目标提供了一条明确支撑，因为它给出了证据和边界。");
+  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("这条支撑关系能否继续连接到主题索引？");
+  const qualityText = await page.locator('[data-create-relation-form] [data-relation-quality]').textContent();
+  assert.match(String(qualityText || ""), /理由质量：可复用/);
+  await page.locator('[data-create-relation-form] button[type="submit"]').click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /关系已建立/);
+    assert.match(String(relatedText || ""), /可连接目标/);
+    assert.match(String(relatedText || ""), /可连接来源为目标提供了一条明确支撑/);
+    assert.match(String(relatedText || ""), /主题索引/);
+  }, 10000);
+
+  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(relations.status, 200, JSON.stringify(relations.json));
+  assert.equal(relations.json.item.outgoingLinks.length, 1);
+  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
+  assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
+  assert.equal(relations.json.item.outgoingLinks[0].rationale, "可连接来源为目标提供了一条明确支撑，因为它给出了证据和边界。");
+});
+
+test("prototype related inspector searches unloaded SQLite relation targets", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const childDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Relation Search Child",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "relation-search-child"),
+    maxNotes: 500
+  });
+  assert.equal(childDirectory.status, 201, JSON.stringify(childDirectory.json));
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: childDirectory.json.item.id,
+    body: "# Remote Relation Target\n\nThis target lives in a child directory that the current note list has not loaded."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Relation Search Source\n\nThis note should find a target through SQLite search."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Search Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+  await page.locator('[data-relation-action="open-create"]').click();
+  await page.locator('[data-relation-target-search]').fill("Remote Relation Target");
+
+  await waitFor(async () => {
+    const options = await page.locator('[data-create-relation-form] select[name="toNoteId"] option').allTextContents();
+    assert.ok(options.some((item) => item.includes("Remote Relation Target")), options.join(" | "));
+  }, 10000);
+
+  await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
+  await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("bridges");
+  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("SQLite 搜索让当前笔记连接到尚未加载的目标。");
+  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("跨目录目标搜索是否足够快？");
+  await page.locator('[data-create-relation-form] button[type="submit"]').click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /关系已建立/);
+    assert.match(String(relatedText || ""), /Remote Relation Target/);
+    assert.match(String(relatedText || ""), /SQLite 搜索让当前笔记连接到尚未加载的目标/);
+  }, 10000);
+
+  const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(relations.status, 200, JSON.stringify(relations.json));
+  assert.equal(relations.json.item.outgoingLinks.length, 1);
+  assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
+  assert.equal(relations.json.item.outgoingLinks[0].relationType, "bridges");
+});
+
+test("prototype related inspector can edit and delete an explicit semantic relation", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 可编辑目标\n\n这条笔记用于验证关系编辑。"
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 可编辑来源\n\n这条笔记有一条等待修改的关系。"
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "初始理由用于编辑。",
+    insightQuestion: "初始问题？",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "可编辑来源" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+  await page.locator('[data-relation-action="open-edit"]').click();
+
+  const editFormText = await page.locator("[data-edit-relation-form]").textContent();
+  assert.match(String(editFormText || ""), /可检验的判断/);
+  assert.match(String(editFormText || ""), /下一步要验证的疑问/);
+  assert.match(String(editFormText || ""), /理由质量：待补充/);
+
+  await page.locator('[data-edit-relation-form] select[name="relationType"]').selectOption("qualifies");
+  await page.locator('[data-edit-relation-form] select[name="status"]').selectOption("draft");
+  await page.locator('[data-edit-relation-form] textarea[name="rationale"]').fill("编辑后的理由把适用边界说清楚，因为它限定了证据成立的条件。");
+  await page.locator('[data-edit-relation-form] textarea[name="insightQuestion"]').fill("边界条件是什么？");
+  const editQualityText = await page.locator('[data-edit-relation-form] [data-relation-quality]').textContent();
+  assert.match(String(editQualityText || ""), /理由质量：可复用/);
+  await page.locator('[data-edit-relation-form] button[type="submit"]').click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /关系已更新/);
+    assert.match(String(relatedText || ""), /限定/);
+    assert.match(String(relatedText || ""), /草稿/);
+    assert.match(String(relatedText || ""), /编辑后的理由把适用边界说清楚/);
+    assert.match(String(relatedText || ""), /边界条件是什么/);
+  }, 10000);
+
+  const updatedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(updatedRelations.status, 200, JSON.stringify(updatedRelations.json));
+  assert.equal(updatedRelations.json.item.outgoingLinks[0].relationType, "qualifies");
+  assert.equal(updatedRelations.json.item.outgoingLinks[0].status, "draft");
+  assert.equal(updatedRelations.json.item.outgoingLinks[0].rationale, "编辑后的理由把适用边界说清楚，因为它限定了证据成立的条件。");
+
+  page.once("dialog", async (dialog) => {
+    assert.match(dialog.message(), /删除/);
+    await dialog.accept();
+  });
+  await page.locator('[data-relation-action="delete"]').click();
+
+  await waitFor(async () => {
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /关系已删除/);
+    assert.doesNotMatch(String(relatedText || ""), /编辑后的理由把适用边界说清楚/);
+  }, 10000);
+
+  const deletedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(deletedRelations.status, 200, JSON.stringify(deletedRelations.json));
+  assert.deepEqual(deletedRelations.json.item.outgoingLinks, []);
+});
+
 test("prototype editor focus mode switches into a low-distraction writing chrome", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -4050,6 +4311,53 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
   assert.match(activeEditorText, /Graph target/);
+});
+
+test("prototype graph panel seeds the Yijing demo network", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator("#graphSeedYijing").click();
+
+  await waitFor(async () => {
+    const notes = await fetchJson(apiBase, "/api/v1/directories/dir_demo_yijing_knowledge_network/notes");
+    assert.equal(notes.status, 200, JSON.stringify(notes.json));
+    assert.equal(notes.json.total, 16);
+
+    const graph = await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_demo_yijing_knowledge_network");
+    assert.equal(graph.status, 200, JSON.stringify(graph.json));
+    assert.equal(graph.json.item.totalNodes, 16);
+    assert.equal(graph.json.item.totalEdges, 20);
+
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /易经案例/);
+    assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 16);
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 20);
+  }, 15000);
+
+  await page.locator("#graphRelationTypeFilter").selectOption("supports");
+  await waitFor(async () => {
+    const summaryText = await page.locator("#graphSummary").textContent();
+    assert.match(String(summaryText || ""), /当前显示/);
+    assert.match(String(summaryText || ""), /支持/);
+    assert.equal(await page.locator("#graphCanvas .graph-edge").count(), 6);
+  }, 5000);
+
+  await page.locator("#graphRelationTypeFilter").selectOption("all");
+  await waitFor(async () => {
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 20);
+  }, 5000);
 });
 
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {
