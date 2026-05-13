@@ -6931,6 +6931,28 @@
       padding: 30px 28px 44px !important;
     }
 
+    .editor-helper:not(:hover):not(:focus-within) {
+      width: min(168px, calc(100vw - 72px)) !important;
+      border-radius: 999px !important;
+      padding: 10px 38px 10px 12px !important;
+      box-shadow: 0 14px 34px rgba(31, 42, 38, 0.1) !important;
+    }
+
+    .editor-helper:not(:hover):not(:focus-within) .editor-helper-kicker,
+    .editor-helper:not(:hover):not(:focus-within) .editor-helper-body,
+    .editor-helper:not(:hover):not(:focus-within) .editor-helper-actions {
+      display: none !important;
+    }
+
+    .editor-helper:not(:hover):not(:focus-within) .editor-helper-title {
+      margin: 0 !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px !important;
+      line-height: 1.2 !important;
+    }
+
     .sidebar-flow {
       padding: 8px 12px 9px;
       border-bottom: 1px solid rgba(36, 58, 70, 0.1);
