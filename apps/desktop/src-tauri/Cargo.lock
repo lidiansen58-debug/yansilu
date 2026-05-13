@@ -5638,7 +5638,7 @@ dependencies = [
 
 [[package]]
 name = "yansilu-desktop"
-version = "0.1.0"
+version = "0.1.1-beta.1"
 dependencies = [
  "serde_json",
  "tauri",
