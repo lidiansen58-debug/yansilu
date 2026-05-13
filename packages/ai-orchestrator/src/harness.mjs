@@ -1,6 +1,7 @@
 import { createAgentRegistry } from "./agent-registry.mjs";
 import { buildAgentMessages } from "./agent-prompts.mjs";
 import { createProviderAgentRuntime, createRuntimeToolBridge, normalizeAgentRuntime } from "./agent-runtime.mjs";
+import { providerConfigToSettingsInput } from "./ai-provider-configs.mjs";
 import { preferencesToSettingsInput } from "./ai-preferences.mjs";
 import { createAiInbox } from "./artifact-inbox.mjs";
 import { createInMemoryArtifactStore } from "./artifact-store.mjs";
@@ -90,6 +91,10 @@ function mergeObjects(...values) {
   return Object.assign({}, ...values.filter((value) => value && typeof value === "object" && !Array.isArray(value)));
 }
 
+function modelRefFromSettings(input = {}) {
+  return cleanText(input.modelRef || input.model_ref || input.advancedSettings?.modelRef || input.advancedSettings?.model_ref);
+}
+
 function runIdentity(input = {}, options = {}) {
   return {
     userId: cleanText(input.userId || input.user_id || options.userId || options.user_id) || "local_user",
@@ -125,6 +130,11 @@ async function resolveRunSettings({ options, input, aiPreferencesStore }) {
       ...callSettings,
       budget: mergeObjects(options.budget, storedSettings.budget, callSettings.budget),
       budgetState: mergeObjects(options.budgetState || options.budget_state, storedSettings.budgetState, callSettings.budgetState || callSettings.budget_state),
+      advancedSettings: mergeObjects(
+        options.advancedSettings || options.advanced_settings,
+        storedSettings.advancedSettings,
+        callSettings.advancedSettings || callSettings.advanced_settings
+      ),
       fallbackPolicy: mergeObjects(
         options.fallbackPolicy || options.fallback_policy,
         storedSettings.fallbackPolicy,
@@ -133,6 +143,45 @@ async function resolveRunSettings({ options, input, aiPreferencesStore }) {
       privacy: mergeObjects(options.privacy, storedSettings.privacy, callSettings.privacy)
     }
   };
+}
+
+async function loadProviderConfig(providerConfigStore, settingsInput = {}, userSettings = {}) {
+  if (!providerConfigStore || typeof providerConfigStore.getProviderConfig !== "function") return null;
+  const providerId = cleanText(settingsInput.providerId || settingsInput.provider_id || settingsInput.providerPreset || settingsInput.provider_preset || userSettings.providerPreset);
+  if (!providerId) return null;
+  return providerConfigStore.getProviderConfig({ providerId });
+}
+
+function settingsWithProviderConfig(settingsInput = {}, providerConfig = null) {
+  if (!providerConfig) return settingsInput;
+  const configSettings = providerConfigToSettingsInput(providerConfig);
+  const secretRef = cleanText(settingsInput.secretRef || settingsInput.secret_ref) || configSettings.secretRef;
+  return {
+    ...settingsInput,
+    ...configSettings,
+    secretRef,
+    providerDescriptor: {
+      ...(configSettings.providerDescriptor || {}),
+      secretRef
+    },
+    runtimeModelMap: {
+      ...(configSettings.runtimeModelMap || {}),
+      ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
+    }
+  };
+}
+
+function latestProviderHealth(providerHealthStore = null, providerDescriptor = {}) {
+  if (!providerHealthStore || typeof providerHealthStore.getLatestProviderHealth !== "function") return null;
+  const providerId = cleanText(providerDescriptor.providerId || providerDescriptor.provider_id);
+  if (!providerId) return null;
+  return providerHealthStore.getLatestProviderHealth({ providerId });
+}
+
+function shouldBlockForProviderHealth(health = null, input = {}) {
+  if (!health || cleanText(health.status) !== "down") return false;
+  const trigger = cleanText(input.trigger) || "user_command";
+  return trigger === "scheduled_task" || input.background === true;
 }
 
 export function createAiHarness(options = {}) {
@@ -148,6 +197,8 @@ export function createAiHarness(options = {}) {
   const artifactInbox = options.artifactInbox || createAiInbox({ artifactStore });
   const contextPackStore = options.contextPackStore || null;
   const aiPreferencesStore = options.aiPreferencesStore || null;
+  const providerConfigStore = options.providerConfigStore || null;
+  const providerHealthStore = options.providerHealthStore || null;
 
   return {
     registry,
@@ -164,11 +215,16 @@ export function createAiHarness(options = {}) {
     artifactInbox,
     contextPackStore,
     aiPreferencesStore,
+    providerConfigStore,
+    providerHealthStore,
     async runTask(input = {}) {
       const taskId = cleanText(input.taskId || input.task_id) || generatedId("task");
       const agentId = cleanText(input.agentId || input.agent_id) || "reflection_agent";
       const agent = registry.get(agentId);
-      const { identity, storedPreferences, settingsInput } = await resolveRunSettings({ options, input, aiPreferencesStore });
+      const { identity, storedPreferences, settingsInput: baseSettingsInput } = await resolveRunSettings({ options, input, aiPreferencesStore });
+      const baseUserSettings = resolveAiUserSettings(baseSettingsInput);
+      const providerConfig = fixedProviderAdapter ? null : await loadProviderConfig(providerConfigStore, baseSettingsInput, baseUserSettings);
+      const settingsInput = settingsWithProviderConfig(baseSettingsInput, providerConfig);
       const userSettings = resolveAiUserSettings(settingsInput);
       const adapterSelection = fixedProviderAdapter
         ? { adapter: fixedProviderAdapter, source: "explicit", descriptor: fixedProviderAdapter.descriptor }
@@ -201,9 +257,45 @@ export function createAiHarness(options = {}) {
             adapterType: providerAdapter.descriptor.adapterType,
             providerPreset: userSettings.providerPreset,
             adapterSource: adapterSelection.source,
-            authMode: providerAdapter.descriptor.authMode || userSettings.authMode
+            authMode: providerAdapter.descriptor.authMode || userSettings.authMode,
+            providerConfigId: providerConfig?.id || "",
+            endpointConfigured: Boolean(providerAdapter.descriptor.endpointUrl),
+            secretRefConfigured: Boolean(providerAdapter.descriptor.secretRef)
           }
         });
+        if (providerConfig) {
+          runLog.addEvent(run.agentRunId, {
+            eventType: "ai_provider_config_loaded",
+            summary: {
+              providerConfigId: providerConfig.id,
+              providerId: providerConfig.providerId,
+              authMode: providerConfig.authMode,
+              endpointConfigured: Boolean(providerConfig.endpointUrl),
+              secretRefConfigured: Boolean(providerConfig.secretRef)
+            }
+          });
+        }
+        const providerHealth = latestProviderHealth(providerHealthStore, providerAdapter.descriptor);
+        if (providerHealth) {
+          runLog.addEvent(run.agentRunId, {
+            eventType: "provider_health_observed",
+            status: providerHealth.status,
+            summary: {
+              providerId: providerAdapter.descriptor.providerId,
+              status: providerHealth.status,
+              checkedAt: providerHealth.checkedAt,
+              latencyMs: providerHealth.latencyMs,
+              errorType: providerHealth.errorType,
+              retryable: providerHealth.retryable === true
+            }
+          });
+        }
+        if (shouldBlockForProviderHealth(providerHealth, input)) {
+          const error = new Error("Provider health is down; scheduled/background run skipped before model call.");
+          error.code = "AI_PROVIDER_HEALTH_BLOCKED";
+          error.runStatus = "skipped";
+          throw error;
+        }
         if (storedPreferences) {
           runLog.addEvent(run.agentRunId, {
             eventType: "user_ai_preferences_loaded",
@@ -400,7 +492,7 @@ export function createAiHarness(options = {}) {
           modelPack: userSettings.modelPack,
           modelPackId: userSettings.modelPackId,
           modelTier: settingsInput.modelTier || settingsInput.model_tier || agent.defaultModelTier,
-          modelRef: settingsInput.modelRef || settingsInput.model_ref,
+          modelRef: modelRefFromSettings(settingsInput),
           requiredCapabilities: agent.requiredCapabilities
         });
         runLog.addEvent(run.agentRunId, {

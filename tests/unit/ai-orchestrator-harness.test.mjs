@@ -11,6 +11,8 @@ import {
   createAiInbox,
   createCoreNoteTools,
   createInMemoryAiPreferencesStore,
+  createInMemoryAiProviderConfigStore,
+  createInMemoryProviderHealthStore,
   createInMemoryArtifactStore,
   createAgentRuntimeRequest,
   createRuntimeToolBridge,
@@ -851,6 +853,41 @@ test("harness loads user AI preferences for model mode and budget state", async 
   assert.equal(budgetEvent.summary.monthlySpent, 3.25);
 });
 
+test("harness applies stored advanced model override from AI preferences", async () => {
+  const provider = createMockProviderAdapter({
+    descriptor: {
+      modelMap: {
+        standard: "mock_provider:standard-model"
+      }
+    }
+  });
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    userId: "user_advanced_model",
+    workspaceId: "workspace_advanced_model",
+    userMode: "Balanced",
+    advancedSettings: { modelRef: "mock_provider:manual-model" }
+  });
+  const harness = createAiHarness({ providerAdapter: provider, aiPreferencesStore });
+
+  const result = await harness.runTask({
+    taskId: "task_advanced_model_pref",
+    userId: "user_advanced_model",
+    workspaceId: "workspace_advanced_model",
+    currentNote: {
+      id: "note_advanced_model_pref",
+      title: "Advanced model preference note",
+      body: "Advanced model preference note\n\nA stored advanced model ID should override automatic tier routing."
+    }
+  });
+  const routeEvent = result.run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(routeEvent.summary.modelRef, "mock_provider:manual-model");
+  assert.equal(routeEvent.summary.advancedOverride, true);
+  assert.equal(provider.lastRequest.modelRef, "mock_provider:manual-model");
+});
+
 test("harness dynamically selects provider adapter from stored model pack", async () => {
   const aiPreferencesStore = createInMemoryAiPreferencesStore();
   aiPreferencesStore.setUserPreferences({
@@ -880,6 +917,55 @@ test("harness dynamically selects provider adapter from stored model pack", asyn
   assert.equal(adapterEvent.summary.adapterSource, "factory");
   assert.equal(routeEvent.summary.providerId, "china_optimized_gateway");
   assert.equal(routeEvent.summary.modelRef, "china_optimized_gateway:strong_reasoning");
+});
+
+test("harness applies stored provider config to runtime adapter selection", async () => {
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    userId: "user_provider_config",
+    workspaceId: "workspace_provider_config",
+    modelPack: "Global Optimized",
+    budget: { monthlyLimit: 10, confirmationThresholdPerRun: 10 }
+  });
+  const providerConfigStore = createInMemoryAiProviderConfigStore();
+  providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions",
+    modelMap: {
+      strong_reasoning: "openai_compatible_gateway:strong_override"
+    },
+    runtimeModelMap: {
+      "openai_compatible_gateway:strong_override": "gateway-strong-model"
+    }
+  });
+  const harness = createAiHarness({ aiPreferencesStore, providerConfigStore });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_config_runtime",
+    userId: "user_provider_config",
+    workspaceId: "workspace_provider_config",
+    currentNote: {
+      id: "note_provider_config_runtime",
+      title: "Provider config note",
+      body: "Provider config note\n\nA stored provider config should drive runtime adapter selection."
+    }
+  });
+  const adapterEvent = result.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const configEvent = result.run.events.find((event) => event.eventType === "ai_provider_config_loaded");
+  const routeEvent = result.run.events.find((event) => event.eventType === "model_route_selected");
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(harness.providerAdapter.descriptor.providerId, "openai_compatible_gateway");
+  assert.equal(harness.providerAdapter.descriptor.endpointUrl, "https://gateway.example.test/v1/chat/completions");
+  assert.equal(harness.providerAdapter.descriptor.secretRef, "secret_gateway");
+  assert.equal(adapterEvent.summary.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(adapterEvent.summary.endpointConfigured, true);
+  assert.equal(adapterEvent.summary.secretRefConfigured, true);
+  assert.equal(configEvent.summary.providerConfigId, "provider_openai_compatible_gateway");
+  assert.equal(routeEvent.summary.modelRef, "openai_compatible_gateway:strong_override");
+  assert.equal(providerConfigStore.getProviderConfig({ providerId: "openai_compatible_gateway" }).secretRef, "secret_gateway");
 });
 
 test("harness can switch provider adapters between users", async () => {
@@ -996,6 +1082,39 @@ test("harness blocks runs that exceed remaining monthly budget", async () => {
   assert.equal(budgetEvent.status, "blocked");
   assert.equal(budgetEvent.summary.reasons[0], "monthly_budget_exceeded");
   assert.equal(guardrailEvent.error.errorType, "AI_BUDGET_EXCEEDED");
+});
+
+test("harness blocks scheduled runs when latest provider health is down", async () => {
+  const provider = createMockProviderAdapter();
+  const providerHealthStore = createInMemoryProviderHealthStore({
+    records: [
+      {
+        id: "health_mock_down",
+        providerId: "mock_provider",
+        status: "down",
+        checkedAt: "2026-05-12T01:00:00.000Z",
+        errorType: "provider_unavailable"
+      }
+    ]
+  });
+  const harness = createAiHarness({ providerAdapter: provider, providerHealthStore });
+
+  const result = await harness.runTask({
+    taskId: "task_provider_health_blocked",
+    trigger: "scheduled_task",
+    currentNote: {
+      id: "note_provider_health_blocked",
+      title: "Provider health blocked note",
+      body: "Provider health blocked note\n\nA down provider should stop scheduled work before model calls."
+    }
+  });
+  const healthEvent = result.run.events.find((event) => event.eventType === "provider_health_observed");
+
+  assert.equal(result.run.status, "skipped");
+  assert.equal(result.run.error.errorType, "AI_PROVIDER_HEALTH_BLOCKED");
+  assert.equal(provider.callCount, 0);
+  assert.equal(healthEvent.status, "down");
+  assert.equal(healthEvent.summary.errorType, "provider_unavailable");
 });
 
 test("harness can run a simple model pack selection through provider presets", async () => {
@@ -1433,7 +1552,11 @@ test("sqlite AI preferences store persists user settings", async (t) => {
     monthlyBudget: 12,
     confirmationThreshold: 0.5,
     budgetState: { monthlySpent: 4.75 },
-    fallbackPolicy: { allowCrossProviderFallback: false }
+    fallbackPolicy: { allowCrossProviderFallback: false },
+    advancedSettings: {
+      modelRef: "china_optimized_gateway:manual-model",
+      secretRef: "secret_china_gateway"
+    }
   });
 
   assert.equal(saved.userMode, "Balanced");
@@ -1451,6 +1574,8 @@ test("sqlite AI preferences store persists user settings", async (t) => {
   assert.equal(persisted.modelPack, "China Optimized");
   assert.equal(persisted.budgetState.monthlySpent, 4.75);
   assert.equal(persisted.fallbackPolicy.allowCrossProviderFallback, false);
+  assert.equal(persisted.advancedSettings.modelRef, "china_optimized_gateway:manual-model");
+  assert.equal(persisted.advancedSettings.secretRef, "secret_china_gateway");
   assert.equal(store.listUserPreferences({ workspaceId: "workspace_sqlite_pref" }).length, 1);
   store.close();
 });
@@ -1602,6 +1727,12 @@ test("sqlite ai stores factory wires harness audit stores and inbox", async (t) 
     userMode: "Economy",
     modelPack: "Low Cost Research"
   });
+  stores.providerConfigStore.setProviderConfig({
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_gateway",
+    endpointUrl: "https://gateway.example.test/v1/chat/completions"
+  });
 
   const dbPath = stores.dbPath;
   stores.close();
@@ -1614,6 +1745,7 @@ test("sqlite ai stores factory wires harness audit stores and inbox", async (t) 
     stores.aiPreferencesStore.getUserPreferences({ userId: "user_factory_pref", workspaceId: "workspace_factory_pref" }).modelPack,
     "Low Cost Research"
   );
+  assert.equal(stores.providerConfigStore.getProviderConfig({ providerId: "openai_compatible_gateway" }).secretRef, "secret_gateway");
   stores.close();
 });
 

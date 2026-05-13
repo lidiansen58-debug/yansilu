@@ -3810,6 +3810,22 @@
       line-height: 1.7;
       word-break: break-all;
     }
+    .settings-route-preview {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 12px;
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #475569;
+      word-break: break-word;
+    }
+    .settings-route-preview strong {
+      color: #172033;
+      font-size: 13px;
+    }
     .settings-footnote {
       border-top: 1px solid #e5e7eb;
       padding-top: 10px;
@@ -6721,6 +6737,61 @@
                   </div>
                   <div class="settings-footnote">
                     切换后会重新加载目录树，并清空当前打开的编辑标签页；主内容仍以本地 Markdown 为准，SQLite 缓存可重建。
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">AI 模式</div>
+                      <div class="settings-card-note">
+                        这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。高级用户可以填模型 ID 直接覆盖，但默认不需要。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="import-grid">
+                    <label for="settingsAiModelPack">模型包</label>
+                    <select id="settingsAiModelPack">
+                      <option value="Starter Auto">默认自动</option>
+                      <option value="Low Cost Research">低成本研究</option>
+                      <option value="Deep Work">深度工作</option>
+                      <option value="China Optimized">国内优化</option>
+                      <option value="Global Optimized">全球网关</option>
+                      <option value="Privacy First">本地私密</option>
+                    </select>
+
+                    <label for="settingsAiUserMode">使用模式</label>
+                    <select id="settingsAiUserMode">
+                      <option value="Auto">自动</option>
+                      <option value="Economy">省钱</option>
+                      <option value="Balanced">均衡</option>
+                      <option value="Deep Thinking">深度思考</option>
+                      <option value="Local / Private">本地 / 私密</option>
+                    </select>
+
+                    <label for="settingsAiAdvancedModelRef">模型 ID（高级）</label>
+                    <input id="settingsAiAdvancedModelRef" placeholder="留空=自动选择（例如：platform_managed_openai:standard）" />
+
+                    <label for="settingsAiSecretRef">密钥引用（高级）</label>
+                    <input id="settingsAiSecretRef" placeholder="只填引用名，不填真实 Key（例如：secret_china_gateway）" />
+
+                    <label for="settingsAiProviderEndpointUrl">Provider endpoint（高级）</label>
+                    <input id="settingsAiProviderEndpointUrl" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
+
+                    <label for="settingsAiProviderHealthEndpointUrl">健康检查 endpoint（可选）</label>
+                    <input id="settingsAiProviderHealthEndpointUrl" placeholder="留空=使用 Provider endpoint；例如：http://localhost:11434/api/tags" />
+                  </div>
+                  <div class="settings-stat-row">
+                    <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前 Provider 配置</button>
+                    <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
+                    <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
+                  </div>
+                  <div class="settings-stat-row" id="settingsAiRouteStats">
+                    <span class="settings-stat-badge warn">等待同步</span>
+                  </div>
+                  <div class="settings-route-preview" id="settingsAiRoutePreview">刷新当前 Vault 后会显示这套模式实际使用的模型路由。</div>
+                  <div class="settings-footnote">
+                    说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。
                   </div>
                 </section>
               </div>

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
@@ -24,6 +25,28 @@ async function findFreePort() {
       server.close(() => resolve(port));
     });
   });
+}
+
+async function startHealthProbeServer(status = 200) {
+  const server = http.createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(status, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: status >= 200 && status < 300 }));
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false }));
+  });
+  await new Promise((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const port = typeof address === "object" ? address.port : 0;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () => server.close()
+  };
 }
 
 async function waitForHealth(baseUrl) {
@@ -92,4 +115,135 @@ test("vault API initializes default vault and can switch active vault path", asy
   const directories = await getJson(baseUrl, "/api/v1/directories");
   assert.equal(directories.status, 200);
   assert.ok(directories.json.items.some((item) => item.id === "dir_original_default"));
+});
+
+test("AI preferences API previews the effective model route", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-route-preview-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const healthProbe = await startHealthProbeServer(200);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => healthProbe.close());
+  await waitForHealth(baseUrl);
+
+  const initial = await getJson(baseUrl, "/api/v1/ai/route-preview");
+  assert.equal(initial.status, 200, JSON.stringify(initial.json));
+  assert.equal(initial.json.item.userMode, "Auto");
+  assert.equal(initial.json.item.provider.providerId, "platform_managed_openai");
+  assert.equal(initial.json.item.access.keyMode, "platform_managed");
+  assert.equal(initial.json.item.access.ready, true);
+
+  const chinaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto"
+  });
+  assert.equal(chinaPreview.status, 200, JSON.stringify(chinaPreview.json));
+  assert.equal(chinaPreview.json.item.modelPack, "China Optimized");
+  assert.equal(chinaPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(chinaPreview.json.item.access.ready, false);
+  assert.equal(chinaPreview.json.item.access.nextAction, "configure_workspace_key");
+
+  const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway.example.test/v1/chat/completions"
+  });
+  assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
+  assert.equal(providerConfig.json.item.secretRef, "secret_china_gateway");
+
+  const providerConfigs = await getJson(baseUrl, "/api/v1/ai/provider-configs");
+  assert.equal(providerConfigs.status, 200, JSON.stringify(providerConfigs.json));
+  assert.equal(providerConfigs.json.total, 1);
+  assert.equal(providerConfigs.json.items[0].providerId, "china_optimized_gateway");
+
+  const configuredFromProviderConfig = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto"
+  });
+  assert.equal(configuredFromProviderConfig.status, 200, JSON.stringify(configuredFromProviderConfig.json));
+  assert.equal(configuredFromProviderConfig.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(configuredFromProviderConfig.json.item.access.ready, true);
+  assert.equal(configuredFromProviderConfig.json.item.access.secretRefConfigured, true);
+
+  const configuredGateway = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto",
+    secretRef: "secret_china_gateway"
+  });
+  assert.equal(configuredGateway.status, 200, JSON.stringify(configuredGateway.json));
+  assert.equal(configuredGateway.json.item.access.ready, true);
+  assert.equal(configuredGateway.json.item.access.secretRefConfigured, true);
+
+  const savedGateway = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    userMode: "Auto",
+    modelPack: "China Optimized",
+    advancedSettings: { secretRef: "secret_china_gateway" }
+  });
+  assert.equal(savedGateway.status, 200, JSON.stringify(savedGateway.json));
+
+  const storedGatewayPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(storedGatewayPreview.status, 200, JSON.stringify(storedGatewayPreview.json));
+  assert.equal(storedGatewayPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(storedGatewayPreview.json.item.access.ready, true);
+  assert.equal(storedGatewayPreview.json.item.access.secretRefConfigured, true);
+
+  const localProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: `${healthProbe.baseUrl}/v1/chat/completions`,
+    healthCheck: {
+      enabled: true,
+      endpointUrl: `${healthProbe.baseUrl}/health`,
+      method: "GET",
+      timeoutMs: 1000,
+      expectedStatus: 200,
+      intervalSeconds: 30
+    }
+  });
+  assert.equal(localProviderConfig.status, 200, JSON.stringify(localProviderConfig.json));
+
+  const localHealth = await postJson(baseUrl, "/api/v1/ai/provider-configs/local_private_gateway/health-check", {
+    networkEnabled: true
+  });
+  assert.equal(localHealth.status, 200, JSON.stringify(localHealth.json));
+  assert.equal(localHealth.json.item.status, "succeeded");
+  assert.equal(localHealth.json.item.record.status, "healthy");
+  assert.equal(localHealth.json.item.record.payload.endpointUrl, `${healthProbe.baseUrl}/health`);
+
+  const localHealthPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    userMode: "Local / Private",
+    modelPack: "Privacy First"
+  });
+  assert.equal(localHealthPreview.status, 200, JSON.stringify(localHealthPreview.json));
+  assert.equal(localHealthPreview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(localHealthPreview.json.item.health.status, "healthy");
+
+  const saved = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    userMode: "Local / Private",
+    modelPack: "Privacy First",
+    advancedSettings: { modelRef: "local_private_gateway:manual-model" }
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.item.userMode, "Local / Private");
+  assert.equal(preview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(preview.json.item.route.modelRef, "local_private_gateway:manual-model");
+  assert.equal(preview.json.item.route.advancedOverride, true);
+  assert.equal(preview.json.item.route.localOnly, true);
+  assert.equal(preview.json.item.access.keyMode, "no_key");
+  assert.equal(preview.json.item.access.ready, true);
 });

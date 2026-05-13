@@ -68,6 +68,17 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
+import {
+  createSqliteAiPreferencesStore,
+  createSqliteAiProviderConfigStore,
+  createSqliteProviderHealthStore,
+  preferencesToSettingsInput,
+  providerConfigToSettingsInput,
+  resolveAiUserSettings,
+  resolveModelRoute,
+  resolveProviderDescriptor,
+  runProviderHealthCheck
+} from "../../../packages/ai-orchestrator/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
 const WEB_PORT = Number(process.env.WEB_PORT || 5173);
@@ -81,6 +92,216 @@ const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
 const STRIPE_PRICE_PRO_MONTHLY = String(process.env.STRIPE_PRICE_PRO_MONTHLY || "").trim();
 const STRIPE_WEBHOOK_SECRET = String(process.env.STRIPE_WEBHOOK_SECRET || "").trim();
 let stripeClientPromise = null;
+let aiPreferencesStorePromise = null;
+let aiProviderConfigStorePromise = null;
+let aiProviderHealthStorePromise = null;
+
+async function aiPreferencesStore() {
+  if (!aiPreferencesStorePromise) {
+    aiPreferencesStorePromise = createSqliteAiPreferencesStore({ vaultPath: VAULT_PATH });
+  }
+  return aiPreferencesStorePromise;
+}
+
+async function aiProviderConfigStore() {
+  if (!aiProviderConfigStorePromise) {
+    aiProviderConfigStorePromise = createSqliteAiProviderConfigStore({ vaultPath: VAULT_PATH });
+  }
+  return aiProviderConfigStorePromise;
+}
+
+async function aiProviderHealthStore() {
+  if (!aiProviderHealthStorePromise) {
+    aiProviderHealthStorePromise = createSqliteProviderHealthStore({ vaultPath: VAULT_PATH });
+  }
+  return aiProviderHealthStorePromise;
+}
+
+function advancedModelRefFrom(input = {}) {
+  const advancedSettings = input.advancedSettings || input.advanced_settings || {};
+  return cleanText(input.modelRef || input.model_ref || advancedSettings.modelRef || advancedSettings.model_ref);
+}
+
+function advancedSecretRefFrom(input = {}) {
+  const advancedSettings = input.advancedSettings || input.advanced_settings || {};
+  return cleanText(input.secretRef || input.secret_ref || advancedSettings.secretRef || advancedSettings.secret_ref);
+}
+
+function authSummary(authMode = "", options = {}) {
+  const mode = cleanText(authMode);
+  const labels = {
+    platform_managed: "platform_managed",
+    workspace_managed: "workspace_key",
+    byok_advanced: "user_key",
+    local_no_key: "no_key",
+    enterprise_secret: "enterprise_secret"
+  };
+  const requiresKey = ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(mode);
+  const secretRef = cleanText(options.secretRef || options.secret_ref);
+  const secretRefConfigured = Boolean(secretRef);
+  const ready = !requiresKey || secretRefConfigured;
+  const nextActions = {
+    workspace_managed: "configure_workspace_key",
+    byok_advanced: "add_user_key",
+    enterprise_secret: "configure_enterprise_secret"
+  };
+  const messages = {
+    platform_managed: "Platform-managed AI can run without a user-provided key.",
+    local_no_key: "Local/private mode does not require a cloud API key.",
+    workspace_managed: secretRefConfigured
+      ? "Workspace key reference is configured."
+      : "A workspace provider key reference is required before this model pack can run.",
+    byok_advanced: secretRefConfigured ? "User key reference is configured." : "A user provider key reference is required before this override can run.",
+    enterprise_secret: secretRefConfigured ? "Enterprise secret reference is configured." : "An enterprise secret reference is required before this provider can run."
+  };
+  return {
+    authMode: mode,
+    keyMode: labels[mode] || "unknown",
+    requiresKey,
+    secretRefConfigured,
+    ready,
+    status: ready ? "ready" : "needs_key",
+    nextAction: ready ? "none" : nextActions[mode] || "configure_provider",
+    message: messages[mode] || "Provider access mode is unknown."
+  };
+}
+
+function providerConfigWithRunnableHealthCheck(config = {}, input = {}) {
+  const healthCheck = {
+    ...(config.healthCheck || {}),
+    ...(input.healthCheck || input.health_check || {})
+  };
+  return {
+    ...config,
+    healthCheck: {
+      enabled: true,
+      endpointUrl: cleanText(healthCheck.endpointUrl || healthCheck.endpoint_url || config.endpointUrl),
+      method: cleanText(healthCheck.method || "GET").toUpperCase(),
+      timeoutMs: Number(healthCheck.timeoutMs ?? healthCheck.timeout_ms ?? 5000),
+      expectedStatus: Number(healthCheck.expectedStatus ?? healthCheck.expected_status ?? 200),
+      intervalSeconds: Number(healthCheck.intervalSeconds ?? healthCheck.interval_seconds ?? 300)
+    }
+  };
+}
+
+function providerHealthPreview(record = null) {
+  if (!record) {
+    return {
+      status: "unknown",
+      checkedAt: "",
+      latencyMs: 0,
+      message: "No provider health check has run yet.",
+      errorType: "",
+      retryable: false
+    };
+  }
+  return {
+    status: cleanText(record.status) || "unknown",
+    checkedAt: cleanText(record.checkedAt || record.checked_at),
+    latencyMs: Number(record.latencyMs || record.latency_ms || 0),
+    message: cleanText(record.message),
+    errorType: cleanText(record.errorType || record.error_type),
+    retryable: record.retryable === true
+  };
+}
+
+async function buildAiRoutePreview(input = {}) {
+  await initVault(VAULT_PATH);
+  const store = await aiPreferencesStore();
+  const storedPreferences = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
+  const storedSettings = preferencesToSettingsInput(storedPreferences);
+  const advancedSettings = {
+    ...(storedSettings.advancedSettings || {}),
+    ...(input.advancedSettings || input.advanced_settings || {})
+  };
+  const settingsInput = {
+    ...storedSettings,
+    userMode: input.userMode || input.user_mode || storedSettings.userMode,
+    modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
+    providerPreset: input.providerPreset || input.provider_preset || storedSettings.providerPreset,
+    authMode: input.authMode || input.auth_mode || storedSettings.authMode,
+    secretRef: advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings }),
+    privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
+    budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
+    fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
+    advancedSettings
+  };
+  const modelRef = advancedModelRefFrom({ ...settingsInput, ...input, advancedSettings });
+  if (modelRef) settingsInput.modelRef = modelRef;
+
+  const userSettings = resolveAiUserSettings(settingsInput);
+  const configStore = await aiProviderConfigStore();
+  const providerConfig = configStore.getProviderConfig({ providerId: settingsInput.providerPreset || userSettings.providerPreset });
+  if (providerConfig) {
+    const configSettings = providerConfigToSettingsInput(providerConfig);
+    const secretRef = settingsInput.secretRef || configSettings.secretRef;
+    const providerDescriptorInput = {
+      ...(configSettings.providerDescriptor || {}),
+      secretRef
+    };
+    Object.assign(settingsInput, {
+      ...configSettings,
+      secretRef,
+      providerDescriptor: providerDescriptorInput,
+      runtimeModelMap: {
+        ...(configSettings.runtimeModelMap || {}),
+        ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
+      }
+    });
+  }
+  const providerDescriptor = resolveProviderDescriptor(settingsInput);
+  const privacyMode = cleanText(input.privacyMode || input.privacy_mode || userSettings.privacy.defaultMode) || "normal";
+  const cloudAllowed = userSettings.privacy.allowCloud !== false && privacyMode !== "local_only";
+  const route = resolveModelRoute({
+    ...settingsInput,
+    providerDescriptor,
+    contextPack: {
+      privacy: {
+        mode: privacyMode,
+        cloudAllowed
+      }
+    },
+    agent: {
+      agentId: "settings_preview_agent",
+      defaultModelTier: cleanText(input.modelTier || input.model_tier) || "standard",
+      requiredCapabilities: ["structured_output"]
+    },
+    modelRef
+  });
+  const healthStore = await aiProviderHealthStore();
+  const latestProviderHealth = healthStore.getLatestProviderHealth({ providerId: providerDescriptor.providerId });
+
+  return {
+    userMode: route.userMode,
+    modelPack: route.modelPack,
+    modelPackId: route.modelPackId,
+    providerPreset: route.providerPreset,
+    provider: {
+      providerId: providerDescriptor.providerId,
+      displayName: providerDescriptor.displayName,
+      adapterType: providerDescriptor.adapterType,
+      localExecution: providerDescriptor.localExecution === true,
+      noviceVisible: providerDescriptor.noviceVisible === true
+    },
+    route: {
+      modelRef: route.modelRef,
+      requestedTier: route.requestedTier,
+      selectedTier: route.selectedTier,
+      localOnly: route.localOnly === true,
+      cloudAllowed: route.cloudAllowed === true,
+      advancedOverride: route.advancedOverride === true,
+      confirmationRequired: route.confirmationRequired === true
+    },
+    privacy: {
+      mode: route.privacyMode,
+      localPreferred: userSettings.privacy.localPreferred === true
+    },
+    access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode, {
+      secretRef: providerDescriptor.secretRef || settingsInput.secretRef
+    }),
+    health: providerHealthPreview(latestProviderHealth)
+  };
+}
 
 const importRecords = new Map();
 const allowedConnectors = new Set(["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
@@ -105,6 +326,10 @@ function normalizeRelativeFileTarget(value) {
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function cleanText(value) {
+  return String(value || "").trim();
 }
 
 function defaultUserForEmail(email = "") {
@@ -1056,6 +1281,9 @@ const server = http.createServer(async (req, res) => {
         VAULT_PATH = layout.vaultPath;
         AUTH_STATE_PATH = path.resolve(VAULT_PATH, ".yansilu", "auth-state.json");
         importRecords.clear();
+        aiPreferencesStorePromise = null;
+        aiProviderConfigStorePromise = null;
+        aiProviderHealthStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -1064,6 +1292,166 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("VAULT_SWITCH_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/preferences") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiPreferencesStore();
+        const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
+        return sendJson(res, 200, {
+          item: prefs,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/provider-configs") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiProviderConfigStore();
+        const items = store.listProviderConfigs({
+          status: url.searchParams.get("status") || "",
+          limit: url.searchParams.get("limit") || 50
+        });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PROVIDER_CONFIGS_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/v1/ai/provider-configs/")) {
+      try {
+        await initVault(VAULT_PATH);
+        const providerId = decodeURIComponent(url.pathname.slice("/api/v1/ai/provider-configs/".length));
+        const store = await aiProviderConfigStore();
+        const item = store.getProviderConfig({ id: providerId, providerId });
+        if (!item) return sendJson(res, 404, err("AI_PROVIDER_CONFIG_NOT_FOUND", "provider config not found", rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 500, err("AI_PROVIDER_CONFIG_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/provider-configs") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiProviderConfigStore();
+        const item = store.setProviderConfig(body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PROVIDER_CONFIG_SAVE_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname.startsWith("/api/v1/ai/provider-configs/") && url.pathname.endsWith("/health-check")) {
+      try {
+        await initVault(VAULT_PATH);
+        const providerId = decodeURIComponent(url.pathname.slice("/api/v1/ai/provider-configs/".length, -"/health-check".length));
+        const body = await readJson(req);
+        const configStore = await aiProviderConfigStore();
+        const providerConfig = configStore.getProviderConfig({ id: providerId, providerId });
+        if (!providerConfig) return sendJson(res, 404, err("AI_PROVIDER_CONFIG_NOT_FOUND", "provider config not found", rid));
+        const healthStore = await aiProviderHealthStore();
+        const result = await runProviderHealthCheck({
+          providerConfig: providerConfigWithRunnableHealthCheck(providerConfig, body),
+          providerHealthStore: healthStore,
+          trigger: "user_command",
+          networkEnabled: body.networkEnabled !== false && body.network_enabled !== false
+        });
+        return sendJson(res, 200, {
+          item: {
+            status: result.status,
+            record: result.record,
+            request: result.request
+              ? {
+                  providerId: result.request.providerId,
+                  providerConfigId: result.request.providerConfigId,
+                  url: result.request.url,
+                  method: result.request.init?.method || "GET",
+                  expectedStatus: result.request.expectedStatus,
+                  timeoutMs: result.request.timeoutMs
+                }
+              : null
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PROVIDER_HEALTH_CHECK_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/route-preview") {
+      try {
+        const item = await buildAiRoutePreview();
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/route-preview") {
+      try {
+        const body = await readJson(req);
+        const item = await buildAiRoutePreview(body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/preferences") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiPreferencesStore();
+        const updated = store.setUserPreferences({
+          workspaceId: "local_workspace",
+          userId: "local_user",
+          userMode: body.userMode ?? body.user_mode,
+          modelPack: body.modelPack ?? body.model_pack,
+          monthlyBudget: body.monthlyBudget ?? body.monthly_budget,
+          confirmationThreshold: body.confirmationThreshold ?? body.confirmation_threshold,
+          fallbackPolicy: body.fallbackPolicy ?? body.fallback_policy,
+          privacy: body.privacy,
+          budget: body.budget,
+          budgetState: body.budgetState ?? body.budget_state,
+          advancedSettings: body.advancedSettings ?? body.advanced_settings
+        });
+        return sendJson(res, 200, {
+          item: updated,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("AI_PREFERENCES_SAVE_FAILED", String(error?.message || error), rid));
       }
     }
 
