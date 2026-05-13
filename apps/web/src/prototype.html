@@ -6870,12 +6870,71 @@
       display: none !important;
     }
 
+    /* Layout correction: keep guidance quiet and make the editor feel like a work surface. */
+    .md-panel .panel-head.editor-intent {
+      display: flex !important;
+      align-items: center !important;
+      width: 100% !important;
+      max-width: none !important;
+      min-height: 30px;
+      margin: 0 0 8px !important;
+      padding: 0 2px 6px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    .editor-intent .panel-eyebrow,
+    .editor-intent .panel-note {
+      display: none !important;
+    }
+
+    .editor-intent .panel-title {
+      color: rgba(21, 32, 29, 0.58);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    .editor-intent-meta {
+      margin-left: auto;
+      min-width: 0;
+    }
+
+    .editor-intent .thinking-status-inline {
+      max-width: min(560px, 54vw);
+      justify-content: flex-end;
+      font-size: 12px;
+    }
+
+    #editorWorkspace > .editor-wrap,
+    .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
+    html.editor-only #editorWorkspace > .editor-wrap {
+      padding: 10px 28px 22px !important;
+    }
+
+    .editor-host .cm-content,
+    .wysiwyg-host .toastui-editor-contents {
+      max-width: 960px !important;
+      margin-left: 0 !important;
+      margin-right: auto !important;
+    }
+
+    .editor-host .cm-line {
+      padding: 0 28px !important;
+    }
+
+    .wysiwyg-host .toastui-editor-contents {
+      padding: 30px 28px 44px !important;
+    }
+
     .sidebar-flow {
-      padding: 10px 10px 8px;
+      padding: 8px 12px 9px;
       border-bottom: 1px solid rgba(36, 58, 70, 0.1);
-      background:
-        radial-gradient(circle at top right, rgba(214, 151, 46, 0.14), transparent 34%),
-        linear-gradient(180deg, rgba(255, 253, 247, 0.92), rgba(245, 244, 238, 0.86));
+      background: rgba(255, 253, 247, 0.52);
     }
 
     .sidebar-flow.hidden {
@@ -6883,99 +6942,105 @@
     }
 
     .sidebar-flow-card {
-      border: 1px solid rgba(36, 58, 70, 0.12);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.72);
-      box-shadow: 0 12px 28px rgba(31, 41, 55, 0.06);
-      padding: 12px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
       display: grid;
-      gap: 10px;
+      gap: 7px;
     }
 
     .sidebar-flow-kicker {
-      color: #9a6719;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      display: none;
     }
 
     .sidebar-flow-title {
       color: #172126;
-      font-family: "Iowan Old Style", "Palatino Linotype", "Songti SC", "Noto Serif SC", Georgia, serif;
-      font-size: 16px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      line-height: 1.25;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      font-weight: 750;
+      letter-spacing: 0;
+      line-height: 1.35;
     }
 
     .sidebar-flow-note {
-      color: #58666c;
-      font-size: 12px;
-      line-height: 1.55;
+      display: none;
     }
 
     .sidebar-flow-steps {
-      display: grid;
+      display: flex;
+      flex-wrap: wrap;
       gap: 5px;
     }
 
     .sidebar-flow-step {
-      display: flex;
+      min-height: 22px;
+      display: inline-flex;
       align-items: center;
-      gap: 7px;
-      color: #405057;
-      font-size: 12px;
-      line-height: 1.35;
+      gap: 5px;
+      padding: 0 7px;
+      border: 1px solid rgba(62, 72, 64, 0.11);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.44);
+      color: #5f6c66;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
     }
 
     .sidebar-flow-step::before {
       content: "";
-      flex: 0 0 7px;
-      width: 7px;
-      height: 7px;
+      flex: 0 0 5px;
+      width: 5px;
+      height: 5px;
       border-radius: 999px;
-      background: rgba(15, 111, 68, 0.32);
-      box-shadow: 0 0 0 4px rgba(15, 111, 68, 0.08);
+      background: rgba(95, 108, 102, 0.34);
+      box-shadow: none;
     }
 
     .sidebar-flow-step.is-active {
-      color: #0f5135;
-      font-weight: 800;
+      border-color: rgba(15, 118, 110, 0.24);
+      background: rgba(232, 246, 242, 0.78);
+      color: #0f655f;
+      font-weight: 750;
     }
 
     .sidebar-flow-step.is-active::before {
-      background: #0f8a5f;
-      box-shadow: 0 0 0 4px rgba(15, 138, 95, 0.14);
+      background: #0f766e;
+      box-shadow: none;
     }
 
     .sidebar-flow-metrics {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: wrap;
       gap: 6px;
     }
 
     .sidebar-flow-metric {
-      border: 1px solid rgba(36, 58, 70, 0.1);
-      border-radius: 12px;
-      background: rgba(252, 250, 244, 0.8);
-      padding: 8px 6px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
       min-width: 0;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 3px;
     }
 
     .sidebar-flow-metric strong {
-      display: block;
+      display: inline;
       color: #1d2a2f;
-      font-size: 16px;
+      font-size: 12px;
       line-height: 1;
       font-variant-numeric: tabular-nums;
     }
 
     .sidebar-flow-metric span {
-      display: block;
-      margin-top: 4px;
+      display: inline;
+      margin-top: 0;
       color: #66757b;
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1.25;
       white-space: nowrap;
       overflow: hidden;
@@ -7201,14 +7266,12 @@
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">
               <div>
-                <div class="panel-eyebrow">安静的研究桌面</div>
-                <div class="panel-title">把资料慢慢提炼成自己的判断</div>
-                <div class="panel-note" id="editorIntentNote">这里不强调更快完成，而强调更清楚地形成观点、边界与连接。</div>
+                <div class="panel-eyebrow">当前笔记</div>
+                <div class="panel-title">编辑中</div>
+                <div class="panel-note" id="editorIntentNote">状态会跟随当前笔记内容更新。</div>
               </div>
               <div class="editor-intent-meta">
                 <div class="thinking-status-inline hidden" id="editorThinkingStatus" aria-live="polite"></div>
-                <span class="intent-pill">低干扰编辑</span>
-                <span class="intent-pill">先理解，再沉淀</span>
               </div>
             </div>
             <div class="literature-workspace hidden" id="literatureWorkspace">
