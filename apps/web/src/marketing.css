@@ -3779,6 +3779,10 @@ body.page-home-v3 {
   isolation: isolate;
 }
 
+.page-home-v3 .home-v3-hero-copy {
+  animation: homeV3Rise 760ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
 .home-v3-scene {
   position: absolute;
   inset: 0;
@@ -3810,6 +3814,24 @@ body.page-home-v3 {
   padding: 18px;
   backdrop-filter: blur(8px);
   pointer-events: none;
+}
+
+.page-home-v3 .scene-sheet,
+.page-home-v3 .scene-scaffold {
+  animation: homeV3Drift 6.8s ease-in-out infinite;
+  will-change: translate;
+}
+
+.page-home-v3 .scene-paraphrase {
+  animation-delay: -1.2s;
+}
+
+.page-home-v3 .scene-thesis {
+  animation-delay: -2.6s;
+}
+
+.page-home-v3 .scene-scaffold {
+  animation-delay: -3.8s;
 }
 
 .scene-sheet span,
@@ -4238,5 +4260,34 @@ body.page-home-v3 {
 
   .ai-boundary {
     padding: 24px;
+  }
+}
+
+@keyframes homeV3Rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes homeV3Drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-home-v3 .home-v3-hero-copy,
+  .page-home-v3 .scene-sheet,
+  .page-home-v3 .scene-scaffold {
+    animation: none !important;
   }
 }
