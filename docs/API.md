@@ -320,6 +320,7 @@ Response status: `200`
 ### `GET /api/v1/notes/:id/relations`
 
 Returns cataloged relations for a note, including parsed Markdown links when available.
+Explicit semantic relations include server-computed `rationaleQualityScore` and `rationaleQualityLevel` fields. These are soft diagnostics for review and filtering; they do not replace the user-written rationale.
 
 Response:
 
@@ -327,13 +328,117 @@ Response:
 {
   "item": {
     "noteId": "pn_...",
-    "outgoing": [],
-    "incoming": []
+    "tags": [],
+    "outgoingLinks": [],
+    "backlinks": []
   },
   "requestId": "req_...",
   "timestamp": "2026-04-23T03:00:00.000Z"
 }
 ```
+
+### `POST /api/v1/notes/:id/relations`
+
+Creates an explicit semantic relation from the current note to another note.
+
+Request:
+
+```json
+{
+  "toNoteId": "pn_...",
+  "relationType": "supports",
+  "rationale": "This note explains why the target claim holds.",
+  "insightQuestion": "What would make this support fail?",
+  "confidence": 1,
+  "status": "confirmed"
+}
+```
+
+AI-created suggestions must use `createdBy: "ai_suggestion"` and cannot be created directly as `confirmed`.
+The server computes rationale quality from the rationale and insight question; clients should not send quality fields.
+
+Response `item` includes the stored relation plus:
+
+```json
+{
+  "rationaleQualityScore": 1,
+  "rationaleQualityLevel": "strong"
+}
+```
+
+### `PATCH /api/v1/relations/:id`
+
+Updates a semantic relation's type, rationale, insight question, confidence, or status.
+
+### `DELETE /api/v1/relations/:id`
+
+Deletes an explicit semantic relation.
+
+### `GET /api/v1/notes/search`
+
+Searches cataloged notes by title, id, or Markdown path. Relation creation uses this endpoint so the target note does not need to be loaded in the current browser pane.
+
+Results are ranked for relation-target lookup before `updated_at` recency is considered:
+
+1. `exact_title`
+2. `exact_id`
+3. `title_prefix`
+4. `id_prefix`
+5. `title_contains`
+6. `path_prefix`
+7. `id_contains`
+8. `path_contains`
+9. `recent` for empty queries
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `q` | string | empty | Search text. Empty query returns recent notes in scope. |
+| `rootDirectoryId` | string | empty | Limit search to a directory subtree. |
+| `directoryId` | string | empty | Alias for `rootDirectoryId`. |
+| `excludeNoteId` | string | empty | Omit the current note from relation targets. |
+| `limit` | number | `20` | Result limit, clamped to `1..100`. |
+
+Response:
+
+```json
+{
+  "rootDirectoryId": "dir_original_default",
+  "query": "target",
+  "ranking": {
+    "method": "sqlite_catalog_note_search_v1",
+    "priority": [
+      "exact_title",
+      "exact_id",
+      "title_prefix",
+      "id_prefix",
+      "title_contains",
+      "path_prefix",
+      "id_contains",
+      "path_contains",
+      "recent"
+    ]
+  },
+  "items": [
+    {
+      "id": "pn_target",
+      "noteType": "permanent",
+      "title": "Target note",
+      "status": "draft",
+      "markdownPath": "notes/original/target/Target note.md",
+      "directoryId": "dir_original_default",
+      "matchKind": "title_prefix",
+      "rank": 2
+    }
+  ],
+  "total": 1,
+  "requestId": "req_...",
+  "timestamp": "2026-04-23T03:00:00.000Z"
+}
+```
+
+`matchKind` and `rank` are diagnostic fields for the UI and tests. They explain why a candidate appeared near the top, but they are not a semantic confidence score.
 
 ## Tags
 
@@ -429,6 +534,39 @@ Query parameters:
 | --- | --- | --- | --- |
 | `directoryId` | string | empty | Directory scope. |
 | `includeDescendants` | boolean | `true` | Include child directories unless set to `false`. |
+
+## Demo Seeds
+
+### `POST /api/v1/demo/knowledge-network/yijing`
+
+Seeds the prototype vault with the bundled Yijing knowledge-network fixture used by the integration test.
+
+This endpoint is intentionally prototype-only. It is not part of the general import pipeline, does not create an import record, and does not participate in preview / confirm / rollback. A future formal knowledge-network import should use the `imports` lifecycle below with an explicit payload schema, preview warnings, confirm selection, and rollback metadata.
+
+The operation is idempotent. It creates or refreshes the `dir_demo_yijing_knowledge_network` directory, 16 permanent-note nodes, and 20 explicit semantic relations.
+
+Response:
+
+```json
+{
+  "item": {
+    "kind": "prototype_demo_seed",
+    "demoOnly": true,
+    "sourceKind": "bundled_fixture",
+    "importLifecycle": "none",
+    "importRecordId": null,
+    "fixtureId": "yijing-judgment-training",
+    "directoryId": "dir_demo_yijing_knowledge_network",
+    "firstNoteId": "pn_demo_yijing_YJ-05",
+    "summary": {
+      "notes": 16,
+      "relations": 20,
+      "totalNodes": 16,
+      "totalEdges": 20
+    }
+  }
+}
+```
 
 ## Imports
 

@@ -1,0 +1,257 @@
+{
+  "id": "yijing-judgment-training",
+  "title": "易经作为情境判断训练",
+  "thesis": "《易经》不是答案机器，而是一套情境判断训练。",
+  "notes": [
+    {
+      "id": "YJ-01",
+      "title": "变化是常态",
+      "claim": "变不是异常，而是世界的基本状态。"
+    },
+    {
+      "id": "YJ-02",
+      "title": "卦是情境模型",
+      "claim": "卦不是直接答案，而是对情境结构的建模。"
+    },
+    {
+      "id": "YJ-03",
+      "title": "阴阳是互为条件",
+      "claim": "阴阳不是二元对立，而是互为条件的变化结构。"
+    },
+    {
+      "id": "YJ-04",
+      "title": "爻位引入时机",
+      "claim": "爻位让判断进入时间、位置和阶段。"
+    },
+    {
+      "id": "YJ-05",
+      "title": "吉凶是关系反馈",
+      "claim": "吉凶不是命运判决，而是行动与时位是否相称的反馈。"
+    },
+    {
+      "id": "YJ-06",
+      "title": "乾坤是创生与承载",
+      "claim": "乾坤不是强弱对立，而是创生与承载的互补。"
+    },
+    {
+      "id": "YJ-07",
+      "title": "中正胜过绝对正确",
+      "claim": "中正比绝对正确更接近易经的判断观。"
+    },
+    {
+      "id": "YJ-08",
+      "title": "变卦不替人决断",
+      "claim": "变卦提示问题的发展方向，但不能替代人的决断。"
+    },
+    {
+      "id": "YJ-09",
+      "title": "象提供观察形态",
+      "claim": "象让抽象判断具备可观察形态。"
+    },
+    {
+      "id": "YJ-10",
+      "title": "位置产生意义",
+      "claim": "易经的洞见来自关系中的位置，不是孤立定义。"
+    },
+    {
+      "id": "YJ-11",
+      "title": "神秘化会遮蔽判断训练",
+      "claim": "把易经只理解为神秘占卜，会遮蔽它的判断训练价值。"
+    },
+    {
+      "id": "YJ-12",
+      "title": "占问暴露问题框架",
+      "claim": "占问的价值不只在答案，而在暴露提问者如何理解处境。"
+    },
+    {
+      "id": "YJ-13",
+      "title": "卦序表达理解路径",
+      "claim": "卦序可以被看作理解变化情境的路径，而不只是排列。"
+    },
+    {
+      "id": "YJ-14",
+      "title": "君子是行动者模型",
+      "claim": "易经中的君子不是道德标签，而是能够在时位中调整行动的人。"
+    },
+    {
+      "id": "YJ-15",
+      "title": "不确定性需要判断训练",
+      "claim": "易经的现实价值在于训练人在不确定中做关系判断。"
+    },
+    {
+      "id": "YJ-16",
+      "title": "易经需要慢读",
+      "claim": "易经的理解依赖反复回看，而不是一次性解释。",
+      "expectedNetworkState": "unplaced",
+      "seedDirection": "之后可与诠释学、经典阅读方法连接"
+    }
+  ],
+  "relations": [
+    {
+      "from": "YJ-03",
+      "to": "YJ-01",
+      "relationType": "supports",
+      "rationale": "阴阳互化说明变化不是例外，而是结构本身。",
+      "insightQuestion": "如果变化是常态，稳定性应如何被理解？"
+    },
+    {
+      "from": "YJ-01",
+      "to": "YJ-02",
+      "relationType": "extends",
+      "rationale": "如果变化是常态，卦就更像动态情境模型，而非静态结论。",
+      "insightQuestion": "卦如何把变化压缩成可观察结构？"
+    },
+    {
+      "from": "YJ-02",
+      "to": "YJ-04",
+      "relationType": "complements",
+      "rationale": "卦给出整体结构，爻位给出阶段位置。",
+      "insightQuestion": "判断为什么必须落到位置和阶段？"
+    },
+    {
+      "from": "YJ-04",
+      "to": "YJ-05",
+      "relationType": "supports",
+      "rationale": "吉凶取决于行动是否合乎所处位置与时机。",
+      "insightQuestion": "吉凶是否可以理解为行动反馈，而非命运标签？"
+    },
+    {
+      "from": "YJ-08",
+      "to": "YJ-05",
+      "relationType": "qualifies",
+      "rationale": "变卦能提示趋势，但不能把吉凶变成机械预测。",
+      "insightQuestion": "趋势提示和行动决断之间的边界在哪里？"
+    },
+    {
+      "from": "YJ-06",
+      "to": "YJ-03",
+      "relationType": "example_of",
+      "rationale": "乾坤具体呈现阴阳互为条件，而不是简单对立。",
+      "insightQuestion": "互补关系为什么容易被误读为强弱关系？"
+    },
+    {
+      "from": "YJ-09",
+      "to": "YJ-02",
+      "relationType": "complements",
+      "rationale": "象帮助用户观察卦所表达的情境结构。",
+      "insightQuestion": "没有象，抽象结构会失去什么判断支持？"
+    },
+    {
+      "from": "YJ-11",
+      "to": "YJ-02",
+      "relationType": "contradicts",
+      "rationale": "若卦只是神秘答案，就会削弱情境模型的理解。",
+      "insightQuestion": "神秘化为什么会让判断训练失效？"
+    },
+    {
+      "from": "YJ-10",
+      "to": "YJ-04",
+      "relationType": "restates",
+      "rationale": "从爻位理解判断，本质上是在关系中的位置理解判断。",
+      "insightQuestion": "位置如何改变同一行动的意义？"
+    },
+    {
+      "from": "YJ-12",
+      "to": "YJ-02",
+      "relationType": "reframes",
+      "rationale": "占问不是只求答案，而是让处境被结构化。",
+      "insightQuestion": "问题框架是否比答案本身更重要？"
+    },
+    {
+      "from": "YJ-12",
+      "to": "YJ-15",
+      "relationType": "supports",
+      "rationale": "占问暴露不确定情境，因此需要训练判断而非索取确定性。",
+      "insightQuestion": "不确定性为何不能只靠信息量解决？"
+    },
+    {
+      "from": "YJ-14",
+      "to": "YJ-05",
+      "relationType": "extends",
+      "rationale": "如果吉凶是关系反馈，君子就是能据此调整行动的人。",
+      "insightQuestion": "行动者如何把反馈转化为修正？"
+    },
+    {
+      "from": "YJ-14",
+      "to": "YJ-08",
+      "relationType": "supports",
+      "rationale": "君子模型强调人的承担，因此变卦不能替人决断。",
+      "insightQuestion": "决断的主体性在哪里体现？"
+    },
+    {
+      "from": "YJ-15",
+      "to": "YJ-11",
+      "relationType": "contradicts",
+      "rationale": "如果价值在判断训练，神秘化理解就偏离了现实用途。",
+      "insightQuestion": "如何区分敬畏不确定性和放弃判断？"
+    },
+    {
+      "from": "YJ-13",
+      "to": "YJ-01",
+      "relationType": "complements",
+      "rationale": "卦序把变化常态展开为一条可追踪的理解路径。",
+      "insightQuestion": "变化是否需要被组织成顺序才能学习？"
+    },
+    {
+      "from": "YJ-13",
+      "to": "YJ-04",
+      "relationType": "bridges",
+      "rationale": "卦序连接宏观变化与具体爻位阶段。",
+      "insightQuestion": "从卦序到爻位之间缺少什么过渡笔记？"
+    },
+    {
+      "from": "YJ-07",
+      "to": "YJ-05",
+      "relationType": "qualifies",
+      "rationale": "吉凶判断不能只看结果，还要看行动是否中正。",
+      "insightQuestion": "中正是结果标准还是位置标准？"
+    },
+    {
+      "from": "YJ-07",
+      "to": "YJ-14",
+      "relationType": "supports",
+      "rationale": "君子的行动调整以中正为方向，而不是追求绝对正确。",
+      "insightQuestion": "行动者如何在不确定中保持中正？"
+    },
+    {
+      "from": "YJ-10",
+      "to": "YJ-15",
+      "relationType": "supports",
+      "rationale": "不确定中的判断训练，本质是学习关系中的位置。",
+      "insightQuestion": "位置意识能否成为一种通用思维训练？"
+    },
+    {
+      "from": "YJ-11",
+      "to": "YJ-15",
+      "relationType": "contradicts",
+      "rationale": "神秘化追求外部答案，判断训练要求主体承担。",
+      "insightQuestion": "用户为什么会把判断工具误用成答案机器？"
+    }
+  ],
+  "expected": {
+    "nodeCount": 16,
+    "connectedNodeCount": 15,
+    "edgeCount": 20,
+    "supportingRelationCount": 6,
+    "conflictingRelationCount": 3,
+    "untypedRelationCount": 0,
+    "connectedComponentCount": 2,
+    "isolatedNode": "YJ-16",
+    "pathAssertions": [
+      {
+        "from": "YJ-06",
+        "to": "YJ-05",
+        "maxDepth": 5,
+        "path": ["YJ-06", "YJ-03", "YJ-01", "YJ-02", "YJ-04", "YJ-05"]
+      }
+    ],
+    "currentNodeAssertions": {
+      "node": "YJ-05",
+      "incomingByType": {
+        "supports": ["YJ-04"],
+        "qualifies": ["YJ-08", "YJ-07"],
+        "extends": ["YJ-14"]
+      }
+    }
+  }
+}

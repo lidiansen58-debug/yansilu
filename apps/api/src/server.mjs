@@ -18,7 +18,9 @@ import {
   createDirectory,
   createIndexCard,
   createNoteInDirectory,
+  createNoteRelation,
   deleteDirectory,
+  deleteNoteRelation,
   deleteNoteById,
   distillIndexCard,
   detectGraphConflicts,
@@ -37,9 +39,12 @@ import {
   registerMarkdownNoteInCatalog,
   resolveVaultPath,
   saveNoteAsset,
+  searchNotes,
+  seedYijingKnowledgeNetwork,
   updateIndexCard,
   updateDirectory,
   updateNoteContent,
+  updateNoteRelation,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
   writeSourceIfAbsent
@@ -75,6 +80,7 @@ const PROTOTYPE_URL = String(process.env.PROTOTYPE_URL || `http://127.0.0.1:${WE
 const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_PORT}`);
 const CWD = process.cwd();
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
+const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -105,6 +111,10 @@ function normalizeRelativeFileTarget(value) {
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+async function readYijingKnowledgeNetworkFixture() {
+  return JSON.parse(await fs.readFile(YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH, "utf8"));
 }
 
 function defaultUserForEmail(email = "") {
@@ -529,6 +539,11 @@ function parseNotePath(urlPath) {
 
 function parseNoteRelationsPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/notes\/([^/]+)\/relations$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseRelationPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/relations\/([^/]+)$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -1168,6 +1183,40 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (req.method === "GET" && url.pathname === "/api/v1/notes/search") {
+      try {
+        await initVault(VAULT_PATH);
+        const result = await searchNotes(VAULT_PATH, {
+          q: url.searchParams.get("q") || "",
+          rootDirectoryId: url.searchParams.get("rootDirectoryId") || url.searchParams.get("directoryId") || "",
+          excludeNoteId: url.searchParams.get("excludeNoteId") || "",
+          limit: Number(url.searchParams.get("limit") || 20)
+        });
+        return sendJson(res, 200, {
+          ...result,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("NOTE_SEARCH_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/demo/knowledge-network/yijing") {
+      try {
+        await readJson(req);
+        const fixture = await readYijingKnowledgeNetworkFixture();
+        const item = await seedYijingKnowledgeNetwork(VAULT_PATH, fixture);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("YIJING_DEMO_SEED_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/directories") {
       const body = await readJson(req);
       try {
@@ -1276,6 +1325,29 @@ const server = http.createServer(async (req, res) => {
     }
 
     const noteRelationsId = parseNoteRelationsPath(url.pathname);
+    if (req.method === "POST" && noteRelationsId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const relation = await createNoteRelation(VAULT_PATH, noteRelationsId, {
+          toNoteId: body.toNoteId ?? body.to_note_id,
+          relationType: body.relationType ?? body.relation_type,
+          rationale: body.rationale,
+          insightQuestion: body.insightQuestion ?? body.insight_question,
+          createdBy: body.createdBy ?? body.created_by,
+          confidence: body.confidence,
+          status: body.status
+        });
+        return sendJson(res, 201, {
+          item: relation,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "NOTE_RELATION_CREATE_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
     if (req.method === "GET" && noteRelationsId) {
       try {
         await initVault(VAULT_PATH);
@@ -1287,6 +1359,42 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 404, err("NOTE_RELATIONS_NOT_FOUND", String(error?.message || error), rid));
+      }
+    }
+
+    const relationId = parseRelationPath(url.pathname);
+    if (req.method === "PATCH" && relationId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const relation = await updateNoteRelation(VAULT_PATH, relationId, {
+          relationType: body.relationType ?? body.relation_type,
+          rationale: body.rationale,
+          insightQuestion: body.insightQuestion ?? body.insight_question,
+          confidence: body.confidence,
+          status: body.status
+        });
+        return sendJson(res, 200, {
+          item: relation,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "NOTE_RELATION_UPDATE_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "DELETE" && relationId) {
+      try {
+        await initVault(VAULT_PATH);
+        const result = await deleteNoteRelation(VAULT_PATH, relationId);
+        return sendJson(res, 200, {
+          ...result,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "NOTE_RELATION_DELETE_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

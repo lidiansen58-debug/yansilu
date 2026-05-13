@@ -418,6 +418,45 @@ function mapNoteRow(row) {
   };
 }
 
+const NOTE_SEARCH_RANKING_PRIORITY = [
+  "exact_title",
+  "exact_id",
+  "title_prefix",
+  "id_prefix",
+  "title_contains",
+  "path_prefix",
+  "id_contains",
+  "path_contains",
+  "recent"
+];
+
+function noteSearchMatchKind(row, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return "recent";
+  const title = String(row?.title || "").trim().toLowerCase();
+  const id = String(row?.id || "").trim().toLowerCase();
+  const markdownPath = String(row?.markdown_path || row?.markdownPath || "").trim().toLowerCase();
+  if (title === q) return "exact_title";
+  if (id === q) return "exact_id";
+  if (title.startsWith(q)) return "title_prefix";
+  if (id.startsWith(q)) return "id_prefix";
+  if (title.includes(q)) return "title_contains";
+  if (markdownPath.startsWith(q)) return "path_prefix";
+  if (id.includes(q)) return "id_contains";
+  if (markdownPath.includes(q)) return "path_contains";
+  return "recent";
+}
+
+function mapNoteSearchRow(row, query) {
+  const item = mapNoteRow(row);
+  const matchKind = noteSearchMatchKind(row, query);
+  return {
+    ...item,
+    matchKind,
+    rank: NOTE_SEARCH_RANKING_PRIORITY.indexOf(matchKind)
+  };
+}
+
 function mapRelationLinkRow(row) {
   return {
     id: row.id,
@@ -425,9 +464,14 @@ function mapRelationLinkRow(row) {
     toNoteId: row.to_note_id,
     relationType: row.relation_type,
     rationale: row.rationale,
+    insightQuestion: row.insight_question || null,
+    rationaleQualityScore: Number(row.rationale_quality_score || 0),
+    rationaleQualityLevel: row.rationale_quality_level || "empty",
     createdBy: row.created_by,
     confidence: row.confidence,
     createdAt: row.created_at,
+    status: row.status || "confirmed",
+    updatedAt: row.updated_at || row.created_at,
     target: row.target_id
       ? {
           id: row.target_id,
@@ -458,14 +502,157 @@ function mapGraphEdgeRow(row) {
     toTitle: row.to_title,
     relationType: row.relation_type,
     rationale: row.rationale,
+    insightQuestion: row.insight_question || null,
+    rationaleQualityScore: Number(row.rationale_quality_score || 0),
+    rationaleQualityLevel: row.rationale_quality_level || "empty",
     createdBy: row.created_by,
     confidence: row.confidence,
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    status: row.status || "confirmed",
+    updatedAt: row.updated_at || row.created_at
   };
 }
 
 const EXPLICIT_SUPPORT_RELATION_TYPES = new Set(["supports"]);
 const EXPLICIT_CONFLICT_RELATION_TYPES = new Set(["contradicts"]);
+const LINK_RELATION_TYPES = new Set([
+  "supports",
+  "complements",
+  "contrasts",
+  "contradicts",
+  "extends",
+  "precedes",
+  "follows",
+  "qualifies",
+  "example_of",
+  "counterexample_to",
+  "same_topic",
+  "unexpected_connection",
+  "bridges",
+  "restates",
+  "reframes",
+  "appears_in_draft",
+  "belongs_to_topic",
+  "associated_with",
+  "free_link"
+]);
+const LINK_CREATED_BY = new Set(["user", "ai_suggestion", "import"]);
+const LINK_STATUSES = new Set(["suggested", "draft", "confirmed", "dismissed", "archived"]);
+const RELATION_RATIONALE_ACTION_PATTERN =
+  /support|contradict|qualif|extend|bridge|reframe|example|counterexample|because|therefore|however|evidence|boundary|tension|conflict|支持|反驳|限定|补充|推进|前提|后续|例子|反例|桥接|重述|改写|因为|所以|但是|然而|边界|证据|张力|冲突/i;
+
+function evaluateRelationRationaleQuality(rationale = "", insightQuestion = "") {
+  const reason = String(rationale || "").trim();
+  const question = String(insightQuestion || "").trim();
+  const hasReason = reason.length >= 12;
+  const namesRelationAction = RELATION_RATIONALE_ACTION_PATTERN.test(reason);
+  const hasQuestion = question.length >= 8 && /[?？]/.test(question);
+  const signalCount = [hasReason, namesRelationAction, hasQuestion].filter(Boolean).length;
+  const score = Math.round((signalCount / 3) * 100) / 100;
+  const level = signalCount >= 3 ? "strong" : signalCount === 2 ? "good" : signalCount === 1 ? "basic" : "empty";
+  return { score, level };
+}
+
+function normalizeRelationType(value) {
+  const relationType = String(value || "").trim().toLowerCase();
+  if (!relationType) {
+    throw noteValidationError("RELATION_TYPE_REQUIRED", "relationType is required.");
+  }
+  if (!LINK_RELATION_TYPES.has(relationType)) {
+    throw noteValidationError("RELATION_TYPE_UNSUPPORTED", `Unsupported relationType: ${relationType}`, {
+      relationType,
+      supportedRelationTypes: [...LINK_RELATION_TYPES]
+    });
+  }
+  return relationType;
+}
+
+function normalizeRelationStatus(value, createdBy = "user") {
+  const status = String(value || (createdBy === "ai_suggestion" ? "suggested" : "confirmed")).trim().toLowerCase();
+  if (!LINK_STATUSES.has(status)) {
+    throw noteValidationError("RELATION_STATUS_UNSUPPORTED", `Unsupported relation status: ${status}`, {
+      status,
+      supportedStatuses: [...LINK_STATUSES]
+    });
+  }
+  return status;
+}
+
+function normalizeRelationCreatedBy(value) {
+  const createdBy = String(value || "user").trim().toLowerCase();
+  if (!LINK_CREATED_BY.has(createdBy)) {
+    throw noteValidationError("RELATION_CREATED_BY_UNSUPPORTED", `Unsupported relation createdBy: ${createdBy}`, {
+      createdBy,
+      supportedCreatedBy: [...LINK_CREATED_BY]
+    });
+  }
+  return createdBy;
+}
+
+function normalizeRelationPayload(input = {}, options = {}) {
+  const createdBy = normalizeRelationCreatedBy(input.createdBy ?? input.created_by);
+  const status = normalizeRelationStatus(input.status, createdBy);
+  if (createdBy === "ai_suggestion" && status === "confirmed") {
+    throw noteValidationError(
+      "RELATION_AI_CONFIRMATION_FORBIDDEN",
+      "AI-suggested relations cannot be created as confirmed."
+    );
+  }
+
+  const fromNoteId = String(options.fromNoteId || input.fromNoteId || input.from_note_id || "").trim();
+  const toNoteId = String(input.toNoteId || input.to_note_id || "").trim();
+  const relationType = normalizeRelationType(input.relationType ?? input.relation_type);
+  const rationale = String(input.rationale || "").trim();
+  const insightQuestion = String(input.insightQuestion ?? input.insight_question ?? "").trim();
+  const confidenceInput = input.confidence;
+  const confidence =
+    confidenceInput === undefined || confidenceInput === null || confidenceInput === ""
+      ? null
+      : Math.max(0, Math.min(1, Number(confidenceInput)));
+
+  if (!fromNoteId) throw noteValidationError("RELATION_FROM_NOTE_REQUIRED", "fromNoteId is required.");
+  if (!toNoteId) throw noteValidationError("RELATION_TO_NOTE_REQUIRED", "toNoteId is required.");
+  if (fromNoteId === toNoteId) {
+    throw noteValidationError("RELATION_SELF_LINK_FORBIDDEN", "A note cannot relate to itself.", { fromNoteId, toNoteId });
+  }
+  if (!rationale) throw noteValidationError("RELATION_RATIONALE_REQUIRED", "rationale is required.");
+  if (confidence !== null && !Number.isFinite(confidence)) {
+    throw noteValidationError("RELATION_CONFIDENCE_INVALID", "confidence must be a number between 0 and 1.");
+  }
+
+  return {
+    fromNoteId,
+    toNoteId,
+    relationType,
+    rationale,
+    insightQuestion: insightQuestion || null,
+    createdBy,
+    status,
+    confidence,
+    rationaleQuality: evaluateRelationRationaleQuality(rationale, insightQuestion)
+  };
+}
+
+function getRelationByIdRow(db, relationId) {
+  return db
+    .prepare(
+      `SELECT l.*, to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
+              to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+              from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
+              from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+       FROM links l
+       JOIN notes from_note ON from_note.id = l.from_note_id
+       JOIN notes to_note ON to_note.id = l.to_note_id
+       WHERE l.id = ? AND from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
+       LIMIT 1`
+    )
+    .get(relationId);
+}
+
+function assertNoteExistsForRelation(db, noteId, label) {
+  const row = db.prepare("SELECT id FROM notes WHERE id = ? AND deleted_at IS NULL LIMIT 1").get(noteId);
+  if (!row) throw noteValidationError("RELATION_NOTE_NOT_FOUND", `${label} not found: ${noteId}`, { noteId, label });
+}
 
 function buildGraphInsights(nodes, edges) {
   const nodeById = new Map((nodes || []).map((node) => [node.id, node]));
@@ -698,9 +885,9 @@ function syncMarkdownRelations(db, noteId, markdownBody) {
     }
     db.prepare(
       `INSERT OR IGNORE INTO links
-       (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at)
-       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?)`
-    ).run(`lnk_${randomUUID().slice(0, 8)}`, noteId, linkedNote.id, now);
+       (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
+       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'confirmed', ?)`
+    ).run(`lnk_${randomUUID().slice(0, 8)}`, noteId, linkedNote.id, now, now);
   }
 
   return { tags, wikilinkTargets, unresolvedWikilinks: unresolved };
@@ -940,6 +1127,85 @@ export async function listNotesInDirectoryScope(vaultPath, directoryId, options 
   }
 }
 
+export async function searchNotes(vaultPath, options = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const query = String(options.q || options.query || "").trim().toLowerCase();
+  const rootDirectoryId = String(options.rootDirectoryId || options.directoryId || "").trim();
+  const excludeNoteId = String(options.excludeNoteId || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options.limit || 20) || 20));
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    if (rootDirectoryId) {
+      const directory = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(rootDirectoryId);
+      if (!directory) throw new Error(`rootDirectoryId not found: ${rootDirectoryId}`);
+    }
+
+    const matchClause =
+      "(? = '' OR LOWER(n.title) LIKE '%' || ? || '%' OR LOWER(n.id) LIKE '%' || ? || '%' OR LOWER(n.markdown_path) LIKE '%' || ? || '%')";
+    const orderClause = `CASE
+        WHEN ? = '' THEN 8
+        WHEN LOWER(n.title) = ? THEN 0
+        WHEN LOWER(n.id) = ? THEN 1
+        WHEN LOWER(n.title) LIKE ? || '%' THEN 2
+        WHEN LOWER(n.id) LIKE ? || '%' THEN 3
+        WHEN LOWER(n.title) LIKE '%' || ? || '%' THEN 4
+        WHEN LOWER(n.markdown_path) LIKE ? || '%' THEN 5
+        WHEN LOWER(n.id) LIKE '%' || ? || '%' THEN 6
+        WHEN LOWER(n.markdown_path) LIKE '%' || ? || '%' THEN 7
+        ELSE 8
+      END,
+      n.updated_at DESC,
+      LOWER(n.title) ASC`;
+    const queryArgs = [query, query, query, query, query, query, query, query, query, query, query, query, query];
+
+    const rows = rootDirectoryId
+      ? db
+          .prepare(
+            `${directoryScopeClause("scope")}
+             SELECT n.id, n.note_type, n.title, n.status, n.markdown_path,
+                    n.created_at, n.updated_at, ndm.directory_id
+             FROM note_directory_membership ndm
+             JOIN scope ON scope.id = ndm.directory_id
+             JOIN notes n ON n.id = ndm.note_id
+             WHERE n.deleted_at IS NULL
+               AND (? = '' OR n.id != ?)
+               AND ${matchClause}
+             ORDER BY ${orderClause}
+             LIMIT ?`
+          )
+          .all(rootDirectoryId, excludeNoteId, excludeNoteId, ...queryArgs, limit)
+      : db
+          .prepare(
+            `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path,
+                    n.created_at, n.updated_at, ndm.directory_id
+             FROM notes n
+             LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+             WHERE n.deleted_at IS NULL
+               AND (? = '' OR n.id != ?)
+               AND ${matchClause}
+             ORDER BY ${orderClause}
+             LIMIT ?`
+          )
+          .all(excludeNoteId, excludeNoteId, ...queryArgs, limit);
+
+    const items = rows.map((row) => mapNoteSearchRow(row, query));
+    return {
+      rootDirectoryId: rootDirectoryId || null,
+      query,
+      ranking: {
+        method: "sqlite_catalog_note_search_v1",
+        priority: NOTE_SEARCH_RANKING_PRIORITY
+      },
+      items,
+      total: items.length
+    };
+  } finally {
+    db.close();
+  }
+}
+
 export async function getDirectoryGraph(vaultPath, directoryId) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(directoryId || "").trim();
@@ -965,7 +1231,8 @@ export async function getDirectoryGraph(vaultPath, directoryId) {
     const edges = db
       .prepare(
         `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
-                l.confidence, l.created_at,
+                l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
+                l.confidence, l.status, l.created_at, l.updated_at,
                 from_note.title AS from_title,
                 to_note.title AS to_title
          FROM links l
@@ -977,6 +1244,7 @@ export async function getDirectoryGraph(vaultPath, directoryId) {
            AND to_member.directory_id = ?
            AND from_note.deleted_at IS NULL
            AND to_note.deleted_at IS NULL
+           AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
          ORDER BY l.created_at DESC`
       )
       .all(id, id)
@@ -1026,7 +1294,8 @@ export async function findNotePath(vaultPath, input = {}) {
           .prepare(
             `${directoryScopeClause("scope")}
              SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
-                    l.confidence, l.created_at,
+                    l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
+                    l.confidence, l.status, l.created_at, l.updated_at,
                     from_note.title AS from_title,
                     to_note.title AS to_title
              FROM links l
@@ -1036,19 +1305,22 @@ export async function findNotePath(vaultPath, input = {}) {
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
              JOIN scope from_scope ON from_scope.id = from_member.directory_id
              JOIN scope to_scope ON to_scope.id = to_member.directory_id
-             WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL`
+             WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
+               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
           .all(directoryId)
       : db
           .prepare(
             `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
-                    l.confidence, l.created_at,
+                    l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
+                    l.confidence, l.status, l.created_at, l.updated_at,
                     from_note.title AS from_title,
                     to_note.title AS to_title
              FROM links l
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
-             WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL`
+             WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
+               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
           .all();
 
@@ -1402,6 +1674,145 @@ export async function saveNoteAsset(vaultPath, noteId, input = {}) {
       size: buffer.length,
       createdAt: new Date().toISOString()
     };
+  } finally {
+    db.close();
+  }
+}
+
+export async function createNoteRelation(vaultPath, fromNoteId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const payload = normalizeRelationPayload(input, { fromNoteId });
+  const now = new Date().toISOString();
+  const relationId = String(input.id || `lnk_${randomUUID().slice(0, 8)}`).trim();
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    assertNoteExistsForRelation(db, payload.fromNoteId, "fromNoteId");
+    assertNoteExistsForRelation(db, payload.toNoteId, "toNoteId");
+
+    const duplicate = db
+      .prepare(
+        `SELECT id FROM links
+         WHERE from_note_id = ? AND to_note_id = ? AND relation_type = ?
+         LIMIT 1`
+      )
+      .get(payload.fromNoteId, payload.toNoteId, payload.relationType);
+    if (duplicate) {
+      throw noteValidationError("RELATION_DUPLICATE", "A relation of this type already exists between these notes.", {
+        relationId: duplicate.id,
+        fromNoteId: payload.fromNoteId,
+        toNoteId: payload.toNoteId,
+        relationType: payload.relationType
+      });
+    }
+
+    db.prepare(
+      `INSERT INTO links
+       (id, from_note_id, to_note_id, relation_type, rationale, insight_question, rationale_quality_score,
+        rationale_quality_level, created_by, confidence, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      relationId,
+      payload.fromNoteId,
+      payload.toNoteId,
+      payload.relationType,
+      payload.rationale,
+      payload.insightQuestion,
+      payload.rationaleQuality.score,
+      payload.rationaleQuality.level,
+      payload.createdBy,
+      payload.confidence,
+      payload.status,
+      now,
+      now
+    );
+
+    return mapRelationLinkRow(getRelationByIdRow(db, relationId));
+  } finally {
+    db.close();
+  }
+}
+
+export async function updateNoteRelation(vaultPath, relationId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(relationId || "").trim();
+  if (!id) throw new Error("relationId is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const existing = getRelationByIdRow(db, id);
+    if (!existing) throw noteValidationError("RELATION_NOT_FOUND", `relationId not found: ${id}`, { relationId: id });
+
+    const relationType =
+      input.relationType !== undefined || input.relation_type !== undefined
+        ? normalizeRelationType(input.relationType ?? input.relation_type)
+        : existing.relation_type;
+    const rationale =
+      input.rationale !== undefined ? String(input.rationale || "").trim() : String(existing.rationale || "").trim();
+    const insightQuestion =
+      input.insightQuestion !== undefined || input.insight_question !== undefined
+        ? String(input.insightQuestion ?? input.insight_question ?? "").trim() || null
+        : existing.insight_question || null;
+    const status = input.status !== undefined ? normalizeRelationStatus(input.status, existing.created_by) : existing.status || "confirmed";
+    const confidence =
+      input.confidence === undefined
+        ? existing.confidence
+        : input.confidence === null || input.confidence === ""
+          ? null
+          : Math.max(0, Math.min(1, Number(input.confidence)));
+
+    if (!rationale) throw noteValidationError("RELATION_RATIONALE_REQUIRED", "rationale is required.");
+    if (confidence !== null && !Number.isFinite(confidence)) {
+      throw noteValidationError("RELATION_CONFIDENCE_INVALID", "confidence must be a number between 0 and 1.");
+    }
+    const rationaleQuality = evaluateRelationRationaleQuality(rationale, insightQuestion);
+
+    if (relationType !== existing.relation_type) {
+      const duplicate = db
+        .prepare(
+          `SELECT id FROM links
+           WHERE from_note_id = ? AND to_note_id = ? AND relation_type = ? AND id != ?
+           LIMIT 1`
+        )
+        .get(existing.from_note_id, existing.to_note_id, relationType, id);
+      if (duplicate) {
+        throw noteValidationError("RELATION_DUPLICATE", "A relation of this type already exists between these notes.", {
+          relationId: duplicate.id,
+          fromNoteId: existing.from_note_id,
+          toNoteId: existing.to_note_id,
+          relationType
+        });
+      }
+    }
+
+    const now = new Date().toISOString();
+    db.prepare(
+      `UPDATE links
+       SET relation_type = ?, rationale = ?, insight_question = ?, rationale_quality_score = ?,
+           rationale_quality_level = ?, status = ?, confidence = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(relationType, rationale, insightQuestion, rationaleQuality.score, rationaleQuality.level, status, confidence, now, id);
+
+    return mapRelationLinkRow(getRelationByIdRow(db, id));
+  } finally {
+    db.close();
+  }
+}
+
+export async function deleteNoteRelation(vaultPath, relationId) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(relationId || "").trim();
+  if (!id) throw new Error("relationId is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const existing = getRelationByIdRow(db, id);
+    if (!existing) throw noteValidationError("RELATION_NOT_FOUND", `relationId not found: ${id}`, { relationId: id });
+    db.prepare("DELETE FROM links WHERE id = ?").run(id);
+    return { ok: true, deleted: true, relationId: id, item: mapRelationLinkRow(existing) };
   } finally {
     db.close();
   }

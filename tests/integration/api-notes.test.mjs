@@ -297,6 +297,73 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   await assert.rejects(fs.access(movedFile));
 });
 
+test("notes search returns explicit ranking metadata for relation target lookup", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-note-search-vault-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const createDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "alpha-ranking",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "alpha-ranking"),
+    maxNotes: 500
+  });
+  assert.equal(createDir.status, 201, JSON.stringify(createDir.json));
+  const directoryId = createDir.json.item.id;
+
+  const noteBodies = [
+    "# Zeta unrelated\n\nOnly the folder path contains the query term.",
+    "# Middle alpha target\n\nThe query appears in the middle of the title.",
+    "# Alphabet trail\n\nThe title starts with the query.",
+    "# Alpha\n\nThe title exactly matches the query."
+  ];
+
+  for (const body of noteBodies) {
+    const created = await postJson(baseUrl, "/api/v1/notes", { directoryId, body });
+    assert.equal(created.status, 201, JSON.stringify(created.json));
+  }
+
+  const search = await getJson(
+    baseUrl,
+    `/api/v1/notes/search?q=${encodeURIComponent("alpha")}&rootDirectoryId=${encodeURIComponent("dir_original_default")}&limit=10`
+  );
+  assert.equal(search.status, 200, JSON.stringify(search.json));
+  assert.equal(search.json.ranking.method, "sqlite_catalog_note_search_v1");
+  assert.deepEqual(search.json.ranking.priority.slice(0, 5), [
+    "exact_title",
+    "exact_id",
+    "title_prefix",
+    "id_prefix",
+    "title_contains"
+  ]);
+
+  const titles = search.json.items.map((item) => item.title);
+  assert.deepEqual(titles.slice(0, 4), ["Alpha", "Alphabet trail", "Middle alpha target", "Zeta unrelated"]);
+  assert.deepEqual(
+    search.json.items.slice(0, 4).map((item) => item.matchKind),
+    ["exact_title", "title_prefix", "title_contains", "path_contains"]
+  );
+  assert.deepEqual(
+    search.json.items.slice(0, 4).map((item) => item.rank),
+    [0, 2, 4, 7]
+  );
+});
+
 test("literature notes require paraphrase before they can be marked active", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-literature-vault-");
   const port = await findFreePort();
