@@ -85,12 +85,12 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
   - note delete
   - import/export/writing/graph flows
 - Current verified test baselines:
-  - `npm.cmd test` -> `161 pass / 0 fail / 59 skipped`
-  - `npm.cmd run mvp:check` -> core tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight passed locally on 2026-05-11.
+  - `npm.cmd test` -> `316 pass / 0 fail / 67 skipped` inside `npm.cmd run mvp:check` on 2026-05-13.
+  - `npm.cmd run mvp:check` -> core tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight passed locally on 2026-05-13.
   - `npm.cmd run test:e2e:browser:mvp` -> quick real-browser MVP path passed locally for note, Vault, import, export, graph, and explorer move/delete paths.
   - Targeted browser regression for import/export after the asset-flow merge -> `7 pass / 0 fail`
   - Marketing route coverage for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, auth/billing DOM hooks, and asset-proxy HTML refusal -> `2 pass / 0 fail`
-  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `B4A6B11A0BAC93F209A25E8191C3D1D8B9C5A98EDCB058F6F2114C6DE380A030`.
+  - `npm.cmd run build:desktop:nsis` -> produced `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe` with SHA-256 `52A5D648875022D851F37E903CCD743712BEA4CAA58EC59007BAAC326CBA81EB`.
   - `RUN_BROWSER_E2E=1 npm.cmd run test:e2e:browser` -> full browser prototype flow has passed locally with `59 pass / 0 fail`
 
 ## Not Yet Completed

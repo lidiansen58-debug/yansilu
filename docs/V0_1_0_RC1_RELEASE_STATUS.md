@@ -1,6 +1,6 @@
 # Yansilu v0.1.0 RC1 Release Status
 
-Updated: 2026-05-11
+Updated: 2026-05-13
 
 ## Release Target
 
@@ -12,21 +12,21 @@ This release candidate is intended for internal or friend testing, not broad pro
 
 - Local branch: `main`
 - Remote baseline: `origin/main`
-- App source commit used for the rebuilt installer: `b3da8ce fix(editor): stabilize MVP toolbar and inline pickers`
+- App source commit used for the rebuilt installer: `0c7a859 Merge pull request #14 from lidiansen58-debug/feat/ai-suggestions-marketing-v3`
 - Version: `0.1.0`
 - CI state: local release-gate verification passed against the current app code; remote CI should still be checked after push/tag because current workflows run on PRs, manual dispatch, and `v*` tags.
 
 ## Build Artifact
 
 - Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/研思录_0.1.0_x64-setup.exe`
-- Size: `3,818,980` bytes
+- Size: `3,857,989` bytes
 - Bundle manifest: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.json`
 - Bundle checksum file: `apps/desktop/src-tauri/target/release/bundle/bundle-manifest.sha256.txt`
-- SHA-256: `B4A6B11A0BAC93F209A25E8191C3D1D8B9C5A98EDCB058F6F2114C6DE380A030`
+- SHA-256: `52A5D648875022D851F37E903CCD743712BEA4CAA58EC59007BAAC326CBA81EB`
 
 ## Completed Verification
 
-- `npm.cmd run mvp:check` passed on 2026-05-11 against the current release candidate working tree with `161 pass / 0 fail / 59 skipped` in the core suite, plus smoke e2e, Browser MVP e2e, desktop dev preflight, and desktop bundle preflight.
+- `npm.cmd run mvp:check` passed on 2026-05-13 against `0c7a859` with `383 total / 316 pass / 0 fail / 67 skipped` in the core suite, plus smoke e2e, Browser MVP e2e, desktop dev preflight, and desktop bundle preflight.
 - `npm.cmd run test:e2e:browser:mvp` passed through note, Vault, import, export, graph, and explorer move/delete browser paths.
 - Full browser E2E passed with `59 pass / 0 fail` after the editor helper, wrapped asset-link, toolbar, and inline picker fixes.
 - Marketing route coverage passed for `/about`, `/privacy`, `/terms`, `/login`, `/register`, `/billing`, static asset proxy HTML refusal, and auth/billing DOM hooks.
@@ -37,11 +37,11 @@ This release candidate is intended for internal or friend testing, not broad pro
 - Obsidian import preview now normalizes frontmatter hash tags such as `#来源/访谈`.
 - Desktop updater permission is granted and checked by `npm.cmd run build:desktop:check`.
 - Browser E2E covers the Tauri updater check no-op path when no update is available.
-- Windows NSIS build passed from `npm.cmd run build:desktop:nsis` with updater artifacts disabled for this local RC build.
+- Windows NSIS build passed from `npm.cmd run build:desktop:nsis` with updater artifacts disabled for this local RC build on 2026-05-13.
 - Bundle manifest and checksum were generated.
-- Clean Windows NSIS uninstall/reinstall smoke passed from the final rebuilt installer on 2026-05-11 with uninstall and install exit code `0`.
+- Windows NSIS silent install smoke passed from the final rebuilt installer on 2026-05-13 with install exit code `0`.
 - The installed executable lands at `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` after clearing stale local installer state from earlier smoke tests.
-- Launch smoke observed process `yansilu-desktop` with window title `研思录` and `Responding=true`.
+- Launch smoke observed process `yansilu-desktop` from `%LOCALAPPDATA%\研思录\yansilu-desktop.exe` with window title `研思录` and `Responding=true`.
 - Installed app window capture confirmed the editor loads as a single WYSIWYG surface by default.
 - Installed app editor layout verification passed: editor intent copy is hidden, related clues are hidden by default, and the next-step helper stays collapsed as a small floating pill until hover/focus.
 - Installed app WebView2 verification confirmed `已连接 API：http://localhost:3000` with packaged `window.__API_BASE__` still set to `__API_BASE__`.
