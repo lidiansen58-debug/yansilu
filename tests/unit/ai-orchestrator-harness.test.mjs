@@ -41,7 +41,8 @@ import {
   normalizeOpenAiCompatibleResponse,
   resolveProviderDescriptor,
   resolveModelRoute,
-  artifactTypes
+  artifactTypes,
+  buildAgentMessages
 } from "../../packages/ai-orchestrator/src/index.mjs";
 import {
   createNoteRelation,
@@ -91,6 +92,94 @@ test("artifact schema supports insight and writing artifact types", () => {
   }
 
   assert.equal(store.listArtifacts({ sourceNoteId: "note_insight" }).length, expectedTypes.length);
+});
+
+test("writing bridge agent prepares review-only writing move prompts", () => {
+  const registry = createAgentRegistry();
+  const agent = registry.get("writing_bridge_agent");
+  const contextPack = createContextPack({
+    contextPackId: "ctx_writing_bridge",
+    taskId: "task_writing_bridge",
+    agentRunId: "run_writing_bridge",
+    privacyMode: "normal",
+    items: [
+      {
+        kind: "note",
+        sourceId: "note_claim",
+        title: "Claim note",
+        content: "Spaced repetition helps only after the learner can name the target skill.",
+        origin: "human_authored",
+        includedReason: "selected_note"
+      }
+    ]
+  });
+  const messages = buildAgentMessages({
+    agent,
+    contextPack,
+    expectedArtifactType: "WritingMove",
+    userInstruction: "Prepare a claim move for the draft."
+  });
+
+  assert.deepEqual(agent.outputArtifactTypes, ["WritingMove", "OutlineDraft", "SourceGap"]);
+  assert.equal(agent.canWriteHumanNote, false);
+  assert.equal(agent.canRunInBackground, false);
+  assert.match(messages[1].content, /Every artifact\.type must be "WritingMove"/);
+  assert.match(messages[2].content, /find source-grounded writing moves/);
+  assert.match(messages[2].content, /Do not write a full essay/);
+  assert.match(messages[2].content, /sourceNoteIds/);
+});
+
+test("writing bridge agent stores WritingMove artifacts without mutating notes", async () => {
+  const agentRuntime = createOpenAiAgentsSdkRuntime({
+    async execute(request) {
+      return {
+        status: "succeeded",
+        providerId: "writing_runtime",
+        modelRef: request.modelRef,
+        output: {
+          type: "json",
+          json: {
+            artifacts: [
+              {
+                type: request.expectedArtifactType,
+                title: "Claim move",
+                summary: "A reviewable writing move from the selected note.",
+                body: "Use the note as a bounded claim, not as a finished paragraph.",
+                payload: {
+                  moveType: "claim",
+                  text: "Spaced repetition helps only after the target skill is clear.",
+                  sourceNoteIds: ["note_writing_bridge"],
+                  suggestedLocation: "argument",
+                  whyItMatters: "It gives the draft a testable boundary.",
+                  suggestedAction: "insert_after_review"
+                }
+              }
+            ]
+          }
+        },
+        usage: { inputTokens: 12, outputTokens: 18, totalTokens: 30, estimatedCost: 0, currency: "USD" }
+      };
+    }
+  });
+  const harness = createAiHarness({ agentRuntime, providerAdapter: createMockProviderAdapter() });
+
+  const result = await harness.runTask({
+    taskId: "task_writing_bridge_run",
+    agentId: "writing_bridge_agent",
+    currentNote: {
+      id: "note_writing_bridge",
+      title: "Skill boundary",
+      body: "Spaced repetition helps only after the learner can name the target skill."
+    }
+  });
+
+  assert.equal(result.run.status, "succeeded");
+  assert.equal(result.run.agentId, "writing_bridge_agent");
+  assert.equal(result.artifacts[0].type, "WritingMove");
+  assert.equal(result.artifacts[0].status, "pending_review");
+  assert.equal(result.artifacts[0].sources.noteIds[0], "note_writing_bridge");
+  assert.equal(harness.artifactInbox.listItems({ view: "pending" })[0].type, "WritingMove");
+  assert.equal(harness.artifactStore.getArtifact(result.artifacts[0].id).payload.suggestedAction, "insert_after_review");
 });
 
 test("mock harness creates a reflection artifact and run log without note mutation", async () => {

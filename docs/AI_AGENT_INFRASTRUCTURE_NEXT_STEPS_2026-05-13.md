@@ -354,6 +354,28 @@ Acceptance:
 - AI Inbox can filter and label the five new artifact types.
 - The change does not add any silent note, relation, or writing-project mutation path.
 
+### Slice I: Writing Bridge Agent
+
+Status:
+
+- First implementation slice completed in the agent registry and prompt builder.
+- `writing_bridge_agent` is available as a foreground-only agent.
+- It emits reviewable `WritingMove`, `OutlineDraft`, or `SourceGap` artifacts and keeps `canWriteHumanNote` false.
+- The prompt path tells the model to produce source-grounded writing support, not full essay text or silent draft edits.
+
+Files likely touched:
+
+- `packages/ai-orchestrator/src/agent-registry.mjs`
+- `packages/ai-orchestrator/src/agent-prompts.mjs`
+- `docs/AGENT_HARNESS_ARCHITECTURE_V1.md`
+- `tests/unit/ai-orchestrator-harness.test.mjs`
+
+Acceptance:
+
+- Harness can run `writing_bridge_agent` and store a pending `WritingMove` artifact.
+- The run preserves source note ids and AI Inbox review state.
+- No note, relation, or writing project is mutated by the agent run.
+
 ## 6. Do Not Build Yet
 
 - Full autonomous vault-wide scanning.
