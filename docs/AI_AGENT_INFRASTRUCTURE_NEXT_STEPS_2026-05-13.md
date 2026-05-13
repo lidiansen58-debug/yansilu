@@ -399,6 +399,34 @@ Acceptance:
 - Accepted/promoted/linked artifacts count as accepted for acceptance-rate calculations.
 - No model training, personalization, note mutation, or automated workflow change is introduced.
 
+### Slice K: Scheduled Task Management UI
+
+Status:
+
+- First implementation slice completed in the Settings panel.
+- Scheduled tasks can be listed with status/type filters, schedule, scope, budget, next run, last run, last reason, and agent run metadata.
+- Users can pause or resume scheduled tasks through the existing status API.
+- Users can manually run due scheduled tasks from the UI after an explicit confirmation prompt.
+- Run results remain reviewable AI Inbox artifacts; the UI does not add any silent note, relation, or writing-project mutation path.
+
+Files likely touched:
+
+- `apps/web/src/scheduled-tasks-model.js`
+- `apps/web/src/scheduled-tasks-panel.js`
+- `apps/web/src/prototype-api.js`
+- `apps/web/src/prototype-app.js`
+- `apps/web/src/prototype.html`
+- `tests/unit/web-scheduled-tasks-model.test.mjs`
+- `tests/unit/web-scheduled-tasks-panel.test.mjs`
+- `tests/unit/web-prototype-api.test.mjs`
+
+Acceptance:
+
+- Settings can show scheduled agent tasks without leaving the main app.
+- Users can pause and resume tasks without deleting task configuration.
+- Manual due-task execution requires a visible confirmation step.
+- Generated outputs stay in AI Inbox and must still be reviewed before they affect notes or graph relations.
+
 ## 6. Do Not Build Yet
 
 - Full autonomous vault-wide scanning.

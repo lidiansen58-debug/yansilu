@@ -56,6 +56,12 @@ import {
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
+  renderScheduledTasksPanel
+} from "./scheduled-tasks-panel.js";
+import {
+  normalizeScheduledTaskFilters
+} from "./scheduled-tasks-model.js";
+import {
   bindWritingDraftNote,
   acceptAiInboxLink,
   cancelImport,
@@ -76,6 +82,7 @@ import {
   fetchAiInbox,
   fetchAiInboxEvaluationSummary,
   fetchAiInboxItem,
+  fetchAiScheduledTasks,
   fetchIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
@@ -101,8 +108,10 @@ import {
   promoteAiInboxNote,
   recordAiInboxDecision,
   rollbackImport,
+  runDueAiScheduledTasks,
   switchVault,
   updateDirectory,
+  updateAiScheduledTaskStatus,
   updateNote
 } from "./prototype-api.js";
 
@@ -170,7 +179,18 @@ const settingsState = {
     providerConfigError: "",
     routePreview: null,
     routePreviewLoading: false,
-    routePreviewError: ""
+    routePreviewError: "",
+    scheduledTasks: [],
+    scheduledTasksTotal: 0,
+    scheduledTaskFilters: {
+      status: "all",
+      taskType: "all",
+      limit: 50
+    },
+    scheduledTasksLoading: false,
+    scheduledTaskActionLoading: false,
+    scheduledTasksError: "",
+    scheduledTaskRunSummary: null
   },
   error: ""
 };
@@ -715,6 +735,28 @@ function renderAiInboxWorkspace() {
   el.innerHTML = renderAiInboxPanel(aiInboxState);
 }
 
+function renderScheduledTasksWorkspace() {
+  const el = $("settingsScheduledTasksPanel");
+  if (!el) return;
+  el.innerHTML = renderScheduledTasksPanel({
+    items: settingsState.ai.scheduledTasks,
+    total: settingsState.ai.scheduledTasksTotal,
+    filters: settingsState.ai.scheduledTaskFilters,
+    loading: settingsState.ai.scheduledTasksLoading,
+    actionLoading: settingsState.ai.scheduledTaskActionLoading,
+    error: settingsState.ai.scheduledTasksError,
+    runSummary: settingsState.ai.scheduledTaskRunSummary
+  });
+}
+
+function scheduledTaskFiltersFromUi() {
+  return normalizeScheduledTaskFilters({
+    ...settingsState.ai.scheduledTaskFilters,
+    status: $("scheduledTaskStatusFilter")?.value || settingsState.ai.scheduledTaskFilters.status,
+    taskType: $("scheduledTaskTypeFilter")?.value || settingsState.ai.scheduledTaskFilters.taskType
+  });
+}
+
 function aiInboxFiltersFromUi() {
   return normalizeAiInboxFilters({
     ...aiInboxState.filters,
@@ -919,6 +961,77 @@ async function promoteAiInboxArtifactToNote(artifactId) {
   } finally {
     aiInboxState.actionLoading = false;
     renderAiInboxWorkspace();
+  }
+}
+
+async function refreshScheduledTasks(options = {}) {
+  settingsState.ai.scheduledTaskFilters = normalizeScheduledTaskFilters(settingsState.ai.scheduledTaskFilters);
+  if (!options.silent) {
+    settingsState.ai.scheduledTasksLoading = true;
+    settingsState.ai.scheduledTasksError = "";
+    renderScheduledTasksWorkspace();
+  }
+  try {
+    const result = await fetchAiScheduledTasks(settingsState.ai.scheduledTaskFilters);
+    settingsState.ai.scheduledTasks = result.items;
+    settingsState.ai.scheduledTasksTotal = result.total;
+    settingsState.ai.scheduledTasksError = "";
+    return result;
+  } catch (error) {
+    settingsState.ai.scheduledTasksError = String(error?.message || error);
+    setStatus(`Scheduled task load failed: ${settingsState.ai.scheduledTasksError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.scheduledTasksLoading = false;
+    renderScheduledTasksWorkspace();
+  }
+}
+
+async function setScheduledTaskStatus(scheduledTaskId, status) {
+  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
+  const cleanStatus = String(status || "").trim();
+  if (!cleanScheduledTaskId || !cleanStatus) return null;
+  settingsState.ai.scheduledTaskActionLoading = true;
+  renderScheduledTasksWorkspace();
+  try {
+    const item = await updateAiScheduledTaskStatus(cleanScheduledTaskId, cleanStatus);
+    settingsState.ai.scheduledTasks = settingsState.ai.scheduledTasks.map((task) =>
+      String(task.scheduledTaskId || "").trim() === cleanScheduledTaskId ? item : task
+    );
+    await refreshScheduledTasks({ silent: true });
+    setStatus(`Scheduled task ${cleanStatus}: ${cleanScheduledTaskId}`, "ok");
+    return item;
+  } catch (error) {
+    setStatus(`Scheduled task status failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    settingsState.ai.scheduledTaskActionLoading = false;
+    renderScheduledTasksWorkspace();
+  }
+}
+
+async function runDueScheduledTasksFromUi() {
+  const confirmed = window.confirm("Run due scheduled AI tasks now? New outputs will stay in AI Inbox until reviewed.");
+  if (!confirmed) return null;
+  settingsState.ai.scheduledTaskActionLoading = true;
+  settingsState.ai.scheduledTasksError = "";
+  renderScheduledTasksWorkspace();
+  try {
+    const summary = await runDueAiScheduledTasks({ limit: settingsState.ai.scheduledTaskFilters.limit || 50 });
+    settingsState.ai.scheduledTaskRunSummary = summary;
+    await Promise.all([
+      refreshScheduledTasks({ silent: true }),
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    setStatus(`Scheduled tasks run: ${summary?.succeeded || 0} succeeded, ${summary?.skipped || 0} skipped, ${summary?.failed || 0} failed`, "ok");
+    return summary;
+  } catch (error) {
+    setStatus(`Run due scheduled tasks failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    settingsState.ai.scheduledTaskActionLoading = false;
+    renderScheduledTasksWorkspace();
   }
 }
 
@@ -2859,6 +2972,7 @@ function renderSettingsPanel() {
   }
   renderAiProviderConfigControls();
   renderAiRoutePreview();
+  renderScheduledTasksWorkspace();
 }
 
 function isWritingEligibleNote(note) {
@@ -3727,6 +3841,7 @@ async function refreshVaultSettings() {
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
     await refreshAiRoutePreview({ render: false });
+    await refreshScheduledTasks({ silent: true });
     settingsState.error = "";
     renderSettingsPanel();
     return settingsState.vault;
@@ -4676,6 +4791,34 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
   await checkCurrentAiProviderHealth();
+});
+
+$("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
+  if (event.target.closest("#btnScheduledTasksApplyFilters")) {
+    settingsState.ai.scheduledTaskFilters = scheduledTaskFiltersFromUi();
+    await refreshScheduledTasks();
+    setStatus("Scheduled tasks refreshed", "ok");
+    return;
+  }
+
+  if (event.target.closest("#btnScheduledTasksRefresh")) {
+    await refreshScheduledTasks();
+    setStatus("Scheduled tasks refreshed", "ok");
+    return;
+  }
+
+  if (event.target.closest("#btnScheduledTasksRunDue")) {
+    await runDueScheduledTasksFromUi();
+    return;
+  }
+
+  const statusButton = event.target.closest("[data-scheduled-task-status]");
+  if (statusButton) {
+    await setScheduledTaskStatus(
+      statusButton.getAttribute("data-scheduled-task-id"),
+      statusButton.getAttribute("data-scheduled-task-status")
+    );
+  }
 });
 
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {

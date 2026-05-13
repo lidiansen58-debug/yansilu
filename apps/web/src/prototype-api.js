@@ -158,6 +158,45 @@ export async function promoteAiInboxNote(artifactId, payload = {}) {
   });
 }
 
+export async function fetchAiScheduledTasks(options = {}) {
+  const params = new URLSearchParams();
+  const status = String(options?.status || "").trim();
+  const taskType = String(options?.taskType || options?.task_type || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
+  if (status && status !== "all") params.set("status", status);
+  if (taskType && taskType !== "all") params.set("taskType", taskType);
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/ai/scheduled-tasks?${params.toString()}`);
+  return {
+    items: Array.isArray(json.items) ? json.items : [],
+    total: Number(json.total || 0)
+  };
+}
+
+export async function updateAiScheduledTaskStatus(scheduledTaskId, status) {
+  const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
+  const cleanStatus = String(status || "").trim();
+  if (!cleanScheduledTaskId) throw new Error("scheduledTaskId is required");
+  if (!cleanStatus) throw new Error("status is required");
+  const json = await request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status: cleanStatus })
+  });
+  return json.item || null;
+}
+
+export async function runDueAiScheduledTasks(payload = {}) {
+  const body = { ...(payload || {}) };
+  if (body.limit !== undefined) body.limit = Math.max(1, Math.min(100, Number(body.limit || 10) || 10));
+  const json = await request("/api/v1/ai/scheduled-tasks/run-due", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  return json.item || null;
+}
+
 export async function switchVault(vaultPath) {
   const cleanVaultPath = String(vaultPath || "").trim();
   if (!cleanVaultPath) throw new Error("vaultPath is required");

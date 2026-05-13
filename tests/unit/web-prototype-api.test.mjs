@@ -113,3 +113,57 @@ test("prototype API forces promote-note confirmation", async () => {
     else globalThis.fetch = previousFetch;
   }
 });
+
+test("prototype API manages scheduled tasks", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ai-scheduled-tasks", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/status")) {
+      return {
+        ok: true,
+        async json() {
+          return { item: { scheduledTaskId: "sched_1", status: "paused" } };
+        }
+      };
+    }
+    if (String(url).endsWith("/run-due")) {
+      return {
+        ok: true,
+        async json() {
+          return { item: { total: 1, succeeded: 1 } };
+        }
+      };
+    }
+    return {
+      ok: true,
+      async json() {
+        return { items: [{ scheduledTaskId: "sched_1" }], total: 1 };
+      }
+    };
+  };
+
+  try {
+    const listed = await api.fetchAiScheduledTasks({ status: "active", taskType: "reflection_prompt", limit: 250 });
+    assert.equal(listed.total, 1);
+    const listUrl = new URL(calls[0].url);
+    assert.equal(listUrl.pathname, "/api/v1/ai/scheduled-tasks");
+    assert.equal(listUrl.searchParams.get("status"), "active");
+    assert.equal(listUrl.searchParams.get("taskType"), "reflection_prompt");
+    assert.equal(listUrl.searchParams.get("limit"), "100");
+
+    const updated = await api.updateAiScheduledTaskStatus("sched_1", "paused");
+    assert.equal(updated.status, "paused");
+    assert.equal(calls[1].url, "http://127.0.0.1:3999/api/v1/ai/scheduled-tasks/sched_1/status");
+    assert.equal(JSON.parse(calls[1].options.body).status, "paused");
+
+    const due = await api.runDueAiScheduledTasks({ limit: 500 });
+    assert.equal(due.succeeded, 1);
+    assert.equal(calls[2].url, "http://127.0.0.1:3999/api/v1/ai/scheduled-tasks/run-due");
+    assert.equal(JSON.parse(calls[2].options.body).limit, 100);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
