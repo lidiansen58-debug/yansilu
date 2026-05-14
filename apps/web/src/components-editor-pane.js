@@ -1896,6 +1896,7 @@ export class EditorPane {
   }
 
   renderTabs() {
+    const newNoteLabel = this.currentNewNoteLabel();
     const tabsHtml = this.state.tabs
       .map((t) => {
         const note = this.state.notes.find((n) => n.id === t.noteId);
@@ -1938,9 +1939,9 @@ export class EditorPane {
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
-        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
+        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">${newNoteLabel}</span></div>`}</div>
         <div class="tabs-actions">
-          <button class="tab-act" data-tabs-action="new" title="新建原创笔记" aria-label="新建原创笔记">+</button>
+          <button class="tab-act" data-tabs-action="new" title="${newNoteLabel}" aria-label="${newNoteLabel}">+</button>
         </div>
       </div>
       <div class="tab-menu hidden" data-tab-menu>
@@ -1953,6 +1954,13 @@ export class EditorPane {
     this.onChromeChange();
   }
 
+  currentNewNoteLabel() {
+    const type = typeFromFolder(this.state, this.state.selectedFolderId || this.state.browserRootId || "");
+    if (type === "literature") return "新建文摘笔记";
+    if (type === "fleeting") return "新建随笔";
+    return "新建原创笔记";
+  }
+
   renderEmptyEditorState() {
     const empty = !this.activeTab();
     const panel = this.els.markdownSplit?.closest?.(".md-panel");
@@ -1963,7 +1971,7 @@ export class EditorPane {
   requestCreateNoteFromEmptyState() {
     if (this.activeTab() || this.creatingEmptyNote) return false;
     this.creatingEmptyNote = true;
-    Promise.resolve(this.onStateChange("create-primary-note")).finally(() => {
+    Promise.resolve(this.onStateChange("create-note-in-selected-folder")).finally(() => {
       this.creatingEmptyNote = false;
     });
     return true;
@@ -4159,7 +4167,11 @@ export class EditorPane {
     if (!target) return;
     if (this.currentLinkContext) {
       const { start, end } = this.currentLinkContext;
-      this.replaceEditorRange(start, end, `[[${target.title}]]`);
+      if (this.isWysiwygMode()) {
+        this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
+      } else {
+        this.replaceEditorRange(start, end, `[[${target.title}]]`);
+      }
     } else {
       this.insertAtCursor(`[[${target.title}]]`);
     }
@@ -4314,7 +4326,11 @@ export class EditorPane {
     const insertText = `#${normalized}`;
     if (this.currentTagContext) {
       const { start, end } = this.currentTagContext;
-      this.replaceEditorRange(start, end, insertText);
+      if (this.isWysiwygMode()) {
+        this.replaceMarkdownWhileInWysiwyg(start, end, insertText);
+      } else {
+        this.replaceEditorRange(start, end, insertText);
+      }
     } else {
       this.insertAtCursor(insertText);
     }
@@ -4573,11 +4589,16 @@ export class EditorPane {
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
       section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
+
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = this.renderSemanticRelationsSection(relations, noteId);
+        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+      }
     } catch (error) {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
-      section.outerHTML = `
+      const errorHtml = `
         <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
           <div class="inspector-section-head">
             <div class="inspector-section-title">语义关系</div>
@@ -4586,6 +4607,12 @@ export class EditorPane {
           <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error))}</div>
         </section>
       `;
+      section.outerHTML = errorHtml;
+
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = errorHtml;
+        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+      }
     }
   }
 
@@ -4786,6 +4813,10 @@ export class EditorPane {
       this.relationsRequestSerial += 1;
       this.currentSemanticRelations = null;
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
+      }
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
@@ -5150,7 +5181,7 @@ export class EditorPane {
       if (actBtn) {
         const action = actBtn.dataset.tabsAction;
         if (action === "new") {
-          this.onStateChange("create-primary-note");
+          this.onStateChange("create-note-in-selected-folder");
           return;
         }
         if (action === "toggle-menu") {

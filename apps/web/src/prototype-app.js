@@ -2685,6 +2685,32 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   `;
 }
 
+function newNoteLabelForRoot(rootId = state.browserRootId) {
+  if (rootId === "dir_literature_default") return "新建文摘笔记";
+  if (rootId === "dir_fleeting_default") return "新建随笔";
+  return "新建原创笔记";
+}
+
+function newNoteShortLabelForRoot(rootId = state.browserRootId) {
+  if (rootId === "dir_literature_default") return "文摘";
+  if (rootId === "dir_fleeting_default") return "随笔";
+  return "原创";
+}
+
+function syncNewNoteButtons() {
+  const label = newNoteLabelForRoot();
+  const shortLabel = newNoteShortLabelForRoot();
+  const sidebarNew = $("btnNewNote");
+  const mobileNew = $("btnMobileNewNote");
+  for (const button of [sidebarNew, mobileNew].filter(Boolean)) {
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.dataset.tip = label;
+  }
+  const mobileLabel = mobileNew?.querySelector("span");
+  if (mobileLabel) mobileLabel.textContent = shortLabel;
+}
+
 function renderSidebarTitle() {
   const root = folderById(state, state.browserRootId);
   const editorMode = state.module === "explorer";
@@ -2698,21 +2724,10 @@ function renderSidebarTitle() {
   const sidebarFoot = $("sidebarFoot");
 
   if (editorMode) {
-    $("sidebarTitle").textContent =
-      state.browserRootId === "dir_original_default"
-        ? "原创笔记工作台"
-        : state.browserRootId === "dir_fleeting_default"
-          ? "素材入口：随笔"
-          : state.browserRootId === "dir_literature_default"
-            ? "素材入口：文献"
-            : displayFolderName(root);
+    $("sidebarTitle").textContent = root ? displayFolderName(root) : "目录";
     if (sidebarSubtitle) {
-      sidebarSubtitle.textContent =
-        state.browserRootId === "dir_fleeting_default"
-          ? "捕捉线索，但不要把线索误认为成果。"
-          : state.browserRootId === "dir_literature_default"
-            ? "保存证据与转述，目标是记录原创判断。"
-            : "新建、搜索和写作默认从自己的判断开始。";
+      sidebarSubtitle.textContent = "";
+      sidebarSubtitle.classList.add("hidden");
     }
     const quickAction =
       state.browserRootId === "dir_fleeting_default"
@@ -2721,30 +2736,31 @@ function renderSidebarTitle() {
           ? "quick-literature"
           : "quick-original";
     document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
+    syncNewNoteButtons();
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
     sidebarPrimaryActions?.classList.remove("hidden");
     const showSearch = Boolean(state.searchVisible || String(state.searchQuery || "").trim());
     filter?.classList.toggle("hidden", !showSearch);
     searchToggle?.classList.toggle("is-ghost", !showSearch);
-    renderExplorerSidebarFlow(state.browserRootId);
+    sidebarFlow?.classList.add("hidden");
+    if (sidebarFlow) sidebarFlow.innerHTML = "";
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
-      sidebarFoot.textContent =
-        state.browserRootId === "dir_fleeting_default"
-          ? "随手记用来捕捉还不成熟的线索。等判断开始变清楚，再继续推进到原创笔记。"
-          : state.browserRootId === "dir_literature_default"
-            ? "文献笔记不以摘录结束。只有完成转述，它才真正进入你的理解结构。"
-            : "原创笔记承接你已经想清楚的判断。连接、标签和写作都应该从这里继续长出来。";
+      sidebarFoot.textContent = "";
+      sidebarFoot.classList.add("hidden");
     }
     return;
   }
 
   const moduleUi = currentModuleUi();
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
-  if (sidebarSubtitle) sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+  if (sidebarSubtitle) {
+    sidebarSubtitle.classList.remove("hidden");
+    sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+  }
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
   sidebarPrimaryActions?.classList.add("hidden");
@@ -2754,7 +2770,10 @@ function renderSidebarTitle() {
   listArea?.classList.add("hidden");
   moduleSidebar?.classList.add("visible");
   if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
-  if (sidebarFoot) sidebarFoot.textContent = moduleUi.sidebarFoot;
+  if (sidebarFoot) {
+    sidebarFoot.classList.remove("hidden");
+    sidebarFoot.textContent = moduleUi.sidebarFoot;
+  }
 }
 
 function currentModuleUi() {
@@ -5411,6 +5430,7 @@ const editor = new EditorPane({
     assetPreviewOpenLink: $("assetPreviewOpenLink"),
     closeAssetPreview: $("btnCloseAssetPreview"),
     editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
+    editorRelationsBelow: $("editorRelationsBelow"),
     relatedPanel: $("relatedPanel"),
     result: $("resultArea"),
     linkPicker: $("linkPicker"),
@@ -6433,7 +6453,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	});
 
 $("btnMobileNewNote")?.addEventListener("click", () => {
-  handleStateChange("create-primary-note");
+  handleStateChange("create-note-in-selected-folder");
 });
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
