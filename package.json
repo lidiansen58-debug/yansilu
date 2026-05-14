@@ -20,6 +20,7 @@
     "dev:worker": "node ./apps/worker/src/worker.mjs",
     "build:codemirror": "node ./scripts/build-codemirror.mjs",
     "build:toastui": "node ./scripts/build-toastui.mjs",
+    "ai:setup:ollama": "node ./scripts/configure-ollama-local-ai.mjs",
     "mvp:check": "node ./scripts/mvp-check.mjs",
     "test": "node --test",
     "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",

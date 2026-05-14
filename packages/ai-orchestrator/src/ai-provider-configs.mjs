@@ -63,7 +63,7 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
   const modelMap = cleanObject(input.modelMap || input.model_map || existing.modelMap || {});
   const runtimeModelMap = cleanObject(input.runtimeModelMap || input.runtime_model_map || existing.runtimeModelMap || {});
   const headers = cleanObject(input.headers || input.headers_json || existing.headers || {});
-  const endpointUrl = cleanText(input.endpointUrl || input.endpoint_url || existing.endpointUrl);
+  const endpointUrl = cleanText(input.endpointUrl || input.endpoint_url || existing.endpointUrl || base.endpointUrl);
 
   const normalized = {
     id: cleanText(input.id || input.configId || input.config_id || existing.id) || providerConfigId(providerId),
@@ -78,7 +78,7 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
     capabilities,
     modelMap,
     runtimeModelMap,
-    healthCheck: normalizeHealthCheck(input.healthCheck || input.health_check || existing.healthCheck || existing.health_check || {}, endpointUrl),
+    healthCheck: normalizeHealthCheck(input.healthCheck || input.health_check || existing.healthCheck || existing.health_check || base.healthCheck || {}, endpointUrl),
     createdAt: cleanText(existing.createdAt || existing.created_at || input.createdAt || input.created_at) || now,
     updatedAt: cleanText(input.updatedAt || input.updated_at) || now
   };

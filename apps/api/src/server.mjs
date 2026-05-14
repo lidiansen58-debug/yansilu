@@ -198,6 +198,21 @@ function authSummary(authMode = "", options = {}) {
   };
 }
 
+function assertProviderResponseSucceeded(response = {}, code = "AI_PROVIDER_REQUEST_FAILED") {
+  if (response?.status === "succeeded") return;
+  const providerError = response?.error || {};
+  const message = cleanText(providerError.message) || "Provider request failed.";
+  const error = new Error(message);
+  error.code = code;
+  error.details = {
+    providerId: cleanText(response?.providerId || response?.provider_id),
+    modelRef: cleanText(response?.modelRef || response?.model_ref),
+    status: cleanText(response?.status),
+    providerError
+  };
+  throw error;
+}
+
 function providerConfigWithRunnableHealthCheck(config = {}, input = {}) {
   const healthCheck = {
     ...(config.healthCheck || {}),
@@ -1748,6 +1763,7 @@ const server = http.createServer(async (req, res) => {
             budgetPrecheck: { ok: true, confirmationRequired: false, estimatedUsage: { estimatedCost: 0, currency: "USD" } }
           }
         });
+        assertProviderResponseSucceeded(response, "AI_TEST_CHAT_PROVIDER_FAILED");
 
         return sendJson(res, 200, {
           item: {
@@ -1761,7 +1777,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err(error?.code || "AI_TEST_CHAT_FAILED", String(error?.message || error), rid));
+        return sendJson(res, 400, err(error?.code || "AI_TEST_CHAT_FAILED", String(error?.message || error), rid, error?.details));
       } finally {
         if (runtime && typeof runtime.close === "function") runtime.close();
       }
@@ -2368,6 +2384,7 @@ const server = http.createServer(async (req, res) => {
             budgetPrecheck: { ok: true, confirmationRequired: false, estimatedUsage: { estimatedCost: 0, currency: "USD" } }
           }
         });
+        assertProviderResponseSucceeded(response, "AI_INBOX_SUMMARIZE_PROVIDER_FAILED");
 
         const summaryText = String(response?.output?.content || "").trim();
         const recommendedAction = recommendedAiInboxActionFromText(summaryText);
@@ -2403,7 +2420,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 400, err(error?.code || "AI_INBOX_SUMMARIZE_FAILED", String(error?.message || error), rid));
+        return sendJson(res, 400, err(error?.code || "AI_INBOX_SUMMARIZE_FAILED", String(error?.message || error), rid, error?.details));
       } finally {
         if (runtime && typeof runtime.close === "function") runtime.close();
       }

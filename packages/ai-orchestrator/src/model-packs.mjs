@@ -154,6 +154,33 @@ const MODEL_PACKS = {
       localPreferred: true
     }
   },
+  ollama_local: {
+    modelPackId: "ollama_local",
+    modelPack: "Ollama Local",
+    description: "Run eligible AI work through Ollama on localhost with a small local model.",
+    defaultUserMode: "Local / Private",
+    providerPreset: "ollama_local_gateway",
+    authMode: "local_no_key",
+    providerVisibility: "advanced",
+    byokRequired: false,
+    fallbackPolicy: {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: false,
+      allowCloudFallback: false,
+      allowCloudFallbackForPrivate: false,
+      requiresConfirmationForCloud: true
+    },
+    budget: {
+      monthlyLimit: 0,
+      confirmationThresholdPerRun: 0,
+      scheduledTaskHardCap: 0
+    },
+    privacy: {
+      defaultMode: "local_only",
+      allowCloud: false,
+      localPreferred: true
+    }
+  },
   minicpm_local: {
     modelPackId: "minicpm_local",
     modelPack: "MiniCPM Local",
@@ -278,6 +305,8 @@ const MODEL_PACK_ALIASES = {
   privacy: "privacy_first",
   privacy_first: "privacy_first",
   local: "privacy_first",
+  ollama: "ollama_local",
+  ollama_local: "ollama_local",
   minicpm: "minicpm_local",
   minicpm_local: "minicpm_local",
   minicpm_remote: "minicpm_remote",

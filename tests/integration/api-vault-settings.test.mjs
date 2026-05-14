@@ -198,6 +198,17 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(chinaPreview.json.item.access.ready, false);
   assert.equal(chinaPreview.json.item.access.nextAction, "configure_workspace_key");
 
+  const ollamaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Ollama Local",
+    userMode: "Local / Private"
+  });
+  assert.equal(ollamaPreview.status, 200, JSON.stringify(ollamaPreview.json));
+  assert.equal(ollamaPreview.json.item.provider.providerId, "ollama_local_gateway");
+  assert.equal(ollamaPreview.json.item.route.modelRef, "ollama_local_gateway:local_private");
+  assert.equal(ollamaPreview.json.item.route.localOnly, true);
+  assert.equal(ollamaPreview.json.item.access.keyMode, "no_key");
+  assert.equal(ollamaPreview.json.item.access.ready, true);
+
   const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
     providerId: "china_optimized_gateway",
     authMode: "workspace_managed",
@@ -673,21 +684,21 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
-    providerId: "local_private_gateway",
+    providerId: "ollama_local_gateway",
     adapterType: "local_gateway",
     status: "enabled",
     authMode: "local_no_key",
     endpointUrl: chatServer.endpointUrl,
     runtimeModelMap: {
-      "local_private_gateway:local_private": "qwen2.5:3b",
-      "local_private_gateway:cheap_fast": "qwen2.5:3b",
-      "local_private_gateway:standard": "qwen2.5:3b"
+      "ollama_local_gateway:local_private": "qwen2.5:3b",
+      "ollama_local_gateway:cheap_fast": "qwen2.5:3b",
+      "ollama_local_gateway:standard": "qwen2.5:3b"
     }
   });
   assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
 
   const preferences = await postJson(baseUrl, "/api/v1/ai/preferences", {
-    modelPack: "privacy_first",
+    modelPack: "Ollama Local",
     userMode: "Local / Private"
   });
   assert.equal(preferences.status, 200, JSON.stringify(preferences.json));
@@ -712,14 +723,14 @@ test("AI inbox summarize runs current local route and persists summary decision"
 
   const summarized = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
   assert.equal(summarized.status, 200, JSON.stringify(summarized.json));
-  assert.equal(summarized.json.item.providerId, "local_private_gateway");
-  assert.equal(summarized.json.item.modelRef, "local_private_gateway:local_private");
+  assert.equal(summarized.json.item.providerId, "ollama_local_gateway");
+  assert.equal(summarized.json.item.modelRef, "ollama_local_gateway:local_private");
   assert.equal(summarized.json.item.recommendedAction, "accept_link");
   assert.match(summarized.json.item.output.content, /Recommended action: accept_link/);
   assert.equal(summarized.json.item.artifact.status, "revised");
   assert.equal(summarized.json.item.inboxItem.latestDecision.decision, "revised");
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
-  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=local_private_gateway/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=ollama_local_gateway/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
 
   assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");

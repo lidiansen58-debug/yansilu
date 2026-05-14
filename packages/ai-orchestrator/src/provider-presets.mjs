@@ -125,6 +125,54 @@ const PROVIDER_PRESETS = {
     },
     runtimeModelMap: {}
   },
+  ollama_local_gateway: {
+    providerId: "ollama_local_gateway",
+    displayName: "Ollama Local",
+    adapterType: "local_gateway",
+    status: "experimental",
+    authModes: ["local_no_key"],
+    authMode: "local_no_key",
+    endpointUrl: "http://localhost:11434/v1/chat/completions",
+    healthCheck: {
+      enabled: true,
+      endpointUrl: "http://localhost:11434/api/tags",
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    },
+    regions: ["local"],
+    noviceVisible: false,
+    localExecution: true,
+    supportsUsageReporting: false,
+    supportsCostEstimation: false,
+    capabilities: {
+      ...BASE_CAPABILITIES,
+      openai_compatible: "partial",
+      structured_output: "model_dependent",
+      tool_calling: "model_dependent",
+      local_execution: "yes",
+      local_private: "yes",
+      budget_controls: "local_free",
+      runtime: "ollama"
+    },
+    modelMap: {
+      router_fast: "ollama_local_gateway:router_fast",
+      cheap_fast: "ollama_local_gateway:cheap_fast",
+      standard: "ollama_local_gateway:standard",
+      strong_reasoning: "ollama_local_gateway:strong_reasoning",
+      guardrail: "ollama_local_gateway:guardrail",
+      local_private: "ollama_local_gateway:local_private"
+    },
+    runtimeModelMap: {
+      "ollama_local_gateway:router_fast": "qwen2.5:3b",
+      "ollama_local_gateway:cheap_fast": "qwen2.5:3b",
+      "ollama_local_gateway:standard": "qwen2.5:3b",
+      "ollama_local_gateway:strong_reasoning": "qwen2.5:3b",
+      "ollama_local_gateway:guardrail": "qwen2.5:3b",
+      "ollama_local_gateway:local_private": "qwen2.5:3b"
+    }
+  },
   minicpm_local_gateway: {
     providerId: "minicpm_local_gateway",
     displayName: "MiniCPM Local Gateway",
@@ -231,7 +279,7 @@ export function resolveProviderDescriptor(input = {}) {
     ...base,
     authMode: cleanText(input.authMode || input.auth_mode) || userSettings.authMode,
     secretRef: cleanText(input.secretRef || input.secret_ref),
-    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url),
+    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url) || base.endpointUrl,
     runtimeModelMap: {
       ...(base.runtimeModelMap || {}),
       ...(input.runtimeModelMap || input.runtime_model_map || {})

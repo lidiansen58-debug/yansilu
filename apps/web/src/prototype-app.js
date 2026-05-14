@@ -495,7 +495,22 @@ function providerPresetForModelPack(modelPack = "") {
   if (normalized === "low cost research" || normalized === "global optimized") return "openai_compatible_gateway";
   if (normalized === "china optimized") return "china_optimized_gateway";
   if (normalized === "privacy first") return "local_private_gateway";
+  if (normalized === "ollama local") return "ollama_local_gateway";
+  if (normalized === "minicpm local") return "minicpm_local_gateway";
+  if (normalized === "minicpm remote") return "minicpm_remote_gateway";
   return "platform_managed_openai";
+}
+
+function defaultProviderEndpointUrl(providerId = "") {
+  const id = String(providerId || "").trim();
+  if (id === "ollama_local_gateway") return "http://localhost:11434/v1/chat/completions";
+  return "";
+}
+
+function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = "") {
+  const id = String(providerId || "").trim();
+  if (id === "ollama_local_gateway") return "http://localhost:11434/api/tags";
+  return String(endpointUrl || "").trim();
 }
 
 function authModeForProvider(providerId = "", preview = null) {
@@ -503,7 +518,9 @@ function authModeForProvider(providerId = "", preview = null) {
   if (authMode) return authMode;
   const id = String(providerId || "").trim();
   if (id === "platform_managed_openai") return "platform_managed";
-  if (id === "local_private_gateway") return settingsState.ai.secretRef ? "enterprise_secret" : "local_no_key";
+  if (["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(id)) {
+    return settingsState.ai.secretRef ? "enterprise_secret" : "local_no_key";
+  }
   return "workspace_managed";
 }
 
@@ -517,8 +534,15 @@ function activeAiProviderConfig() {
 }
 
 function applyActiveAiProviderConfigToState() {
+  const providerId = currentAiProviderId();
   const config = activeAiProviderConfig();
-  if (!config) return;
+  if (!config) {
+    const endpointUrl = defaultProviderEndpointUrl(providerId);
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
+    if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
+    if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+    return;
+  }
   settingsState.ai.providerEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
   settingsState.ai.providerHealthEndpointUrl = String(
     config.healthCheck?.endpointUrl ||
@@ -542,17 +566,21 @@ function aiSettingsPayload() {
 
 function aiProviderConfigPayload() {
   const providerId = currentAiProviderId();
+  const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
+  const healthEndpointUrl = String(
+    settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
+  ).trim();
   return {
     providerId,
     authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
     status: "enabled",
     ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {}),
-    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
-    ...((settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl)
+    ...(endpointUrl ? { endpointUrl } : {}),
+    ...((healthEndpointUrl || endpointUrl)
       ? {
           healthCheck: {
             enabled: true,
-            endpointUrl: settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl,
+            endpointUrl: healthEndpointUrl || endpointUrl,
             method: "GET",
             timeoutMs: 5000,
             expectedStatus: 200,
@@ -634,11 +662,15 @@ async function checkCurrentAiProviderHealth() {
     const saved = await saveAiProviderConfig(aiProviderConfigPayload());
     upsertAiProviderConfig(saved);
     applyActiveAiProviderConfigToState();
+    const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
+    const healthEndpointUrl = String(
+      settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || endpointUrl
+    ).trim();
     const result = await checkAiProviderHealth(providerId, {
       networkEnabled: true,
       healthCheck: {
         enabled: true,
-        endpointUrl: settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl,
+        endpointUrl: healthEndpointUrl,
         method: "GET",
         timeoutMs: 5000,
         expectedStatus: 200,
@@ -2831,19 +2863,6 @@ function renderModuleWorkspaceHeader() {
   const moduleUi = currentModuleUi();
   moduleTitle.textContent = moduleUi.title;
   moduleSummary.textContent = moduleUi.summary;
-  moduleHeaderActions.innerHTML += `
-    <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
-    <span class="settings-stat-badge ${statusTone}">${escapeHtml(healthStatus || "unknown")}</span>
-    <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
-    <span class="module-ai-pack">
-      <strong>AI</strong>
-      <select id="moduleAiModelPack" aria-label="AI model pack">
-        ${packOptionsHtml}
-      </select>
-    </span>
-    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">Refresh</button>
-  `;
-
   const settingsPackSelect = $("settingsAiModelPack");
   const packOptionsHtml = settingsPackSelect
     ? [...settingsPackSelect.querySelectorAll("option")]
@@ -2852,6 +2871,7 @@ function renderModuleWorkspaceHeader() {
     : `
       <option value="Starter Auto">Starter Auto</option>
       <option value="Privacy First">Privacy First</option>
+      <option value="Ollama Local">Ollama Local</option>
     `;
 
   const preview = settingsState.ai.routePreview;
@@ -2866,7 +2886,19 @@ function renderModuleWorkspaceHeader() {
     : modelRef
       ? modelRef
       : "AI route unavailable";
-  moduleHeaderActions.innerHTML = `<button class="mini-btn" id="moduleBackToNotes">回到笔记</button>`;
+  moduleHeaderActions.innerHTML = `
+    <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
+    <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
+    <span class="settings-stat-badge ${statusTone}">${escapeHtml(healthStatus || "unknown")}</span>
+    <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
+    <span class="module-ai-pack">
+      <strong>AI</strong>
+      <select id="moduleAiModelPack" aria-label="AI model pack">
+        ${packOptionsHtml}
+      </select>
+    </span>
+    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">Refresh</button>
+  `;
   $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
 
   const modulePack = $("moduleAiModelPack");

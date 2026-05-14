@@ -746,6 +746,7 @@ test("provider presets expose normalized descriptors and model maps", () => {
   const presets = listProviderPresets();
   const ids = presets.map((preset) => preset.providerId).sort();
   const local = getProviderPreset("local_private_gateway");
+  const ollamaLocal = getProviderPreset("ollama_local_gateway");
   const minicpmLocal = getProviderPreset("minicpm_local_gateway");
   const minicpmRemote = getProviderPreset("minicpm_remote_gateway");
   const gateway = getProviderPreset("openai_compatible_gateway");
@@ -758,6 +759,7 @@ test("provider presets expose normalized descriptors and model maps", () => {
       "local_private_gateway",
       "minicpm_local_gateway",
       "minicpm_remote_gateway",
+      "ollama_local_gateway",
       "openai_compatible_gateway",
       "platform_managed_openai"
     ].sort()
@@ -765,6 +767,10 @@ test("provider presets expose normalized descriptors and model maps", () => {
   assert.equal(local.adapterType, "local_gateway");
   assert.equal(local.localExecution, true);
   assert.equal(local.modelMap.local_private, "local_private_gateway:local_private");
+  assert.equal(ollamaLocal.adapterType, "local_gateway");
+  assert.equal(ollamaLocal.localExecution, true);
+  assert.equal(ollamaLocal.endpointUrl, "http://localhost:11434/v1/chat/completions");
+  assert.equal(ollamaLocal.runtimeModelMap["ollama_local_gateway:local_private"], "qwen2.5:3b");
   assert.equal(minicpmLocal.adapterType, "local_gateway");
   assert.equal(minicpmLocal.localExecution, true);
   assert.equal(minicpmLocal.modelMap.local_private, "minicpm_local_gateway:local_private");
@@ -783,6 +789,7 @@ test("model packs compile simple user choices into provider policy", () => {
   const starter = getModelPack("Starter Auto");
   const china = resolveAiUserSettings({ modelPack: "China Optimized" });
   const localMode = resolveAiUserSettings({ userMode: "local" });
+  const ollamaLocal = resolveAiUserSettings({ modelPack: "Ollama Local" });
   const minicpmLocal = resolveAiUserSettings({ modelPack: "MiniCPM Local" });
   const minicpmRemote = resolveAiUserSettings({ modelPack: "MiniCPM Remote" });
   const descriptor = resolveProviderDescriptor({ userMode: "Local / Private" });
@@ -797,6 +804,9 @@ test("model packs compile simple user choices into provider policy", () => {
   assert.equal(localMode.providerPreset, "local_private_gateway");
   assert.equal(localMode.privacy.defaultMode, "local_only");
   assert.equal(localMode.fallbackPolicy.allowCloudFallback, false);
+  assert.equal(ollamaLocal.providerPreset, "ollama_local_gateway");
+  assert.equal(ollamaLocal.privacy.defaultMode, "local_only");
+  assert.equal(ollamaLocal.fallbackPolicy.allowCloudFallback, false);
   assert.equal(minicpmLocal.providerPreset, "minicpm_local_gateway");
   assert.equal(minicpmLocal.privacy.defaultMode, "local_only");
   assert.equal(minicpmLocal.fallbackPolicy.allowCloudFallback, false);
@@ -810,6 +820,7 @@ test("provider adapter registry creates adapters from model pack presets", () =>
   const registry = createProviderAdapterRegistry();
   const china = registry.getAdapter({ modelPack: "China Optimized" });
   const local = registry.getAdapter({ userMode: "Local / Private" });
+  const ollama = registry.getAdapter({ modelPack: "Ollama Local" });
   const adapters = registry.listAdapters().map((entry) => entry.providerId).sort();
 
   assert.equal(china.source, "factory");
@@ -817,7 +828,9 @@ test("provider adapter registry creates adapters from model pack presets", () =>
   assert.equal(china.adapter.descriptor.adapterType, "aggregated_gateway");
   assert.equal(local.adapter.descriptor.providerId, "local_private_gateway");
   assert.equal(local.adapter.descriptor.localExecution, true);
-  assert.deepEqual(adapters, ["china_optimized_gateway", "local_private_gateway"].sort());
+  assert.equal(ollama.adapter.descriptor.providerId, "ollama_local_gateway");
+  assert.equal(ollama.adapter.descriptor.localExecution, true);
+  assert.deepEqual(adapters, ["china_optimized_gateway", "local_private_gateway", "ollama_local_gateway"].sort());
 });
 
 test("model router applies model pack defaults without exposing raw provider details", () => {
@@ -1376,6 +1389,29 @@ test("openai-compatible adapter applies runtime model map for MiniCPM gateways",
   assert.equal(request.body.model, "minicpm");
   assert.equal(request.metadata.modelRef, "minicpm_local_gateway:local_private");
   assert.equal(request.metadata.runtimeModelRef, "minicpm");
+});
+
+test("openai-compatible adapter applies Ollama local defaults", () => {
+  const request = buildOpenAiCompatibleRequest(
+    {
+      requestId: "req_ollama",
+      agentRunId: "run_ollama",
+      purpose: "ai_inbox_summarize",
+      modelRef: "ollama_local_gateway:local_private",
+      messages: [{ role: "user", content: "Summarize this local inbox item." }]
+    },
+    {
+      descriptor: getProviderPreset("ollama_local_gateway"),
+      authMode: "local_no_key"
+    }
+  );
+
+  assert.equal(request.endpointUrl, "http://localhost:11434/v1/chat/completions");
+  assert.equal(request.auth.authMode, "local_no_key");
+  assert.equal(request.body.model, "qwen2.5:3b");
+  assert.equal(request.metadata.providerId, "ollama_local_gateway");
+  assert.equal(request.metadata.modelRef, "ollama_local_gateway:local_private");
+  assert.equal(request.metadata.runtimeModelRef, "qwen2.5:3b");
 });
 
 test("openai-compatible executor builds authenticated fetch requests through secret refs", async () => {

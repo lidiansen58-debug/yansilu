@@ -63,6 +63,7 @@ test("built-in model packs compile into a valid config bundle", () => {
       "low_cost_research",
       "minicpm_local",
       "minicpm_remote",
+      "ollama_local",
       "privacy_first",
       "starter_auto"
     ].sort()
@@ -74,6 +75,7 @@ test("built-in model packs compile into a valid config bundle", () => {
       "local_private_gateway",
       "minicpm_local_gateway",
       "minicpm_remote_gateway",
+      "ollama_local_gateway",
       "openai_compatible_gateway",
       "platform_managed_openai"
     ].sort()
@@ -88,8 +90,14 @@ test("built-in model packs compile into a valid config bundle", () => {
   assert.equal(privacyFirst.fallback_policy.allow_cloud_fallback_for_private, false);
   const minicpmLocal = bundle.model_packs.find((pack) => pack.model_pack_id === "minicpm_local");
   const minicpmRemote = bundle.model_packs.find((pack) => pack.model_pack_id === "minicpm_remote");
+  const ollamaLocal = bundle.model_packs.find((pack) => pack.model_pack_id === "ollama_local");
   const minicpmLocalProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "minicpm_local_gateway");
   const minicpmRemoteProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "minicpm_remote_gateway");
+  const ollamaLocalProvider = bundle.provider_presets.find((preset) => preset.provider_preset === "ollama_local_gateway");
+  assert.equal(ollamaLocal.provider_preset, "ollama_local_gateway");
+  assert.equal(ollamaLocal.privacy.default_mode, "local_only");
+  assert.equal(ollamaLocalProvider.local_execution, true);
+  assert.equal(ollamaLocalProvider.runtime_model_map["ollama_local_gateway:local_private"], "qwen2.5:3b");
   assert.equal(minicpmLocal.provider_preset, "minicpm_local_gateway");
   assert.equal(minicpmLocal.privacy.default_mode, "local_only");
   assert.equal(minicpmRemote.provider_preset, "minicpm_remote_gateway");

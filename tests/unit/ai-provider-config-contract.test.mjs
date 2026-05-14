@@ -147,6 +147,21 @@ test("provider config permits localhost local gateway without a secret", () => {
   assert.equal(result.config.secretRef, "");
 });
 
+test("provider config applies Ollama local defaults", () => {
+  const config = assertValidAiProviderConfig({
+    providerId: "ollama_local_gateway",
+    authMode: "local_no_key"
+  });
+  const descriptor = providerConfigToDescriptorInput(config);
+
+  assert.equal(config.endpointUrl, "http://localhost:11434/v1/chat/completions");
+  assert.equal(config.healthCheck.enabled, true);
+  assert.equal(config.healthCheck.endpointUrl, "http://localhost:11434/api/tags");
+  assert.equal(config.runtimeModelMap["ollama_local_gateway:local_private"], undefined);
+  assert.equal(descriptor.endpointUrl, "http://localhost:11434/v1/chat/completions");
+  assert.equal(descriptor.runtimeModelMap["ollama_local_gateway:local_private"], "qwen2.5:3b");
+});
+
 test("provider config supports MiniCPM local and remote gateway paths", () => {
   const local = validateAiProviderConfig({
     providerId: "minicpm_local_gateway",

@@ -14,6 +14,7 @@ export function normalizeProviderDescriptor(input = {}) {
     authMode: cleanText(input.authMode || input.auth_mode),
     secretRef: cleanText(input.secretRef || input.secret_ref),
     endpointUrl: cleanText(input.endpointUrl || input.endpoint_url),
+    healthCheck: input.healthCheck || input.health_check || null,
     regions: Array.isArray(input.regions) ? [...input.regions] : [],
     noviceVisible: input.noviceVisible === true || input.novice_visible === true,
     supportsHealthCheck: input.supportsHealthCheck !== false && input.supports_health_check !== false,
