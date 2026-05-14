@@ -879,6 +879,30 @@ function assertReviewDecision(decision) {
   throw error;
 }
 
+function recommendedAiInboxActionFromText(text = "") {
+  const raw = cleanText(text).toLowerCase();
+  if (!raw) return "";
+  const match = raw.match(/recommended\s+action\s*[:：]\s*([a-z_ -]+)/i);
+  const candidate = cleanText(match?.[1] || "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-z_].*$/, "");
+  const aliases = {
+    accept: "accept_link",
+    accept_link: "accept_link",
+    create_link: "accept_link",
+    promote: "promote_note",
+    promote_note: "promote_note",
+    create_note: "promote_note",
+    ignore: "ignore",
+    ignored: "ignore",
+    archive: "ignore",
+    needs_more_context: "needs_more_context",
+    more_context: "needs_more_context"
+  };
+  return aliases[candidate] || "";
+}
+
 function hasExplicitConfirmation(body = {}) {
   return body.confirm === true || body.confirmed === true || body.userConfirmed === true || body.user_confirmed === true;
 }
@@ -2346,10 +2370,12 @@ const server = http.createServer(async (req, res) => {
         });
 
         const summaryText = String(response?.output?.content || "").trim();
+        const recommendedAction = recommendedAiInboxActionFromText(summaryText);
         const decorated = [
           "[AI Summary]",
           `provider=${String(response.providerId || "").trim()}`,
           `model=${String(response.modelRef || "").trim()}`,
+          ...(recommendedAction ? [`recommendedAction=${recommendedAction}`] : []),
           "",
           summaryText || "(empty)"
         ].join("\n");
@@ -2367,6 +2393,7 @@ const server = http.createServer(async (req, res) => {
             providerId: response.providerId,
             modelRef: response.modelRef,
             status: response.status,
+            recommendedAction,
             output: response.output,
             usage: response.usage,
             artifact: updatedArtifact,

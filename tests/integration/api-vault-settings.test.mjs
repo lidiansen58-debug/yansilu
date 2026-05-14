@@ -714,11 +714,13 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.equal(summarized.status, 200, JSON.stringify(summarized.json));
   assert.equal(summarized.json.item.providerId, "local_private_gateway");
   assert.equal(summarized.json.item.modelRef, "local_private_gateway:local_private");
+  assert.equal(summarized.json.item.recommendedAction, "accept_link");
   assert.match(summarized.json.item.output.content, /Recommended action: accept_link/);
   assert.equal(summarized.json.item.artifact.status, "revised");
   assert.equal(summarized.json.item.inboxItem.latestDecision.decision, "revised");
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=local_private_gateway/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
 
   assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
   assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));

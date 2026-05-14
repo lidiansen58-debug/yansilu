@@ -180,6 +180,7 @@ const aiInboxState = {
   ,
   aiSummary: "",
   aiSummaryMeta: "",
+  aiSummaryRecommendedAction: "",
   aiSummaryLoading: false,
   aiSummaryError: ""
 };
@@ -763,6 +764,64 @@ function renderAiInboxWorkspace() {
   el.innerHTML = renderAiInboxPanel(aiInboxState);
 }
 
+function recommendedAiInboxActionFromText(text = "") {
+  const raw = String(text || "").toLowerCase();
+  const match = raw.match(/(?:recommended\s+action|recommendedaction)\s*[=:：]\s*([a-z_ -]+)/i);
+  const candidate = String(match?.[1] || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-z_].*$/, "");
+  const aliases = {
+    accept: "accept_link",
+    accept_link: "accept_link",
+    create_link: "accept_link",
+    promote: "promote_note",
+    promote_note: "promote_note",
+    create_note: "promote_note",
+    ignore: "ignore",
+    ignored: "ignore",
+    archive: "ignore",
+    needs_more_context: "needs_more_context",
+    more_context: "needs_more_context"
+  };
+  return aliases[candidate] || "";
+}
+
+function resetAiInboxSummaryState() {
+  aiInboxState.aiSummary = "";
+  aiInboxState.aiSummaryMeta = "";
+  aiInboxState.aiSummaryRecommendedAction = "";
+  aiInboxState.aiSummaryError = "";
+}
+
+function syncAiInboxSummaryFromDetail(detail = null) {
+  const decisions = Array.isArray(detail?.artifact?.userDecisions || detail?.item?.userDecisions)
+    ? detail?.artifact?.userDecisions || detail?.item?.userDecisions
+    : [];
+  const summaryDecision = decisions
+    .slice()
+    .reverse()
+    .find((decision) => String(decision?.comment || "").includes("[AI Summary]"));
+  if (!summaryDecision) {
+    resetAiInboxSummaryState();
+    return;
+  }
+  const comment = String(summaryDecision.comment || "").trim();
+  const provider = comment.match(/^provider=(.+)$/m)?.[1]?.trim() || "";
+  const model = comment.match(/^model=(.+)$/m)?.[1]?.trim() || "";
+  const body = comment
+    .replace(/^\[AI Summary]\s*/m, "")
+    .replace(/^provider=.*$/m, "")
+    .replace(/^model=.*$/m, "")
+    .replace(/^recommendedAction=.*$/m, "")
+    .trim();
+  aiInboxState.aiSummary = body;
+  aiInboxState.aiSummaryMeta = [provider, model].filter(Boolean).join(" / ") || "persisted";
+  aiInboxState.aiSummaryRecommendedAction = recommendedAiInboxActionFromText(comment);
+  aiInboxState.aiSummaryError = "";
+}
+
 async function runAiInboxSummary(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId) return false;
@@ -770,6 +829,7 @@ async function runAiInboxSummary(artifactId) {
   aiInboxState.aiSummaryError = "";
   aiInboxState.aiSummaryMeta = "";
   aiInboxState.aiSummary = "";
+  aiInboxState.aiSummaryRecommendedAction = "";
   renderAiInboxWorkspace();
   try {
     const result = await summarizeAiInboxItem(cleanArtifactId, {
@@ -780,6 +840,7 @@ async function runAiInboxSummary(artifactId) {
     });
     aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
     aiInboxState.aiSummary = String(result?.output?.content || "").trim();
+    aiInboxState.aiSummaryRecommendedAction = String(result?.recommendedAction || "").trim() || recommendedAiInboxActionFromText(aiInboxState.aiSummary);
     if (result?.artifact) {
       aiInboxState.detail = { item: result.inboxItem || aiInboxState.detail?.item || null, artifact: result.artifact };
     } else {
@@ -962,16 +1023,19 @@ async function loadAiInboxDetail(artifactId) {
     aiInboxState.selectedArtifactId = "";
     aiInboxState.detail = null;
     aiInboxState.detailError = "";
+    resetAiInboxSummaryState();
     renderAiInboxWorkspace();
     return null;
   }
   aiInboxState.selectedArtifactId = cleanArtifactId;
   aiInboxState.detailLoading = true;
   aiInboxState.detailError = "";
+  resetAiInboxSummaryState();
   renderAiInboxWorkspace();
   try {
     const detail = await fetchAiInboxItem(cleanArtifactId);
     aiInboxState.detail = detail;
+    syncAiInboxSummaryFromDetail(detail);
     return detail;
   } catch (error) {
     aiInboxState.detail = null;
@@ -1083,6 +1147,31 @@ async function recordAiInboxReviewDecision(decision) {
     aiInboxState.actionLoading = false;
     renderAiInboxWorkspace();
   }
+}
+
+async function applyAiInboxRecommendedAction(action = "") {
+  const normalized = String(action || aiInboxState.aiSummaryRecommendedAction || "").trim();
+  const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
+  if (!artifactId || !normalized) return setStatus("No AI recommended action to apply", "warn");
+  const labels = {
+    accept_link: "create the suggested relation",
+    promote_note: "create a draft note",
+    ignore: "mark this item ignored",
+    needs_more_context: "mark this item as needing more context"
+  };
+  const label = labels[normalized] || normalized;
+  if (!window.confirm(`Apply AI recommended action: ${label}?`)) return false;
+
+  if (normalized === "accept_link") return acceptAiInboxLinkSuggestion(artifactId);
+  if (normalized === "promote_note") return promoteAiInboxArtifactToNote(artifactId);
+  if (normalized === "ignore") return recordAiInboxReviewDecision("ignored");
+  if (normalized === "needs_more_context") {
+    const comment = `${$("aiInboxDecisionComment")?.value || ""}\n\nAI recommendation: needs_more_context`.trim();
+    const commentEl = $("aiInboxDecisionComment");
+    if (commentEl) commentEl.value = comment;
+    return recordAiInboxReviewDecision("revised");
+  }
+  return setStatus(`Unsupported AI recommended action: ${normalized}`, "warn");
 }
 
 async function acceptAiInboxLinkSuggestion(artifactId) {
@@ -6493,6 +6582,13 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 
   if (event.target.closest("#btnAiInboxSummarize")) {
     await runAiInboxSummary(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "");
+    return;
+  }
+
+  const recommendedActionButton = event.target.closest("[data-ai-inbox-recommended-action]");
+  if (recommendedActionButton) {
+    await applyAiInboxRecommendedAction(recommendedActionButton.getAttribute("data-ai-inbox-recommended-action"));
+    return;
   }
 });
 

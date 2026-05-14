@@ -315,6 +315,28 @@ function renderAiSummary(state = {}, item = {}) {
   `;
 }
 
+function renderRecommendedSummaryAction(state = {}) {
+  const action = String(state.aiSummaryRecommendedAction || "").trim();
+  const labels = {
+    accept_link: "Apply: create relation",
+    promote_note: "Apply: draft note",
+    ignore: "Apply: ignore",
+    needs_more_context: "Apply: needs context"
+  };
+  if (!labels[action]) return "";
+  return `
+    <div class="ai-inbox-action-card">
+      <div>
+        <h3>Recommended action</h3>
+        <p>${escapeHtml(action)}</p>
+      </div>
+      <button class="mini-btn primary" type="button" data-ai-inbox-recommended-action="${attr(action)}">
+        ${escapeHtml(labels[action])}
+      </button>
+    </div>
+  `;
+}
+
 function renderLinkSuggestionAction(artifact = {}) {
   if (!artifact || artifact.type !== "LinkSuggestion") return "";
   const link = linkSuggestionSummary(artifact);
@@ -451,6 +473,7 @@ function renderDetail(state = {}) {
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
       ${renderAiSummary(state, item)}
+      ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">
