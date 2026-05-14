@@ -2339,6 +2339,22 @@ const server = http.createServer(async (req, res) => {
           }
         });
 
+        const summaryText = String(response?.output?.content || "").trim();
+        const decorated = [
+          "[AI Summary]",
+          `provider=${String(response.providerId || "").trim()}`,
+          `model=${String(response.modelRef || "").trim()}`,
+          "",
+          summaryText || "(empty)"
+        ].join("\n");
+        const updatedArtifact = artifactStore.recordDecision(aiInboxSummarizeId, {
+          decision: "revised",
+          userId: body.userId || body.user_id || "local_user",
+          comment: decorated
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const updatedItem = inbox.getItem(aiInboxSummarizeId);
+
         return sendJson(res, 200, {
           item: {
             artifactId: aiInboxSummarizeId,
@@ -2346,7 +2362,9 @@ const server = http.createServer(async (req, res) => {
             modelRef: response.modelRef,
             status: response.status,
             output: response.output,
-            usage: response.usage
+            usage: response.usage,
+            artifact: updatedArtifact,
+            inboxItem: updatedItem
           },
           requestId: rid,
           timestamp: new Date().toISOString()

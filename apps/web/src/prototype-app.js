@@ -780,6 +780,11 @@ async function runAiInboxSummary(artifactId) {
     });
     aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
     aiInboxState.aiSummary = String(result?.output?.content || "").trim();
+    if (result?.artifact) {
+      aiInboxState.detail = { item: result.inboxItem || aiInboxState.detail?.item || null, artifact: result.artifact };
+    } else {
+      await loadAiInboxDetail(cleanArtifactId);
+    }
     setStatus("AI 摘要已生成", "ok");
     return true;
   } catch (error) {
