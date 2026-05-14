@@ -6,10 +6,11 @@ function cleanText(value) {
   return String(value || "").trim();
 }
 
-function providerModelId(modelRef = "") {
+function providerModelId(modelRef = "", descriptor = {}) {
   const value = cleanText(modelRef);
-  const separatorIndex = value.indexOf(":");
-  return separatorIndex >= 0 ? value.slice(separatorIndex + 1) : value;
+  const providerId = cleanText(descriptor.providerId || descriptor.provider_id);
+  if (providerId && value.startsWith(`${providerId}:`)) return value.slice(providerId.length + 1);
+  return value;
 }
 
 function runtimeModelRef(modelRef = "", descriptor = {}) {
@@ -99,7 +100,7 @@ export function buildOpenAiCompatibleRequest(request = {}, options = {}) {
   const logicalModelRef = cleanText(request.modelRef || request.model_ref);
   const mappedModelRef = runtimeModelRef(logicalModelRef, descriptor);
   const body = {
-    model: providerModelId(mappedModelRef),
+    model: providerModelId(mappedModelRef, descriptor),
     messages: normalizeMessages(request.messages),
     ...settings
   };

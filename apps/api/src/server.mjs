@@ -1687,7 +1687,10 @@ const server = http.createServer(async (req, res) => {
         runtime = await createAiHarnessRuntime({
           storageMode: "sqlite",
           vaultPath: VAULT_PATH,
-          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          useOpenAiCompatibleAdapter: true,
+          networkEnabled: true,
+          createExecutor: true
         });
 
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
@@ -2293,7 +2296,10 @@ const server = http.createServer(async (req, res) => {
         runtime = await createAiHarnessRuntime({
           storageMode: "sqlite",
           vaultPath: VAULT_PATH,
-          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          useOpenAiCompatibleAdapter: true,
+          networkEnabled: true,
+          createExecutor: true
         });
         const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
           ...mergedSettings,
