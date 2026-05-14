@@ -101,6 +101,7 @@ const APP_BASE_URL = String(process.env.APP_BASE_URL || `http://localhost:${WEB_
 const CWD = process.cwd();
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
+const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -233,6 +234,110 @@ function providerHealthPreview(record = null) {
     message: cleanText(record.message),
     errorType: cleanText(record.errorType || record.error_type),
     retryable: record.retryable === true
+  };
+}
+
+async function fetchJsonWithTimeout(url, options = {}) {
+  if (typeof fetch !== "function") {
+    const error = new Error("fetch is not available in this runtime");
+    error.code = "FETCH_UNAVAILABLE";
+    throw error;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(options.timeoutMs || 2000));
+  try {
+    const response = await fetch(url, {
+      method: options.method || "GET",
+      headers: options.headers,
+      body: options.body,
+      signal: controller.signal
+    });
+    const json = await response.json().catch(() => ({}));
+    return { response, json };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeOllamaPullModelName(value = "") {
+  const model = cleanText(value).toLowerCase();
+  if (!model) return "";
+  if (!/^[a-z0-9][a-z0-9._:-]{0,80}$/.test(model)) return "";
+  return model;
+}
+
+function normalizeOllamaModel(model = {}) {
+  return {
+    name: cleanText(model.name || model.model),
+    modifiedAt: cleanText(model.modified_at || model.modifiedAt),
+    size: Number(model.size || 0),
+    parameterSize: cleanText(model.details?.parameter_size || model.parameter_size),
+    quantizationLevel: cleanText(model.details?.quantization_level || model.quantization_level)
+  };
+}
+
+async function buildOllamaModelsPreview() {
+  const healthEndpointUrl = `${OLLAMA_BASE_URL}/api/tags`;
+  const chatEndpointUrl = `${OLLAMA_BASE_URL}/v1/chat/completions`;
+  const startedAt = Date.now();
+  try {
+    const { response, json } = await fetchJsonWithTimeout(healthEndpointUrl, { timeoutMs: 2500 });
+    const models = Array.isArray(json.models) ? json.models.map(normalizeOllamaModel).filter((model) => model.name) : [];
+    return {
+      runtimeId: "ollama",
+      displayName: "Ollama",
+      status: response.ok ? "available" : "unavailable",
+      baseUrl: OLLAMA_BASE_URL,
+      chatEndpointUrl,
+      healthEndpointUrl,
+      latencyMs: Date.now() - startedAt,
+      models,
+      recommendedModels: models
+        .map((model) => model.name)
+        .filter((name) => /qwen|llama|phi|gemma|mistral/i.test(name))
+        .slice(0, 6),
+      message: response.ok ? "" : `Ollama returned HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      runtimeId: "ollama",
+      displayName: "Ollama",
+      status: "unavailable",
+      baseUrl: OLLAMA_BASE_URL,
+      chatEndpointUrl,
+      healthEndpointUrl,
+      latencyMs: Date.now() - startedAt,
+      models: [],
+      recommendedModels: ["qwen2.5:7b", "qwen2.5:3b", "llama3.1:8b", "phi3.5:latest", "gemma2:2b"],
+      message: cleanText(error?.message) || "Ollama is not reachable."
+    };
+  }
+}
+
+async function pullOllamaModel(modelName = "qwen2.5:7b") {
+  const model = normalizeOllamaPullModelName(modelName) || "qwen2.5:7b";
+  const startedAt = Date.now();
+  const pullEndpointUrl = `${OLLAMA_BASE_URL}/api/pull`;
+  const { response, json } = await fetchJsonWithTimeout(pullEndpointUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, stream: false }),
+    timeoutMs: 30 * 60 * 1000
+  });
+  if (!response.ok) {
+    const error = new Error(cleanText(json?.error || json?.message) || `Ollama pull returned HTTP ${response.status}`);
+    error.status = response.status;
+    error.details = json;
+    throw error;
+  }
+  const runtime = await buildOllamaModelsPreview();
+  return {
+    runtimeId: "ollama",
+    model,
+    status: cleanText(json.status) || "success",
+    latencyMs: Date.now() - startedAt,
+    pullEndpointUrl,
+    runtime
   };
 }
 
@@ -1525,6 +1630,31 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 500, err("AI_PREFERENCES_LOAD_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai/local-runtimes/ollama/models") {
+      const item = await buildOllamaModelsPreview();
+      return sendJson(res, 200, {
+        item,
+        requestId: rid,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/pull-model") {
+      try {
+        const body = await readJson(req);
+        const requestedModel = normalizeOllamaPullModelName(body.model || body.modelName || body.model_name);
+        if (!requestedModel) return sendJson(res, 400, err("OLLAMA_MODEL_REQUIRED", "valid Ollama model name required", rid));
+        const item = await pullOllamaModel(requestedModel);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 502, err("OLLAMA_PULL_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 

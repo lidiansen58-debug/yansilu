@@ -893,6 +893,54 @@ test("harness logs model route and uses selected tier", async () => {
   assert.equal(result.artifacts[0].model.tier, "standard");
 });
 
+test("hybrid runtime routes lightweight tasks to local model and keeps deep tasks on cloud", async () => {
+  const aiPreferencesStore = createInMemoryAiPreferencesStore();
+  aiPreferencesStore.setUserPreferences({
+    workspaceId: "local_workspace",
+    userId: "local_user",
+    userMode: "Auto",
+    modelPack: "Starter Auto",
+    privacy: { defaultMode: "normal", allowCloud: true, localPreferred: true },
+    advancedSettings: {
+      runtimeMode: "hybrid",
+      localModel: "qwen2.5:3b"
+    }
+  });
+  const harness = createAiHarness({ aiPreferencesStore });
+
+  const relation = await harness.runTask({
+    taskId: "task_hybrid_relation",
+    agentId: "connection_agent",
+    taskType: "relation_scan",
+    currentNote: {
+      id: "note_hybrid_relation",
+      title: "Hybrid relation note",
+      body: "Hybrid local routing should handle lightweight relation scans."
+    }
+  });
+  const relationProvider = relation.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const relationRoute = relation.run.events.find((event) => event.eventType === "model_route_selected");
+  assert.equal(relationProvider.summary.providerId, "local_private_gateway");
+  assert.equal(relationProvider.summary.hybridRoutingReason, "lightweight_agent");
+  assert.equal(relationRoute.summary.modelRef, "local_private_gateway:qwen2.5:3b");
+
+  const reflection = await harness.runTask({
+    taskId: "task_hybrid_reflection",
+    agentId: "reflection_agent",
+    taskType: "reflection",
+    currentNote: {
+      id: "note_hybrid_reflection",
+      title: "Hybrid reflection note",
+      body: "Hybrid mode should keep deep reflection on the cloud route."
+    }
+  });
+  const reflectionProvider = reflection.run.events.find((event) => event.eventType === "provider_adapter_selected");
+  const reflectionRoute = reflection.run.events.find((event) => event.eventType === "model_route_selected");
+  assert.equal(reflectionProvider.summary.providerId, "platform_managed_openai");
+  assert.equal(reflectionProvider.summary.hybridRoutingReason, "");
+  assert.equal(reflectionRoute.summary.selectedTier, "strong_reasoning");
+});
+
 test("harness pauses expensive runs before provider calls until budget is confirmed", async () => {
   const provider = createMockProviderAdapter();
   const harness = createAiHarness({ providerAdapter: provider });

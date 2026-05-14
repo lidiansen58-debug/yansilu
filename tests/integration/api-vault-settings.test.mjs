@@ -50,6 +50,50 @@ async function startHealthProbeServer(status = 200) {
   };
 }
 
+async function startOllamaProbeServer(models = []) {
+  const modelList = [...models];
+  const server = http.createServer(async (req, res) => {
+    if (req.url === "/api/tags") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ models: modelList }));
+      return;
+    }
+    if (req.url === "/api/pull" && req.method === "POST") {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      const name = String(body.model || "").trim();
+      if (name && !modelList.some((model) => model.name === name || model.model === name)) {
+        modelList.unshift({
+          name,
+          model: name,
+          modified_at: "2026-05-14T00:00:00.000Z",
+          size: 4683087332,
+          details: {
+            parameter_size: "7.6B",
+            quantization_level: "Q4_K_M"
+          }
+        });
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "success" }));
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false }));
+  });
+  await new Promise((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const port = typeof address === "object" ? address.port : 0;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    close: () => server.close()
+  };
+}
+
 async function waitForHealth(baseUrl) {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
@@ -247,6 +291,83 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(preview.json.item.route.localOnly, true);
   assert.equal(preview.json.item.access.keyMode, "no_key");
   assert.equal(preview.json.item.access.ready, true);
+});
+
+test("AI local runtime API detects Ollama-compatible models", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-local-runtime-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const ollama = await startOllamaProbeServer([
+    {
+      name: "qwen2.5:3b",
+      modified_at: "2026-05-14T00:00:00.000Z",
+      size: 2400000000,
+      details: {
+        parameter_size: "3B",
+        quantization_level: "Q4_K_M"
+      }
+    }
+  ]);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      OLLAMA_BASE_URL: ollama.baseUrl
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => ollama.close());
+  await waitForHealth(baseUrl);
+
+  const detected = await getJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/models");
+  assert.equal(detected.status, 200, JSON.stringify(detected.json));
+  assert.equal(detected.json.item.status, "available");
+  assert.equal(detected.json.item.chatEndpointUrl, `${ollama.baseUrl}/v1/chat/completions`);
+  assert.equal(detected.json.item.healthEndpointUrl, `${ollama.baseUrl}/api/tags`);
+  assert.equal(detected.json.item.models[0].name, "qwen2.5:3b");
+  assert.equal(detected.json.item.models[0].parameterSize, "3B");
+  assert.ok(detected.json.item.recommendedModels.includes("qwen2.5:3b"));
+});
+
+test("AI local runtime API can pull an Ollama model", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-local-pull-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const ollama = await startOllamaProbeServer([]);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      OLLAMA_BASE_URL: ollama.baseUrl
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => ollama.close());
+  await waitForHealth(baseUrl);
+
+  const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
+    model: "qwen2.5:7b"
+  });
+  assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
+  assert.equal(pulled.json.item.status, "success");
+  assert.equal(pulled.json.item.model, "qwen2.5:7b");
+  assert.equal(pulled.json.item.runtime.models[0].name, "qwen2.5:7b");
+  assert.equal(pulled.json.item.runtime.models[0].parameterSize, "7.6B");
+
+  const invalid = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
+    model: "https://example.test/model"
+  });
+  assert.equal(invalid.status, 400, JSON.stringify(invalid.json));
 });
 
 test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) => {

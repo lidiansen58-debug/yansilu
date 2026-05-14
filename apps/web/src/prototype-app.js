@@ -93,6 +93,8 @@ import {
   fetchAiProviderConfigs,
   fetchImportRecord,
   fetchAiPreferences,
+  fetchOllamaModels,
+  pullOllamaModel,
   listImportRecords,
   listIndexCards,
   fetchNote,
@@ -178,12 +180,19 @@ const aiInboxState = {
 const settingsState = {
   vault: null,
   ai: {
+    runtimeMode: "auto",
     userMode: "Auto",
     modelPack: "Starter Auto",
     advancedModelRef: "",
     secretRef: "",
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
+    localModel: "",
+    localRuntimeStatus: "unknown",
+    localRuntimeModels: [],
+    localRuntimeChecking: false,
+    localRuntimePulling: false,
+    localRuntimeError: "",
     providerConfigs: [],
     providerConfigSaving: false,
     providerHealthChecking: false,
@@ -240,12 +249,17 @@ const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
 const APP_VERSION = "0.1.0";
 const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
+const AI_RUNTIME_MODE_KEY = "yansilu:ai:runtime-mode";
 const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
 const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
+const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
+const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
+const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
+const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
 
@@ -454,27 +468,33 @@ function writeStoredText(key, value) {
 }
 
 function loadAiSettingsFromStorage() {
+  const storedRuntimeMode = String(readStoredText(AI_RUNTIME_MODE_KEY, "") || "").trim();
   const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
+  if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
   settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
+  settingsState.ai.localModel = storedLocalModel;
 }
 
 function persistAiSettingsToStorage() {
+  writeStoredText(AI_RUNTIME_MODE_KEY, settingsState.ai.runtimeMode);
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
+  writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
 }
 
 function providerPresetForModelPack(modelPack = "") {
@@ -483,6 +503,64 @@ function providerPresetForModelPack(modelPack = "") {
   if (normalized === "china optimized") return "china_optimized_gateway";
   if (normalized === "privacy first") return "local_private_gateway";
   return "platform_managed_openai";
+}
+
+function normalizeAiRuntimeMode(value = "") {
+  const mode = String(value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
+  if (["local", "local_only", "private"].includes(mode)) return "local_only";
+  if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
+  if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
+  return "auto";
+}
+
+function aiPrivacyPolicyForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") return { defaultMode: "local_only", allowCloud: false, localPreferred: true };
+  if (mode === "hybrid") return { defaultMode: "normal", allowCloud: true, localPreferred: true };
+  if (mode === "cloud_only") return { defaultMode: "normal", allowCloud: true, localPreferred: false };
+  return {};
+}
+
+function aiFallbackPolicyForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") {
+    return {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: false,
+      allowCloudFallback: false,
+      requiresConfirmationForCloud: true
+    };
+  }
+  if (mode === "hybrid") {
+    return {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: true,
+      allowCloudFallback: true,
+      requiresConfirmationForCloud: false,
+      localPreferred: true
+    };
+  }
+  return {};
+}
+
+function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") return { modelPack: "Privacy First", userMode: "Local / Private" };
+  if (mode === "cloud_only") return { modelPack: "Starter Auto", userMode: "Balanced" };
+  if (mode === "hybrid") return { modelPack: "Starter Auto", userMode: "Auto" };
+  return { modelPack: "Starter Auto", userMode: "Auto" };
+}
+
+function applyOllamaLocalModelDefaults() {
+  if (!settingsState.ai.localModel) return;
+  settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
+  settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
+  settingsState.ai.secretRef = "";
+  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only") {
+    settingsState.ai.advancedModelRef = `local_private_gateway:${settingsState.ai.localModel}`;
+  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+    settingsState.ai.advancedModelRef = "";
+  }
 }
 
 function authModeForProvider(providerId = "", preview = null) {
@@ -520,18 +598,22 @@ function aiSettingsPayload() {
   return {
     userMode: settingsState.ai.userMode,
     modelPack: settingsState.ai.modelPack,
+    privacy: aiPrivacyPolicyForRuntimeMode(settingsState.ai.runtimeMode),
+    fallbackPolicy: aiFallbackPolicyForRuntimeMode(settingsState.ai.runtimeMode),
     advancedSettings: {
+      runtimeMode: settingsState.ai.runtimeMode,
+      ...(settingsState.ai.localModel ? { localModel: settingsState.ai.localModel } : {}),
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
       ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
     }
   };
 }
 
-function aiProviderConfigPayload() {
-  const providerId = currentAiProviderId();
+function aiProviderConfigPayload(options = {}) {
+  const providerId = String(options.providerId || currentAiProviderId()).trim();
   return {
     providerId,
-    authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
+    authMode: options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview),
     status: "enabled",
     ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {}),
     ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
@@ -566,6 +648,117 @@ async function syncAiSettingsToApi() {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function saveLocalOllamaProviderConfig() {
+  const saved = await saveAiProviderConfig(aiProviderConfigPayload({
+    providerId: "local_private_gateway",
+    authMode: "local_no_key"
+  }));
+  upsertAiProviderConfig(saved);
+  return saved;
+}
+
+function preferredLocalModelName(models = []) {
+  const names = (Array.isArray(models) ? models : []).map((model) => String(model?.name || model || "").trim()).filter(Boolean);
+  const preferred = [
+    /qwen2\.5.*7b/i,
+    /qwen.*7b/i,
+    /qwen2\.5.*3b/i,
+    /llama3\.1.*8b/i,
+    /phi.*3\.5/i,
+    /gemma2.*2b/i
+  ];
+  for (const pattern of preferred) {
+    const match = names.find((name) => pattern.test(name));
+    if (match) return match;
+  }
+  return names[0] || "";
+}
+
+function hasLocalModel(modelName = "") {
+  const target = String(modelName || "").trim().toLowerCase();
+  if (!target) return false;
+  return (Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : []).some(
+    (model) => String(model?.name || model || "").trim().toLowerCase() === target
+  );
+}
+
+function ollamaPullModelName() {
+  if (!hasLocalModel(OLLAMA_RECOMMENDED_MODEL)) return OLLAMA_RECOMMENDED_MODEL;
+  return String(settingsState.ai.localModel || preferredLocalModelName(settingsState.ai.localRuntimeModels) || OLLAMA_RECOMMENDED_MODEL).trim();
+}
+
+async function detectOllamaModels(options = {}) {
+  settingsState.ai.localRuntimeChecking = true;
+  settingsState.ai.localRuntimeError = "";
+  if (options.render !== false) renderSettingsPanel();
+  try {
+    const runtime = await fetchOllamaModels();
+    const models = Array.isArray(runtime?.models) ? runtime.models : [];
+    settingsState.ai.localRuntimeStatus = String(runtime?.status || "unknown");
+    settingsState.ai.localRuntimeModels = models;
+    settingsState.ai.localRuntimeError = settingsState.ai.localRuntimeStatus === "available" ? "" : String(runtime?.message || "");
+    if (!settingsState.ai.localModel) settingsState.ai.localModel = preferredLocalModelName(models);
+    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
+    persistAiSettingsToStorage();
+    if (settingsState.ai.localModel && ["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await syncAiSettingsToApi();
+      await saveLocalOllamaProviderConfig();
+      await refreshAiRoutePreview({ render: false });
+    }
+    if (options.silent !== true) {
+      const count = models.length;
+      if (settingsState.ai.localRuntimeStatus === "available") {
+        setStatus(count ? `已检测到 ${count} 个 Ollama 本地模型。` : "Ollama 可连接，但还没有本地模型。", count ? "ok" : "warn");
+      } else {
+        const message = settingsState.ai.localRuntimeError || "Ollama 当前不可用。";
+        setStatus(`Ollama 不可用：${message}`, "warn");
+      }
+    }
+    return runtime;
+  } catch (error) {
+    settingsState.ai.localRuntimeStatus = "unavailable";
+    settingsState.ai.localRuntimeModels = [];
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    if (options.silent !== true) setStatus(`Ollama 检测失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimeChecking = false;
+    if (options.render !== false) renderSettingsPanel();
+  }
+}
+
+async function pullRecommendedOllamaModel() {
+  const modelName = ollamaPullModelName();
+  settingsState.ai.localRuntimePulling = true;
+  settingsState.ai.localRuntimeError = "";
+  renderSettingsPanel();
+  setStatus(`正在下载本地模型：${modelName}。这可能需要几分钟。`, "warn");
+  try {
+    const result = await pullOllamaModel(modelName);
+    const runtime = result?.runtime || await fetchOllamaModels();
+    const models = Array.isArray(runtime?.models) ? runtime.models : [];
+    settingsState.ai.localRuntimeStatus = String(runtime?.status || "available");
+    settingsState.ai.localRuntimeModels = models;
+    settingsState.ai.localModel = modelName;
+    applyOllamaLocalModelDefaults();
+    persistAiSettingsToStorage();
+    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await syncAiSettingsToApi();
+      await saveLocalOllamaProviderConfig();
+    }
+    await refreshAiRoutePreview({ render: false });
+    setStatus(`本地模型已就绪：${modelName}`, "ok");
+    return result;
+  } catch (error) {
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    setStatus(`本地模型下载失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimePulling = false;
+    renderSettingsPanel();
   }
 }
 
@@ -3151,6 +3344,16 @@ function renderAiRoutePreview() {
     return;
   }
 
+  function localRuntimeSummaryText() {
+    const status = String(settingsState.ai.localRuntimeStatus || "unknown").trim() || "unknown";
+    const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+    const selectedModel = String(settingsState.ai.localModel || "").trim();
+    if (status === "available" && selectedModel) return `Ollama 可连接 / ${selectedModel}`;
+    if (status === "available") return `Ollama 可连接 / ${models.length} 个模型`;
+    if (status === "unavailable") return "Ollama 不可用";
+    return "Ollama 未检测";
+  }
+
   const provider = preview.provider || {};
   const route = preview.route || {};
   const access = preview.access || {};
@@ -3172,14 +3375,74 @@ function renderAiRoutePreview() {
     `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
   ].join("");
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
+    ? `<div>本地：${escapeHtml(localRuntimeSummaryText())}</div>`
+    : "";
+  const hybridLine = runtimeMode === "hybrid"
+    ? `<div>混合：本地模型已为隐私/快速任务准备；深度任务仍保留云端路由。</div>`
+    : "";
   detail.innerHTML = `
     <div><strong>${escapeHtml(provider.displayName || provider.providerId || "未知 Provider")}</strong></div>
     <div>模型包：${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")}</div>
     <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
+    ${localRuntimeLine}
+    ${hybridLine}
     <div>${escapeHtml(healthDetail)}</div>
     <div>${escapeHtml(access.message || "")}</div>
   `;
+}
+
+function renderAiLocalModelControls() {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const runtimeSelect = $("settingsAiRuntimeMode");
+  if (runtimeSelect && runtimeSelect.value !== runtimeMode) runtimeSelect.value = runtimeMode;
+
+  const modelSelect = $("settingsAiLocalModel");
+  const modelLabel = $("settingsAiLocalModelLabel");
+  const showLocalModel = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  modelSelect?.classList.toggle("hidden", !showLocalModel);
+  modelLabel?.classList.toggle("hidden", !showLocalModel);
+  if (modelSelect) {
+    const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+    const selectedModel = String(settingsState.ai.localModel || "").trim();
+    const names = models.map((model) => String(model?.name || "").trim()).filter(Boolean);
+    const optionNames = selectedModel && !names.includes(selectedModel) ? [selectedModel, ...names] : names;
+    if (settingsState.ai.localRuntimeChecking) {
+      modelSelect.innerHTML = `<option value="">正在检测 Ollama...</option>`;
+    } else if (optionNames.length) {
+      modelSelect.innerHTML = [
+        `<option value="">自动选择本地模型</option>`,
+        ...optionNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      ].join("");
+      modelSelect.value = selectedModel;
+    } else {
+      modelSelect.innerHTML = `<option value="">未检测到 Ollama 模型</option>`;
+    }
+    modelSelect.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking;
+  }
+
+  const detectButton = $("settingsAiDetectOllama");
+  if (detectButton) {
+    detectButton.disabled = settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling;
+    detectButton.textContent = settingsState.ai.localRuntimeChecking ? "正在检测 Ollama..." : "检测 Ollama";
+  }
+
+  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel);
+
+  const pullButton = $("settingsAiPullOllamaModel");
+  if (pullButton) {
+    const modelName = ollamaPullModelName();
+    const installed = hasLocalModel(modelName);
+    pullButton.classList.toggle("hidden", !showLocalModel);
+    pullButton.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
+    pullButton.textContent = settingsState.ai.localRuntimePulling
+      ? `正在下载 ${modelName}...`
+      : installed
+        ? `已安装 ${modelName}`
+        : `下载 ${modelName}`;
+  }
 }
 
 function renderAiProviderConfigControls() {
@@ -3296,6 +3559,8 @@ function renderSettingsPanel() {
     feedbackLink.textContent = FEEDBACK_REPOSITORY_READY ? href : "等待填写真实 GitHub 仓库";
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
+
+  renderAiLocalModelControls();
 
   const aiMode = $("settingsAiUserMode");
   if (aiMode) {
@@ -4185,6 +4450,11 @@ async function refreshVaultSettings() {
       if (userMode) settingsState.ai.userMode = userMode;
       const modelPack = String(prefs.modelPack || prefs.model_pack || "").trim();
       if (modelPack) settingsState.ai.modelPack = modelPack;
+      const advancedSettings = prefs.advancedSettings || prefs.advanced_settings || {};
+      const runtimeMode = String(advancedSettings.runtimeMode || advancedSettings.runtime_mode || "").trim();
+      if (runtimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(runtimeMode);
+      const localModel = String(advancedSettings.localModel || advancedSettings.local_model || "").trim();
+      if (localModel) settingsState.ai.localModel = localModel;
       const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
       settingsState.ai.advancedModelRef = advancedRef;
       const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
@@ -4193,6 +4463,9 @@ async function refreshVaultSettings() {
     }
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
+    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await detectOllamaModels({ silent: true, render: false });
+    }
     await refreshAiRoutePreview({ render: false });
     await refreshScheduledTaskTemplates({ silent: true });
     await refreshScheduledTasks({ silent: true });
@@ -5271,6 +5544,37 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   }
 });
 
+$("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
+  const next = normalizeAiRuntimeMode(event?.target?.value || "auto");
+  const defaults = aiDefaultsForRuntimeMode(next);
+  settingsState.ai.runtimeMode = next;
+  settingsState.ai.userMode = defaults.userMode;
+  settingsState.ai.modelPack = defaults.modelPack;
+  settingsState.ai.routePreview = null;
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+  if (next === "local_only" || next === "hybrid") {
+    settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
+    settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
+    settingsState.ai.secretRef = "";
+    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
+    else if (settingsState.ai.advancedModelRef && !settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) settingsState.ai.advancedModelRef = "";
+  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+    settingsState.ai.advancedModelRef = "";
+  }
+  persistAiSettingsToStorage();
+  await syncAiSettingsToApi();
+  if ((next === "local_only" || next === "hybrid") && !settingsState.ai.localRuntimeModels.length) {
+    await detectOllamaModels({ silent: true, render: false });
+  }
+  if ((next === "local_only" || next === "hybrid") && settingsState.ai.localModel) {
+    await saveLocalOllamaProviderConfig();
+  }
+  await refreshAiRoutePreview();
+  renderSettingsPanel();
+  setStatus(`AI 运行模式已切换为：${next}`, "ok");
+});
+
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Auto").trim() || "Auto";
   settingsState.ai.userMode = next;
@@ -5284,10 +5588,13 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
   settingsState.ai.modelPack = next;
+  if (next === "Privacy First") settingsState.ai.runtimeMode = "local_only";
+  else if (settingsState.ai.runtimeMode === "local_only") settingsState.ai.runtimeMode = "auto";
   settingsState.ai.routePreview = null;
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.secretRef = "";
+  if (settingsState.ai.runtimeMode === "local_only" && settingsState.ai.localModel) applyOllamaLocalModelDefaults();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   applyActiveAiProviderConfigToState();
@@ -5296,6 +5603,23 @@ $("settingsAiModelPack")?.addEventListener("change", (event) => {
   refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(`AI 模型包已切换为：${next}`, "ok");
+});
+
+$("settingsAiLocalModel")?.addEventListener("change", async (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.localModel = next;
+  settingsState.ai.routePreview = null;
+  if (next) applyOllamaLocalModelDefaults();
+  persistAiSettingsToStorage();
+  await syncAiSettingsToApi();
+  if (next && ["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+    await saveLocalOllamaProviderConfig();
+    await refreshAiRoutePreview();
+  } else {
+    await refreshAiRoutePreview();
+  }
+  renderSettingsPanel();
+  setStatus(next ? `本地模型已选择：${next}` : "本地模型选择已清空。", "ok");
 });
 
 $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
@@ -5359,6 +5683,14 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
   await checkCurrentAiProviderHealth();
+});
+
+$("settingsAiDetectOllama")?.addEventListener("click", async () => {
+  await detectOllamaModels();
+});
+
+$("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
+  await pullRecommendedOllamaModel();
 });
 
 $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {

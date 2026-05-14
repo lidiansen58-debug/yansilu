@@ -4363,12 +4363,14 @@
     .settings-shell {
       display: grid;
       gap: 16px;
+      min-width: 0;
     }
     .settings-grid {
       display: grid;
       grid-template-columns: minmax(360px, 1.05fr) minmax(260px, 0.95fr);
       gap: 16px;
       align-items: start;
+      min-width: 0;
     }
     .settings-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
@@ -4381,6 +4383,7 @@
       gap: 12px;
       align-content: start;
       box-shadow: 0 16px 30px rgba(23, 34, 33, 0.05);
+      min-width: 0;
     }
     .settings-card-head {
       display: flex;
@@ -4399,6 +4402,7 @@
       font-size: 12px;
       line-height: 1.65;
       margin-top: 4px;
+      overflow-wrap: anywhere;
     }
     .settings-stat-row {
       display: flex;
@@ -4417,6 +4421,8 @@
       gap: 6px;
       font-size: 11px;
       font-weight: 700;
+      max-width: 100%;
+      white-space: normal;
     }
     .settings-stat-badge.ok {
       border-color: #bfd9c9;
@@ -4470,6 +4476,7 @@
       font-size: 12px;
       color: #64748b;
       line-height: 1.7;
+      overflow-wrap: anywhere;
     }
     .settings-mini-list {
       margin: 0;
@@ -5138,6 +5145,9 @@
       .module-stage {
         padding: 16px;
       }
+      .settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
       .import-history-controls {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -5217,6 +5227,27 @@
       }
     }
     @media (max-width: 700px) {
+      .module-header {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 16px 18px 14px;
+      }
+      .module-header h1 {
+        font-size: 24px;
+      }
+      .module-header-actions {
+        justify-content: flex-start;
+      }
+      .module-stage {
+        padding: 14px 12px 16px;
+      }
+      .settings-card {
+        border-radius: 12px;
+        padding: 14px;
+      }
+      .settings-card-head {
+        flex-direction: column;
+      }
       .import-card {
         padding: 14px;
       }
@@ -7764,6 +7795,14 @@
                     </div>
                   </div>
                   <div class="import-grid">
+                    <label for="settingsAiRuntimeMode">AI 运行模式</label>
+                    <select id="settingsAiRuntimeMode">
+                      <option value="auto">自动（推荐）</option>
+                      <option value="local_only">仅本地</option>
+                      <option value="cloud_only">仅云端</option>
+                      <option value="hybrid">混合（本地 + 云端）</option>
+                    </select>
+
                     <label for="settingsAiModelPack">模型包</label>
                     <select id="settingsAiModelPack">
                       <option value="Starter Auto">默认自动</option>
@@ -7783,6 +7822,11 @@
                       <option value="Local / Private">本地 / 私密</option>
                     </select>
 
+                    <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
+                    <select id="settingsAiLocalModel">
+                      <option value="">检测 Ollama 后选择</option>
+                    </select>
+
                     <label for="settingsAiAdvancedModelRef">模型 ID（高级）</label>
                     <input id="settingsAiAdvancedModelRef" placeholder="留空=自动选择（例如：platform_managed_openai:standard）" />
 
@@ -7798,6 +7842,9 @@
                   <div class="settings-stat-row">
                     <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前 Provider 配置</button>
                     <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
+                    <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                    <a class="mini-btn hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                    <button class="mini-btn hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen2.5:7b</button>
                     <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                   </div>
                   <div class="settings-stat-row" id="settingsAiRouteStats">

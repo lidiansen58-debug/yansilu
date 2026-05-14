@@ -355,6 +355,84 @@ test("prototype API fetches AI inbox evaluation summary with filters", async () 
   }
 });
 
+test("prototype API fetches Ollama local runtime models", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-models", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "available",
+          baseUrl: "http://127.0.0.1:11434",
+          chatEndpointUrl: "http://127.0.0.1:11434/v1/chat/completions",
+          healthEndpointUrl: "http://127.0.0.1:11434/api/tags",
+          models: [{ name: "qwen2.5:3b", parameterSize: "3B" }]
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const runtime = await api.fetchOllamaModels();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/models");
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(runtime.runtimeId, "ollama");
+    assert.equal(runtime.status, "available");
+    assert.equal(runtime.models[0].name, "qwen2.5:3b");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API pulls an Ollama local runtime model", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-pull-model", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          model: "qwen2.5:7b",
+          status: "success",
+          runtime: {
+            models: [{ name: "qwen2.5:7b" }]
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const result = await api.pullOllamaModel("qwen2.5:7b");
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/pull-model");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen2.5:7b" });
+    assert.equal(result.status, "success");
+    assert.equal(result.runtime.models[0].name, "qwen2.5:7b");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API forces accept-link confirmation", async () => {
   const previousFetch = globalThis.fetch;
   const api = await importPrototypeApi("ai-inbox-accept-link", { __API_BASE__: "http://127.0.0.1:3999" });

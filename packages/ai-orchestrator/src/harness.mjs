@@ -109,6 +109,68 @@ function modelRefFromSettings(input = {}) {
   return cleanText(input.modelRef || input.model_ref || input.advancedSettings?.modelRef || input.advancedSettings?.model_ref);
 }
 
+function localModelFromSettings(input = {}) {
+  return cleanText(input.localModel || input.local_model || input.advancedSettings?.localModel || input.advancedSettings?.local_model);
+}
+
+function runtimeModeFromSettings(input = {}) {
+  return cleanText(input.runtimeMode || input.runtime_mode || input.advancedSettings?.runtimeMode || input.advancedSettings?.runtime_mode)
+    .toLowerCase()
+    .replace(/[\s/-]+/g, "_");
+}
+
+function requestedModelTier(input = {}, agent = {}) {
+  return cleanText(input.modelTier || input.model_tier || agent.defaultModelTier) || "standard";
+}
+
+function shouldPreferLocalForHybridRun({ settingsInput = {}, userSettings = {}, input = {}, agent = {}, privacyMode = "normal" } = {}) {
+  if (privacyMode === "local_only") return { preferLocal: true, reason: "privacy_local_only" };
+  if (input.forceCloud === true || input.force_cloud === true) return { preferLocal: false, reason: "force_cloud" };
+  if (input.forceLocal === true || input.force_local === true) return { preferLocal: true, reason: "force_local" };
+
+  const runtimeMode = runtimeModeFromSettings(settingsInput);
+  const hybridEnabled = runtimeMode === "hybrid" || (userSettings.privacy?.localPreferred === true && userSettings.privacy?.allowCloud !== false);
+  if (!hybridEnabled) return { preferLocal: false, reason: "hybrid_disabled" };
+  if (!localModelFromSettings(settingsInput)) return { preferLocal: false, reason: "local_model_missing" };
+
+  const agentId = cleanText(agent.agentId || agent.agent_id);
+  const taskType = cleanText(input.taskType || input.task_type).toLowerCase();
+  const tier = requestedModelTier(input, agent);
+  if (agentId === "connection_agent") return { preferLocal: true, reason: "lightweight_agent" };
+  if (["router_fast", "cheap_fast", "guardrail", "local_private"].includes(tier)) return { preferLocal: true, reason: "lightweight_tier" };
+  if (/relation|link|tag|classif|summar|summary|title|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
+  return { preferLocal: false, reason: "cloud_preferred_task" };
+}
+
+function settingsForHybridRun({ settingsInput = {}, userSettings = {}, input = {}, agent = {}, privacyMode = "normal" } = {}) {
+  const decision = shouldPreferLocalForHybridRun({ settingsInput, userSettings, input, agent, privacyMode });
+  if (!decision.preferLocal) return { settingsInput, decision };
+
+  const localProviderPreset =
+    cleanText(settingsInput.localProviderPreset || settingsInput.local_provider_preset || settingsInput.advancedSettings?.localProviderPreset || settingsInput.advancedSettings?.local_provider_preset) ||
+    "local_private_gateway";
+  const localModel = localModelFromSettings(settingsInput);
+  const modelRef = localModel ? `${localProviderPreset}:${localModel}` : modelRefFromSettings(settingsInput);
+  return {
+    settingsInput: {
+      ...settingsInput,
+      providerPreset: localProviderPreset,
+      provider_preset: localProviderPreset,
+      authMode: cleanText(settingsInput.authMode || settingsInput.auth_mode) || "local_no_key",
+      ...(modelRef ? { modelRef } : {}),
+      advancedSettings: {
+        ...(settingsInput.advancedSettings || settingsInput.advanced_settings || {}),
+        ...(modelRef ? { modelRef } : {})
+      }
+    },
+    decision: {
+      ...decision,
+      providerPreset: localProviderPreset,
+      modelRef
+    }
+  };
+}
+
 function runIdentity(input = {}, options = {}) {
   return {
     userId: cleanText(input.userId || input.user_id || options.userId || options.user_id) || "local_user",
@@ -358,8 +420,13 @@ export function createAiHarness(options = {}) {
       const agent = registry.get(agentId);
       const { identity, storedPreferences, settingsInput: baseSettingsInput } = await resolveRunSettings({ options, input, aiPreferencesStore });
       const baseUserSettings = resolveAiUserSettings(baseSettingsInput);
-      const providerConfig = fixedProviderAdapter ? null : await loadProviderConfig(providerConfigStore, baseSettingsInput, baseUserSettings);
-      const settingsInput = settingsWithProviderConfig(baseSettingsInput, providerConfig);
+      const privacyMode =
+        cleanText(input.contextPack?.privacy?.mode || input.privacyMode || input.privacy_mode) ||
+        baseUserSettings.privacy.defaultMode ||
+        "normal";
+      const hybridRun = settingsForHybridRun({ settingsInput: baseSettingsInput, userSettings: baseUserSettings, input, agent, privacyMode });
+      const providerConfig = fixedProviderAdapter ? null : await loadProviderConfig(providerConfigStore, hybridRun.settingsInput, baseUserSettings);
+      const settingsInput = settingsWithProviderConfig(hybridRun.settingsInput, providerConfig);
       const userSettings = resolveAiUserSettings(settingsInput);
       const adapterSelection = fixedProviderAdapter
         ? { adapter: fixedProviderAdapter, source: "explicit", descriptor: fixedProviderAdapter.descriptor }
@@ -368,10 +435,6 @@ export function createAiHarness(options = {}) {
       activeProviderAdapter = providerAdapter;
       const agentRuntime = fixedAgentRuntime || createProviderAgentRuntime({ providerAdapter });
       activeAgentRuntime = agentRuntime;
-      const privacyMode =
-        cleanText(input.contextPack?.privacy?.mode || input.privacyMode || input.privacy_mode) ||
-        userSettings.privacy.defaultMode ||
-        "normal";
       const run = runLog.startRun({
         taskId,
         agentId: agent.agentId,
@@ -391,6 +454,7 @@ export function createAiHarness(options = {}) {
             providerId: providerAdapter.descriptor.providerId,
             adapterType: providerAdapter.descriptor.adapterType,
             providerPreset: userSettings.providerPreset,
+            hybridRoutingReason: hybridRun.decision?.preferLocal ? hybridRun.decision.reason : "",
             adapterSource: adapterSelection.source,
             authMode: providerAdapter.descriptor.authMode || userSettings.authMode,
             providerConfigId: providerConfig?.id || "",

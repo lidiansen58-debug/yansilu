@@ -52,6 +52,20 @@ export async function fetchAiProviderConfigs() {
   return Array.isArray(json.items) ? json.items : [];
 }
 
+export async function fetchOllamaModels() {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/models");
+  return json.item || null;
+}
+
+export async function pullOllamaModel(model) {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/pull-model", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: String(model || "").trim() })
+  });
+  return json.item || null;
+}
+
 export async function saveAiProviderConfig(payload = {}) {
   const json = await request("/api/v1/ai/provider-configs", {
     method: "POST",

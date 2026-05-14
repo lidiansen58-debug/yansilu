@@ -22,6 +22,8 @@
     "build:toastui": "node ./scripts/build-toastui.mjs",
     "mvp:check": "node ./scripts/mvp-check.mjs",
     "test": "node --test",
+    "eval:ai:ollama": "node ./scripts/eval-local-ollama.mjs",
+    "smoke:ai:ollama": "node ./scripts/smoke-local-ollama.mjs",
     "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",
     "test:e2e:browser:mvp": "node ./scripts/browser-mvp-check.mjs",
     "test:e2e:browser": "node ./scripts/browser-e2e-check.mjs",
