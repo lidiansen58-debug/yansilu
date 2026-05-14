@@ -340,6 +340,15 @@ export async function seedYijingKnowledgeNetwork() {
   return json.item || null;
 }
 
+export async function seedYijingRichAcceptanceDemo() {
+  const json = await request("/api/v1/demo/acceptance/yijing-rich", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  return json.item || null;
+}
+
 export async function fetchNotesByTag(tag, { rootDirectoryId = "" } = {}) {
   const normalized = String(tag || "").replace(/^#/, "").trim();
   if (!normalized) return { tag: "", items: [], total: 0 };

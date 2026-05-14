@@ -264,6 +264,25 @@
       display: inline-grid;
       place-items: center;
     }
+    .new-note-action {
+      flex: 1 1 auto;
+      min-width: 118px;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding-inline: 12px;
+      white-space: nowrap;
+    }
+    .new-note-action .mini-svg {
+      width: 15px;
+      height: 15px;
+      flex: 0 0 15px;
+    }
+    .new-note-action-label {
+      line-height: 1;
+    }
     .mobile-new-note-fab {
       display: none;
       position: fixed;
@@ -1284,8 +1303,7 @@
     #btnShowRelated { --tb-accent: #0f766e; }
     #btnRunGuard { --tb-accent: #dc2626; }
     #btnSave { --tb-accent: #16a34a; }
-    #btnInsertImage,
-    #btnInsertFile { --tb-accent: #0284c7; }
+    #btnInsertImage { --tb-accent: #0284c7; }
     #btnInsertLink { --tb-accent: #2563eb; }
     #btnInsertTag { --tb-accent: #db2777; }
     .editor-wrap {
@@ -1900,6 +1918,64 @@
       font-size: 15px;
       color: #172033;
     }
+    .ai-inbox-topline p {
+      margin: 5px 0 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+    .ai-inbox-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .ai-inbox-flow-step {
+      min-width: 0;
+      border: 1px solid #dbe6ea;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+      padding: 10px 11px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 4px 8px;
+      align-items: center;
+    }
+    .ai-inbox-flow-step span {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: #eef8f2;
+      color: #147a48;
+      font-size: 11px;
+      font-weight: 900;
+      grid-row: span 2;
+    }
+    .ai-inbox-flow-step strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .ai-inbox-flow-step small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .ai-inbox-flow-step.is-active {
+      border-color: #9fd6b7;
+      background: #f2fbf5;
+      box-shadow: inset 0 0 0 1px #d7efe1;
+    }
+    .ai-inbox-compat {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
     .ai-inbox-tabs {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2176,6 +2252,9 @@
       }
       .ai-inbox-tabs {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ai-inbox-flow {
+        grid-template-columns: 1fr;
       }
       .ai-inbox-metric-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2668,6 +2747,7 @@
       display: grid;
       gap: 16px;
       padding: 16px 18px 18px;
+      overflow: auto;
     }
     .graph-head {
       display: flex;
@@ -2676,6 +2756,9 @@
       align-items: center;
       padding-bottom: 10px;
       border-bottom: 1px solid #ebf0f5;
+    }
+    .graph-head > div:first-child {
+      min-width: 0;
     }
     .graph-actions {
       display: flex;
@@ -2718,6 +2801,56 @@
       font-size: 12px;
       line-height: 1.5;
     }
+    .graph-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .graph-metric-card,
+    .writing-status-card {
+      border: 1px solid #dbe6ea;
+      border-radius: 12px;
+      background: #fff;
+      padding: 11px 12px;
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .graph-metric-card span,
+    .writing-status-card span {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .graph-metric-card strong,
+    .writing-status-card strong {
+      color: #172033;
+      font-size: 20px;
+      line-height: 1.15;
+      font-variant-numeric: tabular-nums;
+    }
+    .graph-metric-card small,
+    .writing-status-card small {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .graph-metric-card[data-tone="good"],
+    .writing-status-card[data-tone="good"] {
+      border-color: #bfdcc8;
+      background: #f4fbf7;
+    }
+    .graph-metric-card[data-tone="warn"],
+    .writing-status-card[data-tone="warn"] {
+      border-color: #efd28e;
+      background: #fff8e8;
+    }
+    .graph-metric-card[data-tone="bad"],
+    .writing-status-card[data-tone="bad"] {
+      border-color: #f0c5c2;
+      background: #fff7f6;
+    }
     .graph-title {
       font-weight: 800;
       color: #172033;
@@ -2729,6 +2862,45 @@
       font-size: 12px;
       margin-top: 5px;
       line-height: 1.65;
+    }
+    .graph-flow-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
+    .graph-flow-strip div {
+      border: 1px solid #dbe6ea;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbfa 100%);
+      padding: 10px 11px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 3px 8px;
+      align-items: center;
+      min-width: 0;
+    }
+    .graph-flow-strip span {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: #e9f5ee;
+      color: #13764f;
+      font-size: 11px;
+      font-weight: 900;
+      grid-row: span 2;
+    }
+    .graph-flow-strip strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .graph-flow-strip small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.35;
     }
     .graph-grid {
       display: grid;
@@ -2767,6 +2939,76 @@
       display: grid;
       gap: 8px;
     }
+    .graph-map-card {
+      border: 1px solid #dbe5ef;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .graph-map-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .graph-map-head strong {
+      color: #172033;
+      font-size: 13px;
+    }
+    .graph-map-head small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .graph-map {
+      display: grid;
+      gap: 8px;
+    }
+    .graph-map-node-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+    .graph-map-node {
+      border: 1px solid #d8e4ec;
+      border-radius: 999px;
+      background: #f8fbfa;
+      color: #172033;
+      min-width: 0;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-map-node[data-state="isolated"] {
+      border-style: dashed;
+      color: #64748b;
+      background: #fbfcfd;
+    }
+    .graph-map-link {
+      display: inline-grid;
+      place-items: center;
+      min-width: 52px;
+      min-height: 28px;
+      border-radius: 999px;
+      border: 1px solid #cfe3d8;
+      background: #eef8f2;
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .graph-map-more {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.5;
+    }
     .graph-overview-card,
     .graph-detail-card {
       border: 1px solid #dbe5ef;
@@ -2804,6 +3046,23 @@
       font-size: 12px;
       line-height: 1.6;
     }
+    .graph-next-card {
+      border: 1px solid #cfe4d9;
+      border-radius: 12px;
+      background: #f3fbf6;
+      padding: 11px 12px;
+      display: grid;
+      gap: 5px;
+    }
+    .graph-next-card strong {
+      color: #0f6f48;
+      font-size: 13px;
+    }
+    .graph-next-card small {
+      color: #425466;
+      font-size: 12px;
+      line-height: 1.55;
+    }
     .graph-list {
       display: grid;
       gap: 8px;
@@ -2815,18 +3074,27 @@
       background: #fff;
       border-radius: 9px;
       padding: 8px 9px;
+      min-height: 44px;
       text-align: left;
       color: #1f2937;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 8px;
+      transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
     }
     .graph-node:hover,
     .graph-edge:hover,
     .graph-review-card:hover {
       background: #eef6f1;
       border-color: #b9ddc9;
+    }
+    .graph-node:focus-visible,
+    .graph-edge:focus-visible,
+    .graph-review-card:focus-visible,
+    .writing-note-card .mini-btn:focus-visible {
+      outline: 3px solid rgba(19, 118, 79, 0.26);
+      outline-offset: 2px;
     }
     .graph-node-text,
     .graph-edge-text,
@@ -2858,10 +3126,16 @@
       color: #64748b;
       margin-left: auto;
       font-size: 11px;
+      max-width: min(260px, 34%);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .graph-review-card small {
       margin-left: 0;
       line-height: 1.55;
+      max-width: none;
+      white-space: normal;
     }
     .graph-dot {
       width: 9px;
@@ -2877,6 +3151,11 @@
     }
     @media (max-width: 980px) {
       .graph-filters {
+        grid-template-columns: 1fr;
+      }
+      .graph-flow-strip,
+      .graph-metrics,
+      .graph-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -2917,6 +3196,91 @@
     .writing-shell {
       display: grid;
       gap: 16px;
+    }
+    .writing-topline {
+      border: 1px solid rgba(210, 220, 217, 0.92);
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top right, rgba(223, 234, 228, 0.24), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 249, 0.96) 100%);
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      box-shadow: 0 16px 30px rgba(23, 34, 33, 0.05);
+    }
+    .writing-topline strong {
+      display: block;
+      margin-top: 2px;
+      color: #172033;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+    .writing-topline p {
+      margin: 6px 0 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+      max-width: 760px;
+    }
+    .writing-topline-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .writing-flow-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .writing-status-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .writing-flow-step {
+      min-width: 0;
+      border: 1px solid #dbe6ea;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 11px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 3px 8px;
+      align-items: center;
+    }
+    .writing-flow-step span {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: #eef8f2;
+      color: #147a48;
+      font-size: 11px;
+      font-weight: 900;
+      grid-row: span 2;
+    }
+    .writing-flow-step strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .writing-flow-step small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .writing-flow-step.is-active {
+      border-color: #9fd6b7;
+      background: #f2fbf5;
+      box-shadow: inset 0 0 0 1px #d7efe1;
+    }
+    .writing-flow-step.is-done span {
+      background: #13764f;
+      color: #fff;
     }
     .writing-project-grid {
       display: grid;
@@ -2962,6 +3326,20 @@
       font-size: 12px;
       color: #64748b;
       line-height: 1.6;
+    }
+    .writing-form-grid {
+      align-items: start;
+    }
+    .writing-current-note {
+      border: 1px solid #dbe5ef;
+      border-radius: 10px;
+      background: #fff;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 38px;
+      padding: 8px 10px;
+      word-break: break-word;
     }
     .floating-notice {
       position: fixed;
@@ -3033,6 +3411,8 @@
       padding: 10px;
       display: grid;
       gap: 6px;
+      min-width: 0;
+      transition: background-color .16s ease, border-color .16s ease;
     }
     .writing-note-card.selected {
       border-color: #b9ddc9;
@@ -3063,6 +3443,11 @@
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
+    }
+    .writing-note-actions .mini-btn,
+    .writing-actions-primary .mini-btn,
+    .writing-actions-secondary .mini-btn {
+      min-height: 36px;
     }
     .writing-empty {
       color: #64748b;
@@ -5150,6 +5535,15 @@
       .toolbar-group-structure {
         justify-content: flex-start;
       }
+      .writing-topline {
+        display: grid;
+      }
+      .writing-flow-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .writing-status-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
       .writing-project-grid,
       .writing-main-grid { grid-template-columns: 1fr; }
       .editor-helper {
@@ -6853,6 +7247,46 @@
       display: none !important;
     }
 
+    #editorWorkspace > .toolbar #btnRunGuard.state-record-original {
+      width: auto !important;
+      min-width: 148px !important;
+      padding: 0 15px !important;
+      gap: 8px !important;
+      border-color: rgba(180, 83, 9, 0.86) !important;
+      background: linear-gradient(135deg, #b45309 0%, #875116 100%) !important;
+      color: #ffffff !important;
+      box-shadow: 0 14px 26px rgba(180, 83, 9, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+    }
+
+    #editorWorkspace > .toolbar #btnRunGuard.state-record-original:hover,
+    #editorWorkspace > .toolbar #btnRunGuard.state-record-original:focus-visible {
+      border-color: rgba(146, 64, 14, 0.94) !important;
+      background: linear-gradient(135deg, #c45f0c 0%, #92400e 100%) !important;
+      color: #ffffff !important;
+      box-shadow: var(--focus-ring), 0 16px 30px rgba(180, 83, 9, 0.24) !important;
+    }
+
+    #editorWorkspace > .toolbar #btnRunGuard.state-record-original span {
+      display: inline !important;
+      white-space: nowrap;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .mini-btn.create-original-cta {
+      border-color: rgba(180, 83, 9, 0.86);
+      background: #b45309;
+      color: #ffffff;
+      box-shadow: 0 10px 20px rgba(180, 83, 9, 0.18);
+    }
+
+    .mini-btn.create-original-cta:hover,
+    .mini-btn.create-original-cta:focus-visible {
+      background: #92400e;
+      border-color: #92400e;
+      color: #ffffff;
+    }
+
     #editorWorkspace > .editor-wrap,
     .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
     html.editor-only #editorWorkspace > .editor-wrap {
@@ -7190,8 +7624,8 @@
         <div class="vault-subtitle" id="sidebarSubtitle">原创笔记是主对象，素材只是入口。</div>
         <div class="sidebar-actions" id="sidebarPrimaryActions">
           <div class="sidebar-actions-main">
+            <button class="mini-btn primary new-note-action" id="btnNewNote" title="新建原创笔记" data-tip="新建原创笔记" aria-label="在当前原创目录新建原创笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="new-note-action-label">新建原创</span></button>
             <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建卡片盒" data-tip="新建卡片盒" aria-label="新建卡片盒"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.45 4.15h4.2l1.05 1.3h5.75a1.05 1.05 0 0 1 1.02 1.26l-.67 3.46a1.5 1.5 0 0 1-1.47 1.22H3.68a1.5 1.5 0 0 1-1.47-1.22L1.54 6.7a1.05 1.05 0 0 1 .91-1.29z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M8 6.55v3.15M6.42 8.12h3.16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg></button>
-            <button class="mini-btn icon-btn" id="btnNewNote" title="新建原创笔记" data-tip="新建原创笔记" aria-label="新建原创笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
             <button class="mini-btn icon-btn is-ghost" id="btnToggleSearch" title="搜索笔记" data-tip="搜索笔记" aria-label="搜索笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg></button>
           </div>
         </div>
@@ -7254,7 +7688,6 @@
           </div>
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">
               <button class="tb tb-label has-icon" id="btnInsertImage" title="插入图片" data-tip="插入图片" aria-label="插入图片"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.45" y="3.05" width="11.1" height="9.9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5.35" cy="6.05" r="1.1" fill="currentColor"/><path d="M3.55 10.8l2.55-2.65 1.95 1.75 2.2-2.55 2.2 3.45" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg><span>图片</span></button>
-              <button class="tb tb-label has-icon" id="btnInsertFile" title="插入文件附件" data-tip="插入文件附件" aria-label="插入文件附件"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.35h5.05l2.95 2.95v6.9a1.45 1.45 0 0 1-1.45 1.45h-6.1A1.45 1.45 0 0 1 3 12.2v-8.4A1.45 1.45 0 0 1 4.45 2.35z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M9.05 2.35v2.4a1 1 0 0 0 1 1h2.4M5.3 9.2h5.35M5.3 11h3.65" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>附件</span></button>
             <button class="tb tb-label has-icon" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联</span></button>
             <button class="tb tb-label has-icon" id="btnInsertTag" title="插入标签 #" data-tip="插入标签 #" aria-label="插入标签"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.1 2.75h5.05l2.1 2.1v5.05l-4.9 4.1a1.2 1.2 0 0 1-1.66-.1L2.1 9.3a1.2 1.2 0 0 1-.1-1.66z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><circle cx="9.6" cy="5.9" r="1" fill="currentColor"/></svg><span>标签</span></button>
           </div>
@@ -7551,31 +7984,54 @@
           <div class="panel graph-panel hidden" id="graphPanel">
           <div class="graph-head">
             <div>
-              <div class="graph-title">当前目录关系图谱</div>
-              <div class="graph-summary" id="graphSummary">点击“刷新图谱”查看本目录内笔记关系。</div>
+              <div class="graph-title">图谱：看清当前目录的结构</div>
+              <div class="graph-summary" id="graphSummary">先看有哪些笔记连在一起，再处理孤立观点、冲突和缺少说明的关系。</div>
             </div>
             <div class="graph-actions">
               <button class="mini-btn is-ghost" id="graphSeedYijing" type="button">导入易经案例</button>
-              <button class="mini-btn" id="graphRefresh" type="button">刷新图谱</button>
+              <button class="mini-btn is-ghost" id="graphSeedYijingRich" type="button">导入富验收样例</button>
+              <button class="mini-btn primary" id="graphRefresh" type="button">刷新图谱</button>
             </div>
           </div>
+          <div class="graph-flow-strip" aria-label="图谱操作步骤">
+            <div><span>1</span><strong>看结构</strong><small>当前目录的小图谱</small></div>
+            <div><span>2</span><strong>找问题</strong><small>孤立、冲突、缺说明</small></div>
+            <div><span>3</span><strong>回笔记补</strong><small>补关系理由和边界</small></div>
+          </div>
           <div id="graphCanvas">
-            <div class="graph-empty">图谱只围绕当前目录展开。建立 `[[关联笔记]]` 之后，这里会开始形成可浏览的关系结构。</div>
+            <div class="graph-empty">建立 `[[关联笔记]]` 后，这里会显示当前目录的节点、关系和待整理项。</div>
           </div>
           </div>
           <div class="panel hidden" id="writingPanel">
           <div class="writing-shell">
+            <header class="writing-topline">
+              <div>
+                <div class="import-card-kicker">Writing Center</div>
+                <strong>写作中心：把原创笔记组织成可修改的草稿骨架</strong>
+                <p>它不是代写终稿，而是帮你把观点、证据、缺口和反方先摆到一张工作台上。</p>
+              </div>
+              <div class="writing-topline-actions">
+                <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新项目</button>
+              </div>
+            </header>
+            <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
+              <div class="writing-flow-step is-active"><span>1</span><strong>选材料</strong><small>加入 2-5 条原创笔记</small></div>
+              <div class="writing-flow-step"><span>2</span><strong>建项目</strong><small>明确题目和读者</small></div>
+              <div class="writing-flow-step"><span>3</span><strong>生成骨架</strong><small>检查证据和缺口</small></div>
+              <div class="writing-flow-step"><span>4</span><strong>保存草稿</strong><small>回到编辑器继续写</small></div>
+            </div>
+            <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
             <div class="writing-project-grid">
               <section class="writing-section">
                 <div class="writing-section-head">
                   <div>
-                    <div class="writing-section-title">项目信息</div>
-                    <div class="writing-section-note">先明确要推进的论题，再从已有原创笔记里挑选观点与证据，组织进写作篮和 scaffold。</div>
+                    <div class="writing-section-title">1. 设定写作目标</div>
+                    <div class="writing-section-note">一句话说明要解决的问题；后面的骨架会围绕这个目标组织。</div>
                   </div>
                 </div>
-                <div class="import-grid">
+                <div class="import-grid writing-form-grid">
                   <label>当前笔记</label>
-                  <div id="writingCurrentNote" style="font-size:13px;color:#334155;word-break:break-all;">尚未选择</div>
+                  <div class="writing-current-note" id="writingCurrentNote">尚未选择</div>
                   <label for="writingTitle">项目标题</label>
                   <input id="writingTitle" placeholder="例如：从卡片到论文大纲" />
                   <label for="writingGoal">写作目标</label>
@@ -7590,19 +8046,19 @@
                 <div class="writing-actions-primary">
                   <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
                   <button class="mini-btn" id="btnWritingAddVisible">把当前目录观点加入写作篮</button>
-                  <button class="mini-btn" id="btnWritingClearBasket">清空篮子</button>
-                  <button class="mini-btn" id="btnWritingCreateProject">创建写作项目</button>
-                  <button class="mini-btn" id="btnWritingCreateScaffold">组织成草稿骨架</button>
+                  <button class="mini-btn primary" id="btnWritingCreateProject">创建写作项目</button>
+                  <button class="mini-btn primary" id="btnWritingCreateScaffold">生成草稿骨架</button>
+                  <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空篮子</button>
                 </div>
               </section>
               <section class="writing-section">
                 <div class="writing-section-head">
                   <div>
-                    <div class="writing-section-title">当前项目状态</div>
-                    <div class="writing-section-note">这里保留项目当前的写作篮 ID、最近一次操作结果，以及后续导出前的重要状态。</div>
+                    <div class="writing-section-title">当前进度与输出</div>
+                    <div class="writing-section-note">看项目是否已创建、骨架是否已生成，以及下一步能否导出或保存草稿。</div>
                   </div>
                 </div>
-                <label for="writingBasketNoteIds" class="writing-section-note">写作篮 Note IDs</label>
+                <label for="writingBasketNoteIds" class="writing-section-note">材料清单（可编辑 Note IDs）</label>
                 <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="每行一个 note id，或用逗号分隔"></textarea>
                 <div class="import-result" id="writingResult">尚未开始写作项目。</div>
                 <div class="writing-actions-secondary">
@@ -7633,7 +8089,7 @@
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">写作篮</div>
-                      <div class="writing-section-note" id="writingScopeHint">&#x5F53;&#x524D;&#x76EE;&#x5F55;&#x5185;&#x5DF2;&#x8F6C;&#x5316;&#x51FA;&#x7684;&#x539F;&#x521B;&#x7B14;&#x8BB0;&#x4F1A;&#x51FA;&#x73B0;&#x5728;&#x8FD9;&#x91CC;&#xFF0C;&#x7528;&#x6765;&#x5224;&#x65AD;&#x54EA;&#x4E9B;&#x4E3B;&#x9898;&#x5DF2;&#x7ECF;&#x503C;&#x5F97;&#x8FDB;&#x5165;&#x5199;&#x4F5C;&#x3002;</div>
+                      <div class="writing-section-note" id="writingScopeHint">&#x5F53;&#x524D;&#x76EE;&#x5F55;&#x5185;&#x5DF2;&#x8F6C;&#x5316;&#x51FA;&#x7684;&#x539F;&#x521B;&#x7B14;&#x8BB0;&#x4F1A;&#x51FA;&#x73B0;&#x5728;&#x8FD9;&#x91CC;&#x3002;&#x6311;&#x9009;&#x80FD;&#x652F;&#x6491;&#x540C;&#x4E00;&#x8BBA;&#x9898;&#x7684;&#x6750;&#x6599;&#xFF0C;&#x518D;&#x521B;&#x5EFA;&#x9879;&#x76EE;&#x3002;</div>
                     </div>
                   </div>
                   <div class="writing-summary" id="writingBasketSummary">篮子里还没有笔记。</div>
@@ -7652,14 +8108,14 @@
 
               <section class="writing-section">
                 <div class="writing-section-head">
-                  <div>
-                    <div class="writing-section-title">Scaffold 主视图</div>
-                    <div class="writing-section-note">这里是本页主舞台。生成后优先在这里查看章节结构、证据绑定和 Markdown 预览，而不是直接跳向终稿代写。</div>
+                    <div>
+                    <div class="writing-section-title">草稿骨架</div>
+                    <div class="writing-section-note">生成后先检查章节、证据、缺口和反方，再决定是否保存为草稿笔记。</div>
                   </div>
                 </div>
                 <div class="writing-preview" id="writingScaffoldPreview">
-                  <h4>Scaffold 预览</h4>
-                  <div class="writing-empty">组织出草稿骨架后，这里会显示章节结构、证据映射和 Markdown 预览。</div>
+                  <h4>骨架预览</h4>
+                  <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 预览。</div>
                 </div>
               </section>
 
@@ -7670,7 +8126,6 @@
                         <div class="writing-section-title">最近项目</div>
                         <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作项目，支持恢复到当前工作区。</div>
                       </div>
-                      <button class="mini-btn" id="btnWritingRefreshProjects">刷新项目</button>
                     </div>
                     <div class="import-grid" style="margin-bottom:12px;">
                       <label for="writingProjectsSearch">搜索</label>

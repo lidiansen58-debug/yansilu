@@ -13,7 +13,7 @@ import {
 import { ContextMenu } from "./components-context-menu.js";
 import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
-import { ExplorerPane } from "./components-explorer-pane.js";
+import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
 import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
 import {
   renderImportHistoryMount
@@ -114,6 +114,7 @@ import {
   recordAiInboxDecision,
   rollbackImport,
   seedYijingKnowledgeNetwork,
+  seedYijingRichAcceptanceDemo,
   runDueAiScheduledTasks,
   saveAiScheduledTask,
   switchVault,
@@ -3107,6 +3108,16 @@ async function openStartupUntitledNote() {
   return result;
 }
 
+function syncMobileNewNoteButton() {
+  const button = $("btnMobileNewNote");
+  if (!button) return;
+  const copy = explorerNewNoteButtonCopy(state);
+  button.title = copy.title;
+  button.setAttribute("aria-label", copy.ariaLabel);
+  const label = button.querySelector("span");
+  if (label) label.textContent = copy.label.replace(/^新建/, "");
+}
+
 function renderModulePanels() {
   const graphMode = state.module === "graph";
   const aiInboxMode = state.module === "aiInbox";
@@ -3124,6 +3135,7 @@ function renderModulePanels() {
   $("markdownPanel")?.classList.toggle("hidden", !editorMode);
   $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
   $("btnMobileNewNote")?.classList.toggle("hidden", !editorMode);
+  syncMobileNewNoteButton();
   renderModuleWorkspaceHeader();
 }
 
@@ -3930,13 +3942,90 @@ async function exportWritingScaffold(projectLike = null) {
   return { ...bundle, fileName, characters: markdown.length, bytes };
 }
 
+function renderWritingStatusCard(label, value, note, tone = "") {
+  return `
+    <div class="writing-status-card" data-tone="${escapeHtml(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(note)}</small>
+    </div>
+  `;
+}
+
+function renderWritingStatusStrip() {
+  const el = $("writingStatusStrip");
+  if (!el) return;
+  const basketIds = parseWritingBasketIds();
+  const eligibility = currentWritingBasketEligibility();
+  const hasProject = Boolean(writingState.project?.id);
+  const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
+  const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const basketTone = eligibility.ineligible.length ? "warn" : basketIds.length ? "good" : "warn";
+  const basketNote = eligibility.ineligible.length
+    ? writingIneligibleSummary(eligibility.ineligible)
+    : basketIds.length
+      ? "材料已进入写作篮"
+      : "从原创/永久笔记开始";
+  el.innerHTML = [
+    renderWritingStatusCard("材料", `${basketIds.length} 条`, basketNote, basketTone),
+    renderWritingStatusCard("项目", hasProject ? "已创建" : "待创建", hasProject ? writingState.project.id : "先明确题目和读者", hasProject ? "good" : "warn"),
+    renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
+  ].join("");
+}
+
+function renderWritingFlowSteps() {
+  const el = $("writingFlowSteps");
+  if (!el) return;
+  const basketCount = parseWritingBasketIds().length;
+  const hasProject = Boolean(writingState.project?.id);
+  const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
+  const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const steps = [
+    {
+      done: basketCount > 0,
+      title: "选材料",
+      note: basketCount ? `${basketCount} 条原创笔记` : "加入 2-5 条原创笔记"
+    },
+    {
+      done: hasProject,
+      title: "建项目",
+      note: hasProject ? writingState.project.id : "明确题目和读者"
+    },
+    {
+      done: hasScaffold,
+      title: "生成骨架",
+      note: hasScaffold ? "可预览/导出" : "检查证据和缺口"
+    },
+    {
+      done: hasDraft,
+      title: "保存草稿",
+      note: hasDraft ? "回到编辑器继续写" : "生成后再保存"
+    }
+  ];
+  const firstOpenIndex = steps.findIndex((step) => !step.done);
+  const activeIndex = firstOpenIndex >= 0 ? firstOpenIndex : steps.length - 1;
+  el.innerHTML = steps
+    .map((step, index) => {
+      const stateClass = step.done ? "is-done" : index === activeIndex ? "is-active" : "";
+      return `
+        <div class="writing-flow-step ${stateClass}">
+          <span>${escapeHtml(index + 1)}</span>
+          <strong>${escapeHtml(step.title)}</strong>
+          <small>${escapeHtml(step.note)}</small>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function renderWritingScaffoldPreview() {
   const el = $("writingScaffoldPreview");
   if (!el) return;
   if (!writingState.scaffold) {
     el.innerHTML = `
-      <h4>Scaffold 预览</h4>
-      <div class="writing-empty">生成草稿骨架后，这里会显示章节和 Markdown 预览。</div>
+      <h4>骨架预览</h4>
+      <div class="writing-empty">先选材料并创建项目，再生成草稿骨架；这里会显示章节、证据和开放问题。</div>
     `;
     return;
   }
@@ -3947,7 +4036,7 @@ function renderWritingScaffoldPreview() {
   const targetDirectoryId = writingDraftDirectoryId();
   const targetFolder = folderById(state, targetDirectoryId);
   el.innerHTML = `
-    <h4>Scaffold 预览</h4>
+    <h4>骨架预览</h4>
     <div class="writing-summary">
       Scaffold：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
     </div>
@@ -4012,9 +4101,12 @@ function renderWritingPanel() {
   const basketList = $("writingBasketList");
   const candidateSummary = $("writingCandidateSummary");
   const candidateList = $("writingCandidateList");
+  const createProjectButton = $("btnWritingCreateProject");
+  const createScaffoldButton = $("btnWritingCreateScaffold");
   const openDraftButton = $("btnWritingOpenDraft");
   const copyScaffoldButton = $("btnWritingCopyScaffold");
   const exportScaffoldButton = $("btnWritingExportScaffold");
+  const saveDraftButton = $("btnWritingSaveDraft");
   const projectsHint = $("writingProjectsHint");
   const projectsList = $("writingProjectsList");
   const scaffoldVersionsHint = $("writingScaffoldVersionsHint");
@@ -4030,6 +4122,7 @@ function renderWritingPanel() {
   if (scopeHint) {
     scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "原创笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的原创笔记，不展示原始导入资料；写作入口默认从已有观点开始。`;
   }
+  renderWritingStatusStrip();
 
   const sourceIndexSummary = writingSourceIndexSummary();
   if (themeIndexesHint) {
@@ -4099,8 +4192,14 @@ function renderWritingPanel() {
     openDraftButton.disabled = !hasDraft;
     openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
   }
+  if (createProjectButton) createProjectButton.disabled = false;
+  if (createScaffoldButton) {
+    createScaffoldButton.disabled = !writingState.project?.id;
+    createScaffoldButton.textContent = writingState.project?.id ? "生成草稿骨架" : "先创建项目";
+  }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
+  if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
 
   if (projectsHint) {
     const filterSummary = [
@@ -4173,6 +4272,7 @@ function renderWritingPanel() {
     }
   }
 
+  renderWritingFlowSteps();
   renderWritingScaffoldPreview();
 }
 
@@ -4348,6 +4448,77 @@ function renderRelationReviewQueueSection(reviewQueue) {
   `;
 }
 
+function renderGraphMetricCard(label, value, note, tone = "") {
+  return `
+    <div class="graph-metric-card" data-tone="${escapeHtml(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(note)}</small>
+    </div>
+  `;
+}
+
+function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()) {
+  if (!nodes.length) {
+    return `
+      <div class="graph-map-card">
+        <div class="graph-map-head">
+          <strong>结构预览</strong>
+          <small>当前范围暂无节点</small>
+        </div>
+        <div class="graph-empty">先建立几条原创笔记，再用关系把它们串成局部图谱。</div>
+      </div>
+    `;
+  }
+
+  const edgeRows = edges.slice(0, 5).map((edge) => {
+    const fromNode = nodes.find((node) => node.id === edge.fromNoteId);
+    const toNode = nodes.find((node) => node.id === edge.toNoteId);
+    return {
+      from: fromNode?.title || edge.fromTitle || edge.fromNoteId || "源笔记",
+      to: toNode?.title || edge.toTitle || edge.toNoteId || "目标笔记",
+      relation: graphRelationTypeLabel(edge.relationType),
+      fromState: linkedNodeIds.has(edge.fromNoteId) ? "linked" : "",
+      toState: linkedNodeIds.has(edge.toNoteId) ? "linked" : ""
+    };
+  });
+  const isolatedRows = edgeRows.length
+    ? []
+    : nodes.slice(0, 4).map((node) => ({
+        from: node.title || node.id,
+        to: "等待连接",
+        relation: "未连接",
+        isolated: true
+      }));
+  const rows = edgeRows.length ? edgeRows : isolatedRows;
+  return `
+    <div class="graph-map-card">
+      <div class="graph-map-head">
+        <strong>结构预览</strong>
+        <small>${escapeHtml(edges.length ? `展示前 ${Math.min(edges.length, 5)} 条关系` : "当前主要是孤立节点")}</small>
+      </div>
+      <div class="graph-map" aria-label="当前图谱结构预览">
+        ${rows
+          .map(
+            (row) => `
+              <div class="graph-map-node-row">
+                <span class="graph-map-node" data-state="${escapeHtml(row.isolated ? "isolated" : row.fromState || "")}">${escapeHtml(row.from)}</span>
+                <span class="graph-map-link">${escapeHtml(row.relation)}</span>
+                <span class="graph-map-node" data-state="${escapeHtml(row.isolated ? "isolated" : row.toState || "")}">${escapeHtml(row.to)}</span>
+              </div>
+            `
+          )
+          .join("")}
+      </div>
+      ${
+        edges.length > 5
+          ? `<div class="graph-map-more">还有 ${escapeHtml(edges.length - 5)} 条关系在下方列表中。</div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
@@ -4412,6 +4583,9 @@ function renderGraphPanel() {
   const untypedRelations = filterActive ? weakRationaleEdges : Array.isArray(insights.untypedRelations) ? insights.untypedRelations : weakRationaleEdges;
   const typeFilterLabel = filters.relationType === "all" ? "全部类型" : graphRelationTypeLabel(filters.relationType);
   const statusFilterLabel = filters.status === "all" ? "全部状态" : graphRelationStatusLabel(filters.status);
+  const reviewQueueTotal = Number(graphState.reviewQueue?.total || graphState.reviewQueue?.items?.length || 0);
+  const densityRatio = nodes.length ? allEdges.length / nodes.length : 0;
+  const densityLabel = densityRatio >= 1.4 ? "结构较密" : densityRatio >= 0.6 ? "正在成形" : "偏松散";
   const tensionCards = [];
 
   conflictItems.slice(0, 4).forEach((conflict) => {
@@ -4487,6 +4661,37 @@ function renderGraphPanel() {
     `);
   }
 
+  const nextAction = (() => {
+    if (!nodes.length) {
+      return {
+        title: "先写出几条原创笔记",
+        note: "当前目录还没有节点。先回到编辑器建立笔记，再用 [[关联笔记]] 串起观点。"
+      };
+    }
+    if (!allEdges.length) {
+      return {
+        title: "下一步：建立第一条关系",
+        note: "在两条相关笔记之间加入 [[关联笔记]]，再刷新图谱查看局部结构。"
+      };
+    }
+    if (untypedRelations.length) {
+      return {
+        title: "下一步：补关系理由",
+        note: `${untypedRelations.length} 条连接还没写清为什么成立。优先打开关系整理队列里的源笔记。`
+      };
+    }
+    if (conflictingRelations.length + conflictItems.length) {
+      return {
+        title: "下一步：处理张力",
+        note: "已经有冲突或重名信号。补反方、边界和例外条件后，写作时更稳。"
+      };
+    }
+    return {
+      title: "下一步：进入写作中心",
+      note: "当前目录结构已经比较清楚，可以挑选原创笔记放入写作篮。"
+    };
+  })();
+
   summary.textContent = `${graph.directoryTitle || folder?.name || "当前目录"}：${nodes.length} 个节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
     <div class="graph-filters" data-graph-filters>
@@ -4504,6 +4709,12 @@ function renderGraphPanel() {
       </label>
       <div class="graph-filter-note">当前只筛选图谱中已加载的关系；不会改动笔记、关系或导入记录。</div>
     </div>
+    <div class="graph-metrics" aria-label="图谱摘要">
+      ${renderGraphMetricCard("节点", `${visibleNodes.length}/${nodes.length}`, densityLabel, nodes.length ? "good" : "warn")}
+      ${renderGraphMetricCard("显式关系", edges.length, relationSummary || "等待建立关系", edges.length ? "good" : "warn")}
+      ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
+      ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
+    </div>
     <div class="graph-grid">
       <section class="graph-section">
         <div class="graph-section-head">
@@ -4512,6 +4723,11 @@ function renderGraphPanel() {
             <div class="graph-section-note">当前只看目录子图，帮助你快速判断这里的结构是否已经成形。</div>
           </div>
         </div>
+        <div class="graph-next-card">
+          <strong>${escapeHtml(nextAction.title)}</strong>
+          <small>${escapeHtml(nextAction.note)}</small>
+        </div>
+        ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
           <div class="graph-overview-card">
             <strong>当前范围</strong>
@@ -4568,13 +4784,13 @@ function renderGraphPanel() {
             ? visibleNodes
                 .map(
                   (node) => `
-                    <button class="graph-node" data-open-note="${node.id}">
+                    <button class="graph-node" type="button" data-open-note="${escapeHtml(node.id)}" aria-label="打开笔记：${escapeHtml(node.title || node.id)}">
                       <span class="graph-dot"></span>
                       <span class="graph-node-text">
                         <span class="graph-node-title">${escapeHtml(node.title || node.id)}</span>
                         <span class="graph-node-meta">${escapeHtml(node.id)} · ${escapeHtml(node.noteType || "note")}</span>
                       </span>
-                      <small>${node.noteType}</small>
+                      <small>${escapeHtml(node.noteType || "note")}</small>
                     </button>
                   `
                 )
@@ -4617,19 +4833,21 @@ function renderGraphPanel() {
           edges.length
             ? edges
                 .map(
-                  (edge) => `
-                    <button class="graph-edge" data-open-note="${edge.fromNoteId}">
+                  (edge) => {
+                    const edgeTitle = `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`;
+                    const edgeRationale = String(edge.rationale || graphRelationTypeLabel(edge.relationType) || "").trim();
+                    return `
+                    <button class="graph-edge" type="button" data-open-note="${escapeHtml(edge.fromNoteId)}" aria-label="打开源笔记：${escapeHtml(edgeTitle)}">
                       <span class="graph-edge-text">
-                        <span class="graph-edge-title">${escapeHtml(edge.fromTitle || edge.fromNoteId)} → ${escapeHtml(
-                          edge.toTitle || edge.toNoteId
-                        )}</span>
+                        <span class="graph-edge-title">${escapeHtml(edgeTitle)}</span>
                         <span class="graph-edge-meta">${escapeHtml(graphRelationTypeLabel(edge.relationType))} · ${escapeHtml(
                           graphRelationStatusLabel(edge.status)
                         )} · ${escapeHtml(edge.createdBy || "user")}</span>
                       </span>
-                      <small>${edge.rationale || graphRelationTypeLabel(edge.relationType)}</small>
+                      <small title="${escapeHtml(edgeRationale)}">${escapeHtml(edgeRationale)}</small>
                     </button>
-                  `
+                  `;
+                  }
                 )
                 .join("")
             : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "当前目录内还没有可显示的 [[关联笔记]] 链接。"}</div>`
@@ -4689,6 +4907,35 @@ async function importYijingKnowledgeNetworkDemo() {
     setStatus(`已导入易经案例：${summary.totalNodes || summary.notes || 0} 个节点，${summary.totalEdges || summary.relations || 0} 条关系`, "ok");
   } catch (error) {
     setStatus(`易经案例导入失败：${String(error?.message || error)}`, "bad");
+  } finally {
+    if (button) button.disabled = previousDisabled;
+  }
+}
+
+async function importYijingRichAcceptanceDemo() {
+  const button = $("graphSeedYijingRich");
+  const previousDisabled = Boolean(button?.disabled);
+  if (button) button.disabled = true;
+  setStatus("正在导入富易经验收样例...", "");
+  try {
+    const result = await seedYijingRichAcceptanceDemo();
+    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
+    if (!directoryId) throw new Error("验收样例没有返回目录 ID");
+    await syncDirectoriesFromApi();
+    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
+    state.selectedFolderId = directoryId;
+    await syncNotesForDirectory(directoryId);
+    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    await refreshDirectoryGraph();
+    renderAll();
+    const counts = result?.counts || {};
+    const summary = result?.summary || {};
+    const noteCount = counts.original_notes || summary.createdNotes || summary.updatedNotes || 0;
+    const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
+    const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
+    setStatus(`已导入富易经验收样例：${noteCount} 条原创笔记，${relationCount} 条关系，${projectCount} 个写作方案`, "ok");
+  } catch (error) {
+    setStatus(`富易经验收样例导入失败：${String(error?.message || error)}`, "bad");
   } finally {
     if (button) button.disabled = previousDisabled;
   }
@@ -5154,7 +5401,6 @@ const editor = new EditorPane({
     closeOriginalityNotice: $("btnCloseOriginalityNotice"),
     insertLink: $("btnInsertLink"),
     insertImage: $("btnInsertImage"),
-    insertFile: $("btnInsertFile"),
     insertTag: $("btnInsertTag"),
     headingLevel: $("headingLevelSelect"),
     codeTools: $("codeTools"),
@@ -5990,6 +6236,10 @@ $("graphSeedYijing")?.addEventListener("click", async () => {
   await importYijingKnowledgeNetworkDemo();
 });
 
+$("graphSeedYijingRich")?.addEventListener("click", async () => {
+  await importYijingRichAcceptanceDemo();
+});
+
 $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-ai-inbox-view]");
   if (viewButton) {
@@ -6101,7 +6351,13 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	});
 
 $("btnMobileNewNote")?.addEventListener("click", () => {
-  handleStateChange("create-primary-note");
+  const folderId = resolveExplorerNewNoteFolderId(state);
+  if (folderById(state, folderId)) {
+    state.selectedFolderId = folderId;
+    state.browserRootId = rootBoxIdFromFolder(state, folderId);
+    state.selectedFileId = null;
+  }
+  handleStateChange("create-note-in-selected-folder");
 });
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {

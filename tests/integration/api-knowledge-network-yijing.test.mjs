@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "knowledge-network", "yijing-network.json");
+const RICH_ACCEPTANCE_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "acceptance", "yijing-rich-acceptance.json");
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -57,6 +58,10 @@ async function postJson(baseUrl, pathname, body) {
 
 async function readYijingFixture() {
   return JSON.parse(await fs.readFile(FIXTURE_PATH, "utf8"));
+}
+
+async function readYijingRichAcceptanceFixture() {
+  return JSON.parse(await fs.readFile(RICH_ACCEPTANCE_FIXTURE_PATH, "utf8"));
 }
 
 function relationId(relation) {
@@ -325,4 +330,89 @@ test("POST /api/v1/demo/knowledge-network/yijing seeds the Yijing fixture idempo
   assert.equal(secondSeed.json.item.summary.updatedNotes, fixture.expected.nodeCount);
   assert.equal(secondSeed.json.item.summary.createdRelations, 0);
   assert.equal(secondSeed.json.item.summary.updatedRelations, fixture.expected.edgeCount);
+});
+
+test("POST /api/v1/demo/acceptance/yijing-rich seeds the rich Yijing acceptance fixture", async (t) => {
+  const fixture = await readYijingRichAcceptanceFixture();
+  const vaultPath = await makeTempDir("yansilu-yijing-rich-demo-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const firstSeed = await postJson(baseUrl, "/api/v1/demo/acceptance/yijing-rich", {});
+  assert.equal(firstSeed.status, 200, JSON.stringify(firstSeed.json));
+  assert.equal(firstSeed.json.item.kind, "yijing_rich_acceptance_seed");
+  assert.equal(firstSeed.json.item.demoOnly, true);
+  assert.equal(firstSeed.json.item.sourceKind, "bundled_fixture");
+  assert.equal(firstSeed.json.item.importLifecycle, "none");
+  assert.equal(firstSeed.json.item.importRecordId, null);
+  assert.equal(firstSeed.json.item.directoryId, "dir_yijing_rich_acceptance_original");
+  assert.deepEqual(firstSeed.json.item.counts, fixture.counts);
+  assert.equal(firstSeed.json.item.summary.createdNotes, 55);
+  assert.equal(firstSeed.json.item.summary.createdRelations, fixture.counts.relations);
+  assert.equal(firstSeed.json.item.summary.createdIndexCards, fixture.counts.index_cards);
+  assert.equal(firstSeed.json.item.summary.createdWritingProjects, fixture.counts.writing_projects);
+  assert.equal(firstSeed.json.item.summary.createdDraftScaffolds, fixture.counts.writing_projects);
+
+  const graph = await getJson(
+    baseUrl,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(firstSeed.json.item.directoryId)}`
+  );
+  assert.equal(graph.status, 200, JSON.stringify(graph.json));
+  assert.equal(graph.json.item.totalNodes, fixture.counts.original_notes);
+  assert.equal(graph.json.item.totalEdges, fixture.counts.relations);
+
+  const indexes = await getJson(
+    baseUrl,
+    `/api/v1/index-cards?directoryId=${encodeURIComponent(firstSeed.json.item.directoryId)}&includeDescendants=false&limit=10`
+  );
+  assert.equal(indexes.status, 200, JSON.stringify(indexes.json));
+  assert.equal(indexes.json.total, fixture.counts.index_cards);
+  assert.deepEqual(
+    indexes.json.items.map((item) => item.id).sort(),
+    fixture.index_cards.map((item) => item.id).sort()
+  );
+
+  const projects = await getJson(baseUrl, "/api/v1/writing-projects?limit=10");
+  assert.equal(projects.status, 200, JSON.stringify(projects.json));
+  assert.equal(projects.json.total, fixture.counts.writing_projects);
+  assert.ok(projects.json.items.every((item) => item.scaffold_id));
+
+  const project = await getJson(baseUrl, "/api/v1/writing-projects/wp_yj_answer_machine");
+  assert.equal(project.status, 200, JSON.stringify(project.json));
+  assert.equal(project.json.item.title, "为什么《易经》不是答案机器");
+  assert.equal(project.json.item.basket_note_ids.length, fixture.writing_projects[0].basketNoteIds.length);
+  assert.equal(project.json.item.scaffold_id, "ds_wp_yj_answer_machine");
+
+  const scaffold = await getJson(baseUrl, "/api/v1/draft-scaffolds/ds_wp_yj_answer_machine");
+  assert.equal(scaffold.status, 200, JSON.stringify(scaffold.json));
+  assert.equal(scaffold.json.item.sections.length, fixture.writing_projects[0].outline.length);
+  assert.ok(scaffold.json.item.sections.every((section) => section.evidence_note_ids.length > 0));
+  assert.ok(scaffold.json.item.sections.every((section) => section.source_trace_ids.length > 0));
+  assert.match(scaffold.json.export.markdown, /这是一份写作方案和脚手架，不是完成稿/);
+
+  const secondSeed = await postJson(baseUrl, "/api/v1/demo/acceptance/yijing-rich", {});
+  assert.equal(secondSeed.status, 200, JSON.stringify(secondSeed.json));
+  assert.equal(secondSeed.json.item.summary.createdNotes, 0);
+  assert.equal(secondSeed.json.item.summary.updatedNotes, 55);
+  assert.equal(secondSeed.json.item.summary.createdRelations, 0);
+  assert.equal(secondSeed.json.item.summary.updatedRelations, fixture.counts.relations);
+  assert.equal(secondSeed.json.item.summary.createdIndexCards, 0);
+  assert.equal(secondSeed.json.item.summary.updatedIndexCards, fixture.counts.index_cards);
+  assert.equal(secondSeed.json.item.summary.createdWritingProjects, 0);
+  assert.equal(secondSeed.json.item.summary.updatedWritingProjects, fixture.counts.writing_projects);
+  assert.equal(secondSeed.json.item.summary.createdDraftScaffolds, 0);
+  assert.equal(secondSeed.json.item.summary.updatedDraftScaffolds, fixture.counts.writing_projects);
 });

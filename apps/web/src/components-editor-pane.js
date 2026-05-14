@@ -1588,7 +1588,7 @@ export class EditorPane {
                     this.hasGeneratedOriginal(item.note)
                       ? `<span class="item-badge">已生成原创</span>`
                       : item.lane === "ready"
-                        ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录原创笔记</button>`
+                        ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">创建原创笔记</button>`
                       : ""
                   }
                 </div>
@@ -2194,7 +2194,7 @@ export class EditorPane {
     this.els.modeSplit?.classList.toggle("hidden", true);
     if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
 
-    for (const el of [this.els.insertLink, this.els.insertImage, this.els.insertFile, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
+    for (const el of [this.els.insertLink, this.els.insertImage, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
       el?.classList?.toggle?.("hidden", isLiterature);
     }
     document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
@@ -2546,6 +2546,7 @@ export class EditorPane {
     button.classList.remove("hidden");
     button.classList.remove("active");
     button.classList.remove("state-generated-original");
+    button.classList.remove("state-record-original");
     if (isOriginal) {
       button.disabled = false;
       button.title = "原创性检测";
@@ -2565,10 +2566,11 @@ export class EditorPane {
       return;
     }
     button.disabled = false;
-    button.title = this.isLiteratureNote(note) ? "把这条文献笔记记录成原创笔记" : "把这条随笔记录成原创笔记";
-    button.dataset.tip = "记录原创笔记";
-    button.setAttribute("aria-label", "记录原创笔记");
-    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>记录原创</span>`;
+    button.classList.add("state-record-original");
+    button.title = this.isLiteratureNote(note) ? "把这条文献笔记创建为原创笔记" : "把这条随笔创建为原创笔记";
+    button.dataset.tip = "创建原创笔记";
+    button.setAttribute("aria-label", "创建原创笔记");
+    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>创建原创笔记</span>`;
   }
 
   togglePreview(nextMode = null) {
@@ -5408,15 +5410,6 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       this.els.assetImageInput?.click();
-    });
-    this.els.insertFile?.addEventListener("click", () => {
-      const note = this.activeNote();
-      if (!note) return this.onStatus("请先打开一个笔记", "warn");
-      try {
-        this.els.assetFileInput?.click();
-      } catch (error) {
-        this.onStatus(`无法打开附件选择器：${String(error?.message || error)}`, "bad");
-      }
     });
     this.els.assetImageInput?.addEventListener("change", async () => {
       const files = [...(this.els.assetImageInput?.files || [])];

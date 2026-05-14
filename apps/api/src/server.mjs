@@ -74,6 +74,7 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
+import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import {
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
@@ -2153,6 +2154,20 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("YIJING_DEMO_SEED_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/demo/acceptance/yijing-rich") {
+      try {
+        await readJson(req);
+        const item = await seedYijingRichAcceptance(VAULT_PATH);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("YIJING_RICH_ACCEPTANCE_SEED_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 
