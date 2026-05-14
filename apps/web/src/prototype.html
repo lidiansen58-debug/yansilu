@@ -5114,6 +5114,42 @@
       flex-wrap: wrap;
       justify-content: flex-end;
     }
+    .module-ai-pack {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(198, 208, 221, 0.78);
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(12px);
+      max-width: 100%;
+    }
+    .module-ai-pack strong {
+      font-size: 11px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+    .module-ai-pack select {
+      height: 28px;
+      max-width: 220px;
+      border-radius: 10px;
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      background: rgba(248, 250, 252, 0.95);
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 0 10px;
+      outline: none;
+      cursor: pointer;
+    }
+    .module-ai-pack select:focus-visible {
+      box-shadow: 0 0 0 3px rgba(30, 140, 98, 0.18);
+      border-color: rgba(30, 140, 98, 0.55);
+    }
     .module-stage {
       min-height: 0;
       overflow: auto;

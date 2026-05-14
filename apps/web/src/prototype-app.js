@@ -2685,6 +2685,7 @@ function currentModuleUi() {
 }
 
 function renderModuleWorkspaceHeader() {
+  // module header actions are rendered dynamically
   const moduleTitle = $("moduleTitle");
   const moduleSummary = $("moduleSummary");
   const moduleHeaderActions = $("moduleHeaderActions");
@@ -2696,8 +2697,60 @@ function renderModuleWorkspaceHeader() {
   const moduleUi = currentModuleUi();
   moduleTitle.textContent = moduleUi.title;
   moduleSummary.textContent = moduleUi.summary;
+  moduleHeaderActions.innerHTML += `
+    <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
+    <span class="settings-stat-badge ${statusTone}">${escapeHtml(healthStatus || "unknown")}</span>
+    <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
+    <span class="module-ai-pack">
+      <strong>AI</strong>
+      <select id="moduleAiModelPack" aria-label="AI model pack">
+        ${packOptionsHtml}
+      </select>
+    </span>
+    <button class="mini-btn" id="moduleAiRefreshRoute" type="button">Refresh</button>
+  `;
+
+  const settingsPackSelect = $("settingsAiModelPack");
+  const packOptionsHtml = settingsPackSelect
+    ? [...settingsPackSelect.querySelectorAll("option")]
+        .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.textContent || option.value)}</option>`)
+        .join("")
+    : `
+      <option value="Starter Auto">Starter Auto</option>
+      <option value="Privacy First">Privacy First</option>
+    `;
+
+  const preview = settingsState.ai.routePreview;
+  const providerId = String(preview?.provider?.providerId || currentAiProviderId() || "").trim();
+  const modelRef = String(preview?.route?.modelRef || "").trim();
+  const localOnly = Boolean(preview?.route?.localOnly);
+  const healthStatus = String(preview?.health?.status || "").trim();
+  const statusTone = healthStatus === "healthy" ? "ok" : healthStatus ? "warn" : "";
+  const statusLabel = localOnly ? "Local" : "Cloud";
+  const statusDetail = providerId
+    ? `${providerId}${modelRef ? ` / ${modelRef}` : ""}`
+    : modelRef
+      ? modelRef
+      : "AI route unavailable";
   moduleHeaderActions.innerHTML = `<button class="mini-btn" id="moduleBackToNotes">回到笔记</button>`;
   $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
+
+  const modulePack = $("moduleAiModelPack");
+  if (modulePack) {
+    const stored = String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
+    if (modulePack.value !== stored) modulePack.value = stored;
+    modulePack.addEventListener("change", (event) => {
+      const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
+      applyAiModelPackChange(next, { source: "module" });
+    });
+  }
+
+  $("moduleAiRefreshRoute")?.addEventListener("click", async () => {
+    await refreshAiRoutePreview({ render: false });
+    renderModuleWorkspaceHeader();
+    renderSettingsPanel();
+    setStatus("AI route refreshed", "ok");
+  });
 }
 
 function moduleLabel(moduleName = "") {
@@ -3106,6 +3159,32 @@ async function openStartupUntitledNote() {
     setStatus(`API 不可用，已打开本地未命名笔记：${String(result.error?.message || result.error)}`, "warn");
   }
   return result;
+}
+
+function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
+  const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
+  settingsState.ai.modelPack = next;
+  settingsState.ai.routePreview = null;
+  settingsState.ai.providerEndpointUrl = "";
+  settingsState.ai.providerHealthEndpointUrl = "";
+  settingsState.ai.secretRef = "";
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+  applyActiveAiProviderConfigToState();
+  persistAiSettingsToStorage();
+  syncAiSettingsToApi();
+  refreshAiRoutePreview({ render: false });
+
+  const settingsPack = $("settingsAiModelPack");
+  if (settingsPack && settingsPack.value !== next) settingsPack.value = next;
+  const modulePack = $("moduleAiModelPack");
+  if (modulePack && modulePack.value !== next) modulePack.value = next;
+
+  renderModuleWorkspaceHeader();
+  renderSettingsPanel();
+
+  const source = String(options.source || "").trim();
+  setStatus(`AI model pack switched: ${next}${source ? ` (${source})` : ""}`, "ok");
 }
 
 function syncMobileNewNoteButton() {
@@ -5529,6 +5608,8 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
+  applyAiModelPackChange(next, { source: "settings" });
+  return;
   settingsState.ai.modelPack = next;
   settingsState.ai.routePreview = null;
   settingsState.ai.providerEndpointUrl = "";
