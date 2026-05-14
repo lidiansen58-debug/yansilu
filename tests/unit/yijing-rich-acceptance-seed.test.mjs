@@ -69,6 +69,13 @@ test("Yijing rich acceptance seed materializes the fixture into a vault idempote
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'literature'").get().value, 3);
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'permanent'").get().value, 50);
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM links").get().value, 80);
+
+    const types = db
+      .prepare("SELECT DISTINCT relation_type AS value FROM links ORDER BY relation_type")
+      .all()
+      .map((row) => row.value);
+    assert.deepEqual(types, ["contradicts", "example_of", "extends", "restates", "same_topic", "supports"]);
+
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM index_cards WHERE id LIKE 'idx_yj_%'").get().value, 5);
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM writing_projects WHERE id LIKE 'wp_yj_%'").get().value, 2);
     assert.equal(db.prepare("SELECT COUNT(*) AS value FROM draft_scaffolds WHERE id LIKE 'ds_wp_yj_%'").get().value, 2);
