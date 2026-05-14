@@ -291,6 +291,30 @@ function renderReviewActions(item = {}) {
   `;
 }
 
+function renderAiSummary(state = {}, item = {}) {
+  if (!item.artifactId) return "";
+  const loading = state.aiSummaryLoading === true;
+  const meta = String(state.aiSummaryMeta || "").trim();
+  const error = String(state.aiSummaryError || "").trim();
+  const summary = String(state.aiSummary || "").trim();
+  return `
+    <div class="ai-inbox-action-card ${loading ? "is-busy" : ""}">
+      <div>
+        <h3>AI 摘要（本地优先）</h3>
+        <p>用当前模型路由快速总结这条建议，帮助你更快决策。</p>
+      </div>
+      <div class="ai-inbox-actions">
+        <button class="mini-btn primary" id="btnAiInboxSummarize" type="button" ${loading ? "disabled" : ""}>
+          ${loading ? "运行中..." : "生成摘要"}
+        </button>
+        <span class="ai-inbox-detail-muted">${escapeHtml(meta || (error ? "失败" : "未生成"))}</span>
+      </div>
+      ${error ? `<div class="ai-inbox-detail-muted" style="color:#b42318;">${escapeHtml(error)}</div>` : ""}
+      ${summary ? `<pre class="ai-inbox-json">${escapeHtml(summary)}</pre>` : `<div class="ai-inbox-detail-muted">（空）</div>`}
+    </div>
+  `;
+}
+
 function renderLinkSuggestionAction(artifact = {}) {
   if (!artifact || artifact.type !== "LinkSuggestion") return "";
   const link = linkSuggestionSummary(artifact);
@@ -426,6 +450,7 @@ function renderDetail(state = {}) {
 
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
+      ${renderAiSummary(state, item)}
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">

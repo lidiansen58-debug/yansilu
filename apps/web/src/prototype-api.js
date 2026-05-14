@@ -167,6 +167,17 @@ export async function promoteAiInboxNote(artifactId, payload = {}) {
   });
 }
 
+export async function summarizeAiInboxItem(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/summarize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function fetchAiScheduledTasks(options = {}) {
   const params = new URLSearchParams();
   const status = String(options?.status || "").trim();

@@ -114,6 +114,7 @@ import {
   promoteAiInboxNote,
   recordAiInboxDecision,
   rollbackImport,
+  summarizeAiInboxItem,
   seedYijingKnowledgeNetwork,
   seedYijingRichAcceptanceDemo,
   runDueAiScheduledTasks,
@@ -176,6 +177,11 @@ const aiInboxState = {
   detailError: "",
   evaluationError: "",
   evaluationSummary: null
+  ,
+  aiSummary: "",
+  aiSummaryMeta: "",
+  aiSummaryLoading: false,
+  aiSummaryError: ""
 };
 const settingsState = {
   vault: null,
@@ -755,6 +761,35 @@ function renderAiInboxWorkspace() {
   const el = $("aiInboxPanel");
   if (!el) return;
   el.innerHTML = renderAiInboxPanel(aiInboxState);
+}
+
+async function runAiInboxSummary(artifactId) {
+  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
+  if (!cleanArtifactId) return false;
+  aiInboxState.aiSummaryLoading = true;
+  aiInboxState.aiSummaryError = "";
+  aiInboxState.aiSummaryMeta = "";
+  aiInboxState.aiSummary = "";
+  renderAiInboxWorkspace();
+  try {
+    const result = await summarizeAiInboxItem(cleanArtifactId, {
+      userMode: settingsState.ai.userMode,
+      modelPack: settingsState.ai.modelPack,
+      modelTier: "cheap_fast",
+      privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
+    });
+    aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
+    aiInboxState.aiSummary = String(result?.output?.content || "").trim();
+    setStatus("AI 摘要已生成", "ok");
+    return true;
+  } catch (error) {
+    aiInboxState.aiSummaryError = String(error?.message || error);
+    setStatus(`AI 摘要失败：${aiInboxState.aiSummaryError}`, "bad");
+    return false;
+  } finally {
+    aiInboxState.aiSummaryLoading = false;
+    renderAiInboxWorkspace();
+  }
 }
 
 function renderScheduledTasksWorkspace() {
@@ -6449,6 +6484,10 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const promoteNoteButton = event.target.closest("[data-ai-inbox-promote-note]");
   if (promoteNoteButton) {
     await promoteAiInboxArtifactToNote(promoteNoteButton.getAttribute("data-ai-inbox-promote-note"));
+  }
+
+  if (event.target.closest("#btnAiInboxSummarize")) {
+    await runAiInboxSummary(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "");
   }
 });
 
