@@ -1646,6 +1646,95 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/test-chat") {
+      let runtime = null;
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiPreferencesStore();
+        const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
+        const baseSettingsInput = preferencesToSettingsInput(prefs);
+
+        const settingsInput = {
+          ...baseSettingsInput,
+          userMode: body.userMode ?? body.user_mode ?? baseSettingsInput.userMode,
+          modelPack: body.modelPack ?? body.model_pack ?? baseSettingsInput.modelPack,
+          authMode: body.authMode ?? body.auth_mode ?? baseSettingsInput.authMode,
+          secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
+          modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
+        };
+
+        const userSettings = resolveAiUserSettings(settingsInput);
+        const providerPreset = String(userSettings.providerPreset || "").trim();
+        const configStore = await aiProviderConfigStore();
+        const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
+        const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        const mergedSettings = { ...settingsInput, ...providerSettings };
+
+        const providerDescriptor = resolveProviderDescriptor(mergedSettings);
+        const modelRoute = resolveModelRoute({
+          providerDescriptor,
+          userMode: userSettings.userMode,
+          modelTier: body.modelTier ?? body.model_tier ?? "standard",
+          privacyMode: body.privacyMode ?? body.privacy_mode ?? userSettings.privacy?.defaultMode ?? "normal"
+        });
+
+        runtime = await createAiHarnessRuntime({
+          storageMode: "sqlite",
+          vaultPath: VAULT_PATH,
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH })
+        });
+
+        const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
+          ...mergedSettings,
+          providerDescriptor
+        });
+        const providerAdapter = adapterSelection.adapter;
+
+        const prompt = String(body.prompt || "").trim();
+        if (!prompt) return sendJson(res, 400, err("AI_TEST_PROMPT_REQUIRED", "prompt is required", rid));
+
+        const response = await providerAdapter.complete({
+          requestId: `${rid}_test_chat`,
+          agentRunId: rid,
+          purpose: "test_chat",
+          providerDescriptor,
+          modelRoute,
+          modelRef: modelRoute.modelRef,
+          messages: [
+            { role: "system", content: "You are a helpful local assistant for note-taking and knowledge work." },
+            { role: "user", content: prompt }
+          ],
+          tools: [],
+          output: { mode: "text" },
+          settings: { stream: false, temperature: body.temperature },
+          policy: {
+            privacyMode: modelRoute.privacyMode,
+            allowCloud: modelRoute.cloudAllowed,
+            allowFallback: modelRoute.fallbackPolicy.allowSameProviderFallback,
+            modelRoute,
+            budgetPrecheck: { ok: true, confirmationRequired: false, estimatedUsage: { estimatedCost: 0, currency: "USD" } }
+          }
+        });
+
+        return sendJson(res, 200, {
+          item: {
+            providerId: response.providerId,
+            modelRef: response.modelRef,
+            status: response.status,
+            output: response.output,
+            usage: response.usage
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_TEST_CHAT_FAILED", String(error?.message || error), rid));
+      } finally {
+        if (runtime && typeof runtime.close === "function") runtime.close();
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/ai/preferences") {
       try {
         await initVault(VAULT_PATH);

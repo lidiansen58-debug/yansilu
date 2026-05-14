@@ -81,6 +81,15 @@ export async function previewAiRoute(payload = {}) {
   return json.item || null;
 }
 
+export async function runAiTestChat(payload = {}) {
+  const json = await request("/api/v1/ai/test-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function fetchAiInbox(options = {}) {
   const params = new URLSearchParams();
   const view = String(options?.view || "pending").trim();

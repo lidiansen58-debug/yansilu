@@ -8295,6 +8295,22 @@
                     <span class="settings-stat-badge warn">等待同步</span>
                   </div>
                   <div class="settings-route-preview" id="settingsAiRoutePreview">刷新当前 Vault 后会显示这套模式实际使用的模型路由。</div>
+                  <div class="settings-kv" style="margin-top: 12px;">
+                    <div class="settings-kv-title">AI Test Run</div>
+                    <div class="settings-kv-body">
+                      <div class="import-grid">
+                        <label for="settingsAiTestPrompt">Test Prompt</label>
+                        <textarea id="settingsAiTestPrompt" rows="3" placeholder="输入一句话，跑一次当前路由（本地/远程）并返回输出"></textarea>
+                        <div></div>
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                          <button class="mini-btn primary" id="btnAiTestChatRun" type="button">Run</button>
+                          <button class="mini-btn" id="btnAiTestChatCopy" type="button">Copy</button>
+                          <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
+                        </div>
+                      </div>
+                      <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:10px 0 0;">（空）</pre>
+                    </div>
+                  </div>
                   <div class="settings-footnote">
                     说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。
                   </div>

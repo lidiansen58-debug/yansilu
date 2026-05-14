@@ -106,6 +106,7 @@ import {
   fetchVaultInfo,
   saveAiPreferences,
   saveAiProviderConfig,
+  runAiTestChat,
   getApiBase,
   moveNote,
   previewAiRoute,
@@ -193,6 +194,10 @@ const settingsState = {
     routePreview: null,
     routePreviewLoading: false,
     routePreviewError: "",
+    testPrompt: "",
+    testRunning: false,
+    testMeta: "",
+    testOutput: "",
     scheduledTasks: [],
     scheduledTasksTotal: 0,
     scheduledTaskTemplates: [],
@@ -3411,6 +3416,22 @@ function renderSettingsPanel() {
   renderAiProviderConfigControls();
   renderAiRoutePreview();
   renderScheduledTasksWorkspace();
+
+  const testPrompt = $("settingsAiTestPrompt");
+  if (testPrompt) {
+    const stored = String(settingsState.ai.testPrompt || "").trim();
+    if (String(testPrompt.value || "") !== stored) testPrompt.value = stored;
+  }
+  const testMeta = $("settingsAiTestChatMeta");
+  if (testMeta) {
+    const meta = settingsState.ai.testRunning ? "运行中..." : settingsState.ai.testMeta || "等待运行";
+    testMeta.textContent = meta;
+    testMeta.classList.toggle("warn", settingsState.ai.testRunning);
+  }
+  const testOutput = $("settingsAiTestChatOutput");
+  if (testOutput) {
+    testOutput.textContent = settingsState.ai.testOutput || "（空）";
+  }
 }
 
 function isWritingEligibleNote(note) {
@@ -5664,6 +5685,50 @@ $("settingsAiProviderEndpointUrl")?.addEventListener("blur", (event) => {
   settingsState.ai.providerEndpointUrl = next;
   persistAiSettingsToStorage();
   renderSettingsPanel();
+});
+
+$("settingsAiTestPrompt")?.addEventListener("input", (event) => {
+  settingsState.ai.testPrompt = String(event?.target?.value || "");
+  persistAiSettingsToStorage();
+});
+
+$("btnAiTestChatRun")?.addEventListener("click", async () => {
+  const prompt = String($("settingsAiTestPrompt")?.value || settingsState.ai.testPrompt || "").trim();
+  if (!prompt) return setStatus("先输入一条 Test Prompt", "warn");
+  settingsState.ai.testRunning = true;
+  settingsState.ai.testMeta = "";
+  settingsState.ai.testOutput = "";
+  renderSettingsPanel();
+  try {
+    const result = await runAiTestChat({
+      prompt,
+      userMode: settingsState.ai.userMode,
+      modelPack: settingsState.ai.modelPack,
+      modelTier: "standard",
+      privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
+    });
+    settingsState.ai.testMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"} (${result?.status || "unknown"})`;
+    settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
+    setStatus("AI Test Run 已完成", "ok");
+  } catch (error) {
+    settingsState.ai.testMeta = "运行失败";
+    settingsState.ai.testOutput = String(error?.message || error);
+    setStatus(`AI Test Run 失败：${settingsState.ai.testOutput}`, "bad");
+  } finally {
+    settingsState.ai.testRunning = false;
+    renderSettingsPanel();
+  }
+});
+
+$("btnAiTestChatCopy")?.addEventListener("click", async () => {
+  const text = String(settingsState.ai.testOutput || "").trim();
+  if (!text) return setStatus("没有可复制的输出", "warn");
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("已复制输出", "ok");
+  } catch {
+    setStatus("复制失败（浏览器权限限制）", "warn");
+  }
 });
 
 $("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
