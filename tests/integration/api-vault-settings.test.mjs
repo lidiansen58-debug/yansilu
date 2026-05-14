@@ -50,6 +50,49 @@ async function startHealthProbeServer(status = 200) {
   };
 }
 
+async function startOpenAiCompatibleChatServer() {
+  let lastRequest = null;
+  const server = http.createServer((req, res) => {
+    if (req.method === "POST" && req.url === "/v1/chat/completions") {
+      let raw = "";
+      req.setEncoding("utf8");
+      req.on("data", (chunk) => {
+        raw += chunk;
+      });
+      req.on("end", () => {
+        lastRequest = JSON.parse(raw || "{}");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          id: "chatcmpl_test_local_summary",
+          choices: [
+            {
+              message: {
+                role: "assistant",
+                content: "Gist: this inbox item suggests connecting two notes.\nEvidence: source note overlap.\nRecommended action: accept_link.\nPrivacy: local-only."
+              }
+            }
+          ],
+          usage: { prompt_tokens: 12, completion_tokens: 18, total_tokens: 30 }
+        }));
+      });
+      return;
+    }
+    res.writeHead(404, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "not found" } }));
+  });
+  await new Promise((resolve, reject) => {
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  const port = typeof address === "object" ? address.port : 0;
+  return {
+    endpointUrl: `http://127.0.0.1:${port}/v1/chat/completions`,
+    lastRequest: () => lastRequest,
+    close: () => server.close()
+  };
+}
+
 async function waitForHealth(baseUrl) {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
@@ -601,4 +644,89 @@ test("AI inbox promotes QuestionCard artifacts into explicit draft notes", async
   assert.equal(promotedReflection.json.note.noteType, "fleeting");
   assert.match(promotedReflection.json.note.body, /Try the opposite case/);
   assert.match(promotedReflection.json.note.body, new RegExp(source.json.item.id));
+});
+
+test("AI inbox summarize runs current local route and persists summary decision", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-inbox-summary-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const chatServer = await startOpenAiCompatibleChatServer();
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => chatServer.close());
+  await waitForHealth(baseUrl);
+
+  const source = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Related notes\n\nThese two ideas should probably be connected."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    adapterType: "local_gateway",
+    status: "enabled",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "local_private_gateway:local_private": "qwen2.5:3b",
+      "local_private_gateway:cheap_fast": "qwen2.5:3b",
+      "local_private_gateway:standard": "qwen2.5:3b"
+    }
+  });
+  assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
+
+  const preferences = await postJson(baseUrl, "/api/v1/ai/preferences", {
+    modelPack: "privacy_first",
+    userMode: "Local / Private"
+  });
+  assert.equal(preferences.status, 200, JSON.stringify(preferences.json));
+
+  const artifactStore = await createSqliteArtifactStore({ vaultPath });
+  artifactStore.createArtifact({
+    id: "artifact_local_summary",
+    type: "LinkSuggestion",
+    title: "Connect these two notes",
+    summary: "The source note appears related to a second idea.",
+    body: "This relation is worth reviewing before it enters the graph.",
+    agentRunId: "run_local_summary",
+    sources: { noteIds: [source.json.item.id], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+    payload: {
+      from: { kind: "note", id: source.json.item.id },
+      to: { kind: "note", id: "note_related_target" },
+      relationType: "related",
+      rationale: "Both notes discuss connecting ideas before writing."
+    }
+  });
+  artifactStore.close();
+
+  const summarized = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
+  assert.equal(summarized.status, 200, JSON.stringify(summarized.json));
+  assert.equal(summarized.json.item.providerId, "local_private_gateway");
+  assert.equal(summarized.json.item.modelRef, "local_private_gateway:local_private");
+  assert.equal(summarized.json.item.recommendedAction, "accept_link");
+  assert.match(summarized.json.item.output.content, /Recommended action: accept_link/);
+  assert.equal(summarized.json.item.artifact.status, "revised");
+  assert.equal(summarized.json.item.inboxItem.latestDecision.decision, "revised");
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=local_private_gateway/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
+
+  assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
+  assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));
+
+  const detail = await getJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary");
+  assert.equal(detail.status, 200, JSON.stringify(detail.json));
+  assert.equal(detail.json.item.latestDecision.decision, "revised");
+  assert.match(detail.json.item.latestDecision.comment, /Recommended action: accept_link/);
 });

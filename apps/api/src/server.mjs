@@ -74,6 +74,7 @@ import {
   updateDraftNoteVersionNote,
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
+import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import {
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
@@ -832,6 +833,11 @@ function parseAiInboxPromoteNotePath(urlPath) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function parseAiInboxSummarizePath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/summarize$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 function assetContentType(filePath) {
   const ext = path.extname(String(filePath || "")).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -871,6 +877,30 @@ function assertReviewDecision(decision) {
   const error = new Error("Use a dedicated promotion API for promoted_to_note or linked_to_note decisions");
   error.code = "AI_ARTIFACT_DECISION_INVALID";
   throw error;
+}
+
+function recommendedAiInboxActionFromText(text = "") {
+  const raw = cleanText(text).toLowerCase();
+  if (!raw) return "";
+  const match = raw.match(/recommended\s+action\s*[:：]\s*([a-z_ -]+)/i);
+  const candidate = cleanText(match?.[1] || "")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^a-z_].*$/, "");
+  const aliases = {
+    accept: "accept_link",
+    accept_link: "accept_link",
+    create_link: "accept_link",
+    promote: "promote_note",
+    promote_note: "promote_note",
+    create_note: "promote_note",
+    ignore: "ignore",
+    ignored: "ignore",
+    archive: "ignore",
+    needs_more_context: "needs_more_context",
+    more_context: "needs_more_context"
+  };
+  return aliases[candidate] || "";
 }
 
 function hasExplicitConfirmation(body = {}) {
@@ -1645,6 +1675,98 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/test-chat") {
+      let runtime = null;
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const store = await aiPreferencesStore();
+        const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
+        const baseSettingsInput = preferencesToSettingsInput(prefs);
+
+        const settingsInput = {
+          ...baseSettingsInput,
+          userMode: body.userMode ?? body.user_mode ?? baseSettingsInput.userMode,
+          modelPack: body.modelPack ?? body.model_pack ?? baseSettingsInput.modelPack,
+          authMode: body.authMode ?? body.auth_mode ?? baseSettingsInput.authMode,
+          secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
+          modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
+        };
+
+        const userSettings = resolveAiUserSettings(settingsInput);
+        const providerPreset = String(userSettings.providerPreset || "").trim();
+        const configStore = await aiProviderConfigStore();
+        const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
+        const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        const mergedSettings = { ...settingsInput, ...providerSettings };
+
+        const providerDescriptor = resolveProviderDescriptor(mergedSettings);
+        const modelRoute = resolveModelRoute({
+          providerDescriptor,
+          userMode: userSettings.userMode,
+          modelTier: body.modelTier ?? body.model_tier ?? "standard",
+          privacyMode: body.privacyMode ?? body.privacy_mode ?? userSettings.privacy?.defaultMode ?? "normal"
+        });
+
+        runtime = await createAiHarnessRuntime({
+          storageMode: "sqlite",
+          vaultPath: VAULT_PATH,
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          useOpenAiCompatibleAdapter: true,
+          networkEnabled: true,
+          createExecutor: true
+        });
+
+        const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
+          ...mergedSettings,
+          providerDescriptor
+        });
+        const providerAdapter = adapterSelection.adapter;
+
+        const prompt = String(body.prompt || "").trim();
+        if (!prompt) return sendJson(res, 400, err("AI_TEST_PROMPT_REQUIRED", "prompt is required", rid));
+
+        const response = await providerAdapter.complete({
+          requestId: `${rid}_test_chat`,
+          agentRunId: rid,
+          purpose: "test_chat",
+          providerDescriptor,
+          modelRoute,
+          modelRef: modelRoute.modelRef,
+          messages: [
+            { role: "system", content: "You are a helpful local assistant for note-taking and knowledge work." },
+            { role: "user", content: prompt }
+          ],
+          tools: [],
+          output: { mode: "text" },
+          settings: { stream: false, temperature: body.temperature },
+          policy: {
+            privacyMode: modelRoute.privacyMode,
+            allowCloud: modelRoute.cloudAllowed,
+            allowFallback: modelRoute.fallbackPolicy.allowSameProviderFallback,
+            modelRoute,
+            budgetPrecheck: { ok: true, confirmationRequired: false, estimatedUsage: { estimatedCost: 0, currency: "USD" } }
+          }
+        });
+
+        return sendJson(res, 200, {
+          item: {
+            providerId: response.providerId,
+            modelRef: response.modelRef,
+            status: response.status,
+            output: response.output,
+            usage: response.usage
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_TEST_CHAT_FAILED", String(error?.message || error), rid));
+      } finally {
+        if (runtime && typeof runtime.close === "function") runtime.close();
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/ai/preferences") {
       try {
         await initVault(VAULT_PATH);
@@ -2153,6 +2275,151 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("YIJING_DEMO_SEED_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const aiInboxSummarizeId = parseAiInboxSummarizePath(url.pathname);
+    if (req.method === "POST" && aiInboxSummarizeId) {
+      let runtime = null;
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const artifactStore = await aiArtifactStore();
+        const artifact = artifactStore.getArtifact(aiInboxSummarizeId);
+        if (!artifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
+
+        const prefStore = await aiPreferencesStore();
+        const prefs = prefStore.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
+        const baseSettingsInput = preferencesToSettingsInput(prefs);
+        const settingsInput = {
+          ...baseSettingsInput,
+          userMode: body.userMode ?? body.user_mode ?? baseSettingsInput.userMode,
+          modelPack: body.modelPack ?? body.model_pack ?? baseSettingsInput.modelPack,
+          authMode: body.authMode ?? body.auth_mode ?? baseSettingsInput.authMode,
+          secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
+          modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
+        };
+        const userSettings = resolveAiUserSettings(settingsInput);
+        const providerPreset = String(userSettings.providerPreset || "").trim();
+        const configStore = await aiProviderConfigStore();
+        const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
+        const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        const mergedSettings = { ...settingsInput, ...providerSettings };
+        const providerDescriptor = resolveProviderDescriptor(mergedSettings);
+
+        const artifactPrivacyMode = String(artifact?.privacy?.mode || artifact?.privacy_mode || "").trim();
+        const privacyMode = body.privacyMode ?? body.privacy_mode ?? artifactPrivacyMode ?? userSettings.privacy?.defaultMode ?? "normal";
+        const modelTier = body.modelTier ?? body.model_tier ?? "cheap_fast";
+        const modelRoute = resolveModelRoute({
+          providerDescriptor,
+          userMode: userSettings.userMode,
+          modelTier,
+          privacyMode
+        });
+
+        runtime = await createAiHarnessRuntime({
+          storageMode: "sqlite",
+          vaultPath: VAULT_PATH,
+          tools: createCoreNoteTools({ vaultPath: VAULT_PATH }),
+          useOpenAiCompatibleAdapter: true,
+          networkEnabled: true,
+          createExecutor: true
+        });
+        const adapterSelection = runtime.providerAdapterRegistry.getAdapter({
+          ...mergedSettings,
+          providerDescriptor
+        });
+        const providerAdapter = adapterSelection.adapter;
+
+        const prompt = [
+          "Summarize this AI Inbox item for a human reviewer.",
+          "Return:",
+          "1) one-sentence gist",
+          "2) key evidence bullets (max 5)",
+          "3) recommended action among: accept_link, promote_note, ignore, needs_more_context",
+          "4) privacy risk note if any",
+          "",
+          `artifactType: ${artifact.artifactType || artifact.type || ""}`,
+          `title: ${artifact.title || ""}`,
+          `summary: ${artifact.summary || ""}`,
+          `body: ${artifact.body || ""}`,
+          `payload: ${JSON.stringify(artifact.payload || {}, null, 2).slice(0, 8000)}`
+        ].join("\n");
+
+        const response = await providerAdapter.complete({
+          requestId: `${rid}_inbox_summarize`,
+          agentRunId: rid,
+          purpose: "ai_inbox_summarize",
+          providerDescriptor,
+          modelRoute,
+          modelRef: modelRoute.modelRef,
+          messages: [
+            { role: "system", content: "You are a precise, privacy-aware assistant for note review workflows." },
+            { role: "user", content: prompt }
+          ],
+          tools: [],
+          output: { mode: "text" },
+          settings: { stream: false, temperature: body.temperature },
+          policy: {
+            privacyMode: modelRoute.privacyMode,
+            allowCloud: modelRoute.cloudAllowed,
+            allowFallback: modelRoute.fallbackPolicy.allowSameProviderFallback,
+            modelRoute,
+            budgetPrecheck: { ok: true, confirmationRequired: false, estimatedUsage: { estimatedCost: 0, currency: "USD" } }
+          }
+        });
+
+        const summaryText = String(response?.output?.content || "").trim();
+        const recommendedAction = recommendedAiInboxActionFromText(summaryText);
+        const decorated = [
+          "[AI Summary]",
+          `provider=${String(response.providerId || "").trim()}`,
+          `model=${String(response.modelRef || "").trim()}`,
+          ...(recommendedAction ? [`recommendedAction=${recommendedAction}`] : []),
+          "",
+          summaryText || "(empty)"
+        ].join("\n");
+        const updatedArtifact = artifactStore.recordDecision(aiInboxSummarizeId, {
+          decision: "revised",
+          userId: body.userId || body.user_id || "local_user",
+          comment: decorated
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const updatedItem = inbox.getItem(aiInboxSummarizeId);
+
+        return sendJson(res, 200, {
+          item: {
+            artifactId: aiInboxSummarizeId,
+            providerId: response.providerId,
+            modelRef: response.modelRef,
+            status: response.status,
+            recommendedAction,
+            output: response.output,
+            usage: response.usage,
+            artifact: updatedArtifact,
+            inboxItem: updatedItem
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_INBOX_SUMMARIZE_FAILED", String(error?.message || error), rid));
+      } finally {
+        if (runtime && typeof runtime.close === "function") runtime.close();
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/demo/acceptance/yijing-rich") {
+      try {
+        await readJson(req);
+        const item = await seedYijingRichAcceptance(VAULT_PATH);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("YIJING_RICH_ACCEPTANCE_SEED_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

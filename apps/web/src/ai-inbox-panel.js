@@ -45,6 +45,27 @@ function renderBadge(text = "", tone = "") {
   return `<span class="ai-inbox-badge ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}">${escapeHtml(text)}</span>`;
 }
 
+function renderFlowStep(index, title, note, active = false) {
+  return `
+    <div class="ai-inbox-flow-step ${active ? "is-active" : ""}">
+      <span>${escapeHtml(index)}</span>
+      <strong>${escapeHtml(title)}</strong>
+      <small>${escapeHtml(note)}</small>
+    </div>
+  `;
+}
+
+function renderFlowGuide(filters = {}) {
+  const view = normalizeAiInboxFilters(filters).view;
+  return `
+    <section class="ai-inbox-flow" aria-label="AI inbox review flow">
+      ${renderFlowStep("1", "先看建议", "读摘要和来源，不急着采纳", view === "pending")}
+      ${renderFlowStep("2", "决定去向", "建关系、转草稿，或忽略归档", view === "reviewed")}
+      ${renderFlowStep("3", "复盘质量", "标记有用、噪音、错误和隐私风险", view === "archived" || view === "all")}
+    </section>
+  `;
+}
+
 function renderViewTabs(filters = {}, counts = {}) {
   const normalizedFilters = normalizeAiInboxFilters(filters);
   const normalizedCounts = aiInboxCounts(counts);
@@ -77,7 +98,7 @@ function renderFilters(filters = {}, counts = {}) {
       ${renderViewTabs(normalizedFilters, counts)}
       <div class="ai-inbox-filter-row">
         <label>
-          <span>Type</span>
+          <span>建议类型</span>
           <select id="aiInboxTypeFilter">
             ${aiInboxTypeOptions()
               .map((option) => `<option value="${attr(option.value)}" ${option.value === normalizedFilters.type ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -85,19 +106,19 @@ function renderFilters(filters = {}, counts = {}) {
           </select>
         </label>
         <label>
-          <span>Source note</span>
-          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="note id" />
+          <span>来源笔记</span>
+          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="note id，可留空" />
         </label>
         <label>
-          <span>Privacy</span>
+          <span>隐私范围</span>
           <select id="aiInboxPrivacyFilter">
-            <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>Any</option>
-            <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>Normal</option>
-            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>Local only</option>
+            <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>全部</option>
+            <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>普通</option>
+            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>仅本地</option>
           </select>
         </label>
-        <button class="mini-btn" id="btnAiInboxApplyFilters" type="button">Apply</button>
-        <button class="mini-btn" id="btnAiInboxRefresh" type="button">Refresh</button>
+        <button class="mini-btn primary" id="btnAiInboxApplyFilters" type="button">筛选</button>
+        <button class="mini-btn" id="btnAiInboxRefresh" type="button">刷新</button>
       </div>
     </section>
   `;
@@ -144,27 +165,27 @@ function renderItem(item = {}, selectedArtifactId = "") {
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) {
-    return `<div class="ai-inbox-empty">Loading AI artifacts...</div>`;
+    return `<div class="ai-inbox-empty">正在读取 AI 建议... <span class="ai-inbox-compat">Loading AI artifacts</span></div>`;
   }
   if (state.error) {
-    return `<div class="ai-inbox-empty is-bad">AI Inbox failed to load: ${escapeHtml(state.error)}</div>`;
+    return `<div class="ai-inbox-empty is-bad">AI 建议箱加载失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
-    return `<div class="ai-inbox-empty">No artifacts match this view.</div>`;
+    return `<div class="ai-inbox-empty">当前视图没有匹配建议。<span class="ai-inbox-compat">No artifacts match this view</span></div>`;
   }
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedArtifactId)).join("")}</div>`;
 }
 
 function renderEvaluationSummary(state = {}) {
   if (state.evaluationLoading) {
-    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">Loading evaluation summary...</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">正在读取复盘指标... <span class="ai-inbox-compat">Loading evaluation summary</span></div></section>`;
   }
   if (state.evaluationError) {
-    return `<section class="ai-inbox-evaluation-summary is-bad"><div class="ai-inbox-detail-muted">Evaluation summary failed: ${escapeHtml(state.evaluationError)}</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary is-bad"><div class="ai-inbox-detail-muted">复盘指标加载失败：${escapeHtml(state.evaluationError)} <span class="ai-inbox-compat">Evaluation summary failed: ${escapeHtml(state.evaluationError)}</span></div></section>`;
   }
   const summary = state.evaluationSummary || null;
   if (!summary) {
-    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">No evaluation summary yet.</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">还没有复盘指标；处理几条建议后会显示有用率和噪音信号。</div></section>`;
   }
   const metrics = aiInboxEvaluationMetrics(summary);
   const filter = summary.filter || {};
@@ -178,7 +199,7 @@ function renderEvaluationSummary(state = {}) {
     <section class="ai-inbox-evaluation-summary">
       <div class="ai-inbox-evaluation-head">
         <div>
-          <h3>Evaluation</h3>
+          <h3>复盘 / Evaluation</h3>
           <p>${escapeHtml(scope)}</p>
         </div>
         ${renderBadge(`${summary.artifacts?.withDecision || 0} reviewed`, "muted")}
@@ -250,11 +271,11 @@ function renderReviewActions(item = {}) {
   return `
     <div class="ai-inbox-action-card">
       <div>
-        <h3>Review</h3>
-        <p>Record a review decision without changing notes or graph relations.</p>
+        <h3>审阅决定 / Review</h3>
+        <p>只记录你的判断，不会直接改笔记或图谱。</p>
       </div>
       ${renderFeedbackControls()}
-      <textarea id="aiInboxDecisionComment" placeholder="Optional comment"></textarea>
+      <textarea id="aiInboxDecisionComment" placeholder="可选：为什么有用、为什么忽略，或哪里需要回避"></textarea>
       <div class="ai-inbox-actions">
         ${["accepted", "ignored", "archived"]
           .map(
@@ -270,13 +291,59 @@ function renderReviewActions(item = {}) {
   `;
 }
 
+function renderAiSummary(state = {}, item = {}) {
+  if (!item.artifactId) return "";
+  const loading = state.aiSummaryLoading === true;
+  const meta = String(state.aiSummaryMeta || "").trim();
+  const error = String(state.aiSummaryError || "").trim();
+  const summary = String(state.aiSummary || "").trim();
+  return `
+    <div class="ai-inbox-action-card ${loading ? "is-busy" : ""}">
+      <div>
+        <h3>AI 摘要（本地优先）</h3>
+        <p>用当前模型路由快速总结这条建议，帮助你更快决策。</p>
+      </div>
+      <div class="ai-inbox-actions">
+        <button class="mini-btn primary" id="btnAiInboxSummarize" type="button" ${loading ? "disabled" : ""}>
+          ${loading ? "运行中..." : "生成摘要"}
+        </button>
+        <span class="ai-inbox-detail-muted">${escapeHtml(meta || (error ? "失败" : "未生成"))}</span>
+      </div>
+      ${error ? `<div class="ai-inbox-detail-muted" style="color:#b42318;">${escapeHtml(error)}</div>` : ""}
+      ${summary ? `<pre class="ai-inbox-json">${escapeHtml(summary)}</pre>` : `<div class="ai-inbox-detail-muted">（空）</div>`}
+    </div>
+  `;
+}
+
+function renderRecommendedSummaryAction(state = {}) {
+  const action = String(state.aiSummaryRecommendedAction || "").trim();
+  const labels = {
+    accept_link: "Apply: create relation",
+    promote_note: "Apply: draft note",
+    ignore: "Apply: ignore",
+    needs_more_context: "Apply: needs context"
+  };
+  if (!labels[action]) return "";
+  return `
+    <div class="ai-inbox-action-card">
+      <div>
+        <h3>Recommended action</h3>
+        <p>${escapeHtml(action)}</p>
+      </div>
+      <button class="mini-btn primary" type="button" data-ai-inbox-recommended-action="${attr(action)}">
+        ${escapeHtml(labels[action])}
+      </button>
+    </div>
+  `;
+}
+
 function renderLinkSuggestionAction(artifact = {}) {
   if (!artifact || artifact.type !== "LinkSuggestion") return "";
   const link = linkSuggestionSummary(artifact);
   return `
     <div class="ai-inbox-action-card ${link.canAccept ? "" : "is-muted"}">
       <div>
-        <h3>Link suggestion</h3>
+        <h3>关系建议</h3>
         <p>${escapeHtml(link.fromNoteId || "unknown")} -> ${escapeHtml(link.toNoteId || "unknown")} / ${escapeHtml(link.relationType)}</p>
       </div>
       <div class="ai-inbox-detail-muted">${escapeHtml(link.rationale || "No rationale recorded.")}</div>
@@ -286,9 +353,9 @@ function renderLinkSuggestionAction(artifact = {}) {
         data-ai-inbox-accept-link="${attr(artifact.id)}"
         ${link.canAccept ? "" : "disabled"}
       >
-        Create note relation
+        建立关系 / Create note relation
       </button>
-      ${link.canAccept ? "" : `<div class="ai-inbox-detail-muted">Only note-to-note LinkSuggestion artifacts can be promoted into graph relations.</div>`}
+      ${link.canAccept ? "" : `<div class="ai-inbox-detail-muted">只有“笔记到笔记”的 LinkSuggestion 才能进入图谱。<span class="ai-inbox-compat">Only note-to-note LinkSuggestion artifacts</span></div>`}
     </div>
   `;
 }
@@ -299,13 +366,13 @@ function renderNotePromotionAction(artifact = {}) {
   return `
     <div class="ai-inbox-action-card ${promotion.canPromote ? "" : "is-muted"}">
       <div>
-        <h3>Draft note</h3>
+        <h3>转成草稿 / Draft note</h3>
         <p>${escapeHtml(promotion.suggestedTitle || "Create a reviewable draft note from this artifact.")}</p>
       </div>
       ${
         promotion.promotedNoteId
-          ? `<div class="ai-inbox-detail-muted">Already promoted to note ${escapeHtml(promotion.promotedNoteId)}.</div>`
-          : `<div class="ai-inbox-detail-muted">Creates a draft fleeting note. Review and rewrite it before treating it as your own thought.</div>`
+          ? `<div class="ai-inbox-detail-muted">已转成笔记 ${escapeHtml(promotion.promotedNoteId)}。<span class="ai-inbox-compat">Already promoted to note ${escapeHtml(promotion.promotedNoteId)}</span></div>`
+          : `<div class="ai-inbox-detail-muted">生成一条待改写草稿；确认后再纳入自己的判断。</div>`
       }
       <button
         class="mini-btn primary"
@@ -313,7 +380,7 @@ function renderNotePromotionAction(artifact = {}) {
         data-ai-inbox-promote-note="${attr(artifact.id)}"
         ${promotion.canPromote ? "" : "disabled"}
       >
-        Create draft note
+        创建草稿 / Create draft note
       </button>
     </div>
   `;
@@ -358,13 +425,13 @@ function renderDetail(state = {}) {
   const artifact = detail.artifact || null;
 
   if (state.detailLoading) {
-    return `<div class="ai-inbox-empty">Loading artifact detail...</div>`;
+    return `<div class="ai-inbox-empty">正在读取建议详情...</div>`;
   }
   if (state.detailError) {
-    return `<div class="ai-inbox-empty is-bad">Artifact detail failed to load: ${escapeHtml(state.detailError)}</div>`;
+    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(state.detailError)}</div>`;
   }
   if (!item.artifactId && !artifact) {
-    return `<div class="ai-inbox-empty">Select an artifact to review its sources, payload, and decisions.</div>`;
+    return `<div class="ai-inbox-empty">从左侧选择一条建议，右侧会显示来源、去向和可执行动作。</div>`;
   }
 
   const activeArtifact = artifact || item;
@@ -388,11 +455,11 @@ function renderDetail(state = {}) {
 
       <div class="ai-inbox-detail-grid">
         <section>
-          <h3>Sources</h3>
+          <h3>来源笔记</h3>
           ${renderSourceNotes(sourceNoteIds)}
         </section>
         <section>
-          <h3>Provenance</h3>
+          <h3>运行来源</h3>
           <dl class="ai-inbox-kv">
             <dt>Run</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "unknown")}</dd>
             <dt>Context pack</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "none")}</dd>
@@ -405,20 +472,22 @@ function renderDetail(state = {}) {
 
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
+      ${renderAiSummary(state, item)}
+      ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">
-        <h3>Artifact body</h3>
+        <h3>建议正文</h3>
         ${body ? `<pre class="ai-inbox-json">${escapeHtml(body)}</pre>` : `<div class="ai-inbox-detail-muted">No body recorded.</div>`}
       </section>
 
       <section class="ai-inbox-detail-section">
-        <h3>Payload</h3>
+        <h3>结构化数据</h3>
         ${renderPayloadPreview(activeArtifact.payload)}
       </section>
 
       <section class="ai-inbox-detail-section">
-        <h3>Decisions</h3>
+        <h3>处理记录</h3>
         ${renderDecisions(activeArtifact.userDecisions || [])}
       </section>
 
@@ -439,10 +508,12 @@ export function renderAiInboxPanel(state = {}) {
       <header class="ai-inbox-topline">
         <div>
           <div class="import-card-kicker">AI Inbox</div>
-          <strong>${escapeHtml(summary.visible)} visible / ${escapeHtml(summary.viewCount)} in ${escapeHtml(summary.view)}</strong>
+          <strong>AI 建议箱：${escapeHtml(summary.visible)} 条可见 / ${escapeHtml(summary.viewCount)} 条 ${escapeHtml(summary.view)} view</strong>
+          <p>先审阅，再决定是否进入图谱或草稿；AI 产物默认只作为候选。</p>
         </div>
         ${state.actionLoading ? renderBadge("Updating", "warn") : renderBadge("Reviewable artifacts", "ok")}
       </header>
+      ${renderFlowGuide(filters)}
       ${renderFilters(filters, summary.counts)}
       ${renderEvaluationSummary({ ...state, filters })}
       <main class="ai-inbox-grid">

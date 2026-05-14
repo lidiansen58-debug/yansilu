@@ -612,6 +612,59 @@ Response:
 }
 ```
 
+### `POST /api/v1/demo/acceptance/yijing-rich`
+
+Seeds the current vault with the bundled rich Yijing acceptance fixture.
+
+This endpoint is intentionally prototype-only. It is not part of the general import pipeline, does not create an import record, and does not participate in preview / confirm / rollback. It exists so QA can load a larger acceptance dataset through HTTP without running local scripts.
+
+The operation is idempotent. It creates or refreshes:
+
+- 2 fleeting notes
+- 3 literature notes
+- 50 original/permanent notes
+- 80 explicit semantic relations
+- 5 index cards
+- 2 writing projects
+- 2 draft scaffolds
+
+Response:
+
+```json
+{
+  "item": {
+    "kind": "yijing_rich_acceptance_seed",
+    "demoOnly": true,
+    "sourceKind": "bundled_fixture",
+    "importLifecycle": "none",
+    "importRecordId": null,
+    "fixtureId": "yijing-rich-acceptance-v1",
+    "directoryId": "dir_yijing_rich_acceptance_original",
+    "firstNoteId": "YJ-A01",
+    "counts": {
+      "fleeting_notes": 2,
+      "literature_notes": 3,
+      "original_notes": 50,
+      "relations": 80,
+      "index_cards": 5,
+      "writing_projects": 2
+    },
+    "summary": {
+      "createdNotes": 55,
+      "updatedNotes": 0,
+      "createdRelations": 80,
+      "updatedRelations": 0,
+      "createdIndexCards": 5,
+      "updatedIndexCards": 0,
+      "createdWritingProjects": 2,
+      "updatedWritingProjects": 0,
+      "createdDraftScaffolds": 2,
+      "updatedDraftScaffolds": 0
+    }
+  }
+}
+```
+
 ## Imports
 
 Supported connectors:

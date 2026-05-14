@@ -109,6 +109,22 @@ test("AI inbox panel renders draft note promotion for QuestionCard artifacts", (
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_1"/);
 });
 
+test("AI inbox panel renders an actionable AI summary recommendation", () => {
+  const html = renderAiInboxPanel({
+    items: [item],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_link_1",
+    detail: { item, artifact },
+    aiSummary: "Recommended action: accept_link",
+    aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
+    aiSummaryRecommendedAction: "accept_link"
+  });
+
+  assert.match(html, /Recommended action/);
+  assert.match(html, /data-ai-inbox-recommended-action="accept_link"/);
+  assert.match(html, /Apply: create relation/);
+});
+
 test("AI inbox panel disables draft note promotion after an artifact is promoted", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_question_2", type: "QuestionCard", status: "promoted_to_note" }],

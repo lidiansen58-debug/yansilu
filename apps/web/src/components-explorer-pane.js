@@ -65,6 +65,30 @@ function displayFolderName(folder) {
   return folder.name || "目录";
 }
 
+export function resolveExplorerNewNoteFolderId(state = {}) {
+  const selectedFolderId = String(state.selectedFolderId || "").trim();
+  const browserRootId = String(state.browserRootId || "").trim();
+  const selectedFolder = folderById(state, selectedFolderId);
+  const selectedRootId = selectedFolder ? rootBoxIdFromFolder(state, selectedFolder.id) : "";
+
+  if (selectedFolder && selectedRootId === browserRootId) return selectedFolder.id;
+  if (browserRootId && folderById(state, browserRootId)) return browserRootId;
+  if (selectedFolder) return selectedFolder.id;
+  return browserRootId || "dir_original_default";
+}
+
+export function explorerNewNoteButtonCopy(state = {}) {
+  const folderId = resolveExplorerNewNoteFolderId(state);
+  const noteType = typeFromFolder(state, folderId);
+  if (noteType === "literature") {
+    return { label: "新建文献", title: "新建文献笔记", ariaLabel: "在当前文献目录新建文献笔记" };
+  }
+  if (noteType === "fleeting") {
+    return { label: "新建随笔", title: "新建随笔笔记", ariaLabel: "在当前随笔目录新建随笔笔记" };
+  }
+  return { label: "新建原创", title: "新建原创笔记", ariaLabel: "在当前原创目录新建原创笔记" };
+}
+
 export class ExplorerPane {
   constructor({
     state,
@@ -96,6 +120,17 @@ export class ExplorerPane {
     );
 
     this.bind();
+  }
+
+  syncNewNoteButton() {
+    const button = this.els.newNoteBtn;
+    if (!button) return;
+    const copy = explorerNewNoteButtonCopy(this.state);
+    button.title = copy.title;
+    button.dataset.tip = copy.title;
+    button.setAttribute("aria-label", copy.ariaLabel);
+    const label = button.querySelector(".new-note-action-label");
+    if (label) label.textContent = copy.label;
   }
 
   expandFolderPath(folderId) {
@@ -131,7 +166,13 @@ export class ExplorerPane {
     });
 
     this.els.newNoteBtn.addEventListener("click", () => {
-      this.onStateChange("create-primary-note");
+      const folderId = resolveExplorerNewNoteFolderId(this.state);
+      if (folderById(this.state, folderId)) {
+        this.state.selectedFolderId = folderId;
+        this.state.browserRootId = rootBoxIdFromFolder(this.state, folderId);
+        this.state.selectedFileId = null;
+      }
+      this.onStateChange("create-note-in-selected-folder");
     });
 
     this.els.listArea.addEventListener("click", (e) => {
@@ -631,6 +672,7 @@ export class ExplorerPane {
   }
 
   render() {
+    this.syncNewNoteButton();
     const q = this.state.searchQuery.trim().toLowerCase();
     const memo = new Map();
 

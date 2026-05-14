@@ -250,6 +250,50 @@ test("prototype API seeds the Yijing knowledge-network demo through the public e
   }
 });
 
+test("prototype API seeds the rich Yijing acceptance demo through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          kind: "yijing_rich_acceptance_seed",
+          demoOnly: true,
+          importLifecycle: "none",
+          fixtureId: "yijing-rich-acceptance-v1",
+          directoryId: "dir_yijing_rich_acceptance_original",
+          counts: { original_notes: 50, relations: 80, writing_projects: 2 }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("seed-yijing-rich-acceptance", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.seedYijingRichAcceptanceDemo();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/demo/acceptance/yijing-rich");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {});
+    assert.equal(result.kind, "yijing_rich_acceptance_seed");
+    assert.equal(result.demoOnly, true);
+    assert.equal(result.importLifecycle, "none");
+    assert.equal(result.directoryId, "dir_yijing_rich_acceptance_original");
+    assert.equal(result.counts.original_notes, 50);
+    assert.equal(result.counts.relations, 80);
+    assert.equal(result.counts.writing_projects, 2);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API updates note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

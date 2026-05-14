@@ -81,6 +81,15 @@ export async function previewAiRoute(payload = {}) {
   return json.item || null;
 }
 
+export async function runAiTestChat(payload = {}) {
+  const json = await request("/api/v1/ai/test-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function fetchAiInbox(options = {}) {
   const params = new URLSearchParams();
   const view = String(options?.view || "pending").trim();
@@ -156,6 +165,17 @@ export async function promoteAiInboxNote(artifactId, payload = {}) {
       confirm: true
     })
   });
+}
+
+export async function summarizeAiInboxItem(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/summarize`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
 }
 
 export async function fetchAiScheduledTasks(options = {}) {
@@ -333,6 +353,15 @@ export async function fetchRelationReviewQueue({
 
 export async function seedYijingKnowledgeNetwork() {
   const json = await request("/api/v1/demo/knowledge-network/yijing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  return json.item || null;
+}
+
+export async function seedYijingRichAcceptanceDemo() {
+  const json = await request("/api/v1/demo/acceptance/yijing-rich", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({})
