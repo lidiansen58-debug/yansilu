@@ -69,7 +69,7 @@ export function candidateStatusLabel(status = "") {
     new: "待处理",
     selected: "已选中",
     skipped: "已跳过",
-    translated: "已转述",
+    translated: "转述完成",
     converted: "已生成候选",
     saved: "已保存"
   };

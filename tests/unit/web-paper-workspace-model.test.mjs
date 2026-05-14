@@ -52,7 +52,7 @@ test("paper workspace model reports progress and selected candidates", () => {
 
 test("paper workspace labels expose user-facing workflow states", () => {
   assert.equal(candidateKindLabel("limitation"), "边界");
-  assert.equal(candidateStatusLabel("translated"), "已转述");
+  assert.equal(candidateStatusLabel("translated"), "转述完成");
   assert.equal(candidateStatusLabel("saved"), "已保存");
 });
 

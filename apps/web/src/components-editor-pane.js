@@ -102,7 +102,8 @@ const REFLECTION_QUESTIONS = [
   "你为什么要保留它？",
   "它会支持什么判断？"
 ];
-const AUTO_SAVE_IDLE_MS = 12000;
+const AUTO_SAVE_IDLE_MS = 15000;
+const AUTO_SAVE_INTERVAL_MS = 15000;
 
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1290,6 +1291,9 @@ export class EditorPane {
     this.suppressLiteratureWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
+    this.wasEditingTitleLine = false;
+    this.lastTitleBlurSaveAt = 0;
+    this.lastTitleInputAt = 0;
     this.saveUiState = { mode: "idle", message: "" };
     this.relationsRequestSerial = 0;
     this.currentSemanticRelations = null;
@@ -1302,6 +1306,68 @@ export class EditorPane {
     this.renderPreviewVisibility();
     this.initRichEditor();
     this.initMarkdownEditor();
+  }
+
+  async autoSaveTabById(tabId, trigger = "idle") {
+    const tab = this.state.tabs.find((t) => t.id === tabId) || null;
+    if (!tab?.dirty) return true;
+    if (this.savingPromise) return false;
+    const note = this.state.notes.find((n) => n.id === tab.noteId) || null;
+    if (!note) return false;
+
+    const bodySnapshot = String(tab.body || "");
+    const titleSnapshot = titleFromBody(bodySnapshot);
+    const statusSnapshot = String(note.status || "draft").trim() || "draft";
+
+    this.clearAutoSaveTimer();
+    this.closeLinkPicker();
+    this.closeTagPicker();
+    this.setSaveUiState("saving", "当前文件：正在自动同步...");
+
+    this.savingPromise = (async () => {
+      note.body = bodySnapshot;
+      note.title = titleSnapshot;
+      note.noteType = typeFromFolder(this.state, note.folderId);
+      note.tags = parseTags(note.body);
+      note.links = parseLinks(note.body);
+      note.updatedAt = new Date().toISOString();
+
+      tab.title = titleSnapshot;
+
+      const saved = await this.onStateChange("save-note", {
+        noteId: note.id,
+        status: statusSnapshot,
+        originalityStatus: note.originalityStatus,
+        originalitySimilarity: note.originalitySimilarity,
+        authorshipConfirmed: true,
+        authorshipClaim: "",
+        trigger
+      });
+
+      if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
+        tab.dirty = true;
+        this.writeDraft(tab);
+        this.setSaveUiState(
+          String(saved?.saveMode || "error").trim() || "error",
+          String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
+        );
+        return false;
+      }
+
+      tab.savedBody = tab.body;
+      tab.savedTitle = tab.title;
+      tab.dirty = false;
+      this.clearDraft(tab.noteId);
+      this.setSaveUiState("saved", "当前文件：已自动同步");
+      return true;
+    })();
+
+    try {
+      return await this.savingPromise;
+    } finally {
+      this.savingPromise = null;
+      if (this.activeTab()?.dirty) this.scheduleAutoSave();
+    }
   }
 
   activeTab() {
@@ -1777,6 +1843,7 @@ export class EditorPane {
   clearAutoSaveTimer() {
     if (!this.autoSaveTimer) return;
     clearTimeout(this.autoSaveTimer);
+    clearInterval(this.autoSaveTimer);
     this.autoSaveTimer = null;
   }
 
@@ -1784,10 +1851,12 @@ export class EditorPane {
     this.clearAutoSaveTimer();
     const tab = this.activeTab();
     if (!tab?.dirty) return;
-    this.autoSaveTimer = setTimeout(() => {
-      this.autoSaveTimer = null;
-      void this.autoSaveActiveNote("idle");
-    }, AUTO_SAVE_IDLE_MS);
+    const kickoff = () => {
+      if (!this.activeTab()?.dirty) return;
+      void this.autoSaveActiveNote("interval");
+    };
+    this.autoSaveTimer = setInterval(kickoff, AUTO_SAVE_INTERVAL_MS);
+    setTimeout(kickoff, AUTO_SAVE_IDLE_MS);
   }
 
   async autoSaveActiveNote(trigger = "idle") {
@@ -3016,6 +3085,27 @@ export class EditorPane {
 
   isEditingTitleLine() {
     return Boolean(this.firstHeadingEntryContext());
+  }
+
+  maybeSaveOnTitleBlur() {
+    const tab = this.updateActiveTabFromEditor();
+    if (!tab) return;
+    const note = this.activeNote();
+    if (!note) return;
+    if (tab.title === tab.savedTitle) return;
+    if (Date.now() - this.lastTitleInputAt > 8000) return;
+    const now = Date.now();
+    if (now - this.lastTitleBlurSaveAt < 450) return;
+    this.lastTitleBlurSaveAt = now;
+
+    note.title = tab.title;
+    note.body = tab.body;
+    note.updatedAt = new Date().toISOString();
+    this.renderTabs();
+    setTimeout(() => {
+      this.onStateChange("switch-tab");
+      void this.saveActiveNote({ autoSave: true, trigger: "title-blur", skipOriginalityCheck: true });
+    }, 420);
   }
 
   enterBodyFromTitle() {
@@ -5401,11 +5491,13 @@ export class EditorPane {
       if (rawValue === "p") {
         this.clearCurrentHeading();
         this.renderContextualToolbarState();
+        this.focusEditor();
         return;
       }
       const level = Number(rawValue || 0);
       if (level >= 1 && level <= 6) this.formatCurrentBlock(`h${level}`);
       this.renderContextualToolbarState();
+      this.focusEditor();
     });
     this.els.tableAddRow?.addEventListener("click", () => {
       this.addTableRow();
@@ -5774,7 +5866,13 @@ export class EditorPane {
         document.getSelection()?.anchorNode?.parentElement?.closest?.("#editorHost") ||
         document.getSelection()?.anchorNode?.parentElement?.closest?.("#wysiwygHost")
       ) {
+        const editingTitleNow = this.isEditingTitleLine();
+        const wasEditingTitle = this.wasEditingTitleLine;
+        this.wasEditingTitleLine = editingTitleNow;
+        if (wasEditingTitle && !editingTitleNow) this.maybeSaveOnTitleBlur();
         this.updateToolbarFormattingState();
+      } else {
+        this.wasEditingTitleLine = false;
       }
     });
 
@@ -5788,7 +5886,7 @@ export class EditorPane {
   }
 
   handleEditorInput() {
-      if (this.suppressEditorChange) return;
+       if (this.suppressEditorChange) return;
       const tab = this.activeTab();
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";
@@ -5830,6 +5928,7 @@ export class EditorPane {
         return;
       }
       if (this.isEditingTitleLine()) {
+        this.lastTitleInputAt = Date.now();
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
         if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
         this.lastEditorValue = tab.body;
@@ -6011,6 +6110,7 @@ export class EditorPane {
     const note = this.state.notes.find((n) => n.id === tab.noteId);
     if (!note) return this.onStatus("找不到对应笔记", "bad");
     const markLiteratureComplete = options?.markLiteratureComplete === true;
+    const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
     note.body = tab.body;
     note.title = titleFromBody(tab.body);
@@ -6054,6 +6154,9 @@ export class EditorPane {
       note.status = nextStatus;
     }
     if (note.noteType === "original") {
+      if (skipOriginalityCheck) {
+        nextStatus = String(note.status || nextStatus || "draft").trim() || "draft";
+      } else {
       try {
         originality = await this.runOriginalityCheck(note, { forSave: true });
       } catch (error) {
@@ -6068,6 +6171,7 @@ export class EditorPane {
       note.originalitySimilarity = Number(originality?.similarity || 0);
       nextStatus = note.originalityStatus === "pass" ? "active" : "draft";
       note.status = nextStatus;
+      }
     }
 
     if (note.noteType !== "original") {

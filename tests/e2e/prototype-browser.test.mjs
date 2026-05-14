@@ -2179,7 +2179,7 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
     assert.ok(String(tabDirty || "").trim().length > 0);
   }, 7000);
 
-  await page.locator(".tab", { hasText: "Longform Beta" }).click();
+  await page.locator(".tab", { hasText: "Longform Beta" }).first().click();
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /Longform Beta/);
@@ -2803,20 +2803,14 @@ test("prototype editor confirms before closing or switching away from dirty note
   await page.locator(".tab.active .tab-close").click();
   await page.locator(".tab.active", { hasText: "Dirty source" }).waitFor({ timeout: 1000 });
 
-  page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));
-    await dialog.dismiss();
-  });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Switch target" }).click();
-  const afterDismiss = await page.locator("#editorBody").inputValue();
-  assert.match(afterDismiss, /Dirty source/);
-
-  page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));
-    await dialog.accept();
-  });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Switch target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Switch target"));
+
+  await waitFor(async () => {
+    const saved = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(first.json.item.id)}`);
+    assert.equal(saved.status, 200);
+    assert.match(saved.json.item.body, /Unsaved line\./);
+  }, 10000);
 
   page.once("dialog", async (dialog) => {
     assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));

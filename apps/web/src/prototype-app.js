@@ -5033,14 +5033,8 @@ async function ensureNoteBodyLoaded(noteId) {
 function openNoteById(id, options = {}) {
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
   if (activeTab?.dirty && activeTab.noteId !== id) {
-    const ok = editor.confirmDiscardDirtyTabs(`当前笔记“${activeTab.title || "未命名笔记"}”有未同步更改，打开其他笔记会保留旧 Tab，但当前视图会切走。是否继续？`);
-    if (!ok) {
-      state.selectedFileId = activeTab.noteId;
-      const activeNote = state.notes.find((n) => n.id === activeTab.noteId);
-      if (activeNote) syncExplorerContextToNote(activeNote);
-      renderAll();
-      return false;
-    }
+    editor.updateActiveTabFromEditor();
+    void editor.autoSaveTabById(activeTab.id, "switch-note");
   }
   state.selectedFileId = id;
   const note = state.notes.find((n) => n.id === id);
@@ -6458,6 +6452,11 @@ $("btnMobileNewNote")?.addEventListener("click", () => {
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
   btn.addEventListener("click", () => {
+    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+    if (activeTab?.dirty) {
+      editor.updateActiveTabFromEditor();
+      void editor.autoSaveTabById(activeTab.id, "switch-root");
+    }
     const action = btn.dataset.action;
     if (action === "quick-fleeting") {
       state.browserRootId = "dir_fleeting_default";
