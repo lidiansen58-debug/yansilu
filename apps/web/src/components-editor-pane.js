@@ -4212,6 +4212,10 @@ export class EditorPane {
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
     this.els.linkSearchInput.value = initialQuery;
+    if (!inlineMode) {
+      if (this.els.linkManagerSelect) this.els.linkManagerSelect.value = this.els.linkManagerSelect.value || "self";
+      if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
+    }
     this.currentLinkContext = options.inlineContext || null;
     this.lastInlinePickerAnchor = this.currentLinkContext?.end || 0;
     this.renderLinkCandidates(initialQuery, options.preferredId || "");
@@ -4244,6 +4248,7 @@ export class EditorPane {
     this.currentLinkContext = null;
     this.lastInlinePickerAnchor = 0;
     this.els.insertLink?.classList.remove("active");
+    if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
   }
 
   positionInlineLinkPicker() {
@@ -4255,6 +4260,19 @@ export class EditorPane {
     if (!noteId) return;
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
+    const manager = String(this.els.linkManagerSelect?.value || "self").trim() || "self";
+    const rawReason = String(this.els.linkReasonInput?.value || "").trim();
+    if (!this.currentLinkContext && this.els.linkReasonInput && !rawReason) {
+      this.onStatus("请先填写关联理由，再插入这条关联。", "warn");
+      this.els.linkReasonInput.focus();
+      return;
+    }
+    const reason = rawReason
+      .replace(/\\s+/g, " ")
+      .replace(/--/g, "- -")
+      .slice(0, 280);
+    const annotation = reason ? ` <!-- rel:manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->` : "";
+    const token = `[[${target.title}]]${annotation}`;
     if (this.currentLinkContext) {
       const { start, end } = this.currentLinkContext;
       if (this.isWysiwygMode()) {
@@ -4263,7 +4281,7 @@ export class EditorPane {
         this.replaceEditorRange(start, end, `[[${target.title}]]`);
       }
     } else {
-      this.insertAtCursor(`[[${target.title}]]`);
+      this.insertAtCursor(token);
     }
     this.closeLinkPicker();
     this.onStatus(`已插入关联笔记：${target.title}`, "ok");

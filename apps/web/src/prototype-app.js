@@ -5760,6 +5760,8 @@ const editor = new EditorPane({
     linkPicker: $("linkPicker"),
     linkSearchInput: $("linkSearchInput"),
     linkSearchList: $("linkSearchList"),
+    linkManagerSelect: $("linkManagerSelect"),
+    linkReasonInput: $("linkReasonInput"),
     closeLinkPicker: $("btnCloseLinkPicker"),
     tagPicker: $("tagPicker"),
     tagSearchInput: $("tagSearchInput"),
