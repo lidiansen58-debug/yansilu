@@ -52,6 +52,20 @@ export async function fetchAiProviderConfigs() {
   return Array.isArray(json.items) ? json.items : [];
 }
 
+export async function fetchOllamaModels() {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/models");
+  return json.item || null;
+}
+
+export async function pullOllamaModel(model) {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/pull-model", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: String(model || "").trim() })
+  });
+  return json.item || null;
+}
+
 export async function saveAiProviderConfig(payload = {}) {
   const json = await request("/api/v1/ai/provider-configs", {
     method: "POST",
@@ -288,9 +302,14 @@ export async function fetchDirectoryNotes(directoryId) {
   return Array.isArray(json.items) ? json.items : [];
 }
 
-export async function fetchDirectoryGraph(directoryId) {
+export async function fetchDirectoryGraph(directoryId, options = {}) {
   if (!directoryId) return null;
-  const json = await request(`/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}`);
+  const params = new URLSearchParams({
+    scope: "directory",
+    directoryId,
+    includeDescendants: options.includeDescendants ? "true" : "false"
+  });
+  const json = await request(`/api/v1/graph?${params.toString()}`);
   return json.item || null;
 }
 

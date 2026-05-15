@@ -85,7 +85,7 @@ function renderTaskForm(state = {}) {
       <div class="scheduled-task-form-head">
         <div>
           <div class="settings-card-title">${editing ? "Edit scheduled task" : "Create scheduled task"}</div>
-          <div class="settings-card-note">Safe templates only. New outputs still land in AI Inbox for review.</div>
+          <div class="settings-card-note">只使用安全模板。新的输出会先进入 AI 建议待办，等待人工确认。</div>
         </div>
         <div class="settings-stat-row">
           ${editing ? badge(`Editing ${form.scheduledTaskId}`, "warn") : badge("Draft", "muted")}
@@ -251,7 +251,7 @@ export function renderScheduledTasksPanel(state = {}) {
       <div class="scheduled-task-head">
         <div>
           <div class="settings-card-title">Scheduled agent tasks</div>
-          <div class="settings-card-note">Manual controls for due agent runs. Outputs remain AI Inbox artifacts until reviewed.</div>
+          <div class="settings-card-note">手动运行到期的 AI 任务。输出会停留在 AI 建议待办，确认后才进入笔记或图谱。</div>
         </div>
         <div class="settings-stat-row">
           ${badge(`${summary.visible}/${summary.total} visible`, "muted")}

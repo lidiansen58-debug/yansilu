@@ -636,6 +636,56 @@ test("notes API syncs markdown wikilinks and tags into note relations", async (t
   assert.equal(graph.json.item.insights.bridgeGaps.length, 0);
   assert.equal(graph.json.item.insights.connectedComponentCount, 1);
 
+  const childDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "relations-child",
+    parentDirectoryId: directoryId,
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "relations", "relations-child"),
+    maxNotes: 500
+  });
+  assert.equal(childDir.status, 201);
+
+  const childTargetNote = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: childDir.json.item.id,
+    body: "# Child target idea\n\nThis note should only appear when descendants are included."
+  });
+  assert.equal(childTargetNote.status, 201);
+
+  const childSourceNote = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: childDir.json.item.id,
+    body: "# Child source idea\n\nThis links to [[Child target idea]]."
+  });
+  assert.equal(childSourceNote.status, 201);
+
+  const graphWithoutDescendants = await getJson(
+    baseUrl,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}&includeDescendants=false`
+  );
+  assert.equal(graphWithoutDescendants.status, 200);
+  assert.equal(graphWithoutDescendants.json.item.scope, "directory");
+  assert.equal(graphWithoutDescendants.json.item.includeDescendants, false);
+  assert.equal(graphWithoutDescendants.json.item.totalNodes, 2);
+  assert.equal(graphWithoutDescendants.json.item.totalEdges, 1);
+  assert.equal(graphWithoutDescendants.json.item.nodes.some((item) => item.id === childSourceNote.json.item.id), false);
+
+  const graphWithDescendants = await getJson(
+    baseUrl,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}&includeDescendants=true`
+  );
+  assert.equal(graphWithDescendants.status, 200);
+  assert.equal(graphWithDescendants.json.item.scope, "directory_tree");
+  assert.equal(graphWithDescendants.json.item.includeDescendants, true);
+  assert.equal(graphWithDescendants.json.item.totalNodes, 4);
+  assert.equal(graphWithDescendants.json.item.totalEdges, 2);
+  assert.deepEqual(
+    graphWithDescendants.json.item.nodes.map((item) => item.id).sort(),
+    [sourceNote.json.item.id, targetNote.json.item.id, childSourceNote.json.item.id, childTargetNote.json.item.id].sort()
+  );
+  assert.deepEqual(
+    graphWithDescendants.json.item.edges.map((item) => `${item.fromNoteId}->${item.toNoteId}`).sort(),
+    [`${sourceNote.json.item.id}->${targetNote.json.item.id}`, `${childSourceNote.json.item.id}->${childTargetNote.json.item.id}`].sort()
+  );
+
   const originalTagNotes = await getJson(
     baseUrl,
     `/api/v1/tags/${encodeURIComponent("writing")}/notes?rootDirectoryId=${encodeURIComponent("dir_original_default")}`

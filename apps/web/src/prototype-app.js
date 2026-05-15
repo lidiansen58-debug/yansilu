@@ -53,6 +53,7 @@ import {
   renderAiInboxPanel
 } from "./ai-inbox-panel.js";
 import {
+  aiInboxActionLabel,
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
@@ -93,6 +94,8 @@ import {
   fetchAiProviderConfigs,
   fetchImportRecord,
   fetchAiPreferences,
+  fetchOllamaModels,
+  pullOllamaModel,
   listImportRecords,
   listIndexCards,
   fetchNote,
@@ -187,12 +190,19 @@ const aiInboxState = {
 const settingsState = {
   vault: null,
   ai: {
+    runtimeMode: "auto",
     userMode: "Auto",
     modelPack: "Starter Auto",
     advancedModelRef: "",
     secretRef: "",
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
+    localModel: "",
+    localRuntimeStatus: "unknown",
+    localRuntimeModels: [],
+    localRuntimeChecking: false,
+    localRuntimePulling: false,
+    localRuntimeError: "",
     providerConfigs: [],
     providerConfigSaving: false,
     providerHealthChecking: false,
@@ -253,12 +263,18 @@ const FEEDBACK_REPOSITORY_READY =
   Boolean(String(FEEDBACK_REPOSITORY || "").trim()) && !FEEDBACK_REPOSITORY.includes("YOUR_GITHUB_");
 const APP_VERSION = "0.1.0";
 const AUTO_UPDATE_CHECK_KEY = "yansilu:auto-update:last-check";
+const AI_RUNTIME_MODE_KEY = "yansilu:ai:runtime-mode";
 const AI_USER_MODE_KEY = "yansilu:ai:user-mode";
 const AI_MODEL_PACK_KEY = "yansilu:ai:model-pack";
 const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
+const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
+const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
+const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
+const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
+const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
 
@@ -467,27 +483,33 @@ function writeStoredText(key, value) {
 }
 
 function loadAiSettingsFromStorage() {
+  const storedRuntimeMode = String(readStoredText(AI_RUNTIME_MODE_KEY, "") || "").trim();
   const storedMode = String(readStoredText(AI_USER_MODE_KEY, "") || "").trim();
   const storedPack = String(readStoredText(AI_MODEL_PACK_KEY, "") || "").trim();
   const storedModelRef = String(readStoredText(AI_ADVANCED_MODEL_REF_KEY, "") || "").trim();
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
+  if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
   if (storedPack) settingsState.ai.modelPack = storedPack;
   settingsState.ai.advancedModelRef = storedModelRef;
   settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
+  settingsState.ai.localModel = storedLocalModel;
 }
 
 function persistAiSettingsToStorage() {
+  writeStoredText(AI_RUNTIME_MODE_KEY, settingsState.ai.runtimeMode);
   writeStoredText(AI_USER_MODE_KEY, settingsState.ai.userMode);
   writeStoredText(AI_MODEL_PACK_KEY, settingsState.ai.modelPack);
   writeStoredText(AI_ADVANCED_MODEL_REF_KEY, settingsState.ai.advancedModelRef);
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
+  writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
 }
 
 function providerPresetForModelPack(modelPack = "") {
@@ -503,14 +525,72 @@ function providerPresetForModelPack(modelPack = "") {
 
 function defaultProviderEndpointUrl(providerId = "") {
   const id = String(providerId || "").trim();
-  if (id === "ollama_local_gateway") return "http://localhost:11434/v1/chat/completions";
+  if (id === "ollama_local_gateway") return OLLAMA_CHAT_ENDPOINT_URL;
   return "";
 }
 
 function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = "") {
   const id = String(providerId || "").trim();
-  if (id === "ollama_local_gateway") return "http://localhost:11434/api/tags";
+  if (id === "ollama_local_gateway") return OLLAMA_HEALTH_ENDPOINT_URL;
   return String(endpointUrl || "").trim();
+}
+
+function normalizeAiRuntimeMode(value = "") {
+  const mode = String(value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
+  if (["local", "local_only", "private"].includes(mode)) return "local_only";
+  if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
+  if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
+  return "auto";
+}
+
+function aiPrivacyPolicyForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") return { defaultMode: "local_only", allowCloud: false, localPreferred: true };
+  if (mode === "hybrid") return { defaultMode: "normal", allowCloud: true, localPreferred: true };
+  if (mode === "cloud_only") return { defaultMode: "normal", allowCloud: true, localPreferred: false };
+  return {};
+}
+
+function aiFallbackPolicyForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") {
+    return {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: false,
+      allowCloudFallback: false,
+      requiresConfirmationForCloud: true
+    };
+  }
+  if (mode === "hybrid") {
+    return {
+      allowSameProviderFallback: true,
+      allowCrossProviderFallback: true,
+      allowCloudFallback: true,
+      requiresConfirmationForCloud: false,
+      localPreferred: true
+    };
+  }
+  return {};
+}
+
+function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
+  const mode = normalizeAiRuntimeMode(runtimeMode);
+  if (mode === "local_only") return { modelPack: "Privacy First", userMode: "Local / Private" };
+  if (mode === "cloud_only") return { modelPack: "Starter Auto", userMode: "Balanced" };
+  if (mode === "hybrid") return { modelPack: "Starter Auto", userMode: "Auto" };
+  return { modelPack: "Starter Auto", userMode: "Auto" };
+}
+
+function applyOllamaLocalModelDefaults() {
+  if (!settingsState.ai.localModel) return;
+  settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
+  settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
+  settingsState.ai.secretRef = "";
+  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only") {
+    settingsState.ai.advancedModelRef = `local_private_gateway:${settingsState.ai.localModel}`;
+  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+    settingsState.ai.advancedModelRef = "";
+  }
 }
 
 function authModeForProvider(providerId = "", preview = null) {
@@ -557,24 +637,29 @@ function aiSettingsPayload() {
   return {
     userMode: settingsState.ai.userMode,
     modelPack: settingsState.ai.modelPack,
+    privacy: aiPrivacyPolicyForRuntimeMode(settingsState.ai.runtimeMode),
+    fallbackPolicy: aiFallbackPolicyForRuntimeMode(settingsState.ai.runtimeMode),
     advancedSettings: {
+      runtimeMode: settingsState.ai.runtimeMode,
+      ...(settingsState.ai.localModel ? { localModel: settingsState.ai.localModel } : {}),
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
       ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
     }
   };
 }
 
-function aiProviderConfigPayload() {
-  const providerId = currentAiProviderId();
-  const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
+function aiProviderConfigPayload(options = {}) {
+  const providerId = String(options.providerId || currentAiProviderId()).trim();
+  const endpointUrl = String(options.endpointUrl || settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
   const healthEndpointUrl = String(
-    settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
+    options.healthEndpointUrl || settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
   ).trim();
+  const secretRef = String(options.secretRef || settingsState.ai.secretRef || "").trim();
   return {
     providerId,
-    authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
+    authMode: options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview),
     status: "enabled",
-    ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {}),
+    ...(secretRef ? { secretRef } : {}),
     ...(endpointUrl ? { endpointUrl } : {}),
     ...((healthEndpointUrl || endpointUrl)
       ? {
@@ -607,6 +692,117 @@ async function syncAiSettingsToApi() {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function saveLocalOllamaProviderConfig() {
+  const saved = await saveAiProviderConfig(aiProviderConfigPayload({
+    providerId: "local_private_gateway",
+    authMode: "local_no_key"
+  }));
+  upsertAiProviderConfig(saved);
+  return saved;
+}
+
+function preferredLocalModelName(models = []) {
+  const names = (Array.isArray(models) ? models : []).map((model) => String(model?.name || model || "").trim()).filter(Boolean);
+  const preferred = [
+    /qwen2\.5.*7b/i,
+    /qwen.*7b/i,
+    /qwen2\.5.*3b/i,
+    /llama3\.1.*8b/i,
+    /phi.*3\.5/i,
+    /gemma2.*2b/i
+  ];
+  for (const pattern of preferred) {
+    const match = names.find((name) => pattern.test(name));
+    if (match) return match;
+  }
+  return names[0] || "";
+}
+
+function hasLocalModel(modelName = "") {
+  const target = String(modelName || "").trim().toLowerCase();
+  if (!target) return false;
+  return (Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : []).some(
+    (model) => String(model?.name || model || "").trim().toLowerCase() === target
+  );
+}
+
+function ollamaPullModelName() {
+  if (!hasLocalModel(OLLAMA_RECOMMENDED_MODEL)) return OLLAMA_RECOMMENDED_MODEL;
+  return String(settingsState.ai.localModel || preferredLocalModelName(settingsState.ai.localRuntimeModels) || OLLAMA_RECOMMENDED_MODEL).trim();
+}
+
+async function detectOllamaModels(options = {}) {
+  settingsState.ai.localRuntimeChecking = true;
+  settingsState.ai.localRuntimeError = "";
+  if (options.render !== false) renderSettingsPanel();
+  try {
+    const runtime = await fetchOllamaModels();
+    const models = Array.isArray(runtime?.models) ? runtime.models : [];
+    settingsState.ai.localRuntimeStatus = String(runtime?.status || "unknown");
+    settingsState.ai.localRuntimeModels = models;
+    settingsState.ai.localRuntimeError = settingsState.ai.localRuntimeStatus === "available" ? "" : String(runtime?.message || "");
+    if (!settingsState.ai.localModel) settingsState.ai.localModel = preferredLocalModelName(models);
+    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
+    persistAiSettingsToStorage();
+    if (settingsState.ai.localModel && ["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await syncAiSettingsToApi();
+      await saveLocalOllamaProviderConfig();
+      await refreshAiRoutePreview({ render: false });
+    }
+    if (options.silent !== true) {
+      const count = models.length;
+      if (settingsState.ai.localRuntimeStatus === "available") {
+        setStatus(count ? `已检测到 ${count} 个 Ollama 本地模型。` : "Ollama 可连接，但还没有本地模型。", count ? "ok" : "warn");
+      } else {
+        const message = settingsState.ai.localRuntimeError || "Ollama 当前不可用。";
+        setStatus(`Ollama 不可用：${message}`, "warn");
+      }
+    }
+    return runtime;
+  } catch (error) {
+    settingsState.ai.localRuntimeStatus = "unavailable";
+    settingsState.ai.localRuntimeModels = [];
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    if (options.silent !== true) setStatus(`Ollama 检测失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimeChecking = false;
+    if (options.render !== false) renderSettingsPanel();
+  }
+}
+
+async function pullRecommendedOllamaModel() {
+  const modelName = ollamaPullModelName();
+  settingsState.ai.localRuntimePulling = true;
+  settingsState.ai.localRuntimeError = "";
+  renderSettingsPanel();
+  setStatus(`正在下载本地模型：${modelName}。这可能需要几分钟。`, "warn");
+  try {
+    const result = await pullOllamaModel(modelName);
+    const runtime = result?.runtime || await fetchOllamaModels();
+    const models = Array.isArray(runtime?.models) ? runtime.models : [];
+    settingsState.ai.localRuntimeStatus = String(runtime?.status || "available");
+    settingsState.ai.localRuntimeModels = models;
+    settingsState.ai.localModel = modelName;
+    applyOllamaLocalModelDefaults();
+    persistAiSettingsToStorage();
+    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await syncAiSettingsToApi();
+      await saveLocalOllamaProviderConfig();
+    }
+    await refreshAiRoutePreview({ render: false });
+    setStatus(`本地模型已就绪：${modelName}`, "ok");
+    return result;
+  } catch (error) {
+    settingsState.ai.localRuntimeError = String(error?.message || error);
+    setStatus(`本地模型下载失败：${settingsState.ai.localRuntimeError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.localRuntimePulling = false;
+    renderSettingsPanel();
   }
 }
 
@@ -1072,7 +1268,7 @@ async function loadAiInboxDetail(artifactId) {
   } catch (error) {
     aiInboxState.detail = null;
     aiInboxState.detailError = String(error?.message || error);
-    setStatus(`AI Inbox detail failed: ${aiInboxState.detailError}`, "warn");
+    setStatus(`AI 建议详情加载失败：${aiInboxState.detailError}`, "warn");
     return null;
   } finally {
     aiInboxState.detailLoading = false;
@@ -1102,7 +1298,7 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
     return result;
   } catch (error) {
     aiInboxState.error = String(error?.message || error);
-    setStatus(`AI Inbox load failed: ${aiInboxState.error}`, "warn");
+    setStatus(`AI 建议加载失败：${aiInboxState.error}`, "warn");
     return null;
   } finally {
     aiInboxState.loading = false;
@@ -1127,7 +1323,7 @@ async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
   } catch (error) {
     aiInboxState.evaluationSummary = null;
     aiInboxState.evaluationError = String(error?.message || error);
-    setStatus(`AI Inbox evaluation summary failed: ${aiInboxState.evaluationError}`, "warn");
+    setStatus(`AI 建议处理统计加载失败：${aiInboxState.evaluationError}`, "warn");
     return null;
   } finally {
     aiInboxState.evaluationLoading = false;
@@ -1150,12 +1346,12 @@ async function applyAiInboxFiltersFromUi() {
   aiInboxState.detail = null;
   aiInboxState.selectedArtifactId = "";
   await openAiInboxModule();
-  setStatus("AI Inbox refreshed", "ok");
+  setStatus("AI 建议已刷新", "ok");
 }
 
 async function recordAiInboxReviewDecision(decision) {
   const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
-  if (!artifactId) return setStatus("Select an AI artifact first", "warn");
+  if (!artifactId) return setStatus("请先选择一条 AI 建议", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1170,10 +1366,10 @@ async function recordAiInboxReviewDecision(decision) {
       refreshAiInbox({ silent: true, preserveDetail: true }),
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
-    setStatus(`AI artifact ${decision}`, "ok");
+    setStatus(`AI 建议已${aiInboxActionLabel(decision) || "处理"}`, "ok");
     return result;
   } catch (error) {
-    setStatus(`AI Inbox decision failed: ${String(error?.message || error)}`, "bad");
+    setStatus(`AI 建议处理失败：${String(error?.message || error)}`, "bad");
     return null;
   } finally {
     aiInboxState.actionLoading = false;
@@ -1208,7 +1404,7 @@ async function applyAiInboxRecommendedAction(action = "") {
 
 async function acceptAiInboxLinkSuggestion(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("Select a LinkSuggestion first", "warn");
+  if (!cleanArtifactId) return setStatus("请先选择一条关联建议", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1222,7 +1418,7 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
     if (state.module === "graph") await refreshDirectoryGraph();
-    setStatus(result.relation?.created === false ? "Relation already existed; artifact marked linked" : "LinkSuggestion accepted as a note relation", "ok");
+    setStatus(result.relation?.created === false ? "关系已存在，建议已标记为已建立关系" : "已把关联建议建立为笔记关系", "ok");
     return result;
   } catch (error) {
     setStatus(`LinkSuggestion accept failed: ${String(error?.message || error)}`, "bad");
@@ -1235,7 +1431,7 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
 
 async function promoteAiInboxArtifactToNote(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("Select a QuestionCard or ReflectionPrompt first", "warn");
+  if (!cleanArtifactId) return setStatus("请先选择一条问题卡片或反思提示", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1255,7 +1451,7 @@ async function promoteAiInboxArtifactToNote(artifactId) {
       activateModule("explorer");
       openNoteById(result.note.id);
     }
-    setStatus(result.note?.id ? `Draft note created from AI artifact: ${result.note.id}` : "AI artifact promoted", "ok");
+    setStatus(result.note?.id ? `已从 AI 建议生成草稿笔记：${result.note.id}` : "AI 建议已生成草稿", "ok");
     return result;
   } catch (error) {
     setStatus(`AI note promotion failed: ${String(error?.message || error)}`, "bad");
@@ -1313,7 +1509,7 @@ async function setScheduledTaskStatus(scheduledTaskId, status) {
 }
 
 async function runDueScheduledTasksFromUi() {
-  const confirmed = window.confirm("Run due scheduled AI tasks now? New outputs will stay in AI Inbox until reviewed.");
+  const confirmed = window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入 AI 建议待办，等待你确认。");
   if (!confirmed) return null;
   settingsState.ai.scheduledTaskActionLoading = true;
   settingsState.ai.scheduledTasksError = "";
@@ -2395,6 +2591,27 @@ function upsertNotesForDirectory(folderId, mappedNotes) {
   state.notes = [...localOnly, ...mappedNotes, ...keep];
 }
 
+function upsertGraphNodeSummaries(nodes = []) {
+  const mapped = nodes.map(mapNoteItem);
+  const byId = new Map(state.notes.map((note) => [note.id, note]));
+  for (const node of mapped) {
+    const existing = byId.get(node.id);
+    if (existing?.bodyLoaded) {
+      Object.assign(existing, {
+        title: node.title,
+        folderId: node.folderId,
+        noteType: node.noteType,
+        status: node.status,
+        markdownPath: node.markdownPath,
+        updatedAt: node.updatedAt
+      });
+    } else {
+      byId.set(node.id, { ...(existing || {}), ...node });
+    }
+  }
+  state.notes = Array.from(byId.values());
+}
+
 function replaceFirstMarkdownTitle(body, title) {
   const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
   const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
@@ -2659,6 +2876,32 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   `;
 }
 
+function newNoteLabelForRoot(rootId = state.browserRootId) {
+  if (rootId === "dir_literature_default") return "新建文摘笔记";
+  if (rootId === "dir_fleeting_default") return "新建随笔";
+  return "新建原创笔记";
+}
+
+function newNoteShortLabelForRoot(rootId = state.browserRootId) {
+  if (rootId === "dir_literature_default") return "文摘";
+  if (rootId === "dir_fleeting_default") return "随笔";
+  return "原创";
+}
+
+function syncNewNoteButtons() {
+  const label = newNoteLabelForRoot();
+  const shortLabel = newNoteShortLabelForRoot();
+  const sidebarNew = $("btnNewNote");
+  const mobileNew = $("btnMobileNewNote");
+  for (const button of [sidebarNew, mobileNew].filter(Boolean)) {
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.dataset.tip = label;
+  }
+  const mobileLabel = mobileNew?.querySelector("span");
+  if (mobileLabel) mobileLabel.textContent = shortLabel;
+}
+
 function renderSidebarTitle() {
   const root = folderById(state, state.browserRootId);
   const editorMode = state.module === "explorer";
@@ -2672,21 +2915,10 @@ function renderSidebarTitle() {
   const sidebarFoot = $("sidebarFoot");
 
   if (editorMode) {
-    $("sidebarTitle").textContent =
-      state.browserRootId === "dir_original_default"
-        ? "原创笔记工作台"
-        : state.browserRootId === "dir_fleeting_default"
-          ? "素材入口：随笔"
-          : state.browserRootId === "dir_literature_default"
-            ? "素材入口：文献"
-            : displayFolderName(root);
+    $("sidebarTitle").textContent = root ? displayFolderName(root) : "目录";
     if (sidebarSubtitle) {
-      sidebarSubtitle.textContent =
-        state.browserRootId === "dir_fleeting_default"
-          ? "捕捉线索，但不要把线索误认为成果。"
-          : state.browserRootId === "dir_literature_default"
-            ? "保存证据与转述，目标是记录原创判断。"
-            : "新建、搜索和写作默认从自己的判断开始。";
+      sidebarSubtitle.textContent = "";
+      sidebarSubtitle.classList.add("hidden");
     }
     const quickAction =
       state.browserRootId === "dir_fleeting_default"
@@ -2695,30 +2927,31 @@ function renderSidebarTitle() {
           ? "quick-literature"
           : "quick-original";
     document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
+    syncNewNoteButtons();
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
     sidebarPrimaryActions?.classList.remove("hidden");
     const showSearch = Boolean(state.searchVisible || String(state.searchQuery || "").trim());
     filter?.classList.toggle("hidden", !showSearch);
     searchToggle?.classList.toggle("is-ghost", !showSearch);
-    renderExplorerSidebarFlow(state.browserRootId);
+    sidebarFlow?.classList.add("hidden");
+    if (sidebarFlow) sidebarFlow.innerHTML = "";
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
-      sidebarFoot.textContent =
-        state.browserRootId === "dir_fleeting_default"
-          ? "随手记用来捕捉还不成熟的线索。等判断开始变清楚，再继续推进到原创笔记。"
-          : state.browserRootId === "dir_literature_default"
-            ? "文献笔记不以摘录结束。只有完成转述，它才真正进入你的理解结构。"
-            : "原创笔记承接你已经想清楚的判断。连接、标签和写作都应该从这里继续长出来。";
+      sidebarFoot.textContent = "";
+      sidebarFoot.classList.add("hidden");
     }
     return;
   }
 
   const moduleUi = currentModuleUi();
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
-  if (sidebarSubtitle) sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+  if (sidebarSubtitle) {
+    sidebarSubtitle.classList.remove("hidden");
+    sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+  }
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
   sidebarPrimaryActions?.classList.add("hidden");
@@ -2728,7 +2961,10 @@ function renderSidebarTitle() {
   listArea?.classList.add("hidden");
   moduleSidebar?.classList.add("visible");
   if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
-  if (sidebarFoot) sidebarFoot.textContent = moduleUi.sidebarFoot;
+  if (sidebarFoot) {
+    sidebarFoot.classList.remove("hidden");
+    sidebarFoot.textContent = moduleUi.sidebarFoot;
+  }
 }
 
 function currentModuleUi() {
@@ -2757,43 +2993,43 @@ function currentModuleUi() {
       `
     },
     aiInbox: {
-      sidebarTitle: "AI Inbox",
-      sidebarSubtitle: "Review suggestions before they change notes.",
-      sidebarFoot: "AI artifacts stay proposals until the user accepts, ignores, archives, or promotes them through an explicit action.",
-      title: "AI Inbox",
-      summary: "Review AI-generated artifacts with their sources, provenance, feedback flags, and promotion actions. Link suggestions can become graph relations only after confirmation.",
+      sidebarTitle: "AI 建议待办",
+      sidebarSubtitle: "AI 只给建议，是否落地由你确认。",
+      sidebarFoot: "AI 建议默认不会改动笔记。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
+      title: "AI 建议待办",
+      summary: "这里集中处理 AI 发现的关联、问题、冲突和写作线索。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>Review loop</h3>
-          <p>Artifacts are proposals: read the source notes, inspect provenance, then decide whether the suggestion is useful, noisy, wrong, already known, or privacy-sensitive.</p>
+          <h3>它用来做什么</h3>
+          <p>把 AI 的输出拦在“待确认”层：有价值的关系可以进入图谱，有价值的问题可以生成草稿，没用的建议直接忽略。</p>
         </div>
         <div class="module-sidebar-card">
-          <h3>First action</h3>
+          <h3>处理顺序</h3>
           <ol class="module-sidebar-list">
-            <li>Open pending artifacts</li>
-            <li>Accept or archive review prompts</li>
-            <li>Promote note-to-note LinkSuggestion items into real relations only when confirmed</li>
+            <li>先看待判断建议</li>
+            <li>核对来源笔记和关联理由</li>
+            <li>确认后再建立关系或生成草稿</li>
           </ol>
         </div>
       `
     },
     graph: {
-      sidebarTitle: "关系图谱",
-      sidebarSubtitle: "只看当前范围，不看全局噪音。",
-      sidebarFoot: "图谱默认围绕当前目录或当前主题，不展示全局大图。",
-      title: "关系图谱",
-      summary: "图谱页不只看连接，还要帮助你看见重名冲突、孤立观点、待补链接理由，以及哪些概念其实还没有真正对齐。",
+      sidebarTitle: "原创关系图谱",
+      sidebarSubtitle: "看原创笔记之间的观点结构。",
+      sidebarFoot: "图谱固定展示原创笔记盒及其子目录，不需要导入案例或切换范围。",
+      title: "原创笔记关系图谱",
+      summary: "把所有原创笔记当作节点，把“支持、反驳、限定、桥接”等关系当作边，快速看出中心观点、孤立观点、冲突和缺失连接。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>查看范围</h3>
-          <p>当前以 <strong>${escapeHtml(rootName)}</strong> 为范围，只看这一层结构，避免一进来就被全局关系淹没。</p>
+          <h3>它用来做什么</h3>
+          <p>检查 <strong>原创笔记盒</strong> 里的观点是否已经形成结构：哪些观点在支撑主题，哪里有反方，哪里还缺过渡。</p>
         </div>
         <div class="module-sidebar-card">
-          <h3>你现在可以做什么</h3>
+          <h3>读图顺序</h3>
           <ul class="module-sidebar-list">
-            <li>刷新当前目录子图</li>
-            <li>查看局部关系、显性冲突与缺失连接</li>
-            <li>从节点直接回到对应笔记</li>
+            <li>先看概览，确认节点和关系数量</li>
+            <li>再看支持、反驳、限定、桥接</li>
+            <li>最后点回笔记补理由、证据或边界</li>
           </ul>
         </div>
       `
@@ -2923,7 +3159,7 @@ function moduleLabel(moduleName = "") {
   const labels = {
     explorer: "笔记编辑",
     imports: "导入导出",
-    aiInbox: "AI Inbox",
+    aiInbox: "AI 建议",
     graph: "关系图谱",
     writing: "写作中心",
     settings: "设置"
@@ -3408,6 +3644,16 @@ function renderAiRoutePreview() {
     return;
   }
 
+  function localRuntimeSummaryText() {
+    const status = String(settingsState.ai.localRuntimeStatus || "unknown").trim() || "unknown";
+    const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+    const selectedModel = String(settingsState.ai.localModel || "").trim();
+    if (status === "available" && selectedModel) return `Ollama 可连接 / ${selectedModel}`;
+    if (status === "available") return `Ollama 可连接 / ${models.length} 个模型`;
+    if (status === "unavailable") return "Ollama 不可用";
+    return "Ollama 未检测";
+  }
+
   const provider = preview.provider || {};
   const route = preview.route || {};
   const access = preview.access || {};
@@ -3429,14 +3675,74 @@ function renderAiRoutePreview() {
     `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
   ].join("");
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
+    ? `<div>本地：${escapeHtml(localRuntimeSummaryText())}</div>`
+    : "";
+  const hybridLine = runtimeMode === "hybrid"
+    ? `<div>混合：本地模型已为隐私/快速任务准备；深度任务仍保留云端路由。</div>`
+    : "";
   detail.innerHTML = `
     <div><strong>${escapeHtml(provider.displayName || provider.providerId || "未知 Provider")}</strong></div>
     <div>模型包：${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")}</div>
     <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     <div>Provider：${escapeHtml(provider.providerId || "unknown")} / 授权：${escapeHtml(access.keyMode || "unknown")}</div>
+    ${localRuntimeLine}
+    ${hybridLine}
     <div>${escapeHtml(healthDetail)}</div>
     <div>${escapeHtml(access.message || "")}</div>
   `;
+}
+
+function renderAiLocalModelControls() {
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const runtimeSelect = $("settingsAiRuntimeMode");
+  if (runtimeSelect && runtimeSelect.value !== runtimeMode) runtimeSelect.value = runtimeMode;
+
+  const modelSelect = $("settingsAiLocalModel");
+  const modelLabel = $("settingsAiLocalModelLabel");
+  const showLocalModel = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  modelSelect?.classList.toggle("hidden", !showLocalModel);
+  modelLabel?.classList.toggle("hidden", !showLocalModel);
+  if (modelSelect) {
+    const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+    const selectedModel = String(settingsState.ai.localModel || "").trim();
+    const names = models.map((model) => String(model?.name || "").trim()).filter(Boolean);
+    const optionNames = selectedModel && !names.includes(selectedModel) ? [selectedModel, ...names] : names;
+    if (settingsState.ai.localRuntimeChecking) {
+      modelSelect.innerHTML = `<option value="">正在检测 Ollama...</option>`;
+    } else if (optionNames.length) {
+      modelSelect.innerHTML = [
+        `<option value="">自动选择本地模型</option>`,
+        ...optionNames.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      ].join("");
+      modelSelect.value = selectedModel;
+    } else {
+      modelSelect.innerHTML = `<option value="">未检测到 Ollama 模型</option>`;
+    }
+    modelSelect.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking;
+  }
+
+  const detectButton = $("settingsAiDetectOllama");
+  if (detectButton) {
+    detectButton.disabled = settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling;
+    detectButton.textContent = settingsState.ai.localRuntimeChecking ? "正在检测 Ollama..." : "检测 Ollama";
+  }
+
+  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel);
+
+  const pullButton = $("settingsAiPullOllamaModel");
+  if (pullButton) {
+    const modelName = ollamaPullModelName();
+    const installed = hasLocalModel(modelName);
+    pullButton.classList.toggle("hidden", !showLocalModel);
+    pullButton.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
+    pullButton.textContent = settingsState.ai.localRuntimePulling
+      ? `正在下载 ${modelName}...`
+      : installed
+        ? `已安装 ${modelName}`
+        : `下载 ${modelName}`;
+  }
 }
 
 function renderAiProviderConfigControls() {
@@ -3553,6 +3859,8 @@ function renderSettingsPanel() {
     feedbackLink.textContent = FEEDBACK_REPOSITORY_READY ? href : "等待填写真实 GitHub 仓库";
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
+
+  renderAiLocalModelControls();
 
   const aiMode = $("settingsAiUserMode");
   if (aiMode) {
@@ -4546,6 +4854,11 @@ async function refreshVaultSettings() {
       if (userMode) settingsState.ai.userMode = userMode;
       const modelPack = String(prefs.modelPack || prefs.model_pack || "").trim();
       if (modelPack) settingsState.ai.modelPack = modelPack;
+      const advancedSettings = prefs.advancedSettings || prefs.advanced_settings || {};
+      const runtimeMode = String(advancedSettings.runtimeMode || advancedSettings.runtime_mode || "").trim();
+      if (runtimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(runtimeMode);
+      const localModel = String(advancedSettings.localModel || advancedSettings.local_model || "").trim();
+      if (localModel) settingsState.ai.localModel = localModel;
       const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
       settingsState.ai.advancedModelRef = advancedRef;
       const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
@@ -4554,6 +4867,9 @@ async function refreshVaultSettings() {
     }
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
+    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+      await detectOllamaModels({ silent: true, render: false });
+    }
     await refreshAiRoutePreview({ render: false });
     await refreshScheduledTaskTemplates({ silent: true });
     await refreshScheduledTasks({ silent: true });
@@ -4620,6 +4936,35 @@ const GRAPH_RELATION_REVIEW_REASON_LABELS = {
   needs_review: "复查关系"
 };
 
+const GRAPH_RELATION_VISUALS = {
+  associated_with: { key: "neutral", className: "is-neutral" },
+  same_topic: { key: "neutral", className: "is-neutral" },
+  supports: { key: "support", className: "is-support" },
+  complements: { key: "support", className: "is-support" },
+  extends: { key: "support", className: "is-support" },
+  example_of: { key: "support", className: "is-support" },
+  follows: { key: "flow", className: "is-flow" },
+  precedes: { key: "flow", className: "is-flow" },
+  appears_in_draft: { key: "flow", className: "is-flow" },
+  contradicts: { key: "conflict", className: "is-conflict" },
+  counterexample_to: { key: "conflict", className: "is-conflict" },
+  contrasts: { key: "conflict", className: "is-conflict" },
+  qualifies: { key: "boundary", className: "is-boundary" },
+  bridges: { key: "bridge", className: "is-bridge" },
+  unexpected_connection: { key: "bridge", className: "is-bridge" },
+  restates: { key: "neutral", className: "is-neutral" },
+  reframes: { key: "bridge", className: "is-bridge" }
+};
+
+const GRAPH_RELATION_MARKER_COLORS = {
+  neutral: "#8fa0b3",
+  support: "#35b779",
+  flow: "#38a3c9",
+  conflict: "#ef6f6c",
+  boundary: "#d59c2a",
+  bridge: "#a88be8"
+};
+
 function graphRelationQualityLabel(level) {
   const key = String(level || "empty").trim().toLowerCase();
   return GRAPH_RELATION_QUALITY_LABELS[key] || key || "待整理";
@@ -4628,6 +4973,36 @@ function graphRelationQualityLabel(level) {
 function graphRelationReviewReasonLabel(reason) {
   const key = String(reason || "needs_review").trim().toLowerCase();
   return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
+}
+
+function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
+  return `
+    <section class="graph-orientation" aria-label="图谱读法">
+      <div class="graph-orientation-main">
+        <strong>先把它当作“原创笔记的论证地图”来读</strong>
+        <span>节点是原创笔记，边是关系；重点不是线多不多，而是这组笔记能不能支撑一个清楚主题。</span>
+      </div>
+      <div class="graph-read-steps">
+        <span>1 看中心观点</span>
+        <span>2 看支持和反驳</span>
+        <span>3 看桥接缺口</span>
+        <span>4 回笔记补理由</span>
+      </div>
+      <div class="graph-relation-legend" aria-label="关系类型说明">
+        <span><strong>支持</strong> 提供理由或证据</span>
+        <span><strong>反驳</strong> 标记冲突观点</span>
+        <span><strong>限定</strong> 写清边界条件</span>
+        <span><strong>桥接</strong> 连接两段还没接上的思路</span>
+      </div>
+      <div class="graph-orientation-metrics">
+        <span>${Number(nodes.length || 0)} 个节点</span>
+        <span>${Number(edges.length || 0)} 条关系</span>
+        <span>${Number(supportingCount || 0)} 条支持</span>
+        <span>${Number(conflictCount || 0)} 条冲突</span>
+        <span>${Number(bridgeGapCount || 0)} 个缺口</span>
+      </div>
+    </section>
+  `;
 }
 
 function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
@@ -4655,6 +5030,269 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
   return (filterType === "all" || type === filterType) && (filterStatus === "all" || status === filterStatus);
 }
 
+function graphRelationVisual(type) {
+  const key = String(type || "associated_with").trim().toLowerCase();
+  return GRAPH_RELATION_VISUALS[key] || GRAPH_RELATION_VISUALS.associated_with;
+}
+
+function graphHash(value = "") {
+  return String(value || "").split("").reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) % 100000, 7);
+}
+
+function graphShortTitle(value = "", maxLength = 14) {
+  const text = String(value || "").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(2, maxLength - 1))}…`;
+}
+
+function graphBuildVisualLayout(nodes = [], edges = []) {
+  const width = 1080;
+  const height = 560;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const nodeMap = new Map();
+
+  nodes.forEach((node) => {
+    const id = String(node?.id || "").trim();
+    if (!id) return;
+    nodeMap.set(id, {
+      ...node,
+      id,
+      title: String(node?.title || id).trim() || id,
+      noteType: String(node?.noteType || node?.note_type || "note").trim() || "note",
+      degree: 0,
+      inDegree: 0,
+      outDegree: 0
+    });
+  });
+
+  edges.forEach((edge) => {
+    const fromId = String(edge?.fromNoteId || "").trim();
+    const toId = String(edge?.toNoteId || "").trim();
+    if (fromId && !nodeMap.has(fromId)) {
+      nodeMap.set(fromId, {
+        id: fromId,
+        title: String(edge?.fromTitle || fromId).trim() || fromId,
+        noteType: "note",
+        degree: 0,
+        inDegree: 0,
+        outDegree: 0
+      });
+    }
+    if (toId && !nodeMap.has(toId)) {
+      nodeMap.set(toId, {
+        id: toId,
+        title: String(edge?.toTitle || toId).trim() || toId,
+        noteType: "note",
+        degree: 0,
+        inDegree: 0,
+        outDegree: 0
+      });
+    }
+    const from = nodeMap.get(fromId);
+    const to = nodeMap.get(toId);
+    if (from) {
+      from.degree += 1;
+      from.outDegree += 1;
+    }
+    if (to) {
+      to.degree += 1;
+      to.inDegree += 1;
+    }
+  });
+
+  const layoutNodes = [...nodeMap.values()].sort(
+    (a, b) => b.degree - a.degree || String(a.title).localeCompare(String(b.title), "zh-Hans-CN") || a.id.localeCompare(b.id)
+  );
+  const outerCount = Math.max(0, layoutNodes.length - 1);
+  const innerCount = outerCount > 12 ? Math.ceil(outerCount * 0.58) : outerCount;
+  const outerRingCount = Math.max(1, outerCount - innerCount);
+
+  layoutNodes.forEach((node, index) => {
+    const isHub = index === 0 && node.degree > 0;
+    const degreeBoost = Math.min(8, Number(node.degree || 0) * 1.6);
+    node.radius = Math.round(18 + degreeBoost + (isHub ? 8 : 0));
+    node.isHub = isHub;
+
+    if (!outerCount || isHub) {
+      node.x = centerX;
+      node.y = centerY;
+      return;
+    }
+
+    const ringIndex = index - 1;
+    const useOuterRing = outerCount > 12 && ringIndex >= innerCount;
+    const ringPosition = useOuterRing ? ringIndex - innerCount : ringIndex;
+    const ringTotal = useOuterRing ? outerRingCount : Math.max(1, innerCount);
+    const angle = -Math.PI / 2 + (Math.PI * 2 * ringPosition) / ringTotal;
+    const jitter = graphHash(node.id) % 17;
+    const radiusX = useOuterRing ? 455 : outerCount > 7 ? 315 : 285;
+    const radiusY = useOuterRing ? 215 : outerCount > 7 ? 150 : 170;
+    node.x = Math.round(centerX + Math.cos(angle) * (radiusX + jitter * 0.6));
+    node.y = Math.round(centerY + Math.sin(angle) * (radiusY + jitter * 0.35));
+  });
+
+  return { width, height, nodes: layoutNodes, nodeMap };
+}
+
+function graphEdgePath(edge, nodeMap) {
+  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
+  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
+  if (!from || !to) return null;
+
+  if (from.id === to.id) {
+    const loopRadius = from.radius + 18;
+    return {
+      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius} ${from.y - loopRadius * 2}, ${from.x + loopRadius * 2} ${from.y}, ${from.x + from.radius + 5} ${from.y}`,
+      labelX: from.x + loopRadius + 4,
+      labelY: from.y - loopRadius,
+      titleX: from.x,
+      titleY: from.y
+    };
+  }
+
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const startX = from.x + unitX * (from.radius + 5);
+  const startY = from.y + unitY * (from.radius + 5);
+  const endX = to.x - unitX * (to.radius + 8);
+  const endY = to.y - unitY * (to.radius + 8);
+  const curve = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}`) % 7) - 3) * 9;
+  const midX = (startX + endX) / 2;
+  const midY = (startY + endY) / 2;
+  const controlX = midX + -unitY * curve;
+  const controlY = midY + unitX * curve;
+  return {
+    d: `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`,
+    labelX: Math.round(controlX),
+    labelY: Math.round(controlY - 7),
+    titleX: Math.round(midX),
+    titleY: Math.round(midY)
+  };
+}
+
+function graphNodeClass(noteType = "") {
+  const type = String(noteType || "").trim().toLowerCase();
+  if (type === "literature") return "is-literature";
+  if (type === "fleeting") return "is-fleeting";
+  if (type === "original" || type === "permanent") return "is-original";
+  return "is-note";
+}
+
+function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } = {}) {
+  const layout = graphBuildVisualLayout(nodes, edges);
+  const visibleEdges = edges
+    .map((edge) => ({ edge, path: graphEdgePath(edge, layout.nodeMap), visual: graphRelationVisual(edge?.relationType) }))
+    .filter((item) => item.path);
+  const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
+    .map(
+      ([key, color]) => `
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 0 L 8 3 L 0 6 z" fill="${escapeHtml(color)}"></path>
+        </marker>
+      `
+    )
+    .join("");
+  const edgeLabelsEnabled = visibleEdges.length <= 28;
+  const nodeMarkup = layout.nodes
+    .map((node) => {
+      const typeClass = graphNodeClass(node.noteType);
+      const title = node.title || node.id;
+      const label = graphShortTitle(title, node.isHub ? 18 : 12);
+      const labelY = node.y + node.radius + 17;
+      const metaY = labelY + 14;
+      return `
+        <g class="graph-map-node ${typeClass} ${node.isHub ? "is-hub" : ""}" data-open-note="${escapeHtml(node.id)}" role="button" tabindex="0" aria-label="打开笔记 ${escapeHtml(title)}">
+          <title>${escapeHtml(title)}；${escapeHtml(noteTypeLabel(node.noteType))}；连接 ${Number(node.degree || 0)} 条</title>
+          <circle cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
+          <text class="graph-map-node-label" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>
+          <text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(noteTypeLabel(node.noteType))} · ${Number(node.degree || 0)}</text>
+        </g>
+      `;
+    })
+    .join("");
+  const rosterMarkup = layout.nodes
+    .map((node) => {
+      const relationHint = `${Number(node.degree || 0)} 条关系`;
+      return `
+        <button class="graph-map-roster-item" type="button" data-open-note="${escapeHtml(node.id)}">
+          <span class="graph-map-roster-title">${escapeHtml(node.title || node.id)}</span>
+          <span class="graph-map-roster-meta">${escapeHtml(noteTypeLabel(node.noteType))} · ${escapeHtml(relationHint)}</span>
+        </button>
+      `;
+    })
+    .join("");
+  const edgeMarkup = visibleEdges
+    .map(({ edge, path, visual }) => {
+      const sourceTitle = edge.fromTitle || edge.fromNoteId || "源笔记";
+      const targetTitle = edge.toTitle || edge.toNoteId || "目标笔记";
+      const relationLabel = graphRelationTypeLabel(edge.relationType);
+      const rationale = String(edge.rationale || "").trim();
+      return `
+        <g class="graph-map-edge-group" data-open-note="${escapeHtml(edge.fromNoteId || "")}" aria-label="${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+          <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
+          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}" marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"></path>
+          ${
+            edgeLabelsEnabled
+              ? `<text class="graph-map-edge-label ${escapeHtml(visual.className)}" x="${path.labelX}" y="${path.labelY}" text-anchor="middle">${escapeHtml(relationLabel)}</text>`
+              : `<circle class="graph-map-edge-pin ${escapeHtml(visual.className)}" cx="${path.titleX}" cy="${path.titleY}" r="3"></circle>`
+          }
+        </g>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="graph-map-panel" aria-label="图形化笔记关系图谱">
+      <div class="graph-map-head">
+        <div>
+          <div class="graph-section-title">图形关系视图</div>
+          <div class="graph-section-note">点是笔记，线是关系；连接越多的笔记越靠中心，关系类型用颜色区分。</div>
+        </div>
+        <div class="graph-map-badges">
+          <span>${layout.nodes.length} 点</span>
+          <span>${visibleEdges.length} 线</span>
+          <span>${filterActive ? "已筛选" : "原创范围"}</span>
+        </div>
+      </div>
+      <div class="graph-map-stage">
+        ${
+          layout.nodes.length
+            ? `
+              <div class="graph-map-body">
+                <svg class="graph-map-svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="原创笔记关系图">
+                  <defs>${markers}</defs>
+                  <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                  <g class="graph-map-edges">${edgeMarkup}</g>
+                  <g class="graph-map-nodes">${nodeMarkup}</g>
+                </svg>
+                <aside class="graph-map-roster" aria-label="当前图谱笔记清单">
+                  <div class="graph-map-roster-head">
+                    <strong>当前图谱笔记</strong>
+                    <span>${layout.nodes.length} 条</span>
+                  </div>
+                  <div class="graph-map-roster-list">${rosterMarkup}</div>
+                </aside>
+              </div>
+            `
+            : `<div class="graph-empty">当前视图没有可绘制的节点。调整筛选条件，或先在笔记中建立关联。</div>`
+        }
+      </div>
+      <div class="graph-map-legend" aria-label="关系颜色图例">
+        <span><i class="is-support"></i>支持/补充</span>
+        <span><i class="is-conflict"></i>反驳/对比</span>
+        <span><i class="is-boundary"></i>限定</span>
+        <span><i class="is-bridge"></i>桥接</span>
+        <span><i class="is-flow"></i>前后推进</span>
+        <span><i class="is-neutral"></i>基础关联</span>
+      </div>
+    </section>
+  `;
+}
+
 function renderRelationReviewQueueSection(reviewQueue) {
   const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
   const total = Number(reviewQueue?.total || items.length || 0);
@@ -4667,8 +5305,8 @@ function renderRelationReviewQueueSection(reviewQueue) {
       <section class="graph-section graph-review-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">关系整理队列</div>
-            <div class="graph-section-note">优先处理说明缺失或理由偏薄的关系，让图谱从“连上了”继续走到“说清楚”。</div>
+            <div class="graph-section-title">待补关系说明</div>
+            <div class="graph-section-note">这里列出“线已经连上，但为什么连还没说清楚”的关系。优先补这些，图谱才有解释力。</div>
           </div>
         </div>
         ${
@@ -4678,7 +5316,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
               ? `
                 <div class="graph-review-summary">
                   <strong>${total} 条待整理关系</strong>
-                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。打开源笔记后可在右侧关系面板补理由、问题或状态。</small>
+                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系类型、关联理由或追问。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -4703,7 +5341,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">当前目录没有缺说明或理由偏薄的关系；可以继续补新关系，或切换筛选查看完整图谱。</div>`
+              : `<div class="graph-empty">原创笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
       </section>
   `;
@@ -4785,10 +5423,10 @@ function renderGraphPanel() {
   const canvas = $("graphCanvas");
   if (!summary || !canvas) return;
 
-  const folder = folderById(state, state.selectedFolderId);
+  const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   if (graphState.loading) {
-    summary.textContent = `正在加载“${folder?.name || "当前目录"}”的关系图谱与冲突视图...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取 SQLite 链接关系与张力信号。</div>`;
+    summary.textContent = `正在加载“${folder?.name || "原创笔记盒"}”的原创笔记关系...`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取原创笔记盒及其子目录里的笔记节点、显式关系和待补说明。</div>`;
     return;
   }
 
@@ -4800,8 +5438,8 @@ function renderGraphPanel() {
 
   const graph = graphState.item;
   if (!graph) {
-    summary.textContent = `当前目录：${folder?.name || "未选择目录"}。点击“刷新图谱”查看本目录内笔记关系。`;
-    canvas.innerHTML = `<div class="graph-empty">这里只显示当前目录内的笔记节点、目录内链接和冲突信号，不默认打开全局大图。</div>`;
+    summary.textContent = `原创笔记盒：点击“刷新图谱”查看所有原创笔记之间的关系。`;
+    canvas.innerHTML = `<div class="graph-empty">图谱固定展示原创笔记盒及其子目录：节点是原创笔记，边是支持、反驳、限定、桥接等关系。</div>`;
     return;
   }
 
@@ -4814,6 +5452,8 @@ function renderGraphPanel() {
   const visibleNodes = filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes;
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const insights = graph.insights && typeof graph.insights === "object" ? graph.insights : {};
+  const allSupportingRelations = allEdges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
+  const allConflictingRelations = allEdges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase()));
   const supportingRelations = edges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
   const conflictingRelations = edges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase()));
   const bridgeGaps = Array.isArray(insights.bridgeGaps) ? insights.bridgeGaps : [];
@@ -4858,7 +5498,7 @@ function renderGraphPanel() {
       <div class="graph-detail-card">
         <strong>概念错位 / 重名冲突</strong>
         <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
-        <small>${escapeHtml(conflict.rationale || "当前目录里有多条笔记标题相同，容易让连接和引用失真。")}</small>
+        <small>${escapeHtml(conflict.rationale || "原创笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
         <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
       </div>
     `);
@@ -4896,7 +5536,7 @@ function renderGraphPanel() {
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>孤立观点</strong>
-        <small>${isolatedNodes.length} 条笔记还没有进入当前目录的链接关系。</small>
+        <small>${isolatedNodes.length} 条原创笔记还没有进入关系网络。</small>
         <small>${escapeHtml(
           isolatedNodes
             .slice(0, 4)
@@ -4953,8 +5593,15 @@ function renderGraphPanel() {
     };
   })();
 
-  summary.textContent = `${graph.directoryTitle || folder?.name || "当前目录"}：${nodes.length} 个节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
+  summary.textContent = `${graph.directoryTitle || folder?.name || "原创笔记盒"}：${nodes.length} 个原创节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
+    ${renderGraphOrientation({
+      nodes,
+      edges: allEdges,
+      supportingCount: allSupportingRelations.length,
+      conflictCount: allConflictingRelations.length + conflictItems.length,
+      bridgeGapCount: bridgeGaps.length
+    })}
     <div class="graph-filters" data-graph-filters>
       <label>
         <span>关系类型</span>
@@ -4968,7 +5615,7 @@ function renderGraphPanel() {
           ${graphFilterOptions(allEdges, "status", filters.status, "全部状态", graphRelationStatusLabel)}
         </select>
       </label>
-      <div class="graph-filter-note">当前只筛选图谱中已加载的关系；不会改动笔记、关系或导入记录。</div>
+      <div class="graph-filter-note">筛选只改变当前视图，不会改动笔记。建议先看“支持/反驳/限定/桥接”四类关系。</div>
     </div>
     <div class="graph-metrics" aria-label="图谱摘要">
       ${renderGraphMetricCard("节点", `${visibleNodes.length}/${nodes.length}`, densityLabel, nodes.length ? "good" : "warn")}
@@ -4976,12 +5623,13 @@ function renderGraphPanel() {
       ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
       ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
     </div>
+    ${renderGraphVisualMap({ nodes: visibleNodes, edges, filterActive })}
     <div class="graph-grid">
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">范围与概览</div>
-            <div class="graph-section-note">当前只看目录子图，帮助你快速判断这里的结构是否已经成形。</div>
+            <div class="graph-section-title">这组笔记现在是什么结构</div>
+            <div class="graph-section-note">先看中心、孤立和关系分布，判断这组笔记是不是已经能支撑一个主题。</div>
           </div>
         </div>
         <div class="graph-next-card">
@@ -4991,15 +5639,15 @@ function renderGraphPanel() {
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
           <div class="graph-overview-card">
-            <strong>当前范围</strong>
-            <small>${escapeHtml(graph.directoryTitle || folder?.name || "当前目录")} 内共有 ${nodes.length} 条笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
+            <strong>范围</strong>
+            <small>${escapeHtml(graph.directoryTitle || folder?.name || "原创笔记盒")} 内共有 ${nodes.length} 条原创笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>结构状态</strong>
+            <strong>中心与孤立</strong>
             <small>${busiestNode?.node?.title ? `当前视图连接最密的是「${escapeHtml(busiestNode.node.title)}」` : "当前视图还没有明显中心节点"}；${isolatedCount} 条笔记暂时没有进入当前关系视图。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>支持与冲突</strong>
+            <strong>支撑与反方</strong>
             <small>${supportingRelations.length ? `显式支持关系 ${supportingRelations.length} 条` : "还没有显式 supports 关系"}；${
               conflictingRelations.length + conflictItems.length
                 ? `冲突信号 ${conflictingRelations.length + conflictItems.length} 个`
@@ -5007,7 +5655,7 @@ function renderGraphPanel() {
             }。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>桥接与说明</strong>
+            <strong>缺口与说明</strong>
             <small>${bridgeGaps.length ? `桥接缺口 ${bridgeGaps.length} 处` : "当前没有明显桥接缺口"}；${
               untypedRelations.length
             } 条连接还缺明确关系说明。</small>
@@ -5021,22 +5669,22 @@ function renderGraphPanel() {
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">冲突与张力视图</div>
-            <div class="graph-section-note">先看哪里有重名、孤立和未解释连接，再决定该补反方、补边界还是补连接理由。</div>
+            <div class="graph-section-title">需要处理的问题</div>
+            <div class="graph-section-note">这里不是错误列表，而是提示：哪里要补反方、补边界、补过渡或补关联理由。</div>
           </div>
         </div>
         ${
           tensionCards.length
             ? `<div class="graph-list">${tensionCards.join("")}</div>`
-            : `<div class="graph-empty">当前目录还没有显性冲突；如果结构看起来过于顺滑，可以回到笔记里补上反方、边界或例外条件。</div>`
+            : `<div class="graph-empty">原创笔记范围内还没有显性冲突。如果这组笔记是写作材料，可以回到笔记里补反方、边界或例外条件，让论证更稳。</div>`
         }
       </section>
       ${renderRelationReviewQueueSection(graphState.reviewQueue)}
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">节点</div>
-            <div class="graph-section-note">从这里进入某条笔记，继续补充观点、标签或链接。</div>
+            <div class="graph-section-title">笔记节点</div>
+            <div class="graph-section-note">每个节点是一条笔记。点击节点可回到笔记，继续补观点、标签或关系。</div>
           </div>
         </div>
         <div class="graph-list">
@@ -5056,22 +5704,22 @@ function renderGraphPanel() {
                   `
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "当前目录还没有笔记。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "原创笔记盒还没有笔记。"}</div>`
         }
         </div>
       </section>
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">关系与详情</div>
-            <div class="graph-section-note">先看有哪些连接已经出现，再决定哪些地方要补证据、补反方、补边界或补链接理由。</div>
+            <div class="graph-section-title">关系边</div>
+            <div class="graph-section-note">每条边说明两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
           </div>
         </div>
         ${
           highlightedEdge
             ? `
               <div class="graph-detail-card">
-                <strong>当前示例关系</strong>
+                <strong>当前示例边</strong>
                 <small>${escapeHtml(highlightedEdge.fromTitle || highlightedEdge.fromNoteId)} → ${escapeHtml(
                   highlightedEdge.toTitle || highlightedEdge.toNoteId
                 )}</small>
@@ -5111,7 +5759,7 @@ function renderGraphPanel() {
                   }
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "当前目录内还没有可显示的 [[关联笔记]] 链接。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "原创笔记范围内还没有可显示的 [[关联笔记]] 链接。"}</div>`
         }
         </div>
       </section>
@@ -5124,11 +5772,11 @@ async function refreshDirectoryGraph() {
   graphState.error = "";
   renderGraphPanel();
   try {
-    const directoryId = state.selectedFolderId;
+    const directoryId = GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;
     const [graph, conflicts, reviewQueue] = await Promise.all([
-      fetchDirectoryGraph(directoryId),
-      fetchGraphConflicts({ directoryId, includeDescendants: false }).catch(() => null),
-      fetchRelationReviewQueue({ directoryId, includeDescendants: false, limit: 8 }).catch((error) => ({
+      fetchDirectoryGraph(directoryId, { includeDescendants: true }),
+      fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
+      fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 }).catch((error) => ({
         error: String(error?.message || error),
         items: [],
         total: 0
@@ -5137,6 +5785,7 @@ async function refreshDirectoryGraph() {
     graphState.item = graph;
     graphState.conflicts = conflicts;
     graphState.reviewQueue = reviewQueue;
+    upsertGraphNodeSummaries(Array.isArray(graph?.nodes) ? graph.nodes : []);
   } catch (error) {
     graphState.error = String(error?.message || error);
     graphState.item = null;
@@ -5249,14 +5898,8 @@ async function ensureNoteBodyLoaded(noteId) {
 function openNoteById(id, options = {}) {
   const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
   if (activeTab?.dirty && activeTab.noteId !== id) {
-    const ok = editor.confirmDiscardDirtyTabs(`当前笔记“${activeTab.title || "未命名笔记"}”有未同步更改，打开其他笔记会保留旧 Tab，但当前视图会切走。是否继续？`);
-    if (!ok) {
-      state.selectedFileId = activeTab.noteId;
-      const activeNote = state.notes.find((n) => n.id === activeTab.noteId);
-      if (activeNote) syncExplorerContextToNote(activeNote);
-      renderAll();
-      return false;
-    }
+    editor.updateActiveTabFromEditor();
+    void editor.autoSaveTabById(activeTab.id, "switch-note");
   }
   state.selectedFileId = id;
   const note = state.notes.find((n) => n.id === id);
@@ -5646,11 +6289,14 @@ const editor = new EditorPane({
     assetPreviewOpenLink: $("assetPreviewOpenLink"),
     closeAssetPreview: $("btnCloseAssetPreview"),
     editorWrap: $("markdownPanel")?.closest(".editor-wrap"),
+    editorRelationsBelow: $("editorRelationsBelow"),
     relatedPanel: $("relatedPanel"),
     result: $("resultArea"),
     linkPicker: $("linkPicker"),
     linkSearchInput: $("linkSearchInput"),
     linkSearchList: $("linkSearchList"),
+    linkManagerSelect: $("linkManagerSelect"),
+    linkReasonInput: $("linkReasonInput"),
     closeLinkPicker: $("btnCloseLinkPicker"),
     tagPicker: $("tagPicker"),
     tagSearchInput: $("tagSearchInput"),
@@ -5778,6 +6424,37 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   }
 });
 
+$("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
+  const next = normalizeAiRuntimeMode(event?.target?.value || "auto");
+  const defaults = aiDefaultsForRuntimeMode(next);
+  settingsState.ai.runtimeMode = next;
+  settingsState.ai.userMode = defaults.userMode;
+  settingsState.ai.modelPack = defaults.modelPack;
+  settingsState.ai.routePreview = null;
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+  if (next === "local_only" || next === "hybrid") {
+    settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
+    settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
+    settingsState.ai.secretRef = "";
+    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
+    else if (settingsState.ai.advancedModelRef && !settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) settingsState.ai.advancedModelRef = "";
+  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+    settingsState.ai.advancedModelRef = "";
+  }
+  persistAiSettingsToStorage();
+  await syncAiSettingsToApi();
+  if ((next === "local_only" || next === "hybrid") && !settingsState.ai.localRuntimeModels.length) {
+    await detectOllamaModels({ silent: true, render: false });
+  }
+  if ((next === "local_only" || next === "hybrid") && settingsState.ai.localModel) {
+    await saveLocalOllamaProviderConfig();
+  }
+  await refreshAiRoutePreview();
+  renderSettingsPanel();
+  setStatus(`AI 运行模式已切换为：${next}`, "ok");
+});
+
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Auto").trim() || "Auto";
   settingsState.ai.userMode = next;
@@ -5793,10 +6470,13 @@ $("settingsAiModelPack")?.addEventListener("change", (event) => {
   applyAiModelPackChange(next, { source: "settings" });
   return;
   settingsState.ai.modelPack = next;
+  if (next === "Privacy First") settingsState.ai.runtimeMode = "local_only";
+  else if (settingsState.ai.runtimeMode === "local_only") settingsState.ai.runtimeMode = "auto";
   settingsState.ai.routePreview = null;
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.secretRef = "";
+  if (settingsState.ai.runtimeMode === "local_only" && settingsState.ai.localModel) applyOllamaLocalModelDefaults();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   applyActiveAiProviderConfigToState();
@@ -5805,6 +6485,23 @@ $("settingsAiModelPack")?.addEventListener("change", (event) => {
   refreshAiRoutePreview();
   renderSettingsPanel();
   setStatus(`AI 模型包已切换为：${next}`, "ok");
+});
+
+$("settingsAiLocalModel")?.addEventListener("change", async (event) => {
+  const next = String(event?.target?.value || "").trim();
+  settingsState.ai.localModel = next;
+  settingsState.ai.routePreview = null;
+  if (next) applyOllamaLocalModelDefaults();
+  persistAiSettingsToStorage();
+  await syncAiSettingsToApi();
+  if (next && ["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+    await saveLocalOllamaProviderConfig();
+    await refreshAiRoutePreview();
+  } else {
+    await refreshAiRoutePreview();
+  }
+  renderSettingsPanel();
+  setStatus(next ? `本地模型已选择：${next}` : "本地模型选择已清空。", "ok");
 });
 
 $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
@@ -5912,6 +6609,14 @@ $("settingsAiSaveProviderConfig")?.addEventListener("click", async () => {
 
 $("settingsAiCheckProviderHealth")?.addEventListener("click", async () => {
   await checkCurrentAiProviderHealth();
+});
+
+$("settingsAiDetectOllama")?.addEventListener("click", async () => {
+  await detectOllamaModels();
+});
+
+$("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
+  await pullRecommendedOllamaModel();
 });
 
 $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
@@ -6536,7 +7241,7 @@ $("btnWritingOpenDraft")?.addEventListener("click", async () => {
 
 $("graphRefresh")?.addEventListener("click", async () => {
   await refreshDirectoryGraph();
-  setStatus("当前目录图谱已刷新", "ok");
+  setStatus("原创笔记关系图谱已刷新", "ok");
 });
 
 $("graphSeedYijing")?.addEventListener("click", async () => {
@@ -6567,7 +7272,7 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 
   if (event.target.closest("#btnAiInboxRefresh")) {
     await openAiInboxModule();
-    setStatus("AI Inbox refreshed", "ok");
+    setStatus("AI 建议已刷新", "ok");
     return;
   }
 
@@ -6631,6 +7336,15 @@ $("graphCanvas")?.addEventListener("click", (event) => {
   setStatus("已从图谱打开笔记", "ok");
 });
 
+$("graphCanvas")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest("[data-open-note]");
+  if (!row) return;
+  event.preventDefault();
+  openNoteById(row.dataset.openNote);
+  setStatus("已从图谱打开笔记", "ok");
+});
+
 $("graphCanvas")?.addEventListener("change", (event) => {
   const control = event.target.closest("[data-graph-filter]");
   if (!control) return;
@@ -6648,11 +7362,11 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     activateModule(btn.dataset.module);
     if (state.module === "graph") {
       await refreshDirectoryGraph();
-      setStatus("已打开当前目录关系图谱", "ok");
+      setStatus("已打开原创笔记关系图谱", "ok");
 	    }
 	    if (state.module === "aiInbox") {
 	      await openAiInboxModule();
-	      setStatus("AI Inbox opened", "ok");
+	      setStatus("已打开 AI 建议待办", "ok");
 	    }
 	    if (state.module === "settings") {
 	      try {
@@ -6680,6 +7394,11 @@ $("btnMobileNewNote")?.addEventListener("click", () => {
 
 document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
   btn.addEventListener("click", () => {
+    const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+    if (activeTab?.dirty) {
+      editor.updateActiveTabFromEditor();
+      void editor.autoSaveTabById(activeTab.id, "switch-root");
+    }
     const action = btn.dataset.action;
     if (action === "quick-fleeting") {
       state.browserRootId = "dir_fleeting_default";

@@ -51,10 +51,10 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
     detail: { item, artifact }
   });
 
-  assert.match(html, /AI Inbox/);
-  assert.match(html, /Evaluation/);
-  assert.match(html, /Artifacts/);
-  assert.match(html, /pending view/);
+  assert.match(html, /AI 建议待办/);
+  assert.match(html, /处理质量/);
+  assert.match(html, /建议数/);
+  assert.match(html, /待判断/);
   assert.match(html, /data-ai-inbox-view="pending"/);
   assert.match(html, /id="aiInboxTypeFilter"/);
   assert.match(html, /data-ai-inbox-artifact-id="artifact_link_1"/);
@@ -62,7 +62,7 @@ test("AI inbox panel renders filters, list, detail, feedback, and accept-link ac
   assert.match(html, /data-ai-inbox-decision="accepted"/);
   assert.match(html, /data-ai-inbox-feedback="privacyConcern"/);
   assert.match(html, /data-ai-inbox-accept-link="artifact_link_1"/);
-  assert.match(html, /Create note relation/);
+  assert.match(html, /建立为笔记关系/);
 });
 
 test("AI inbox panel disables accept-link for non-note endpoints", () => {
@@ -83,7 +83,7 @@ test("AI inbox panel disables accept-link for non-note endpoints", () => {
     }
   });
 
-  assert.match(html, /Only note-to-note LinkSuggestion artifacts/);
+  assert.match(html, /只有“笔记到笔记”的关联建议才能进入图谱关系/);
   assert.match(html, /data-ai-inbox-accept-link="artifact_link_2"[\s\S]*disabled/);
 });
 
@@ -104,8 +104,8 @@ test("AI inbox panel renders draft note promotion for QuestionCard artifacts", (
     }
   });
 
-  assert.match(html, /Draft note/);
-  assert.match(html, /Create draft note/);
+  assert.match(html, /可生成草稿笔记/);
+  assert.match(html, /生成草稿笔记/);
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_1"/);
 });
 
@@ -142,13 +142,13 @@ test("AI inbox panel disables draft note promotion after an artifact is promoted
     }
   });
 
-  assert.match(html, /Already promoted to note note_1/);
+  assert.match(html, /已经生成笔记 note_1/);
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_2"[\s\S]*disabled/);
 });
 
 test("AI inbox panel renders loading and empty states", () => {
-  assert.match(renderAiInboxPanel({ loading: true }), /Loading AI artifacts/);
-  assert.match(renderAiInboxPanel({ evaluationLoading: true }), /Loading evaluation summary/);
-  assert.match(renderAiInboxPanel({ evaluationError: "boom" }), /Evaluation summary failed: boom/);
-  assert.match(renderAiInboxPanel({ items: [], counts: {}, filters: { view: "reviewed" } }), /No artifacts match this view/);
+  assert.match(renderAiInboxPanel({ loading: true }), /正在读取 AI 建议/);
+  assert.match(renderAiInboxPanel({ evaluationLoading: true }), /正在统计处理情况/);
+  assert.match(renderAiInboxPanel({ evaluationError: "boom" }), /处理统计加载失败：boom/);
+  assert.match(renderAiInboxPanel({ items: [], counts: {}, filters: { view: "reviewed" } }), /当前筛选下没有待处理建议/);
 });

@@ -814,6 +814,91 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
   }, 7000);
 });
 
+test("prototype note browser stays minimal and creates literature notes in the literature root", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  const assertMinimalBrowser = async (action, rootId) => {
+    if (action) await page.locator(`[data-action="${action}"]`).click();
+    await page.waitForFunction((expectedRootId) => window.__prototypeState?.browserRootId === expectedRootId, rootId);
+    const sidebar = await page.evaluate(() => {
+      const visible = (selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const box = el.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+      };
+      return {
+        title: document.querySelector("#sidebarTitle")?.textContent?.trim() || "",
+        subtitleVisible: visible("#sidebarSubtitle"),
+        flowVisible: visible("#sidebarFlow"),
+        footVisible: visible("#sidebarFoot"),
+        moduleVisible: visible("#moduleSidebar"),
+        listVisible: visible("#listArea"),
+        flowText: document.querySelector("#sidebarFlow")?.textContent?.trim() || "",
+        listText: document.querySelector("#listArea")?.textContent?.trim() || ""
+      };
+    });
+
+    assert.doesNotMatch(sidebar.title, /工作台|入口/);
+    assert.equal(sidebar.subtitleVisible, false);
+    assert.equal(sidebar.flowVisible, false);
+    assert.equal(sidebar.footVisible, false);
+    assert.equal(sidebar.moduleVisible, false);
+    assert.equal(sidebar.listVisible, true);
+    assert.equal(sidebar.flowText, "");
+    assert.ok(sidebar.listText.length > 0);
+  };
+
+  await assertMinimalBrowser("quick-original", "dir_original_default");
+  await assertMinimalBrowser("quick-fleeting", "dir_fleeting_default");
+  await assertMinimalBrowser("quick-literature", "dir_literature_default");
+
+  const literatureBefore = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+  const originalBefore = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  assert.equal(literatureBefore.status, 200);
+  assert.equal(originalBefore.status, 200);
+
+  assert.match((await page.locator("#btnNewNote").getAttribute("aria-label")) || "", /文摘/);
+  await page.locator("#btnNewNote").click();
+
+  await waitFor(async () => {
+    const active = await page.evaluate(() => {
+      const state = window.__prototypeState || {};
+      const activeTab = Array.isArray(state.tabs) ? state.tabs.find((tab) => tab.id === state.activeTabId) : null;
+      const noteId = state.selectedFileId || activeTab?.noteId || "";
+      const note = Array.isArray(state.notes) ? state.notes.find((item) => item.id === noteId) : null;
+      return {
+        browserRootId: state.browserRootId,
+        selectedFolderId: state.selectedFolderId,
+        noteId,
+        folderId: note?.folderId || "",
+        noteType: note?.noteType || ""
+      };
+    });
+    assert.equal(active.browserRootId, "dir_literature_default");
+    assert.equal(active.selectedFolderId, "dir_literature_default");
+    assert.equal(active.folderId, "dir_literature_default");
+    assert.equal(active.noteType, "literature");
+    assert.ok(active.noteId);
+
+    const literatureAfter = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+    const originalAfter = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+    assert.equal(literatureAfter.json.total, literatureBefore.json.total + 1);
+    assert.equal(originalAfter.json.total, originalBefore.json.total);
+  }, 10000);
+});
+
 test("prototype mobile viewport keeps new note entry discoverable", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -1046,7 +1131,7 @@ test("prototype related inspector can create an explicit semantic relation", asy
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "可连接来源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('[data-relation-action="open-create"]').click();
+  await page.locator('#resultArea [data-relation-action="open-create"]').click();
 
   const createFormText = await page.locator("[data-create-relation-form]").textContent();
   assert.match(String(createFormText || ""), /可检验的判断/);
@@ -1115,7 +1200,7 @@ test("prototype related inspector searches unloaded SQLite relation targets", as
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Relation Search Source" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('[data-relation-action="open-create"]').click();
+  await page.locator('#resultArea [data-relation-action="open-create"]').click();
   await page.locator('[data-relation-target-search]').fill("Remote Relation Target");
 
   await waitFor(async () => {
@@ -1181,7 +1266,7 @@ test("prototype related inspector can edit and delete an explicit semantic relat
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "可编辑来源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
-  await page.locator('[data-relation-action="open-edit"]').click();
+  await page.locator('#resultArea [data-relation-action="open-edit"]').click();
 
   const editFormText = await page.locator("[data-edit-relation-form]").textContent();
   assert.match(String(editFormText || ""), /可检验的判断/);
@@ -1215,7 +1300,7 @@ test("prototype related inspector can edit and delete an explicit semantic relat
     assert.match(dialog.message(), /删除/);
     await dialog.accept();
   });
-  await page.locator('[data-relation-action="delete"]').click();
+  await page.locator('#resultArea [data-relation-action="delete"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
@@ -1421,6 +1506,47 @@ test("prototype editor inserts uploaded file into markdown and preview action", 
     assert.equal(savedNote.status, 200);
     assert.match(savedNote.json.item.body, /\[reference pack \u8d44\u6599\.pdf\]\(<\.\.\/\.\.\/assets\/files\//);
   }, 10000);
+});
+
+test("prototype wysiwyg supports inline [[ link picker and # tag picker", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  await createAndSaveNoteViaEditor(page, "# Target note\n\nI am a target.");
+  await createAndSaveNoteViaEditor(page, "# Source note\n\nBody begins.");
+
+  await ensureNoteMode(page);
+  await page.locator("#wysiwygHost .ProseMirror.toastui-editor-contents").click();
+  await page.keyboard.type("\n\n[[Tar");
+
+  await page.waitForSelector("#linkPicker:not(.hidden)");
+  await page.locator("#linkSearchList .link-picker-item[data-link-note-id]").first().click();
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /\[\[Target note\]\]/);
+  }, 10000);
+
+  await page.keyboard.type("\n\n#ta");
+  await page.waitForSelector("#tagPicker:not(.hidden)");
+  await page.keyboard.press("Enter");
+
+  await waitFor(async () => {
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /#t/);
+  }, 10000);
+
+  const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
+  assert.equal(notes.status, 200);
 });
 
 test("prototype editor helper can dismiss once or mute future hints", async (t) => {
@@ -2053,7 +2179,7 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
     assert.ok(String(tabDirty || "").trim().length > 0);
   }, 7000);
 
-  await page.locator(".tab", { hasText: "Longform Beta" }).click();
+  await page.locator(".tab", { hasText: "Longform Beta" }).first().click();
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /Longform Beta/);
@@ -2677,20 +2803,14 @@ test("prototype editor confirms before closing or switching away from dirty note
   await page.locator(".tab.active .tab-close").click();
   await page.locator(".tab.active", { hasText: "Dirty source" }).waitFor({ timeout: 1000 });
 
-  page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));
-    await dialog.dismiss();
-  });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Switch target" }).click();
-  const afterDismiss = await page.locator("#editorBody").inputValue();
-  assert.match(afterDismiss, /Dirty source/);
-
-  page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));
-    await dialog.accept();
-  });
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Switch target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Switch target"));
+
+  await waitFor(async () => {
+    const saved = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(first.json.item.id)}`);
+    assert.equal(saved.status, 200);
+    assert.match(saved.json.item.body, /Unsaved line\./);
+  }, 10000);
 
   page.once("dialog", async (dialog) => {
     assert.ok(dialog.message().includes("未保存") || dialog.message().includes("unsaved") || dialog.message().includes("更改"));

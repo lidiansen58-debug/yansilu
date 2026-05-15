@@ -1,6 +1,6 @@
 # Yansilu API Reference
 
-Last updated for AI configuration, scheduled task, and AI Inbox additions on 2026-05-13.
+Last updated for AI configuration, local runtime discovery, scheduled task, and AI Inbox additions on 2026-05-14.
 
 This document describes the API routes that are currently implemented and covered by automated tests. Planned product APIs are intentionally not listed as active contracts here.
 
@@ -522,6 +522,7 @@ Query parameters:
 | --- | --- | --- | --- |
 | `scope` | string | `directory` | MVP only accepts `directory`. |
 | `directoryId` | string | required | Directory to graph. |
+| `includeDescendants` | boolean | `false` | Include child directories when `true`; response `scope` becomes `directory_tree`. |
 
 Response:
 
@@ -529,6 +530,8 @@ Response:
 {
   "item": {
     "directoryId": "dir_original_default",
+    "scope": "directory",
+    "includeDescendants": false,
     "nodes": [],
     "edges": [],
     "insights": {
@@ -1272,6 +1275,84 @@ Response status: `200`
   "timestamp": "2026-05-13T03:00:00.000Z"
 }
 ```
+
+### `GET /api/v1/ai/local-runtimes/ollama/models`
+
+Checks a local Ollama runtime and returns the installed model list. This endpoint does not run model inference; it calls Ollama's tag endpoint and normalizes the response for settings UI discovery.
+
+Configure the Ollama base URL with `OLLAMA_BASE_URL`. Default: `http://127.0.0.1:11434`.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "runtimeId": "ollama",
+    "displayName": "Ollama",
+    "status": "available",
+    "baseUrl": "http://127.0.0.1:11434",
+    "chatEndpointUrl": "http://127.0.0.1:11434/v1/chat/completions",
+    "healthEndpointUrl": "http://127.0.0.1:11434/api/tags",
+    "latencyMs": 24,
+    "models": [
+      {
+        "name": "qwen2.5:7b",
+        "modifiedAt": "2026-05-14T00:00:00.000Z",
+        "size": 4683087332,
+        "parameterSize": "7.6B",
+        "quantizationLevel": "Q4_K_M"
+      }
+    ],
+    "recommendedModels": ["qwen2.5:7b"],
+    "message": ""
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-14T03:00:00.000Z"
+}
+```
+
+If Ollama is not reachable, the route still returns `200` with `item.status` set to `unavailable`, an empty `models` list, default recommendations, and a diagnostic `message`.
+
+### `POST /api/v1/ai/local-runtimes/ollama/pull-model`
+
+Downloads a local Ollama model through the local Ollama runtime. This is intended for settings flows where the user chooses local or hybrid AI and needs a recommended small model installed before local inference can run.
+
+Request:
+
+```json
+{
+  "model": "qwen2.5:7b"
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "runtimeId": "ollama",
+    "model": "qwen2.5:7b",
+    "status": "success",
+    "latencyMs": 145000,
+    "pullEndpointUrl": "http://127.0.0.1:11434/api/pull",
+    "runtime": {
+      "runtimeId": "ollama",
+      "status": "available",
+      "models": [
+        {
+          "name": "qwen2.5:7b",
+          "parameterSize": "7.6B",
+          "quantizationLevel": "Q4_K_M"
+        }
+      ]
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-14T03:00:00.000Z"
+}
+```
+
+Invalid model names return `400` with `OLLAMA_MODEL_REQUIRED`. Pull failures return `502` with `OLLAMA_PULL_FAILED`.
 
 ### `GET /api/v1/ai/provider-configs`
 

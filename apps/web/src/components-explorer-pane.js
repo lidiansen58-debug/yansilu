@@ -1,4 +1,4 @@
-﻿import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
+import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
 
 function folderIconSvg(isRoot = false) {
   return `

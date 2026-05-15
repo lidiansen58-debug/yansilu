@@ -102,7 +102,8 @@ const REFLECTION_QUESTIONS = [
   "你为什么要保留它？",
   "它会支持什么判断？"
 ];
-const AUTO_SAVE_IDLE_MS = 12000;
+const AUTO_SAVE_IDLE_MS = 15000;
+const AUTO_SAVE_INTERVAL_MS = 15000;
 
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1290,6 +1291,9 @@ export class EditorPane {
     this.suppressLiteratureWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
+    this.wasEditingTitleLine = false;
+    this.lastTitleBlurSaveAt = 0;
+    this.lastTitleInputAt = 0;
     this.saveUiState = { mode: "idle", message: "" };
     this.relationsRequestSerial = 0;
     this.currentSemanticRelations = null;
@@ -1302,6 +1306,68 @@ export class EditorPane {
     this.renderPreviewVisibility();
     this.initRichEditor();
     this.initMarkdownEditor();
+  }
+
+  async autoSaveTabById(tabId, trigger = "idle") {
+    const tab = this.state.tabs.find((t) => t.id === tabId) || null;
+    if (!tab?.dirty) return true;
+    if (this.savingPromise) return false;
+    const note = this.state.notes.find((n) => n.id === tab.noteId) || null;
+    if (!note) return false;
+
+    const bodySnapshot = String(tab.body || "");
+    const titleSnapshot = titleFromBody(bodySnapshot);
+    const statusSnapshot = String(note.status || "draft").trim() || "draft";
+
+    this.clearAutoSaveTimer();
+    this.closeLinkPicker();
+    this.closeTagPicker();
+    this.setSaveUiState("saving", "当前文件：正在自动同步...");
+
+    this.savingPromise = (async () => {
+      note.body = bodySnapshot;
+      note.title = titleSnapshot;
+      note.noteType = typeFromFolder(this.state, note.folderId);
+      note.tags = parseTags(note.body);
+      note.links = parseLinks(note.body);
+      note.updatedAt = new Date().toISOString();
+
+      tab.title = titleSnapshot;
+
+      const saved = await this.onStateChange("save-note", {
+        noteId: note.id,
+        status: statusSnapshot,
+        originalityStatus: note.originalityStatus,
+        originalitySimilarity: note.originalitySimilarity,
+        authorshipConfirmed: true,
+        authorshipClaim: "",
+        trigger
+      });
+
+      if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
+        tab.dirty = true;
+        this.writeDraft(tab);
+        this.setSaveUiState(
+          String(saved?.saveMode || "error").trim() || "error",
+          String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
+        );
+        return false;
+      }
+
+      tab.savedBody = tab.body;
+      tab.savedTitle = tab.title;
+      tab.dirty = false;
+      this.clearDraft(tab.noteId);
+      this.setSaveUiState("saved", "当前文件：已自动同步");
+      return true;
+    })();
+
+    try {
+      return await this.savingPromise;
+    } finally {
+      this.savingPromise = null;
+      if (this.activeTab()?.dirty) this.scheduleAutoSave();
+    }
   }
 
   activeTab() {
@@ -1777,6 +1843,7 @@ export class EditorPane {
   clearAutoSaveTimer() {
     if (!this.autoSaveTimer) return;
     clearTimeout(this.autoSaveTimer);
+    clearInterval(this.autoSaveTimer);
     this.autoSaveTimer = null;
   }
 
@@ -1784,10 +1851,12 @@ export class EditorPane {
     this.clearAutoSaveTimer();
     const tab = this.activeTab();
     if (!tab?.dirty) return;
-    this.autoSaveTimer = setTimeout(() => {
-      this.autoSaveTimer = null;
-      void this.autoSaveActiveNote("idle");
-    }, AUTO_SAVE_IDLE_MS);
+    const kickoff = () => {
+      if (!this.activeTab()?.dirty) return;
+      void this.autoSaveActiveNote("interval");
+    };
+    this.autoSaveTimer = setInterval(kickoff, AUTO_SAVE_INTERVAL_MS);
+    setTimeout(kickoff, AUTO_SAVE_IDLE_MS);
   }
 
   async autoSaveActiveNote(trigger = "idle") {
@@ -1896,6 +1965,7 @@ export class EditorPane {
   }
 
   renderTabs() {
+    const newNoteLabel = this.currentNewNoteLabel();
     const tabsHtml = this.state.tabs
       .map((t) => {
         const note = this.state.notes.find((n) => n.id === t.noteId);
@@ -1938,9 +2008,9 @@ export class EditorPane {
 
     this.els.tabs.innerHTML = `
       <div class="tabs-shell">
-        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">新建原创笔记</span></div>`}</div>
+        <div class="tabs-list">${tabsHtml || `<div class="tab active welcome-tab" data-tab="welcome"><span class="tab-title">${newNoteLabel}</span></div>`}</div>
         <div class="tabs-actions">
-          <button class="tab-act" data-tabs-action="new" title="新建原创笔记" aria-label="新建原创笔记">+</button>
+          <button class="tab-act" data-tabs-action="new" title="${newNoteLabel}" aria-label="${newNoteLabel}">+</button>
         </div>
       </div>
       <div class="tab-menu hidden" data-tab-menu>
@@ -1953,6 +2023,13 @@ export class EditorPane {
     this.onChromeChange();
   }
 
+  currentNewNoteLabel() {
+    const type = typeFromFolder(this.state, this.state.selectedFolderId || this.state.browserRootId || "");
+    if (type === "literature") return "新建文摘笔记";
+    if (type === "fleeting") return "新建随笔";
+    return "新建原创笔记";
+  }
+
   renderEmptyEditorState() {
     const empty = !this.activeTab();
     const panel = this.els.markdownSplit?.closest?.(".md-panel");
@@ -1963,7 +2040,7 @@ export class EditorPane {
   requestCreateNoteFromEmptyState() {
     if (this.activeTab() || this.creatingEmptyNote) return false;
     this.creatingEmptyNote = true;
-    Promise.resolve(this.onStateChange("create-primary-note")).finally(() => {
+    Promise.resolve(this.onStateChange("create-note-in-selected-folder")).finally(() => {
       this.creatingEmptyNote = false;
     });
     return true;
@@ -3010,6 +3087,27 @@ export class EditorPane {
 
   isEditingTitleLine() {
     return Boolean(this.firstHeadingEntryContext());
+  }
+
+  maybeSaveOnTitleBlur() {
+    const tab = this.updateActiveTabFromEditor();
+    if (!tab) return;
+    const note = this.activeNote();
+    if (!note) return;
+    if (tab.title === tab.savedTitle) return;
+    if (Date.now() - this.lastTitleInputAt > 8000) return;
+    const now = Date.now();
+    if (now - this.lastTitleBlurSaveAt < 450) return;
+    this.lastTitleBlurSaveAt = now;
+
+    note.title = tab.title;
+    note.body = tab.body;
+    note.updatedAt = new Date().toISOString();
+    this.renderTabs();
+    setTimeout(() => {
+      this.onStateChange("switch-tab");
+      void this.saveActiveNote({ autoSave: true, trigger: "title-blur", skipOriginalityCheck: true });
+    }, 420);
   }
 
   enterBodyFromTitle() {
@@ -4116,6 +4214,10 @@ export class EditorPane {
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
     this.els.linkSearchInput.value = initialQuery;
+    if (!inlineMode) {
+      if (this.els.linkManagerSelect) this.els.linkManagerSelect.value = this.els.linkManagerSelect.value || "self";
+      if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
+    }
     this.currentLinkContext = options.inlineContext || null;
     this.lastInlinePickerAnchor = this.currentLinkContext?.end || 0;
     this.renderLinkCandidates(initialQuery, options.preferredId || "");
@@ -4148,6 +4250,7 @@ export class EditorPane {
     this.currentLinkContext = null;
     this.lastInlinePickerAnchor = 0;
     this.els.insertLink?.classList.remove("active");
+    if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
   }
 
   positionInlineLinkPicker() {
@@ -4159,11 +4262,28 @@ export class EditorPane {
     if (!noteId) return;
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
+    const manager = String(this.els.linkManagerSelect?.value || "self").trim() || "self";
+    const rawReason = String(this.els.linkReasonInput?.value || "").trim();
+    if (!this.currentLinkContext && this.els.linkReasonInput && !rawReason) {
+      this.onStatus("请先填写关联理由，再插入这条关联。", "warn");
+      this.els.linkReasonInput.focus();
+      return;
+    }
+    const reason = rawReason
+      .replace(/\\s+/g, " ")
+      .replace(/--/g, "- -")
+      .slice(0, 280);
+    const annotation = reason ? ` <!-- rel:manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->` : "";
+    const token = `[[${target.title}]]${annotation}`;
     if (this.currentLinkContext) {
       const { start, end } = this.currentLinkContext;
-      this.replaceEditorRange(start, end, `[[${target.title}]]`);
+      if (this.isWysiwygMode()) {
+        this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
+      } else {
+        this.replaceEditorRange(start, end, `[[${target.title}]]`);
+      }
     } else {
-      this.insertAtCursor(`[[${target.title}]]`);
+      this.insertAtCursor(token);
     }
     this.closeLinkPicker();
     this.onStatus(`已插入关联笔记：${target.title}`, "ok");
@@ -4316,7 +4436,11 @@ export class EditorPane {
     const insertText = `#${normalized}`;
     if (this.currentTagContext) {
       const { start, end } = this.currentTagContext;
-      this.replaceEditorRange(start, end, insertText);
+      if (this.isWysiwygMode()) {
+        this.replaceMarkdownWhileInWysiwyg(start, end, insertText);
+      } else {
+        this.replaceEditorRange(start, end, insertText);
+      }
     } else {
       this.insertAtCursor(insertText);
     }
@@ -4575,11 +4699,16 @@ export class EditorPane {
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
       section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
+
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = this.renderSemanticRelationsSection(relations, noteId);
+        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+      }
     } catch (error) {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
-      section.outerHTML = `
+      const errorHtml = `
         <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
           <div class="inspector-section-head">
             <div class="inspector-section-title">语义关系</div>
@@ -4588,6 +4717,12 @@ export class EditorPane {
           <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error))}</div>
         </section>
       `;
+      section.outerHTML = errorHtml;
+
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = errorHtml;
+        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+      }
     }
   }
 
@@ -4788,6 +4923,10 @@ export class EditorPane {
       this.relationsRequestSerial += 1;
       this.currentSemanticRelations = null;
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
+      if (this.els.editorRelationsBelow) {
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
+      }
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
@@ -5152,7 +5291,7 @@ export class EditorPane {
       if (actBtn) {
         const action = actBtn.dataset.tabsAction;
         if (action === "new") {
-          this.onStateChange("create-primary-note");
+          this.onStateChange("create-note-in-selected-folder");
           return;
         }
         if (action === "toggle-menu") {
@@ -5372,11 +5511,13 @@ export class EditorPane {
       if (rawValue === "p") {
         this.clearCurrentHeading();
         this.renderContextualToolbarState();
+        this.focusEditor();
         return;
       }
       const level = Number(rawValue || 0);
       if (level >= 1 && level <= 6) this.formatCurrentBlock(`h${level}`);
       this.renderContextualToolbarState();
+      this.focusEditor();
     });
     this.els.tableAddRow?.addEventListener("click", () => {
       this.addTableRow();
@@ -5736,7 +5877,13 @@ export class EditorPane {
         document.getSelection()?.anchorNode?.parentElement?.closest?.("#editorHost") ||
         document.getSelection()?.anchorNode?.parentElement?.closest?.("#wysiwygHost")
       ) {
+        const editingTitleNow = this.isEditingTitleLine();
+        const wasEditingTitle = this.wasEditingTitleLine;
+        this.wasEditingTitleLine = editingTitleNow;
+        if (wasEditingTitle && !editingTitleNow) this.maybeSaveOnTitleBlur();
         this.updateToolbarFormattingState();
+      } else {
+        this.wasEditingTitleLine = false;
       }
     });
 
@@ -5750,7 +5897,7 @@ export class EditorPane {
   }
 
   handleEditorInput() {
-      if (this.suppressEditorChange) return;
+       if (this.suppressEditorChange) return;
       const tab = this.activeTab();
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";
@@ -5792,6 +5939,7 @@ export class EditorPane {
         return;
       }
       if (this.isEditingTitleLine()) {
+        this.lastTitleInputAt = Date.now();
         if (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) this.closeLinkPicker();
         if (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext) this.closeTagPicker();
         this.lastEditorValue = tab.body;
@@ -5973,6 +6121,7 @@ export class EditorPane {
     const note = this.state.notes.find((n) => n.id === tab.noteId);
     if (!note) return this.onStatus("找不到对应笔记", "bad");
     const markLiteratureComplete = options?.markLiteratureComplete === true;
+    const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
     note.body = tab.body;
     note.title = titleFromBody(tab.body);
@@ -6016,6 +6165,9 @@ export class EditorPane {
       note.status = nextStatus;
     }
     if (note.noteType === "original") {
+      if (skipOriginalityCheck) {
+        nextStatus = String(note.status || nextStatus || "draft").trim() || "draft";
+      } else {
       try {
         originality = await this.runOriginalityCheck(note, { forSave: true });
       } catch (error) {
@@ -6030,6 +6182,7 @@ export class EditorPane {
       note.originalitySimilarity = Number(originality?.similarity || 0);
       nextStatus = note.originalityStatus === "pass" ? "active" : "draft";
       note.status = nextStatus;
+      }
     }
 
     if (note.noteType !== "original") {
