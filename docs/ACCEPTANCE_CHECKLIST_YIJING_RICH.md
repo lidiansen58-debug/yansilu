@@ -15,12 +15,12 @@
 
 1. 打开原型页：`http://127.0.0.1:5173/prototype`
 2. 进入「关系图谱」模块
-3. 点击「导入富验收样例」
+3. 点击「导入官网演示」
 
 预期：
-- 顶部状态提示包含：`已导入富易经验收样例：50 条原创笔记，80 条关系，2 个写作方案`
+- 顶部状态提示包含：`已导入易经官网演示：55 条永久笔记，85 条关系，2 个写作方案`
 - 自动切换到样例目录（目录名类似「易经验收样例：原创笔记」）
-- 图谱摘要包含：`50 个节点`、`80 条链接`
+- 图谱摘要包含：`55 个节点`、`85 条链接`
 
 ## 2. 一键导入（API 路径）
 
@@ -29,20 +29,20 @@
 
 预期：
 - 返回 `item.kind = "yijing_rich_acceptance_seed"`
-- `item.counts.original_notes = 50`
-- `item.counts.relations = 80`
+- `item.counts.original_notes = 55`
+- `item.counts.relations = 85`
 - `item.counts.index_cards = 5`
 - `item.counts.writing_projects = 2`
 - 第二次重复调用时：
-  - `createdNotes = 0` 且 `updatedNotes = 55`
-  - `createdRelations = 0` 且 `updatedRelations = 80`
+  - `createdNotes = 0` 且 `updatedNotes = 60`
+  - `createdRelations = 0` 且 `updatedRelations = 85`
 
 ## 3. 图谱验收（Graph）
 
 在「关系图谱」模块中：
 
-- 关系类型下拉/过滤器能看到多种关系（至少包含 `supports`/`qualifies`/`contradicts` 等）
-- 关系状态显示为「全部状态（80）」或同等含义
+- 关系类型下拉/过滤器能看到多种关系（至少包含 `supports`/`qualifies`/`contradicts`/`counterexample_to`/`same_topic`/`unexpected_connection`/`appears_in_draft` 等）
+- 关系状态显示为「全部状态（85）」或同等含义
 - 列表/预览中能看到部分节点标题（例如 `YJ-A01`、`变化不是扰动而是背景` 等）
 
 ## 4. 索引卡验收（Index Cards）

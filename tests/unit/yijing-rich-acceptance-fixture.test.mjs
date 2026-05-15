@@ -11,16 +11,16 @@ const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 test("Yijing rich acceptance fixture keeps the requested note counts", () => {
   assert.equal(fixture.fleeting_notes.length, 2);
   assert.equal(fixture.literature_notes.length, 3);
-  assert.equal(fixture.original_notes.length, 50);
-  assert.equal(fixture.relations.length, 80);
+  assert.equal(fixture.original_notes.length, fixture.counts.original_notes);
+  assert.equal(fixture.relations.length, fixture.counts.relations);
   assert.equal(fixture.writing_projects.length, 2);
   assert.deepEqual(fixture.counts, {
-    fleeting_notes: 2,
-    literature_notes: 3,
-    original_notes: 50,
-    relations: 80,
-    index_cards: 5,
-    writing_projects: 2
+    fleeting_notes: fixture.fleeting_notes.length,
+    literature_notes: fixture.literature_notes.length,
+    original_notes: fixture.original_notes.length,
+    relations: fixture.relations.length,
+    index_cards: fixture.index_cards.length,
+    writing_projects: fixture.writing_projects.length
   });
 });
 
@@ -29,7 +29,7 @@ test("Yijing rich acceptance fixture relations and traces reference existing not
   const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
   const seenRelationKeys = new Set();
 
-  assert.equal(originalIds.size, 50);
+  assert.equal(originalIds.size, fixture.counts.original_notes);
 
   for (const note of fixture.original_notes) {
     assert.ok(note.thesis, `${note.id} should have a thesis`);

@@ -28,6 +28,7 @@
         "restates",
         "reframes",
         "appears_in_draft",
+        "related",
         "belongs_to_topic",
         "associated_with",
         "free_link"

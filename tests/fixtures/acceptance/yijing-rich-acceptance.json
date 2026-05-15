@@ -1,13 +1,13 @@
 {
   "id": "yijing-rich-acceptance-v1",
   "title": "《易经》情境判断训练验收样例",
-  "generated_at": "2026-05-14T08:00:00+08:00",
+  "generated_at": "2026-05-15T16:15:00+08:00",
   "purpose": "用于验收随笔、文献笔记、原创笔记、显式关联、图谱和写作方案的完整链路。",
   "counts": {
     "fleeting_notes": 2,
     "literature_notes": 3,
-    "original_notes": 50,
-    "relations": 80,
+    "original_notes": 55,
+    "relations": 85,
     "index_cards": 5,
     "writing_projects": 2
   },
@@ -1431,7 +1431,7 @@
       "threeLineSummary": [
         "笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。",
         "一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。",
-        "可作为 50 条原创笔记的验收标准。"
+        "可作为整套原创笔记的验收标准。"
       ],
       "status": "draft",
       "originality_status": "pass",
@@ -1448,7 +1448,7 @@
       "related_index_ids": [
         "idx_yj_writing"
       ],
-      "body": "# 丰富笔记不是堆材料\n\n## 一句话论点\n笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n\n## 三句话压缩\n1. 笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n2. 一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。\n3. 可作为 50 条原创笔记的验收标准。\n\n## 展开\n一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：可作为 50 条原创笔记的验收标准。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
+      "body": "# 丰富笔记不是堆材料\n\n## 一句话论点\n笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n\n## 三句话压缩\n1. 笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n2. 一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。\n3. 可作为整套原创笔记的验收标准。\n\n## 展开\n一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：可作为整套原创笔记的验收标准。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
     },
     {
       "id": "YJ-E07",
@@ -1563,6 +1563,143 @@
         "idx_yj_writing"
       ],
       "body": "# 易经现代化要避免工具化崇拜\n\n## 一句话论点\n把《易经》现代化时，不能把它重新变成万能工具。\n\n## 三句话压缩\n1. 把《易经》现代化时，不能把它重新变成万能工具。\n2. 若现代化只是把卦象包装成管理捷径或心理测试，它仍然是答案机器。更好的现代化是把它变成判断训练和反思框架。\n3. 可作为整套样例的边界节点。\n\n## 展开\n若现代化只是把卦象包装成管理捷径或心理测试，它仍然是答案机器。更好的现代化是把它变成判断训练和反思框架。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：把《易经》现代化时，不能把它重新变成万能工具。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：可作为整套样例的边界节点。\n\n## 来源追溯\n- ln_yj_003\n\n#易经 #原创笔记 #写作方案"
+    },
+    {
+      "id": "YJ-E11",
+      "note_type": "permanent",
+      "title": "同主题不是关系完成",
+      "thesis": "同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。",
+      "threeLineSummary": [
+        "同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。",
+        "same_topic 是低成熟度关系：它承认材料相邻，但也提醒用户下一步要说清楚是支持、限定、反驳还是只是待比较。",
+        "用于验收同主题关系不会被误读成已经论证完成。"
+      ],
+      "status": "draft",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "易经",
+        "原创笔记",
+        "写作方案"
+      ],
+      "from_literature_note_ids": [],
+      "related_index_ids": [
+        "idx_yj_writing"
+      ],
+      "body": "# 同主题不是关系完成\n\n## 一句话论点\n同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。\n\n## 三句话压缩\n1. 同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。\n2. same_topic 是低成熟度关系：它承认材料相邻，但也提醒用户下一步要说清楚是支持、限定、反驳还是只是待比较。\n3. 用于验收同主题关系不会被误读成已经论证完成。\n\n## 展开\nsame_topic 是低成熟度关系：它承认材料相邻，但也提醒用户下一步要说清楚是支持、限定、反驳还是只是待比较。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：用于验收同主题关系不会被误读成已经论证完成。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
+    },
+    {
+      "id": "YJ-E12",
+      "note_type": "permanent",
+      "title": "意外相关要留下追问",
+      "thesis": "看似很远的笔记只有能提出新问题，才值得标为意外相关。",
+      "threeLineSummary": [
+        "看似很远的笔记只有能提出新问题，才值得标为意外相关。",
+        "unexpected_connection 的价值不在制造新奇感，而在保留一个暂时无法归类、却可能打开新路径的问题。没有追问的意外相关只是噪音。",
+        "用于验收意外相关关系必须带有洞察问题。"
+      ],
+      "status": "draft",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "易经",
+        "原创笔记",
+        "写作方案"
+      ],
+      "from_literature_note_ids": [
+        "ln_yj_002"
+      ],
+      "related_index_ids": [
+        "idx_yj_writing"
+      ],
+      "body": "# 意外相关要留下追问\n\n## 一句话论点\n看似很远的笔记只有能提出新问题，才值得标为意外相关。\n\n## 三句话压缩\n1. 看似很远的笔记只有能提出新问题，才值得标为意外相关。\n2. unexpected_connection 的价值不在制造新奇感，而在保留一个暂时无法归类、却可能打开新路径的问题。没有追问的意外相关只是噪音。\n3. 用于验收意外相关关系必须带有洞察问题。\n\n## 展开\nunexpected_connection 的价值不在制造新奇感，而在保留一个暂时无法归类、却可能打开新路径的问题。没有追问的意外相关只是噪音。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：看似很远的笔记只有能提出新问题，才值得标为意外相关。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：用于验收意外相关关系必须带有洞察问题。\n\n## 来源追溯\n- ln_yj_002\n\n#易经 #原创笔记 #写作方案"
+    },
+    {
+      "id": "YJ-E13",
+      "note_type": "permanent",
+      "title": "反例让边界可见",
+      "thesis": "反例不是破坏观点，而是让观点的适用边界变清楚。",
+      "threeLineSummary": [
+        "反例不是破坏观点，而是让观点的适用边界变清楚。",
+        "counterexample_to 比泛泛的反驳更精细：它不一定推翻整条判断，而是指出这条判断在哪些条件下失效、变形或需要补充。",
+        "用于验收反例关系和反驳关系的区别。"
+      ],
+      "status": "draft",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "易经",
+        "原创笔记",
+        "写作方案"
+      ],
+      "from_literature_note_ids": [],
+      "related_index_ids": [
+        "idx_yj_writing"
+      ],
+      "body": "# 反例让边界可见\n\n## 一句话论点\n反例不是破坏观点，而是让观点的适用边界变清楚。\n\n## 三句话压缩\n1. 反例不是破坏观点，而是让观点的适用边界变清楚。\n2. counterexample_to 比泛泛的反驳更精细：它不一定推翻整条判断，而是指出这条判断在哪些条件下失效、变形或需要补充。\n3. 用于验收反例关系和反驳关系的区别。\n\n## 展开\ncounterexample_to 比泛泛的反驳更精细：它不一定推翻整条判断，而是指出这条判断在哪些条件下失效、变形或需要补充。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：反例不是破坏观点，而是让观点的适用边界变清楚。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：用于验收反例关系和反驳关系的区别。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
+    },
+    {
+      "id": "YJ-E14",
+      "note_type": "permanent",
+      "title": "进入写作不等于完成论证",
+      "thesis": "一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。",
+      "threeLineSummary": [
+        "一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。",
+        "appears_in_draft 记录的是材料被写作项目征用的事实；真正的论证还需要说明它在段落里是证据、转折、反例还是过渡。",
+        "用于验收写作引用关系不会遮蔽来源追溯。"
+      ],
+      "status": "draft",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "易经",
+        "原创笔记",
+        "写作方案"
+      ],
+      "from_literature_note_ids": [],
+      "related_index_ids": [
+        "idx_yj_writing"
+      ],
+      "body": "# 进入写作不等于完成论证\n\n## 一句话论点\n一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。\n\n## 三句话压缩\n1. 一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。\n2. appears_in_draft 记录的是材料被写作项目征用的事实；真正的论证还需要说明它在段落里是证据、转折、反例还是过渡。\n3. 用于验收写作引用关系不会遮蔽来源追溯。\n\n## 展开\nappears_in_draft 记录的是材料被写作项目征用的事实；真正的论证还需要说明它在段落里是证据、转折、反例还是过渡。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：用于验收写作引用关系不会遮蔽来源追溯。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
+    },
+    {
+      "id": "YJ-E15",
+      "note_type": "permanent",
+      "title": "后续问题要声明承接关系",
+      "thesis": "后续问题不是随意延伸，而要说明它从哪条判断自然推出。",
+      "threeLineSummary": [
+        "后续问题不是随意延伸，而要说明它从哪条判断自然推出。",
+        "follows 关系帮助写作者把图谱中的下一步写清楚：后续不是另起炉灶，而是从已确认判断中推出的新问题、新场景或新行动。",
+        "用于验收前提和后续关系能形成可读路径。"
+      ],
+      "status": "draft",
+      "originality_status": "pass",
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "tags": [
+        "易经",
+        "原创笔记",
+        "写作方案"
+      ],
+      "from_literature_note_ids": [],
+      "related_index_ids": [
+        "idx_yj_writing"
+      ],
+      "body": "# 后续问题要声明承接关系\n\n## 一句话论点\n后续问题不是随意延伸，而要说明它从哪条判断自然推出。\n\n## 三句话压缩\n1. 后续问题不是随意延伸，而要说明它从哪条判断自然推出。\n2. follows 关系帮助写作者把图谱中的下一步写清楚：后续不是另起炉灶，而是从已确认判断中推出的新问题、新场景或新行动。\n3. 用于验收前提和后续关系能形成可读路径。\n\n## 展开\nfollows 关系帮助写作者把图谱中的下一步写清楚：后续不是另起炉灶，而是从已确认判断中推出的新问题、新场景或新行动。\n\n这条笔记不是资料摘要，而是可以进入后续写作的判断单元。它至少包含一个可独立复用的论点、一个解释理由、一个使用场景，以及一个可能被其他笔记支持或限定的边界。\n\n## 可测试点\n- 作为原创笔记，它应能在列表、详情、图谱和写作篮中独立显示：后续问题不是随意延伸，而要说明它从哪条判断自然推出。\n- 作为关系节点，它应能通过 idx_yj_writing 进入对应索引卡，并通过显式关系进入图谱。\n- 作为写作素材，它的用途是：用于验收前提和后续关系能形成可读路径。\n\n## 来源追溯\n- 无直接文献笔记，来自主题综合或写作反思。\n\n#易经 #原创笔记 #写作方案"
     }
   ],
   "relations": [
@@ -2205,6 +2342,61 @@
       "createdBy": "user"
     },
     {
+      "id": "lnk_YJ-E11_YJ-E02_same_topic",
+      "from": "YJ-E11",
+      "to": "YJ-E02",
+      "relationType": "same_topic",
+      "rationale": "两条笔记都讨论关系质量，但同主题只说明应继续比较，还没有说明具体支持、限定或反驳。",
+      "insightQuestion": "什么时候同主题关系应该升级为更明确的关系类型？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E12_YJ-C05_unexpected_connection",
+      "from": "YJ-E12",
+      "to": "YJ-C05",
+      "relationType": "unexpected_connection",
+      "rationale": "经典含混与笔记网络的意外连接都依赖开放性，但意外相关必须提出可追问的问题。",
+      "insightQuestion": "开放性什么时候产生洞见，什么时候变成任意联想？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E13_YJ-E06_counterexample_to",
+      "from": "YJ-E13",
+      "to": "YJ-E06",
+      "relationType": "counterexample_to",
+      "rationale": "只堆支持材料的笔记是丰富笔记的反例，因为它缺少边界和反对意见。",
+      "insightQuestion": "一条笔记需要多少反例才足以显示边界？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E14_YJ-E05_appears_in_draft",
+      "from": "YJ-E14",
+      "to": "YJ-E05",
+      "relationType": "appears_in_draft",
+      "rationale": "进入写作方案后，笔记仍需通过来源追溯说明它在段落中的论证位置。",
+      "insightQuestion": "写作篮里哪些材料只是待用，哪些已经承担论证？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E15_YJ-E14_follows",
+      "from": "YJ-E15",
+      "to": "YJ-E14",
+      "relationType": "follows",
+      "rationale": "确认笔记进入写作之后，后续问题是说明它如何承接前文并推出下一段。",
+      "insightQuestion": "后续关系如何防止文章段落跳跃？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
       "id": "lnk_YJ-A01_YJ-D01_supports",
       "from": "YJ-A01",
       "to": "YJ-D01",
@@ -2535,17 +2727,22 @@
         "YJ-E07",
         "YJ-E08",
         "YJ-E09",
-        "YJ-E10"
+        "YJ-E10",
+        "YJ-E11",
+        "YJ-E12",
+        "YJ-E13",
+        "YJ-E14",
+        "YJ-E15"
       ]
     }
   ],
   "graph": {
-    "mermaid": "flowchart LR\n  subgraph idx_yj_core[卦象与变化模型]\n    YJ_A01[\"YJ-A01 变化不是扰动而是背景\"]\n    YJ_A02[\"YJ-A02 卦把混乱处境压缩成模型\"]\n    YJ_A03[\"YJ-A03 阴阳不是善恶二分\"]\n    YJ_A04[\"YJ-A04 爻位让判断带上阶段\"]\n    YJ_A05[\"YJ-A05 吉凶是时位反馈\"]\n    YJ_A06[\"YJ-A06 象是观察入口\"]\n    YJ_A07[\"YJ-A07 卦辞像情境标题\"]\n    YJ_A08[\"YJ-A08 爻辞把结构落到动作\"]\n    YJ_A09[\"YJ-A09 变卦提示趋势但不替人行动\"]\n    YJ_A10[\"YJ-A10 卦序是理解路径\"]\n  end\n  subgraph idx_yj_action[时位中的行动者]\n    YJ_B01[\"YJ-B01 中正优先于绝对正确\"]\n    YJ_B02[\"YJ-B02 时机改变行动意义\"]\n    YJ_B03[\"YJ-B03 君子是情境中的行动者\"]\n    YJ_B04[\"YJ-B04 小人是不承担关系后果的模型\"]\n    YJ_B05[\"YJ-B05 进退都是行动\"]\n    YJ_B06[\"YJ-B06 等待不是消极\"]\n    YJ_B07[\"YJ-B07 戒惧让力量保持边界\"]\n    YJ_B08[\"YJ-B08 谦不是自我贬低\"]\n    YJ_B09[\"YJ-B09 履险需要礼的距离感\"]\n    YJ_B10[\"YJ-B10 复归是修正能力\"]\n  end\n  subgraph idx_yj_interpretation[去神秘化与解释边界]\n    YJ_C01[\"YJ-C01 占问先暴露问题框架\"]\n    YJ_C02[\"YJ-C02 神秘化让判断外包\"]\n    YJ_C03[\"YJ-C03 去神秘化不等于去意义\"]\n    YJ_C04[\"YJ-C04 占筮仪式降低冲动决策\"]\n    YJ_C05[\"YJ-C05 经典的含混是复用空间\"]\n    YJ_C06[\"YJ-C06 断语必须回到处境\"]\n    YJ_C07[\"YJ-C07 义理和象数可以互相校验\"]\n    YJ_C08[\"YJ-C08 读易的难点是把象转成判断\"]\n    YJ_C09[\"YJ-C09 解释必须保留不确定性\"]\n    YJ_C10[\"YJ-C10 误读常来自把关系词当实体词\"]\n  end\n  subgraph idx_yj_modern[现代决策训练]\n    YJ_D01[\"YJ-D01 易经训练复杂决策前的停顿\"]\n    YJ_D02[\"YJ-D02 组织策略需要时位意识\"]\n    YJ_D03[\"YJ-D03 产品判断看阶段而非愿望\"]\n    YJ_D04[\"YJ-D04 个人成长不是线性加法\"]\n    YJ_D05[\"YJ-D05 风险管理是一种吉凶阅读\"]\n    YJ_D06[\"YJ-D06 冲突处理先辨互补条件\"]\n    YJ_D07[\"YJ-D07 复盘要问位置是否变了\"]\n    YJ_D08[\"YJ-D08 模型不是答案而是提问器\"]\n    YJ_D09[\"YJ-D09 决策信心来自关系看清\"]\n    YJ_D10[\"YJ-D10 最坏的预测是把趋势当命令\"]\n  end\n  subgraph idx_yj_writing[从笔记网络到写作]\n    YJ_E01[\"YJ-E01 笔记网络应该保留张力\"]\n    YJ_E02[\"YJ-E02 好的关联要写出为什么\"]\n    YJ_E03[\"YJ-E03 从一卦到一文需要中间判断\"]\n    YJ_E04[\"YJ-E04 主题索引服务中心问题\"]\n    YJ_E05[\"YJ-E05 写作方案要显示来源追溯\"]\n    YJ_E06[\"YJ-E06 丰富笔记不是堆材料\"]\n    YJ_E07[\"YJ-E07 多条路径比单一路径更像理解\"]\n    YJ_E08[\"YJ-E08 慢读让孤立观点重新换位\"]\n    YJ_E09[\"YJ-E09 反对意见是网络的一部分\"]\n    YJ_E10[\"YJ-E10 易经现代化要避免工具化崇拜\"]\n  end\n  YJ_A03 -->|supports| YJ_A01\n  YJ_A01 -->|extends| YJ_A02\n  YJ_A02 -->|complements| YJ_A04\n  YJ_A04 -->|supports| YJ_A05\n  YJ_A06 -->|complements| YJ_A03\n  YJ_A06 -->|example_of| YJ_A03\n  YJ_A07 -->|restates| YJ_A02\n  YJ_A08 -->|extends| YJ_A04\n  YJ_A09 -->|qualifies| YJ_A05\n  YJ_A10 -->|bridges| YJ_A01\n  YJ_A10 -->|precedes| YJ_A04\n  YJ_B02 -->|supports| YJ_A04\n  YJ_B01 -->|qualifies| YJ_A05\n  YJ_B03 -->|extends| YJ_A05\n  YJ_B04 -->|contrasts| YJ_B03\n  YJ_B05 -->|complements| YJ_B06\n  YJ_B06 -->|example_of| YJ_B05\n  YJ_B07 -->|qualifies| YJ_A09\n  YJ_B08 -->|example_of| YJ_B01\n  YJ_B09 -->|bridges| YJ_B07\n  YJ_B10 -->|extends| YJ_A09\n  YJ_B10 -->|supports| YJ_D07\n  YJ_B03 -->|supports| YJ_B01\n  YJ_B02 -->|qualifies| YJ_B05\n  YJ_C01 -->|reframes| YJ_A02\n  YJ_C01 -->|supports| YJ_D08\n  YJ_C02 -->|contradicts| YJ_A02\n  YJ_C03 -->|qualifies| YJ_C02\n  YJ_C04 -->|supports| YJ_C01\n  YJ_C05 -->|supports| YJ_E07\n  YJ_C06 -->|qualifies| YJ_A07\n  YJ_C07 -->|complements| YJ_A06\n  YJ_C08 -->|extends| YJ_A06\n  YJ_C09 -->|qualifies| YJ_D09\n  YJ_C10 -->|contrasts| YJ_A03\n  YJ_C10 -->|contradicts| YJ_C07\n  YJ_D01 -->|extends| YJ_A05\n  YJ_D02 -->|example_of| YJ_A04\n  YJ_D03 -->|example_of| YJ_A04\n  YJ_D04 -->|complements| YJ_A10\n  YJ_D05 -->|restates| YJ_A05\n  YJ_D06 -->|example_of| YJ_A03\n  YJ_D07 -->|supports| YJ_B10\n  YJ_D08 -->|restates| YJ_A02\n  YJ_D09 -->|qualifies| YJ_D01\n  YJ_D10 -->|contradicts| YJ_A09\n  YJ_D10 -->|qualifies| YJ_D09\n  YJ_E01 -->|supports| YJ_E07\n  YJ_E02 -->|supports| YJ_E01\n  YJ_E03 -->|supports| YJ_E05\n  YJ_E04 -->|qualifies| YJ_E05\n  YJ_E05 -->|extends| YJ_E04\n  YJ_E06 -->|supports| YJ_E04\n  YJ_E07 -->|complements| YJ_A10\n  YJ_E08 -->|supports| YJ_A10\n  YJ_E09 -->|supports| YJ_E01\n  YJ_E10 -->|qualifies| YJ_D08\n  YJ_E10 -->|contradicts| YJ_C02\n  YJ_A01 -->|supports| YJ_D01\n  YJ_A02 -->|supports| YJ_D08\n  YJ_A03 -->|supports| YJ_D06\n  YJ_A04 -->|supports| YJ_D02\n  YJ_A05 -->|supports| YJ_D05\n  YJ_A06 -->|supports| YJ_C08\n  YJ_A07 -->|supports| YJ_C06\n  YJ_A08 -->|supports| YJ_E03\n  YJ_A09 -->|qualifies| YJ_D10\n  YJ_A10 -->|supports| YJ_E08\n  YJ_B01 -->|supports| YJ_D02\n  YJ_B03 -->|supports| YJ_D01\n  YJ_B07 -->|supports| YJ_D05\n  YJ_C01 -->|supports| YJ_E03\n  YJ_C05 -->|supports| YJ_C09\n  YJ_C09 -->|supports| YJ_E09\n  YJ_D03 -->|supports| YJ_E04\n  YJ_D07 -->|supports| YJ_E08\n  YJ_D08 -->|supports| YJ_E02\n  YJ_E06 -->|supports| YJ_E02\n  YJ_B09 -->|supports| YJ_D05\n  YJ_C04 -->|supports| YJ_D01",
+    "mermaid": "flowchart LR\n  subgraph idx_yj_core[卦象与变化模型]\n    YJ_A01[\"YJ-A01 变化不是扰动而是背景\"]\n    YJ_A02[\"YJ-A02 卦把混乱处境压缩成模型\"]\n    YJ_A03[\"YJ-A03 阴阳不是善恶二分\"]\n    YJ_A04[\"YJ-A04 爻位让判断带上阶段\"]\n    YJ_A05[\"YJ-A05 吉凶是时位反馈\"]\n    YJ_A06[\"YJ-A06 象是观察入口\"]\n    YJ_A07[\"YJ-A07 卦辞像情境标题\"]\n    YJ_A08[\"YJ-A08 爻辞把结构落到动作\"]\n    YJ_A09[\"YJ-A09 变卦提示趋势但不替人行动\"]\n    YJ_A10[\"YJ-A10 卦序是理解路径\"]\n  end\n  subgraph idx_yj_action[时位中的行动者]\n    YJ_B01[\"YJ-B01 中正优先于绝对正确\"]\n    YJ_B02[\"YJ-B02 时机改变行动意义\"]\n    YJ_B03[\"YJ-B03 君子是情境中的行动者\"]\n    YJ_B04[\"YJ-B04 小人是不承担关系后果的模型\"]\n    YJ_B05[\"YJ-B05 进退都是行动\"]\n    YJ_B06[\"YJ-B06 等待不是消极\"]\n    YJ_B07[\"YJ-B07 戒惧让力量保持边界\"]\n    YJ_B08[\"YJ-B08 谦不是自我贬低\"]\n    YJ_B09[\"YJ-B09 履险需要礼的距离感\"]\n    YJ_B10[\"YJ-B10 复归是修正能力\"]\n  end\n  subgraph idx_yj_interpretation[去神秘化与解释边界]\n    YJ_C01[\"YJ-C01 占问先暴露问题框架\"]\n    YJ_C02[\"YJ-C02 神秘化让判断外包\"]\n    YJ_C03[\"YJ-C03 去神秘化不等于去意义\"]\n    YJ_C04[\"YJ-C04 占筮仪式降低冲动决策\"]\n    YJ_C05[\"YJ-C05 经典的含混是复用空间\"]\n    YJ_C06[\"YJ-C06 断语必须回到处境\"]\n    YJ_C07[\"YJ-C07 义理和象数可以互相校验\"]\n    YJ_C08[\"YJ-C08 读易的难点是把象转成判断\"]\n    YJ_C09[\"YJ-C09 解释必须保留不确定性\"]\n    YJ_C10[\"YJ-C10 误读常来自把关系词当实体词\"]\n  end\n  subgraph idx_yj_modern[现代决策训练]\n    YJ_D01[\"YJ-D01 易经训练复杂决策前的停顿\"]\n    YJ_D02[\"YJ-D02 组织策略需要时位意识\"]\n    YJ_D03[\"YJ-D03 产品判断看阶段而非愿望\"]\n    YJ_D04[\"YJ-D04 个人成长不是线性加法\"]\n    YJ_D05[\"YJ-D05 风险管理是一种吉凶阅读\"]\n    YJ_D06[\"YJ-D06 冲突处理先辨互补条件\"]\n    YJ_D07[\"YJ-D07 复盘要问位置是否变了\"]\n    YJ_D08[\"YJ-D08 模型不是答案而是提问器\"]\n    YJ_D09[\"YJ-D09 决策信心来自关系看清\"]\n    YJ_D10[\"YJ-D10 最坏的预测是把趋势当命令\"]\n  end\n  subgraph idx_yj_writing[从笔记网络到写作]\n    YJ_E01[\"YJ-E01 笔记网络应该保留张力\"]\n    YJ_E02[\"YJ-E02 好的关联要写出为什么\"]\n    YJ_E03[\"YJ-E03 从一卦到一文需要中间判断\"]\n    YJ_E04[\"YJ-E04 主题索引服务中心问题\"]\n    YJ_E05[\"YJ-E05 写作方案要显示来源追溯\"]\n    YJ_E06[\"YJ-E06 丰富笔记不是堆材料\"]\n    YJ_E07[\"YJ-E07 多条路径比单一路径更像理解\"]\n    YJ_E08[\"YJ-E08 慢读让孤立观点重新换位\"]\n    YJ_E09[\"YJ-E09 反对意见是网络的一部分\"]\n    YJ_E10[\"YJ-E10 易经现代化要避免工具化崇拜\"]\n    YJ_E11[\"YJ-E11 同主题不是关系完成\"]\n    YJ_E12[\"YJ-E12 意外相关要留下追问\"]\n    YJ_E13[\"YJ-E13 反例让边界可见\"]\n    YJ_E14[\"YJ-E14 进入写作不等于完成论证\"]\n    YJ_E15[\"YJ-E15 后续问题要声明承接关系\"]\n  end\n  YJ_A03 -->|supports| YJ_A01\n  YJ_A01 -->|extends| YJ_A02\n  YJ_A02 -->|complements| YJ_A04\n  YJ_A04 -->|supports| YJ_A05\n  YJ_A06 -->|complements| YJ_A03\n  YJ_A06 -->|example_of| YJ_A03\n  YJ_A07 -->|restates| YJ_A02\n  YJ_A08 -->|extends| YJ_A04\n  YJ_A09 -->|qualifies| YJ_A05\n  YJ_A10 -->|bridges| YJ_A01\n  YJ_A10 -->|precedes| YJ_A04\n  YJ_B02 -->|supports| YJ_A04\n  YJ_B01 -->|qualifies| YJ_A05\n  YJ_B03 -->|extends| YJ_A05\n  YJ_B04 -->|contrasts| YJ_B03\n  YJ_B05 -->|complements| YJ_B06\n  YJ_B06 -->|example_of| YJ_B05\n  YJ_B07 -->|qualifies| YJ_A09\n  YJ_B08 -->|example_of| YJ_B01\n  YJ_B09 -->|bridges| YJ_B07\n  YJ_B10 -->|extends| YJ_A09\n  YJ_B10 -->|supports| YJ_D07\n  YJ_B03 -->|supports| YJ_B01\n  YJ_B02 -->|qualifies| YJ_B05\n  YJ_C01 -->|reframes| YJ_A02\n  YJ_C01 -->|supports| YJ_D08\n  YJ_C02 -->|contradicts| YJ_A02\n  YJ_C03 -->|qualifies| YJ_C02\n  YJ_C04 -->|supports| YJ_C01\n  YJ_C05 -->|supports| YJ_E07\n  YJ_C06 -->|qualifies| YJ_A07\n  YJ_C07 -->|complements| YJ_A06\n  YJ_C08 -->|extends| YJ_A06\n  YJ_C09 -->|qualifies| YJ_D09\n  YJ_C10 -->|contrasts| YJ_A03\n  YJ_C10 -->|contradicts| YJ_C07\n  YJ_D01 -->|extends| YJ_A05\n  YJ_D02 -->|example_of| YJ_A04\n  YJ_D03 -->|example_of| YJ_A04\n  YJ_D04 -->|complements| YJ_A10\n  YJ_D05 -->|restates| YJ_A05\n  YJ_D06 -->|example_of| YJ_A03\n  YJ_D07 -->|supports| YJ_B10\n  YJ_D08 -->|restates| YJ_A02\n  YJ_D09 -->|qualifies| YJ_D01\n  YJ_D10 -->|contradicts| YJ_A09\n  YJ_D10 -->|qualifies| YJ_D09\n  YJ_E01 -->|supports| YJ_E07\n  YJ_E02 -->|supports| YJ_E01\n  YJ_E03 -->|supports| YJ_E05\n  YJ_E04 -->|qualifies| YJ_E05\n  YJ_E05 -->|extends| YJ_E04\n  YJ_E06 -->|supports| YJ_E04\n  YJ_E07 -->|complements| YJ_A10\n  YJ_E08 -->|supports| YJ_A10\n  YJ_E09 -->|supports| YJ_E01\n  YJ_E10 -->|qualifies| YJ_D08\n  YJ_E10 -->|contradicts| YJ_C02\n  YJ_E11 -->|same_topic| YJ_E02\n  YJ_E12 -->|unexpected_connection| YJ_C05\n  YJ_E13 -->|counterexample_to| YJ_E06\n  YJ_E14 -->|appears_in_draft| YJ_E05\n  YJ_E15 -->|follows| YJ_E14\n  YJ_A01 -->|supports| YJ_D01\n  YJ_A02 -->|supports| YJ_D08\n  YJ_A03 -->|supports| YJ_D06\n  YJ_A04 -->|supports| YJ_D02\n  YJ_A05 -->|supports| YJ_D05\n  YJ_A06 -->|supports| YJ_C08\n  YJ_A07 -->|supports| YJ_C06\n  YJ_A08 -->|supports| YJ_E03\n  YJ_A09 -->|qualifies| YJ_D10\n  YJ_A10 -->|supports| YJ_E08\n  YJ_B01 -->|supports| YJ_D02\n  YJ_B03 -->|supports| YJ_D01\n  YJ_B07 -->|supports| YJ_D05\n  YJ_C01 -->|supports| YJ_E03\n  YJ_C05 -->|supports| YJ_C09\n  YJ_C09 -->|supports| YJ_E09\n  YJ_D03 -->|supports| YJ_E04\n  YJ_D07 -->|supports| YJ_E08\n  YJ_D08 -->|supports| YJ_E02\n  YJ_E06 -->|supports| YJ_E02\n  YJ_B09 -->|supports| YJ_D05\n  YJ_C04 -->|supports| YJ_D01",
     "expected": {
       "fleetingNoteCount": 2,
       "literatureNoteCount": 3,
-      "originalNoteCount": 50,
-      "relationCount": 80,
+      "originalNoteCount": 55,
+      "relationCount": 85,
       "indexCardCount": 5,
       "writingProjectCount": 2,
       "centralNodes": [
@@ -2556,9 +2753,9 @@
       ],
       "acceptanceAssertions": [
         "所有 relation.from 与 relation.to 都指向原创笔记。",
-        "图谱至少有 50 个原创节点和 80 条显式语义边。",
+        "图谱至少有 55 个原创节点和 85 条显式语义边。",
         "两份写作方案的每个段落都有 noteTraceIds 和 literatureTraceIds。",
-        "同一主题下同时存在 supports、qualifies、contradicts、bridges 等关系类型。"
+        "同一主题下同时存在 supports、qualifies、counterexample_to、same_topic、unexpected_connection、appears_in_draft 等关系类型。"
       ]
     }
   },

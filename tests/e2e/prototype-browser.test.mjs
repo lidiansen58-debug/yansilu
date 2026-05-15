@@ -4585,17 +4585,17 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
   await waitFor(async () => {
     const notes = await fetchJson(apiBase, "/api/v1/directories/dir_demo_yijing_knowledge_network/notes");
     assert.equal(notes.status, 200, JSON.stringify(notes.json));
-    assert.equal(notes.json.total, 16);
+    assert.equal(notes.json.total, 21);
 
     const graph = await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_demo_yijing_knowledge_network");
     assert.equal(graph.status, 200, JSON.stringify(graph.json));
-    assert.equal(graph.json.item.totalNodes, 16);
-    assert.equal(graph.json.item.totalEdges, 20);
+    assert.equal(graph.json.item.totalNodes, 21);
+    assert.equal(graph.json.item.totalEdges, 27);
 
     const statusText = await currentStatusText(page);
     assert.match(String(statusText || ""), /易经案例/);
-    assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 16);
-    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 20);
+    assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 21);
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 27);
   }, 15000);
 
   await page.locator("#graphRelationTypeFilter").selectOption("supports");
@@ -4608,7 +4608,7 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
 
   await page.locator("#graphRelationTypeFilter").selectOption("all");
   await waitFor(async () => {
-    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 20);
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 27);
   }, 5000);
 });
 

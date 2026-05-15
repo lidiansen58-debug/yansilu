@@ -5815,8 +5815,10 @@ async function importYijingKnowledgeNetworkDemo() {
     renderAll();
     const summary = result?.summary || {};
     setStatus(`已导入易经案例：${summary.totalNodes || summary.notes || 0} 个节点，${summary.totalEdges || summary.relations || 0} 条关系`, "ok");
+    return true;
   } catch (error) {
     setStatus(`易经案例导入失败：${String(error?.message || error)}`, "bad");
+    return false;
   } finally {
     if (button) button.disabled = previousDisabled;
   }
@@ -5826,11 +5828,11 @@ async function importYijingRichAcceptanceDemo() {
   const button = $("graphSeedYijingRich");
   const previousDisabled = Boolean(button?.disabled);
   if (button) button.disabled = true;
-  setStatus("正在导入富易经验收样例...", "");
+  setStatus("正在导入易经官网演示案例...", "");
   try {
     const result = await seedYijingRichAcceptanceDemo();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("验收样例没有返回目录 ID");
+    if (!directoryId) throw new Error("演示案例没有返回目录 ID");
     await syncDirectoriesFromApi();
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
@@ -5843,9 +5845,11 @@ async function importYijingRichAcceptanceDemo() {
     const noteCount = counts.original_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入富易经验收样例：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作方案`, "ok");
+    setStatus(`已导入易经官网演示：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作方案`, "ok");
+    return true;
   } catch (error) {
-    setStatus(`富易经验收样例导入失败：${String(error?.message || error)}`, "bad");
+    setStatus(`易经官网演示导入失败：${String(error?.message || error)}`, "bad");
+    return false;
   } finally {
     if (button) button.disabled = previousDisabled;
   }
@@ -7776,9 +7780,18 @@ async function bootstrap() {
   } catch {}
 
   renderAll();
-  const explicitNoteId = new URLSearchParams(window.location.search).get("note") || "";
+  const startupParams = new URLSearchParams(window.location.search);
+  const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
+  const explicitNoteId = startupParams.get("note") || "";
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
-  if (initialNote) {
+  const openedDemo =
+    startupDemo === "yijing-rich" || startupDemo === "yijing"
+      ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
+      : false;
+  if (openedDemo) {
+    activateModule("graph");
+    renderAll();
+  } else if (initialNote) {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);

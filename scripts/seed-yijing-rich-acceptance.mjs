@@ -169,41 +169,13 @@ async function upsertNote(vaultPath, note, counters) {
 }
 
 async function upsertRelation(vaultPath, relation, counters) {
-  const normalizeRelationType = (input) => {
-    const raw = String(input || "").trim().toLowerCase();
-    if (!raw) return "same_topic";
-    // Keep the 6 core types for new creation flows.
-    if (raw === "supports") return "supports";
-    if (raw === "contradicts") return "contradicts";
-    if (raw === "extends") return "extends";
-    if (raw === "restates") return "restates";
-    if (raw === "example_of") return "example_of";
-    if (raw === "same_topic") return "same_topic";
-
-    // Legacy taxonomy -> core mapping (preserve nuance in rationale text elsewhere).
-    if (raw === "complements") return "supports";
-    if (raw === "qualifies") return "extends";
-    if (raw === "bridges") return "extends";
-    if (raw === "precedes") return "extends";
-    if (raw === "follows") return "extends";
-    if (raw === "contrasts") return "same_topic";
-    if (raw === "reframes") return "restates";
-    if (raw === "counterexample_to") return "contradicts";
-    if (raw === "unexpected_connection") return "same_topic";
-    return "same_topic";
-  };
-
-  const mappedRelationType = normalizeRelationType(relation.relationType);
-  const rationalePrefix = mappedRelationType === String(relation.relationType || "").trim().toLowerCase()
-    ? ""
-    : `[原类型:${String(relation.relationType || "").trim()}] `;
-  const rationaleText = `${rationalePrefix}${relation.rationale || ""}`.trim();
+  const relationType = String(relation.relationType || "same_topic").trim().toLowerCase() || "same_topic";
 
   const payload = {
     id: relation.id,
     toNoteId: relation.to,
-    relationType: mappedRelationType,
-    rationale: rationaleText,
+    relationType,
+    rationale: relation.rationale || "",
     insightQuestion: relation.insightQuestion,
     confidence: relation.confidence ?? 1,
     status: relation.status || "confirmed",

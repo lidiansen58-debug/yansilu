@@ -7,7 +7,7 @@ const DOCS_DIR = path.join(REPO_ROOT, "docs");
 const JSON_PATH = path.join(FIXTURE_DIR, "yijing-rich-acceptance.json");
 const DOC_PATH = path.join(DOCS_DIR, "YIJING_RICH_ACCEPTANCE_SAMPLE.md");
 
-const generatedAt = "2026-05-14T08:00:00+08:00";
+const generatedAt = "2026-05-15T16:15:00+08:00";
 
 const fleetingNotes = [
   {
@@ -109,7 +109,23 @@ const indexCards = [
     type: "sequence",
     title: "从笔记网络到写作",
     centralQuestion: "如何把易经主题笔记组织成可追溯的文章骨架？",
-    noteIds: ["YJ-E01", "YJ-E02", "YJ-E03", "YJ-E04", "YJ-E05", "YJ-E06", "YJ-E07", "YJ-E08", "YJ-E09", "YJ-E10"]
+    noteIds: [
+      "YJ-E01",
+      "YJ-E02",
+      "YJ-E03",
+      "YJ-E04",
+      "YJ-E05",
+      "YJ-E06",
+      "YJ-E07",
+      "YJ-E08",
+      "YJ-E09",
+      "YJ-E10",
+      "YJ-E11",
+      "YJ-E12",
+      "YJ-E13",
+      "YJ-E14",
+      "YJ-E15"
+    ]
   }
 ];
 
@@ -159,11 +175,16 @@ const originalNoteSeed = [
   ["YJ-E03", "从一卦到一文需要中间判断", "从卦象到文章，中间必须经过原创判断的转换。", "直接把材料堆成文章会让文本失去作者。文献笔记、原创笔记、索引卡和写作方案的链路，就是为了让判断逐级显形。", "适合验收从文献笔记到写作方案的追溯链。", ["ln_yj_001", "ln_yj_003"], "idx_yj_writing"],
   ["YJ-E04", "主题索引服务中心问题", "主题索引不应只是分类，而要服务一个中心问题。", "同一批易经笔记可以服务很多文章。中心问题决定哪些笔记进入篮子、哪些作为反对意见、哪些只是背景。", "可连接写作项目和材料篮。", [], "idx_yj_writing"],
   ["YJ-E05", "写作方案要显示来源追溯", "写作方案必须让每个段落追溯到笔记和来源。", "可追溯不是学术装饰，而是防止文章漂浮。读者和作者都能回到哪条笔记、哪份文献、哪个判断支撑了段落。", "适合验收 draft scaffold 的 noteTraceIds 与 literatureTraceIds。", ["ln_yj_001", "ln_yj_002", "ln_yj_003"], "idx_yj_writing"],
-  ["YJ-E06", "丰富笔记不是堆材料", "笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。", "一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。", "可作为 50 条原创笔记的验收标准。", [], "idx_yj_writing"],
+  ["YJ-E06", "丰富笔记不是堆材料", "笔记丰富不等于材料堆积，而是论点、理由、边界和用途都可复用。", "一条真正可复用的原创笔记应能独立表达判断，也能说明来源、相邻概念、可写段落和潜在反对意见。", "可作为整套原创笔记的验收标准。", [], "idx_yj_writing"],
   ["YJ-E07", "多条路径比单一路径更像理解", "理解《易经》更像多条路径交汇，而不是单一线性结论。", "图谱的价值在于呈现一条观点如何通向多个问题，也呈现多个材料如何汇入同一判断。", "适合验收图谱组件的路径和组件连通性。", ["ln_yj_002"], "idx_yj_writing"],
   ["YJ-E08", "慢读让孤立观点重新换位", "慢读的价值在于让旧笔记在新处境中重新换位。", "第一次读到的观点可能只是一个标题；隔一段时间再读，它会和新问题、新关系、新写作目标重新连接。", "可连接卦序、复盘和随笔转化。", ["ln_yj_002"], "idx_yj_writing"],
   ["YJ-E09", "反对意见是网络的一部分", "反对意见不是写作障碍，而是知识网络必须保存的结构。", "一个观点只有在面对反对意见时才显示边界。图谱中保留冲突关系，能帮助文章避免单薄的自我确认。", "适合验收冲突关系、写作反驳段和关系过滤。", [], "idx_yj_writing"],
-  ["YJ-E10", "易经现代化要避免工具化崇拜", "把《易经》现代化时，不能把它重新变成万能工具。", "若现代化只是把卦象包装成管理捷径或心理测试，它仍然是答案机器。更好的现代化是把它变成判断训练和反思框架。", "可作为整套样例的边界节点。", ["ln_yj_003"], "idx_yj_writing"]
+  ["YJ-E10", "易经现代化要避免工具化崇拜", "把《易经》现代化时，不能把它重新变成万能工具。", "若现代化只是把卦象包装成管理捷径或心理测试，它仍然是答案机器。更好的现代化是把它变成判断训练和反思框架。", "可作为整套样例的边界节点。", ["ln_yj_003"], "idx_yj_writing"],
+  ["YJ-E11", "同主题不是关系完成", "同属主题只说明两条笔记值得放在一起看，不能替代明确的关系判断。", "same_topic 是低成熟度关系：它承认材料相邻，但也提醒用户下一步要说清楚是支持、限定、反驳还是只是待比较。", "用于验收同主题关系不会被误读成已经论证完成。", [], "idx_yj_writing"],
+  ["YJ-E12", "意外相关要留下追问", "看似很远的笔记只有能提出新问题，才值得标为意外相关。", "unexpected_connection 的价值不在制造新奇感，而在保留一个暂时无法归类、却可能打开新路径的问题。没有追问的意外相关只是噪音。", "用于验收意外相关关系必须带有洞察问题。", ["ln_yj_002"], "idx_yj_writing"],
+  ["YJ-E13", "反例让边界可见", "反例不是破坏观点，而是让观点的适用边界变清楚。", "counterexample_to 比泛泛的反驳更精细：它不一定推翻整条判断，而是指出这条判断在哪些条件下失效、变形或需要补充。", "用于验收反例关系和反驳关系的区别。", [], "idx_yj_writing"],
+  ["YJ-E14", "进入写作不等于完成论证", "一条笔记进入写作方案，只表示它被放进论证现场，还不等于已经承担了段落功能。", "appears_in_draft 记录的是材料被写作项目征用的事实；真正的论证还需要说明它在段落里是证据、转折、反例还是过渡。", "用于验收写作引用关系不会遮蔽来源追溯。", [], "idx_yj_writing"],
+  ["YJ-E15", "后续问题要声明承接关系", "后续问题不是随意延伸，而要说明它从哪条判断自然推出。", "follows 关系帮助写作者把图谱中的下一步写清楚：后续不是另起炉灶，而是从已确认判断中推出的新问题、新场景或新行动。", "用于验收前提和后续关系能形成可读路径。", [], "idx_yj_writing"]
 ];
 
 function buildOriginalNote([id, title, thesis, why, testUse, literatureNoteIds, indexCardId]) {
@@ -294,6 +315,11 @@ const relations = [
   rel("YJ-E09", "YJ-E01", "supports", "反对意见作为网络结构，支持笔记网络保留张力。", "反对意见应如何进入写作骨架？"),
   rel("YJ-E10", "YJ-D08", "qualifies", "反工具化限定模型提问器：模型不能被崇拜成万能工具。", "现代化如何避免换一种方式制造答案机器？"),
   rel("YJ-E10", "YJ-C02", "contradicts", "现代化若避免工具崇拜，就反驳神秘化式外包判断。", "工具化崇拜和神秘化有什么共同点？"),
+  rel("YJ-E11", "YJ-E02", "same_topic", "两条笔记都讨论关系质量，但同主题只说明应继续比较，还没有说明具体支持、限定或反驳。", "什么时候同主题关系应该升级为更明确的关系类型？"),
+  rel("YJ-E12", "YJ-C05", "unexpected_connection", "经典含混与笔记网络的意外连接都依赖开放性，但意外相关必须提出可追问的问题。", "开放性什么时候产生洞见，什么时候变成任意联想？"),
+  rel("YJ-E13", "YJ-E06", "counterexample_to", "只堆支持材料的笔记是丰富笔记的反例，因为它缺少边界和反对意见。", "一条笔记需要多少反例才足以显示边界？"),
+  rel("YJ-E14", "YJ-E05", "appears_in_draft", "进入写作方案后，笔记仍需通过来源追溯说明它在段落中的论证位置。", "写作篮里哪些材料只是待用，哪些已经承担论证？"),
+  rel("YJ-E15", "YJ-E14", "follows", "确认笔记进入写作之后，后续问题是说明它如何承接前文并推出下一段。", "后续关系如何防止文章段落跳跃？"),
   rel("YJ-A01", "YJ-D01", "supports", "变化作为背景，支持现代决策前先停顿重看处境。", "变化常态如何改变决策节奏？"),
   rel("YJ-A02", "YJ-D08", "supports", "卦作为模型，支持模型应被当作提问器。", "提问器和答案机器的界线如何展示给用户？"),
   rel("YJ-A03", "YJ-D06", "supports", "阴阳互为条件，支持冲突处理中先辨互补条件。", "对立双方如何互相规定？"),
@@ -437,9 +463,9 @@ const graph = {
     centralNodes: ["YJ-A02", "YJ-A05", "YJ-D08", "YJ-E05"],
     acceptanceAssertions: [
       "所有 relation.from 与 relation.to 都指向原创笔记。",
-      "图谱至少有 50 个原创节点和 80 条显式语义边。",
+      `图谱至少有 ${originalNotes.length} 个原创节点和 ${relations.length} 条显式语义边。`,
       "两份写作方案的每个段落都有 noteTraceIds 和 literatureTraceIds。",
-      "同一主题下同时存在 supports、qualifies、contradicts、bridges 等关系类型。"
+      "同一主题下同时存在 supports、qualifies、counterexample_to、same_topic、unexpected_connection、appears_in_draft 等关系类型。"
     ]
   }
 };
@@ -538,7 +564,7 @@ function buildDoc() {
     "node .\\scripts\\seed-yijing-rich-acceptance.mjs --vault <你的 vault 路径>",
     "```",
     "",
-    "脚本会初始化目标 vault，并写入 55 条笔记、80 条显式关系、5 个索引卡、2 个写作项目和 2 个写作脚手架。重复运行是幂等的：已有样例会被刷新，不会新增重复关系。",
+    `脚本会初始化目标 vault，并写入 ${fleetingNotes.length + literatureNotes.length + originalNotes.length} 条笔记、${relations.length} 条显式关系、${indexCards.length} 个索引卡、${writingProjects.length} 个写作项目和 ${writingProjects.length} 个写作脚手架。重复运行是幂等的：已有样例会被刷新，不会新增重复关系。`,
     "",
     "## 数量摘要",
     "",
@@ -564,7 +590,7 @@ function buildDoc() {
     "",
     markdownTable(literatureRows, ["ID", "标题", "来源", "转述", "问题"]),
     "",
-    "## 原创笔记 50 条",
+    `## 原创笔记 ${originalNotes.length} 条`,
     "",
     "完整正文保存在 JSON fixture 的 `original_notes[].body` 字段中。下表用于人工验收列表、详情和写作篮展示。",
     "",
@@ -586,8 +612,8 @@ function buildDoc() {
     "",
     "## 验收建议",
     "",
-    "- 导入或加载 fixture 后，应能看到 50 个原创节点和 80 条显式关系。",
-    "- 关系筛选应能区分 `supports`、`qualifies`、`contradicts`、`bridges`、`reframes` 等类型。",
+    `- 导入或加载 fixture 后，应能看到 ${originalNotes.length} 个原创节点和 ${relations.length} 条显式关系。`,
+    "- 关系筛选应能区分 `supports`、`qualifies`、`contradicts`、`counterexample_to`、`same_topic`、`unexpected_connection`、`appears_in_draft` 等类型。",
     "- 从 `YJ-A02`、`YJ-A05`、`YJ-D08`、`YJ-E05` 任一中心节点进入，侧边关系和图谱都应显示多跳路径。",
     "- 写作方案中的每个段落都必须能追溯到原创笔记和文献笔记。"
   ].join("\n");
