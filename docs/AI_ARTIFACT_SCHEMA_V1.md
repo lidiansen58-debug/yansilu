@@ -184,7 +184,7 @@ Use for candidate relationships among notes, sources, projects, and artifacts.
     "id": "note_02",
     "kind": "note | source | project | artifact"
   },
-  "relation_type": "supports | contradicts | extends | duplicates | cites | related | asks",
+  "relation_type": "supports | complements | contrasts | contradicts | extends | precedes | follows | qualifies | example_of | counterexample_to | same_topic | unexpected_connection | bridges | restates | reframes | appears_in_draft",
   "rationale": "string",
   "evidence": [
     {

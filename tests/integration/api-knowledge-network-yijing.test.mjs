@@ -360,7 +360,10 @@ test("POST /api/v1/demo/acceptance/yijing-rich seeds the rich Yijing acceptance 
   assert.equal(firstSeed.json.item.importRecordId, null);
   assert.equal(firstSeed.json.item.directoryId, "dir_yijing_rich_acceptance_original");
   assert.deepEqual(firstSeed.json.item.counts, fixture.counts);
-  assert.equal(firstSeed.json.item.summary.createdNotes, 55);
+  assert.equal(
+    firstSeed.json.item.summary.createdNotes,
+    fixture.counts.fleeting_notes + fixture.counts.literature_notes + fixture.counts.original_notes
+  );
   assert.equal(firstSeed.json.item.summary.createdRelations, fixture.counts.relations);
   assert.equal(firstSeed.json.item.summary.createdIndexCards, fixture.counts.index_cards);
   assert.equal(firstSeed.json.item.summary.createdWritingProjects, fixture.counts.writing_projects);
@@ -406,7 +409,10 @@ test("POST /api/v1/demo/acceptance/yijing-rich seeds the rich Yijing acceptance 
   const secondSeed = await postJson(baseUrl, "/api/v1/demo/acceptance/yijing-rich", {});
   assert.equal(secondSeed.status, 200, JSON.stringify(secondSeed.json));
   assert.equal(secondSeed.json.item.summary.createdNotes, 0);
-  assert.equal(secondSeed.json.item.summary.updatedNotes, 55);
+  assert.equal(
+    secondSeed.json.item.summary.updatedNotes,
+    fixture.counts.fleeting_notes + fixture.counts.literature_notes + fixture.counts.original_notes
+  );
   assert.equal(secondSeed.json.item.summary.createdRelations, 0);
   assert.equal(secondSeed.json.item.summary.updatedRelations, fixture.counts.relations);
   assert.equal(secondSeed.json.item.summary.createdIndexCards, 0);

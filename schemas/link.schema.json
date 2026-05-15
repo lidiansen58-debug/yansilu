@@ -8,7 +8,31 @@
     "to_note_id": { "type": "string" },
     "relation_type": {
       "type": "string",
-      "enum": ["supports", "contradicts", "extends", "precedes", "follows", "belongs_to_topic", "associated_with", "appears_in_draft", "free_link"]
+      "enum": [
+        "supports",
+        "complements",
+        "contrasts",
+        "contradicts",
+        "extends",
+        "precedes",
+        "follows",
+        "qualifies",
+        "example_of",
+        "counterexample_to",
+        "same_topic",
+        "unexpected_connection",
+        "bridges",
+        "restates",
+        "reframes",
+        "appears_in_draft",
+        "related",
+        "asks",
+        "duplicates",
+        "cites",
+        "belongs_to_topic",
+        "associated_with",
+        "free_link"
+      ]
     },
     "rationale": { "type": "string" },
     "created_by": { "type": "string", "enum": ["user", "ai_suggestion", "import"] },

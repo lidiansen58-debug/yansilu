@@ -625,8 +625,8 @@ The operation is idempotent. It creates or refreshes:
 
 - 2 fleeting notes
 - 3 literature notes
-- 50 original/permanent notes
-- 80 explicit semantic relations
+- 55 original/permanent notes
+- 85 explicit semantic relations
 - 5 index cards
 - 2 writing projects
 - 2 draft scaffolds
@@ -647,15 +647,15 @@ Response:
     "counts": {
       "fleeting_notes": 2,
       "literature_notes": 3,
-      "original_notes": 50,
-      "relations": 80,
+      "original_notes": 55,
+      "relations": 85,
       "index_cards": 5,
       "writing_projects": 2
     },
     "summary": {
-      "createdNotes": 55,
+      "createdNotes": 60,
       "updatedNotes": 0,
-      "createdRelations": 80,
+      "createdRelations": 85,
       "updatedRelations": 0,
       "createdIndexCards": 5,
       "updatedIndexCards": 0,

@@ -217,7 +217,7 @@ Input:
   "to_id": "string",
   "from_type": "note | source | project | artifact",
   "to_type": "note | source | project | artifact",
-  "relation_type": "supports | contradicts | extends | duplicates | cites | related | asks",
+  "relation_type": "supports | complements | contrasts | contradicts | extends | precedes | follows | qualifies | example_of | counterexample_to | same_topic | unexpected_connection | bridges | restates | reframes | appears_in_draft",
   "rationale": "string",
   "evidence": [
     {

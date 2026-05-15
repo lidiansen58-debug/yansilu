@@ -235,18 +235,29 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 ### relation_type
 
 - supports
+- complements
+- contrasts
 - contradicts
 - extends
 - precedes
 - follows
+- qualifies
+- example_of
+- counterexample_to
+- same_topic
+- unexpected_connection
+- bridges
+- restates
+- reframes
+- appears_in_draft
 - belongs_to_topic
 - associated_with
-- appears_in_draft
 - free_link
 
 规则：
 - `supports` 与 `contradicts` 属于显式语义关系，图谱层应把它们和普通 wikilink 区分开。
-- `associated_with` 表示通用关联；仅靠 `[[标题]]` 自动生成的连接默认落在这一类。
+- `same_topic` 与 `unexpected_connection` 用于保留低成熟但有追问价值的语义连接。
+- `associated_with` 表示通用关联；仅靠 `[[标题]]` 自动生成的连接默认落在这一类，后续应尽量升级为更明确的关系类型。
 - 当 relation_type = `free_link` 时，`rationale` 必填。
 - 用户界面显示 `[[标题]]`，SQLite 内部保存 `from_note_id -> to_note_id`。
 - 标题重名时，候选选择必须绑定确定的 `to_note_id`。

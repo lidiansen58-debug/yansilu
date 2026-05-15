@@ -46,7 +46,7 @@ function connectionAgentTask() {
   return [
     "Task: find candidate relationships among the provided notes.",
     "Create LinkSuggestion artifacts only when two notes have a meaningful conceptual relationship.",
-    "Allowed relation_type values: supports, contradicts, extends, duplicates, cites, related, asks.",
+    "Allowed relation_type values: supports, complements, contrasts, contradicts, extends, precedes, follows, qualifies, example_of, counterexample_to, same_topic, unexpected_connection, bridges, restates, reframes, appears_in_draft.",
     "Each suggestion payload must include from, to, relationType, rationale, evidence, and suggestedAction.",
     'Use suggestedAction "create_link" for a useful relation and "review_conflict" for tension.',
     "The from.id and to.id values must be note ids from the context index."

@@ -37,53 +37,74 @@ test("Yijing rich acceptance seed materializes the fixture into a vault idempote
   assert.equal(first.kind, "yijing_rich_acceptance_seed");
   assert.deepEqual(first.counts, fixture.counts);
   assert.deepEqual(first.summary, {
-    createdNotes: 55,
+    createdNotes: fixture.counts.fleeting_notes + fixture.counts.literature_notes + fixture.counts.original_notes,
     updatedNotes: 0,
-    createdRelations: 80,
+    createdRelations: fixture.counts.relations,
     updatedRelations: 0,
-    createdIndexCards: 5,
+    createdIndexCards: fixture.counts.index_cards,
     updatedIndexCards: 0,
-    createdWritingProjects: 2,
+    createdWritingProjects: fixture.counts.writing_projects,
     updatedWritingProjects: 0,
-    createdDraftScaffolds: 2,
+    createdDraftScaffolds: fixture.counts.writing_projects,
     updatedDraftScaffolds: 0
   });
 
   const second = await seedYijingRichAcceptance(vaultPath);
   assert.deepEqual(second.summary, {
     createdNotes: 0,
-    updatedNotes: 55,
+    updatedNotes: fixture.counts.fleeting_notes + fixture.counts.literature_notes + fixture.counts.original_notes,
     createdRelations: 0,
-    updatedRelations: 80,
+    updatedRelations: fixture.counts.relations,
     createdIndexCards: 0,
-    updatedIndexCards: 5,
+    updatedIndexCards: fixture.counts.index_cards,
     createdWritingProjects: 0,
-    updatedWritingProjects: 2,
+    updatedWritingProjects: fixture.counts.writing_projects,
     createdDraftScaffolds: 0,
-    updatedDraftScaffolds: 2
+    updatedDraftScaffolds: fixture.counts.writing_projects
   });
 
   await withCatalogDb(vaultPath, (db) => {
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes").get().value, 55);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'fleeting'").get().value, 2);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'literature'").get().value, 3);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'permanent'").get().value, 50);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM links").get().value, 80);
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM notes").get().value,
+      fixture.counts.fleeting_notes + fixture.counts.literature_notes + fixture.counts.original_notes
+    );
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'fleeting'").get().value,
+      fixture.counts.fleeting_notes
+    );
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'literature'").get().value,
+      fixture.counts.literature_notes
+    );
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM notes WHERE note_type = 'permanent'").get().value,
+      fixture.counts.original_notes
+    );
+    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM links").get().value, fixture.counts.relations);
 
     const types = db
       .prepare("SELECT DISTINCT relation_type AS value FROM links ORDER BY relation_type")
       .all()
       .map((row) => row.value);
-    assert.deepEqual(types, ["contradicts", "example_of", "extends", "restates", "same_topic", "supports"]);
+    assert.deepEqual(types, [...new Set(fixture.relations.map((relation) => relation.relationType))].sort());
 
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM index_cards WHERE id LIKE 'idx_yj_%'").get().value, 5);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM writing_projects WHERE id LIKE 'wp_yj_%'").get().value, 2);
-    assert.equal(db.prepare("SELECT COUNT(*) AS value FROM draft_scaffolds WHERE id LIKE 'ds_wp_yj_%'").get().value, 2);
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM index_cards WHERE id LIKE 'idx_yj_%'").get().value,
+      fixture.counts.index_cards
+    );
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM writing_projects WHERE id LIKE 'wp_yj_%'").get().value,
+      fixture.counts.writing_projects
+    );
+    assert.equal(
+      db.prepare("SELECT COUNT(*) AS value FROM draft_scaffolds WHERE id LIKE 'ds_wp_yj_%'").get().value,
+      fixture.counts.writing_projects
+    );
   });
 
   const graph = await getDirectoryGraph(vaultPath, "dir_yijing_rich_acceptance_original");
-  assert.equal(graph.totalNodes, 50);
-  assert.equal(graph.totalEdges, 80);
+  assert.equal(graph.totalNodes, fixture.counts.original_notes);
+  assert.equal(graph.totalEdges, fixture.counts.relations);
 
   const project = await getWritingProject(vaultPath, "wp_yj_answer_machine");
   assert.equal(project.title, "为什么《易经》不是答案机器");
