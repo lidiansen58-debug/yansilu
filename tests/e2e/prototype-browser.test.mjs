@@ -135,6 +135,18 @@ async function currentStatusText(page) {
   return page.locator("#statusText").textContent().catch(() => "");
 }
 
+async function chooseToolbarCommand(page, command) {
+  await page.locator("#btnToolbarCommandSearch").click();
+  const item = page.locator(`[data-toolbar-command="${command}"]`);
+  await waitFor(async () => {
+    assert.equal(await item.isVisible(), true);
+  }, 4000);
+  await item.click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#toolbarCommandMenu").isVisible(), false);
+  }, 4000);
+}
+
 async function optionalPlaywright(t) {
   try {
     return await import("playwright");
@@ -504,6 +516,8 @@ test("prototype permanent note can save and persists content after authorship co
   await page.keyboard.type("Authorship Gate Note");
   await page.keyboard.press("Enter");
   await page.keyboard.type("This note should not hit Markdown until I explicitly confirm authorship.");
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
+  assert.equal(await page.locator("#btnRunGuard").count(), 0);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
@@ -543,7 +557,7 @@ test("prototype permanent note can save and persists content after authorship co
   }, 10000);
 });
 
-test("prototype literature note can record a permanent-note draft through the unified editor flow", async (t) => {
+test("prototype literature note keeps permanent-note actions out of the editor toolbar", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -554,7 +568,7 @@ test("prototype literature note can record a permanent-note draft through the un
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, browser, page, webBase } = stack;
+  const { apiBase, page, webBase } = stack;
 
   const literatureCreate = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_literature_default",
@@ -599,15 +613,15 @@ test("prototype literature note can record a permanent-note draft through the un
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const runGuardText = await page.locator("#btnRunGuard").textContent();
     assert.match(String(editorValue || ""), /## 引用信息/);
     assert.match(String(editorValue || ""), /DOI \/ ISBN \/ arXiv \/ URL \/ PDF/);
     assert.match(String(editorValue || ""), /## 原文/);
     assert.match(String(editorValue || ""), /## 转述/);
     assert.match(String(editorValue || ""), /## 保留原因/);
     assert.match(String(editorValue || ""), /## 支持判断/);
-    assert.match(String(runGuardText || ""), /记录永久笔记/);
   }, 7000);
+  assert.equal(await page.locator("#btnRunGuard").count(), 0);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
@@ -620,47 +634,10 @@ test("prototype literature note can record a permanent-note draft through the un
     assert.match(String(statusText || ""), /已同步|自动同步/);
   }, 10000);
 
-  await page.locator("#btnRunGuard").click();
-
-  const createdOriginal = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
-    assert.equal(result.status, 200);
-    const matched = result.json.items.find((item) => String(item.title || "").includes("阅读摘录样例"));
-    assert.ok(matched, JSON.stringify(result.json.items, null, 2));
-    return matched;
-  }, 10000);
-
-  const originalPage = await browser.newPage({ viewport: { width: 1366, height: 900 } });
-  await originalPage.goto(`${webBase}/editor?note=${encodeURIComponent(createdOriginal.id)}`, { waitUntil: "networkidle" });
-
-  await waitFor(async () => {
-    const editorValue = await originalPage.locator("#editorBody").inputValue();
-    assert.match(editorValue || "", /## 核心观点/);
-    assert.match(editorValue || "", /\[\[阅读摘录样例\]\]/);
-    assert.match(editorValue || "", /不要直接复述摘录或文献笔记原句/);
-    assert.match(editorValue || "", /文献标题：概念理解研究/);
-    assert.match(editorValue || "", /页码 \/ 定位：p\. 12/);
-    assert.match(editorValue || "", /https:\/\/example\.com\/concept-understanding/);
-  }, 10000);
-
-  await confirmAuthorshipIfVisible(originalPage, {
-    claim: "摘录只有在转成自己的判断后才算真正进入理解。"
-  });
-  await originalPage.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
-
-  await waitFor(async () => {
-    const savedOriginal = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(createdOriginal.id)}`);
-    assert.equal(savedOriginal.status, 200);
-    assert.equal(savedOriginal.json.item.status, "draft");
-    assert.equal(savedOriginal.json.item.originalityStatus, "pass");
-    assert.deepEqual(savedOriginal.json.item.authorship, { user_confirmed: false, ai_assisted: false });
-    assert.match(savedOriginal.json.item.body || "", /\[\[阅读摘录样例\]\]/);
-    const statusText = await originalPage.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /已同步|自动同步|仍按 draft 处理/);
-  }, 10000);
+  assert.equal(await page.locator("#btnToolbarCommandSearch").isVisible(), true);
 });
 
-test("prototype literature note requires citation metadata before recording a permanent note", async (t) => {
+test("prototype literature note with missing metadata has no toolbar recording action", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -707,13 +684,8 @@ test("prototype literature note requires citation metadata before recording a pe
   assert.equal(originalsBefore.status, 200);
   const originalIdsBefore = originalsBefore.json.items.map((item) => item.id).sort();
 
-  await page.locator("#btnRunGuard").click();
-
-  await waitFor(async () => {
-    const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /先补齐引用信息/);
-    assert.match(String(statusText || ""), /标题|作者|年份|页码|DOI/);
-  }, 7000);
+  assert.equal(await page.locator("#btnRunGuard").count(), 0);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
 
   const originals = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originals.status, 200);
@@ -1631,7 +1603,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await page.keyboard.type("Structure Blocks");
   await page.keyboard.press("Enter");
 
-  await page.locator('.tb[data-md="code"]').click();
+  await chooseToolbarCommand(page, "code");
   await page.keyboard.type("const answer = 42;");
 
   await page.evaluate(() => {
@@ -1640,7 +1612,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
     editor?.setSelectionRange?.(value.length, value.length);
     editor?.focus?.();
   });
-  await page.locator('.tb[data-md="table"]').click();
+  await chooseToolbarCommand(page, "table");
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
@@ -1649,11 +1621,8 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
     assert.match(editorValue, /\| --- \| --- \|/);
   }, 7000);
 
-  await waitFor(async () => {
-    assert.equal(await page.locator("#tableTools").isVisible(), true);
-  }, 7000);
-  await page.locator("#btnTableAddRow").click();
-  await page.locator("#btnTableAddColumn").click();
+  await chooseToolbarCommand(page, "table-row");
+  await chooseToolbarCommand(page, "table-column");
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /\| 列 1 \| 列 2 \| 列 3 \|/);
@@ -1667,7 +1636,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
     editor?.setSelectionRange?.(value.length, value.length);
     editor?.focus?.();
   });
-  await page.locator('.tb[data-md="hr"]').click();
+  await chooseToolbarCommand(page, "hr");
 
   await page.evaluate(() => {
     window.__copiedTexts = [];
@@ -1715,7 +1684,7 @@ test("prototype editor contextual code tools can switch the current code block l
   await page.keyboard.type("Code Language Tools");
   await page.keyboard.press("Enter");
 
-  await page.locator('.tb[data-md="code"]').click();
+  await chooseToolbarCommand(page, "code");
   await page.keyboard.type("const sample = 1;");
   await page.evaluate(() => {
     const editor = document.querySelector("#editorHost")?.__markdownEditor;

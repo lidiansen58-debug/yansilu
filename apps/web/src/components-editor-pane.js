@@ -1385,7 +1385,8 @@ export class EditorPane {
   }
 
   isOriginalNote(note = this.activeNote()) {
-    return String(note?.noteType || "").trim() === "original";
+    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    return noteType === "original" || noteType === "permanent";
   }
 
   isOriginalRecordableSource(note = this.activeNote()) {
@@ -2271,13 +2272,13 @@ export class EditorPane {
     this.els.modeSplit?.classList.toggle("hidden", true);
     if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
 
-    for (const el of [this.els.insertLink, this.els.insertImage, this.els.insertTag, this.els.tableTools, this.els.codeTools, this.els.codeLanguage]) {
+    for (const el of [this.els.insertImage, this.els.insertTag, this.els.toolbarCommandBtn]) {
       el?.classList?.toggle?.("hidden", isLiterature);
     }
+    this.els.insertLink?.classList?.toggle?.("hidden", !this.isOriginalNote(note));
     document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
 
     this.renderLiteratureQueue(note);
-    this.renderOriginalActionButton(note);
   }
 
   setSaveUiState(mode, message = "") {
@@ -2547,6 +2548,94 @@ export class EditorPane {
     return true;
   }
 
+  installToolbarCommandMenu() {
+    const btn = this.els.toolbarCommandBtn;
+    const menu = this.els.toolbarCommandMenu;
+    const input = this.els.toolbarCommandSearchInput;
+    const list = this.els.toolbarCommandList;
+    if (!btn || !menu || !input || !list) return;
+
+    const closeMenu = () => {
+      menu.classList.add("hidden");
+      btn.setAttribute("aria-expanded", "false");
+    };
+
+    const openMenu = () => {
+      menu.classList.remove("hidden");
+      btn.setAttribute("aria-expanded", "true");
+      input.value = "";
+      this.filterToolbarCommandMenu("");
+      queueMicrotask(() => input.focus());
+    };
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (menu.classList.contains("hidden")) openMenu();
+      else closeMenu();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (menu.classList.contains("hidden")) return;
+      if (e.target.closest("#toolbarCommandMenu")) return;
+      if (e.target.closest("#btnToolbarCommandSearch")) return;
+      closeMenu();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (menu.classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        closeMenu();
+        btn.focus();
+      }
+    });
+
+    input.addEventListener("input", () => {
+      this.filterToolbarCommandMenu(input.value);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === "Escape") {
+        closeMenu();
+        btn.focus();
+      }
+    });
+
+    list.addEventListener("click", (e) => {
+      const button = e.target.closest("[data-toolbar-command]");
+      const command = String(button?.dataset.toolbarCommand || "").trim();
+      if (!command) return;
+      closeMenu();
+      this.runToolbarCommand(command);
+      this.renderContextualToolbarState();
+      this.focusEditor();
+    });
+  }
+
+  filterToolbarCommandMenu(query = "") {
+    const list = this.els.toolbarCommandList;
+    if (!list) return;
+    const q = String(query || "").trim().toLowerCase();
+    list.querySelectorAll("[data-toolbar-command]").forEach((button) => {
+      const label = String(button.textContent || "").trim().toLowerCase();
+      const key = String(button.dataset.toolbarCommand || "").trim().toLowerCase();
+      const hit = !q || label.includes(q) || key.includes(q);
+      button.classList.toggle("hidden", !hit);
+    });
+  }
+
+  runToolbarCommand(command = "") {
+    const cmd = String(command || "").trim();
+    if (!cmd) return;
+    if (cmd === "quote") this.formatCurrentBlock("quote");
+    if (cmd === "checklist") this.formatCurrentBlock("checklist");
+    if (cmd === "code") this.formatCurrentBlock("code");
+    if (cmd === "table") this.formatCurrentBlock("table");
+    if (cmd === "hr") this.formatCurrentBlock("hr");
+    if (cmd === "table-row") this.addTableRow();
+    if (cmd === "table-column") this.addTableColumn();
+  }
+
   renderPreviewVisibility() {
     const mode = String(this.state.previewMode || "wysiwyg");
     const pendingSelection = this.pendingEditorSelection;
@@ -2598,56 +2687,10 @@ export class EditorPane {
 
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
-    const tableTools = this.els.tableTools;
-    const codeTools = this.els.codeTools;
-    if (tableTools) tableTools.classList.toggle("hidden", !this.isSourceMode() || !active.table);
-    if (codeTools) codeTools.classList.toggle("hidden", !this.isSourceMode() || !active.code);
     if (this.els.headingLevel) {
       const value = Number(active.headingLevel || 0);
       this.els.headingLevel.value = value ? String(value) : this.activeTab() ? "p" : "";
     }
-    this.renderOriginalActionButton();
-  }
-
-  renderOriginalActionButton(note = this.activeNote()) {
-    const button = this.els.runGuard;
-    if (!button) return;
-    const isOriginal = this.isOriginalNote(note);
-    const isSource = this.isOriginalRecordableSource(note);
-    const hasGenerated = this.hasGeneratedOriginal(note);
-    if (!note || (!isOriginal && !isSource)) {
-      button.classList.add("hidden");
-      button.disabled = true;
-      return;
-    }
-    button.classList.remove("hidden");
-    button.classList.remove("active");
-    button.classList.remove("state-generated-original");
-    button.classList.remove("state-record-original");
-    if (isOriginal) {
-      button.disabled = false;
-      button.title = "原创性检测";
-      button.dataset.tip = "原创性检测";
-      button.setAttribute("aria-label", "原创性检测");
-      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l4.5 1.6v3.95c0 2.7-1.55 4.77-4.5 6.65-2.95-1.88-4.5-3.95-4.5-6.65V3.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 7.95l1.3 1.3 2.75-2.75" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>原创性检测</span>`;
-      return;
-    }
-    if (hasGenerated) {
-      button.disabled = true;
-      button.classList.add("active");
-      button.classList.add("state-generated-original");
-      button.title = "这条笔记已经生成过永久笔记";
-      button.dataset.tip = "已生成永久笔记";
-      button.setAttribute("aria-label", "已生成永久笔记");
-      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.3 8.35l2.55 2.55 6.1-6.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>已生成永久笔记</span>`;
-      return;
-    }
-    button.disabled = false;
-    button.classList.add("state-record-original");
-    button.title = this.isLiteratureNote(note) ? "把这条文献笔记记录成永久笔记" : "把这条随笔记录成永久笔记";
-    button.dataset.tip = "记录永久笔记";
-    button.setAttribute("aria-label", "记录永久笔记");
-    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>记录永久笔记</span>`;
   }
 
   togglePreview(nextMode = null) {
@@ -5501,15 +5544,10 @@ export class EditorPane {
         const t = btn.dataset.md;
         if (t === "bold") this.wrapSelection("**", "**");
         if (t === "italic") this.wrapSelection("*", "*");
-        if (t === "h2") this.formatCurrentBlock("h2");
-        if (t === "quote") this.formatCurrentBlock("quote");
-        if (t === "ul") this.formatCurrentBlock("ul");
-        if (t === "checklist") this.formatCurrentBlock("checklist");
-        if (t === "code") this.formatCurrentBlock("code");
-        if (t === "table") this.formatCurrentBlock("table");
-        if (t === "hr") this.formatCurrentBlock("hr");
       });
     });
+
+    this.installToolbarCommandMenu();
     this.els.headingLevel?.addEventListener("change", () => {
       const rawValue = String(this.els.headingLevel?.value || "").trim();
       if (rawValue === "p") {
@@ -5523,16 +5561,6 @@ export class EditorPane {
       this.renderContextualToolbarState();
       this.focusEditor();
     });
-    this.els.tableAddRow?.addEventListener("click", () => {
-      this.addTableRow();
-    });
-    this.els.tableAddColumn?.addEventListener("click", () => {
-      this.addTableColumn();
-    });
-    this.els.codeLanguage?.addEventListener("change", () => {
-      this.setCodeBlockLanguage(this.els.codeLanguage?.value || "text");
-    });
-
     this.els.insertLink.addEventListener("click", () => {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
@@ -5676,66 +5704,6 @@ export class EditorPane {
       if (!Number.isInteger(next) || next === this.currentTagIndex) return;
       this.currentTagIndex = next;
       this.renderTagCandidates(this.currentTagCandidates, this.currentTagCandidates[next]?.name || "");
-    });
-
-    this.els.runGuard.addEventListener("click", async () => {
-      const note = this.activeNote();
-      if (!note) return this.onStatus("请先打开一个笔记", "warn");
-      if (this.isOriginalNote(note)) {
-        try {
-          await this.runOriginalityCheck(note, { forSave: false });
-        } catch (error) {
-          this.onStatus(`检测失败：${String(error?.message || error)}`, "warn");
-        }
-        return;
-      }
-      if (!this.isOriginalRecordableSource(note)) {
-        this.onStatus("当前笔记不支持记录永久笔记", "warn");
-        return;
-      }
-      if (this.hasGeneratedOriginal(note)) {
-        this.onStatus("这条笔记已经生成过永久笔记", "ok");
-        return;
-      }
-      const sourceBody = this.getEditorValue();
-      const literatureFields = this.isLiteratureNote(note) ? parseLiteratureWorkspace(sourceBody) : null;
-      if (literatureFields) {
-        const completion = this.literatureCompletionState({ ...note, body: sourceBody });
-        if (!completion.hasOriginalText) {
-          this.onStatus("先补上原文摘录，再记录永久笔记", "warn");
-          return;
-        }
-        if (!completion.hasParaphrase) {
-          this.onStatus("先写出自己的转述，再记录永久笔记", "warn");
-          return;
-        }
-        const citation = literatureCitationState(literatureFields.citation);
-        if (!citation.complete) {
-          this.onStatus(`先补齐引用信息：${citation.missingLabels.join("、")}`, "warn");
-          return;
-        }
-        if (!completion.readyForOriginal) {
-          this.onStatus("先写出判断种子或追问，再记录永久笔记", "warn");
-          return;
-        }
-      }
-      void this.onStateChange("record-original-from-note", {
-        sourceNoteId: note.id,
-        sourceTitle: note.title || "",
-        sourceType: note.noteType,
-        sourceBody,
-        ...(literatureFields
-          ? {
-              citation: literatureFields.citation,
-              originalText: literatureFields.originalText,
-              paraphrase: literatureFields.paraphrase,
-              whyKeep: literatureFields.whyKeep,
-              supportsJudgment: literatureFields.supportsJudgment,
-              question: literatureFields.question,
-              boundary: literatureFields.boundary
-            }
-          : {})
-      });
     });
 
     this.els.save.addEventListener("click", async () => {
