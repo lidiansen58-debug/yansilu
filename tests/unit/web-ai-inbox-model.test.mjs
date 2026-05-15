@@ -39,11 +39,11 @@ test("AI inbox model exposes labels for insight artifact types", () => {
   for (const type of ["InsightCard", "BridgeCard", "TensionCard", "SourceGap", "WritingMove"]) {
     assert.equal(optionValues.includes(type), true);
   }
-  assert.equal(aiInboxTypeLabel("InsightCard"), "Insight cards");
-  assert.equal(aiInboxTypeLabel("BridgeCard"), "Bridge cards");
-  assert.equal(aiInboxTypeLabel("TensionCard"), "Tension cards");
-  assert.equal(aiInboxTypeLabel("SourceGap"), "Source gaps");
-  assert.equal(aiInboxTypeLabel("WritingMove"), "Writing moves");
+  assert.equal(aiInboxTypeLabel("InsightCard"), "洞见卡片");
+  assert.equal(aiInboxTypeLabel("BridgeCard"), "桥接卡片");
+  assert.equal(aiInboxTypeLabel("TensionCard"), "张力卡片");
+  assert.equal(aiInboxTypeLabel("SourceGap"), "证据缺口");
+  assert.equal(aiInboxTypeLabel("WritingMove"), "写作动作");
 });
 
 test("AI inbox model picks selected item and summarizes visible view", () => {

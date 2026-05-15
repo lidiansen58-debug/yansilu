@@ -44,30 +44,30 @@ function endpointId(endpoint = {}) {
 
 export function aiInboxViewOptions() {
   return [
-    { value: "pending", label: "Pending" },
-    { value: "reviewed", label: "Reviewed" },
-    { value: "archived", label: "Archived" },
-    { value: "all", label: "All" }
+    { value: "pending", label: "待判断" },
+    { value: "reviewed", label: "已处理" },
+    { value: "archived", label: "已归档" },
+    { value: "all", label: "全部" }
   ];
 }
 
 export function aiInboxTypeOptions() {
   return [
-    { value: "all", label: "All types" },
-    { value: "LinkSuggestion", label: "Link suggestions" },
-    { value: "ReflectionPrompt", label: "Reflection prompts" },
-    { value: "QuestionCard", label: "Questions" },
-    { value: "ResearchCard", label: "Research cards" },
-    { value: "ConflictSuggestion", label: "Conflicts" },
-    { value: "SynthesisDraft", label: "Synthesis drafts" },
-    { value: "OutlineDraft", label: "Outlines" },
-    { value: "SourceSummary", label: "Source summaries" },
-    { value: "ProjectDigest", label: "Project digests" },
-    { value: "InsightCard", label: "Insight cards" },
-    { value: "BridgeCard", label: "Bridge cards" },
-    { value: "TensionCard", label: "Tension cards" },
-    { value: "SourceGap", label: "Source gaps" },
-    { value: "WritingMove", label: "Writing moves" }
+    { value: "all", label: "全部建议" },
+    { value: "LinkSuggestion", label: "关联建议" },
+    { value: "ReflectionPrompt", label: "反思提示" },
+    { value: "QuestionCard", label: "问题卡片" },
+    { value: "ResearchCard", label: "研究卡片" },
+    { value: "ConflictSuggestion", label: "冲突提示" },
+    { value: "SynthesisDraft", label: "综合草稿" },
+    { value: "OutlineDraft", label: "大纲草稿" },
+    { value: "SourceSummary", label: "来源摘要" },
+    { value: "ProjectDigest", label: "项目摘要" },
+    { value: "InsightCard", label: "洞见卡片" },
+    { value: "BridgeCard", label: "桥接卡片" },
+    { value: "TensionCard", label: "张力卡片" },
+    { value: "SourceGap", label: "证据缺口" },
+    { value: "WritingMove", label: "写作动作" }
   ];
 }
 
@@ -82,16 +82,16 @@ export function normalizeAiInboxFilters(filters = {}) {
 
 export function aiInboxStatusLabel(status = "") {
   const labels = {
-    pending_review: "Pending review",
-    accepted: "Accepted",
-    revised: "Revised",
-    ignored: "Ignored",
-    archived: "Archived",
-    promoted_to_note: "Promoted",
-    linked_to_note: "Linked",
-    expired: "Expired"
+    pending_review: "待判断",
+    accepted: "已采纳",
+    revised: "已修订",
+    ignored: "已忽略",
+    archived: "已归档",
+    promoted_to_note: "已生成笔记",
+    linked_to_note: "已建立关系",
+    expired: "已过期"
   };
-  return labels[cleanText(status)] || cleanText(status) || "Unknown";
+  return labels[cleanText(status)] || cleanText(status) || "未知状态";
 }
 
 export function aiInboxStatusTone(status = "") {
@@ -104,14 +104,14 @@ export function aiInboxStatusTone(status = "") {
 
 export function aiInboxTypeLabel(type = "") {
   const option = aiInboxTypeOptions().find((item) => item.value === cleanText(type));
-  return option && option.value !== "all" ? option.label : cleanText(type) || "Artifact";
+  return option && option.value !== "all" ? option.label : cleanText(type) || "AI 建议";
 }
 
 export function aiInboxActionLabel(decision = "") {
   const labels = {
-    accepted: "Accept",
-    ignored: "Ignore",
-    archived: "Archive"
+    accepted: "采纳",
+    ignored: "忽略",
+    archived: "归档"
   };
   return labels[cleanText(decision)] || cleanText(decision);
 }
@@ -157,16 +157,16 @@ export function aiInboxEvaluationMetrics(summary = {}) {
     normalizeCount(latestDecisions.promoted_to_note) +
     normalizeCount(latestDecisions.linked_to_note);
   return [
-    { key: "artifacts", label: "Artifacts", value: normalizeCount(artifacts.total) },
-    { key: "review_rate", label: "Reviewed %", value: formatRate(quality.reviewRate), tone: "muted" },
-    { key: "acceptance_rate", label: "Accepted %", value: formatRate(quality.acceptanceRate), tone: "ok" },
-    { key: "decisions", label: "Decisions", value: normalizeCount(decisions.total) },
-    { key: "accepted", label: "Accepted", value: accepted, tone: "ok" },
-    { key: "useful", label: "Useful", value: normalizeCount(allFeedback.useful), tone: "ok" },
-    { key: "noisy", label: "Noisy", value: normalizeCount(allFeedback.noisy), tone: "warn" },
-    { key: "wrong", label: "Wrong", value: normalizeCount(allFeedback.wrong), tone: "warn" },
-    { key: "known", label: "Known", value: normalizeCount(allFeedback.alreadyKnown), tone: "muted" },
-    { key: "privacy", label: "Privacy", value: normalizeCount(allFeedback.privacyConcern), tone: "warn" }
+    { key: "artifacts", label: "建议数", value: normalizeCount(artifacts.total) },
+    { key: "review_rate", label: "处理率", value: formatRate(quality.reviewRate), tone: "muted" },
+    { key: "acceptance_rate", label: "采纳率", value: formatRate(quality.acceptanceRate), tone: "ok" },
+    { key: "decisions", label: "处理记录", value: normalizeCount(decisions.total) },
+    { key: "accepted", label: "已采纳", value: accepted, tone: "ok" },
+    { key: "useful", label: "有用", value: normalizeCount(allFeedback.useful), tone: "ok" },
+    { key: "noisy", label: "噪音", value: normalizeCount(allFeedback.noisy), tone: "warn" },
+    { key: "wrong", label: "错误", value: normalizeCount(allFeedback.wrong), tone: "warn" },
+    { key: "known", label: "已知", value: normalizeCount(allFeedback.alreadyKnown), tone: "muted" },
+    { key: "privacy", label: "隐私风险", value: normalizeCount(allFeedback.privacyConcern), tone: "warn" }
   ];
 }
 

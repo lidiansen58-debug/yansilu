@@ -2145,12 +2145,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/v1/graph") {
       const scope = String(url.searchParams.get("scope") || "directory").trim();
       const directoryId = String(url.searchParams.get("directoryId") || "").trim();
+      const includeDescendants = url.searchParams.get("includeDescendants") === "true";
       if (scope !== "directory") {
         return sendJson(res, 400, err("GRAPH_SCOPE_INVALID", "only directory scope is supported in MVP", rid));
       }
       try {
         await initVault(VAULT_PATH);
-        const graph = await getDirectoryGraph(VAULT_PATH, directoryId);
+        const graph = await getDirectoryGraph(VAULT_PATH, directoryId, { includeDescendants });
         return sendJson(res, 200, {
           item: graph,
           requestId: rid,

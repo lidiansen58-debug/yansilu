@@ -1290,10 +1290,11 @@ export async function searchNotes(vaultPath, options = {}) {
   }
 }
 
-export async function getDirectoryGraph(vaultPath, directoryId) {
+export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(directoryId || "").trim();
   if (!id) throw new Error("directoryId is required");
+  const includeDescendants = options.includeDescendants === true || String(options.includeDescendants || "") === "true";
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -1301,43 +1302,80 @@ export async function getDirectoryGraph(vaultPath, directoryId) {
     const directory = db.prepare("SELECT id, title FROM directories WHERE id = ? LIMIT 1").get(id);
     if (!directory) throw new Error(`directoryId not found: ${id}`);
 
-    const nodes = db
-      .prepare(
-        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
-         FROM note_directory_membership ndm
-         JOIN notes n ON n.id = ndm.note_id
-         WHERE ndm.directory_id = ? AND n.deleted_at IS NULL
-         ORDER BY n.title ASC, n.updated_at DESC`
-      )
-      .all(id)
-      .map(mapNoteRow);
+    const nodes = includeDescendants
+      ? db
+          .prepare(
+            `${directoryScopeClause("graph_scope")}
+             SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+             FROM note_directory_membership ndm
+             JOIN graph_scope ON graph_scope.id = ndm.directory_id
+             JOIN notes n ON n.id = ndm.note_id
+             WHERE n.deleted_at IS NULL
+             ORDER BY n.title ASC, n.updated_at DESC`
+          )
+          .all(id)
+          .map(mapNoteRow)
+      : db
+          .prepare(
+            `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+             FROM note_directory_membership ndm
+             JOIN notes n ON n.id = ndm.note_id
+             WHERE ndm.directory_id = ? AND n.deleted_at IS NULL
+             ORDER BY n.title ASC, n.updated_at DESC`
+          )
+          .all(id)
+          .map(mapNoteRow);
 
-    const edges = db
-      .prepare(
-        `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
-                l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
-                l.confidence, l.status, l.created_at, l.updated_at,
-                from_note.title AS from_title,
-                to_note.title AS to_title
-         FROM links l
-         JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
-         JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
-         JOIN notes from_note ON from_note.id = l.from_note_id
-         JOIN notes to_note ON to_note.id = l.to_note_id
-         WHERE from_member.directory_id = ?
-           AND to_member.directory_id = ?
-           AND from_note.deleted_at IS NULL
-           AND to_note.deleted_at IS NULL
-           AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
-         ORDER BY l.created_at DESC`
-      )
-      .all(id, id)
-      .map(mapGraphEdgeRow);
+    const edges = includeDescendants
+      ? db
+          .prepare(
+            `${directoryScopeClause("graph_scope")}
+             SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
+                    l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
+                    l.confidence, l.status, l.created_at, l.updated_at,
+                    from_note.title AS from_title,
+                    to_note.title AS to_title
+             FROM links l
+             JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
+             JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
+             JOIN graph_scope from_scope ON from_scope.id = from_member.directory_id
+             JOIN graph_scope to_scope ON to_scope.id = to_member.directory_id
+             JOIN notes from_note ON from_note.id = l.from_note_id
+             JOIN notes to_note ON to_note.id = l.to_note_id
+             WHERE from_note.deleted_at IS NULL
+               AND to_note.deleted_at IS NULL
+               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
+             ORDER BY l.created_at DESC`
+          )
+          .all(id)
+          .map(mapGraphEdgeRow)
+      : db
+          .prepare(
+            `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
+                    l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
+                    l.confidence, l.status, l.created_at, l.updated_at,
+                    from_note.title AS from_title,
+                    to_note.title AS to_title
+             FROM links l
+             JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
+             JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
+             JOIN notes from_note ON from_note.id = l.from_note_id
+             JOIN notes to_note ON to_note.id = l.to_note_id
+             WHERE from_member.directory_id = ?
+               AND to_member.directory_id = ?
+               AND from_note.deleted_at IS NULL
+               AND to_note.deleted_at IS NULL
+               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
+             ORDER BY l.created_at DESC`
+          )
+          .all(id, id)
+          .map(mapGraphEdgeRow);
 
     return {
       directoryId: id,
       directoryTitle: directory.title,
-      scope: "directory",
+      includeDescendants,
+      scope: includeDescendants ? "directory_tree" : "directory",
       nodes,
       edges,
       insights: buildGraphInsights(nodes, edges),

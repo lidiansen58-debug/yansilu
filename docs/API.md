@@ -522,6 +522,7 @@ Query parameters:
 | --- | --- | --- | --- |
 | `scope` | string | `directory` | MVP only accepts `directory`. |
 | `directoryId` | string | required | Directory to graph. |
+| `includeDescendants` | boolean | `false` | Include child directories when `true`; response `scope` becomes `directory_tree`. |
 
 Response:
 
@@ -529,6 +530,8 @@ Response:
 {
   "item": {
     "directoryId": "dir_original_default",
+    "scope": "directory",
+    "includeDescendants": false,
     "nodes": [],
     "edges": [],
     "insights": {

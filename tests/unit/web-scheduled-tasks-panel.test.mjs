@@ -31,7 +31,7 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   });
 
   assert.match(html, /Scheduled agent tasks/);
-  assert.match(html, /Outputs remain AI Inbox artifacts/);
+  assert.match(html, /输出会停留在 AI 建议待办/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);

@@ -375,3 +375,67 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.ok(filteredByStatus.json.items.some((item) => item.id === project.json.item.id));
   assert.ok(filteredByStatus.json.items.some((item) => item.id === secondProject.json.item.id));
 });
+
+test("core writing flow keeps working when status guidance is ignored", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-writing-regression-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const noteA = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Rough claim\n\nCore flow should accept an unfinished permanent note."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+  assert.equal(noteA.json.item.noteType, "permanent");
+  assert.equal(noteA.json.item.distillationStatus, "missing");
+  assert.equal(noteA.json.item.authorship.user_confirmed, false);
+  assert.equal(noteA.json.item.thinkingStatus.status, "needs_thesis");
+
+  const noteB = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Supporting example\n\nThe scaffold can still point back to draft-quality material."
+  });
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+  assert.equal(noteB.json.item.thinkingStatus.status, "needs_thesis");
+
+  const index = await postJson(baseUrl, "/api/v1/index-cards", {
+    directoryId: "dir_original_default",
+    indexType: "topic",
+    title: "Unfinished source material",
+    noteIds: [noteA.json.item.id, noteB.json.item.id]
+  });
+  assert.equal(index.status, 201, JSON.stringify(index.json));
+  assert.deepEqual(index.json.item.item_note_ids, [noteA.json.item.id, noteB.json.item.id]);
+  assert.equal(index.json.item.thinkingStatus.status, "needs_central_question");
+
+  const project = await postJson(baseUrl, "/api/v1/writing-projects", {
+    title: "Regression draft",
+    goal: "Prove advisory status does not block the original writing path.",
+    basketNoteIds: [noteA.json.item.id, noteB.json.item.id],
+    relatedIndexIds: [index.json.item.id]
+  });
+  assert.equal(project.status, 201, JSON.stringify(project.json));
+  assert.deepEqual(project.json.item.basket_note_ids, [noteA.json.item.id, noteB.json.item.id]);
+  assert.deepEqual(project.json.item.related_index_ids, [index.json.item.id]);
+  assert.equal(project.json.item.thinkingStatus.status, "needs_intent");
+
+  const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
+    writingProjectId: project.json.item.id
+  });
+  assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
+  assert.equal(scaffold.json.item.writing_project_id, project.json.item.id);
+  assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "needs_intent");
+  assert.match(scaffold.json.export.markdown, /# Regression draft/);
+  assert.match(scaffold.json.export.markdown, /- Intent: TBD/);
+  assert.match(scaffold.json.export.markdown, /Rough claim/);
+  assert.match(scaffold.json.export.markdown, /Supporting example/);
+
+  const fetchedProject = await getJson(baseUrl, `/api/v1/writing-projects/${encodeURIComponent(project.json.item.id)}`);
+  assert.equal(fetchedProject.status, 200, JSON.stringify(fetchedProject.json));
+  assert.equal(fetchedProject.json.item.scaffold_id, scaffold.json.item.id);
+  assert.equal(fetchedProject.json.item.thinkingStatus.status, "needs_intent");
+});

@@ -282,9 +282,14 @@ export async function fetchDirectoryNotes(directoryId) {
   return Array.isArray(json.items) ? json.items : [];
 }
 
-export async function fetchDirectoryGraph(directoryId) {
+export async function fetchDirectoryGraph(directoryId, options = {}) {
   if (!directoryId) return null;
-  const json = await request(`/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(directoryId)}`);
+  const params = new URLSearchParams({
+    scope: "directory",
+    directoryId,
+    includeDescendants: options.includeDescendants ? "true" : "false"
+  });
+  const json = await request(`/api/v1/graph?${params.toString()}`);
   return json.item || null;
 }
 

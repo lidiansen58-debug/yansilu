@@ -1900,6 +1900,36 @@
       font-size: 15px;
       color: #172033;
     }
+    .ai-inbox-topline p {
+      margin: 6px 0 0;
+      max-width: 820px;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .ai-inbox-guide {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .ai-inbox-guide-item {
+      border: 1px solid #dbe3ec;
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 12px;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .ai-inbox-guide-item strong {
+      color: #172033;
+      font-size: 13px;
+    }
+    .ai-inbox-guide-item span {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
     .ai-inbox-tabs {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2176,6 +2206,9 @@
       }
       .ai-inbox-tabs {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .ai-inbox-guide {
+        grid-template-columns: 1fr;
       }
       .ai-inbox-metric-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2718,6 +2751,344 @@
       font-size: 12px;
       line-height: 1.5;
     }
+    .graph-orientation {
+      border: 1px solid #dce7ef;
+      border-radius: 14px;
+      background: #fbfdff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .graph-orientation-main {
+      display: grid;
+      gap: 4px;
+    }
+    .graph-orientation-main strong {
+      color: #172033;
+      font-size: 14px;
+    }
+    .graph-orientation-main span {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .graph-read-steps,
+    .graph-relation-legend,
+    .graph-orientation-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .graph-read-steps span,
+    .graph-relation-legend span,
+    .graph-orientation-metrics span {
+      border: 1px solid #dbe5ef;
+      border-radius: 999px;
+      background: #fff;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.3;
+      padding: 5px 9px;
+    }
+    .graph-read-steps span {
+      border-color: #c9dfee;
+      background: #f2f8fc;
+      color: #23516f;
+      font-weight: 800;
+    }
+    .graph-relation-legend strong {
+      color: #172033;
+    }
+    .graph-orientation-metrics span {
+      background: #f8fafc;
+      color: #64748b;
+    }
+    .graph-map-panel {
+      border: 1px solid #d7e2ec;
+      border-radius: 16px;
+      background: #fff;
+      display: grid;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+    .graph-map-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px;
+      border-bottom: 1px solid #e1e9f1;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
+    }
+    .graph-map-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 7px;
+      min-width: 180px;
+    }
+    .graph-map-badges span {
+      border: 1px solid #d9e5ef;
+      border-radius: 999px;
+      background: #fff;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.3;
+      padding: 5px 9px;
+    }
+    .graph-map-stage {
+      min-height: 430px;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(78, 151, 179, 0.18), transparent 34%),
+        radial-gradient(circle at 18% 22%, rgba(168, 139, 232, 0.13), transparent 26%),
+        #111820;
+      overflow: hidden;
+    }
+    .graph-map-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+      min-height: 430px;
+    }
+    .graph-map-svg {
+      width: 100%;
+      min-height: 430px;
+      display: block;
+    }
+    .graph-map-roster {
+      border-left: 1px solid rgba(226, 235, 245, 0.16);
+      background: rgba(8, 14, 22, 0.7);
+      color: #e6eef7;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 0;
+    }
+    .graph-map-roster-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid rgba(226, 235, 245, 0.14);
+    }
+    .graph-map-roster-head strong {
+      font-size: 13px;
+      color: #f8fafc;
+    }
+    .graph-map-roster-head span {
+      border: 1px solid rgba(226, 235, 245, 0.2);
+      border-radius: 999px;
+      color: #cbd5e1;
+      font-size: 11px;
+      padding: 3px 7px;
+    }
+    .graph-map-roster-list {
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      max-height: 430px;
+      overflow: auto;
+      padding: 10px;
+    }
+    .graph-map-roster-item {
+      width: 100%;
+      border: 1px solid rgba(203, 213, 225, 0.16);
+      border-radius: 8px;
+      background: rgba(248, 250, 252, 0.06);
+      color: inherit;
+      cursor: pointer;
+      display: grid;
+      gap: 3px;
+      padding: 8px;
+      text-align: left;
+    }
+    .graph-map-roster-item:hover,
+    .graph-map-roster-item:focus {
+      border-color: rgba(137, 228, 180, 0.58);
+      background: rgba(53, 183, 121, 0.14);
+      outline: none;
+    }
+    .graph-map-roster-title {
+      color: #f8fafc;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .graph-map-roster-meta {
+      color: #aab8c8;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .graph-map-backdrop {
+      fill: transparent;
+    }
+    .graph-map-edge {
+      fill: none;
+      stroke: #8fa0b3;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      opacity: 0.76;
+      pointer-events: stroke;
+      cursor: pointer;
+      transition: opacity 0.16s ease, stroke-width 0.16s ease;
+    }
+    .graph-map-edge.is-support {
+      stroke: #35b779;
+    }
+    .graph-map-edge.is-flow {
+      stroke: #38a3c9;
+    }
+    .graph-map-edge.is-conflict {
+      stroke: #ef6f6c;
+    }
+    .graph-map-edge.is-boundary {
+      stroke: #d59c2a;
+    }
+    .graph-map-edge.is-bridge {
+      stroke: #a88be8;
+    }
+    .graph-map-edge-group:hover .graph-map-edge {
+      opacity: 1;
+      stroke-width: 4;
+    }
+    .graph-map-edge-label {
+      fill: #e6eef7;
+      font-size: 10.5px;
+      font-weight: 800;
+      paint-order: stroke;
+      stroke: #111820;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .graph-map-edge-label.is-support {
+      fill: #89e4b4;
+    }
+    .graph-map-edge-label.is-flow {
+      fill: #8bd9ef;
+    }
+    .graph-map-edge-label.is-conflict {
+      fill: #ffaaa7;
+    }
+    .graph-map-edge-label.is-boundary {
+      fill: #f2cc75;
+    }
+    .graph-map-edge-label.is-bridge {
+      fill: #d1c2ff;
+    }
+    .graph-map-edge-pin {
+      fill: #d6e0ea;
+      pointer-events: none;
+    }
+    .graph-map-edge-pin.is-support {
+      fill: #35b779;
+    }
+    .graph-map-edge-pin.is-flow {
+      fill: #38a3c9;
+    }
+    .graph-map-edge-pin.is-conflict {
+      fill: #ef6f6c;
+    }
+    .graph-map-edge-pin.is-boundary {
+      fill: #d59c2a;
+    }
+    .graph-map-edge-pin.is-bridge {
+      fill: #a88be8;
+    }
+    .graph-map-node {
+      cursor: pointer;
+      outline: none;
+    }
+    .graph-map-node circle {
+      fill: #f8fafc;
+      stroke: #b8c7d7;
+      stroke-width: 3;
+      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.24));
+      transition: stroke 0.16s ease, stroke-width 0.16s ease, filter 0.16s ease;
+    }
+    .graph-map-node.is-original circle {
+      fill: #f2fff6;
+      stroke: #58c486;
+    }
+    .graph-map-node.is-literature circle {
+      fill: #fff7ed;
+      stroke: #f0a65a;
+    }
+    .graph-map-node.is-fleeting circle {
+      fill: #eefaff;
+      stroke: #56bfd6;
+    }
+    .graph-map-node.is-hub circle {
+      fill: #fff;
+      stroke-width: 4;
+      filter: drop-shadow(0 0 18px rgba(93, 186, 135, 0.44));
+    }
+    .graph-map-node:hover circle,
+    .graph-map-node:focus circle {
+      stroke: #ffffff;
+      stroke-width: 5;
+      filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.34));
+    }
+    .graph-map-node-label {
+      fill: #f8fafc;
+      font-size: 13px;
+      font-weight: 800;
+      paint-order: stroke;
+      stroke: #111820;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .graph-map-node-meta {
+      fill: #b9c6d5;
+      font-size: 10.5px;
+      font-weight: 700;
+      paint-order: stroke;
+      stroke: #111820;
+      stroke-width: 3px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .graph-map-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      padding: 11px 14px 13px;
+      border-top: 1px solid #e1e9f1;
+      background: #f8fbfd;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .graph-map-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .graph-map-legend i {
+      width: 24px;
+      height: 4px;
+      border-radius: 999px;
+      background: #8fa0b3;
+      display: inline-block;
+    }
+    .graph-map-legend i.is-support {
+      background: #35b779;
+    }
+    .graph-map-legend i.is-flow {
+      background: #38a3c9;
+    }
+    .graph-map-legend i.is-conflict {
+      background: #ef6f6c;
+    }
+    .graph-map-legend i.is-boundary {
+      background: #d59c2a;
+    }
+    .graph-map-legend i.is-bridge {
+      background: #a88be8;
+    }
     .graph-title {
       font-weight: 800;
       color: #172033;
@@ -2877,6 +3248,30 @@
     }
     @media (max-width: 980px) {
       .graph-filters {
+        grid-template-columns: 1fr;
+      }
+      .graph-map-head {
+        display: grid;
+      }
+      .graph-map-badges {
+        justify-content: flex-start;
+        min-width: 0;
+      }
+      .graph-map-stage,
+      .graph-map-svg {
+        min-height: 360px;
+      }
+      .graph-map-body {
+        grid-template-columns: 1fr;
+      }
+      .graph-map-roster {
+        border-left: 0;
+        border-top: 1px solid rgba(226, 235, 245, 0.16);
+      }
+      .graph-map-roster-list {
+        max-height: 220px;
+      }
+      .graph-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -7178,7 +7573,7 @@
             <path d="M5.3 2.8v7.3M5.3 10.1l-2.1-2.1M5.3 10.1l2.1-2.1M10.7 13.2V5.9M10.7 5.9L8.6 8M10.7 5.9l2.1 2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="aiInbox" title="AI Inbox" data-tip="AI Inbox" aria-label="AI Inbox">
+        <button class="rail-btn" data-module="aiInbox" title="AI 建议待办" data-tip="AI 建议" aria-label="AI 建议待办">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M2.6 9.1l1.15-5.6h8.5l1.15 5.6v2.45a1.25 1.25 0 0 1-1.25 1.25h-8.3a1.25 1.25 0 0 1-1.25-1.25z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
             <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
@@ -7588,21 +7983,20 @@
           </div>
           </div>
           <div class="panel hidden" id="aiInboxPanel">
-            <div class="ai-inbox-empty">AI Inbox is ready to load reviewable artifacts.</div>
+            <div class="ai-inbox-empty">AI 建议待办会显示 AI 发现的关联、问题和写作线索。建议默认不会改动笔记，必须人工确认后才会落地。</div>
           </div>
           <div class="panel graph-panel hidden" id="graphPanel">
           <div class="graph-head">
             <div>
-              <div class="graph-title">当前目录关系图谱</div>
-              <div class="graph-summary" id="graphSummary">点击“刷新图谱”查看本目录内笔记关系。</div>
+              <div class="graph-title">原创笔记关系图谱</div>
+              <div class="graph-summary" id="graphSummary">点击“刷新图谱”，查看原创笔记盒及其子目录中的节点、关系、冲突和缺口。</div>
             </div>
             <div class="graph-actions">
-              <button class="mini-btn is-ghost" id="graphSeedYijing" type="button">导入易经案例</button>
               <button class="mini-btn" id="graphRefresh" type="button">刷新图谱</button>
             </div>
           </div>
           <div id="graphCanvas">
-            <div class="graph-empty">图谱只围绕当前目录展开。建立 `[[关联笔记]]` 之后，这里会开始形成可浏览的关系结构。</div>
+            <div class="graph-empty">图谱固定展示原创笔记盒及其子目录：节点是原创笔记，边是“支持、反驳、限定、桥接”等关系。</div>
           </div>
           </div>
           <div class="panel hidden" id="writingPanel">

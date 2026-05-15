@@ -53,6 +53,7 @@ import {
   renderAiInboxPanel
 } from "./ai-inbox-panel.js";
 import {
+  aiInboxActionLabel,
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
@@ -115,7 +116,6 @@ import {
   promoteAiInboxNote,
   recordAiInboxDecision,
   rollbackImport,
-  seedYijingKnowledgeNetwork,
   runDueAiScheduledTasks,
   saveAiScheduledTask,
   switchVault,
@@ -257,6 +257,7 @@ const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
+const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
 const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
@@ -1123,7 +1124,7 @@ async function loadAiInboxDetail(artifactId) {
   } catch (error) {
     aiInboxState.detail = null;
     aiInboxState.detailError = String(error?.message || error);
-    setStatus(`AI Inbox detail failed: ${aiInboxState.detailError}`, "warn");
+    setStatus(`AI 建议详情加载失败：${aiInboxState.detailError}`, "warn");
     return null;
   } finally {
     aiInboxState.detailLoading = false;
@@ -1153,7 +1154,7 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
     return result;
   } catch (error) {
     aiInboxState.error = String(error?.message || error);
-    setStatus(`AI Inbox load failed: ${aiInboxState.error}`, "warn");
+    setStatus(`AI 建议加载失败：${aiInboxState.error}`, "warn");
     return null;
   } finally {
     aiInboxState.loading = false;
@@ -1178,7 +1179,7 @@ async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
   } catch (error) {
     aiInboxState.evaluationSummary = null;
     aiInboxState.evaluationError = String(error?.message || error);
-    setStatus(`AI Inbox evaluation summary failed: ${aiInboxState.evaluationError}`, "warn");
+    setStatus(`AI 建议处理统计加载失败：${aiInboxState.evaluationError}`, "warn");
     return null;
   } finally {
     aiInboxState.evaluationLoading = false;
@@ -1201,12 +1202,12 @@ async function applyAiInboxFiltersFromUi() {
   aiInboxState.detail = null;
   aiInboxState.selectedArtifactId = "";
   await openAiInboxModule();
-  setStatus("AI Inbox refreshed", "ok");
+  setStatus("AI 建议已刷新", "ok");
 }
 
 async function recordAiInboxReviewDecision(decision) {
   const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
-  if (!artifactId) return setStatus("Select an AI artifact first", "warn");
+  if (!artifactId) return setStatus("请先选择一条 AI 建议", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1221,10 +1222,10 @@ async function recordAiInboxReviewDecision(decision) {
       refreshAiInbox({ silent: true, preserveDetail: true }),
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
-    setStatus(`AI artifact ${decision}`, "ok");
+    setStatus(`AI 建议已${aiInboxActionLabel(decision) || "处理"}`, "ok");
     return result;
   } catch (error) {
-    setStatus(`AI Inbox decision failed: ${String(error?.message || error)}`, "bad");
+    setStatus(`AI 建议处理失败：${String(error?.message || error)}`, "bad");
     return null;
   } finally {
     aiInboxState.actionLoading = false;
@@ -1234,7 +1235,7 @@ async function recordAiInboxReviewDecision(decision) {
 
 async function acceptAiInboxLinkSuggestion(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("Select a LinkSuggestion first", "warn");
+  if (!cleanArtifactId) return setStatus("请先选择一条关联建议", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1248,7 +1249,7 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
     if (state.module === "graph") await refreshDirectoryGraph();
-    setStatus(result.relation?.created === false ? "Relation already existed; artifact marked linked" : "LinkSuggestion accepted as a note relation", "ok");
+    setStatus(result.relation?.created === false ? "关系已存在，建议已标记为已建立关系" : "已把关联建议建立为笔记关系", "ok");
     return result;
   } catch (error) {
     setStatus(`LinkSuggestion accept failed: ${String(error?.message || error)}`, "bad");
@@ -1261,7 +1262,7 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
 
 async function promoteAiInboxArtifactToNote(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) return setStatus("Select a QuestionCard or ReflectionPrompt first", "warn");
+  if (!cleanArtifactId) return setStatus("请先选择一条问题卡片或反思提示", "warn");
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1281,7 +1282,7 @@ async function promoteAiInboxArtifactToNote(artifactId) {
       activateModule("explorer");
       openNoteById(result.note.id);
     }
-    setStatus(result.note?.id ? `Draft note created from AI artifact: ${result.note.id}` : "AI artifact promoted", "ok");
+    setStatus(result.note?.id ? `已从 AI 建议生成草稿笔记：${result.note.id}` : "AI 建议已生成草稿", "ok");
     return result;
   } catch (error) {
     setStatus(`AI note promotion failed: ${String(error?.message || error)}`, "bad");
@@ -1339,7 +1340,7 @@ async function setScheduledTaskStatus(scheduledTaskId, status) {
 }
 
 async function runDueScheduledTasksFromUi() {
-  const confirmed = window.confirm("Run due scheduled AI tasks now? New outputs will stay in AI Inbox until reviewed.");
+  const confirmed = window.confirm("现在运行到期的 AI 任务吗？新的输出会先进入 AI 建议待办，等待你确认。");
   if (!confirmed) return null;
   settingsState.ai.scheduledTaskActionLoading = true;
   settingsState.ai.scheduledTasksError = "";
@@ -2421,6 +2422,27 @@ function upsertNotesForDirectory(folderId, mappedNotes) {
   state.notes = [...localOnly, ...mappedNotes, ...keep];
 }
 
+function upsertGraphNodeSummaries(nodes = []) {
+  const mapped = nodes.map(mapNoteItem);
+  const byId = new Map(state.notes.map((note) => [note.id, note]));
+  for (const node of mapped) {
+    const existing = byId.get(node.id);
+    if (existing?.bodyLoaded) {
+      Object.assign(existing, {
+        title: node.title,
+        folderId: node.folderId,
+        noteType: node.noteType,
+        status: node.status,
+        markdownPath: node.markdownPath,
+        updatedAt: node.updatedAt
+      });
+    } else {
+      byId.set(node.id, { ...(existing || {}), ...node });
+    }
+  }
+  state.notes = Array.from(byId.values());
+}
+
 function replaceFirstMarkdownTitle(body, title) {
   const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
   const lines = String(body || "").replace(/\r\n/g, "\n").split("\n");
@@ -2802,43 +2824,43 @@ function currentModuleUi() {
       `
     },
     aiInbox: {
-      sidebarTitle: "AI Inbox",
-      sidebarSubtitle: "Review suggestions before they change notes.",
-      sidebarFoot: "AI artifacts stay proposals until the user accepts, ignores, archives, or promotes them through an explicit action.",
-      title: "AI Inbox",
-      summary: "Review AI-generated artifacts with their sources, provenance, feedback flags, and promotion actions. Link suggestions can become graph relations only after confirmation.",
+      sidebarTitle: "AI 建议待办",
+      sidebarSubtitle: "AI 只给建议，是否落地由你确认。",
+      sidebarFoot: "AI 建议默认不会改动笔记。只有你点击采纳、建立关系或生成草稿后，才会进入笔记系统。",
+      title: "AI 建议待办",
+      summary: "这里集中处理 AI 发现的关联、问题、冲突和写作线索。先看来源和理由，再决定采纳、忽略、归档，避免 AI 自动污染笔记。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>Review loop</h3>
-          <p>Artifacts are proposals: read the source notes, inspect provenance, then decide whether the suggestion is useful, noisy, wrong, already known, or privacy-sensitive.</p>
+          <h3>它用来做什么</h3>
+          <p>把 AI 的输出拦在“待确认”层：有价值的关系可以进入图谱，有价值的问题可以生成草稿，没用的建议直接忽略。</p>
         </div>
         <div class="module-sidebar-card">
-          <h3>First action</h3>
+          <h3>处理顺序</h3>
           <ol class="module-sidebar-list">
-            <li>Open pending artifacts</li>
-            <li>Accept or archive review prompts</li>
-            <li>Promote note-to-note LinkSuggestion items into real relations only when confirmed</li>
+            <li>先看待判断建议</li>
+            <li>核对来源笔记和关联理由</li>
+            <li>确认后再建立关系或生成草稿</li>
           </ol>
         </div>
       `
     },
     graph: {
-      sidebarTitle: "关系图谱",
-      sidebarSubtitle: "只看当前范围，不看全局噪音。",
-      sidebarFoot: "图谱默认围绕当前目录或当前主题，不展示全局大图。",
-      title: "关系图谱",
-      summary: "图谱页不只看连接，还要帮助你看见重名冲突、孤立观点、待补链接理由，以及哪些概念其实还没有真正对齐。",
+      sidebarTitle: "原创关系图谱",
+      sidebarSubtitle: "看原创笔记之间的观点结构。",
+      sidebarFoot: "图谱固定展示原创笔记盒及其子目录，不需要导入案例或切换范围。",
+      title: "原创笔记关系图谱",
+      summary: "把所有原创笔记当作节点，把“支持、反驳、限定、桥接”等关系当作边，快速看出中心观点、孤立观点、冲突和缺失连接。",
       sidebarHtml: `
         <div class="module-sidebar-card">
-          <h3>查看范围</h3>
-          <p>当前以 <strong>${escapeHtml(rootName)}</strong> 为范围，只看这一层结构，避免一进来就被全局关系淹没。</p>
+          <h3>它用来做什么</h3>
+          <p>检查 <strong>原创笔记盒</strong> 里的观点是否已经形成结构：哪些观点在支撑主题，哪里有反方，哪里还缺过渡。</p>
         </div>
         <div class="module-sidebar-card">
-          <h3>你现在可以做什么</h3>
+          <h3>读图顺序</h3>
           <ul class="module-sidebar-list">
-            <li>刷新当前目录子图</li>
-            <li>查看局部关系、显性冲突与缺失连接</li>
-            <li>从节点直接回到对应笔记</li>
+            <li>先看概览，确认节点和关系数量</li>
+            <li>再看支持、反驳、限定、桥接</li>
+            <li>最后点回笔记补理由、证据或边界</li>
           </ul>
         </div>
       `
@@ -2915,7 +2937,7 @@ function moduleLabel(moduleName = "") {
   const labels = {
     explorer: "笔记编辑",
     imports: "导入导出",
-    aiInbox: "AI Inbox",
+    aiInbox: "AI 建议",
     graph: "关系图谱",
     writing: "写作中心",
     settings: "设置"
@@ -4551,6 +4573,35 @@ const GRAPH_RELATION_REVIEW_REASON_LABELS = {
   needs_review: "复查关系"
 };
 
+const GRAPH_RELATION_VISUALS = {
+  associated_with: { key: "neutral", className: "is-neutral" },
+  same_topic: { key: "neutral", className: "is-neutral" },
+  supports: { key: "support", className: "is-support" },
+  complements: { key: "support", className: "is-support" },
+  extends: { key: "support", className: "is-support" },
+  example_of: { key: "support", className: "is-support" },
+  follows: { key: "flow", className: "is-flow" },
+  precedes: { key: "flow", className: "is-flow" },
+  appears_in_draft: { key: "flow", className: "is-flow" },
+  contradicts: { key: "conflict", className: "is-conflict" },
+  counterexample_to: { key: "conflict", className: "is-conflict" },
+  contrasts: { key: "conflict", className: "is-conflict" },
+  qualifies: { key: "boundary", className: "is-boundary" },
+  bridges: { key: "bridge", className: "is-bridge" },
+  unexpected_connection: { key: "bridge", className: "is-bridge" },
+  restates: { key: "neutral", className: "is-neutral" },
+  reframes: { key: "bridge", className: "is-bridge" }
+};
+
+const GRAPH_RELATION_MARKER_COLORS = {
+  neutral: "#8fa0b3",
+  support: "#35b779",
+  flow: "#38a3c9",
+  conflict: "#ef6f6c",
+  boundary: "#d59c2a",
+  bridge: "#a88be8"
+};
+
 function graphRelationQualityLabel(level) {
   const key = String(level || "empty").trim().toLowerCase();
   return GRAPH_RELATION_QUALITY_LABELS[key] || key || "待整理";
@@ -4559,6 +4610,36 @@ function graphRelationQualityLabel(level) {
 function graphRelationReviewReasonLabel(reason) {
   const key = String(reason || "needs_review").trim().toLowerCase();
   return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
+}
+
+function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
+  return `
+    <section class="graph-orientation" aria-label="图谱读法">
+      <div class="graph-orientation-main">
+        <strong>先把它当作“原创笔记的论证地图”来读</strong>
+        <span>节点是原创笔记，边是关系；重点不是线多不多，而是这组笔记能不能支撑一个清楚主题。</span>
+      </div>
+      <div class="graph-read-steps">
+        <span>1 看中心观点</span>
+        <span>2 看支持和反驳</span>
+        <span>3 看桥接缺口</span>
+        <span>4 回笔记补理由</span>
+      </div>
+      <div class="graph-relation-legend" aria-label="关系类型说明">
+        <span><strong>支持</strong> 提供理由或证据</span>
+        <span><strong>反驳</strong> 标记冲突观点</span>
+        <span><strong>限定</strong> 写清边界条件</span>
+        <span><strong>桥接</strong> 连接两段还没接上的思路</span>
+      </div>
+      <div class="graph-orientation-metrics">
+        <span>${Number(nodes.length || 0)} 个节点</span>
+        <span>${Number(edges.length || 0)} 条关系</span>
+        <span>${Number(supportingCount || 0)} 条支持</span>
+        <span>${Number(conflictCount || 0)} 条冲突</span>
+        <span>${Number(bridgeGapCount || 0)} 个缺口</span>
+      </div>
+    </section>
+  `;
 }
 
 function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
@@ -4586,6 +4667,269 @@ function graphEdgeMatchesFilters(edge, filters = {}) {
   return (filterType === "all" || type === filterType) && (filterStatus === "all" || status === filterStatus);
 }
 
+function graphRelationVisual(type) {
+  const key = String(type || "associated_with").trim().toLowerCase();
+  return GRAPH_RELATION_VISUALS[key] || GRAPH_RELATION_VISUALS.associated_with;
+}
+
+function graphHash(value = "") {
+  return String(value || "").split("").reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) % 100000, 7);
+}
+
+function graphShortTitle(value = "", maxLength = 14) {
+  const text = String(value || "").trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(2, maxLength - 1))}…`;
+}
+
+function graphBuildVisualLayout(nodes = [], edges = []) {
+  const width = 1080;
+  const height = 560;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const nodeMap = new Map();
+
+  nodes.forEach((node) => {
+    const id = String(node?.id || "").trim();
+    if (!id) return;
+    nodeMap.set(id, {
+      ...node,
+      id,
+      title: String(node?.title || id).trim() || id,
+      noteType: String(node?.noteType || node?.note_type || "note").trim() || "note",
+      degree: 0,
+      inDegree: 0,
+      outDegree: 0
+    });
+  });
+
+  edges.forEach((edge) => {
+    const fromId = String(edge?.fromNoteId || "").trim();
+    const toId = String(edge?.toNoteId || "").trim();
+    if (fromId && !nodeMap.has(fromId)) {
+      nodeMap.set(fromId, {
+        id: fromId,
+        title: String(edge?.fromTitle || fromId).trim() || fromId,
+        noteType: "note",
+        degree: 0,
+        inDegree: 0,
+        outDegree: 0
+      });
+    }
+    if (toId && !nodeMap.has(toId)) {
+      nodeMap.set(toId, {
+        id: toId,
+        title: String(edge?.toTitle || toId).trim() || toId,
+        noteType: "note",
+        degree: 0,
+        inDegree: 0,
+        outDegree: 0
+      });
+    }
+    const from = nodeMap.get(fromId);
+    const to = nodeMap.get(toId);
+    if (from) {
+      from.degree += 1;
+      from.outDegree += 1;
+    }
+    if (to) {
+      to.degree += 1;
+      to.inDegree += 1;
+    }
+  });
+
+  const layoutNodes = [...nodeMap.values()].sort(
+    (a, b) => b.degree - a.degree || String(a.title).localeCompare(String(b.title), "zh-Hans-CN") || a.id.localeCompare(b.id)
+  );
+  const outerCount = Math.max(0, layoutNodes.length - 1);
+  const innerCount = outerCount > 12 ? Math.ceil(outerCount * 0.58) : outerCount;
+  const outerRingCount = Math.max(1, outerCount - innerCount);
+
+  layoutNodes.forEach((node, index) => {
+    const isHub = index === 0 && node.degree > 0;
+    const degreeBoost = Math.min(8, Number(node.degree || 0) * 1.6);
+    node.radius = Math.round(18 + degreeBoost + (isHub ? 8 : 0));
+    node.isHub = isHub;
+
+    if (!outerCount || isHub) {
+      node.x = centerX;
+      node.y = centerY;
+      return;
+    }
+
+    const ringIndex = index - 1;
+    const useOuterRing = outerCount > 12 && ringIndex >= innerCount;
+    const ringPosition = useOuterRing ? ringIndex - innerCount : ringIndex;
+    const ringTotal = useOuterRing ? outerRingCount : Math.max(1, innerCount);
+    const angle = -Math.PI / 2 + (Math.PI * 2 * ringPosition) / ringTotal;
+    const jitter = graphHash(node.id) % 17;
+    const radiusX = useOuterRing ? 455 : outerCount > 7 ? 315 : 285;
+    const radiusY = useOuterRing ? 215 : outerCount > 7 ? 150 : 170;
+    node.x = Math.round(centerX + Math.cos(angle) * (radiusX + jitter * 0.6));
+    node.y = Math.round(centerY + Math.sin(angle) * (radiusY + jitter * 0.35));
+  });
+
+  return { width, height, nodes: layoutNodes, nodeMap };
+}
+
+function graphEdgePath(edge, nodeMap) {
+  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
+  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
+  if (!from || !to) return null;
+
+  if (from.id === to.id) {
+    const loopRadius = from.radius + 18;
+    return {
+      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius} ${from.y - loopRadius * 2}, ${from.x + loopRadius * 2} ${from.y}, ${from.x + from.radius + 5} ${from.y}`,
+      labelX: from.x + loopRadius + 4,
+      labelY: from.y - loopRadius,
+      titleX: from.x,
+      titleY: from.y
+    };
+  }
+
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const startX = from.x + unitX * (from.radius + 5);
+  const startY = from.y + unitY * (from.radius + 5);
+  const endX = to.x - unitX * (to.radius + 8);
+  const endY = to.y - unitY * (to.radius + 8);
+  const curve = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}`) % 7) - 3) * 9;
+  const midX = (startX + endX) / 2;
+  const midY = (startY + endY) / 2;
+  const controlX = midX + -unitY * curve;
+  const controlY = midY + unitX * curve;
+  return {
+    d: `M ${startX.toFixed(1)} ${startY.toFixed(1)} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`,
+    labelX: Math.round(controlX),
+    labelY: Math.round(controlY - 7),
+    titleX: Math.round(midX),
+    titleY: Math.round(midY)
+  };
+}
+
+function graphNodeClass(noteType = "") {
+  const type = String(noteType || "").trim().toLowerCase();
+  if (type === "literature") return "is-literature";
+  if (type === "fleeting") return "is-fleeting";
+  if (type === "original" || type === "permanent") return "is-original";
+  return "is-note";
+}
+
+function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } = {}) {
+  const layout = graphBuildVisualLayout(nodes, edges);
+  const visibleEdges = edges
+    .map((edge) => ({ edge, path: graphEdgePath(edge, layout.nodeMap), visual: graphRelationVisual(edge?.relationType) }))
+    .filter((item) => item.path);
+  const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
+    .map(
+      ([key, color]) => `
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 0 L 8 3 L 0 6 z" fill="${escapeHtml(color)}"></path>
+        </marker>
+      `
+    )
+    .join("");
+  const edgeLabelsEnabled = visibleEdges.length <= 28;
+  const nodeMarkup = layout.nodes
+    .map((node) => {
+      const typeClass = graphNodeClass(node.noteType);
+      const title = node.title || node.id;
+      const label = graphShortTitle(title, node.isHub ? 18 : 12);
+      const labelY = node.y + node.radius + 17;
+      const metaY = labelY + 14;
+      return `
+        <g class="graph-map-node ${typeClass} ${node.isHub ? "is-hub" : ""}" data-open-note="${escapeHtml(node.id)}" role="button" tabindex="0" aria-label="打开笔记 ${escapeHtml(title)}">
+          <title>${escapeHtml(title)}；${escapeHtml(noteTypeLabel(node.noteType))}；连接 ${Number(node.degree || 0)} 条</title>
+          <circle cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
+          <text class="graph-map-node-label" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>
+          <text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(noteTypeLabel(node.noteType))} · ${Number(node.degree || 0)}</text>
+        </g>
+      `;
+    })
+    .join("");
+  const rosterMarkup = layout.nodes
+    .map((node) => {
+      const relationHint = `${Number(node.degree || 0)} 条关系`;
+      return `
+        <button class="graph-map-roster-item" type="button" data-open-note="${escapeHtml(node.id)}">
+          <span class="graph-map-roster-title">${escapeHtml(node.title || node.id)}</span>
+          <span class="graph-map-roster-meta">${escapeHtml(noteTypeLabel(node.noteType))} · ${escapeHtml(relationHint)}</span>
+        </button>
+      `;
+    })
+    .join("");
+  const edgeMarkup = visibleEdges
+    .map(({ edge, path, visual }) => {
+      const sourceTitle = edge.fromTitle || edge.fromNoteId || "源笔记";
+      const targetTitle = edge.toTitle || edge.toNoteId || "目标笔记";
+      const relationLabel = graphRelationTypeLabel(edge.relationType);
+      const rationale = String(edge.rationale || "").trim();
+      return `
+        <g class="graph-map-edge-group" data-open-note="${escapeHtml(edge.fromNoteId || "")}" aria-label="${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+          <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
+          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}" marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"></path>
+          ${
+            edgeLabelsEnabled
+              ? `<text class="graph-map-edge-label ${escapeHtml(visual.className)}" x="${path.labelX}" y="${path.labelY}" text-anchor="middle">${escapeHtml(relationLabel)}</text>`
+              : `<circle class="graph-map-edge-pin ${escapeHtml(visual.className)}" cx="${path.titleX}" cy="${path.titleY}" r="3"></circle>`
+          }
+        </g>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="graph-map-panel" aria-label="图形化笔记关系图谱">
+      <div class="graph-map-head">
+        <div>
+          <div class="graph-section-title">图形关系视图</div>
+          <div class="graph-section-note">点是笔记，线是关系；连接越多的笔记越靠中心，关系类型用颜色区分。</div>
+        </div>
+        <div class="graph-map-badges">
+          <span>${layout.nodes.length} 点</span>
+          <span>${visibleEdges.length} 线</span>
+          <span>${filterActive ? "已筛选" : "原创范围"}</span>
+        </div>
+      </div>
+      <div class="graph-map-stage">
+        ${
+          layout.nodes.length
+            ? `
+              <div class="graph-map-body">
+                <svg class="graph-map-svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="原创笔记关系图">
+                  <defs>${markers}</defs>
+                  <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                  <g class="graph-map-edges">${edgeMarkup}</g>
+                  <g class="graph-map-nodes">${nodeMarkup}</g>
+                </svg>
+                <aside class="graph-map-roster" aria-label="当前图谱笔记清单">
+                  <div class="graph-map-roster-head">
+                    <strong>当前图谱笔记</strong>
+                    <span>${layout.nodes.length} 条</span>
+                  </div>
+                  <div class="graph-map-roster-list">${rosterMarkup}</div>
+                </aside>
+              </div>
+            `
+            : `<div class="graph-empty">当前视图没有可绘制的节点。调整筛选条件，或先在笔记中建立关联。</div>`
+        }
+      </div>
+      <div class="graph-map-legend" aria-label="关系颜色图例">
+        <span><i class="is-support"></i>支持/补充</span>
+        <span><i class="is-conflict"></i>反驳/对比</span>
+        <span><i class="is-boundary"></i>限定</span>
+        <span><i class="is-bridge"></i>桥接</span>
+        <span><i class="is-flow"></i>前后推进</span>
+        <span><i class="is-neutral"></i>基础关联</span>
+      </div>
+    </section>
+  `;
+}
+
 function renderRelationReviewQueueSection(reviewQueue) {
   const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
   const total = Number(reviewQueue?.total || items.length || 0);
@@ -4598,8 +4942,8 @@ function renderRelationReviewQueueSection(reviewQueue) {
       <section class="graph-section graph-review-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">关系整理队列</div>
-            <div class="graph-section-note">优先处理说明缺失或理由偏薄的关系，让图谱从“连上了”继续走到“说清楚”。</div>
+            <div class="graph-section-title">待补关系说明</div>
+            <div class="graph-section-note">这里列出“线已经连上，但为什么连还没说清楚”的关系。优先补这些，图谱才有解释力。</div>
           </div>
         </div>
         ${
@@ -4609,7 +4953,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
               ? `
                 <div class="graph-review-summary">
                   <strong>${total} 条待整理关系</strong>
-                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。打开源笔记后可在右侧关系面板补理由、问题或状态。</small>
+                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系类型、关联理由或追问。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -4634,7 +4978,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">当前目录没有缺说明或理由偏薄的关系；可以继续补新关系，或切换筛选查看完整图谱。</div>`
+              : `<div class="graph-empty">原创笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
       </section>
   `;
@@ -4645,10 +4989,10 @@ function renderGraphPanel() {
   const canvas = $("graphCanvas");
   if (!summary || !canvas) return;
 
-  const folder = folderById(state, state.selectedFolderId);
+  const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   if (graphState.loading) {
-    summary.textContent = `正在加载“${folder?.name || "当前目录"}”的关系图谱与冲突视图...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取 SQLite 链接关系与张力信号。</div>`;
+    summary.textContent = `正在加载“${folder?.name || "原创笔记盒"}”的原创笔记关系...`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取原创笔记盒及其子目录里的笔记节点、显式关系和待补说明。</div>`;
     return;
   }
 
@@ -4660,8 +5004,8 @@ function renderGraphPanel() {
 
   const graph = graphState.item;
   if (!graph) {
-    summary.textContent = `当前目录：${folder?.name || "未选择目录"}。点击“刷新图谱”查看本目录内笔记关系。`;
-    canvas.innerHTML = `<div class="graph-empty">这里只显示当前目录内的笔记节点、目录内链接和冲突信号，不默认打开全局大图。</div>`;
+    summary.textContent = `原创笔记盒：点击“刷新图谱”查看所有原创笔记之间的关系。`;
+    canvas.innerHTML = `<div class="graph-empty">图谱固定展示原创笔记盒及其子目录：节点是原创笔记，边是支持、反驳、限定、桥接等关系。</div>`;
     return;
   }
 
@@ -4674,6 +5018,8 @@ function renderGraphPanel() {
   const visibleNodes = filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes;
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const insights = graph.insights && typeof graph.insights === "object" ? graph.insights : {};
+  const allSupportingRelations = allEdges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
+  const allConflictingRelations = allEdges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase()));
   const supportingRelations = edges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
   const conflictingRelations = edges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase()));
   const bridgeGaps = Array.isArray(insights.bridgeGaps) ? insights.bridgeGaps : [];
@@ -4715,7 +5061,7 @@ function renderGraphPanel() {
       <div class="graph-detail-card">
         <strong>概念错位 / 重名冲突</strong>
         <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
-        <small>${escapeHtml(conflict.rationale || "当前目录里有多条笔记标题相同，容易让连接和引用失真。")}</small>
+        <small>${escapeHtml(conflict.rationale || "原创笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
         <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
       </div>
     `);
@@ -4753,7 +5099,7 @@ function renderGraphPanel() {
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>孤立观点</strong>
-        <small>${isolatedNodes.length} 条笔记还没有进入当前目录的链接关系。</small>
+        <small>${isolatedNodes.length} 条原创笔记还没有进入关系网络。</small>
         <small>${escapeHtml(
           isolatedNodes
             .slice(0, 4)
@@ -4779,8 +5125,15 @@ function renderGraphPanel() {
     `);
   }
 
-  summary.textContent = `${graph.directoryTitle || folder?.name || "当前目录"}：${nodes.length} 个节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
+  summary.textContent = `${graph.directoryTitle || folder?.name || "原创笔记盒"}：${nodes.length} 个原创节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
+    ${renderGraphOrientation({
+      nodes,
+      edges: allEdges,
+      supportingCount: allSupportingRelations.length,
+      conflictCount: allConflictingRelations.length + conflictItems.length,
+      bridgeGapCount: bridgeGaps.length
+    })}
     <div class="graph-filters" data-graph-filters>
       <label>
         <span>关系类型</span>
@@ -4794,27 +5147,28 @@ function renderGraphPanel() {
           ${graphFilterOptions(allEdges, "status", filters.status, "全部状态", graphRelationStatusLabel)}
         </select>
       </label>
-      <div class="graph-filter-note">当前只筛选图谱中已加载的关系；不会改动笔记、关系或导入记录。</div>
+      <div class="graph-filter-note">筛选只改变当前视图，不会改动笔记。建议先看“支持/反驳/限定/桥接”四类关系。</div>
     </div>
+    ${renderGraphVisualMap({ nodes: visibleNodes, edges, filterActive })}
     <div class="graph-grid">
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">范围与概览</div>
-            <div class="graph-section-note">当前只看目录子图，帮助你快速判断这里的结构是否已经成形。</div>
+            <div class="graph-section-title">这组笔记现在是什么结构</div>
+            <div class="graph-section-note">先看中心、孤立和关系分布，判断这组笔记是不是已经能支撑一个主题。</div>
           </div>
         </div>
         <div class="graph-overview">
           <div class="graph-overview-card">
-            <strong>当前范围</strong>
-            <small>${escapeHtml(graph.directoryTitle || folder?.name || "当前目录")} 内共有 ${nodes.length} 条笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
+            <strong>范围</strong>
+            <small>${escapeHtml(graph.directoryTitle || folder?.name || "原创笔记盒")} 内共有 ${nodes.length} 条原创笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>结构状态</strong>
+            <strong>中心与孤立</strong>
             <small>${busiestNode?.node?.title ? `当前视图连接最密的是「${escapeHtml(busiestNode.node.title)}」` : "当前视图还没有明显中心节点"}；${isolatedCount} 条笔记暂时没有进入当前关系视图。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>支持与冲突</strong>
+            <strong>支撑与反方</strong>
             <small>${supportingRelations.length ? `显式支持关系 ${supportingRelations.length} 条` : "还没有显式 supports 关系"}；${
               conflictingRelations.length + conflictItems.length
                 ? `冲突信号 ${conflictingRelations.length + conflictItems.length} 个`
@@ -4822,7 +5176,7 @@ function renderGraphPanel() {
             }。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>桥接与说明</strong>
+            <strong>缺口与说明</strong>
             <small>${bridgeGaps.length ? `桥接缺口 ${bridgeGaps.length} 处` : "当前没有明显桥接缺口"}；${
               untypedRelations.length
             } 条连接还缺明确关系说明。</small>
@@ -4836,22 +5190,22 @@ function renderGraphPanel() {
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">冲突与张力视图</div>
-            <div class="graph-section-note">先看哪里有重名、孤立和未解释连接，再决定该补反方、补边界还是补连接理由。</div>
+            <div class="graph-section-title">需要处理的问题</div>
+            <div class="graph-section-note">这里不是错误列表，而是提示：哪里要补反方、补边界、补过渡或补关联理由。</div>
           </div>
         </div>
         ${
           tensionCards.length
             ? `<div class="graph-list">${tensionCards.join("")}</div>`
-            : `<div class="graph-empty">当前目录还没有显性冲突；如果结构看起来过于顺滑，可以回到笔记里补上反方、边界或例外条件。</div>`
+            : `<div class="graph-empty">原创笔记范围内还没有显性冲突。如果这组笔记是写作材料，可以回到笔记里补反方、边界或例外条件，让论证更稳。</div>`
         }
       </section>
       ${renderRelationReviewQueueSection(graphState.reviewQueue)}
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">节点</div>
-            <div class="graph-section-note">从这里进入某条笔记，继续补充观点、标签或链接。</div>
+            <div class="graph-section-title">笔记节点</div>
+            <div class="graph-section-note">每个节点是一条笔记。点击节点可回到笔记，继续补观点、标签或关系。</div>
           </div>
         </div>
         <div class="graph-list">
@@ -4871,22 +5225,22 @@ function renderGraphPanel() {
                   `
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "当前目录还没有笔记。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "原创笔记盒还没有笔记。"}</div>`
         }
         </div>
       </section>
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">关系与详情</div>
-            <div class="graph-section-note">先看有哪些连接已经出现，再决定哪些地方要补证据、补反方、补边界或补链接理由。</div>
+            <div class="graph-section-title">关系边</div>
+            <div class="graph-section-note">每条边说明两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
           </div>
         </div>
         ${
           highlightedEdge
             ? `
               <div class="graph-detail-card">
-                <strong>当前示例关系</strong>
+                <strong>当前示例边</strong>
                 <small>${escapeHtml(highlightedEdge.fromTitle || highlightedEdge.fromNoteId)} → ${escapeHtml(
                   highlightedEdge.toTitle || highlightedEdge.toNoteId
                 )}</small>
@@ -4924,7 +5278,7 @@ function renderGraphPanel() {
                   `
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "当前目录内还没有可显示的 [[关联笔记]] 链接。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "原创笔记范围内还没有可显示的 [[关联笔记]] 链接。"}</div>`
         }
         </div>
       </section>
@@ -4937,11 +5291,11 @@ async function refreshDirectoryGraph() {
   graphState.error = "";
   renderGraphPanel();
   try {
-    const directoryId = state.selectedFolderId;
+    const directoryId = GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;
     const [graph, conflicts, reviewQueue] = await Promise.all([
-      fetchDirectoryGraph(directoryId),
-      fetchGraphConflicts({ directoryId, includeDescendants: false }).catch(() => null),
-      fetchRelationReviewQueue({ directoryId, includeDescendants: false, limit: 8 }).catch((error) => ({
+      fetchDirectoryGraph(directoryId, { includeDescendants: true }),
+      fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
+      fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 }).catch((error) => ({
         error: String(error?.message || error),
         items: [],
         total: 0
@@ -4950,6 +5304,7 @@ async function refreshDirectoryGraph() {
     graphState.item = graph;
     graphState.conflicts = conflicts;
     graphState.reviewQueue = reviewQueue;
+    upsertGraphNodeSummaries(Array.isArray(graph?.nodes) ? graph.nodes : []);
   } catch (error) {
     graphState.error = String(error?.message || error);
     graphState.item = null;
@@ -4958,31 +5313,6 @@ async function refreshDirectoryGraph() {
   } finally {
     graphState.loading = false;
     renderGraphPanel();
-  }
-}
-
-async function importYijingKnowledgeNetworkDemo() {
-  const button = $("graphSeedYijing");
-  const previousDisabled = Boolean(button?.disabled);
-  if (button) button.disabled = true;
-  setStatus("正在导入易经知识网络案例...", "");
-  try {
-    const result = await seedYijingKnowledgeNetwork();
-    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("演示数据没有返回目录 ID");
-    await syncDirectoriesFromApi();
-    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
-    state.selectedFolderId = directoryId;
-    await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
-    await refreshDirectoryGraph();
-    renderAll();
-    const summary = result?.summary || {};
-    setStatus(`已导入易经案例：${summary.totalNodes || summary.notes || 0} 个节点，${summary.totalEdges || summary.relations || 0} 条关系`, "ok");
-  } catch (error) {
-    setStatus(`易经案例导入失败：${String(error?.message || error)}`, "bad");
-  } finally {
-    if (button) button.disabled = previousDisabled;
   }
 }
 
@@ -6329,11 +6659,7 @@ $("btnWritingOpenDraft")?.addEventListener("click", async () => {
 
 $("graphRefresh")?.addEventListener("click", async () => {
   await refreshDirectoryGraph();
-  setStatus("当前目录图谱已刷新", "ok");
-});
-
-$("graphSeedYijing")?.addEventListener("click", async () => {
-  await importYijingKnowledgeNetworkDemo();
+  setStatus("原创笔记关系图谱已刷新", "ok");
 });
 
 $("aiInboxPanel")?.addEventListener("click", async (event) => {
@@ -6356,7 +6682,7 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 
   if (event.target.closest("#btnAiInboxRefresh")) {
     await openAiInboxModule();
-    setStatus("AI Inbox refreshed", "ok");
+    setStatus("AI 建议已刷新", "ok");
     return;
   }
 
@@ -6409,6 +6735,15 @@ $("graphCanvas")?.addEventListener("click", (event) => {
   setStatus("已从图谱打开笔记", "ok");
 });
 
+$("graphCanvas")?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest("[data-open-note]");
+  if (!row) return;
+  event.preventDefault();
+  openNoteById(row.dataset.openNote);
+  setStatus("已从图谱打开笔记", "ok");
+});
+
 $("graphCanvas")?.addEventListener("change", (event) => {
   const control = event.target.closest("[data-graph-filter]");
   if (!control) return;
@@ -6426,11 +6761,11 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     activateModule(btn.dataset.module);
     if (state.module === "graph") {
       await refreshDirectoryGraph();
-      setStatus("已打开当前目录关系图谱", "ok");
+      setStatus("已打开原创笔记关系图谱", "ok");
 	    }
 	    if (state.module === "aiInbox") {
 	      await openAiInboxModule();
-	      setStatus("AI Inbox opened", "ok");
+	      setStatus("已打开 AI 建议待办", "ok");
 	    }
 	    if (state.module === "settings") {
 	      try {

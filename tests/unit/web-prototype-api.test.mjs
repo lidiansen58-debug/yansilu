@@ -160,6 +160,49 @@ test("prototype API fetches relation review queue through the public endpoint", 
   }
 });
 
+test("prototype API fetches directory graph with descendants flag", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          directoryId: "dir_original_default",
+          scope: "directory_tree",
+          includeDescendants: true,
+          nodes: [{ id: "pn_child" }],
+          edges: [],
+          totalNodes: 1,
+          totalEdges: 0
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("directory-graph-descendants", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.fetchDirectoryGraph("dir_original_default", { includeDescendants: true });
+
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      "http://127.0.0.1:3999/api/v1/graph?scope=directory&directoryId=dir_original_default&includeDescendants=true"
+    );
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(result.scope, "directory_tree");
+    assert.equal(result.includeDescendants, true);
+    assert.equal(result.nodes[0].id, "pn_child");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API creates note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

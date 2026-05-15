@@ -45,11 +45,35 @@ function renderBadge(text = "", tone = "") {
   return `<span class="ai-inbox-badge ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}">${escapeHtml(text)}</span>`;
 }
 
+function viewLabel(value = "") {
+  const option = aiInboxViewOptions().find((item) => item.value === String(value || "").trim());
+  return option?.label || value || "当前视图";
+}
+
+function renderWorkflowGuide() {
+  return `
+    <section class="ai-inbox-guide" aria-label="AI 建议处理流程">
+      <div class="ai-inbox-guide-item">
+        <strong>1. 看建议</strong>
+        <span>左侧是 AI 发现的关联、问题、冲突和写作线索。</span>
+      </div>
+      <div class="ai-inbox-guide-item">
+        <strong>2. 查来源</strong>
+        <span>右侧先看来源笔记和理由，确认它是不是有价值。</span>
+      </div>
+      <div class="ai-inbox-guide-item">
+        <strong>3. 再落地</strong>
+        <span>采纳后才会建立关系或生成草稿；忽略不会改动笔记。</span>
+      </div>
+    </section>
+  `;
+}
+
 function renderViewTabs(filters = {}, counts = {}) {
   const normalizedFilters = normalizeAiInboxFilters(filters);
   const normalizedCounts = aiInboxCounts(counts);
   return `
-    <div class="ai-inbox-tabs" role="tablist" aria-label="AI inbox views">
+    <div class="ai-inbox-tabs" role="tablist" aria-label="AI 建议视图">
       ${aiInboxViewOptions()
         .map((view) => {
           const active = view.value === normalizedFilters.view;
@@ -77,7 +101,7 @@ function renderFilters(filters = {}, counts = {}) {
       ${renderViewTabs(normalizedFilters, counts)}
       <div class="ai-inbox-filter-row">
         <label>
-          <span>Type</span>
+          <span>建议类型</span>
           <select id="aiInboxTypeFilter">
             ${aiInboxTypeOptions()
               .map((option) => `<option value="${attr(option.value)}" ${option.value === normalizedFilters.type ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -85,19 +109,19 @@ function renderFilters(filters = {}, counts = {}) {
           </select>
         </label>
         <label>
-          <span>Source note</span>
-          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="note id" />
+          <span>来源笔记 ID</span>
+          <input id="aiInboxSourceNoteFilter" value="${attr(normalizedFilters.sourceNoteId)}" placeholder="例如 note_..." />
         </label>
         <label>
-          <span>Privacy</span>
+          <span>运行范围</span>
           <select id="aiInboxPrivacyFilter">
-            <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>Any</option>
-            <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>Normal</option>
-            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>Local only</option>
+            <option value="" ${normalizedFilters.privacyMode ? "" : "selected"}>不限</option>
+            <option value="normal" ${normalizedFilters.privacyMode === "normal" ? "selected" : ""}>普通</option>
+            <option value="local_only" ${normalizedFilters.privacyMode === "local_only" ? "selected" : ""}>仅本地</option>
           </select>
         </label>
-        <button class="mini-btn" id="btnAiInboxApplyFilters" type="button">Apply</button>
-        <button class="mini-btn" id="btnAiInboxRefresh" type="button">Refresh</button>
+        <button class="mini-btn" id="btnAiInboxApplyFilters" type="button">应用筛选</button>
+        <button class="mini-btn" id="btnAiInboxRefresh" type="button">刷新</button>
       </div>
     </section>
   `;
@@ -109,11 +133,11 @@ function renderItem(item = {}, selectedArtifactId = "") {
   const updated = formatDate(item.updatedAt || item.createdAt);
   const feedback = latestFeedbackFlags(item);
   const feedbackLabels = [
-    feedback.useful ? "useful" : "",
-    feedback.noisy ? "noisy" : "",
-    feedback.wrong ? "wrong" : "",
-    feedback.alreadyKnown ? "known" : "",
-    feedback.privacyConcern ? "privacy" : ""
+    feedback.useful ? "有用" : "",
+    feedback.noisy ? "噪音" : "",
+    feedback.wrong ? "错误" : "",
+    feedback.alreadyKnown ? "已知" : "",
+    feedback.privacyConcern ? "隐私" : ""
   ].filter(Boolean);
 
   return `
@@ -123,13 +147,13 @@ function renderItem(item = {}, selectedArtifactId = "") {
       data-ai-inbox-artifact-id="${attr(item.artifactId)}"
     >
       <span class="ai-inbox-item-head">
-        <strong>${escapeHtml(item.title || item.artifactId || "Untitled artifact")}</strong>
+        <strong>${escapeHtml(item.title || item.artifactId || "未命名建议")}</strong>
         ${renderBadge(aiInboxStatusLabel(item.status), tone)}
       </span>
-      <span class="ai-inbox-item-summary">${escapeHtml(item.summary || "No summary")}</span>
+      <span class="ai-inbox-item-summary">${escapeHtml(item.summary || "没有摘要，打开右侧查看来源和字段。")}</span>
       <span class="ai-inbox-item-meta">
         <span>${escapeHtml(aiInboxTypeLabel(item.type))}</span>
-        <span>${escapeHtml(item.privacyMode || "normal")}</span>
+        <span>${escapeHtml(item.privacyMode === "local_only" ? "仅本地" : "普通")}</span>
         ${updated ? `<span>${escapeHtml(updated)}</span>` : ""}
       </span>
       ${
@@ -144,44 +168,44 @@ function renderItem(item = {}, selectedArtifactId = "") {
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
   if (state.loading) {
-    return `<div class="ai-inbox-empty">Loading AI artifacts...</div>`;
+    return `<div class="ai-inbox-empty">正在读取 AI 建议...</div>`;
   }
   if (state.error) {
-    return `<div class="ai-inbox-empty is-bad">AI Inbox failed to load: ${escapeHtml(state.error)}</div>`;
+    return `<div class="ai-inbox-empty is-bad">AI 建议加载失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
-    return `<div class="ai-inbox-empty">No artifacts match this view.</div>`;
+    return `<div class="ai-inbox-empty">当前筛选下没有待处理建议。你可以刷新，或运行一次关系扫描/反思任务后再回来处理。</div>`;
   }
   return `<div class="ai-inbox-list">${items.map((item) => renderItem(item, state.selectedArtifactId)).join("")}</div>`;
 }
 
 function renderEvaluationSummary(state = {}) {
   if (state.evaluationLoading) {
-    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">Loading evaluation summary...</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">正在统计处理情况...</div></section>`;
   }
   if (state.evaluationError) {
-    return `<section class="ai-inbox-evaluation-summary is-bad"><div class="ai-inbox-detail-muted">Evaluation summary failed: ${escapeHtml(state.evaluationError)}</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary is-bad"><div class="ai-inbox-detail-muted">处理统计加载失败：${escapeHtml(state.evaluationError)}</div></section>`;
   }
   const summary = state.evaluationSummary || null;
   if (!summary) {
-    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">No evaluation summary yet.</div></section>`;
+    return `<section class="ai-inbox-evaluation-summary"><div class="ai-inbox-detail-muted">还没有处理统计。开始采纳、忽略或归档建议后，这里会显示质量反馈。</div></section>`;
   }
   const metrics = aiInboxEvaluationMetrics(summary);
   const filter = summary.filter || {};
   const scope = [
-    filter.view ? `${filter.view} view` : "",
-    filter.type ? filter.type : "",
-    filter.sourceNoteId ? `source ${filter.sourceNoteId}` : "",
-    filter.privacyMode ? filter.privacyMode : ""
-  ].filter(Boolean).join(" / ") || "all artifacts";
+    filter.view ? viewLabel(filter.view) : "",
+    filter.type ? aiInboxTypeLabel(filter.type) : "",
+    filter.sourceNoteId ? `来源 ${filter.sourceNoteId}` : "",
+    filter.privacyMode ? (filter.privacyMode === "local_only" ? "仅本地" : filter.privacyMode) : ""
+  ].filter(Boolean).join(" / ") || "全部建议";
   return `
     <section class="ai-inbox-evaluation-summary">
       <div class="ai-inbox-evaluation-head">
         <div>
-          <h3>Evaluation</h3>
+          <h3>处理质量</h3>
           <p>${escapeHtml(scope)}</p>
         </div>
-        ${renderBadge(`${summary.artifacts?.withDecision || 0} reviewed`, "muted")}
+        ${renderBadge(`${summary.artifacts?.withDecision || 0} 条已处理`, "muted")}
       </div>
       <div class="ai-inbox-metric-grid">
         ${metrics
@@ -201,7 +225,7 @@ function renderEvaluationSummary(state = {}) {
 
 function renderSourceNotes(noteIds = []) {
   const ids = Array.isArray(noteIds) ? noteIds.filter(Boolean) : [];
-  if (!ids.length) return `<div class="ai-inbox-detail-muted">No source notes recorded.</div>`;
+  if (!ids.length) return `<div class="ai-inbox-detail-muted">这条建议没有记录来源笔记，处理前需要谨慎。</div>`;
   return `
     <div class="ai-inbox-source-list">
       ${ids
@@ -236,11 +260,11 @@ function renderPayloadPreview(payload = {}) {
 function renderFeedbackControls() {
   return `
     <div class="ai-inbox-feedback-controls">
-      <label><input type="checkbox" data-ai-inbox-feedback="useful" /> Useful</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="noisy" /> Noisy</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="wrong" /> Wrong</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="alreadyKnown" /> Already known</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="privacyConcern" /> Privacy concern</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="useful" /> 有用</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="noisy" /> 噪音</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="wrong" /> 错误</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="alreadyKnown" /> 已知</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="privacyConcern" /> 隐私风险</label>
     </div>
   `;
 }
@@ -250,11 +274,11 @@ function renderReviewActions(item = {}) {
   return `
     <div class="ai-inbox-action-card">
       <div>
-        <h3>Review</h3>
-        <p>Record a review decision without changing notes or graph relations.</p>
+        <h3>处理这条建议</h3>
+        <p>这里先记录判断；只有下面的“建立关系”或“生成草稿”按钮会真正改动笔记数据。</p>
       </div>
       ${renderFeedbackControls()}
-      <textarea id="aiInboxDecisionComment" placeholder="Optional comment"></textarea>
+      <textarea id="aiInboxDecisionComment" placeholder="可选：写下为什么采纳、忽略或归档"></textarea>
       <div class="ai-inbox-actions">
         ${["accepted", "ignored", "archived"]
           .map(
@@ -276,19 +300,19 @@ function renderLinkSuggestionAction(artifact = {}) {
   return `
     <div class="ai-inbox-action-card ${link.canAccept ? "" : "is-muted"}">
       <div>
-        <h3>Link suggestion</h3>
-        <p>${escapeHtml(link.fromNoteId || "unknown")} -> ${escapeHtml(link.toNoteId || "unknown")} / ${escapeHtml(link.relationType)}</p>
+        <h3>可落地为笔记关系</h3>
+        <p>${escapeHtml(link.fromNoteId || "未知来源")} -> ${escapeHtml(link.toNoteId || "未知目标")} / ${escapeHtml(link.relationType)}</p>
       </div>
-      <div class="ai-inbox-detail-muted">${escapeHtml(link.rationale || "No rationale recorded.")}</div>
+      <div class="ai-inbox-detail-muted">${escapeHtml(link.rationale || "这条建议没有写明关联理由，建议先忽略或补充理由。")}</div>
       <button
         class="mini-btn primary"
         type="button"
         data-ai-inbox-accept-link="${attr(artifact.id)}"
         ${link.canAccept ? "" : "disabled"}
       >
-        Create note relation
+        建立为笔记关系
       </button>
-      ${link.canAccept ? "" : `<div class="ai-inbox-detail-muted">Only note-to-note LinkSuggestion artifacts can be promoted into graph relations.</div>`}
+      ${link.canAccept ? "" : `<div class="ai-inbox-detail-muted">只有“笔记到笔记”的关联建议才能进入图谱关系。</div>`}
     </div>
   `;
 }
@@ -299,13 +323,13 @@ function renderNotePromotionAction(artifact = {}) {
   return `
     <div class="ai-inbox-action-card ${promotion.canPromote ? "" : "is-muted"}">
       <div>
-        <h3>Draft note</h3>
-        <p>${escapeHtml(promotion.suggestedTitle || "Create a reviewable draft note from this artifact.")}</p>
+        <h3>可生成草稿笔记</h3>
+        <p>${escapeHtml(promotion.suggestedTitle || "从这条建议生成一条可继续编辑的草稿。")}</p>
       </div>
       ${
         promotion.promotedNoteId
-          ? `<div class="ai-inbox-detail-muted">Already promoted to note ${escapeHtml(promotion.promotedNoteId)}.</div>`
-          : `<div class="ai-inbox-detail-muted">Creates a draft fleeting note. Review and rewrite it before treating it as your own thought.</div>`
+          ? `<div class="ai-inbox-detail-muted">已经生成笔记 ${escapeHtml(promotion.promotedNoteId)}。</div>`
+          : `<div class="ai-inbox-detail-muted">会生成一条随笔草稿。你需要再改写确认，不能直接当作自己的原创判断。</div>`
       }
       <button
         class="mini-btn primary"
@@ -313,7 +337,7 @@ function renderNotePromotionAction(artifact = {}) {
         data-ai-inbox-promote-note="${attr(artifact.id)}"
         ${promotion.canPromote ? "" : "disabled"}
       >
-        Create draft note
+        生成草稿笔记
       </button>
     </div>
   `;
@@ -321,7 +345,7 @@ function renderNotePromotionAction(artifact = {}) {
 
 function renderDecisions(decisions = []) {
   const items = Array.isArray(decisions) ? decisions : [];
-  if (!items.length) return `<div class="ai-inbox-detail-muted">No decisions yet.</div>`;
+  if (!items.length) return `<div class="ai-inbox-detail-muted">还没有处理记录。</div>`;
   return `
     <div class="ai-inbox-decision-list">
       ${items
@@ -330,11 +354,11 @@ function renderDecisions(decisions = []) {
         .map((decision) => {
           const feedback = latestFeedbackFlags({ latestDecision: decision });
           const labels = [
-            feedback.useful ? "useful" : "",
-            feedback.noisy ? "noisy" : "",
-            feedback.wrong ? "wrong" : "",
-            feedback.alreadyKnown ? "known" : "",
-            feedback.privacyConcern ? "privacy" : ""
+            feedback.useful ? "有用" : "",
+            feedback.noisy ? "噪音" : "",
+            feedback.wrong ? "错误" : "",
+            feedback.alreadyKnown ? "已知" : "",
+            feedback.privacyConcern ? "隐私" : ""
           ].filter(Boolean);
           return `
             <div class="ai-inbox-decision">
@@ -358,13 +382,13 @@ function renderDetail(state = {}) {
   const artifact = detail.artifact || null;
 
   if (state.detailLoading) {
-    return `<div class="ai-inbox-empty">Loading artifact detail...</div>`;
+    return `<div class="ai-inbox-empty">正在读取建议详情...</div>`;
   }
   if (state.detailError) {
-    return `<div class="ai-inbox-empty is-bad">Artifact detail failed to load: ${escapeHtml(state.detailError)}</div>`;
+    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(state.detailError)}</div>`;
   }
   if (!item.artifactId && !artifact) {
-    return `<div class="ai-inbox-empty">Select an artifact to review its sources, payload, and decisions.</div>`;
+    return `<div class="ai-inbox-empty">从左侧选择一条建议，右侧会显示来源、理由、可执行动作和处理记录。</div>`;
   }
 
   const activeArtifact = artifact || item;
@@ -380,25 +404,25 @@ function renderDetail(state = {}) {
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(activeArtifact.type || item.type))}</div>
-          <h2>${escapeHtml(activeArtifact.title || item.title || "Untitled artifact")}</h2>
-          <p>${escapeHtml(activeArtifact.summary || item.summary || "No summary recorded.")}</p>
+          <h2>${escapeHtml(activeArtifact.title || item.title || "未命名建议")}</h2>
+          <p>${escapeHtml(activeArtifact.summary || item.summary || "这条建议没有摘要，请重点查看来源和结构化字段。")}</p>
         </div>
         ${renderBadge(aiInboxStatusLabel(activeArtifact.status || item.status), aiInboxStatusTone(activeArtifact.status || item.status))}
       </header>
 
       <div class="ai-inbox-detail-grid">
         <section>
-          <h3>Sources</h3>
+          <h3>来源笔记</h3>
           ${renderSourceNotes(sourceNoteIds)}
         </section>
         <section>
-          <h3>Provenance</h3>
+          <h3>运行来源</h3>
           <dl class="ai-inbox-kv">
-            <dt>Run</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "unknown")}</dd>
-            <dt>Context pack</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "none")}</dd>
-            <dt>Privacy</dt><dd>${escapeHtml(activeArtifact.privacy?.mode || item.privacyMode || "normal")}</dd>
-            <dt>Model</dt><dd>${escapeHtml(model.modelRef || model.logicalModelRef || model.providerId || "not recorded")}</dd>
-            <dt>Confidence</dt><dd>${escapeHtml(confidence.label || confidence.score || "not recorded")}</dd>
+            <dt>任务</dt><dd>${escapeHtml(activeArtifact.agentRunId || item.agentRunId || "未知")}</dd>
+            <dt>上下文包</dt><dd>${escapeHtml(activeArtifact.contextPackId || item.contextPackId || "无")}</dd>
+            <dt>范围</dt><dd>${escapeHtml(activeArtifact.privacy?.mode === "local_only" || item.privacyMode === "local_only" ? "仅本地" : activeArtifact.privacy?.mode || item.privacyMode || "普通")}</dd>
+            <dt>模型</dt><dd>${escapeHtml(model.modelRef || model.logicalModelRef || model.providerId || "未记录")}</dd>
+            <dt>可信度</dt><dd>${escapeHtml(confidence.label || confidence.score || "未记录")}</dd>
           </dl>
         </section>
       </div>
@@ -408,23 +432,23 @@ function renderDetail(state = {}) {
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">
-        <h3>Artifact body</h3>
-        ${body ? `<pre class="ai-inbox-json">${escapeHtml(body)}</pre>` : `<div class="ai-inbox-detail-muted">No body recorded.</div>`}
+        <h3>建议正文</h3>
+        ${body ? `<pre class="ai-inbox-json">${escapeHtml(body)}</pre>` : `<div class="ai-inbox-detail-muted">没有正文。</div>`}
       </section>
 
       <section class="ai-inbox-detail-section">
-        <h3>Payload</h3>
+        <h3>结构化字段</h3>
         ${renderPayloadPreview(activeArtifact.payload)}
       </section>
 
       <section class="ai-inbox-detail-section">
-        <h3>Decisions</h3>
+        <h3>处理记录</h3>
         ${renderDecisions(activeArtifact.userDecisions || [])}
       </section>
 
       ${
         provenance && Object.keys(provenance).length
-          ? `<section class="ai-inbox-detail-section"><h3>Raw provenance</h3><pre class="ai-inbox-json">${escapeHtml(JSON.stringify(provenance, null, 2))}</pre></section>`
+          ? `<section class="ai-inbox-detail-section"><h3>原始运行信息</h3><pre class="ai-inbox-json">${escapeHtml(JSON.stringify(provenance, null, 2))}</pre></section>`
           : ""
       }
     </article>
@@ -438,11 +462,13 @@ export function renderAiInboxPanel(state = {}) {
     <div class="ai-inbox-shell">
       <header class="ai-inbox-topline">
         <div>
-          <div class="import-card-kicker">AI Inbox</div>
-          <strong>${escapeHtml(summary.visible)} visible / ${escapeHtml(summary.viewCount)} in ${escapeHtml(summary.view)}</strong>
+          <div class="import-card-kicker">AI 建议待办</div>
+          <strong>${escapeHtml(viewLabel(summary.view))}：当前显示 ${escapeHtml(summary.visible)} 条，共 ${escapeHtml(summary.viewCount)} 条</strong>
+          <p>这里不是聊天窗口，而是“AI 给出的待确认建议”：关联、问题、冲突和写作线索都要经过你确认才会进入笔记或图谱。</p>
         </div>
-        ${state.actionLoading ? renderBadge("Updating", "warn") : renderBadge("Reviewable artifacts", "ok")}
+        ${state.actionLoading ? renderBadge("正在处理", "warn") : renderBadge("需人工确认", "ok")}
       </header>
+      ${renderWorkflowGuide()}
       ${renderFilters(filters, summary.counts)}
       ${renderEvaluationSummary({ ...state, filters })}
       <main class="ai-inbox-grid">
