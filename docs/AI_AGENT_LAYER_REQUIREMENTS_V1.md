@@ -90,7 +90,7 @@ It should:
 - Execute the agent run.
 - Track tool calls, model usage, context inputs, generated outputs, and failures.
 - Store results as AI artifacts, suggestions, cards, or queued actions.
-- Require explicit user action before AI output becomes original note content.
+- Require explicit user action before AI output becomes permanent note content.
 
 The harness should be treated as product infrastructure, not just API glue.
 
@@ -331,7 +331,7 @@ Possible outputs:
 - "This idea appeared before" reminders.
 - Emerging topic clusters.
 
-It should output suggestions, not modify the user's original notes.
+It should output suggestions, not modify the user's permanent notes.
 
 ### 9.4 Research Agent
 
@@ -387,7 +387,7 @@ Responsibilities:
 - Require user confirmation before AI material is promoted.
 - Ensure source-derived claims keep references.
 - Mark AI-generated content as AI-generated until the user accepts or rewrites it.
-- Prevent background agents from silently changing original notes.
+- Prevent background agents from silently changing permanent notes.
 
 ## 10. Scheduled Tasks
 
@@ -432,7 +432,7 @@ Initial tool categories:
 - `get_user_preferences`: read user-approved preferences for writing, research, or notification style.
 - `request_user_confirmation`: ask before sensitive writeback or expensive runs.
 
-Tools that mutate original notes should be excluded from background agents by default.
+Tools that mutate permanent notes should be excluded from background agents by default.
 
 ## 12. Provenance and Originality Rules
 

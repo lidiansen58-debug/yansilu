@@ -400,7 +400,7 @@ function withGeneratedOriginalReference(body = "", originalTitle = "") {
   const base = stripGeneratedOriginalMarker(body);
   if (!cleanTitle) return base;
   const visibleLink = `[[${cleanTitle}]]`;
-  const visibleLine = `关联原创：${visibleLink}`;
+  const visibleLine = `关联永久笔记：${visibleLink}`;
   if (base.includes(visibleLine)) return base;
   const separator = base.trim() ? "\n\n" : "";
   return `${base}${separator}${visibleLine}`;
@@ -1417,7 +1417,7 @@ function noteSaveFailureFeedback(error) {
         `当前文件：原创性检测阻止落盘。相似度约 ${similarity}%。先把外部语言改写成你自己的判断，再继续保存。`
       ),
       statusTone: "warn",
-      statusMessage: `保存被拦下：这条原创笔记仍然过于贴近关联文献原文（相似度 ${similarity}%）。${reasonSuffix}`.trim()
+      statusMessage: `保存被拦下：这条永久笔记仍然过于贴近关联文献原文（相似度 ${similarity}%）。${reasonSuffix}`.trim()
     };
   }
 
@@ -1604,7 +1604,7 @@ function renderImportWritingActions(payload = {}) {
       <div class="result-metrics">
         <div class="result-metric"><span>待转述</span><strong>${literatureBatchSummary.pending}</strong></div>
         <div class="result-metric"><span>待提炼</span><strong>${literatureBatchSummary.refine}</strong></div>
-        <div class="result-metric"><span>可转原创</span><strong>${literatureBatchSummary.ready}</strong></div>
+        <div class="result-metric"><span>可转永久笔记</span><strong>${literatureBatchSummary.ready}</strong></div>
       </div>
       `
           : ""
@@ -1942,7 +1942,7 @@ async function openLiteratureQueueForImportRecord(importRecordId, { preferNextPe
   if (!opened) return false;
   setStatus(
     preferReadyForOriginal
-      ? `已从历史记录定位到可转原创文献条目：${cleanImportRecordId}`
+      ? `已从历史记录定位到可转永久笔记文献条目：${cleanImportRecordId}`
       : preferNextPending
         ? `已从历史记录继续下一条待处理文献条目：${cleanImportRecordId}`
         : `已从历史记录打开文献队列：${cleanImportRecordId}`,
@@ -2073,7 +2073,7 @@ async function saveWritingBasketAsThemeIndex() {
   if (title === null) return null;
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) throw new Error("title is required");
-  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟原创笔记保留为后续写作入口。";
+  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
@@ -2493,7 +2493,7 @@ function originalDraftBodyFromSource(payload = {}) {
     const citation = payload.citation && typeof payload.citation === "object" ? payload.citation : parsed.citation;
     const titleSeed =
       sourceTitle === "未命名文献笔记"
-        ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名原创笔记")
+        ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名永久笔记")
         : sourceTitle;
     return [
       `# ${titleSeed}`,
@@ -2518,7 +2518,7 @@ function originalDraftBodyFromSource(payload = {}) {
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
       ...citationSummaryLines(citation),
-      claim ? "- 已有用户转述：见来源文献笔记，不在原创草稿中直接复制。" : "",
+      claim ? "- 已有用户转述：见来源文献笔记，不在永久笔记草稿中直接复制。" : "",
       whyKeep || supportsJudgment || question || boundary || originalText ? "- 证据、判断种子、追问、边界与原文摘录请回到来源文献笔记核对。" : "",
       ""
     ]
@@ -2530,7 +2530,7 @@ function originalDraftBodyFromSource(payload = {}) {
   const excerpt = sourceBody
     .replace(/^#\s+[^\n]*\n?/m, "")
     .trim();
-  const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名原创笔记" : sourceTitle);
+  const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
   return [
     `# ${titleSeed}`,
     "",
@@ -2642,7 +2642,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const generatedMaterialCount = currentNotes.filter(noteHasGeneratedOriginal).length;
   const pendingMaterialCount = Math.max(0, currentNotes.length - generatedMaterialCount);
   const title = isOriginal
-    ? "原创笔记是默认主路"
+    ? "永久笔记是默认主路"
     : isLiterature
       ? "文献是证据入口"
       : isFleeting
@@ -2651,32 +2651,32 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const note = isOriginal
     ? "新建、搜索和写作都优先围绕自己的判断展开；素材入口只负责把材料送到这里。"
     : isLiterature
-      ? "先写转述，再记录原创。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
+      ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
       : isFleeting
-        ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为原创笔记。"
-        : "这一级目录会被放回原创笔记、关系网络、主题索引和写作准备的路径里理解。";
+        ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为永久笔记。"
+        : "这一级目录会被放回永久笔记、关系网络、主题索引和写作准备的路径里理解。";
   const steps = isOriginal
     ? [
-        ["原创笔记", true],
+        ["永久笔记", true],
         ["关系网络", linkedOriginalCount > 0],
         ["主题索引", false],
         ["写作准备", false]
       ]
     : [
         ["素材入口", true],
-        ["记录原创", generatedMaterialCount > 0],
+        ["记录永久笔记", generatedMaterialCount > 0],
         ["关系网络", linkedOriginalCount > 0],
         ["写作准备", false]
       ];
   const metrics = isOriginal
     ? [
-        [originalNotes.length, "原创笔记"],
+        [originalNotes.length, "永久笔记"],
         [linkedOriginalCount, "已接入网络"],
         [originalNotes.filter((note) => String(note.status || "").trim() === "active").length, "已确认"]
       ]
     : [
         [currentNotes.length, "素材条目"],
-        [generatedMaterialCount, "已生成原创"],
+        [generatedMaterialCount, "已生成永久笔记"],
         [pendingMaterialCount, "待处理"]
       ];
 
@@ -2710,13 +2710,13 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
 function newNoteLabelForRoot(rootId = state.browserRootId) {
   if (rootId === "dir_literature_default") return "新建文摘笔记";
   if (rootId === "dir_fleeting_default") return "新建随笔";
-  return "新建原创笔记";
+  return "新建永久笔记";
 }
 
 function newNoteShortLabelForRoot(rootId = state.browserRootId) {
   if (rootId === "dir_literature_default") return "文摘";
   if (rootId === "dir_fleeting_default") return "随笔";
-  return "原创";
+  return "永久";
 }
 
 function syncNewNoteButtons() {
@@ -2845,15 +2845,15 @@ function currentModuleUi() {
       `
     },
     graph: {
-      sidebarTitle: "原创关系图谱",
-      sidebarSubtitle: "看原创笔记之间的观点结构。",
-      sidebarFoot: "图谱固定展示原创笔记盒及其子目录，不需要导入案例或切换范围。",
-      title: "原创笔记关系图谱",
-      summary: "把所有原创笔记当作节点，把“支持、反驳、限定、桥接”等关系当作边，快速看出中心观点、孤立观点、冲突和缺失连接。",
+      sidebarTitle: "永久笔记关系图谱",
+      sidebarSubtitle: "看永久笔记之间的观点结构。",
+      sidebarFoot: "图谱固定展示永久笔记盒及其子目录，不需要导入案例或切换范围。",
+      title: "永久笔记关系图谱",
+      summary: "把所有永久笔记当作节点，把“支持、反驳、限定、桥接”等关系当作边，快速看出中心观点、孤立观点、冲突和缺失连接。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>它用来做什么</h3>
-          <p>检查 <strong>原创笔记盒</strong> 里的观点是否已经形成结构：哪些观点在支撑主题，哪里有反方，哪里还缺过渡。</p>
+          <p>检查 <strong>永久笔记盒</strong> 里的观点是否已经形成结构：哪些观点在支撑主题，哪里有反方，哪里还缺过渡。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>读图顺序</h3>
@@ -2870,17 +2870,17 @@ function currentModuleUi() {
       sidebarSubtitle: "从成熟笔记进入写作准备。",
       sidebarFoot: "写作中心应从成熟笔记出发，不替代笔记编辑器。",
       title: "写作中心",
-      summary: "这里不是囤积观点卡的地方，而是把已经成熟的原创笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
+      summary: "这里不是囤积观点卡的地方，而是把已经成熟的永久笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>写作原则</h3>
-          <p>先判断哪些主题已经值得写，再挑选支撑该主题的原创笔记进入写作篮。这里帮助组织结构，也会提醒你补反方、边界和漏洞，但不直接代替你完成最终写作。</p>
+          <p>先判断哪些主题已经值得写，再挑选支撑该主题的永久笔记进入写作篮。这里帮助组织结构，也会提醒你补反方、边界和漏洞，但不直接代替你完成最终写作。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>建议路径</h3>
           <ol class="module-sidebar-list">
             <li>先确认一个可推进的主题</li>
-            <li>把相关原创笔记加入写作篮</li>
+            <li>把相关永久笔记加入写作篮</li>
             <li>生成并迭代 scaffold，优先处理冲突与缺口</li>
           </ol>
         </div>
@@ -2949,18 +2949,18 @@ function noteTypeLabel(noteType = "") {
   const labels = {
     fleeting: "随笔记",
     literature: "文献笔记",
-    original: "原创笔记",
-    permanent: "原创笔记"
+    original: "永久笔记",
+    permanent: "永久笔记"
   };
   return labels[String(noteType || "").trim().toLowerCase()] || "笔记";
 }
 
 function displayFolderName(folder) {
   if (!folder) return "目录";
-  if (folder.id === "dir_original_default") return "原创卡片盒";
+  if (folder.id === "dir_original_default") return "永久笔记盒";
   if (folder.id === "dir_fleeting_default") return "随笔卡片盒";
   if (folder.id === "dir_literature_default") return "文献卡片盒";
-  if (!folder.parentId && String(folder.name || "").trim() === "原创目录") return "原创卡片盒";
+  if (!folder.parentId && String(folder.name || "").trim() === "永久笔记目录") return "永久笔记盒";
   return folder.name || "目录";
 }
 
@@ -3060,7 +3060,7 @@ function renderWorkspaceStatusHint() {
     helper.classList.remove("hidden");
     kicker.textContent = "下一步推荐";
     title.textContent = "先打开一条笔记";
-    body.textContent = "从随笔、文献或原创笔记里任选一条开始。后续会根据当前上下文提示相关任务和推荐下一步。";
+    body.textContent = "从随笔、文献或永久笔记里任选一条开始。后续会根据当前上下文提示相关任务和推荐下一步。";
     action.textContent = "知道了";
     return;
   }
@@ -3090,22 +3090,22 @@ function renderWorkspaceStatusHint() {
     kicker.textContent = "文献笔记";
     if (noteHasGeneratedOriginal(activeNote)) {
       const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
-      title.textContent = "这条文献已经长出原创笔记";
-      body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条原创笔记里继续提炼自己的判断。";
-      action.textContent = "打开原创笔记";
+      title.textContent = "这条文献已经长出永久笔记";
+      body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条永久笔记里继续提炼自己的判断。";
+      action.textContent = "打开永久笔记";
       if (action) {
         action.dataset.helperAction = "open-generated-original";
         action.dataset.targetNoteId = targetNoteId;
       }
     } else {
       title.textContent = "先把原文转成你的判断";
-      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录原创”。";
+      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
       action.textContent = "继续整理";
     }
     return;
   }
   if (noteType === "original") {
-    kicker.textContent = "原创笔记";
+    kicker.textContent = "永久笔记";
     title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
     body.textContent = "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。";
     action.textContent = "继续提炼";
@@ -3114,16 +3114,16 @@ function renderWorkspaceStatusHint() {
   kicker.textContent = "随笔笔记";
   if (noteHasGeneratedOriginal(activeNote)) {
     const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
-    title.textContent = "这条随笔已经沉淀过原创";
-    body.textContent = "原始线索还可以继续补，但它已经对应到一条原创笔记。你可以直接跳过去继续完善核心判断。";
-    action.textContent = "打开原创笔记";
+    title.textContent = "这条随笔已经沉淀为永久笔记";
+    body.textContent = "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。";
+    action.textContent = "打开永久笔记";
     if (action) {
       action.dataset.helperAction = "open-generated-original";
       action.dataset.targetNoteId = targetNoteId;
     }
   } else {
     title.textContent = "把这条随笔推进成可复用判断";
-    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录原创”，把判断单独沉淀出来。";
+    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录永久笔记”，把判断单独沉淀出来。";
     action.textContent = "继续记录";
   }
 }
@@ -3719,7 +3719,7 @@ function writingNoteEligibility(note) {
     return {
       ok: false,
       key: "missing",
-      message: "还没能读取到这条原创笔记的完整信息。"
+      message: "还没能读取到这条永久笔记的完整信息。"
     };
   }
   const noteType = String(note.noteType || note.note_type || "").trim().toLowerCase();
@@ -3728,7 +3728,7 @@ function writingNoteEligibility(note) {
     return {
       ok: false,
       key: "type",
-      message: "写作篮只接受原创/永久笔记。"
+      message: "写作篮只接受永久笔记。"
     };
   }
   const authorship = normalizeAuthorshipItem(note.authorship) || { user_confirmed: false, ai_assisted: false };
@@ -3736,14 +3736,14 @@ function writingNoteEligibility(note) {
     return {
       ok: false,
       key: "authorship",
-      message: "这条原创笔记还没完成作者确认。"
+      message: "这条永久笔记还没完成作者确认。"
     };
   }
   if (String(note.status || "").trim().toLowerCase() !== "active") {
     return {
       ok: false,
       key: "draft",
-      message: "这条原创笔记仍是 draft，先完成原创性检查后再进入写作。"
+      message: "这条永久笔记仍是 draft，先完成原创性检查后再进入写作。"
     };
   }
   return { ok: true, key: "ok", message: "" };
@@ -3806,7 +3806,7 @@ function writingIneligibleSummary(items = []) {
   return uniqueStrings([
     counts.authorship ? `${counts.authorship} 条未完成作者确认` : "",
     counts.draft ? `${counts.draft} 条仍是 draft` : "",
-    counts.type ? `${counts.type} 条不属于原创/永久笔记` : "",
+    counts.type ? `${counts.type} 条不属于永久笔记` : "",
     counts.missing ? `${counts.missing} 条暂未读取完整信息` : "",
     counts.other ? `${counts.other} 条暂不可进入写作` : ""
   ]).join("，");
@@ -3904,7 +3904,7 @@ function writingNoteExcerpt(note) {
     .replace(/^#.*$/m, "")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "这条原创笔记还没有正文摘要。";
+  if (!text) return "这条永久笔记还没有正文摘要。";
   return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
 
@@ -3913,7 +3913,7 @@ function writingNoteMeta(note) {
   return uniqueStrings([
     note?.id,
     folder?.name,
-    note?.noteType === "permanent" || rootBoxIdFromFolder(state, note?.folderId) === "dir_original_default" ? "原创/永久笔记" : note?.noteType
+    note?.noteType === "permanent" || rootBoxIdFromFolder(state, note?.folderId) === "dir_original_default" ? "永久笔记" : note?.noteType
   ]).join(" · ");
 }
 
@@ -3978,7 +3978,7 @@ function renderWritingThemeIndexCard(indexCard) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟原创笔记当成后续写作入口。")}</div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
@@ -4334,7 +4334,7 @@ function renderWritingPanel() {
   const scopeFolder = folderById(state, state.selectedFolderId);
   const scopeRoot = folderById(state, rootBoxIdFromFolder(state, state.selectedFolderId));
   if (scopeHint) {
-    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "原创笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的原创笔记，不展示原始导入资料；写作入口默认从已有观点开始。`;
+    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作入口默认从已有观点开始。`;
   }
 
   const sourceIndexSummary = writingSourceIndexSummary();
@@ -4346,7 +4346,7 @@ function renderWritingPanel() {
     } else if (writingState.themeIndexes.length) {
       themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作入口。`;
     } else {
-      themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟原创笔记组织进写作篮，再保存为主题索引。";
+      themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织进写作篮，再保存为主题索引。";
     }
   }
   if (themeIndexList) {
@@ -4357,7 +4357,7 @@ function renderWritingPanel() {
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map(renderWritingThemeIndexCard).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟原创笔记保存一个，后续就能从这里直接开始写作。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接开始写作。</div>`;
     }
   }
 
@@ -4383,8 +4383,8 @@ function renderWritingPanel() {
   const basketIds = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
-      ? `当前目录内有 ${candidates.length} 条原创笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记进入写作篮。`
-    : "当前目录里还没有已加载的原创笔记。可以先回到原创笔记目录形成几条自己的观点，再来组织可写主题。";
+      ? `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记进入写作篮。`
+    : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
     candidateList.innerHTML = candidates.length
@@ -4397,7 +4397,7 @@ function renderWritingPanel() {
             })
           )
           .join("")
-      : `<div class="writing-empty">当前目录还没有可用的原创笔记候选。</div>`;
+      : `<div class="writing-empty">当前目录还没有可用的永久笔记候选。</div>`;
   }
 
   if (openDraftButton) {
@@ -4431,7 +4431,7 @@ function renderWritingPanel() {
     } else if (writingState.projects.length) {
       projectsList.innerHTML = writingState.projects.map(renderWritingProjectCard).join("");
     } else {
-      projectsList.innerHTML = `<div class="writing-empty">还没有写作项目。先从原创笔记创建一个项目，这里就会出现可恢复入口。</div>`;
+      projectsList.innerHTML = `<div class="writing-empty">还没有写作项目。先从永久笔记创建一个项目，这里就会出现可恢复入口。</div>`;
     }
   }
 
@@ -4616,8 +4616,8 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
   return `
     <section class="graph-orientation" aria-label="图谱读法">
       <div class="graph-orientation-main">
-        <strong>先把它当作“原创笔记的论证地图”来读</strong>
-        <span>节点是原创笔记，边是关系；重点不是线多不多，而是这组笔记能不能支撑一个清楚主题。</span>
+        <strong>先把它当作“永久笔记的论证地图”来读</strong>
+        <span>节点是永久笔记，边是关系；重点不是线多不多，而是这组笔记能不能支撑一个清楚主题。</span>
       </div>
       <div class="graph-read-steps">
         <span>1 看中心观点</span>
@@ -4892,7 +4892,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
         <div class="graph-map-badges">
           <span>${layout.nodes.length} 点</span>
           <span>${visibleEdges.length} 线</span>
-          <span>${filterActive ? "已筛选" : "原创范围"}</span>
+          <span>${filterActive ? "已筛选" : "永久笔记范围"}</span>
         </div>
       </div>
       <div class="graph-map-stage">
@@ -4900,7 +4900,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
           layout.nodes.length
             ? `
               <div class="graph-map-body">
-                <svg class="graph-map-svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="原创笔记关系图">
+                <svg class="graph-map-svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="永久笔记关系图">
                   <defs>${markers}</defs>
                   <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
                   <g class="graph-map-edges">${edgeMarkup}</g>
@@ -4978,7 +4978,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">原创笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
+              : `<div class="graph-empty">永久笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
       </section>
   `;
@@ -4991,8 +4991,8 @@ function renderGraphPanel() {
 
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   if (graphState.loading) {
-    summary.textContent = `正在加载“${folder?.name || "原创笔记盒"}”的原创笔记关系...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取原创笔记盒及其子目录里的笔记节点、显式关系和待补说明。</div>`;
+    summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补说明。</div>`;
     return;
   }
 
@@ -5004,8 +5004,8 @@ function renderGraphPanel() {
 
   const graph = graphState.item;
   if (!graph) {
-    summary.textContent = `原创笔记盒：点击“刷新图谱”查看所有原创笔记之间的关系。`;
-    canvas.innerHTML = `<div class="graph-empty">图谱固定展示原创笔记盒及其子目录：节点是原创笔记，边是支持、反驳、限定、桥接等关系。</div>`;
+    summary.textContent = `永久笔记盒：点击“刷新图谱”查看所有永久笔记之间的关系。`;
+    canvas.innerHTML = `<div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是支持、反驳、限定、桥接等关系。</div>`;
     return;
   }
 
@@ -5061,7 +5061,7 @@ function renderGraphPanel() {
       <div class="graph-detail-card">
         <strong>概念错位 / 重名冲突</strong>
         <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
-        <small>${escapeHtml(conflict.rationale || "原创笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
+        <small>${escapeHtml(conflict.rationale || "永久笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
         <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
       </div>
     `);
@@ -5099,7 +5099,7 @@ function renderGraphPanel() {
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>孤立观点</strong>
-        <small>${isolatedNodes.length} 条原创笔记还没有进入关系网络。</small>
+        <small>${isolatedNodes.length} 条永久笔记还没有进入关系网络。</small>
         <small>${escapeHtml(
           isolatedNodes
             .slice(0, 4)
@@ -5125,7 +5125,7 @@ function renderGraphPanel() {
     `);
   }
 
-  summary.textContent = `${graph.directoryTitle || folder?.name || "原创笔记盒"}：${nodes.length} 个原创节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
+  summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
     ${renderGraphOrientation({
       nodes,
@@ -5161,7 +5161,7 @@ function renderGraphPanel() {
         <div class="graph-overview">
           <div class="graph-overview-card">
             <strong>范围</strong>
-            <small>${escapeHtml(graph.directoryTitle || folder?.name || "原创笔记盒")} 内共有 ${nodes.length} 条原创笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
+            <small>${escapeHtml(graph.directoryTitle || folder?.name || "永久笔记盒")} 内共有 ${nodes.length} 条永久笔记节点、${allEdges.length} 条显式链接；筛选后显示 ${visibleNodes.length} 条节点、${edges.length} 条关系。</small>
           </div>
           <div class="graph-overview-card">
             <strong>中心与孤立</strong>
@@ -5197,7 +5197,7 @@ function renderGraphPanel() {
         ${
           tensionCards.length
             ? `<div class="graph-list">${tensionCards.join("")}</div>`
-            : `<div class="graph-empty">原创笔记范围内还没有显性冲突。如果这组笔记是写作材料，可以回到笔记里补反方、边界或例外条件，让论证更稳。</div>`
+            : `<div class="graph-empty">永久笔记范围内还没有显性冲突。如果这组笔记是写作材料，可以回到笔记里补反方、边界或例外条件，让论证更稳。</div>`
         }
       </section>
       ${renderRelationReviewQueueSection(graphState.reviewQueue)}
@@ -5225,7 +5225,7 @@ function renderGraphPanel() {
                   `
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "原创笔记盒还没有笔记。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的节点。" : "永久笔记盒还没有笔记。"}</div>`
         }
         </div>
       </section>
@@ -5278,7 +5278,7 @@ function renderGraphPanel() {
                   `
                 )
                 .join("")
-            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "原创笔记范围内还没有可显示的 [[关联笔记]] 链接。"}</div>`
+            : `<div class="graph-empty">${filterActive ? "当前筛选条件下没有可显示的关系。" : "永久笔记范围内还没有可显示的 [[关联笔记]] 链接。"}</div>`
         }
         </div>
       </section>
@@ -5386,14 +5386,14 @@ async function handleStateChange(reason, payload = {}) {
     if (result.reused) {
       setStatus(
         result.cleanedCount
-          ? `已打开原创笔记占位，并清理 ${result.cleanedCount} 条空白占位`
-          : "已打开原创笔记占位",
+          ? `已打开永久笔记占位，并清理 ${result.cleanedCount} 条空白占位`
+          : "已打开永久笔记占位",
         result.cleanedCount ? "warn" : "ok"
       );
     } else if (result.remote) {
-      setStatus(result.switchedToOriginal ? "已切到原创笔记并创建 Markdown 文件" : "已创建新的原创笔记 Markdown 文件", "ok");
+      setStatus(result.switchedToOriginal ? "已切到永久笔记并创建 Markdown 文件" : "已创建新的永久笔记 Markdown 文件", "ok");
     } else {
-      setStatus(`API 不可用，已降级本地创建原创笔记：${String(result.error?.message || result.error)}`, "warn");
+      setStatus(`API 不可用，已降级本地创建永久笔记：${String(result.error?.message || result.error)}`, "warn");
     }
     return;
   }
@@ -5428,7 +5428,7 @@ async function handleStateChange(reason, payload = {}) {
     });
     const title = titleFromSeedText(
       payload.paraphrase || payload.sourceBody || payload.sourceTitle || sourceTitle || "",
-      sourceTitle || "未命名原创笔记"
+      sourceTitle || "未命名永久笔记"
     );
     const directoryId = "dir_original_default";
     try {
@@ -5437,7 +5437,7 @@ async function handleStateChange(reason, payload = {}) {
         status: "draft",
         body
       });
-      if (!created) throw new Error("创建原创笔记失败");
+      if (!created) throw new Error("创建永久笔记失败");
       const note = mapNoteItem({
         ...created,
         body: typeof created?.body === "string" ? created.body : body
@@ -5472,14 +5472,14 @@ async function handleStateChange(reason, payload = {}) {
           });
           if (updatedSource) Object.assign(sourceNote, mapNoteItem(updatedSource), { bodyLoaded: true });
         } catch (sourceError) {
-          setStatus(`原创笔记已创建，但来源笔记标记保存失败：${String(sourceError?.message || sourceError)}`, "warn");
+          setStatus(`永久笔记已创建，但来源笔记标记保存失败：${String(sourceError?.message || sourceError)}`, "warn");
         }
       }
       activateModule("explorer");
       openNoteById(note.id, { preferTitleSelection: false });
-      setStatus(`已记录原创笔记：${note.title || title}`, "ok");
+      setStatus(`已记录永久笔记：${note.title || title}`, "ok");
     } catch (error) {
-      setStatus(`记录原创笔记失败：${String(error?.message || error)}`, "bad");
+      setStatus(`记录永久笔记失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -5543,8 +5543,8 @@ async function handleStateChange(reason, payload = {}) {
           if (note.noteType === "original") {
             setStatus(
               resolvedStatus === "active"
-                ? "已同步到 Markdown，原创笔记已完成作者确认"
-                : "已同步到 Markdown，但当前原创笔记仍按 draft 处理",
+                ? "已同步到 Markdown，永久笔记已完成作者确认"
+                : "已同步到 Markdown，但当前永久笔记仍按 draft 处理",
               resolvedStatus === "active" ? "ok" : "warn"
             );
           } else {
@@ -5834,10 +5834,10 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
   if (helperAction === "open-generated-original" && targetNoteId) {
     const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
     if (opened) {
-      setStatus("已打开对应原创笔记", "ok", { requireModule: "explorer" });
+      setStatus("已打开对应永久笔记", "ok", { requireModule: "explorer" });
       return;
     }
-    setStatus("没有找到对应原创笔记", "warn", { requireModule: "explorer" });
+    setStatus("没有找到对应永久笔记", "warn", { requireModule: "explorer" });
     return;
   }
   setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
@@ -6162,8 +6162,8 @@ window.addEventListener("beforeunload", (event) => {
 
 $("btnWritingUseCurrent")?.addEventListener("click", () => {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
-  if (!note) return setStatus("请先在左侧选择一条原创笔记", "warn");
-if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受原创/永久笔记，请先切到原创笔记目录选择笔记", "warn");
+  if (!note) return setStatus("请先在左侧选择一条永久笔记", "warn");
+if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受永久笔记，请先切到永久笔记目录选择笔记", "warn");
   clearWritingSourceIndexIds();
   addWritingBasketIds([note.id]);
   if (!$("writingTitle")?.value.trim()) $("writingTitle").value = note.title || "新的写作项目";
@@ -6173,7 +6173,7 @@ if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受原创/永
 
 $("btnWritingAddVisible")?.addEventListener("click", () => {
   const candidates = writingCandidateNotes();
-  if (!candidates.length) return setStatus("当前目录没有可加入的原创笔记", "warn");
+  if (!candidates.length) return setStatus("当前目录没有可加入的永久笔记", "warn");
   clearWritingSourceIndexIds();
   addWritingBasketIds(candidates.map((note) => note.id));
   renderWritingPanel();
@@ -6215,7 +6215,7 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
   }
   if (action === "open") {
     openNoteById(noteId);
-    setStatus(`已打开原创笔记：${noteId}`, "ok");
+    setStatus(`已打开永久笔记：${noteId}`, "ok");
   }
 });
 
@@ -6234,7 +6234,7 @@ $("writingBasketList")?.addEventListener("click", (event) => {
   }
   if (action === "open") {
     openNoteById(noteId);
-    setStatus(`已打开原创笔记：${noteId}`, "ok");
+    setStatus(`已打开永久笔记：${noteId}`, "ok");
   }
 });
 
@@ -6477,7 +6477,7 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
   const basketNoteIds = parseWritingBasketIds();
   const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
   if (!title) return setStatus("请先填写写作项目标题", "warn");
-  if (!basketNoteIds.length) return setStatus("请先加入至少一条原创笔记", "warn");
+  if (!basketNoteIds.length) return setStatus("请先加入至少一条永久笔记", "warn");
   try {
     const project = await createWritingProject({
       title,
@@ -6661,7 +6661,7 @@ $("btnWritingOpenDraft")?.addEventListener("click", async () => {
 
 $("graphRefresh")?.addEventListener("click", async () => {
   await refreshDirectoryGraph();
-  setStatus("原创笔记关系图谱已刷新", "ok");
+  setStatus("永久笔记关系图谱已刷新", "ok");
 });
 
 $("aiInboxPanel")?.addEventListener("click", async (event) => {
@@ -6763,7 +6763,7 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     activateModule(btn.dataset.module);
     if (state.module === "graph") {
       await refreshDirectoryGraph();
-      setStatus("已打开原创笔记关系图谱", "ok");
+      setStatus("已打开永久笔记关系图谱", "ok");
 	    }
 	    if (state.module === "aiInbox") {
 	      await openAiInboxModule();
@@ -7035,7 +7035,7 @@ async function bootstrap() {
         code: error?.code || null
       });
       setStatus(
-        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开文献队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去原创整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
+        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开文献队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去永久笔记整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }

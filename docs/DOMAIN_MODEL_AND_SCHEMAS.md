@@ -9,9 +9,9 @@
 ## 2. 命名约定
 
 - 内部类型：`FleetingNote / LiteratureNote / PermanentNote`
-- UI 展示名：`随笔记录 / 书摘笔记 / 原创笔记`
+- UI 展示名：`随笔记录 / 书摘笔记 / 永久笔记`
 - Vault / CardBox（内部）在 UI 中统一显示为“目录”
-- 面向用户的三棵默认目录树为：随笔目录、书摘目录、原创目录
+- 面向用户的三棵默认目录树为：随笔目录、书摘目录、永久笔记目录
 
 ---
 
@@ -21,7 +21,7 @@
 2. Source
 3. FleetingNote（随笔记录）
 4. LiteratureNote（书摘笔记）
-5. PermanentNote（原创笔记）
+5. PermanentNote（永久笔记）
 6. IndexCard
 7. Link
 8. WritingProject
@@ -104,7 +104,7 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 规则：
 - `content_text` 与 `voice_asset_path` 至少一项非空。
 - 超过 7 天未处理内容默认隐藏（查询层规则）。
-- 可转换为原创笔记或书摘笔记。
+- 可转换为永久笔记或书摘笔记。
 - 转换完成后自动归档，并保留转换链路。
 
 ---
@@ -134,7 +134,7 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 | paraphrase_text | string | 是 | 转述 |
 | user_question | string | 否 | 问题 |
 | topic_candidates | string[] | 否 | 候选主题 |
-| linked_permanent_note_ids | string[] | 否 | 关联的原创笔记 |
+| linked_permanent_note_ids | string[] | 否 | 关联的永久笔记 |
 | status | enum | 是 | 状态 |
 | created_at | string | 是 | 创建时间 |
 | updated_at | string | 是 | 更新时间 |
@@ -148,16 +148,16 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 
 规则：
 - 书摘笔记可以长期单独存在。
-- 从书摘新增原创笔记后，书摘保持原状态，不自动归档或强制改为已转换。
-- 书摘通过 `linked_permanent_note_ids` 或 SQLite Link 关系关联原创笔记。
-- 书摘笔记是来源层对象，不应在首页主指标与默认搜索排序中压过原创笔记。
+- 从书摘新增永久笔记后，书摘保持原状态，不自动归档或强制改为已转换。
+- 书摘通过 `linked_permanent_note_ids` 或 SQLite Link 关系关联永久笔记。
+- 书摘笔记是来源层对象，不应在首页主指标与默认搜索排序中压过永久笔记。
 - 如果未来要支持一键生成参考引用，书摘笔记在录入阶段就必须保留足够的引用元数据。
 - P0 至少要求：`source_type`、`source_title`、`author_name`、`publish_year`、`page_locator`，以及 `identifier_text` 或 `url_or_path` 二选一。
 - `container_title`、`publisher`、`edition_info`、`translator_or_editor` 应按来源类型按需填写，避免只留下“摘录正文”而失去引用能力。
 
 ---
 
-## 7. PermanentNote（原创笔记）
+## 7. PermanentNote（永久笔记）
 
 ### 字段
 
@@ -222,9 +222,9 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 
 规则：
 - 四类索引是独立对象，不是标签或目录的附属替代物。
-- 索引笔记属于“特殊原创笔记”，用于串联主题
-- 每个原创目录有独立索引区
-- 索引项应尽量带有 `rationale`，解释为什么这条原创笔记被纳入该索引。
+- 索引笔记属于“特殊永久笔记”，用于串联主题
+- 每个永久笔记目录有独立索引区
+- 索引项应尽量带有 `rationale`，解释为什么这条永久笔记被纳入该索引。
 - 索引笔记必须保存为 Markdown，同时结构化索引项与排序写入 SQLite。
 - 主题索引应逐步支持 `thesis`、`three_line_summary` 与 `central_question`，用于主题级思想压缩。
 
@@ -271,7 +271,7 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 ## 11. WritingProject / DraftScaffold
 
 规则：
-1. 写作流程可以从原创笔记或主题索引进入；主题索引只作为组织入口，最终进入写作篮的仍是原创笔记。
+1. 写作流程可以从永久笔记或主题索引进入；主题索引只作为组织入口，最终进入写作篮的仍是永久笔记。
 2. `WritingProject` 的最小持久语义包括 `title`、`goal`、`audience`、`tone`、`basket_note_ids`；`related_index_ids` 用于记录本次写作依赖的主题索引入口。
 3. `WritingProject` 应逐步支持 `intent` 与 `desired_reader_takeaway`，用于写作意图澄清。
 4. `DraftScaffold.sections[]` 的目标是把多层观点组织成整体表达，而不是搬运摘录。
@@ -283,17 +283,17 @@ CardBox 表示带元数据的本地目录结构（默认目录与子目录）。
 
 ## 12. 关键业务规则
 
-1. 原创笔记必须由用户确认，AI 不得自动代写并保存正文。
-2. 书摘笔记与原创笔记必须分层，不能混存同一对象。
+1. 永久笔记必须由用户确认，AI 不得自动代写并保存正文。
+2. 书摘笔记与永久笔记必须分层，不能混存同一对象。
 3. `[[标题]]` 保存时必须解析为显式 Link，并绑定 `note_id`。
 4. Backlinks 需按“提及 / 明确关系”展示。
-5. 原创笔记净新增每 15 条，触发“整理主题索引”提醒。
+5. 永久笔记净新增每 15 条，触发“整理主题索引”提醒。
 6. 所有导入需先预览、再确认，并记录 ImportRecord。
 7. 目录树、索引笔记、所有笔记必须保存为 Markdown 文件。
 8. 链接关系、标签关系、反向链接、搜索索引与图谱边写入 SQLite。
 9. 图谱 MVP 只显示当前目录下笔记之间的链接关系，并返回支持关系、冲突关系、未定型关系与桥接缺口等结构洞察。
-10. 写作 MVP 为：从主题索引或原创笔记进入写作篮 -> 生成带证据映射、缺口、反方、边界与待补问题的脚手架 -> 用户继续维护自己的草稿。
-11. 搜索默认排序应优先返回原创笔记的标题、核心观点与标签，其次才是书摘转述和原始摘录。
+10. 写作 MVP 为：从主题索引或永久笔记进入写作篮 -> 生成带证据映射、缺口、反方、边界与待补问题的脚手架 -> 用户继续维护自己的草稿。
+11. 搜索默认排序应优先返回永久笔记的标题、核心观点与标签，其次才是书摘转述和原始摘录。
 
 ---
 

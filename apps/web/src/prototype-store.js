@@ -28,7 +28,7 @@ export function createInitialState() {
       },
       {
         id: "dir_original_default",
-        name: "原创卡片盒",
+        name: "永久笔记盒",
         parentId: null,
         isDefault: true,
         hidden: false,
@@ -48,11 +48,11 @@ export function createInitialState() {
     notes: [
       {
         id: "pn_001",
-        title: "写作应从原创笔记中生长",
+        title: "写作应从永久笔记中生长",
         folderId: "dir_original_default",
         noteType: "original",
-        body: "核心观点：先有思想单元，再做结构化写作。\n\n#写作 #原创笔记",
-        tags: ["写作", "原创笔记"],
+        body: "核心观点：先有思想单元，再做结构化写作。\n\n#写作 #永久笔记",
+        tags: ["写作", "永久笔记"],
         links: [],
         updatedAt: new Date().toISOString()
       },
@@ -61,9 +61,9 @@ export function createInitialState() {
         title: "主题索引是写作入口",
         folderId: "dir_original_method",
         noteType: "original",
-        body: "索引不是标签集合，而是路径入口。\n\n[[写作应从原创笔记中生长]] #索引",
+        body: "索引不是标签集合，而是路径入口。\n\n[[写作应从永久笔记中生长]] #索引",
         tags: ["索引"],
-        links: ["写作应从原创笔记中生长"],
+        links: ["写作应从永久笔记中生长"],
         updatedAt: new Date().toISOString()
       }
     ],
@@ -105,7 +105,7 @@ export function typeFromFolder(state, folderId) {
 }
 
 export function typeLabel(type) {
-  return type === "fleeting" ? "随笔笔记" : type === "literature" ? "文献笔记" : "原创笔记";
+  return type === "fleeting" ? "随笔笔记" : type === "literature" ? "文献笔记" : "永久笔记";
 }
 
 export function folderById(state, id) {

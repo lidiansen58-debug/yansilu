@@ -13,9 +13,9 @@ const groups = [
     tests: [
       "prototype desktop updater check no-ops cleanly when no update is available",
       "prototype browser flow creates, edits, and persists a markdown note",
-      "prototype original note can save and persists content after authorship confirmation flow",
-      "prototype literature note can record an original draft through the unified editor flow",
-      "prototype literature note requires citation metadata before recording original",
+      "prototype permanent note can save and persists content after authorship confirmation flow",
+      "prototype literature note can record a permanent-note draft through the unified editor flow",
+      "prototype literature note requires citation metadata before recording a permanent note",
       "standalone editor route loads and saves a note without workspace chrome",
       "prototype settings switches and initializes the active vault",
       "prototype settings browse vault uses picker fallback and fills the path",

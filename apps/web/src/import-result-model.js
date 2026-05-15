@@ -251,7 +251,7 @@ function actionableTextForCode(code, payload = {}) {
     ORIGINALITY_GUARD_BLOCKED: "把高相似度文本改写成自己的核心主张，并补充来源定位后重新预览。",
     ORIGINALITY_WARNING: "补充引用定位或增强转述，再重新运行原创性检查。",
     ORIGINALITY_BLOCKED: "降低与文献摘录的相似度，保留证据链但重写永久笔记表述。",
-    WRITING_PROJECT_INVALID: "确认标题不为空，并且篮子里只放原创永久笔记 ID。",
+    WRITING_PROJECT_INVALID: "确认标题不为空，并且篮子里只放永久笔记 ID。",
     DRAFT_SCAFFOLD_INVALID: "先创建有效写作项目，再用返回的 writingProjectId 生成草稿骨架。",
     WRITING_DRAFT_INVALID: "请先生成 scaffold，再保存成草稿笔记。"
   };
@@ -301,10 +301,10 @@ export function actionItems(payload = {}, warnings = []) {
   }
 
   if (payload.stage === "writing_project_error" && /only accepts permanent notes/i.test(payload.message || "")) {
-    actions.push("先在原创笔记目录中选择永久笔记，再加入写作篮子。");
+    actions.push("先在永久笔记目录中选择永久笔记，再加入写作篮子。");
   }
   if (payload.stage === "writing_project_error" && /basketNoteIds/i.test(payload.message || "")) {
-    actions.push("至少加入一条原创笔记 ID；可先打开一条原创笔记后点击“加入当前笔记”。");
+    actions.push("至少加入一条永久笔记 ID；可先打开一条永久笔记后点击“加入当前笔记”。");
   }
   if (payload.stage === "writing_project_error" && /title/i.test(payload.message || "")) {
     actions.push("补充写作项目标题后再创建。");

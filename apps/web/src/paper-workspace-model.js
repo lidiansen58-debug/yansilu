@@ -104,8 +104,8 @@ export function workspaceStageLabel(stage = "") {
   const labels = {
     candidates: "候选整理",
     translations: "用户转述",
-    permanent_candidates: "原创候选",
-    saved: "已保存原创"
+    permanent_candidates: "永久笔记候选",
+    saved: "已保存永久笔记"
   };
   return labels[cleanText(stage)] || cleanText(stage) || "尚未开始";
 }

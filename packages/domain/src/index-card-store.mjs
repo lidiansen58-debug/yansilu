@@ -338,14 +338,14 @@ export async function distillIndexCard(vaultPath, indexCardId) {
 
   const thesis = summarySeed
     ? `${topicLabel} is really about turning ${summarySeed} into a reusable judgment for later writing.`
-    : `${topicLabel} is really about turning ${notePreview || "a cluster of original notes"} into a reusable judgment before drafting begins.`;
+    : `${topicLabel} is really about turning ${notePreview || "a cluster of permanent notes"} into a reusable judgment before drafting begins.`;
 
   const centralQuestion = summarySeed
     ? `What judgment ties ${topicLabel} together beyond collecting material about ${summarySeed}?`
     : `What judgment ties ${topicLabel} together beyond collecting related notes?`;
 
   const threeLineSummary = [
-    `${topicLabel} is not just a storage bucket for notes like ${notePreview || "these original notes"}.`,
+    `${topicLabel} is not just a storage bucket for notes like ${notePreview || "these permanent notes"}.`,
     "Its value comes from compressing multiple mature notes into one clearer theme-level judgment.",
     `The next step is to answer this question clearly: ${centralQuestion}`
   ];

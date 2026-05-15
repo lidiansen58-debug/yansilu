@@ -7,7 +7,7 @@ import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 const DEFAULT_DIRECTORY_SPECS = [
   { id: "dir_fleeting_default", type: "fleeting_default", title: "随笔目录", relPath: path.join("notes", "fleeting") },
   { id: "dir_literature_default", type: "literature_default", title: "书摘目录", relPath: path.join("notes", "literature") },
-  { id: "dir_original_default", type: "original_default", title: "原创笔记", relPath: path.join("notes", "original") }
+  { id: "dir_original_default", type: "original_default", title: "永久笔记", relPath: path.join("notes", "original") }
 ];
 
 async function loadDatabaseSync() {

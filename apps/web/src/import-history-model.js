@@ -150,7 +150,7 @@ export function importHistoryQueueProgressText(progress = null) {
   const total = Number(progress.total || 0);
   const remaining = Number(progress.remaining || 0);
   const handled = Math.max(0, total - remaining);
-  return `文献队列 已处理 ${handled}/${total} / 待转述 ${Number(progress.pending || 0)} / 待提炼 ${Number(progress.refine || 0)} / 可转原创 ${Number(progress.ready || 0)}`;
+  return `文献队列 已处理 ${handled}/${total} / 待转述 ${Number(progress.pending || 0)} / 待提炼 ${Number(progress.refine || 0)} / 可转永久笔记 ${Number(progress.ready || 0)}`;
 }
 
 export function importHistoryDetailSummary(record = {}) {
@@ -185,7 +185,7 @@ export function importHistoryDetailSummary(record = {}) {
       if (record.literatureBatchProgress?.nextPendingTitle) {
         detail.push(`下一条待处理 ${String(record.literatureBatchProgress.nextPendingTitle)}`);
       } else if (record.literatureBatchProgress?.nextReadyTitle) {
-        detail.push(`下一条可转原创 ${String(record.literatureBatchProgress.nextReadyTitle)}`);
+        detail.push(`下一条可转永久笔记 ${String(record.literatureBatchProgress.nextReadyTitle)}`);
       }
     }
     return detail;
@@ -214,7 +214,7 @@ export function importHistoryActions(record = {}) {
       actions.push({ action: "resume-literature-queue", label: "继续下一条待转述" });
     }
     if (Number(record.literatureBatchProgress?.remaining || 0) === 0 && Number(record.literatureBatchProgress?.ready || 0) > 0) {
-      actions.push({ action: "promote-literature-batch", label: "转去原创整理" });
+      actions.push({ action: "promote-literature-batch", label: "转去永久笔记整理" });
     }
     if (Number(record.literatureBatchProgress?.total || 0) > 0) {
       actions.push({ action: "open-literature-queue", label: "打开文献队列" });

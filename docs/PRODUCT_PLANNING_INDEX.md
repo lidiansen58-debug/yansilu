@@ -36,7 +36,8 @@
 先读：
 
 1. [PRODUCT_VISION_AND_PHILOSOPHY_V0_1.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_VISION_AND_PHILOSOPHY_V0_1.md)
-2. [THINKING_AND_AI_BOUNDARIES.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/THINKING_AND_AI_BOUNDARIES.md)
+2. [PERMANENT_NOTE_PRINCIPLES.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PERMANENT_NOTE_PRINCIPLES.md)
+3. [THINKING_AND_AI_BOUNDARIES.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/THINKING_AND_AI_BOUNDARIES.md)
 
 解决的问题：
 
@@ -52,14 +53,14 @@
 再读：
 
 1. [PRODUCT_ROADMAP_REPLANNED_2026.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_ROADMAP_REPLANNED_2026.md)
-2. [ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN.md)
+2. [PERMANENT_NOTE_FIRST_PRODUCT_REDESIGN.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PERMANENT_NOTE_FIRST_PRODUCT_REDESIGN.md)
 
 解决的问题：
 
 1. 未来路线为什么按 Phase 0 到 Phase 5 推进？
 2. 当前产品处于哪个阶段？
 3. 为什么下一步应该先做思想提纯，而不是重型 AI 或大连接器？
-4. 为什么原创笔记必须成为默认主对象，而随笔和文献只作为辅助入口？
+4. 为什么永久笔记必须成为默认主对象，而随笔和文献只作为辅助入口？
 
 ---
 
@@ -142,9 +143,9 @@
 
 当前最应该优先规划和验证的是：
 
-1. 原创笔记优先的信息架构改版
+1. 永久笔记优先的信息架构改版
 2. 文献笔记默认界面减负
-3. 原创笔记的 `thesis` 与 `three_line_summary`
+3. 永久笔记的 `thesis` 与 `three_line_summary`
 4. 永久笔记关联的当前节点视角、孤岛处理和洞见候选
 5. 索引卡的 `central_question`
 6. 写作项目的 `intent`
@@ -160,7 +161,7 @@ AI 可以建议，但不能直接拥有用户的判断。
 
 这意味着：
 
-1. AI 不得自动生成并保存原创笔记正文。
+1. AI 不得自动生成并保存永久笔记正文。
 2. AI 候选必须经过用户确认。
 3. 用户确认应被视为一个明确的主体性动作。
 
@@ -184,7 +185,7 @@ AI 可以建议，但不能直接拥有用户的判断。
 
 写作入口应优先来自：
 
-1. 原创笔记
+1. 永久笔记
 2. 索引卡
 3. 写作篮
 4. 主题中心问题
@@ -227,9 +228,10 @@ flowchart TB
   E --> F["Phase 4 知识作品工作台"]
 
   A1["PRODUCT_VISION_AND_PHILOSOPHY"] --> A
-  A2["THINKING_AND_AI_BOUNDARIES"] --> A
+  A2["PERMANENT_NOTE_PRINCIPLES"] --> A
+  A3["THINKING_AND_AI_BOUNDARIES"] --> A
   B1["PRODUCT_ROADMAP_REPLANNED_2026"] --> B
-  B2["ORIGINAL_NOTE_FIRST_PRODUCT_REDESIGN"] --> B
+  B2["PERMANENT_NOTE_FIRST_PRODUCT_REDESIGN"] --> B
   C1["V1_1_SPEC_DRAFT"] --> C
   C2["V1_1_INFORMATION_ARCHITECTURE_AND_FLOWS"] --> C
   C3["V1_1_DISTILLATION_WORKSPACE_AND_AI_SUGGESTION_RULES"] --> C
@@ -246,12 +248,12 @@ flowchart TB
 
 下一轮最适合继续做三件事之一：
 
-1. 把原创笔记优先改版拆成 UI 实施切片
+1. 把永久笔记优先改版拆成 UI 实施切片
 2. 把永久笔记关联系统拆成 UI/API/schema 实施切片
-3. 为原创笔记详情页画文字版线框稿
+3. 为永久笔记详情页画文字版线框稿
 
 如果目标是尽快进入未来实施，建议优先做：
 
-`原创笔记优先界面改版`
+`永久笔记优先界面改版`
 
-因为当前实现已经具备素材转原创、写作篮和主题索引基础能力，最快的收益不是先加重功能，而是把默认入口、文献界面和原创笔记详情页调整到正确的产品重心。
+因为当前实现已经具备素材转永久笔记、写作篮和主题索引基础能力，最快的收益不是先加重功能，而是把默认入口、文献界面和永久笔记详情页调整到正确的产品重心。

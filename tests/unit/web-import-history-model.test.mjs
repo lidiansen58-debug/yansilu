@@ -94,7 +94,7 @@ test("import history model derives completed detail summary and literature queue
     }
   };
 
-  assert.equal(importHistoryQueueProgressText(record.literatureBatchProgress), "文献队列 已处理 6/10 / 待转述 1 / 待提炼 2 / 可转原创 3");
+  assert.equal(importHistoryQueueProgressText(record.literatureBatchProgress), "文献队列 已处理 6/10 / 待转述 1 / 待提炼 2 / 可转永久笔记 3");
 
   const detail = importHistoryDetailSummary(record);
   assert.equal(detail.length, 5);

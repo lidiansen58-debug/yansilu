@@ -620,7 +620,7 @@ export async function bindDraftNoteToProject(vaultPath, input = {}) {
 
   const note = await getNoteById(vaultPath, draftNoteId);
   if (note.noteType !== "permanent") {
-    throw new Error(`draft note must be a permanent/original note: ${draftNoteId}`);
+    throw new Error(`draft note must be a permanent note: ${draftNoteId}`);
   }
 
   const now = new Date().toISOString();

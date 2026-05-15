@@ -94,7 +94,7 @@ Acceptance:
 
 Inputs:
 
-- Short original note.
+- Short permanent note.
 - Conflicting notes.
 - Repeated theme across several notes.
 - Note with external sources but weak original judgment.

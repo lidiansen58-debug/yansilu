@@ -82,7 +82,7 @@ Novice users should start in `Auto`.
 | Source summary | `standard` | Yes | No | Store as source-derived artifact |
 | Paper/news research card | `standard` | Yes | No, unless expensive | Respect scheduled task budget |
 | Cross-source research synthesis | `strong_reasoning` | Limited | Yes if expensive or broad | Use bounded context |
-| Reflection prompt | `strong_reasoning` | Limited | No for low-frequency prompt; yes for broad scan | Should not edit original notes |
+| Reflection prompt | `strong_reasoning` | Limited | No for low-frequency prompt; yes for broad scan | Should not edit permanent notes |
 | Multi-note outline | `strong_reasoning` | No by default | Yes | User-triggered work |
 | Draft writing assistance | `standard` or `strong_reasoning` | No | Yes before inserting into notes | AI output remains artifact first |
 | Originality/provenance check | `guardrail` | Yes | No | Rules plus model as needed |

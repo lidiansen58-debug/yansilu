@@ -1109,7 +1109,7 @@ function noteTypeGlyph(type) {
 function noteTypeText(type) {
   if (type === "fleeting") return "随笔笔记";
   if (type === "literature") return "文献笔记";
-  return "原创笔记";
+  return "永久笔记";
 }
 
 const RELATION_TYPE_LABELS = {
@@ -1470,9 +1470,9 @@ export class EditorPane {
     let tone = "draft";
     let hint = "先写出你自己的转述，再提炼它可能长出的原创判断。";
     if (generatedOriginal) {
-      label = "已转原创";
+      label = "已转永久笔记";
       tone = "active";
-      hint = "这条文献已经作为证据长出原创笔记，可以回到原创笔记继续建立关联。";
+      hint = "这条文献已经作为证据长出永久笔记，可以回到永久笔记继续建立关联。";
     } else if (!citation.complete || !hasOriginalText) {
       label = "待补来源";
       tone = "draft";
@@ -1484,11 +1484,11 @@ export class EditorPane {
     } else if (!readyForOriginal) {
       label = "待提炼判断";
       tone = "refine";
-      hint = "已经有转述，下一步写出判断种子或追问，让材料能进入原创笔记。";
+      hint = "已经有转述，下一步写出判断种子或追问，让材料能进入永久笔记。";
     } else {
-      label = "可转原创";
+      label = "可转永久笔记";
       tone = "active";
-      hint = "这条材料已经具备转为原创笔记的条件。";
+      hint = "这条材料已经具备转为永久笔记的条件。";
     }
     return {
       status,
@@ -1531,19 +1531,19 @@ export class EditorPane {
     const hasQuestion = Boolean(normalizeFieldText(fields.question));
     const hasGenerated = this.hasGeneratedOriginal(note);
     let lane = "ready";
-    let label = "可转原创";
+    let label = "可转永久笔记";
     let tone = "active";
-    let noteText = "转述和判断种子已经具备，可以继续转为原创笔记。";
+    let noteText = "转述和判断种子已经具备，可以继续转为永久笔记。";
     if (hasGenerated) {
       lane = "ready";
-      label = "已转原创";
+      label = "已转永久笔记";
       tone = "active";
-      noteText = "这条文献已经长出原创笔记，现在作为证据保留。";
+      noteText = "这条文献已经长出永久笔记，现在作为证据保留。";
     } else if (!citation.complete || !hasOriginalText) {
       lane = "refine";
       label = "待补来源";
       tone = "draft";
-      noteText = "先补齐来源信息和原文摘录，后续原创笔记才能保留证据链。";
+      noteText = "先补齐来源信息和原文摘录，后续永久笔记才能保留证据链。";
     } else if (!hasParaphrase) {
       lane = "pending";
       label = "待转述";
@@ -1553,9 +1553,9 @@ export class EditorPane {
       lane = "refine";
       label = "待提炼判断";
       tone = "refine";
-      noteText = "已经有转述，下一步写出判断种子或追问，让它能转为原创笔记。";
+      noteText = "已经有转述，下一步写出判断种子或追问，让它能转为永久笔记。";
     } else if (!hasWhyKeep) {
-      noteText = "已经可转原创；补一句保留原因能帮助以后判断这条证据为什么重要。";
+      noteText = "已经可转永久笔记；补一句保留原因能帮助以后判断这条证据为什么重要。";
     }
     const excerpt = normalizeFieldText(fields.paraphrase || fields.originalText || "");
     return {
@@ -1625,12 +1625,12 @@ export class EditorPane {
     const paraphraseDoneCount = focusCount ? focusCount - pendingCount : 0;
     const remainingCount = pendingCount + refineCount;
     queueNote.textContent = focusCount
-      ? `当前范围：${scopeFolder?.name || "当前目录"}。当前只显示${focusLabel || "本次导入"}的 ${focusCount} 条文献笔记；已完成转述 ${paraphraseDoneCount}/${focusCount}，已可转原创 ${readyCount}/${focusCount}，剩余待处理 ${remainingCount} 条。`
-      : `当前范围：${scopeFolder?.name || "当前目录"}。先清空待转述，再补齐待提炼，最后再把成熟材料送去原创笔记。`;
+      ? `当前范围：${scopeFolder?.name || "当前目录"}。当前只显示${focusLabel || "本次导入"}的 ${focusCount} 条文献笔记；已完成转述 ${paraphraseDoneCount}/${focusCount}，已可转永久笔记 ${readyCount}/${focusCount}，剩余待处理 ${remainingCount} 条。`
+      : `当前范围：${scopeFolder?.name || "当前目录"}。先清空待转述，再补齐待提炼，最后再把成熟材料送去永久笔记。`;
     summary.innerHTML = `
       <div class="literature-queue-metric"><strong>${pendingCount}</strong><span>待转述</span></div>
       <div class="literature-queue-metric"><strong>${refineCount}</strong><span>待提炼</span></div>
-      <div class="literature-queue-metric"><strong>${readyCount}</strong><span>可转原创</span></div>
+      <div class="literature-queue-metric"><strong>${readyCount}</strong><span>可转永久笔记</span></div>
     `;
     nextButton.disabled = !nextRecord;
     nextButton.textContent = nextRecord ? `打开下一条${nextRecord.label}` : "当前范围没有待处理条目";
@@ -1652,9 +1652,9 @@ export class EditorPane {
                   <button class="mini-btn" type="button" data-open-literature-note="${escapeHtml(item.note.id)}">${item.isCurrent ? "继续编辑当前条目" : "打开条目"}</button>
                   ${
                     this.hasGeneratedOriginal(item.note)
-                      ? `<span class="item-badge">已生成原创</span>`
+                      ? `<span class="item-badge">已生成永久笔记</span>`
                       : item.lane === "ready"
-                        ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录原创笔记</button>`
+                        ? `<button class="mini-btn" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录永久笔记</button>`
                       : ""
                   }
                 </div>
@@ -2027,7 +2027,7 @@ export class EditorPane {
     const type = typeFromFolder(this.state, this.state.selectedFolderId || this.state.browserRootId || "");
     if (type === "literature") return "新建文摘笔记";
     if (type === "fleeting") return "新建随笔";
-    return "新建原创笔记";
+    return "新建永久笔记";
   }
 
   renderEmptyEditorState() {
@@ -2635,17 +2635,17 @@ export class EditorPane {
       button.disabled = true;
       button.classList.add("active");
       button.classList.add("state-generated-original");
-      button.title = "这条笔记已经生成过原创笔记";
-      button.dataset.tip = "已生成原创";
-      button.setAttribute("aria-label", "已生成原创");
-      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.3 8.35l2.55 2.55 6.1-6.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>已生成原创</span>`;
+      button.title = "这条笔记已经生成过永久笔记";
+      button.dataset.tip = "已生成永久笔记";
+      button.setAttribute("aria-label", "已生成永久笔记");
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.3 8.35l2.55 2.55 6.1-6.1" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>已生成永久笔记</span>`;
       return;
     }
     button.disabled = false;
-    button.title = this.isLiteratureNote(note) ? "把这条文献笔记记录成原创笔记" : "把这条随笔记录成原创笔记";
-    button.dataset.tip = "记录原创笔记";
-    button.setAttribute("aria-label", "记录原创笔记");
-    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>记录原创</span>`;
+    button.title = this.isLiteratureNote(note) ? "把这条文献笔记记录成永久笔记" : "把这条随笔记录成永久笔记";
+    button.dataset.tip = "记录永久笔记";
+    button.setAttribute("aria-label", "记录永久笔记");
+    button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><span>记录永久笔记</span>`;
   }
 
   togglePreview(nextMode = null) {
@@ -4268,7 +4268,7 @@ export class EditorPane {
       return;
     }
     const reason = rawReason
-      .replace(/\\s+/g, " ")
+      .replace(/\s+/g, " ")
       .replace(/--/g, "- -")
       .slice(0, 280);
     const annotation = reason ? ` <!-- rel:manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->` : "";
@@ -5693,11 +5693,11 @@ export class EditorPane {
         return;
       }
       if (!this.isOriginalRecordableSource(note)) {
-        this.onStatus("当前笔记不支持记录原创", "warn");
+        this.onStatus("当前笔记不支持记录永久笔记", "warn");
         return;
       }
       if (this.hasGeneratedOriginal(note)) {
-        this.onStatus("这条笔记已经生成过原创笔记", "ok");
+        this.onStatus("这条笔记已经生成过永久笔记", "ok");
         return;
       }
       const sourceBody = this.getEditorValue();
@@ -5705,11 +5705,11 @@ export class EditorPane {
       if (literatureFields) {
         const completion = this.literatureCompletionState({ ...note, body: sourceBody });
         if (!completion.hasOriginalText) {
-          this.onStatus("先补上原文摘录，再记录原创笔记", "warn");
+          this.onStatus("先补上原文摘录，再记录永久笔记", "warn");
           return;
         }
         if (!completion.hasParaphrase) {
-          this.onStatus("先写出自己的转述，再记录原创笔记", "warn");
+          this.onStatus("先写出自己的转述，再记录永久笔记", "warn");
           return;
         }
         const citation = literatureCitationState(literatureFields.citation);
@@ -5718,7 +5718,7 @@ export class EditorPane {
           return;
         }
         if (!completion.readyForOriginal) {
-          this.onStatus("先写出判断种子或追问，再记录原创笔记", "warn");
+          this.onStatus("先写出判断种子或追问，再记录永久笔记", "warn");
           return;
         }
       }
@@ -5770,7 +5770,7 @@ export class EditorPane {
           return;
         }
         if (record.lane !== "ready") {
-          this.onStatus("这条文献笔记还没准备好进入原创笔记，请先补齐来源、转述、判断种子或追问", "warn");
+          this.onStatus("这条文献笔记还没准备好进入永久笔记，请先补齐来源、转述、判断种子或追问", "warn");
           return;
         }
         void this.onStateChange("record-original-from-note", {
@@ -6239,7 +6239,7 @@ export class EditorPane {
     this.setEditorValue(tab.body);
     if (note.noteType === "original") {
       this.onStatus(
-        note.originalityStatus === "pass" ? "原创笔记已同步" : "原创笔记已同步，但仍建议继续打磨",
+        note.originalityStatus === "pass" ? "永久笔记已同步" : "永久笔记已同步，但仍建议继续打磨",
         note.originalityStatus === "pass" ? "ok" : "warn"
       );
     }

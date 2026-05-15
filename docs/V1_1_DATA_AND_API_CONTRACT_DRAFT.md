@@ -370,7 +370,7 @@ Response:
 
 ---
 
-## 9.2 更新原创笔记提纯字段
+## 9.2 更新永久笔记提纯字段
 
 ### `PATCH /api/v1/permanent-notes/:id/distillation`
 
@@ -413,7 +413,7 @@ Validation:
 
 ---
 
-## 9.3 确认原创笔记提纯字段
+## 9.3 确认永久笔记提纯字段
 
 ### `POST /api/v1/permanent-notes/:id/distillation/confirm`
 

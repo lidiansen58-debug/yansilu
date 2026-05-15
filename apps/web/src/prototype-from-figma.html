@@ -649,7 +649,7 @@
       { key: "main", no: "01", name: "主工作台", nodeId: "16:3", desc: "统一三栏：功能栏、目录树、Markdown 编辑区。" },
       { key: "fleeting", no: "02", name: "随手记视图", nodeId: "16:39", desc: "切换到随手记入口后的目录与文件视图。" },
       { key: "literature", no: "03", name: "书摘笔记视图", nodeId: "16:75", desc: "切换到书摘笔记入口后的目录与文件视图。" },
-      { key: "original", no: "04", name: "原创笔记视图", nodeId: "16:111", desc: "切换到原创笔记入口后的目录与文件视图。" },
+      { key: "original", no: "04", name: "永久笔记视图", nodeId: "16:111", desc: "切换到永久笔记入口后的目录与文件视图。" },
       { key: "folder-menu", no: "05", name: "目录右键菜单", nodeId: "18:2", desc: "目录节点上下文操作：新建、移动、隐藏、删除。" },
       { key: "file-menu", no: "06", name: "文件右键菜单", nodeId: "18:49", desc: "文件节点上下文操作：打开、重命名、移动、删除。" },
       { key: "tab-menu", no: "07", name: "Tab 堆叠菜单", nodeId: "18:96", desc: "多标签页管理：堆叠、关闭、切换。" },
@@ -665,7 +665,7 @@
         ["file", "2026-04-22-灵感.md", 2, false],
         ["folder", "书摘笔记", 1, false],
         ["file", "卡片笔记法-摘录.md", 2, false],
-        ["folder", "原创笔记", 1, false],
+        ["folder", "永久笔记", 1, false],
         ["file", "写作从结构生长.md", 2, true]
       ],
       fleeting: [
@@ -681,7 +681,7 @@
         ["folder", "待读材料", 1, false]
       ],
       original: [
-        ["folder", "原创笔记", 0, true],
+        ["folder", "永久笔记", 0, true],
         ["file", "写作从结构生长.md", 1, true],
         ["file", "主题索引是写作入口.md", 1, false],
         ["folder", "写作方法", 1, false],
@@ -704,13 +704,13 @@
 
     function appFrame(type = "main") {
       const active = type === "fleeting" ? "随" : type === "literature" ? "书" : "原";
-      const title = type === "fleeting" ? "随手记" : type === "literature" ? "书摘笔记" : type === "original" ? "原创笔记" : "目录";
+      const title = type === "fleeting" ? "随手记" : type === "literature" ? "书摘笔记" : type === "original" ? "永久笔记" : "目录";
       const docTitle = type === "fleeting" ? "突然想到的研究问题" : type === "literature" ? "卡片笔记法中的转述要求" : "写作从结构生长";
       const body = type === "literature"
-        ? "作者：Sönke Ahrens\\n出版年份：2017\\n页码：p.34\\n\\n摘录文字与用户转述保持分区，后续可创建原创笔记并保留引用链。"
+        ? "作者：Sönke Ahrens\\n出版年份：2017\\n页码：p.34\\n\\n摘录文字与用户转述保持分区，后续可创建永久笔记并保留引用链。"
         : type === "fleeting"
-          ? "这条内容先放在随手记里，超过 7 天会隐藏。点击后可转为原创笔记，完成后自动归档。"
-          : "本条原创笔记讨论：为什么积累必须通过结构才能进入写作。\\n\\n输入 [[ 时会弹出候选笔记，点击 #标签 可查看本盒下相关笔记。";
+          ? "这条内容先放在随手记里，超过 7 天会隐藏。点击后可转为永久笔记，完成后自动归档。"
+          : "本条永久笔记讨论：为什么积累必须通过结构才能进入写作。\\n\\n输入 [[ 时会弹出候选笔记，点击 #标签 可查看本盒下相关笔记。";
       return `
         <div class="app-frame">
           <div class="tabs">
@@ -840,7 +840,7 @@
             <div class="suggestion-row active">写作从结构生长.md</div>
             <div class="suggestion-row">写作篮与索引的连接.md</div>
             <div class="suggestion-row">反向链接让写作可回溯.md</div>
-            <div class="suggestion-row">从书摘到原创的转化阈值.md</div>
+            <div class="suggestion-row">从书摘到永久笔记的转化阈值.md</div>
           </div>
         `;
       }

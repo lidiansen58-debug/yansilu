@@ -163,7 +163,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
 
   const project = await postJson(baseUrl, "/api/v1/writing-projects", {
     title: "Writing mainline",
-    goal: "Turn selected original notes into a draft scaffold.",
+    goal: "Turn selected permanent notes into a draft scaffold.",
     audience: "Knowledge workers",
     tone: "clear",
     intent: "Explain why writing should begin from distilled notes rather than blank prompts.",
