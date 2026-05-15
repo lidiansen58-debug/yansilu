@@ -145,7 +145,7 @@ async function handleCreatePermanentCandidate() {
     state.workspace = result.item;
     state.selectedPermanentCandidateId = result.permanentCandidate?.id || nextSelectedPermanentCandidateId(state.workspace, "");
     return { stage: "permanent_candidate", ...result };
-  }, "原创候选已生成");
+  }, "永久笔记候选已生成");
 }
 
 async function handleSavePermanentNote() {

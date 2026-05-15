@@ -9,12 +9,12 @@ The current MVP is a local-first notes and writing workflow:
 - Local vault with Markdown files as the user-content source of truth.
 - SQLite-backed catalog, tags, links, graph cache, and metadata.
 - Directory and note management with real filesystem persistence.
-- Three note lanes: fleeting, literature, and permanent/original notes.
+- Three note lanes: fleeting, literature, and permanent notes.
 - Literature-note paraphrase boundary and permanent-note originality guard.
 - Inline `[[wikilink]]`, `#tag`, backlinks, and directory-scoped graph views.
 - Markdown and Obsidian import with preview, confirm, history, rollback, and skip reasons.
 - Markdown export.
-- Writing projects from permanent/original notes, producing a scaffold with evidence mapping, gaps, counterpoints, and open questions.
+- Writing projects from permanent notes, producing a scaffold with evidence mapping, gaps, counterpoints, and open questions.
 - Desktop shell for Windows as the first packaged target, with Linux/macOS packaging infrastructure prepared but not yet smoke-tested on those platforms.
 
 ## Out Of Current MVP Scope

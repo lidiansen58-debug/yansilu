@@ -41,8 +41,8 @@ function generatedOriginalBadge(state, note = null) {
   if (noteType !== "fleeting" && noteType !== "literature") return "";
   const originalNote = Array.isArray(state?.notes) ? state.notes.find((item) => item.id === generatedId) : null;
   const originalTitle = String(originalNote?.title || "").trim();
-  const title = originalTitle ? `已关联原创笔记：${originalTitle}` : "已关联到一条原创笔记";
-  return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成原创</span>`;
+  const title = originalTitle ? `已关联永久笔记：${originalTitle}` : "已关联到一条永久笔记";
+  return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
 }
 
 function thinkingStatusBadge(note = null) {
@@ -58,10 +58,10 @@ function thinkingStatusBadge(note = null) {
 
 function displayFolderName(folder) {
   if (!folder) return "目录";
-  if (folder.id === "dir_original_default") return "原创卡片盒";
+  if (folder.id === "dir_original_default") return "永久笔记盒";
   if (folder.id === "dir_fleeting_default") return "随笔卡片盒";
   if (folder.id === "dir_literature_default") return "文献卡片盒";
-  if (!folder.parentId && String(folder.name || "").trim() === "原创目录") return "原创卡片盒";
+  if (!folder.parentId && String(folder.name || "").trim() === "永久笔记目录") return "永久笔记盒";
   return folder.name || "目录";
 }
 

@@ -47,7 +47,7 @@ test("paper workspace model reports progress and selected candidates", () => {
     savedPermanentNotes: 1
   });
   assert.equal(selectedPaperCandidate(workspace, "pwc_2").title, "Second");
-  assert.equal(workspaceStageLabel(workspace.stage), "原创候选");
+  assert.equal(workspaceStageLabel(workspace.stage), "永久笔记候选");
 });
 
 test("paper workspace labels expose user-facing workflow states", () => {

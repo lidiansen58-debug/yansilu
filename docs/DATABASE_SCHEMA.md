@@ -5,10 +5,10 @@
 定义 v1.7 结构化存储层（SQLite/Postgres 等效），支持：
 
 - 目录模型（根目录、默认目录、子目录、容量上限、隐藏）
-- 全笔记 CRUD（随笔记录/书摘笔记/原创笔记/项目笔记）
-- 原创笔记关联与反向链接（`[[标题]]` + `note_id`）
-- 写作入口约束（仅原创目录）
-- 索引提醒（每净增 15 条原创笔记）
+- 全笔记 CRUD（随笔记录/书摘笔记/永久笔记/项目笔记）
+- 永久笔记关联与反向链接（`[[标题]]` + `note_id`）
+- 写作入口约束（仅永久笔记目录）
+- 索引提醒（每净增 15 条永久笔记）
 - 原创性阈值阻断（相似度 `>= 80%`）
 
 ---
@@ -132,7 +132,7 @@ CREATE TABLE literature_note_meta (
 - 书摘笔记可长期独立存在。
 - 从书摘新增原创后，书摘不自动归档，仅新增关联。
 
-## 3.6 permanent_note_meta（原创笔记）
+## 3.6 permanent_note_meta（永久笔记）
 
 ```sql
 CREATE TABLE permanent_note_meta (
@@ -262,7 +262,7 @@ CREATE INDEX idx_writing_basket_project_order ON writing_basket_items(project_id
 
 约束（服务层）：
 
-- 添加写作篮时，`note_id` 必须属于原创目录且 `note_type = permanent`。
+- 添加写作篮时，`note_id` 必须属于永久笔记目录且 `note_type = permanent`。
 - `intent` 与 `desired_reader_takeaway` 用于写作意图澄清，应来自用户确认而非静默 AI 落库。
 
 ## 3.11 reminder_state（索引整理提醒）
@@ -329,5 +329,5 @@ CREATE INDEX idx_embeddings_object ON embeddings(object_type, object_id);
 2. 删除缓存不影响主内容，可重建。
 3. 导入必须先预览再确认，并生成 ImportRecord。
 4. 不覆盖用户二次编辑内容。
-5. 所有转换关系必须可追溯：随笔 -> 书摘/原创，书摘 -> 原创。
+5. 所有转换关系必须可追溯：随笔 -> 书摘/永久笔记，书摘 -> 原创。
 6. 思想提纯字段属于高密度语义层，AI 仅能提供候选建议，最终写入必须经用户确认。

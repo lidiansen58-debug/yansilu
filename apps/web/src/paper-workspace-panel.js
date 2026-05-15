@@ -33,7 +33,7 @@ function renderWorkspaceSummary(workspace = null) {
       <section class="paper-card paper-empty">
         <div class="paper-card-kicker">Step 0</div>
         <h2>先创建一个论文工作台</h2>
-        <p>这个页面不会直接调用 NotebookLM；它承接你从 NotebookLM 复制出来的 summary、Q&A、study guide 或 notes，然后帮助你完成转述和原创笔记确认。</p>
+        <p>这个页面不会直接调用 NotebookLM；它承接你从 NotebookLM 复制出来的 summary、Q&A、study guide 或 notes，然后帮助你完成转述和永久笔记确认。</p>
       </section>
     `;
   }
@@ -48,7 +48,7 @@ function renderWorkspaceSummary(workspace = null) {
       <div class="paper-stats">
         <span>${progress.candidates} 候选</span>
         <span>${progress.translations} 转述</span>
-        <span>${progress.permanentCandidates} 原创候选</span>
+        <span>${progress.permanentCandidates} 永久笔记候选</span>
         <span>${progress.savedPermanentNotes} 已保存</span>
       </div>
     </section>
@@ -58,7 +58,7 @@ function renderWorkspaceSummary(workspace = null) {
 function renderCandidateList(workspace = null, selectedCandidateId = "") {
   const candidates = Array.isArray(workspace?.candidates) ? workspace.candidates : [];
   if (!candidates.length) {
-    return `<div class="paper-muted-box">还没有候选。粘贴 NotebookLM 内容后，系统会先生成 Literature 候选，不会直接生成原创笔记。</div>`;
+    return `<div class="paper-muted-box">还没有候选。粘贴 NotebookLM 内容后，系统会先生成 Literature 候选，不会直接生成永久笔记。</div>`;
   }
   return `
     <div class="paper-candidate-list">
@@ -80,7 +80,7 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
 
 function renderPermanentCandidate(candidate = null) {
   if (!candidate) {
-    return `<div class="paper-muted-box">保存转述后，可以生成原创候选。候选只是草稿骨架，必须确认 authorship 后才会保存为永久笔记。</div>`;
+    return `<div class="paper-muted-box">保存转述后，可以生成永久笔记候选。候选只是草稿骨架，必须确认 authorship 后才会保存为永久笔记。</div>`;
   }
   const citation = Array.isArray(candidate.citations) ? candidate.citations[0] || {} : {};
   return `
@@ -126,8 +126,8 @@ export function renderPaperWorkspacePage(state = {}) {
       <header class="paper-hero">
         <div>
           <div class="paper-eyebrow">NotebookLM assisted paper workflow</div>
-          <h1>从论文阅读，到自己的原创笔记</h1>
-          <p>把 NotebookLM 当作阅读加速器，而不是代写器。这里强制经过候选、转述、原创候选、确认保存四步。</p>
+          <h1>从论文阅读，到自己的永久笔记</h1>
+          <p>把 NotebookLM 当作阅读加速器，而不是代写器。这里强制经过候选、转述、永久笔记候选、确认保存四步。</p>
         </div>
         ${renderStatus(state.statusText, state.statusTone)}
       </header>
@@ -177,7 +177,7 @@ export function renderPaperWorkspacePage(state = {}) {
               <label>边界或反例<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
                 <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>保存转述</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${selectedCandidate ? "" : "disabled"}>生成原创候选</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${selectedCandidate ? "" : "disabled"}>生成永久笔记候选</button>
               </div>
             </div>
           </div>
@@ -185,7 +185,7 @@ export function renderPaperWorkspacePage(state = {}) {
 
         <section class="paper-card paper-span-2">
           <div class="paper-card-kicker">Step 4</div>
-          <h2>原创候选与确认保存</h2>
+          <h2>永久笔记候选与确认保存</h2>
           ${renderPermanentCandidate(selectedPermanent)}
           <div class="paper-save-row">
             <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> 我确认这是我自己的判断，不是 NotebookLM 原文或论文原句。</label>

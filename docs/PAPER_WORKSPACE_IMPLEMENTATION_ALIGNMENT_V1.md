@@ -33,7 +33,7 @@
 
 缺口集中在一个地方：
 
-当前实现有“外部内容 -> Source/Literature 候选 -> 确认写入”的导入管线，但还没有“文献候选 -> 用户转述 -> 原创候选”的论文加工中间层。
+当前实现有“外部内容 -> Source/Literature 候选 -> 确认写入”的导入管线，但还没有“文献候选 -> 用户转述 -> 永久笔记候选”的论文加工中间层。
 
 所以建议不要重建导入系统，而是在现有导入管线之外，增加一个轻量 `paper workspace draft` 层。
 
@@ -111,7 +111,7 @@
 
 `NotebookLM text -> preview -> selected literature candidates -> confirm`
 
-但论文工作台不应该只停在导入页，因为它还需要转述和原创候选生成。
+但论文工作台不应该只停在导入页，因为它还需要转述和永久笔记候选生成。
 
 ## 3.4 原创性守卫已存在
 
@@ -129,13 +129,13 @@
 
 对论文工作台的意义：
 
-这正好支撑“NotebookLM 文本不能直接越级为原创笔记”的边界。
+这正好支撑“NotebookLM 文本不能直接越级为永久笔记”的边界。
 
 轻量缺口：
 
 1. 目前 similarity 主要比较 permanent `core_claim` 与 literature `quote_text`。
 2. 对 NotebookLM 场景，还应把 `paraphrase_text` 和 `raw NotebookLM text` 都纳入风险提示。
-3. 应增加“没有用户转述时不能生成原创候选”的业务规则，这不是单纯相似度问题。
+3. 应增加“没有用户转述时不能生成永久笔记候选”的业务规则，这不是单纯相似度问题。
 
 ## 3.5 前端导入候选模型已存在
 
@@ -158,7 +158,7 @@
 原因：
 
 1. 现有导入页强调“预览 -> 确认写入”。
-2. 论文工作台强调“候选 -> 转述 -> 原创候选 -> 关联”。
+2. 论文工作台强调“候选 -> 转述 -> 永久笔记候选 -> 关联”。
 3. 它们的底层对象可以复用，页面心智应分开。
 
 ## 4. 主要缺口
@@ -173,7 +173,7 @@
 2. NotebookLM raw input。
 3. 候选状态：new / selected / skipped / converted。
 4. 用户转述草稿。
-5. 原创候选草稿。
+5. 永久笔记候选草稿。
 
 建议：
 
@@ -193,11 +193,11 @@
 
 1. 可以保存 draft 文献笔记。
 2. 但不能把无转述候选标记为完成。
-3. 不能基于无转述候选生成原创候选。
+3. 不能基于无转述候选生成永久笔记候选。
 
 这应作为 paper workspace 自己的校验，不必改变全局导入行为。
 
-## 4.3 缺少原创候选生成层
+## 4.3 缺少永久笔记候选生成层
 
 当前 import 管线可以写入 PermanentNote candidates，但 NotebookLM connector 默认不会生成 permanent candidates。
 
@@ -270,11 +270,11 @@
 2. paraphrase validation。
 3. 保存文献笔记时保留 NotebookLM raw text 与 notebook context。
 
-## 5.3 Slice 3：增加原创候选层
+## 5.3 Slice 3：增加永久笔记候选层
 
 目标：
 
-基于用户转述生成 PermanentNote candidate，并允许保存为原创笔记。
+基于用户转述生成 PermanentNote candidate，并允许保存为永久笔记。
 
 复用：
 
@@ -287,13 +287,13 @@
 1. `from_literature_note_ids` 绑定。
 2. `citations.source_id` 绑定。
 3. `authorship.user_confirmed = true` 的确认动作。
-4. 阻止无转述候选生成原创候选。
+4. 阻止无转述候选生成永久笔记候选。
 
 ## 5.4 Slice 4：接入结构化下一步
 
 目标：
 
-保存原创笔记后，进入现有关系、索引、写作流程。
+保存永久笔记后，进入现有关系、索引、写作流程。
 
 复用：
 
@@ -375,10 +375,10 @@
 | import record | 高 | 可复用预览/确认/回滚 |
 | originality guard | 高 | 需加无转述业务规则 |
 | import candidate UI model | 中 | 可复用模型，不建议直接复用页面 |
-| writing project handoff | 中 | 保存原创后可复用 |
+| writing project handoff | 中 | 保存永久笔记后可复用 |
 
 ## 9. 一句话结论
 
-论文工作台不需要推倒重来。正确路线是复用现有导入、笔记、原创性守卫和写作底座，在中间补一个“论文加工状态层”，专门承接 `NotebookLM 输出 -> 用户转述 -> 原创候选`。
+论文工作台不需要推倒重来。正确路线是复用现有导入、笔记、原创性守卫和写作底座，在中间补一个“论文加工状态层”，专门承接 `NotebookLM 输出 -> 用户转述 -> 永久笔记候选`。
 
 如需进入工程排期，请参考 [PAPER_WORKSPACE_ENGINEERING_TASKS_V1.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/PAPER_WORKSPACE_ENGINEERING_TASKS_V1.md)。

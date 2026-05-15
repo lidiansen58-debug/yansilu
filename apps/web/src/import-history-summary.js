@@ -45,7 +45,7 @@ function summaryActions(record = {}) {
   }
   if (status === "completed" && remaining === 0 && ready > 0) {
     return [
-      { action: "promote-literature-batch", label: "转去原创整理" },
+      { action: "promote-literature-batch", label: "转去永久笔记整理" },
       { action: "open-literature-queue", label: "打开文献队列" }
     ];
   }

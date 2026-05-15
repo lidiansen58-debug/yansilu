@@ -482,7 +482,7 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
   assert.match(note.json.item.body, /#e2e/);
 });
 
-test("prototype original note can save and persists content after authorship confirmation flow", async (t) => {
+test("prototype permanent note can save and persists content after authorship confirmation flow", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -543,7 +543,7 @@ test("prototype original note can save and persists content after authorship con
   }, 10000);
 });
 
-test("prototype literature note can record an original draft through the unified editor flow", async (t) => {
+test("prototype literature note can record a permanent-note draft through the unified editor flow", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -606,7 +606,7 @@ test("prototype literature note can record an original draft through the unified
     assert.match(String(editorValue || ""), /## 转述/);
     assert.match(String(editorValue || ""), /## 保留原因/);
     assert.match(String(editorValue || ""), /## 支持判断/);
-    assert.match(String(runGuardText || ""), /记录原创/);
+    assert.match(String(runGuardText || ""), /记录永久笔记/);
   }, 7000);
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
@@ -660,7 +660,7 @@ test("prototype literature note can record an original draft through the unified
   }, 10000);
 });
 
-test("prototype literature note requires citation metadata before recording original", async (t) => {
+test("prototype literature note requires citation metadata before recording a permanent note", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -953,7 +953,7 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   });
 
   assert.equal(mobileLayout.fab.visible, true);
-  assert.match(mobileLayout.fab.text, /新建|原创/);
+  assert.match(mobileLayout.fab.text, /新建|永久/);
   assert.equal(mobileLayout.thinkingStatus.visible, true);
   assert.match(mobileLayout.thinkingStatus.text, /待写论点/);
   assert.equal(mobileLayout.sidebarNew.visible, false);
@@ -2240,7 +2240,7 @@ test("prototype tab switch syncs the left navigation to the active note location
 
   const originalNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: childDirectoryId,
-    body: "# Tab Sync Original Child\n\nThis original note lives below a child card box."
+    body: "# Tab Sync Original Child\n\nThis permanent note lives below a child card box."
   });
   const literatureNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_literature_default",
@@ -3735,7 +3735,7 @@ test("prototype import confirm can send created permanent notes into writing bas
   await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("1 条原创笔记");
+    return text.includes("1 条永久笔记");
   });
   await page.locator('.rail-btn[data-module="writing"].active').waitFor();
 
@@ -3787,7 +3787,7 @@ test("prototype import confirm can open imported literature notes in paraphrase 
   assert.match(String(actionNoteText || ""), /剩余待处理 1 条/);
   assert.match(String(importActionAreaText || ""), /待转述/);
   assert.match(String(importActionAreaText || ""), /待提炼/);
-  assert.match(String(importActionAreaText || ""), /可转原创/);
+  assert.match(String(importActionAreaText || ""), /可转永久笔记/);
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
     assert.match(String(statusText || ""), /导入确认完成/);
@@ -3912,7 +3912,7 @@ test("prototype import confirm can create a writing project from created permane
   });
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("当前项目：wp_") && text.includes("1 条原创笔记");
+    return text.includes("当前项目：wp_") && text.includes("1 条永久笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -4353,7 +4353,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮里已有 2 条原创笔记");
+    return text.includes("写作篮里已有 2 条永久笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();

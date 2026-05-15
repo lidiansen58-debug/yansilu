@@ -1015,7 +1015,7 @@ Request:
 ```json
 {
   "title": "Writing mainline",
-  "goal": "Turn selected original notes into a draft scaffold.",
+  "goal": "Turn selected permanent notes into a draft scaffold.",
   "audience": "Knowledge workers",
   "tone": "clear",
   "basketNoteIds": ["pn_001", "pn_002"]
@@ -1029,7 +1029,7 @@ Response status: `201`
   "item": {
     "id": "wp_abcd1234",
     "title": "Writing mainline",
-    "goal": "Turn selected original notes into a draft scaffold.",
+    "goal": "Turn selected permanent notes into a draft scaffold.",
     "audience": "Knowledge workers",
     "tone": "clear",
     "basket_note_ids": ["pn_001", "pn_002"],
