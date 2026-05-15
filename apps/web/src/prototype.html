@@ -7942,6 +7942,346 @@
       text-overflow: ellipsis;
     }
 
+    /* Permanent-note-first redesign layer */
+    :root {
+      --bg: #f4f6f4;
+      --bg-deep: #e9eef0;
+      --panel: #ffffff;
+      --editor: #fffdf8;
+      --surface: #ffffff;
+      --line: rgba(32, 45, 55, 0.12);
+      --line-strong: rgba(32, 45, 55, 0.2);
+      --ink: #17212b;
+      --muted: #66737d;
+      --brand: #0f766e;
+      --brand-weak: rgba(15, 118, 110, 0.1);
+      --accent-blue: #3457d5;
+      --accent-amber: #a96800;
+      --accent-rose: #b23b55;
+      --hover: #f1f5f4;
+      --active: #e6f2ee;
+      --shadow: 0 18px 36px rgba(25, 36, 45, 0.09);
+      --shadow-soft: 0 8px 20px rgba(25, 36, 45, 0.06);
+      --focus-ring: 0 0 0 3px rgba(52, 87, 213, 0.18);
+    }
+
+    body {
+      background: linear-gradient(180deg, var(--bg) 0%, #edf1f2 100%);
+    }
+
+    .app {
+      grid-template-columns: 56px minmax(272px, 320px) minmax(0, 1fr);
+      background: transparent;
+      backdrop-filter: none;
+    }
+
+    .rail,
+    .sidebar,
+    .vault-head,
+    .panel,
+    .import-card,
+    .graph-section,
+    .writing-section,
+    .literature-card,
+    .literature-queue-panel,
+    .graph-metric-card,
+    .writing-status-card,
+    .writing-note-card,
+    .graph-node,
+    .graph-edge,
+    .graph-review-card {
+      border-color: var(--line);
+      border-radius: 8px;
+      box-shadow: none;
+      background: var(--surface);
+    }
+
+    .rail,
+    .sidebar {
+      border-radius: 0;
+      background: #fbfcfb;
+    }
+
+    .rail {
+      padding: 12px 8px;
+      border-right: 1px solid var(--line);
+    }
+
+    .rail-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      color: #4c5964;
+    }
+
+    .rail-btn.active,
+    .quick-entry.current-root {
+      background: #e7f4f1;
+      border-color: rgba(15, 118, 110, 0.25);
+      color: #0f665f;
+      box-shadow: inset 3px 0 0 var(--brand);
+    }
+
+    .rail-btn:hover,
+    .mini-btn:hover,
+    .tb:hover {
+      transform: translateY(-1px);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+    }
+
+    .vault-head {
+      margin: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .vault-head h2 {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .vault-subtitle,
+    .sidebar-foot,
+    .panel-note,
+    .graph-summary,
+    .writing-section-note,
+    .import-card-note {
+      color: var(--muted);
+    }
+
+    .thought-path {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .thought-path-step {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f7f9f8;
+      color: #5b6873;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .thought-path-step.is-active {
+      border-color: rgba(15, 118, 110, 0.25);
+      background: #e6f3ef;
+      color: #0f665f;
+    }
+
+    .sidebar-actions-main,
+    .toolbar,
+    .module-header,
+    .graph-head,
+    .writing-topline,
+    .import-card-head {
+      gap: 8px;
+    }
+
+    .mini-btn,
+    .tb,
+    .tab,
+    .link-picker-item,
+    .explorer-item,
+    .quick-entry,
+    input,
+    select,
+    textarea {
+      border-radius: 8px;
+    }
+
+    .mini-btn.primary,
+    .tb.active,
+    .mobile-new-note-fab {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(15, 118, 110, 0.18);
+    }
+
+    .mini-btn.primary:hover {
+      background: #0b665f;
+      border-color: #0b665f;
+    }
+
+    .main {
+      background: transparent;
+    }
+
+    .workspace-shell,
+    .module-workspace {
+      background: transparent;
+    }
+
+    .tabs,
+    .crumb,
+    #editorWorkspace > .toolbar {
+      margin-inline: 12px;
+    }
+
+    #editorWorkspace > .toolbar {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .editor-wrap {
+      padding: 12px;
+      gap: 12px;
+    }
+
+    .md-panel {
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      background: var(--editor);
+    }
+
+    .panel-head.editor-intent {
+      border-bottom: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .markdown-split {
+      background: var(--editor);
+    }
+
+    .wysiwyg-host .toastui-editor-contents,
+    .markdown-preview,
+    .editor-host {
+      color: var(--ink);
+    }
+
+    .inspector-panel {
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      background: #ffffff;
+    }
+
+    .semantic-relation-item[data-relation-tone="support"] {
+      border-left: 3px solid var(--brand);
+    }
+
+    .semantic-relation-item[data-relation-tone="tension"] {
+      border-left: 3px solid var(--accent-rose);
+    }
+
+    .semantic-relation-item[data-relation-tone="bridge"] {
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .semantic-relation-quality-meter[data-quality-level="strong"] {
+      border-color: rgba(15, 118, 110, 0.26);
+      background: #edf8f4;
+    }
+
+    .semantic-relation-quality-meter[data-quality-level="good"] {
+      border-color: rgba(52, 87, 213, 0.22);
+      background: #eef2ff;
+    }
+
+    .semantic-relation-quality-meter[data-quality-level="basic"] {
+      border-color: rgba(169, 104, 0, 0.22);
+      background: #fff7e8;
+    }
+
+    .module-header {
+      margin: 12px;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .module-stage {
+      padding: 0 12px 12px;
+    }
+
+    .import-page-shell,
+    .writing-main-grid,
+    .writing-project-grid,
+    .graph-grid {
+      gap: 12px;
+    }
+
+    .graph-flow-strip div,
+    .writing-flow-step,
+    .import-flow-steps div {
+      border-radius: 8px;
+      background: #f7f9f8;
+      border: 1px solid var(--line);
+    }
+
+    .graph-flow-strip span,
+    .writing-flow-step span,
+    .import-flow-steps span {
+      background: #e6f3ef;
+      color: #0f665f;
+    }
+
+    .graph-map-edge.is-support,
+    .graph-map-edge-label.is-support,
+    .graph-map-edge-pin.is-support {
+      color: var(--brand);
+      stroke: var(--brand);
+    }
+
+    .graph-map-edge.is-conflict,
+    .graph-map-edge-label.is-conflict,
+    .graph-map-edge-pin.is-conflict {
+      color: var(--accent-rose);
+      stroke: var(--accent-rose);
+    }
+
+    .graph-map-edge.is-bridge,
+    .graph-map-edge-label.is-bridge,
+    .graph-map-edge-pin.is-bridge {
+      color: var(--accent-blue);
+      stroke: var(--accent-blue);
+    }
+
+    .graph-map-edge.is-boundary,
+    .graph-map-edge-label.is-boundary,
+    .graph-map-edge-pin.is-boundary {
+      color: var(--accent-amber);
+      stroke: var(--accent-amber);
+    }
+
+    .link-picker-meta {
+      grid-template-columns: minmax(120px, 0.75fr) minmax(150px, 1fr);
+      align-items: start;
+    }
+
+    .link-picker-meta .link-picker-field:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .link-picker-meta select,
+    .link-picker-meta textarea {
+      width: 100%;
+    }
+
+    :focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+    }
+
+    .hidden,
+    .workspace-shell.hidden,
+    #editorWorkspace.hidden,
+    #moduleWorkspace.hidden {
+      display: none !important;
+    }
+
     @media (max-width: 920px) {
       #editorWorkspace > .toolbar,
       .app[data-focus-mode="true"] #editorWorkspace > .toolbar,
@@ -8061,6 +8401,12 @@
           <h2 id="sidebarTitle">目录</h2>
         </div>
         <div class="vault-subtitle" id="sidebarSubtitle">永久笔记是主对象，素材只是入口。</div>
+        <div class="thought-path" aria-label="产品路径">
+          <span class="thought-path-step is-active">永久</span>
+          <span class="thought-path-step">关系</span>
+          <span class="thought-path-step">主题</span>
+          <span class="thought-path-step">写作</span>
+        </div>
         <div class="sidebar-actions" id="sidebarPrimaryActions">
           <div class="sidebar-actions-main">
             <button class="mini-btn primary new-note-action" id="btnNewNote" title="新建永久笔记" data-tip="新建永久笔记" aria-label="在当前目录新建永久笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="new-note-action-label">新建永久</span></button>
@@ -8147,6 +8493,21 @@
                   <option value="self">自己</option>
                   <option value="ai">AI</option>
                   <option value="team">团队</option>
+                </select>
+              </div>
+              <div class="link-picker-field">
+                <label for="linkRelationTypeSelect">关联类型</label>
+                <select id="linkRelationTypeSelect">
+                  <option value="supports">支持</option>
+                  <option value="complements">补充</option>
+                  <option value="contrasts">对比</option>
+                  <option value="contradicts">反驳</option>
+                  <option value="extends">推进</option>
+                  <option value="qualifies">限定</option>
+                  <option value="example_of">例子</option>
+                  <option value="counterexample_to">反例</option>
+                  <option value="same_topic">同主题</option>
+                  <option value="bridges">桥接</option>
                 </select>
               </div>
               <div class="link-picker-field">

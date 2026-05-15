@@ -6296,6 +6296,7 @@ const editor = new EditorPane({
     linkSearchInput: $("linkSearchInput"),
     linkSearchList: $("linkSearchList"),
     linkManagerSelect: $("linkManagerSelect"),
+    linkRelationTypeSelect: $("linkRelationTypeSelect"),
     linkReasonInput: $("linkReasonInput"),
     closeLinkPicker: $("btnCloseLinkPicker"),
     tagPicker: $("tagPicker"),

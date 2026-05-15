@@ -4216,6 +4216,7 @@ export class EditorPane {
     this.els.linkSearchInput.value = initialQuery;
     if (!inlineMode) {
       if (this.els.linkManagerSelect) this.els.linkManagerSelect.value = this.els.linkManagerSelect.value || "self";
+      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = this.els.linkRelationTypeSelect.value || "supports";
       if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     }
     this.currentLinkContext = options.inlineContext || null;
@@ -4263,6 +4264,7 @@ export class EditorPane {
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
     const manager = String(this.els.linkManagerSelect?.value || "self").trim() || "self";
+    const relationType = String(this.els.linkRelationTypeSelect?.value || "supports").trim() || "supports";
     const rawReason = String(this.els.linkReasonInput?.value || "").trim();
     if (!this.currentLinkContext && this.els.linkReasonInput && !rawReason) {
       this.onStatus("请先填写关联理由，再插入这条关联。", "warn");
@@ -4273,7 +4275,9 @@ export class EditorPane {
       .replace(/\s+/g, " ")
       .replace(/--/g, "- -")
       .slice(0, 280);
-    const annotation = reason ? ` <!-- rel:manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->` : "";
+    const annotation = reason
+      ? ` <!-- rel:type=${escapeHtml(relationType)} manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->`
+      : "";
     const token = `[[${target.title}]]${annotation}`;
     if (this.currentLinkContext) {
       const { start, end } = this.currentLinkContext;
