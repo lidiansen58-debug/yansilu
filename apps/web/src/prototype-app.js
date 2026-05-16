@@ -6002,11 +6002,11 @@ async function importYijingRichAcceptanceDemo() {
 }
 
 async function importSmartNotesProductThinkingDemo() {
-  setStatus("姝ｅ湪瀵煎叆鍗＄墖绗旇鍐欎綔 Demo...", "");
+  setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
-    if (!directoryId) throw new Error("婕旂ず妗堜緥娌℃湁杩斿洖鐩綍 ID");
+    if (!directoryId) throw new Error("Demo 导入结果缺少目录 ID");
     await syncDirectoriesFromApi();
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
@@ -6019,10 +6019,10 @@ async function importSmartNotesProductThinkingDemo() {
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`宸插鍏ュ啓浣?Demo锛?{noteCount} 鏉℃案涔呯瑪璁帮紝${relationCount} 鏉″叧绯伙紝${projectCount} 涓啓浣滈」鐩€?, "ok");
+    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目`, "ok");
     return true;
   } catch (error) {
-    setStatus(`鍐欎綔 Demo 瀵煎叆澶辫触锛?{String(error?.message || error)}`, "bad");
+    setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
     return false;
   }
 }
