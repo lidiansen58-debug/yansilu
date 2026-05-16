@@ -11,6 +11,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const RICH_ACCEPTANCE_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "acceptance", "yijing-rich-acceptance.json");
+const SMART_NOTES_PRODUCT_THINKING_FIXTURE_PATH = path.join(
+  REPO_ROOT,
+  "tests",
+  "fixtures",
+  "demo-smart-notes-product-thinking",
+  "demo.json"
+);
 
 async function makeTempDir(prefix) {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -62,6 +69,10 @@ async function readYijingFixture() {
 
 async function readYijingRichAcceptanceFixture() {
   return JSON.parse(await fs.readFile(RICH_ACCEPTANCE_FIXTURE_PATH, "utf8"));
+}
+
+async function readSmartNotesProductThinkingFixture() {
+  return JSON.parse(await fs.readFile(SMART_NOTES_PRODUCT_THINKING_FIXTURE_PATH, "utf8"));
 }
 
 function relationId(relation) {
@@ -421,4 +432,50 @@ test("POST /api/v1/demo/acceptance/yijing-rich seeds the rich Yijing acceptance 
   assert.equal(secondSeed.json.item.summary.updatedWritingProjects, fixture.counts.writing_projects);
   assert.equal(secondSeed.json.item.summary.createdDraftScaffolds, 0);
   assert.equal(secondSeed.json.item.summary.updatedDraftScaffolds, fixture.counts.writing_projects);
+});
+
+test("POST /api/v1/demo/product-thinking/smart-notes seeds the smart notes product thinking demo", async (t) => {
+  const fixture = await readSmartNotesProductThinkingFixture();
+  const vaultPath = await makeTempDir("yansilu-smart-notes-demo-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const firstSeed = await postJson(baseUrl, "/api/v1/demo/product-thinking/smart-notes", {});
+  assert.equal(firstSeed.status, 200, JSON.stringify(firstSeed.json));
+  assert.equal(firstSeed.json.item.kind, "smart_notes_product_thinking_seed");
+  assert.equal(firstSeed.json.item.demoOnly, true);
+  assert.equal(firstSeed.json.item.sourceKind, "bundled_fixture");
+  assert.equal(firstSeed.json.item.directoryId, "dir_demo_smart_notes_product_thinking_original");
+  assert.deepEqual(firstSeed.json.item.counts, fixture.counts);
+
+  const graph = await getJson(
+    baseUrl,
+    `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(firstSeed.json.item.directoryId)}`
+  );
+  assert.equal(graph.status, 200, JSON.stringify(graph.json));
+  assert.ok(graph.json.item.totalNodes >= fixture.counts.permanent_notes);
+
+  const indexes = await getJson(
+    baseUrl,
+    `/api/v1/index-cards?directoryId=${encodeURIComponent(firstSeed.json.item.directoryId)}&includeDescendants=false&limit=30`
+  );
+  assert.equal(indexes.status, 200, JSON.stringify(indexes.json));
+  assert.equal(indexes.json.total, fixture.counts.index_cards);
+
+  const projects = await getJson(baseUrl, "/api/v1/writing-projects?limit=10");
+  assert.equal(projects.status, 200, JSON.stringify(projects.json));
+  assert.equal(projects.json.total, fixture.counts.writing_projects);
 });

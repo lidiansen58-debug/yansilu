@@ -123,6 +123,7 @@ import {
   summarizeAiInboxItem,
   seedYijingKnowledgeNetwork,
   seedYijingRichAcceptanceDemo,
+  seedSmartNotesProductThinkingDemo,
   runDueAiScheduledTasks,
   saveAiScheduledTask,
   switchVault,
@@ -6000,6 +6001,32 @@ async function importYijingRichAcceptanceDemo() {
   }
 }
 
+async function importSmartNotesProductThinkingDemo() {
+  setStatus("姝ｅ湪瀵煎叆鍗＄墖绗旇鍐欎綔 Demo...", "");
+  try {
+    const result = await seedSmartNotesProductThinkingDemo();
+    const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
+    if (!directoryId) throw new Error("婕旂ず妗堜緥娌℃湁杩斿洖鐩綍 ID");
+    await syncDirectoriesFromApi();
+    state.browserRootId = rootBoxIdFromFolder(state, directoryId);
+    state.selectedFolderId = directoryId;
+    await syncNotesForDirectory(directoryId);
+    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    await refreshDirectoryGraph();
+    renderAll();
+    const counts = result?.counts || {};
+    const summary = result?.summary || {};
+    const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
+    const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
+    const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
+    setStatus(`宸插鍏ュ啓浣?Demo锛?{noteCount} 鏉℃案涔呯瑪璁帮紝${relationCount} 鏉″叧绯伙紝${projectCount} 涓啓浣滈」鐩€?, "ok");
+    return true;
+  } catch (error) {
+    setStatus(`鍐欎綔 Demo 瀵煎叆澶辫触锛?{String(error?.message || error)}`, "bad");
+    return false;
+  }
+}
+
 async function ensureNoteBodyLoaded(noteId) {
   const note = state.notes.find((n) => n.id === noteId);
   if (!note || note.bodyLoaded) return;
@@ -7987,9 +8014,11 @@ async function bootstrap() {
   const explicitNoteId = startupParams.get("note") || "";
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
   const openedDemo =
-    startupDemo === "yijing-rich" || startupDemo === "yijing"
-      ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
-      : false;
+    startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
+      ? await importSmartNotesProductThinkingDemo()
+      : startupDemo === "yijing-rich" || startupDemo === "yijing"
+        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
+        : false;
   if (openedDemo) {
     activateModule("graph");
     renderAll();

@@ -13,6 +13,15 @@ The redesign should make the site feel:
 
 The site must explain the product in one glance, make the workflow easy to understand, and preserve all current registration, login, pricing, download, billing, and checkout behavior.
 
+### 2026-05-16 Narrative Correction
+
+The official site should present Yansilu as a complete product, not as a single-topic knowledge base. Demo content is supporting proof, not the main product identity.
+
+- The homepage and product page must explain the full workflow: import, literature notes, permanent notes, explicit relations, index cards, writing scaffolds, AI boundaries, local-first storage, export, pricing, and download.
+- `/demo` should become a demo center. The primary demo should be the product-method story based on 《卡片笔记写作法》. The existing Yijing demo remains valuable, but only as a secondary case for complex semantic relations.
+- Yijing copy should not appear as the primary homepage story, the primary CTA, or the definition of the product.
+- The follow-up plan is tracked in `docs/OFFICIAL_SITE_AND_DEMO_REPLAN_2026-05-16.md`.
+
 ## 2. Brand Direction
 
 ### Core Idea
@@ -53,6 +62,7 @@ Avoid returning to the V1 warm paper style as the dominant visual language. Warm
 Primary nav:
 
 - 产品 -> `/product`
+- 演示 -> `/demo`
 - 定价 -> `/pricing`
 - 下载 -> `/download`
 - 工作台 -> `/app`
@@ -70,6 +80,9 @@ The header must stay predictable on every marketing page. Do not change the plac
 |---|---|---|
 | `/` | Home | Explain what Yansilu is, why it matters, and where to start. |
 | `/product` | Product | Show the full knowledge-to-wisdom workflow and product boundaries. |
+| `/demo` | Demo Center | Let visitors choose a workflow demo; primary demo is the card-note writing method, with Yijing as a secondary complex-graph case. |
+| `/demo/zettelkasten` | Card-Note Demo | Show how reading notes become permanent notes, relation reasons, index cards, and writing scaffolds. |
+| `/demo/yijing` | Yijing Demo | Preserve the existing Yijing knowledge-network demo as a secondary case for rich semantic relations. |
 | `/pricing` | Pricing | Help visitors choose Free or Pro without making pricing feel like selling more AI output. |
 | `/download` | Download | Make the desktop app release status, installer path, and local-first value clear. |
 | `/register` | Register | Let a new user start quickly and understand the next step. |
