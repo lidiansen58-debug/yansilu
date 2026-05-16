@@ -368,6 +368,7 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
 
   const noteIds = [];
   const batches = [
+    ...(Array.isArray(fixture?.guide_notes) ? fixture.guide_notes : []),
     ...(Array.isArray(fixture?.fleeting_notes) ? fixture.fleeting_notes : []),
     ...(Array.isArray(fixture?.literature_notes) ? fixture.literature_notes : []),
     ...(Array.isArray(fixture?.permanent_notes) ? fixture.permanent_notes : []),
