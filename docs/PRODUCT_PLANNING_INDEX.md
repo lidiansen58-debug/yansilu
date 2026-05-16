@@ -130,6 +130,23 @@
 
 ---
 
+## 3.7 AI 永久笔记分析实施计划
+
+进入 AI 认知协同层的实施前，读：
+
+1. [AI_PERMANENT_NOTE_ANALYSIS_PLAN.md](/E:/Projects/Thinking%20in%20Notes/yansilu-wt/wt-ai-harness/docs/AI_PERMANENT_NOTE_ANALYSIS_PLAN.md)
+2. [AI_PERMANENT_NOTE_ANALYSIS_GOAL.md](/E:/Projects/Thinking%20in%20Notes/yansilu-wt/wt-ai-harness/docs/AI_PERMANENT_NOTE_ANALYSIS_GOAL.md)
+
+解决的问题：
+
+1. AI 如何自动分析永久笔记之间可能的关联？
+2. AI 如何发现主题、浓缩观点、评估原创度和检查设计原则？
+3. 本地模型与远程强模型如何分工？
+4. AI 输出如何保持候选态，而不是越权成为用户判断？
+5. 第一阶段应如何从本地规则初判开始实施？
+
+---
+
 ## 4. 当前优先级判断
 
 当前不建议直接进入 Phase 3 或 Phase 4 的实施。

@@ -192,6 +192,39 @@ export async function summarizeAiInboxItem(artifactId, payload = {}) {
   return json.item || null;
 }
 
+export async function analyzeWritingWithStrongModel(payload = {}) {
+  const json = await request("/api/v1/writing/ai-analysis", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function analyzePermanentNote(noteId, payload = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) throw new Error("noteId is required");
+  const json = await request(`/api/v1/notes/${encodeURIComponent(cleanNoteId)}/ai-analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function fetchPermanentNoteAnalysis(noteId, options = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) throw new Error("noteId is required");
+  const params = new URLSearchParams();
+  const view = String(options?.view || "all").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 100) || 100));
+  if (view) params.set("view", view);
+  params.set("limit", String(limit));
+  const query = params.toString();
+  const json = await request(`/api/v1/notes/${encodeURIComponent(cleanNoteId)}/ai-analysis${query ? `?${query}` : ""}`);
+  return json.item || null;
+}
+
 export async function fetchAiScheduledTasks(options = {}) {
   const params = new URLSearchParams();
   const status = String(options?.status || "").trim();
@@ -310,6 +343,20 @@ export async function fetchDirectoryGraph(directoryId, options = {}) {
     includeDescendants: options.includeDescendants ? "true" : "false"
   });
   const json = await request(`/api/v1/graph?${params.toString()}`);
+  return json.item || null;
+}
+
+export async function analyzeDirectoryGraph(directoryId, payload = {}) {
+  const cleanDirectoryId = String(directoryId || "").trim();
+  if (!cleanDirectoryId) throw new Error("directoryId is required");
+  const json = await request("/api/v1/graph/ai-analysis", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      directoryId: cleanDirectoryId
+    })
+  });
   return json.item || null;
 }
 

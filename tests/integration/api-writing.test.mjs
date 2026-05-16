@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import net from "node:net";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -54,17 +55,192 @@ async function getJson(baseUrl, pathname) {
   return { status: res.status, json };
 }
 
+async function readRequestJson(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const text = Buffer.concat(chunks).toString("utf8");
+  return text ? JSON.parse(text) : {};
+}
+
+async function startJsonProvider(output) {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "not found" } }));
+      return;
+    }
+    const body = await readRequestJson(req);
+    requests.push({ body, headers: req.headers });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        id: "chatcmpl_writing_analysis_test",
+        choices: [{ message: { role: "assistant", content: JSON.stringify(output) } }],
+        usage: { prompt_tokens: 17, completion_tokens: 19, total_tokens: 36 }
+      })
+    );
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      resolve({
+        server,
+        requests,
+        baseUrl: `http://127.0.0.1:${address.port}`
+      });
+    });
+  });
+}
+
 function startApi(port, vaultPath) {
   return spawn(process.execPath, ["apps/api/src/server.mjs"], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
       API_PORT: String(port),
-      VAULT_PATH: vaultPath
+      VAULT_PATH: vaultPath,
+      YANSILU_TEST_PROVIDER_KEY: process.env.YANSILU_TEST_PROVIDER_KEY || "test-key"
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
 }
+
+test("writing AI analysis API requires confirmation and stores review-only remote artifacts", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-writing-ai-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const note = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# AI review boundary\n\nAI writing support should expose source note ids and remain reviewable."
+  });
+  assert.equal(note.status, 201);
+
+  const rejected = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    writingGoal: "Prepare a source-grounded outline.",
+    noteIds: [note.json.item.id]
+  });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.json.error.code, "WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED");
+
+  const prepared = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    userConfirmedRemoteModel: true,
+    writingGoal: "Prepare a source-grounded outline.",
+    noteIds: [note.json.item.id],
+    model: "gpt-strong",
+    persistArtifacts: false
+  });
+  assert.equal(prepared.status, 200, JSON.stringify(prepared.json));
+  assert.equal(prepared.json.item.request.requestType, "writing_strong_model_analysis");
+  assert.equal(prepared.json.item.request.privacy.mode, "remote_after_confirmation");
+  assert.equal(prepared.json.item.request.privacy.cloudModelAllowed, true);
+  assert.equal(prepared.json.item.request.privacy.cloudModelUsed, false);
+  assert.equal(prepared.json.item.request.canAutoConfirm, false);
+  assert.equal(prepared.json.item.result, null);
+
+  const merged = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    userConfirmedRemoteModel: true,
+    writingGoal: "Prepare a source-grounded outline.",
+    noteIds: [note.json.item.id],
+    remoteModelResponse: {
+      writingMoves: [
+        {
+          moveType: "claim",
+          text: "Open by separating AI support from user judgment.",
+          sourceNoteIds: [note.json.item.id],
+          suggestedLocation: "opening",
+          whyItMatters: "It makes authorship boundaries explicit."
+        }
+      ],
+      outlineDrafts: [
+        {
+          title: "Review-first outline",
+          sections: ["Problem", "Boundary", "Workflow"],
+          sourceNoteIds: [note.json.item.id],
+          gaps: ["Need one accepted example."]
+        }
+      ],
+      sourceGaps: [
+        {
+          gap: "example_missing",
+          claim: "Review queues prevent accidental adoption.",
+          requiredSourceType: "note",
+          relatedNoteIds: [note.json.item.id]
+        }
+      ]
+    },
+    persistArtifacts: false
+  });
+  assert.equal(merged.status, 200, JSON.stringify(merged.json));
+  assert.equal(merged.json.item.result.analysisMode, "remote_strong_model_writing");
+  assert.equal(merged.json.item.result.provenance.cloudModelUsed, true);
+  assert.equal(merged.json.item.result.summary.canAutoConfirm, false);
+  assert.equal(merged.json.item.result.artifactsPersisted, false);
+  assert.deepEqual(merged.json.item.result.artifacts.map((item) => item.type), ["WritingMove", "OutlineDraft", "SourceGap"]);
+  assert.ok(merged.json.item.result.artifacts.every((item) => item.status === "pending_review"));
+  assert.ok(merged.json.item.result.artifacts.every((item) => item.origin === "ai_generated"));
+
+  const remoteProvider = await startJsonProvider({
+    writingMoves: [
+      {
+        moveType: "counterpoint",
+        text: "Add a caveat that review queues still require user attention.",
+        sourceNoteIds: [note.json.item.id],
+        suggestedLocation: "middle",
+        whyItMatters: "It keeps the workflow honest."
+      }
+    ],
+    outlineDrafts: [
+      {
+        title: "Executed review outline",
+        sections: ["Boundary", "Execution", "Review"],
+        sourceNoteIds: [note.json.item.id],
+        gaps: ["Need one manual adoption example."]
+      }
+    ],
+    sourceGaps: [
+      {
+        gap: "manual_adoption_example",
+        claim: "Review-first AI works better with explicit adoption examples.",
+        requiredSourceType: "note",
+        relatedNoteIds: [note.json.item.id]
+      }
+    ]
+  });
+  t.after(() => remoteProvider.server.close());
+
+  const executed = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    userConfirmedRemoteModel: true,
+    executeRemoteModel: true,
+    providerPreset: "openai_compatible_gateway",
+    modelPack: "Global Optimized",
+    authMode: "workspace_managed",
+    secretRef: "env:YANSILU_TEST_PROVIDER_KEY",
+    endpointUrl: `${remoteProvider.baseUrl}/v1/chat/completions`,
+    writingGoal: "Prepare a source-grounded outline.",
+    noteIds: [note.json.item.id],
+    model: "gpt-strong",
+    persistArtifacts: false
+  });
+  assert.equal(executed.status, 200, JSON.stringify(executed.json));
+  assert.equal(executed.json.item.modelExecution.status, "succeeded");
+  assert.equal(executed.json.item.modelExecution.providerId, "openai_compatible_gateway");
+  assert.equal(executed.json.item.result.analysisMode, "remote_strong_model_writing");
+  assert.equal(executed.json.item.result.provenance.cloudModelUsed, true);
+  assert.deepEqual(executed.json.item.result.artifacts.map((item) => item.type), ["WritingMove", "OutlineDraft", "SourceGap"]);
+  assert.ok(executed.json.item.result.artifacts.every((item) => item.status === "pending_review"));
+  assert.equal(remoteProvider.requests.length, 1);
+  assert.equal(remoteProvider.requests[0].body.model, "gpt-strong");
+  assert.match(remoteProvider.requests[0].headers.authorization || "", /^Bearer test-key$/);
+});
 
 test("writing APIs create project basket and draft scaffold from permanent notes", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-writing-vault-");

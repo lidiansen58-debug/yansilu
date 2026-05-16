@@ -1,6 +1,6 @@
 # Yansilu API Reference
 
-Last updated for AI configuration, local runtime discovery, scheduled task, and AI Inbox additions on 2026-05-14.
+Last updated for AI permanent-note analysis, provider execution wiring, AI configuration, local runtime discovery, scheduled task, and AI Inbox additions on 2026-05-15.
 
 This document describes the API routes that are currently implemented and covered by automated tests. Planned product APIs are intentionally not listed as active contracts here.
 
@@ -314,6 +314,262 @@ Response status: `200`
   "noteId": "pn_...",
   "requestId": "req_...",
   "timestamp": "2026-04-23T03:00:00.000Z"
+}
+```
+
+### `POST /api/v1/notes/:id/ai-analysis`
+
+Runs local-rule AI analysis for a permanent note and creates reviewable AI artifacts for the active vault.
+
+This endpoint is local-first. By default it runs deterministic local rules and does not call a model. It can also prepare a local-only model request or merge a caller-supplied local model JSON response, but the API still does not mutate the note body, confirmed distillation fields, or graph relations. Generated artifacts are stored as `pending_review`; field-level distillation suggestions are returned as `suggested` objects in the response and are also wrapped in reviewable `InsightCard` artifacts.
+
+Request:
+
+```json
+{
+  "relatedNoteIds": ["pn_related"],
+  "literatureNoteIds": ["ln_source"],
+  "minRelationConfidence": 0.1,
+  "relationLimit": 5,
+  "prepareLocalModelRequest": false,
+  "executeLocalModel": false,
+  "localModel": "qwen2.5:7b",
+  "localModelResponse": null,
+  "persistArtifacts": true
+}
+```
+
+`relatedNotes` and `literatureNotes` object arrays are also accepted for callers that already have hydrated note/source data. `persistArtifacts` defaults to `true`; set it to `false` to preview the analysis without writing AI artifacts.
+
+Local model fields:
+
+- `prepareLocalModelRequest: true` returns `item.localModelRequest`, a local-only structured prompt bundle with `canAutoConfirm: false`; the server does not execute it.
+- `executeLocalModel: true` sends `item.localModelRequest` through the configured local/private provider adapter. The default route is `Ollama Local` / `ollama_local_gateway`; callers may pass `providerPreset`, `endpointUrl`, `modelPack`, `modelRef`, and provider auth fields to override routing. If provider execution fails, the endpoint falls back to local rules unless `fallbackOnProviderFailure: false` is supplied.
+- `localModelResponse` accepts the JSON returned by a local model and merges it with the local-rule baseline. The merged result uses `analysisMode: "local_model_assisted"` and every generated item remains `pending_review` or `suggested`.
+- `localModel` names the intended local model in the request metadata.
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "noteId": "pn_...",
+    "analysis": {
+      "analysisMode": "local_rule",
+      "analysisStatus": "warning",
+      "distillation": {
+        "status": "warning",
+        "reasons": ["thesis_missing"],
+        "suggestedThesis": "..."
+      },
+      "originality": {
+        "status": "warning",
+        "reasons": ["source_trace_missing"]
+      },
+      "principleChecks": [],
+      "relationCandidates": [],
+      "recommendedActions": []
+    },
+    "localModelRequest": null,
+    "modelExecution": null,
+    "reviewItems": {
+      "artifacts": [
+        {
+          "type": "LinkSuggestion",
+          "status": "pending_review"
+        },
+        {
+          "type": "InsightCard",
+          "status": "pending_review",
+          "payload": {
+            "targetField": "thesis",
+            "fieldSuggestion": {
+              "status": "suggested",
+              "target": {
+                "type": "permanent_note",
+                "field": "thesis"
+              }
+            }
+          }
+        }
+      ],
+      "suggestions": [
+        {
+          "status": "suggested",
+          "target": {
+            "type": "permanent_note",
+            "field": "thesis"
+          }
+        }
+      ],
+      "storedArtifactIds": ["artifact_link_suggestion_..."],
+      "artifactsPersisted": true,
+      "summary": {
+        "canAutoConfirm": false
+      }
+    },
+    "inbox": {
+      "counts": {
+        "pending": 1,
+        "reviewed": 0,
+        "archived": 0,
+        "all": 1
+      },
+      "pending": []
+    }
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-15T09:00:00.000Z"
+}
+```
+
+Review rules:
+
+- `LinkSuggestion` artifacts are not graph edges. Users must later call `POST /api/v1/ai/inbox/:artifactId/accept-link` with `confirm: true` before a relation is created.
+- Distillation suggestions are also persisted as reviewable `InsightCard` artifacts with `payload.fieldSuggestion`; they cannot become confirmed fields directly.
+- Local model responses are normalized into the same review flow; they cannot confirm fields, topics, or graph edges.
+- Executed local model output is normalized through the same review flow. `item.modelExecution` reports provider status, model ref, usage, and whether a local-rule fallback was used.
+- Non-permanent notes are rejected with `NOTE_AI_ANALYSIS_PERMANENT_REQUIRED`.
+
+### `GET /api/v1/notes/:id/ai-analysis`
+
+Lists existing AI analysis artifacts for a note through the AI Inbox projection.
+
+Query parameters:
+
+| Name | Type | Default | Description |
+| --- | --- | --- | --- |
+| `view` | string | `all` | One of `pending`, `reviewed`, `archived`, or `all`. |
+| `limit` | number | `100` | Maximum inbox items to return. |
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "noteId": "pn_...",
+    "items": [
+      {
+        "artifactId": "artifact_link_suggestion_...",
+        "type": "LinkSuggestion",
+        "status": "pending_review",
+        "actionState": "needs_review"
+      }
+    ],
+    "counts": {
+      "pending": 1,
+      "reviewed": 0,
+      "archived": 0,
+      "all": 1
+    },
+    "views": ["pending", "reviewed", "archived", "all"]
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-15T09:00:00.000Z"
+}
+```
+
+### `POST /api/v1/graph/ai-analysis`
+
+Runs local graph/theme analysis over permanent notes and returns reviewable AI artifacts.
+
+The endpoint accepts either a directory scope or explicit note/relation arrays. It does not create graph edges, index cards, or confirmed themes. Generated items remain `pending_review`.
+
+Request:
+
+```json
+{
+  "directoryId": "dir_...",
+  "includeDescendants": false,
+  "minRelationConfidence": 0.05,
+  "relationLimit": 12,
+  "minTopicSize": 2,
+  "persistArtifacts": true
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "analysis": {
+      "analysisMode": "local_graph_rule",
+      "topicCandidates": [],
+      "relationCandidates": [],
+      "bridgeCandidates": [],
+      "isolatedNotes": [],
+      "provenance": {
+        "modelUsed": false,
+        "cloudModelUsed": false,
+        "canAutoConfirm": false
+      }
+    },
+    "reviewItems": {
+      "artifacts": [
+        { "type": "InsightCard", "status": "pending_review" },
+        { "type": "LinkSuggestion", "status": "pending_review" },
+        { "type": "BridgeCard", "status": "pending_review" },
+        { "type": "QuestionCard", "status": "pending_review" }
+      ],
+      "summary": {
+        "canAutoConfirm": false
+      }
+    }
+  }
+}
+```
+
+### `POST /api/v1/writing/ai-analysis`
+
+Prepares confirmed remote strong-model writing analysis and optionally executes or normalizes a model response into reviewable artifacts.
+
+The caller must pass `userConfirmedRemoteModel: true`; otherwise the endpoint returns `WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED`. By default the endpoint only prepares the request. When `executeRemoteModel: true` is supplied, it sends the request through the configured provider adapter. When `remoteModelResponse` is supplied, that JSON is normalized without calling a provider. In both cases, output becomes `WritingMove`, `OutlineDraft`, and `SourceGap` artifacts, all `pending_review`.
+
+Request:
+
+```json
+{
+  "userConfirmedRemoteModel": true,
+  "writingGoal": "Prepare a source-grounded outline.",
+  "noteIds": ["pn_..."],
+  "executeRemoteModel": false,
+  "model": "gpt-strong",
+  "providerPreset": "openai_compatible_gateway",
+  "endpointUrl": "https://provider.example/v1/chat/completions",
+  "remoteModelResponse": null,
+  "persistArtifacts": true
+}
+```
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "request": {
+      "requestType": "writing_strong_model_analysis",
+      "privacy": {
+        "mode": "remote_after_confirmation",
+        "cloudModelAllowed": true,
+        "cloudModelUsed": false,
+        "userConfirmed": true
+      },
+      "canAutoConfirm": false
+    },
+    "modelExecution": null,
+    "result": {
+      "analysisMode": "remote_strong_model_writing",
+      "artifacts": [
+        { "type": "WritingMove", "status": "pending_review" },
+        { "type": "OutlineDraft", "status": "pending_review" },
+        { "type": "SourceGap", "status": "pending_review" }
+      ],
+      "summary": {
+        "canAutoConfirm": false
+      }
+    }
+  }
 }
 ```
 
@@ -2281,6 +2537,9 @@ Export record shape:
 | `AI_LINK_SUGGESTION_REQUIRED` | 400 | Link acceptance was requested for a non-LinkSuggestion artifact. |
 | `AI_LINK_SUGGESTION_NOTE_ENDPOINT_REQUIRED` | 400 | LinkSuggestion acceptance only supports note-to-note endpoints. |
 | `AI_LINK_SUGGESTION_ACCEPT_FAILED` | 400 | LinkSuggestion acceptance failed. |
+| `NOTE_AI_ANALYSIS_PERMANENT_REQUIRED` | 400 | AI note analysis was requested for a non-permanent note. |
+| `NOTE_AI_ANALYSIS_FAILED` | 400 | AI note analysis could not be generated or stored. |
+| `NOTE_AI_ANALYSIS_LOAD_FAILED` | 400 | Existing AI note analysis inbox items could not be loaded. |
 | `IMPORT_PAYLOAD_INVALID` | 400 | Connector payload is invalid. |
 | `IMPORT_RECORD_NOT_FOUND` | 404 | Import record was not found. |
 | `IMPORT_STATUS_INVALID` | 400 | Import lifecycle state does not allow this operation. |

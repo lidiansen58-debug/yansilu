@@ -4,6 +4,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import net from "node:net";
+import http from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -36,6 +37,46 @@ async function waitForHealth(baseUrl) {
     await new Promise((resolve) => setTimeout(resolve, 80));
   }
   throw new Error("API server did not become healthy");
+}
+
+async function readRequestJson(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const text = Buffer.concat(chunks).toString("utf8");
+  return text ? JSON.parse(text) : {};
+}
+
+async function startJsonProvider(output) {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "not found" } }));
+      return;
+    }
+    const body = await readRequestJson(req);
+    requests.push({ body, headers: req.headers });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        id: "chatcmpl_note_analysis_test",
+        choices: [{ message: { role: "assistant", content: JSON.stringify(output) } }],
+        usage: { prompt_tokens: 11, completion_tokens: 13, total_tokens: 24 }
+      })
+    );
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      resolve({
+        server,
+        requests,
+        baseUrl: `http://127.0.0.1:${address.port}`
+      });
+    });
+  });
 }
 
 async function getJson(baseUrl, pathname) {
@@ -848,6 +889,67 @@ test("graph API finds note paths and duplicate title conflicts", async (t) => {
   assert.deepEqual(conflicts.json.item.conflicts[0].noteIds.sort(), [duplicateA.json.item.id, duplicateB.json.item.id].sort());
 });
 
+test("graph AI analysis API returns review-only graph and theme candidates", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-graph-ai-analysis-vault-");
+  const noteRoot = path.join(vaultPath, "notes", "original");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const createDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "graph-ai-analysis",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(noteRoot, "graph-ai-analysis"),
+    maxNotes: 500
+  });
+  assert.equal(createDir.status, 201);
+  const directoryId = createDir.json.item.id;
+
+  const noteA = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Reviewable AI relation candidates\n\nAI relation candidates should remain reviewable suggestions. #ai-review"
+  });
+  const noteB = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Graph relation review boundary\n\nGraph relation candidates need human review before becoming edges. #ai-review"
+  });
+  const noteC = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Writing synthesis\n\nWriting synthesis needs traceable note clusters. #writing"
+  });
+  assert.equal(noteA.status, 201);
+  assert.equal(noteB.status, 201);
+  assert.equal(noteC.status, 201);
+
+  const analysis = await postJson(baseUrl, "/api/v1/graph/ai-analysis", {
+    directoryId,
+    minRelationConfidence: 0.05,
+    persistArtifacts: false
+  });
+  assert.equal(analysis.status, 200, JSON.stringify(analysis.json));
+  assert.equal(analysis.json.item.analysis.analysisMode, "local_graph_rule");
+  assert.equal(analysis.json.item.analysis.provenance.canAutoConfirm, false);
+  assert.equal(analysis.json.item.reviewItems.artifactsPersisted, false);
+  assert.equal(analysis.json.item.reviewItems.summary.canAutoConfirm, false);
+  assert.ok(analysis.json.item.analysis.topicCandidates.some((item) => item.title === "ai-review"));
+  assert.ok(analysis.json.item.reviewItems.artifacts.some((item) => item.type === "LinkSuggestion"));
+  assert.ok(analysis.json.item.reviewItems.artifacts.some((item) => item.type === "QuestionCard"));
+  assert.ok(analysis.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
+});
+
 test("notes API keeps title-based filenames unique inside a directory", async (t) => {
   const vaultPath = await makeTempDir("yansilu-api-note-title-path-vault-");
   const noteRoot = path.join(vaultPath, "notes", "original");
@@ -1150,4 +1252,198 @@ test("notes API handles Chinese and space-containing vault paths with image and 
   assert.match(fetched.json.item.body, markdownDestinationPattern(expectedFileLink));
   assert.ok(!fetched.json.item.body.includes(imageUpload.json.item.markdownLinkPath));
   assert.ok(!fetched.json.item.body.includes(fileUpload.json.item.markdownLinkPath));
+});
+
+test("notes AI analysis API stores reviewable local candidates without confirming relations", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-note-ai-analysis-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const source = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# AI 关系候选\n\nAI 可以帮助用户看见关系，但不能直接替用户确认图谱边。",
+    thesis: "AI 关系候选应该帮助用户看见关系，而不是自动替用户确认关系。",
+    threeLineSummary: ["候选不是判断。", "确认动作属于用户。", "这能保护原创判断。"],
+    boundaryOrCounterpoint: "低风险提示可以自动出现，但图谱边必须人工确认。"
+  });
+  const target = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# 好的关联要写出为什么\n\n好的关联必须说明为什么相关，而不能只画一条线。",
+    thesis: "好的关联必须说明为什么相关，而不能只画一条线。",
+    threeLineSummary: ["关系需要理由。", "理由帮助复查。", "理由让写作可追溯。"],
+    boundaryOrCounterpoint: "弱关系可以留作候选。"
+  });
+  assert.equal(source.status, 201);
+  assert.equal(target.status, 201);
+
+  const analysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    minRelationConfidence: 0.1
+  });
+  assert.equal(analysis.status, 200, JSON.stringify(analysis.json));
+  assert.equal(analysis.json.item.analysis.analysisMode, "local_rule");
+  assert.equal(analysis.json.item.reviewItems.artifactsPersisted, true);
+  assert.ok(analysis.json.item.reviewItems.summary.artifactCount >= 1);
+  assert.ok(analysis.json.item.reviewItems.summary.relationCandidateCount >= 1);
+  assert.equal(analysis.json.item.reviewItems.summary.canAutoConfirm, false);
+  assert.ok(analysis.json.item.reviewItems.suggestions.every((item) => item.status === "suggested"));
+  if (analysis.json.item.reviewItems.suggestions.length) {
+    assert.ok(
+      analysis.json.item.reviewItems.artifacts.some((item) =>
+        analysis.json.item.reviewItems.suggestions.some((suggestion) => item.payload?.fieldSuggestion?.id === suggestion.id)
+      )
+    );
+  }
+
+  const inbox = await getJson(baseUrl, `/api/v1/ai/inbox?view=pending&sourceNoteId=${encodeURIComponent(source.json.item.id)}`);
+  assert.equal(inbox.status, 200);
+  assert.ok(inbox.json.items.some((item) => item.type === "LinkSuggestion"));
+  if (analysis.json.item.reviewItems.suggestions.length) {
+    assert.ok(inbox.json.items.some((item) => item.type === "InsightCard"));
+  }
+  assert.ok(inbox.json.items.every((item) => item.status === "pending_review"));
+
+  const relations = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
+  assert.equal(relations.status, 200);
+  assert.equal(relations.json.item.outgoingLinks.length, 0);
+
+  const existingAnalysis = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`);
+  assert.equal(existingAnalysis.status, 200);
+  assert.ok(existingAnalysis.json.item.items.some((item) => item.type === "LinkSuggestion"));
+  if (analysis.json.item.reviewItems.suggestions.length) {
+    assert.ok(existingAnalysis.json.item.items.some((item) => item.payload?.fieldSuggestion?.target?.field));
+  }
+
+  const localModelPreview = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    prepareLocalModelRequest: true,
+    localModel: "qwen2.5:7b",
+    persistArtifacts: false
+  });
+  assert.equal(localModelPreview.status, 200, JSON.stringify(localModelPreview.json));
+  assert.equal(localModelPreview.json.item.localModelRequest.requestType, "permanent_note_local_model_analysis");
+  assert.equal(localModelPreview.json.item.localModelRequest.privacy.mode, "local_only");
+  assert.equal(localModelPreview.json.item.localModelRequest.model.model, "qwen2.5:7b");
+  assert.equal(localModelPreview.json.item.localModelRequest.canAutoConfirm, false);
+  assert.equal(localModelPreview.json.item.reviewItems.artifactsPersisted, false);
+
+  const localModelMerge = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    localModel: "qwen2.5:7b",
+    localModelResponse: {
+      distilledViewpoint: {
+        thesis: "Local model output should remain a candidate until the user accepts it.",
+        threeLineSummary: [
+          "The model can propose a concise claim.",
+          "Relations and topics stay reviewable.",
+          "No graph edge or field is confirmed automatically."
+        ]
+      },
+      relationCandidates: [
+        {
+          toNoteId: target.json.item.id,
+          relationType: "supports",
+          rationale: "Both notes discuss reviewable relation candidates.",
+          confidence: 0.66
+        }
+      ],
+      topicCandidates: [{ title: "AI review boundary", rationale: "The note is about review-first AI output." }],
+      principleWarnings: [{ checkId: "authorship_boundary", message: "Review model wording before adoption." }]
+    },
+    persistArtifacts: false
+  });
+  assert.equal(localModelMerge.status, 200, JSON.stringify(localModelMerge.json));
+  assert.equal(localModelMerge.json.item.analysis.analysisMode, "local_model_assisted");
+  assert.equal(localModelMerge.json.item.analysis.provenance.cloudModelUsed, false);
+  assert.equal(localModelMerge.json.item.reviewItems.summary.canAutoConfirm, false);
+  assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
+  assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.origin === "local_model"));
+  assert.ok(localModelMerge.json.item.reviewItems.suggestions.every((item) => item.status === "suggested"));
+
+  const localProvider = await startJsonProvider({
+    distilledViewpoint: {
+      thesis: "Executed local model output must stay reviewable.",
+      threeLineSummary: [
+        "The API can execute a configured local provider.",
+        "Provider output is normalized as review items.",
+        "No graph edge or note field is confirmed automatically."
+      ]
+    },
+    relationCandidates: [
+      {
+        toNoteId: target.json.item.id,
+        relationType: "supports",
+        rationale: "The executed provider also keeps relations review-only.",
+        confidence: 0.71
+      }
+    ],
+    topicCandidates: [{ title: "executed local analysis", rationale: "Provider execution is now wired through the API." }]
+  });
+  t.after(() => localProvider.server.close());
+
+  const providerConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "ollama_local_gateway",
+    authMode: "local_no_key",
+    endpointUrl: `${localProvider.baseUrl}/v1/chat/completions`
+  });
+  assert.equal(providerConfig.status, 200, JSON.stringify(providerConfig.json));
+
+  const executedLocalModel = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
+    relatedNoteIds: [target.json.item.id],
+    executeLocalModel: true,
+    localModel: "qwen2.5:7b",
+    persistArtifacts: false
+  });
+  assert.equal(executedLocalModel.status, 200, JSON.stringify(executedLocalModel.json));
+  assert.equal(executedLocalModel.json.item.analysis.analysisMode, "local_model_assisted");
+  assert.equal(executedLocalModel.json.item.analysis.provenance.cloudModelUsed, false);
+  assert.equal(executedLocalModel.json.item.modelExecution.status, "succeeded");
+  assert.equal(executedLocalModel.json.item.modelExecution.providerId, "ollama_local_gateway");
+  assert.equal(executedLocalModel.json.item.reviewItems.artifactsPersisted, false);
+  assert.ok(executedLocalModel.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
+  assert.ok(executedLocalModel.json.item.reviewItems.artifacts.every((item) => item.origin === "local_model"));
+  assert.equal(localProvider.requests.length, 1);
+  assert.equal(localProvider.requests[0].body.model, "qwen2.5:7b");
+});
+
+test("notes AI analysis API rejects non-permanent notes", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-note-ai-analysis-reject-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const literature = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    body: "# Literature note\n\n## Paraphrase\n\nThis source has been paraphrased."
+  });
+  assert.equal(literature.status, 201);
+
+  const analysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(literature.json.item.id)}/ai-analysis`, {});
+  assert.equal(analysis.status, 400);
+  assert.equal(analysis.json.error.code, "NOTE_AI_ANALYSIS_PERMANENT_REQUIRED");
 });

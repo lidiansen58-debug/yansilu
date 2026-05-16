@@ -66,6 +66,9 @@ import {
   normalizeScheduledTaskFilters
 } from "./scheduled-tasks-model.js";
 import {
+  analyzeDirectoryGraph,
+  analyzePermanentNote,
+  analyzeWritingWithStrongModel,
   bindWritingDraftNote,
   acceptAiInboxLink,
   cancelImport,
@@ -152,6 +155,9 @@ const graphState = {
   item: null,
   conflicts: null,
   reviewQueue: null,
+  aiAnalysis: null,
+  aiAnalysisLoading: false,
+  aiAnalysisError: "",
   loading: false,
   error: "",
   filters: {
@@ -250,7 +256,10 @@ const writingState = {
   scaffoldVersions: [],
   loadingScaffoldVersions: false,
   draftVersions: [],
-  loadingDraftVersions: false
+  loadingDraftVersions: false,
+  strongModelLoading: false,
+  strongModelResult: null,
+  strongModelError: ""
 };
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
@@ -3594,9 +3603,12 @@ function syncMobileNewNoteButton() {
   if (!button) return;
   const copy = explorerNewNoteButtonCopy(state);
   button.title = copy.title;
-  button.setAttribute("aria-label", copy.ariaLabel);
+  const folderId = resolveExplorerNewNoteFolderId(state);
+  const noteType = typeFromFolder(state, folderId);
+  const permanentLike = noteType === "permanent" || noteType === "original";
+  button.setAttribute("aria-label", noteType === "literature" ? `${copy.ariaLabel}（文摘）` : permanentLike ? `${copy.ariaLabel}（永久）` : copy.ariaLabel);
   const label = button.querySelector("span");
-  if (label) label.textContent = copy.label.replace(/^新建/, "");
+  if (label) label.textContent = permanentLike ? "永久" : noteType === "literature" ? "文摘" : copy.label.replace(/^新建/, "");
 }
 
 function renderModulePanels() {
@@ -4442,6 +4454,40 @@ async function openWritingProject(projectId) {
   return project;
 }
 
+async function prepareWritingStrongModelAnalysis() {
+  const noteIds = parseWritingBasketIds();
+  if (!noteIds.length) {
+    setStatus("先把永久笔记加入写作篮，再准备强模型分析", "warn");
+    return;
+  }
+  const confirmed =
+    typeof window === "undefined" ||
+    window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
+  if (!confirmed) return;
+  writingState.strongModelLoading = true;
+  writingState.strongModelError = "";
+  renderWritingPanel();
+  try {
+    const result = await analyzeWritingWithStrongModel({
+      userConfirmedRemoteModel: true,
+      projectId: writingState.project?.id || "",
+      writingGoal: String($("writingGoal")?.value || writingState.project?.goal || "").trim(),
+      audience: String($("writingAudience")?.value || writingState.project?.audience || "").trim(),
+      noteIds,
+      persistArtifacts: false
+    });
+    writingState.strongModelResult = result;
+    const model = result?.request?.model?.model || "strong_model";
+    setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
+  } catch (error) {
+    writingState.strongModelError = String(error?.message || error);
+    setStatus(`强模型写作分析准备失败：${writingState.strongModelError}`, "warn");
+  } finally {
+    writingState.strongModelLoading = false;
+    renderWritingPanel();
+  }
+}
+
 async function scaffoldBundleForProject(projectLike = null) {
   const project = projectLike || writingState.project;
   if (!project?.id) throw new Error("writingProjectId is required");
@@ -4676,6 +4722,8 @@ function renderWritingPanel() {
   const copyScaffoldButton = $("btnWritingCopyScaffold");
   const exportScaffoldButton = $("btnWritingExportScaffold");
   const saveDraftButton = $("btnWritingSaveDraft");
+  const strongModelButton = $("btnWritingStrongModelAnalysis");
+  const strongModelSummary = $("writingStrongModelSummary");
   const projectsHint = $("writingProjectsHint");
   const projectsList = $("writingProjectsList");
   const scaffoldVersionsHint = $("writingScaffoldVersionsHint");
@@ -4726,8 +4774,8 @@ function renderWritingPanel() {
       : "尚未绑定草稿";
     const sourcePart = sourceIndexSummary || "尚未记录主题入口";
     basketSummary.textContent = basketEntries.length
-      ? `\u5199\u4f5c\u7bee\u91cc\u5df2\u6709 ${basketEntries.length} \u6761\u539f\u521b\u7b14\u8bb0\uff0c\u6b63\u5728\u4e3a\u5f53\u524d\u4e3b\u9898\u7ec4\u7ec7\u8bba\u70b9\u4e0e\u8bc1\u636e\u3002${sourcePart}\uff1b${projectPart}\uff1b${scaffoldPart}\uff1b${draftPart}\u3002`
-      : `\u5199\u4f5c\u7bee\u8fd8\u6ca1\u6709\u7b14\u8bb0\u3002\u5148\u786e\u8ba4\u4e00\u4e2a\u503c\u5f97\u63a8\u8fdb\u7684\u4e3b\u9898\uff0c\u518d\u6311\u9009 2-5 \u6761\u80fd\u652f\u6491\u8bba\u8bc1\u7684\u539f\u521b\u7b14\u8bb0\u3002${sourcePart}\uff1b${projectPart}\uff1b${scaffoldPart}\uff1b${draftPart}\u3002`;
+      ? `写作篮里已有 ${basketEntries.length} 条永久笔记，正在为当前主题组织论点与证据。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`
+      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
@@ -4769,6 +4817,31 @@ function renderWritingPanel() {
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
+  if (strongModelButton) {
+    const strongModelBasketIds = parseWritingBasketIds();
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0;
+    strongModelButton.textContent = writingState.strongModelLoading
+      ? "准备中..."
+      : strongModelBasketIds.length
+        ? "准备强模型分析"
+        : "先加入笔记";
+  }
+  if (strongModelSummary) {
+    const result = writingState.strongModelResult;
+    const request = result?.request;
+    const artifactCount = Number(result?.result?.summary?.artifactCount || result?.result?.artifacts?.length || 0);
+    if (writingState.strongModelError) {
+      strongModelSummary.textContent = `强模型分析准备失败：${writingState.strongModelError}`;
+    } else if (writingState.strongModelLoading) {
+      strongModelSummary.textContent = "正在准备强模型分析请求...";
+    } else if (request) {
+      strongModelSummary.textContent = result?.result
+        ? `已归一化 ${artifactCount} 条写作待审建议，全部进入 AI Inbox 后再决定是否采用。`
+        : `已准备 ${request.model?.model || "strong_model"} 请求包；当前没有直接调用远程模型。`;
+    } else {
+      strongModelSummary.textContent = "尚未准备强模型分析。需要你确认后，才会把写作篮发送给远程强模型。";
+    }
+  }
 
   if (projectsHint) {
     const filterSummary = [
@@ -5418,6 +5491,53 @@ function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()
   `;
 }
 
+function renderGraphAiAnalysisCard() {
+  const analysis = graphState.aiAnalysis?.analysis || null;
+  const summary = graphState.aiAnalysis?.reviewItems?.summary || {};
+  const loading = graphState.aiAnalysisLoading;
+  const error = graphState.aiAnalysisError;
+  const pendingCount = Number(summary.artifactCount || 0);
+  const topicCount = Number(summary.topicCandidateCount || analysis?.topicCandidates?.length || 0);
+  const relationCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
+  const bridgeCount = Number(summary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
+  const isolatedCount = Number(summary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
+  return `
+    <section class="graph-section" aria-label="AI 图谱初判">
+      <div class="graph-section-head">
+        <div>
+          <div class="graph-section-title">AI 图谱初判</div>
+          <div class="graph-section-note">只生成待审候选：主题、桥接、弱关系和孤岛笔记都不会直接写入图谱。</div>
+        </div>
+        <button class="secondary-btn small" type="button" data-run-graph-ai-analysis ${loading ? "disabled" : ""}>
+          ${loading ? "分析中..." : analysis ? "重新分析" : "AI 扫描"}
+        </button>
+      </div>
+      ${
+        error
+          ? `<div class="graph-empty bad">AI 图谱初判失败：${escapeHtml(error)}</div>`
+          : analysis
+            ? `
+              <div class="graph-metrics" aria-label="AI 图谱初判摘要">
+                ${renderGraphMetricCard("待审项", pendingCount, "进入 AI Inbox 复核", pendingCount ? "warn" : "good")}
+                ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
+                ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
+                ${renderGraphMetricCard("桥接/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补结构缺口", bridgeCount + isolatedCount ? "warn" : "good")}
+              </div>
+              <div class="graph-next-card">
+                <strong>待审优先级</strong>
+                <small>${escapeHtml(
+                  pendingCount
+                    ? "打开 AI Inbox 查看这些候选，确认有价值的关系或忽略噪声。"
+                    : "当前没有新的图谱候选。"
+                )}</small>
+              </div>
+            `
+            : `<div class="graph-empty">运行一次本地图谱扫描，查看可能的主题、桥接关系和孤岛笔记。</div>`
+      }
+    </section>
+  `;
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
@@ -5623,6 +5743,7 @@ function renderGraphPanel() {
       ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
       ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
     </div>
+    ${renderGraphAiAnalysisCard()}
     ${renderGraphVisualMap({ nodes: visibleNodes, edges, filterActive })}
     <div class="graph-grid">
       <section class="graph-section">
@@ -5793,6 +5914,30 @@ async function refreshDirectoryGraph() {
     graphState.reviewQueue = null;
   } finally {
     graphState.loading = false;
+    renderGraphPanel();
+  }
+}
+
+async function runGraphAiAnalysis() {
+  if (graphState.aiAnalysisLoading) return;
+  graphState.aiAnalysisLoading = true;
+  graphState.aiAnalysisError = "";
+  renderGraphPanel();
+  try {
+    const result = await analyzeDirectoryGraph(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, {
+      includeDescendants: true,
+      minRelationConfidence: 0.05,
+      persistArtifacts: true
+    });
+    graphState.aiAnalysis = result;
+    const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
+    setStatus(count ? `AI 图谱初判已生成 ${count} 条待审候选` : "AI 图谱初判完成，没有新的候选", count ? "ok" : "");
+    if (count) await openAiInboxModule({ view: "pending" });
+  } catch (error) {
+    graphState.aiAnalysisError = String(error?.message || error);
+    setStatus(`AI 图谱初判失败：${graphState.aiAnalysisError}`, "warn");
+  } finally {
+    graphState.aiAnalysisLoading = false;
     renderGraphPanel();
   }
 }
@@ -6032,6 +6177,54 @@ async function handleStateChange(reason, payload = {}) {
     }
     renderAll();
     return;
+  }
+
+  if (reason === "run-note-ai-analysis") {
+    const noteId = String(payload.noteId || "").trim();
+    if (!noteId) return false;
+    try {
+      setStatus("正在运行本地永久笔记 AI 分析...", "warn");
+      const result = await analyzePermanentNote(noteId, {
+        relatedNoteIds: Array.isArray(payload.relatedNoteIds) ? payload.relatedNoteIds : [],
+        persistArtifacts: payload.persistArtifacts !== false
+      });
+      const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
+      aiInboxState.filters = normalizeAiInboxFilters({
+        ...aiInboxState.filters,
+        view: "pending",
+        sourceNoteId: noteId
+      });
+      aiInboxState.detail = null;
+      aiInboxState.selectedArtifactId = "";
+      activateModule("aiInbox");
+      await openAiInboxModule();
+      setStatus(
+        artifactCount
+          ? `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
+          : "本地 AI 分析完成，暂时没有新的待审核建议",
+        artifactCount ? "ok" : "warn"
+      );
+      return result || true;
+    } catch (error) {
+      setStatus(`永久笔记 AI 分析失败：${String(error?.message || error)}`, "bad");
+      return false;
+    }
+  }
+
+  if (reason === "open-note-ai-inbox") {
+    const noteId = String(payload.noteId || "").trim();
+    if (!noteId) return false;
+    aiInboxState.filters = normalizeAiInboxFilters({
+      ...aiInboxState.filters,
+      view: "pending",
+      sourceNoteId: noteId
+    });
+    aiInboxState.detail = null;
+    aiInboxState.selectedArtifactId = "";
+    activateModule("aiInbox");
+    await openAiInboxModule();
+    setStatus("已打开当前笔记的待审 AI 建议", "ok");
+    return true;
   }
 
   if (reason === "save-note") {
@@ -6776,6 +6969,10 @@ $("btnWritingClearBasket")?.addEventListener("click", () => {
   setStatus("已清空写作篮", "ok");
 });
 
+$("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
+  await prepareWritingStrongModelAnalysis();
+});
+
 $("writingCandidateList")?.addEventListener("click", (event) => {
   const button = event.target?.closest?.("[data-writing-action]");
   if (!button) return;
@@ -7333,6 +7530,11 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 });
 
 $("graphCanvas")?.addEventListener("click", (event) => {
+  const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
+  if (graphAiButton) {
+    runGraphAiAnalysis();
+    return;
+  }
   const row = event.target.closest("[data-open-note]");
   if (!row) return;
   openNoteById(row.dataset.openNote);
