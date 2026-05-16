@@ -58,6 +58,7 @@ test("marketing routes expose static marketing pages", async (t) => {
   const webBase = await withWebServer(t);
   const routes = [
     ["/about", "page-about-v2"],
+    ["/product", "page-product-v2"],
     ["/demo", "page-demo-v2"],
     ["/demo/zettelkasten", "page-demo-v2"],
     ["/demo/yijing", "page-demo-v2"],

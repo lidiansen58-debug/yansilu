@@ -35,6 +35,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   assert.equal(fixture.writing_projects.length, 1);
   assert.equal(fixture.draft_scaffolds.length, 1);
   assert.equal(fixture.final_essays.length, 1);
+  assert.equal(fixture.guide_notes.length, 1);
   assert.deepEqual(fixture.counts, {
     sources: 1,
     fleeting_notes: 2,
@@ -44,7 +45,8 @@ test("smart notes product demo fixture keeps the requested scope", () => {
     relations: 159,
     writing_projects: 1,
     draft_scaffolds: 1,
-    final_essays: 1
+    final_essays: 1,
+    guide_notes: 1
   });
 });
 
@@ -91,6 +93,15 @@ test("smart notes product demo fixture literature notes are original paraphrases
       assert.ok(permanentIds.has(targetId), `${note.id} points to missing permanent note ${targetId}`);
     }
   }
+});
+
+test("smart notes product demo fixture includes an inspection guide", () => {
+  const guide = fixture.guide_notes[0];
+  assert.equal(guide.id, "GUIDE-SN-001");
+  assert.equal(guide.note_type, "guide");
+  assert.match(guide.body, /Inspect it in this order/);
+  assert.match(guide.body, /WP-SN-PM-001/);
+  assert.match(guide.body, /DS-SN-PM-001/);
 });
 
 test("smart notes product demo fixture relations are typed and complete enough", () => {

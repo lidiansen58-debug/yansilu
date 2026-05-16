@@ -169,30 +169,30 @@ Demo 层负责让访客看到真实工作流。它不替代官网主站，只作
 
 - [x] 首页移除“查看易经 Demo”作为首屏或主按钮，改成“查看写作 Demo”。
 - [x] 首页 Demo 区块改成卡片笔记写作法产品工作流预览，不以易经为标题。
-- [ ] 产品页补足完整能力地图：导入、提纯、永久笔记、关系、索引、写作、AI 边界、本地优先。
+- [x] 产品页补足完整能力地图：导入、提纯、永久笔记、关系、索引、写作、AI 边界、本地优先。
 - [x] 产品页和下载页 Demo CTA 改为“查看写作 Demo”，不再指向单一易经样例。
 
 ### 阶段 C：Demo 中心
 
 - [x] 将 `/demo` 的主内容改为《卡片笔记写作法》主 Demo。
-- [ ] 新增 `/demo/zettelkasten` 主 demo 页面。
+- [x] 新增 `/demo/zettelkasten` 主 demo 页面。
 - [x] 将当前易经 demo 页面迁移或复制为 `/demo/yijing`。
-- [ ] 导航文案从“易经 Demo”改为“产品 Demo”或“演示”。
+- [x] 导航文案从“易经 Demo”改为“产品 Demo”或“演示”。
 
 ### 阶段 D：《卡片笔记写作法》可交互 demo
 
 - [x] 引入已有 `demo-smart-notes-product-thinking` fixture。
-- [ ] 新增 seed 脚本，保证重复运行幂等。
-- [ ] 新增 API demo seed endpoint。
-- [ ] `prototype` 支持 `demo=smart-notes-product-thinking` 自动导入并定位到适合的模块。
-- [ ] 加入测试，覆盖 fixture 计数、关系引用、seed 幂等和 prototype API 调用。
+- [x] 新增 seed 脚本，保证重复运行幂等。
+- [x] 新增 API demo seed endpoint。
+- [x] `prototype` 支持 `demo=smart-notes-product-thinking` 自动导入并定位到适合的模块。
+- [x] 加入测试，覆盖 fixture 计数、关系引用、seed 幂等和 prototype API 调用。
 
 ### 阶段 E：演示脚本与验收
 
-- [ ] 编写 3 分钟《卡片笔记写作法》demo playbook。
-- [ ] 编写易经 demo 的第二案例 playbook，明确它不是官网主叙事。
-- [ ] 浏览器验证桌面与移动端 `/`、`/product`、`/demo`、`/demo/zettelkasten`、`/demo/yijing`。
-- [ ] 确认首页、产品页和 demo 页面没有乱码、没有横向滚动、CTA 指向一致。
+- [x] 编写 3 分钟《卡片笔记写作法》demo playbook。
+- [x] 编写易经 demo 的第二案例 playbook，明确它不是官网主叙事。
+- [x] 浏览器验证桌面与移动端 `/`、`/product`、`/demo`、`/demo/zettelkasten`、`/demo/yijing`。
+- [x] 确认首页、产品页和 demo 页面没有乱码、没有横向滚动、CTA 指向一致。
 
 ## 7. 验收标准
 
@@ -230,5 +230,5 @@ Demo 层负责让访客看到真实工作流。它不替代官网主站，只作
 
 尚未执行的内容：
 
-- `/prototype?demo=smart-notes-product-thinking` 目前只是规划入口，自动导入和定位仍属于阶段 D。
-- `/demo/yijing` 独立页面仍属于后续阶段，不在本轮阶段一和阶段二范围内。
+- `/prototype?demo=smart-notes-product-thinking` 已接入自动导入，并会进入可交互 demo。
+- `/demo/yijing` 已作为第二案例独立页面保留。
