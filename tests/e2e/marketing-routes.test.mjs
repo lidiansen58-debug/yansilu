@@ -59,6 +59,7 @@ test("marketing routes expose static marketing pages", async (t) => {
   const routes = [
     ["/about", "page-about-v2"],
     ["/demo", "page-demo-v2"],
+    ["/demo/zettelkasten", "page-demo-v2"],
     ["/demo/yijing", "page-demo-v2"],
     ["/privacy", "page-privacy-v2"],
     ["/terms", "page-terms-v2"],
@@ -84,12 +85,18 @@ test("marketing routes expose static marketing pages", async (t) => {
       assert.match(html, /data-billing-status/);
     }
     if (route === "/demo") {
-      assert.match(html, /卡片笔记写作法 Demo/);
+      assert.match(html, /产品演示中心/);
+      assert.match(html, /\/demo\/zettelkasten/);
+      assert.match(html, /\/demo\/yijing/);
+      assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
+    }
+    if (route === "/demo/zettelkasten") {
+      assert.match(html, /smart-notes-product-thinking/);
       assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
       assert.match(html, /\/demo\/yijing/);
     }
     if (route === "/demo/yijing") {
-      assert.match(html, /易经知识网络案例/);
+      assert.match(html, /yijing-rich/);
       assert.match(html, /\/prototype\?demo=yijing-rich/);
       assert.match(html, /\/demo/);
     }
@@ -103,7 +110,7 @@ test("marketing home exposes the smart notes demo story", async (t) => {
   assert.match(res.headers.get("content-type") || "", /text\/html/);
   const html = await res.text();
   assert.match(html, /home-v3-demo/);
-  assert.match(html, /卡片笔记写作法/);
+  assert.match(html, /smart-notes-product-thinking/);
   assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
 });
 
