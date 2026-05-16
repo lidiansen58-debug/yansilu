@@ -147,6 +147,21 @@
 
 ---
 
+## 3.8 Phase 0 到 V1.1 执行计划
+
+进入下一轮实施前，读：
+
+1. [PHASE_0_TO_V1_1_EXECUTION_PLAN.md](/E:/Projects/Thinking%20in%20Notes/yansilu-wt/wt-ai-harness/docs/PHASE_0_TO_V1_1_EXECUTION_PLAN.md)
+
+解决的问题：
+
+1. 为什么要先收口 Phase 0 可信 MVP，再推进 V1.1 思想提纯器？
+2. Phase 0 需要用哪条真实用户流验收？
+3. V1.1 的第一批提纯能力应按什么顺序落地？
+4. AI 候选态在提纯链路中能做什么、不能做什么？
+
+---
+
 ## 4. 当前优先级判断
 
 当前不建议直接进入 Phase 3 或 Phase 4 的实施。
