@@ -152,6 +152,7 @@
 进入下一轮实施前，读：
 
 1. [PHASE_0_TO_V1_1_EXECUTION_PLAN.md](/E:/Projects/Thinking%20in%20Notes/yansilu-wt/wt-ai-harness/docs/PHASE_0_TO_V1_1_EXECUTION_PLAN.md)
+2. [PHASE_0_MVP_ACCEPTANCE.md](/E:/Projects/Thinking%20in%20Notes/yansilu-wt/wt-ai-harness/docs/PHASE_0_MVP_ACCEPTANCE.md)
 
 解决的问题：
 
