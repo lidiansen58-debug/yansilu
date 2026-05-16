@@ -702,33 +702,33 @@ It should contain:
 7. writing project
 8. scaffold
 9. final essay note
+10. guide note
 
 ### Slice 2: Seed Script
 
 Create:
 
 ```text
-scripts/seed-demo-smart-notes.mjs
+scripts/seed-smart-notes-product-thinking.mjs
 ```
 
 Behavior:
 
 1. accepts `--vault <path>`
-2. refuses to run against a non-empty user vault unless `--force-demo` is passed
-3. initializes the vault structure if needed
-4. writes notes with deterministic ids and filenames
-5. writes relations and index-card metadata through existing domain helpers where possible
-6. prints the guide note path at the end
+2. initializes the vault structure if needed
+3. writes notes with deterministic ids and filenames
+4. writes relations and index-card metadata through existing domain helpers where possible
+5. can be run repeatedly against the demo vault without duplicating notes, relations, index cards, or writing projects
 
-### Slice 3: Optional App Entry
+### Slice 3: App Entry
 
-Add one small UI entry later:
+The interactive app entry is:
 
 ```text
-Load demo: Smart Notes Product Thinking
+/prototype?demo=smart-notes-product-thinking
 ```
 
-This should remain optional. The first version can be script-only.
+The route calls the public demo seed endpoint and opens the seeded workspace.
 
 ### Slice 4: Validation
 
@@ -743,6 +743,7 @@ Validation should prove:
 7. index cards reference existing notes
 8. writing project references existing permanent notes
 9. final essay exists and can be opened
+10. guide note exists and explains how to inspect the demo
 
 ## 14. Acceptance Criteria
 
