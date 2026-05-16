@@ -73,6 +73,7 @@ import {
   acceptAiInboxLink,
   cancelImport,
   checkAiProviderHealth,
+  confirmPermanentNoteDistillation,
   confirmImport,
   createDirectory,
   createDraftScaffold,
@@ -129,7 +130,8 @@ import {
   switchVault,
   updateDirectory,
   updateAiScheduledTaskStatus,
-  updateNote
+  updateNote,
+  updatePermanentNoteDistillation
 } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
@@ -6270,16 +6272,10 @@ async function handleStateChange(reason, payload = {}) {
     const note = state.notes.find((n) => n.id === noteId);
     if (!note) return false;
     try {
-      const updated = await updateNote(note.id, {
-        title: note.title,
-        body: note.body,
-        status: note.status || "draft",
+      const updated = await updatePermanentNoteDistillation(note.id, {
         thesis: payload.thesis || "",
         threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
-        distillationStatus: payload.distillationStatus || "draft",
-        originalityStatus: note.originalityStatus || undefined,
-        originalitySimilarity: note.originalitySimilarity ?? undefined,
-        authorship: note.authorship || undefined
+        distillationStatus: payload.distillationStatus || "draft"
       });
       if (updated) {
         Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
@@ -6297,6 +6293,24 @@ async function handleStateChange(reason, payload = {}) {
       return updated || true;
     } catch (error) {
       setStatus(`提纯字段保存失败：${String(error?.message || error)}`, "bad");
+      return false;
+    }
+  }
+
+  if (reason === "confirm-note-distillation") {
+    const noteId = String(payload.noteId || "").trim();
+    const note = state.notes.find((n) => n.id === noteId);
+    if (!note) return false;
+    try {
+      const updated = await confirmPermanentNoteDistillation(note.id, {
+        aiAssisted: Boolean(note.authorship?.ai_assisted)
+      });
+      if (updated) Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      setStatus("提纯结果已确认", "ok");
+      renderAll();
+      return updated || true;
+    } catch (error) {
+      setStatus(`提纯确认失败：${String(error?.message || error)}`, "bad");
       return false;
     }
   }

@@ -30,6 +30,7 @@ import {
   initVault,
   getDirectoryGraph,
   listDirectories,
+  listDistillationQueue,
   listIndexCards,
   listNoteRelations,
   listRelationReviewQueue,
@@ -45,7 +46,9 @@ import {
   updateIndexCard,
   updateDirectory,
   updateNoteContent,
+  updatePermanentNoteDistillation,
   updateNoteRelation,
+  confirmPermanentNoteDistillation,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
   writeSourceIfAbsent
@@ -1084,6 +1087,16 @@ function parseDirectoryPath(urlPath) {
 
 function parseNotePath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/notes\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePermanentNoteDistillationPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/permanent-notes\/([^/]+)\/distillation$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parsePermanentNoteDistillationConfirmPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/permanent-notes\/([^/]+)\/distillation\/confirm$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -2938,6 +2951,71 @@ const server = http.createServer(async (req, res) => {
           400,
           err(error?.code || "NOTE_PAYLOAD_INVALID", String(error?.message || error), rid, error?.details)
         );
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
+      try {
+        await initVault(VAULT_PATH);
+        const result = await listDistillationQueue(VAULT_PATH, {
+          targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "permanent_note",
+          status: url.searchParams.get("status") || "",
+          limit: url.searchParams.get("limit") || 50
+        });
+        return sendJson(res, 200, {
+          ...result,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "DISTILLATION_QUEUE_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const permanentNoteDistillationId = parsePermanentNoteDistillationPath(url.pathname);
+    if (req.method === "PATCH" && permanentNoteDistillationId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updatePermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationId, {
+          thesis: body.thesis,
+          threeLineSummary: body.threeLineSummary ?? body.three_line_summary,
+          distillationStatus: body.distillationStatus ?? body.distillation_status
+        });
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "PERMANENT_NOTE_REQUIRED" ? 400 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "PERMANENT_NOTE_DISTILLATION_UPDATE_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const permanentNoteDistillationConfirmId = parsePermanentNoteDistillationConfirmPath(url.pathname);
+    if (req.method === "POST" && permanentNoteDistillationConfirmId) {
+      const body = await readJson(req);
+      if (body.confirm !== true) {
+        return sendJson(
+          res,
+          400,
+          err("PERMANENT_DISTILLATION_CONFIRM_REQUIRED", "confirm must be true to confirm permanent-note distillation.", rid)
+        );
+      }
+      try {
+        await initVault(VAULT_PATH);
+        const item = await confirmPermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationConfirmId, {
+          aiAssisted: body.aiAssisted ?? body.ai_assisted
+        });
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "PERMANENT_NOTE_REQUIRED" ? 400 : error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "PERMANENT_NOTE_DISTILLATION_CONFIRM_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

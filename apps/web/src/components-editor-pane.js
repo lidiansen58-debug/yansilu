@@ -5014,6 +5014,7 @@ export class EditorPane {
           </label>
           <div class="semantic-relation-actions">
             <button class="mini-btn primary" type="submit">保存提纯</button>
+            <button class="mini-btn" type="button" data-note-distillation-confirm>确认提纯</button>
           </div>
         </form>
       </section>
@@ -5044,6 +5045,44 @@ export class EditorPane {
     note.thesis = thesis;
     note.threeLineSummary = threeLineSummary;
     note.distillationStatus = thesis || threeLineSummary.length ? "draft" : "missing";
+    this.renderThinkingStatus();
+    this.renderRelated();
+  }
+
+  async confirmDistillation() {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    if (noteType !== "permanent" && noteType !== "original") {
+      this.onStatus("提纯面板只支持永久笔记", "warn");
+      return;
+    }
+    const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
+    if (form) {
+      const thesis = String(form.querySelector('[name="thesis"]')?.value || "").trim();
+      const threeLineSummary = [1, 2, 3]
+        .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
+        .filter(Boolean);
+      if (!thesis || threeLineSummary.length !== 3) {
+        this.onStatus("确认前需要补全一句话论点和三句话压缩", "warn");
+        return;
+      }
+      const savedEditor = await this.autoSaveActiveNote("distillation-confirm");
+      if (savedEditor === false) return;
+      const saved = await this.onStateChange("save-note-distillation", {
+        noteId: note.id,
+        thesis,
+        threeLineSummary,
+        distillationStatus: "draft"
+      });
+      if (!saved) return;
+      note.thesis = thesis;
+      note.threeLineSummary = threeLineSummary;
+    }
+    const confirmed = await this.onStateChange("confirm-note-distillation", { noteId: note.id });
+    if (!confirmed) return;
+    note.distillationStatus = "confirmed";
+    note.authorship = { ...(note.authorship || {}), user_confirmed: true };
     this.renderThinkingStatus();
     this.renderRelated();
   }
@@ -5697,6 +5736,12 @@ export class EditorPane {
       const aiAnalysisInboxButton = e.target.closest("[data-note-ai-analysis-open-inbox]");
       if (aiAnalysisInboxButton) {
         this.openPermanentNoteAiInbox();
+        return;
+      }
+
+      const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]");
+      if (distillationConfirmButton) {
+        void this.confirmDistillation();
         return;
       }
 

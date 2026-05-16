@@ -328,6 +328,71 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.match(markdownAfterUpdate, /boundary_or_counterpoint: This does not hold when the paragraph has no source trace\./);
   assert.match(markdownAfterUpdate, /Updated paragraph\./);
 
+  const queueSeed = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Queue seed\n\nThis note still needs a stable judgment."
+  });
+  assert.equal(queueSeed.status, 201);
+  const queueBefore = await getJson(baseUrl, "/api/v1/distillation/queue?targetType=permanent_note&status=missing&limit=20");
+  assert.equal(queueBefore.status, 200);
+  assert.ok(queueBefore.json.items.some((item) => item.targetId === queueSeed.json.item.id));
+  const queueItem = queueBefore.json.items.find((item) => item.targetId === queueSeed.json.item.id);
+  assert.deepEqual(queueItem.missing, ["thesis", "three_line_summary"]);
+
+  const distillationPatch = await patchJson(
+    baseUrl,
+    `/api/v1/permanent-notes/${encodeURIComponent(queueSeed.json.item.id)}/distillation`,
+    {
+      thesis: "A note becomes useful for writing when its judgment is explicit.",
+      threeLineSummary: [
+        "A note needs a clear judgment before it can guide writing.",
+        "The three-line summary makes the reasoning and use visible.",
+        "Confirmation stays separate so the user owns the final claim."
+      ],
+      distillationStatus: "draft"
+    }
+  );
+  assert.equal(distillationPatch.status, 200);
+  assert.equal(distillationPatch.json.item.thesis, "A note becomes useful for writing when its judgment is explicit.");
+  assert.equal(distillationPatch.json.item.distillationStatus, "draft");
+  assert.deepEqual(distillationPatch.json.item.threeLineSummary, [
+    "A note needs a clear judgment before it can guide writing.",
+    "The three-line summary makes the reasoning and use visible.",
+    "Confirmation stays separate so the user owns the final claim."
+  ]);
+
+  const rejectedPatchConfirm = await patchJson(
+    baseUrl,
+    `/api/v1/permanent-notes/${encodeURIComponent(queueSeed.json.item.id)}/distillation`,
+    {
+      thesis: "A note becomes useful for writing when its judgment is explicit.",
+      threeLineSummary: [
+        "A note needs a clear judgment before it can guide writing.",
+        "The three-line summary makes the reasoning and use visible.",
+        "Confirmation stays separate so the user owns the final claim."
+      ],
+      distillationStatus: "confirmed"
+    }
+  );
+  assert.equal(rejectedPatchConfirm.status, 400);
+  assert.equal(rejectedPatchConfirm.json.error.code, "PERMANENT_DISTILLATION_CONFIRMATION_REQUIRED");
+
+  const confirmDistillation = await postJson(
+    baseUrl,
+    `/api/v1/permanent-notes/${encodeURIComponent(queueSeed.json.item.id)}/distillation/confirm`,
+    { confirm: true }
+  );
+  assert.equal(confirmDistillation.status, 200);
+  assert.equal(confirmDistillation.json.item.distillationStatus, "confirmed");
+  assert.deepEqual(confirmDistillation.json.item.authorship, { user_confirmed: true, ai_assisted: false });
+
+  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=20");
+  assert.equal(confirmedQueue.status, 200);
+  assert.ok(confirmedQueue.json.items.some((item) => item.targetId === queueSeed.json.item.id && item.missing.length === 0));
+
+  const deletedQueueSeed = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueSeed.json.item.id)}`);
+  assert.equal(deletedQueueSeed.status, 200);
+
   const patchedDirectory = await patchJson(baseUrl, `/api/v1/directories/${encodeURIComponent(directoryId)}`, {
     title: "research-updated"
   });

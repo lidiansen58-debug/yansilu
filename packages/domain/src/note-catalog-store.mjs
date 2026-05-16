@@ -1878,6 +1878,122 @@ export async function getNoteById(vaultPath, noteId) {
   }
 }
 
+export async function listDistillationQueue(vaultPath, options = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const targetType = String(options.targetType || options.target_type || "permanent_note").trim();
+  if (targetType && targetType !== "permanent_note") {
+    return { items: [], total: 0 };
+  }
+  const statusFilter = String(options.status || "").trim().toLowerCase();
+  const allowedStatuses = new Set(["missing", "draft", "confirmed"]);
+  const limitInput = Number(options.limit || 50);
+  const limit = Math.max(1, Math.min(100, Number.isFinite(limitInput) ? limitInput : 50));
+  const root = path.resolve(vaultPath);
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const rows = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.note_type = 'permanent' AND n.deleted_at IS NULL
+         ORDER BY n.updated_at DESC, n.created_at DESC`
+      )
+      .all();
+    const items = [];
+    for (const row of rows) {
+      let permanentMeta = null;
+      try {
+        const markdown = await fs.readFile(path.join(root, row.markdown_path), "utf8");
+        const parsed = parseMarkdownWithFrontmatter(markdown);
+        permanentMeta = permanentMetadataFromFrontmatter(parsed.frontmatter || {});
+      } catch {
+        permanentMeta = { thesis: "", threeLineSummary: [], distillationStatus: "missing" };
+      }
+      const distillationStatus = permanentMeta.distillationStatus || "missing";
+      if (statusFilter && allowedStatuses.has(statusFilter) && distillationStatus !== statusFilter) continue;
+      const missing = [];
+      if (!permanentMeta.thesis) missing.push("thesis");
+      if (!Array.isArray(permanentMeta.threeLineSummary) || permanentMeta.threeLineSummary.length !== 3) {
+        missing.push("three_line_summary");
+      }
+      items.push({
+        targetType: "permanent_note",
+        targetId: row.id,
+        noteId: row.id,
+        title: row.title,
+        missing,
+        distillationStatus,
+        updatedAt: row.updated_at,
+        createdAt: row.created_at
+      });
+    }
+    return {
+      items: items.slice(0, limit),
+      total: items.length
+    };
+  } finally {
+    db.close();
+  }
+}
+
+export async function updatePermanentNoteDistillation(vaultPath, noteId, input = {}) {
+  const note = await getNoteById(vaultPath, noteId);
+  if (note.noteType !== "permanent") {
+    throw noteValidationError("PERMANENT_NOTE_REQUIRED", "Distillation fields can only be updated on permanent notes.", {
+      noteId,
+      noteType: note.noteType
+    });
+  }
+  return updateNoteContent(vaultPath, noteId, {
+    thesis: input.thesis,
+    threeLineSummary: input.threeLineSummary ?? input.three_line_summary,
+    distillationStatus: input.distillationStatus ?? input.distillation_status ?? "draft",
+    authorship: note.authorship,
+    originalityStatus: note.originalityStatus,
+    originalitySimilarity: note.originalitySimilarity,
+    boundaryOrCounterpoint: note.boundaryOrCounterpoint
+  });
+}
+
+export async function confirmPermanentNoteDistillation(vaultPath, noteId, input = {}) {
+  const note = await getNoteById(vaultPath, noteId);
+  if (note.noteType !== "permanent") {
+    throw noteValidationError("PERMANENT_NOTE_REQUIRED", "Distillation can only be confirmed on permanent notes.", {
+      noteId,
+      noteType: note.noteType
+    });
+  }
+  if (!note.thesis || !Array.isArray(note.threeLineSummary) || note.threeLineSummary.length !== 3) {
+    throw noteValidationError(
+      "PERMANENT_DISTILLATION_INCOMPLETE",
+      "Permanent-note distillation requires thesis and exactly three summary lines before confirmation.",
+      {
+        noteId,
+        missing: [
+          ...(!note.thesis ? ["thesis"] : []),
+          ...(!Array.isArray(note.threeLineSummary) || note.threeLineSummary.length !== 3 ? ["three_line_summary"] : [])
+        ]
+      }
+    );
+  }
+  return updateNoteContent(vaultPath, noteId, {
+    thesis: note.thesis,
+    threeLineSummary: note.threeLineSummary,
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: Boolean(input.aiAssisted ?? input.ai_assisted ?? note.authorship?.ai_assisted)
+    },
+    originalityStatus: note.originalityStatus,
+    originalitySimilarity: note.originalitySimilarity,
+    boundaryOrCounterpoint: note.boundaryOrCounterpoint
+  });
+}
+
 export async function saveNoteAsset(vaultPath, noteId, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
