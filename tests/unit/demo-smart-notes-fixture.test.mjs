@@ -79,6 +79,20 @@ test("smart notes product demo fixture permanent notes are PM-restated judgments
   }
 });
 
+test("smart notes product demo fixture literature notes are original paraphrases", () => {
+  const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
+  for (const note of fixture.literature_notes) {
+    assert.equal(note.note_type, "literature");
+    assert.equal(note.status, "paraphrased");
+    assert.ok(note.paraphrase_text && note.paraphrase_text.length >= 24, `${note.id} needs a paraphrase_text`);
+    assert.ok(note.my_takeaway && note.my_takeaway.length >= 12, `${note.id} needs a my_takeaway`);
+    assert.ok(Array.isArray(note.candidate_permanent_notes) && note.candidate_permanent_notes.length > 0, `${note.id} needs candidates`);
+    for (const targetId of note.candidate_permanent_notes) {
+      assert.ok(permanentIds.has(targetId), `${note.id} points to missing permanent note ${targetId}`);
+    }
+  }
+});
+
 test("smart notes product demo fixture relations are typed and complete enough", () => {
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
   const fleetingIds = new Set(fixture.fleeting_notes.map((note) => note.id));
