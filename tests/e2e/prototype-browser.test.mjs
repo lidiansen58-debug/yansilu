@@ -993,6 +993,53 @@ test("prototype renders thinking status in note tree and editor header", async (
   assert.match(thinkingUi.treeBadgeTitle, /写一句话看法/);
 });
 
+test("prototype permanent note distillation panel saves thesis and three-line summary", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page } = stack;
+
+  await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#markdownPanel")?.classList.contains("hidden"));
+
+  await createAndSaveNoteViaEditor(
+    page,
+    "# Distillation Seed\n\nA permanent note that will be distilled in the inspector."
+  );
+
+  const noteId = await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.id || "");
+  assert.ok(noteId);
+
+  await page.locator("#btnShowRelated").click();
+  await page.locator('[data-note-distillation-form] textarea[name="thesis"]').waitFor({ state: "visible" });
+
+  await page.fill('[data-note-distillation-form] textarea[name="thesis"]', "Distilled thesis.");
+  await page.fill('[data-note-distillation-form] textarea[name="summary1"]', "Line one.");
+  await page.fill('[data-note-distillation-form] textarea[name="summary2"]', "Line two.");
+  await page.fill('[data-note-distillation-form] textarea[name="summary3"]', "Line three.");
+  await page.click('[data-note-distillation-form] button[type="submit"]');
+
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /提纯字段/);
+  }, 10000);
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
+    assert.equal(note.status, 200);
+    assert.equal(note.json.item.thesis, "Distilled thesis.");
+    assert.deepEqual(note.json.item.threeLineSummary, ["Line one.", "Line two.", "Line three."]);
+    assert.equal(note.json.item.distillationStatus, "draft");
+  }, 10000);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
