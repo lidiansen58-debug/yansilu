@@ -1,4 +1,5 @@
 export * from "./agent-registry.mjs";
+export * from "./analysis-executor.mjs";
 export * from "./agent-prompts.mjs";
 export * from "./agent-runtime.mjs";
 export * from "./ai-preferences.mjs";
@@ -13,6 +14,7 @@ export * from "./context-pack-store.mjs";
 export * from "./core-note-tools.mjs";
 export * from "./harness.mjs";
 export * from "./mock-provider-adapter.mjs";
+export * from "./note-analysis.mjs";
 export * from "./model-pack-config-contract.mjs";
 export * from "./model-packs.mjs";
 export * from "./model-router.mjs";
@@ -36,3 +38,4 @@ export * from "./sqlite-run-log.mjs";
 export * from "./sqlite-scheduled-agent-task-store.mjs";
 export * from "./suggestions.mjs";
 export * from "./tools.mjs";
+export * from "./writing-analysis.mjs";

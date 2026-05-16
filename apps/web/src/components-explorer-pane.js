@@ -128,7 +128,10 @@ export class ExplorerPane {
     const copy = explorerNewNoteButtonCopy(this.state);
     button.title = copy.title;
     button.dataset.tip = copy.title;
-    button.setAttribute("aria-label", copy.ariaLabel);
+    const folderId = resolveExplorerNewNoteFolderId(this.state);
+    const noteType = typeFromFolder(this.state, folderId);
+    const ariaLabel = noteType === "literature" ? `${copy.ariaLabel}（文摘）` : noteType === "permanent" ? `${copy.ariaLabel}（永久）` : copy.ariaLabel;
+    button.setAttribute("aria-label", ariaLabel);
     const label = button.querySelector(".new-note-action-label");
     if (label) label.textContent = copy.label;
   }

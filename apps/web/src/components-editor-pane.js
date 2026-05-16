@@ -1299,6 +1299,7 @@ export class EditorPane {
     this.currentSemanticRelations = null;
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
+    this.noteAiAnalysisByNoteId = new Map();
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
@@ -3391,16 +3392,30 @@ export class EditorPane {
     return assetMarkdownSnippet(asset);
   }
 
-  normalizeAssetInsertText(assets = []) {
+  normalizeAssetInsertText(assets = [], options = {}) {
     const snippets = assets.map((item) => this.assetMarkdownSnippet(item)).filter(Boolean);
     if (!snippets.length) return "";
-    const { from, to } = this.editorSelection();
-    const value = this.getEditorValue();
+    const selection = options.selection || this.editorSelection();
+    const { from, to } = selection;
+    const value = typeof options.value === "string" ? options.value : this.getEditorValue();
     const beforeChar = from > 0 ? value[from - 1] : "";
     const afterChar = to < value.length ? value[to] : "";
     const prefix = beforeChar && beforeChar !== "\n" ? "\n\n" : beforeChar === "\n" ? "\n" : "";
     const suffix = afterChar && afterChar !== "\n" ? "\n\n" : afterChar === "\n" ? "\n" : "";
     return `${prefix}${snippets.join("\n\n")}${suffix}`;
+  }
+
+  stableEditorSelectionForAsyncInsert() {
+    const value = this.getEditorValue();
+    const fallback = { from: value.length, to: value.length };
+    try {
+      const selection = this.editorSelection();
+      const from = Math.max(0, Math.min(value.length, Number(selection?.from ?? fallback.from) || 0));
+      const to = Math.max(from, Math.min(value.length, Number(selection?.to ?? from) || from));
+      return { value, selection: { from, to } };
+    } catch {
+      return { value, selection: fallback };
+    }
   }
 
   async insertAssetFiles(filesLike, { sourceLabel = "插入" } = {}) {
@@ -3417,6 +3432,7 @@ export class EditorPane {
       this.onStatus("附件只支持图片、PDF、Markdown、TXT、CSV、JSON 和日志文本", "warn");
       return;
     }
+    const insertion = this.stableEditorSelectionForAsyncInsert();
     this.onStatus(`${sourceLabel}文件处理中...`, "ok");
     try {
       const uploaded = [];
@@ -3431,8 +3447,13 @@ export class EditorPane {
         if (item) uploaded.push(item);
       }
       if (!uploaded.length) throw new Error("未能写入任何附件");
-      const insertText = this.normalizeAssetInsertText(uploaded);
-      const { from, to } = this.editorSelection();
+      const currentValue = this.getEditorValue();
+      const from = Math.max(0, Math.min(currentValue.length, insertion.selection.from));
+      const to = Math.max(from, Math.min(currentValue.length, insertion.selection.to));
+      const insertText = this.normalizeAssetInsertText(uploaded, {
+        selection: { from, to },
+        value: currentValue
+      });
       const nextCursor = from + insertText.length;
       if (this.isWysiwygMode() && this.markdownEditor?.replaceRange) {
         this.markdownEditor.replaceRange(from, to, insertText);
@@ -4290,6 +4311,7 @@ export class EditorPane {
       this.insertAtCursor(token);
     }
     this.closeLinkPicker();
+    this.focusEditor();
     this.onStatus(`已插入关联笔记：${target.title}`, "ok");
   }
 
@@ -4449,6 +4471,7 @@ export class EditorPane {
       this.insertAtCursor(insertText);
     }
     this.closeTagPicker();
+    this.focusEditor();
     this.onStatus(`已插入标签：#${normalized}`, "ok");
   }
 
@@ -4764,6 +4787,142 @@ export class EditorPane {
     return rootBoxIdFromFolder(this.state, note?.folderId);
   }
 
+  relatedPermanentNoteIds(note = this.activeNote(), limit = 40) {
+    if (!note?.id) return [];
+    const rootId = rootBoxIdFromFolder(this.state, note.folderId);
+    return this.state.notes
+      .filter((item) => {
+        if (!item?.id || item.id === note.id) return false;
+        const noteType = String(item.noteType || typeFromFolder(this.state, item.folderId)).trim().toLowerCase();
+        if (noteType !== "permanent" && noteType !== "original") return false;
+        return rootBoxIdFromFolder(this.state, item.folderId) === rootId;
+      })
+      .slice(0, Math.max(0, Number(limit || 40) || 40))
+      .map((item) => item.id);
+  }
+
+  async runPermanentNoteAnalysis() {
+    const note = this.activeNote();
+    const tab = this.activeTab();
+    if (!note?.id || !tab) return;
+    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    if (noteType !== "permanent" && noteType !== "original") {
+      this.onStatus("AI 分析目前只面向永久笔记。", "warn");
+      return;
+    }
+    if (tab.dirty) {
+      this.onStatus("正在先同步当前笔记，再运行本地 AI 分析...", "warn");
+      const saved = await this.saveActiveNote({ trigger: "ai-analysis" });
+      if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) return;
+    }
+    const result = await this.onStateChange("run-note-ai-analysis", {
+      noteId: note.id,
+      relatedNoteIds: this.relatedPermanentNoteIds(note),
+      persistArtifacts: true
+    });
+    if (result) {
+      this.noteAiAnalysisByNoteId.set(note.id, result);
+      this.renderRelated();
+    }
+  }
+
+  openPermanentNoteAiInbox() {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    void this.onStateChange("open-note-ai-inbox", { noteId: note.id });
+  }
+
+  renderPermanentNoteAiAnalysisSection(note) {
+    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    if (!note?.id || !["permanent", "original"].includes(noteType)) return "";
+    const result = this.noteAiAnalysisByNoteId.get(note.id) || null;
+    const analysis = result?.analysis || null;
+    const reviewItems = result?.reviewItems || null;
+    const relationCount = Array.isArray(analysis?.relationCandidates) ? analysis.relationCandidates.length : 0;
+    const topicCandidates = Array.isArray(analysis?.topicCandidates) ? analysis.topicCandidates : [];
+    const warningChecks = Array.isArray(analysis?.principleChecks)
+      ? analysis.principleChecks.filter((item) => String(item?.level || "").toLowerCase() !== "pass")
+      : [];
+    const originalStatus = String(analysis?.originality?.status || "").trim();
+    const distillation = analysis?.distillation || {};
+    const suggestedFields = Array.isArray(reviewItems?.fieldSuggestions) ? reviewItems.fieldSuggestions.length : 0;
+    const storedCount = Array.isArray(reviewItems?.storedArtifactIds)
+      ? reviewItems.storedArtifactIds.length
+      : Array.isArray(reviewItems?.artifacts)
+        ? reviewItems.artifacts.length
+        : 0;
+    const topTopics = topicCandidates
+      .map((item) => String(item?.topic || item?.label || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const topWarnings = warningChecks
+      .map((item) => String(item?.message || item?.label || item?.checkId || "").trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    const actions = Array.isArray(analysis?.recommendedActions)
+      ? analysis.recommendedActions.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+      : [];
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-ai-analysis-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">AI 初判</div>
+            <div class="inspector-section-note">${analysis ? "本地规则分析结果，所有输出仍需人工审阅。" : "用本地规则先看关联、原创度和原则缺口。"}</div>
+          </div>
+          <div class="semantic-relation-head-actions">
+            ${analysis ? `<button class="mini-btn is-ghost" type="button" data-note-ai-analysis-open-inbox>查看待审</button>` : ""}
+            <button class="mini-btn is-ghost" type="button" data-note-ai-analysis>${analysis ? "重新分析" : "AI 分析"}</button>
+          </div>
+        </div>
+        ${
+          analysis
+            ? `
+              <div class="semantic-relation-status">
+                <span class="inspector-chip">关联候选 ${relationCount}</span>
+                <span class="inspector-chip">原则提醒 ${warningChecks.length}</span>
+                <span class="inspector-chip">字段建议 ${suggestedFields}</span>
+                <span class="inspector-chip">待审项 ${storedCount}</span>
+                ${originalStatus ? `<span class="inspector-chip">原创度 ${escapeHtml(originalStatus)}</span>` : ""}
+              </div>
+              <div class="semantic-relation-groups">
+                <div class="semantic-relation-group">
+                  <div class="semantic-relation-group-head">
+                    <strong>观点压缩</strong>
+                    <span>${escapeHtml(distillation?.status || "pending")}</span>
+                  </div>
+                  <div class="related-empty">
+                    ${distillation?.thesis ? escapeHtml(distillation.thesis) : "还没有稳定 thesis，建议先补一句自己的判断。"}
+                  </div>
+                  ${
+                    Array.isArray(distillation?.threeLineSummary) && distillation.threeLineSummary.length
+                      ? `<div class="related-empty">${escapeHtml(distillation.threeLineSummary.slice(0, 3).join(" / "))}</div>`
+                      : ""
+                  }
+                </div>
+                ${
+                  topTopics.length
+                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>主题候选</strong><span>${topTopics.length}</span></div><div class="related-empty">${escapeHtml(topTopics.join(" / "))}</div></div>`
+                    : ""
+                }
+                ${
+                  topWarnings.length
+                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>优先处理</strong><span>${topWarnings.length}</span></div><div class="related-empty">${escapeHtml(topWarnings.join(" / "))}</div></div>`
+                    : ""
+                }
+                ${
+                  actions.length
+                    ? `<div class="semantic-relation-group"><div class="semantic-relation-group-head"><strong>下一步</strong><span>${actions.length}</span></div><div class="related-empty">${escapeHtml(actions.join(" / "))}</div></div>`
+                    : ""
+                }
+              </div>
+            `
+            : `<div class="related-empty">分析结果会进入 AI Inbox；这里先显示摘要，不会自动确认关系、主题或改写笔记。</div>`
+        }
+      </section>
+    `;
+  }
+
   async refreshRelationTargetSearch(query = "") {
     const note = this.activeNote();
     if (!note?.id) return;
@@ -5014,6 +5173,7 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
         ${block("引用", "", forward, "还没有引用。", "出链")}
         ${block("回链", "", backward, "还没有回链。", "回链")}
@@ -5400,6 +5560,17 @@ export class EditorPane {
         if (action === "open-edit") this.openEditRelationForm(relationAction.dataset.relationId);
         if (action === "cancel-edit") this.renderRelated();
         if (action === "delete") void this.deleteSemanticRelation(relationAction.dataset.relationId);
+        return;
+      }
+
+      const aiAnalysisButton = e.target.closest("[data-note-ai-analysis]");
+      if (aiAnalysisButton) {
+        void this.runPermanentNoteAnalysis();
+        return;
+      }
+      const aiAnalysisInboxButton = e.target.closest("[data-note-ai-analysis-open-inbox]");
+      if (aiAnalysisInboxButton) {
+        this.openPermanentNoteAiInbox();
         return;
       }
 

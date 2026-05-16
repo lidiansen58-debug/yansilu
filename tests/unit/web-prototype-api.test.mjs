@@ -69,6 +69,126 @@ test("prototype API fetches note relations through the public endpoint", async (
   }
 });
 
+test("prototype API runs permanent note analysis through the note endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          noteId: "pn source",
+          analysis: { analysisMode: "local_rule" },
+          reviewItems: { storedArtifactIds: ["artifact_1"], artifactsPersisted: true }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("note-analysis-run", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.analyzePermanentNote("pn source", {
+      relatedNoteIds: ["pn target"],
+      persistArtifacts: true
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/notes/pn%20source/ai-analysis");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {
+      relatedNoteIds: ["pn target"],
+      persistArtifacts: true
+    });
+    assert.equal(result.reviewItems.storedArtifactIds[0], "artifact_1");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API fetches permanent note analysis inbox projection", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          noteId: "pn source",
+          view: "pending",
+          items: [{ artifactId: "artifact_1", type: "LinkSuggestion" }]
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("note-analysis-fetch", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.fetchPermanentNoteAnalysis("pn source", { view: "pending", limit: 12 });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/notes/pn%20source/ai-analysis?view=pending&limit=12");
+    assert.equal(calls[0].options.method, undefined);
+    assert.equal(result.items[0].type, "LinkSuggestion");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API runs confirmed writing strong-model analysis through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          request: { requestType: "writing_strong_model_analysis" },
+          result: { artifacts: [{ type: "WritingMove", status: "pending_review" }] }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("writing-ai-analysis", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.analyzeWritingWithStrongModel({
+      userConfirmedRemoteModel: true,
+      writingGoal: "Draft a review-first outline.",
+      noteIds: ["pn_1"],
+      persistArtifacts: false
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/writing/ai-analysis");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {
+      userConfirmedRemoteModel: true,
+      writingGoal: "Draft a review-first outline.",
+      noteIds: ["pn_1"],
+      persistArtifacts: false
+    });
+    assert.equal(result.request.requestType, "writing_strong_model_analysis");
+    assert.equal(result.result.artifacts[0].type, "WritingMove");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API searches notes through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];
@@ -197,6 +317,49 @@ test("prototype API fetches directory graph with descendants flag", async () => 
     assert.equal(result.scope, "directory_tree");
     assert.equal(result.includeDescendants, true);
     assert.equal(result.nodes[0].id, "pn_child");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API runs directory graph AI analysis through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          directoryId: "dir_original_default",
+          analysis: { analysisMode: "local_graph_rule" },
+          reviewItems: { artifacts: [{ type: "LinkSuggestion" }], artifactsPersisted: false }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("graph-ai-analysis", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.analyzeDirectoryGraph("dir_original_default", {
+      includeDescendants: true,
+      persistArtifacts: false
+    });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/graph/ai-analysis");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {
+      includeDescendants: true,
+      persistArtifacts: false,
+      directoryId: "dir_original_default"
+    });
+    assert.equal(result.analysis.analysisMode, "local_graph_rule");
+    assert.equal(result.reviewItems.artifacts[0].type, "LinkSuggestion");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

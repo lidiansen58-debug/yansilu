@@ -84,6 +84,11 @@ import {
   createSqliteProviderHealthStore,
   createAiHarnessRuntime,
   createCoreNoteTools,
+  createProviderAdapterRegistry,
+  analyzePermanentNoteForReview,
+  analyzePermanentNoteGraphLocally,
+  buildPermanentNoteGraphReviewItems,
+  buildPermanentNoteLocalModelRequest,
   createScheduledTaskFromTemplate,
   listScheduledAgentTaskTemplates,
   preferencesToSettingsInput,
@@ -91,6 +96,11 @@ import {
   resolveAiUserSettings,
   resolveModelRoute,
   resolveProviderDescriptor,
+  mergePermanentNoteLocalModelResponse,
+  runPermanentNoteLocalModelAnalysis,
+  buildWritingStrongModelRequest,
+  mergeWritingStrongModelResponse,
+  runWritingStrongModelAnalysis,
   runDueScheduledAgentTasks,
   runProviderHealthCheck
 } from "../../../packages/ai-orchestrator/src/index.mjs";
@@ -455,6 +465,159 @@ async function buildAiRoutePreview(input = {}) {
   };
 }
 
+function enabledFlag(input = {}, camelKey = "", snakeKey = "") {
+  return input[camelKey] === true || (snakeKey && input[snakeKey] === true);
+}
+
+function disabledFlag(input = {}, camelKey = "", snakeKey = "") {
+  return input[camelKey] === false || (snakeKey && input[snakeKey] === false);
+}
+
+function mergeRuntimeModelMaps(...values) {
+  return Object.assign(
+    {},
+    ...values.filter((value) => value && typeof value === "object" && !Array.isArray(value))
+  );
+}
+
+function modelExecutionSummary(response = {}, context = {}) {
+  return {
+    status: cleanText(response.status) || "unknown",
+    fallbackUsed: context.fallbackUsed === true,
+    providerId: cleanText(response.providerId || response.provider_id),
+    modelRef: cleanText(response.modelRef || response.model_ref),
+    route: context.modelRoute
+      ? {
+          modelRef: context.modelRoute.modelRef,
+          selectedTier: context.modelRoute.selectedTier,
+          privacyMode: context.modelRoute.privacyMode,
+          cloudAllowed: context.modelRoute.cloudAllowed === true
+        }
+      : null,
+    usage: response.usage || null,
+    error: response.error || null
+  };
+}
+
+function modelExecutionFailure(error = {}, context = {}) {
+  return {
+    status: "failed",
+    fallbackUsed: context.fallbackUsed === true,
+    providerId: cleanText(context.providerDescriptor?.providerId || context.providerDescriptor?.provider_id),
+    modelRef: cleanText(context.modelRoute?.modelRef),
+    route: context.modelRoute
+      ? {
+          modelRef: context.modelRoute.modelRef,
+          selectedTier: context.modelRoute.selectedTier,
+          privacyMode: context.modelRoute.privacyMode,
+          cloudAllowed: context.modelRoute.cloudAllowed === true
+        }
+      : null,
+    usage: null,
+    error: {
+      code: cleanText(error.code) || "AI_PROVIDER_EXECUTION_FAILED",
+      message: String(error?.message || error)
+    }
+  };
+}
+
+function requestModelFromRoute(providerDescriptor = {}, modelRoute = {}, explicitModel = "", mode = "") {
+  const modelRef = cleanText(explicitModel) || cleanText(modelRoute.modelRef);
+  return {
+    provider: cleanText(providerDescriptor.providerId || providerDescriptor.provider_id),
+    model: modelRef,
+    modelRef,
+    tier: cleanText(modelRoute.selectedTier) || cleanText(modelRoute.requestedTier),
+    mode: cleanText(mode) || cleanText(modelRoute.userMode)
+  };
+}
+
+async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
+  await initVault(VAULT_PATH);
+  const preferencesStore = await aiPreferencesStore();
+  const storedPreferences = preferencesStore.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
+  const storedSettings = preferencesToSettingsInput(storedPreferences);
+  const advancedSettings = {
+    ...(storedSettings.advancedSettings || {}),
+    ...(input.advancedSettings || input.advanced_settings || {})
+  };
+  const settingsInput = {
+    ...storedSettings,
+    userMode: input.userMode ?? input.user_mode ?? defaults.userMode ?? storedSettings.userMode,
+    modelPack: input.modelPack ?? input.model_pack ?? defaults.modelPack ?? storedSettings.modelPack,
+    providerPreset: input.providerPreset ?? input.provider_preset ?? defaults.providerPreset ?? storedSettings.providerPreset,
+    authMode: input.authMode ?? input.auth_mode ?? defaults.authMode ?? storedSettings.authMode,
+    secretRef: input.secretRef ?? input.secret_ref ?? storedSettings.secretRef,
+    endpointUrl: input.endpointUrl ?? input.endpoint_url ?? storedSettings.endpointUrl,
+    modelRef: input.modelRef ?? input.model_ref ?? storedSettings.modelRef,
+    headers: {
+      ...(storedSettings.headers || {}),
+      ...(input.headers || {})
+    },
+    runtimeModelMap: mergeRuntimeModelMaps(
+      storedSettings.runtimeModelMap,
+      storedSettings.runtime_model_map,
+      input.runtimeModelMap,
+      input.runtime_model_map
+    ),
+    privacy: {
+      ...(storedSettings.privacy || {}),
+      ...(input.privacy || {}),
+      ...(defaults.privacyMode ? { defaultMode: defaults.privacyMode } : {})
+    },
+    fallbackPolicy: {
+      ...(storedSettings.fallbackPolicy || {}),
+      ...(input.fallbackPolicy || input.fallback_policy || {})
+    },
+    advancedSettings
+  };
+
+  const userSettings = resolveAiUserSettings(settingsInput);
+  const providerId = cleanText(settingsInput.providerPreset || settingsInput.providerId || settingsInput.provider_id || userSettings.providerPreset);
+  const configStore = await aiProviderConfigStore();
+  const providerConfig = providerId ? configStore.getProviderConfig({ providerId }) : null;
+  const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+  const mergedSettings = {
+    ...settingsInput,
+    ...providerSettings,
+    secretRef: cleanText(settingsInput.secretRef) || providerSettings.secretRef,
+    modelRef: cleanText(settingsInput.modelRef) || providerSettings.modelRef,
+    headers: {
+      ...(providerSettings.headers || {}),
+      ...(settingsInput.headers || {})
+    },
+    runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, settingsInput.runtimeModelMap)
+  };
+  const providerDescriptor = resolveProviderDescriptor(mergedSettings);
+  const resolvedUserSettings = resolveAiUserSettings(mergedSettings);
+  const modelRoute = resolveModelRoute({
+    ...mergedSettings,
+    providerDescriptor,
+    userMode: input.userMode ?? input.user_mode ?? defaults.userMode ?? resolvedUserSettings.userMode,
+    modelTier: input.modelTier ?? input.model_tier ?? defaults.modelTier ?? "standard",
+    privacyMode: defaults.privacyMode || input.privacyMode || input.privacy_mode || resolvedUserSettings.privacy?.defaultMode
+  });
+  const useMockProviderAdapters = enabledFlag(input, "useMockProviderAdapters", "use_mock_provider_adapters");
+  const registry = createProviderAdapterRegistry({
+    useMockProviderAdapters,
+    useOpenAiCompatibleAdapter: !useMockProviderAdapters && !disabledFlag(input, "useOpenAiCompatibleAdapter", "use_openai_compatible_adapter"),
+    networkEnabled: !disabledFlag(input, "networkEnabled", "network_enabled"),
+    createExecutor: true
+  });
+  const adapterSelection = registry.getAdapter({
+    ...mergedSettings,
+    providerDescriptor
+  });
+
+  return {
+    providerAdapter: adapterSelection.adapter,
+    providerDescriptor,
+    modelRoute,
+    userSettings: resolvedUserSettings,
+    providerConfig
+  };
+}
+
 const importRecords = new Map();
 const allowedConnectors = new Set(["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
 const authChallenges = new Map();
@@ -482,6 +645,21 @@ function cloneJson(value) {
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function stringArray(value) {
+  if (Array.isArray(value)) return value.map(cleanText).filter(Boolean);
+  if (value === undefined || value === null || value === "") return [];
+  return [cleanText(value)].filter(Boolean);
+}
+
+async function loadNotesByIds(noteIds = []) {
+  const ids = [...new Set(stringArray(noteIds))];
+  const items = [];
+  for (const noteId of ids) {
+    items.push(await getNoteById(VAULT_PATH, noteId));
+  }
+  return items;
 }
 
 async function readYijingKnowledgeNetworkFixture() {
@@ -910,6 +1088,11 @@ function parseNotePath(urlPath) {
 
 function parseNoteRelationsPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/notes\/([^/]+)\/relations$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseNoteAiAnalysisPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/notes\/([^/]+)\/ai-analysis$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -2300,6 +2483,67 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/graph/ai-analysis") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        let notes = Array.isArray(body.notes) ? body.notes : [];
+        let relations = Array.isArray(body.relations) ? body.relations : [];
+        let graph = null;
+        if (!notes.length && body.directoryId) {
+          graph = await getDirectoryGraph(VAULT_PATH, body.directoryId, {
+            includeDescendants: body.includeDescendants === true || body.include_descendants === true
+          });
+          const permanentNodeIds = graph.nodes.filter((node) => node.noteType === "permanent").map((node) => node.id);
+          notes = await loadNotesByIds(permanentNodeIds);
+          relations = graph.edges;
+        } else if (Array.isArray(body.noteIds || body.note_ids)) {
+          notes = await loadNotesByIds(body.noteIds || body.note_ids);
+        }
+
+        const analysis = analyzePermanentNoteGraphLocally({
+          notes,
+          relations,
+          options: body.options || {
+            minRelationConfidence: body.minRelationConfidence ?? body.min_relation_confidence,
+            relationLimit: body.relationLimit ?? body.relation_limit,
+            minTopicSize: body.minTopicSize ?? body.min_topic_size
+          }
+        });
+        const reviewItems = buildPermanentNoteGraphReviewItems(analysis, {
+          agentRunId: `run_graph_analysis_${rid}`,
+          contextPackId: `ctx_graph_analysis_${rid}`,
+          artifactIdSalt: rid,
+          privacyMode: "local_only"
+        });
+        const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const storedArtifacts = persistArtifacts ? artifactStore.createMany(reviewItems.artifacts) : [];
+        return sendJson(res, 200, {
+          item: {
+            directoryId: body.directoryId || null,
+            graphScope: graph
+              ? {
+                  nodeCount: graph.totalNodes,
+                  edgeCount: graph.totalEdges,
+                  includeDescendants: graph.includeDescendants
+                }
+              : null,
+            analysis,
+            reviewItems: {
+              ...reviewItems,
+              storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
+              artifactsPersisted: persistArtifacts
+            }
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "GRAPH_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
     if (req.method === "GET" && url.pathname === "/api/v1/graph/path") {
       try {
         await initVault(VAULT_PATH);
@@ -2713,6 +2957,167 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 404, err("NOTE_RELATIONS_NOT_FOUND", String(error?.message || error), rid));
+      }
+    }
+
+    const noteAiAnalysisId = parseNoteAiAnalysisPath(url.pathname);
+    if (req.method === "POST" && noteAiAnalysisId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const note = await getNoteById(VAULT_PATH, noteAiAnalysisId);
+        if (note.noteType !== "permanent") {
+          return sendJson(
+            res,
+            400,
+            err("NOTE_AI_ANALYSIS_PERMANENT_REQUIRED", "AI note analysis currently only supports permanent notes.", rid, {
+              noteId: noteAiAnalysisId,
+              noteType: note.noteType
+            })
+          );
+        }
+
+        const relatedNotes = [
+          ...(Array.isArray(body.relatedNotes || body.related_notes) ? body.relatedNotes || body.related_notes : []),
+          ...(await loadNotesByIds(body.relatedNoteIds || body.related_note_ids))
+        ];
+        const literatureNotes = [
+          ...(Array.isArray(body.literatureNotes || body.literature_notes) ? body.literatureNotes || body.literature_notes : []),
+          ...(await loadNotesByIds(body.literatureNoteIds || body.literature_note_ids))
+        ];
+        const analysisInput = {
+          note,
+          relatedNotes,
+          literatureNotes,
+          options: body.options || {
+            minRelationConfidence: body.minRelationConfidence ?? body.min_relation_confidence,
+            relationLimit: body.relationLimit ?? body.relation_limit,
+            originalityPlan: body.originalityPlan ?? body.originality_plan
+          }
+        };
+        const analysisContext = {
+          agentRunId: `run_note_analysis_${rid}`,
+          contextPackId: `ctx_note_analysis_${rid}`,
+          artifactIdSalt: rid,
+          privacyMode: "local_only"
+        };
+        const localModelResponse = body.localModelResponse ?? body.local_model_response;
+        const executeLocalModel = enabledFlag(body, "executeLocalModel", "execute_local_model");
+        const prepareLocalModelRequest =
+          body.prepareLocalModelRequest === true ||
+          body.prepare_local_model_request === true ||
+          Boolean(localModelResponse) ||
+          executeLocalModel;
+        const providerExecution = executeLocalModel
+          ? await resolveAnalysisProviderExecution(body, {
+              modelPack: "Ollama Local",
+              userMode: "Local / Private",
+              providerPreset: "ollama_local_gateway",
+              authMode: "local_no_key",
+              modelTier: "local_private",
+              privacyMode: "local_only"
+            })
+          : null;
+        const explicitLocalModel = cleanText(body.localModel || body.local_model);
+        const localModelContext = providerExecution
+          ? {
+              ...analysisContext,
+              model: requestModelFromRoute(
+                providerExecution.providerDescriptor,
+                providerExecution.modelRoute,
+                explicitLocalModel,
+                "Local / Private"
+              )
+            }
+          : {
+              ...analysisContext,
+              localModel: explicitLocalModel
+            };
+        const localModelRequest = prepareLocalModelRequest
+          ? buildPermanentNoteLocalModelRequest(analysisInput, null, localModelContext)
+          : null;
+        let modelExecution = null;
+        let result = null;
+        if (localModelResponse) {
+          result = mergePermanentNoteLocalModelResponse(localModelRequest, localModelResponse, analysisContext);
+        } else if (executeLocalModel) {
+          try {
+            result = await runPermanentNoteLocalModelAnalysis(localModelRequest, providerExecution.providerAdapter, {
+              ...analysisContext,
+              model: localModelRequest.model
+            });
+            modelExecution = modelExecutionSummary(result.providerResponse, {
+              modelRoute: providerExecution.modelRoute
+            });
+          } catch (error) {
+            if (body.fallbackOnProviderFailure === false || body.fallback_on_provider_failure === false) throw error;
+            result = analyzePermanentNoteForReview(analysisInput, analysisContext);
+            modelExecution = modelExecutionFailure(error, {
+              fallbackUsed: true,
+              providerDescriptor: providerExecution.providerDescriptor,
+              modelRoute: providerExecution.modelRoute
+            });
+          }
+        } else {
+          result = analyzePermanentNoteForReview(analysisInput, analysisContext);
+        }
+        const { analysis, reviewItems } = result;
+        const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const storedArtifacts = persistArtifacts ? artifactStore.createMany(reviewItems.artifacts) : [];
+        const inbox = persistArtifacts ? createAiInbox({ artifactStore }) : null;
+        return sendJson(res, 200, {
+          item: {
+            noteId: noteAiAnalysisId,
+            analysis,
+            localModelRequest,
+            modelExecution,
+            reviewItems: {
+              ...reviewItems,
+              storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
+              artifactsPersisted: persistArtifacts
+            },
+            inbox: inbox
+              ? {
+                  counts: inbox.counts({ sourceNoteId: noteAiAnalysisId }),
+                  pending: inbox.listItems({ view: "pending", sourceNoteId: noteAiAnalysisId, limit: 100 })
+                }
+              : null
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "NOTE_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "GET" && noteAiAnalysisId) {
+      try {
+        await initVault(VAULT_PATH);
+        await getNoteById(VAULT_PATH, noteAiAnalysisId);
+        const artifactStore = await aiArtifactStore();
+        const inbox = createAiInbox({ artifactStore });
+        const filter = {
+          sourceNoteId: noteAiAnalysisId,
+          view: url.searchParams.get("view") || "all",
+          limit: url.searchParams.get("limit") || 100
+        };
+        const items = inbox.listItems(filter);
+        return sendJson(res, 200, {
+          item: {
+            noteId: noteAiAnalysisId,
+            items,
+            counts: inbox.counts({ sourceNoteId: noteAiAnalysisId }),
+            views: inbox.views()
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "NOTE_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "NOTE_AI_ANALYSIS_LOAD_FAILED", String(error?.message || error), rid));
       }
     }
 
@@ -3377,6 +3782,88 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("INDEX_CARD_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/writing/ai-analysis") {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        const notes = [
+          ...(Array.isArray(body.notes) ? body.notes : []),
+          ...(await loadNotesByIds(body.noteIds || body.note_ids))
+        ];
+        const requestPayload = {
+          ...body,
+          notes
+        };
+        const executeRemoteModel =
+          enabledFlag(body, "executeRemoteModel", "execute_remote_model") ||
+          enabledFlag(body, "executeModel", "execute_model");
+        const providerExecution = executeRemoteModel
+          ? await resolveAnalysisProviderExecution(body, {
+              modelPack: "Deep Work",
+              userMode: "Deep Thinking",
+              modelTier: "strong_reasoning",
+              privacyMode: "remote_after_confirmation"
+            })
+          : null;
+        const explicitRemoteModel = cleanText(body.model || body.remoteModel || body.remote_model);
+        const requestContext = {
+          agentRunId: `run_writing_analysis_${rid}`,
+          contextPackId: `ctx_writing_analysis_${rid}`,
+          artifactIdSalt: rid,
+          userConfirmedRemoteModel: body.userConfirmedRemoteModel === true || body.user_confirmed_remote_model === true,
+          model: providerExecution
+            ? requestModelFromRoute(
+                providerExecution.providerDescriptor,
+                providerExecution.modelRoute,
+                explicitRemoteModel,
+                "Remote / Confirmed"
+              )
+            : body.model
+            ? {
+                provider: cleanText(body.provider) || "remote_strong_model",
+                model: cleanText(body.model),
+                tier: "strong",
+                mode: "Remote / Confirmed"
+              }
+            : null
+        };
+        const strongModelRequest = buildWritingStrongModelRequest(requestPayload, requestContext);
+        const modelResponse = body.modelResponse ?? body.model_response ?? body.remoteModelResponse ?? body.remote_model_response;
+        let modelExecution = null;
+        const result = modelResponse
+          ? mergeWritingStrongModelResponse(strongModelRequest, modelResponse, requestContext)
+          : executeRemoteModel
+            ? await runWritingStrongModelAnalysis(strongModelRequest, providerExecution.providerAdapter, requestContext).then((executionResult) => {
+                modelExecution = modelExecutionSummary(executionResult.providerResponse, {
+                  modelRoute: providerExecution.modelRoute
+                });
+                return executionResult;
+              })
+            : null;
+        const persistArtifacts = Boolean(result) && body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const storedArtifacts = persistArtifacts ? artifactStore.createMany(result.artifacts) : [];
+        return sendJson(res, 200, {
+          item: {
+            request: strongModelRequest,
+            modelExecution,
+            result: result
+              ? {
+                  ...result,
+                  storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
+                  artifactsPersisted: persistArtifacts
+                }
+              : null
+          },
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "WRITING_REMOTE_MODEL_CONFIRMATION_REQUIRED" ? 403 : 400;
+        return sendJson(res, status, err(error?.code || "WRITING_AI_ANALYSIS_FAILED", String(error?.message || error), rid, error?.details));
       }
     }
 
