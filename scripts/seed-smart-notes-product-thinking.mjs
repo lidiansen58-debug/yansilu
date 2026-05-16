@@ -85,7 +85,8 @@ function noteBodyFromFixture(note, fixtureType) {
   if (fixtureType === "literature") {
     const sourceId = cleanText(note?.source_id || note?.sourceId);
     const location = cleanText(note?.location);
-    const paraphrase = cleanText(note?.paraphrase);
+    const paraphrase = cleanText(note?.paraphrase || note?.paraphrase_text);
+    const takeaway = cleanText(note?.my_takeaway || note?.takeaway);
     const excerpt = cleanText(note?.excerpt);
     const questions = Array.isArray(note?.questions) ? note.questions.filter(Boolean) : [];
     return [
@@ -97,12 +98,15 @@ function noteBodyFromFixture(note, fixtureType) {
       "## 位置",
       location || "未标注",
       "",
-      "## 摘录",
-      excerpt || "",
-      "",
       "## 转述",
       paraphrase || "",
       "",
+      ...(excerpt
+        ? ["## 摘录", excerpt, ""]
+        : []),
+      ...(takeaway
+        ? ["## 我的收获", takeaway, ""]
+        : []),
       "## 问题",
       ...(questions.length ? questions.map((q) => `- ${q}`) : ["- (none)"]),
       ""
