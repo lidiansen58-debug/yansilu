@@ -4943,6 +4943,7 @@ export class EditorPane {
     const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
     const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
     const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
+    const statusValue = ["missing", "draft", "confirmed"].includes(statusLabel) ? statusLabel : filledCount ? "draft" : "missing";
     return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
@@ -4969,6 +4970,14 @@ export class EditorPane {
             <span class="sr-only">三句话压缩第三句</span>
             <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
           </label>
+          <label>
+            提纯状态
+            <select name="distillationStatus">
+              <option value="missing"${statusValue === "missing" ? " selected" : ""}>未提纯</option>
+              <option value="draft"${statusValue === "draft" ? " selected" : ""}>草稿</option>
+              <option value="confirmed"${statusValue === "confirmed" ? " selected" : ""}>已确认</option>
+            </select>
+          </label>
           <div class="semantic-relation-actions">
             <button class="mini-btn primary" type="submit">保存提纯</button>
           </div>
@@ -4989,18 +4998,28 @@ export class EditorPane {
     const threeLineSummary = [1, 2, 3]
       .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
       .filter(Boolean);
+    const selectedStatus = String(form.querySelector('[name="distillationStatus"]')?.value || "").trim();
+    const distillationStatus = ["missing", "draft", "confirmed"].includes(selectedStatus)
+      ? selectedStatus
+      : thesis || threeLineSummary.length
+        ? "draft"
+        : "missing";
     const savedEditor = await this.autoSaveActiveNote("distillation");
     if (savedEditor === false) return;
     const saved = await this.onStateChange("save-note-distillation", {
       noteId: note.id,
       thesis,
       threeLineSummary,
-      distillationStatus: thesis || threeLineSummary.length ? "draft" : "missing"
+      distillationStatus,
+      authorship: distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: false } : undefined
     });
     if (!saved) return;
     note.thesis = thesis;
     note.threeLineSummary = threeLineSummary;
-    note.distillationStatus = thesis || threeLineSummary.length ? "draft" : "missing";
+    note.distillationStatus = distillationStatus;
+    if (distillationStatus === "confirmed") {
+      note.authorship = { user_confirmed: true, ai_assisted: false };
+    }
     this.renderThinkingStatus();
     this.renderRelated();
   }
