@@ -4937,7 +4937,7 @@ export class EditorPane {
 
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
-    if (!note?.id || noteType !== "permanent") return "";
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
     const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
@@ -4981,7 +4981,7 @@ export class EditorPane {
     const note = this.activeNote();
     if (!note?.id) return;
     const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
-    if (noteType !== "permanent") {
+    if (noteType !== "permanent" && noteType !== "original") {
       this.onStatus("提纯面板只支持永久笔记", "warn");
       return;
     }

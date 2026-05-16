@@ -1022,10 +1022,6 @@ test("prototype renders thinking status in note tree and editor header", async (
 });
 
 test("prototype permanent note distillation panel saves thesis and three-line summary", async (t) => {
-  if (process.env.RUN_DISTILLATION_E2E !== "1") {
-    t.skip("Set RUN_DISTILLATION_E2E=1 to enable distillation panel e2e in local runs.");
-    return;
-  }
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -1036,35 +1032,20 @@ test("prototype permanent note distillation panel saves thesis and three-line su
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, webBase } = stack;
+  const { apiBase, page } = stack;
 
-  const created = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "draft",
-    body: [
-      "---",
-      "title: Distillation Seed",
-      "type: permanent",
-      'tags: ["permanent", "distillation"]',
-      "---",
-      "",
-      "# Distillation Seed",
-      "",
-      "A permanent note that will be distilled in the inspector."
-    ].join("\n")
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-  const noteId = created.json.item.id;
+  await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#markdownPanel")?.classList.contains("hidden"));
 
-  await page.goto(`${webBase}/editor?note=${encodeURIComponent(noteId)}`, { waitUntil: "networkidle" });
+  await createAndSaveNoteViaEditor(
+    page,
+    "# Distillation Seed\n\nA permanent note that will be distilled in the inspector."
+  );
 
-  // Standalone editor route keeps the related panel mounted but may not expose the toggle affordance.
-  await page.evaluate(() => {
-    const panel = document.querySelector("#relatedPanel");
-    if (panel) panel.style.display = "block";
-    const wrap = document.querySelector(".editor-wrap");
-    if (wrap) wrap.classList.remove("inspector-closed");
-  });
+  const noteId = await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.id || "");
+  assert.ok(noteId);
+
+  await page.locator("#btnShowRelated").click();
   await page.locator('[data-note-distillation-form] textarea[name="thesis"]').waitFor({ state: "visible" });
 
   await page.fill('[data-note-distillation-form] textarea[name="thesis"]', "Distilled thesis.");
