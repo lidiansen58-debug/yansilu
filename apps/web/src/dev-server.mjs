@@ -188,6 +188,10 @@ const server = http.createServer(async (req, res) => {
       await serveStaticPage(res, "marketing-demo.html");
       return;
     }
+    if (url.pathname === "/demo/yijing") {
+      await serveStaticPage(res, "marketing-demo-yijing.html");
+      return;
+    }
     if (url.pathname === "/download") {
       await serveStaticPage(res, "marketing-download.html");
       return;

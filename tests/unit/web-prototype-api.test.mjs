@@ -337,6 +337,48 @@ test("prototype API seeds the rich Yijing acceptance demo through the public end
   }
 });
 
+test("prototype API seeds the smart notes product thinking demo through the public endpoint", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          kind: "smart_notes_product_thinking_seed",
+          demoOnly: true,
+          fixtureId: "demo-smart-notes-product-thinking-v1",
+          directoryId: "dir_demo_smart_notes_product_thinking_original",
+          counts: { permanent_notes: 100, relations: 159, writing_projects: 1 }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const api = await importPrototypeApi("seed-smart-notes-product-thinking", { __API_BASE__: "http://127.0.0.1:3999" });
+    const result = await api.seedSmartNotesProductThinkingDemo();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/demo/product-thinking/smart-notes");
+    assert.equal(calls[0].options.method, "POST");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {});
+    assert.equal(result.kind, "smart_notes_product_thinking_seed");
+    assert.equal(result.demoOnly, true);
+    assert.equal(result.directoryId, "dir_demo_smart_notes_product_thinking_original");
+    assert.equal(result.counts.permanent_notes, 100);
+    assert.equal(result.counts.relations, 159);
+    assert.equal(result.counts.writing_projects, 1);
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API updates note relations through the public endpoint", async () => {
   const previousFetch = globalThis.fetch;
   const calls = [];

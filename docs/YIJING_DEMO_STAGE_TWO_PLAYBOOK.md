@@ -1,5 +1,7 @@
 # 易经官网 Demo 第二阶段讲述 Playbook
 
+> 2026-05-16 叙事调整：本 playbook 保留为《易经》第二案例的讲述资料，不再作为官网主叙事或唯一 demo 入口。官网主站应展示研思录完整产品能力；新的 demo 规划见 `docs/OFFICIAL_SITE_AND_DEMO_REPLAN_2026-05-16.md`。
+
 更新时间：2026-05-16
 
 ## 目标

@@ -75,6 +75,7 @@ import {
   updateDraftScaffoldVersionNote
 } from "../../../packages/writing-engine/src/index.mjs";
 import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
+import { seedSmartNotesProductThinking } from "../../../scripts/seed-smart-notes-product-thinking.mjs";
 import {
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
@@ -2568,6 +2569,24 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("YIJING_RICH_ACCEPTANCE_SEED_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/demo/product-thinking/smart-notes") {
+      try {
+        await readJson(req);
+        const item = await seedSmartNotesProductThinking(VAULT_PATH);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(
+          res,
+          400,
+          err("SMART_NOTES_PRODUCT_THINKING_SEED_INVALID", String(error?.message || error), rid, error?.details)
+        );
       }
     }
 
