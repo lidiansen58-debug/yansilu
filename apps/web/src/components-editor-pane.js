@@ -4114,6 +4114,15 @@ export class EditorPane {
         if (Object.prototype.hasOwnProperty.call(item, "thinkingStatus")) {
           existing.thinkingStatus = item.thinkingStatus || null;
         }
+        if (Object.prototype.hasOwnProperty.call(item, "thesis")) {
+          existing.thesis = item.thesis || "";
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "threeLineSummary")) {
+          existing.threeLineSummary = Array.isArray(item.threeLineSummary) ? item.threeLineSummary : [];
+        }
+        if (Object.prototype.hasOwnProperty.call(item, "distillationStatus")) {
+          existing.distillationStatus = item.distillationStatus || "";
+        }
         if (typeof item.body === "string") {
           existing.body = item.body;
           existing.tags = parseTags(item.body);
@@ -4130,6 +4139,9 @@ export class EditorPane {
         folderId: item.directoryId,
         noteType: item.noteType || "original",
         markdownPath: item.markdownPath || "",
+        thesis: item.thesis || "",
+        threeLineSummary: Array.isArray(item.threeLineSummary) ? item.threeLineSummary : [],
+        distillationStatus: item.distillationStatus || "",
         thinkingStatus: item.thinkingStatus || null,
         body,
         tags: parseTags(body),
@@ -4923,6 +4935,76 @@ export class EditorPane {
     `;
   }
 
+  renderPermanentNoteDistillationSection(note) {
+    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    if (!note?.id || noteType !== "permanent") return "";
+    const thesis = String(note.thesis || "").trim();
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
+    const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
+    const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
+    const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">提纯</div>
+            <div class="inspector-section-note">手写优先；AI 候选只作为待审建议，不会替你确认判断。</div>
+          </div>
+          <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
+        </div>
+        <form class="semantic-relation-form" data-note-distillation-form>
+          <label>
+            一句话论点
+            <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
+          </label>
+          <label>
+            三句话压缩
+            <textarea name="summary1" rows="2" placeholder="1. 这条观点在说什么">${escapeHtml(summaryLines[0])}</textarea>
+          </label>
+          <label>
+            <span class="sr-only">三句话压缩第二句</span>
+            <textarea name="summary2" rows="2" placeholder="2. 为什么它成立或重要">${escapeHtml(summaryLines[1])}</textarea>
+          </label>
+          <label>
+            <span class="sr-only">三句话压缩第三句</span>
+            <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
+          </label>
+          <div class="semantic-relation-actions">
+            <button class="mini-btn primary" type="submit">保存提纯</button>
+          </div>
+        </form>
+      </section>
+    `;
+  }
+
+  async handleDistillationForm(form) {
+    const note = this.activeNote();
+    if (!note?.id) return;
+    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    if (noteType !== "permanent") {
+      this.onStatus("提纯面板只支持永久笔记", "warn");
+      return;
+    }
+    const thesis = String(form.querySelector('[name="thesis"]')?.value || "").trim();
+    const threeLineSummary = [1, 2, 3]
+      .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
+      .filter(Boolean);
+    const savedEditor = await this.autoSaveActiveNote("distillation");
+    if (savedEditor === false) return;
+    const saved = await this.onStateChange("save-note-distillation", {
+      noteId: note.id,
+      thesis,
+      threeLineSummary,
+      distillationStatus: thesis || threeLineSummary.length ? "draft" : "missing"
+    });
+    if (!saved) return;
+    note.thesis = thesis;
+    note.threeLineSummary = threeLineSummary;
+    note.distillationStatus = thesis || threeLineSummary.length ? "draft" : "missing";
+    this.renderThinkingStatus();
+    this.renderRelated();
+  }
+
   async refreshRelationTargetSearch(query = "") {
     const note = this.activeNote();
     if (!note?.id) return;
@@ -5173,6 +5255,7 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${this.renderPermanentNoteDistillationSection(note)}
         ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
         ${block("引用", "", forward, "还没有引用。", "出链")}
@@ -5574,6 +5657,9 @@ export class EditorPane {
         return;
       }
 
+      const distillationSection = e.target.closest("[data-note-distillation-section]");
+      if (distillationSection && e.target.closest("button, textarea, input, select")) return;
+
       const previewRow = e.target.closest("[data-preview-note]");
       if (previewRow) {
         void this.showNotePreviewInInspector(previewRow.dataset.previewNote, { eyebrow: "相关内容" });
@@ -5616,6 +5702,12 @@ export class EditorPane {
       }
     });
     this.els.result.addEventListener("submit", (e) => {
+      const distillationForm = e.target.closest("[data-note-distillation-form]");
+      if (distillationForm) {
+        e.preventDefault();
+        void this.handleDistillationForm(distillationForm);
+        return;
+      }
       const form = e.target.closest("[data-create-relation-form], [data-edit-relation-form]");
       if (!form) return;
       e.preventDefault();

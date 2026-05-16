@@ -2458,6 +2458,11 @@ function mapNoteItem(item) {
     originalityStatus: item.originalityStatus || item.originality_status || "",
     originalitySimilarity: normalizeOptionalNumber(item.originalitySimilarity ?? item.originality_similarity),
     authorship: normalizeAuthorshipItem(item.authorship),
+    thesis: item.thesis || "",
+    threeLineSummary: Array.isArray(item.threeLineSummary || item.three_line_summary)
+      ? item.threeLineSummary || item.three_line_summary
+      : [],
+    distillationStatus: item.distillationStatus || item.distillation_status || "",
     thinkingStatus: normalizeThinkingStatusItem(item.thinkingStatus),
     generatedOriginalNoteId:
       String(item.generatedOriginalNoteId || item.generated_original_note_id || generatedOriginalNoteIdFromBody(body)).trim(),
@@ -2487,6 +2492,9 @@ function createLocalDraftNote({ folderId, body }) {
     originalityStatus: "",
     originalitySimilarity: null,
     authorship: null,
+    thesis: "",
+    threeLineSummary: [],
+    distillationStatus: "",
     thinkingStatus: null,
     generatedOriginalNoteId: generatedOriginalNoteIdFromBody(nextBody),
     boundaryOrCounterpoint: "",
@@ -6023,6 +6031,9 @@ async function ensureNoteBodyLoaded(noteId) {
     note.originalityStatus = full.originalityStatus || note.originalityStatus;
     note.originalitySimilarity = normalizeOptionalNumber(full.originalitySimilarity ?? note.originalitySimilarity);
     note.authorship = normalizeAuthorshipItem(full.authorship) || note.authorship;
+    note.thesis = full.thesis || note.thesis || "";
+    note.threeLineSummary = Array.isArray(full.threeLineSummary) ? full.threeLineSummary : note.threeLineSummary || [];
+    note.distillationStatus = full.distillationStatus || note.distillationStatus || "";
     note.thinkingStatus = normalizeThinkingStatusItem(full.thinkingStatus) || note.thinkingStatus || null;
     note.boundaryOrCounterpoint = full.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
     note.updatedAt = full.updatedAt || note.updatedAt;
@@ -6223,6 +6234,42 @@ async function handleStateChange(reason, payload = {}) {
     return true;
   }
 
+  if (reason === "save-note-distillation") {
+    const noteId = String(payload.noteId || "").trim();
+    const note = state.notes.find((n) => n.id === noteId);
+    if (!note) return false;
+    try {
+      const updated = await updateNote(note.id, {
+        title: note.title,
+        body: note.body,
+        status: note.status || "draft",
+        thesis: payload.thesis || "",
+        threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
+        distillationStatus: payload.distillationStatus || "draft",
+        originalityStatus: note.originalityStatus || undefined,
+        originalitySimilarity: note.originalitySimilarity ?? undefined,
+        authorship: note.authorship || undefined
+      });
+      if (updated) {
+        Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+        const tab = state.tabs.find((item) => item.noteId === note.id);
+        if (tab && typeof updated.body === "string") {
+          tab.body = updated.body;
+          tab.savedBody = updated.body;
+          tab.title = updated.title || tab.title;
+          tab.savedTitle = tab.title;
+          tab.dirty = false;
+        }
+      }
+      setStatus("提纯字段已保存", "ok");
+      renderAll();
+      return updated || true;
+    } catch (error) {
+      setStatus(`提纯字段保存失败：${String(error?.message || error)}`, "bad");
+      return false;
+    }
+  }
+
   if (reason === "save-note") {
     const noteId = payload.noteId || state.tabs.find((t) => t.id === state.activeTabId)?.noteId || null;
     let savedNote = null;
@@ -6261,6 +6308,9 @@ async function handleStateChange(reason, payload = {}) {
             note.originalityStatus = updated.originalityStatus || note.originalityStatus;
             note.originalitySimilarity = normalizeOptionalNumber(updated.originalitySimilarity ?? note.originalitySimilarity);
             note.authorship = normalizeAuthorshipItem(updated.authorship) || note.authorship;
+            note.thesis = updated.thesis || note.thesis || "";
+            note.threeLineSummary = Array.isArray(updated.threeLineSummary) ? updated.threeLineSummary : note.threeLineSummary || [];
+            note.distillationStatus = updated.distillationStatus || note.distillationStatus || "";
             note.thinkingStatus = normalizeThinkingStatusItem(updated.thinkingStatus) || note.thinkingStatus || null;
             note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(updated) || note.generatedOriginalNoteId || generatedOriginalNoteIdFromBody(note.body);
             note.boundaryOrCounterpoint = updated.boundaryOrCounterpoint || note.boundaryOrCounterpoint || "";
