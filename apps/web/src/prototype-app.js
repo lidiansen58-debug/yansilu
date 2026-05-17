@@ -4834,6 +4834,8 @@ function renderWritingScaffoldPreview() {
 
   const sections = Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [];
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
+  const preflight = writingState.scaffold.preflight || null;
+  const preflightChecks = Array.isArray(preflight?.checks) ? preflight.checks : [];
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
   const targetFolder = folderById(state, targetDirectoryId);
@@ -4845,6 +4847,24 @@ function renderWritingScaffoldPreview() {
     <div class="writing-summary">
       保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
     </div>
+    ${
+      preflightChecks.length
+        ? `<div>
+            <h4>生成前检查</h4>
+            <div class="writing-summary">
+              ${escapeHtml(preflight.status === "ready" ? "结构准备较完整" : `仍有 ${preflight.warningCount || 0} 项需要注意`)}
+            </div>
+            <ul>
+              ${preflightChecks
+                .map(
+                  (check) =>
+                    `<li><strong>${escapeHtml(check.status === "pass" ? "通过" : "提醒")}：${escapeHtml(check.label || "")}</strong> ${escapeHtml(check.message || "")}</li>`
+                )
+                .join("")}
+            </ul>
+          </div>`
+        : ""
+    }
     <div>
       <h4>章节结构</h4>
       ${

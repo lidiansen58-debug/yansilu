@@ -150,6 +150,8 @@ async function loadBasketNotes(vaultPath, noteIds) {
       excerpt: noteExcerpt(note),
       thesis: cleanText(note.thesis),
       threeLineSummary: Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [],
+      distillationStatus: cleanText(note.distillationStatus),
+      authorship: note.authorship || { user_confirmed: false, ai_assisted: false },
       body: note.body,
       boundaryOrCounterpoint: cleanText(note.boundaryOrCounterpoint)
     });
@@ -324,6 +326,98 @@ function scaffoldOpenQuestionsFromBasket(basketNotes) {
   return questions;
 }
 
+function preflightCheck(id, label, status, message, details = {}) {
+  return {
+    id,
+    label,
+    status,
+    message,
+    ...details
+  };
+}
+
+function buildScaffoldPreflight(project, basketNotes) {
+  const basketCount = basketNotes.length;
+  const confirmedNotes = basketNotes.filter(
+    (note) =>
+      cleanText(note.thesis) &&
+      Array.isArray(note.threeLineSummary) &&
+      note.threeLineSummary.length === 3 &&
+      note.distillationStatus === "confirmed" &&
+      note.authorship?.user_confirmed === true
+  );
+  const notesWithBoundary = basketNotes.filter((note) => boundarySummary(note));
+  const checks = [
+    preflightCheck(
+      "basket_size",
+      "Permanent-note basket",
+      basketCount >= 2 ? "pass" : "warning",
+      basketCount >= 2
+        ? `${basketCount} permanent notes are ready to be organized into a scaffold.`
+        : "Add at least two permanent notes before treating this as a real argument.",
+      { count: basketCount, targetType: "writing_project", targetId: project.id }
+    ),
+    preflightCheck(
+      "writing_intent",
+      "Writing intent",
+      cleanText(project.intent) ? "pass" : "warning",
+      cleanText(project.intent)
+        ? "The project has a clear writing intent."
+        : "Clarify what this piece is trying to explain before trusting the scaffold.",
+      { targetType: "writing_project", targetId: project.id }
+    ),
+    preflightCheck(
+      "reader_takeaway",
+      "Reader takeaway",
+      cleanText(project.desired_reader_takeaway) ? "pass" : "warning",
+      cleanText(project.desired_reader_takeaway)
+        ? "The desired reader takeaway is explicit."
+        : "Add the reader takeaway so the scaffold has a target judgment.",
+      { targetType: "writing_project", targetId: project.id }
+    ),
+    preflightCheck(
+      "confirmed_distillation",
+      "Confirmed distillation",
+      confirmedNotes.length === basketCount && basketCount > 0 ? "pass" : "warning",
+      confirmedNotes.length === basketCount && basketCount > 0
+        ? "Every basket note has confirmed thesis and three-line distillation."
+        : `${Math.max(0, basketCount - confirmedNotes.length)} basket notes still need confirmed thesis and three-line distillation.`,
+      {
+        count: confirmedNotes.length,
+        total: basketCount,
+        targetNoteIds: basketNotes
+          .filter((note) => !confirmedNotes.some((confirmed) => confirmed.id === note.id))
+          .map((note) => note.id)
+      }
+    ),
+    preflightCheck(
+      "topic_entry",
+      "Theme entry",
+      Array.isArray(project.related_index_ids) && project.related_index_ids.length ? "pass" : "warning",
+      Array.isArray(project.related_index_ids) && project.related_index_ids.length
+        ? "The project is tied to a theme/index entry."
+        : "Link a theme/index card so this scaffold has a reusable question context.",
+      { targetType: "writing_project", targetId: project.id }
+    ),
+    preflightCheck(
+      "counterpoint_boundary",
+      "Counterpoint boundary",
+      notesWithBoundary.length ? "pass" : "warning",
+      notesWithBoundary.length
+        ? `${notesWithBoundary.length} basket notes carry boundaries or counterpoints.`
+        : "Add at least one boundary or counterpoint before drafting, or the argument may become too smooth.",
+      { count: notesWithBoundary.length, targetNoteIds: notesWithBoundary.map((note) => note.id) }
+    )
+  ];
+  const warningCount = checks.filter((check) => check.status !== "pass").length;
+  return {
+    status: warningCount ? "needs_attention" : "ready",
+    warningCount,
+    passCount: checks.length - warningCount,
+    checks
+  };
+}
+
 function buildSections(project, basketNotes) {
   const noteWithBoundary = basketNotes.find((note) => boundarySummary(note));
   const sections = [
@@ -369,7 +463,7 @@ function buildSections(project, basketNotes) {
   return sections;
 }
 
-function renderMarkdown(project, scaffold, basketNotes) {
+function renderMarkdown(project, scaffold, basketNotes, preflight = null) {
   const noteById = new Map(basketNotes.map((note) => [note.id, note]));
   const lines = [
     `# ${project.title}`,
@@ -380,9 +474,24 @@ function renderMarkdown(project, scaffold, basketNotes) {
     `- Tone: ${project.tone || "TBD"}`,
     `- Intent: ${project.intent || "TBD"}`,
     `- Reader takeaway: ${project.desired_reader_takeaway || "TBD"}`,
-    "",
-    "## Draft Scaffold"
+    ""
   ];
+
+  if (preflight?.checks?.length) {
+    lines.push(
+      "## Scaffold Readiness Check",
+      `- Status: ${preflight.status}`,
+      `- Passing checks: ${preflight.passCount}/${preflight.checks.length}`,
+      `- Warnings: ${preflight.warningCount}`,
+      ""
+    );
+    for (const check of preflight.checks) {
+      lines.push(`- ${check.status === "pass" ? "PASS" : "WARN"} ${check.label}: ${check.message}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("## Draft Scaffold");
 
   for (const section of scaffold.sections) {
     lines.push("", `### ${section.order}. ${section.heading}`, "", section.purpose || "");
@@ -443,7 +552,8 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     created_at: now,
     updated_at: now
   };
-  const markdown = renderMarkdown(project, scaffold, basketNotes);
+  const preflight = buildScaffoldPreflight(project, basketNotes);
+  const markdown = renderMarkdown(project, scaffold, basketNotes, preflight);
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -478,6 +588,7 @@ export async function createDraftScaffold(vaultPath, input = {}) {
   return {
     ...scaffold,
     markdown,
+    preflight,
     writing_project: {
       ...project,
       scaffold_id: scaffold.id,
@@ -738,7 +849,13 @@ export async function getDraftScaffold(vaultPath, draftScaffoldId) {
   try {
     const row = db.prepare("SELECT * FROM draft_scaffolds WHERE id = ? LIMIT 1").get(id);
     if (!row) throw new Error(`draftScaffoldId not found: ${id}`);
-    return mapScaffoldRow(row);
+    const scaffold = mapScaffoldRow(row);
+    const project = await loadProject(vaultPath, scaffold.writing_project_id);
+    const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+    return {
+      ...scaffold,
+      preflight: buildScaffoldPreflight(project, basketNotes)
+    };
   } finally {
     db.close();
   }

@@ -372,9 +372,14 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.ok(scaffold.json.item.sections.some((section) => section.counterpoints.some((item) => /stable note|conflated/i.test(item))));
   assert.ok(scaffold.json.item.sections.some((section) => section.open_questions.some((item) => /boundary|counterexample/i.test(item))));
   assert.ok(scaffold.json.item.open_questions.some((item) => /counterpoint|sharper separation|boundary/i.test(item)));
+  assert.equal(scaffold.json.item.preflight.status, "needs_attention");
+  assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "pass"));
+  assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "confirmed_distillation" && check.status === "warning"));
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "ready_for_review");
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
+  assert.match(scaffold.json.export.markdown, /## Scaffold Readiness Check/);
+  assert.match(scaffold.json.export.markdown, /WARN Confirmed distillation/);
   assert.match(scaffold.json.export.markdown, /## Paragraph-Evidence Map/);
   assert.match(scaffold.json.export.markdown, /Intent: Explain why writing should begin from distilled notes rather than blank prompts\./);
   assert.match(scaffold.json.export.markdown, /Reader takeaway: Readers should see thought compression as the bridge between note-taking and writing\./);
@@ -384,10 +389,12 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.match(scaffold.json.export.markdown, /sharper separation/i);
   assert.match(scaffold.json.export.markdown, /Writing from claims/);
   assert.equal(scaffold.json.export.json.sections.length, scaffold.json.item.sections.length);
+  assert.equal(scaffold.json.export.json.preflight.status, "needs_attention");
 
   const fetchedScaffold = await getJson(baseUrl, `/api/v1/draft-scaffolds/${encodeURIComponent(scaffold.json.item.id)}`);
   assert.equal(fetchedScaffold.status, 200, JSON.stringify(fetchedScaffold.json));
   assert.equal(fetchedScaffold.json.item.id, scaffold.json.item.id);
+  assert.equal(fetchedScaffold.json.item.preflight.status, "needs_attention");
   assert.match(fetchedScaffold.json.export.markdown, /Paragraph-Evidence Map/);
   assert.match(fetchedScaffold.json.export.markdown, /Counterpoints:/);
 
@@ -605,8 +612,11 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.equal(scaffold.json.item.writing_project_id, project.json.item.id);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "needs_intent");
+  assert.equal(scaffold.json.item.preflight.status, "needs_attention");
+  assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "warning"));
   assert.match(scaffold.json.export.markdown, /# Regression draft/);
   assert.match(scaffold.json.export.markdown, /- Intent: TBD/);
+  assert.match(scaffold.json.export.markdown, /WARN Writing intent/);
   assert.match(scaffold.json.export.markdown, /Rough claim/);
   assert.match(scaffold.json.export.markdown, /Supporting example/);
 

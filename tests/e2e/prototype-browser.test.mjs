@@ -4409,6 +4409,8 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldResultText || "", /Evidence UI map/);
 
   const scaffoldPreviewText = await page.locator("#writingScaffoldPreview").textContent();
+  assert.match(scaffoldPreviewText || "", /生成前检查/);
+  assert.match(scaffoldPreviewText || "", /Confirmed distillation|提纯/);
   assert.match(scaffoldPreviewText || "", /Opening frame/);
   assert.match(scaffoldPreviewText || "", /Paragraph-Evidence Map/);
 
