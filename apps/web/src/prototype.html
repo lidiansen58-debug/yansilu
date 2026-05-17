@@ -5612,6 +5612,89 @@
     .module-stage > .panel.hidden {
       display: none !important;
     }
+    .distillation-shell {
+      display: grid;
+      gap: 14px;
+    }
+    .distillation-overview {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .distillation-overview > div,
+    .distillation-card {
+      border: 1px solid #e5edf5;
+      background: #fbfdff;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .distillation-overview span {
+      display: block;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .distillation-overview strong {
+      display: block;
+      color: #0f172a;
+      font-size: 26px;
+      line-height: 1.1;
+      margin-top: 4px;
+    }
+    .distillation-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .distillation-queue {
+      display: grid;
+      gap: 8px;
+    }
+    .distillation-queue-item {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid #e5edf5;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .distillation-queue-item:hover,
+    .distillation-queue-item:focus-visible {
+      border-color: #94c7bd;
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+      outline: none;
+    }
+    .distillation-queue-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .distillation-queue-main strong {
+      color: #102033;
+      font-size: 14px;
+    }
+    .distillation-queue-main small,
+    .distillation-queue-main em {
+      color: #64748b;
+      font-size: 12px;
+      font-style: normal;
+      line-height: 1.45;
+    }
+    .distillation-empty {
+      border: 1px dashed #cbd5e1;
+      color: #64748b;
+      border-radius: 8px;
+      padding: 18px;
+      text-align: center;
+    }
     .status {
       position: fixed;
       right: 22px;
@@ -8419,6 +8502,12 @@
             <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+        <button class="rail-btn" data-module="distillation" title="思想提纯" data-tip="思想提纯" aria-label="思想提纯">
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.2 3.4h9.6M3.2 6.25h7.2M3.2 9.1h5.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>
+            <path d="M10.8 8.1l1.8 1.8-3.2 3.2H7.6v-1.8z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <button class="rail-btn" data-module="graph" title="关系图谱" data-tip="关系图谱" aria-label="关系图谱">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <circle cx="4" cy="4" r="1.7" fill="none" stroke="currentColor" stroke-width="1.2"/>
@@ -8860,6 +8949,7 @@
             <div class="import-result" id="exportResult">还没有导出结果。选择目标路径后即可导出 Markdown。</div>
           </div>
           </div>
+          <div class="panel hidden" id="distillationPanel"></div>
           <div class="panel hidden" id="aiInboxPanel">
             <div class="ai-inbox-empty">AI 建议待办会显示 AI 发现的关联、问题和写作线索。建议默认不会改动笔记，必须人工确认后才会落地。</div>
           </div>

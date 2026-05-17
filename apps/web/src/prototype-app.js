@@ -2991,6 +2991,27 @@ function currentModuleUi() {
   const root = folderById(state, state.browserRootId);
   const rootName = root?.name || "当前目录";
   const configs = {
+    distillation: {
+      sidebarTitle: "提纯",
+      sidebarSubtitle: "把永久笔记推进成清晰判断。",
+      sidebarFoot: "提纯队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
+      title: "思想提纯器",
+      summary: "这里集中处理永久笔记的 thesis、三句话压缩与确认状态。先让判断变清楚，再进入关系、主题与写作。",
+      sidebarHtml: `
+        <div class="module-sidebar-card">
+          <h3>当前目标</h3>
+          <p>从 <strong>${escapeHtml(rootName)}</strong> 中找出还缺少论点、三句话压缩或确认动作的永久笔记，逐条推进。</p>
+        </div>
+        <div class="module-sidebar-card">
+          <h3>处理顺序</h3>
+          <ol class="module-sidebar-list">
+            <li>先补一句话论点</li>
+            <li>再写三句话压缩</li>
+            <li>最后确认这确实是你的判断</li>
+          </ol>
+        </div>
+      `
+    },
     imports: {
       sidebarTitle: "导入中心",
       sidebarSubtitle: "先预览，再确认写入。",
@@ -3180,6 +3201,7 @@ function moduleLabel(moduleName = "") {
     explorer: "笔记编辑",
     imports: "导入导出",
     aiInbox: "AI 建议",
+    distillation: "思想提纯",
     graph: "关系图谱",
     writing: "写作中心",
     settings: "设置"
@@ -3195,6 +3217,55 @@ function noteTypeLabel(noteType = "") {
     permanent: "永久笔记"
   };
   return labels[String(noteType || "").trim().toLowerCase()] || "笔记";
+}
+
+function isPermanentLikeNote(note = null) {
+  const noteType = String(note?.noteType || typeFromFolder(state, note?.folderId || "")).trim().toLowerCase();
+  return noteType === "permanent" || noteType === "original";
+}
+
+function distillationStatusOf(note = null) {
+  const explicit = String(note?.distillationStatus || "").trim().toLowerCase();
+  if (explicit === "confirmed") return "confirmed";
+  const thesis = String(note?.thesis || "").trim();
+  const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+  if (explicit === "draft" || thesis || summary.length) return "draft";
+  return "missing";
+}
+
+function distillationReasonOf(note = null) {
+  const thesis = String(note?.thesis || "").trim();
+  const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+  const status = distillationStatusOf(note);
+  if (status === "confirmed") return "已确认提纯";
+  if (!thesis) return "待写一句话论点";
+  if (summary.length < 3) return `三句话压缩还差 ${3 - summary.length} 句`;
+  return "待确认提纯结果";
+}
+
+function distillationStatusLabel(status = "") {
+  const labels = {
+    missing: "未提纯",
+    draft: "草稿",
+    confirmed: "已确认"
+  };
+  return labels[String(status || "").trim().toLowerCase()] || "未提纯";
+}
+
+function distillationQueueItems() {
+  const rank = { missing: 0, draft: 1, confirmed: 2 };
+  return state.notes
+    .filter((note) => isPermanentLikeNote(note))
+    .map((note) => {
+      const status = distillationStatusOf(note);
+      return {
+        note,
+        status,
+        reason: distillationReasonOf(note),
+        rank: rank[status] ?? 9
+      };
+    })
+    .sort((a, b) => a.rank - b.rank || String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || "")));
 }
 
 function displayFolderName(folder) {
@@ -3391,11 +3462,114 @@ function applyFocusModeChrome() {
   }
 }
 
+function renderDistillationPanel() {
+  const panel = $("distillationPanel");
+  if (!panel) return;
+  const items = distillationQueueItems();
+  const counts = items.reduce(
+    (acc, item) => {
+      acc[item.status] = (acc[item.status] || 0) + 1;
+      return acc;
+    },
+    { missing: 0, draft: 0, confirmed: 0 }
+  );
+  const activeCount = (counts.missing || 0) + (counts.draft || 0);
+  const rows = items.length
+    ? items
+        .map(({ note, status, reason }) => {
+          const title = note.title || titleFromBody(note.body || "") || "未命名笔记";
+          const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter(Boolean).slice(0, 3).join(" / ") : "";
+          return `
+            <button class="distillation-queue-item" type="button" data-distillation-open-note="${escapeHtml(note.id)}" data-status="${escapeHtml(status)}">
+              <span class="distillation-queue-main">
+                <strong>${escapeHtml(title)}</strong>
+                <small>${escapeHtml(reason)}</small>
+                ${note.thesis ? `<em>${escapeHtml(note.thesis)}</em>` : ""}
+                ${summary ? `<em>${escapeHtml(summary)}</em>` : ""}
+              </span>
+              <span class="inspector-chip">${escapeHtml(distillationStatusLabel(status))}</span>
+            </button>
+          `;
+        })
+        .join("")
+    : `<div class="distillation-empty">还没有可提纯的永久笔记。先在永久笔记工作台新建或导入一条笔记。</div>`;
+  panel.innerHTML = `
+    <div class="distillation-shell">
+      <section class="distillation-overview">
+        <div>
+          <span>待提纯</span>
+          <strong>${activeCount}</strong>
+        </div>
+        <div>
+          <span>缺论点</span>
+          <strong>${counts.missing || 0}</strong>
+        </div>
+        <div>
+          <span>待确认</span>
+          <strong>${counts.draft || 0}</strong>
+        </div>
+        <div>
+          <span>已确认</span>
+          <strong>${counts.confirmed || 0}</strong>
+        </div>
+      </section>
+      <section class="distillation-card">
+        <div class="distillation-card-head">
+          <div>
+            <div class="import-card-kicker">Queue</div>
+            <strong>提纯队列</strong>
+          </div>
+          <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新队列</button>
+        </div>
+        <div class="distillation-queue">${rows}</div>
+      </section>
+    </div>
+  `;
+}
+
+async function refreshDistillationNotes() {
+  const rootId = "dir_original_default";
+  const directoryIds = descendantDirectoryIds(rootId).filter((id) => folderById(state, id));
+  for (const directoryId of directoryIds) {
+    await syncNotesForDirectory(directoryId);
+  }
+  renderDistillationPanel();
+}
+
+async function openDistillationModule() {
+  try {
+    await refreshDistillationNotes();
+    setStatus("已打开思想提纯器", "ok");
+  } catch (error) {
+    renderDistillationPanel();
+    setStatus(`提纯队列刷新失败：${String(error?.message || error)}`, "warn");
+  }
+}
+
+async function openDistillationQueueNote(noteId = "") {
+  const id = String(noteId || "").trim();
+  if (!id) return;
+  await ensureNoteBodyLoaded(id);
+  state.module = "explorer";
+  document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.module === "explorer");
+  });
+  const opened = openNoteById(id, { preferTitleSelection: false });
+  if (opened) {
+    state.inspectorVisible = true;
+    editor?.setInspectorVisible?.(true);
+    editor?.renderRelated?.("提纯队列");
+    setStatus("已从提纯队列打开笔记", "ok");
+  }
+  renderAll();
+}
+
 function renderAll() {
   ensureSelection();
   renderSidebarTitle();
   renderModulePanels();
   renderAiInboxWorkspace();
+  renderDistillationPanel();
   renderGraphPanel();
   renderSettingsPanel();
   renderWritingPanel();
@@ -3628,7 +3802,8 @@ function renderModulePanels() {
   const settingsMode = state.module === "settings";
   const writingMode = state.module === "writing";
   const importsMode = state.module === "imports";
-  const editorMode = !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode;
+  const distillationMode = state.module === "distillation";
+  const editorMode = !graphMode && !aiInboxMode && !settingsMode && !writingMode && !importsMode && !distillationMode;
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
@@ -3636,6 +3811,7 @@ function renderModulePanels() {
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
   $("writingPanel")?.classList.toggle("hidden", !writingMode);
   $("importPanel")?.classList.toggle("hidden", !importsMode);
+  $("distillationPanel")?.classList.toggle("hidden", !distillationMode);
   $("markdownPanel")?.classList.toggle("hidden", !editorMode);
   $("relatedPanel")?.classList.toggle("hidden", !editorMode || !state.inspectorVisible);
   $("btnMobileNewNote")?.classList.toggle("hidden", !editorMode);
@@ -6272,25 +6448,39 @@ async function handleStateChange(reason, payload = {}) {
     const note = state.notes.find((n) => n.id === noteId);
     if (!note) return false;
     try {
+      const requestedStatus = String(payload.distillationStatus || "draft").trim();
+      const shouldConfirm = requestedStatus === "confirmed";
       const updated = await updatePermanentNoteDistillation(note.id, {
         thesis: payload.thesis || "",
         threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
-        distillationStatus: payload.distillationStatus || "draft"
+        distillationStatus: shouldConfirm ? "draft" : requestedStatus || "draft"
       });
-      if (updated) {
-        Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      let finalUpdated = updated;
+      if (shouldConfirm) {
+        finalUpdated = await confirmPermanentNoteDistillation(note.id, {
+          aiAssisted: Boolean(payload.authorship?.ai_assisted ?? note.authorship?.ai_assisted)
+        });
+      }
+      if (finalUpdated) {
+        Object.assign(note, mapNoteItem(finalUpdated), { bodyLoaded: true });
         const tab = state.tabs.find((item) => item.noteId === note.id);
-        if (tab && typeof updated.body === "string") {
-          tab.body = updated.body;
-          tab.savedBody = updated.body;
-          tab.title = updated.title || tab.title;
+        if (tab && typeof finalUpdated.body === "string") {
+          tab.body = finalUpdated.body;
+          tab.savedBody = finalUpdated.body;
+          tab.title = finalUpdated.title || tab.title;
           tab.savedTitle = tab.title;
           tab.dirty = false;
         }
       }
-      setStatus("提纯字段已保存", "ok");
+      setStatus(
+        shouldConfirm
+          ? "\u63d0\u7eaf\u5b57\u6bb5\u5df2\u4fdd\u5b58\u5e76\u786e\u8ba4"
+          : "\u63d0\u7eaf\u5b57\u6bb5\u5df2\u4fdd\u5b58",
+        "ok"
+      );
+      renderDistillationPanel();
       renderAll();
-      return updated || true;
+      return finalUpdated || true;
     } catch (error) {
       setStatus(`提纯字段保存失败：${String(error?.message || error)}`, "bad");
       return false;
@@ -7675,8 +7865,22 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
 	    if (state.module === "writing") {
 	      await openWritingModule();
 	    }
+	    if (state.module === "distillation") {
+	      await openDistillationModule();
+	    }
 	  });
 	});
+
+$("distillationPanel")?.addEventListener("click", async (event) => {
+  const refresh = event.target.closest("#btnDistillationRefresh");
+  if (refresh) {
+    await openDistillationModule();
+    return;
+  }
+  const noteButton = event.target.closest("[data-distillation-open-note]");
+  if (!noteButton) return;
+  await openDistillationQueueNote(noteButton.dataset.distillationOpenNote);
+});
 
 $("btnMobileNewNote")?.addEventListener("click", () => {
   const folderId = resolveExplorerNewNoteFolderId(state);

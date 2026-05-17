@@ -1024,6 +1024,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   await page.fill('[data-note-distillation-form] textarea[name="summary1"]', "Line one.");
   await page.fill('[data-note-distillation-form] textarea[name="summary2"]', "Line two.");
   await page.fill('[data-note-distillation-form] textarea[name="summary3"]', "Line three.");
+  await page.selectOption('[data-note-distillation-form] select[name="distillationStatus"]', "confirmed");
   await page.click('[data-note-distillation-form] button[type="submit"]');
 
   await waitFor(async () => {
@@ -1036,8 +1037,14 @@ test("prototype permanent note distillation panel saves thesis and three-line su
     assert.equal(note.status, 200);
     assert.equal(note.json.item.thesis, "Distilled thesis.");
     assert.deepEqual(note.json.item.threeLineSummary, ["Line one.", "Line two.", "Line three."]);
-    assert.equal(note.json.item.distillationStatus, "draft");
+    assert.equal(note.json.item.distillationStatus, "confirmed");
   }, 10000);
+
+  await page.locator('[data-module="distillation"]').click();
+  await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).waitFor();
+  await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).click();
+  await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
+  assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
 
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
