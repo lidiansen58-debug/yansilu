@@ -722,8 +722,7 @@ function isMarkdownBlockBoundary(lines = [], index = 0) {
   const line = String(lines[index] || "");
   if (!line.trim()) return false;
   return (
-    line.startsWith("# ") ||
-    line.startsWith("## ") ||
+    /^#{1,6}\s+/.test(line) ||
     line.startsWith("> ") ||
     isMarkdownCodeFenceLine(line) ||
     isHorizontalRuleLine(line) ||
@@ -731,6 +730,7 @@ function isMarkdownBlockBoundary(lines = [], index = 0) {
     isMarkdownAttachmentLine(line) ||
     isMarkdownChecklistLine(line) ||
     isMarkdownBulletLine(line) ||
+    isMarkdownOrderedListLine(line) ||
     isMarkdownTableStart(lines, index)
   );
 }
@@ -864,14 +864,10 @@ export function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    if (line.startsWith("# ")) {
-      blocks.push(`<h1>${renderInlinePreview(line.slice(2), options)}</h1>`);
-      index += 1;
-      continue;
-    }
-
-    if (line.startsWith("## ")) {
-      blocks.push(`<h2>${renderInlinePreview(line.slice(3), options)}</h2>`);
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      blocks.push(`<h${level}>${renderInlinePreview(headingMatch[2], options)}</h${level}>`);
       index += 1;
       continue;
     }
@@ -955,6 +951,19 @@ export function renderMarkdownPreview(markdown, options = {}) {
         index += 1;
       }
       blocks.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    if (isMarkdownOrderedListLine(line)) {
+      const firstNumber = Number(line.match(/^\s*(\d+)[.)]\s/)?.[1] || 1);
+      const items = [];
+      while (index < lines.length && isMarkdownOrderedListLine(lines[index])) {
+        const match = lines[index].match(/^\s*\d+[.)]\s?(.*)$/);
+        items.push(`<li>${renderInlinePreview(match?.[1] || "", options)}</li>`);
+        index += 1;
+      }
+      const startAttr = firstNumber > 1 ? ` start="${firstNumber}"` : "";
+      blocks.push(`<ol${startAttr}>${items.join("")}</ol>`);
       continue;
     }
 
