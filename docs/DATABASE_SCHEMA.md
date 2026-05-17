@@ -330,4 +330,4 @@ CREATE INDEX idx_embeddings_object ON embeddings(object_type, object_id);
 3. 导入必须先预览再确认，并生成 ImportRecord。
 4. 不覆盖用户二次编辑内容。
 5. 所有转换关系必须可追溯：随笔 -> 书摘/永久笔记，书摘 -> 原创。
-6. 思想提纯字段属于高密度语义层，AI 仅能提供候选建议，最终写入必须经用户确认。
+6. 观点提纯字段属于高密度语义层，AI 仅能提供候选建议，最终写入必须经用户确认。

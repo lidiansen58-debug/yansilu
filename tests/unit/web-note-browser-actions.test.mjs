@@ -38,6 +38,20 @@ test("note browser new action falls back to current root when selection is stale
   });
 });
 
+test("note browser new action names permanent notes without legacy original copy", () => {
+  const state = createInitialState();
+
+  state.browserRootId = "dir_original_default";
+  state.selectedFolderId = "dir_original_default";
+
+  assert.equal(resolveExplorerNewNoteFolderId(state), "dir_original_default");
+  assert.deepEqual(explorerNewNoteButtonCopy(state), {
+    label: "新建笔记",
+    title: "新建永久笔记",
+    ariaLabel: "在当前永久笔记目录新建笔记"
+  });
+});
+
 test("editor toolbar does not render the file attachment button", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

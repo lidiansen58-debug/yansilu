@@ -168,6 +168,9 @@ const graphState = {
     status: "all"
   }
 };
+const distillationState = {
+  filter: "all"
+};
 const aiInboxState = {
   items: [],
   counts: { pending: 0, reviewed: 0, archived: 0, all: 0 },
@@ -2819,6 +2822,39 @@ function noteHasNetworkSignal(note = null) {
   return bodyLinks.length > 0 || bodyTags.length > 0;
 }
 
+function noteHasBoundarySignal(note = null) {
+  if (String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim()) return true;
+  const body = String(note?.body || "");
+  return /边界|反例|不成立|适用条件|counterpoint|boundary|counterexample/i.test(body);
+}
+
+function distillationSummaryForNotes(notes = []) {
+  return notes.reduce(
+    (acc, note) => {
+      const thesis = String(note?.thesis || "").trim();
+      const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+      const confirmed = distillationStatusOf(note) === "confirmed";
+      if (!thesis) acc.missingThesis += 1;
+      if (summary.length < 3) acc.missingSummary += 1;
+      if (!confirmed && thesis && summary.length >= 3) acc.needsConfirm += 1;
+      if (!noteHasBoundarySignal(note)) acc.missingBoundary += 1;
+      if (!confirmed) acc.pending += 1;
+      if (confirmed) acc.confirmed += 1;
+      if (confirmed && thesis && summary.length >= 3) acc.writingReady += 1;
+      return acc;
+    },
+    {
+      pending: 0,
+      confirmed: 0,
+      writingReady: 0,
+      missingThesis: 0,
+      missingSummary: 0,
+      needsConfirm: 0,
+      missingBoundary: 0
+    }
+  );
+}
+
 function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const el = $("sidebarFlow");
   if (!el) return;
@@ -2830,15 +2866,27 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const linkedOriginalCount = originalNotes.filter(noteHasNetworkSignal).length;
   const generatedMaterialCount = currentNotes.filter(noteHasGeneratedOriginal).length;
   const pendingMaterialCount = Math.max(0, currentNotes.length - generatedMaterialCount);
+  const distillation = distillationSummaryForNotes(originalNotes.filter((note) => isPermanentLikeNote(note)));
+  const topGaps = [
+    distillation.missingThesis ? `缺一句话判断 ${distillation.missingThesis}` : "",
+    distillation.missingSummary ? `缺三句话压缩 ${distillation.missingSummary}` : "",
+    distillation.needsConfirm ? `待确认观点 ${distillation.needsConfirm}` : "",
+    distillation.missingBoundary ? `缺边界/反例 ${distillation.missingBoundary}` : ""
+  ].filter(Boolean);
+  const primaryAction = distillation.pending > 0 ? "continue-distillation" : distillation.writingReady > 0 ? "open-writing" : "create-permanent";
   const title = isOriginal
-    ? "永久笔记是默认主路"
+    ? "观点形成进度"
     : isLiterature
       ? "文献是证据入口"
       : isFleeting
         ? "随笔是线索入口"
         : "当前目录接入主路";
   const note = isOriginal
-    ? "新建、搜索和写作都优先围绕自己的判断展开；素材入口只负责把材料送到这里。"
+    ? topGaps.length
+      ? `下一步：${topGaps.slice(0, 2).join("，")}。`
+      : distillation.writingReady
+        ? "当前观点已经可以进入写作准备。"
+        : "先写出第一条可以被确认的观点。"
     : isLiterature
       ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
       : isFleeting
@@ -2846,10 +2894,10 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
         : "这一级目录会被放回永久笔记、关系网络、主题索引和写作准备的路径里理解。";
   const steps = isOriginal
     ? [
-        ["永久笔记", true],
-        ["关系网络", linkedOriginalCount > 0],
-        ["主题索引", false],
-        ["写作准备", false]
+        ["写一句判断", distillation.missingThesis < originalNotes.length],
+        ["压缩成三句话", distillation.missingSummary < originalNotes.length],
+        ["确认观点", distillation.confirmed > 0],
+        ["写作准备", distillation.writingReady > 0]
       ]
     : [
         ["素材入口", true],
@@ -2859,9 +2907,9 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
       ];
   const metrics = isOriginal
     ? [
-        [originalNotes.length, "永久笔记"],
-        [linkedOriginalCount, "已接入网络"],
-        [originalNotes.filter((note) => String(note.status || "").trim() === "active").length, "已确认"]
+        [distillation.pending, "待提纯"],
+        [distillation.confirmed, "已确认观点"],
+        [distillation.writingReady, "可进入写作"]
       ]
     : [
         [currentNotes.length, "素材条目"],
@@ -2892,6 +2940,14 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
           )
           .join("")}
       </div>
+      ${
+        isOriginal
+          ? `<div class="sidebar-flow-gaps">${topGaps.length ? topGaps.map((gap) => `<span>${escapeHtml(gap)}</span>`).join("") : `<span>观点链路已清爽</span>`}</div>
+             <button class="mini-btn primary sidebar-flow-action" type="button" data-sidebar-flow-action="${escapeHtml(primaryAction)}">${escapeHtml(
+               primaryAction === "continue-distillation" ? "继续观点提纯" : primaryAction === "open-writing" ? "进入写作准备" : "新建永久笔记"
+             )}</button>`
+          : ""
+      }
     </div>
   `;
 }
@@ -2992,22 +3048,22 @@ function currentModuleUi() {
   const rootName = root?.name || "当前目录";
   const configs = {
     distillation: {
-      sidebarTitle: "提纯",
-      sidebarSubtitle: "把永久笔记推进成清晰判断。",
-      sidebarFoot: "提纯队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
-      title: "思想提纯器",
-      summary: "这里集中处理永久笔记的 thesis、三句话压缩与确认状态。先让判断变清楚，再进入关系、主题与写作。",
+      sidebarTitle: "观点提纯",
+      sidebarSubtitle: "把永久笔记推进成清晰观点。",
+      sidebarFoot: "观点提纯队列只推动手写字段与确认动作；AI 候选后续仍保持待审，不直接改写笔记。",
+      title: "观点提纯",
+      summary: "这里集中处理永久笔记的一句话判断、三句话压缩与确认状态。先让观点变清楚，再进入关系、主题与写作。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>当前目标</h3>
-          <p>从 <strong>${escapeHtml(rootName)}</strong> 中找出还缺少论点、三句话压缩或确认动作的永久笔记，逐条推进。</p>
+          <p>从 <strong>${escapeHtml(rootName)}</strong> 中找出还缺一句话判断、三句话压缩或确认动作的永久笔记，逐条推进。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>处理顺序</h3>
           <ol class="module-sidebar-list">
-            <li>先补一句话论点</li>
-            <li>再写三句话压缩</li>
-            <li>最后确认这确实是你的判断</li>
+            <li>先写一句判断</li>
+            <li>再压缩成三句话</li>
+            <li>最后确认这确实是你的观点</li>
           </ol>
         </div>
       `
@@ -3201,7 +3257,7 @@ function moduleLabel(moduleName = "") {
     explorer: "笔记编辑",
     imports: "导入导出",
     aiInbox: "AI 建议",
-    distillation: "思想提纯",
+    distillation: "观点提纯",
     graph: "关系图谱",
     writing: "写作中心",
     settings: "设置"
@@ -3237,32 +3293,64 @@ function distillationReasonOf(note = null) {
   const thesis = String(note?.thesis || "").trim();
   const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
   const status = distillationStatusOf(note);
-  if (status === "confirmed") return "已确认提纯";
-  if (!thesis) return "待写一句话论点";
+  if (status === "confirmed") return "已确认观点";
+  if (!thesis) return "待写一句话判断";
   if (summary.length < 3) return `三句话压缩还差 ${3 - summary.length} 句`;
-  return "待确认提纯结果";
+  return "待确认观点";
 }
 
 function distillationStatusLabel(status = "") {
   const labels = {
-    missing: "未提纯",
-    draft: "草稿",
+    missing: "待提纯",
+    draft: "待确认",
     confirmed: "已确认"
   };
-  return labels[String(status || "").trim().toLowerCase()] || "未提纯";
+  return labels[String(status || "").trim().toLowerCase()] || "待提纯";
+}
+
+function distillationStageOf(note = null) {
+  const status = distillationStatusOf(note);
+  const thesis = String(note?.thesis || "").trim();
+  const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+  if (status === "confirmed") return "confirmed";
+  if (!thesis) return "needs_thesis";
+  if (summary.length < 3) return "needs_summary";
+  return "needs_confirm";
+}
+
+function distillationStageLabel(stage = "") {
+  const labels = {
+    needs_thesis: "待一句话判断",
+    needs_summary: "待三句话压缩",
+    needs_confirm: "待确认",
+    confirmed: "已确认"
+  };
+  return labels[String(stage || "").trim()] || "全部";
+}
+
+function distillationQueueFilters(counts = {}) {
+  return [
+    ["all", "全部", counts.all || 0],
+    ["needs_thesis", "待一句话判断", counts.needs_thesis || 0],
+    ["needs_summary", "待三句话压缩", counts.needs_summary || 0],
+    ["needs_confirm", "待确认", counts.needs_confirm || 0],
+    ["confirmed", "已确认", counts.confirmed || 0]
+  ];
 }
 
 function distillationQueueItems() {
-  const rank = { missing: 0, draft: 1, confirmed: 2 };
+  const rank = { needs_thesis: 0, needs_summary: 1, needs_confirm: 2, confirmed: 3 };
   return state.notes
     .filter((note) => isPermanentLikeNote(note))
     .map((note) => {
       const status = distillationStatusOf(note);
+      const stage = distillationStageOf(note);
       return {
         note,
         status,
+        stage,
         reason: distillationReasonOf(note),
-        rank: rank[status] ?? 9
+        rank: rank[stage] ?? 9
       };
     })
     .sort((a, b) => a.rank - b.rank || String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || "")));
@@ -3417,7 +3505,7 @@ function renderWorkspaceStatusHint() {
     }
     return;
   }
-  if (noteType === "original") {
+  if (isPermanentLikeNote(activeNote)) {
     kicker.textContent = "永久笔记";
     title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
     body.textContent = "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。";
@@ -3466,6 +3554,14 @@ function renderDistillationPanel() {
   const panel = $("distillationPanel");
   if (!panel) return;
   const items = distillationQueueItems();
+  const stageCounts = items.reduce(
+    (acc, item) => {
+      acc.all += 1;
+      acc[item.stage] = (acc[item.stage] || 0) + 1;
+      return acc;
+    },
+    { all: 0, needs_thesis: 0, needs_summary: 0, needs_confirm: 0, confirmed: 0 }
+  );
   const counts = items.reduce(
     (acc, item) => {
       acc[item.status] = (acc[item.status] || 0) + 1;
@@ -3474,8 +3570,25 @@ function renderDistillationPanel() {
     { missing: 0, draft: 0, confirmed: 0 }
   );
   const activeCount = (counts.missing || 0) + (counts.draft || 0);
-  const rows = items.length
-    ? items
+  const writingReadyCount = items.filter(({ note, status }) => {
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    return status === "confirmed" && String(note.thesis || "").trim() && summary.length >= 3;
+  }).length;
+  const activeFilter = distillationState.filter || "all";
+  const filteredItems = activeFilter === "all" ? items : items.filter((item) => item.stage === activeFilter);
+  const gapChips = [
+    stageCounts.needs_thesis ? `缺一句话判断 ${stageCounts.needs_thesis}` : "",
+    stageCounts.needs_summary ? `缺三句话压缩 ${stageCounts.needs_summary}` : "",
+    stageCounts.needs_confirm ? `待确认观点 ${stageCounts.needs_confirm}` : ""
+  ].filter(Boolean);
+  const filtersHtml = distillationQueueFilters(stageCounts)
+    .map(([key, label, value]) => {
+      const active = activeFilter === key;
+      return `<button class="distillation-filter ${active ? "active" : ""}" type="button" data-distillation-filter="${escapeHtml(key)}" aria-pressed="${active ? "true" : "false"}">${escapeHtml(label)} <span>${Number(value) || 0}</span></button>`;
+    })
+    .join("");
+  const rows = filteredItems.length
+    ? filteredItems
         .map(({ note, status, reason }) => {
           const title = note.title || titleFromBody(note.body || "") || "未命名笔记";
           const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter(Boolean).slice(0, 3).join(" / ") : "";
@@ -3492,35 +3605,54 @@ function renderDistillationPanel() {
           `;
         })
         .join("")
-    : `<div class="distillation-empty">还没有可提纯的永久笔记。先在永久笔记工作台新建或导入一条笔记。</div>`;
+    : activeFilter !== "all"
+      ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作准备。</div>`
+      : activeCount === 0 && writingReadyCount > 0
+        ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作准备。</div>`
+        : `<div class="distillation-empty">还没有可提纯的永久笔记。先在永久笔记工作台新建或导入一条笔记。</div>`;
+  const nextActiveItem = items.find((item) => item.stage !== "confirmed") || null;
+  const primaryAction = nextActiveItem ? "open-next" : writingReadyCount > 0 ? "open-writing" : "create-permanent";
+  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作准备" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续观点提纯";
+  const primaryActionAttrs = primaryAction === "open-next"
+    ? `data-distillation-open-note="${escapeHtml(nextActiveItem.note.id)}"`
+    : `data-distillation-action="${escapeHtml(primaryAction)}"`;
   panel.innerHTML = `
     <div class="distillation-shell">
+      <section class="distillation-card distillation-home">
+        <div>
+          <div class="import-card-kicker">Opinion Distillation</div>
+          <strong>先把材料压缩成你愿意确认的观点</strong>
+          <p>${escapeHtml(gapChips.length ? `优先处理：${gapChips.join("，")}。` : writingReadyCount ? "当前观点已经准备进入写作。" : "从第一条永久笔记开始写一句判断。")}</p>
+        </div>
+        <button class="mini-btn primary" type="button" ${primaryActionAttrs}>${escapeHtml(primaryActionLabel)}</button>
+      </section>
       <section class="distillation-overview">
         <div>
           <span>待提纯</span>
           <strong>${activeCount}</strong>
         </div>
         <div>
-          <span>缺论点</span>
-          <strong>${counts.missing || 0}</strong>
-        </div>
-        <div>
-          <span>待确认</span>
-          <strong>${counts.draft || 0}</strong>
-        </div>
-        <div>
-          <span>已确认</span>
+          <span>已确认观点</span>
           <strong>${counts.confirmed || 0}</strong>
+        </div>
+        <div>
+          <span>可进入写作</span>
+          <strong>${writingReadyCount}</strong>
+        </div>
+        <div>
+          <span>缺口提醒</span>
+          <strong>${gapChips.length}</strong>
         </div>
       </section>
       <section class="distillation-card">
         <div class="distillation-card-head">
           <div>
             <div class="import-card-kicker">Queue</div>
-            <strong>提纯队列</strong>
+            <strong>观点提纯队列</strong>
           </div>
           <button class="mini-btn is-ghost" id="btnDistillationRefresh" type="button">刷新队列</button>
         </div>
+        <div class="distillation-filters" role="group" aria-label="观点提纯队列筛选">${filtersHtml}</div>
         <div class="distillation-queue">${rows}</div>
       </section>
     </div>
@@ -3539,10 +3671,10 @@ async function refreshDistillationNotes() {
 async function openDistillationModule() {
   try {
     await refreshDistillationNotes();
-    setStatus("已打开思想提纯器", "ok");
+    setStatus("已打开观点提纯", "ok");
   } catch (error) {
     renderDistillationPanel();
-    setStatus(`提纯队列刷新失败：${String(error?.message || error)}`, "warn");
+    setStatus(`观点提纯队列刷新失败：${String(error?.message || error)}`, "warn");
   }
 }
 
@@ -3558,10 +3690,24 @@ async function openDistillationQueueNote(noteId = "") {
   if (opened) {
     state.inspectorVisible = true;
     editor?.setInspectorVisible?.(true);
-    editor?.renderRelated?.("提纯队列");
-    setStatus("已从提纯队列打开笔记", "ok");
+    editor?.renderRelated?.("观点提纯队列");
+    setStatus("已从观点提纯队列打开笔记", "ok");
   }
   renderAll();
+  queueMicrotask(() => {
+    const note = state.notes.find((item) => item.id === id) || null;
+    const stage = distillationStageOf(note);
+    const selector =
+      stage === "needs_thesis"
+        ? '[data-note-distillation-form] textarea[name="thesis"]'
+        : stage === "needs_summary"
+          ? '[data-note-distillation-form] textarea[name="summary1"]'
+          : stage === "needs_confirm"
+            ? "[data-note-distillation-confirm]"
+            : "[data-note-distillation-section]";
+    document.querySelector("[data-note-distillation-section]")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    document.querySelector(selector)?.focus?.();
+  });
 }
 
 function renderAll() {
@@ -3651,7 +3797,8 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
 }
 
 function initialBodyForFolder(folderId = "") {
-  return typeFromFolder(state, folderId) === "literature" ? literatureNoteTemplateBody() : "# 未命名笔记\n\n";
+  if (typeFromFolder(state, folderId) === "literature") return literatureNoteTemplateBody();
+  return "# 未命名笔记\n\n";
 }
 
 async function createNoteInSelectedFolder(options = {}) {
@@ -6319,6 +6466,11 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "create-note-in-selected-folder") {
+    if (state.activeTabId) {
+      state.activeTabId = null;
+      editor.fillEditorFromTab();
+      editor.renderTabs();
+    }
     const result = await createNoteInSelectedFolder({ preferTitleSelection: true });
     if (result.reused) {
       setStatus(
@@ -6350,7 +6502,11 @@ async function handleStateChange(reason, payload = {}) {
       payload.paraphrase || payload.sourceBody || payload.sourceTitle || sourceTitle || "",
       sourceTitle || "未命名永久笔记"
     );
-    const directoryId = "dir_original_default";
+    const requestedDirectoryId = String(payload.directoryId || "").trim();
+    const directoryId =
+      requestedDirectoryId && rootBoxIdFromFolder(state, requestedDirectoryId) === "dir_original_default"
+        ? requestedDirectoryId
+        : "dir_original_default";
     try {
       const created = await createNote({
         directoryId,
@@ -6494,15 +6650,15 @@ async function handleStateChange(reason, payload = {}) {
       }
       setStatus(
         shouldConfirm
-          ? "\u63d0\u7eaf\u5b57\u6bb5\u5df2\u4fdd\u5b58\u5e76\u786e\u8ba4"
-          : "\u63d0\u7eaf\u5b57\u6bb5\u5df2\u4fdd\u5b58",
+          ? "观点字段已保存并确认"
+          : "观点字段已保存",
         "ok"
       );
       renderDistillationPanel();
       renderAll();
       return finalUpdated || true;
     } catch (error) {
-      setStatus(`提纯字段保存失败：${String(error?.message || error)}`, "bad");
+      setStatus(`观点字段保存失败：${String(error?.message || error)}`, "bad");
       return false;
     }
   }
@@ -6516,11 +6672,11 @@ async function handleStateChange(reason, payload = {}) {
         aiAssisted: Boolean(note.authorship?.ai_assisted)
       });
       if (updated) Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
-      setStatus("提纯结果已确认", "ok");
+      setStatus("观点已确认", "ok");
       renderAll();
       return updated || true;
     } catch (error) {
-      setStatus(`提纯确认失败：${String(error?.message || error)}`, "bad");
+      setStatus(`观点确认失败：${String(error?.message || error)}`, "bad");
       return false;
     }
   }
@@ -6553,7 +6709,7 @@ async function handleStateChange(reason, payload = {}) {
             status: resolvedStatus,
             originalityStatus: payload.originalityStatus,
             originalitySimilarity: payload.originalitySimilarity,
-            authorship: note.noteType === "original" ? note.authorship : undefined
+            authorship: isPermanentLikeNote(note) ? note.authorship : undefined
           });
           if (updated) {
             note.title = updated.title || note.title;
@@ -6573,7 +6729,7 @@ async function handleStateChange(reason, payload = {}) {
             note.bodyLoaded = true;
             savedNote = updated;
           }
-          if (note.noteType === "original") {
+          if (isPermanentLikeNote(note)) {
             setStatus(
               resolvedStatus === "active"
                 ? "已同步到 Markdown，永久笔记已完成作者确认"
@@ -6821,6 +6977,7 @@ const editor = new EditorPane({
     showRelated: $("btnShowRelated"),
     hideRelated: $("btnHideRelated"),
     completeNote: $("btnCompleteNote"),
+    recordPermanent: $("btnRecordPermanent"),
     save: $("btnSave"),
     statusHint: $("statusHint"),
     authorshipPanel: $("authorshipPanel"),
@@ -7897,9 +8054,53 @@ $("distillationPanel")?.addEventListener("click", async (event) => {
     await openDistillationModule();
     return;
   }
+  const filterButton = event.target.closest("[data-distillation-filter]");
+  if (filterButton) {
+    distillationState.filter = String(filterButton.dataset.distillationFilter || "all").trim() || "all";
+    renderDistillationPanel();
+    return;
+  }
+  const actionButton = event.target.closest("[data-distillation-action]");
+  if (actionButton) {
+    const action = String(actionButton.dataset.distillationAction || "").trim();
+    if (action === "open-writing") {
+      activateModule("writing");
+      await openWritingModule();
+      return;
+    }
+    if (action === "create-permanent") {
+      activateModule("explorer");
+      state.browserRootId = "dir_original_default";
+      state.selectedFolderId = "dir_original_default";
+      await handleStateChange("create-note-in-selected-folder");
+      renderAll();
+      return;
+    }
+  }
   const noteButton = event.target.closest("[data-distillation-open-note]");
   if (!noteButton) return;
   await openDistillationQueueNote(noteButton.dataset.distillationOpenNote);
+});
+
+$("sidebarFlow")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-sidebar-flow-action]");
+  if (!button) return;
+  const action = String(button.dataset.sidebarFlowAction || "").trim();
+  if (action === "continue-distillation") {
+    activateModule("distillation");
+    await openDistillationModule();
+    return;
+  }
+  if (action === "open-writing") {
+    activateModule("writing");
+    await openWritingModule();
+    return;
+  }
+  if (action === "create-permanent") {
+    state.browserRootId = "dir_original_default";
+    state.selectedFolderId = "dir_original_default";
+    await handleStateChange("create-note-in-selected-folder");
+  }
 });
 
 $("btnMobileNewNote")?.addEventListener("click", () => {

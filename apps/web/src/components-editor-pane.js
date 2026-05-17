@@ -2097,6 +2097,7 @@ export class EditorPane {
       if (this.els.statusHint) this.els.statusHint.textContent = "";
       this.renderSaveButton();
       this.renderCompleteButton();
+      this.renderRecordPermanentButton();
       this.renderAuthorshipPanel();
       return;
     }
@@ -2124,6 +2125,7 @@ export class EditorPane {
     }
     this.renderSaveButton();
     this.renderCompleteButton();
+    this.renderRecordPermanentButton();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -2262,6 +2264,19 @@ export class EditorPane {
     button.classList.remove("active");
     button.dataset.tip = "所有笔记现在都使用同一个编辑器";
     button.title = "所有笔记现在都使用同一个编辑器";
+  }
+
+  renderRecordPermanentButton() {
+    const button = this.els.recordPermanent;
+    if (!button) return;
+    const note = this.activeNote();
+    const visible = Boolean(note && this.isOriginalRecordableSource(note) && !this.hasGeneratedOriginal(note));
+    button.classList.toggle("hidden", !visible);
+    button.disabled = !visible;
+    button.dataset.sourceNoteId = visible ? note.id : "";
+    button.title = visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.dataset.tip = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.setAttribute("aria-label", visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记");
   }
 
   renderLiteratureWorkspace() {
@@ -2566,7 +2581,6 @@ export class EditorPane {
       btn.setAttribute("aria-expanded", "true");
       input.value = "";
       this.filterToolbarCommandMenu("");
-      queueMicrotask(() => input.focus());
     };
 
     btn.addEventListener("click", (e) => {
@@ -4991,14 +5005,14 @@ export class EditorPane {
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">提纯</div>
+            <div class="inspector-section-title">观点提纯</div>
             <div class="inspector-section-note">手写优先；AI 候选只作为待审建议，不会替你确认判断。</div>
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
         </div>
         <form class="semantic-relation-form" data-note-distillation-form>
           <label>
-            一句话论点
+            一句话判断
             <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
           </label>
           <label>
@@ -5014,16 +5028,16 @@ export class EditorPane {
             <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
           </label>
           <label>
-            提纯状态
+            观点状态
             <select name="distillationStatus">
-              <option value="missing"${statusValue === "missing" ? " selected" : ""}>未提纯</option>
-              <option value="draft"${statusValue === "draft" ? " selected" : ""}>草稿</option>
+              <option value="missing"${statusValue === "missing" ? " selected" : ""}>待提纯</option>
+              <option value="draft"${statusValue === "draft" ? " selected" : ""}>待确认</option>
               <option value="confirmed"${statusValue === "confirmed" ? " selected" : ""}>已确认</option>
             </select>
           </label>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit">保存提纯</button>
-            <button class="mini-btn" type="button" data-note-distillation-confirm>确认提纯</button>
+            <button class="mini-btn primary" type="submit">保存观点</button>
+            <button class="mini-btn" type="button" data-note-distillation-confirm>确认观点</button>
           </div>
         </form>
       </section>
@@ -5035,7 +5049,7 @@ export class EditorPane {
     if (!note?.id) return;
     const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
     if (noteType !== "permanent" && noteType !== "original") {
-      this.onStatus("提纯面板只支持永久笔记", "warn");
+      this.onStatus("观点提纯面板只支持永久笔记", "warn");
       return;
     }
     const thesis = String(form.querySelector('[name="thesis"]')?.value || "").trim();
@@ -5073,7 +5087,7 @@ export class EditorPane {
     if (!note?.id) return;
     const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
     if (noteType !== "permanent" && noteType !== "original") {
-      this.onStatus("提纯面板只支持永久笔记", "warn");
+      this.onStatus("观点提纯面板只支持永久笔记", "warn");
       return;
     }
     const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
@@ -5083,7 +5097,7 @@ export class EditorPane {
         .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
         .filter(Boolean);
       if (!thesis || threeLineSummary.length !== 3) {
-        this.onStatus("确认前需要补全一句话论点和三句话压缩", "warn");
+        this.onStatus("确认前需要补全一句话判断和三句话压缩", "warn");
         return;
       }
       const savedEditor = await this.autoSaveActiveNote("distillation-confirm");
@@ -6037,6 +6051,29 @@ export class EditorPane {
       await this.saveActiveNote();
     });
 
+    this.els.recordPermanent?.addEventListener("click", async () => {
+      const note = this.activeNote();
+      if (!note || !this.isOriginalRecordableSource(note)) {
+        this.onStatus("随笔笔记和文献笔记才能创建永久笔记", "warn");
+        return;
+      }
+      const folders = this.state.folders.filter((folder) => !folder.hidden && rootBoxIdFromFolder(this.state, folder.id) === "dir_original_default");
+      const options = folders.length ? folders : this.state.folders.filter((folder) => folder.id === "dir_original_default");
+      const picked = prompt(`选择永久笔记目录 ID：\n${options.map((folder) => `${folder.id} ${folder.name}`).join("\n")}`, "dir_original_default");
+      const directoryId = String(picked || "").trim();
+      if (!options.some((folder) => folder.id === directoryId)) {
+        this.onStatus("已取消创建永久笔记", "warn");
+        return;
+      }
+      await this.onStateChange("record-original-from-note", {
+        sourceNoteId: note.id,
+        sourceType: note.noteType,
+        sourceTitle: note.title,
+        sourceBody: this.getEditorValue(),
+        directoryId
+      });
+    });
+
     this.els.completeNote?.addEventListener("click", async () => {
       await this.saveActiveNote({ markLiteratureComplete: true });
     });
@@ -6463,7 +6500,7 @@ export class EditorPane {
       }
       note.status = nextStatus;
     }
-    if (note.noteType === "original") {
+    if (this.isOriginalNote(note)) {
       if (skipOriginalityCheck) {
         nextStatus = String(note.status || nextStatus || "draft").trim() || "draft";
       } else {
@@ -6484,7 +6521,7 @@ export class EditorPane {
       }
     }
 
-    if (note.noteType !== "original") {
+    if (!this.isOriginalNote(note)) {
       this.onStatus(
         note.noteType === "literature" && nextStatus === "active"
           ? "文献笔记已完成"
@@ -6529,7 +6566,7 @@ export class EditorPane {
     this.clearDraft(tab.noteId);
     this.setSaveUiState("saved", "当前文件：已自动同步");
     this.setEditorValue(tab.body);
-    if (note.noteType === "original") {
+    if (this.isOriginalNote(note)) {
       this.onStatus(
         note.originalityStatus === "pass" ? "永久笔记已同步" : "永久笔记已同步，但仍建议继续打磨",
         note.originalityStatus === "pass" ? "ok" : "warn"

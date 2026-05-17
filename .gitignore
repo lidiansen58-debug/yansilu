@@ -1,5 +1,6 @@
 .tmp-fig-import/
 .tmp/
+.codex-run/
 .playwright-cli/
 output/
 node_modules/

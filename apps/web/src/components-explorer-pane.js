@@ -22,7 +22,7 @@ function fileIconSvg() {
 function noteTypeBadge(noteType = "") {
   if (noteType === "fleeting") return "随";
   if (noteType === "literature") return "文";
-  return "原";
+  return "永";
 }
 
 function escapeHtml(value = "") {
@@ -43,6 +43,21 @@ function generatedOriginalBadge(state, note = null) {
   const originalTitle = String(originalNote?.title || "").trim();
   const title = originalTitle ? `已关联永久笔记：${originalTitle}` : "已关联到一条永久笔记";
   return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
+}
+
+function canRecordPermanentFromNote(note = null) {
+  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
+  return (noteType === "fleeting" || noteType === "literature") && !generatedId;
+}
+
+function permanentDirectoryPrompt(state = {}) {
+  const folders = (Array.isArray(state.folders) ? state.folders : [])
+    .filter((folder) => !folder.hidden && rootBoxIdFromFolder(state, folder.id) === "dir_original_default");
+  const options = folders.length ? folders : (Array.isArray(state.folders) ? state.folders : []).filter((folder) => folder.id === "dir_original_default");
+  const picked = prompt(`选择永久笔记目录 ID：\n${options.map((folder) => `${folder.id} ${displayFolderName(folder)}`).join("\n")}`, "dir_original_default");
+  const directoryId = String(picked || "").trim();
+  return options.some((folder) => folder.id === directoryId) ? directoryId : "";
 }
 
 function thinkingStatusBadge(note = null) {
@@ -86,7 +101,7 @@ export function explorerNewNoteButtonCopy(state = {}) {
   if (noteType === "fleeting") {
     return { label: "新建随笔", title: "新建随笔笔记", ariaLabel: "在当前随笔目录新建随笔笔记" };
   }
-  return { label: "新建原创", title: "新建原创笔记", ariaLabel: "在当前原创目录新建原创笔记" };
+  return { label: "新建笔记", title: "新建永久笔记", ariaLabel: "在当前永久笔记目录新建笔记" };
 }
 
 export class ExplorerPane {
@@ -310,12 +325,14 @@ export class ExplorerPane {
       }
 
       if (kind === "file") {
+        const note = this.state.notes.find((x) => x.id === id);
         this.contextMenu.show({
           x: e.clientX,
           y: e.clientY,
           target: { kind, id },
           actions: [
             { key: "open", label: "打开笔记", icon: "↗" },
+            ...(canRecordPermanentFromNote(note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
             { key: "move", label: "移动到...", icon: "⇄" },
             { key: "copy-note-id", label: "复制笔记ID", icon: "⎘" },
@@ -506,6 +523,21 @@ export class ExplorerPane {
       if (action === "copy-note-id") {
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n.id).catch(() => {});
         this.onStatus(`已复制笔记ID：${n.id}`, "ok");
+      }
+      if (action === "record-permanent") {
+        const directoryId = permanentDirectoryPrompt(this.state);
+        if (!directoryId) {
+          this.onStatus("已取消创建永久笔记", "warn");
+          return;
+        }
+        await this.onStateChange("record-original-from-note", {
+          sourceNoteId: n.id,
+          sourceType: n.noteType,
+          sourceTitle: n.title,
+          sourceBody: n.body || "",
+          directoryId
+        });
+        return;
       }
       if (action === "reveal-note") {
         const notePath = this.resolveNotePath ? this.resolveNotePath(n) : "";

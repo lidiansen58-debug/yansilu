@@ -267,14 +267,14 @@
       place-items: center;
     }
     .new-note-action {
-      flex: 1 1 auto;
-      min-width: 118px;
+      flex: 0 0 auto;
+      min-width: 34px;
       min-height: 34px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      padding-inline: 12px;
+      gap: 6px;
+      padding-inline: 10px;
       white-space: nowrap;
     }
     .new-note-action .mini-svg {
@@ -284,6 +284,7 @@
     }
     .new-note-action-label {
       line-height: 1;
+      display: none;
     }
     .mobile-new-note-fab {
       display: none;
@@ -1328,7 +1329,8 @@
     }
     .toolbar-command-list {
       display: grid;
-      gap: 4px;
+      grid-template-columns: repeat(4, minmax(48px, 1fr));
+      gap: 6px;
       max-height: 280px;
       overflow: auto;
       margin-top: 8px;
@@ -1336,10 +1338,11 @@
     .toolbar-command-item {
       border: 0;
       border-radius: 7px;
-      padding: 9px 10px;
+      padding: 8px 6px;
       display: grid;
-      gap: 3px;
-      text-align: left;
+      justify-items: center;
+      gap: 4px;
+      text-align: center;
       color: #273444;
       background: transparent;
       cursor: pointer;
@@ -1350,13 +1353,25 @@
       background: #eef5f2;
     }
     .toolbar-command-item strong {
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.2;
     }
     .toolbar-command-item span {
       color: #64748b;
       font-size: 12px;
       line-height: 1.35;
+    }
+    .toolbar-command-item span:not(.toolbar-command-icon) {
+      display: none;
+    }
+    .toolbar-command-icon {
+      width: 18px;
+      height: 18px;
+      display: inline-grid;
+      place-items: center;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
     }
     .relation-primary {
       border-color: rgba(37, 99, 235, 0.72);
@@ -1375,6 +1390,7 @@
     #btnModeToggle { --tb-accent: #2563eb; }
     #btnFocusMode { --tb-accent: #b45309; }
     #btnShowRelated { --tb-accent: #0f766e; }
+    #btnRecordPermanent { --tb-accent: #0f766e; }
     #btnSave { --tb-accent: #16a34a; }
     #btnInsertImage { --tb-accent: #0284c7; }
     #btnInsertLink { --tb-accent: #2563eb; }
@@ -5616,6 +5632,25 @@
       display: grid;
       gap: 14px;
     }
+    .distillation-home {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .distillation-home strong {
+      display: block;
+      color: #0f172a;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+    .distillation-home p {
+      margin: 5px 0 0;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.55;
+    }
     .distillation-overview {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5647,6 +5682,32 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 10px;
+    }
+    .distillation-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .distillation-filter {
+      min-height: 30px;
+      border: 1px solid #d8e3ee;
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .distillation-filter span {
+      color: #64748b;
+      font-variant-numeric: tabular-nums;
+    }
+    .distillation-filter.active {
+      border-color: rgba(15, 118, 110, 0.34);
+      background: #e8f6f2;
+      color: #0f655f;
     }
     .distillation-queue {
       display: grid;
@@ -8088,6 +8149,33 @@
       text-overflow: ellipsis;
     }
 
+    .sidebar-flow-gaps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .sidebar-flow-gaps span {
+      min-height: 22px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(168, 85, 43, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 247, 237, 0.78);
+      color: #8a4b17;
+      padding: 0 7px;
+      font-size: 11px;
+      font-weight: 750;
+      line-height: 1;
+    }
+
+    .sidebar-flow-action {
+      width: 100%;
+      justify-content: center;
+      min-height: 30px;
+      margin-top: 1px;
+    }
+
     /* Permanent-note-first redesign layer */
     :root {
       --bg: #f4f6f4;
@@ -8197,31 +8285,6 @@
     .writing-section-note,
     .import-card-note {
       color: var(--muted);
-    }
-
-    .thought-path {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
-    }
-
-    .thought-path-step {
-      min-height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #f7f9f8;
-      color: #5b6873;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .thought-path-step.is-active {
-      border-color: rgba(15, 118, 110, 0.25);
-      background: #e6f3ef;
-      color: #0f665f;
     }
 
     .sidebar-actions-main,
@@ -8502,7 +8565,7 @@
             <path d="M2.8 9.1h3.05l.75 1.15h2.8l.75-1.15h3.05M5.35 5.75h5.3M5.95 7.55h4.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
-        <button class="rail-btn" data-module="distillation" title="思想提纯" data-tip="思想提纯" aria-label="思想提纯">
+        <button class="rail-btn" data-module="distillation" title="观点提纯" data-tip="观点提纯" aria-label="观点提纯">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M3.2 3.4h9.6M3.2 6.25h7.2M3.2 9.1h5.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/>
             <path d="M10.8 8.1l1.8 1.8-3.2 3.2H7.6v-1.8z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
@@ -8553,15 +8616,9 @@
           <h2 id="sidebarTitle">目录</h2>
         </div>
         <div class="vault-subtitle" id="sidebarSubtitle">永久笔记是主对象，素材只是入口。</div>
-        <div class="thought-path" aria-label="产品路径">
-          <span class="thought-path-step is-active">永久</span>
-          <span class="thought-path-step">关系</span>
-          <span class="thought-path-step">主题</span>
-          <span class="thought-path-step">写作</span>
-        </div>
         <div class="sidebar-actions" id="sidebarPrimaryActions">
           <div class="sidebar-actions-main">
-            <button class="mini-btn primary new-note-action" id="btnNewNote" title="新建永久笔记" data-tip="新建永久笔记" aria-label="在当前目录新建永久笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="new-note-action-label">新建永久</span></button>
+            <button class="mini-btn icon-btn new-note-action" id="btnNewNote" title="新建永久笔记" data-tip="新建永久笔记" aria-label="在当前目录新建永久笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.25h5.2l2.8 2.8v7a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.05v-8.3A1.5 1.5 0 0 1 4.5 2.25z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M9.2 2.25v2.5a1 1 0 0 0 1 1h2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 5.35v5.3M5.35 8h5.3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span class="new-note-action-label">新建笔记</span></button>
             <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建卡片盒" data-tip="新建卡片盒" aria-label="新建卡片盒"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.45 4.15h4.2l1.05 1.3h5.75a1.05 1.05 0 0 1 1.02 1.26l-.67 3.46a1.5 1.5 0 0 1-1.47 1.22H3.68a1.5 1.5 0 0 1-1.47-1.22L1.54 6.7a1.05 1.05 0 0 1 .91-1.29z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M8 6.55v3.15M6.42 8.12h3.16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg></button>
             <button class="mini-btn icon-btn is-ghost" id="btnToggleSearch" title="搜索笔记" data-tip="搜索笔记" aria-label="搜索笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg></button>
           </div>
@@ -8600,17 +8657,17 @@
               </select>
             </div>
             <div class="toolbar-command-wrap">
-              <button class="tb tb-label has-icon" id="btnToolbarCommandSearch" type="button" title="搜索低频操作" data-tip="搜索操作" aria-label="搜索低频操作" aria-expanded="false" aria-controls="toolbarCommandMenu"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.8" cy="6.8" r="3.65" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.6 9.6l3.1 3.1M4.95 6.8h3.7M6.8 4.95v3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span>搜索操作</span></button>
+              <button class="tb tb-label has-icon" id="btnToolbarCommandSearch" type="button" title="更多低频操作" data-tip="更多操作" aria-label="更多低频操作" aria-expanded="false" aria-controls="toolbarCommandMenu"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.25 6.35 8 10.1l3.75-3.75" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>更多</span></button>
               <div class="toolbar-command-menu hidden" id="toolbarCommandMenu" role="menu" aria-label="低频编辑操作">
-                <input id="toolbarCommandSearchInput" type="search" autocomplete="off" placeholder="搜索引用、表格、代码..." aria-label="搜索低频编辑操作" />
+                <input class="hidden" id="toolbarCommandSearchInput" type="search" autocomplete="off" aria-label="筛选低频编辑操作" />
                 <div class="toolbar-command-list" id="toolbarCommandList">
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="quote" role="menuitem"><strong>引用块</strong><span>把当前段落变成引用</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="checklist" role="menuitem"><strong>任务列表</strong><span>插入可勾选条目</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="code" role="menuitem"><strong>代码块</strong><span>插入 fenced code block</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table" role="menuitem"><strong>表格</strong><span>插入基础 Markdown 表格</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="hr" role="menuitem"><strong>分割线</strong><span>插入章节分隔</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" role="menuitem"><strong>表格新增一行</strong><span>在当前表格末尾补一行</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" role="menuitem"><strong>表格新增一列</strong><span>在当前表格右侧补一列</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="quote" role="menuitem"><span class="toolbar-command-icon">“</span><strong>引用</strong><span>把当前段落变成引用</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="checklist" role="menuitem"><span class="toolbar-command-icon">☑</span><strong>任务</strong><span>插入可勾选条目</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="code" role="menuitem"><span class="toolbar-command-icon">&lt;/&gt;</span><strong>代码</strong><span>插入 fenced code block</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table" role="menuitem"><span class="toolbar-command-icon">▦</span><strong>表格</strong><span>插入基础 Markdown 表格</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="hr" role="menuitem"><span class="toolbar-command-icon">—</span><strong>分割</strong><span>插入章节分隔</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" role="menuitem"><span class="toolbar-command-icon">↧</span><strong>加行</strong><span>在当前表格末尾补一行</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" role="menuitem"><span class="toolbar-command-icon">↦</span><strong>加列</strong><span>在当前表格右侧补一列</span></button>
                 </div>
               </div>
             </div>
@@ -8625,6 +8682,7 @@
           </div>
           <div class="toolbar-group">
             <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="tb tb-label has-icon hidden" id="btnRecordPermanent" title="从当前笔记创建永久笔记" data-tip="创建永久笔记" aria-label="从当前笔记创建永久笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.3h5.1L12 5.2v7.1a1.4 1.4 0 0 1-1.4 1.4H4.4A1.4 1.4 0 0 1 3 12.3V3.7a1.4 1.4 0 0 1 1.4-1.4z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M9.1 2.3v2.2a.9.9 0 0 0 .9.9h2.2M7.5 6.6v4M5.5 8.6h4" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg><span>永久笔记</span></button>
             <button class="tb tb-label has-icon hidden" id="btnSave" title="手动同步 Ctrl/Cmd+S" data-tip="手动同步 Ctrl/Cmd+S" aria-label="手动同步"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h8.1l1.9 1.95v8.05a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 12.5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5.2 2.75v3.15h5.1V2.75M5.5 10.25h5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
           </div>
           <div class="toolbar-group toolbar-group-structure toolbar-group-insert">

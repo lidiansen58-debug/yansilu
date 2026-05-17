@@ -17,7 +17,7 @@
 
 研思录当前已经形成一条清晰主线：
 
-`可信本地工作流 -> 思想提纯器 -> 主题与张力操作系统 -> AI 认知协同层 -> 知识创作工作台 -> 知识创作界 Codex`
+`可信本地工作流 -> 观点提纯 -> 主题与张力操作系统 -> AI 认知协同层 -> 知识创作工作台 -> 知识创作界 Codex`
 
 这条主线背后的长期判断是：
 
@@ -59,22 +59,24 @@
 
 1. 未来路线为什么按 Phase 0 到 Phase 5 推进？
 2. 当前产品处于哪个阶段？
-3. 为什么下一步应该先做思想提纯，而不是重型 AI 或大连接器？
+3. 为什么下一步应该先做观点提纯，而不是重型 AI 或大连接器？
 4. 为什么永久笔记必须成为默认主对象，而随笔和文献只作为辅助入口？
 
 ---
 
-## 3.3 第三层：V1.1 思想提纯器
+## 3.3 第三层：V1.1 观点提纯
 
 然后读：
 
 1. [V1_1_SPEC_DRAFT.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/V1_1_SPEC_DRAFT.md)
 2. [V1_1_INFORMATION_ARCHITECTURE_AND_FLOWS.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/V1_1_INFORMATION_ARCHITECTURE_AND_FLOWS.md)
 3. [V1_1_DISTILLATION_WORKSPACE_AND_AI_SUGGESTION_RULES.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/V1_1_DISTILLATION_WORKSPACE_AND_AI_SUGGESTION_RULES.md)
+4. [V1_1_REPLANNED_TASKS_2026-05-17.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/V1_1_REPLANNED_TASKS_2026-05-17.md)
+5. [V1_1_ALPHA_ACCEPTANCE_RECORD_2026_05_17.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/V1_1_ALPHA_ACCEPTANCE_RECORD_2026_05_17.md)
 
 解决的问题：
 
-1. V1.1 为什么是“思想提纯器”？
+1. V1.1 为什么是“观点提纯”？
 2. `thesis`、`three_line_summary`、`central_question`、`intent` 如何进入主流程？
 3. 提纯工作区应该如何组织？
 4. AI 候选如何出现但不越权？
@@ -157,7 +159,7 @@
 
 解决的问题：
 
-1. 为什么要先收口 Phase 0 可信 MVP，再推进 V1.1 思想提纯器？
+1. 为什么要先收口 Phase 0 可信 MVP，再推进 V1.1 观点提纯？
 2. Phase 0 需要用哪条真实用户流验收？
 3. V1.1 的第一批提纯能力应按什么顺序落地？
 4. AI 候选态在提纯链路中能做什么、不能做什么？
@@ -171,7 +173,7 @@
 更合理的推进顺序是：
 
 1. 收口 Phase 0 的可信 MVP
-2. 推进 Phase 1 / V1.1 的思想提纯主链路
+2. 推进 Phase 1 / V1.1 的观点提纯主链路
 3. 再推进 Phase 2 的主题与关系模型
 4. 之后谨慎接入 Phase 3 的 AI Agent
 
@@ -256,7 +258,7 @@ AI 可以建议，但不能直接拥有用户的判断。
 ```mermaid
 flowchart TB
   A["产品哲学"] --> B["Roadmap"]
-  B --> C["V1.1 思想提纯器"]
+  B --> C["V1.1 观点提纯"]
   C --> D["Phase 2 主题与张力"]
   D --> E["Phase 3 AI 认知协同"]
   E --> F["Phase 4 知识作品工作台"]

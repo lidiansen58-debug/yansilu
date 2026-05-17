@@ -50,7 +50,7 @@ export function createInitialState() {
         id: "pn_001",
         title: "写作应从永久笔记中生长",
         folderId: "dir_original_default",
-        noteType: "original",
+        noteType: "permanent",
         body: "核心观点：先有思想单元，再做结构化写作。\n\n#写作 #永久笔记",
         tags: ["写作", "永久笔记"],
         links: [],
@@ -60,7 +60,7 @@ export function createInitialState() {
         id: "pn_002",
         title: "主题索引是写作入口",
         folderId: "dir_original_method",
-        noteType: "original",
+        noteType: "permanent",
         body: "索引不是标签集合，而是路径入口。\n\n[[写作应从永久笔记中生长]] #索引",
         tags: ["索引"],
         links: ["写作应从永久笔记中生长"],
@@ -101,7 +101,7 @@ export function typeFromFolder(state, folderId) {
   const rootId = rootBoxIdFromFolder(state, folderId);
   if (rootId === "dir_fleeting_default") return "fleeting";
   if (rootId === "dir_literature_default") return "literature";
-  return "original";
+  return "permanent";
 }
 
 export function typeLabel(type) {

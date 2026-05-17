@@ -1029,7 +1029,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /提纯字段/);
+    assert.match(String(statusText || ""), /观点字段/);
   }, 10000);
 
   await waitFor(async () => {
@@ -1041,8 +1041,12 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   }, 10000);
 
   await page.locator('[data-module="distillation"]').click();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "待一句话判断" }).waitFor();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "待三句话压缩" }).waitFor();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "待确认" }).waitFor();
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).waitFor();
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).click();
+  await page.locator("[data-note-distillation-section]", { hasText: "观点提纯" }).waitFor();
   await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
