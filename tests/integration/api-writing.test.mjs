@@ -375,11 +375,13 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "pass"));
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "confirmed_distillation" && check.status === "warning"));
+  assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "distillation_quality" && check.status === "warning"));
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "ready_for_review");
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
   assert.match(scaffold.json.export.markdown, /## Scaffold Readiness Check/);
   assert.match(scaffold.json.export.markdown, /WARN Confirmed distillation/);
+  assert.match(scaffold.json.export.markdown, /WARN Distillation quality/);
   assert.match(scaffold.json.export.markdown, /## Paragraph-Evidence Map/);
   assert.match(scaffold.json.export.markdown, /Intent: Explain why writing should begin from distilled notes rather than blank prompts\./);
   assert.match(scaffold.json.export.markdown, /Reader takeaway: Readers should see thought compression as the bridge between note-taking and writing\./);
@@ -614,9 +616,11 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "needs_intent");
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "warning"));
+  assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "distillation_quality" && check.status === "warning"));
   assert.match(scaffold.json.export.markdown, /# Regression draft/);
   assert.match(scaffold.json.export.markdown, /- Intent: TBD/);
   assert.match(scaffold.json.export.markdown, /WARN Writing intent/);
+  assert.match(scaffold.json.export.markdown, /WARN Distillation quality/);
   assert.match(scaffold.json.export.markdown, /Rough claim/);
   assert.match(scaffold.json.export.markdown, /Supporting example/);
 

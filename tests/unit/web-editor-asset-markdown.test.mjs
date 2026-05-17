@@ -74,6 +74,22 @@ test("renderMarkdownPreview resolves angle-wrapped vault image destinations", ()
   assert.doesNotMatch(html, /preview-attachment-block/);
 });
 
+test("renderMarkdownPreview supports editor heading levels and ordered lists", () => {
+  const html = renderMarkdownPreview(`### Section Three
+
+###### Section Six
+
+3. first ordered item
+4. second ordered item`);
+
+  assert.match(html, /<h3>Section Three<\/h3>/);
+  assert.match(html, /<h6>Section Six<\/h6>/);
+  assert.match(html, /<ol start="3">/);
+  assert.match(html, /<li>first ordered item<\/li>/);
+  assert.match(html, /<li>second ordered item<\/li>/);
+  assert.doesNotMatch(html, /### Section Three/);
+});
+
 test("parseLiteratureWorkspace reads judgment seed, question, and boundary sections", () => {
   const parsed = parseLiteratureWorkspace(`# 文献 A
 

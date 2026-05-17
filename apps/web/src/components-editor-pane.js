@@ -78,6 +78,75 @@ const LITERATURE_SECTION_LABELS = {
   boundary: "边界 / 反例"
 };
 
+function normalizeLooseText(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s.,;:!?'"“”‘’()\[\]{}<>/\\|`~@#$%^&*_+=-]+/g, "");
+}
+
+function countIdeaUnits(value = "") {
+  const matches = String(value || "").trim().match(/[\u4e00-\u9fff]|[A-Za-z0-9]+/g);
+  return Array.isArray(matches) ? matches.length : 0;
+}
+
+function noteHasBoundarySignal(note = {}) {
+  if (String(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint || "").trim()) return true;
+  const body = String(note?.body || note?.markdown || "");
+  return /边界|反例|不成立|适用条件|反方|counterpoint|boundary|counterexample/i.test(body);
+}
+
+function collectDistillationWarnings(note = {}) {
+  const warnings = [];
+  const title = String(note?.title || "").trim().replace(/^#+\s+/, "");
+  const thesis = String(note?.thesis || "").trim();
+  const summary = [0, 1, 2].map((idx) => String((note?.threeLineSummary || [])[idx] || "").trim());
+
+  if (!thesis) {
+    warnings.push("还没有写出一句话判断。");
+  } else {
+    const thesisUnits = countIdeaUnits(thesis);
+    if (thesisUnits < 4) warnings.push("一句话判断过短，更像标签而不是判断。");
+    if (thesisUnits > 32 || thesis.length > 90) warnings.push("一句话判断过长，建议压到一个可被反驳的判断。");
+    if (title && normalizeLooseText(title) === normalizeLooseText(thesis)) warnings.push("一句话判断和标题几乎一样，还像标题而不是判断。");
+  }
+
+  if (summary.some((line) => !line)) {
+    warnings.push("三句话压缩还不完整，需要恰好三句。");
+  } else {
+    const normalized = summary.map((line) => normalizeLooseText(line));
+    if (new Set(normalized).size < normalized.length) warnings.push("三句话压缩里有重复句，理由和用途还没有拉开。");
+    if (countIdeaUnits(summary[1]) < 4) warnings.push("第二句还不够像理由，建议补为什么它成立或重要。");
+    if (countIdeaUnits(summary[2]) < 4) warnings.push("第三句还不够像用途，建议补它服务于哪个问题或写作方向。");
+  }
+
+  if (!noteHasBoundarySignal(note)) warnings.push("还缺边界、反例或反方，论证容易太顺。");
+  return warnings;
+}
+
+function distillationDraftFromForm(form, note = {}) {
+  return {
+    title: note?.title || "",
+    body: note?.body || "",
+    thesis: String(form?.querySelector?.('[name="thesis"]')?.value || note?.thesis || "").trim(),
+    threeLineSummary: [1, 2, 3].map((idx) => String(form?.querySelector?.(`[name="summary${idx}"]`)?.value || "").trim()),
+    boundaryOrCounterpoint: String(form?.querySelector?.('[name="boundaryOrCounterpoint"]')?.value || note?.boundaryOrCounterpoint || "").trim()
+  };
+}
+
+function renderDistillationQualityContent(note = {}) {
+  const warnings = collectDistillationWarnings(note);
+  if (!warnings.length) {
+    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作准备。</div>`;
+  }
+  return `
+    <div class="related-empty bad">当前还有 ${warnings.length} 项需要打磨。</div>
+    <ul class="distillation-quality-list">
+      ${warnings.map((item) => `<li>${item}</li>`).join("")}
+    </ul>
+  `;
+}
+
 const LITERATURE_SECTION_ALIASES = {
   supportsJudgment: ["支持判断"],
   boundary: ["边界/反例", "边界与反例", "不适用范围"]
@@ -722,8 +791,7 @@ function isMarkdownBlockBoundary(lines = [], index = 0) {
   const line = String(lines[index] || "");
   if (!line.trim()) return false;
   return (
-    line.startsWith("# ") ||
-    line.startsWith("## ") ||
+    /^#{1,6}\s+/.test(line) ||
     line.startsWith("> ") ||
     isMarkdownCodeFenceLine(line) ||
     isHorizontalRuleLine(line) ||
@@ -731,6 +799,7 @@ function isMarkdownBlockBoundary(lines = [], index = 0) {
     isMarkdownAttachmentLine(line) ||
     isMarkdownChecklistLine(line) ||
     isMarkdownBulletLine(line) ||
+    isMarkdownOrderedListLine(line) ||
     isMarkdownTableStart(lines, index)
   );
 }
@@ -864,14 +933,10 @@ export function renderMarkdownPreview(markdown, options = {}) {
       continue;
     }
 
-    if (line.startsWith("# ")) {
-      blocks.push(`<h1>${renderInlinePreview(line.slice(2), options)}</h1>`);
-      index += 1;
-      continue;
-    }
-
-    if (line.startsWith("## ")) {
-      blocks.push(`<h2>${renderInlinePreview(line.slice(3), options)}</h2>`);
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      blocks.push(`<h${level}>${renderInlinePreview(headingMatch[2], options)}</h${level}>`);
       index += 1;
       continue;
     }
@@ -955,6 +1020,19 @@ export function renderMarkdownPreview(markdown, options = {}) {
         index += 1;
       }
       blocks.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    if (isMarkdownOrderedListLine(line)) {
+      const firstNumber = Number(line.match(/^\s*(\d+)[.)]\s/)?.[1] || 1);
+      const items = [];
+      while (index < lines.length && isMarkdownOrderedListLine(lines[index])) {
+        const match = lines[index].match(/^\s*\d+[.)]\s?(.*)$/);
+        items.push(`<li>${renderInlinePreview(match?.[1] || "", options)}</li>`);
+        index += 1;
+      }
+      const startAttr = firstNumber > 1 ? ` start="${firstNumber}"` : "";
+      blocks.push(`<ol${startAttr}>${items.join("")}</ol>`);
       continue;
     }
 
@@ -4998,6 +5076,14 @@ export class EditorPane {
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
     const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
+    const boundaryOrCounterpoint = String(note.boundaryOrCounterpoint || "").trim();
+    const qualityWarnings = collectDistillationWarnings({
+      title: note.title,
+      body: note.body,
+      thesis,
+      threeLineSummary: summaryLines,
+      boundaryOrCounterpoint
+    });
     const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
     const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
     const statusValue = ["missing", "draft", "confirmed"].includes(statusLabel) ? statusLabel : filledCount ? "draft" : "missing";
@@ -5028,6 +5114,10 @@ export class EditorPane {
             <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
           </label>
           <label>
+            边界 / 反方 / 不适用条件
+            <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？最需要防的反例或反方是什么？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
+          </label>
+          <label>
             观点状态
             <select name="distillationStatus">
               <option value="missing"${statusValue === "missing" ? " selected" : ""}>待提纯</option>
@@ -5039,8 +5129,30 @@ export class EditorPane {
             <button class="mini-btn primary" type="submit">保存观点</button>
             <button class="mini-btn" type="button" data-note-distillation-confirm>确认观点</button>
           </div>
+          <div class="semantic-relation-group" data-note-distillation-quality>
+            <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(qualityWarnings.length || "OK")}</span></div>
+            ${renderDistillationQualityContent({
+              title: note.title,
+              body: note.body,
+              thesis,
+              threeLineSummary: summaryLines,
+              boundaryOrCounterpoint
+            })}
+          </div>
         </form>
       </section>
+    `;
+  }
+
+  refreshDistillationQuality(form) {
+    const note = this.activeNote();
+    const mount = form?.querySelector?.("[data-note-distillation-quality]");
+    if (!note || !mount) return;
+    const draft = distillationDraftFromForm(form, note);
+    const warnings = collectDistillationWarnings(draft);
+    mount.innerHTML = `
+      <div class="semantic-relation-group-head"><strong>质量提示</strong><span>${escapeHtml(warnings.length || "OK")}</span></div>
+      ${renderDistillationQualityContent(draft)}
     `;
   }
 
@@ -5056,6 +5168,7 @@ export class EditorPane {
     const threeLineSummary = [1, 2, 3]
       .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
       .filter(Boolean);
+    const boundaryOrCounterpoint = String(form.querySelector('[name="boundaryOrCounterpoint"]')?.value || "").trim();
     const selectedStatus = String(form.querySelector('[name="distillationStatus"]')?.value || "").trim();
     const distillationStatus = ["missing", "draft", "confirmed"].includes(selectedStatus)
       ? selectedStatus
@@ -5068,12 +5181,14 @@ export class EditorPane {
       noteId: note.id,
       thesis,
       threeLineSummary,
+      boundaryOrCounterpoint,
       distillationStatus,
       authorship: distillationStatus === "confirmed" ? { user_confirmed: true, ai_assisted: false } : undefined
     });
     if (!saved) return;
     note.thesis = thesis;
     note.threeLineSummary = threeLineSummary;
+    note.boundaryOrCounterpoint = boundaryOrCounterpoint;
     note.distillationStatus = distillationStatus;
     if (distillationStatus === "confirmed") {
       note.authorship = { user_confirmed: true, ai_assisted: false };
@@ -5096,6 +5211,7 @@ export class EditorPane {
       const threeLineSummary = [1, 2, 3]
         .map((idx) => String(form.querySelector(`[name="summary${idx}"]`)?.value || "").trim())
         .filter(Boolean);
+      const boundaryOrCounterpoint = String(form.querySelector('[name="boundaryOrCounterpoint"]')?.value || "").trim();
       if (!thesis || threeLineSummary.length !== 3) {
         this.onStatus("确认前需要补全一句话判断和三句话压缩", "warn");
         return;
@@ -5106,11 +5222,13 @@ export class EditorPane {
         noteId: note.id,
         thesis,
         threeLineSummary,
+        boundaryOrCounterpoint,
         distillationStatus: "draft"
       });
       if (!saved) return;
       note.thesis = thesis;
       note.threeLineSummary = threeLineSummary;
+      note.boundaryOrCounterpoint = boundaryOrCounterpoint;
     }
     const confirmed = await this.onStateChange("confirm-note-distillation", { noteId: note.id });
     if (!confirmed) return;
@@ -5811,6 +5929,12 @@ export class EditorPane {
       void this.showNotePreviewInInspector(row.dataset.openNote, { eyebrow: "相关内容" });
     });
     this.els.result.addEventListener("input", (e) => {
+      const distillationInput = e.target.closest("[data-note-distillation-form] textarea, [data-note-distillation-form] input, [data-note-distillation-form] select");
+      if (distillationInput) {
+        const form = distillationInput.closest("[data-note-distillation-form]");
+        if (form) this.refreshDistillationQuality(form);
+        return;
+      }
       const targetSearch = e.target.closest("[data-relation-target-search]");
       if (targetSearch) {
         this.queueRelationTargetSearch(targetSearch);

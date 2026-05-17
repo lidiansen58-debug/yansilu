@@ -1,6 +1,7 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
+import { collectDistillationQualityWarnings } from "../../domain/src/distillation-quality.mjs";
 import { getNoteById } from "../../domain/src/index.mjs";
 import { deriveWritingProjectThinkingStatus } from "../../domain/src/thinking-status.mjs";
 
@@ -347,6 +348,18 @@ function buildScaffoldPreflight(project, basketNotes) {
       note.authorship?.user_confirmed === true
   );
   const notesWithBoundary = basketNotes.filter((note) => boundarySummary(note));
+  const distillationQualityWarnings = basketNotes.flatMap((note) =>
+    collectDistillationQualityWarnings(note).map((item) => ({
+      ...item,
+      noteId: note.id,
+      noteTitle: noteLabel(note)
+    }))
+  );
+  const affectedQualityNotes = [...new Set(distillationQualityWarnings.map((item) => item.noteId))];
+  const qualitySample = distillationQualityWarnings
+    .slice(0, 3)
+    .map((item) => `${item.noteTitle}: ${item.message}`)
+    .join(" ");
   const checks = [
     preflightCheck(
       "basket_size",
@@ -388,6 +401,19 @@ function buildScaffoldPreflight(project, basketNotes) {
         targetNoteIds: basketNotes
           .filter((note) => !confirmedNotes.some((confirmed) => confirmed.id === note.id))
           .map((note) => note.id)
+      }
+    ),
+    preflightCheck(
+      "distillation_quality",
+      "Distillation quality",
+      distillationQualityWarnings.length ? "warning" : "pass",
+      distillationQualityWarnings.length
+        ? `${affectedQualityNotes.length} basket notes still look rough. ${qualitySample}`
+        : "Basket notes do not show obvious short, repetitive, or boundary-missing distillation issues.",
+      {
+        count: distillationQualityWarnings.length,
+        targetNoteIds: affectedQualityNotes,
+        warningIds: distillationQualityWarnings.map((item) => item.id)
       }
     ),
     preflightCheck(

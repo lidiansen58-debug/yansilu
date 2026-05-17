@@ -349,12 +349,14 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
         "The three-line summary makes the reasoning and use visible.",
         "Confirmation stays separate so the user owns the final claim."
       ],
+      boundaryOrCounterpoint: "This breaks when the note still reads like copied source material.",
       distillationStatus: "draft"
     }
   );
   assert.equal(distillationPatch.status, 200);
   assert.equal(distillationPatch.json.item.thesis, "A note becomes useful for writing when its judgment is explicit.");
   assert.equal(distillationPatch.json.item.distillationStatus, "draft");
+  assert.equal(distillationPatch.json.item.boundaryOrCounterpoint, "This breaks when the note still reads like copied source material.");
   assert.deepEqual(distillationPatch.json.item.threeLineSummary, [
     "A note needs a clear judgment before it can guide writing.",
     "The three-line summary makes the reasoning and use visible.",

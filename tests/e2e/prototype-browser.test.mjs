@@ -259,22 +259,19 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   const expectedTitle = firstLine.replace(/^#+\s*/, "").trim();
   const expectedBody = restLines.join("\n").replace(/^\n+/, "");
   await page.locator("#btnNewNote").click();
-  await page.waitForSelector(".tab.active");
-  await ensurePlaceholderTitleSelection(page);
-  await page.evaluate((title) => {
+  await page.waitForFunction(() => {
+    const value = document.querySelector("#editorBody")?.value || "";
+    const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
+    return value.startsWith("# 未命名笔记") && String(title).includes("未命名笔记");
+  });
+  await page.evaluate((value) => {
     const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const value = String(editor?.getValue?.() || "");
-    const lineEnd = value.indexOf("\n");
-    const end = lineEnd >= 0 ? lineEnd : value.length;
-    editor?.replaceRange?.(2, end, title);
-    const cursor = 2 + String(title || "").length;
+    const nextValue = String(value || "").replace(/\r\n/g, "\n");
+    editor?.setValue?.(nextValue);
+    const cursor = nextValue.length;
     editor?.setSelectionRange?.(cursor, cursor);
     editor?.focus?.();
-  }, expectedTitle);
-  if (expectedBody.trim()) {
-    await page.keyboard.press("Enter");
-    await page.keyboard.type(expectedBody);
-  }
+  }, source);
   await page.waitForFunction(
     ({ title, body }) => {
       const value = document.querySelector("#editorBody")?.value || "";
@@ -782,6 +779,10 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     assert.match(editorValue, /^# Immediate Title\b/);
     assert.doesNotMatch(editorValue, /未命名笔记/);
+    assert.match(editorValue, /## 核心观点/);
+    assert.match(editorValue, /## 为什么成立/);
+    assert.match(editorValue, /## 边界 \/ 反例/);
+    assert.match(editorValue, /## 关联线索/);
     assert.match(tabTitle || "", /Immediate Title/);
   }, 7000);
 });
@@ -1019,6 +1020,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
 
   await page.locator("#btnShowRelated").click();
   await page.locator('[data-note-distillation-form] textarea[name="thesis"]').waitFor({ state: "visible" });
+  await page.locator('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]').waitFor({ state: "visible" });
 
   await page.fill('[data-note-distillation-form] textarea[name="thesis"]', "Distilled thesis.");
   await page.fill('[data-note-distillation-form] textarea[name="summary1"]', "Line one.");
@@ -1047,6 +1049,8 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).waitFor();
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).click();
   await page.locator("[data-note-distillation-section]", { hasText: "观点提纯" }).waitFor();
+  await page.locator("[data-note-distillation-quality]", { hasText: "质量提示" }).waitFor();
+  await page.locator("[data-note-distillation-quality]", { hasText: "还缺边界、反例或反方" }).waitFor();
   await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
@@ -1555,11 +1559,16 @@ test("prototype wysiwyg supports inline [[ link picker and # tag picker", async 
   await createAndSaveNoteViaEditor(page, "# Source note\n\nBody begins.");
 
   await ensureNoteMode(page);
-  await page.locator("#wysiwygHost .ProseMirror.toastui-editor-contents").click();
+  const bodyParagraph = page.locator(
+    "#wysiwygHost .toastui-editor-ww-container .ProseMirror.toastui-editor-contents p",
+    { hasText: "Body begins." }
+  );
+  await bodyParagraph.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowRight" : "End");
   await page.keyboard.type("\n\n[[Tar");
 
   await page.waitForSelector("#linkPicker:not(.hidden)");
-  await page.locator("#linkSearchList .link-picker-item[data-link-note-id]").first().click();
+  await page.keyboard.press("Enter");
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();

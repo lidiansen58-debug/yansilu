@@ -1,4 +1,5 @@
 export * from "./catalog-store.mjs";
+export * from "./distillation-quality.mjs";
 export * from "./frontmatter.mjs";
 export * from "./index-card-store.mjs";
 export * from "./knowledge-network-seed.mjs";

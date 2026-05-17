@@ -2980,7 +2980,8 @@ const server = http.createServer(async (req, res) => {
         const item = await updatePermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationId, {
           thesis: body.thesis,
           threeLineSummary: body.threeLineSummary ?? body.three_line_summary,
-          distillationStatus: body.distillationStatus ?? body.distillation_status
+          distillationStatus: body.distillationStatus ?? body.distillation_status,
+          boundaryOrCounterpoint: body.boundaryOrCounterpoint ?? body.boundary_or_counterpoint
         });
         return sendJson(res, 200, {
           item,

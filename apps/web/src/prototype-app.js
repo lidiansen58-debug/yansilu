@@ -2519,10 +2519,15 @@ function isUntitledTitle(title = "") {
   return String(title || "").trim() === UNTITLED_NOTE_TITLE;
 }
 
-function isEmptyUntitledMarkdown(body = "") {
+function normalizedDefaultUntitledBody(folderId = "") {
+  return ensureEditableNoteBody(initialBodyForFolder(folderId)).replace(/\r\n/g, "\n").trim();
+}
+
+function isEmptyUntitledMarkdown(body = "", folderId = "") {
   const text = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!text) return true;
-  return !text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim();
+  if (!text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim()) return true;
+  return text === normalizedDefaultUntitledBody(folderId);
 }
 
 function noteTabFor(noteId = "") {
@@ -2536,7 +2541,7 @@ function isUntitledPlaceholderNote(note) {
   if (!tab && !note.bodyLoaded && !isLocalOnlyNote(note)) return false;
   const title = tab?.title || note.title;
   const body = typeof tab?.body === "string" ? tab.body : note.body;
-  return isUntitledTitle(title) && isEmptyUntitledMarkdown(body);
+  return isUntitledTitle(title) && isEmptyUntitledMarkdown(body, note.folderId);
 }
 
 async function ensureNoteLoadedForPlaceholderCheck(note) {
@@ -3796,8 +3801,29 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
   ].join("\n");
 }
 
+function permanentNoteTemplateBody(title = "未命名笔记") {
+  return [
+    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
+    "",
+    "## 核心观点",
+    "",
+    "",
+    "## 为什么成立",
+    "",
+    "",
+    "## 边界 / 反例",
+    "",
+    "",
+    "## 关联线索",
+    "",
+    ""
+  ].join("\n");
+}
+
 function initialBodyForFolder(folderId = "") {
-  if (typeFromFolder(state, folderId) === "literature") return literatureNoteTemplateBody();
+  const noteType = typeFromFolder(state, folderId);
+  if (noteType === "literature") return literatureNoteTemplateBody();
+  if (noteType === "original" || noteType === "permanent") return permanentNoteTemplateBody();
   return "# 未命名笔记\n\n";
 }
 
@@ -6629,6 +6655,7 @@ async function handleStateChange(reason, payload = {}) {
       const updated = await updatePermanentNoteDistillation(note.id, {
         thesis: payload.thesis || "",
         threeLineSummary: Array.isArray(payload.threeLineSummary) ? payload.threeLineSummary : [],
+        boundaryOrCounterpoint: payload.boundaryOrCounterpoint || "",
         distillationStatus: shouldConfirm ? "draft" : requestedStatus || "draft"
       });
       let finalUpdated = updated;

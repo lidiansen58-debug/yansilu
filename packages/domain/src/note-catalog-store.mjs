@@ -1955,7 +1955,7 @@ export async function updatePermanentNoteDistillation(vaultPath, noteId, input =
     authorship: note.authorship,
     originalityStatus: note.originalityStatus,
     originalitySimilarity: note.originalitySimilarity,
-    boundaryOrCounterpoint: note.boundaryOrCounterpoint
+    boundaryOrCounterpoint: input.boundaryOrCounterpoint ?? input.boundary_or_counterpoint ?? note.boundaryOrCounterpoint
   });
 }
 
