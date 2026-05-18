@@ -4806,6 +4806,83 @@ function renderWritingThemeIndexCard(indexCard) {
   `;
 }
 
+function renderWritingThemeDetail(indexCard) {
+  if (!indexCard?.id) {
+    return `<div class="writing-empty">先选择一个主题索引，再从这里查看中心问题、三句话压缩和相关永久笔记。</div>`;
+  }
+  const items = Array.isArray(indexCard.items) ? indexCard.items : [];
+  const itemNoteIds = Array.isArray(indexCard.item_note_ids) ? indexCard.item_note_ids : [];
+  const noteItems = items.length
+    ? items
+    : itemNoteIds.map((noteId, index) => ({
+        note_id: noteId,
+        note: writingNoteById(noteId),
+        order: index + 1
+      }));
+  const threeLineSummary = Array.isArray(indexCard.three_line_summary)
+    ? indexCard.three_line_summary
+    : Array.isArray(indexCard.threeLineSummary)
+      ? indexCard.threeLineSummary
+      : [];
+  const noteRows = noteItems
+    .map((item, index) => {
+      const note = item?.note || writingNoteById(item?.note_id || item?.noteId);
+      const noteId = item?.note_id || item?.noteId || note?.id || "";
+      const title = item?.short_label || note?.title || noteId || `笔记 ${index + 1}`;
+      const rationale = item?.rationale || note?.thesis || note?.summary || "";
+      return `
+        <div class="writing-theme-note-row">
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(noteId)}</span>
+          ${rationale ? `<small>${escapeHtml(rationale)}</small>` : ""}
+          ${noteId ? `<button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-note-id="${escapeHtml(noteId)}">打开</button>` : ""}
+        </div>
+      `;
+    })
+    .join("");
+  return `
+    <div class="writing-theme-detail-form">
+      <label>
+        <span>主题标题</span>
+        <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
+      </label>
+      <label>
+        <span>中心问题</span>
+        <textarea id="writingThemeDetailCentralQuestion" rows="2">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
+      </label>
+      <label>
+        <span>一句话论点</span>
+        <textarea id="writingThemeDetailThesis" rows="2">${escapeHtml(indexCard.thesis || "")}</textarea>
+      </label>
+      <label>
+        <span>主题摘要</span>
+        <textarea id="writingThemeDetailSummary" rows="2">${escapeHtml(indexCard.summary || "")}</textarea>
+      </label>
+      <div class="writing-theme-summary-grid">
+        ${[0, 1, 2]
+          .map(
+            (idx) => `
+              <label>
+                <span>压缩 ${idx + 1}</span>
+                <textarea id="writingThemeDetailSummary${idx + 1}" rows="2">${escapeHtml(threeLineSummary[idx] || "")}</textarea>
+              </label>
+            `
+          )
+          .join("")}
+      </div>
+      <div class="writing-note-actions">
+        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${escapeHtml(indexCard.id)}">保存主题</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">用写作篮替换</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">追加写作篮</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${escapeHtml(indexCard.id)}">生成写作项目</button>
+      </div>
+      <div class="writing-theme-note-list">
+        ${noteRows || `<div class="writing-empty">这个主题索引还没有关联永久笔记。</div>`}
+      </div>
+    </div>
+  `;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
@@ -6729,7 +6806,10 @@ async function importYijingRichAcceptanceDemo() {
 }
 
 async function importSmartNotesProductThinkingDemo() {
-  setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
+  const button = $("graphSeedSmartNotesProductThinking");
+  const previousDisabled = Boolean(button?.disabled);
+  if (button) button.disabled = true;
+  setStatus("正在准备 Smart Notes 产品思考 Demo，首次导入可能需要一点时间...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
     const directoryId = String(result?.directoryId || result?.directory?.id || "").trim();
@@ -6746,11 +6826,15 @@ async function importSmartNotesProductThinkingDemo() {
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目`, "ok");
+    const openedNote = state.notes.find((item) => item.id === state.selectedFileId);
+    const guideHint = openedNote?.id === "GUIDE-SN-001" ? "，已打开导览笔记 GUIDE-SN-001" : "";
+    setStatus(`已进入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${guideHint}`, "ok");
     return true;
   } catch (error) {
-    setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
+    setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}。可点击“导入 Smart Notes Demo”重试。`, "bad");
     return false;
+  } finally {
+    if (button) button.disabled = previousDisabled;
   }
 }
 
@@ -8354,6 +8438,10 @@ $("graphSeedYijingRich")?.addEventListener("click", async () => {
   await importYijingRichAcceptanceDemo();
 });
 
+$("graphSeedSmartNotesProductThinking")?.addEventListener("click", async () => {
+  await importSmartNotesProductThinkingDemo();
+});
+
 $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const viewButton = event.target.closest("[data-ai-inbox-view]");
   if (viewButton) {
@@ -8961,13 +9049,27 @@ async function bootstrap() {
   const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
   const explicitNoteId = startupParams.get("note") || "";
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
-  const openedDemo =
+  const startupDemoKind =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo()
+      ? "smart-notes"
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
-        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
+        ? startupDemo
+        : "";
+  if (startupDemoKind) {
+    activateModule("graph");
+    setStatus(startupDemoKind === "smart-notes" ? "正在打开 Smart Notes 产品思考 Demo..." : "正在打开演示案例...", "");
+    renderAll();
+  }
+  const openedDemo =
+    startupDemoKind === "smart-notes"
+      ? await importSmartNotesProductThinkingDemo()
+      : startupDemoKind === "yijing-rich" || startupDemoKind === "yijing"
+        ? await (startupDemoKind === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
         : false;
   if (openedDemo) {
+    activateModule("graph");
+    renderAll();
+  } else if (startupDemoKind) {
     activateModule("graph");
     renderAll();
   } else if (initialNote) {
