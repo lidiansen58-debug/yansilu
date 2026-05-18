@@ -878,3 +878,229 @@ test("prototype API manages scheduled tasks", async () => {
     else globalThis.fetch = previousFetch;
   }
 });
+
+test("prototype API can request canonical AI inbox and scheduled-task payloads", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("canonical-ai-api", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).includes("/ai/inbox/") && String(url).includes("/decision")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            item: { artifactId: "artifact_1", status: "accepted" },
+            canonical: {
+              item: { artifact_id: "artifact_1", status: "accepted" },
+              artifact: { id: "artifact_1" },
+              latestDecision: { subject_kind: "artifact", event_type: "accepted" }
+            }
+          };
+        }
+      };
+    }
+    if (String(url).includes("/ai/scheduled-tasks/") && String(url).includes("/status")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            item: { scheduledTaskId: "sched_1", status: "paused" },
+            canonical: { item: { scheduled_task_id: "sched_1", status: "paused" } }
+          };
+        }
+      };
+    }
+    if (String(url).includes("/ai/inbox?")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            items: [{ artifactId: "artifact_1" }],
+            total: 1,
+            counts: { pending: 1 },
+            views: ["pending"],
+            canonical: {
+              items: [{ artifact_id: "artifact_1" }]
+            }
+          };
+        }
+      };
+    }
+    return {
+      ok: true,
+      async json() {
+        return {
+          items: [{ scheduledTaskId: "sched_1" }],
+          total: 1,
+          canonical: {
+            items: [{ scheduled_task_id: "sched_1" }]
+          }
+        };
+      }
+    };
+  };
+
+  try {
+    const inbox = await api.fetchAiInbox({ canonical: true });
+    assert.equal(inbox.items[0].artifactId, "artifact_1");
+    assert.equal(inbox.canonical.items[0].artifact_id, "artifact_1");
+    assert.equal(new URL(calls[0].url).searchParams.get("canonical"), "true");
+
+    const decision = await api.recordAiInboxDecision("artifact_1", { action: "accept", canonical: true });
+    assert.equal(decision.item.artifactId, "artifact_1");
+    assert.equal(decision.canonical.item.artifact_id, "artifact_1");
+    assert.equal(decision.canonical.latestDecision.event_type, "accepted");
+    assert.equal(new URL(calls[1].url).searchParams.get("canonical"), "true");
+
+    const tasks = await api.fetchAiScheduledTasks({ canonical: true });
+    assert.equal(tasks.items[0].scheduledTaskId, "sched_1");
+    assert.equal(tasks.canonical.items[0].scheduled_task_id, "sched_1");
+    assert.equal(new URL(calls[2].url).searchParams.get("canonical"), "true");
+
+    const updated = await api.updateAiScheduledTaskStatusWithOptions("sched_1", "paused", { canonical: true });
+    assert.equal(updated.scheduledTaskId, "sched_1");
+    assert.equal(updated.canonical.item.scheduled_task_id, "sched_1");
+    assert.equal(new URL(calls[3].url).searchParams.get("canonical"), "true");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API can manage canonical AI suggestions payloads", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("canonical-ai-suggestions-api", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (options.method === "POST") {
+      return {
+        ok: true,
+        async json() {
+          return {
+            item: { id: "suggestion_1", status: "suggested" },
+            canonical: {
+              item: {
+                id: "suggestion_1",
+                status: "suggested",
+                target: { type: "permanent_note", id: "pn_1", field: "thesis" }
+              }
+            }
+          };
+        }
+      };
+    }
+    if (options.method === "PATCH") {
+      return {
+        ok: true,
+        async json() {
+          return {
+            item: { id: "suggestion_1", status: "adopted_as_draft" },
+            canonical: {
+              item: {
+                id: "suggestion_1",
+                status: "adopted_as_draft",
+                history: [{ to_status: "adopted_as_draft" }]
+              }
+            }
+          };
+        }
+      };
+    }
+    if (String(url).includes("/ai-suggestions/")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            item: { id: "suggestion_1", status: "adopted_as_draft" },
+            canonical: {
+              item: {
+                id: "suggestion_1",
+                status: "adopted_as_draft"
+              }
+            }
+          };
+        }
+      };
+    }
+    return {
+      ok: true,
+      async json() {
+        return {
+          items: [{ id: "suggestion_1", status: "suggested" }],
+          total: 1,
+          canonical: {
+            items: [{
+              id: "suggestion_1",
+              status: "suggested",
+              target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+              scope: "note_field",
+              content: "A reviewable claim starts life as a draft.",
+              origin: "ai_generated",
+              created_at: "2026-05-18T12:00:00.000Z",
+              updated_at: "2026-05-18T12:00:00.000Z",
+              provenance: {
+                content_origin: "ai_generated",
+                human_confirmed: false,
+                human_edited: false
+              },
+              history: []
+            }]
+          }
+        };
+      }
+    };
+  };
+
+  try {
+    const listed = await api.fetchAiSuggestions({
+      canonical: true,
+      status: "suggested",
+      targetType: "permanent_note",
+      targetId: "pn_1",
+      scope: "note_field"
+    });
+    assert.equal(listed.items[0].id, "suggestion_1");
+    assert.equal(listed.canonical.items[0].id, "suggestion_1");
+    assert.equal(listed.items[0].target.type, "permanent_note");
+    const listUrl = new URL(calls[0].url);
+    assert.equal(listUrl.pathname, "/api/v1/ai-suggestions");
+    assert.equal(listUrl.searchParams.get("canonical"), "true");
+    assert.equal(listUrl.searchParams.get("status"), "suggested");
+    assert.equal(listUrl.searchParams.get("targetType"), "permanent_note");
+    assert.equal(listUrl.searchParams.get("targetId"), "pn_1");
+    assert.equal(listUrl.searchParams.get("scope"), "note_field");
+
+    const created = await api.createAiSuggestion({
+      canonical: true,
+      target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+      scope: "note_field",
+      content: "A reviewable claim starts life as a draft."
+    });
+    assert.equal(created.id, "suggestion_1");
+    assert.equal(created.target.field, "thesis");
+    assert.equal(created.canonical.item.target.field, "thesis");
+    assert.equal(new URL(calls[1].url).searchParams.get("canonical"), "true");
+
+    const fetched = await api.fetchAiSuggestion("suggestion_1", { canonical: true });
+    assert.equal(fetched.id, "suggestion_1");
+    assert.equal(fetched.canonical.item.status, "adopted_as_draft");
+    assert.equal(new URL(calls[2].url).searchParams.get("canonical"), "true");
+
+    const updated = await api.updateAiSuggestion("suggestion_1", {
+      canonical: true,
+      status: "adopted_as_draft",
+      action: "adopt_as_draft",
+      actor: "user",
+      userId: "user_1"
+    });
+    assert.equal(updated.status, "adopted_as_draft");
+    assert.equal(updated.history[0].toStatus, "adopted_as_draft");
+    assert.equal(updated.canonical.item.history[0].to_status, "adopted_as_draft");
+    assert.equal(new URL(calls[3].url).searchParams.get("canonical"), "true");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   normalizeScheduledTaskFilters,
   scheduledTaskFormDefaults,
+  scheduledTaskFromCanonical,
   scheduledTaskFormFromTask,
   scheduledTaskPayloadFromForm,
   scheduledRunSummary,
@@ -57,6 +58,77 @@ test("scheduled tasks model summarizes schedule scope budget and runs", () => {
     skipped: 1,
     failed: 0
   });
+});
+
+test("scheduled tasks model can hydrate runtime task objects from canonical payloads", () => {
+  const task = scheduledTaskFromCanonical({
+    scheduled_task_id: "sched_1",
+    workspace_id: "workspace_1",
+    user_id: "user_1",
+    name: "Reflection reminder",
+    status: "active",
+    task_type: "reflection_prompt",
+    agent_id: "reflection_agent",
+    schedule: {
+      type: "interval",
+      timezone: "local",
+      day_of_week: "",
+      time: "",
+      interval_minutes: 30,
+      interval_hours: 0,
+      interval_days: 0,
+      rrule: ""
+    },
+    scope: {
+      project_ids: [],
+      note_ids: ["pn_1"],
+      directory_ids: ["dir_1"],
+      tags: ["reflection"],
+      source_feed_ids: [],
+      keywords: ["bridge"],
+      include_private_notes: true
+    },
+    model: {
+      user_mode: "Balanced",
+      model_pack: "",
+      max_tier: "standard",
+      allow_strong_reasoning: false
+    },
+    budget: {
+      max_runs_per_period: 3,
+      max_estimated_cost_per_run: 0.35,
+      max_estimated_cost_per_period: 1,
+      period: "week",
+      spent_this_period: 0.2,
+      runs_this_period: 1
+    },
+    privacy: {
+      mode: "normal",
+      allow_cloud_models: true,
+      require_confirmation_for_private_notes: true
+    },
+    output: {
+      destination: "ai_inbox",
+      artifact_types: ["ReflectionPrompt"],
+      notify_user: "digest"
+    },
+    run_input: null,
+    failure_count: 1,
+    last_run_at: "2026-05-18T12:30:00.000Z",
+    last_run_status: "succeeded",
+    last_run_reason: "",
+    last_agent_run_id: "run_sched_1",
+    next_run_at: "2026-05-18T13:00:00.000Z",
+    created_at: "2026-05-18T12:00:00.000Z",
+    updated_at: "2026-05-18T12:30:00.000Z"
+  });
+
+  assert.equal(task.scheduledTaskId, "sched_1");
+  assert.equal(task.schedule.intervalMinutes, 30);
+  assert.deepEqual(task.scope.noteIds, ["pn_1"]);
+  assert.equal(task.model.userMode, "Balanced");
+  assert.equal(task.output.artifactTypes[0], "ReflectionPrompt");
+  assert.equal(task.failureCount, 1);
 });
 
 test("scheduled tasks model derives actions and list summary", () => {
