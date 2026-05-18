@@ -212,21 +212,6 @@ export async function analyzePermanentNote(noteId, payload = {}) {
   return json.item || null;
 }
 
-export async function fetchDistillationQueue(options = {}) {
-  const params = new URLSearchParams();
-  const targetType = String(options?.targetType || "permanent_note").trim();
-  const status = String(options?.status || "").trim();
-  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
-  if (targetType) params.set("targetType", targetType);
-  if (status && status !== "all") params.set("status", status);
-  params.set("limit", String(limit));
-  const json = await request(`/api/v1/distillation/queue?${params.toString()}`);
-  return {
-    items: Array.isArray(json.items) ? json.items : [],
-    total: Number(json.total || 0)
-  };
-}
-
 export async function updatePermanentNoteDistillation(noteId, payload = {}) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) throw new Error("noteId is required");

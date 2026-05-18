@@ -614,7 +614,7 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   });
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.equal(scaffold.json.item.writing_project_id, project.json.item.id);
-  assert.ok(scaffold.json.item.preflight.checks.some((item) => item.code === "missing_central_question"));
+  assert.ok(scaffold.json.item.readiness.checks.some((item) => item.code === "missing_central_question"));
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "needs_intent");
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "warning"));

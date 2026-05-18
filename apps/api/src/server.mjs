@@ -31,7 +31,6 @@ import {
   getDirectoryGraph,
   listDistillationQueue,
   listDirectories,
-  listDistillationQueue,
   listIndexCards,
   listNoteRelations,
   listRelationReviewQueue,
@@ -1121,16 +1120,6 @@ function parseNoteAiAnalysisPath(urlPath) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-function parsePermanentNoteDistillationPath(urlPath) {
-  const m = urlPath.match(/^\/api\/v1\/permanent-notes\/([^/]+)\/distillation$/);
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
-function parsePermanentNoteDistillationConfirmPath(urlPath) {
-  const m = urlPath.match(/^\/api\/v1\/permanent-notes\/([^/]+)\/distillation\/confirm$/);
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
 function parseRelationPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/relations\/([^/]+)$/);
   return m ? decodeURIComponent(m[1]) : null;
@@ -1159,54 +1148,6 @@ function parseAiInboxItemPath(urlPath) {
 function parseAiSuggestionPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/ai-suggestions\/([^/]+)$/);
   return m ? decodeURIComponent(m[1]) : null;
-}
-
-function noteDistillationPayload(note = {}, body = {}, options = {}) {
-  const confirmed = options.confirm === true;
-  const hasSummary = body.threeLineSummary !== undefined || body.three_line_summary !== undefined;
-  const hasStatus = body.distillationStatus !== undefined || body.distillation_status !== undefined;
-  const thesis = body.thesis === undefined ? note.thesis || "" : body.thesis;
-  const threeLineSummary = hasSummary ? body.threeLineSummary ?? body.three_line_summary : note.threeLineSummary || [];
-  const distillationStatus = confirmed
-    ? "confirmed"
-    : hasStatus
-      ? body.distillationStatus ?? body.distillation_status
-      : note.distillationStatus || (cleanText(thesis) || (Array.isArray(threeLineSummary) && threeLineSummary.length) ? "draft" : "missing");
-
-  const payload = {
-    title: note.title,
-    body: note.body,
-    status: note.status,
-    distillationStatus,
-    boundaryOrCounterpoint: body.boundaryOrCounterpoint ?? body.boundary_or_counterpoint ?? note.boundaryOrCounterpoint,
-    originalityStatus: note.originalityStatus,
-    originalitySimilarity: note.originalitySimilarity,
-    authorship: confirmed ? { user_confirmed: true, ai_assisted: false } : body.authorship,
-    authorshipConfirmed: confirmed ? true : body.authorshipConfirmed,
-    authorshipAiAssisted: confirmed ? false : body.authorshipAiAssisted
-  };
-  if (body.thesis !== undefined) payload.thesis = body.thesis;
-  else if (!confirmed && note.thesis !== undefined) payload.thesis = note.thesis;
-  if (hasSummary) payload.threeLineSummary = threeLineSummary;
-  else if (!confirmed && note.threeLineSummary !== undefined) payload.threeLineSummary = note.threeLineSummary;
-  return payload;
-}
-
-function assertPermanentNoteReadyToConfirm(note = {}, body = {}) {
-  const thesis = cleanText(body.thesis === undefined ? note.thesis : body.thesis);
-  const summary = body.threeLineSummary !== undefined || body.three_line_summary !== undefined
-    ? body.threeLineSummary ?? body.three_line_summary
-    : note.threeLineSummary || [];
-  const summaryItems = (Array.isArray(summary) ? summary : []).map((item) => cleanText(item)).filter(Boolean);
-  if (!thesis || summaryItems.length !== 3) {
-    const error = new Error("Confirming distillation requires a thesis and exactly three summary lines.");
-    error.code = "PERMANENT_DISTILLATION_CONFIRMATION_INCOMPLETE";
-    error.details = {
-      hasThesis: Boolean(thesis),
-      threeLineSummaryCount: summaryItems.length
-    };
-    throw error;
-  }
 }
 
 function parseAiInboxDecisionPath(urlPath) {
@@ -3069,69 +3010,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
-      try {
-        await initVault(VAULT_PATH);
-        const item = await listDistillationQueue(VAULT_PATH, {
-          directoryId: url.searchParams.get("directoryId") || url.searchParams.get("directory_id") || "dir_original_default",
-          includeDescendants: url.searchParams.get("includeDescendants") !== "false" && url.searchParams.get("include_descendants") !== "false",
-          limit: Number(url.searchParams.get("limit") || 50)
-        });
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err("DISTILLATION_QUEUE_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
-    const permanentDistillationNoteId = parsePermanentNoteDistillationPath(url.pathname);
-    if (req.method === "PATCH" && permanentDistillationNoteId) {
-      const body = await readJson(req);
-      try {
-        await initVault(VAULT_PATH);
-        const note = await getNoteById(VAULT_PATH, permanentDistillationNoteId);
-        if (note.noteType !== "permanent") {
-          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation fields are only available for permanent notes.", rid));
-        }
-        const item = await updateNoteContent(VAULT_PATH, permanentDistillationNoteId, noteDistillationPayload(note, body));
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
-    const permanentDistillationConfirmNoteId = parsePermanentNoteDistillationConfirmPath(url.pathname);
-    if (req.method === "POST" && permanentDistillationConfirmNoteId) {
-      const body = await readJson(req);
-      try {
-        await initVault(VAULT_PATH);
-        const note = await getNoteById(VAULT_PATH, permanentDistillationConfirmNoteId);
-        if (note.noteType !== "permanent") {
-          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation confirmation is only available for permanent notes.", rid));
-        }
-        assertPermanentNoteReadyToConfirm(note, body);
-        const item = await updateNoteContent(
-          VAULT_PATH,
-          permanentDistillationConfirmNoteId,
-          noteDistillationPayload(note, body, { confirm: true })
-        );
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_CONFIRM_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
     if (req.method === "POST" && url.pathname === "/api/v1/notes") {
       const body = await readJson(req);
       try {
@@ -3168,13 +3046,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
       try {
         await initVault(VAULT_PATH);
-        const result = await listDistillationQueue(VAULT_PATH, {
-          targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "permanent_note",
-          status: url.searchParams.get("status") || "",
-          limit: url.searchParams.get("limit") || 50
+        const item = await listDistillationQueue(VAULT_PATH, {
+          directoryId: url.searchParams.get("directoryId") || url.searchParams.get("directory_id") || "dir_original_default",
+          includeDescendants: url.searchParams.get("includeDescendants") !== "false" && url.searchParams.get("include_descendants") !== "false",
+          limit: Number(url.searchParams.get("limit") || 50)
         });
         return sendJson(res, 200, {
-          ...result,
+          item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });

@@ -130,7 +130,7 @@ test("V1.1 distillation queue, writing intent, and AI suggestions expose review-
   const confirmed = await postJson(
     baseUrl,
     `/api/v1/permanent-notes/${encodeURIComponent(roughNote.json.item.id)}/distillation/confirm`,
-    {}
+    { confirm: true }
   );
   assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
   assert.equal(confirmed.json.item.distillationStatus, "confirmed");
