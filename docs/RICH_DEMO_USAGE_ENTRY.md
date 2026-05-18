@@ -21,10 +21,15 @@ The current rich demo asset is the smart-notes product-thinking demo:
 
 Recommended presenter flow:
 
-1. Seed a disposable local vault.
+1. Open `/demo/zettelkasten` to frame the story.
+2. Open `/prototype?demo=smart-notes-product-thinking` to auto-seed the demo and open the guide note.
+3. Walk through source, fleeting notes, literature notes, permanent notes, graph, index cards, writing project, scaffold, and essay in that order.
+
+Optional clean-recording flow:
+
+1. Delete or replace the disposable local vault if it may contain exploratory changes.
 2. Open `/demo/zettelkasten` to frame the story.
-3. Open `/prototype?demo=smart-notes-product-thinking` to demonstrate the workspace.
-4. Walk through source, fleeting notes, literature notes, permanent notes, graph, index cards, writing project, scaffold, and essay in that order.
+3. Open `/prototype?demo=smart-notes-product-thinking`; the app will call the public seed endpoint and start at `GUIDE-SN-001`.
 
 ## Local Demo Vault
 
@@ -63,7 +68,7 @@ For the interactive prototype, use:
 /prototype?demo=smart-notes-product-thinking
 ```
 
-The app should call the public API seed endpoint and open the seeded workspace. This keeps the browser demo aligned with the same fixture and seed path used by local scripts and tests.
+The app calls the public API seed endpoint, opens the seeded workspace, and selects the guide note `GUIDE-SN-001`. This keeps the browser demo aligned with the same fixture and seed path used by local scripts and tests while giving presenters a stable first screen.
 
 For the narrative page, start with:
 

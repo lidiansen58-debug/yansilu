@@ -56,10 +56,11 @@ The current rich demo path is expected to produce:
 4. 2 fleeting notes that demonstrate capture is temporary and must be processed
 5. about 100 permanent notes
 6. 12 to 16 index cards
-7. one writing project
-8. one final product essay
-9. one guide note explaining how to inspect the demo
-10. optional AI suggestion artifacts that remain unconfirmed until the user accepts them
+7. 306 relations across the required relation types
+8. one writing project
+9. one final product essay
+10. one guide note explaining how to inspect the demo
+11. optional AI suggestion artifacts that remain unconfirmed until the user accepts them
 
 Recommended disposable demo vault name:
 
@@ -543,7 +544,7 @@ The demo should include index cards that organize permanent notes around product
 
 ## 9. Relation Map
 
-The relation graph should be rich enough to demonstrate how Yansilu manages thinking structure. With about 100 permanent notes, the demo should include around 140 to 180 relations. The graph should not be complete or mechanically dense; it should be intentionally meaningful.
+The relation graph should be rich enough to demonstrate how Yansilu manages thinking structure. The current rich fixture contains 306 intentionally meaningful relations across about 100 permanent notes. The graph should not be treated as complete or mechanically dense; each relation still needs a useful type, rationale, and follow-up question.
 
 Required relation types:
 
@@ -711,7 +712,7 @@ It should contain the demo's canonical data shape:
 3. exactly 2 fleeting notes
 4. about 100 permanent notes
 5. 12 to 16 index cards
-6. 140 to 180 relations across the required relation types
+6. 306 relations across the required relation types
 7. writing project
 8. scaffold
 9. final essay note
@@ -753,7 +754,7 @@ The interactive app entry is:
 /prototype?demo=smart-notes-product-thinking
 ```
 
-The route calls the public demo seed endpoint and opens the seeded workspace.
+The route calls the public demo seed endpoint, opens the seeded workspace, and selects the guide note `GUIDE-SN-001` as the stable first screen.
 
 For a complete walkthrough, open the story page first and the app entry second:
 
