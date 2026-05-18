@@ -36,6 +36,8 @@ export * from "./sqlite-context-pack-store.mjs";
 export * from "./sqlite-provider-health-store.mjs";
 export * from "./sqlite-run-log.mjs";
 export * from "./sqlite-scheduled-agent-task-store.mjs";
+export * from "./sqlite-suggestion-store.mjs";
+export * from "./suggestion-store.mjs";
 export * from "./suggestions.mjs";
 export * from "./tools.mjs";
 export * from "./writing-analysis.mjs";

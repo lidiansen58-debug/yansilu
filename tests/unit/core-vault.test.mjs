@@ -58,6 +58,26 @@ test("frontmatter parse and serialize preserve unknown fields", () => {
   assert.equal(parsed.body, "Body text");
 });
 
+test("frontmatter inline arrays preserve commas inside quoted items", () => {
+  const markdown = serializeMarkdownWithFrontmatter(
+    {
+      three_line_summary: [
+        "Claim, reason, and use are separate.",
+        "Commas inside a line should not split items.",
+        "The parser should restore exactly three lines."
+      ]
+    },
+    "# Body"
+  );
+
+  const parsed = parseMarkdownWithFrontmatter(markdown);
+  assert.deepEqual(parsed.frontmatter.three_line_summary, [
+    "Claim, reason, and use are separate.",
+    "Commas inside a line should not split items.",
+    "The parser should restore exactly three lines."
+  ]);
+});
+
 test("Source, LiteratureNote, and PermanentNote write and read back", async () => {
   const vaultPath = await makeTempVault();
   const now = new Date().toISOString();
