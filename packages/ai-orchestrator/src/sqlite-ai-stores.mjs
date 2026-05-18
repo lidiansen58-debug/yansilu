@@ -6,6 +6,7 @@ import { createSqliteContextPackStore } from "./sqlite-context-pack-store.mjs";
 import { createSqliteProviderHealthStore } from "./sqlite-provider-health-store.mjs";
 import { createSqliteRunLog } from "./sqlite-run-log.mjs";
 import { createSqliteScheduledAgentTaskStore } from "./sqlite-scheduled-agent-task-store.mjs";
+import { createSqliteSuggestionStore } from "./sqlite-suggestion-store.mjs";
 
 export async function createSqliteAiStores(options = {}) {
   const opened = [];
@@ -32,6 +33,9 @@ export async function createSqliteAiStores(options = {}) {
     const scheduledTaskStore = await createSqliteScheduledAgentTaskStore({ ...options, dbPath: runLog.dbPath });
     opened.push(scheduledTaskStore);
 
+    const suggestionStore = await createSqliteSuggestionStore({ ...options, dbPath: runLog.dbPath });
+    opened.push(suggestionStore);
+
     const artifactInbox = createAiInbox({ artifactStore });
 
     return {
@@ -45,8 +49,9 @@ export async function createSqliteAiStores(options = {}) {
       providerConfigStore,
       providerHealthStore,
       scheduledTaskStore,
+      suggestionStore,
       close() {
-        for (const store of [scheduledTaskStore, providerHealthStore, providerConfigStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
+        for (const store of [suggestionStore, scheduledTaskStore, providerHealthStore, providerConfigStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
           if (typeof store.close === "function") store.close();
         }
       }

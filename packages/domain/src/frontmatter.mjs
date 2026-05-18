@@ -6,6 +6,10 @@ function parseScalar(value) {
   if (trimmed === "true") return true;
   if (trimmed === "false") return false;
   if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.map((item) => String(item));
+    } catch {}
     const inner = trimmed.slice(1, -1).trim();
     if (!inner) return [];
     return inner.split(",").map((item) => item.trim().replace(/^["']|["']$/g, ""));

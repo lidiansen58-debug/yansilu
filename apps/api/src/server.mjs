@@ -29,8 +29,8 @@ import {
   getIndexCard,
   initVault,
   getDirectoryGraph,
-  listDirectories,
   listDistillationQueue,
+  listDirectories,
   listIndexCards,
   listNoteRelations,
   listRelationReviewQueue,
@@ -75,7 +75,8 @@ import {
   listWritingProjects,
   setCurrentDraftNote,
   updateDraftNoteVersionNote,
-  updateDraftScaffoldVersionNote
+  updateDraftScaffoldVersionNote,
+  updateWritingProjectIntent
 } from "../../../packages/writing-engine/src/index.mjs";
 import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import { seedSmartNotesProductThinking } from "../../../scripts/seed-smart-notes-product-thinking.mjs";
@@ -84,6 +85,7 @@ import {
   createSqliteAiProviderConfigStore,
   createSqliteScheduledAgentTaskStore,
   createSqliteArtifactStore,
+  createSqliteSuggestionStore,
   createAiInbox,
   createSqliteProviderHealthStore,
   createAiHarnessRuntime,
@@ -128,6 +130,7 @@ let aiProviderConfigStorePromise = null;
 let aiProviderHealthStorePromise = null;
 let aiScheduledTaskStorePromise = null;
 let aiArtifactStorePromise = null;
+let aiSuggestionStorePromise = null;
 
 async function aiPreferencesStore() {
   if (!aiPreferencesStorePromise) {
@@ -162,6 +165,13 @@ async function aiArtifactStore() {
     aiArtifactStorePromise = createSqliteArtifactStore({ vaultPath: VAULT_PATH });
   }
   return aiArtifactStorePromise;
+}
+
+async function aiSuggestionStore() {
+  if (!aiSuggestionStorePromise) {
+    aiSuggestionStorePromise = createSqliteSuggestionStore({ vaultPath: VAULT_PATH });
+  }
+  return aiSuggestionStorePromise;
 }
 
 function advancedModelRefFrom(input = {}) {
@@ -1135,6 +1145,59 @@ function parseAiInboxItemPath(urlPath) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function parseAiSuggestionPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai-suggestions\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function noteDistillationPayload(note = {}, body = {}, options = {}) {
+  const confirmed = options.confirm === true;
+  const hasSummary = body.threeLineSummary !== undefined || body.three_line_summary !== undefined;
+  const hasStatus = body.distillationStatus !== undefined || body.distillation_status !== undefined;
+  const thesis = body.thesis === undefined ? note.thesis || "" : body.thesis;
+  const threeLineSummary = hasSummary ? body.threeLineSummary ?? body.three_line_summary : note.threeLineSummary || [];
+  const distillationStatus = confirmed
+    ? "confirmed"
+    : hasStatus
+      ? body.distillationStatus ?? body.distillation_status
+      : note.distillationStatus || (cleanText(thesis) || (Array.isArray(threeLineSummary) && threeLineSummary.length) ? "draft" : "missing");
+
+  const payload = {
+    title: note.title,
+    body: note.body,
+    status: note.status,
+    distillationStatus,
+    boundaryOrCounterpoint: body.boundaryOrCounterpoint ?? body.boundary_or_counterpoint ?? note.boundaryOrCounterpoint,
+    originalityStatus: note.originalityStatus,
+    originalitySimilarity: note.originalitySimilarity,
+    authorship: confirmed ? { user_confirmed: true, ai_assisted: false } : body.authorship,
+    authorshipConfirmed: confirmed ? true : body.authorshipConfirmed,
+    authorshipAiAssisted: confirmed ? false : body.authorshipAiAssisted
+  };
+  if (body.thesis !== undefined) payload.thesis = body.thesis;
+  else if (!confirmed && note.thesis !== undefined) payload.thesis = note.thesis;
+  if (hasSummary) payload.threeLineSummary = threeLineSummary;
+  else if (!confirmed && note.threeLineSummary !== undefined) payload.threeLineSummary = note.threeLineSummary;
+  return payload;
+}
+
+function assertPermanentNoteReadyToConfirm(note = {}, body = {}) {
+  const thesis = cleanText(body.thesis === undefined ? note.thesis : body.thesis);
+  const summary = body.threeLineSummary !== undefined || body.three_line_summary !== undefined
+    ? body.threeLineSummary ?? body.three_line_summary
+    : note.threeLineSummary || [];
+  const summaryItems = (Array.isArray(summary) ? summary : []).map((item) => cleanText(item)).filter(Boolean);
+  if (!thesis || summaryItems.length !== 3) {
+    const error = new Error("Confirming distillation requires a thesis and exactly three summary lines.");
+    error.code = "PERMANENT_DISTILLATION_CONFIRMATION_INCOMPLETE";
+    error.details = {
+      hasThesis: Boolean(thesis),
+      threeLineSummaryCount: summaryItems.length
+    };
+    throw error;
+  }
+}
+
 function parseAiInboxDecisionPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/decision$/);
   return m ? decodeURIComponent(m[1]) : null;
@@ -1849,6 +1912,7 @@ const server = http.createServer(async (req, res) => {
         aiProviderHealthStorePromise = null;
         aiScheduledTaskStorePromise = null;
         aiArtifactStorePromise = null;
+        aiSuggestionStorePromise = null;
         await loadAuthState();
         return sendJson(res, 200, {
           item: publicVaultInfo(layout),
@@ -2182,6 +2246,79 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_INBOX_EVALUATION_SUMMARY_FAILED", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/ai-suggestions") {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiSuggestionStore();
+        const items = store.list({
+          status: url.searchParams.get("status") || "all",
+          targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "",
+          targetId: url.searchParams.get("targetId") || url.searchParams.get("target_id") || "",
+          scope: url.searchParams.get("scope") || "",
+          limit: Number(url.searchParams.get("limit") || 50)
+        });
+        return sendJson(res, 200, {
+          items,
+          total: items.length,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LIST_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai-suggestions") {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiSuggestionStore();
+        const item = store.create(body, { now: new Date().toISOString() });
+        return sendJson(res, 201, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_CREATE_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const aiSuggestionId = parseAiSuggestionPath(url.pathname);
+    if (req.method === "GET" && aiSuggestionId) {
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiSuggestionStore();
+        const item = store.get(aiSuggestionId);
+        if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LOAD_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    if (req.method === "PATCH" && aiSuggestionId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const store = await aiSuggestionStore();
+        const toStatus = body.status || body.toStatus || body.to_status;
+        const item = store.transition(aiSuggestionId, toStatus, body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.code === "AI_SUGGESTION_NOT_FOUND" ? 404 : 400;
+        return sendJson(res, status, err(error?.code || "AI_SUGGESTION_UPDATE_FAILED", String(error?.message || error), rid, error?.details));
       }
     }
 
@@ -2918,6 +3055,69 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("DIRECTORY_NOTES_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
+      try {
+        await initVault(VAULT_PATH);
+        const item = await listDistillationQueue(VAULT_PATH, {
+          directoryId: url.searchParams.get("directoryId") || url.searchParams.get("directory_id") || "dir_original_default",
+          includeDescendants: url.searchParams.get("includeDescendants") !== "false" && url.searchParams.get("include_descendants") !== "false",
+          limit: Number(url.searchParams.get("limit") || 50)
+        });
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("DISTILLATION_QUEUE_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const permanentDistillationNoteId = parsePermanentNoteDistillationPath(url.pathname);
+    if (req.method === "PATCH" && permanentDistillationNoteId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const note = await getNoteById(VAULT_PATH, permanentDistillationNoteId);
+        if (note.noteType !== "permanent") {
+          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation fields are only available for permanent notes.", rid));
+        }
+        const item = await updateNoteContent(VAULT_PATH, permanentDistillationNoteId, noteDistillationPayload(note, body));
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_INVALID", String(error?.message || error), rid, error?.details));
+      }
+    }
+
+    const permanentDistillationConfirmNoteId = parsePermanentNoteDistillationConfirmPath(url.pathname);
+    if (req.method === "POST" && permanentDistillationConfirmNoteId) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const note = await getNoteById(VAULT_PATH, permanentDistillationConfirmNoteId);
+        if (note.noteType !== "permanent") {
+          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation confirmation is only available for permanent notes.", rid));
+        }
+        assertPermanentNoteReadyToConfirm(note, body);
+        const item = await updateNoteContent(
+          VAULT_PATH,
+          permanentDistillationConfirmNoteId,
+          noteDistillationPayload(note, body, { confirm: true })
+        );
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_CONFIRM_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 
@@ -4013,6 +4213,22 @@ const server = http.createServer(async (req, res) => {
         });
       } catch (error) {
         return sendJson(res, 400, err("WRITING_PROJECT_INVALID", String(error?.message || error), rid));
+      }
+    }
+
+    const writingProjectIntentMatch = url.pathname.match(/^\/api\/v1\/writing-projects\/([^/]+)\/intent$/);
+    if (req.method === "PATCH" && writingProjectIntentMatch) {
+      const body = await readJson(req);
+      try {
+        await initVault(VAULT_PATH);
+        const item = await updateWritingProjectIntent(VAULT_PATH, decodeURIComponent(writingProjectIntentMatch[1]), body);
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, 400, err("WRITING_PROJECT_INTENT_INVALID", String(error?.message || error), rid, error?.details));
       }
     }
 

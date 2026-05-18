@@ -3,7 +3,9 @@ import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
 import { collectDistillationQualityWarnings } from "../../domain/src/distillation-quality.mjs";
 import { getNoteById } from "../../domain/src/index.mjs";
+import { getIndexCard } from "../../domain/src/index-card-store.mjs";
 import { deriveWritingProjectThinkingStatus } from "../../domain/src/thinking-status.mjs";
+import { analyzeWritingProjectReadiness } from "../../domain/src/quality-checks.mjs";
 
 const GENERATED_BY = "writing-engine:v1";
 
@@ -160,6 +162,29 @@ async function loadBasketNotes(vaultPath, noteIds) {
   return notes;
 }
 
+async function loadRelatedIndexCards(vaultPath, indexIds = []) {
+  const cards = [];
+  for (const indexId of uniqueIds(indexIds)) {
+    try {
+      cards.push(await getIndexCard(vaultPath, indexId));
+    } catch {}
+  }
+  return cards;
+}
+
+export function buildWritingProjectReadiness(project = {}, basketNotes = [], options = {}) {
+  return analyzeWritingProjectReadiness(
+    {
+      ...project,
+      basket_note_ids: project.basket_note_ids || project.basketNoteIds || basketNotes.map((note) => note.id)
+    },
+    {
+      notes: basketNotes,
+      indexCards: Array.isArray(options.indexCards) ? options.indexCards : []
+    }
+  );
+}
+
 async function loadProjectDraftNote(vaultPath, draftNoteId) {
   const id = cleanText(draftNoteId);
   if (!id) return null;
@@ -219,6 +244,7 @@ export async function createWritingProject(vaultPath, input = {}) {
   if (!basketNoteIds.length) throw new Error("basketNoteIds is required");
   const relatedIndexIds = uniqueIds(input.relatedIndexIds || input.related_index_ids);
   const basketNotes = await loadBasketNotes(vaultPath, basketNoteIds);
+  const relatedIndexCards = await loadRelatedIndexCards(vaultPath, relatedIndexIds);
 
   const now = new Date().toISOString();
   const id = cleanText(input.id) || `wp_${randomUUID().slice(0, 8)}`;
@@ -280,6 +306,7 @@ export async function createWritingProject(vaultPath, input = {}) {
     scaffold_id: null,
     draft_note_id: null,
     draft_note: null,
+    preflight: buildWritingProjectReadiness(project, basketNotes, { indexCards: relatedIndexCards }),
     basket_notes: basketNotes.map(({ body, ...note }) => note)
   };
   return {
@@ -489,8 +516,12 @@ function buildSections(project, basketNotes) {
   return sections;
 }
 
-function renderMarkdown(project, scaffold, basketNotes, preflight = null) {
+function renderMarkdown(project, scaffold, basketNotes, options = {}) {
   const noteById = new Map(basketNotes.map((note) => [note.id, note]));
+  const preflight = options?.preflight || null;
+  const readiness = buildWritingProjectReadiness(project, basketNotes, {
+    indexCards: Array.isArray(options.indexCards) ? options.indexCards : []
+  });
   const lines = [
     `# ${project.title}`,
     "",
@@ -500,7 +531,16 @@ function renderMarkdown(project, scaffold, basketNotes, preflight = null) {
     `- Tone: ${project.tone || "TBD"}`,
     `- Intent: ${project.intent || "TBD"}`,
     `- Reader takeaway: ${project.desired_reader_takeaway || "TBD"}`,
-    ""
+    "",
+    "## Readiness Check",
+    `- Status: ${readiness.status}`,
+    ...(
+      readiness.checks.length
+        ? readiness.checks.map((item) => `- ${item.field}: ${item.message}`)
+        : ["- No blocking gaps detected for scaffold generation."]
+    ),
+    "",
+    "## Draft Scaffold"
   ];
 
   if (preflight?.checks?.length) {
@@ -567,6 +607,7 @@ export async function createDraftScaffold(vaultPath, input = {}) {
   if (!project.basket_note_ids.length) throw new Error("writing project basket is empty");
 
   const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+  const relatedIndexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
   const now = new Date().toISOString();
   const scaffold = {
     id: cleanText(input.id) || `ds_${randomUUID().slice(0, 8)}`,
@@ -579,7 +620,10 @@ export async function createDraftScaffold(vaultPath, input = {}) {
     updated_at: now
   };
   const preflight = buildScaffoldPreflight(project, basketNotes);
-  const markdown = renderMarkdown(project, scaffold, basketNotes, preflight);
+  const markdown = renderMarkdown(project, scaffold, basketNotes, {
+    preflight,
+    indexCards: relatedIndexCards
+  });
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -628,10 +672,40 @@ export async function getWritingProject(vaultPath, writingProjectId) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const project = await loadProject(vaultPath, writingProjectId);
   const basketNotes = await loadBasketNotes(vaultPath, project.basket_note_ids);
+  const relatedIndexCards = await loadRelatedIndexCards(vaultPath, project.related_index_ids);
   return {
     ...project,
+    preflight: buildWritingProjectReadiness(project, basketNotes, { indexCards: relatedIndexCards }),
     basket_notes: basketNotes.map(({ body, ...note }) => note)
   };
+}
+
+export async function updateWritingProjectIntent(vaultPath, writingProjectId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(writingProjectId);
+  if (!id) throw new Error("writingProjectId is required");
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const existing = db.prepare("SELECT intent, desired_reader_takeaway FROM writing_projects WHERE id = ? LIMIT 1").get(id);
+    if (!existing) throw new Error(`writingProjectId not found: ${id}`);
+    const intent = input.intent === undefined ? existing.intent || "" : cleanText(input.intent);
+    const desiredReaderTakeaway =
+      input.desiredReaderTakeaway === undefined && input.desired_reader_takeaway === undefined
+        ? existing.desired_reader_takeaway || ""
+        : cleanText(input.desiredReaderTakeaway || input.desired_reader_takeaway);
+    const now = new Date().toISOString();
+    db.prepare(
+      `UPDATE writing_projects
+       SET intent = ?, desired_reader_takeaway = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(intent, desiredReaderTakeaway, now, id);
+  } finally {
+    db.close();
+  }
+
+  return getWritingProject(vaultPath, id);
 }
 
 export async function listWritingProjects(vaultPath, input = {}) {

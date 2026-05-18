@@ -7,6 +7,7 @@ import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "
 import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 import { deriveNoteThinkingStatus } from "./thinking-status.mjs";
+import { analyzePermanentNoteDistillation } from "./quality-checks.mjs";
 import { originalityGuard } from "../../originality-guard/src/index.mjs";
 
 function catalogDbPath(vaultPath) {
@@ -1211,6 +1212,78 @@ export async function listNotesInDirectoryScope(vaultPath, directoryId, options 
   }
 }
 
+function distillationQueueNote(note = {}) {
+  const thesis = String(note.thesis || "").trim();
+  const threeLineSummary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+  const status = String(note.distillationStatus || "").trim().toLowerCase();
+  const effectiveStatus = status === "confirmed" ? "confirmed" : thesis || threeLineSummary.length ? "draft" : "missing";
+  const missingThesis = !thesis;
+  const missingThreeLineSummary = threeLineSummary.length !== 3;
+
+  return {
+    note: {
+      id: note.id,
+      noteType: note.noteType,
+      title: note.title,
+      status: note.status,
+      directoryId: note.directoryId,
+      markdownPath: note.markdownPath,
+      thesis,
+      threeLineSummary,
+      distillationStatus: effectiveStatus,
+      thinkingStatus: note.thinkingStatus || null,
+      updatedAt: note.updatedAt,
+      createdAt: note.createdAt
+    },
+    status: effectiveStatus,
+    missingThesis,
+    missingThreeLineSummary,
+    qualityChecks: analyzePermanentNoteDistillation(note)
+  };
+}
+
+export async function listDistillationQueue(vaultPath, input = {}) {
+  const directoryId = String(input.directoryId || input.directory_id || "dir_original_default").trim();
+  const includeDescendants = input.includeDescendants !== false && input.include_descendants !== false;
+  const limit = Math.max(1, Math.min(200, Number(input.limit || 50) || 50));
+  const notes = await listNotesInDirectoryScope(vaultPath, directoryId, { includeDescendants });
+  const permanentNotes = notes.filter((note) => String(note.noteType || "").trim().toLowerCase() === "permanent");
+  const mapped = permanentNotes.map(distillationQueueNote);
+  const allPendingThesis = mapped.filter((item) => item.missingThesis);
+  const allPendingThreeLineSummary = mapped.filter((item) => item.missingThreeLineSummary);
+  const allRecentConfirmed = mapped
+    .filter((item) => item.status === "confirmed")
+    .sort((a, b) => String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || "")));
+  const pendingThesis = allPendingThesis.slice(0, limit);
+  const pendingThreeLineSummary = allPendingThreeLineSummary.slice(0, limit);
+  const recentConfirmed = allRecentConfirmed.slice(0, limit);
+  const readyForWriting = mapped.filter((item) => !item.missingThesis && !item.missingThreeLineSummary);
+
+  return {
+    directoryId,
+    includeDescendants,
+    counts: {
+      permanentNotes: mapped.length,
+      pendingThesis: allPendingThesis.length,
+      pendingThreeLineSummary: allPendingThreeLineSummary.length,
+      recentConfirmed: allRecentConfirmed.length,
+      readyForWriting: readyForWriting.length,
+      pendingTotal: new Set(
+        [...allPendingThesis, ...allPendingThreeLineSummary].map((item) => item.note.id)
+      ).size
+    },
+    pendingThesis,
+    pendingThreeLineSummary,
+    recentConfirmed,
+    items: mapped
+      .sort((a, b) => {
+        const rank = { missing: 0, draft: 1, confirmed: 2 };
+        return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || ""));
+      })
+      .slice(0, limit)
+  };
+}
+
 export async function searchNotes(vaultPath, options = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const query = String(options.q || options.query || "").trim().toLowerCase();
@@ -1873,68 +1946,6 @@ export async function getNoteById(vaultPath, noteId) {
         : {}),
       ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
     });
-  } finally {
-    db.close();
-  }
-}
-
-export async function listDistillationQueue(vaultPath, options = {}) {
-  if (!vaultPath) throw new Error("vaultPath is required");
-  const targetType = String(options.targetType || options.target_type || "permanent_note").trim();
-  if (targetType && targetType !== "permanent_note") {
-    return { items: [], total: 0 };
-  }
-  const statusFilter = String(options.status || "").trim().toLowerCase();
-  const allowedStatuses = new Set(["missing", "draft", "confirmed"]);
-  const limitInput = Number(options.limit || 50);
-  const limit = Math.max(1, Math.min(100, Number.isFinite(limitInput) ? limitInput : 50));
-  const root = path.resolve(vaultPath);
-  const DatabaseSync = await loadDatabaseSync();
-  const db = new DatabaseSync(catalogDbPath(vaultPath));
-  try {
-    const rows = db
-      .prepare(
-        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
-                ndm.directory_id, d.fs_path AS directory_fs_path
-         FROM notes n
-         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
-         LEFT JOIN directories d ON d.id = ndm.directory_id
-         WHERE n.note_type = 'permanent' AND n.deleted_at IS NULL
-         ORDER BY n.updated_at DESC, n.created_at DESC`
-      )
-      .all();
-    const items = [];
-    for (const row of rows) {
-      let permanentMeta = null;
-      try {
-        const markdown = await fs.readFile(path.join(root, row.markdown_path), "utf8");
-        const parsed = parseMarkdownWithFrontmatter(markdown);
-        permanentMeta = permanentMetadataFromFrontmatter(parsed.frontmatter || {});
-      } catch {
-        permanentMeta = { thesis: "", threeLineSummary: [], distillationStatus: "missing" };
-      }
-      const distillationStatus = permanentMeta.distillationStatus || "missing";
-      if (statusFilter && allowedStatuses.has(statusFilter) && distillationStatus !== statusFilter) continue;
-      const missing = [];
-      if (!permanentMeta.thesis) missing.push("thesis");
-      if (!Array.isArray(permanentMeta.threeLineSummary) || permanentMeta.threeLineSummary.length !== 3) {
-        missing.push("three_line_summary");
-      }
-      items.push({
-        targetType: "permanent_note",
-        targetId: row.id,
-        noteId: row.id,
-        title: row.title,
-        missing,
-        distillationStatus,
-        updatedAt: row.updated_at,
-        createdAt: row.created_at
-      });
-    }
-    return {
-      items: items.slice(0, limit),
-      total: items.length
-    };
   } finally {
     db.close();
   }

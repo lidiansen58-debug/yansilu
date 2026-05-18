@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   allowedNextSuggestionStatuses,
   canTransitionSuggestionStatus,
+  createInMemorySuggestionStore,
   normalizeSuggestion,
   suggestionStatuses,
   transitionSuggestionStatus
@@ -169,4 +170,31 @@ test("rejected and confirmed suggestions are terminal", () => {
     () => transitionSuggestionStatus(confirmed, "edited", { action: "edit", actor: "user", userId: "user_1" }),
     "AI_SUGGESTION_TRANSITION_INVALID"
   );
+});
+
+test("suggestion store persists review events and filters by target", () => {
+  const store = createInMemorySuggestionStore();
+  const suggestion = store.create(
+    {
+      id: "suggestion_store_1",
+      target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+      scope: "permanent_note_distillation",
+      content: { thesis: "Reviewable suggestions stay drafts until the user acts." }
+    },
+    { now: "2026-05-17T01:00:00.000Z" }
+  );
+
+  const draft = store.transition(suggestion.id, "adopted_as_draft", {
+    action: "adopt_as_draft",
+    actor: "user",
+    userId: "user_1",
+    createdAt: "2026-05-17T01:05:00.000Z"
+  });
+
+  assert.equal(draft.status, "adopted_as_draft");
+  assert.deepEqual(
+    store.list({ targetType: "permanent_note", targetId: "pn_1" }).map((item) => item.id),
+    ["suggestion_store_1"]
+  );
+  assert.equal(store.get("suggestion_store_1").history.length, 1);
 });
