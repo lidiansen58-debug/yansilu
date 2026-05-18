@@ -4887,6 +4887,54 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
   }, 5000);
 });
 
+test("prototype demo query opens the Smart Notes product thinking workspace", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
+
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /Smart Notes/);
+    assert.doesNotMatch(String(statusText || ""), /失败/);
+
+    const guide = await fetchJson(apiBase, "/api/v1/notes/GUIDE-SN-001");
+    assert.equal(guide.status, 200, JSON.stringify(guide.json));
+    assert.equal(guide.json.item.id, "GUIDE-SN-001");
+
+    const graph = await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_demo_smart_notes_product_thinking_original");
+    assert.equal(graph.status, 200, JSON.stringify(graph.json));
+    assert.ok(graph.json.item.totalNodes >= 100, JSON.stringify(graph.json.item.summary || graph.json.item));
+    assert.ok(graph.json.item.totalEdges >= 250, JSON.stringify(graph.json.item.summary || graph.json.item));
+    assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 100);
+  }, 30000);
+
+  assert.equal(consoleErrors.length, 0, consoleErrors.join("\n"));
+
+  await page.reload({ waitUntil: "networkidle" });
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /Smart Notes/);
+    const graph = await fetchJson(apiBase, "/api/v1/graph?scope=directory&directoryId=dir_demo_smart_notes_product_thinking_original");
+    assert.equal(graph.status, 200, JSON.stringify(graph.json));
+    assert.ok(graph.json.item.totalNodes >= 100);
+    assert.ok(graph.json.item.totalEdges >= 250);
+  }, 30000);
+});
+
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
