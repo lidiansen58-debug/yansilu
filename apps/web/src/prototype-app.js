@@ -4806,6 +4806,36 @@ function renderWritingThemeIndexCard(indexCard) {
   `;
 }
 
+function renderWritingThemeDetail(indexCard) {
+  if (!indexCard) {
+    return `
+      <div class="writing-empty">先选择一个主题索引，这里会显示中心问题、主题压缩和已纳入的永久笔记。</div>
+    `;
+  }
+  const lines = Array.isArray(indexCard?.three_line_summary) ? indexCard.three_line_summary : [];
+  const items = Array.isArray(indexCard?.items) ? indexCard.items : [];
+  const summaryLines = lines.filter((line) => String(line || "").trim());
+  return `
+    <div class="writing-detail-card">
+      <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.id)} · ${escapeHtml(indexCard.index_type || "topic")} · 条目 ${escapeHtml(items.length || indexCard.note_count || 0)}</div>
+      <div class="writing-summary">${escapeHtml(indexCard.summary || "这个主题索引还没有一句话压缩。")}</div>
+      <div class="writing-summary"><strong>中心问题：</strong>${escapeHtml(indexCard.central_question || "待补充")}</div>
+      <div class="writing-summary"><strong>主题论点：</strong>${escapeHtml(indexCard.thesis || "待补充")}</div>
+      ${
+        summaryLines.length
+          ? `<ul>${summaryLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>`
+          : `<div class="writing-empty">还没有三句话压缩。</div>`
+      }
+      ${
+        items.length
+          ? `<div class="writing-summary">已纳入永久笔记：${escapeHtml(items.slice(0, 5).map((item) => item?.note?.title || item?.short_label || item?.note_id).filter(Boolean).join("、"))}${items.length > 5 ? " 等" : ""}</div>`
+          : `<div class="writing-empty">这个主题索引还没有条目。</div>`
+      }
+    </div>
+  `;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
@@ -6728,7 +6758,8 @@ async function importYijingRichAcceptanceDemo() {
   }
 }
 
-async function importSmartNotesProductThinkingDemo() {
+async function importSmartNotesProductThinkingDemo(options = {}) {
+  const { startup = false } = options;
   setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
@@ -6738,15 +6769,21 @@ async function importSmartNotesProductThinkingDemo() {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    const firstNoteId = String(result?.firstNoteId || "").trim();
+    if (firstNoteId) {
+      state.selectedFileId = firstNoteId;
+      openNoteById(firstNoteId, { preferTitleSelection: false });
+    }
     await refreshDirectoryGraph();
+    if (startup) activateModule("explorer");
     renderAll();
     const counts = result?.counts || {};
     const summary = result?.summary || {};
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目`, "ok");
+    const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
+    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
     return true;
   } catch (error) {
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
@@ -8963,12 +9000,11 @@ async function bootstrap() {
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo()
+      ? await importSmartNotesProductThinkingDemo({ startup: true })
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
         ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
         : false;
   if (openedDemo) {
-    activateModule("graph");
     renderAll();
   } else if (initialNote) {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
