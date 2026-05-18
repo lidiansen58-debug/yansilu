@@ -488,7 +488,8 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     for (const card of fixture.index_cards) await upsertIndexCard(vaultPath, card, counters);
   }
 
-  await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
+  const writingEntries = await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
+  const primaryWritingEntry = writingEntries[0] || null;
 
   return {
     kind: "smart_notes_product_thinking_seed",
@@ -498,6 +499,10 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     fixturePath,
     directoryId: ORIGINAL_DIRECTORY_ID,
     firstNoteId: noteIds.find(Boolean) || null,
+    writingProjectId: primaryWritingEntry?.writingProjectId || null,
+    draftScaffoldId: primaryWritingEntry?.scaffoldId || null,
+    writingProjectIds: writingEntries.map((entry) => entry.writingProjectId).filter(Boolean),
+    draftScaffoldIds: writingEntries.map((entry) => entry.scaffoldId).filter(Boolean),
     counts: counts && typeof counts === "object" ? counts : {},
     summary: counters
   };

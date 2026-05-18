@@ -6854,6 +6854,20 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
     }
+    const writingProjectId = String(result?.writingProjectId || "").trim();
+    if (writingProjectId) {
+      try {
+        const project = await fetchWritingProject(writingProjectId);
+        writingState.project = project;
+        populateWritingFormFromProject(project);
+        const draftScaffoldId = String(result?.draftScaffoldId || project?.scaffold_id || "").trim();
+        if (draftScaffoldId) {
+          const scaffold = await fetchDraftScaffold(draftScaffoldId);
+          writingState.scaffold = scaffold.item || null;
+          writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
+        }
+      } catch {}
+    }
     await refreshDirectoryGraph();
     if (startup) activateModule("explorer");
     renderAll();
