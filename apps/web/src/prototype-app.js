@@ -166,7 +166,8 @@ const graphState = {
   filters: {
     relationType: "all",
     status: "all"
-  }
+  },
+  zoom: "fit"
 };
 const distillationState = {
   filter: "all"
@@ -5418,6 +5419,17 @@ const GRAPH_RELATION_MARKER_COLORS = {
   bridge: "#a88be8"
 };
 
+const GRAPH_VISUAL_ZOOM_OPTIONS = {
+  fit: { label: "全览", scale: 1, note: "看整体结构" },
+  read: { label: "放大", scale: 1.35, note: "读节点标题" },
+  detail: { label: "细节", scale: 1.75, note: "检查关系线" }
+};
+
+function graphZoomOption(value = "") {
+  const key = String(value || "fit").trim().toLowerCase();
+  return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
+}
+
 function graphRelationQualityLabel(level) {
   const key = String(level || "empty").trim().toLowerCase();
   return GRAPH_RELATION_QUALITY_LABELS[key] || key || "待整理";
@@ -5432,20 +5444,20 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
   return `
     <section class="graph-orientation" aria-label="图谱读法">
       <div class="graph-orientation-main">
-        <strong>先把它当作“永久笔记的论证地图”来读</strong>
-        <span>节点是永久笔记，边是关系；重点不是线多不多，而是这组笔记能不能支撑一个清楚主题。</span>
+        <strong>这张图谱表达的是：这组永久笔记能不能支撑一个清楚论证</strong>
+        <span>节点不是文件数量，边也不是装饰线。它们一起回答：中心观点在哪里，哪些笔记在支撑，哪里有反方、边界或桥接缺口。</span>
       </div>
       <div class="graph-read-steps">
-        <span>1 看中心观点</span>
-        <span>2 看支持和反驳</span>
-        <span>3 看桥接缺口</span>
-        <span>4 回笔记补理由</span>
+        <span>1 找中心观点</span>
+        <span>2 看证据链</span>
+        <span>3 查反方和边界</span>
+        <span>4 补桥接缺口</span>
       </div>
       <div class="graph-relation-legend" aria-label="关系类型说明">
-        <span><strong>支持</strong> 提供理由或证据</span>
-        <span><strong>反驳</strong> 标记冲突观点</span>
-        <span><strong>限定</strong> 写清边界条件</span>
-        <span><strong>桥接</strong> 连接两段还没接上的思路</span>
+        <span><strong>支持</strong> 形成证据链</span>
+        <span><strong>反驳</strong> 保留思想张力</span>
+        <span><strong>限定</strong> 收束边界条件</span>
+        <span><strong>桥接</strong> 补上过渡思路</span>
       </div>
       <div class="graph-orientation-metrics">
         <span>${Number(nodes.length || 0)} 个节点</span>
@@ -5453,6 +5465,117 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
         <span>${Number(supportingCount || 0)} 条支持</span>
         <span>${Number(conflictCount || 0)} 条冲突</span>
         <span>${Number(bridgeGapCount || 0)} 个缺口</span>
+      </div>
+    </section>
+  `;
+}
+
+function graphNodeTitle(nodeMap, id, fallback = "未命名笔记") {
+  const key = String(id || "").trim();
+  const node = key ? nodeMap.get(key) : null;
+  return String(node?.title || node?.name || key || fallback).trim() || fallback;
+}
+
+function graphEdgeTitle(edge = {}, nodeMap = new Map()) {
+  const sourceTitle = edge.fromTitle || graphNodeTitle(nodeMap, edge.fromNoteId, "源笔记");
+  const targetTitle = edge.toTitle || graphNodeTitle(nodeMap, edge.toNoteId, "目标笔记");
+  return `${sourceTitle} → ${targetTitle}`;
+}
+
+function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], bridgeGaps = [], untypedRelations = [] } = {}) {
+  const nodeMap = new Map();
+  nodes.forEach((node) => {
+    const id = String(node?.id || "").trim();
+    if (id) nodeMap.set(id, node);
+  });
+
+  const degreeMap = new Map(nodes.map((node) => [String(node?.id || ""), 0]));
+  edges.forEach((edge) => {
+    const fromId = String(edge?.fromNoteId || "").trim();
+    const toId = String(edge?.toNoteId || "").trim();
+    if (fromId) degreeMap.set(fromId, (degreeMap.get(fromId) || 0) + 1);
+    if (toId) degreeMap.set(toId, (degreeMap.get(toId) || 0) + 1);
+  });
+
+  const central = [...nodeMap.values()]
+    .map((node) => ({ node, degree: degreeMap.get(String(node.id || "")) || 0 }))
+    .sort((a, b) => b.degree - a.degree || String(a.node.title || "").localeCompare(String(b.node.title || ""), "zh-Hans-CN"))[0];
+  const centralId = central?.node?.id || "";
+  const centralTitle = graphNodeTitle(nodeMap, centralId, "当前主题");
+  const isCentralEdge = (edge) => edge?.fromNoteId === centralId || edge?.toNoteId === centralId;
+  const edgeType = (edge) => String(edge?.relationType || "associated_with").trim().toLowerCase();
+  const supports = edges.filter((edge) => ["supports", "complements", "extends", "example_of"].includes(edgeType(edge)));
+  const tensions = edges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(edgeType(edge)));
+  const bridges = edges.filter((edge) => ["bridges", "unexpected_connection", "reframes"].includes(edgeType(edge)));
+  const flows = edges.filter((edge) => ["precedes", "follows", "appears_in_draft"].includes(edgeType(edge)));
+  const nearestSupport = supports.find(isCentralEdge) || supports[0] || null;
+  const nearestTension = tensions.find(isCentralEdge) || tensions[0] || null;
+  const nearestBridge = bridges.find(isCentralEdge) || bridges[0] || flows.find(isCentralEdge) || flows[0] || null;
+  const pathEdges = [nearestSupport, nearestTension, nearestBridge].filter(Boolean);
+  const uniquePathEdges = pathEdges.filter((edge, index) => pathEdges.findIndex((item) => item.fromNoteId === edge.fromNoteId && item.toNoteId === edge.toNoteId) === index);
+
+  const headline = nodes.length
+    ? `这组笔记正在围绕「${centralTitle}」形成论证。`
+    : "还没有足够节点形成图谱洞见。";
+  const thesis = !nodes.length
+    ? "先写几条永久笔记，再用关系把观点连接起来。"
+    : tensions.length || conflictItems.length
+      ? `它不只是收集相近观点，还保留了 ${tensions.length + conflictItems.length} 个反方或边界信号，适合继续追问“这个判断在什么条件下不成立”。`
+      : bridges.length || bridgeGaps.length
+        ? `它已经有中心和支撑，但还需要补上 ${bridges.length + bridgeGaps.length} 个过渡连接，让读者能顺着思路走下去。`
+        : supports.length
+          ? "它已经开始形成证据链，可以把中心观点、支撑笔记和例外条件整理成写作提纲。"
+          : "它目前更像主题集合，还需要把相邻笔记写成明确的支持、限定或反驳关系。";
+
+  const prompts = [
+    central?.degree ? `为什么「${centralTitle}」会成为连接最多的节点？它是主题，还是只是材料中转站？` : "哪一条笔记最像这组材料的中心判断？",
+    nearestTension ? `「${graphEdgeTitle(nearestTension, nodeMap)}」这条张力能不能变成文章里的反方段落？` : "有没有一条笔记能反驳或限定当前中心观点？",
+    untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作。"
+  ];
+
+  return {
+    headline,
+    thesis,
+    central,
+    pathEdges: uniquePathEdges,
+    prompts,
+    nodeMap
+  };
+}
+
+function renderGraphInsightCoach(context = {}) {
+  const insight = buildGraphInsightCoach(context);
+  const pathMarkup = insight.pathEdges.length
+    ? insight.pathEdges
+        .map((edge, index) => {
+          const sourceId = edge.fromNoteId || "";
+          const relation = graphRelationTypeLabel(edge.relationType);
+          return `
+            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}">
+              <span>${index + 1}</span>
+              <strong>${escapeHtml(graphEdgeTitle(edge, insight.nodeMap))}</strong>
+              <small>${escapeHtml(relation)}${edge.rationale ? ` · ${escapeHtml(edge.rationale)}` : ""}</small>
+            </button>
+          `;
+        })
+        .join("")
+    : `<div class="graph-insight-empty">还没有可顺读路径。先补几条支持、反驳、限定或桥接关系。</div>`;
+  return `
+    <section class="graph-insight-coach" aria-label="图谱洞见建议">
+      <div class="graph-insight-main">
+        <span>图谱洞见</span>
+        <strong>${escapeHtml(insight.headline)}</strong>
+        <small>${escapeHtml(insight.thesis)}</small>
+      </div>
+      <div class="graph-insight-prompts" aria-label="可追问的问题">
+        ${insight.prompts.map((prompt) => `<span>${escapeHtml(prompt)}</span>`).join("")}
+      </div>
+      <div class="graph-insight-path" aria-label="推荐阅读路径">
+        <div class="graph-insight-path-head">
+          <strong>推荐顺读路径</strong>
+          <small>从中心、支撑、张力或桥接关系里挑一条线读下去</small>
+        </div>
+        ${pathMarkup}
       </div>
     </section>
   `;
@@ -5499,10 +5622,6 @@ function graphShortTitle(value = "", maxLength = 14) {
 }
 
 function graphBuildVisualLayout(nodes = [], edges = []) {
-  const width = 1080;
-  const height = 560;
-  const centerX = width / 2;
-  const centerY = height / 2;
   const nodeMap = new Map();
 
   nodes.forEach((node) => {
@@ -5554,6 +5673,11 @@ function graphBuildVisualLayout(nodes = [], edges = []) {
     }
   });
 
+  const nodeTotal = nodeMap.size;
+  const width = nodeTotal > 48 ? 1560 : nodeTotal > 28 ? 1320 : 1080;
+  const height = nodeTotal > 48 ? 820 : nodeTotal > 28 ? 700 : 560;
+  const centerX = width / 2;
+  const centerY = height / 2;
   const layoutNodes = [...nodeMap.values()].sort(
     (a, b) => b.degree - a.degree || String(a.title).localeCompare(String(b.title), "zh-Hans-CN") || a.id.localeCompare(b.id)
   );
@@ -5579,8 +5703,8 @@ function graphBuildVisualLayout(nodes = [], edges = []) {
     const ringTotal = useOuterRing ? outerRingCount : Math.max(1, innerCount);
     const angle = -Math.PI / 2 + (Math.PI * 2 * ringPosition) / ringTotal;
     const jitter = graphHash(node.id) % 17;
-    const radiusX = useOuterRing ? 455 : outerCount > 7 ? 315 : 285;
-    const radiusY = useOuterRing ? 215 : outerCount > 7 ? 150 : 170;
+    const radiusX = useOuterRing ? width * 0.42 : outerCount > 7 ? width * 0.29 : width * 0.26;
+    const radiusY = useOuterRing ? height * 0.34 : outerCount > 7 ? height * 0.25 : height * 0.3;
     node.x = Math.round(centerX + Math.cos(angle) * (radiusX + jitter * 0.6));
     node.y = Math.round(centerY + Math.sin(angle) * (radiusY + jitter * 0.35));
   });
@@ -5637,6 +5761,9 @@ function graphNodeClass(noteType = "") {
 
 function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } = {}) {
   const layout = graphBuildVisualLayout(nodes, edges);
+  const zoom = graphZoomOption(graphState.zoom);
+  const zoomWidth = Math.round(layout.width * zoom.scale);
+  const zoomHeight = Math.round(layout.height * zoom.scale);
   const visibleEdges = edges
     .map((edge) => ({ edge, path: graphEdgePath(edge, layout.nodeMap), visual: graphRelationVisual(edge?.relationType) }))
     .filter((item) => item.path);
@@ -5649,20 +5776,31 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
       `
     )
     .join("");
-  const edgeLabelsEnabled = visibleEdges.length <= 28;
+  const manyNodes = layout.nodes.length > 28 || visibleEdges.length > 44;
+  const edgeLabelLimit = zoom.key === "fit" ? 24 : zoom.key === "read" ? 48 : 64;
+  const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
+  const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
+    .map(([key, option]) => {
+      const active = zoom.key === key;
+      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}">${escapeHtml(option.label)}</button>`;
+    })
+    .join("");
   const nodeMarkup = layout.nodes
-    .map((node) => {
+    .map((node, index) => {
       const typeClass = graphNodeClass(node.noteType);
       const title = node.title || node.id;
-      const label = graphShortTitle(title, node.isHub ? 18 : 12);
+      const labelLimit = node.isHub ? (zoom.key === "fit" ? 18 : 24) : zoom.key === "fit" ? 12 : zoom.key === "read" ? 18 : 24;
+      const label = graphShortTitle(title, labelLimit);
       const labelY = node.y + node.radius + 17;
       const metaY = labelY + 14;
+      const showLabel = zoom.key !== "fit" || layout.nodes.length <= 28 || node.isHub || index < 10;
+      const showMeta = showLabel && (zoom.key !== "fit" || node.isHub);
       return `
         <g class="graph-map-node ${typeClass} ${node.isHub ? "is-hub" : ""}" data-open-note="${escapeHtml(node.id)}" role="button" tabindex="0" aria-label="打开笔记 ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(noteTypeLabel(node.noteType))}；连接 ${Number(node.degree || 0)} 条</title>
           <circle cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
-          <text class="graph-map-node-label" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>
-          <text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(noteTypeLabel(node.noteType))} · ${Number(node.degree || 0)}</text>
+          ${showLabel ? `<text class="graph-map-node-label" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>` : ""}
+          ${showMeta ? `<text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(noteTypeLabel(node.noteType))} · ${Number(node.degree || 0)}</text>` : ""}
         </g>
       `;
     })
@@ -5703,29 +5841,42 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
       <div class="graph-map-head">
         <div>
           <div class="graph-section-title">图形关系视图</div>
-          <div class="graph-section-note">点是笔记，线是关系；连接越多的笔记越靠中心，关系类型用颜色区分。</div>
+          <div class="graph-section-note">点是笔记，线是关系；中心越近代表连接越密。用缩放切换整体结构和节点内容。</div>
         </div>
-        <div class="graph-map-badges">
-          <span>${layout.nodes.length} 点</span>
-          <span>${visibleEdges.length} 线</span>
-          <span>${filterActive ? "已筛选" : "永久笔记范围"}</span>
+        <div class="graph-map-tools">
+          <div class="graph-map-badges">
+            <span>${layout.nodes.length} 点</span>
+            <span>${visibleEdges.length} 线</span>
+            <span>${filterActive ? "已筛选" : "永久笔记范围"}</span>
+          </div>
+          <div class="graph-zoom-controls" aria-label="图谱缩放">
+            ${zoomControls}
+          </div>
         </div>
+      </div>
+      <div class="graph-map-interpretation">
+        <strong>读图目标</strong>
+        <span>${manyNodes ? "节点较多时全览先突出中心和高连接节点，再放大读标题和关系；右侧清单保留可检索的文字入口。" : "先看中心节点，再顺着支持、反驳、限定和桥接关系判断这组笔记是否能进入写作。"}</span>
       </div>
       <div class="graph-map-stage">
         ${
           layout.nodes.length
             ? `
               <div class="graph-map-body">
-                <svg class="graph-map-svg" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="永久笔记关系图">
-                  <defs>${markers}</defs>
-                  <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
-                  <g class="graph-map-edges">${edgeMarkup}</g>
-                  <g class="graph-map-nodes">${nodeMarkup}</g>
-                </svg>
+                <div class="graph-map-canvas">
+                  <div class="graph-map-viewport" data-graph-zoom="${escapeHtml(zoom.key)}" aria-label="可缩放关系图画布">
+                    <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoom.key)}" viewBox="0 0 ${layout.width} ${layout.height}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="永久笔记关系图">
+                      <defs>${markers}</defs>
+                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                      <g class="graph-map-edges">${edgeMarkup}</g>
+                      <g class="graph-map-nodes">${nodeMarkup}</g>
+                    </svg>
+                  </div>
+                </div>
                 <aside class="graph-map-roster" aria-label="当前图谱笔记清单">
                   <div class="graph-map-roster-head">
                     <strong>当前图谱笔记</strong>
-                    <span>${layout.nodes.length} 条</span>
+                    <span>${layout.nodes.length} 条 · ${escapeHtml(zoom.label)}</span>
                   </div>
                   <div class="graph-map-roster-list">${rosterMarkup}</div>
                 </aside>
@@ -5744,6 +5895,13 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
       </div>
     </section>
   `;
+}
+
+function centerGraphViewportIfZoomed() {
+  const viewport = document.querySelector(".graph-map-viewport");
+  if (!viewport || graphZoomOption(graphState.zoom).key === "fit") return;
+  viewport.scrollLeft = Math.max(0, Math.round((viewport.scrollWidth - viewport.clientWidth) / 2));
+  viewport.scrollTop = Math.max(0, Math.round((viewport.scrollHeight - viewport.clientHeight) / 2));
 }
 
 function renderRelationReviewQueueSection(reviewQueue) {
@@ -6123,6 +6281,13 @@ function renderGraphPanel() {
       ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
       ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
     </div>
+    ${renderGraphInsightCoach({
+      nodes: visibleNodes,
+      edges,
+      conflictItems,
+      bridgeGaps,
+      untypedRelations
+    })}
     ${renderGraphAiAnalysisCard()}
     ${renderGraphVisualMap({ nodes: visibleNodes, edges, filterActive })}
     <div class="graph-grid">
@@ -8018,6 +8183,14 @@ $("graphCanvas")?.addEventListener("click", (event) => {
   const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
   if (graphAiButton) {
     runGraphAiAnalysis();
+    return;
+  }
+  const zoomButton = event.target.closest("[data-graph-zoom-option]");
+  if (zoomButton) {
+    graphState.zoom = graphZoomOption(zoomButton.getAttribute("data-graph-zoom-option")).key;
+    renderGraphPanel();
+    requestAnimationFrame(centerGraphViewportIfZoomed);
+    setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
     return;
   }
   const row = event.target.closest("[data-open-note]");

@@ -2972,13 +2972,144 @@
       background: #f8fafc;
       color: #64748b;
     }
+    .graph-insight-coach {
+      border: 1px solid #cfe4d9;
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(244, 251, 247, 0.96) 100%);
+      display: grid;
+      grid-template-columns: minmax(260px, 0.92fr) minmax(260px, 1fr) minmax(300px, 1.12fr);
+      gap: 12px;
+      padding: 13px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    }
+    .graph-insight-main {
+      display: grid;
+      gap: 5px;
+      align-content: start;
+      min-width: 0;
+    }
+    .graph-insight-main span {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+    .graph-insight-main strong {
+      color: #172033;
+      font-size: 16px;
+      line-height: 1.38;
+    }
+    .graph-insight-main small {
+      color: #425466;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .graph-insight-prompts {
+      display: grid;
+      gap: 7px;
+      align-content: start;
+      min-width: 0;
+    }
+    .graph-insight-prompts span {
+      border: 1px solid #dbe8e0;
+      border-radius: 9px;
+      background: #fff;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.55;
+      padding: 8px 9px;
+    }
+    .graph-insight-path {
+      display: grid;
+      gap: 7px;
+      align-content: start;
+      min-width: 0;
+    }
+    .graph-insight-path-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .graph-insight-path-head strong {
+      color: #172033;
+      font-size: 13px;
+    }
+    .graph-insight-path-head small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: right;
+    }
+    .graph-insight-path-item {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid #dbe8e0;
+      border-radius: 9px;
+      background: #fff;
+      color: #172033;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      gap: 2px 8px;
+      padding: 8px 9px;
+      text-align: left;
+      transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+    .graph-insight-path-item:hover,
+    .graph-insight-path-item:focus-visible {
+      border-color: #9ed0b4;
+      background: #f2fbf6;
+      box-shadow: 0 6px 14px rgba(30, 140, 98, 0.08);
+      outline: none;
+    }
+    .graph-insight-path-item span {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #e9f5ee;
+      color: #0f6f48;
+      display: inline-grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 900;
+      grid-row: span 2;
+    }
+    .graph-insight-path-item strong {
+      min-width: 0;
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-insight-path-item small {
+      min-width: 0;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .graph-insight-empty {
+      border: 1px dashed #cfe4d9;
+      border-radius: 9px;
+      background: #fff;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 10px;
+    }
     .graph-map-panel {
-      border: 1px solid #d7e2ec;
-      border-radius: 16px;
+      border: 1px solid #dce6ee;
+      border-radius: 12px;
       background: #fff;
       display: grid;
       overflow: hidden;
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
     }
     .graph-map-head {
       display: flex;
@@ -2987,14 +3118,19 @@
       gap: 14px;
       padding: 14px;
       border-bottom: 1px solid #e1e9f1;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
+      background: #fff;
+    }
+    .graph-map-tools {
+      display: grid;
+      justify-items: end;
+      gap: 9px;
+      min-width: 260px;
     }
     .graph-map-badges {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
       gap: 7px;
-      min-width: 180px;
     }
     .graph-map-badges span {
       border: 1px solid #d9e5ef;
@@ -3006,28 +3142,104 @@
       line-height: 1.3;
       padding: 5px 9px;
     }
+    .graph-zoom-controls {
+      display: inline-flex;
+      gap: 4px;
+      min-height: 44px;
+      align-items: center;
+      border: 1px solid #dce6ee;
+      border-radius: 9px;
+      background: #f8fafc;
+      padding: 4px;
+    }
+    .graph-zoom-btn {
+      min-width: 56px;
+      min-height: 34px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: #475569;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0 11px;
+      transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+    }
+    .graph-zoom-btn:hover {
+      background: #eef4f1;
+      color: #172033;
+    }
+    .graph-zoom-btn.is-active {
+      background: #ffffff;
+      color: #0f6f48;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+    }
+    .graph-zoom-btn:focus-visible {
+      outline: 3px solid rgba(19, 118, 79, 0.22);
+      outline-offset: 2px;
+    }
+    .graph-map-interpretation {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      padding: 10px 14px;
+      border-bottom: 1px solid #e7edf3;
+      background: #fbfdfb;
+      color: #425466;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .graph-map-interpretation strong {
+      color: #172033;
+      flex: 0 0 auto;
+      font-size: 12px;
+    }
     .graph-map-stage {
-      min-height: 430px;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(78, 151, 179, 0.18), transparent 34%),
-        radial-gradient(circle at 18% 22%, rgba(168, 139, 232, 0.13), transparent 26%),
-        #111820;
+      min-height: 460px;
+      background: #f8fafc;
       overflow: hidden;
     }
     .graph-map-body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
-      min-height: 430px;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      min-height: 460px;
+    }
+    .graph-map-canvas {
+      min-width: 0;
+      min-height: 460px;
+      height: 460px;
+      display: grid;
+    }
+    .graph-map-viewport {
+      min-height: 0;
+      height: 460px;
+      overflow: auto;
+      overscroll-behavior: contain;
+      touch-action: pan-x pan-y;
+      background:
+        linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+        radial-gradient(circle at 50% 42%, rgba(30, 140, 98, 0.07), transparent 34%),
+        #f8fafc;
+      background-size: 28px 28px, 28px 28px, auto, auto;
     }
     .graph-map-svg {
       width: 100%;
-      min-height: 430px;
+      height: auto;
+      min-height: 460px;
       display: block;
     }
+    .graph-map-svg[data-graph-zoom="read"],
+    .graph-map-svg[data-graph-zoom="detail"] {
+      width: max(100%, var(--graph-zoom-width));
+      height: max(460px, var(--graph-zoom-height));
+    }
     .graph-map-roster {
-      border-left: 1px solid rgba(226, 235, 245, 0.16);
-      background: rgba(8, 14, 22, 0.7);
-      color: #e6eef7;
+      border-left: 1px solid #e1e9f1;
+      background: #ffffff;
+      color: #172033;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       min-height: 0;
@@ -3038,16 +3250,16 @@
       justify-content: space-between;
       gap: 10px;
       padding: 12px;
-      border-bottom: 1px solid rgba(226, 235, 245, 0.14);
+      border-bottom: 1px solid #e7edf3;
     }
     .graph-map-roster-head strong {
       font-size: 13px;
-      color: #f8fafc;
+      color: #172033;
     }
     .graph-map-roster-head span {
-      border: 1px solid rgba(226, 235, 245, 0.2);
+      border: 1px solid #dce6ee;
       border-radius: 999px;
-      color: #cbd5e1;
+      color: #64748b;
       font-size: 11px;
       padding: 3px 7px;
     }
@@ -3055,15 +3267,16 @@
       display: grid;
       align-content: start;
       gap: 6px;
-      max-height: 430px;
+      max-height: 460px;
       overflow: auto;
       padding: 10px;
     }
     .graph-map-roster-item {
       width: 100%;
-      border: 1px solid rgba(203, 213, 225, 0.16);
+      min-height: 44px;
+      border: 1px solid #dce6ee;
       border-radius: 8px;
-      background: rgba(248, 250, 252, 0.06);
+      background: #fff;
       color: inherit;
       cursor: pointer;
       display: grid;
@@ -3072,19 +3285,19 @@
       text-align: left;
     }
     .graph-map-roster-item:hover,
-    .graph-map-roster-item:focus {
-      border-color: rgba(137, 228, 180, 0.58);
-      background: rgba(53, 183, 121, 0.14);
+    .graph-map-roster-item:focus-visible {
+      border-color: #b9ddc9;
+      background: #eef6f1;
       outline: none;
     }
     .graph-map-roster-title {
-      color: #f8fafc;
+      color: #172033;
       font-size: 12px;
       font-weight: 800;
       line-height: 1.35;
     }
     .graph-map-roster-meta {
-      color: #aab8c8;
+      color: #64748b;
       font-size: 11px;
       line-height: 1.35;
     }
@@ -3093,10 +3306,10 @@
     }
     .graph-map-edge {
       fill: none;
-      stroke: #8fa0b3;
-      stroke-width: 2.2;
+      stroke: #94a3b8;
+      stroke-width: 2;
       stroke-linecap: round;
-      opacity: 0.76;
+      opacity: 0.64;
       pointer-events: stroke;
       cursor: pointer;
       transition: opacity 0.16s ease, stroke-width 0.16s ease;
@@ -3118,32 +3331,32 @@
     }
     .graph-map-edge-group:hover .graph-map-edge {
       opacity: 1;
-      stroke-width: 4;
+      stroke-width: 3.6;
     }
     .graph-map-edge-label {
-      fill: #e6eef7;
+      fill: #334155;
       font-size: 10.5px;
       font-weight: 800;
       paint-order: stroke;
-      stroke: #111820;
-      stroke-width: 4px;
+      stroke: #f8fafc;
+      stroke-width: 5px;
       stroke-linejoin: round;
       pointer-events: none;
     }
     .graph-map-edge-label.is-support {
-      fill: #89e4b4;
+      fill: #13764f;
     }
     .graph-map-edge-label.is-flow {
-      fill: #8bd9ef;
+      fill: #1f6f89;
     }
     .graph-map-edge-label.is-conflict {
-      fill: #ffaaa7;
+      fill: #b42318;
     }
     .graph-map-edge-label.is-boundary {
-      fill: #f2cc75;
+      fill: #99670c;
     }
     .graph-map-edge-label.is-bridge {
-      fill: #d1c2ff;
+      fill: #6842a6;
     }
     .graph-map-edge-pin {
       fill: #d6e0ea;
@@ -3171,8 +3384,8 @@
     .graph-map-node circle {
       fill: #f8fafc;
       stroke: #b8c7d7;
-      stroke-width: 3;
-      filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.24));
+      stroke-width: 2.6;
+      filter: drop-shadow(0 7px 10px rgba(15, 23, 42, 0.12));
       transition: stroke 0.16s ease, stroke-width 0.16s ease, filter 0.16s ease;
     }
     .graph-map-node.is-original circle {
@@ -3189,32 +3402,32 @@
     }
     .graph-map-node.is-hub circle {
       fill: #fff;
-      stroke-width: 4;
-      filter: drop-shadow(0 0 18px rgba(93, 186, 135, 0.44));
+      stroke-width: 3.6;
+      filter: drop-shadow(0 10px 18px rgba(30, 140, 98, 0.22));
     }
     .graph-map-node:hover circle,
     .graph-map-node:focus circle {
-      stroke: #ffffff;
-      stroke-width: 5;
-      filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.34));
+      stroke: #0f6f48;
+      stroke-width: 4.2;
+      filter: drop-shadow(0 10px 18px rgba(30, 140, 98, 0.22));
     }
     .graph-map-node-label {
-      fill: #f8fafc;
+      fill: #172033;
       font-size: 13px;
       font-weight: 800;
       paint-order: stroke;
-      stroke: #111820;
-      stroke-width: 4px;
+      stroke: #f8fafc;
+      stroke-width: 5px;
       stroke-linejoin: round;
       pointer-events: none;
     }
     .graph-map-node-meta {
-      fill: #b9c6d5;
+      fill: #64748b;
       font-size: 10.5px;
       font-weight: 700;
       paint-order: stroke;
-      stroke: #111820;
-      stroke-width: 3px;
+      stroke: #f8fafc;
+      stroke-width: 4px;
       stroke-linejoin: round;
       pointer-events: none;
     }
@@ -3562,26 +3775,51 @@
       }
       .graph-flow-strip,
       .graph-metrics,
+      .graph-insight-coach,
       .graph-grid {
         grid-template-columns: 1fr;
       }
+      .graph-insight-path-head {
+        display: grid;
+      }
+      .graph-insight-path-head small {
+        text-align: left;
+      }
       .graph-map-head {
         display: grid;
+      }
+      .graph-map-tools {
+        justify-items: stretch;
+        min-width: 0;
       }
       .graph-map-badges {
         justify-content: flex-start;
         min-width: 0;
       }
+      .graph-zoom-controls {
+        width: 100%;
+      }
+      .graph-zoom-btn {
+        flex: 1;
+      }
+      .graph-map-interpretation {
+        display: grid;
+      }
       .graph-map-stage,
+      .graph-map-canvas,
       .graph-map-svg {
         min-height: 360px;
+      }
+      .graph-map-canvas,
+      .graph-map-viewport {
+        height: 360px;
       }
       .graph-map-body {
         grid-template-columns: 1fr;
       }
       .graph-map-roster {
         border-left: 0;
-        border-top: 1px solid rgba(226, 235, 245, 0.16);
+        border-top: 1px solid #e1e9f1;
       }
       .graph-map-roster-list {
         max-height: 220px;
@@ -9033,9 +9271,9 @@
             </div>
           </div>
           <div class="graph-flow-strip" aria-label="图谱操作步骤">
-            <div><span>1</span><strong>看结构</strong><small>当前目录的小图谱</small></div>
-            <div><span>2</span><strong>找问题</strong><small>孤立、冲突、缺说明</small></div>
-            <div><span>3</span><strong>回笔记补</strong><small>补关系理由和边界</small></div>
+            <div><span>1</span><strong>看结构</strong><small>中心、支撑、张力</small></div>
+            <div><span>2</span><strong>放大读</strong><small>节点多时看标题和关系</small></div>
+            <div><span>3</span><strong>回笔记补</strong><small>补理由、边界和桥接</small></div>
           </div>
           <div id="graphCanvas">
             <div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是“支持、反驳、限定、桥接”等关系。</div>
