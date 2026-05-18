@@ -512,6 +512,7 @@ test("prototype API seeds the smart notes product thinking demo through the publ
           demoOnly: true,
           fixtureId: "demo-smart-notes-product-thinking-v1",
           directoryId: "dir_demo_smart_notes_product_thinking_original",
+          firstNoteId: "GUIDE-SN-001",
           writingProjectId: "WP-SN-PM-001",
           draftScaffoldId: "DS-SN-PM-001",
           counts: { sources: 1, permanent_notes: 100, relations: 306, writing_projects: 1 },
@@ -543,6 +544,7 @@ test("prototype API seeds the smart notes product thinking demo through the publ
     assert.equal(result.kind, "smart_notes_product_thinking_seed");
     assert.equal(result.demoOnly, true);
     assert.equal(result.directoryId, "dir_demo_smart_notes_product_thinking_original");
+    assert.equal(result.firstNoteId, "GUIDE-SN-001");
     assert.equal(result.writingProjectId, "WP-SN-PM-001");
     assert.equal(result.draftScaffoldId, "DS-SN-PM-001");
     assert.equal(result.counts.sources, 1);

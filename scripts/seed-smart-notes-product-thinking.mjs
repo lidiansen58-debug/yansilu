@@ -490,6 +490,7 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
 
   const writingEntries = await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
   const primaryWritingEntry = writingEntries[0] || null;
+  const preferredFirstNoteId = cleanText(fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
 
   return {
     kind: "smart_notes_product_thinking_seed",
@@ -498,7 +499,7 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     fixtureId: cleanText(fixture?.id) || "demo-smart-notes-product-thinking",
     fixturePath,
     directoryId: ORIGINAL_DIRECTORY_ID,
-    firstNoteId: noteIds.find(Boolean) || null,
+    firstNoteId: preferredFirstNoteId,
     writingProjectId: primaryWritingEntry?.writingProjectId || null,
     draftScaffoldId: primaryWritingEntry?.scaffoldId || null,
     writingProjectIds: writingEntries.map((entry) => entry.writingProjectId).filter(Boolean),
