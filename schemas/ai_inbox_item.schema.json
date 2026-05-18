@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id",
+    "type",
+    "title",
+    "summary",
+    "status",
+    "action_state",
+    "origin",
+    "privacy_mode",
+    "created_at",
+    "updated_at",
+    "agent_run_id",
+    "context_pack_id",
+    "primary_source_note_id",
+    "source_note_ids",
+    "source_doc_ids",
+    "decision_count",
+    "latest_decision",
+    "confidence"
+  ],
+  "properties": {
+    "artifact_id": { "type": "string" },
+    "type": { "type": "string" },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "status": { "type": "string" },
+    "action_state": { "type": "string", "enum": ["needs_review", "reviewed", "closed"] },
+    "origin": { "type": "string" },
+    "privacy_mode": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "agent_run_id": { "type": "string" },
+    "context_pack_id": { "type": "string" },
+    "primary_source_note_id": { "type": "string" },
+    "source_note_ids": { "type": "array", "items": { "type": "string" } },
+    "source_doc_ids": { "type": "array", "items": { "type": "string" } },
+    "decision_count": { "type": "number" },
+    "latest_decision": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["decision_id", "artifact_id", "decision", "user_id", "note_id", "comment", "feedback", "created_at"],
+      "properties": {
+        "decision_id": { "type": "string" },
+        "artifact_id": { "type": "string" },
+        "decision": { "type": "string" },
+        "user_id": { "type": "string" },
+        "note_id": { "type": "string" },
+        "comment": { "type": "string" },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["useful", "noisy", "wrong", "already_known", "privacy_concern"],
+          "properties": {
+            "useful": { "type": "boolean" },
+            "noisy": { "type": "boolean" },
+            "wrong": { "type": "boolean" },
+            "already_known": { "type": "boolean" },
+            "privacy_concern": { "type": "boolean" }
+          }
+        },
+        "created_at": { "type": "string" }
+      }
+    },
+    "confidence": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["score", "label", "reason"],
+      "properties": {
+        "score": { "type": ["number", "null"] },
+        "label": { "type": "string", "enum": ["low", "medium", "high"] },
+        "reason": { "type": "string" }
+      }
+    }
+  }
+}

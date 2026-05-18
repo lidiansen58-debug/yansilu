@@ -1,0 +1,151 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "type",
+    "title",
+    "summary",
+    "body",
+    "status",
+    "origin",
+    "created_at",
+    "updated_at",
+    "agent_run_id",
+    "context_pack_id",
+    "model",
+    "sources",
+    "provenance",
+    "confidence",
+    "privacy",
+    "user_decisions",
+    "payload"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "ResearchCard",
+        "ReflectionPrompt",
+        "LinkSuggestion",
+        "ConflictSuggestion",
+        "SynthesisDraft",
+        "OutlineDraft",
+        "QuestionCard",
+        "SourceSummary",
+        "ProjectDigest",
+        "InsightCard",
+        "BridgeCard",
+        "TensionCard",
+        "SourceGap",
+        "WritingMove"
+      ]
+    },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "body": {},
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "accepted",
+        "revised",
+        "ignored",
+        "archived",
+        "adopted_as_draft",
+        "promoted_to_note",
+        "linked_to_note",
+        "expired"
+      ]
+    },
+    "origin": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" },
+    "agent_run_id": { "type": "string" },
+    "context_pack_id": { "type": "string" },
+    "model": { "type": ["object", "string", "null"] },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note_ids", "source_doc_ids", "artifact_ids", "external_urls"],
+      "properties": {
+        "note_ids": { "type": "array", "items": { "type": "string" } },
+        "source_doc_ids": { "type": "array", "items": { "type": "string" } },
+        "artifact_ids": { "type": "array", "items": { "type": "string" } },
+        "external_urls": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_origin", "citation_required", "human_accepted", "human_rewritten"],
+      "properties": {
+        "content_origin": { "type": "string" },
+        "citation_required": { "type": "boolean" },
+        "human_accepted": { "type": "boolean" },
+        "human_rewritten": { "type": "boolean" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "label", "reason"],
+      "properties": {
+        "score": { "type": ["number", "null"] },
+        "label": { "type": "string", "enum": ["low", "medium", "high"] },
+        "reason": { "type": "string" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "cloud_model_used"],
+      "properties": {
+        "mode": { "type": "string" },
+        "cloud_model_used": { "type": "boolean" }
+      }
+    },
+    "user_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision_id", "artifact_id", "decision", "user_id", "note_id", "comment", "feedback", "created_at"],
+        "properties": {
+          "decision_id": { "type": "string" },
+          "artifact_id": { "type": "string" },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "revised",
+              "ignored",
+              "archived",
+              "adopted_as_draft",
+              "promoted_to_note",
+              "linked_to_note"
+            ]
+          },
+          "user_id": { "type": "string" },
+          "note_id": { "type": "string" },
+          "comment": { "type": "string" },
+          "feedback": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["useful", "noisy", "wrong", "already_known", "privacy_concern"],
+            "properties": {
+              "useful": { "type": "boolean" },
+              "noisy": { "type": "boolean" },
+              "wrong": { "type": "boolean" },
+              "already_known": { "type": "boolean" },
+              "privacy_concern": { "type": "boolean" }
+            }
+          },
+          "created_at": { "type": "string" }
+        }
+      }
+    },
+    "payload": { "type": "object" }
+  }
+}

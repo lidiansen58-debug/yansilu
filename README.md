@@ -60,6 +60,10 @@ Key docs:
 - `docs/DATABASE_SCHEMA.md`
 - `docs/API.md`
 - `docs/ACCEPTANCE_TESTS.md`
+- `docs/WT_AI_HANDOFF_2026-05-18.md`
+- `docs/AI_WORKSTREAM_BACKLOG_2026-05-18.md`
+- `docs/AI_SHARED_MODELS_2026-05-18.md`
+- `docs/WT_AI_CHANGE_SUMMARY_2026-05-18.md`
 
 ## Git Worktree (Recommended)
 - Keep worktrees outside the repo root, for example: `E:\Projects\yansilu-wt\`
