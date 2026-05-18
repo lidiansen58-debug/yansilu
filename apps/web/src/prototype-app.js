@@ -84,6 +84,7 @@ import {
   deleteNote,
   exportMarkdown,
   fetchDraftScaffold,
+  fetchDistillationQueue,
   fetchDirectories,
   fetchGraphConflicts,
   fetchDirectoryGraph,
@@ -129,6 +130,7 @@ import {
   saveAiScheduledTask,
   switchVault,
   updateDirectory,
+  updateWritingProjectIntent,
   updateAiScheduledTaskStatus,
   updateNote,
   updatePermanentNoteDistillation
@@ -458,10 +460,19 @@ function setStatus(text, cls = "", options = {}) {
   const requiredModule = String(options?.requireModule || "").trim();
   if (requiredModule && state.module !== requiredModule) return false;
   statusRevision += 1;
-  $("statusText").className = `status-pill ${cls}`.trim();
-  $("statusText").textContent = text;
+  const statusText = $("statusText");
+  if (statusText) {
+    statusText.className = `status-pill ${cls}`.trim();
+    statusText.textContent = text;
+    statusText.classList.remove("is-refreshing");
+    void statusText.offsetWidth;
+    statusText.classList.add("is-refreshing");
+  }
   const statusBar = $("statusBar");
-  if (statusBar) statusBar.dataset.tone = cls || "";
+  if (statusBar) {
+    statusBar.dataset.tone = cls || "";
+    statusBar.dataset.revision = String(statusRevision);
+  }
   return true;
 }
 
@@ -2260,12 +2271,16 @@ async function saveWritingBasketAsThemeIndex() {
   const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
+  const centralQuestionSeed = String($("writingGoal")?.value || "").trim() || "这个主题正在追问什么？";
+  const centralQuestion = window.prompt("主题中心问题", centralQuestionSeed);
+  if (centralQuestion === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
   const card = await createIndexCard({
     directoryId: writingThemeIndexScopeDirectoryId(),
     indexType: "topic",
     title: cleanTitle,
     summary: String(summary || "").trim(),
+    centralQuestion: String(centralQuestion || "").trim(),
     noteIds: basketNoteIds,
     items: basketNoteIds.map((noteId, index) => ({
       noteId,
@@ -2297,6 +2312,8 @@ async function createWritingProjectFromImportedPermanentNotes() {
     const project = await createWritingProject({
       title,
       goal: String($("writingGoal")?.value || "").trim(),
+      intent: String($("writingIntent")?.value || "").trim(),
+      desiredReaderTakeaway: String($("writingReaderTakeaway")?.value || "").trim(),
       audience: String($("writingAudience")?.value || "").trim(),
       tone: String($("writingTone")?.value || "").trim(),
       basketNoteIds: noteIds
@@ -2860,6 +2877,43 @@ function distillationSummaryForNotes(notes = []) {
   );
 }
 
+function permanentRouteValueMetrics(notes = []) {
+  const permanentNotes = notes.filter((note) => isPermanentLikeNote(note));
+  const pendingDistillation = permanentNotes.filter((note) => distillationStatusOf(note) !== "confirmed").length;
+  const confirmedThesis = permanentNotes.filter(
+    (note) => distillationStatusOf(note) === "confirmed" && String(note.thesis || "").trim()
+  ).length;
+  const readyForWriting = permanentNotes.filter((note) => writingNoteEligibility(note).ok).length;
+  return [
+    [permanentNotes.length, "永久笔记"],
+    [pendingDistillation, "待提纯"],
+    [confirmedThesis, "已确认论点"],
+    [readyForWriting, "可写作"]
+  ];
+}
+
+function renderSidebarValueMetrics(rootId = state.browserRootId) {
+  const el = $("sidebarValueMetrics");
+  if (!el) return;
+  if (rootId !== "dir_original_default") {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+  const metrics = permanentRouteValueMetrics(notesUnderRoot("dir_original_default"));
+  el.innerHTML = metrics
+    .map(
+      ([value, label]) => `
+        <div class="sidebar-value-metric">
+          <strong>${Number(value) || 0}</strong>
+          <span>${escapeHtml(label)}</span>
+        </div>
+      `
+    )
+    .join("");
+  el.classList.remove("hidden");
+}
+
 function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const el = $("sidebarFlow");
   if (!el) return;
@@ -2990,6 +3044,7 @@ function renderSidebarTitle() {
   const filter = $("searchBar");
   const moduleSidebar = $("moduleSidebar");
   const sidebarFlow = $("sidebarFlow");
+  const sidebarValueMetrics = $("sidebarValueMetrics");
   const listArea = $("listArea");
   const searchToggle = $("btnToggleSearch");
   const sidebarSubtitle = $("sidebarSubtitle");
@@ -3009,6 +3064,7 @@ function renderSidebarTitle() {
           : "quick-original";
     document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
     syncNewNoteButtons();
+    renderSidebarValueMetrics(state.browserRootId);
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
     sidebarPrimaryActions?.classList.remove("hidden");
@@ -3036,6 +3092,8 @@ function renderSidebarTitle() {
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
   sidebarPrimaryActions?.classList.add("hidden");
+  sidebarValueMetrics?.classList.add("hidden");
+  if (sidebarValueMetrics) sidebarValueMetrics.innerHTML = "";
   filter?.classList.add("hidden");
   sidebarFlow?.classList.add("hidden");
   if (sidebarFlow) sidebarFlow.innerHTML = "";
@@ -4616,6 +4674,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const centralQuestion = String(indexCard?.central_question || indexCard?.centralQuestion || "").trim();
   return `
     <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
       <div class="writing-note-card-head">
@@ -4626,6 +4685,7 @@ function renderWritingThemeIndexCard(indexCard) {
         ${thinkingBadge}
       </div>
       <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作入口。")}</div>
+      ${centralQuestion ? `<div class="writing-note-meta">中心问题：${escapeHtml(centralQuestion)}</div>` : ""}
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
@@ -4638,6 +4698,8 @@ function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
   if ($("writingGoal")) $("writingGoal").value = project.goal || "";
+  if ($("writingIntent")) $("writingIntent").value = project.intent || "";
+  if ($("writingReaderTakeaway")) $("writingReaderTakeaway").value = project.desired_reader_takeaway || "";
   if ($("writingAudience")) $("writingAudience").value = project.audience || "";
   if ($("writingTone")) $("writingTone").value = project.tone || "";
   setWritingSourceIndexIds(project.related_index_ids || []);
@@ -7747,6 +7809,8 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
     const project = await createWritingProject({
       title,
       goal: String($("writingGoal")?.value || "").trim(),
+      intent: String($("writingIntent")?.value || "").trim(),
+      desiredReaderTakeaway: String($("writingReaderTakeaway")?.value || "").trim(),
       audience: String($("writingAudience")?.value || "").trim(),
       tone: String($("writingTone")?.value || "").trim(),
       basketNoteIds,
@@ -7776,6 +7840,24 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
       details: error?.details || null
     });
     setStatus(`写作项目创建失败：${String(error?.message || error)}`, "bad");
+  }
+});
+
+$("btnWritingSaveIntent")?.addEventListener("click", async () => {
+  const writingProjectId = String(writingState.project?.id || "").trim();
+  if (!writingProjectId) return setStatus("请先创建或打开写作项目", "warn");
+  try {
+    const project = await updateWritingProjectIntent(writingProjectId, {
+      intent: String($("writingIntent")?.value || "").trim(),
+      desiredReaderTakeaway: String($("writingReaderTakeaway")?.value || "").trim()
+    });
+    writingState.project = project;
+    populateWritingFormFromProject(project);
+    await loadWritingProjectsList();
+    renderWritingPanel();
+    setStatus("写作意图已保存", "ok");
+  } catch (error) {
+    setStatus(`写作意图保存失败：${String(error?.message || error)}`, "bad");
   }
 });
 
