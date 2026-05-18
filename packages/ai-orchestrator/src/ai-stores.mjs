@@ -5,6 +5,7 @@ import { createInMemoryAiPreferencesStore } from "./ai-preferences.mjs";
 import { createInMemoryAiProviderConfigStore } from "./ai-provider-configs.mjs";
 import { createInMemoryProviderHealthStore } from "./provider-health-store.mjs";
 import { createInMemoryScheduledAgentTaskStore } from "./scheduled-agent-tasks.mjs";
+import { createInMemorySuggestionStore } from "./suggestion-store.mjs";
 import { createAiHarness } from "./harness.mjs";
 import { createInMemoryRunLog } from "./run-log.mjs";
 import { createSqliteAiStores } from "./sqlite-ai-stores.mjs";
@@ -31,6 +32,7 @@ export function createMemoryAiStores(options = {}) {
   const providerConfigStore = options.providerConfigStore || createInMemoryAiProviderConfigStore(options.providerConfigs || {});
   const providerHealthStore = options.providerHealthStore || createInMemoryProviderHealthStore(options.providerHealth || {});
   const scheduledTaskStore = options.scheduledTaskStore || createInMemoryScheduledAgentTaskStore(options.scheduledTasks || {});
+  const suggestionStore = options.suggestionStore || createInMemorySuggestionStore(options.suggestions || []);
   const artifactInbox = options.artifactInbox || createAiInbox({ artifactStore });
 
   return {
@@ -43,8 +45,9 @@ export function createMemoryAiStores(options = {}) {
     providerConfigStore,
     providerHealthStore,
     scheduledTaskStore,
+    suggestionStore,
     close() {
-      for (const store of [scheduledTaskStore, providerHealthStore, providerConfigStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
+      for (const store of [suggestionStore, scheduledTaskStore, providerHealthStore, providerConfigStore, aiPreferencesStore, contextPackStore, artifactStore, runLog]) {
         if (typeof store.close === "function") store.close();
       }
     }

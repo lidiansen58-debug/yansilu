@@ -607,12 +607,14 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.deepEqual(project.json.item.basket_note_ids, [noteA.json.item.id, noteB.json.item.id]);
   assert.deepEqual(project.json.item.related_index_ids, [index.json.item.id]);
   assert.equal(project.json.item.thinkingStatus.status, "needs_intent");
+  assert.ok(project.json.item.preflight.checks.some((item) => item.code === "missing_central_question"));
 
   const scaffold = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
     writingProjectId: project.json.item.id
   });
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.equal(scaffold.json.item.writing_project_id, project.json.item.id);
+  assert.ok(scaffold.json.item.preflight.checks.some((item) => item.code === "missing_central_question"));
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "needs_intent");
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "warning"));
@@ -621,6 +623,7 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.match(scaffold.json.export.markdown, /- Intent: TBD/);
   assert.match(scaffold.json.export.markdown, /WARN Writing intent/);
   assert.match(scaffold.json.export.markdown, /WARN Distillation quality/);
+  assert.match(scaffold.json.export.markdown, /Add or choose a topic with a central question/);
   assert.match(scaffold.json.export.markdown, /Rough claim/);
   assert.match(scaffold.json.export.markdown, /Supporting example/);
 

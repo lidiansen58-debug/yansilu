@@ -5,6 +5,7 @@ export * from "./index-card-store.mjs";
 export * from "./knowledge-network-seed.mjs";
 export * from "./note-catalog-store.mjs";
 export * from "./note-store.mjs";
+export * from "./quality-checks.mjs";
 export * from "./sqlite-migrations.mjs";
 export * from "./thinking-status.mjs";
 export * from "./vault.mjs";
