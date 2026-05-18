@@ -4870,6 +4870,29 @@ export class EditorPane {
       const relations = await fetchNoteRelations(noteId);
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = relations;
+      const note = this.activeNote();
+      const tab = this.activeTab();
+      if (note?.id === noteId && tab) {
+        const rootId = rootBoxIdFromFolder(this.state, note.folderId);
+        const scoped = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id);
+        const links = parseLinks(tab.body || "");
+        const tags = parseTags(tab.body || "");
+        const resolvedForwardIds = new Set(
+          links
+            .map((token) => this.resolveLinkToken(token, scoped))
+            .filter((x) => x?.note?.id)
+            .map((x) => x.note.id)
+        );
+        const forward = scoped.filter((n) => resolvedForwardIds.has(n.id));
+        const backward = scoped.filter((n) => {
+          const refs = parseLinks(n.body || "");
+          return refs.some((token) => this.resolveLinkToken(token, scoped)?.note?.id === note.id);
+        });
+        const tagRelated = tags.length
+          ? scoped.filter((n) => (n.tags || []).some((tg) => tags.includes(tg))).slice(0, 20)
+          : [];
+        this.refreshMainPathSection(note, this.buildMainPathOverview({ forward, backward, tagRelated, relations }));
+      }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
       section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
@@ -5229,6 +5252,32 @@ export class EditorPane {
     `;
   }
 
+  buildMainPathOverview({ forward = [], backward = [], tagRelated = [], relations = null } = {}) {
+    const outgoing = Array.isArray(relations?.outgoingLinks)
+      ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    const backlinks = Array.isArray(relations?.backlinks)
+      ? relations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    return {
+      explicitRelationCount: outgoing.length + backlinks.length,
+      wikilinkCount: forward.length + backward.length,
+      tagRelatedCount: tagRelated.length,
+      themeSignalCount: new Set([
+        ...forward.map((item) => item.id),
+        ...backward.map((item) => item.id),
+        ...tagRelated.map((item) => item.id)
+      ]).size
+    };
+  }
+
+  refreshMainPathSection(note, overview = {}) {
+    if (!note?.id) return;
+    const section = this.els.result?.querySelector?.("[data-note-main-path-section]");
+    if (!section || section.getAttribute("data-note-id") !== note.id) return;
+    section.outerHTML = this.renderPermanentNoteMainPathSection(note, overview);
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -5304,7 +5353,8 @@ export class EditorPane {
   }
 
   jumpToInspectorSection(sectionSelector, { focusSelector = "", focus = false } = {}) {
-    const section = document.querySelector(sectionSelector);
+    const matched = document.querySelector(sectionSelector);
+    const section = matched?.matches?.(".inspector-section") ? matched : matched?.closest?.(".inspector-section") || matched;
     if (!section) return;
     section.scrollIntoView({ block: "start", behavior: "smooth" });
     section.classList.remove("is-jump-target");
@@ -5581,6 +5631,7 @@ export class EditorPane {
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
+    this.currentSemanticRelations = null;
 
     const links = parseLinks(tab.body || "");
     const tags = parseTags(tab.body || "");
@@ -5637,7 +5688,6 @@ export class EditorPane {
       </section>
     `;
 
-    const explicitRelationCount = Number(this.currentSemanticRelations?.outgoingLinks?.length || 0) + Number(this.currentSemanticRelations?.backlinks?.length || 0);
     this.els.result.innerHTML = `
       <div class="inspector-overview">
         <div class="inspector-overview-head">
@@ -5662,16 +5712,7 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${this.renderPermanentNoteMainPathSection(note, {
-          explicitRelationCount,
-          wikilinkCount: forward.length + backward.length,
-          tagRelatedCount: tagRelated.length,
-          themeSignalCount: new Set([
-            ...forward.map((item) => item.id),
-            ...backward.map((item) => item.id),
-            ...tagRelated.map((item) => item.id)
-          ]).size
-        })}
+        ${this.renderPermanentNoteMainPathSection(note, this.buildMainPathOverview({ forward, backward, tagRelated, relations: null }))}
         ${this.renderPermanentNoteDistillationSection(note)}
         ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
