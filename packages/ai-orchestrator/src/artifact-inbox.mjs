@@ -1,19 +1,20 @@
 const INBOX_VIEWS = {
   pending: ["pending_review"],
-  reviewed: ["accepted", "revised", "ignored", "promoted_to_note", "linked_to_note"],
+  reviewed: ["accepted", "revised", "ignored", "adopted_as_draft", "promoted_to_note", "linked_to_note"],
   archived: ["archived", "expired"],
   all: [
     "pending_review",
     "accepted",
     "revised",
     "ignored",
+    "adopted_as_draft",
     "promoted_to_note",
     "linked_to_note",
     "archived",
     "expired"
   ]
 };
-const ACCEPTED_DECISIONS = new Set(["accepted", "promoted_to_note", "linked_to_note"]);
+const ACCEPTED_DECISIONS = new Set(["accepted", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();

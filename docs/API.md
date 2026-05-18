@@ -1,6 +1,6 @@
 # Yansilu API Reference
 
-Last updated for AI permanent-note analysis, provider execution wiring, AI configuration, local runtime discovery, scheduled task, and AI Inbox additions on 2026-05-15.
+Last updated for AI permanent-note analysis, provider execution wiring, AI configuration, local runtime discovery, scheduled task, and AI Inbox field-adoption additions on 2026-05-18.
 
 This document describes the API routes that are currently implemented and covered by automated tests. Planned product APIs are intentionally not listed as active contracts here.
 
@@ -2242,7 +2242,7 @@ Request:
 }
 ```
 
-`action` accepts `accept`, `ignore`, or `archive` aliases. `decision` or `status` may also be sent directly with `accepted`, `ignored`, `archived`, or `revised`. Promotion states such as `linked_to_note` and `promoted_to_note` use dedicated promotion APIs like `accept-link` and `promote-note`.
+`action` accepts `accept`, `ignore`, or `archive` aliases. `decision` or `status` may also be sent directly with `accepted`, `ignored`, `archived`, or `revised`. Promotion states such as `linked_to_note`, `adopted_as_draft`, and `promoted_to_note` use dedicated promotion APIs like `accept-link`, `adopt-field-suggestion`, and `promote-note`.
 
 Feedback flags can be sent inside `feedback` or as top-level fields. The API accepts both camelCase and snake_case for `alreadyKnown`/`already_known` and `privacyConcern`/`privacy_concern`, then stores normalized camelCase fields on the decision event.
 
@@ -2349,6 +2349,63 @@ Response status: `200`
 ```
 
 If the relation already exists, the response returns the existing relation with `created: false` and still records the artifact decision.
+
+### `POST /api/v1/ai/inbox/:artifactId/adopt-field-suggestion`
+
+Adopts an `InsightCard` field suggestion into the target permanent note as a draft distillation field. This route requires explicit confirmation, records an `adopted_as_draft` decision, marks the note as AI-assisted, and does not confirm the viewpoint.
+
+Request:
+
+```json
+{
+  "confirm": true,
+  "comment": "Use this thesis as a draft."
+}
+```
+
+Optional overrides:
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `thesis` | string | Override the suggested `thesis` before adopting. |
+| `threeLineSummary` | string[] | Override the suggested `three_line_summary` before adopting. |
+| `noteId` | string | Override the target note id from the field suggestion. |
+
+Response status: `200`
+
+```json
+{
+  "item": {
+    "artifactId": "artifact_field_01",
+    "status": "adopted_as_draft",
+    "latestDecision": {
+      "decision": "adopted_as_draft",
+      "noteId": "pn_abcd1234"
+    }
+  },
+  "artifact": {
+    "id": "artifact_field_01",
+    "type": "InsightCard",
+    "status": "adopted_as_draft"
+  },
+  "note": {
+    "id": "pn_abcd1234",
+    "noteType": "permanent",
+    "distillationStatus": "draft",
+    "authorship": {
+      "user_confirmed": false,
+      "ai_assisted": true
+    }
+  },
+  "adoptedField": "thesis",
+  "latestDecision": {
+    "decision": "adopted_as_draft",
+    "noteId": "pn_abcd1234"
+  },
+  "requestId": "req_...",
+  "timestamp": "2026-05-18T03:00:00.000Z"
+}
+```
 
 ### `POST /api/v1/ai/inbox/:artifactId/promote-note`
 

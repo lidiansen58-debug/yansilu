@@ -1246,9 +1246,13 @@ export async function listDistillationQueue(vaultPath, input = {}) {
   const directoryId = String(input.directoryId || input.directory_id || "dir_original_default").trim();
   const includeDescendants = input.includeDescendants !== false && input.include_descendants !== false;
   const limit = Math.max(1, Math.min(200, Number(input.limit || 50) || 50));
+  const statusFilter = String(input.status || "").trim().toLowerCase();
   const notes = await listNotesInDirectoryScope(vaultPath, directoryId, { includeDescendants });
   const permanentNotes = notes.filter((note) => String(note.noteType || "").trim().toLowerCase() === "permanent");
   const mapped = permanentNotes.map(distillationQueueNote);
+  const filteredItems = statusFilter && statusFilter !== "all"
+    ? mapped.filter((item) => item.status === statusFilter)
+    : mapped;
   const allPendingThesis = mapped.filter((item) => item.missingThesis);
   const allPendingThreeLineSummary = mapped.filter((item) => item.missingThreeLineSummary);
   const allRecentConfirmed = mapped
@@ -1275,7 +1279,7 @@ export async function listDistillationQueue(vaultPath, input = {}) {
     pendingThesis,
     pendingThreeLineSummary,
     recentConfirmed,
-    items: mapped
+    items: filteredItems
       .sort((a, b) => {
         const rank = { missing: 0, draft: 1, confirmed: 2 };
         return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || String(b.note.updatedAt || "").localeCompare(String(a.note.updatedAt || ""));

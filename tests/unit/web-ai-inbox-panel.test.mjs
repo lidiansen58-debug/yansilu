@@ -109,6 +109,35 @@ test("AI inbox panel renders draft note promotion for QuestionCard artifacts", (
   assert.match(html, /data-ai-inbox-promote-note="artifact_question_1"/);
 });
 
+test("AI inbox panel renders field suggestion adoption for InsightCard artifacts", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_field_1", type: "InsightCard", title: "字段建议：补充 thesis" }],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_field_1",
+    detail: {
+      item: { ...item, artifactId: "artifact_field_1", type: "InsightCard", title: "字段建议：补充 thesis" },
+      artifact: {
+        ...artifact,
+        id: "artifact_field_1",
+        type: "InsightCard",
+        title: "字段建议：补充 thesis",
+        body: "AI 候选必须先成为草稿。",
+        payload: {
+          targetField: "thesis",
+          fieldSuggestion: {
+            target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+            content: { thesis: "AI 候选必须先成为草稿。" }
+          }
+        }
+      }
+    }
+  });
+
+  assert.match(html, /可采纳为观点草稿/);
+  assert.match(html, /采纳为草稿字段/);
+  assert.match(html, /data-ai-inbox-adopt-field="artifact_field_1"/);
+});
+
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
   const html = renderAiInboxPanel({
     items: [item],

@@ -388,9 +388,18 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.equal(confirmDistillation.json.item.distillationStatus, "confirmed");
   assert.deepEqual(confirmDistillation.json.item.authorship, { user_confirmed: true, ai_assisted: false });
 
-  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=20");
+  const queueLimitBlocker = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Queue limit blocker\n\nThis note should not hide confirmed items when status filtering is active."
+  });
+  assert.equal(queueLimitBlocker.status, 201, JSON.stringify(queueLimitBlocker.json));
+
+  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=1");
   assert.equal(confirmedQueue.status, 200);
   assert.ok(confirmedQueue.json.items.some((item) => item.targetId === queueSeed.json.item.id && item.missing.length === 0));
+
+  const deletedQueueLimitBlocker = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueLimitBlocker.json.item.id)}`);
+  assert.equal(deletedQueueLimitBlocker.status, 200);
 
   const deletedQueueSeed = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueSeed.json.item.id)}`);
   assert.equal(deletedQueueSeed.status, 200);
@@ -1439,6 +1448,38 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.status === "pending_review"));
   assert.ok(localModelMerge.json.item.reviewItems.artifacts.every((item) => item.origin === "local_model"));
   assert.ok(localModelMerge.json.item.reviewItems.suggestions.every((item) => item.status === "suggested"));
+
+  const draftTarget = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# AI 字段候选\n\nAI 可以提出一句话判断，但只能先进入草稿。"
+  });
+  assert.equal(draftTarget.status, 201, JSON.stringify(draftTarget.json));
+
+  const fieldAnalysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}/ai-analysis`, {});
+  assert.equal(fieldAnalysis.status, 200, JSON.stringify(fieldAnalysis.json));
+  const fieldArtifact = fieldAnalysis.json.item.reviewItems.artifacts.find(
+    (artifact) => artifact.type === "InsightCard" && artifact.payload?.fieldSuggestion?.target?.field === "thesis"
+  );
+  assert.ok(fieldArtifact, "expected a persisted thesis field suggestion artifact");
+
+  const adoptedField = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion`, {
+    confirm: true,
+    comment: "Use the AI thesis as a draft only.",
+    feedback: { useful: true }
+  });
+  assert.equal(adoptedField.status, 200, JSON.stringify(adoptedField.json));
+  assert.equal(adoptedField.json.item.status, "adopted_as_draft");
+  assert.equal(adoptedField.json.latestDecision.decision, "adopted_as_draft");
+  assert.equal(adoptedField.json.latestDecision.noteId, draftTarget.json.item.id);
+  assert.equal(adoptedField.json.adoptedField, "thesis");
+  assert.equal(adoptedField.json.note.thesis, fieldArtifact.payload.fieldSuggestion.content.thesis);
+  assert.equal(adoptedField.json.note.distillationStatus, "draft");
+  assert.deepEqual(adoptedField.json.note.authorship, { user_confirmed: false, ai_assisted: true });
+
+  const adoptedNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}`);
+  assert.equal(adoptedNote.status, 200, JSON.stringify(adoptedNote.json));
+  assert.equal(adoptedNote.json.item.thesis, fieldArtifact.payload.fieldSuggestion.content.thesis);
+  assert.deepEqual(adoptedNote.json.item.authorship, { user_confirmed: false, ai_assisted: true });
 
   const localProvider = await startJsonProvider({
     distilledViewpoint: {

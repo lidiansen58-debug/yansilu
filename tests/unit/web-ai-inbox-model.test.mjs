@@ -7,7 +7,9 @@ import {
   aiInboxSummary,
   aiInboxTypeLabel,
   aiInboxTypeOptions,
+  fieldSuggestionSummary,
   isNoteToNoteLinkSuggestion,
+  isAdoptableFieldSuggestionArtifact,
   isPromotableNoteArtifact,
   latestFeedbackFlags,
   linkSuggestionSummary,
@@ -69,6 +71,7 @@ test("AI inbox model derives evaluation metrics", () => {
         total: 3,
         latest: {
           accepted: 1,
+          adopted_as_draft: 1,
           linked_to_note: 1
         }
       },
@@ -93,7 +96,7 @@ test("AI inbox model derives evaluation metrics", () => {
       ["review_rate", "75%"],
       ["acceptance_rate", "50%"],
       ["decisions", 3],
-      ["accepted", 2],
+      ["accepted", 3],
       ["useful", 2],
       ["noisy", 1],
       ["wrong", 1],
@@ -195,4 +198,64 @@ test("AI inbox model gates note promotion to unpromoted question and reflection 
     }
   );
   assert.equal(isPromotableNoteArtifact({ type: "LinkSuggestion" }), false);
+});
+
+test("AI inbox model identifies adoptable field suggestion artifacts", () => {
+  const artifact = {
+    id: "artifact_field_1",
+    type: "InsightCard",
+    body: "AI suggestions should stay draft until the user confirms them.",
+    sources: { noteIds: ["pn_1"] },
+    payload: {
+      targetField: "thesis",
+      fieldSuggestion: {
+        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+        content: { thesis: "AI suggestions should stay draft until the user confirms them." }
+      }
+    },
+    userDecisions: []
+  };
+
+  assert.equal(isAdoptableFieldSuggestionArtifact(artifact), true);
+  assert.deepEqual(fieldSuggestionSummary(artifact), {
+    canAdopt: true,
+    adopted: false,
+    noteId: "pn_1",
+    field: "thesis",
+    fieldLabel: "一句话判断",
+    value: "AI suggestions should stay draft until the user confirms them."
+  });
+
+  assert.equal(
+    isAdoptableFieldSuggestionArtifact({
+      ...artifact,
+      userDecisions: [{ decision: "adopted_as_draft", noteId: "pn_1" }]
+    }),
+    false
+  );
+
+  const summaryArtifact = {
+    ...artifact,
+    payload: {
+      targetField: "three_line_summary",
+      fieldSuggestion: {
+        target: { type: "permanent_note", id: "pn_1", field: "three_line_summary" },
+        content: { threeLineSummary: ["Draft line one.", "Draft line two."] }
+      }
+    }
+  };
+  assert.equal(isAdoptableFieldSuggestionArtifact(summaryArtifact), false);
+  assert.equal(
+    isAdoptableFieldSuggestionArtifact({
+      ...summaryArtifact,
+      payload: {
+        ...summaryArtifact.payload,
+        fieldSuggestion: {
+          ...summaryArtifact.payload.fieldSuggestion,
+          content: { threeLineSummary: ["Draft line one.", "Draft line two.", "Draft line three."] }
+        }
+      }
+    }),
+    true
+  );
 });
