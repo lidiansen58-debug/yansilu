@@ -71,3 +71,42 @@ test("applySqliteMigrations creates three database files when node:sqlite is ava
     db.close();
   }
 });
+
+test("catalog migration backfills historical wikilink relations to implicit status", async (t) => {
+  if (!(await hasNodeSqlite())) {
+    t.skip("node:sqlite is not available in current runtime");
+    return;
+  }
+
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const result = await applySqliteMigrations(vaultPath);
+
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(result.catalogPath);
+  try {
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at) VALUES (?, 'permanent', ?, 'active', ?, ?, ?)"
+    ).run("note_src", "Source", "notes/original/source.md", now, now);
+    db.prepare(
+      "INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at) VALUES (?, 'permanent', ?, 'active', ?, ?, ?)"
+    ).run("note_tgt", "Target", "notes/original/target.md", now, now);
+    db.prepare(
+      `INSERT INTO links
+        (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
+       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'confirmed', ?)`
+    ).run("lnk_old", "note_src", "note_tgt", now, now);
+
+    const migrationSql = await fs.readFile(
+      path.join(process.cwd(), "packages", "domain", "src", "sqlite", "011_catalog_v2_2.sql"),
+      "utf8"
+    );
+    db.exec(migrationSql);
+
+    const row = db.prepare("SELECT status FROM links WHERE id = ? LIMIT 1").get("lnk_old");
+    assert.equal(row.status, "implicit");
+  } finally {
+    db.close();
+  }
+});
