@@ -4787,7 +4787,7 @@ export class EditorPane {
           </label>
           <label>
             <span>关系状态</span>
-            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "confirmed")}</select>
+            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "implicit")}</select>
           </label>
           <label>
             <span>连接理由</span>
@@ -4817,7 +4817,7 @@ export class EditorPane {
     const explicitBacklinks = backlinks.filter((link) => !isMarkdownWikilinkRelation(link));
     const explicitLinks = [...explicitOutgoing, ...explicitBacklinks];
     const markdownCount = visibleLinks.length - explicitLinks.length;
-    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "confirmed") === "confirmed").length;
+    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "implicit") === "confirmed").length;
     const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
     const bridgeCount = explicitLinks.filter((link) => relationTone(link) === "bridge").length;
     const networkState = confirmedCount ? "已接入" : explicitLinks.length ? "待确认" : "未安置";
@@ -5356,6 +5356,10 @@ export class EditorPane {
 
     if (!relationType || !status || !rationale) {
       if (errorEl) errorEl.textContent = "关系类型、状态和连接理由不能为空。";
+      return;
+    }
+    if (rationale === "markdown_wikilink" && status !== "implicit") {
+      if (errorEl) errorEl.textContent = "把自动 wikilink 关系升级为草稿或已确认前，请先写清这条关系为什么成立。";
       return;
     }
 
