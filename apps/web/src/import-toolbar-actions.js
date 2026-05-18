@@ -14,7 +14,7 @@ export function buildImportPayload({ connector = "markdown", path = "", payloadT
   const cleanPayloadText = String(payloadText || "").trim();
   if (cleanPayloadText) return parseJsonOrEmpty(cleanPayloadText, "Payload");
   if ((cleanConnector === "markdown" || cleanConnector === "obsidian") && !cleanPath) {
-    throw new Error("markdown/obsidian 预览需要“导入路径”或 Payload JSON");
+    throw new Error("markdown/obsidian 预览需要“来源路径”或 Payload JSON");
   }
   return cleanPath ? { path: cleanPath } : {};
 }

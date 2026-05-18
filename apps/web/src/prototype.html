@@ -1648,6 +1648,11 @@
       gap: 8px 10px;
       align-items: center;
     }
+    .import-form-grid {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      gap: 6px;
+    }
     .import-page-shell {
       display: grid;
       grid-template-columns: minmax(320px, .86fr) minmax(420px, 1.14fr);
@@ -1678,7 +1683,7 @@
     .import-card-kicker {
       font-size: 11px;
       font-weight: 800;
-      letter-spacing: .08em;
+      letter-spacing: 0;
       text-transform: uppercase;
       color: #0f766e;
       margin-bottom: 2px;
@@ -1686,7 +1691,7 @@
     .import-card-head strong {
       font-size: 15px;
       font-weight: 800;
-      letter-spacing: .01em;
+      letter-spacing: 0;
       color: #0f172a;
     }
     .import-card-badge {
@@ -1707,29 +1712,30 @@
     }
     .import-flow-steps {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
       margin-bottom: 12px;
     }
     .import-flow-steps div {
-      border: 1px solid #dfe8e5;
-      border-radius: 10px;
-      background: #fbfdfb;
-      padding: 8px;
+      border-left: 2px solid #d6e8de;
+      padding: 2px 0 2px 10px;
       display: grid;
-      gap: 5px;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 2px 8px;
       min-width: 0;
+      align-items: center;
     }
     .import-flow-steps span {
       display: inline-grid;
       place-items: center;
-      width: 22px;
-      height: 22px;
+      width: 24px;
+      height: 24px;
       border-radius: 999px;
       background: #e9f5ee;
       color: #13764f;
       font-size: 11px;
       font-weight: 900;
+      grid-row: span 2;
     }
     .import-flow-steps strong {
       color: #172033;
@@ -1738,6 +1744,24 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .import-flow-steps small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .import-field-stack {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .import-field-help {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
     }
     .import-actions {
       display: flex;
@@ -1784,7 +1808,7 @@
       font-weight: 800;
       color: #172033;
       font-size: 15px;
-      letter-spacing: .01em;
+      letter-spacing: 0;
     }
     .import-history-summary {
       margin-top: 10px;
@@ -1832,12 +1856,47 @@
       gap: 6px;
       justify-content: flex-end;
     }
+    .import-history-filter {
+      margin-top: 10px;
+      border: 1px solid #dce5ef;
+      border-radius: 10px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+    .import-history-filter summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #334155;
+      user-select: none;
+    }
+    .import-history-filter summary::-webkit-details-marker {
+      display: none;
+    }
+    .import-history-filter summary span {
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .import-history-filter summary small {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.3;
+      text-align: right;
+    }
+    .import-history-filter[open] summary {
+      border-bottom: 1px solid #e5ebf2;
+      background: #f8fbff;
+    }
     .import-history-controls {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
       gap: 8px;
       align-items: end;
-      margin-top: 10px;
+      padding: 10px 12px 12px;
     }
     .import-history-controls label {
       display: grid;
@@ -2379,6 +2438,24 @@
 	      border-color: #f0b8b3;
 	      background: #fff1f0;
 	      color: #b42318;
+	    }
+	    .result-brief {
+	      border: 1px solid #d6e5dd;
+	      border-radius: 8px;
+	      background: #f7fbf8;
+	      color: #315b48;
+	      padding: 8px 10px;
+	      line-height: 1.6;
+	    }
+	    .result-brief.warn {
+	      border-color: #ead28a;
+	      background: #fffaf0;
+	      color: #744800;
+	    }
+	    .result-brief.bad {
+	      border-color: #f0b8b3;
+	      background: #fff5f4;
+	      color: #9b1c1c;
 	    }
 	    .result-metrics {
 	      display: grid;
@@ -8894,18 +8971,17 @@
                     <div class="import-card-head">
                       <div>
                         <div class="import-card-kicker">Import</div>
-                        <strong>开始一次导入</strong>
+                        <strong>导入笔记</strong>
                       </div>
-                      <span class="import-card-badge">预览后写入</span>
+                      <span class="import-card-badge">先预览，不直接写入</span>
                     </div>
                     <div class="import-flow-steps" aria-label="导入流程">
-                      <div><span>1</span><strong>预览候选</strong></div>
-                      <div><span>2</span><strong>确认写入</strong></div>
-                      <div><span>3</span><strong>历史回滚</strong></div>
+                      <div><span>1</span><strong>选择来源</strong><small>文件夹或连接器</small></div>
+                      <div><span>2</span><strong>预览确认</strong><small>勾选后再写入</small></div>
                     </div>
-                    <p class="import-card-note">先选来源与路径，预览候选质量，再把确认过的内容写入 Vault。高级参数和记录操作收进下方区域。</p>
-                    <div class="import-grid" style="margin-top:10px;">
-                      <label for="importConnector">连接器</label>
+                    <p class="import-card-note">默认只需要选择来源类型和路径。预览通过后再确认写入；记录查询、回滚和 JSON 参数都收在高级区。</p>
+                    <div class="import-grid import-form-grid" style="margin-top:10px;">
+                      <label for="importConnector">来源类型</label>
                       <select id="importConnector">
                         <option value="markdown">Markdown</option>
                         <option value="obsidian">Obsidian</option>
@@ -8914,22 +8990,25 @@
                         <option value="notebooklm">NotebookLM</option>
                       </select>
 
-                      <label for="importPath">导入路径</label>
-                      <div class="path-picker">
-                        <input id="importPath" placeholder="例如：E:\Projects\Thinking in Notes\notes-source" />
-                        <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">浏览...</button>
+                      <label for="importPath">来源路径</label>
+                      <div class="import-field-stack">
+                        <div class="path-picker">
+                          <input id="importPath" placeholder="选择包含 .md 的文件夹" />
+                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
+                        </div>
+                        <div class="import-field-help">Markdown 和 Obsidian 直接选目录；Zotero、Readwise、NotebookLM 可在高级区粘贴 Payload JSON。</div>
                       </div>
                     </div>
                     <div class="import-actions">
-                      <button class="mini-btn primary" id="btnImportPreview">预览候选</button>
+                      <button class="mini-btn primary" id="btnImportPreview">预览</button>
                       <button class="mini-btn" id="btnImportConfirm">确认写入</button>
                     </div>
                     <details class="import-advanced" id="importAdvanced">
-                      <summary>高级选项与记录操作</summary>
+                      <summary>高级选项、记录查询与回滚</summary>
                       <div class="import-advanced-body">
                         <div class="import-grid">
                           <label for="importPayload">Payload JSON</label>
-                          <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"导入路径"}'></textarea>
+                          <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"来源路径"}'></textarea>
 
                           <label for="importOptions">Options JSON</label>
                           <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'></textarea>
@@ -8955,42 +9034,48 @@
                     <span class="import-card-badge">最近 12 条</span>
                   </div>
                   <div id="importHistoryMount">
-                    <div class="import-history-controls">
-                      <label>
-                        <span>状态</span>
-                        <select id="importHistoryStatus">
-                          <option value="all">全部状态</option>
-                          <option value="preview">预览中</option>
-                          <option value="completed">已完成</option>
-                          <option value="rolled_back">已回滚</option>
-                          <option value="cancelled">已取消</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>连接器</span>
-                        <select id="importHistoryConnector">
-                          <option value="all">全部连接器</option>
-                          <option value="markdown">Markdown</option>
-                          <option value="obsidian">Obsidian</option>
-                          <option value="zotero">Zotero</option>
-                          <option value="readwise">Readwise</option>
-                          <option value="notebooklm">NotebookLM</option>
-                        </select>
-                      </label>
-                      <label>
-                        <span>风险</span>
-                        <select id="importHistoryRisk">
-                          <option value="all">全部风险</option>
-                          <option value="warning">有警告</option>
-                          <option value="blocked">有阻断</option>
-                          <option value="modified">回滚保留</option>
-                        </select>
-                      </label>
-                      <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
-                    </div>
+                    <details class="import-history-filter" id="importHistoryFilter">
+                      <summary>
+                        <span>筛选历史</span>
+                        <small>全部状态 / 全部连接器 / 全部风险</small>
+                      </summary>
+                      <div class="import-history-controls">
+                        <label>
+                          <span>状态</span>
+                          <select id="importHistoryStatus">
+                            <option value="all">全部状态</option>
+                            <option value="preview">预览中</option>
+                            <option value="completed">已完成</option>
+                            <option value="rolled_back">已回滚</option>
+                            <option value="cancelled">已取消</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>连接器</span>
+                          <select id="importHistoryConnector">
+                            <option value="all">全部连接器</option>
+                            <option value="markdown">Markdown</option>
+                            <option value="obsidian">Obsidian</option>
+                            <option value="zotero">Zotero</option>
+                            <option value="readwise">Readwise</option>
+                            <option value="notebooklm">NotebookLM</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>风险</span>
+                          <select id="importHistoryRisk">
+                            <option value="all">全部风险</option>
+                            <option value="warning">有警告</option>
+                            <option value="blocked">有阻断</option>
+                            <option value="modified">回滚保留</option>
+                          </select>
+                        </label>
+                        <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
+                      </div>
+                    </details>
                     <div class="import-history" id="importHistory">正在读取导入历史…</div>
                   </div>
-                  <div class="import-result" id="importResult">还没有导入结果。先选择来源并预览候选。</div>
+                  <div class="import-result" id="importResult">还没有导入结果。先选择来源，再点击预览。</div>
                 </section>
               </div>
             </div>
@@ -8998,23 +9083,30 @@
               <div class="import-card-head">
                 <div>
                   <div class="import-card-kicker">Export</div>
-                  <strong>Markdown 导出</strong>
+                  <strong>导出笔记</strong>
                 </div>
-                <span class="import-card-badge">包含 assets</span>
+                <span class="import-card-badge">Markdown + assets</span>
               </div>
-            <p class="import-card-note">导出会复制 Vault 中的 Markdown 笔记和资源文件。先选目标目录，再执行导出。</p>
-            <div class="import-grid" style="margin-top:10px;">
-              <label for="exportTargetPath">导出目标路径</label>
-              <div class="path-picker">
-                <input id="exportTargetPath" placeholder="例如：E:\Projects\Thinking in Notes\markdown-export" />
-                <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">浏览...</button>
+              <div class="import-flow-steps" aria-label="导出流程">
+                <div><span>1</span><strong>选择目标</strong><small>空目录更清楚</small></div>
+                <div><span>2</span><strong>导出文件</strong><small>保留 Markdown 与资源</small></div>
               </div>
+              <p class="import-card-note">导出只复制文件，不会改动当前 Vault。选择一个目标目录后即可导出 Markdown 和关联资源。</p>
+              <div class="import-grid import-form-grid" style="margin-top:10px;">
+                <label for="exportTargetPath">目标目录</label>
+                <div class="import-field-stack">
+                  <div class="path-picker">
+                    <input id="exportTargetPath" placeholder="选择导出目标文件夹" />
+                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择目录</button>
+                  </div>
+                  <div class="import-field-help">系统会阻止导出到当前 Vault 内部，避免把备份文件混回笔记库。</div>
+                </div>
+              </div>
+              <div class="import-actions">
+                <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown</button>
+              </div>
+              <div class="import-result" id="exportResult">还没有导出结果。选一个目标目录后点击导出。</div>
             </div>
-            <div class="import-actions">
-              <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown</button>
-            </div>
-            <div class="import-result" id="exportResult">还没有导出结果。选择目标路径后即可导出 Markdown。</div>
-          </div>
           </div>
           <div class="panel hidden" id="distillationPanel"></div>
           <div class="panel hidden" id="aiInboxPanel">

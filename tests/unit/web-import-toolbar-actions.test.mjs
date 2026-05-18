@@ -6,7 +6,7 @@ test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
   assert.deepEqual(buildImportPayload({ connector: "markdown", path: "E:\\vault" }), { path: "E:\\vault" });
   assert.deepEqual(buildImportPayload({ connector: "zotero", payloadText: '{"library":"main"}' }), { library: "main" });
-  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /导入路径/);
+  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /来源路径/);
 });
 
 test("import toolbar actions preview assembles params and reports success", async () => {

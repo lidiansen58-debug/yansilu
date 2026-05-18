@@ -3075,21 +3075,21 @@ function currentModuleUi() {
     },
     imports: {
       sidebarTitle: "导入中心",
-      sidebarSubtitle: "先预览，再确认写入。",
-      sidebarFoot: "导入是独立流程：选择来源、预览候选、确认写入，再按需回滚。",
+      sidebarSubtitle: "选来源，先预览，再写入。",
+      sidebarFoot: "默认只需要路径和一次预览；高级参数、记录查询和回滚都收在导入卡片里。",
       title: "导入与导出",
-      summary: "\u628a\u5916\u90e8 Markdown\u3001Obsidian\u3001Zotero\u3001Readwise \u7b49\u5185\u5bb9\u5e26\u5165\u7814\u601d\u5f55\u65f6\uff0c\u8fd9\u91cc\u53ea\u670d\u52a1\u5bfc\u5165\u4e0e\u521d\u7b5b\uff0c\u4e0d\u628a\u8d44\u6599\u5165\u5e93\u91cf\u5305\u88c5\u6210\u8fdb\u5c55\u3002\u771f\u6b63\u7684\u8fdb\u5c55\u53d1\u751f\u5728\u540e\u7eed\u8f6c\u8ff0\u3001\u63d0\u70bc\u4e0e\u5199\u4f5c\u3002",
+      summary: "这里保持轻量：导入先预览、不直接写入；导出只复制 Markdown 与资源文件，不改动当前 Vault。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>当前目标</h3>
-          <p>\u628a\u5916\u90e8\u8d44\u6599\u5b89\u5168\u5bfc\u5165\u5230 <strong>${escapeHtml(rootName)}</strong> \u4f53\u7cfb\u91cc\uff0c\u5148\u9884\u89c8\uff0c\u518d\u786e\u8ba4\uff0c\u5e76\u9001\u5165\u5f85\u8f6c\u8ff0\u6216\u5f85\u63d0\u70bc\u6d41\u7a0b\uff0c\u4e0d\u76f4\u63a5\u7834\u574f\u73b0\u6709\u7b14\u8bb0\u3002</p>
+          <p>把外部资料安全带入 <strong>${escapeHtml(rootName)}</strong>：先看候选，再确认写入；不确定的内容先留在预览里。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>推荐顺序</h3>
           <ol class="module-sidebar-list">
-            <li>先选来源与路径</li>
-            <li>先看候选预览，再决定是否写入</li>
-            <li>\u5bfc\u5165\u540e\u8fdb\u5165\u5f85\u8f6c\u8ff0\u961f\u5217\uff0c\u518d\u7ee7\u7eed\u52a0\u5de5\u4e3a\u4e66\u6458\u6216\u539f\u521b\u7b14\u8bb0</li>
+            <li>选择来源和路径</li>
+            <li>预览候选，排除不需要的项</li>
+            <li>确认写入，或从历史里回滚</li>
           </ol>
         </div>
       `
@@ -8451,7 +8451,7 @@ async function bootstrap() {
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
     const targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) return setStatus("请先填写 Markdown 导出目标路径", "warn");
+    if (!targetPath) return setStatus("请先选择 Markdown 导出目标目录", "warn");
     try {
       const result = await exportMarkdown(targetPath);
       showExportResult({

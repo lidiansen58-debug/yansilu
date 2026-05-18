@@ -22,38 +22,40 @@ export function renderImportToolbarPanel(input = {}) {
       <div class="import-card-head">
         <div>
           <div class="import-card-kicker">Import</div>
-          <strong>开始一次导入</strong>
+          <strong>导入笔记</strong>
         </div>
-        <span class="import-card-badge">预览后写入</span>
+        <span class="import-card-badge">先预览，不直接写入</span>
       </div>
       <div class="import-flow-steps" aria-label="导入流程">
-        <div><span>1</span><strong>预览候选</strong></div>
-        <div><span>2</span><strong>确认写入</strong></div>
-        <div><span>3</span><strong>历史回滚</strong></div>
+        <div><span>1</span><strong>选择来源</strong><small>文件夹或连接器</small></div>
+        <div><span>2</span><strong>预览确认</strong><small>勾选后再写入</small></div>
       </div>
-      <p class="import-card-note">先选来源与路径，预览候选质量，再把确认过的内容写入 Vault。高级参数和记录操作收进下方区域。</p>
-      <div class="import-grid" style="margin-top:10px;">
-        <label for="importConnector">连接器</label>
+      <p class="import-card-note">默认只需要选择来源类型和路径。预览通过后再确认写入；记录查询、回滚和 JSON 参数都收在高级区。</p>
+      <div class="import-grid import-form-grid" style="margin-top:10px;">
+        <label for="importConnector">来源类型</label>
         <select id="importConnector">
           ${renderConnectorOptions(model.connector)}
         </select>
 
-        <label for="importPath">导入路径</label>
-        <div class="path-picker">
-          <input id="importPath" placeholder="例如：E:\\Projects\\Thinking in Notes\\notes-source" value="${escapeHtml(model.path)}" />
-          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">浏览...</button>
+        <label for="importPath">来源路径</label>
+        <div class="import-field-stack">
+          <div class="path-picker">
+            <input id="importPath" placeholder="选择包含 .md 的文件夹" value="${escapeHtml(model.path)}" />
+            <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
+          </div>
+          <div class="import-field-help">Markdown 和 Obsidian 直接选目录；Zotero、Readwise、NotebookLM 可在高级区粘贴 Payload JSON。</div>
         </div>
       </div>
       <div class="import-actions">
-        <button class="mini-btn primary" id="btnImportPreview">预览候选</button>
+        <button class="mini-btn primary" id="btnImportPreview">预览</button>
         <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
       </div>
       <details class="import-advanced" id="importAdvanced">
-        <summary>高级选项与记录操作</summary>
+        <summary>高级选项、记录查询与回滚</summary>
         <div class="import-advanced-body">
           <div class="import-grid">
             <label for="importPayload">Payload JSON</label>
-            <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"导入路径"}'>${escapeHtml(model.payload)}</textarea>
+            <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"来源路径"}'>${escapeHtml(model.payload)}</textarea>
 
             <label for="importOptions">Options JSON</label>
             <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'>${escapeHtml(model.options)}</textarea>
