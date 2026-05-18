@@ -512,7 +512,19 @@ test("prototype API seeds the smart notes product thinking demo through the publ
           demoOnly: true,
           fixtureId: "demo-smart-notes-product-thinking-v1",
           directoryId: "dir_demo_smart_notes_product_thinking_original",
-          counts: { permanent_notes: 100, relations: 306, writing_projects: 1 }
+          counts: { permanent_notes: 100, relations: 306, writing_projects: 1 },
+          summary: {
+            createdNotes: 128,
+            updatedNotes: 0,
+            createdRelations: 306,
+            updatedRelations: 0,
+            createdIndexCards: 12,
+            updatedIndexCards: 0,
+            createdWritingProjects: 1,
+            updatedWritingProjects: 0,
+            createdDraftScaffolds: 1,
+            updatedDraftScaffolds: 0
+          }
         }
       }),
       {
@@ -536,6 +548,10 @@ test("prototype API seeds the smart notes product thinking demo through the publ
     assert.equal(result.counts.permanent_notes, 100);
     assert.equal(result.counts.relations, 306);
     assert.equal(result.counts.writing_projects, 1);
+    assert.equal(result.summary.createdNotes, 128);
+    assert.equal(result.summary.createdRelations, 306);
+    assert.equal(result.summary.createdIndexCards, 12);
+    assert.equal(result.summary.createdWritingProjects, 1);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

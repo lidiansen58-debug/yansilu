@@ -460,6 +460,23 @@ test("POST /api/v1/demo/product-thinking/smart-notes seeds the smart notes produ
   assert.equal(firstSeed.json.item.sourceKind, "bundled_fixture");
   assert.equal(firstSeed.json.item.directoryId, "dir_demo_smart_notes_product_thinking_original");
   assert.deepEqual(firstSeed.json.item.counts, fixture.counts);
+  assert.equal(
+    firstSeed.json.item.summary.createdNotes,
+    fixture.counts.fleeting_notes +
+      fixture.counts.literature_notes +
+      fixture.counts.permanent_notes +
+      fixture.counts.final_essays +
+      fixture.counts.guide_notes
+  );
+  assert.equal(firstSeed.json.item.summary.updatedNotes, 0);
+  assert.equal(firstSeed.json.item.summary.createdRelations, fixture.counts.relations);
+  assert.equal(firstSeed.json.item.summary.updatedRelations, 0);
+  assert.equal(firstSeed.json.item.summary.createdIndexCards, fixture.counts.index_cards);
+  assert.equal(firstSeed.json.item.summary.updatedIndexCards, 0);
+  assert.equal(firstSeed.json.item.summary.createdWritingProjects, fixture.counts.writing_projects);
+  assert.equal(firstSeed.json.item.summary.updatedWritingProjects, 0);
+  assert.equal(firstSeed.json.item.summary.createdDraftScaffolds, fixture.counts.draft_scaffolds);
+  assert.equal(firstSeed.json.item.summary.updatedDraftScaffolds, 0);
 
   const graph = await getJson(
     baseUrl,
@@ -478,4 +495,26 @@ test("POST /api/v1/demo/product-thinking/smart-notes seeds the smart notes produ
   const projects = await getJson(baseUrl, "/api/v1/writing-projects?limit=10");
   assert.equal(projects.status, 200, JSON.stringify(projects.json));
   assert.equal(projects.json.total, fixture.counts.writing_projects);
+
+  const secondSeed = await postJson(baseUrl, "/api/v1/demo/product-thinking/smart-notes", {});
+  assert.equal(secondSeed.status, 200, JSON.stringify(secondSeed.json));
+  assert.equal(secondSeed.json.item.kind, "smart_notes_product_thinking_seed");
+  assert.deepEqual(secondSeed.json.item.counts, fixture.counts);
+  assert.equal(secondSeed.json.item.summary.createdNotes, 0);
+  assert.equal(
+    secondSeed.json.item.summary.updatedNotes,
+    fixture.counts.fleeting_notes +
+      fixture.counts.literature_notes +
+      fixture.counts.permanent_notes +
+      fixture.counts.final_essays +
+      fixture.counts.guide_notes
+  );
+  assert.equal(secondSeed.json.item.summary.createdRelations, 0);
+  assert.equal(secondSeed.json.item.summary.updatedRelations, fixture.counts.relations);
+  assert.equal(secondSeed.json.item.summary.createdIndexCards, 0);
+  assert.equal(secondSeed.json.item.summary.updatedIndexCards, fixture.counts.index_cards);
+  assert.equal(secondSeed.json.item.summary.createdWritingProjects, 0);
+  assert.equal(secondSeed.json.item.summary.updatedWritingProjects, fixture.counts.writing_projects);
+  assert.equal(secondSeed.json.item.summary.createdDraftScaffolds, 0);
+  assert.equal(secondSeed.json.item.summary.updatedDraftScaffolds, fixture.counts.draft_scaffolds);
 });
