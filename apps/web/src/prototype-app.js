@@ -1,4 +1,4 @@
-import {
+﻿import {
   childFolders,
   createInitialState,
   folderById,
@@ -94,6 +94,7 @@ import {
   fetchAiScheduledTaskTemplates,
   fetchRelationReviewQueue,
   fetchIndexCard,
+  updateIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
   fetchImportRecord,
@@ -251,6 +252,7 @@ const writingState = {
   scaffold: null,
   scaffoldMarkdown: "",
   sourceIndexIds: [],
+  selectedThemeIndexId: "",
   themeIndexes: [],
   loadingThemeIndexes: false,
   projects: [],
@@ -4325,6 +4327,138 @@ function writingThemeIndexById(indexId) {
   return writingState.themeIndexes.find((item) => item.id === indexId) || null;
 }
 
+function selectedWritingThemeIndex() {
+  const selectedId = String(writingState.selectedThemeIndexId || "").trim();
+  if (selectedId) {
+    const selected = writingThemeIndexById(selectedId);
+    if (selected) return selected;
+  }
+  const sourceId = uniqueStrings(writingState.sourceIndexIds)[0];
+  if (sourceId) {
+    const source = writingThemeIndexById(sourceId);
+    if (source) return source;
+  }
+  return writingState.themeIndexes[0] || null;
+}
+
+function setSelectedWritingThemeIndex(indexId = "") {
+  writingState.selectedThemeIndexId = String(indexId || "").trim();
+}
+
+function upsertWritingThemeIndex(indexCard) {
+  if (!indexCard?.id) return;
+  writingState.themeIndexes = [
+    indexCard,
+    ...writingState.themeIndexes.filter((item) => item.id !== indexCard.id)
+  ];
+}
+
+async function selectWritingThemeIndex(indexId) {
+  const id = String(indexId || "").trim();
+  if (!id) return null;
+  const fetched = await fetchIndexCard(id);
+  if (!fetched?.id) return null;
+  upsertWritingThemeIndex(fetched);
+  setSelectedWritingThemeIndex(fetched.id);
+  renderWritingPanel();
+  return fetched;
+}
+
+function buildThemeIndexItemsFromIds(indexCard, noteIds = []) {
+  const existingById = new Map((Array.isArray(indexCard?.items) ? indexCard.items : []).map((item) => [item.note_id, item]));
+  return uniqueStrings(noteIds).map((noteId, index) => {
+    const existing = existingById.get(noteId);
+    const note = writingNoteById(noteId) || existing?.note || null;
+    return {
+      noteId,
+      shortLabel: existing?.short_label || note?.title || "",
+      rationale: existing?.rationale || "",
+      order: index + 1
+    };
+  });
+}
+
+async function saveSelectedThemeIndexDetail() {
+  const selected = selectedWritingThemeIndex();
+  if (!selected?.id) throw new Error("theme index is required");
+  const title = String($("writingThemeDetailTitle")?.value || "").trim();
+  if (!title) throw new Error("title is required");
+  const item = await updateIndexCard(selected.id, {
+    title,
+    summary: String($("writingThemeDetailSummary")?.value || "").trim(),
+    thesis: String($("writingThemeDetailThesis")?.value || "").trim(),
+    threeLineSummary: [1, 2, 3].map((idx) => String($(`writingThemeDetailSummary${idx}`)?.value || "").trim()),
+    centralQuestion: String($("writingThemeDetailCentralQuestion")?.value || "").trim()
+  });
+  upsertWritingThemeIndex(item);
+  setSelectedWritingThemeIndex(item.id);
+  renderWritingPanel();
+  return item;
+}
+
+async function syncSelectedThemeIndexWithBasket(mode = "replace") {
+  const selected = selectedWritingThemeIndex();
+  if (!selected?.id) throw new Error("theme index is required");
+  const basketIds = parseWritingBasketIds();
+  if (!basketIds.length) throw new Error("writing basket is empty");
+  await ensureNotesLoaded(basketIds);
+  const mergedIds =
+    mode === "append"
+      ? uniqueStrings([...(selected.item_note_ids || []), ...basketIds])
+      : uniqueStrings(basketIds);
+  const item = await updateIndexCard(selected.id, {
+    items: buildThemeIndexItemsFromIds(selected, mergedIds)
+  });
+  upsertWritingThemeIndex(item);
+  setSelectedWritingThemeIndex(item.id);
+  renderWritingPanel();
+  return item;
+}
+
+async function removeNoteFromSelectedThemeIndex(noteId) {
+  const selected = selectedWritingThemeIndex();
+  if (!selected?.id) throw new Error("theme index is required");
+  const nextIds = (selected.item_note_ids || []).filter((id) => id !== noteId);
+  if (!nextIds.length) throw new Error("theme index must keep at least one permanent note");
+  const item = await updateIndexCard(selected.id, {
+    items: buildThemeIndexItemsFromIds(selected, nextIds)
+  });
+  upsertWritingThemeIndex(item);
+  setSelectedWritingThemeIndex(item.id);
+  renderWritingPanel();
+  return item;
+}
+
+async function createWritingProjectFromThemeIndex(indexCardId) {
+  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, { replaceBasket: true });
+  const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
+  const project = await createWritingProject({
+    title,
+    goal: String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim(),
+    audience: String($("writingAudience")?.value || "").trim(),
+    tone: String($("writingTone")?.value || "").trim(),
+    basketNoteIds: noteIds,
+    relatedIndexIds: [indexCard.id]
+  });
+  writingState.project = project;
+  writingState.scaffold = null;
+  writingState.scaffoldMarkdown = "";
+  populateWritingFormFromProject(project);
+  showWritingResult({
+    stage: "writing_project",
+    writingProjectId: project?.id,
+    title: project?.title,
+    relatedIndexIds: project?.related_index_ids,
+    basketNoteIds: project?.basket_note_ids,
+    basketNotes: project?.basket_notes
+  });
+  await loadWritingProjectsList();
+  await loadWritingScaffoldVersions();
+  await loadWritingDraftVersions();
+  renderWritingPanel();
+  return project;
+}
+
 function writingSourceIndexSummary() {
   const sourceIds = uniqueStrings(writingState.sourceIndexIds);
   if (!sourceIds.length) return "";
@@ -4618,7 +4752,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
-    <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
+    <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) || writingState.selectedThemeIndexId === indexCard.id ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
       <div class="writing-note-card-head">
         <div>
           <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
@@ -5093,6 +5227,8 @@ function renderWritingPanel() {
   const scopeHint = $("writingScopeHint");
   const themeIndexesHint = $("writingThemeIndexesHint");
   const themeIndexList = $("writingThemeIndexList");
+  const themeDetail = $("writingThemeDetail");
+  const themeDetailHint = $("writingThemeDetailHint");
   const basketSummary = $("writingBasketSummary");
   const basketList = $("writingBasketList");
   const candidateSummary = $("writingCandidateSummary");
@@ -5144,6 +5280,16 @@ function renderWritingPanel() {
     } else {
       themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接开始写作。</div>`;
     }
+  }
+
+  const selectedTheme = selectedWritingThemeIndex();
+  if (themeDetailHint) {
+    themeDetailHint.textContent = selectedTheme
+      ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成写作项目。`
+      : "查看中心问题、主题压缩、相关永久笔记，并从主题直接进入写作项目。";
+  }
+  if (themeDetail) {
+    themeDetail.innerHTML = renderWritingThemeDetail(selectedTheme);
   }
 
   const basketEntries = writingBasketEntries();
@@ -7688,7 +7834,19 @@ $("btnWritingSaveThemeIndex")?.addEventListener("click", async () => {
 });
 
 $("writingThemeIndexList")?.addEventListener("click", async (event) => {
+  const card = event.target?.closest?.("[data-writing-index-card-id]");
   const button = event.target?.closest?.("[data-writing-index-action]");
+  if (!button && card) {
+    const cardId = String(card.getAttribute("data-writing-index-card-id") || "");
+    if (!cardId) return;
+    try {
+      await selectWritingThemeIndex(cardId);
+      setStatus(`已查看主题索引：${cardId}`, "ok");
+    } catch (error) {
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
   if (!button) return;
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
@@ -7700,6 +7858,63 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
     } catch (error) {
       setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
     }
+    return;
+  }
+  if (action === "open") {
+    try {
+      await selectWritingThemeIndex(indexId);
+      setStatus(`已查看主题索引：${indexId}`, "ok");
+    } catch (error) {
+      setStatus(`打开主题索引失败：${String(error?.message || error)}`, "bad");
+    }
+  }
+});
+
+$("writingThemeDetail")?.addEventListener("click", async (event) => {
+  const actionButton = event.target?.closest?.("[data-writing-theme-action]");
+  if (!actionButton) return;
+  const action = String(actionButton.getAttribute("data-writing-theme-action") || "");
+  const indexId = String(actionButton.getAttribute("data-writing-theme-id") || "");
+  const noteId = String(actionButton.getAttribute("data-writing-note-id") || "");
+  try {
+    if (action === "save") {
+      const item = await saveSelectedThemeIndexDetail();
+      setStatus(`已保存主题：${item.title || item.id}`, "ok");
+      return;
+    }
+    if (action === "use") {
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      setStatus(`已从主题进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
+      return;
+    }
+    if (action === "create-project") {
+      const project = await createWritingProjectFromThemeIndex(indexId);
+      setStatus(`已从主题创建写作项目：${project?.id}`, "ok");
+      return;
+    }
+    if (action === "replace-from-basket") {
+      const item = await syncSelectedThemeIndexWithBasket("replace");
+      setStatus(`已用当前写作篮覆盖主题：${item.title || item.id}`, "ok");
+      return;
+    }
+    if (action === "append-from-basket") {
+      const item = await syncSelectedThemeIndexWithBasket("append");
+      setStatus(`已把当前写作篮加入主题：${item.title || item.id}`, "ok");
+      return;
+    }
+    if (action === "open-note" && noteId) {
+      activateModule("explorer");
+      openNoteById(noteId);
+      setStatus(`已打开主题中的永久笔记：${noteId}`, "ok");
+      return;
+    }
+    if (action === "remove-note" && noteId) {
+      const item = await removeNoteFromSelectedThemeIndex(noteId);
+      setStatus(`已从主题移出笔记：${noteId}（${item.title || item.id}）`, "ok");
+      return;
+    }
+  } catch (error) {
+    setStatus(`主题操作失败：${String(error?.message || error)}`, "bad");
   }
 });
 

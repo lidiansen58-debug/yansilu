@@ -4686,6 +4686,105 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
 });
 
+test("prototype writing center can save a theme index, edit central question, and create a project from theme", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Theme Browser Claim\n\nA theme should carry a central question, not just grouped notes.",
+    authorshipConfirmed: true,
+    thesis: "A theme should carry a central question, not just grouped notes.",
+    threeLineSummary: [
+      "A theme should carry a central question.",
+      "That makes grouped notes serve one reusable problem.",
+      "It helps writing start from a theme instead of a blank page."
+    ],
+    boundaryOrCounterpoint: "A loose cluster can exist temporarily, but it should not stay forever without a question."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Theme Browser Tension\n\nA second note adds the tension the theme still needs.",
+    authorshipConfirmed: true,
+    thesis: "A mature theme needs tension, not only support.",
+    threeLineSummary: [
+      "A mature theme needs tension, not only support.",
+      "That keeps the theme from turning into a storage bucket.",
+      "It gives the later writing project a sharper structure."
+    ],
+    boundaryOrCounterpoint: "Some themes start narrow, but they still need an explicit question and growing tension."
+  });
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.locator("#writingBasketNoteIds").waitFor({ state: "visible" });
+  const targetBasketIds = [noteA.json.item.id, noteB.json.item.id];
+  await page.fill("#writingBasketNoteIds", targetBasketIds.join("\n"));
+
+  await page.evaluate(() => {
+    const answers = ["Browser Theme Index", "A theme saved from the browser flow."];
+    window.prompt = () => answers.shift() ?? "";
+  });
+  await page.click("#btnWritingSaveThemeIndex");
+
+  let themeCard = null;
+  await waitFor(async () => {
+    const indexCards = await fetchJson(apiBase, "/api/v1/index-cards?directoryId=dir_original_default&indexType=topic&includeDescendants=true&limit=20");
+    assert.equal(indexCards.status, 200, JSON.stringify(indexCards.json));
+    themeCard = indexCards.json.items.find((item) => item.title === "Browser Theme Index");
+    assert.ok(themeCard);
+  }, 10000);
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Browser Theme Index" }).click();
+  await page.waitForFunction(() => {
+    const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
+    return value.includes("Browser Theme Index");
+  }, null, { timeout: 10000 });
+
+  await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these two permanent notes before writing begins?");
+  await page.fill("#writingThemeDetailThesis", "A theme becomes useful when it organizes notes around one reusable question.");
+  await page.fill("#writingThemeDetailSummary1", "This theme is about turning two mature notes into one reusable question.");
+  await page.fill("#writingThemeDetailSummary2", "That matters because writing should begin from theme-level structure, not loose grouping.");
+  await page.fill("#writingThemeDetailSummary3", "It gives the next writing project a sharper starting point.");
+  await page.click('[data-writing-theme-action="save"]');
+
+  const indexCards = await fetchJson(apiBase, "/api/v1/index-cards?directoryId=dir_original_default&indexType=topic&includeDescendants=true&limit=20");
+  assert.equal(indexCards.status, 200, JSON.stringify(indexCards.json));
+  themeCard = indexCards.json.items.find((item) => item.title === "Browser Theme Index");
+  assert.ok(themeCard);
+  assert.equal(themeCard.central_question, "What question should organize these two permanent notes before writing begins?");
+  assert.equal(themeCard.item_note_ids.length, 2);
+
+  await page.click('[data-writing-theme-action="create-project"]');
+
+  await waitFor(async () => {
+    const resultText = await page.locator("#writingResult").textContent();
+    assert.match(String(resultText || ""), /\"stage\": \"writing_project\"/);
+  }, 10000);
+
+  const projects = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
+  assert.equal(projects.status, 200, JSON.stringify(projects.json));
+  const themedProject = projects.json.items.find((item) => item.title.includes("Browser Theme Index"));
+  assert.ok(themedProject);
+  assert.deepEqual(themedProject.related_index_ids, [themeCard.id]);
+});
+
 test("prototype graph panel renders directory wikilinks and opens graph nodes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

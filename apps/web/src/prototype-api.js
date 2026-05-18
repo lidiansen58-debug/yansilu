@@ -725,6 +725,17 @@ export async function fetchIndexCard(indexCardId) {
   return json.item || null;
 }
 
+export async function updateIndexCard(indexCardId, payload) {
+  const cleanIndexCardId = String(indexCardId || "").trim();
+  if (!cleanIndexCardId) throw new Error("indexCardId is required");
+  const json = await request(`/api/v1/index-cards/${encodeURIComponent(cleanIndexCardId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
 export async function createWritingProject(payload) {
   const json = await request("/api/v1/writing-projects", {
     method: "POST",

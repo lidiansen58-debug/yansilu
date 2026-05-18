@@ -55,6 +55,16 @@ async function getJson(baseUrl, pathname) {
   return { status: res.status, json };
 }
 
+async function patchJson(baseUrl, pathname, body) {
+  const res = await fetch(`${baseUrl}${pathname}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const json = await res.json();
+  return { status: res.status, json };
+}
+
 async function readRequestJson(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -328,6 +338,29 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(fetchedIndex.json.item.central_question, "How can a note system force better compression before drafting begins?");
   assert.equal(fetchedIndex.json.item.thinkingStatus.status, "ready_for_writing");
   assert.equal(fetchedIndex.json.item.items[0].note.noteType, "permanent");
+
+  const noteC = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Theme tension\n\nA third permanent note adds a missing tension to the theme.",
+    boundaryOrCounterpoint: "This only helps once the theme is explicit enough to compare competing claims."
+  });
+  assert.equal(noteC.status, 201);
+
+  const updatedIndex = await patchJson(baseUrl, `/api/v1/index-cards/${encodeURIComponent(topicIndex.json.item.id)}`, {
+    summary: "A reusable topic entry that now includes the missing tension note.",
+    centralQuestion: "Which theme question is strong enough to organize the next writing move?",
+    items: [
+      { noteId: noteA.json.item.id, shortLabel: "claim", rationale: "Sets the main writing stance." },
+      { noteId: noteB.json.item.id, shortLabel: "evidence", rationale: "Keeps each paragraph tied to notes." },
+      { noteId: noteC.json.item.id, shortLabel: "tension", rationale: "Adds the missing tension that the theme still needs." }
+    ]
+  });
+  assert.equal(updatedIndex.status, 200, JSON.stringify(updatedIndex.json));
+  assert.equal(updatedIndex.json.item.central_question, "Which theme question is strong enough to organize the next writing move?");
+  assert.equal(updatedIndex.json.item.note_count, 3);
+  assert.deepEqual(updatedIndex.json.item.item_note_ids, [noteA.json.item.id, noteB.json.item.id, noteC.json.item.id]);
+  assert.equal(updatedIndex.json.item.items[2].note.id, noteC.json.item.id);
 
   const rejected = await postJson(baseUrl, "/api/v1/writing-projects", {
     title: "Rejected project",
