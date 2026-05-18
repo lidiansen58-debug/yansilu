@@ -4806,6 +4806,116 @@ function renderWritingThemeIndexCard(indexCard) {
   `;
 }
 
+function renderWritingThemeDetail(indexCard) {
+  if (!indexCard?.id) {
+    return `
+      <div class="writing-empty">
+        还没有选中主题索引。先从左侧选择一个主题，或把当前写作篮保存成新的主题索引。
+      </div>
+    `;
+  }
+
+  const summaryLines = Array.isArray(indexCard.three_line_summary)
+    ? indexCard.three_line_summary
+    : Array.isArray(indexCard.threeLineSummary)
+      ? indexCard.threeLineSummary
+      : [];
+  const items = Array.isArray(indexCard.items) ? indexCard.items : [];
+  const itemNoteIds = Array.isArray(indexCard.item_note_ids) ? indexCard.item_note_ids : [];
+  const noteCount = Number(indexCard.note_count || items.length || itemNoteIds.length || 0);
+  const thinkingBadge = renderThinkingStatusBadge(indexCard.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const themeId = escapeHtml(indexCard.id);
+  const itemRows = items.length
+    ? items
+        .map((item, index) => {
+          const noteId = item?.note_id || item?.noteId || "";
+          const noteTitle = item?.note?.title || item?.short_label || noteId || `永久笔记 ${index + 1}`;
+          const rationale = item?.rationale || "还没有写明这条笔记为什么属于这个主题。";
+          const order = Number(item?.order || index + 1);
+          return `
+            <article class="writing-note-card" data-writing-note-id="${escapeHtml(noteId)}">
+              <div class="writing-note-card-head">
+                <div>
+                  <div class="writing-note-title">${escapeHtml(order)}. ${escapeHtml(noteTitle)}</div>
+                  <div class="writing-note-meta">${escapeHtml(noteId)}</div>
+                </div>
+              </div>
+              <div class="writing-note-meta">${escapeHtml(rationale)}</div>
+              <div class="writing-note-actions">
+                <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-note-id="${escapeHtml(noteId)}">打开笔记</button>
+                <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-note-id="${escapeHtml(noteId)}">移出主题</button>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : itemNoteIds.length
+      ? itemNoteIds
+          .map(
+            (noteId, index) => `
+              <article class="writing-note-card" data-writing-note-id="${escapeHtml(noteId)}">
+                <div class="writing-note-title">${escapeHtml(index + 1)}. ${escapeHtml(noteId)}</div>
+                <div class="writing-note-actions">
+                  <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-note-id="${escapeHtml(noteId)}">打开笔记</button>
+                  <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-note-id="${escapeHtml(noteId)}">移出主题</button>
+                </div>
+              </article>
+            `
+          )
+          .join("")
+      : `<div class="writing-empty">这个主题索引还没有绑定永久笔记。</div>`;
+
+  return `
+    <section class="writing-theme-detail-card" data-writing-theme-id="${themeId}">
+      <div class="writing-note-card-head">
+        <div>
+          <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
+          <div class="writing-note-meta">${themeId} · ${escapeHtml(indexCard.index_type || "topic")} · ${escapeHtml(noteCount)} 条永久笔记</div>
+        </div>
+        ${thinkingBadge}
+      </div>
+
+      <div class="import-grid" style="margin-top:12px;">
+        <label for="writingThemeDetailTitle">主题标题</label>
+        <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
+
+        <label for="writingThemeDetailCentralQuestion">中心问题</label>
+        <textarea id="writingThemeDetailCentralQuestion" rows="2" placeholder="这个主题真正要回答什么问题？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
+
+        <label for="writingThemeDetailThesis">主题判断</label>
+        <textarea id="writingThemeDetailThesis" rows="2" placeholder="把这组笔记压缩成一句自己的判断。">${escapeHtml(indexCard.thesis || "")}</textarea>
+
+        <label for="writingThemeDetailSummary">主题说明</label>
+        <textarea id="writingThemeDetailSummary" rows="2" placeholder="给后续写作看的简短说明。">${escapeHtml(indexCard.summary || "")}</textarea>
+
+        <label for="writingThemeDetailSummary1">三句话 1</label>
+        <input id="writingThemeDetailSummary1" value="${escapeHtml(summaryLines[0] || "")}" />
+
+        <label for="writingThemeDetailSummary2">三句话 2</label>
+        <input id="writingThemeDetailSummary2" value="${escapeHtml(summaryLines[1] || "")}" />
+
+        <label for="writingThemeDetailSummary3">三句话 3</label>
+        <input id="writingThemeDetailSummary3" value="${escapeHtml(summaryLines[2] || "")}" />
+      </div>
+
+      <div class="writing-note-actions" style="margin-top:12px;">
+        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">加入写作篮</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}">创建写作项目</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用写作篮覆盖</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">追加写作篮</button>
+      </div>
+
+      <div class="writing-summary" style="margin-top:12px;">
+        主题里的永久笔记会作为写作入口进入篮子；中心问题和三句话压缩会影响后续写作项目的准备度。
+      </div>
+      <div class="writing-note-list" style="margin-top:10px;">
+        ${itemRows}
+      </div>
+    </section>
+  `;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
