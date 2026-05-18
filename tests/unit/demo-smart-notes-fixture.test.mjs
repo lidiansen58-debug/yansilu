@@ -101,8 +101,10 @@ test("smart notes product demo fixture models processed fleeting notes", () => {
     assert.equal(note.status, "needs_processing");
     assert.equal(note.template.type, "fleeting_note");
     assert.ok(note.body.includes("## 原始闪念"), `${note.id} body should follow the fleeting-note template`);
+    assert.ok(note.body.includes("## 为什么还不算知识"), `${note.id} should remain visibly unfinished`);
     assert.ok(note.body.includes("## 已转换为"), `${note.id} body should expose converted targets`);
     assert.ok(note.next_action, `${note.id} should tell the user what to do next`);
+    assert.match(note.next_action, /处理为|删除/, `${note.id} should point to a processing action`);
     assert.ok(note.processed_into.length > 0, `${note.id} should point to processed permanent notes`);
     for (const targetId of note.processed_into) {
       assert.ok(permanentIds.has(targetId), `${note.id} points to missing processed note ${targetId}`);
@@ -112,6 +114,8 @@ test("smart notes product demo fixture models processed fleeting notes", () => {
 
 test("smart notes product demo fixture permanent notes are PM-restated judgments", () => {
   const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
+  const productImplications = new Set();
+  const boundaryStatements = new Set();
 
   for (const note of fixture.permanent_notes) {
     assert.equal(note.note_type, "permanent");
@@ -123,12 +127,20 @@ test("smart notes product demo fixture permanent notes are PM-restated judgments
     assert.ok(note.template?.required_sections?.length > 0, `${note.id} should declare its conversion template`);
     assert.ok(note.pmRestatement, `${note.id} needs a product-manager restatement`);
     assert.ok(note.productImplication, `${note.id} needs a product implication`);
+    assert.ok(note.boundaryOrCounterpoint?.length >= 20, `${note.id} needs a meaningful boundary or counterpoint`);
+    assert.match(note.pmRestatement, /作为研思录的产品判断/, `${note.id} should be restated as a PM judgment`);
+    assert.doesNotMatch(note.pmRestatement, /不能只提供存储能力/, `${note.id} should not use the old generic PM restatement`);
     assert.ok(note.body.includes("## 产品经理复述"), `${note.id} body should expose the PM restatement`);
     assert.ok(note.body.includes("## 知识点提取"), `${note.id} body should expose richer knowledge extraction`);
+    assert.ok(note.body.includes("## 边界或反例"), `${note.id} body should expose boundary thinking`);
+    productImplications.add(note.productImplication);
+    boundaryStatements.add(note.boundaryOrCounterpoint);
     for (const sourceId of note.from_literature_note_ids || []) {
       assert.ok(literatureIds.has(sourceId), `${note.id} references missing literature note ${sourceId}`);
     }
   }
+  assert.ok(productImplications.size >= 8, "permanent notes should vary product implications by knowledge cluster");
+  assert.ok(boundaryStatements.size >= 8, "permanent notes should vary boundaries by knowledge cluster");
 });
 
 test("smart notes product demo fixture literature notes are original paraphrases", () => {
@@ -138,6 +150,7 @@ test("smart notes product demo fixture literature notes are original paraphrases
     assert.equal(note.status, "paraphrased");
     assert.equal(note.template.type, "literature_note");
     assert.ok(note.quote_text, `${note.id} needs a source boundary`);
+    assert.match(note.quote_text, /does not reproduce book prose/, `${note.id} should state the source boundary`);
     assert.ok(Array.isArray(note.knowledge_points) && note.knowledge_points.length >= 3, `${note.id} needs extracted knowledge points`);
     assert.ok(note.body.includes("## 知识点提取"), `${note.id} body should follow the literature-note template`);
     assert.ok(note.paraphrase_text && note.paraphrase_text.length >= 24, `${note.id} needs a paraphrase_text`);
@@ -154,6 +167,8 @@ test("smart notes product demo fixture includes an inspection guide", () => {
   assert.equal(guide.id, "GUIDE-SN-001");
   assert.equal(guide.note_type, "guide");
   assert.match(guide.body, /Inspect it in this order/);
+  assert.match(guide.body, /source -> literature -> permanent -> index card -> writing project -> essay/);
+  assert.match(guide.body, /Fleeting notes are capture points, not knowledge/);
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
 });
@@ -244,9 +259,14 @@ test("smart notes product demo fixture writing project traces notes and sources"
   }
   for (const section of scaffold.sections) {
     assert.ok(section.key_note_ids.length > 0, `${section.id} should keep scaffold key-note trace`);
+    assert.ok(section.gaps.length > 0, `${section.id} should expose writing gaps`);
+    assert.ok(section.counterpoints.length > 0, `${section.id} should expose counterpoints`);
     for (const noteId of section.key_note_ids) assert.ok(keyNoteIds.has(noteId), `${section.id} missing scaffold key note ${noteId}`);
   }
   assert.match(fixture.final_essays[0].body, /研思录/);
+  assert.match(fixture.final_essays[0].body, /不是普通笔记软件/);
+  assert.match(fixture.final_essays[0].body, /source -> literature -> permanent -> index card -> writing project -> essay/);
+  assert.ok(fixture.final_essays[0].body.length >= 1200, "final essay should read like a product article, not a stub");
 });
 
 test("smart notes product demo fixture graph exposes key-note paths", () => {

@@ -37,8 +37,10 @@ Open one literature note and point to:
 Open representative permanent notes:
 
 - `PN-SN-001`: writing starts before drafting
-- `PN-SN-037`: note count can mislead progress
+- `PN-SN-021`: excerpting is not understanding
+- `PN-SN-049`: relation reasons matter more than graph density
 - `PN-SN-065`: index cards create entry points
+- `PN-SN-085`: collector behavior can create false progress
 - `PN-SN-100`: the final essay should preserve traceability
 
 For each note, point to thesis, three-line summary, product-manager restatement, product implication, and boundary.
@@ -57,7 +59,7 @@ Open `WP-SN-PM-001` and `DS-SN-PM-001`.
 
 Show that the writing project starts from selected permanent notes and index cards. The scaffold should expose evidence, gaps, counterpoints, and source traces.
 
-Close with the product message: Yansilu should reward confirmed judgment and traceable writing readiness, not raw collection volume.
+Close with the final essay `ESSAY-SN-PM-001`: it should read like a product article about Yansilu, not a feature list or book review. The product message is that Yansilu should reward confirmed judgment and traceable writing readiness, not raw collection volume.
 
 ## Acceptance Checklist
 
