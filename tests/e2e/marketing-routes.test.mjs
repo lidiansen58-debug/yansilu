@@ -95,6 +95,10 @@ test("marketing routes expose static marketing pages", async (t) => {
       assert.match(html, /smart-notes-product-thinking/);
       assert.match(html, /\/prototype\?demo=smart-notes-product-thinking/);
       assert.match(html, /\/demo\/yijing/);
+      assert.match(html, /306 relations/);
+      assert.match(html, /自动导入这套 fixture/);
+      assert.doesNotMatch(html, /自动导入将在后续阶段接入/);
+      assert.doesNotMatch(html, /下一阶段会让工作台自动导入/);
     }
     if (route === "/demo/yijing") {
       assert.match(html, /yijing-rich/);
