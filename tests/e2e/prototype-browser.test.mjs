@@ -842,6 +842,8 @@ test("prototype note browser stays minimal and creates literature notes in the l
         title: document.querySelector("#sidebarTitle")?.textContent?.trim() || "",
         subtitleVisible: visible("#sidebarSubtitle"),
         flowVisible: visible("#sidebarFlow"),
+        valueMetricsVisible: visible("#sidebarValueMetrics"),
+        valueMetricsText: document.querySelector("#sidebarValueMetrics")?.textContent?.trim() || "",
         footVisible: visible("#sidebarFoot"),
         moduleVisible: visible("#moduleSidebar"),
         listVisible: visible("#listArea"),
@@ -853,6 +855,15 @@ test("prototype note browser stays minimal and creates literature notes in the l
     assert.doesNotMatch(sidebar.title, /工作台|入口/);
     assert.equal(sidebar.subtitleVisible, false);
     assert.equal(sidebar.flowVisible, false);
+    assert.equal(sidebar.valueMetricsVisible, rootId === "dir_original_default");
+    if (rootId === "dir_original_default") {
+      assert.match(sidebar.valueMetricsText, /永久笔记/);
+      assert.match(sidebar.valueMetricsText, /待提纯/);
+      assert.match(sidebar.valueMetricsText, /已确认论点/);
+      assert.match(sidebar.valueMetricsText, /可写作/);
+    } else {
+      assert.equal(sidebar.valueMetricsText, "");
+    }
     assert.equal(sidebar.footVisible, false);
     assert.equal(sidebar.moduleVisible, false);
     assert.equal(sidebar.listVisible, true);
@@ -4413,6 +4424,25 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const basketText = await page.locator("#writingBasketList").textContent();
   assert.match(basketText || "", /Writing UI claim/);
   assert.match(basketText || "", /Evidence UI map/);
+
+  const themeDialogAnswers = [
+    "Writing UI Theme",
+    "A reusable theme entry for the current writing basket.",
+    "How can the writing panel preserve a topic's central question?"
+  ];
+  const answerThemeDialog = async (dialog) => {
+    await dialog.accept(themeDialogAnswers.shift() || "");
+  };
+  page.on("dialog", answerThemeDialog);
+  try {
+    await page.click("#btnWritingSaveThemeIndex");
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#writingThemeIndexList")?.textContent || "";
+      return text.includes("Writing UI Theme") && text.includes("中心问题：How can the writing panel preserve");
+    });
+  } finally {
+    page.off("dialog", answerThemeDialog);
+  }
 
   await page.click("#btnWritingCreateProject");
 

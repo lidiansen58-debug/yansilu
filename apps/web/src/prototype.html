@@ -5647,6 +5647,7 @@
       white-space: nowrap;
       box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
       backdrop-filter: blur(12px);
+      transform: translateZ(0);
     }
     .status-pill::before {
       content: "•";
@@ -5667,6 +5668,23 @@
       border-color: #f0b8b3;
       background: #fff1f0;
       color: #b42318;
+    }
+    .status-pill.is-refreshing {
+      animation: status-pulse var(--motion-slow) var(--ease-standard);
+    }
+    @keyframes status-pulse {
+      0% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+      }
+      60% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
     .editor-helper {
       position: fixed;
@@ -8036,6 +8054,44 @@
       text-overflow: ellipsis;
     }
 
+    .sidebar-value-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .sidebar-value-metrics.hidden {
+      display: none !important;
+    }
+
+    .sidebar-value-metric {
+      border: 1px solid #e4ecf1;
+      background: #fbfdff;
+      border-radius: 8px;
+      padding: 7px 8px;
+      min-width: 0;
+    }
+
+    .sidebar-value-metric strong,
+    .sidebar-value-metric span {
+      display: block;
+    }
+
+    .sidebar-value-metric strong {
+      color: #102033;
+      font-size: 15px;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sidebar-value-metric span {
+      margin-top: 3px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
     /* Permanent-note-first redesign layer */
     :root {
       --bg: #f4f6f4;
@@ -8057,6 +8113,11 @@
       --shadow: 0 18px 36px rgba(25, 36, 45, 0.09);
       --shadow-soft: 0 8px 20px rgba(25, 36, 45, 0.06);
       --focus-ring: 0 0 0 3px rgba(52, 87, 213, 0.18);
+      --motion-fast: 160ms;
+      --motion-base: 220ms;
+      --motion-slow: 280ms;
+      --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-exit: cubic-bezier(0.4, 0, 1, 1);
     }
 
     body {
@@ -8106,6 +8167,14 @@
       height: 40px;
       border-radius: 8px;
       color: #4c5964;
+      transition:
+        background var(--motion-fast) var(--ease-standard),
+        color var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-fast) var(--ease-standard),
+        transform var(--motion-fast) var(--ease-standard);
+      transform: translateZ(0);
+      will-change: transform, box-shadow, background, border-color;
     }
 
     .rail-btn.active,
@@ -8114,12 +8183,6 @@
       border-color: rgba(15, 118, 110, 0.25);
       color: #0f665f;
       box-shadow: inset 3px 0 0 var(--brand);
-    }
-
-    .rail-btn:hover,
-    .mini-btn:hover,
-    .tb:hover {
-      transform: translateY(-1px);
     }
 
     .sidebar {
@@ -8205,6 +8268,94 @@
     .mini-btn.primary:hover {
       background: #0b665f;
       border-color: #0b665f;
+    }
+
+    .mini-btn,
+    .tb,
+    .tab,
+    .link-picker-item,
+    .explorer-item,
+    .distillation-queue-item,
+    .ai-inbox-item,
+    .writing-note-card,
+    .sidebar-value-metric {
+      transform: translateZ(0);
+      will-change: transform, box-shadow, background-color, border-color, opacity;
+    }
+
+    .writing-note-card,
+    .distillation-queue-item,
+    .ai-inbox-item,
+    .sidebar-value-metric {
+      transition:
+        transform var(--motion-fast) var(--ease-standard),
+        box-shadow var(--motion-fast) var(--ease-standard),
+        border-color var(--motion-fast) var(--ease-standard),
+        background-color var(--motion-fast) var(--ease-standard),
+        opacity var(--motion-fast) var(--ease-standard);
+    }
+
+    @media (hover: hover) {
+      .rail-btn:hover,
+      .mini-btn:hover,
+      .tb:hover {
+        transform: translateY(-1px);
+      }
+
+      .writing-note-card:hover,
+      .distillation-queue-item:hover,
+      .ai-inbox-item:hover,
+      .sidebar-value-metric:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-soft);
+      }
+    }
+
+    .rail-btn:active,
+    .mini-btn:active,
+    .tb:active,
+    .distillation-queue-item:active,
+    .ai-inbox-item:active,
+    .writing-note-card:active {
+      transform: scale(0.985);
+      transition-duration: 90ms;
+    }
+
+    .sidebar-value-metric {
+      animation: metric-enter var(--motion-base) var(--ease-standard);
+    }
+
+    #moduleSidebar.visible,
+    #distillationPanel:not(.hidden),
+    #aiInboxPanel:not(.hidden),
+    #graphPanel:not(.hidden),
+    #writingPanel:not(.hidden),
+    #importPanel:not(.hidden),
+    #settingsPanel:not(.hidden) {
+      animation: panel-enter var(--motion-base) var(--ease-standard);
+      transform-origin: top right;
+    }
+
+    @keyframes panel-enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.995);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes metric-enter {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .main {
@@ -8369,6 +8520,34 @@
       box-shadow: var(--focus-ring);
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      .rail-btn,
+      .mini-btn,
+      .tb,
+      .tab,
+      .link-picker-item,
+      .explorer-item,
+      .distillation-queue-item,
+      .ai-inbox-item,
+      .writing-note-card,
+      .sidebar-value-metric,
+      .status-pill {
+        transition-duration: 1ms !important;
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+      }
+
+      #moduleSidebar.visible,
+      #distillationPanel:not(.hidden),
+      #aiInboxPanel:not(.hidden),
+      #graphPanel:not(.hidden),
+      #writingPanel:not(.hidden),
+      #importPanel:not(.hidden),
+      #settingsPanel:not(.hidden) {
+        animation: none !important;
+      }
+    }
+
     .hidden,
     .workspace-shell.hidden,
     #editorWorkspace.hidden,
@@ -8513,6 +8692,7 @@
             <button class="mini-btn icon-btn" id="btnOpenNewBoxDialog" title="新建卡片盒" data-tip="新建卡片盒" aria-label="新建卡片盒"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.45 4.15h4.2l1.05 1.3h5.75a1.05 1.05 0 0 1 1.02 1.26l-.67 3.46a1.5 1.5 0 0 1-1.47 1.22H3.68a1.5 1.5 0 0 1-1.47-1.22L1.54 6.7a1.05 1.05 0 0 1 .91-1.29z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M8 6.55v3.15M6.42 8.12h3.16" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg></button>
             <button class="mini-btn icon-btn is-ghost" id="btnToggleSearch" title="搜索笔记" data-tip="搜索笔记" aria-label="搜索笔记"><svg class="mini-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="3.75" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M9.9 9.9l2.85 2.85" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg></button>
           </div>
+          <div class="sidebar-value-metrics hidden" id="sidebarValueMetrics" aria-label="永久笔记进度"></div>
         </div>
       </div>
 
@@ -8953,6 +9133,10 @@
                   <input id="writingTitle" placeholder="例如：从卡片到论文大纲" />
                   <label for="writingGoal">写作目标</label>
                   <textarea id="writingGoal" style="min-height:70px;" placeholder="这篇文章要解决什么问题？"></textarea>
+                  <label for="writingIntent">表达意图</label>
+                  <textarea id="writingIntent" style="min-height:70px;" placeholder="我想说明什么？"></textarea>
+                  <label for="writingReaderTakeaway">读者应带走的判断</label>
+                  <textarea id="writingReaderTakeaway" style="min-height:70px;" placeholder="我希望读者接受或重新考虑什么判断？"></textarea>
                   <label for="writingAudience">读者</label>
                   <input id="writingAudience" placeholder="例如：知识工作者" />
                     <label for="writingTone">语气</label>
@@ -8964,6 +9148,7 @@
                   <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
                   <button class="mini-btn" id="btnWritingAddVisible">把当前目录观点加入写作篮</button>
                   <button class="mini-btn primary" id="btnWritingCreateProject">创建写作项目</button>
+                  <button class="mini-btn" id="btnWritingSaveIntent">保存意图</button>
                   <button class="mini-btn primary" id="btnWritingCreateScaffold">生成草稿骨架</button>
                   <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空篮子</button>
                 </div>
@@ -9298,7 +9483,7 @@
           </div>
         </div>
       </div>
-      <div class="status" id="statusBar">
+      <div class="status" id="statusBar" role="status" aria-live="polite" aria-atomic="true">
         <span id="statusText" class="status-pill">就绪</span>
       </div>
     </main>

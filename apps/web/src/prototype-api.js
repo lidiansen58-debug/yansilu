@@ -705,6 +705,29 @@ export async function fetchWritingProject(writingProjectId) {
   return json.item || null;
 }
 
+export async function updateWritingProjectIntent(writingProjectId, payload = {}) {
+  const cleanWritingProjectId = String(writingProjectId || "").trim();
+  if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/intent`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function fetchDistillationQueue(options = {}) {
+  const params = new URLSearchParams();
+  const directoryId = String(options.directoryId || "").trim();
+  const includeDescendants = options.includeDescendants !== false;
+  const limit = Math.max(1, Math.min(200, Number(options.limit || 50) || 50));
+  if (directoryId) params.set("directoryId", directoryId);
+  params.set("includeDescendants", includeDescendants ? "true" : "false");
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/distillation/queue?${params.toString()}`);
+  return json.item || null;
+}
+
 export async function fetchDraftScaffold(draftScaffoldId) {
   const cleanDraftScaffoldId = String(draftScaffoldId || "").trim();
   if (!cleanDraftScaffoldId) throw new Error("draftScaffoldId is required");
