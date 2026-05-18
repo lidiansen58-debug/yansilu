@@ -36,9 +36,12 @@ Monorepo scaffold for Yansilu (Thinking in Notes).
 - `npm test` runs unit, integration, and smoke e2e tests.
 - `npm run test:e2e:smoke` starts temporary API/Web services and verifies the prototype can load against a real API.
 - `npm run test:e2e:browser:mvp` runs a smaller real-browser MVP flow covering note edit/save, vault switch, import/export, writing, graph, and note move/delete.
-- `npm run test:e2e:browser` runs the real browser prototype flow when Playwright and Chromium are installed.
+- `npm run test:e2e:browser -- --list` shows the available browser e2e groups.
+- `npm run test:e2e:browser -- mobile-responsive` runs the mobile responsive browser checks, including the permanent-note capture flow.
+- `npm run test:e2e:mobile:permanent-note` runs only the mobile permanent-note capture regression and saves screenshots to a temporary artifact directory.
+- `npm run test:e2e:browser` runs the grouped real-browser prototype flow when Playwright and Chromium are installed.
 - `npm run mvp:check` runs the core MVP validation path: tests, smoke e2e, quick real-browser MVP e2e, desktop dev preflight, and desktop bundle preflight.
-- Set `RUN_BROWSER_E2E=1` to enable browser e2e execution; without it, browser tests are skipped by design.
+- Browser e2e runners in `package.json` and `scripts/` already set `RUN_BROWSER_E2E=1` for you. Only direct `node --test` invocations against `tests/e2e/prototype-browser.test.mjs` still need it manually.
 
 MVP API areas:
 - Health and vault switching: `/health`, `/api/v1/vault`

@@ -29,6 +29,7 @@
     "test:e2e:browser:mvp": "node ./scripts/browser-mvp-check.mjs",
     "test:e2e:browser": "node ./scripts/browser-e2e-check.mjs",
     "test:e2e:browser:file": "node --test --test-isolation=none ./tests/e2e/prototype-browser.test.mjs",
+    "test:e2e:mobile:permanent-note": "node ./scripts/browser-mobile-permanent-note-check.mjs",
     "wt:create": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-create.ps1",
     "wt:list": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-list.ps1",
     "wt:remove": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-remove.ps1",

@@ -95,6 +95,14 @@ const groups = [
       "prototype explorer reveal note uses tauri opener when desktop shell is available",
       "prototype explorer note context move and delete update disk state"
     ]
+  },
+  {
+    name: "mobile-responsive",
+    description: "Mobile viewport entry points and responsive capture flows.",
+    tests: [
+      "prototype mobile viewport keeps new note entry discoverable",
+      "prototype mobile viewport keeps permanent-note capture flow usable"
+    ]
   }
 ];
 

@@ -946,6 +946,113 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   }, 7000);
 });
 
+test("prototype mobile viewport keeps permanent-note capture flow usable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+  const artifactDir = await makeTempDir("yansilu-mobile-permanent-note-");
+  t.diagnostic(`mobile permanent-note artifacts: ${artifactDir}`);
+
+  await page.locator('[data-action="quick-fleeting"]').click();
+  await page.waitForTimeout(200);
+  await page.locator("#btnMobileNewNote").click();
+  await page.waitForSelector(".tab.active");
+
+  const sourceFab = page.locator("#btnSourceToPermanent");
+  await waitFor(async () => {
+    assert.equal(await sourceFab.isVisible(), true);
+  }, 7000);
+
+  const mobileEntry = await page.evaluate(() => {
+    const fab = document.querySelector("#btnSourceToPermanent");
+    const sidebarCta = document.querySelector("[data-record-permanent-note]");
+    const box = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    const visible = (el) => {
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    };
+    return {
+      viewportWidth: window.innerWidth,
+      fabVisible: visible(fab),
+      fabBox: box(fab),
+      sidebarCtaVisible: visible(sidebarCta)
+    };
+  });
+
+  assert.equal(mobileEntry.fabVisible, true);
+  assert.equal(mobileEntry.sidebarCtaVisible, false);
+  assert.ok(mobileEntry.fabBox.width >= 120);
+  assert.ok(mobileEntry.fabBox.height >= 36);
+  assert.ok(mobileEntry.fabBox.right <= mobileEntry.viewportWidth);
+  await page.screenshot({ path: path.join(artifactDir, "mobile-fab-cta.png") });
+
+  await sourceFab.click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#permanentTargetModal.hidden").count(), 0);
+  }, 4000);
+
+  const modalState = await page.evaluate(() => {
+    const modal = document.querySelector("#permanentTargetModal .permanent-target-modal");
+    const options = [...document.querySelectorAll("#permanentTargetList .permanent-target-option")];
+    const confirm = document.querySelector("#permanentTargetConfirm");
+    const cancel = document.querySelector("#permanentTargetCancel");
+    const box = (el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    return {
+      viewportWidth: window.innerWidth,
+      modalBox: box(modal),
+      optionCount: options.length,
+      firstOptionBox: box(options[0]),
+      secondOptionBox: box(options[1] || options[0]),
+      confirmBox: box(confirm),
+      cancelBox: box(cancel)
+    };
+  });
+
+  assert.ok(modalState.optionCount >= 1);
+  assert.ok(modalState.modalBox.width <= modalState.viewportWidth);
+  assert.ok(modalState.firstOptionBox.width > 200);
+  assert.ok(modalState.confirmBox.width > 100);
+  assert.ok(modalState.cancelBox.width > 100);
+  assert.equal(modalState.confirmBox.top, modalState.cancelBox.top);
+  await page.screenshot({ path: path.join(artifactDir, "mobile-directory-modal-root.png") });
+
+  const options = page.locator("#permanentTargetList .permanent-target-option");
+  if ((await options.count()) > 1) {
+    const secondOption = options.nth(1);
+    await secondOption.click();
+    await waitFor(async () => {
+      assert.equal(await secondOption.getAttribute("aria-pressed"), "true");
+    }, 3000);
+  } else {
+    await waitFor(async () => {
+      assert.equal(await options.first().getAttribute("aria-pressed"), "true");
+    }, 3000);
+  }
+  await page.screenshot({ path: path.join(artifactDir, "mobile-directory-modal-selected.png") });
+});
+
 test("prototype renders thinking status in note tree and editor header", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

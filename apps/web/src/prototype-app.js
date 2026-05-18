@@ -912,6 +912,7 @@ function hideEditorHelper() {
   if (action) {
     action.dataset.helperAction = "noop";
     action.dataset.targetNoteId = "";
+    action.classList.remove("create-original-cta");
   }
   if (typeof document !== "undefined" && helper.contains(document.activeElement)) {
     document.activeElement?.blur?.();
@@ -2687,11 +2688,17 @@ function originalDraftBodyFromSource(payload = {}) {
     return [
       `# ${titleSeed}`,
       "",
-      "## 核心观点",
+      "## 一句话论点",
       "",
       supportsJudgment
-        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+        ? "从来源文献里的判断种子继续改写成一句你自己的可复用判断，不要直接复述摘录或文献笔记原句。"
+        : "把这条文献转述继续改写成一句你自己的可复用判断，不要直接复述摘录或文献笔记原句。",
+      "",
+      "## 三句话压缩",
+      "",
+      "1. 这条观点在说什么：",
+      "2. 为什么它成立或重要：",
+      "3. 它服务于哪个问题、主题或写作方向：",
       "",
       "## 为什么成立",
       "",
@@ -2702,13 +2709,17 @@ function originalDraftBodyFromSource(payload = {}) {
       "## 边界 / 反例",
       "",
       boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "",
-      "## 证据来源",
+      "## 来源追溯",
       "",
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
       ...citationSummaryLines(citation),
       claim ? "- 已有用户转述：见来源文献笔记，不在永久笔记草稿中直接复制。" : "",
       whyKeep || supportsJudgment || question || boundary || originalText ? "- 证据、判断种子、追问、边界与原文摘录请回到来源文献笔记核对。" : "",
+      "",
+      "## 未解问题",
+      "",
+      question ? `- ${question}` : "",
       ""
     ]
       .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
@@ -2723,9 +2734,15 @@ function originalDraftBodyFromSource(payload = {}) {
   return [
     `# ${titleSeed}`,
     "",
-    "## 核心观点",
+    "## 一句话论点",
     "",
-    "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
+    "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的观点。",
+    "",
+    "## 三句话压缩",
+    "",
+    "1. 这条观点在说什么：",
+    "2. 为什么它成立或重要：",
+    "3. 它服务于哪个问题、主题或写作方向：",
     "",
     "## 为什么成立",
     "",
@@ -2735,11 +2752,15 @@ function originalDraftBodyFromSource(payload = {}) {
     "",
     "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
     "",
-    "## 来源线索",
+    "## 来源追溯",
     "",
     `- 来自随笔笔记：[[${sourceTitle}]]`,
     payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
     excerpt ? `- 原始线索摘录：${excerpt}` : "",
+    "",
+    "## 未解问题",
+    "",
+    "",
     ""
   ]
     .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
@@ -2813,6 +2834,81 @@ function notesUnderRoot(rootId = "") {
   return state.notes.filter((note) => ids.has(note.folderId));
 }
 
+function folderDepth(folderId = "") {
+  let depth = 0;
+  let cursor = folderById(state, folderId);
+  const seen = new Set();
+  while (cursor?.parentId && !seen.has(cursor.parentId)) {
+    seen.add(cursor.id);
+    depth += 1;
+    cursor = folderById(state, cursor.parentId);
+  }
+  return depth;
+}
+
+function folderTrailLabel(folderId = "") {
+  const parts = [];
+  let cursor = folderById(state, folderId);
+  const seen = new Set();
+  while (cursor && !seen.has(cursor.id)) {
+    seen.add(cursor.id);
+    parts.unshift(displayFolderName(cursor));
+    cursor = cursor.parentId ? folderById(state, cursor.parentId) : null;
+  }
+  return parts.join(" / ");
+}
+
+function permanentNoteDirectoryOptions() {
+  const rootId = "dir_original_default";
+  const root = folderById(state, rootId);
+  const result = [];
+
+  const visit = (folder, depth = 0) => {
+    if (!folder || folder.hidden) return;
+    const childCount = childFolders(state, folder.id).filter((item) => !item.hidden).length;
+    result.push({
+      id: folder.id,
+      name: displayFolderName(folder),
+      trail: folderTrailLabel(folder.id) || displayFolderName(folder),
+      fsPath: folder.fsPath || "",
+      depth,
+      noteCount: notesInFolder(state, folder.id).length,
+      childCount,
+      isRoot: folder.id === rootId
+    });
+    childFolders(state, folder.id)
+      .slice()
+      .sort((a, b) => displayFolderName(a).localeCompare(displayFolderName(b), "zh-CN"))
+      .forEach((child) => visit(child, depth + 1));
+  };
+
+  if (root) {
+    visit(root, 0);
+    return result;
+  }
+
+  return state.folders
+    .filter((folder) => !folder.hidden && rootBoxIdFromFolder(state, folder.id) === rootId)
+    .sort((a, b) => folderDepth(a.id) - folderDepth(b.id) || displayFolderName(a).localeCompare(displayFolderName(b), "zh-CN"))
+    .map((folder) => ({
+      id: folder.id,
+      name: displayFolderName(folder),
+      trail: folderTrailLabel(folder.id) || displayFolderName(folder),
+      fsPath: folder.fsPath || "",
+      depth: folderDepth(folder.id),
+      noteCount: notesInFolder(state, folder.id).length,
+      childCount: childFolders(state, folder.id).filter((item) => !item.hidden).length,
+      isRoot: folder.id === rootId
+    }));
+}
+
+function preferredPermanentDirectoryId(payload = {}) {
+  const requested = String(payload.directoryId || payload.targetDirectoryId || "").trim();
+  if (requested && isDirectoryUnderOriginalRoot(requested)) return requested;
+  if (state.selectedFolderId && isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
+  return folderById(state, "dir_original_default") ? "dir_original_default" : permanentNoteDirectoryOptions()[0]?.id || "";
+}
+
 function noteHasNetworkSignal(note = null) {
   const bodyLinks = parseLinks(note?.body || "");
   const bodyTags = parseTags(note?.body || "");
@@ -2830,6 +2926,26 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const linkedOriginalCount = originalNotes.filter(noteHasNetworkSignal).length;
   const generatedMaterialCount = currentNotes.filter(noteHasGeneratedOriginal).length;
   const pendingMaterialCount = Math.max(0, currentNotes.length - generatedMaterialCount);
+  const selectedMaterialNote = !isOriginal
+    ? currentNotes.find((note) => note.id === state.selectedFileId && isOriginalRecordableSource(note)) || null
+    : null;
+  const selectedGeneratedNoteId = noteGeneratedOriginalNoteId(selectedMaterialNote);
+  const selectedMaterialType = selectedMaterialNote?.noteType === "literature" ? "文献笔记" : "随笔笔记";
+  const ctaHtml = selectedMaterialNote
+    ? selectedGeneratedNoteId
+      ? `
+        <div class="sidebar-flow-actions">
+          <button class="mini-btn" type="button" data-open-generated-original="${escapeHtml(selectedGeneratedNoteId)}">打开对应永久笔记</button>
+        </div>
+      `
+      : `
+        <div class="sidebar-flow-actions">
+          <button class="mini-btn create-original-cta" type="button" data-record-permanent-note="${escapeHtml(selectedMaterialNote.id)}">
+            为这条${escapeHtml(selectedMaterialType)}创建永久笔记
+          </button>
+        </div>
+      `
+    : "";
   const title = isOriginal
     ? "永久笔记是默认主路"
     : isLiterature
@@ -2840,7 +2956,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   const note = isOriginal
     ? "新建、搜索和写作都优先围绕自己的判断展开；素材入口只负责把材料送到这里。"
     : isLiterature
-      ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
+      ? "先写转述，再创建永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
       : isFleeting
         ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为永久笔记。"
         : "这一级目录会被放回永久笔记、关系网络、主题索引和写作准备的路径里理解。";
@@ -2853,7 +2969,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
       ]
     : [
         ["素材入口", true],
-        ["记录永久笔记", generatedMaterialCount > 0],
+        ["创建永久笔记", generatedMaterialCount > 0],
         ["关系网络", linkedOriginalCount > 0],
         ["写作准备", false]
       ];
@@ -2892,6 +3008,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
           )
           .join("")}
       </div>
+      ${ctaHtml}
     </div>
   `;
 }
@@ -2920,6 +3037,163 @@ function syncNewNoteButtons() {
   }
   const mobileLabel = mobileNew?.querySelector("span");
   if (mobileLabel) mobileLabel.textContent = shortLabel;
+}
+
+function activeRecordableSourceNote() {
+  const note = state.notes.find((item) => item.id === state.selectedFileId) || null;
+  if (!note || !isOriginalRecordableSource(note) || noteHasGeneratedOriginal(note)) return null;
+  return note;
+}
+
+function syncSourceToPermanentButton() {
+  const button = $("btnSourceToPermanent");
+  if (!button) return;
+  const note = state.module === "explorer" ? activeRecordableSourceNote() : null;
+  const visible = Boolean(note);
+  button.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  const typeLabel = sourceTypeLabelForPermanentNote(note.noteType || typeFromFolder(state, note.folderId));
+  const label = `为当前${typeLabel}创建永久笔记`;
+  button.title = label;
+  button.setAttribute("aria-label", label);
+  const text = button.querySelector("span");
+  if (text) text.textContent = "创建永久笔记";
+}
+
+function sourceTypeLabelForPermanentNote(type = "") {
+  const noteType = String(type || "").trim().toLowerCase();
+  if (noteType === "literature") return "文献笔记";
+  if (noteType === "fleeting") return "随笔笔记";
+  return "素材笔记";
+}
+
+class PermanentNoteTargetDialog {
+  constructor({ maskEl, sourceEl, listEl, cancelEl, confirmEl, onStatus }) {
+    this.maskEl = maskEl;
+    this.sourceEl = sourceEl;
+    this.listEl = listEl;
+    this.cancelEl = cancelEl;
+    this.confirmEl = confirmEl;
+    this.onStatus = onStatus || (() => {});
+    this.options = [];
+    this.selectedDirectoryId = "";
+    this.resolveSelection = null;
+
+    this.cancelEl?.addEventListener("click", () => this.close(""));
+    this.confirmEl?.addEventListener("click", () => {
+      if (!this.selectedDirectoryId) {
+        this.onStatus("请先选择永久笔记盒里的目录", "warn");
+        return;
+      }
+      this.close(this.selectedDirectoryId);
+    });
+    this.maskEl?.addEventListener("click", (event) => {
+      if (event.target === this.maskEl) this.close("");
+    });
+    this.listEl?.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-permanent-target-directory]");
+      if (!option) return;
+      this.select(option.getAttribute("data-permanent-target-directory"));
+    });
+    this.listEl?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const option = event.target.closest("[data-permanent-target-directory]");
+      if (!option) return;
+      event.preventDefault();
+      this.select(option.getAttribute("data-permanent-target-directory"));
+    });
+  }
+
+  open({ sourceTitle = "", sourceType = "", options = [], defaultDirectoryId = "" } = {}) {
+    this.options = options;
+    this.selectedDirectoryId = options.some((item) => item.id === defaultDirectoryId)
+      ? defaultDirectoryId
+      : options[0]?.id || "";
+    if (this.sourceEl) {
+      const typeLabel = sourceTypeLabelForPermanentNote(sourceType);
+      this.sourceEl.textContent = `正在为“${sourceTitle || "未命名笔记"}”创建永久笔记。请选择它要放入的永久笔记盒目录。`;
+      this.sourceEl.dataset.sourceType = typeLabel;
+    }
+    this.render();
+    this.maskEl?.classList.remove("hidden");
+    this.confirmEl.disabled = !this.selectedDirectoryId;
+    queueMicrotask(() => {
+      this.listEl?.querySelector(".permanent-target-option.is-selected")?.focus();
+    });
+    return new Promise((resolve) => {
+      this.resolveSelection = resolve;
+    });
+  }
+
+  render() {
+    if (!this.listEl) return;
+    this.listEl.innerHTML = this.options
+      .map((option) => {
+        const selected = option.id === this.selectedDirectoryId;
+        const noteCount = Number(option.noteCount) || 0;
+        const childCount = Number(option.childCount) || 0;
+        const trail = option.trail ? `<small>${escapeHtml(option.trail)}</small>` : "";
+        const fsPath = option.fsPath ? `<small class="permanent-target-path">${escapeHtml(option.fsPath)}</small>` : "";
+        const chips = [
+          option.isRoot ? `<span class="permanent-target-chip">默认卡片盒</span>` : "",
+          selected ? `<span class="permanent-target-chip is-selected">当前选择</span>` : "",
+          noteCount ? `<span class="permanent-target-chip">${noteCount} 条笔记</span>` : `<span class="permanent-target-chip">空目录</span>`,
+          childCount ? `<span class="permanent-target-chip">${childCount} 个子目录</span>` : ""
+        ]
+          .filter(Boolean)
+          .join("");
+        return `
+          <button
+            class="permanent-target-option ${selected ? "is-selected" : ""}"
+            type="button"
+            style="--depth:${Number(option.depth) || 0}"
+            data-permanent-target-directory="${escapeHtml(option.id)}"
+            aria-pressed="${selected ? "true" : "false"}"
+          >
+            <span class="permanent-target-folder-icon" aria-hidden="true">${option.isRoot ? "⌂" : "▸"}</span>
+            <span class="permanent-target-option-main">
+              <strong>${escapeHtml(option.name)}</strong>
+              ${trail}
+              ${fsPath}
+              <span class="permanent-target-chip-row">${chips}</span>
+            </span>
+            <span class="permanent-target-count">${selected ? "已选" : "选择"}</span>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
+  select(directoryId = "") {
+    const nextId = String(directoryId || "").trim();
+    if (!this.options.some((item) => item.id === nextId)) return;
+    this.selectedDirectoryId = nextId;
+    if (this.confirmEl) this.confirmEl.disabled = false;
+    this.render();
+  }
+
+  close(value = "") {
+    this.maskEl?.classList.add("hidden");
+    const resolve = this.resolveSelection;
+    this.resolveSelection = null;
+    resolve?.(value);
+  }
+}
+
+async function choosePermanentNoteDirectoryForSource(payload = {}) {
+  const options = permanentNoteDirectoryOptions();
+  if (!options.length) {
+    setStatus("还没有可用的永久笔记盒目录", "bad");
+    return "";
+  }
+  const defaultDirectoryId = preferredPermanentDirectoryId(payload);
+  if (!permanentTargetDialog) return defaultDirectoryId || options[0]?.id || "";
+  return permanentTargetDialog.open({
+    sourceTitle: payload.sourceTitle || "",
+    sourceType: payload.sourceType || "",
+    options,
+    defaultDirectoryId
+  });
 }
 
 function renderSidebarTitle() {
@@ -2954,8 +3228,12 @@ function renderSidebarTitle() {
     const showSearch = Boolean(state.searchVisible || String(state.searchQuery || "").trim());
     filter?.classList.toggle("hidden", !showSearch);
     searchToggle?.classList.toggle("is-ghost", !showSearch);
-    sidebarFlow?.classList.add("hidden");
-    if (sidebarFlow) sidebarFlow.innerHTML = "";
+    if (state.browserRootId === "dir_fleeting_default" || state.browserRootId === "dir_literature_default") {
+      renderExplorerSidebarFlow(state.browserRootId);
+    } else {
+      sidebarFlow?.classList.add("hidden");
+      if (sidebarFlow) sidebarFlow.innerHTML = "";
+    }
     listArea?.classList.remove("hidden");
     moduleSidebar?.classList.remove("visible");
     if (moduleSidebar) moduleSidebar.innerHTML = "";
@@ -3362,6 +3640,7 @@ function renderWorkspaceStatusHint() {
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
   const noteType = String(activeNote?.noteType || "").trim();
+  action?.classList.remove("create-original-cta");
   if (!activeNote) {
     if (action) {
       action.dataset.helperAction = "noop";
@@ -3412,8 +3691,13 @@ function renderWorkspaceStatusHint() {
       }
     } else {
       title.textContent = "先把原文转成你的判断";
-      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
-      action.textContent = "继续整理";
+      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“创建永久笔记”。";
+      action.textContent = "创建永久笔记";
+      if (action) {
+        action.dataset.helperAction = "record-original-from-note";
+        action.dataset.targetNoteId = activeNote?.id || "";
+        action.classList.add("create-original-cta");
+      }
     }
     return;
   }
@@ -3436,8 +3720,13 @@ function renderWorkspaceStatusHint() {
     }
   } else {
     title.textContent = "把这条随笔推进成可复用判断";
-    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录永久笔记”，把判断单独沉淀出来。";
-    action.textContent = "继续记录";
+    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“创建永久笔记”，把判断单独沉淀出来。";
+    action.textContent = "创建永久笔记";
+    if (action) {
+      action.dataset.helperAction = "record-original-from-note";
+      action.dataset.targetNoteId = activeNote?.id || "";
+      action.classList.add("create-original-cta");
+    }
   }
 }
 
@@ -3577,6 +3866,7 @@ function renderAll() {
   applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
+  syncSourceToPermanentButton();
   if (state.module === "explorer") {
     explorer.render();
   }
@@ -3650,8 +3940,41 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
   ].join("\n");
 }
 
+function permanentNoteTemplateBody(title = "未命名笔记") {
+  return [
+    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
+    "",
+    "## 一句话论点",
+    "",
+    "",
+    "## 三句话压缩",
+    "",
+    "1. 这条观点在说什么：",
+    "2. 为什么它成立或重要：",
+    "3. 它服务于哪个问题、主题或写作方向：",
+    "",
+    "## 为什么成立",
+    "",
+    "",
+    "## 边界 / 反例",
+    "",
+    "",
+    "## 来源追溯",
+    "",
+    "- 来自随笔、文献或主题综合：",
+    "",
+    "## 未解问题",
+    "",
+    "",
+    ""
+  ].join("\n");
+}
+
 function initialBodyForFolder(folderId = "") {
-  return typeFromFolder(state, folderId) === "literature" ? literatureNoteTemplateBody() : "# 未命名笔记\n\n";
+  const noteType = typeFromFolder(state, folderId);
+  if (noteType === "literature") return literatureNoteTemplateBody();
+  if (noteType === "original" || noteType === "permanent") return permanentNoteTemplateBody();
+  return "# 未命名笔记\n\n";
 }
 
 async function createNoteInSelectedFolder(options = {}) {
@@ -6337,6 +6660,9 @@ async function handleStateChange(reason, payload = {}) {
 
   if (reason === "record-original-from-note" || reason === "create-original-from-literature") {
     const sourceNoteId = String(payload.sourceNoteId || "").trim();
+    if (sourceNoteId && !String(payload.sourceBody || "").trim()) {
+      await ensureNoteBodyLoaded(sourceNoteId);
+    }
     const sourceNote = state.notes.find((item) => item.id === sourceNoteId) || null;
     const sourceType = String(payload.sourceType || sourceNote?.noteType || "").trim().toLowerCase();
     const sourceTitle = String(payload.sourceTitle || sourceNote?.title || "").trim();
@@ -6350,7 +6676,22 @@ async function handleStateChange(reason, payload = {}) {
       payload.paraphrase || payload.sourceBody || payload.sourceTitle || sourceTitle || "",
       sourceTitle || "未命名永久笔记"
     );
-    const directoryId = "dir_original_default";
+    let directoryId = String(payload.directoryId || payload.targetDirectoryId || "").trim();
+    if (!directoryId) {
+      directoryId = await choosePermanentNoteDirectoryForSource({
+        ...payload,
+        sourceType,
+        sourceTitle
+      });
+      if (!directoryId) {
+        setStatus("已取消创建永久笔记", "warn");
+        return;
+      }
+    }
+    if (!folderById(state, directoryId) || !isDirectoryUnderOriginalRoot(directoryId)) {
+      setStatus("请选择永久笔记盒里的目录", "bad");
+      return;
+    }
     try {
       const created = await createNote({
         directoryId,
@@ -6397,9 +6738,9 @@ async function handleStateChange(reason, payload = {}) {
       }
       activateModule("explorer");
       openNoteById(note.id, { preferTitleSelection: false });
-      setStatus(`已记录永久笔记：${note.title || title}`, "ok");
+      setStatus(`已创建永久笔记：${note.title || title}`, "ok");
     } catch (error) {
-      setStatus(`记录永久笔记失败：${String(error?.message || error)}`, "bad");
+      setStatus(`创建永久笔记失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -6711,6 +7052,15 @@ const createBoxDialog = new CreateBoxDialog({
   pickDirectory: desktopCommands.browseDirectory
 });
 
+const permanentTargetDialog = new PermanentNoteTargetDialog({
+  maskEl: $("permanentTargetModal"),
+  sourceEl: $("permanentTargetSource"),
+  listEl: $("permanentTargetList"),
+  cancelEl: $("permanentTargetCancel"),
+  confirmEl: $("permanentTargetConfirm"),
+  onStatus: setStatus
+});
+
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   if (!name) return setStatus("请输入目录名称", "bad");
   const parentFolder = folderById(state, parentId);
@@ -6869,6 +7219,21 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
       return;
     }
     setStatus("没有找到对应永久笔记", "warn", { requireModule: "explorer" });
+    return;
+  }
+  if (helperAction === "record-original-from-note") {
+    const tab = editor.updateActiveTabFromEditor?.();
+    const activeNote = editor.activeNote?.();
+    if (!activeNote || !isOriginalRecordableSource(activeNote)) {
+      setStatus("请先打开一条随笔笔记或文献笔记", "warn", { requireModule: "explorer" });
+      return;
+    }
+    void handleStateChange("record-original-from-note", {
+      sourceNoteId: activeNote.id,
+      sourceTitle: tab?.title || activeNote.title || "",
+      sourceType: activeNote.noteType || typeFromFolder(state, activeNote.folderId),
+      sourceBody: tab?.body || activeNote.body || ""
+    });
     return;
   }
   setStatus("已记录当前建议，你可以继续编辑", "ok", { requireModule: "explorer" });
@@ -7900,6 +8265,43 @@ $("distillationPanel")?.addEventListener("click", async (event) => {
   const noteButton = event.target.closest("[data-distillation-open-note]");
   if (!noteButton) return;
   await openDistillationQueueNote(noteButton.dataset.distillationOpenNote);
+});
+
+function recordPermanentFromSourceNote(note = null) {
+  if (!note || !isOriginalRecordableSource(note)) {
+    setStatus("请先选择一条随笔笔记或文献笔记", "warn", { requireModule: "explorer" });
+    return;
+  }
+  const activeNote = editor.activeNote?.();
+  const activeTab = activeNote?.id === note.id ? editor.updateActiveTabFromEditor?.() : null;
+  void handleStateChange("record-original-from-note", {
+    sourceNoteId: note.id,
+    sourceTitle: activeTab?.title || note.title || "",
+    sourceType: note.noteType || typeFromFolder(state, note.folderId),
+    sourceBody: activeTab?.body || note.body || ""
+  });
+}
+
+$("sidebarFlow")?.addEventListener("click", (event) => {
+  const recordButton = event.target.closest("[data-record-permanent-note]");
+  if (recordButton) {
+    const noteId = String(recordButton.getAttribute("data-record-permanent-note") || "").trim();
+    const note = state.notes.find((item) => item.id === noteId) || null;
+    recordPermanentFromSourceNote(note);
+    return;
+  }
+
+  const openButton = event.target.closest("[data-open-generated-original]");
+  if (openButton) {
+    const noteId = String(openButton.getAttribute("data-open-generated-original") || "").trim();
+    if (noteId && openNoteById(noteId, { preferTitleSelection: false })) {
+      setStatus("已打开对应永久笔记", "ok", { requireModule: "explorer" });
+    }
+  }
+});
+
+$("btnSourceToPermanent")?.addEventListener("click", () => {
+  recordPermanentFromSourceNote(activeRecordableSourceNote());
 });
 
 $("btnMobileNewNote")?.addEventListener("click", () => {

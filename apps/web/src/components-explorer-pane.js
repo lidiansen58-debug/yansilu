@@ -22,7 +22,7 @@ function fileIconSvg() {
 function noteTypeBadge(noteType = "") {
   if (noteType === "fleeting") return "随";
   if (noteType === "literature") return "文";
-  return "原";
+  return "永";
 }
 
 function escapeHtml(value = "") {
@@ -43,6 +43,15 @@ function generatedOriginalBadge(state, note = null) {
   const originalTitle = String(originalNote?.title || "").trim();
   const title = originalTitle ? `已关联永久笔记：${originalTitle}` : "已关联到一条永久笔记";
   return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
+}
+
+function generatedPermanentNoteId(note = null) {
+  return String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
+}
+
+function canRecordPermanentNoteFromSource(note = null) {
+  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  return (noteType === "fleeting" || noteType === "literature") && !generatedPermanentNoteId(note);
 }
 
 function thinkingStatusBadge(note = null) {
@@ -86,7 +95,7 @@ export function explorerNewNoteButtonCopy(state = {}) {
   if (noteType === "fleeting") {
     return { label: "新建随笔", title: "新建随笔笔记", ariaLabel: "在当前随笔目录新建随笔笔记" };
   }
-  return { label: "新建原创", title: "新建原创笔记", ariaLabel: "在当前原创目录新建原创笔记" };
+  return { label: "新建永久", title: "新建永久笔记", ariaLabel: "在当前永久笔记目录新建永久笔记" };
 }
 
 export class ExplorerPane {
@@ -130,7 +139,8 @@ export class ExplorerPane {
     button.dataset.tip = copy.title;
     const folderId = resolveExplorerNewNoteFolderId(this.state);
     const noteType = typeFromFolder(this.state, folderId);
-    const ariaLabel = noteType === "literature" ? `${copy.ariaLabel}（文摘）` : noteType === "permanent" ? `${copy.ariaLabel}（永久）` : copy.ariaLabel;
+    const permanentLike = noteType === "permanent" || noteType === "original";
+    const ariaLabel = noteType === "literature" ? `${copy.ariaLabel}（文摘）` : permanentLike ? `${copy.ariaLabel}（永久）` : copy.ariaLabel;
     button.setAttribute("aria-label", ariaLabel);
     const label = button.querySelector(".new-note-action-label");
     if (label) label.textContent = copy.label;
@@ -310,6 +320,13 @@ export class ExplorerPane {
       }
 
       if (kind === "file") {
+        const note = this.state.notes.find((x) => x.id === id);
+        const sourceActions = canRecordPermanentNoteFromSource(note)
+          ? [
+              { type: "separator" },
+              { key: "record-permanent", label: "创建永久笔记", icon: "＋" }
+            ]
+          : [];
         this.contextMenu.show({
           x: e.clientX,
           y: e.clientY,
@@ -320,6 +337,7 @@ export class ExplorerPane {
             { key: "move", label: "移动到...", icon: "⇄" },
             { key: "copy-note-id", label: "复制笔记ID", icon: "⎘" },
             { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌕" },
+            ...sourceActions,
             { type: "separator" },
             { key: "properties", label: "属性", icon: "ⓘ" },
             { key: "delete", label: "删除", danger: true, icon: "✕" }
@@ -510,6 +528,14 @@ export class ExplorerPane {
       if (action === "reveal-note") {
         const notePath = this.resolveNotePath ? this.resolveNotePath(n) : "";
         await this.revealLocalPath(notePath, "Markdown 文件位置");
+      }
+      if (action === "record-permanent") {
+        await this.onStateChange("record-original-from-note", {
+          sourceNoteId: n.id,
+          sourceTitle: n.title || "",
+          sourceType: n.noteType || typeFromFolder(this.state, n.folderId)
+        });
+        return;
       }
       if (action === "properties") {
         this.onStatus(`${n.title}：类型 ${typeLabel(n.noteType || "original")}，更新于 ${new Date(n.updatedAt).toLocaleString()}`, "ok");

@@ -1103,7 +1103,7 @@ function renderPickerSections(items = [], groupLabelForItem, renderItem) {
 function noteTypeGlyph(type) {
   if (type === "fleeting") return "随";
   if (type === "literature") return "文";
-  return "原";
+  return "永";
 }
 
 function noteTypeText(type) {
@@ -1656,7 +1656,7 @@ export class EditorPane {
                     this.hasGeneratedOriginal(item.note)
                       ? `<span class="item-badge">已生成永久笔记</span>`
                       : item.lane === "ready"
-                        ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录永久笔记</button>`
+                        ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">创建永久笔记</button>`
                       : ""
                   }
                 </div>
@@ -2554,7 +2554,7 @@ export class EditorPane {
     const menu = this.els.toolbarCommandMenu;
     const input = this.els.toolbarCommandSearchInput;
     const list = this.els.toolbarCommandList;
-    if (!btn || !menu || !input || !list) return;
+    if (!btn || !menu || !list) return;
 
     const closeMenu = () => {
       menu.classList.add("hidden");
@@ -2564,9 +2564,8 @@ export class EditorPane {
     const openMenu = () => {
       menu.classList.remove("hidden");
       btn.setAttribute("aria-expanded", "true");
-      input.value = "";
       this.filterToolbarCommandMenu("");
-      queueMicrotask(() => input.focus());
+      queueMicrotask(() => list.querySelector("[data-toolbar-command]")?.focus());
     };
 
     btn.addEventListener("click", (e) => {
@@ -2590,11 +2589,11 @@ export class EditorPane {
       }
     });
 
-    input.addEventListener("input", () => {
+    input?.addEventListener("input", () => {
       this.filterToolbarCommandMenu(input.value);
     });
 
-    input.addEventListener("keydown", (e) => {
+    input?.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") {
         closeMenu();

@@ -38,6 +38,20 @@ test("note browser new action falls back to current root when selection is stale
   });
 });
 
+test("note browser new action names permanent notes instead of original notes", () => {
+  const state = createInitialState();
+
+  state.browserRootId = "dir_original_default";
+  state.selectedFolderId = "dir_original_default";
+
+  assert.equal(resolveExplorerNewNoteFolderId(state), "dir_original_default");
+  assert.deepEqual(explorerNewNoteButtonCopy(state), {
+    label: "新建永久",
+    title: "新建永久笔记",
+    ariaLabel: "在当前永久笔记目录新建永久笔记"
+  });
+});
+
 test("editor toolbar does not render the file attachment button", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -45,4 +59,11 @@ test("editor toolbar does not render the file attachment button", () => {
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
   assert.doesNotMatch(html, /插入文件附件/);
+  assert.doesNotMatch(html, /id="toolbarCommandSearchInput"/);
+  assert.doesNotMatch(html, /搜索低频操作/);
+  assert.match(html, /更多编辑操作/);
+  assert.match(html, /id="permanentTargetModal"/);
+  assert.match(html, /永久笔记盒目录/);
+  assert.match(html, /id="btnSourceToPermanent"/);
+  assert.doesNotMatch(html, /永久笔记目录 ID/);
 });
