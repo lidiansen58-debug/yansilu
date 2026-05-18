@@ -34,28 +34,40 @@ export function renderImportHistoryControls({ filters = {} } = {}) {
   const status = String(filters.status || "all").trim();
   const connector = String(filters.connector || "all").trim();
   const risk = String(filters.risk || "all").trim();
+  const hasActiveFilter = status !== "all" || connector !== "all" || risk !== "all";
+  const activeFilterText = [
+    STATUS_OPTIONS.find((option) => option.value === status)?.label || "全部状态",
+    importConnectorFilterOptions().find((option) => option.value === connector)?.label || "全部连接器",
+    RISK_OPTIONS.find((option) => option.value === risk)?.label || "全部风险"
+  ].join(" / ");
 
   return `
-    <div class="import-history-controls">
-      <label>
-        <span>状态</span>
-        <select id="importHistoryStatus">
-          ${renderSelectOptions(STATUS_OPTIONS, status)}
-        </select>
-      </label>
-      <label>
-        <span>连接器</span>
-        <select id="importHistoryConnector">
-          ${renderSelectOptions(importConnectorFilterOptions(), connector)}
-        </select>
-      </label>
-      <label>
-        <span>风险</span>
-        <select id="importHistoryRisk">
-          ${renderSelectOptions(RISK_OPTIONS, risk)}
-        </select>
-      </label>
-      <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
-    </div>
+    <details class="import-history-filter" id="importHistoryFilter"${hasActiveFilter ? " open" : ""}>
+      <summary>
+        <span>筛选历史</span>
+        <small>${escapeHtml(activeFilterText)}</small>
+      </summary>
+      <div class="import-history-controls">
+        <label>
+          <span>状态</span>
+          <select id="importHistoryStatus">
+            ${renderSelectOptions(STATUS_OPTIONS, status)}
+          </select>
+        </label>
+        <label>
+          <span>连接器</span>
+          <select id="importHistoryConnector">
+            ${renderSelectOptions(importConnectorFilterOptions(), connector)}
+          </select>
+        </label>
+        <label>
+          <span>风险</span>
+          <select id="importHistoryRisk">
+            ${renderSelectOptions(RISK_OPTIONS, risk)}
+          </select>
+        </label>
+        <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
+      </div>
+    </details>
   `;
 }

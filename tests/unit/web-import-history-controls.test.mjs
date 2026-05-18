@@ -8,6 +8,9 @@ test("import history controls render default filter state and refresh button", (
   assert.match(html, /id="importHistoryConnector"/);
   assert.match(html, /id="importHistoryRisk"/);
   assert.match(html, /id="btnImportHistoryRefresh"/);
+  assert.match(html, /id="importHistoryFilter"/);
+  assert.match(html, /筛选历史/);
+  assert.doesNotMatch(html, /id="importHistoryFilter" open/);
   assert.match(html, /<span>状态<\/span>/);
   assert.match(html, /<span>连接器<\/span>/);
   assert.match(html, /<span>风险<\/span>/);
@@ -29,6 +32,8 @@ test("import history controls render selected filter values", () => {
   assert.match(html, /option value="completed" selected/);
   assert.match(html, /option value="obsidian" selected/);
   assert.match(html, /option value="blocked" selected/);
+  assert.match(html, /id="importHistoryFilter" open/);
+  assert.match(html, /已完成 \/ Obsidian \/ 有阻断/);
   assert.match(html, /已完成/);
   assert.match(html, /Obsidian/);
   assert.match(html, /有阻断/);
