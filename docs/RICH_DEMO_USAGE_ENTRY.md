@@ -19,6 +19,13 @@ The current rich demo asset is the smart-notes product-thinking demo:
 - talk track: `docs/DEMO_PLAYBOOK_SMART_NOTES_3_MIN.md`
 - content spec: `docs/DEMO_SMART_NOTES_PM_FLOW.md`
 
+Recommended presenter flow:
+
+1. Seed a disposable local vault.
+2. Open `/demo/zettelkasten` to frame the story.
+3. Open `/prototype?demo=smart-notes-product-thinking` to demonstrate the workspace.
+4. Walk through source, fleeting notes, literature notes, permanent notes, graph, index cards, writing project, scaffold, and essay in that order.
+
 ## Local Demo Vault
 
 Generate rich demo data into a disposable vault, not into the checked-in `vault-example` baseline.
@@ -31,6 +38,10 @@ node scripts/seed-smart-notes-product-thinking.mjs --vault $env:DEMO_VAULT
 ```
 
 The command is intended to be idempotent. Running it again should update the same demo records instead of duplicating notes, relations, index cards, writing projects, or draft scaffolds.
+
+The path under `.local-demo-vaults` is disposable/generated runtime output. It is safe to delete before a clean recording and seed again. It should not be curated by hand, copied into `vault-example`, or committed.
+
+Use a separate disposable vault for important demos if the current local vault may contain exploratory changes.
 
 ## Fixture Override
 
@@ -53,6 +64,20 @@ For the interactive prototype, use:
 ```
 
 The app should call the public API seed endpoint and open the seeded workspace. This keeps the browser demo aligned with the same fixture and seed path used by local scripts and tests.
+
+For the narrative page, start with:
+
+```text
+/demo/zettelkasten
+```
+
+The story page explains why the demo is about source-informed product thinking rather than generic note storage. The prototype is the hands-on walkthrough.
+
+## Originality Boundary
+
+The smart-notes demo may reference *How to Take Smart Notes* as source material, but it must remain a product demo built from original paraphrases and product-manager restatements.
+
+Do not use the demo to reproduce book text, long passages, chapter-level paraphrase, or a substitute summary. The point is to show Yansilu's workflow: source trace, user paraphrase, owned judgment, typed relations, question-centered index cards, and traceable writing.
 
 ## Validation
 
@@ -84,6 +109,8 @@ Do not commit as rich demo source assets:
 - one-off markdown files produced by a local seed run
 - deletions of existing Yijing acceptance or knowledge-network fixtures
 - broad changes to `vault-example/yansilu-vault`
+
+For documentation-only branches, keep the status even narrower: only `docs/` files should change. Do not modify `tests/fixtures`, `scripts`, `vault-example`, `.yansilu`, or package files.
 
 ## Promotion Checklist
 

@@ -6838,7 +6838,8 @@ async function importYijingRichAcceptanceDemo() {
   }
 }
 
-async function importSmartNotesProductThinkingDemo() {
+async function importSmartNotesProductThinkingDemo(options = {}) {
+  const { startup = false } = options;
   setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
@@ -6848,15 +6849,21 @@ async function importSmartNotesProductThinkingDemo() {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    const firstNoteId = String(result?.firstNoteId || "").trim();
+    if (firstNoteId) {
+      state.selectedFileId = firstNoteId;
+      openNoteById(firstNoteId, { preferTitleSelection: false });
+    }
     await refreshDirectoryGraph();
+    if (startup) activateModule("explorer");
     renderAll();
     const counts = result?.counts || {};
     const summary = result?.summary || {};
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目`, "ok");
+    const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
+    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
     return true;
   } catch (error) {
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
@@ -9073,12 +9080,11 @@ async function bootstrap() {
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo()
+      ? await importSmartNotesProductThinkingDemo({ startup: true })
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
         ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
         : false;
   if (openedDemo) {
-    activateModule("graph");
     renderAll();
   } else if (initialNote) {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
