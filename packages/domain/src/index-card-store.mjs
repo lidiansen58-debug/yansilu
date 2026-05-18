@@ -294,13 +294,36 @@ export async function updateIndexCard(vaultPath, indexCardId, input = {}) {
     const threeLineSummary = input.threeLineSummary === undefined && input.three_line_summary === undefined
       ? normalizeThreeLineSummary(existing.three_line_summary)
       : normalizeThreeLineSummary(input.threeLineSummary || input.three_line_summary);
+    const itemsExplicit = Array.isArray(input.items) || Array.isArray(input.noteIds || input.note_ids);
+    const items = itemsExplicit
+      ? normalizeIndexItems(input.items, input.noteIds || input.note_ids)
+      : normalizeIndexItems(existing.items);
     const now = new Date().toISOString();
+    validateIndexItems(db, items);
 
-    db.prepare(
-      `UPDATE index_cards
-       SET title = ?, summary = ?, thesis = ?, three_line_summary_json = ?, central_question = ?, ordering_strategy = ?, updated_at = ?
-       WHERE id = ?`
-    ).run(title, summary, thesis, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, id);
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      db.prepare(
+        `UPDATE index_cards
+         SET title = ?, summary = ?, thesis = ?, three_line_summary_json = ?, central_question = ?, ordering_strategy = ?, updated_at = ?
+         WHERE id = ?`
+      ).run(title, summary, thesis, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, id);
+
+      if (itemsExplicit) {
+        db.prepare(`DELETE FROM index_items WHERE index_id = ?`).run(id);
+        for (const item of items) {
+          db.prepare(
+            `INSERT INTO index_items
+              (id, index_id, note_id, short_label, rationale, order_no)
+             VALUES (?, ?, ?, ?, ?, ?)`
+          ).run(`idxi_${randomUUID().slice(0, 8)}`, id, item.note_id, item.short_label, item.rationale, item.order);
+        }
+      }
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
 
     return loadIndexCardById(db, id);
   } finally {
