@@ -52,6 +52,17 @@ test("note browser new action names permanent notes without legacy original copy
   });
 });
 
+test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
+  const state = createInitialState();
+
+  assert.deepEqual(
+    state.notes.map((note) => note.id),
+    ["pn_001", "pn_002"]
+  );
+  assert.equal(state.notes[0].noteType, "permanent");
+  assert.equal(state.notes[1].folderId, "dir_original_method");
+});
+
 test("editor toolbar does not render the file attachment button", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

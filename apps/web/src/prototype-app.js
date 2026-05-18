@@ -138,6 +138,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
+let usingLocalFallbackData = false;
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 const importState = {
@@ -3970,6 +3971,26 @@ async function openStartupUntitledNote() {
   return result;
 }
 
+function resetWritingProjectContext({ title = "", goal = "", audience = "", tone = "" } = {}) {
+  writingState.project = null;
+  writingState.scaffold = null;
+  writingState.scaffoldMarkdown = "";
+  writingState.scaffoldVersions = [];
+  writingState.draftVersions = [];
+  if ($("writingTitle")) $("writingTitle").value = title;
+  if ($("writingGoal")) $("writingGoal").value = goal;
+  if ($("writingAudience")) $("writingAudience").value = audience;
+  if ($("writingTone")) $("writingTone").value = tone;
+}
+
+function preferredLocalFallbackNote() {
+  return (
+    state.notes.find((note) => rootBoxIdFromFolder(state, note.folderId) === "dir_original_default") ||
+    state.notes[0] ||
+    null
+  );
+}
+
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
   settingsState.ai.modelPack = next;
@@ -7116,8 +7137,17 @@ async function handleStateChange(reason, payload = {}) {
     if (action === "writing") {
       await ensureNoteBodyLoaded(noteId);
       clearWritingSourceIndexIds();
-      addWritingBasketIds([noteId]);
-      if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${note.title || "未命名笔记"} 写作项目`;
+      setSelectedWritingThemeIndex("");
+      setWritingBasketIds([noteId]);
+      resetWritingProjectContext({
+        title: `${note.title || "未命名笔记"} 写作项目`
+      });
+      showWritingResult({
+        stage: "writing_entry_from_note",
+        source: "note_main_path",
+        noteId,
+        basketNoteIds: [noteId]
+      });
       renderWritingPanel();
       await openWritingModule({ statusMessage: `已把“${note.title || noteId}”加入写作篮子，并打开写作中心` });
       return true;
@@ -8804,6 +8834,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function bootstrap() {
+  usingLocalFallbackData = false;
   renderImportPageShell();
 
   const importToolbarActions = createImportToolbarActions({
@@ -9080,7 +9111,8 @@ async function bootstrap() {
         }
       } catch {}
     } else {
-      setStatus(`API 连接失败，使用本地工作台数据：${String(error?.message || error)}`, "warn");
+      usingLocalFallbackData = true;
+      setStatus(`API 连接失败，已回退到本地示例数据：${String(error?.message || error)}`, "warn");
     }
   }
 
@@ -9106,6 +9138,16 @@ async function bootstrap() {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
+  } else if (usingLocalFallbackData) {
+    const fallbackNote = preferredLocalFallbackNote();
+    if (fallbackNote) {
+      state.browserRootId = rootBoxIdFromFolder(state, fallbackNote.folderId);
+      state.selectedFolderId = fallbackNote.folderId;
+      openNoteById(fallbackNote.id, { preferTitleSelection: false });
+      setStatus(`API 连接失败，已打开本地示例笔记：${fallbackNote.title || fallbackNote.id}`, "warn");
+    } else {
+      await openStartupUntitledNote();
+    }
   } else {
     await openStartupUntitledNote();
   }
