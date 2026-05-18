@@ -1,3 +1,5 @@
+import { aiSuggestionFromCanonical } from "./ai-suggestions-model.js";
+
 const API_BASE =
   (typeof window !== "undefined" &&
     typeof window.__API_BASE__ === "string" &&
@@ -20,6 +22,24 @@ async function request(pathname, options = {}) {
     throw error;
   }
   return json;
+}
+
+function canonicalQuery(options = {}) {
+  return options?.canonical === true ? "canonical=true" : "";
+}
+
+function withCanonical(result, json, options = {}) {
+  if (options?.canonical !== true) return result;
+  if (result && typeof result === "object" && !Array.isArray(result)) {
+    return {
+      ...result,
+      canonical: json?.canonical || null
+    };
+  }
+  return {
+    item: result,
+    canonical: json?.canonical || null
+  };
 }
 
 export async function fetchDirectories(includeHidden = false) {
@@ -115,14 +135,15 @@ export async function fetchAiInbox(options = {}) {
   if (type && type !== "all") params.set("type", type);
   if (sourceNoteId) params.set("sourceNoteId", sourceNoteId);
   if (privacyMode) params.set("privacyMode", privacyMode);
+  if (options?.canonical === true) params.set("canonical", "true");
   params.set("limit", String(limit));
   const json = await request(`/api/v1/ai/inbox?${params.toString()}`);
-  return {
+  return withCanonical({
     items: Array.isArray(json.items) ? json.items : [],
     total: Number(json.total || 0),
     counts: json.counts || {},
     views: Array.isArray(json.views) ? json.views : []
-  };
+  }, json, options);
 }
 
 export async function fetchAiInboxEvaluationSummary(options = {}) {
@@ -139,26 +160,93 @@ export async function fetchAiInboxEvaluationSummary(options = {}) {
   return json.item || null;
 }
 
+export async function fetchAiSuggestions(options = {}) {
+  const params = new URLSearchParams();
+  const status = String(options?.status || "").trim();
+  const targetType = String(options?.targetType || options?.target_type || "").trim();
+  const targetId = String(options?.targetId || options?.target_id || "").trim();
+  const scope = String(options?.scope || "").trim();
+  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
+  if (status && status !== "all") params.set("status", status);
+  if (targetType) params.set("targetType", targetType);
+  if (targetId) params.set("targetId", targetId);
+  if (scope) params.set("scope", scope);
+  if (options?.canonical === true) params.set("canonical", "true");
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/ai-suggestions?${params.toString()}`);
+  return withCanonical({
+    items:
+      options?.canonical === true && Array.isArray(json?.canonical?.items)
+        ? json.canonical.items.map((item) => aiSuggestionFromCanonical(item))
+        : Array.isArray(json.items)
+          ? json.items
+          : [],
+    total: Number(json.total || 0)
+  }, json, options);
+}
+
+export async function createAiSuggestion(payload = {}) {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai-suggestions${suffix ? `?${suffix}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  const item = payload?.canonical === true && json?.canonical?.item ? aiSuggestionFromCanonical(json.canonical.item) : json.item || null;
+  return withCanonical(item, json, payload);
+}
+
+export async function fetchAiSuggestion(suggestionId, options = {}) {
+  const cleanSuggestionId = String(suggestionId || "").trim();
+  if (!cleanSuggestionId) throw new Error("suggestionId is required");
+  const suffix = canonicalQuery(options);
+  const json = await request(`/api/v1/ai-suggestions/${encodeURIComponent(cleanSuggestionId)}${suffix ? `?${suffix}` : ""}`);
+  const item = options?.canonical === true && json?.canonical?.item ? aiSuggestionFromCanonical(json.canonical.item) : json.item || null;
+  return withCanonical(item, json, options);
+}
+
+export async function updateAiSuggestion(suggestionId, payload = {}) {
+  const cleanSuggestionId = String(suggestionId || "").trim();
+  if (!cleanSuggestionId) throw new Error("suggestionId is required");
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai-suggestions/${encodeURIComponent(cleanSuggestionId)}${suffix ? `?${suffix}` : ""}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  const item = payload?.canonical === true && json?.canonical?.item ? aiSuggestionFromCanonical(json.canonical.item) : json.item || null;
+  return withCanonical(item, json, payload);
+}
+
 export async function fetchAiInboxItem(artifactId) {
+  return fetchAiInboxItemWithOptions(artifactId, {});
+}
+
+export async function fetchAiInboxItemWithOptions(artifactId, options = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");
-  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}`);
+  const suffix = canonicalQuery(options);
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}${suffix ? `?${suffix}` : ""}`);
+  return withCanonical(json, json, options);
 }
 
 export async function recordAiInboxDecision(artifactId, payload = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");
-  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/decision`, {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/decision${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {})
   });
+  return withCanonical(json, json, payload);
 }
 
 export async function acceptAiInboxLink(artifactId, payload = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");
-  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/accept-link`, {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/accept-link${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -166,12 +254,14 @@ export async function acceptAiInboxLink(artifactId, payload = {}) {
       confirm: true
     })
   });
+  return withCanonical(json, json, payload);
 }
 
 export async function promoteAiInboxNote(artifactId, payload = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");
-  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/promote-note`, {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/promote-note${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -179,12 +269,14 @@ export async function promoteAiInboxNote(artifactId, payload = {}) {
       confirm: true
     })
   });
+  return withCanonical(json, json, payload);
 }
 
 export async function adoptAiInboxFieldSuggestion(artifactId, payload = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");
-  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/adopt-field-suggestion`, {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/adopt-field-suggestion${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -192,6 +284,7 @@ export async function adoptAiInboxFieldSuggestion(artifactId, payload = {}) {
       confirm: true
     })
   });
+  return withCanonical(json, json, payload);
 }
 
 export async function summarizeAiInboxItem(artifactId, payload = {}) {
@@ -285,12 +378,13 @@ export async function fetchAiScheduledTasks(options = {}) {
   const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
   if (status && status !== "all") params.set("status", status);
   if (taskType && taskType !== "all") params.set("taskType", taskType);
+  if (options?.canonical === true) params.set("canonical", "true");
   params.set("limit", String(limit));
   const json = await request(`/api/v1/ai/scheduled-tasks?${params.toString()}`);
-  return {
+  return withCanonical({
     items: Array.isArray(json.items) ? json.items : [],
     total: Number(json.total || 0)
-  };
+  }, json, options);
 }
 
 export async function fetchAiScheduledTaskTemplates(options = {}) {
@@ -307,25 +401,31 @@ export async function fetchAiScheduledTaskTemplates(options = {}) {
 }
 
 export async function saveAiScheduledTask(payload = {}) {
-  const json = await request("/api/v1/ai/scheduled-tasks", {
+  const suffix = canonicalQuery(payload);
+  const json = await request(`/api/v1/ai/scheduled-tasks${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload || {})
   });
-  return json.item || null;
+  return withCanonical(json.item || null, json, payload);
 }
 
 export async function updateAiScheduledTaskStatus(scheduledTaskId, status) {
+  return updateAiScheduledTaskStatusWithOptions(scheduledTaskId, status, {});
+}
+
+export async function updateAiScheduledTaskStatusWithOptions(scheduledTaskId, status, options = {}) {
   const cleanScheduledTaskId = String(scheduledTaskId || "").trim();
   const cleanStatus = String(status || "").trim();
   if (!cleanScheduledTaskId) throw new Error("scheduledTaskId is required");
   if (!cleanStatus) throw new Error("status is required");
-  const json = await request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}/status`, {
+  const suffix = canonicalQuery(options);
+  const json = await request(`/api/v1/ai/scheduled-tasks/${encodeURIComponent(cleanScheduledTaskId)}/status${suffix ? `?${suffix}` : ""}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: cleanStatus })
   });
-  return json.item || null;
+  return withCanonical(json.item || null, json, options);
 }
 
 export async function deleteAiScheduledTask(scheduledTaskId) {

@@ -53,14 +53,23 @@ import {
   renderAiInboxPanel
 } from "./ai-inbox-panel.js";
 import {
+  renderAiSuggestionsPanel
+} from "./ai-suggestions-panel.js";
+import {
   aiInboxActionLabel,
+  aiArtifactFromCanonical,
+  aiInboxItemFromCanonical,
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
+import {
+  normalizeAiSuggestionFilters
+} from "./ai-suggestions-model.js";
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
   scheduledTaskFormDefaults,
+  scheduledTaskFromCanonical,
   scheduledTaskFormFromTask,
   scheduledTaskPayloadFromForm,
   normalizeScheduledTaskFilters
@@ -77,6 +86,7 @@ import {
   confirmImport,
   createDirectory,
   createDraftScaffold,
+  createAiSuggestion,
   createIndexCard,
   createNote,
   createWritingProject,
@@ -90,6 +100,9 @@ import {
   fetchAiInbox,
   fetchAiInboxEvaluationSummary,
   fetchAiInboxItem,
+  fetchAiInboxItemWithOptions,
+  fetchAiSuggestion,
+  fetchAiSuggestions,
   fetchAiScheduledTasks,
   fetchAiScheduledTaskTemplates,
   fetchRelationReviewQueue,
@@ -131,6 +144,8 @@ import {
   switchVault,
   updateDirectory,
   updateAiScheduledTaskStatus,
+  updateAiScheduledTaskStatusWithOptions,
+  updateAiSuggestion,
   updateNote,
   updatePermanentNoteDistillation,
   adoptAiInboxFieldSuggestion
@@ -230,6 +245,20 @@ const settingsState = {
     testRunning: false,
     testMeta: "",
     testOutput: "",
+    suggestions: [],
+    suggestionsTotal: 0,
+    suggestionFilters: {
+      status: "all",
+      targetType: "",
+      targetId: "",
+      scope: "",
+      limit: 50
+    },
+    selectedSuggestionId: "",
+    suggestionDetail: null,
+    suggestionsLoading: false,
+    suggestionActionLoading: false,
+    suggestionsError: "",
     scheduledTasks: [],
     scheduledTasksTotal: 0,
     scheduledTaskTemplates: [],
@@ -244,7 +273,14 @@ const settingsState = {
     scheduledTasksLoading: false,
     scheduledTaskActionLoading: false,
     scheduledTasksError: "",
-    scheduledTaskRunSummary: null
+    scheduledTaskRunSummary: null,
+    debugSnapshots: {
+      inboxList: null,
+      inboxDetail: null,
+      inboxDecision: null,
+      scheduledTasksList: null,
+      scheduledTaskAction: null
+    }
   },
   error: ""
 };
@@ -1125,6 +1161,123 @@ function renderScheduledTasksWorkspace() {
   });
 }
 
+function renderAiSuggestionsWorkspace() {
+  const el = $("settingsAiSuggestionsPanel");
+  if (!el) return;
+  el.innerHTML = renderAiSuggestionsPanel({
+    items: settingsState.ai.suggestions,
+    total: settingsState.ai.suggestionsTotal,
+    filters: settingsState.ai.suggestionFilters,
+    selectedSuggestionId: settingsState.ai.selectedSuggestionId,
+    detail: settingsState.ai.suggestionDetail,
+    loading: settingsState.ai.suggestionsLoading,
+    actionLoading: settingsState.ai.suggestionActionLoading,
+    error: settingsState.ai.suggestionsError
+  });
+}
+
+function aiSuggestionFiltersFromUi() {
+  return normalizeAiSuggestionFilters({
+    ...settingsState.ai.suggestionFilters,
+    status: $("aiSuggestionStatusFilter")?.value || settingsState.ai.suggestionFilters.status,
+    targetType: $("aiSuggestionTargetTypeFilter")?.value || "",
+    targetId: $("aiSuggestionTargetIdFilter")?.value || "",
+    scope: $("aiSuggestionScopeFilter")?.value || ""
+  });
+}
+
+async function loadAiSuggestionDetail(suggestionId) {
+  const cleanSuggestionId = String(suggestionId || "").trim();
+  if (!cleanSuggestionId) {
+    settingsState.ai.selectedSuggestionId = "";
+    settingsState.ai.suggestionDetail = null;
+    renderAiSuggestionsWorkspace();
+    return null;
+  }
+  settingsState.ai.selectedSuggestionId = cleanSuggestionId;
+  renderAiSuggestionsWorkspace();
+  try {
+    const item = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
+    settingsState.ai.suggestionDetail = item;
+    return item;
+  } catch (error) {
+    settingsState.ai.suggestionsError = String(error?.message || error);
+    setStatus(`AI suggestion detail failed: ${settingsState.ai.suggestionsError}`, "warn");
+    return null;
+  } finally {
+    renderAiSuggestionsWorkspace();
+  }
+}
+
+async function refreshAiSuggestions(options = {}) {
+  settingsState.ai.suggestionFilters = normalizeAiSuggestionFilters(settingsState.ai.suggestionFilters);
+  if (!options.silent) {
+    settingsState.ai.suggestionsLoading = true;
+    settingsState.ai.suggestionsError = "";
+    renderAiSuggestionsWorkspace();
+  }
+  const previousSelectedId = String(settingsState.ai.selectedSuggestionId || "").trim();
+  try {
+    const result = await fetchAiSuggestions({ ...settingsState.ai.suggestionFilters, canonical: true });
+    settingsState.ai.suggestions = result.items;
+    settingsState.ai.suggestionsTotal = result.total;
+    settingsState.ai.suggestionsError = "";
+    const selectedStillVisible = result.items.some((item) => String(item.id || "").trim() === previousSelectedId);
+    if (!options.preserveDetail) {
+      settingsState.ai.selectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
+      if (!settingsState.ai.selectedSuggestionId) settingsState.ai.suggestionDetail = null;
+    }
+    return result;
+  } catch (error) {
+    settingsState.ai.suggestionsError = String(error?.message || error);
+    setStatus(`AI suggestions failed to load: ${settingsState.ai.suggestionsError}`, "warn");
+    return null;
+  } finally {
+    settingsState.ai.suggestionsLoading = false;
+    renderAiSuggestionsWorkspace();
+  }
+}
+
+async function applyAiSuggestionStatus(suggestionId, status) {
+  const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
+  const cleanStatus = String(status || "").trim();
+  if (!cleanSuggestionId || !cleanStatus) return null;
+  settingsState.ai.suggestionActionLoading = true;
+  renderAiSuggestionsWorkspace();
+  try {
+    const current = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || settingsState.ai.suggestionDetail || {};
+    const payload = {
+      status: cleanStatus,
+      actor: "user",
+      userId: "local_user",
+      action:
+        cleanStatus === "adopted_as_draft"
+          ? "adopt_as_draft"
+          : cleanStatus === "confirmed"
+            ? "confirm"
+            : cleanStatus === "rejected"
+              ? "reject"
+              : cleanStatus
+    };
+    if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
+    if (cleanStatus === "confirmed") payload.userConfirmed = true;
+    const item = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
+    settingsState.ai.suggestions = settingsState.ai.suggestions.map((entry) =>
+      String(entry.id || "").trim() === cleanSuggestionId ? item : entry
+    );
+    settingsState.ai.suggestionDetail = item;
+    settingsState.ai.selectedSuggestionId = cleanSuggestionId;
+    setStatus(`AI suggestion ${cleanStatus}: ${cleanSuggestionId}`, "ok");
+    return item;
+  } catch (error) {
+    setStatus(`AI suggestion update failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    settingsState.ai.suggestionActionLoading = false;
+    renderAiSuggestionsWorkspace();
+  }
+}
+
 function scheduledTaskFiltersFromUi() {
   return normalizeScheduledTaskFilters({
     ...settingsState.ai.scheduledTaskFilters,
@@ -1223,8 +1376,10 @@ async function saveScheduledTaskFromUi() {
   settingsState.ai.scheduledTaskActionLoading = true;
   renderScheduledTasksWorkspace();
   try {
-    const item = await saveAiScheduledTask(payload);
-    settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(item);
+    const item = await saveAiScheduledTask({ ...payload, canonical: true });
+    rememberAiDebugSnapshot("scheduledTaskAction", item);
+    const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
+    settingsState.ai.scheduledTaskForm = scheduledTaskFormFromTask(canonicalTask || item);
     await refreshScheduledTasks({ silent: true });
     setStatus(`Scheduled task saved: ${item?.name || item?.scheduledTaskId || ""}`, "ok");
     return item;
@@ -1264,6 +1419,31 @@ function aiInboxFeedbackFromUi() {
   return feedback;
 }
 
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function rememberAiDebugSnapshot(key, response) {
+  if (!settingsState.ai.debugSnapshots || !Object.prototype.hasOwnProperty.call(settingsState.ai.debugSnapshots, key)) return;
+  const runtime = cloneJson(response);
+  if (runtime && typeof runtime === "object" && !Array.isArray(runtime) && Object.prototype.hasOwnProperty.call(runtime, "canonical")) {
+    delete runtime.canonical;
+  }
+  settingsState.ai.debugSnapshots[key] = {
+    capturedAt: new Date().toISOString(),
+    runtime,
+    canonical: cloneJson(response?.canonical || null)
+  };
+  if (state.module === "settings") renderSettingsPanel();
+}
+
+function aiInboxDetailFromResponse(response = {}) {
+  const canonical = response?.canonical || {};
+  const item = canonical.item ? aiInboxItemFromCanonical(canonical.item) : response?.item || null;
+  const artifact = canonical.artifact ? aiArtifactFromCanonical(canonical.artifact) : response?.artifact || null;
+  return { item, artifact };
+}
+
 async function loadAiInboxDetail(artifactId) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) {
@@ -1280,8 +1460,9 @@ async function loadAiInboxDetail(artifactId) {
   resetAiInboxSummaryState();
   renderAiInboxWorkspace();
   try {
-    const detail = await fetchAiInboxItem(cleanArtifactId);
-    aiInboxState.detail = detail;
+    const detail = await fetchAiInboxItemWithOptions(cleanArtifactId, { canonical: true });
+    aiInboxState.detail = aiInboxDetailFromResponse(detail);
+    rememberAiDebugSnapshot("inboxDetail", detail);
     syncAiInboxSummaryFromDetail(detail);
     return detail;
   } catch (error) {
@@ -1304,10 +1485,13 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
   }
   const previousSelectedId = String(aiInboxState.selectedArtifactId || "").trim();
   try {
-    const result = await fetchAiInbox(aiInboxState.filters);
-    aiInboxState.items = result.items;
+    const result = await fetchAiInbox({ ...aiInboxState.filters, canonical: true });
+    aiInboxState.items = Array.isArray(result?.canonical?.items) && result.canonical.items.length
+      ? result.canonical.items.map((item) => aiInboxItemFromCanonical(item))
+      : result.items;
     aiInboxState.counts = result.counts || aiInboxState.counts;
     aiInboxState.views = result.views || [];
+    rememberAiDebugSnapshot("inboxList", result);
     aiInboxState.error = "";
     const selectedStillVisible = result.items.some((item) => String(item.artifactId || "").trim() === previousSelectedId);
     if (!preserveDetail) {
@@ -1377,9 +1561,11 @@ async function recordAiInboxReviewDecision(decision) {
     const result = await recordAiInboxDecision(artifactId, {
       decision,
       comment: $("aiInboxDecisionComment")?.value || "",
-      feedback: aiInboxFeedbackFromUi()
+      feedback: aiInboxFeedbackFromUi(),
+      canonical: true
     });
-    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    rememberAiDebugSnapshot("inboxDecision", result);
     aiInboxState.selectedArtifactId = artifactId;
     await Promise.all([
       refreshAiInbox({ silent: true, preserveDetail: true }),
@@ -1430,9 +1616,11 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
   renderAiInboxWorkspace();
   try {
     const result = await acceptAiInboxLink(cleanArtifactId, {
-      comment: $("aiInboxDecisionComment")?.value || ""
+      comment: $("aiInboxDecisionComment")?.value || "",
+      canonical: true
     });
-    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    rememberAiDebugSnapshot("inboxDecision", result);
     aiInboxState.selectedArtifactId = cleanArtifactId;
     await Promise.all([
       refreshAiInbox({ silent: true, preserveDetail: true }),
@@ -1457,9 +1645,11 @@ async function promoteAiInboxArtifactToNote(artifactId) {
   renderAiInboxWorkspace();
   try {
     const result = await promoteAiInboxNote(cleanArtifactId, {
-      comment: $("aiInboxDecisionComment")?.value || ""
+      comment: $("aiInboxDecisionComment")?.value || "",
+      canonical: true
     });
-    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    rememberAiDebugSnapshot("inboxDecision", result);
     aiInboxState.selectedArtifactId = cleanArtifactId;
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
@@ -1491,9 +1681,11 @@ async function adoptAiInboxFieldSuggestionDraft(artifactId) {
   try {
     const result = await adoptAiInboxFieldSuggestion(cleanArtifactId, {
       comment: $("aiInboxDecisionComment")?.value || "",
-      feedback: aiInboxFeedbackFromUi()
+      feedback: aiInboxFeedbackFromUi(),
+      canonical: true
     });
-    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    rememberAiDebugSnapshot("inboxDecision", result);
     aiInboxState.selectedArtifactId = cleanArtifactId;
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
@@ -1525,9 +1717,12 @@ async function refreshScheduledTasks(options = {}) {
     renderScheduledTasksWorkspace();
   }
   try {
-    const result = await fetchAiScheduledTasks(settingsState.ai.scheduledTaskFilters);
-    settingsState.ai.scheduledTasks = result.items;
+    const result = await fetchAiScheduledTasks({ ...settingsState.ai.scheduledTaskFilters, canonical: true });
+    settingsState.ai.scheduledTasks = Array.isArray(result?.canonical?.items) && result.canonical.items.length
+      ? result.canonical.items.map((item) => scheduledTaskFromCanonical(item))
+      : result.items;
     settingsState.ai.scheduledTasksTotal = result.total;
+    rememberAiDebugSnapshot("scheduledTasksList", result);
     settingsState.ai.scheduledTasksError = "";
     return result;
   } catch (error) {
@@ -1547,9 +1742,12 @@ async function setScheduledTaskStatus(scheduledTaskId, status) {
   settingsState.ai.scheduledTaskActionLoading = true;
   renderScheduledTasksWorkspace();
   try {
-    const item = await updateAiScheduledTaskStatus(cleanScheduledTaskId, cleanStatus);
+    const item = await updateAiScheduledTaskStatusWithOptions(cleanScheduledTaskId, cleanStatus, { canonical: true });
+    rememberAiDebugSnapshot("scheduledTaskAction", item);
+    const canonicalTask = item?.canonical?.item ? scheduledTaskFromCanonical(item.canonical.item) : null;
+    const nextTask = canonicalTask || item;
     settingsState.ai.scheduledTasks = settingsState.ai.scheduledTasks.map((task) =>
-      String(task.scheduledTaskId || "").trim() === cleanScheduledTaskId ? item : task
+      String(task.scheduledTaskId || "").trim() === cleanScheduledTaskId ? nextTask : task
     );
     await refreshScheduledTasks({ silent: true });
     setStatus(`Scheduled task ${cleanStatus}: ${cleanScheduledTaskId}`, "ok");
@@ -4297,6 +4495,7 @@ function renderSettingsPanel() {
   renderAiProviderConfigControls();
   renderAiRoutePreview();
   renderScheduledTasksWorkspace();
+  renderAiSuggestionsWorkspace();
 
   const testPrompt = $("settingsAiTestPrompt");
   if (testPrompt) {
@@ -4313,6 +4512,58 @@ function renderSettingsPanel() {
   if (testOutput) {
     testOutput.textContent = settingsState.ai.testOutput || "（空）";
   }
+  renderAiCanonicalDebugPanel();
+}
+
+function renderAiCanonicalDebugPanel() {
+  const panel = $("settingsAiCanonicalDebug");
+  if (!panel) return;
+
+  function formatSnapshot(snapshot = null) {
+    if (!snapshot) {
+      return `<div class="settings-canonical-empty">No captured payload yet.</div>`;
+    }
+    const capturedAt = new Date(snapshot.capturedAt);
+    const label = Number.isFinite(capturedAt.getTime()) ? capturedAt.toLocaleString("zh-CN") : snapshot.capturedAt;
+    return `
+      <div class="settings-canonical-meta">Captured ${escapeHtml(label)}</div>
+      <div class="settings-canonical-grid">
+        <div class="settings-canonical-block">
+          <div class="settings-canonical-label">Runtime</div>
+          <pre class="settings-code settings-canonical-code">${escapeHtml(JSON.stringify(snapshot.runtime, null, 2) || "null")}</pre>
+        </div>
+        <div class="settings-canonical-block">
+          <div class="settings-canonical-label">Canonical</div>
+          <pre class="settings-code settings-canonical-code">${escapeHtml(JSON.stringify(snapshot.canonical, null, 2) || "null")}</pre>
+        </div>
+      </div>
+    `;
+  }
+
+  const snapshots = settingsState.ai.debugSnapshots || {};
+  const sections = [
+    ["inboxList", "AI Inbox List", "Recent inbox list response with optional canonical projection."],
+    ["inboxDetail", "AI Inbox Detail", "Recent inbox detail payload for the selected artifact."],
+    ["inboxDecision", "AI Inbox Decision", "Recent review action result including canonical adoption-event data."],
+    ["scheduledTasksList", "Scheduled Tasks List", "Recent scheduled-task list response."],
+    ["scheduledTaskAction", "Scheduled Task Action", "Recent save or status-update result."]
+  ];
+
+  panel.innerHTML = sections
+    .map(
+      ([key, title, note]) => `
+        <section class="settings-canonical-section">
+          <div class="settings-card-head">
+            <div>
+              <div class="settings-card-title">${escapeHtml(title)}</div>
+              <div class="settings-card-note">${escapeHtml(note)}</div>
+            </div>
+          </div>
+          ${formatSnapshot(snapshots[key] || null)}
+        </section>
+      `
+    )
+    .join("");
 }
 
 function isWritingEligibleNote(note) {
@@ -5510,6 +5761,7 @@ async function refreshVaultSettings() {
     await refreshAiRoutePreview({ render: false });
     await refreshScheduledTaskTemplates({ silent: true });
     await refreshScheduledTasks({ silent: true });
+    await refreshAiSuggestions({ silent: true });
     settingsState.error = "";
     renderSettingsPanel();
     return settingsState.vault;
@@ -7727,6 +7979,38 @@ $("settingsScheduledTasksPanel")?.addEventListener("change", (event) => {
   settingsState.ai.scheduledTaskForm = scheduledTaskFormFromUi();
   if (event.target.closest("#scheduledTaskTemplateSelect")) {
     applyScheduledTaskTemplateToForm(event.target.value);
+  }
+});
+
+$("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
+  if (event.target.closest("#btnAiSuggestionsApplyFilters")) {
+    settingsState.ai.suggestionFilters = aiSuggestionFiltersFromUi();
+    settingsState.ai.suggestionDetail = null;
+    settingsState.ai.selectedSuggestionId = "";
+    await refreshAiSuggestions();
+    setStatus("AI suggestions refreshed", "ok");
+    return;
+  }
+
+  if (event.target.closest("#btnAiSuggestionsRefresh")) {
+    await refreshAiSuggestions();
+    setStatus("AI suggestions refreshed", "ok");
+    return;
+  }
+
+  const statusButton = event.target.closest("[data-ai-suggestion-status]");
+  if (statusButton) {
+    await applyAiSuggestionStatus(
+      statusButton.getAttribute("data-ai-suggestion-id"),
+      statusButton.getAttribute("data-ai-suggestion-status")
+    );
+    return;
+  }
+
+  const suggestionButton = event.target.closest("[data-ai-suggestion-id]");
+  if (suggestionButton) {
+    await loadAiSuggestionDetail(suggestionButton.getAttribute("data-ai-suggestion-id"));
+    return;
   }
 });
 
