@@ -6,6 +6,8 @@ This document records the post-cleanup worktree layout. The active feature branc
 
 Update 2026-05-10: a new desktop runtime slice is active at `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime` on branch `feat/desktop-runtime`.
 
+Update 2026-05-18: `E:\Projects\Thinking in Notes\wt-public` is active on branch `wt-public` for the public website, demo showcase, marketing copy, and rich demo asset entry. Its detailed ownership note is `docs/WT_PUBLIC_OWNERSHIP_2026-05-18.md`.
+
 ## Current Rule
 
 Use `E:\Projects\Thinking in Notes\yansilu` as the only integration surface.
@@ -29,6 +31,7 @@ git -C "E:\Projects\Thinking in Notes\yansilu-wt\feat-core-workflow" switch -c f
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-release` | detached `master` | Tauri shell, desktop packaging, updater, installer QA | create a new desktop release thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime` | `feat/desktop-runtime` | final packaged-app walkthrough, worktree desktop preflight, desktop runtime fixes | active desktop runtime slice |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-growth-site` | detached `master` | marketing site, auth, billing, public copy | create a new growth/website thread |
+| `E:\Projects\Thinking in Notes\wt-public` | `wt-public` | official site, demo showcase, marketing copy, rich demo asset entry | active public-facing product/demo thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-ai-agent-layer` | detached `master` | AI layer docs, model routing, future agent harness | create a new AI layer thread |
 
 Closed threads do not make a directory unusable. A new thread can reuse the same directory as long as the directory is clean and starts from current `master`.
@@ -81,6 +84,15 @@ Growth site owns:
 - `apps/web/src/marketing-*`
 - public download/auth/billing surfaces
 - growth docs under `docs/growth/**`
+
+`wt-public` owns the current active public-facing website and demo pass:
+
+- official website surfaces under `apps/web/src/marketing-*`
+- `/demo`, `/demo/zettelkasten`, and `/demo/yijing` public entry pages
+- marketing copy and public product positioning docs
+- rich demo asset entry docs, fixtures, seed entry points, and focused demo tests
+
+Coordinate `wt-public` changes with Growth site ownership if both worktrees are active. Prefer `wt-public` for the current website/demo/copy slice and keep `feat-growth-site` idle unless a separate auth, billing, or conversion task is opened.
 
 AI agent layer owns:
 

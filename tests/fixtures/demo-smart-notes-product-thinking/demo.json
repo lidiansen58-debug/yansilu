@@ -14751,7 +14751,7 @@
         "smart-notes",
         "product-thinking"
       ],
-      "body": "# 00-Read This First - From Reading To Product Judgment\n\nThis demo is a worked product example, not a replacement for How to Take Smart Notes.\n\nInspect it in this order:\n\n1. Start with the source card to see the reading boundary and extraction policy.\n2. Open the two fleeting notes and notice each one now has capture context, next action, and converted targets.\n3. Read several literature notes to see source boundary, original paraphrase, knowledge extraction, candidate permanent notes, and open questions.\n4. Open key notes PN-SN-001, PN-SN-013, PN-SN-021, PN-SN-033, PN-SN-049, PN-SN-065, PN-SN-077, PN-SN-085, and PN-SN-093 to see cluster anchors.\n5. Compare ordinary permanent notes with key notes: both follow the permanent-note template, but key notes also anchor a knowledge cluster and index card.\n6. Inspect index cards IC-SN-001, IC-SN-005, and IC-SN-010 to see question-centered organization, ordered items, and key-note anchors.\n7. Switch to graph view and review relation rationales before trusting the network.\n8. Open writing project WP-SN-PM-001 and draft scaffold DS-SN-PM-001 to trace notes into an essay.\n\nThe important lesson: collected material is not understanding. Yansilu should help the user move from material to owned judgment, from judgment to relation, from key notes to index cards, and from index cards to writing.\n9. Use graph.key_note_paths to inspect which ordinary permanent notes support each key note.\n"
+      "body": "# 00-Read This First - From Reading To Product Judgment\n\nThis demo is a worked product example, not a replacement for How to Take Smart Notes.\n\nIf you only have five minutes, follow this path:\n\n1. Start with the source card `SRC-SMART-NOTES` to see the reading boundary, extraction scope, and conversion policy.\n2. Open the two fleeting notes and notice that quick capture stays intentionally unfinished until it is processed or deleted.\n3. Read several literature notes to see source boundary, original paraphrase, knowledge extraction, candidate permanent notes, and open questions.\n4. Open the nine key notes `PN-SN-001`, `PN-SN-013`, `PN-SN-021`, `PN-SN-033`, `PN-SN-049`, `PN-SN-065`, `PN-SN-077`, `PN-SN-085`, and `PN-SN-093` to see the anchor judgment for each cluster.\n5. Compare ordinary permanent notes with key notes: both follow the permanent-note template, but key notes also anchor a cluster, an index card, and a writing path.\n6. Inspect index cards `IC-SN-001`, `IC-SN-005`, and `IC-SN-010` to see question-centered organization, ordered items, and key-note anchors.\n7. Switch to graph view and review relation rationales before trusting the network. Use `graph.key_note_paths` to inspect which ordinary permanent notes support each key note.\n8. Open writing project `WP-SN-PM-001`, then draft scaffold `DS-SN-PM-001`, to trace how source-grounded judgments turn into an article structure.\n\nThe point of the demo is not that Yansilu stores more material. The point is that it helps the user move from material to owned judgment, from judgment to relation, from relation to re-entry structure, and from structure to writing.\n"
     }
   ],
   "conversion_templates": {
@@ -14960,7 +14960,7 @@
       "key_question": "为什么面向未来写作的笔记系统比面向保存的系统更有效？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-001",
-      "writing_use": "为“写作前置”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在文章前半段负责立住总论点：写作不是输出尾声，而是整套笔记流程的组织原则。"
     },
     {
       "id": "KEY-SN-002",
@@ -14970,7 +14970,7 @@
       "key_question": "快速捕捉怎样避免变成隐藏债务？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-002",
-      "writing_use": "为“随笔与捕捉”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在处理流程一节里说明为什么随笔必须被转化、确认或删除，而不能长期滞留成库存。"
     },
     {
       "id": "KEY-SN-003",
@@ -14980,7 +14980,7 @@
       "key_question": "产品怎样防止用户把保存误认为理解？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-003",
-      "writing_use": "为“文献笔记与理解”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在来源与理解一节里负责划清边界：保存材料不等于理解，转述才是进入判断的起点。"
     },
     {
       "id": "KEY-SN-004",
@@ -14990,7 +14990,7 @@
       "key_question": "哪些字段和交互能帮助笔记变成可承担的观点？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-004",
-      "writing_use": "为“永久笔记质量”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在永久笔记一节里作为主锚点，解释什么样的笔记才算用户愿意承担的判断单元。"
     },
     {
       "id": "KEY-SN-005",
@@ -15000,7 +15000,7 @@
       "key_question": "图谱如何展示支撑、冲突、张力和缺口，而不只是画很多点？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-005",
-      "writing_use": "为“关系与图谱”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在图谱一节里负责把重点从节点数量拉回关系理由，说明网络为什么能真正反馈思考。"
     },
     {
       "id": "KEY-SN-006",
@@ -15010,7 +15010,7 @@
       "key_question": "主题如何围绕中心问题组织，而不是只按位置收纳？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-006",
-      "writing_use": "为“索引卡与涌现结构”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在结构一节里说明索引卡为什么不是文件夹，而是把一组判断组织成可重新进入的问题入口。"
     },
     {
       "id": "KEY-SN-007",
@@ -15020,7 +15020,7 @@
       "key_question": "为什么持续处理比偶尔整理更重要？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-007",
-      "writing_use": "为“习惯与反馈循环”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在方法变成习惯这一节里强调：系统靠持续的小处理动作活着，而不是靠偶尔的大整理。"
     },
     {
       "id": "KEY-SN-008",
@@ -15030,7 +15030,7 @@
       "key_question": "什么信号证明材料正在变成用户自己的判断？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-008",
-      "writing_use": "为“反模式与指标”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在反模式一节里负责指出哪些指标会制造虚假进展，以及产品为什么不该奖励这些表象。"
     },
     {
       "id": "KEY-SN-009",
@@ -15040,7 +15040,7 @@
       "key_question": "AI 在哪里可以建议，在哪里必须等待用户确认？",
       "role": "cluster_anchor",
       "index_card_id": "IC-SN-009",
-      "writing_use": "为“AI 与作者性边界”这一组知识点提供主判断，帮助写作项目快速抓住论证入口。"
+      "writing_use": "在 AI 边界一节里作为主判断，说明建议可以出现，但确认、署名和最终立场必须归用户。"
     }
   ]
 }

@@ -4829,53 +4829,53 @@ function renderWritingThemeDetail(indexCard) {
 
   const summaryLines = [0, 1, 2].map((idx) => String((indexCard.three_line_summary || indexCard.threeLineSummary || [])[idx] || "").trim());
   const noteCount = Number(indexCard.note_count || items.length || 0);
+  const themeId = escapeHtml(indexCard.id);
+  const thinkingBadge = renderThinkingStatusBadge(indexCard.thinkingStatus, "thinking-status-badge writing-thinking-status");
 
   return `
-    <div class="writing-theme-detail-card">
+    <section class="writing-theme-detail-card" data-writing-theme-id="${themeId}">
       <div class="writing-theme-detail-head">
         <div>
           <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
           <div class="writing-note-meta">${escapeHtml(indexCard.id)} · 条目 ${escapeHtml(noteCount)} · ${escapeHtml(indexCard.index_type || "topic")}</div>
         </div>
-        <div class="writing-note-actions">
-          <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
-          <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${escapeHtml(indexCard.id)}">从主题建项目</button>
-        </div>
+        ${thinkingBadge}
       </div>
-      <label>
-        主题标题
-        <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
-      </label>
-      <label>
-        主题摘要
-        <textarea id="writingThemeDetailSummary" rows="3" placeholder="这组永久笔记现在共同在讨论什么？">${escapeHtml(indexCard.summary || "")}</textarea>
-      </label>
-      <label>
-        主题一句话判断
-        <textarea id="writingThemeDetailThesis" rows="3" placeholder="这个主题真正想成立的判断是什么？">${escapeHtml(indexCard.thesis || "")}</textarea>
-      </label>
-      <label>
-        三句话压缩 1
-        <textarea id="writingThemeDetailSummary1" rows="2" placeholder="这组主题在说什么？">${escapeHtml(summaryLines[0])}</textarea>
-      </label>
-      <label>
-        三句话压缩 2
-        <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
-      </label>
-      <label>
-        三句话压缩 3
-        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="它会把写作推进到哪里？">${escapeHtml(summaryLines[2])}</textarea>
-      </label>
-      <label>
-        中心问题
-        <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
-      </label>
       <div class="writing-note-actions">
-        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${escapeHtml(indexCard.id)}">保存主题</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">用当前写作篮覆盖</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">把当前写作篮追加进来</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">把整组加入写作篮</button>
+        <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}">从主题建项目</button>
       </div>
-      <div>
+      <div class="writing-summary" style="margin-top:12px;">
+        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作入口。
+      </div>
+      <div class="import-grid" style="margin-top:12px;">
+        <label for="writingThemeDetailTitle">主题标题</label>
+        <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
+
+        <label for="writingThemeDetailSummary">主题摘要</label>
+        <textarea id="writingThemeDetailSummary" rows="3" placeholder="这组永久笔记现在共同在讨论什么？">${escapeHtml(indexCard.summary || "")}</textarea>
+
+        <label for="writingThemeDetailThesis">主题一句话判断</label>
+        <textarea id="writingThemeDetailThesis" rows="3" placeholder="这个主题真正想成立的判断是什么？">${escapeHtml(indexCard.thesis || "")}</textarea>
+
+        <label for="writingThemeDetailSummary1">三句话压缩 1</label>
+        <textarea id="writingThemeDetailSummary1" rows="2" placeholder="这组主题在说什么？">${escapeHtml(summaryLines[0])}</textarea>
+
+        <label for="writingThemeDetailSummary2">三句话压缩 2</label>
+        <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
+
+        <label for="writingThemeDetailSummary3">三句话压缩 3</label>
+        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="它会把写作推进到哪里？">${escapeHtml(summaryLines[2])}</textarea>
+
+        <label for="writingThemeDetailCentralQuestion">中心问题</label>
+        <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
+      </div>
+      <div class="writing-note-actions" style="margin-top:12px;">
+        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用当前写作篮覆盖</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">把当前写作篮追加进来</button>
+      </div>
+      <div style="margin-top:12px;">
         <h4>主题内的永久笔记</h4>
         ${
           items.length
@@ -4891,8 +4891,8 @@ function renderWritingThemeDetail(indexCard) {
                       </div>
                       ${item.rationale ? `<div class="writing-note-meta">${escapeHtml(item.rationale)}</div>` : ""}
                       <div class="writing-note-actions">
-                        <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-theme-id="${escapeHtml(indexCard.id)}" data-writing-note-id="${escapeHtml(item.noteId)}">打开笔记</button>
-                        <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-theme-id="${escapeHtml(indexCard.id)}" data-writing-note-id="${escapeHtml(item.noteId)}">移出主题</button>
+                        <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-theme-id="${themeId}" data-writing-note-id="${escapeHtml(item.noteId)}">打开笔记</button>
+                        <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-theme-id="${themeId}" data-writing-note-id="${escapeHtml(item.noteId)}">移出主题</button>
                       </div>
                     </article>
                   `
@@ -4901,7 +4901,7 @@ function renderWritingThemeDetail(indexCard) {
             : `<div class="writing-empty">这张主题索引还没有挂上永久笔记。</div>`
         }
       </div>
-    </div>
+    </section>
   `;
 }
 
@@ -6827,7 +6827,8 @@ async function importYijingRichAcceptanceDemo() {
   }
 }
 
-async function importSmartNotesProductThinkingDemo() {
+async function importSmartNotesProductThinkingDemo(options = {}) {
+  const { startup = false } = options;
   setStatus("正在导入 Smart Notes 产品思考 Demo...", "");
   try {
     const result = await seedSmartNotesProductThinkingDemo();
@@ -6837,15 +6838,21 @@ async function importSmartNotesProductThinkingDemo() {
     state.browserRootId = rootBoxIdFromFolder(state, directoryId);
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
-    if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    const firstNoteId = String(result?.firstNoteId || "").trim();
+    if (firstNoteId) {
+      state.selectedFileId = firstNoteId;
+      openNoteById(firstNoteId, { preferTitleSelection: false });
+    }
     await refreshDirectoryGraph();
+    if (startup) activateModule("explorer");
     renderAll();
     const counts = result?.counts || {};
     const summary = result?.summary || {};
     const noteCount = counts.permanent_notes || summary.createdNotes || summary.updatedNotes || 0;
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目`, "ok");
+    const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
+    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
     return true;
   } catch (error) {
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
@@ -9089,12 +9096,11 @@ async function bootstrap() {
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
-      ? await importSmartNotesProductThinkingDemo()
+      ? await importSmartNotesProductThinkingDemo({ startup: true })
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
         ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
         : false;
   if (openedDemo) {
-    activateModule("graph");
     renderAll();
   } else if (initialNote) {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
