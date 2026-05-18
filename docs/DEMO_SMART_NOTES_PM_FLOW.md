@@ -48,7 +48,7 @@ The value of a note-taking product is not the size of the archive. It is whether
 
 ## 4. Demo Deliverables
 
-The demo should eventually produce:
+The current rich demo path is expected to produce:
 
 1. one demo vault
 2. one source card for the book
@@ -61,7 +61,7 @@ The demo should eventually produce:
 9. one guide note explaining how to inspect the demo
 10. optional AI suggestion artifacts that remain unconfirmed until the user accepts them
 
-Recommended demo vault name:
+Recommended disposable demo vault name:
 
 ```text
 demo-smart-notes-product-thinking
@@ -72,6 +72,19 @@ Recommended guide note:
 ```text
 00-Read This First - From Reading To Product Judgment.md
 ```
+
+Operational entry points:
+
+```text
+fixture: tests/fixtures/demo-smart-notes-product-thinking/demo.json
+seed script: scripts/seed-smart-notes-product-thinking.mjs
+API seed endpoint: /api/v1/demo/product-thinking/smart-notes
+app entry: /prototype?demo=smart-notes-product-thinking
+talk track: docs/DEMO_PLAYBOOK_SMART_NOTES_3_MIN.md
+usage entry: docs/RICH_DEMO_USAGE_ENTRY.md
+```
+
+The local demo vault generated from these entries is disposable. It should be regenerated from the fixture and seed script, not treated as authored source material.
 
 ## 4.1 Core Knowledge Extraction Requirement
 
@@ -681,17 +694,17 @@ The guide note should invite the user to inspect the demo in this order:
 8. Read the final essay.
 9. Inspect optional AI suggestions and notice they are not confirmed by default.
 
-## 13. Seed Implementation Plan
+## 13. Runbook And Data Boundaries
 
-### Slice 1: Content Fixture
+### 13.1 Source Asset
 
-Create a JSON fixture:
+The checked-in source asset is:
 
 ```text
 tests/fixtures/demo-smart-notes-product-thinking/demo.json
 ```
 
-It should contain:
+It should contain the demo's canonical data shape:
 
 1. sources
 2. 18 to 24 literature notes
@@ -704,15 +717,18 @@ It should contain:
 9. final essay note
 10. guide note
 
-### Slice 2: Seed Script
+Do not hand-edit generated markdown or local database output and then treat it as the source of truth. Candidate content changes should go through the JSON fixture in a dedicated fixture task, not through this playbook update.
 
-Create:
+### 13.2 Local Seed Entry
 
-```text
-scripts/seed-smart-notes-product-thinking.mjs
+Seed into a disposable local vault:
+
+```powershell
+$env:DEMO_VAULT="E:\Projects\Thinking in Notes\.local-demo-vaults\smart-notes-product-thinking"
+node scripts/seed-smart-notes-product-thinking.mjs --vault $env:DEMO_VAULT
 ```
 
-Behavior:
+Expected seed behavior:
 
 1. accepts `--vault <path>`
 2. initializes the vault structure if needed
@@ -720,7 +736,16 @@ Behavior:
 4. writes relations and index-card metadata through existing domain helpers where possible
 5. can be run repeatedly against the demo vault without duplicating notes, relations, index cards, or writing projects
 
-### Slice 3: App Entry
+The vault under `.local-demo-vaults` is generated runtime output. It may be deleted before a recording, reseeded after an exploratory demo, and must not be committed.
+
+Do not seed this demo into:
+
+1. `vault-example`
+2. a tracked example vault
+3. a normal development vault with unrelated notes
+4. `.yansilu` runtime state intended for another workflow
+
+### 13.3 App Entry
 
 The interactive app entry is:
 
@@ -730,7 +755,31 @@ The interactive app entry is:
 
 The route calls the public demo seed endpoint and opens the seeded workspace.
 
-### Slice 4: Validation
+For a complete walkthrough, open the story page first and the app entry second:
+
+```text
+/demo/zettelkasten
+/prototype?demo=smart-notes-product-thinking
+```
+
+The story page frames the product narrative. The prototype demonstrates the seeded workspace: source card, literature notes, permanent notes, graph relations, index cards, writing project, scaffold, and essay.
+
+### 13.4 Recommended Demo Sequence
+
+Use the demo in this order:
+
+1. State the originality boundary: original paraphrases and PM restatements only, not copied book text or a replacement summary.
+2. State the data boundary: the local vault is disposable/generated and can be regenerated from the seed path.
+3. Open the source card and guide note.
+4. Open two fleeting notes to show unfinished capture.
+5. Open two literature notes to show source trace plus user paraphrase.
+6. Open representative permanent notes such as `PN-SN-001`, `PN-SN-005`, `PN-SN-037`, `PN-SN-065`, and `PN-SN-100`.
+7. Switch to graph and explain relation type plus rationale, not visual density.
+8. Open `IC-SN-002` or `IC-SN-005` to show question-centered organization.
+9. Open `WP-SN-PM-001` and `DS-SN-PM-001` to show writing from selected judgments.
+10. End with the final essay as traceable product thinking, not AI-authored output.
+
+### 13.5 Validation
 
 Validation should prove:
 
@@ -745,6 +794,8 @@ Validation should prove:
 9. final essay exists and can be opened
 10. guide note exists and explains how to inspect the demo
 
+Focused validation commands are listed in `docs/RICH_DEMO_USAGE_ENTRY.md`. This document stays at the product-flow and demo-runbook level.
+
 ## 14. Acceptance Criteria
 
 The demo is successful when:
@@ -757,14 +808,14 @@ The demo is successful when:
 6. The demo does not reproduce copyrighted book text or function as a replacement for the book.
 7. The final essay explains Yansilu's design using the user's own product-manager perspective.
 
-## 15. Next Concrete Action
+## 15. Documentation Maintenance Notes
 
-Build the fixture first, not the UI.
+This document should explain the demo's product logic and operating boundaries. Keep implementation edits out of this file unless they change how a presenter prepares or tells the demo.
 
-Recommended next task:
+For documentation-only updates:
 
-```text
-Create tests/fixtures/demo-smart-notes-product-thinking/demo.json with the source card, 18 to 24 literature notes, 2 fleeting notes, about 100 permanent notes, 12 to 16 index cards, 140 to 180 typed relations, writing project, scaffold outline, and final essay note.
-```
-
-After the fixture exists, implement the seed script and a focused validation test.
+1. Keep changes limited to `docs/`.
+2. Do not edit `tests/fixtures`, `scripts`, `vault-example`, `.yansilu`, or package files.
+3. Preserve the copyright boundary: no copied book text, no long passages, no chapter-level substitute summary.
+4. Preserve the authorship boundary: AI or system suggestions remain candidates until a user accepts or rewrites them.
+5. Preserve the data boundary: local demo vaults are disposable/generated outputs.
