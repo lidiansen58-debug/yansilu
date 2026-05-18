@@ -3058,69 +3058,6 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
-      try {
-        await initVault(VAULT_PATH);
-        const item = await listDistillationQueue(VAULT_PATH, {
-          directoryId: url.searchParams.get("directoryId") || url.searchParams.get("directory_id") || "dir_original_default",
-          includeDescendants: url.searchParams.get("includeDescendants") !== "false" && url.searchParams.get("include_descendants") !== "false",
-          limit: Number(url.searchParams.get("limit") || 50)
-        });
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err("DISTILLATION_QUEUE_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
-    const permanentDistillationNoteId = parsePermanentNoteDistillationPath(url.pathname);
-    if (req.method === "PATCH" && permanentDistillationNoteId) {
-      const body = await readJson(req);
-      try {
-        await initVault(VAULT_PATH);
-        const note = await getNoteById(VAULT_PATH, permanentDistillationNoteId);
-        if (note.noteType !== "permanent") {
-          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation fields are only available for permanent notes.", rid));
-        }
-        const item = await updateNoteContent(VAULT_PATH, permanentDistillationNoteId, noteDistillationPayload(note, body));
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
-    const permanentDistillationConfirmNoteId = parsePermanentNoteDistillationConfirmPath(url.pathname);
-    if (req.method === "POST" && permanentDistillationConfirmNoteId) {
-      const body = await readJson(req);
-      try {
-        await initVault(VAULT_PATH);
-        const note = await getNoteById(VAULT_PATH, permanentDistillationConfirmNoteId);
-        if (note.noteType !== "permanent") {
-          return sendJson(res, 400, err("PERMANENT_NOTE_REQUIRED", "Distillation confirmation is only available for permanent notes.", rid));
-        }
-        assertPermanentNoteReadyToConfirm(note, body);
-        const item = await updateNoteContent(
-          VAULT_PATH,
-          permanentDistillationConfirmNoteId,
-          noteDistillationPayload(note, body, { confirm: true })
-        );
-        return sendJson(res, 200, {
-          item,
-          requestId: rid,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        return sendJson(res, 400, err(error?.code || "PERMANENT_DISTILLATION_CONFIRM_INVALID", String(error?.message || error), rid, error?.details));
-      }
-    }
-
     if (req.method === "POST" && url.pathname === "/api/v1/notes") {
       const body = await readJson(req);
       try {
@@ -3163,7 +3100,7 @@ const server = http.createServer(async (req, res) => {
           limit: url.searchParams.get("limit") || 50
         });
         return sendJson(res, 200, {
-          ...result,
+          item: result?.item ?? result,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
@@ -3197,15 +3134,10 @@ const server = http.createServer(async (req, res) => {
     const permanentNoteDistillationConfirmId = parsePermanentNoteDistillationConfirmPath(url.pathname);
     if (req.method === "POST" && permanentNoteDistillationConfirmId) {
       const body = await readJson(req);
-      if (body.confirm !== true) {
-        return sendJson(
-          res,
-          400,
-          err("PERMANENT_DISTILLATION_CONFIRM_REQUIRED", "confirm must be true to confirm permanent-note distillation.", rid)
-        );
-      }
       try {
         await initVault(VAULT_PATH);
+        const note = await getNoteById(VAULT_PATH, permanentNoteDistillationConfirmId);
+        assertPermanentNoteReadyToConfirm(note, body);
         const item = await confirmPermanentNoteDistillation(VAULT_PATH, permanentNoteDistillationConfirmId, {
           aiAssisted: body.aiAssisted ?? body.ai_assisted
         });
