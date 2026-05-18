@@ -4806,6 +4806,105 @@ function renderWritingThemeIndexCard(indexCard) {
   `;
 }
 
+function renderWritingThemeDetail(indexCard) {
+  if (!indexCard?.id) {
+    return `
+      <div class="writing-empty">
+        先从左侧主题索引列表里选一张卡，或先把当前写作篮保存成主题索引。这里会显示中心问题、主题压缩和关联笔记。
+      </div>
+    `;
+  }
+
+  const itemIds = uniqueStrings(indexCard.item_note_ids || indexCard.items?.map((item) => item.note_id) || []);
+  const items = itemIds.map((noteId) => {
+    const item = (Array.isArray(indexCard.items) ? indexCard.items : []).find((entry) => entry?.note_id === noteId) || null;
+    const note = writingKnownNoteById(noteId) || item?.note || null;
+    return {
+      noteId,
+      note,
+      shortLabel: String(item?.short_label || note?.title || noteId).trim(),
+      rationale: String(item?.rationale || "").trim()
+    };
+  });
+
+  const summaryLines = [0, 1, 2].map((idx) => String((indexCard.three_line_summary || indexCard.threeLineSummary || [])[idx] || "").trim());
+  const noteCount = Number(indexCard.note_count || items.length || 0);
+
+  return `
+    <div class="writing-theme-detail-card">
+      <div class="writing-theme-detail-head">
+        <div>
+          <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
+          <div class="writing-note-meta">${escapeHtml(indexCard.id)} · 条目 ${escapeHtml(noteCount)} · ${escapeHtml(indexCard.index_type || "topic")}</div>
+        </div>
+        <div class="writing-note-actions">
+          <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
+          <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${escapeHtml(indexCard.id)}">从主题建项目</button>
+        </div>
+      </div>
+      <label>
+        主题标题
+        <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
+      </label>
+      <label>
+        主题摘要
+        <textarea id="writingThemeDetailSummary" rows="3" placeholder="这组永久笔记现在共同在讨论什么？">${escapeHtml(indexCard.summary || "")}</textarea>
+      </label>
+      <label>
+        主题一句话判断
+        <textarea id="writingThemeDetailThesis" rows="3" placeholder="这个主题真正想成立的判断是什么？">${escapeHtml(indexCard.thesis || "")}</textarea>
+      </label>
+      <label>
+        三句话压缩 1
+        <textarea id="writingThemeDetailSummary1" rows="2" placeholder="这组主题在说什么？">${escapeHtml(summaryLines[0])}</textarea>
+      </label>
+      <label>
+        三句话压缩 2
+        <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
+      </label>
+      <label>
+        三句话压缩 3
+        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="它会把写作推进到哪里？">${escapeHtml(summaryLines[2])}</textarea>
+      </label>
+      <label>
+        中心问题
+        <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
+      </label>
+      <div class="writing-note-actions">
+        <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${escapeHtml(indexCard.id)}">保存主题</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">用当前写作篮覆盖</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${escapeHtml(indexCard.id)}">把当前写作篮追加进来</button>
+      </div>
+      <div>
+        <h4>主题内的永久笔记</h4>
+        ${
+          items.length
+            ? `<div class="writing-note-list">${items
+                .map(
+                  (item) => `
+                    <article class="writing-note-card">
+                      <div class="writing-note-card-head">
+                        <div>
+                          <div class="writing-note-title">${escapeHtml(item.note?.title || item.shortLabel || item.noteId)}</div>
+                          <div class="writing-note-meta">${escapeHtml(item.noteId)}</div>
+                        </div>
+                      </div>
+                      ${item.rationale ? `<div class="writing-note-meta">${escapeHtml(item.rationale)}</div>` : ""}
+                      <div class="writing-note-actions">
+                        <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-theme-id="${escapeHtml(indexCard.id)}" data-writing-note-id="${escapeHtml(item.noteId)}">打开笔记</button>
+                        <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-theme-id="${escapeHtml(indexCard.id)}" data-writing-note-id="${escapeHtml(item.noteId)}">移出主题</button>
+                      </div>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<div class="writing-empty">这张主题索引还没有挂上永久笔记。</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
@@ -6991,6 +7090,33 @@ async function handleStateChange(reason, payload = {}) {
     await openAiInboxModule();
     setStatus("已打开当前笔记的待审 AI 建议", "ok");
     return true;
+  }
+
+  if (reason === "open-note-main-route") {
+    const noteId = String(payload.noteId || "").trim();
+    const action = String(payload.action || "").trim();
+    const note = state.notes.find((item) => item.id === noteId) || null;
+    if (!noteId || !note) return false;
+
+    if (action === "graph") {
+      state.selectedFileId = noteId;
+      activateModule("graph");
+      await refreshDirectoryGraph();
+      setStatus("已打开关系图谱，继续看这条笔记周围的结构和主题候选", "ok");
+      return true;
+    }
+
+    if (action === "writing") {
+      await ensureNoteBodyLoaded(noteId);
+      clearWritingSourceIndexIds();
+      addWritingBasketIds([noteId]);
+      if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${note.title || "未命名笔记"} 写作项目`;
+      renderWritingPanel();
+      await openWritingModule({ statusMessage: `已把“${note.title || noteId}”加入写作篮子，并打开写作中心` });
+      return true;
+    }
+
+    return false;
   }
 
   if (reason === "save-note-distillation") {

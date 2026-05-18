@@ -5089,9 +5089,27 @@
       border-top: 1px solid #eef3f7;
       padding-top: 12px;
     }
+    .inspector-section.is-jump-target {
+      background: linear-gradient(180deg, rgba(255, 247, 213, 0.88), rgba(255, 247, 213, 0));
+      border-radius: 14px;
+      padding: 10px 10px 0;
+      margin: -10px -10px 0;
+      animation: inspector-jump-highlight 1.4s ease;
+    }
     .inspector-section:first-child {
       border-top: 0;
       padding-top: 0;
+    }
+    @keyframes inspector-jump-highlight {
+      0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.22);
+      }
+      35% {
+        box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.12);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+      }
     }
     .inspector-section-head {
       display: flex;

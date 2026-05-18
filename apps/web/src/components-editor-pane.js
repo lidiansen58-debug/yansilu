@@ -4917,6 +4917,16 @@ export class EditorPane {
     void this.refreshRelationTargetSearch("");
   }
 
+  currentExplicitRelationCount() {
+    const outgoing = Array.isArray(this.currentSemanticRelations?.outgoingLinks)
+      ? this.currentSemanticRelations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    const backlinks = Array.isArray(this.currentSemanticRelations?.backlinks)
+      ? this.currentSemanticRelations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    return outgoing.length + backlinks.length;
+  }
+
   openEditRelationForm(relationId) {
     const note = this.activeNote();
     if (!note?.id) return;
@@ -5070,6 +5080,155 @@ export class EditorPane {
     `;
   }
 
+  permanentNoteMainPathSummary(note, overview = {}) {
+    const thesis = String(note?.thesis || "").trim();
+    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const connectedCount = explicitRelationCount + wikilinkCount;
+
+    if (!thesis) {
+      return {
+        nextStep: "先写一句判断",
+        summary: "这条永久笔记还没有稳定的判断句，先把它从材料变成可复用的观点。"
+      };
+    }
+    if (summary.length < 3) {
+      return {
+        nextStep: "补成三句话压缩",
+        summary: "判断已经出现，但还没有压缩成清晰的三句话，后面的关系和写作会发虚。"
+      };
+    }
+    if (!confirmed) {
+      return {
+        nextStep: "确认观点",
+        summary: "观点已经成形，下一步是明确确认它，避免它一直停在半成品状态。"
+      };
+    }
+    if (connectedCount === 0) {
+      return {
+        nextStep: "补关系，不要让它孤立",
+        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+      };
+    }
+    return {
+      nextStep: "进入主题或写作准备",
+      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+    };
+  }
+
+  noteThemeSignalSummary(note, overview = {}) {
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const tagRelatedCount = Number(overview.tagRelatedCount || 0);
+    const themeSignalCount = Number(overview.themeSignalCount || 0);
+
+    if (explicitRelationCount > 0) {
+      return {
+        status: `已连入 ${themeSignalCount || explicitRelationCount}`,
+        hint: "已经出现带理由的连接，可以开始判断它在服务哪个主题。",
+        badge: themeSignalCount || explicitRelationCount
+      };
+    }
+    if (wikilinkCount > 0 || tagRelatedCount > 0) {
+      return {
+        status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+        hint: "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        badge: themeSignalCount || wikilinkCount + tagRelatedCount
+      };
+    }
+    return {
+      status: "待聚合",
+      hint: "先让它和其他笔记形成真实连接，再谈主题入口。",
+      badge: 0
+    };
+  }
+
+  renderPermanentNoteMainPathSection(note, overview = {}) {
+    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
+    const thesis = String(note.thesis || "").trim();
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const themeInfo = this.noteThemeSignalSummary(note, overview);
+    const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummary(note, overview);
+    const primaryAction =
+      !thesis || summary.length < 3 || !confirmed
+        ? "distillation"
+        : explicitRelationCount + wikilinkCount === 0
+          ? "relations"
+          : "writing";
+    const steps = [
+      {
+        label: "观点提纯",
+        status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
+        hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
+        action: "distillation",
+        actionLabel: "继续提纯"
+      },
+      {
+        label: "关系连接",
+        status: explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
+        hint: explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
+        action: "relations",
+        actionLabel: "处理关系"
+      },
+      {
+        label: "主题索引",
+        status: themeInfo.status,
+        hint: themeInfo.hint,
+        action: "graph",
+        actionLabel: "看图谱"
+      },
+      {
+        label: "写作入口",
+        status: confirmed ? "可准备" : "未就绪",
+        hint: confirmed ? "可加入写作篮子继续推进" : "先确认观点，再进入写作准备",
+        action: "writing",
+        actionLabel: "进入写作"
+      }
+    ];
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">主路径下一步</div>
+            <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
+          </div>
+          <span class="inspector-chip">${escapeHtml(nextStep)}</span>
+        </div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
+          <span class="inspector-chip">压缩 ${summary.length}/3</span>
+          <span class="inspector-chip">关系 ${explicitRelationCount + wikilinkCount}</span>
+          <span class="inspector-chip">主题线索 ${themeInfo.badge}</span>
+        </div>
+        <div class="semantic-relation-groups">
+          ${steps
+            .map(
+              (step) => `
+                <div class="semantic-relation-group">
+                  <div class="semantic-relation-group-head">
+                    <strong>${escapeHtml(step.label)}</strong>
+                    <span>${escapeHtml(step.status)}${step.action === primaryAction ? " · 当前重点" : ""}</span>
+                  </div>
+                  <div class="related-empty">${escapeHtml(step.hint)}</div>
+                  <div class="semantic-relation-actions">
+                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}">${escapeHtml(step.actionLabel)}</button>
+                  </div>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -5142,6 +5301,20 @@ export class EditorPane {
         </form>
       </section>
     `;
+  }
+
+  jumpToInspectorSection(sectionSelector, { focusSelector = "", focus = false } = {}) {
+    const section = document.querySelector(sectionSelector);
+    if (!section) return;
+    section.scrollIntoView({ block: "start", behavior: "smooth" });
+    section.classList.remove("is-jump-target");
+    // Restart the highlight animation on repeated clicks.
+    void section.offsetWidth;
+    section.classList.add("is-jump-target");
+    window.setTimeout(() => section.classList.remove("is-jump-target"), 1800);
+    if (focus && focusSelector) {
+      window.setTimeout(() => document.querySelector(focusSelector)?.focus?.(), 220);
+    }
   }
 
   refreshDistillationQuality(form) {
@@ -5464,6 +5637,7 @@ export class EditorPane {
       </section>
     `;
 
+    const explicitRelationCount = Number(this.currentSemanticRelations?.outgoingLinks?.length || 0) + Number(this.currentSemanticRelations?.backlinks?.length || 0);
     this.els.result.innerHTML = `
       <div class="inspector-overview">
         <div class="inspector-overview-head">
@@ -5488,6 +5662,16 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${this.renderPermanentNoteMainPathSection(note, {
+          explicitRelationCount,
+          wikilinkCount: forward.length + backward.length,
+          tagRelatedCount: tagRelated.length,
+          themeSignalCount: new Set([
+            ...forward.map((item) => item.id),
+            ...backward.map((item) => item.id),
+            ...tagRelated.map((item) => item.id)
+          ]).size
+        })}
         ${this.renderPermanentNoteDistillationSection(note)}
         ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
@@ -5894,6 +6078,39 @@ export class EditorPane {
       if (distillationConfirmButton) {
         void this.confirmDistillation();
         return;
+      }
+
+      const mainRouteButton = e.target.closest("[data-note-main-route-action]");
+      if (mainRouteButton) {
+        const action = String(mainRouteButton.dataset.noteMainRouteAction || "").trim();
+        if (action === "distillation") {
+          this.jumpToInspectorSection("[data-note-distillation-section]", {
+            focus: true,
+            focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+          });
+          return;
+        }
+        if (action === "relations") {
+          if (this.currentExplicitRelationCount() === 0) {
+            this.openCreateRelationForm();
+            window.setTimeout(() => {
+              this.jumpToInspectorSection("[data-create-relation-form]", {
+                focus: true,
+                focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+              });
+            }, 40);
+            return;
+          }
+          this.jumpToInspectorSection("[data-note-relations-section]");
+          return;
+        }
+        if (action === "graph" || action === "writing") {
+          void this.onStateChange("open-note-main-route", {
+            noteId: this.activeNote()?.id || "",
+            action
+          });
+          return;
+        }
       }
 
       const distillationSection = e.target.closest("[data-note-distillation-section]");
