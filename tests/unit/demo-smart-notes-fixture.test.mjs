@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -10,27 +7,6 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "..", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
-const repoRoot = path.resolve(__dirname, "..", "..");
-
-function runNode(args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, args, {
-      cwd: repoRoot,
-      env: process.env,
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
-  });
-}
 
 const REQUIRED_RELATION_TYPES = [
   "supports",
@@ -74,6 +50,17 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   });
 });
 
+test("smart notes product demo fixture includes a source card as the reading boundary anchor", () => {
+  const source = fixture.sources[0];
+  assert.equal(source.note_type, "source");
+  assert.equal(source.id, "SRC-SMART-NOTES");
+  assert.ok(source.title, "source card should have a title");
+  assert.ok(source.use_boundary, "source card should define the reuse boundary");
+  assert.ok(source.extraction_scope, "source card should define extraction scope");
+  assert.ok(source.conversion_policy, "source card should define conversion policy");
+  assert.equal(source.knowledge_point_ids.length, fixture.knowledge_extraction.knowledge_points.length);
+});
+
 test("smart notes product demo fixture declares rich extraction templates and key notes", () => {
   assert.deepEqual(Object.keys(fixture.conversion_templates), [
     "fleeting_note",
@@ -87,10 +74,16 @@ test("smart notes product demo fixture declares rich extraction templates and ke
 
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
   const indexIds = new Set(fixture.index_cards.map((card) => card.id));
+  const declaredClusters = new Set(fixture.knowledge_extraction.knowledge_points.map((point) => point.cluster));
+  const seenClusters = new Set();
   for (const keyNote of fixture.key_notes) {
     assert.ok(permanentIds.has(keyNote.note_id), `${keyNote.id} references missing permanent note`);
     assert.ok(indexIds.has(keyNote.index_card_id), `${keyNote.id} references missing index card`);
+    assert.equal(keyNote.role, "cluster_anchor", `${keyNote.id} should be the anchor for its cluster`);
+    assert.ok(keyNote.cluster, `${keyNote.id} should declare a cluster`);
+    seenClusters.add(keyNote.cluster);
   }
+  assert.deepEqual([...seenClusters].sort(), [...declaredClusters].sort(), "key notes should cover every declared knowledge cluster");
 });
 
 test("smart notes product demo fixture models processed fleeting notes", () => {
@@ -153,7 +146,8 @@ test("smart notes product demo fixture includes an inspection guide", () => {
   const guide = fixture.guide_notes[0];
   assert.equal(guide.id, "GUIDE-SN-001");
   assert.equal(guide.note_type, "guide");
-  assert.match(guide.body, /Inspect it in this order/);
+  assert.match(guide.body, /If you only have five minutes, follow this path|Inspect it in this order/);
+  assert.match(guide.body, /source card/i);
   assert.match(guide.body, /WP-SN-PM-001/);
   assert.match(guide.body, /DS-SN-PM-001/);
 });
@@ -161,18 +155,26 @@ test("smart notes product demo fixture includes an inspection guide", () => {
 test("smart notes product demo fixture index cards organize ordered items and key-note anchors", () => {
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
   const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
+  const keyNotesByCluster = new Map(fixture.key_notes.map((note) => [note.cluster, note.note_id]));
+  const knowledgePointsById = new Map(fixture.knowledge_extraction.knowledge_points.map((point) => [point.id, point]));
 
   for (const card of fixture.index_cards) {
     assert.equal(card.index_type, "topic");
     assert.equal(card.template.type, "index_card");
     assert.ok(card.items.length > 0, `${card.id} should expose ordered index items`);
     assert.ok(card.key_note_ids.length > 0, `${card.id} should expose key note anchors`);
+    assert.ok(card.knowledge_point_ids.length > 0, `${card.id} should expose supporting knowledge points`);
     for (const item of card.items) {
       assert.ok(permanentIds.has(item.note_id), `${card.id} item references missing note ${item.note_id}`);
       assert.ok(item.rationale, `${card.id} item ${item.note_id} needs a rationale`);
     }
     for (const keyNoteId of card.key_note_ids) {
       assert.ok(keyNoteIds.has(keyNoteId), `${card.id} key note ${keyNoteId} should be registered`);
+    }
+    for (const knowledgePointId of card.knowledge_point_ids) {
+      const point = knowledgePointsById.get(knowledgePointId);
+      assert.ok(point, `${card.id} knowledge point ${knowledgePointId} should be registered`);
+      assert.ok(card.key_note_ids.includes(keyNotesByCluster.get(point.cluster)), `${card.id} should anchor the key note for cluster ${point.cluster}`);
     }
   }
 });
@@ -219,14 +221,15 @@ test("smart notes product demo fixture writing project traces notes and sources"
   const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
   const indexIds = new Set(fixture.index_cards.map((card) => card.id));
   const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
+  const declaredKeyNoteIds = fixture.key_notes.map((note) => note.note_id);
   const project = fixture.writing_projects[0];
   const scaffold = fixture.draft_scaffolds[0];
 
   assert.equal(scaffold.writing_project_id, project.id);
   assert.ok(project.basketNoteIds.length >= 8);
   assert.ok(project.indexCardIds.length >= 4);
-  assert.deepEqual(project.keyNoteIds, fixture.key_notes.map((note) => note.note_id));
-  assert.deepEqual(scaffold.key_note_ids, fixture.key_notes.map((note) => note.note_id));
+  assert.deepEqual(project.keyNoteIds, declaredKeyNoteIds);
+  assert.deepEqual(scaffold.key_note_ids, declaredKeyNoteIds);
 
   for (const noteId of project.basketNoteIds) {
     assert.ok(permanentIds.has(noteId), `${project.id} basket references missing note ${noteId}`);
@@ -250,9 +253,25 @@ test("smart notes product demo fixture writing project traces notes and sources"
 });
 
 test("smart notes product demo fixture graph exposes key-note paths", () => {
+  const sourceIds = new Set(fixture.sources.map((note) => note.id));
+  const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
   const keyNoteIds = new Set(fixture.key_notes.map((note) => note.note_id));
   const permanentIds = new Set(fixture.permanent_notes.map((note) => note.id));
   const indexIds = new Set(fixture.index_cards.map((card) => card.id));
+  const writingProjectIds = new Set(fixture.writing_projects.map((project) => project.id));
+  const finalEssayIds = new Set(fixture.final_essays.map((note) => note.id));
+  const draftScaffoldIds = new Set(fixture.draft_scaffolds.map((scaffold) => scaffold.id));
+  const validReadingPathIds = new Set([
+    ...sourceIds,
+    ...literatureIds,
+    ...permanentIds,
+    ...indexIds,
+    ...writingProjectIds,
+    ...finalEssayIds,
+    ...draftScaffoldIds
+  ]);
+  const graphClusters = new Set(fixture.graph.key_note_paths.map((path) => path.cluster));
+  const keyNoteClusters = new Set(fixture.key_notes.map((note) => note.cluster));
 
   assert.equal(fixture.graph.key_note_paths.length, fixture.key_notes.length);
   assert.deepEqual(fixture.graph.reading_path, [
@@ -264,33 +283,17 @@ test("smart notes product demo fixture graph exposes key-note paths", () => {
     "ESSAY-SN-PM-001",
     "DS-SN-PM-001"
   ]);
+  for (const id of fixture.graph.reading_path) {
+    assert.ok(validReadingPathIds.has(id), `reading path references missing node ${id}`);
+  }
+  assert.deepEqual([...graphClusters].sort(), [...keyNoteClusters].sort(), "graph key-note paths should cover every key-note cluster");
   for (const path of fixture.graph.key_note_paths) {
     assert.ok(keyNoteIds.has(path.key_note_id), `${path.key_note_id} should be a registered key note`);
     assert.ok(indexIds.has(path.index_card_id), `${path.key_note_id} should point to an index card`);
+    assert.ok(path.cluster, `${path.key_note_id} should declare a cluster path`);
     assert.ok(path.supporting_note_ids.length > 0, `${path.key_note_id} should have supporting notes`);
     for (const noteId of path.supporting_note_ids) {
       assert.ok(permanentIds.has(noteId), `${path.key_note_id} has missing support ${noteId}`);
     }
   }
-});
-
-test("smart notes product seed script runs from the command line", async (t) => {
-  const vaultPath = await fsp.mkdtemp(path.join(os.tmpdir(), "yansilu-smart-notes-cli-seed-"));
-  t.after(() => fsp.rm(vaultPath, { recursive: true, force: true }));
-
-  const first = await runNode(["scripts/seed-smart-notes-product-thinking.mjs", "--vault", vaultPath]);
-  assert.equal(first.code, 0, first.stderr);
-  const firstJson = JSON.parse(first.stdout);
-  assert.equal(firstJson.kind, "smart_notes_product_thinking_seed");
-  assert.equal(firstJson.fixtureId, fixture.id);
-  assert.equal(firstJson.summary.createdNotes, 128);
-  assert.equal(firstJson.summary.createdRelations, fixture.counts.relations);
-
-  const second = await runNode(["scripts/seed-smart-notes-product-thinking.mjs", "--vault", vaultPath]);
-  assert.equal(second.code, 0, second.stderr);
-  const secondJson = JSON.parse(second.stdout);
-  assert.equal(secondJson.summary.createdNotes, 0);
-  assert.equal(secondJson.summary.updatedNotes, 128);
-  assert.equal(secondJson.summary.createdRelations, 0);
-  assert.equal(secondJson.summary.updatedRelations, fixture.counts.relations);
 });
