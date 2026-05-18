@@ -241,8 +241,9 @@ export function fieldSuggestionSummary(artifact = {}) {
     (Array.isArray(artifact.userDecisions) ? artifact.userDecisions : []).some(
       (decision) => cleanText(decision?.decision) === "adopted_as_draft"
     );
+  const hasAdoptableValue = field === "three_line_summary" ? summary.length === 3 : Boolean(thesis);
   return {
-    canAdopt: cleanText(artifact?.type) === "InsightCard" && !adopted && Boolean(noteId) && ["thesis", "three_line_summary"].includes(field) && Boolean(value),
+    canAdopt: cleanText(artifact?.type) === "InsightCard" && !adopted && Boolean(noteId) && ["thesis", "three_line_summary"].includes(field) && hasAdoptableValue,
     adopted,
     noteId,
     field,

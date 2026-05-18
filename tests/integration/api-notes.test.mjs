@@ -388,9 +388,18 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.equal(confirmDistillation.json.item.distillationStatus, "confirmed");
   assert.deepEqual(confirmDistillation.json.item.authorship, { user_confirmed: true, ai_assisted: false });
 
-  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=20");
+  const queueLimitBlocker = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId,
+    body: "# Queue limit blocker\n\nThis note should not hide confirmed items when status filtering is active."
+  });
+  assert.equal(queueLimitBlocker.status, 201, JSON.stringify(queueLimitBlocker.json));
+
+  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=1");
   assert.equal(confirmedQueue.status, 200);
   assert.ok(confirmedQueue.json.items.some((item) => item.targetId === queueSeed.json.item.id && item.missing.length === 0));
+
+  const deletedQueueLimitBlocker = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueLimitBlocker.json.item.id)}`);
+  assert.equal(deletedQueueLimitBlocker.status, 200);
 
   const deletedQueueSeed = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueSeed.json.item.id)}`);
   assert.equal(deletedQueueSeed.status, 200);

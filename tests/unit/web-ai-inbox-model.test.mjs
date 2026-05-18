@@ -233,4 +233,29 @@ test("AI inbox model identifies adoptable field suggestion artifacts", () => {
     }),
     false
   );
+
+  const summaryArtifact = {
+    ...artifact,
+    payload: {
+      targetField: "three_line_summary",
+      fieldSuggestion: {
+        target: { type: "permanent_note", id: "pn_1", field: "three_line_summary" },
+        content: { threeLineSummary: ["Draft line one.", "Draft line two."] }
+      }
+    }
+  };
+  assert.equal(isAdoptableFieldSuggestionArtifact(summaryArtifact), false);
+  assert.equal(
+    isAdoptableFieldSuggestionArtifact({
+      ...summaryArtifact,
+      payload: {
+        ...summaryArtifact.payload,
+        fieldSuggestion: {
+          ...summaryArtifact.payload.fieldSuggestion,
+          content: { threeLineSummary: ["Draft line one.", "Draft line two.", "Draft line three."] }
+        }
+      }
+    }),
+    true
+  );
 });
