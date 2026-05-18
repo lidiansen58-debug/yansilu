@@ -1,6 +1,7 @@
 ﻿import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 import {
   createDirectory,
@@ -8,14 +9,12 @@ import {
   createNoteInDirectory,
   createNoteRelation,
   getNoteById,
-  getNotePath,
   updateNoteContent,
   updateNoteRelation,
   createIndexCard,
   getIndexCard,
   updateIndexCard,
-  initVault,
-  serializeNote
+  initVault
 } from "../packages/domain/src/index.mjs";
 import { createDraftScaffold, createWritingProject, getDraftScaffold, getWritingProject } from "../packages/writing-engine/src/index.mjs";
 
@@ -68,14 +67,12 @@ function usage() {
 
 function fixtureNoteType(note) {
   const kind = cleanText(note?.note_type || note?.noteType).toLowerCase();
-  if (kind === "source") return "source";
   if (kind === "fleeting") return "fleeting";
   if (kind === "literature") return "literature";
   return "permanent";
 }
 
 function directoryIdForFixtureType(fixtureType) {
-  if (fixtureType === "source") return "dir_source_default";
   if (fixtureType === "fleeting") return "dir_fleeting_default";
   if (fixtureType === "literature") return "dir_literature_default";
   return ORIGINAL_DIRECTORY_ID;
@@ -274,31 +271,8 @@ async function ensureOriginalDirectory(vaultPath) {
   });
 }
 
-async function upsertSource(vaultPath, note, counters) {
-  const payload = {
-    id: cleanText(note?.id) || `src_${randomUUID().slice(0, 8)}`,
-    title: cleanText(note?.title) || cleanText(note?.id) || "Untitled Source",
-    source_type: cleanText(note?.source_type || note?.sourceType || note?.source_kind || note?.sourceKind) || "reference",
-    imported_from: cleanText(note?.imported_from || note?.importedFrom || "fixture"),
-    description: cleanText(note?.body || note?.description || note?.use_boundary || note?.purpose || ""),
-    note_type: "source"
-  };
-  const filePath = getNotePath(vaultPath, "source", payload.id);
-  const content = serializeNote("source", payload);
-  try {
-    await fs.access(filePath);
-    await fs.writeFile(filePath, content, "utf8");
-    counters.updatedSources += 1;
-  } catch {
-    await fs.writeFile(filePath, content, "utf8");
-    counters.createdSources += 1;
-  }
-  return payload.id;
-}
-
 async function upsertNote(vaultPath, note, counters) {
   const fixtureType = fixtureNoteType(note);
-  if (fixtureType === "source") return upsertSource(vaultPath, note, counters);
   const directoryId = directoryIdForFixtureType(fixtureType);
   const payload = {
     id: cleanText(note?.id) || `note_${randomUUID().slice(0, 8)}`,
@@ -453,8 +427,6 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
   const { fixturePath, fixture } = await loadFixture(options.fixturePath);
   const counts = fixture?.counts && typeof fixture.counts === "object" ? fixture.counts : {};
   const counters = {
-    createdSources: 0,
-    updatedSources: 0,
     createdNotes: 0,
     updatedNotes: 0,
     createdRelations: 0,
@@ -469,7 +441,6 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
 
   const noteIds = [];
   const batches = [
-    ...(Array.isArray(fixture?.sources) ? fixture.sources : []),
     ...(Array.isArray(fixture?.guide_notes) ? fixture.guide_notes : []),
     ...(Array.isArray(fixture?.fleeting_notes) ? fixture.fleeting_notes : []),
     ...(Array.isArray(fixture?.literature_notes) ? fixture.literature_notes : []),
@@ -514,7 +485,7 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((error) => {
     // eslint-disable-next-line no-console
     console.error(error);

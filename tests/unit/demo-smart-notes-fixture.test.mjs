@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -7,6 +10,27 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.resolve(__dirname, "..", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+const repoRoot = path.resolve(__dirname, "..", "..");
+
+function runNode(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+}
 
 const REQUIRED_RELATION_TYPES = [
   "supports",
@@ -296,4 +320,25 @@ test("smart notes product demo fixture graph exposes key-note paths", () => {
       assert.ok(permanentIds.has(noteId), `${path.key_note_id} has missing support ${noteId}`);
     }
   }
+});
+
+test("smart notes product seed script runs from the command line", async (t) => {
+  const vaultPath = await fsp.mkdtemp(path.join(os.tmpdir(), "yansilu-smart-notes-cli-seed-"));
+  t.after(() => fsp.rm(vaultPath, { recursive: true, force: true }));
+
+  const first = await runNode(["scripts/seed-smart-notes-product-thinking.mjs", "--vault", vaultPath]);
+  assert.equal(first.code, 0, first.stderr);
+  const firstJson = JSON.parse(first.stdout);
+  assert.equal(firstJson.kind, "smart_notes_product_thinking_seed");
+  assert.equal(firstJson.fixtureId, fixture.id);
+  assert.equal(firstJson.summary.createdNotes, 128);
+  assert.equal(firstJson.summary.createdRelations, fixture.counts.relations);
+
+  const second = await runNode(["scripts/seed-smart-notes-product-thinking.mjs", "--vault", vaultPath]);
+  assert.equal(second.code, 0, second.stderr);
+  const secondJson = JSON.parse(second.stdout);
+  assert.equal(secondJson.summary.createdNotes, 0);
+  assert.equal(secondJson.summary.updatedNotes, 128);
+  assert.equal(secondJson.summary.createdRelations, 0);
+  assert.equal(secondJson.summary.updatedRelations, fixture.counts.relations);
 });
