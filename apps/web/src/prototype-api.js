@@ -181,6 +181,19 @@ export async function promoteAiInboxNote(artifactId, payload = {}) {
   });
 }
 
+export async function adoptAiInboxFieldSuggestion(artifactId, payload = {}) {
+  const cleanArtifactId = String(artifactId || "").trim();
+  if (!cleanArtifactId) throw new Error("artifactId is required");
+  return request(`/api/v1/ai/inbox/${encodeURIComponent(cleanArtifactId)}/adopt-field-suggestion`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...(payload || {}),
+      confirm: true
+    })
+  });
+}
+
 export async function summarizeAiInboxItem(artifactId, payload = {}) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) throw new Error("artifactId is required");

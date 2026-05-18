@@ -8,6 +8,7 @@ import {
   aiInboxTypeLabel,
   aiInboxTypeOptions,
   aiInboxViewOptions,
+  fieldSuggestionSummary,
   isNoteToNoteLinkSuggestion,
   latestFeedbackFlags,
   linkSuggestionSummary,
@@ -322,6 +323,7 @@ function renderRecommendedSummaryAction(state = {}) {
   const action = String(state.aiSummaryRecommendedAction || "").trim();
   const labels = {
     accept_link: "Apply: create relation",
+    adopt_field_suggestion: "Apply: draft field",
     promote_note: "Apply: draft note",
     ignore: "Apply: ignore",
     needs_more_context: "Apply: needs context"
@@ -384,6 +386,32 @@ function renderNotePromotionAction(artifact = {}) {
         ${promotion.canPromote ? "" : "disabled"}
       >
         生成草稿笔记
+      </button>
+    </div>
+  `;
+}
+
+function renderFieldSuggestionAction(artifact = {}) {
+  const suggestion = fieldSuggestionSummary(artifact);
+  if (!suggestion.field) return "";
+  return `
+    <div class="ai-inbox-action-card ${suggestion.canAdopt ? "" : "is-muted"}">
+      <div>
+        <h3>可采纳为观点草稿</h3>
+        <p>${escapeHtml(suggestion.fieldLabel || "字段建议")} / ${escapeHtml(suggestion.noteId || "未知笔记")}</p>
+      </div>
+      ${
+        suggestion.adopted
+          ? `<div class="ai-inbox-detail-muted">这条字段建议已经采纳为草稿。确认观点仍需要你手动完成。</div>`
+          : `<div class="ai-inbox-detail-muted">${escapeHtml(suggestion.value || "没有可采纳内容。")}</div>`
+      }
+      <button
+        class="mini-btn primary"
+        type="button"
+        data-ai-inbox-adopt-field="${attr(artifact.id)}"
+        ${suggestion.canAdopt ? "" : "disabled"}
+      >
+        采纳为草稿字段
       </button>
     </div>
   `;
@@ -475,6 +503,7 @@ function renderDetail(state = {}) {
 
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
+      ${renderFieldSuggestionAction(activeArtifact)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}

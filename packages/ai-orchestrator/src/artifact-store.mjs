@@ -1,6 +1,6 @@
 import { normalizeArtifact } from "./artifacts.mjs";
 
-const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "promoted_to_note", "linked_to_note"]);
+const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -132,7 +132,7 @@ export function createInMemoryArtifactStore() {
       artifact.userDecisions = [...(artifact.userDecisions || []), decision];
       artifact.provenance = {
         ...(artifact.provenance || {}),
-        humanAccepted: ["accepted", "promoted_to_note", "linked_to_note"].includes(decision.decision)
+        humanAccepted: ["accepted", "adopted_as_draft", "promoted_to_note", "linked_to_note"].includes(decision.decision)
           ? true
           : artifact.provenance?.humanAccepted === true,
         humanRewritten: decision.decision === "revised" ? true : artifact.provenance?.humanRewritten === true

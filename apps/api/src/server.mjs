@@ -1198,6 +1198,26 @@ function assertPermanentNoteReadyToConfirm(note = {}, body = {}) {
   }
 }
 
+function publicDistillationQueueItems(queue = {}, filter = {}) {
+  const requestedStatus = cleanText(filter.status || "");
+  return (Array.isArray(queue.items) ? queue.items : [])
+    .map((entry) => {
+      const missing = [
+        entry.missingThesis ? "thesis" : "",
+        entry.missingThreeLineSummary ? "three_line_summary" : ""
+      ].filter(Boolean);
+      return {
+        targetId: entry.note?.id || "",
+        targetType: "permanent_note",
+        status: entry.status,
+        missing,
+        note: entry.note,
+        qualityChecks: entry.qualityChecks
+      };
+    })
+    .filter((entry) => !requestedStatus || requestedStatus === "all" || entry.status === requestedStatus);
+}
+
 function parseAiInboxDecisionPath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/decision$/);
   return m ? decodeURIComponent(m[1]) : null;
@@ -1210,6 +1230,11 @@ function parseAiInboxAcceptLinkPath(urlPath) {
 
 function parseAiInboxPromoteNotePath(urlPath) {
   const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/promote-note$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function parseAiInboxAdoptFieldSuggestionPath(urlPath) {
+  const m = urlPath.match(/^\/api\/v1\/ai\/inbox\/([^/]+)\/adopt-field-suggestion$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -1254,7 +1279,7 @@ function normalizeAiInboxDecision(body = {}) {
 
 function assertReviewDecision(decision) {
   if (["accepted", "revised", "ignored", "archived"].includes(decision)) return;
-  const error = new Error("Use a dedicated promotion API for promoted_to_note or linked_to_note decisions");
+  const error = new Error("Use a dedicated promotion API for adopted_as_draft, promoted_to_note, or linked_to_note decisions");
   error.code = "AI_ARTIFACT_DECISION_INVALID";
   throw error;
 }
@@ -1271,6 +1296,9 @@ function recommendedAiInboxActionFromText(text = "") {
     accept: "accept_link",
     accept_link: "accept_link",
     create_link: "accept_link",
+    adopt_field: "adopt_field_suggestion",
+    adopt_field_suggestion: "adopt_field_suggestion",
+    adopt_as_draft: "adopt_field_suggestion",
     promote: "promote_note",
     promote_note: "promote_note",
     create_note: "promote_note",
@@ -1406,6 +1434,116 @@ function promoteNoteInputFromArtifact(artifact = {}, body = {}) {
       ...contextLines
     ].join("\n"),
     status: cleanText(body.status) || "draft"
+  };
+}
+
+function normalizeFieldSuggestionField(value = "") {
+  const field = cleanText(value).replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`).replace(/^_+/, "");
+  const aliases = {
+    thesis: "thesis",
+    three_line_summary: "three_line_summary",
+    three_linesummary: "three_line_summary"
+  };
+  const normalized = aliases[field] || field;
+  if (["thesis", "three_line_summary"].includes(normalized)) return normalized;
+  const error = new Error("field suggestion must target thesis or three_line_summary");
+  error.code = "AI_FIELD_SUGGESTION_FIELD_INVALID";
+  throw error;
+}
+
+function fieldSuggestionItems(value) {
+  if (Array.isArray(value)) return value.map((item) => cleanText(item)).filter(Boolean);
+  const text = cleanText(value);
+  if (!text) return [];
+  return text.split(/\r?\n|\s+\/\s+/u).map((item) => cleanText(item)).filter(Boolean);
+}
+
+function fieldSuggestionInputFromArtifact(artifact = {}, body = {}) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const suggestion = payload.fieldSuggestion || payload.field_suggestion;
+  if (artifact.type !== "InsightCard" || !suggestion || typeof suggestion !== "object") {
+    const error = new Error("artifact must be an InsightCard with a fieldSuggestion payload");
+    error.code = "AI_FIELD_SUGGESTION_REQUIRED";
+    throw error;
+  }
+  const existingAdoption = (Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [])
+    .slice()
+    .reverse()
+    .find((decision) => decision?.decision === "adopted_as_draft");
+  if (existingAdoption) {
+    const error = new Error("field suggestion has already been adopted as a draft");
+    error.code = "AI_FIELD_SUGGESTION_ALREADY_ADOPTED";
+    error.details = { noteId: existingAdoption.noteId || existingAdoption.note_id };
+    throw error;
+  }
+
+  const target = suggestion.target && typeof suggestion.target === "object" ? suggestion.target : {};
+  const targetType = cleanText(target.type || target.kind || "permanent_note").toLowerCase();
+  if (targetType !== "permanent_note") {
+    const error = new Error("field suggestions can only be adopted into permanent notes");
+    error.code = "AI_FIELD_SUGGESTION_TARGET_INVALID";
+    throw error;
+  }
+
+  const noteId = cleanText(
+    body.noteId ||
+      body.note_id ||
+      target.id ||
+      payload.sourceNoteIds?.[0] ||
+      payload.source_note_ids?.[0] ||
+      artifact.sources?.noteIds?.[0]
+  );
+  if (!noteId) {
+    const error = new Error("field suggestion target noteId is required");
+    error.code = "AI_FIELD_SUGGESTION_NOTE_ID_REQUIRED";
+    throw error;
+  }
+
+  const content = suggestion.content && typeof suggestion.content === "object" ? suggestion.content : {};
+  const bodyContent = body.content && typeof body.content === "object" ? body.content : {};
+  const field = normalizeFieldSuggestionField(body.field || body.targetField || body.target_field || target.field || payload.targetField || payload.target_field);
+  const update = {
+    distillationStatus: "draft",
+    authorship: {
+      user_confirmed: false,
+      ai_assisted: true
+    }
+  };
+  const adoptedValue = {};
+
+  if (field === "thesis") {
+    const thesis = cleanText(body.thesis ?? body.value ?? bodyContent.thesis ?? content.thesis ?? content[field] ?? artifact.body);
+    if (!thesis) {
+      const error = new Error("thesis field suggestion content is required");
+      error.code = "AI_FIELD_SUGGESTION_CONTENT_REQUIRED";
+      throw error;
+    }
+    update.thesis = thesis;
+    adoptedValue.thesis = thesis;
+  } else {
+    const summary = fieldSuggestionItems(
+      body.threeLineSummary ??
+        body.three_line_summary ??
+        body.value ??
+        bodyContent.threeLineSummary ??
+        bodyContent.three_line_summary ??
+        content.threeLineSummary ??
+        content.three_line_summary
+    );
+    if (!summary.length) {
+      const error = new Error("three_line_summary field suggestion content is required");
+      error.code = "AI_FIELD_SUGGESTION_CONTENT_REQUIRED";
+      throw error;
+    }
+    update.threeLineSummary = summary;
+    adoptedValue.threeLineSummary = summary;
+  }
+
+  return {
+    noteId,
+    field,
+    update,
+    adoptedValue
   };
 }
 
@@ -2435,6 +2573,66 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    const aiInboxAdoptFieldSuggestionId = parseAiInboxAdoptFieldSuggestionPath(url.pathname);
+    if (req.method === "POST" && aiInboxAdoptFieldSuggestionId) {
+      try {
+        await initVault(VAULT_PATH);
+        const body = await readJson(req);
+        if (!hasExplicitConfirmation(body)) {
+          return sendJson(
+            res,
+            400,
+            err("AI_FIELD_SUGGESTION_CONFIRMATION_REQUIRED", "confirm: true is required before adopting a field suggestion", rid)
+          );
+        }
+
+        const artifactStore = await aiArtifactStore();
+        const existingArtifact = artifactStore.getArtifact(aiInboxAdoptFieldSuggestionId);
+        if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
+
+        const fieldSuggestion = fieldSuggestionInputFromArtifact(existingArtifact, body);
+        const note = await getNoteById(VAULT_PATH, fieldSuggestion.noteId);
+        if (note.noteType !== "permanent") {
+          return sendJson(
+            res,
+            400,
+            err("AI_FIELD_SUGGESTION_TARGET_INVALID", "field suggestions can only be adopted into permanent notes", rid, {
+              noteId: fieldSuggestion.noteId,
+              noteType: note.noteType
+            })
+          );
+        }
+        const updatedNote = await updateNoteContent(VAULT_PATH, fieldSuggestion.noteId, fieldSuggestion.update);
+        const artifact = artifactStore.recordDecision(aiInboxAdoptFieldSuggestionId, {
+          decision: "adopted_as_draft",
+          userId: body.userId || body.user_id || "local_user",
+          noteId: updatedNote.id,
+          comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
+          feedback: body.feedback
+        });
+        const inbox = createAiInbox({ artifactStore });
+        const item = inbox.getItem(aiInboxAdoptFieldSuggestionId);
+        return sendJson(res, 200, {
+          item,
+          artifact,
+          note: updatedNote,
+          adoptedField: fieldSuggestion.field,
+          adoptedValue: fieldSuggestion.adoptedValue,
+          latestDecision: item?.latestDecision || null,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status =
+          error?.code === "AI_ARTIFACT_NOT_FOUND" || error?.code === "NOTE_NOT_FOUND"
+            ? 404
+            : error?.code === "AI_FIELD_SUGGESTION_ALREADY_ADOPTED"
+              ? 409
+              : 400;
+        return sendJson(res, status, err(error?.code || "AI_FIELD_SUGGESTION_ADOPT_FAILED", String(error?.message || error), rid, error?.details));
+      }
+    }
+
     const aiInboxItemId = parseAiInboxItemPath(url.pathname);
     if (req.method === "GET" && aiInboxItemId) {
       try {
@@ -3099,8 +3297,13 @@ const server = http.createServer(async (req, res) => {
           status: url.searchParams.get("status") || "",
           limit: url.searchParams.get("limit") || 50
         });
+        const item = result?.item ?? result;
+        const items = publicDistillationQueueItems(item, { status: url.searchParams.get("status") || "" });
         return sendJson(res, 200, {
-          item: result?.item ?? result,
+          item,
+          items,
+          total: items.length,
+          counts: item?.counts || {},
           requestId: rid,
           timestamp: new Date().toISOString()
         });

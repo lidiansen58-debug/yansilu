@@ -132,7 +132,8 @@ import {
   updateDirectory,
   updateAiScheduledTaskStatus,
   updateNote,
-  updatePermanentNoteDistillation
+  updatePermanentNoteDistillation,
+  adoptAiInboxFieldSuggestion
 } from "./prototype-api.js";
 
 const $ = (id) => document.getElementById(id);
@@ -1401,6 +1402,7 @@ async function applyAiInboxRecommendedAction(action = "") {
   if (!artifactId || !normalized) return setStatus("No AI recommended action to apply", "warn");
   const labels = {
     accept_link: "create the suggested relation",
+    adopt_field_suggestion: "adopt the field suggestion as a draft",
     promote_note: "create a draft note",
     ignore: "mark this item ignored",
     needs_more_context: "mark this item as needing more context"
@@ -1409,6 +1411,7 @@ async function applyAiInboxRecommendedAction(action = "") {
   if (!window.confirm(`Apply AI recommended action: ${label}?`)) return false;
 
   if (normalized === "accept_link") return acceptAiInboxLinkSuggestion(artifactId);
+  if (normalized === "adopt_field_suggestion") return adoptAiInboxFieldSuggestionDraft(artifactId);
   if (normalized === "promote_note") return promoteAiInboxArtifactToNote(artifactId);
   if (normalized === "ignore") return recordAiInboxReviewDecision("ignored");
   if (normalized === "needs_more_context") {
@@ -1473,6 +1476,40 @@ async function promoteAiInboxArtifactToNote(artifactId) {
     return result;
   } catch (error) {
     setStatus(`AI note promotion failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function adoptAiInboxFieldSuggestionDraft(artifactId) {
+  const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
+  if (!cleanArtifactId) return setStatus("请先选择一条字段建议", "warn");
+  aiInboxState.actionLoading = true;
+  renderAiInboxWorkspace();
+  try {
+    const result = await adoptAiInboxFieldSuggestion(cleanArtifactId, {
+      comment: $("aiInboxDecisionComment")?.value || "",
+      feedback: aiInboxFeedbackFromUi()
+    });
+    aiInboxState.detail = { item: result.item, artifact: result.artifact };
+    aiInboxState.selectedArtifactId = cleanArtifactId;
+    if (result.note?.id) {
+      state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
+    }
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    if (result.note?.id) {
+      activateModule("explorer");
+      openNoteById(result.note.id, { focusDistillation: true });
+    }
+    setStatus(result.note?.id ? `已采纳 AI 字段建议为草稿：${result.note.id}` : "AI 字段建议已采纳为草稿", "ok");
+    return result;
+  } catch (error) {
+    setStatus(`AI field suggestion adopt failed: ${String(error?.message || error)}`, "bad");
     return null;
   } finally {
     aiInboxState.actionLoading = false;
@@ -8380,6 +8417,13 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const promoteNoteButton = event.target.closest("[data-ai-inbox-promote-note]");
   if (promoteNoteButton) {
     await promoteAiInboxArtifactToNote(promoteNoteButton.getAttribute("data-ai-inbox-promote-note"));
+    return;
+  }
+
+  const adoptFieldButton = event.target.closest("[data-ai-inbox-adopt-field]");
+  if (adoptFieldButton) {
+    await adoptAiInboxFieldSuggestionDraft(adoptFieldButton.getAttribute("data-ai-inbox-adopt-field"));
+    return;
   }
 
   if (event.target.closest("#btnAiInboxSummarize")) {

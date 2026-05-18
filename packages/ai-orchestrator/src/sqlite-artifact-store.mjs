@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { normalizeArtifact } from "./artifacts.mjs";
 
-const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "promoted_to_note", "linked_to_note"]);
+const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -401,7 +401,7 @@ export async function createSqliteArtifactStore(options = {}) {
       const decision = normalizeDecision(input, id);
       const provenance = {
         ...(existing.provenance || {}),
-        humanAccepted: ["accepted", "promoted_to_note", "linked_to_note"].includes(decision.decision)
+        humanAccepted: ["accepted", "adopted_as_draft", "promoted_to_note", "linked_to_note"].includes(decision.decision)
           ? true
           : existing.provenance?.humanAccepted === true,
         humanRewritten: decision.decision === "revised" ? true : existing.provenance?.humanRewritten === true

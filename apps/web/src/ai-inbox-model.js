@@ -42,6 +42,13 @@ function endpointId(endpoint = {}) {
   return cleanText(endpoint.id || endpoint.noteId || endpoint.note_id);
 }
 
+function normalizeFieldName(value = "") {
+  const field = cleanText(value).replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`).replace(/^_+/, "");
+  if (field === "thesis") return "thesis";
+  if (field === "three_line_summary" || field === "three_linesummary") return "three_line_summary";
+  return field;
+}
+
 export function aiInboxViewOptions() {
   return [
     { value: "pending", label: "待判断" },
@@ -87,6 +94,7 @@ export function aiInboxStatusLabel(status = "") {
     revised: "已修订",
     ignored: "已忽略",
     archived: "已归档",
+    adopted_as_draft: "已采纳为草稿",
     promoted_to_note: "已生成笔记",
     linked_to_note: "已建立关系",
     expired: "已过期"
@@ -97,7 +105,7 @@ export function aiInboxStatusLabel(status = "") {
 export function aiInboxStatusTone(status = "") {
   const normalized = cleanText(status);
   if (normalized === "pending_review") return "warn";
-  if (normalized === "accepted" || normalized === "linked_to_note" || normalized === "promoted_to_note") return "ok";
+  if (normalized === "accepted" || normalized === "adopted_as_draft" || normalized === "linked_to_note" || normalized === "promoted_to_note") return "ok";
   if (normalized === "ignored" || normalized === "archived" || normalized === "expired") return "muted";
   return "";
 }
@@ -110,6 +118,7 @@ export function aiInboxTypeLabel(type = "") {
 export function aiInboxActionLabel(decision = "") {
   const labels = {
     accepted: "采纳",
+    adopted_as_draft: "采纳为草稿",
     ignored: "忽略",
     archived: "归档"
   };
@@ -154,6 +163,7 @@ export function aiInboxEvaluationMetrics(summary = {}) {
   const allFeedback = feedback.all || {};
   const quality = summary.quality?.overall || {};
   const accepted = normalizeCount(latestDecisions.accepted) +
+    normalizeCount(latestDecisions.adopted_as_draft) +
     normalizeCount(latestDecisions.promoted_to_note) +
     normalizeCount(latestDecisions.linked_to_note);
   return [
@@ -212,6 +222,37 @@ export function notePromotionSummary(artifact = {}) {
     suggestedTitle: cleanText(artifact?.payload?.noteTitle || artifact?.payload?.note_title || artifact?.payload?.title || artifact?.payload?.question || artifact?.payload?.prompt || artifact?.title),
     artifactType: cleanText(artifact?.type)
   };
+}
+
+export function fieldSuggestionSummary(artifact = {}) {
+  const payload = artifact?.payload || {};
+  const suggestion = payload.fieldSuggestion || payload.field_suggestion || {};
+  const target = suggestion.target || {};
+  const content = suggestion.content && typeof suggestion.content === "object" ? suggestion.content : {};
+  const field = normalizeFieldName(target.field || payload.targetField || payload.target_field);
+  const sourceNoteIds = Array.isArray(artifact?.sources?.noteIds) ? artifact.sources.noteIds : [];
+  const noteId = cleanText(target.id || sourceNoteIds[0]);
+  const summary = Array.isArray(content.threeLineSummary || content.three_line_summary)
+    ? (content.threeLineSummary || content.three_line_summary).map(cleanText).filter(Boolean)
+    : [];
+  const thesis = cleanText(content.thesis || content[field] || artifact?.body || payload.claim);
+  const value = field === "three_line_summary" ? summary.join(" / ") : thesis;
+  const adopted = cleanText(artifact.status) === "adopted_as_draft" ||
+    (Array.isArray(artifact.userDecisions) ? artifact.userDecisions : []).some(
+      (decision) => cleanText(decision?.decision) === "adopted_as_draft"
+    );
+  return {
+    canAdopt: cleanText(artifact?.type) === "InsightCard" && !adopted && Boolean(noteId) && ["thesis", "three_line_summary"].includes(field) && Boolean(value),
+    adopted,
+    noteId,
+    field,
+    fieldLabel: field === "three_line_summary" ? "三句话压缩" : field === "thesis" ? "一句话判断" : field,
+    value
+  };
+}
+
+export function isAdoptableFieldSuggestionArtifact(artifact = {}) {
+  return fieldSuggestionSummary(artifact).canAdopt;
 }
 
 export function latestFeedbackFlags(itemOrArtifact = {}) {

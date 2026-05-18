@@ -775,6 +775,31 @@ test("prototype API forces promote-note confirmation", async () => {
   }
 });
 
+test("prototype API forces adopt-field-suggestion confirmation", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ai-inbox-adopt-field", { __API_BASE__: "http://127.0.0.1:3999" });
+  let capturedBody = "";
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), "http://127.0.0.1:3999/api/v1/ai/inbox/artifact_3/adopt-field-suggestion");
+    capturedBody = options.body;
+    return {
+      ok: true,
+      async json() {
+        return { item: { artifactId: "artifact_3" }, note: { id: "pn_1" } };
+      }
+    };
+  };
+
+  try {
+    await api.adoptAiInboxFieldSuggestion("artifact_3", { confirm: false, comment: "Use as draft." });
+    assert.equal(JSON.parse(capturedBody).confirm, true);
+    assert.equal(JSON.parse(capturedBody).comment, "Use as draft.");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API manages scheduled tasks", async () => {
   const previousFetch = globalThis.fetch;
   const api = await importPrototypeApi("ai-scheduled-tasks", { __API_BASE__: "http://127.0.0.1:3999" });
