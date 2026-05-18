@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   actionItems,
+  resultBrief,
   resultMetrics,
   resultStatusLabel,
   resultSubtitle,
@@ -24,6 +25,7 @@ test("import result model derives preview title tone metrics subtitle", () => {
   assert.equal(resultTone(payload), "warn");
   assert.equal(resultSubtitle(payload), "imp_1");
   assert.equal(resultStatusLabel("warn"), "需注意");
+  assert.equal(resultBrief(payload, "warn"), "可以继续，但建议先看完警告与候选项，再决定是否确认写入。");
   assert.deepEqual(resultMetrics(payload), [
     { label: "导入记录", value: "imp_1" },
     { label: "连接器", value: "Markdown" },
@@ -34,6 +36,12 @@ test("import result model derives preview title tone metrics subtitle", () => {
     { label: "警告", value: "1" },
     { label: "警告", value: "1" }
   ]);
+});
+
+test("import result model derives plain-language briefs", () => {
+  assert.equal(resultBrief({ stage: "preview" }, "ok"), "预览已生成。检查候选项，排除不需要的内容后再确认写入。");
+  assert.equal(resultBrief({ stage: "export_markdown" }, "ok"), "导出已完成。目标目录中包含 Markdown 笔记和关联资源文件。");
+  assert.equal(resultBrief({ stage: "preview_error" }, "bad"), "先处理下方提示，再重新执行这一步；当前不会写入或覆盖你的笔记。");
 });
 
 test("import result model derives warnings and actions from originality and skipped files", () => {

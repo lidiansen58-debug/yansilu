@@ -238,7 +238,7 @@ function actionableTextForCode(code, payload = {}) {
   const normalized = String(code || "").trim();
   const map = {
     IMPORT_EMPTY_PAYLOAD: "补充 Payload JSON，或为 Markdown/Obsidian 导入填写一个存在的本机路径。",
-    IMPORT_SOURCE_UNREADABLE: "确认导入路径存在、当前进程有读取权限，并尽量使用绝对路径。",
+    IMPORT_SOURCE_UNREADABLE: "确认来源路径存在、当前进程有读取权限，并尽量使用绝对路径。",
     IMPORT_MARKDOWN_FILE_UNREADABLE: "检查被跳过的 Markdown 文件权限或编码，修复后重新预览导入。",
     IMPORT_MALFORMED_FRONTMATTER: "修正 frontmatter 的 --- 起止边界；预览仍会继续，但建议确认写入前先处理。",
     IMPORT_NO_MARKDOWN_FILE: "确认目录中包含 .md 文件；如果是 Obsidian vault，请选择 vault 根目录或目标子目录。",
@@ -322,4 +322,28 @@ export function resultSubtitle(data = {}) {
 
 export function resultStatusLabel(tone) {
   return tone === "bad" ? "失败" : tone === "warn" ? "需注意" : "完成";
+}
+
+export function resultBrief(payload = {}, tone = resultTone(payload)) {
+  const stage = String(payload.stage || "").trim();
+  if (tone === "bad") {
+    return "先处理下方提示，再重新执行这一步；当前不会写入或覆盖你的笔记。";
+  }
+  if (tone === "warn") {
+    return "可以继续，但建议先看完警告与候选项，再决定是否确认写入。";
+  }
+  const briefs = {
+    preview: "预览已生成。检查候选项，排除不需要的内容后再确认写入。",
+    confirm: "内容已写入 Vault。可以进入待转述、写作篮或历史记录继续处理。",
+    cancel: "这次导入已经取消，未写入新的笔记内容。",
+    record: "记录已读取。你可以继续确认、回滚，或从历史里打开相关队列。",
+    rollback: "回滚已完成。被系统保留的文件需要手动检查后再处理。",
+    export_markdown: "导出已完成。目标目录中包含 Markdown 笔记和关联资源文件。",
+    writing_project: "写作项目已创建。下一步可以生成草稿骨架。",
+    draft_scaffold: "草稿骨架已生成。检查结构后可以复制、导出或保存成草稿笔记。",
+    writing_draft_note: "草稿笔记已创建。可以回到编辑器继续手写修改。",
+    writing_copy_scaffold: "Scaffold Markdown 已复制，可以粘贴到你的写作环境。",
+    writing_export_scaffold: "Scaffold Markdown 已导出，可以在目标位置继续整理。"
+  };
+  return briefs[stage] || "操作已完成。可以查看下方结果，按需继续下一步。";
 }

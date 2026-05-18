@@ -1,5 +1,6 @@
 import {
   actionItems,
+  resultBrief,
   resultMetrics,
   resultStatusLabel,
   resultSubtitle,
@@ -26,6 +27,7 @@ export function renderImportResultMount({
     data: payload,
     title: resultTitle(stage),
     subtitle: resultSubtitle(payload),
+    brief: resultBrief(payload, tone),
     tone,
     statusLabel: resultStatusLabel(tone),
     metrics: resultMetrics(payload),

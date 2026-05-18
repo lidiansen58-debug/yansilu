@@ -70,6 +70,7 @@ export function renderImportResultPanel({
   data = {},
   title = "操作结果",
   subtitle = "",
+  brief = "",
   tone = "ok",
   statusLabel = "完成",
   metrics = [],
@@ -91,6 +92,7 @@ export function renderImportResultPanel({
         </div>
         <div class="result-status ${tone === "ok" ? "" : tone}">${escapeHtml(statusLabel)}</div>
       </div>
+      ${brief ? `<div class="result-brief ${tone === "ok" ? "" : tone}">${escapeHtml(brief)}</div>` : ""}
       ${
         metrics.length
           ? `<div class="result-metrics">${metrics

@@ -6,7 +6,7 @@ function renderResultSection(result = {}) {
   if (typeof result === "string") return result;
   if (typeof result?.html === "string") return result.html;
   if (result?.data) return renderImportResultMount(result);
-  return "还没有导入结果。先选择来源并预览候选。";
+  return "还没有导入结果。先选择来源，再点击预览。";
 }
 
 export function renderImportPageMount({

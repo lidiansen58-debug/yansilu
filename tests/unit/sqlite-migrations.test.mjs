@@ -93,10 +93,18 @@ test("catalog migration backfills historical wikilink relations to implicit stat
       "INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at) VALUES (?, 'permanent', ?, 'active', ?, ?, ?)"
     ).run("note_tgt", "Target", "notes/original/target.md", now, now);
     db.prepare(
+      "INSERT INTO notes (id, note_type, title, status, markdown_path, created_at, updated_at) VALUES (?, 'permanent', ?, 'active', ?, ?, ?)"
+    ).run("note_other", "Other", "notes/original/other.md", now, now);
+    db.prepare(
       `INSERT INTO links
         (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
        VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'confirmed', ?)`
     ).run("lnk_old", "note_src", "note_tgt", now, now);
+    db.prepare(
+      `INSERT INTO links
+        (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
+       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'confirmed', ?)`
+    ).run("lnk_edited", "note_src", "note_other", now, "2026-05-18T00:00:00.000Z");
 
     const migrationSql = await fs.readFile(
       path.join(process.cwd(), "packages", "domain", "src", "sqlite", "011_catalog_v2_2.sql"),
@@ -106,6 +114,8 @@ test("catalog migration backfills historical wikilink relations to implicit stat
 
     const row = db.prepare("SELECT status FROM links WHERE id = ? LIMIT 1").get("lnk_old");
     assert.equal(row.status, "implicit");
+    const edited = db.prepare("SELECT status FROM links WHERE id = ? LIMIT 1").get("lnk_edited");
+    assert.equal(edited.status, "confirmed");
   } finally {
     db.close();
   }

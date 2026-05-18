@@ -522,10 +522,10 @@ function buildSections(project, basketNotes) {
 
 function renderMarkdown(project, scaffold, basketNotes, options = {}) {
   const noteById = new Map(basketNotes.map((note) => [note.id, note]));
+  const preflight = options?.preflight || null;
   const readiness = buildWritingProjectReadiness(project, basketNotes, {
     indexCards: Array.isArray(options.indexCards) ? options.indexCards : []
   });
-  const scaffoldPreflight = options.preflight || null;
   const lines = [
     `# ${project.title}`,
     "",
@@ -543,19 +543,18 @@ function renderMarkdown(project, scaffold, basketNotes, options = {}) {
         ? readiness.checks.map((item) => `- ${item.field}: ${item.message}`)
         : ["- No blocking gaps detected for scaffold generation."]
     ),
-    "",
-    "## Draft Scaffold"
+    ""
   ];
 
-  if (scaffoldPreflight?.checks?.length) {
+  if (preflight?.checks?.length) {
     lines.push(
       "## Scaffold Readiness Check",
-      `- Status: ${scaffoldPreflight.status}`,
-      `- Passing checks: ${scaffoldPreflight.passCount}/${scaffoldPreflight.checks.length}`,
-      `- Warnings: ${scaffoldPreflight.warningCount}`,
+      `- Status: ${preflight.status}`,
+      `- Passing checks: ${preflight.passCount}/${preflight.checks.length}`,
+      `- Warnings: ${preflight.warningCount}`,
       ""
     );
-    for (const check of scaffoldPreflight.checks) {
+    for (const check of preflight.checks) {
       lines.push(`- ${check.status === "pass" ? "PASS" : "WARN"} ${check.label}: ${check.message}`);
     }
     lines.push("");

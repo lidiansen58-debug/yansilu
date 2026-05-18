@@ -1473,7 +1473,7 @@ function summarizeRelationReviewQueue(items) {
   const byRelationType = {};
   for (const item of items) {
     const qualityLevel = String(item.rationaleQualityLevel || "empty").trim().toLowerCase();
-    const status = String(item.status || "confirmed").trim().toLowerCase();
+    const status = String(item.status || "implicit").trim().toLowerCase();
     const relationType = String(item.relationType || "associated_with").trim().toLowerCase();
     byQualityLevel[qualityLevel] = (byQualityLevel[qualityLevel] || 0) + 1;
     byStatus[status] = (byStatus[status] || 0) + 1;

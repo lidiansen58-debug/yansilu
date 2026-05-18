@@ -1,4 +1,4 @@
-import fs from "node:fs/promises";
+﻿import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -77,60 +77,126 @@ function directoryIdForFixtureType(fixtureType) {
   return ORIGINAL_DIRECTORY_ID;
 }
 
-function noteBodyFromFixture(note, fixtureType) {
+function fixtureStringItems(input) {
+  return Array.isArray(input) ? input.map((item) => cleanText(item)).filter(Boolean) : [];
+}
+
+function fixtureTagLine(note) {
+  const tags = fixtureStringItems(note?.tags).map((tag) => (tag.startsWith("#") ? tag : `#${tag}`));
+  return tags.length ? `\n\n${tags.join(" ")}` : "";
+}
+
+function richNoteBodyFromFixture(note, fixtureType) {
   const title = cleanText(note?.title) || cleanText(note?.id) || "Untitled";
-  const tags = Array.isArray(note?.tags) ? note.tags.filter(Boolean).map((t) => String(t).trim()).filter(Boolean) : [];
-  const tagLine = tags.length ? `\n\n${tags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ")}` : "";
+  const tagLine = fixtureTagLine(note);
+  const explicitBody = cleanText(note?.body);
+
+  if (explicitBody) {
+    const body = explicitBody.startsWith("# ") ? explicitBody : [`# ${title}`, "", explicitBody].join("\n");
+    return `${body.trimEnd()}\n${tagLine}`;
+  }
+
+  if (fixtureType === "fleeting") {
+    const processedInto = fixtureStringItems(note?.processed_into || note?.processedInto);
+    return [
+      `# ${title}`,
+      "",
+      "## 原始闪念",
+      cleanText(note?.raw_idea || note?.content),
+      "",
+      "## 触发场景",
+      cleanText(note?.capture_context || note?.source_hint),
+      "",
+      "## 为什么值得处理",
+      cleanText(note?.why_it_matters),
+      "",
+      "## 下一步处理",
+      cleanText(note?.next_action),
+      "",
+      "## 已转换为",
+      ...(processedInto.length ? processedInto.map((id) => `- ${id}`) : ["- 待处理"]),
+      tagLine
+    ].join("\n");
+  }
 
   if (fixtureType === "literature") {
-    const sourceId = cleanText(note?.source_id || note?.sourceId);
-    const location = cleanText(note?.location);
-    const paraphrase = cleanText(note?.paraphrase || note?.paraphrase_text);
-    const takeaway = cleanText(note?.my_takeaway || note?.takeaway);
-    const excerpt = cleanText(note?.excerpt);
-    const questions = Array.isArray(note?.questions) ? note.questions.filter(Boolean) : [];
+    const knowledgePoints = fixtureStringItems(note?.knowledge_points);
+    const candidateNotes = fixtureStringItems(note?.candidate_permanent_notes || note?.candidatePermanentNotes);
+    const questions = fixtureStringItems(note?.questions);
     return [
       `# ${title}`,
       "",
       "## 来源",
-      sourceId || "未标注",
+      cleanText(note?.source_id || note?.sourceId) || "未标注",
       "",
-      "## 位置",
-      location || "未标注",
+      "## 引文边界",
+      cleanText(note?.quote_text || note?.excerpt) || "本测试数据只保存主题边界和原创转述，不复刻原文。",
       "",
-      "## 转述",
-      paraphrase || "",
+      "## 我的转述",
+      cleanText(note?.paraphrase || note?.paraphrase_text),
       "",
-      ...(excerpt
-        ? ["## 摘录", excerpt, ""]
-        : []),
-      ...(takeaway
-        ? ["## 我的收获", takeaway, ""]
-        : []),
-      "## 问题",
-      ...(questions.length ? questions.map((q) => `- ${q}`) : ["- (none)"]),
-      ""
-    ].join("\n") + tagLine;
+      "## 知识点提取",
+      ...(knowledgePoints.length ? knowledgePoints.map((item) => `- ${item}`) : ["- 待提取"]),
+      "",
+      "## 我的收获",
+      cleanText(note?.my_takeaway || note?.takeaway),
+      "",
+      "## 可转换为永久笔记",
+      ...(candidateNotes.length ? candidateNotes.map((id) => `- ${id}`) : ["- 待确认"]),
+      "",
+      "## 待追问问题",
+      ...(questions.length ? questions.map((question) => `- ${question}`) : ["- 待补充"]),
+      tagLine
+    ].join("\n");
   }
 
-  if (fixtureType === "fleeting") {
-    return [`# ${title}`, "", cleanText(note?.body), ""].join("\n") + tagLine;
-  }
+  const knowledgePoint = note?.knowledge_point && typeof note.knowledge_point === "object" ? note.knowledge_point : {};
+  const summary = fixtureStringItems(note?.threeLineSummary || note?.three_line_summary);
+  const sourceIds = fixtureStringItems(note?.from_literature_note_ids || note?.fromLiteratureNoteIds);
+  const keyNoteLine = note?.is_key_note
+    ? `这是 ${cleanText(knowledgePoint.label) || "该主题"} 的关键笔记。`
+    : cleanText(note?.supports_key_note_id)
+      ? `这条笔记服务于 ${cleanText(note.supports_key_note_id)} 这条关键笔记。`
+      : "这条笔记尚未绑定关键笔记。";
 
-  const thesis = cleanText(note?.thesis);
-  const summary = Array.isArray(note?.threeLineSummary || note?.three_line_summary)
-    ? (note.threeLineSummary || note.three_line_summary).filter(Boolean)
-    : [];
-  const boundary = cleanText(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint);
-  const body = cleanText(note?.body);
-  const lines = [`# ${title}`, ""];
-  if (thesis) lines.push("## 论点", thesis, "");
-  if (summary.length) lines.push("## 三行摘要", ...summary.map((s) => `- ${s}`), "");
-  if (boundary) lines.push("## 边界/反例", boundary, "");
-  if (body) lines.push(body, "");
-  return lines.join("\n") + tagLine;
+  return [
+    `# ${title}`,
+    "",
+    "## 核心论点",
+    cleanText(note?.core_claim || note?.thesis),
+    "",
+    "## 知识点提取",
+    ...(cleanText(knowledgePoint.method_principle)
+      ? [
+          `- 方法论命题：${cleanText(knowledgePoint.method_principle)}`,
+          `- 反面误用：${cleanText(knowledgePoint.misuse_to_avoid)}`,
+          `- 产品设计要求：${cleanText(knowledgePoint.product_requirement)}`
+        ]
+      : ["- 待提取"]),
+    "",
+    "## 三句话压缩",
+    ...(summary.length ? summary.map((item) => `- ${item}`) : ["- 待补充"]),
+    "",
+    "## 论证理由",
+    cleanText(note?.rationale),
+    "",
+    "## 来源追溯",
+    ...(sourceIds.length ? sourceIds.map((id) => `- ${id}`) : ["- 暂无文献笔记追溯"]),
+    "",
+    "## 产品经理复述",
+    cleanText(note?.pmRestatement || note?.pm_restatement),
+    "",
+    "## 产品含义",
+    cleanText(note?.productImplication || note?.product_implication),
+    "",
+    "## 关键笔记定位",
+    keyNoteLine,
+    "",
+    "## 边界或反例",
+    cleanText(note?.boundaryOrCounterpoint || note?.boundary_or_counterpoint),
+    tagLine
+  ].join("\n");
 }
-
 function normalizeRelationType(input) {
   const raw = cleanText(input).toLowerCase();
   if (!raw) return "related";
@@ -211,14 +277,14 @@ async function upsertNote(vaultPath, note, counters) {
     id: cleanText(note?.id) || `note_${randomUUID().slice(0, 8)}`,
     directoryId,
     title: cleanText(note?.title) || cleanText(note?.id) || "Untitled",
-    body: noteBodyFromFixture(note, fixtureType),
+    body: richNoteBodyFromFixture(note, fixtureType),
     status: cleanText(note?.status) || "draft"
   };
 
   if (fixtureType === "permanent") {
     payload.thesis = cleanText(note?.thesis);
     payload.threeLineSummary = note?.threeLineSummary || note?.three_line_summary || [];
-    payload.distillationStatus = "draft";
+    payload.distillationStatus = cleanText(note?.distillation_status || note?.distillationStatus) || "draft";
     payload.originalityStatus = cleanText(note?.originality_status || note?.originalityStatus) || "pass";
     payload.authorship = note?.authorship || { user_confirmed: true, ai_assisted: false };
     payload.boundaryOrCounterpoint = cleanText(note?.boundary_or_counterpoint || note?.boundaryOrCounterpoint);
@@ -242,14 +308,20 @@ async function upsertRelation(vaultPath, relation, counters, noteIdSet) {
     toNoteId: cleanText(relation?.to),
     relationType: normalizeRelationType(relation?.relationType || relation?.relation_type || "related"),
     status: cleanText(relation?.status || "confirmed"),
-    rationale: cleanText(relation?.rationale || "")
+    rationale: cleanText(relation?.rationale || ""),
+    insightQuestion: cleanText(relation?.insight_question || relation?.insightQuestion || ""),
+    confidence: relation?.confidence
   };
   if (!payload.fromNoteId || !payload.toNoteId) return null;
   if (noteIdSet && (!noteIdSet.has(payload.fromNoteId) || !noteIdSet.has(payload.toNoteId))) return null;
 
   const created = await createNoteRelation(vaultPath, payload.fromNoteId, payload);
-  if (created?.created) counters.createdRelations += 1;
-  else counters.updatedRelations += 1;
+  if (created?.created) {
+    counters.createdRelations += 1;
+  } else {
+    await updateNoteRelation(vaultPath, created?.id || payload.id, payload);
+    counters.updatedRelations += 1;
+  }
   return created?.id || payload.id;
 }
 
@@ -419,3 +491,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
+
+

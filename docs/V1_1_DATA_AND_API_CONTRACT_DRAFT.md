@@ -76,8 +76,7 @@ type SuggestionStatus =
   | "adopted_as_draft"
   | "edited"
   | "confirmed"
-  | "rejected"
-  | "regenerated";
+  | "rejected";
 ```
 
 含义：
@@ -89,7 +88,6 @@ type SuggestionStatus =
 | `edited` | 用户已改写 |
 | `confirmed` | 用户确认进入正式字段 |
 | `rejected` | 用户拒绝 |
-| `regenerated` | 用户请求换一版 |
 
 ## 3.3 SuggestionType
 
@@ -330,7 +328,6 @@ CREATE INDEX idx_ai_suggestion_events_suggestion ON ai_suggestion_events(suggest
 3. `edited`
 4. `confirmed`
 5. `rejected`
-6. `regenerated`
 
 ---
 
@@ -354,17 +351,24 @@ Response:
 
 ```json
 {
-  "items": [
-    {
-      "targetType": "permanent_note",
-      "targetId": "pn_001",
-      "title": "AI should not own user judgment",
-      "missing": ["thesis", "three_line_summary"],
-      "distillationStatus": "missing",
-      "updatedAt": "2026-05-09T00:00:00.000Z"
-    }
-  ],
-  "total": 1
+  "item": {
+    "counts": {
+      "permanentNotes": 1
+    },
+    "items": [
+      {
+        "note": {
+          "id": "pn_001",
+          "title": "AI should not own user judgment"
+        },
+        "missing": ["thesis", "three_line_summary"],
+        "distillationStatus": "missing",
+        "qualityChecks": [
+          { "code": "missing_thesis" }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -409,7 +413,7 @@ Response:
 Validation:
 
 1. `threeLineSummary` must contain exactly 3 non-empty strings.
-2. `distillationStatus=confirmed` requires explicit confirm endpoint or `confirm: true`.
+2. `distillationStatus=confirmed` requires the explicit confirm endpoint.
 
 ---
 
@@ -421,7 +425,6 @@ Request:
 
 ```json
 {
-  "confirm": true,
   "sourceSuggestionId": "sug_001"
 }
 ```
@@ -440,6 +443,11 @@ Response:
 ```
 
 Rule:
+
+Current implementation: the endpoint does not require a `confirm: true` field,
+but it only confirms a permanent note when both `thesis` and exactly 3 non-empty
+`threeLineSummary` lines are present. Otherwise it returns
+`PERMANENT_DISTILLATION_CONFIRMATION_INCOMPLETE`.
 
 确认动作必须来自用户。
 
@@ -515,11 +523,10 @@ Request:
 
 ```json
 {
-  "suggestionType": "permanent_note_distillation",
-  "targetType": "permanent_note",
-  "targetId": "pn_001",
-  "scopeType": "current_note",
-  "includeQualityChecks": true
+  "id": "sug_001",
+  "target": { "type": "permanent_note", "id": "pn_001", "field": "thesis" },
+  "scope": "permanent_note_distillation",
+  "content": { "thesis": "AI should assist thinking without owning the user's final judgment." }
 }
 ```
 
@@ -529,26 +536,11 @@ Response:
 {
   "item": {
     "id": "sug_001",
-    "suggestionType": "permanent_note_distillation",
-    "targetType": "permanent_note",
-    "targetId": "pn_001",
-    "content": {
-      "thesis": "AI should assist thinking without owning the user's final judgment.",
-      "threeLineSummary": [
-        "AI can help users see structure and missing evidence.",
-        "But final judgment must still be confirmed by the user.",
-        "This boundary protects Yansilu from becoming an AI writing substitute."
-      ]
-    },
-    "rationale": "The note contrasts AI assistance with authorship transfer.",
-    "evidenceRefs": [
-      {
-        "objectType": "permanent_note",
-        "objectId": "pn_001"
-      }
-    ],
+    "target": { "type": "permanent_note", "id": "pn_001", "field": "thesis" },
+    "scope": "permanent_note_distillation",
+    "content": { "thesis": "AI should assist thinking without owning the user's final judgment." },
     "status": "suggested",
-    "needsUserConfirmation": true
+    "origin": "ai_generated"
   }
 }
 ```
@@ -583,10 +575,8 @@ Allowed transitions:
 
 1. `suggested -> adopted_as_draft`
 2. `suggested -> rejected`
-3. `suggested -> regenerated`
-4. `adopted_as_draft -> edited`
-5. `adopted_as_draft -> confirmed`
-6. `edited -> confirmed`
+3. `adopted_as_draft -> edited`
+4. `edited -> confirmed`
 
 Forbidden:
 
@@ -603,6 +593,12 @@ Forbidden:
 | `THREE_LINE_SUMMARY_INVALID` | 三句话压缩必须恰好 3 项 |
 | `AI_SUGGESTION_NOT_FOUND` | 候选不存在 |
 | `AI_SUGGESTION_TRANSITION_INVALID` | 候选状态流转非法 |
+| `AI_SUGGESTION_TARGET_REQUIRED` | suggestion target requires a type and id |
+| `AI_SUGGESTION_SCOPE_REQUIRED` | suggestion scope is required |
+| `AI_SUGGESTION_CONTENT_REQUIRED` | suggestion content is required |
+| `AI_SUGGESTION_STATUS_INVALID` | suggestion status is unsupported |
+| `AI_SUGGESTION_CONFIRMATION_REQUIRED` | confirmed suggestions require explicit user confirmation provenance |
+| `PERMANENT_DISTILLATION_CONFIRMATION_INCOMPLETE` | permanent-note confirmation requires a thesis and exactly 3 summary lines |
 | `AI_SUGGESTION_CONFIRM_FORBIDDEN` | 候选不能直接确认 |
 | `WRITING_INTENT_INVALID` | 写作意图字段无效 |
 

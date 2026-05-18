@@ -130,7 +130,7 @@ test("V1.1 distillation queue, writing intent, and AI suggestions expose review-
   const confirmed = await postJson(
     baseUrl,
     `/api/v1/permanent-notes/${encodeURIComponent(roughNote.json.item.id)}/distillation/confirm`,
-    { confirm: true }
+    {}
   );
   assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
   assert.equal(confirmed.json.item.distillationStatus, "confirmed");
@@ -163,6 +163,8 @@ test("V1.1 distillation queue, writing intent, and AI suggestions expose review-
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.equal(scaffold.json.item.readiness.status, "ready");
   assert.equal(scaffold.json.export.json.readiness.status, "ready");
+  assert.equal(scaffold.json.item.preflight.status, "needs_attention");
+  assert.ok(scaffold.json.item.preflight.checks.some((item) => item.id === "distillation_quality" && item.status === "warning"));
   assert.match(scaffold.json.export.markdown, /## Readiness Check/);
   assert.match(scaffold.json.export.markdown, /Intent: Explain why confirmed note judgments/);
 
