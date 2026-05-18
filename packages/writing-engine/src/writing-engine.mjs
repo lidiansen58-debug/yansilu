@@ -48,6 +48,7 @@ function mapProjectRow(row, basketNoteIds = []) {
     tone: row.tone || "",
     intent: row.intent || "",
     desired_reader_takeaway: row.desired_reader_takeaway || "",
+    knowledge_work_id: row.knowledge_work_id || "",
     related_index_ids: parseJsonStringArray(row.related_index_ids_json),
     basket_note_ids: basketNoteIds,
     scaffold_id: row.scaffold_id || null,
@@ -97,6 +98,7 @@ function mapProjectListRow(row) {
     tone: row.tone || "",
     intent: row.intent || "",
     desired_reader_takeaway: row.desired_reader_takeaway || "",
+    knowledge_work_id: row.knowledge_work_id || "",
     related_index_ids: parseJsonStringArray(row.related_index_ids_json),
     scaffold_id: row.scaffold_id || null,
     draft_note_id: row.draft_note_id || null,
@@ -256,6 +258,7 @@ export async function createWritingProject(vaultPath, input = {}) {
     tone: cleanText(input.tone),
     intent: cleanText(input.intent),
     desired_reader_takeaway: cleanText(input.desiredReaderTakeaway || input.desired_reader_takeaway),
+    knowledge_work_id: cleanText(input.knowledgeWorkId || input.knowledge_work_id),
     related_index_ids: relatedIndexIds,
     status: cleanText(input.status) || "draft",
     created_at: now,
@@ -269,8 +272,8 @@ export async function createWritingProject(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO writing_projects
-          (id, title, goal, audience, tone, intent, desired_reader_takeaway, related_index_ids_json, status, scaffold_id, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
+          (id, title, goal, audience, tone, intent, desired_reader_takeaway, knowledge_work_id, related_index_ids_json, status, scaffold_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
       ).run(
         project.id,
         project.title,
@@ -279,6 +282,7 @@ export async function createWritingProject(vaultPath, input = {}) {
         project.tone,
         project.intent,
         project.desired_reader_takeaway,
+        project.knowledge_work_id,
         JSON.stringify(project.related_index_ids),
         project.status,
         now,

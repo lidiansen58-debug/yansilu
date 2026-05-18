@@ -61,6 +61,7 @@ export function analyzePermanentNoteDistillation(note = {}) {
 export function analyzeIndexCardDistillation(indexCard = {}) {
   const centralQuestion = cleanText(indexCard.centralQuestion || indexCard.central_question);
   const thesis = cleanText(indexCard.thesis);
+  const boundaryOrCounterpoint = cleanText(indexCard.boundaryOrCounterpoint || indexCard.boundary_or_counterpoint);
   const threeLineSummary = stringItems(indexCard.threeLineSummary || indexCard.three_line_summary);
   const checks = [];
 
@@ -78,6 +79,10 @@ export function analyzeIndexCardDistillation(indexCard = {}) {
     checks.push(check("theme_three_line_summary_count", "three_line_summary", "Keep the topic summary to exactly three non-empty lines."));
   } else if (duplicateSummaryLines(threeLineSummary)) {
     checks.push(check("theme_three_line_summary_repeated", "three_line_summary", "Use each topic summary line for a different move."));
+  }
+
+  if (!boundaryOrCounterpoint) {
+    checks.push(check("missing_theme_boundary", "boundary_or_counterpoint", "Name the strongest counterpoint, exception, or scope limit for this theme."));
   }
 
   return checks;

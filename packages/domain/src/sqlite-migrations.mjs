@@ -17,7 +17,9 @@ const MIGRATION_PLAN = {
     { id: "005_catalog_v1_6", file: "005_catalog_v1_6.sql" },
     { id: "006_catalog_v1_7", file: "006_catalog_v1_7.sql" },
     { id: "007_catalog_v1_8", file: "007_catalog_v1_8.sql" },
-    { id: "008_catalog_v1_9", file: "008_catalog_v1_9.sql" }
+    { id: "008_catalog_v1_9", file: "008_catalog_v1_9.sql" },
+    { id: "009_catalog_v2_0", file: "009_catalog_v2_0.sql" },
+    { id: "010_catalog_v2_1", file: "010_catalog_v2_1.sql" }
   ],
   graphCache: [{ id: "001_graph_cache_v1_2", file: "001_graph_cache_v1_2.sql" }],
   vectors: [{ id: "001_vectors_v1_2", file: "001_vectors_v1_2.sql" }]

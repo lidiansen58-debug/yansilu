@@ -1213,6 +1213,7 @@ const RELATION_TYPE_LABELS = {
 };
 
 const RELATION_STATUS_LABELS = {
+  implicit: "隐式",
   suggested: "建议",
   draft: "草稿",
   confirmed: "已确认",
@@ -1239,7 +1240,7 @@ const RELATION_CREATE_TYPES = [
   "appears_in_draft"
 ];
 
-const RELATION_EDIT_STATUSES = ["confirmed", "draft", "suggested", "dismissed", "archived"];
+const RELATION_EDIT_STATUSES = ["implicit", "confirmed", "draft", "suggested", "dismissed", "archived"];
 
 const RELATION_TENSION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts", "qualifies"]);
 const RELATION_BRIDGE_TYPES = new Set(["bridges", "reframes", "unexpected_connection", "extends"]);
@@ -1251,11 +1252,11 @@ function relationTypeLabel(type) {
 
 function relationStatusLabel(status) {
   const key = String(status || "").trim().toLowerCase();
-  return RELATION_STATUS_LABELS[key] || key || "已确认";
+  return RELATION_STATUS_LABELS[key] || key || "隐式";
 }
 
 function isHiddenRelation(link) {
-  const status = String(link?.status || "confirmed").trim().toLowerCase();
+  const status = String(link?.status || "implicit").trim().toLowerCase();
   return status === "dismissed" || status === "archived";
 }
 
@@ -4761,8 +4762,8 @@ export class EditorPane {
     ).join("");
   }
 
-  renderRelationStatusOptions(selectedStatus = "confirmed") {
-    const selected = String(selectedStatus || "confirmed").trim().toLowerCase();
+  renderRelationStatusOptions(selectedStatus = "implicit") {
+    const selected = String(selectedStatus || "implicit").trim().toLowerCase();
     return RELATION_EDIT_STATUSES.map(
       (status) => `<option value="${escapeHtml(status)}"${status === selected ? " selected" : ""}>${escapeHtml(relationStatusLabel(status))}</option>`
     ).join("");

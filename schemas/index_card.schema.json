@@ -8,6 +8,7 @@
     "title": { "type": "string" },
     "summary": { "type": "string" },
     "thesis": { "type": "string" },
+    "boundary_or_counterpoint": { "type": "string" },
     "three_line_summary": {
       "type": "array",
       "minItems": 3,

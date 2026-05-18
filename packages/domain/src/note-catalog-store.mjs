@@ -530,7 +530,7 @@ function mapRelationLinkRow(row) {
     createdBy: row.created_by,
     confidence: row.confidence,
     createdAt: row.created_at,
-    status: row.status || "confirmed",
+    status: row.status || "implicit",
     updatedAt: row.updated_at || row.created_at,
     target: row.target_id
       ? {
@@ -568,7 +568,7 @@ function mapGraphEdgeRow(row) {
     createdBy: row.created_by,
     confidence: row.confidence,
     createdAt: row.created_at,
-    status: row.status || "confirmed",
+    status: row.status || "implicit",
     updatedAt: row.updated_at || row.created_at
   };
 }
@@ -601,7 +601,7 @@ const LINK_RELATION_TYPES = new Set([
   "free_link"
 ]);
 const LINK_CREATED_BY = new Set(["user", "ai_suggestion", "import"]);
-const LINK_STATUSES = new Set(["suggested", "draft", "confirmed", "dismissed", "archived"]);
+const LINK_STATUSES = new Set(["implicit", "suggested", "draft", "confirmed", "dismissed", "archived"]);
 const RELATION_RATIONALE_QUALITY_LEVELS = new Set(["empty", "basic", "good", "strong"]);
 const RELATION_RATIONALE_ACTION_PATTERN =
   /support|contradict|qualif|extend|bridge|reframe|example|counterexample|because|therefore|however|evidence|boundary|tension|conflict|支持|反驳|限定|补充|推进|前提|后续|例子|反例|桥接|重述|改写|因为|所以|但是|然而|边界|证据|张力|冲突/i;
@@ -970,7 +970,7 @@ function syncMarkdownRelations(db, noteId, markdownBody) {
     db.prepare(
       `INSERT OR IGNORE INTO links
        (id, from_note_id, to_note_id, relation_type, rationale, created_by, confidence, created_at, status, updated_at)
-       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'confirmed', ?)`
+       VALUES (?, ?, ?, 'associated_with', 'markdown_wikilink', 'user', 1, ?, 'implicit', ?)`
     ).run(`lnk_${randomUUID().slice(0, 8)}`, noteId, linkedNote.id, now, now);
   }
 
@@ -1417,7 +1417,7 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              JOIN notes to_note ON to_note.id = l.to_note_id
              WHERE from_note.deleted_at IS NULL
                AND to_note.deleted_at IS NULL
-               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
+               AND COALESCE(l.status, 'implicit') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
           .all(id)
@@ -1438,7 +1438,7 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
                AND to_member.directory_id = ?
                AND from_note.deleted_at IS NULL
                AND to_note.deleted_at IS NULL
-               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
+               AND COALESCE(l.status, 'implicit') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
           .all(id, id)
@@ -1505,7 +1505,7 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
       : "WITH scope(id) AS (SELECT id FROM directories WHERE id = ?)";
     const qualityPlaceholders = qualityLevels.map(() => "?").join(", ");
     const statusClause =
-      status === "all" ? "AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')" : "AND COALESCE(l.status, 'confirmed') = ?";
+      status === "all" ? "AND COALESCE(l.status, 'implicit') NOT IN ('dismissed', 'archived')" : "AND COALESCE(l.status, 'implicit') = ?";
     const relationTypeClause = relationType === "all" ? "" : "AND l.relation_type = ?";
     const args = [directoryId, ...qualityLevels];
     if (status !== "all") args.push(status);
@@ -1550,12 +1550,13 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
              WHEN 'strong' THEN 3
              ELSE 4
            END ASC,
-           CASE COALESCE(l.status, 'confirmed')
-             WHEN 'suggested' THEN 0
-             WHEN 'draft' THEN 1
-             WHEN 'confirmed' THEN 2
-             ELSE 3
-           END ASC,
+            CASE COALESCE(l.status, 'implicit')
+              WHEN 'implicit' THEN 0
+              WHEN 'suggested' THEN 1
+              WHEN 'draft' THEN 2
+              WHEN 'confirmed' THEN 3
+              ELSE 4
+            END ASC,
            COALESCE(l.updated_at, l.created_at) ASC
          LIMIT ?`
       )
@@ -1629,7 +1630,7 @@ export async function findNotePath(vaultPath, input = {}) {
              JOIN scope from_scope ON from_scope.id = from_member.directory_id
              JOIN scope to_scope ON to_scope.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
-               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
+                AND COALESCE(l.status, 'implicit') NOT IN ('dismissed', 'archived')`
           )
           .all(directoryId)
       : db
@@ -1643,7 +1644,7 @@ export async function findNotePath(vaultPath, input = {}) {
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
-               AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
+                AND COALESCE(l.status, 'implicit') NOT IN ('dismissed', 'archived')`
           )
           .all();
 

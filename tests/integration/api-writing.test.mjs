@@ -289,6 +289,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
     title: "Writing themes",
     summary: "A reusable topic entry for the current writing direction.",
     thesis: "This topic is about turning notes into compressed writing inputs.",
+    boundaryOrCounterpoint: "This theme weakens when the notes still blur evidence, claim, and exception together.",
     threeLineSummary: [
       "The topic centers on turning notes into compressed writing inputs.",
       "It matters because structure is easier when claims are already distilled.",
@@ -310,6 +311,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
     "It connects note quality directly to writing quality."
   ]);
   assert.equal(topicIndex.json.item.central_question, "How can a note system force better compression before drafting begins?");
+  assert.equal(topicIndex.json.item.boundary_or_counterpoint, "This theme weakens when the notes still blur evidence, claim, and exception together.");
   assert.equal(topicIndex.json.item.thinkingStatus.status, "ready_for_writing");
   assert.equal(topicIndex.json.item.thinkingStatus.label, "可进入写作");
   assert.equal(topicIndex.json.item.note_count, 2);
@@ -326,6 +328,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(fetchedIndex.json.item.id, topicIndex.json.item.id);
   assert.equal(fetchedIndex.json.item.thesis, "This topic is about turning notes into compressed writing inputs.");
   assert.equal(fetchedIndex.json.item.central_question, "How can a note system force better compression before drafting begins?");
+  assert.equal(fetchedIndex.json.item.boundary_or_counterpoint, "This theme weakens when the notes still blur evidence, claim, and exception together.");
   assert.equal(fetchedIndex.json.item.thinkingStatus.status, "ready_for_writing");
   assert.equal(fetchedIndex.json.item.items[0].note.noteType, "permanent");
 
@@ -344,6 +347,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
     tone: "clear",
     intent: "Explain why writing should begin from distilled notes rather than blank prompts.",
     desiredReaderTakeaway: "Readers should see thought compression as the bridge between note-taking and writing.",
+    knowledgeWorkId: "kw_ai_originality_series",
     basketNoteIds: [noteA.json.item.id, noteB.json.item.id],
     relatedIndexIds: [topicIndex.json.item.id]
   });
@@ -353,6 +357,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.deepEqual(project.json.item.related_index_ids, [topicIndex.json.item.id]);
   assert.equal(project.json.item.intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
   assert.equal(project.json.item.desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
+  assert.equal(project.json.item.knowledge_work_id, "kw_ai_originality_series");
   assert.equal(project.json.item.thinkingStatus.status, "needs_scaffold");
   assert.equal(project.json.item.basket_notes.length, 2);
 
@@ -515,6 +520,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.deepEqual(fetchedProject.json.item.related_index_ids, [topicIndex.json.item.id]);
   assert.equal(fetchedProject.json.item.intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
   assert.equal(fetchedProject.json.item.desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
+  assert.equal(fetchedProject.json.item.knowledge_work_id, "kw_ai_originality_series");
   assert.equal(fetchedProject.json.item.scaffold_id, scaffoldV2.json.item.id);
   assert.equal(fetchedProject.json.item.draft_note_id, draftNote.json.item.id);
   assert.equal(fetchedProject.json.item.draft_note.id, draftNote.json.item.id);
@@ -527,6 +533,7 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.deepEqual(listedProjects.json.items[0].related_index_ids, [topicIndex.json.item.id]);
   assert.equal(listedProjects.json.items[0].intent, "Explain why writing should begin from distilled notes rather than blank prompts.");
   assert.equal(listedProjects.json.items[0].desired_reader_takeaway, "Readers should see thought compression as the bridge between note-taking and writing.");
+  assert.equal(listedProjects.json.items[0].knowledge_work_id, "kw_ai_originality_series");
   assert.equal(listedProjects.json.items[0].draft_note_id, draftNote.json.item.id);
   assert.equal(listedProjects.json.items[0].scaffold_id, scaffoldV2.json.item.id);
   assert.equal(listedProjects.json.items[0].thinkingStatus.status, "ready_for_review");

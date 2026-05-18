@@ -20,6 +20,7 @@
       "items": { "type": "string" }
     },
     "central_question": { "type": "string" },
+    "boundary_or_counterpoint": { "type": "string" },
     "quality_checks": {
       "type": "array",
       "items": {

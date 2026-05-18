@@ -119,6 +119,7 @@ function mapIndexCardRow(row, items = []) {
     title: row.title,
     summary: row.summary || "",
     thesis: row.thesis || "",
+    boundary_or_counterpoint: row.boundary_or_counterpoint || "",
     three_line_summary: normalizeThreeLineSummary(parseJsonArray(row.three_line_summary_json)),
     central_question: row.central_question || "",
     ordering_strategy: row.ordering_strategy || "manual",
@@ -217,6 +218,7 @@ export async function createIndexCard(vaultPath, input = {}) {
   const orderingStrategy = normalizeOrderingStrategy(input.orderingStrategy || input.ordering_strategy);
   const summary = cleanText(input.summary);
   const thesis = cleanText(input.thesis);
+  const boundaryOrCounterpoint = cleanText(input.boundaryOrCounterpoint || input.boundary_or_counterpoint);
   const threeLineSummary = normalizeThreeLineSummary(input.threeLineSummary || input.three_line_summary);
   const centralQuestion = cleanText(input.centralQuestion || input.central_question);
   const items = normalizeIndexItems(input.items, input.noteIds || input.note_ids);
@@ -233,9 +235,9 @@ export async function createIndexCard(vaultPath, input = {}) {
     try {
       db.prepare(
         `INSERT INTO index_cards
-          (id, directory_id, index_type, title, summary, thesis, three_line_summary_json, central_question, ordering_strategy, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(id, directoryId, indexType, title, summary, thesis, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, now);
+          (id, directory_id, index_type, title, summary, thesis, boundary_or_counterpoint, three_line_summary_json, central_question, ordering_strategy, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(id, directoryId, indexType, title, summary, thesis, boundaryOrCounterpoint, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, now);
 
       for (const item of items) {
         db.prepare(
@@ -285,6 +287,10 @@ export async function updateIndexCard(vaultPath, indexCardId, input = {}) {
     if (!title) throw new Error("title is required");
     const summary = input.summary === undefined ? existing.summary : cleanText(input.summary);
     const thesis = input.thesis === undefined ? existing.thesis : cleanText(input.thesis);
+    const boundaryOrCounterpoint =
+      input.boundaryOrCounterpoint === undefined && input.boundary_or_counterpoint === undefined
+        ? existing.boundary_or_counterpoint || ""
+        : cleanText(input.boundaryOrCounterpoint || input.boundary_or_counterpoint);
     const centralQuestion = input.centralQuestion === undefined && input.central_question === undefined
       ? existing.central_question
       : cleanText(input.centralQuestion || input.central_question);
@@ -298,9 +304,9 @@ export async function updateIndexCard(vaultPath, indexCardId, input = {}) {
 
     db.prepare(
       `UPDATE index_cards
-       SET title = ?, summary = ?, thesis = ?, three_line_summary_json = ?, central_question = ?, ordering_strategy = ?, updated_at = ?
+       SET title = ?, summary = ?, thesis = ?, boundary_or_counterpoint = ?, three_line_summary_json = ?, central_question = ?, ordering_strategy = ?, updated_at = ?
        WHERE id = ?`
-    ).run(title, summary, thesis, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, id);
+    ).run(title, summary, thesis, boundaryOrCounterpoint, JSON.stringify(threeLineSummary), centralQuestion, orderingStrategy, now, id);
 
     return loadIndexCardById(db, id);
   } finally {
@@ -349,6 +355,7 @@ export async function distillIndexCard(vaultPath, indexCardId) {
     "Its value comes from compressing multiple mature notes into one clearer theme-level judgment.",
     `The next step is to answer this question clearly: ${centralQuestion}`
   ];
+  const boundaryOrCounterpoint = `This theme stays incomplete until it names the strongest counterpoint, boundary, or exception inside ${topicLabel}.`;
 
   const qualityChecks = [];
   if (thesis.length > 180) qualityChecks.push("too_long");
@@ -362,6 +369,7 @@ export async function distillIndexCard(vaultPath, indexCardId) {
     thesis,
     three_line_summary: threeLineSummary,
     central_question: centralQuestion,
+    boundary_or_counterpoint: boundaryOrCounterpoint,
     quality_checks: qualityChecks,
     rationale: `Generated from the current index title, summary, and ${titles.length || 0} linked permanent notes. User confirmation is still required.`,
     needs_user_confirmation: true

@@ -166,6 +166,7 @@ const graphState = {
   loading: false,
   error: "",
   filters: {
+    focus: "overview",
     relationType: "all",
     status: "all"
   }
@@ -254,6 +255,9 @@ const writingState = {
   sourceIndexIds: [],
   themeIndexes: [],
   loadingThemeIndexes: false,
+  themeInsightGraph: null,
+  themeInsightConflicts: null,
+  loadingThemeInsights: false,
   projects: [],
   projectFilters: {
     q: "",
@@ -2176,13 +2180,15 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
   const statusRevisionAtStart = statusRevision;
   activateModule("writing");
   const writingProjectId = String(writingState.project?.id || "").trim();
+  const themeIndexDirectoryId = writingThemeIndexScopeDirectoryId();
   writingState.loadingProjects = true;
   writingState.loadingThemeIndexes = true;
+  writingState.loadingThemeInsights = true;
   writingState.loadingScaffoldVersions = Boolean(writingProjectId);
   writingState.loadingDraftVersions = Boolean(writingProjectId);
   renderWritingPanel();
   try {
-    const [projects, themeIndexes, project, scaffoldVersions, draftVersions] = await Promise.all([
+    const [projects, themeIndexes, themeGraph, themeConflicts, project, scaffoldVersions, draftVersions] = await Promise.all([
       listWritingProjects({
         limit: 8,
         q: writingState.projectFilters.q,
@@ -2190,23 +2196,28 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
         hasDraft: writingState.projectFilters.hasDraft
       }).catch(() => writingState.projects),
       listIndexCards({
-        directoryId: writingThemeIndexScopeDirectoryId(),
+        directoryId: themeIndexDirectoryId,
         includeDescendants: true,
         indexType: "topic",
         limit: 12
       }).catch(() => writingState.themeIndexes),
+      fetchDirectoryGraph(themeIndexDirectoryId, { includeDescendants: true }).catch(() => writingState.themeInsightGraph),
+      fetchGraphConflicts({ directoryId: themeIndexDirectoryId, includeDescendants: true }).catch(() => writingState.themeInsightConflicts),
       writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
       writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
       writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([])
     ]);
     writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
     writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
+    writingState.themeInsightGraph = themeGraph || null;
+    writingState.themeInsightConflicts = themeConflicts || null;
     if (project) writingState.project = project;
     writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
     writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
   } finally {
     writingState.loadingProjects = false;
     writingState.loadingThemeIndexes = false;
+    writingState.loadingThemeInsights = false;
     writingState.loadingScaffoldVersions = false;
     writingState.loadingDraftVersions = false;
     renderWritingPanel();
@@ -2274,6 +2285,9 @@ async function saveWritingBasketAsThemeIndex() {
   const centralQuestionSeed = String($("writingGoal")?.value || "").trim() || "这个主题正在追问什么？";
   const centralQuestion = window.prompt("主题中心问题", centralQuestionSeed);
   if (centralQuestion === null) return null;
+  const boundarySeed = "这个主题最容易在哪个边界、反例或例外条件下失效？";
+  const boundaryOrCounterpoint = window.prompt("主题边界 / 反方", boundarySeed);
+  if (boundaryOrCounterpoint === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
   const card = await createIndexCard({
     directoryId: writingThemeIndexScopeDirectoryId(),
@@ -2281,6 +2295,7 @@ async function saveWritingBasketAsThemeIndex() {
     title: cleanTitle,
     summary: String(summary || "").trim(),
     centralQuestion: String(centralQuestion || "").trim(),
+    boundaryOrCounterpoint: String(boundaryOrCounterpoint || "").trim(),
     noteIds: basketNoteIds,
     items: basketNoteIds.map((noteId, index) => ({
       noteId,
@@ -4382,6 +4397,37 @@ function writingThemeIndexById(indexId) {
   return writingState.themeIndexes.find((item) => item.id === indexId) || null;
 }
 
+function writingThemeInsight(indexCard = {}) {
+  const noteIds = new Set(
+    uniqueStrings(indexCard?.item_note_ids || (Array.isArray(indexCard?.items) ? indexCard.items.map((item) => item.note_id) : []))
+  );
+  if (!noteIds.size) return null;
+  const graph = writingState.themeInsightGraph || null;
+  const conflicts = writingState.themeInsightConflicts || null;
+  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+  const bridgeGaps = Array.isArray(graph?.insights?.bridgeGaps) ? graph.insights.bridgeGaps : [];
+  const conflictItems = Array.isArray(conflicts?.conflicts) ? conflicts.conflicts : [];
+  const relatedEdges = edges.filter((edge) => noteIds.has(edge.fromNoteId) || noteIds.has(edge.toNoteId));
+  const conflictCount = relatedEdges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase())).length;
+  const unexplainedCount = relatedEdges.filter((edge) => {
+    const rationale = String(edge.rationale || "").trim();
+    return !rationale || rationale === "markdown_wikilink";
+  }).length;
+  const bridgeGapCount = bridgeGaps.filter((gap) => {
+    const gapNoteIds = Array.isArray(gap.noteIds) ? gap.noteIds : [];
+    return gapNoteIds.some((noteId) => noteIds.has(noteId));
+  }).length;
+  const duplicateConflictCount = conflictItems.filter((item) => {
+    const conflictNoteIds = Array.isArray(item.noteIds) ? item.noteIds : [];
+    return conflictNoteIds.some((noteId) => noteIds.has(noteId));
+  }).length;
+  return {
+    conflictCount: conflictCount + duplicateConflictCount,
+    unexplainedCount,
+    bridgeGapCount
+  };
+}
+
 function writingSourceIndexSummary() {
   const sourceIds = uniqueStrings(writingState.sourceIndexIds);
   if (!sourceIds.length) return "";
@@ -4650,17 +4696,26 @@ function writingThemeIndexScopeDirectoryId() {
 async function loadWritingThemeIndexes() {
   const directoryId = writingThemeIndexScopeDirectoryId();
   writingState.loadingThemeIndexes = true;
+  writingState.loadingThemeInsights = true;
   renderWritingPanel();
   try {
-    writingState.themeIndexes = await listIndexCards({
-      directoryId,
-      includeDescendants: true,
-      indexType: "topic",
-      limit: 12
-    });
+    const [themeIndexes, themeGraph, themeConflicts] = await Promise.all([
+      listIndexCards({
+        directoryId,
+        includeDescendants: true,
+        indexType: "topic",
+        limit: 12
+      }),
+      fetchDirectoryGraph(directoryId, { includeDescendants: true }).catch(() => writingState.themeInsightGraph),
+      fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => writingState.themeInsightConflicts)
+    ]);
+    writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
+    writingState.themeInsightGraph = themeGraph || null;
+    writingState.themeInsightConflicts = themeConflicts || null;
     return writingState.themeIndexes;
   } finally {
     writingState.loadingThemeIndexes = false;
+    writingState.loadingThemeInsights = false;
     renderWritingPanel();
   }
 }
@@ -4675,6 +4730,15 @@ function renderWritingThemeIndexCard(indexCard) {
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   const centralQuestion = String(indexCard?.central_question || indexCard?.centralQuestion || "").trim();
+  const boundaryOrCounterpoint = String(indexCard?.boundary_or_counterpoint || indexCard?.boundaryOrCounterpoint || "").trim();
+  const insight = writingThemeInsight(indexCard);
+  const insightBits = insight
+    ? [
+        insight.conflictCount ? `冲突 ${insight.conflictCount}` : "",
+        insight.unexplainedCount ? `缺说明 ${insight.unexplainedCount}` : "",
+        insight.bridgeGapCount ? `桥接缺口 ${insight.bridgeGapCount}` : ""
+      ].filter(Boolean)
+    : [];
   return `
     <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
       <div class="writing-note-card-head">
@@ -4686,6 +4750,8 @@ function renderWritingThemeIndexCard(indexCard) {
       </div>
       <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作入口。")}</div>
       ${centralQuestion ? `<div class="writing-note-meta">中心问题：${escapeHtml(centralQuestion)}</div>` : ""}
+      ${boundaryOrCounterpoint ? `<div class="writing-note-meta">边界 / 反方：${escapeHtml(boundaryOrCounterpoint)}</div>` : ""}
+      ${insightBits.length ? `<div class="writing-theme-insight">${insightBits.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
@@ -5419,6 +5485,7 @@ const GRAPH_RELATION_TYPE_LABELS = {
 };
 
 const GRAPH_RELATION_STATUS_LABELS = {
+  implicit: "隐式",
   confirmed: "已确认",
   draft: "草稿",
   suggested: "建议",
@@ -5434,8 +5501,8 @@ function graphRelationTypeLabel(type) {
 }
 
 function graphRelationStatusLabel(status) {
-  const key = String(status || "confirmed").trim().toLowerCase();
-  return GRAPH_RELATION_STATUS_LABELS[key] || key || "已确认";
+  const key = String(status || "implicit").trim().toLowerCase();
+  return GRAPH_RELATION_STATUS_LABELS[key] || key || "隐式";
 }
 
 const GRAPH_RELATION_QUALITY_LABELS = {
@@ -5444,6 +5511,13 @@ const GRAPH_RELATION_QUALITY_LABELS = {
   good: "较清楚",
   strong: "清楚"
 };
+
+const GRAPH_TENSION_FOCUS_OPTIONS = [
+  { value: "overview", label: "总览", note: "看整体结构" },
+  { value: "conflicts", label: "冲突", note: "只看反驳与张力" },
+  { value: "unexplained", label: "缺说明", note: "只看未解释关系" },
+  { value: "bridges", label: "桥接", note: "只看桥接与缺口" }
+];
 
 const GRAPH_RELATION_REVIEW_REASON_LABELS = {
   missing_rationale: "补关系说明",
@@ -5490,6 +5564,39 @@ function graphRelationReviewReasonLabel(reason) {
   return GRAPH_RELATION_REVIEW_REASON_LABELS[key] || key || "复查关系";
 }
 
+function graphFocusLabel(focus = "") {
+  const key = String(focus || "overview").trim().toLowerCase();
+  return GRAPH_TENSION_FOCUS_OPTIONS.find((item) => item.value === key)?.label || "总览";
+}
+
+function graphFocusNote(focus = "") {
+  const key = String(focus || "overview").trim().toLowerCase();
+  return GRAPH_TENSION_FOCUS_OPTIONS.find((item) => item.value === key)?.note || "看整体结构";
+}
+
+function renderGraphFocusTabs(selected = "overview") {
+  const current = String(selected || "overview").trim().toLowerCase() || "overview";
+  return `
+    <div class="graph-focus-tabs" role="tablist" aria-label="张力图模式">
+      ${GRAPH_TENSION_FOCUS_OPTIONS.map((item) => {
+        const active = item.value === current;
+        return `
+          <button
+            class="graph-focus-tab ${active ? "is-active" : ""}"
+            type="button"
+            role="tab"
+            aria-selected="${active ? "true" : "false"}"
+            data-graph-focus="${escapeHtml(item.value)}"
+          >
+            <strong>${escapeHtml(item.label)}</strong>
+            <small>${escapeHtml(item.note)}</small>
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, conflictCount = 0, bridgeGapCount = 0 } = {}) {
   return `
     <section class="graph-orientation" aria-label="图谱读法">
@@ -5522,7 +5629,7 @@ function renderGraphOrientation({ nodes = [], edges = [], supportingCount = 0, c
 
 function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
   const counts = edges.reduce((acc, edge) => {
-    const fallback = field === "status" ? "confirmed" : "associated_with";
+    const fallback = field === "status" ? "implicit" : "associated_with";
     const key = String(edge?.[field] || fallback).trim().toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
@@ -5539,10 +5646,20 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
 
 function graphEdgeMatchesFilters(edge, filters = {}) {
   const type = String(edge?.relationType || "associated_with").trim().toLowerCase();
-  const status = String(edge?.status || "confirmed").trim().toLowerCase();
+  const status = String(edge?.status || "implicit").trim().toLowerCase();
   const filterType = String(filters.relationType || "all").trim().toLowerCase();
   const filterStatus = String(filters.status || "all").trim().toLowerCase();
   return (filterType === "all" || type === filterType) && (filterStatus === "all" || status === filterStatus);
+}
+
+function graphEdgeMatchesFocus(edge, focus = "overview") {
+  const relationType = String(edge?.relationType || "associated_with").trim().toLowerCase();
+  const rationale = String(edge?.rationale || "").trim();
+  const current = String(focus || "overview").trim().toLowerCase();
+  if (current === "conflicts") return GRAPH_CONFLICT_RELATION_TYPES.has(relationType);
+  if (current === "unexplained") return !rationale || rationale === "markdown_wikilink";
+  if (current === "bridges") return graphRelationVisual(relationType).key === "bridge";
+  return true;
 }
 
 function graphRelationVisual(type) {
@@ -6007,11 +6124,12 @@ function renderGraphPanel() {
 
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const allEdges = Array.isArray(graph.edges) ? graph.edges : [];
-  const filters = graphState.filters || { relationType: "all", status: "all" };
-  const edges = allEdges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
+  const filters = graphState.filters || { focus: "overview", relationType: "all", status: "all" };
+  const focus = String(filters.focus || "overview").trim().toLowerCase() || "overview";
+  const focusedEdges = allEdges.filter((edge) => graphEdgeMatchesFocus(edge, focus));
+  const edges = focusedEdges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
   const filterActive = filters.relationType !== "all" || filters.status !== "all";
   const visibleNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const visibleNodes = filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes;
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const insights = graph.insights && typeof graph.insights === "object" ? graph.insights : {};
   const allSupportingRelations = allEdges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
@@ -6019,6 +6137,7 @@ function renderGraphPanel() {
   const supportingRelations = edges.filter((edge) => String(edge.relationType || "").trim().toLowerCase() === "supports");
   const conflictingRelations = edges.filter((edge) => GRAPH_CONFLICT_RELATION_TYPES.has(String(edge.relationType || "").trim().toLowerCase()));
   const bridgeGaps = Array.isArray(insights.bridgeGaps) ? insights.bridgeGaps : [];
+  const bridgeGapNodeIds = new Set(bridgeGaps.flatMap((gap) => Array.isArray(gap.noteIds) ? gap.noteIds : []));
   const relationCounts = allEdges.reduce((acc, edge) => {
     const key = String(edge.relationType || "associated_with").trim();
     acc[key] = (acc[key] || 0) + 1;
@@ -6032,6 +6151,15 @@ function renderGraphPanel() {
   const linkedNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
   const isolatedNodes = nodes.filter((node) => !linkedNodeIds.has(node.id));
   const isolatedCount = isolatedNodes.length;
+  const visibleNodes = (() => {
+    if (focus === "bridges") {
+      return nodes.filter((node) => visibleNodeIds.has(node.id) || bridgeGapNodeIds.has(node.id));
+    }
+    if (filterActive || focus !== "overview") {
+      return nodes.filter((node) => visibleNodeIds.has(node.id));
+    }
+    return nodes;
+  })();
   const busiestNode = visibleNodes
     .map((node) => ({
       node,
@@ -6046,6 +6174,7 @@ function renderGraphPanel() {
   const untypedRelations = filterActive ? weakRationaleEdges : Array.isArray(insights.untypedRelations) ? insights.untypedRelations : weakRationaleEdges;
   const typeFilterLabel = filters.relationType === "all" ? "全部类型" : graphRelationTypeLabel(filters.relationType);
   const statusFilterLabel = filters.status === "all" ? "全部状态" : graphRelationStatusLabel(filters.status);
+  const focusLabel = graphFocusLabel(focus);
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || graphState.reviewQueue?.items?.length || 0);
   const densityRatio = nodes.length ? allEdges.length / nodes.length : 0;
   const densityLabel = densityRatio >= 1.4 ? "结构较密" : densityRatio >= 0.6 ? "正在成形" : "偏松散";
@@ -6155,7 +6284,7 @@ function renderGraphPanel() {
     };
   })();
 
-  summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
+  summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；张力图 ${focusLabel} 当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
     ${renderGraphOrientation({
       nodes,
@@ -6165,19 +6294,20 @@ function renderGraphPanel() {
       bridgeGapCount: bridgeGaps.length
     })}
     <div class="graph-filters" data-graph-filters>
+      ${renderGraphFocusTabs(focus)}
       <label>
         <span>关系类型</span>
         <select id="graphRelationTypeFilter" data-graph-filter="relationType">
-          ${graphFilterOptions(allEdges, "relationType", filters.relationType, "全部类型", graphRelationTypeLabel)}
+          ${graphFilterOptions(focusedEdges, "relationType", filters.relationType, "全部类型", graphRelationTypeLabel)}
         </select>
       </label>
       <label>
         <span>关系状态</span>
         <select id="graphRelationStatusFilter" data-graph-filter="status">
-          ${graphFilterOptions(allEdges, "status", filters.status, "全部状态", graphRelationStatusLabel)}
+          ${graphFilterOptions(focusedEdges, "status", filters.status, "全部状态", graphRelationStatusLabel)}
         </select>
       </label>
-      <div class="graph-filter-note">筛选只改变当前视图，不会改动笔记。建议先看“支持/反驳/限定/桥接”四类关系。</div>
+      <div class="graph-filter-note">当前模式：${escapeHtml(focusLabel)}。筛选只改变当前视图，不会改动笔记；张力图优先暴露冲突、缺说明和桥接缺口。</div>
     </div>
     <div class="graph-metrics" aria-label="图谱摘要">
       ${renderGraphMetricCard("节点", `${visibleNodes.length}/${nodes.length}`, densityLabel, nodes.length ? "good" : "warn")}
@@ -6191,8 +6321,12 @@ function renderGraphPanel() {
       <section class="graph-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">这组笔记现在是什么结构</div>
-            <div class="graph-section-note">先看中心、孤立和关系分布，判断这组笔记是不是已经能支撑一个主题。</div>
+            <div class="graph-section-title">${escapeHtml(focus === "overview" ? "这组笔记现在是什么结构" : `张力图：${focusLabel}`)}</div>
+            <div class="graph-section-note">${escapeHtml(
+              focus === "overview"
+                ? "先看中心、孤立和关系分布，判断这组笔记是不是已经能支撑一个主题。"
+                : `当前模式只突出${focusLabel}相关信号，帮助你先处理最容易让写作断掉的结构问题。`
+            )}</div>
           </div>
         </div>
         <div class="graph-next-card">
@@ -8127,6 +8261,16 @@ $("graphCanvas")?.addEventListener("change", (event) => {
   const typeText = graphRelationTypeLabel(graphState.filters.relationType);
   const statusText = graphRelationStatusLabel(graphState.filters.status);
   setStatus(`图谱筛选已更新：${graphState.filters.relationType === "all" ? "全部类型" : typeText} / ${graphState.filters.status === "all" ? "全部状态" : statusText}`, "ok");
+});
+
+$("graphCanvas")?.addEventListener("click", (event) => {
+  const focusButton = event.target.closest("[data-graph-focus]");
+  if (focusButton) {
+    graphState.filters.focus = String(focusButton.getAttribute("data-graph-focus") || "overview").trim() || "overview";
+    renderGraphPanel();
+    setStatus(`已切换张力图视图：${graphFocusLabel(graphState.filters.focus)}`, "ok");
+    return;
+  }
 });
 
 document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
