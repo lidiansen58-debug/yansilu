@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "work_type", "title", "status", "created_at", "updated_at"],
+  "properties": {
+    "id": { "type": "string" },
+    "work_type": {
+      "type": "string",
+      "enum": ["essay", "article_series", "course", "research_dossier", "book_chapter", "talk", "other"]
+    },
+    "title": { "type": "string" },
+    "central_question": { "type": "string" },
+    "core_thesis": { "type": "string" },
+    "audience": { "type": "string" },
+    "intended_effect": { "type": "string" },
+    "source_index_ids": { "type": "array", "items": { "type": "string" } },
+    "source_note_ids": { "type": "array", "items": { "type": "string" } },
+    "writing_project_ids": { "type": "array", "items": { "type": "string" } },
+    "status": {
+      "type": "string",
+      "enum": ["seed", "structuring", "drafting", "revising", "published", "archived"]
+    },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

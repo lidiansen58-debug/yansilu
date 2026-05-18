@@ -212,21 +212,6 @@ export async function analyzePermanentNote(noteId, payload = {}) {
   return json.item || null;
 }
 
-export async function fetchDistillationQueue(options = {}) {
-  const params = new URLSearchParams();
-  const targetType = String(options?.targetType || "permanent_note").trim();
-  const status = String(options?.status || "").trim();
-  const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
-  if (targetType) params.set("targetType", targetType);
-  if (status && status !== "all") params.set("status", status);
-  params.set("limit", String(limit));
-  const json = await request(`/api/v1/distillation/queue?${params.toString()}`);
-  return {
-    items: Array.isArray(json.items) ? json.items : [],
-    total: Number(json.total || 0)
-  };
-}
-
 export async function updatePermanentNoteDistillation(noteId, payload = {}) {
   const cleanNoteId = String(noteId || "").trim();
   if (!cleanNoteId) throw new Error("noteId is required");
@@ -751,6 +736,29 @@ export async function fetchWritingProject(writingProjectId) {
   const cleanWritingProjectId = String(writingProjectId || "").trim();
   if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
   const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}`);
+  return json.item || null;
+}
+
+export async function updateWritingProjectIntent(writingProjectId, payload = {}) {
+  const cleanWritingProjectId = String(writingProjectId || "").trim();
+  if (!cleanWritingProjectId) throw new Error("writingProjectId is required");
+  const json = await request(`/api/v1/writing-projects/${encodeURIComponent(cleanWritingProjectId)}/intent`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload || {})
+  });
+  return json.item || null;
+}
+
+export async function fetchDistillationQueue(options = {}) {
+  const params = new URLSearchParams();
+  const directoryId = String(options.directoryId || "").trim();
+  const includeDescendants = options.includeDescendants !== false;
+  const limit = Math.max(1, Math.min(200, Number(options.limit || 50) || 50));
+  if (directoryId) params.set("directoryId", directoryId);
+  params.set("includeDescendants", includeDescendants ? "true" : "false");
+  params.set("limit", String(limit));
+  const json = await request(`/api/v1/distillation/queue?${params.toString()}`);
   return json.item || null;
 }
 

@@ -3094,13 +3094,13 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/api/v1/distillation/queue") {
       try {
         await initVault(VAULT_PATH);
-        const result = await listDistillationQueue(VAULT_PATH, {
-          targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "permanent_note",
-          status: url.searchParams.get("status") || "",
-          limit: url.searchParams.get("limit") || 50
+        const item = await listDistillationQueue(VAULT_PATH, {
+          directoryId: url.searchParams.get("directoryId") || url.searchParams.get("directory_id") || "dir_original_default",
+          includeDescendants: url.searchParams.get("includeDescendants") !== "false" && url.searchParams.get("include_descendants") !== "false",
+          limit: Number(url.searchParams.get("limit") || 50)
         });
         return sendJson(res, 200, {
-          item: result?.item ?? result,
+          item,
           requestId: rid,
           timestamp: new Date().toISOString()
         });
@@ -4258,6 +4258,7 @@ const server = http.createServer(async (req, res) => {
                 sections: item.sections,
                 open_questions: item.open_questions,
                 preflight: item.preflight || null,
+                readiness: item.readiness || null,
                 generated_by: item.generated_by,
                 version_note: item.version_note || "",
                 created_at: item.created_at,
@@ -4287,6 +4288,7 @@ const server = http.createServer(async (req, res) => {
                 sections: item.sections,
                 open_questions: item.open_questions,
                 preflight: item.preflight || null,
+                readiness: item.readiness || null,
                 generated_by: item.generated_by,
                 version_note: item.version_note || "",
                 created_at: item.created_at,

@@ -29,6 +29,7 @@ test("index card distillation quality checks central question and three-line sum
 
   assert.ok(checks.some((item) => item.code === "missing_central_question"));
   assert.ok(checks.some((item) => item.code === "theme_three_line_summary_count"));
+  assert.ok(checks.some((item) => item.code === "missing_theme_boundary"));
 });
 
 test("writing readiness reports intent and basket note gaps without blocking scaffold creation", () => {

@@ -333,11 +333,10 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
     body: "# Queue seed\n\nThis note still needs a stable judgment."
   });
   assert.equal(queueSeed.status, 201);
-  const queueBefore = await getJson(baseUrl, "/api/v1/distillation/queue?targetType=permanent_note&status=missing&limit=20");
+  const queueBefore = await getJson(baseUrl, `/api/v1/distillation/queue?directoryId=${encodeURIComponent(directoryId)}&limit=20`);
   assert.equal(queueBefore.status, 200);
-  assert.ok(queueBefore.json.items.some((item) => item.targetId === queueSeed.json.item.id));
-  const queueItem = queueBefore.json.items.find((item) => item.targetId === queueSeed.json.item.id);
-  assert.deepEqual(queueItem.missing, ["thesis", "three_line_summary"]);
+  assert.ok(queueBefore.json.item.pendingThesis.some((item) => item.note.id === queueSeed.json.item.id));
+  assert.ok(queueBefore.json.item.pendingThreeLineSummary.some((item) => item.note.id === queueSeed.json.item.id));
 
   const distillationPatch = await patchJson(
     baseUrl,
@@ -388,9 +387,9 @@ test("notes API creates, lists, loads, and updates markdown note", async (t) => 
   assert.equal(confirmDistillation.json.item.distillationStatus, "confirmed");
   assert.deepEqual(confirmDistillation.json.item.authorship, { user_confirmed: true, ai_assisted: false });
 
-  const confirmedQueue = await getJson(baseUrl, "/api/v1/distillation/queue?status=confirmed&limit=20");
+  const confirmedQueue = await getJson(baseUrl, `/api/v1/distillation/queue?directoryId=${encodeURIComponent(directoryId)}&limit=20`);
   assert.equal(confirmedQueue.status, 200);
-  assert.ok(confirmedQueue.json.items.some((item) => item.targetId === queueSeed.json.item.id && item.missing.length === 0));
+  assert.ok(confirmedQueue.json.item.recentConfirmed.some((item) => item.note.id === queueSeed.json.item.id));
 
   const deletedQueueSeed = await deleteJson(baseUrl, `/api/v1/notes/${encodeURIComponent(queueSeed.json.item.id)}`);
   assert.equal(deletedQueueSeed.status, 200);
@@ -722,6 +721,7 @@ test("notes API syncs markdown wikilinks and tags into note relations", async (t
   assert.equal(sourceRelations.json.item.outgoingLinks.length, 1);
   assert.equal(sourceRelations.json.item.outgoingLinks[0].toNoteId, targetNote.json.item.id);
   assert.equal(sourceRelations.json.item.outgoingLinks[0].relationType, "associated_with");
+  assert.equal(sourceRelations.json.item.outgoingLinks[0].status, "implicit");
   assert.equal(sourceRelations.json.item.outgoingLinks[0].rationale, "markdown_wikilink");
 
   const targetRelations = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(targetNote.json.item.id)}/relations`);
@@ -737,6 +737,7 @@ test("notes API syncs markdown wikilinks and tags into note relations", async (t
   assert.equal(graph.json.item.totalEdges, 1);
   assert.equal(graph.json.item.edges[0].fromNoteId, sourceNote.json.item.id);
   assert.equal(graph.json.item.edges[0].toNoteId, targetNote.json.item.id);
+  assert.equal(graph.json.item.edges[0].status, "implicit");
   assert.ok(graph.json.item.insights);
   assert.equal(graph.json.item.insights.supportingRelations.length, 0);
   assert.equal(graph.json.item.insights.conflictingRelations.length, 0);

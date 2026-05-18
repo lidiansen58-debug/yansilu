@@ -815,6 +815,8 @@ test("prototype note browser stays minimal and creates literature notes in the l
         title: document.querySelector("#sidebarTitle")?.textContent?.trim() || "",
         subtitleVisible: visible("#sidebarSubtitle"),
         flowVisible: visible("#sidebarFlow"),
+        valueMetricsVisible: visible("#sidebarValueMetrics"),
+        valueMetricsText: document.querySelector("#sidebarValueMetrics")?.textContent?.trim() || "",
         footVisible: visible("#sidebarFoot"),
         moduleVisible: visible("#moduleSidebar"),
         listVisible: visible("#listArea"),
@@ -826,6 +828,15 @@ test("prototype note browser stays minimal and creates literature notes in the l
     assert.doesNotMatch(sidebar.title, /工作台|入口/);
     assert.equal(sidebar.subtitleVisible, false);
     assert.equal(sidebar.flowVisible, false);
+    assert.equal(sidebar.valueMetricsVisible, rootId === "dir_original_default");
+    if (rootId === "dir_original_default") {
+      assert.match(sidebar.valueMetricsText, /永久笔记/);
+      assert.match(sidebar.valueMetricsText, /待提纯/);
+      assert.match(sidebar.valueMetricsText, /已确认论点/);
+      assert.match(sidebar.valueMetricsText, /可写作/);
+    } else {
+      assert.equal(sidebar.valueMetricsText, "");
+    }
     assert.equal(sidebar.footVisible, false);
     assert.equal(sidebar.moduleVisible, false);
     assert.equal(sidebar.listVisible, true);
@@ -4361,6 +4372,15 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
+  const conflictRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "contradicts",
+    rationale: "The main claim and the evidence note currently pull in opposite directions.",
+    insightQuestion: "Which boundary should the theme explain before drafting begins?",
+    confidence: 1
+  });
+  assert.equal(conflictRelation.status, 201, JSON.stringify(conflictRelation.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-original"]').click();
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
@@ -4395,6 +4415,30 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const basketText = await page.locator("#writingBasketList").textContent();
   assert.match(basketText || "", /Writing UI claim/);
   assert.match(basketText || "", /Evidence UI map/);
+
+  const themeDialogAnswers = [
+    "Writing UI Theme",
+    "A reusable theme entry for the current writing basket.",
+    "How can the writing panel preserve a topic's central question?",
+    "This theme fails when the notes never name their main exception."
+  ];
+  const answerThemeDialog = async (dialog) => {
+    await dialog.accept(themeDialogAnswers.shift() || "");
+  };
+  page.on("dialog", answerThemeDialog);
+  try {
+    await page.click("#btnWritingSaveThemeIndex");
+    await page.waitForFunction(() => {
+      const text = document.querySelector("#writingThemeIndexList")?.textContent || "";
+      return text.includes("Writing UI Theme")
+        && text.includes("中心问题：How can the writing panel preserve")
+        && text.includes("边界 / 反方：This theme fails when the notes never name their main exception.");
+    });
+    const themeIndexText = await page.locator("#writingThemeIndexList").textContent();
+    assert.match(themeIndexText || "", /冲突 1/);
+  } finally {
+    page.off("dialog", answerThemeDialog);
+  }
 
   await page.click("#btnWritingCreateProject");
 
@@ -4614,6 +4658,27 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   });
   assert.equal(sourceNote.status, 201);
 
+  const conflictTarget = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Graph conflict target\n\nThis note is used to verify tension-map conflict focus."
+  });
+  assert.equal(conflictTarget.status, 201);
+
+  const conflictSource = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Graph conflict source\n\nThis note should create one explicit contradiction."
+  });
+  assert.equal(conflictSource.status, 201);
+
+  const conflictRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(conflictSource.json.item.id)}/relations`, {
+    toNoteId: conflictTarget.json.item.id,
+    relationType: "contradicts",
+    rationale: "This contradiction should appear in the tension-map conflict focus.",
+    insightQuestion: "Where does the argument break if both notes stay true?",
+    confidence: 1
+  });
+  assert.equal(conflictRelation.status, 201, JSON.stringify(conflictRelation.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
@@ -4632,6 +4697,25 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
   assert.match(activeEditorText, /Graph target/);
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator('[data-graph-focus="unexplained"]').click();
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const canvasText = await page.locator("#graphCanvas").textContent();
+    assert.match(String(summary || ""), /张力图 缺说明/);
+    assert.match(String(canvasText || ""), /待补链接理由/);
+    assert.equal(await page.locator("#graphCanvas .graph-edge").count(), 1);
+  }, 7000);
+
+  await page.locator('[data-graph-focus="conflicts"]').click();
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const canvasText = await page.locator("#graphCanvas").textContent();
+    assert.match(String(summary || ""), /张力图 冲突/);
+    assert.match(String(canvasText || ""), /显式冲突关系/);
+    assert.equal(await page.locator("#graphCanvas .graph-edge").count(), 1);
+  }, 7000);
 });
 
 test("prototype graph panel seeds the Yijing demo network", async (t) => {

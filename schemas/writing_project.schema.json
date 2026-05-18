@@ -10,6 +10,7 @@
     "tone": { "type": "string" },
     "intent": { "type": "string" },
     "desired_reader_takeaway": { "type": "string" },
+    "knowledge_work_id": { "type": "string" },
     "related_index_ids": { "type": "array", "items": { "type": "string" } },
     "basket_note_ids": { "type": "array", "items": { "type": "string" } },
     "scaffold_id": { "type": "string" },

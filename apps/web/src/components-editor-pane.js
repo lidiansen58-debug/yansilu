@@ -1213,6 +1213,7 @@ const RELATION_TYPE_LABELS = {
 };
 
 const RELATION_STATUS_LABELS = {
+  implicit: "隐式",
   suggested: "建议",
   draft: "草稿",
   confirmed: "已确认",
@@ -1239,7 +1240,7 @@ const RELATION_CREATE_TYPES = [
   "appears_in_draft"
 ];
 
-const RELATION_EDIT_STATUSES = ["confirmed", "draft", "suggested", "dismissed", "archived"];
+const RELATION_EDIT_STATUSES = ["implicit", "confirmed", "draft", "suggested", "dismissed", "archived"];
 
 const RELATION_TENSION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts", "qualifies"]);
 const RELATION_BRIDGE_TYPES = new Set(["bridges", "reframes", "unexpected_connection", "extends"]);
@@ -1251,11 +1252,11 @@ function relationTypeLabel(type) {
 
 function relationStatusLabel(status) {
   const key = String(status || "").trim().toLowerCase();
-  return RELATION_STATUS_LABELS[key] || key || "已确认";
+  return RELATION_STATUS_LABELS[key] || key || "隐式";
 }
 
 function isHiddenRelation(link) {
-  const status = String(link?.status || "confirmed").trim().toLowerCase();
+  const status = String(link?.status || "implicit").trim().toLowerCase();
   return status === "dismissed" || status === "archived";
 }
 
@@ -4761,8 +4762,8 @@ export class EditorPane {
     ).join("");
   }
 
-  renderRelationStatusOptions(selectedStatus = "confirmed") {
-    const selected = String(selectedStatus || "confirmed").trim().toLowerCase();
+  renderRelationStatusOptions(selectedStatus = "implicit") {
+    const selected = String(selectedStatus || "implicit").trim().toLowerCase();
     return RELATION_EDIT_STATUSES.map(
       (status) => `<option value="${escapeHtml(status)}"${status === selected ? " selected" : ""}>${escapeHtml(relationStatusLabel(status))}</option>`
     ).join("");
@@ -4786,7 +4787,7 @@ export class EditorPane {
           </label>
           <label>
             <span>关系状态</span>
-            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "confirmed")}</select>
+            <select name="status" required>${this.renderRelationStatusOptions(link?.status || "implicit")}</select>
           </label>
           <label>
             <span>连接理由</span>
@@ -4816,7 +4817,7 @@ export class EditorPane {
     const explicitBacklinks = backlinks.filter((link) => !isMarkdownWikilinkRelation(link));
     const explicitLinks = [...explicitOutgoing, ...explicitBacklinks];
     const markdownCount = visibleLinks.length - explicitLinks.length;
-    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "confirmed") === "confirmed").length;
+    const confirmedCount = explicitLinks.filter((link) => String(link?.status || "implicit") === "confirmed").length;
     const tensionCount = explicitLinks.filter((link) => relationTone(link) === "tension").length;
     const bridgeCount = explicitLinks.filter((link) => relationTone(link) === "bridge").length;
     const networkState = confirmedCount ? "已接入" : explicitLinks.length ? "待确认" : "未安置";
@@ -5355,6 +5356,10 @@ export class EditorPane {
 
     if (!relationType || !status || !rationale) {
       if (errorEl) errorEl.textContent = "关系类型、状态和连接理由不能为空。";
+      return;
+    }
+    if (rationale === "markdown_wikilink" && status !== "implicit") {
+      if (errorEl) errorEl.textContent = "把自动 wikilink 关系升级为草稿或已确认前，请先写清这条关系为什么成立。";
       return;
     }
 

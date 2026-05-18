@@ -161,6 +161,8 @@ test("V1.1 distillation queue, writing intent, and AI suggestions expose review-
     writingProjectId: project.json.item.id
   });
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
+  assert.equal(scaffold.json.item.readiness.status, "ready");
+  assert.equal(scaffold.json.export.json.readiness.status, "ready");
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((item) => item.id === "distillation_quality" && item.status === "warning"));
   assert.match(scaffold.json.export.markdown, /## Readiness Check/);
