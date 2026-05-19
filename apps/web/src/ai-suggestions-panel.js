@@ -90,6 +90,7 @@ function renderActions(item = {}, actionLoading = false) {
   if (!actions.length) return "";
   const labels = {
     adopted_as_draft: "Adopt as draft",
+    edited: "Mark edited",
     rejected: "Reject",
     confirmed: "Confirm"
   };

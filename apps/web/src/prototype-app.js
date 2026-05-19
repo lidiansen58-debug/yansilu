@@ -1253,6 +1253,8 @@ async function applyAiSuggestionStatus(suggestionId, status) {
       action:
         cleanStatus === "adopted_as_draft"
           ? "adopt_as_draft"
+          : cleanStatus === "edited"
+            ? "edit"
           : cleanStatus === "confirmed"
             ? "confirm"
             : cleanStatus === "rejected"

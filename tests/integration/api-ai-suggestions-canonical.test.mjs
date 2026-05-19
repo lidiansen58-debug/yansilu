@@ -108,8 +108,31 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
   assert.equal(adopted.json.item.status, "adopted_as_draft");
   assert.equal(adopted.json.canonical.item.status, "adopted_as_draft");
 
+  const edited = await patchJson(baseUrl, "/api/v1/ai-suggestions/suggestion_canonical_1?canonical=true", {
+    status: "edited",
+    action: "edit",
+    actor: "user",
+    userId: "user_1"
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.json));
+  assert.equal(edited.json.item.status, "edited");
+  assert.equal(edited.json.canonical.item.status, "edited");
+
+  const confirmed = await patchJson(baseUrl, "/api/v1/ai-suggestions/suggestion_canonical_1?canonical=true", {
+    status: "confirmed",
+    action: "confirm",
+    actor: "user",
+    userId: "user_1",
+    userConfirmed: true
+  });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
+  assert.equal(confirmed.json.item.status, "confirmed");
+  assert.equal(confirmed.json.canonical.item.status, "confirmed");
+
   const fetched = await getJson(baseUrl, "/api/v1/ai-suggestions/suggestion_canonical_1?canonical=true");
   assert.equal(fetched.status, 200, JSON.stringify(fetched.json));
-  assert.equal(fetched.json.item.status, "adopted_as_draft");
+  assert.equal(fetched.json.item.status, "confirmed");
   assert.equal(fetched.json.canonical.item.history[0].to_status, "adopted_as_draft");
+  assert.equal(fetched.json.canonical.item.history[1].to_status, "edited");
+  assert.equal(fetched.json.canonical.item.history[2].to_status, "confirmed");
 });

@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { aiSuggestionFromCanonical } from "../../apps/web/src/ai-suggestions-model.js";
+import {
+  aiSuggestionActionSet,
+  aiSuggestionFromCanonical
+} from "../../apps/web/src/ai-suggestions-model.js";
 
 test("AI suggestions model hydrates runtime suggestions from canonical payloads", () => {
   const suggestion = aiSuggestionFromCanonical({
@@ -44,4 +47,10 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
   assert.equal(suggestion.provenance.humanEdited, true);
   assert.equal(suggestion.history[0].toStatus, "adopted_as_draft");
   assert.equal(suggestion.history[0].userId, "user_1");
+});
+
+test("AI suggestions model only exposes confirm after the edited step", () => {
+  assert.deepEqual(aiSuggestionActionSet({ status: "suggested" }), ["adopted_as_draft", "rejected"]);
+  assert.deepEqual(aiSuggestionActionSet({ status: "adopted_as_draft" }), ["edited"]);
+  assert.deepEqual(aiSuggestionActionSet({ status: "edited" }), ["confirmed"]);
 });
