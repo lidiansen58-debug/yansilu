@@ -4206,6 +4206,24 @@ function preferredLocalFallbackNote() {
   );
 }
 
+function beginWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
+  const normalizedIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
+  if (!normalizedIds.length) return false;
+  clearWritingSourceIndexIds();
+  setSelectedWritingThemeIndex("");
+  setWritingBasketIds(normalizedIds);
+  resetWritingProjectContext({
+    title: String(title || "").trim()
+  });
+  showWritingResult({
+    stage: "writing_entry_from_notes",
+    source,
+    basketNoteIds: normalizedIds
+  });
+  renderWritingPanel();
+  return true;
+}
+
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
   settingsState.ai.modelPack = next;
@@ -8250,19 +8268,20 @@ $("btnWritingUseCurrent")?.addEventListener("click", () => {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   if (!note) return setStatus("请先在左侧选择一条永久笔记", "warn");
 if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受永久笔记，请先切到永久笔记目录选择笔记", "warn");
-  clearWritingSourceIndexIds();
-  addWritingBasketIds([note.id]);
-  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = note.title || "新的写作项目";
-  renderWritingPanel();
+  beginWritingEntry([note.id], {
+    title: note.title || "新的写作项目",
+    source: "writing_panel_current_note"
+  });
   setStatus(`已加入写作篮子：${note.title}`, "ok");
 });
 
 $("btnWritingAddVisible")?.addEventListener("click", () => {
   const candidates = writingCandidateNotes();
   if (!candidates.length) return setStatus("当前目录没有可加入的永久笔记", "warn");
-  clearWritingSourceIndexIds();
-  addWritingBasketIds(candidates.map((note) => note.id));
-  renderWritingPanel();
+  beginWritingEntry(candidates.map((note) => note.id), {
+    title: suggestedWritingProjectTitle(candidates.map((note) => note.id)),
+    source: "writing_panel_visible_notes"
+  });
   setStatus(`已把当前目录观点加入写作篮：${candidates.length} 条`, "ok");
 });
 
@@ -8290,9 +8309,11 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
   if (action === "add") {
-    clearWritingSourceIndexIds();
-    addWritingBasketIds([noteId]);
-    renderWritingPanel();
+    const note = writingNoteById(noteId);
+    beginWritingEntry([noteId], {
+      title: note?.title || noteId,
+      source: "writing_candidate_list"
+    });
     setStatus(`已加入写作篮：${noteId}`, "ok");
     return;
   }
