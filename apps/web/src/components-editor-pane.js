@@ -4811,6 +4811,7 @@ export class EditorPane {
   renderCreateRelationFormSection(noteId) {
     const candidates = this.scopedLinkCandidates();
     const defaultType = this.relationCreateDefaultType(this.activeNote());
+    const defaultGuidance = relationTypeGuidance(defaultType);
     const typeOptions = RELATION_CREATE_TYPES.map(
       (type) => `<option value="${escapeHtml(type)}"${type === defaultType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
