@@ -1,4 +1,5 @@
 ﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import { deriveNoteWritingReadiness } from "./writing-readiness.js";
 import {
   assetPreviewUrl,
   checkOriginality,
@@ -5531,6 +5532,22 @@ export class EditorPane {
         badgeLabel: String(themeSignalCount || explicitRelationCount)
       };
     }
+    if (wikilinkCount > 0 && tagRelatedCount === 0) {
+      return {
+        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        badge: themeSignalCount || wikilinkCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount)
+      };
+    }
+    if (tagRelatedCount > 0 && wikilinkCount === 0) {
+      return {
+        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        badge: themeSignalCount || tagRelatedCount,
+        badgeLabel: String(themeSignalCount || tagRelatedCount)
+      };
+    }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
@@ -5548,85 +5565,7 @@ export class EditorPane {
   }
 
   noteWritingReadinessV2(note, overview = {}) {
-    const authorshipConfirmed = Boolean(note?.authorship?.user_confirmed);
-    const noteStatus = String(note?.status || "").trim().toLowerCase();
-    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
-    const relationState = String(overview.relationState || "loaded").trim();
-    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
-    const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const themeSignalCount = Number(overview.themeSignalCount || 0);
-    const hasBoundary = noteHasBoundarySignal(note);
-
-    if (!authorshipConfirmed) {
-      return {
-        level: "blocked_authorship",
-        status: "先完成作者确认",
-        hint: "写作篮只接受已完成作者确认的永久笔记。",
-        actionLabel: "查看写作要求"
-      };
-    }
-    if (noteStatus !== "active") {
-      return {
-        level: "blocked_draft",
-        status: "先完成原创确认",
-        hint: "当前仍是 draft，先完成原创性检查后再进入写作。",
-        actionLabel: "查看写作要求"
-      };
-    }
-    if (!confirmed) {
-      return {
-        level: "needs_distillation",
-        status: "先确认观点",
-        hint: "至少先确认 thesis 和三句话压缩，再决定是否进入写作。",
-        actionLabel: "先完成提纯"
-      };
-    }
-    if (!hasBoundary) {
-      return {
-        level: "basket_ready",
-        status: "可加入写作篮",
-        hint: "已经能进入写作篮，但先补边界或反例，后面建项目会更稳。",
-        actionLabel: "加入写作篮"
-      };
-    }
-    if (relationState === "loading") {
-      return {
-        level: "basket_ready",
-        status: "可加入写作篮",
-        hint: "边界已经具备；等关系读取完成后，再判断是否直接建项目。",
-        actionLabel: "加入写作篮"
-      };
-    }
-    if (relationState === "error") {
-      return {
-        level: "basket_ready",
-        status: "可加入写作篮",
-        hint: "当前可先进入写作篮，但最好补一条清楚的关系后再建项目。",
-        actionLabel: "加入写作篮"
-      };
-    }
-    if (explicitRelationCount + wikilinkCount === 0) {
-      return {
-        level: "basket_ready",
-        status: "可加入写作篮",
-        hint: "判断和边界已经具备，但最好补一条关系再建项目。",
-        actionLabel: "加入写作篮"
-      };
-    }
-    if (themeSignalCount < 2) {
-      return {
-        level: "project_ready",
-        status: "可创建写作项目",
-        hint: "判断、边界和关系已具备，可以先建项目；补更多主题线索后再做强模型分析。",
-        actionLabel: "创建项目"
-      };
-    }
-    return {
-      level: "strong_model_ready",
-      status: "可进行强模型分析",
-      hint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
-      actionLabel: "强模型分析"
-    };
+    return deriveNoteWritingReadiness(note, overview);
   }
 
   renderPermanentNoteMainPathSectionV2(note, overview = {}) {

@@ -67,6 +67,7 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
+import { deriveBasketWritingReadiness } from "./writing-readiness.js";
 import {
   scheduledTaskFormDefaults,
   scheduledTaskFromCanonical,
@@ -5590,19 +5591,55 @@ function renderWritingStatusStrip() {
   if (!el) return;
   const basketIds = parseWritingBasketIds();
   const eligibility = currentWritingBasketEligibility();
+  const readiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, {});
   const hasProject = Boolean(writingState.project?.id);
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
-  const basketTone = eligibility.ineligible.length ? "warn" : basketIds.length ? "good" : "warn";
-  const basketNote = eligibility.ineligible.length
-    ? writingIneligibleSummary(eligibility.ineligible)
-    : basketIds.length
-      ? "材料已进入写作篮"
-      : "从永久笔记开始";
+  const projectPreflight = writingState.project?.preflight || null;
+  const projectPreflightWarnings = Number(projectPreflight?.warningCount || 0);
+  const basketTone =
+    readiness.level === "strong_model_ready" || readiness.level === "project_ready"
+      ? "good"
+      : readiness.level === "basket_ready"
+        ? "warn"
+        : readiness.level === "needs_basket"
+          ? "warn"
+          : "warn";
+  const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const projectTone =
+    hasProject && projectPreflight?.status === "needs_attention"
+      ? "warn"
+      : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
+        ? "good"
+        : "warn";
+  const projectNote = hasProject
+    ? projectPreflight?.status === "needs_attention"
+      ? `${writingState.project.id}；仍有 ${projectPreflightWarnings} 项预检提醒`
+      : writingState.project.id
+    : readiness.level === "basket_ready"
+      ? "先补边界或关系，再决定是否建项目"
+      : readiness.level === "needs_distillation"
+        ? "先确认观点，再考虑建项目"
+        : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
+          ? "先让材料变成可进入写作的永久笔记"
+          : "先明确题目和读者";
+  const strongModelTone =
+    readiness.level === "strong_model_ready" && projectPreflight?.status !== "needs_attention"
+      ? "good"
+      : "warn";
+  const strongModelNote =
+    projectPreflight?.status === "needs_attention"
+      ? `先处理 ${projectPreflightWarnings} 项预检提醒，再做强模型分析。`
+      : readiness.level === "strong_model_ready"
+        ? "当前材料已经适合进入强模型分析。"
+        : readiness.level === "project_ready"
+          ? "先补更多主题线索，再做强模型分析。"
+          : readiness.hint;
   el.innerHTML = [
-    renderWritingStatusCard("材料", `${basketIds.length} 条`, basketNote, basketTone),
-    renderWritingStatusCard("项目", hasProject ? "已创建" : "待创建", hasProject ? writingState.project.id : "先明确题目和读者", hasProject ? "good" : "warn"),
+    renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
+    renderWritingStatusCard("项目", hasProject ? "已创建" : readiness.level === "project_ready" || readiness.level === "strong_model_ready" ? "可创建" : "待创建", projectNote, projectTone),
     renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("强模型", readiness.level === "strong_model_ready" ? "可分析" : "先补条件", strongModelNote, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
 }
@@ -5816,6 +5853,7 @@ function renderWritingPanel() {
   }
 
   const basketEntries = writingBasketEntries();
+  const basketReadiness = deriveBasketWritingReadiness(parseWritingBasketIds(), writingKnownNoteById, {});
   if (basketSummary) {
     const projectPart = writingState.project?.id ? `当前项目：${writingState.project.id}` : "尚未创建项目";
     const scaffoldPart = writingState.scaffold?.id ? `Scaffold：${writingState.scaffold.id}` : "尚未生成 scaffold";
@@ -5824,7 +5862,7 @@ function renderWritingPanel() {
       : "尚未绑定草稿";
     const sourcePart = sourceIndexSummary || "尚未记录主题入口";
     basketSummary.textContent = basketEntries.length
-      ? `写作篮里已有 ${basketEntries.length} 条永久笔记，正在为当前主题组织论点与证据。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`
+      ? `写作篮里已有 ${basketEntries.length} 条永久笔记。当前阶段：${basketReadiness.status}。${basketReadiness.hint} ${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`
       : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`;
   }
   if (basketList) {
@@ -5859,7 +5897,11 @@ function renderWritingPanel() {
     openDraftButton.disabled = !hasDraft;
     openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
   }
-  if (createProjectButton) createProjectButton.disabled = false;
+  if (createProjectButton) {
+    const projectReady = basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready";
+    createProjectButton.disabled = !projectReady;
+    createProjectButton.textContent = projectReady ? "创建写作项目" : "先补条件再建项目";
+  }
   if (createScaffoldButton) {
     createScaffoldButton.disabled = !writingState.project?.id;
     createScaffoldButton.textContent = writingState.project?.id ? "生成草稿骨架" : "先创建项目";
@@ -5869,12 +5911,15 @@ function renderWritingPanel() {
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   if (strongModelButton) {
     const strongModelBasketIds = parseWritingBasketIds();
-    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0;
+    const strongModelReady = basketReadiness.level === "strong_model_ready";
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
     strongModelButton.textContent = writingState.strongModelLoading
       ? "准备中..."
-      : strongModelBasketIds.length
-        ? "准备强模型分析"
-        : "先加入笔记";
+      : !strongModelBasketIds.length
+        ? "先加入笔记"
+        : strongModelReady
+          ? "准备强模型分析"
+          : "先补条件";
   }
   if (strongModelSummary) {
     const result = writingState.strongModelResult;
