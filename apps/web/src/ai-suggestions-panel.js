@@ -111,6 +111,39 @@ function renderActions(item = {}, actionLoading = false) {
   `;
 }
 
+function renderDraftEditingGuide(item = {}) {
+  const status = String(item.status || "").trim();
+  if (status === "adopted_as_draft") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Next step</h3>
+        <p>Open the target note, edit the adopted draft in the note itself, then return here and mark the suggestion as edited.</p>
+      </section>
+    `;
+  }
+  if (status === "edited") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Ready to confirm</h3>
+        <p>This suggestion has been marked as edited by a person. Confirm it only after the target note wording reflects the final user-owned judgment.</p>
+      </section>
+    `;
+  }
+  return "";
+}
+
+function renderContentEditor(item = {}) {
+  const status = String(item.status || "").trim();
+  if (status !== "adopted_as_draft" && status !== "edited") return "";
+  const content = typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2);
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Reviewed content</h3>
+      <textarea id="aiSuggestionContentEditor" rows="8" placeholder="Update the reviewed draft content before marking it edited or confirmed.">${escapeHtml(content)}</textarea>
+    </section>
+  `;
+}
+
 function renderDetail(state = {}) {
   const item = state.detail || state.items?.find((entry) => String(entry.id || "") === String(state.selectedSuggestionId || "")) || null;
   if (!item) return `<div class="scheduled-task-empty">Pick a suggestion to inspect its target, content, and review history.</div>`;
@@ -128,6 +161,8 @@ function renderDetail(state = {}) {
         <h3>Content</h3>
         <pre class="ai-inbox-json">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2))}</pre>
       </section>
+      ${renderDraftEditingGuide(item)}
+      ${renderContentEditor(item)}
       <section class="ai-inbox-detail-section">
         <h3>Provenance</h3>
         <pre class="ai-inbox-json">${escapeHtml(JSON.stringify(item.provenance || {}, null, 2))}</pre>
@@ -136,6 +171,16 @@ function renderDetail(state = {}) {
         <h3>History</h3>
         <pre class="ai-inbox-json">${escapeHtml(JSON.stringify(item.history || [], null, 2))}</pre>
       </section>
+      <div class="scheduled-task-actions">
+        <button
+          class="mini-btn"
+          type="button"
+          data-ai-suggestion-open-note="${attr(item.target?.id || "")}"
+          ${item.target?.id ? "" : "disabled"}
+        >
+          Open target note
+        </button>
+      </div>
       ${renderActions(item, state.actionLoading)}
     </article>
   `;
