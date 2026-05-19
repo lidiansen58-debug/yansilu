@@ -93,3 +93,20 @@ Own recurring or deferred AI work:
 - This branch is intended to stay alive for a while.
 - Keep commits scoped by AI sub-area so cherry-picking stays easy.
 - If a slice is stable and low-risk, merge it back independently rather than waiting for the whole stream to finish.
+
+## Current Position After Mainline Recovery
+
+As of 2026-05-19, the mainline AI code slices from this worktree have already been recovered into `main` in small reviewed batches.
+
+That means:
+
+- do not merge `wt-ai` back into `main` as a whole
+- treat `wt-ai` as a long-lived AI workstream, handoff, and follow-up experiment line
+- continue to recover only independent code slices from it when they are stable
+- expect branch-only docs in this worktree to remain useful locally even when they are not promoted to `main`
+
+In practice, `wt-ai` should now be handled like a stream branch:
+
+1. keep AI notes, backlog docs, and handoff context here
+2. develop new AI sub-slices here when isolation is useful
+3. cherry-pick or otherwise recover only the code changes that are ready for `main`
