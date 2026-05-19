@@ -5700,6 +5700,53 @@
     .settings-help-link:hover {
       text-decoration: underline;
     }
+    .settings-code {
+      margin: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #334155;
+      overflow: auto;
+    }
+    .settings-canonical-section {
+      display: grid;
+      gap: 10px;
+    }
+    .settings-canonical-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .settings-canonical-block {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-canonical-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+    }
+    .settings-canonical-meta {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .settings-canonical-code {
+      max-height: 280px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .settings-canonical-empty {
+      border: 1px dashed #d7e0ea;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #64748b;
+      background: #fbfdff;
+    }
     .scheduled-task-panel {
       display: grid;
       gap: 12px;
@@ -6496,6 +6543,9 @@
         padding: 16px;
       }
       .settings-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-canonical-grid {
         grid-template-columns: minmax(0, 1fr);
       }
       .import-history-controls {
@@ -9706,6 +9756,18 @@
                 <section class="settings-card">
                   <div id="settingsScheduledTasksPanel">
                     <div class="scheduled-task-empty">Scheduled tasks are ready to load.</div>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div id="settingsAiSuggestionsPanel">
+                    <div class="scheduled-task-empty">AI suggestions are ready to load.</div>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div id="settingsAiCanonicalDebug">
+                    <div class="settings-canonical-empty">No AI canonical payloads captured yet.</div>
                   </div>
                 </section>
               </div>

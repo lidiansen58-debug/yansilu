@@ -9,6 +9,7 @@ export * from "./artifact-inbox.mjs";
 export * from "./artifact-store.mjs";
 export * from "./artifacts.mjs";
 export * from "./budget-policy.mjs";
+export * from "./canonical-models.mjs";
 export * from "./context-pack.mjs";
 export * from "./context-pack-store.mjs";
 export * from "./core-note-tools.mjs";

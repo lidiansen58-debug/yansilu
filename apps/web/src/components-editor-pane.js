@@ -4877,6 +4877,7 @@ export class EditorPane {
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
         this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" }));
+        this.refreshInspectorLinkSummaryNote();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
@@ -4895,6 +4896,7 @@ export class EditorPane {
       if (note?.id === noteId && tab) {
         const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
         this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "error" }));
+        this.refreshInspectorLinkSummaryNote();
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
@@ -5545,6 +5547,26 @@ export class EditorPane {
     section.outerHTML = this.renderPermanentNoteMainPathSectionV2(note, overview);
   }
 
+  renderInspectorLinkSummaryNote() {
+    return `
+      <div class="inspector-section-note" data-inspector-link-summary-note>
+        ${
+          this.semanticRelationsState === "error"
+            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
+            : this.semanticRelationsState === "loading"
+              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
+              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
+        }
+      </div>
+    `;
+  }
+
+  refreshInspectorLinkSummaryNote() {
+    const mount = this.els.result?.querySelector?.("[data-inspector-link-summary-note]");
+    if (!mount) return;
+    mount.outerHTML = this.renderInspectorLinkSummaryNote();
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -5959,6 +5981,15 @@ export class EditorPane {
         <span class="inspector-chip">正向链接 ${forward.length}</span>
         <span class="inspector-chip">反向链接 ${backward.length}</span>
         <span class="inspector-chip">标签 ${tags.length}</span>
+      </div>
+      <div class="inspector-section-note" data-inspector-link-summary-note>
+        ${
+          this.semanticRelationsState === "error"
+            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
+            : this.semanticRelationsState === "loading"
+              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
+              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
+        }
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}

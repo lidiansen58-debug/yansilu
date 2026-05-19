@@ -134,6 +134,113 @@ export function aiInboxCounts(counts = {}) {
   };
 }
 
+export function aiInboxItemFromCanonical(item = {}) {
+  const latestDecision = item.latest_decision
+    ? {
+        decisionId: cleanText(item.latest_decision.decision_id),
+        artifactId: cleanText(item.latest_decision.artifact_id),
+        decision: cleanText(item.latest_decision.decision),
+        userId: cleanText(item.latest_decision.user_id),
+        noteId: cleanText(item.latest_decision.note_id),
+        comment: cleanText(item.latest_decision.comment),
+        feedback: {
+          useful: item.latest_decision.feedback?.useful === true,
+          noisy: item.latest_decision.feedback?.noisy === true,
+          wrong: item.latest_decision.feedback?.wrong === true,
+          alreadyKnown: item.latest_decision.feedback?.already_known === true,
+          privacyConcern: item.latest_decision.feedback?.privacy_concern === true
+        },
+        createdAt: cleanText(item.latest_decision.created_at)
+      }
+    : null;
+
+  return {
+    artifactId: cleanText(item.artifact_id),
+    type: cleanText(item.type),
+    title: cleanText(item.title),
+    summary: cleanText(item.summary),
+    status: cleanText(item.status),
+    actionState: cleanText(item.action_state),
+    origin: cleanText(item.origin),
+    privacyMode: cleanText(item.privacy_mode),
+    createdAt: cleanText(item.created_at),
+    updatedAt: cleanText(item.updated_at),
+    agentRunId: cleanText(item.agent_run_id),
+    contextPackId: cleanText(item.context_pack_id),
+    primarySourceNoteId: cleanText(item.primary_source_note_id),
+    sourceNoteIds: Array.isArray(item.source_note_ids) ? [...item.source_note_ids] : [],
+    sourceDocIds: Array.isArray(item.source_doc_ids) ? [...item.source_doc_ids] : [],
+    decisionCount: normalizeCount(item.decision_count),
+    latestDecision,
+    confidence: item.confidence
+      ? {
+          score: typeof item.confidence.score === "number" ? item.confidence.score : null,
+          label: cleanText(item.confidence.label) || "medium",
+          reason: cleanText(item.confidence.reason)
+        }
+      : null
+  };
+}
+
+export function aiArtifactFromCanonical(artifact = {}) {
+  return {
+    id: cleanText(artifact.id),
+    type: cleanText(artifact.type),
+    title: cleanText(artifact.title),
+    summary: cleanText(artifact.summary),
+    body: artifact.body ?? "",
+    status: cleanText(artifact.status),
+    origin: cleanText(artifact.origin),
+    createdAt: cleanText(artifact.created_at),
+    updatedAt: cleanText(artifact.updated_at),
+    agentRunId: cleanText(artifact.agent_run_id),
+    contextPackId: cleanText(artifact.context_pack_id),
+    model: artifact.model ?? null,
+    sources: {
+      noteIds: Array.isArray(artifact.sources?.note_ids) ? [...artifact.sources.note_ids] : [],
+      sourceDocIds: Array.isArray(artifact.sources?.source_doc_ids) ? [...artifact.sources.source_doc_ids] : [],
+      artifactIds: Array.isArray(artifact.sources?.artifact_ids) ? [...artifact.sources.artifact_ids] : [],
+      externalUrls: Array.isArray(artifact.sources?.external_urls) ? [...artifact.sources.external_urls] : []
+    },
+    provenance: {
+      contentOrigin: cleanText(artifact.provenance?.content_origin),
+      citationRequired: artifact.provenance?.citation_required === true,
+      humanAccepted: artifact.provenance?.human_accepted === true,
+      humanRewritten: artifact.provenance?.human_rewritten === true
+    },
+    confidence: artifact.confidence
+      ? {
+          score: typeof artifact.confidence.score === "number" ? artifact.confidence.score : null,
+          label: cleanText(artifact.confidence.label) || "medium",
+          reason: cleanText(artifact.confidence.reason)
+        }
+      : null,
+    privacy: {
+      mode: cleanText(artifact.privacy?.mode),
+      cloudModelUsed: artifact.privacy?.cloud_model_used === true
+    },
+    userDecisions: Array.isArray(artifact.user_decisions)
+      ? artifact.user_decisions.map((decision) => ({
+          decisionId: cleanText(decision.decision_id),
+          artifactId: cleanText(decision.artifact_id),
+          decision: cleanText(decision.decision),
+          userId: cleanText(decision.user_id),
+          noteId: cleanText(decision.note_id),
+          comment: cleanText(decision.comment),
+          feedback: {
+            useful: decision.feedback?.useful === true,
+            noisy: decision.feedback?.noisy === true,
+            wrong: decision.feedback?.wrong === true,
+            alreadyKnown: decision.feedback?.already_known === true,
+            privacyConcern: decision.feedback?.privacy_concern === true
+          },
+          createdAt: cleanText(decision.created_at)
+        }))
+      : [],
+    payload: artifact.payload ?? {}
+  };
+}
+
 export function selectedAiInboxItem(items = [], selectedArtifactId = "") {
   const id = cleanText(selectedArtifactId);
   if (id) {

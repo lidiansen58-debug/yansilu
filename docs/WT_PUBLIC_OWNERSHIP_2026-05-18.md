@@ -81,3 +81,12 @@ Before merging a substantial public-site slice, also browser-check desktop and 3
 ## Merge Rule
 
 Merge back through the main checkout only after the public routes, demo entry points, and relevant fixture tests pass. Keep generated local demo vaults out of commits.
+
+## Archived Reference Branch
+
+`archive/closed-2026-05-19/feat-testing-data` is retained only as historical reference.
+
+- Do not resume development on it.
+- Do not merge it into `main` as a whole.
+- Do not treat it as the current source of truth for rich demo work.
+- Use it only when you need to look up discarded experiments or earlier fixture/test-data ideas.
