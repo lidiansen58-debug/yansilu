@@ -55,6 +55,7 @@ function ensureSchema(db) {
       target_type TEXT NOT NULL,
       target_id TEXT NOT NULL,
       target_field TEXT,
+      source_artifact_id TEXT,
       target_json TEXT NOT NULL,
       scope TEXT NOT NULL,
       content_json TEXT NOT NULL,
@@ -70,6 +71,11 @@ function ensureSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_ai_suggestions_status_updated ON ai_suggestions(status, updated_at);
     CREATE INDEX IF NOT EXISTS idx_ai_suggestions_target ON ai_suggestions(target_type, target_id, target_field);
   `);
+
+  const columns = db.prepare("PRAGMA table_info(ai_suggestions)").all().map((column) => column.name);
+  if (!columns.includes("source_artifact_id")) {
+    db.exec("ALTER TABLE ai_suggestions ADD COLUMN source_artifact_id TEXT;");
+  }
 }
 
 function rowToSuggestion(row) {
@@ -81,6 +87,7 @@ function rowToSuggestion(row) {
       id: row.target_id,
       ...(row.target_field ? { field: row.target_field } : {})
     }),
+    sourceArtifactId: row.source_artifact_id || "",
     scope: row.scope,
     content: parseJson(row.content_json, null),
     status: row.status,
@@ -96,13 +103,14 @@ function rowToSuggestion(row) {
 function insertOrReplaceSuggestion(db, suggestion) {
   db.prepare(
     `INSERT OR REPLACE INTO ai_suggestions
-      (id, target_type, target_id, target_field, target_json, scope, content_json, status, origin, model_json, provenance_json, history_json, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, target_type, target_id, target_field, source_artifact_id, target_json, scope, content_json, status, origin, model_json, provenance_json, history_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     suggestion.id,
     suggestion.target.type,
     suggestion.target.id,
     suggestion.target.field || "",
+    suggestion.sourceArtifactId || "",
     jsonString(suggestion.target),
     suggestion.scope,
     jsonString(suggestion.content),
@@ -139,6 +147,7 @@ export async function createSqliteSuggestionStore(options = {}) {
       const status = cleanText(filters.status);
       const targetType = cleanText(filters.targetType || filters.target_type);
       const targetId = cleanText(filters.targetId || filters.target_id);
+      const sourceArtifactId = cleanText(filters.sourceArtifactId || filters.source_artifact_id);
       const scope = cleanText(filters.scope);
       if (status && status !== "all") {
         where.push("status = ?");
@@ -151,6 +160,10 @@ export async function createSqliteSuggestionStore(options = {}) {
       if (targetId) {
         where.push("target_id = ?");
         params.push(targetId);
+      }
+      if (sourceArtifactId) {
+        where.push("source_artifact_id = ?");
+        params.push(sourceArtifactId);
       }
       if (scope) {
         where.push("scope = ?");

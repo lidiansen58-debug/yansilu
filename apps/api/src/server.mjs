@@ -1565,6 +1565,49 @@ function fieldSuggestionInputFromArtifact(artifact = {}, body = {}) {
   };
 }
 
+function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, updatedNote = null) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
+  if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
+
+  const target = originalSuggestion.target && typeof originalSuggestion.target === "object" ? originalSuggestion.target : {};
+  const nextSuggestion = {
+    ...originalSuggestion,
+    status: "adopted_as_draft",
+    target: {
+      ...target,
+      type: target.type || target.kind || "permanent_note",
+      id: fieldSuggestion.noteId || target.id || "",
+      field: fieldSuggestion.field || target.field || ""
+    },
+    provenance: {
+      ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
+      humanEdited: true,
+      humanConfirmed: false
+    }
+  };
+
+  return {
+    ...payload,
+    targetField: fieldSuggestion.field,
+    target_field: fieldSuggestion.field,
+    adoptedNoteId: cleanText(updatedNote?.id || fieldSuggestion.noteId),
+    adopted_note_id: cleanText(updatedNote?.id || fieldSuggestion.noteId),
+    fieldSuggestion: nextSuggestion,
+    field_suggestion: nextSuggestion
+  };
+}
+
+function fieldSuggestionIdFromArtifactPayload(artifact = {}) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  return cleanText(
+    payload.fieldSuggestionId ||
+      payload.field_suggestion_id ||
+      payload.fieldSuggestion?.id ||
+      payload.field_suggestion?.id
+  );
+}
+
 function titleForCatalogNote(candidate) {
   const explicit = String(candidate?.title || "").trim();
   if (explicit) return explicit;
@@ -2415,6 +2458,7 @@ const server = http.createServer(async (req, res) => {
           status: url.searchParams.get("status") || "all",
           targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "",
           targetId: url.searchParams.get("targetId") || url.searchParams.get("target_id") || "",
+          sourceArtifactId: url.searchParams.get("sourceArtifactId") || url.searchParams.get("source_artifact_id") || "",
           scope: url.searchParams.get("scope") || "",
           limit: Number(url.searchParams.get("limit") || 50)
         });
@@ -2494,6 +2538,8 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
         const artifactStore = await aiArtifactStore();
+        const existingArtifact = artifactStore.getArtifact(aiInboxDecisionId);
+        if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
         const decision = normalizeAiInboxDecision(body);
         assertReviewDecision(decision);
         const artifact = artifactStore.recordDecision(aiInboxDecisionId, {
@@ -2513,7 +2559,13 @@ const server = http.createServer(async (req, res) => {
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
           artifact: artifact ? artifactToCanonical(artifact) : null,
-          latestDecision: latestDecision ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact) : null
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                metadata: {
+                  fromStatus: existingArtifact.status
+                }
+              })
+            : null
         } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
@@ -2562,7 +2614,18 @@ const server = http.createServer(async (req, res) => {
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
           artifact: artifact ? artifactToCanonical(artifact) : null,
-          latestDecision: latestDecision ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact) : null
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "relation",
+                  id: relation.id
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: relation.fromNoteId
+                }
+              })
+            : null
         } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
@@ -2608,7 +2671,18 @@ const server = http.createServer(async (req, res) => {
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
           artifact: artifact ? artifactToCanonical(artifact) : null,
-          latestDecision: latestDecision ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact) : null
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "note",
+                  id: note.id
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: note.id
+                }
+              })
+            : null
         } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : error?.code === "AI_ARTIFACT_ALREADY_PROMOTED" ? 409 : 400;
@@ -2646,19 +2720,35 @@ const server = http.createServer(async (req, res) => {
           );
         }
         const updatedNote = await updateNoteContent(VAULT_PATH, fieldSuggestion.noteId, fieldSuggestion.update);
-        const artifact = artifactStore.recordDecision(aiInboxAdoptFieldSuggestionId, {
+        artifactStore.recordDecision(aiInboxAdoptFieldSuggestionId, {
           decision: "adopted_as_draft",
           userId: body.userId || body.user_id || "local_user",
           noteId: updatedNote.id,
           comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
           feedback: body.feedback
         });
+        const artifact = artifactStore.updateArtifact(aiInboxAdoptFieldSuggestionId, {
+          payload: payloadWithAdoptedFieldSuggestion(existingArtifact, fieldSuggestion, updatedNote)
+        });
+        const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
+        const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
+        const suggestion = suggestionId
+          ? suggestionStore.transition(suggestionId, "adopted_as_draft", {
+              action: "adopt_as_draft",
+              actor: "user",
+              userId: body.userId || body.user_id || "local_user",
+              noteId: updatedNote.id,
+              comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
+              createdAt: new Date().toISOString()
+            })
+          : null;
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxAdoptFieldSuggestionId);
         const latestDecision = item?.latestDecision || null;
         return sendJson(res, 200, withCanonical({
           item,
           artifact,
+          suggestion,
           note: updatedNote,
           adoptedField: fieldSuggestion.field,
           adoptedValue: fieldSuggestion.adoptedValue,
@@ -2668,7 +2758,20 @@ const server = http.createServer(async (req, res) => {
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
           artifact: artifact ? artifactToCanonical(artifact) : null,
-          latestDecision: latestDecision ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact) : null
+          ...(suggestion ? { suggestion: suggestionToCanonical(suggestion) } : {}),
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "permanent_note",
+                  id: updatedNote.id,
+                  field: fieldSuggestion.field
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: updatedNote.id
+                }
+              })
+            : null
         } : null));
       } catch (error) {
         const status =
@@ -3556,7 +3659,28 @@ const server = http.createServer(async (req, res) => {
         }
         const { analysis, reviewItems } = result;
         const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const persistSuggestions = persistArtifacts;
+        const fieldSuggestionArtifactIds = new Map(
+          (Array.isArray(reviewItems.artifacts) ? reviewItems.artifacts : [])
+            .map((artifact) => {
+              const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
+              return suggestionId ? [suggestionId, artifact.id] : null;
+            })
+            .filter(Boolean)
+        );
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const suggestionStore = persistSuggestions ? await aiSuggestionStore() : null;
+        const storedSuggestions = persistSuggestions
+          ? (Array.isArray(reviewItems.suggestions) ? reviewItems.suggestions : []).map((suggestion) =>
+              suggestionStore.create(
+                {
+                  ...suggestion,
+                  sourceArtifactId: fieldSuggestionArtifactIds.get(suggestion.id)
+                },
+                { now: new Date().toISOString() }
+              )
+            )
+          : [];
         const storedArtifacts = persistArtifacts ? artifactStore.createMany(reviewItems.artifacts) : [];
         const inbox = persistArtifacts ? createAiInbox({ artifactStore }) : null;
         return sendJson(res, 200, {
@@ -3567,6 +3691,9 @@ const server = http.createServer(async (req, res) => {
             modelExecution,
             reviewItems: {
               ...reviewItems,
+              suggestions: storedSuggestions.length ? storedSuggestions : reviewItems.suggestions,
+              storedSuggestionIds: storedSuggestions.map((suggestion) => suggestion.id),
+              suggestionsPersisted: persistSuggestions,
               storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
               artifactsPersisted: persistArtifacts
             },

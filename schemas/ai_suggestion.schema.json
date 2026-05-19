@@ -36,6 +36,7 @@
     "created_at": { "type": "string" },
     "updated_at": { "type": "string" },
     "model": { "type": ["object", "string", "null"] },
+    "source_artifact_id": { "type": "string" },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
