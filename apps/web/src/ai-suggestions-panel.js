@@ -117,7 +117,7 @@ function renderDraftEditingGuide(item = {}) {
     return `
       <section class="ai-inbox-detail-section">
         <h3>Next step</h3>
-        <p>Open the target note, edit the adopted draft in the note itself, then return here and mark the suggestion as edited.</p>
+        <p>Review and rewrite the adopted draft in this suggestion first. When the wording reflects a user-owned claim, mark it edited.</p>
       </section>
     `;
   }
@@ -125,7 +125,7 @@ function renderDraftEditingGuide(item = {}) {
     return `
       <section class="ai-inbox-detail-section">
         <h3>Ready to confirm</h3>
-        <p>This suggestion has been marked as edited by a person. Confirm it only after the target note wording reflects the final user-owned judgment.</p>
+        <p>This suggestion has already been rewritten by a person. Confirm it only when this reviewed draft is ready to become the final user-owned wording.</p>
       </section>
     `;
   }
@@ -178,7 +178,7 @@ function renderDetail(state = {}) {
           data-ai-suggestion-open-note="${attr(item.target?.id || "")}"
           ${item.target?.id ? "" : "disabled"}
         >
-          Open target note
+          Open target note (optional)
         </button>
       </div>
       ${renderActions(item, state.actionLoading)}

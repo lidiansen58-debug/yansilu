@@ -80,6 +80,72 @@ test("canonical artifact adapter converts runtime camelCase into shared snake_ca
 }
 );
 
+test("canonical artifact adapter preserves adopted-as-draft field suggestion artifacts", () => {
+  const artifact = normalizeArtifact(
+    {
+      id: "artifact_field_1",
+      type: "InsightCard",
+      title: "Thesis suggestion",
+      summary: "Suggest a thesis draft.",
+      status: "adopted_as_draft",
+      agentRunId: "run_field_1",
+      sources: { noteIds: ["pn_1"], sourceDocIds: [], artifactIds: [], externalUrls: [] },
+      payload: {
+        fieldSuggestion: {
+          id: "suggestion_field_1",
+          target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+          content: { thesis: "A reviewable claim starts life as a draft." }
+        }
+      },
+      provenance: {
+        contentOrigin: "ai_generated",
+        citationRequired: false,
+        humanAccepted: true,
+        humanRewritten: false
+      },
+      userDecisions: [
+        {
+          decisionId: "decision_field_1",
+          artifactId: "artifact_field_1",
+          decision: "adopted_as_draft",
+          userId: "user_1",
+          noteId: "pn_1",
+          comment: "draft accepted",
+          feedback: { useful: true },
+          createdAt: "2026-05-18T12:10:00.000Z"
+        }
+      ]
+    },
+    { now: "2026-05-18T12:00:00.000Z" }
+  );
+
+  const canonical = artifactToCanonical(artifact);
+  const adoptionEvent = artifactDecisionToCanonicalAdoptionEvent(
+    artifact.userDecisions[0],
+    artifact,
+    {
+      target: {
+        kind: "permanent_note",
+        id: "pn_1",
+        field: "thesis"
+      },
+      metadata: {
+        fromStatus: "pending_review",
+        noteId: "pn_1"
+      }
+    }
+  );
+
+  assert.equal(canonical.status, "adopted_as_draft");
+  assert.equal(canonical.field_suggestion_id, "suggestion_field_1");
+  assert.equal(canonical.provenance.human_accepted, true);
+  assert.equal(canonical.user_decisions[0].decision, "adopted_as_draft");
+  assert.equal(adoptionEvent.event_type, "adopted_as_draft");
+  assert.equal(adoptionEvent.target.field, "thesis");
+  assert.equal(adoptionEvent.metadata.to_status, "adopted_as_draft");
+}
+);
+
 test("canonical inbox adapter projects artifact review fields into stable payload", () => {
   const artifact = normalizeArtifact(
     {
