@@ -32,12 +32,24 @@ test("AI suggestions panel renders filters, list, detail, and review actions", (
   assert.match(html, /Reject/);
 });
 
-test("AI suggestions panel renders confirm action for adopted draft suggestions", () => {
+test("AI suggestions panel renders edited action for adopted draft suggestions", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "adopted_as_draft" }],
     total: 1,
     selectedSuggestionId: "suggestion_1",
     detail: { ...suggestion, status: "adopted_as_draft" }
+  });
+
+  assert.match(html, /Mark edited/);
+  assert.match(html, /data-ai-suggestion-status="edited"/);
+});
+
+test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, status: "edited" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_1",
+    detail: { ...suggestion, status: "edited" }
   });
 
   assert.match(html, /Confirm/);

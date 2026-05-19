@@ -109,6 +109,7 @@ export function aiSuggestionTargetLabel(suggestion = {}) {
 export function aiSuggestionActionSet(suggestion = {}) {
   const status = cleanText(suggestion.status);
   if (status === "suggested") return ["adopted_as_draft", "rejected"];
-  if (status === "adopted_as_draft" || status === "edited") return ["confirmed"];
+  if (status === "adopted_as_draft") return ["edited"];
+  if (status === "edited") return ["confirmed"];
   return [];
 }
