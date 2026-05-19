@@ -4224,6 +4224,9 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   const nextGoal = String($("writingGoal")?.value || "").trim();
   const nextAudience = String($("writingAudience")?.value || "").trim();
   const nextTone = String($("writingTone")?.value || "").trim();
+  writingState.strongModelLoading = false;
+  writingState.strongModelResult = null;
+  writingState.strongModelError = "";
   clearWritingSourceIndexIds();
   setSelectedWritingThemeIndex("");
   setWritingBasketIds(normalizedIds);
