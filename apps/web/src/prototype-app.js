@@ -304,6 +304,8 @@ const writingState = {
   loadingScaffoldVersions: false,
   draftVersions: [],
   loadingDraftVersions: false,
+  strongModelEpoch: 0,
+  strongModelRunId: 0,
   strongModelLoading: false,
   strongModelResult: null,
   strongModelError: ""
@@ -4224,6 +4226,7 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   const nextGoal = String($("writingGoal")?.value || "").trim();
   const nextAudience = String($("writingAudience")?.value || "").trim();
   const nextTone = String($("writingTone")?.value || "").trim();
+  writingState.strongModelEpoch += 1;
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
@@ -5427,6 +5430,9 @@ async function prepareWritingStrongModelAnalysis() {
     typeof window === "undefined" ||
     window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
   if (!confirmed) return;
+  const requestEpoch = writingState.strongModelEpoch;
+  const requestRunId = writingState.strongModelRunId + 1;
+  writingState.strongModelRunId = requestRunId;
   writingState.strongModelLoading = true;
   writingState.strongModelError = "";
   renderWritingPanel();
@@ -5439,13 +5445,16 @@ async function prepareWritingStrongModelAnalysis() {
       noteIds,
       persistArtifacts: false
     });
+    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
     writingState.strongModelResult = result;
     const model = result?.request?.model?.model || "strong_model";
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
   } catch (error) {
+    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
     writingState.strongModelError = String(error?.message || error);
     setStatus(`强模型写作分析准备失败：${writingState.strongModelError}`, "warn");
   } finally {
+    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
     writingState.strongModelLoading = false;
     renderWritingPanel();
   }
@@ -7448,19 +7457,10 @@ async function handleStateChange(reason, payload = {}) {
 
     if (action === "writing") {
       await ensureNoteBodyLoaded(noteId);
-      clearWritingSourceIndexIds();
-      setSelectedWritingThemeIndex("");
-      setWritingBasketIds([noteId]);
-      resetWritingProjectContext({
-        title: `${note.title || "未命名笔记"} 写作项目`
+      beginWritingEntry([noteId], {
+        title: `${note.title || "未命名笔记"} 写作项目`,
+        source: "note_main_path"
       });
-      showWritingResult({
-        stage: "writing_entry_from_note",
-        source: "note_main_path",
-        noteId,
-        basketNoteIds: [noteId]
-      });
-      renderWritingPanel();
       await openWritingModule({ statusMessage: `已把“${note.title || noteId}”加入写作篮子，并打开写作中心` });
       return true;
     }
