@@ -1538,13 +1538,39 @@ test("prototype related inspector can create an explicit semantic relation", asy
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# 可连接目标\n\n这条笔记等待被一条带理由的关系连接。"
+    status: "active",
+    body: "# 可连接目标\n\n这条笔记等待被一条带理由的关系连接。",
+    thesis: "另一条永久笔记应该能为它提供明确支撑。",
+    threeLineSummary: [
+      "这条目标笔记已经形成了可复用判断。",
+      "它值得被接入，因为它会成为更大论证的一部分。",
+      "它让来源笔记不再停留在孤立状态。"
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "只有在支撑理由明确时，这条目标才值得被接入。"
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# 可连接来源\n\n这条笔记需要主动建立语义关系。"
+    status: "active",
+    body: "# 可连接来源\n\n这条笔记需要主动建立语义关系。",
+    thesis: "一条已确认且有边界的笔记，应该在补出第一条关系后进入写作项目准备。",
+    threeLineSummary: [
+      "这条来源笔记已经有了可复用判断。",
+      "它需要关系来证明自己不再孤立。",
+      "一旦连通，就应该升级到项目准备。"
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "只有当关系带着明确理由时，这条笔记才适合进入写作项目。"
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
@@ -1552,6 +1578,10 @@ test("prototype related inspector can create an explicit semantic relation", asy
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "可连接来源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /加入写作篮/);
+  }, 10000);
   await page.locator('#resultArea [data-relation-action="open-create"]').click();
 
   const createFormText = await page.locator("[data-create-relation-form]").textContent();
@@ -1573,6 +1603,36 @@ test("prototype related inspector can create an explicit semantic relation", asy
     assert.match(String(relatedText || ""), /可连接目标/);
     assert.match(String(relatedText || ""), /可连接来源为目标提供了一条明确支撑/);
     assert.match(String(relatedText || ""), /主题索引/);
+  }, 10000);
+
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /创建项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(String(statusStripText || ""), /项目/);
+    assert.match(String(statusStripText || ""), /可创建/);
+    assert.match(String(statusStripText || ""), /强模型/);
+    assert.match(String(statusStripText || ""), /先补条件/);
+    const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
+    assert.match(String(createProjectText || ""), /创建写作项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
+    const graphText = await page.locator("#graphCanvas").textContent();
+    assert.match(String(graphText || ""), /可连接来源/);
+    assert.match(String(graphText || ""), /可连接目标/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
