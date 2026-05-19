@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   relationCreateDefaultTypeForNote,
+  relationTypeGuidance,
   sortRelationTargetCandidatesForNote
 } from "../../apps/web/src/components-editor-pane.js";
 
@@ -21,6 +22,9 @@ test("relation guidance defaults to qualifies when note carries a boundary signa
   };
 
   assert.equal(relationCreateDefaultTypeForNote(note), "qualifies");
+  const guidance = relationTypeGuidance("qualifies");
+  assert.match(guidance.rationalePlaceholder, /边界|条件|例外/);
+  assert.match(guidance.questionPlaceholder, /条件/);
 });
 
 test("relation guidance defaults to example_of when note body reads like an example", () => {
@@ -29,6 +33,8 @@ test("relation guidance defaults to example_of when note body reads like an exam
   };
 
   assert.equal(relationCreateDefaultTypeForNote(note), "example_of");
+  const guidance = relationTypeGuidance("example_of");
+  assert.match(guidance.rationalePlaceholder, /具体例子|例子/);
 });
 
 test("relation guidance defaults to same_topic when note already contains links or tags", () => {
@@ -41,6 +47,8 @@ test("relation guidance defaults to same_topic when note already contains links 
 
   assert.equal(relationCreateDefaultTypeForNote(withLink), "same_topic");
   assert.equal(relationCreateDefaultTypeForNote(withTag), "same_topic");
+  const guidance = relationTypeGuidance("same_topic");
+  assert.match(guidance.rationaleHint, /共享的是哪个主题|标签相同/);
 });
 
 test("relation guidance falls back to supports when no stronger signal exists", () => {
@@ -49,6 +57,9 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   };
 
   assert.equal(relationCreateDefaultTypeForNote(note), "supports");
+  const guidance = relationTypeGuidance("supports");
+  assert.match(guidance.rationalePlaceholder, /因为/);
+  assert.match(guidance.questionPlaceholder, /新问题/);
 });
 
 test("relation target sorting prioritizes linked notes over tag-only and plain candidates", () => {

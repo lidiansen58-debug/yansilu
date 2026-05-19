@@ -1348,6 +1348,47 @@ function relationQualityLabel(level = "") {
   return "质量 待补充";
 }
 
+export function relationTypeGuidance(type = "") {
+  const key = String(type || "").trim().toLowerCase();
+  if (key === "qualifies") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记补充了目标判断的边界、条件或例外。",
+      rationaleHint: "写清楚它限制了哪条判断、在什么条件下成立或不成立。",
+      questionPlaceholder: "这条限定关系还暴露了什么未验证的条件？",
+      questionHint: "把问题写成下一步要验证的边界条件，而不是泛泛的追问。"
+    };
+  }
+  if (key === "counterexample_to") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记提供了目标判断不成立的反例。",
+      rationaleHint: "写清楚它反驳的是哪条判断，以及为什么它构成反例。",
+      questionPlaceholder: "这个反例逼出了什么新的判断边界？",
+      questionHint: "把问题写成下一步要澄清的边界，而不是只停在‘它不对’。"
+    };
+  }
+  if (key === "example_of") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记给出了目标判断的一个具体例子。",
+      rationaleHint: "写清楚这个例子具体说明了什么，而不是只说它‘相关’。",
+      questionPlaceholder: "这个例子还支持扩展出什么更一般的判断？",
+      questionHint: "把问题写成从例子回到更一般判断的下一步。"
+    };
+  }
+  if (key === "same_topic") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为两条笔记围绕同一个问题或主题张力展开。",
+      rationaleHint: "写清楚它们共享的是哪个主题，而不只是标签相同。",
+      questionPlaceholder: "这两条笔记共同指向的中心问题是什么？",
+      questionHint: "把问题写成主题索引或写作可能继续推进的中心问题。"
+    };
+  }
+  return {
+    rationalePlaceholder: "这条关系成立，因为...",
+    rationaleHint: "写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写‘相关’。",
+    questionPlaceholder: "这条连接提出了什么新问题？",
+    questionHint: "${escapeHtml(defaultGuidance.questionHint)}"
+  };
+}
 function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
   const quality = relationQualityEvaluation(rationale, insightQuestion);
   return `
@@ -4796,13 +4837,13 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="这条关系成立，因为..."></textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}"></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="这条连接提出了什么新问题？"></textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}"></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
           ${renderRelationQualityMeter("", "")}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
@@ -4850,13 +4891,13 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="这条关系成立，因为...">${escapeHtml(link?.rationale || "")}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(link?.rationale || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="这条连接提出了什么新问题？">${escapeHtml(link?.insightQuestion || "")}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(link?.insightQuestion || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
           ${renderRelationQualityMeter(link?.rationale || "", link?.insightQuestion || "")}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
