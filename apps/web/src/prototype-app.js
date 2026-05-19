@@ -2556,13 +2556,11 @@ async function createWritingProjectFromImportedPermanentNotes() {
     return false;
   }
   await ensureNotesLoaded(noteIds);
-  clearWritingSourceIndexIds();
-  setWritingBasketIds(noteIds);
-  const titleInput = $("writingTitle");
-  if (titleInput && !String(titleInput.value || "").trim()) {
-    titleInput.value = suggestedWritingProjectTitle(noteIds);
-  }
-  const title = String(titleInput?.value || "").trim() || suggestedWritingProjectTitle(noteIds);
+  const title = suggestedWritingProjectTitle(noteIds);
+  beginWritingEntry(noteIds, {
+    title,
+    source: "import_create_project"
+  });
   try {
     const project = await createWritingProject({
       title,
