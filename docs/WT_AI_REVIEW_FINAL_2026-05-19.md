@@ -21,6 +21,7 @@ Review the branch in this order:
 3. `5522bd3` `feat(web): consume canonical AI payloads in settings surfaces`
 4. `18ff789` `docs: add wt-ai PR summary and short description`
 5. `78816a4` `fix(web): align suggestion review flow with edited state`
+6. `3beb4f3` `fix(ai): clarify suggestion content source and schema validation`
 
 ## What Changed
 
@@ -96,6 +97,28 @@ Primary files:
 - `tests/unit/web-ai-suggestions-panel.test.mjs`
 - `tests/unit/ai-canonical-models.test.mjs`
 
+### 5. Post-review contract and validation follow-up
+
+The latest follow-up commit closes three review concerns:
+
+- makes `AISuggestion.content` semantics explicit with `content_source`
+- makes field-targeted `edited/confirmed` transitions read from the target note as the source of truth
+- upgrades integration coverage so real canonical API responses are validated through schema helpers
+
+Primary files:
+
+- `schemas/ai_suggestion.schema.json`
+- `docs/AI_SHARED_MODELS_2026-05-18.md`
+- `packages/ai-orchestrator/src/canonical-models.mjs`
+- `apps/api/src/server.mjs`
+- `apps/web/src/ai-inbox-model.js`
+- `apps/web/src/ai-suggestions-model.js`
+- `apps/web/src/ai-suggestions-panel.js`
+- `apps/web/src/prototype-app.js`
+- `tests/helpers/schema-validation.mjs`
+- `tests/integration/api-ai-canonical-response.test.mjs`
+- `tests/integration/api-ai-suggestions-canonical.test.mjs`
+
 ## Why This Matters
 
 Before this branch:
@@ -119,6 +142,7 @@ After this branch:
 4. Frontend canonical hydration
 5. AI suggestions settings surface
 6. Final `edited`-flow alignment fix
+7. Suggestion content-source and schema-validation follow-up
 
 ## Key Questions For Review
 
@@ -128,6 +152,8 @@ After this branch:
 - Is the frontend hydration approach narrow enough to avoid hidden coupling?
 - Is the minimal AI suggestions review surface the right size for now?
 - Does the retained `edited` step make the review flow clearer rather than noisier?
+- Is `content_source` explicit enough to make field-targeted suggestion semantics understandable from the canonical contract itself?
+- Do the updated integration tests go far enough toward treating real canonical API responses as contract-checked outputs instead of example payloads?
 
 ## Verification
 
@@ -142,6 +168,7 @@ Covered by:
 - `tests/unit/web-ai-suggestions-model.test.mjs`
 - `tests/unit/web-ai-suggestions-panel.test.mjs`
 - `tests/unit/web-prototype-api.test.mjs`
+- `tests/helpers/schema-validation.mjs`
 
 Also checked:
 
