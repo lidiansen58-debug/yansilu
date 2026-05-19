@@ -5857,15 +5857,10 @@ function renderWritingPanel() {
   const basketEntries = writingBasketEntries();
   const basketReadiness = deriveBasketWritingReadiness(parseWritingBasketIds(), writingKnownNoteById, {});
   if (basketSummary) {
-    const projectPart = writingState.project?.id ? `当前项目：${writingState.project.id}` : "尚未创建项目";
-    const scaffoldPart = writingState.scaffold?.id ? `Scaffold：${writingState.scaffold.id}` : "尚未生成 scaffold";
-    const draftPart = writingState.project?.draft_note_id
-      ? `草稿：${writingState.project?.draft_note?.title || writingState.project.draft_note_id}`
-      : "尚未绑定草稿";
     const sourcePart = sourceIndexSummary || "尚未记录主题入口";
     basketSummary.textContent = basketEntries.length
-      ? `写作篮里已有 ${basketEntries.length} 条永久笔记。当前阶段：${basketReadiness.status}。${basketReadiness.hint} ${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`
-      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`;
+      ? `写作篮里已有 ${basketEntries.length} 条永久笔记。当前阶段：${basketReadiness.status}。${basketReadiness.hint} ${sourcePart}。`
+      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}。`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
