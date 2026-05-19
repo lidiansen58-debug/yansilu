@@ -19,6 +19,7 @@ test("note writing readiness blocks notes without authorship confirmation", () =
   );
 
   assert.equal(readiness.level, "blocked_authorship");
+  assert.match(readiness.status, /作者确认/);
 });
 
 test("note writing readiness stays basket-ready before boundary and relation are complete", () => {
@@ -38,6 +39,7 @@ test("note writing readiness stays basket-ready before boundary and relation are
   );
 
   assert.equal(readiness.level, "basket_ready");
+  assert.match(readiness.status, /写作篮/);
 });
 
 test("note writing readiness becomes project-ready once boundary and relation exist", () => {
@@ -58,6 +60,7 @@ test("note writing readiness becomes project-ready once boundary and relation ex
   );
 
   assert.equal(readiness.level, "project_ready");
+  assert.match(readiness.status, /创建写作项目/);
 });
 
 test("note writing readiness becomes strong-model-ready once theme signals are richer", () => {
@@ -78,6 +81,7 @@ test("note writing readiness becomes strong-model-ready once theme signals are r
   );
 
   assert.equal(readiness.level, "strong_model_ready");
+  assert.match(readiness.status, /强模型分析/);
 });
 
 test("basket writing readiness blocks unconfirmed authorship before anything else", () => {
@@ -97,6 +101,7 @@ test("basket writing readiness stays basket-ready when boundary or relation is s
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 0, n2: 0 });
   assert.equal(readiness.level, "basket_ready");
+  assert.match(readiness.status, /写作篮/);
 });
 
 test("basket writing readiness becomes project-ready before strong-model-ready when theme signal is still thin", () => {

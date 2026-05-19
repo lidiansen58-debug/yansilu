@@ -91,6 +91,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
 export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationCounts = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const notes = uniqueIds.map((id) => noteLookup(id)).filter(Boolean);
+
   if (!notes.length) {
     return {
       level: "needs_basket",
