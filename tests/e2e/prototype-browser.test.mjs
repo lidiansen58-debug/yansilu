@@ -1335,6 +1335,113 @@ test("prototype main-path writing readiness matches writing center basket status
   assert.match(String(strongModelText || ""), /先补条件/);
 });
 
+test("prototype main-path project-ready state matches writing center project readiness", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Project Target",
+    body: "# Readiness Project Target\n\nA durable target note.",
+    thesis: "A target note helps the source note become structurally ready for project creation.",
+    threeLineSummary: [
+      "The target note already has a reusable judgment.",
+      "It matters because the source note should not remain isolated.",
+      "It helps the source note move beyond basket-only readiness."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "This target note is only useful when its relation is explicit."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Project Note",
+    body: "# Readiness Project Note\n\n[[Readiness Project Target]]\n\nA confirmed note with one explicit relation and a boundary.",
+    thesis: "A durable note should become project-ready once boundary and relation are both explicit.",
+    threeLineSummary: [
+      "The note has a reusable judgment.",
+      "It matters because project creation should happen after basket entry, not before.",
+      "It should still wait for richer theme signals before strong-model analysis."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "This readiness only makes sense after at least one explicit relation is added."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "The target note strengthens the source note enough to justify project creation.",
+    insightQuestion: "What is still missing before this turns into strong-model-ready material?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Project Note" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /创建项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const state = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll("#writingStatusStrip .writing-status-card")).map((card) => ({
+        label: card.querySelector("span")?.textContent || "",
+        value: card.querySelector("strong")?.textContent || "",
+        note: card.querySelector("small")?.textContent || ""
+      }));
+      const cardByLabel = (label) => cards.find((card) => card.label === label) || null;
+      const createProject = document.querySelector("#btnWritingCreateProject");
+      const strongModel = document.querySelector("#btnWritingStrongModelAnalysis");
+      return {
+        projectCard: cardByLabel("项目"),
+        strongModelCard: cardByLabel("强模型"),
+        createProjectText: createProject?.textContent || "",
+        createProjectDisabled: Boolean(createProject?.disabled),
+        strongModelText: strongModel?.textContent || "",
+        strongModelDisabled: Boolean(strongModel?.disabled)
+      };
+    });
+
+    assert.equal(state.projectCard?.value, "可创建");
+    assert.match(String(state.projectCard?.note || ""), /建项目/);
+    assert.equal(state.strongModelCard?.value, "先补条件");
+    assert.match(String(state.strongModelCard?.note || ""), /主题线索/);
+    assert.equal(state.createProjectDisabled, false);
+    assert.equal(state.strongModelDisabled, true);
+    assert.match(String(state.createProjectText || ""), /创建写作项目/);
+    assert.match(String(state.strongModelText || ""), /先补条件/);
+  }, 10000);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
