@@ -18,7 +18,7 @@ import {
   initVault,
   serializeNote
 } from "../packages/domain/src/index.mjs";
-import { createDraftScaffold, createWritingProject, getDraftScaffold, getWritingProject } from "../packages/writing-engine/src/index.mjs";
+import { createDraftScaffold, createWritingProject, getDraftScaffold, syncWritingProject } from "../packages/writing-engine/src/index.mjs";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
@@ -399,12 +399,22 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
 
     let writingProject = null;
     try {
-      writingProject = await getWritingProject(vaultPath, projectId);
+      writingProject = await syncWritingProject(vaultPath, projectId, {
+        title,
+        goal: cleanText(project?.goal || project?.writing_goal || project?.writingGoal),
+        intent: cleanText(project?.intent),
+        audience: cleanText(project?.target_reader || project?.targetReader),
+        desiredReaderTakeaway: cleanText(project?.desired_reader_takeaway || project?.desiredReaderTakeaway),
+        basketNoteIds,
+        relatedIndexIds,
+        status: "draft"
+      });
       counters.updatedWritingProjects += 1;
     } catch {
       writingProject = await createWritingProject(vaultPath, {
         id: projectId,
         title,
+        goal: cleanText(project?.goal || project?.writing_goal || project?.writingGoal),
         intent: cleanText(project?.intent),
         audience: cleanText(project?.target_reader || project?.targetReader),
         desiredReaderTakeaway: cleanText(project?.desired_reader_takeaway || project?.desiredReaderTakeaway),
@@ -488,7 +498,9 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     for (const card of fixture.index_cards) await upsertIndexCard(vaultPath, card, counters);
   }
 
-  await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
+  const writingEntries = await upsertWritingProjectAndScaffold(vaultPath, fixture, counters);
+  const primaryWritingEntry = writingEntries[0] || null;
+  const preferredFirstNoteId = cleanText(fixture?.guide_notes?.[0]?.id) || noteIds.find(Boolean) || null;
 
   return {
     kind: "smart_notes_product_thinking_seed",
@@ -497,7 +509,11 @@ export async function seedSmartNotesProductThinking(vaultPath, options = {}) {
     fixtureId: cleanText(fixture?.id) || "demo-smart-notes-product-thinking",
     fixturePath,
     directoryId: ORIGINAL_DIRECTORY_ID,
-    firstNoteId: noteIds.find(Boolean) || null,
+    firstNoteId: preferredFirstNoteId,
+    writingProjectId: primaryWritingEntry?.writingProjectId || null,
+    draftScaffoldId: primaryWritingEntry?.scaffoldId || null,
+    writingProjectIds: writingEntries.map((entry) => entry.writingProjectId).filter(Boolean),
+    draftScaffoldIds: writingEntries.map((entry) => entry.scaffoldId).filter(Boolean),
     counts: counts && typeof counts === "object" ? counts : {},
     summary: counters
   };

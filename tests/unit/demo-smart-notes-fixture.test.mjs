@@ -226,6 +226,7 @@ test("smart notes product demo fixture writing project traces notes and sources"
   const scaffold = fixture.draft_scaffolds[0];
 
   assert.equal(scaffold.writing_project_id, project.id);
+  assert.match(project.goal, /研思录为什么不是资料仓库|思考工作台/);
   assert.ok(project.basketNoteIds.length >= 8);
   assert.ok(project.indexCardIds.length >= 4);
   assert.deepEqual(project.keyNoteIds, declaredKeyNoteIds);
