@@ -4894,14 +4894,6 @@ function resetWritingStrongModelState() {
   writingState.strongModelError = "";
 }
 
-function resetWritingProjectContext() {
-  writingState.project = null;
-  writingState.scaffold = null;
-  writingState.scaffoldMarkdown = "";
-  writingState.scaffoldVersions = [];
-  writingState.draftVersions = [];
-}
-
 function resetWritingProjectForm({ keepTitle = false } = {}) {
   if (!keepTitle && $("writingTitle")) $("writingTitle").value = "";
   if ($("writingGoal")) $("writingGoal").value = "";

@@ -85,3 +85,28 @@ test("import-result create-writing-project path reuses unified writing entry res
   assert.doesNotMatch(fnBody, /resetWritingProjectContext\(/);
   assert.doesNotMatch(fnBody, /setWritingBasketIds\(noteIds\)/);
 });
+
+test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
+  const state = createInitialState();
+
+  assert.deepEqual(
+    state.notes.map((note) => note.id),
+    ["pn_001", "pn_002"]
+  );
+  assert.equal(state.notes[0].noteType, "permanent");
+  assert.equal(state.notes[1].folderId, "dir_original_method");
+});
+
+test("import-result create-writing-project path reuses unified writing entry reset", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/async function createWritingProjectFromImportedPermanentNotes\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected createWritingProjectFromImportedPermanentNotes() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /beginWritingEntry\(noteIds,\s*\{/);
+  assert.doesNotMatch(fnBody, /resetWritingProjectContext\(/);
+  assert.doesNotMatch(fnBody, /setWritingBasketIds\(noteIds\)/);
+});
