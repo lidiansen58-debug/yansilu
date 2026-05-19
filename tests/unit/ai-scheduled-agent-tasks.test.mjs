@@ -65,6 +65,7 @@ test("scheduled task templates expose novice-safe runnable defaults", () => {
     rootDirectoryIds: ["dir_original_default"],
     limit: 10
   });
+  assert.equal(getScheduledAgentTaskTemplate("reflection_reminder").task.output.destination, "ai_inbox");
 });
 
 test("contract-only research template stays paused unless explicitly allowed", () => {
@@ -179,6 +180,46 @@ test("due scheduled task runner executes through harness and updates task state"
   assert.equal(provider.callCount, 1);
   assert.equal(provider.lastRequest.policy.budgetPrecheck.budget.scheduledTaskHardCap, 2);
   assert.equal(provider.lastRequest.policy.modelRoute.userMode, "Balanced");
+});
+
+test("scheduled task runner rejects unsupported output destinations before execution", async () => {
+  const provider = createMockProviderAdapter();
+  const harness = createAiHarness({ providerAdapter: provider });
+  const scheduledTaskStore = createInMemoryScheduledAgentTaskStore({
+    tasks: [
+      {
+        scheduledTaskId: "sched_unsupported_destination",
+        name: "Unsupported destination",
+        status: "active",
+        taskType: "reflection_prompt",
+        agentId: "reflection_agent",
+        schedule: { type: "interval", intervalMinutes: 30 },
+        output: { destination: "reflection_queue", artifactTypes: ["ReflectionPrompt"] },
+        nextRunAt: "2026-05-11T08:00:00.000Z"
+      }
+    ]
+  });
+
+  await assert.rejects(
+    () =>
+      runDueScheduledAgentTasks({
+        harness,
+        scheduledTaskStore,
+        now: "2026-05-11T09:00:00.000Z",
+        buildInput(task) {
+          return {
+            ...buildScheduledTaskHarnessInput(task),
+            currentNote: {
+              id: "note_unsupported_destination",
+              title: "Unsupported destination note",
+              body: "This should fail before reaching the provider."
+            }
+          };
+        }
+      }),
+    { code: "AI_SCHEDULED_TASK_DESTINATION_UNSUPPORTED" }
+  );
+  assert.equal(provider.callCount, 0);
 });
 
 test("scheduled task budget preflight blocks exhausted run caps", async () => {

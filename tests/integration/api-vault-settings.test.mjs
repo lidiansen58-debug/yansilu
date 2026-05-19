@@ -465,6 +465,7 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(created.status, 201, JSON.stringify(created.json));
   assert.equal(created.json.item.scheduledTaskId, "sched_api_reflection");
   assert.deepEqual(created.json.item.scope.noteIds, [note.json.item.id]);
+  assert.equal(created.json.item.output.destination, "ai_inbox");
 
   const listed = await getJson(baseUrl, "/api/v1/ai/scheduled-tasks");
   assert.equal(listed.status, 200, JSON.stringify(listed.json));

@@ -710,6 +710,8 @@ function distillationSuggestionArtifact(analysis = {}, suggestion = {}, context 
         confidence_reason: "local distillation heuristic",
         suggestedAction: "review_field_suggestion",
         suggested_action: "review_field_suggestion",
+        fieldSuggestionId: suggestion.id,
+        field_suggestion_id: suggestion.id,
         fieldSuggestion: suggestion,
         field_suggestion: suggestion,
         targetField: field,

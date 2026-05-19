@@ -1,0 +1,73 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adoption_event_id",
+    "subject_kind",
+    "subject_id",
+    "event_type",
+    "actor_type",
+    "actor_id",
+    "target",
+    "comment",
+    "feedback",
+    "metadata",
+    "created_at"
+  ],
+  "properties": {
+    "adoption_event_id": { "type": "string" },
+    "subject_kind": { "type": "string", "enum": ["artifact", "suggestion"] },
+    "subject_id": { "type": "string" },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "revised",
+        "ignored",
+        "archived",
+        "adopted_as_draft",
+        "promoted_to_note",
+        "linked_to_note",
+        "rejected",
+        "edited",
+        "confirmed"
+      ]
+    },
+    "actor_type": { "type": "string", "enum": ["user", "system", "ai"] },
+    "actor_id": { "type": "string" },
+    "target": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["kind", "id", "field"],
+      "properties": {
+        "kind": { "type": "string" },
+        "id": { "type": "string" },
+        "field": { "type": "string" }
+      }
+    },
+    "comment": { "type": "string" },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["useful", "noisy", "wrong", "already_known", "privacy_concern"],
+      "properties": {
+        "useful": { "type": "boolean" },
+        "noisy": { "type": "boolean" },
+        "wrong": { "type": "boolean" },
+        "already_known": { "type": "boolean" },
+        "privacy_concern": { "type": "boolean" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_status", "to_status", "note_id"],
+      "properties": {
+        "from_status": { "type": "string" },
+        "to_status": { "type": "string" },
+        "note_id": { "type": "string" }
+      }
+    },
+    "created_at": { "type": "string" }
+  }
+}

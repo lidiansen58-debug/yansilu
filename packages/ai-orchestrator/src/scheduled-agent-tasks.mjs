@@ -47,7 +47,7 @@ const SCHEDULED_TASK_TEMPLATES = [
       model: { userMode: "Balanced", maxTier: "standard", allowStrongReasoning: false },
       budget: { maxRunsPerPeriod: 1, maxEstimatedCostPerRun: 0.35, maxEstimatedCostPerPeriod: 0.7, period: "week" },
       privacy: { mode: "normal", allowCloudModels: true, requireConfirmationForPrivateNotes: true },
-      output: { destination: "reflection_queue", artifactTypes: ["ReflectionPrompt"], notifyUser: "only_if_high_signal" }
+      output: { destination: "ai_inbox", artifactTypes: ["ReflectionPrompt"], notifyUser: "only_if_high_signal" }
     }
   },
   {
@@ -182,6 +182,10 @@ function normalizeOutput(input = {}) {
       : [],
     notifyUser: cleanText(output.notifyUser || output.notify_user) || "only_if_high_signal"
   };
+}
+
+function supportedScheduledTaskDestination(destination = "") {
+  return cleanText(destination || "ai_inbox") === "ai_inbox";
 }
 
 function scheduleIntervalMs(schedule = {}) {
@@ -688,6 +692,11 @@ export async function runScheduledAgentTask(input = {}) {
 
   const scheduledTaskStore = input.scheduledTaskStore || input.scheduled_task_store;
   const task = normalizeScheduledAgentTask(input.task || input.scheduledTask || input.scheduled_task || {});
+  if (!supportedScheduledTaskDestination(task.output?.destination)) {
+    const error = new Error(`scheduled task output destination is not implemented: ${task.output?.destination}`);
+    error.code = "AI_SCHEDULED_TASK_DESTINATION_UNSUPPORTED";
+    throw error;
+  }
   const budgetPreflight =
     input.scheduledBudgetPreflight === false || input.scheduled_budget_preflight === false
       ? { status: "disabled", allowed: true, reason: "disabled", reasons: [] }

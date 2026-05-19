@@ -173,6 +173,70 @@ export function scheduledRunSummary(summary = {}) {
   };
 }
 
+export function scheduledTaskFromCanonical(task = {}) {
+  return {
+    scheduledTaskId: cleanText(task.scheduled_task_id),
+    workspaceId: cleanText(task.workspace_id),
+    userId: cleanText(task.user_id),
+    name: cleanText(task.name),
+    status: cleanText(task.status),
+    taskType: cleanText(task.task_type),
+    agentId: cleanText(task.agent_id),
+    schedule: {
+      type: cleanText(task.schedule?.type),
+      timezone: cleanText(task.schedule?.timezone),
+      dayOfWeek: cleanText(task.schedule?.day_of_week),
+      time: cleanText(task.schedule?.time),
+      intervalMinutes: normalizeCount(task.schedule?.interval_minutes),
+      intervalHours: normalizeCount(task.schedule?.interval_hours),
+      intervalDays: normalizeCount(task.schedule?.interval_days),
+      rrule: cleanText(task.schedule?.rrule)
+    },
+    scope: {
+      projectIds: Array.isArray(task.scope?.project_ids) ? [...task.scope.project_ids] : [],
+      noteIds: Array.isArray(task.scope?.note_ids) ? [...task.scope.note_ids] : [],
+      directoryIds: Array.isArray(task.scope?.directory_ids) ? [...task.scope.directory_ids] : [],
+      tags: Array.isArray(task.scope?.tags) ? [...task.scope.tags] : [],
+      sourceFeedIds: Array.isArray(task.scope?.source_feed_ids) ? [...task.scope.source_feed_ids] : [],
+      keywords: Array.isArray(task.scope?.keywords) ? [...task.scope.keywords] : [],
+      includePrivateNotes: task.scope?.include_private_notes === true
+    },
+    model: {
+      userMode: cleanText(task.model?.user_mode),
+      modelPack: cleanText(task.model?.model_pack),
+      maxTier: cleanText(task.model?.max_tier),
+      allowStrongReasoning: task.model?.allow_strong_reasoning === true
+    },
+    budget: {
+      maxRunsPerPeriod: normalizeCount(task.budget?.max_runs_per_period),
+      maxEstimatedCostPerRun: task.budget?.max_estimated_cost_per_run ?? null,
+      maxEstimatedCostPerPeriod: task.budget?.max_estimated_cost_per_period ?? null,
+      period: cleanText(task.budget?.period),
+      spentThisPeriod: Number(task.budget?.spent_this_period || 0) || 0,
+      runsThisPeriod: normalizeCount(task.budget?.runs_this_period)
+    },
+    privacy: {
+      mode: cleanText(task.privacy?.mode),
+      allowCloudModels: task.privacy?.allow_cloud_models !== false,
+      requireConfirmationForPrivateNotes: task.privacy?.require_confirmation_for_private_notes !== false
+    },
+    output: {
+      destination: cleanText(task.output?.destination),
+      artifactTypes: Array.isArray(task.output?.artifact_types) ? [...task.output.artifact_types] : [],
+      notifyUser: cleanText(task.output?.notify_user)
+    },
+    runInput: task.run_input ?? null,
+    failureCount: normalizeCount(task.failure_count),
+    lastRunAt: cleanText(task.last_run_at),
+    lastRunStatus: cleanText(task.last_run_status),
+    lastRunReason: cleanText(task.last_run_reason),
+    lastAgentRunId: cleanText(task.last_agent_run_id),
+    nextRunAt: cleanText(task.next_run_at),
+    createdAt: cleanText(task.created_at),
+    updatedAt: cleanText(task.updated_at)
+  };
+}
+
 export function scheduledTaskFormDefaults({ templates = [], currentNoteId = "", currentDirectoryId = "" } = {}) {
   const templateOptions = scheduledTaskTemplateOptions(templates);
   const templateId = templateOptions[0]?.value || "reflection_reminder";

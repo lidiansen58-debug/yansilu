@@ -81,6 +81,7 @@ import {
 import { seedYijingRichAcceptance } from "../../../scripts/seed-yijing-rich-acceptance.mjs";
 import { seedSmartNotesProductThinking } from "../../../scripts/seed-smart-notes-product-thinking.mjs";
 import {
+  aiInboxItemToCanonical,
   createSqliteAiPreferencesStore,
   createSqliteAiProviderConfigStore,
   createSqliteScheduledAgentTaskStore,
@@ -91,6 +92,8 @@ import {
   createAiHarnessRuntime,
   createCoreNoteTools,
   createProviderAdapterRegistry,
+  artifactDecisionToCanonicalAdoptionEvent,
+  artifactToCanonical,
   analyzePermanentNoteForReview,
   analyzePermanentNoteGraphLocally,
   buildPermanentNoteGraphReviewItems,
@@ -108,7 +111,9 @@ import {
   mergeWritingStrongModelResponse,
   runWritingStrongModelAnalysis,
   runDueScheduledAgentTasks,
-  runProviderHealthCheck
+  runProviderHealthCheck,
+  scheduledTaskToCanonical,
+  suggestionToCanonical
 } from "../../../packages/ai-orchestrator/src/index.mjs";
 
 const PORT = Number(process.env.API_PORT || 3000);
@@ -492,6 +497,19 @@ function mergeRuntimeModelMaps(...values) {
     {},
     ...values.filter((value) => value && typeof value === "object" && !Array.isArray(value))
   );
+}
+
+function wantsCanonical(url) {
+  const value = cleanText(url?.searchParams?.get("canonical")).toLowerCase();
+  return value === "1" || value === "true" || value === "yes";
+}
+
+function withCanonical(body = {}, canonical = null) {
+  if (!canonical) return body;
+  return {
+    ...body,
+    canonical
+  };
 }
 
 function modelExecutionSummary(response = {}, context = {}) {
@@ -1547,6 +1565,49 @@ function fieldSuggestionInputFromArtifact(artifact = {}, body = {}) {
   };
 }
 
+function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, updatedNote = null) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
+  if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
+
+  const target = originalSuggestion.target && typeof originalSuggestion.target === "object" ? originalSuggestion.target : {};
+  const nextSuggestion = {
+    ...originalSuggestion,
+    status: "adopted_as_draft",
+    target: {
+      ...target,
+      type: target.type || target.kind || "permanent_note",
+      id: fieldSuggestion.noteId || target.id || "",
+      field: fieldSuggestion.field || target.field || ""
+    },
+    provenance: {
+      ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
+      humanEdited: true,
+      humanConfirmed: false
+    }
+  };
+
+  return {
+    ...payload,
+    targetField: fieldSuggestion.field,
+    target_field: fieldSuggestion.field,
+    adoptedNoteId: cleanText(updatedNote?.id || fieldSuggestion.noteId),
+    adopted_note_id: cleanText(updatedNote?.id || fieldSuggestion.noteId),
+    fieldSuggestion: nextSuggestion,
+    field_suggestion: nextSuggestion
+  };
+}
+
+function fieldSuggestionIdFromArtifactPayload(artifact = {}) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  return cleanText(
+    payload.fieldSuggestionId ||
+      payload.field_suggestion_id ||
+      payload.fieldSuggestion?.id ||
+      payload.field_suggestion?.id
+  );
+}
+
 function titleForCatalogNote(candidate) {
   const explicit = String(candidate?.title || "").trim();
   if (explicit) return explicit;
@@ -2353,14 +2414,16 @@ const server = http.createServer(async (req, res) => {
           limit: url.searchParams.get("limit") || 50
         };
         const items = inbox.listItems(filter);
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           items,
           total: items.length,
           counts: inbox.counts(filter),
           views: inbox.views(),
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          items: items.map((item) => aiInboxItemToCanonical(item))
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_INBOX_LOAD_FAILED", String(error?.message || error), rid));
       }
@@ -2395,15 +2458,18 @@ const server = http.createServer(async (req, res) => {
           status: url.searchParams.get("status") || "all",
           targetType: url.searchParams.get("targetType") || url.searchParams.get("target_type") || "",
           targetId: url.searchParams.get("targetId") || url.searchParams.get("target_id") || "",
+          sourceArtifactId: url.searchParams.get("sourceArtifactId") || url.searchParams.get("source_artifact_id") || "",
           scope: url.searchParams.get("scope") || "",
           limit: Number(url.searchParams.get("limit") || 50)
         });
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           items,
           total: items.length,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          items: items.map((item) => suggestionToCanonical(item))
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LIST_FAILED", String(error?.message || error), rid, error?.details));
       }
@@ -2415,11 +2481,13 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
         const item = store.create(body, { now: new Date().toISOString() });
-        return sendJson(res, 201, {
+        return sendJson(res, 201, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: suggestionToCanonical(item)
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_CREATE_FAILED", String(error?.message || error), rid, error?.details));
       }
@@ -2432,11 +2500,13 @@ const server = http.createServer(async (req, res) => {
         const store = await aiSuggestionStore();
         const item = store.get(aiSuggestionId);
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: suggestionToCanonical(item)
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LOAD_FAILED", String(error?.message || error), rid, error?.details));
       }
@@ -2449,11 +2519,13 @@ const server = http.createServer(async (req, res) => {
         const store = await aiSuggestionStore();
         const toStatus = body.status || body.toStatus || body.to_status;
         const item = store.transition(aiSuggestionId, toStatus, body);
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: suggestionToCanonical(item)
+        } : null));
       } catch (error) {
         const status = error?.code === "AI_SUGGESTION_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "AI_SUGGESTION_UPDATE_FAILED", String(error?.message || error), rid, error?.details));
@@ -2466,6 +2538,8 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const body = await readJson(req);
         const artifactStore = await aiArtifactStore();
+        const existingArtifact = artifactStore.getArtifact(aiInboxDecisionId);
+        if (!existingArtifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
         const decision = normalizeAiInboxDecision(body);
         assertReviewDecision(decision);
         const artifact = artifactStore.recordDecision(aiInboxDecisionId, {
@@ -2475,13 +2549,24 @@ const server = http.createServer(async (req, res) => {
         });
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxDecisionId);
-        return sendJson(res, 200, {
+        const latestDecision = item?.latestDecision || null;
+        return sendJson(res, 200, withCanonical({
           item,
           artifact,
-          latestDecision: item?.latestDecision || null,
+          latestDecision,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: item ? aiInboxItemToCanonical(item) : null,
+          artifact: artifact ? artifactToCanonical(artifact) : null,
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                metadata: {
+                  fromStatus: existingArtifact.status
+                }
+              })
+            : null
+        } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "AI_INBOX_DECISION_FAILED", String(error?.message || error), rid));
@@ -2518,14 +2603,30 @@ const server = http.createServer(async (req, res) => {
         });
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxAcceptLinkId);
-        return sendJson(res, 200, {
+        const latestDecision = item?.latestDecision || null;
+        return sendJson(res, 200, withCanonical({
           item,
           artifact,
           relation,
-          latestDecision: item?.latestDecision || null,
+          latestDecision,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: item ? aiInboxItemToCanonical(item) : null,
+          artifact: artifact ? artifactToCanonical(artifact) : null,
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "relation",
+                  id: relation.id
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: relation.fromNoteId
+                }
+              })
+            : null
+        } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : 400;
         return sendJson(res, status, err(error?.code || "AI_LINK_SUGGESTION_ACCEPT_FAILED", String(error?.message || error), rid));
@@ -2559,14 +2660,30 @@ const server = http.createServer(async (req, res) => {
         });
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxPromoteNoteId);
-        return sendJson(res, 201, {
+        const latestDecision = item?.latestDecision || null;
+        return sendJson(res, 201, withCanonical({
           item,
           artifact,
           note,
-          latestDecision: item?.latestDecision || null,
+          latestDecision,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: item ? aiInboxItemToCanonical(item) : null,
+          artifact: artifact ? artifactToCanonical(artifact) : null,
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "note",
+                  id: note.id
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: note.id
+                }
+              })
+            : null
+        } : null));
       } catch (error) {
         const status = error?.code === "AI_ARTIFACT_NOT_FOUND" ? 404 : error?.code === "AI_ARTIFACT_ALREADY_PROMOTED" ? 409 : 400;
         return sendJson(res, status, err(error?.code || "AI_NOTE_PROMOTION_FAILED", String(error?.message || error), rid, error?.details));
@@ -2603,25 +2720,59 @@ const server = http.createServer(async (req, res) => {
           );
         }
         const updatedNote = await updateNoteContent(VAULT_PATH, fieldSuggestion.noteId, fieldSuggestion.update);
-        const artifact = artifactStore.recordDecision(aiInboxAdoptFieldSuggestionId, {
+        artifactStore.recordDecision(aiInboxAdoptFieldSuggestionId, {
           decision: "adopted_as_draft",
           userId: body.userId || body.user_id || "local_user",
           noteId: updatedNote.id,
           comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
           feedback: body.feedback
         });
+        const artifact = artifactStore.updateArtifact(aiInboxAdoptFieldSuggestionId, {
+          payload: payloadWithAdoptedFieldSuggestion(existingArtifact, fieldSuggestion, updatedNote)
+        });
+        const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
+        const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
+        const suggestion = suggestionId
+          ? suggestionStore.transition(suggestionId, "adopted_as_draft", {
+              action: "adopt_as_draft",
+              actor: "user",
+              userId: body.userId || body.user_id || "local_user",
+              noteId: updatedNote.id,
+              comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
+              createdAt: new Date().toISOString()
+            })
+          : null;
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxAdoptFieldSuggestionId);
-        return sendJson(res, 200, {
+        const latestDecision = item?.latestDecision || null;
+        return sendJson(res, 200, withCanonical({
           item,
           artifact,
+          suggestion,
           note: updatedNote,
           adoptedField: fieldSuggestion.field,
           adoptedValue: fieldSuggestion.adoptedValue,
-          latestDecision: item?.latestDecision || null,
+          latestDecision,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: item ? aiInboxItemToCanonical(item) : null,
+          artifact: artifact ? artifactToCanonical(artifact) : null,
+          ...(suggestion ? { suggestion: suggestionToCanonical(suggestion) } : {}),
+          latestDecision: latestDecision
+            ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, artifact, {
+                target: {
+                  kind: "permanent_note",
+                  id: updatedNote.id,
+                  field: fieldSuggestion.field
+                },
+                metadata: {
+                  fromStatus: existingArtifact.status,
+                  noteId: updatedNote.id
+                }
+              })
+            : null
+        } : null));
       } catch (error) {
         const status =
           error?.code === "AI_ARTIFACT_NOT_FOUND" || error?.code === "NOTE_NOT_FOUND"
@@ -2641,12 +2792,16 @@ const server = http.createServer(async (req, res) => {
         const artifact = artifactStore.getArtifact(aiInboxItemId);
         if (!artifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
         const inbox = createAiInbox({ artifactStore });
-        return sendJson(res, 200, {
-          item: inbox.getItem(aiInboxItemId),
+        const item = inbox.getItem(aiInboxItemId);
+        return sendJson(res, 200, withCanonical({
+          item,
           artifact,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: item ? aiInboxItemToCanonical(item) : null,
+          artifact: artifact ? artifactToCanonical(artifact) : null
+        } : null));
       } catch (error) {
         return sendJson(res, 500, err("AI_INBOX_ITEM_LOAD_FAILED", String(error?.message || error), rid));
       }
@@ -2680,12 +2835,14 @@ const server = http.createServer(async (req, res) => {
           taskType: url.searchParams.get("taskType") || url.searchParams.get("task_type") || "",
           limit: url.searchParams.get("limit") || 50
         });
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           items,
           total: items.length,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          items: items.map((item) => scheduledTaskToCanonical(item))
+        } : null));
       } catch (error) {
         return sendJson(res, 500, err("AI_SCHEDULED_TASKS_LOAD_FAILED", String(error?.message || error), rid));
       }
@@ -2702,11 +2859,13 @@ const server = http.createServer(async (req, res) => {
           userId: "local_user"
         };
         const item = body.templateId || body.template_id ? store.upsertScheduledTask(createScheduledTaskFromTemplate(input)) : store.upsertScheduledTask(input);
-        return sendJson(res, 201, {
+        return sendJson(res, 201, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: scheduledTaskToCanonical(item)
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SCHEDULED_TASK_SAVE_FAILED", String(error?.message || error), rid));
       }
@@ -2755,11 +2914,13 @@ const server = http.createServer(async (req, res) => {
           status: body.status
         });
         if (!item) return sendJson(res, 404, err("AI_SCHEDULED_TASK_NOT_FOUND", "scheduled task not found", rid));
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: scheduledTaskToCanonical(item)
+        } : null));
       } catch (error) {
         return sendJson(res, 400, err("AI_SCHEDULED_TASK_STATUS_FAILED", String(error?.message || error), rid));
       }
@@ -2772,11 +2933,13 @@ const server = http.createServer(async (req, res) => {
         const store = await aiScheduledTaskStore();
         const item = store.getScheduledTask(scheduledTaskId);
         if (!item) return sendJson(res, 404, err("AI_SCHEDULED_TASK_NOT_FOUND", "scheduled task not found", rid));
-        return sendJson(res, 200, {
+        return sendJson(res, 200, withCanonical({
           item,
           requestId: rid,
           timestamp: new Date().toISOString()
-        });
+        }, wantsCanonical(url) ? {
+          item: scheduledTaskToCanonical(item)
+        } : null));
       } catch (error) {
         return sendJson(res, 500, err("AI_SCHEDULED_TASK_LOAD_FAILED", String(error?.message || error), rid));
       }
@@ -3496,7 +3659,28 @@ const server = http.createServer(async (req, res) => {
         }
         const { analysis, reviewItems } = result;
         const persistArtifacts = body.persistArtifacts !== false && body.persist_artifacts !== false;
+        const persistSuggestions = persistArtifacts;
+        const fieldSuggestionArtifactIds = new Map(
+          (Array.isArray(reviewItems.artifacts) ? reviewItems.artifacts : [])
+            .map((artifact) => {
+              const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
+              return suggestionId ? [suggestionId, artifact.id] : null;
+            })
+            .filter(Boolean)
+        );
         const artifactStore = persistArtifacts ? await aiArtifactStore() : null;
+        const suggestionStore = persistSuggestions ? await aiSuggestionStore() : null;
+        const storedSuggestions = persistSuggestions
+          ? (Array.isArray(reviewItems.suggestions) ? reviewItems.suggestions : []).map((suggestion) =>
+              suggestionStore.create(
+                {
+                  ...suggestion,
+                  sourceArtifactId: fieldSuggestionArtifactIds.get(suggestion.id)
+                },
+                { now: new Date().toISOString() }
+              )
+            )
+          : [];
         const storedArtifacts = persistArtifacts ? artifactStore.createMany(reviewItems.artifacts) : [];
         const inbox = persistArtifacts ? createAiInbox({ artifactStore }) : null;
         return sendJson(res, 200, {
@@ -3507,6 +3691,9 @@ const server = http.createServer(async (req, res) => {
             modelExecution,
             reviewItems: {
               ...reviewItems,
+              suggestions: storedSuggestions.length ? storedSuggestions : reviewItems.suggestions,
+              storedSuggestionIds: storedSuggestions.map((suggestion) => suggestion.id),
+              suggestionsPersisted: persistSuggestions,
               storedArtifactIds: storedArtifacts.map((artifact) => artifact.id),
               artifactsPersisted: persistArtifacts
             },
