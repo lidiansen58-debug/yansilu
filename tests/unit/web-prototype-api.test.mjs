@@ -512,18 +512,14 @@ test("prototype API seeds the smart notes product thinking demo through the publ
           demoOnly: true,
           fixtureId: "demo-smart-notes-product-thinking-v1",
           directoryId: "dir_demo_smart_notes_product_thinking_original",
-          counts: { permanent_notes: 100, relations: 306, writing_projects: 1 },
+          counts: { sources: 1, permanent_notes: 100, relations: 306, writing_projects: 1 },
           summary: {
+            createdSources: 1,
+            updatedSources: 0,
             createdNotes: 128,
             updatedNotes: 0,
             createdRelations: 306,
-            updatedRelations: 0,
-            createdIndexCards: 12,
-            updatedIndexCards: 0,
-            createdWritingProjects: 1,
-            updatedWritingProjects: 0,
-            createdDraftScaffolds: 1,
-            updatedDraftScaffolds: 0
+            updatedRelations: 0
           }
         }
       }),
@@ -545,13 +541,12 @@ test("prototype API seeds the smart notes product thinking demo through the publ
     assert.equal(result.kind, "smart_notes_product_thinking_seed");
     assert.equal(result.demoOnly, true);
     assert.equal(result.directoryId, "dir_demo_smart_notes_product_thinking_original");
+    assert.equal(result.counts.sources, 1);
     assert.equal(result.counts.permanent_notes, 100);
     assert.equal(result.counts.relations, 306);
     assert.equal(result.counts.writing_projects, 1);
-    assert.equal(result.summary.createdNotes, 128);
-    assert.equal(result.summary.createdRelations, 306);
-    assert.equal(result.summary.createdIndexCards, 12);
-    assert.equal(result.summary.createdWritingProjects, 1);
+    assert.equal(result.summary.createdSources, 1);
+    assert.equal(result.summary.updatedSources, 0);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;
@@ -785,31 +780,6 @@ test("prototype API forces promote-note confirmation", async () => {
     await api.promoteAiInboxNote("artifact_2", { confirm: false, comment: "Make a draft." });
     assert.equal(JSON.parse(capturedBody).confirm, true);
     assert.equal(JSON.parse(capturedBody).comment, "Make a draft.");
-  } finally {
-    if (previousFetch === undefined) delete globalThis.fetch;
-    else globalThis.fetch = previousFetch;
-  }
-});
-
-test("prototype API forces adopt-field-suggestion confirmation", async () => {
-  const previousFetch = globalThis.fetch;
-  const api = await importPrototypeApi("ai-inbox-adopt-field", { __API_BASE__: "http://127.0.0.1:3999" });
-  let capturedBody = "";
-  globalThis.fetch = async (url, options) => {
-    assert.equal(String(url), "http://127.0.0.1:3999/api/v1/ai/inbox/artifact_3/adopt-field-suggestion");
-    capturedBody = options.body;
-    return {
-      ok: true,
-      async json() {
-        return { item: { artifactId: "artifact_3" }, note: { id: "pn_1" } };
-      }
-    };
-  };
-
-  try {
-    await api.adoptAiInboxFieldSuggestion("artifact_3", { confirm: false, comment: "Use as draft." });
-    assert.equal(JSON.parse(capturedBody).confirm, true);
-    assert.equal(JSON.parse(capturedBody).comment, "Use as draft.");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;

@@ -4887,6 +4887,57 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
   }, 5000);
 });
 
+test("prototype smart notes startup demo opens the guide note without duplicating seed data", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
+
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /Smart Notes 产品思考 Demo/);
+    assert.match(String(statusText || ""), /已打开导览笔记/);
+
+    const startupState = await page.evaluate(() => ({
+      module: window.__prototypeState?.module || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      selectedFolderId: window.__prototypeState?.selectedFolderId || ""
+    }));
+    assert.equal(startupState.module, "explorer");
+    assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
+    assert.equal(startupState.selectedFolderId, "dir_demo_smart_notes_product_thinking_original");
+  }, 15000);
+
+  const firstSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
+  assert.equal(firstSeedDirectory.status, 200, JSON.stringify(firstSeedDirectory.json));
+  assert.equal(firstSeedDirectory.json.total, 102);
+
+  await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已打开导览笔记/);
+    const startupState = await page.evaluate(() => ({
+      module: window.__prototypeState?.module || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || ""
+    }));
+    assert.equal(startupState.module, "explorer");
+    assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
+  }, 15000);
+
+  const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
+  assert.equal(secondSeedDirectory.status, 200, JSON.stringify(secondSeedDirectory.json));
+  assert.equal(secondSeedDirectory.json.total, 102);
+});
+
 test("prototype explorer context rename moves directory fsPath and note markdown path", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

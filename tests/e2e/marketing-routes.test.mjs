@@ -121,3 +121,18 @@ test("asset proxy refuses html documents before calling the API", async (t) => {
   assert.equal(res.status, 404);
   assert.equal(await res.text(), "Asset not found");
 });
+
+test("prototype keeps the public demo writing theme detail renderer", async (t) => {
+  const webBase = await withWebServer(t);
+  const prototype = await fetch(`${webBase}/prototype?demo=smart-notes-product-thinking`);
+  assert.equal(prototype.status, 200);
+  const html = await prototype.text();
+  assert.match(html, /prototype-app\.js/);
+
+  const app = await fetch(`${webBase}/prototype-app.js`);
+  assert.equal(app.status, 200);
+  const source = await app.text();
+  assert.match(source, /function renderWritingThemeDetail/);
+  assert.match(source, /writingThemeDetailTitle/);
+  assert.match(source, /data-writing-theme-action="create-project"/);
+});
