@@ -2489,15 +2489,23 @@ function suggestedWritingProjectTitle(noteIds = []) {
   return `导入笔记写作项目 ${noteIds.length}`;
 }
 
-async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false } = {}) {
+async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
   const indexCard = writingThemeIndexById(id) || (await fetchIndexCard(id));
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
-  if (replaceBasket) setWritingBasketIds(noteIds);
-  else addWritingBasketIds(noteIds);
+  if (resetContext && replaceBasket) {
+    beginWritingEntry(noteIds, {
+      title: `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`,
+      source
+    });
+  } else if (replaceBasket) {
+    setWritingBasketIds(noteIds);
+  } else {
+    addWritingBasketIds(noteIds);
+  }
   setWritingSourceIndexIds([id]);
   if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`;
   renderWritingPanel();
@@ -8394,7 +8402,11 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   if (!indexId) return;
   if (action === "use") {
     try {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: true,
+        resetContext: true,
+        source: "writing_theme_index_list"
+      });
       setStatus(`已从主题索引进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
     } catch (error) {
       setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
@@ -8424,7 +8436,11 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "use") {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: true,
+        resetContext: true,
+        source: "writing_theme_detail"
+      });
       setStatus(`已从主题进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
       return;
     }
