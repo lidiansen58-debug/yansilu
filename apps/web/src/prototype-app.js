@@ -1238,6 +1238,18 @@ async function refreshAiSuggestions(options = {}) {
   }
 }
 
+function aiSuggestionReviewedContentFromUi(current = {}) {
+  const editorValue = $("aiSuggestionContentEditor")?.value;
+  if (editorValue === undefined) return current.content;
+  const raw = String(editorValue || "");
+  if (typeof current.content === "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+  }
+}
+
 async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
   const cleanStatus = String(status || "").trim();
@@ -1261,6 +1273,9 @@ async function applyAiSuggestionStatus(suggestionId, status) {
               ? "reject"
               : cleanStatus
     };
+    if (cleanStatus === "edited" || cleanStatus === "confirmed") {
+      payload.content = aiSuggestionReviewedContentFromUi(current);
+    }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
     const item = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
@@ -7997,6 +8012,19 @@ $("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
   if (event.target.closest("#btnAiSuggestionsRefresh")) {
     await refreshAiSuggestions();
     setStatus("AI suggestions refreshed", "ok");
+    return;
+  }
+
+  const openTargetNoteButton = event.target.closest("[data-ai-suggestion-open-note]");
+  if (openTargetNoteButton) {
+    const noteId = String(openTargetNoteButton.getAttribute("data-ai-suggestion-open-note") || "").trim();
+    if (!noteId) {
+      setStatus("This suggestion does not point to a target note yet", "warn");
+      return;
+    }
+    activateModule("explorer");
+    openNoteById(noteId, { preferTitleSelection: false });
+    setStatus("Opened the target note so you can review the adopted draft", "ok");
     return;
   }
 
