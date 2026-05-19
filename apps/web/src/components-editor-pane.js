@@ -5463,37 +5463,37 @@ export class EditorPane {
     if (!thesis) {
       return {
         nextStep: "先写一句判断",
-        summary: "这条永久笔记还没有稳定的判断句，先把它从材料变成可复用的观点。"
+        summary: "先把这条笔记写成一句可复用的判断。"
       };
     }
     if (summary.length < 3) {
       return {
         nextStep: "补成三句话压缩",
-        summary: "判断已经出现，但还没有压缩成清晰的三句话，后面的关系和写作会发虚。"
+        summary: "判断已经出现，但还缺三句话压缩。"
       };
     }
     if (!confirmed) {
       return {
         nextStep: "确认观点",
-        summary: "观点已经成形，下一步是明确确认它，避免它一直停在半成品状态。"
+        summary: "观点已经成形，但还没进入 confirmed。"
       };
     }
     if (relationState === "loading") {
       return {
         nextStep: "等关系加载完成",
-        summary: "显式关系仍在读取中，先不要把当前计数当成最终结果。"
+        summary: "关系还在读取，等结果稳定后再判断下一步。"
       };
     }
     if (relationState === "error") {
       return {
         nextStep: "手动补关系或稍后重试",
-        summary: "显式关系暂时读取失败；如果你知道这条笔记应该有连接，可以先手动补建或稍后重试。"
+        summary: "关系读取失败，先手动补关系或稍后重试。"
       };
     }
     if (connectedCount === 0) {
       return {
         nextStep: "补关系，不要让它孤立",
-        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+        summary: "这条笔记还没真正接入网络，先补第一条有理由的关系。"
       };
     }
     return {
@@ -5597,14 +5597,14 @@ export class EditorPane {
       {
         label: "观点提纯",
         status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
-        hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
+        hint: !thesis ? "先写一句判断。" : summary.length < 3 ? "补齐三句话压缩。" : confirmed ? "可以往关系和主题推进。" : "把这条观点确认下来。",
         action: "distillation",
         actionLabel: "继续提纯"
       },
       {
         label: "关系连接",
         status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
-        hint: relationState === "loading" ? "先等显式关系读取完成" : relationState === "error" ? "显式关系读取失败，但你仍然可以手动补建" : explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
+        hint: relationState === "loading" ? "先等显式关系读取完成。" : relationState === "error" ? "读取失败，但仍然可以手动补建。" : explicitRelationCount ? "已经有带理由的关系。" : wikilinkCount ? "有基础链接，值得补理由。" : "先连出第一条关系。",
         action: "relations",
         actionLabel: "处理关系"
       },
