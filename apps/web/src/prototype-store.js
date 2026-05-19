@@ -74,8 +74,8 @@ export function createInitialState() {
     inspectorVisible: false,
     previewMode: "wysiwyg",
     focusMode: false
-  };
-}
+    };
+  }
 
 export function uid(prefix) {
   return `${prefix}_${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 99)}`;
