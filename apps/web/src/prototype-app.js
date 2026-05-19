@@ -2466,16 +2466,20 @@ async function addImportedPermanentNotesToWritingBasket({ openWriting = false } 
     return false;
   }
   await ensureNotesLoaded(noteIds);
-  clearWritingSourceIndexIds();
-  addWritingBasketIds(noteIds);
-  if (!$("writingTitle")?.value.trim()) {
-    const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
-    if (firstNote?.title) $("writingTitle").value = `${firstNote.title} 写作项目`;
-  }
-  renderWritingPanel();
   if (openWriting) {
+    beginWritingEntry(noteIds, {
+      title: suggestedWritingProjectTitle(noteIds),
+      source: "import_permanent_notes"
+    });
     await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮子，并打开写作中心` });
   } else {
+    clearWritingSourceIndexIds();
+    addWritingBasketIds(noteIds);
+    if (!$("writingTitle")?.value.trim()) {
+      const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
+      if (firstNote?.title) $("writingTitle").value = `${firstNote.title} 写作项目`;
+    }
+    renderWritingPanel();
     setStatus(`已把 ${noteIds.length} 条导入永久笔记加入写作篮子`, "ok");
   }
   return true;
