@@ -1375,6 +1375,7 @@ export class EditorPane {
     this.saveUiState = { mode: "idle", message: "" };
     this.relationsRequestSerial = 0;
     this.currentSemanticRelations = null;
+    this.semanticRelationsState = "idle";
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
     this.noteAiAnalysisByNoteId = new Map();
@@ -4870,6 +4871,14 @@ export class EditorPane {
       const relations = await fetchNoteRelations(noteId);
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
       this.currentSemanticRelations = relations;
+      this.semanticRelationsState = "loaded";
+      const note = this.activeNote();
+      const tab = this.activeTab();
+      if (note?.id === noteId && tab) {
+        const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+        this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations, relationState: "loaded" }));
+        this.refreshInspectorLinkSummaryNote();
+      }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
       section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
@@ -4880,6 +4889,15 @@ export class EditorPane {
       }
     } catch (error) {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
+      this.currentSemanticRelations = null;
+      this.semanticRelationsState = "error";
+      const note = this.activeNote();
+      const tab = this.activeTab();
+      if (note?.id === noteId && tab) {
+        const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+        this.refreshMainPathSection(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "error" }));
+        this.refreshInspectorLinkSummaryNote();
+      }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
       const errorHtml = `
@@ -4915,6 +4933,17 @@ export class EditorPane {
     if (!section) return;
     section.outerHTML = this.renderCreateRelationFormSection(note.id);
     void this.refreshRelationTargetSearch("");
+  }
+
+  currentExplicitRelationCount() {
+    if (this.semanticRelationsState !== "loaded" || !this.currentSemanticRelations) return null;
+    const outgoing = Array.isArray(this.currentSemanticRelations?.outgoingLinks)
+      ? this.currentSemanticRelations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    const backlinks = Array.isArray(this.currentSemanticRelations?.backlinks)
+      ? this.currentSemanticRelations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    return outgoing.length + backlinks.length;
   }
 
   openEditRelationForm(relationId) {
@@ -5070,6 +5099,474 @@ export class EditorPane {
     `;
   }
 
+  legacyPermanentNoteMainPathSummary(note, overview = {}) {
+    const thesis = String(note?.thesis || "").trim();
+    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const connectedCount = explicitRelationCount + wikilinkCount;
+
+    if (!thesis) {
+      return {
+        nextStep: "先写一句判断",
+        summary: "这条永久笔记还没有稳定的判断句，先把它从材料变成可复用的观点。"
+      };
+    }
+    if (summary.length < 3) {
+      return {
+        nextStep: "补成三句话压缩",
+        summary: "判断已经出现，但还没有压缩成清晰的三句话，后面的关系和写作会发虚。"
+      };
+    }
+    if (!confirmed) {
+      return {
+        nextStep: "确认观点",
+        summary: "观点已经成形，下一步是明确确认它，避免它一直停在半成品状态。"
+      };
+    }
+    if (relationState === "loading") {
+      return {
+        nextStep: "绛夊叧绯诲姞杞藉畬鎴?",
+        summary: "鏄剧ず鍏崇郴杩樺湪璇诲彇涓紝鍏堜笉瑕佹妸褰撳墠璁℃暟褰撴垚鏈€缁堢粨鏋溿€?"
+      };
+    }
+    if (relationState === "error") {
+      return {
+        nextStep: "鎵嬪姩琛ュ叧绯绘垨绋嶅悗閲嶈瘯",
+        summary: "鏄剧ず鍏崇郴鏆傛椂璇诲彇澶辫触锛屽鏋滀綘鐭ラ亾杩欐潯绗旇搴旇鏈夎繛鎺ワ紝鍙互鍏堟墜鍔ㄨˉ寤烘垨绋嶅悗閲嶈瘯銆?"
+      };
+    }
+    if (connectedCount === 0) {
+      return {
+        nextStep: "补关系，不要让它孤立",
+        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+      };
+    }
+    return {
+      nextStep: "进入主题或写作准备",
+      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+    };
+  }
+
+  legacyNoteThemeSignalSummary(note, overview = {}) {
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const tagRelatedCount = Number(overview.tagRelatedCount || 0);
+    const themeSignalCount = Number(overview.themeSignalCount || 0);
+
+    if (relationState === "loading") {
+      return {
+        status: "璇诲彇涓?",
+        hint: "鏄剧ず鍏崇郴杩樺湪璇诲彇涓紝涓婚绾跨储鏆傛椂涓嶅仛鏈€缁堝垽鏂€?",
+        badge: null,
+        badgeLabel: "璇诲彇涓?"
+      };
+    }
+    if (relationState === "error") {
+      return {
+        status: "璇诲彇澶辫触",
+        hint: "鏄剧ず鍏崇郴鏆傛椂璇诲彇涓嶅埌锛屽鏋滄湰鏉ュ簲璇ユ湁涓婚绾跨储锛屽彲浠ュ厛鎵嬪姩琛ュ叧绯绘垨绋嶅悗閲嶈瘯銆?",
+        badge: null,
+        badgeLabel: "璇诲彇澶辫触"
+      };
+    }
+
+    if (explicitRelationCount > 0) {
+      return {
+        status: `已连入 ${themeSignalCount || explicitRelationCount}`,
+        hint: "已经出现带理由的连接，可以开始判断它在服务哪个主题。",
+        badge: themeSignalCount || explicitRelationCount,
+        badgeLabel: String(themeSignalCount || explicitRelationCount)
+      };
+    }
+    if (wikilinkCount > 0 || tagRelatedCount > 0) {
+      return {
+        status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+        hint: "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        badge: themeSignalCount || wikilinkCount + tagRelatedCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
+      };
+    }
+    return {
+      status: "待聚合",
+      hint: "先让它和其他笔记形成真实连接，再谈主题入口。",
+      badge: 0,
+      badgeLabel: "0"
+    };
+  }
+
+  legacyRenderPermanentNoteMainPathSection(note, overview = {}) {
+    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
+    const thesis = String(note.thesis || "").trim();
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const themeInfo = this.legacyNoteThemeSignalSummary(note, overview);
+    const { nextStep, summary: noteSummary } = this.legacyPermanentNoteMainPathSummary(note, overview);
+    const relationCountLabel =
+      relationState === "loading"
+        ? "璇诲彇涓?"
+        : relationState === "error"
+          ? "璇诲彇澶辫触"
+          : String(explicitRelationCount + wikilinkCount);
+    const primaryAction =
+      !thesis || summary.length < 3 || !confirmed
+        ? "distillation"
+        : relationState === "loading" || relationState === "error" || explicitRelationCount + wikilinkCount === 0
+          ? "relations"
+          : "writing";
+    const steps = [
+      {
+        label: "观点提纯",
+        status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
+        hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
+        action: "distillation",
+        actionLabel: "继续提纯"
+      },
+      {
+        label: "关系连接",
+        status: explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
+        hint: explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
+        action: "relations",
+        actionLabel: "处理关系"
+      },
+      {
+        label: "主题索引",
+        status: themeInfo.status,
+        hint: themeInfo.hint,
+        action: "graph",
+        actionLabel: "看图谱"
+      },
+      {
+        label: "写作入口",
+        status: confirmed ? "可准备" : "未就绪",
+        hint: confirmed ? "可加入写作篮子继续推进" : "先确认观点，再进入写作准备",
+        action: "writing",
+        actionLabel: "进入写作"
+      }
+    ];
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">主路径下一步</div>
+            <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
+          </div>
+          <span class="inspector-chip">${escapeHtml(nextStep)}</span>
+        </div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
+          <span class="inspector-chip">压缩 ${summary.length}/3</span>
+          <span class="inspector-chip">关系 ${explicitRelationCount + wikilinkCount}</span>
+          <span class="inspector-chip">主题线索 ${themeInfo.badge}</span>
+        </div>
+        <div class="semantic-relation-groups">
+          ${steps
+            .map(
+              (step) => `
+                <div class="semantic-relation-group">
+                  <div class="semantic-relation-group-head">
+                    <strong>${escapeHtml(step.label)}</strong>
+                    <span>${escapeHtml(step.status)}${step.action === primaryAction ? " · 当前重点" : ""}</span>
+                  </div>
+                  <div class="related-empty">${escapeHtml(step.hint)}</div>
+                  <div class="semantic-relation-actions">
+                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}">${escapeHtml(step.actionLabel)}</button>
+                  </div>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  buildLocalRelationSignals(note, tab) {
+    if (!note?.id || !tab) return { forward: [], backward: [], tagRelated: [] };
+    const links = parseLinks(tab.body || "");
+    const tags = parseTags(tab.body || "");
+    const rootId = rootBoxIdFromFolder(this.state, note.folderId);
+    const scoped = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id);
+    const resolvedForwardIds = new Set(
+      links
+        .map((token) => this.resolveLinkToken(token, scoped))
+        .filter((x) => x?.note?.id)
+        .map((x) => x.note.id)
+    );
+    const forward = scoped.filter((n) => resolvedForwardIds.has(n.id));
+    const backward = scoped.filter((n) => {
+      const refs = parseLinks(n.body || "");
+      return refs.some((token) => this.resolveLinkToken(token, scoped)?.note?.id === note.id);
+    });
+    const tagRelated = tags.length
+      ? scoped.filter((n) => (n.tags || []).some((tg) => tags.includes(tg))).slice(0, 20)
+      : [];
+    return { forward, backward, tagRelated };
+  }
+
+  buildMainPathOverviewV2({ forward = [], backward = [], tagRelated = [], relations = null, relationState = "loaded" } = {}) {
+    const outgoing = Array.isArray(relations?.outgoingLinks)
+      ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    const backlinks = Array.isArray(relations?.backlinks)
+      ? relations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    return {
+      relationState: String(relationState || "loaded").trim() || "loaded",
+      explicitRelationCount: outgoing.length + backlinks.length,
+      wikilinkCount: forward.length + backward.length,
+      tagRelatedCount: tagRelated.length,
+      themeSignalCount: new Set([
+        ...forward.map((item) => item.id),
+        ...backward.map((item) => item.id),
+        ...tagRelated.map((item) => item.id)
+      ]).size
+    };
+  }
+
+  permanentNoteMainPathSummaryV2(note, overview = {}) {
+    const thesis = String(note?.thesis || "").trim();
+    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const connectedCount = explicitRelationCount + wikilinkCount;
+
+    if (!thesis) {
+      return {
+        nextStep: "先写一句判断",
+        summary: "这条永久笔记还没有稳定的判断句，先把它从材料变成可复用的观点。"
+      };
+    }
+    if (summary.length < 3) {
+      return {
+        nextStep: "补成三句话压缩",
+        summary: "判断已经出现，但还没有压缩成清晰的三句话，后面的关系和写作会发虚。"
+      };
+    }
+    if (!confirmed) {
+      return {
+        nextStep: "确认观点",
+        summary: "观点已经成形，下一步是明确确认它，避免它一直停在半成品状态。"
+      };
+    }
+    if (relationState === "loading") {
+      return {
+        nextStep: "等关系加载完成",
+        summary: "显式关系仍在读取中，先不要把当前计数当成最终结果。"
+      };
+    }
+    if (relationState === "error") {
+      return {
+        nextStep: "手动补关系或稍后重试",
+        summary: "显式关系暂时读取失败；如果你知道这条笔记应该有连接，可以先手动补建或稍后重试。"
+      };
+    }
+    if (connectedCount === 0) {
+      return {
+        nextStep: "补关系，不要让它孤立",
+        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+      };
+    }
+    return {
+      nextStep: "进入主题或写作准备",
+      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+    };
+  }
+
+  noteThemeSignalSummaryV2(note, overview = {}) {
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const tagRelatedCount = Number(overview.tagRelatedCount || 0);
+    const themeSignalCount = Number(overview.themeSignalCount || 0);
+
+    if (relationState === "loading") {
+      return {
+        status: "读取中",
+        hint: "显式关系仍在读取中，主题线索暂时不做最终判断。",
+        badge: null,
+        badgeLabel: "读取中"
+      };
+    }
+    if (relationState === "error") {
+      return {
+        status: "读取失败",
+        hint: "显式关系暂时读不到；如果本来应该有主题线索，可以先手动补关系或稍后重试。",
+        badge: null,
+        badgeLabel: "读取失败"
+      };
+    }
+    if (explicitRelationCount > 0) {
+      return {
+        status: `已连入 ${themeSignalCount || explicitRelationCount}`,
+        hint: "已经出现带理由的连接，可以开始判断它在服务哪个主题。",
+        badge: themeSignalCount || explicitRelationCount,
+        badgeLabel: String(themeSignalCount || explicitRelationCount)
+      };
+    }
+    if (wikilinkCount > 0 || tagRelatedCount > 0) {
+      return {
+        status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+        hint: "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        badge: themeSignalCount || wikilinkCount + tagRelatedCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
+      };
+    }
+    return {
+      status: "待聚合",
+      hint: "先让它和其他笔记形成真实连接，再谈主题入口。",
+      badge: 0,
+      badgeLabel: "0"
+    };
+  }
+
+  renderPermanentNoteMainPathSectionV2(note, overview = {}) {
+    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
+    const thesis = String(note.thesis || "").trim();
+    const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
+    const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummaryV2(note, overview);
+    const relationCountLabel =
+      relationState === "loading"
+        ? "读取中"
+        : relationState === "error"
+          ? "读取失败"
+          : String(explicitRelationCount + wikilinkCount);
+    const primaryAction =
+      !thesis || summary.length < 3 || !confirmed
+        ? "distillation"
+        : relationState === "loading" || relationState === "error" || explicitRelationCount + wikilinkCount === 0
+          ? "relations"
+          : "writing";
+    const steps = [
+      {
+        label: "观点提纯",
+        status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
+        hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
+        action: "distillation",
+        actionLabel: "继续提纯"
+      },
+      {
+        label: "关系连接",
+        status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
+        hint: relationState === "loading" ? "先等显式关系读取完成" : relationState === "error" ? "显式关系读取失败，但你仍然可以手动补建" : explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
+        action: "relations",
+        actionLabel: "处理关系"
+      },
+      {
+        label: "主题索引",
+        status: themeInfo.status,
+        hint: themeInfo.hint,
+        action: "graph",
+        actionLabel: "看图谱"
+      },
+      {
+        label: "写作入口",
+        status: confirmed ? "可准备" : "未就绪",
+        hint: confirmed ? "可加入写作篮子继续推进" : "先确认观点，再进入写作准备",
+        action: "writing",
+        actionLabel: "进入写作"
+      }
+    ];
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-main-path-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">主路径下一步</div>
+            <div class="inspector-section-note">${escapeHtml(noteSummary)}</div>
+          </div>
+          <span class="inspector-chip">${escapeHtml(nextStep)}</span>
+        </div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
+          <span class="inspector-chip">压缩 ${summary.length}/3</span>
+          <span class="inspector-chip">关系 ${escapeHtml(relationCountLabel)}</span>
+          <span class="inspector-chip">主题线索 ${escapeHtml(themeInfo.badgeLabel || String(themeInfo.badge ?? 0))}</span>
+        </div>
+        <div class="semantic-relation-groups">
+          ${steps
+            .map(
+              (step) => `
+                <div class="semantic-relation-group">
+                  <div class="semantic-relation-group-head">
+                    <strong>${escapeHtml(step.label)}</strong>
+                    <span>${escapeHtml(step.status)}${step.action === primaryAction ? " · 当前重点" : ""}</span>
+                  </div>
+                  <div class="related-empty">${escapeHtml(step.hint)}</div>
+                  <div class="semantic-relation-actions">
+                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}">${escapeHtml(step.actionLabel)}</button>
+                  </div>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  legacyBuildMainPathOverview({ forward = [], backward = [], tagRelated = [], relations = null } = {}) {
+    const outgoing = Array.isArray(relations?.outgoingLinks)
+      ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    const backlinks = Array.isArray(relations?.backlinks)
+      ? relations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
+      : [];
+    return {
+      explicitRelationCount: outgoing.length + backlinks.length,
+      wikilinkCount: forward.length + backward.length,
+      tagRelatedCount: tagRelated.length,
+      themeSignalCount: new Set([
+        ...forward.map((item) => item.id),
+        ...backward.map((item) => item.id),
+        ...tagRelated.map((item) => item.id)
+      ]).size
+    };
+  }
+
+  refreshMainPathSection(note, overview = {}) {
+    if (!note?.id) return;
+    const section = this.els.result?.querySelector?.("[data-note-main-path-section]");
+    if (!section || section.getAttribute("data-note-id") !== note.id) return;
+    section.outerHTML = this.renderPermanentNoteMainPathSectionV2(note, overview);
+  }
+
+  renderInspectorLinkSummaryNote() {
+    return `
+      <div class="inspector-section-note" data-inspector-link-summary-note>
+        ${
+          this.semanticRelationsState === "error"
+            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
+            : this.semanticRelationsState === "loading"
+              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
+              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
+        }
+      </div>
+    `;
+  }
+
+  refreshInspectorLinkSummaryNote() {
+    const mount = this.els.result?.querySelector?.("[data-inspector-link-summary-note]");
+    if (!mount) return;
+    mount.outerHTML = this.renderInspectorLinkSummaryNote();
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -5142,6 +5639,21 @@ export class EditorPane {
         </form>
       </section>
     `;
+  }
+
+  jumpToInspectorSection(sectionSelector, { focusSelector = "", focus = false } = {}) {
+    const matched = document.querySelector(sectionSelector);
+    const section = matched?.matches?.(".inspector-section") ? matched : matched?.closest?.(".inspector-section") || matched;
+    if (!section) return;
+    section.scrollIntoView({ block: "start", behavior: "smooth" });
+    section.classList.remove("is-jump-target");
+    // Restart the highlight animation on repeated clicks.
+    void section.offsetWidth;
+    section.classList.add("is-jump-target");
+    window.setTimeout(() => section.classList.remove("is-jump-target"), 1800);
+    if (focus && focusSelector) {
+      window.setTimeout(() => document.querySelector(focusSelector)?.focus?.(), 220);
+    }
   }
 
   refreshDistillationQuality(form) {
@@ -5400,6 +5912,7 @@ export class EditorPane {
     if (!note || !tab) {
       this.relationsRequestSerial += 1;
       this.currentSemanticRelations = null;
+      this.semanticRelationsState = "idle";
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
       if (this.els.editorRelationsBelow) {
         this.els.editorRelationsBelow.innerHTML = "";
@@ -5408,28 +5921,11 @@ export class EditorPane {
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
+    this.currentSemanticRelations = null;
+    this.semanticRelationsState = "loading";
 
-    const links = parseLinks(tab.body || "");
     const tags = parseTags(tab.body || "");
-    const rootId = rootBoxIdFromFolder(this.state, note.folderId);
-    const scoped = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id);
-
-    const resolvedForwardIds = new Set(
-      links
-        .map((token) => this.resolveLinkToken(token, scoped))
-        .filter((x) => x?.note?.id)
-        .map((x) => x.note.id)
-    );
-
-    const forward = scoped.filter((n) => resolvedForwardIds.has(n.id));
-    const backward = scoped.filter((n) => {
-      const refs = parseLinks(n.body || "");
-      return refs.some((token) => this.resolveLinkToken(token, scoped)?.note?.id === note.id);
-    });
-
-    const tagRelated = tags.length
-      ? scoped.filter((n) => (n.tags || []).some((tg) => tags.includes(tg))).slice(0, 20)
-      : [];
+    const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
 
     const renderNoteItem = (n, badgeText = "") => `
       <button class="related-item" data-preview-note="${n.id}">
@@ -5486,8 +5982,18 @@ export class EditorPane {
         <span class="inspector-chip">反向链接 ${backward.length}</span>
         <span class="inspector-chip">标签 ${tags.length}</span>
       </div>
+      <div class="inspector-section-note" data-inspector-link-summary-note>
+        ${
+          this.semanticRelationsState === "error"
+            ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
+            : this.semanticRelationsState === "loading"
+              ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
+              : "上面这组数字只统计正文里的本地链接；显式关系请结合主路径卡片和语义关系区一起判断。"
+        }
+      </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
+        ${this.renderPermanentNoteMainPathSectionV2(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: this.semanticRelationsState }))}
         ${this.renderPermanentNoteDistillationSection(note)}
         ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
@@ -5894,6 +6400,61 @@ export class EditorPane {
       if (distillationConfirmButton) {
         void this.confirmDistillation();
         return;
+      }
+
+      const mainRouteButton = e.target.closest("[data-note-main-route-action]");
+      if (mainRouteButton) {
+        const action = String(mainRouteButton.dataset.noteMainRouteAction || "").trim();
+        if (action === "distillation") {
+          this.jumpToInspectorSection("[data-note-distillation-section]", {
+            focus: true,
+            focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+          });
+          return;
+        }
+        if (action === "relations") {
+          if (this.semanticRelationsState === "loading") {
+            this.jumpToInspectorSection("[data-note-relations-section]");
+            this.onStatus("关系仍在加载中，先看当前关系区；加载完成后再决定是否新建关系。", "warn");
+            return;
+          }
+          if (this.semanticRelationsState === "error") {
+            this.openCreateRelationForm();
+            window.setTimeout(() => {
+              this.jumpToInspectorSection("[data-create-relation-form]", {
+                focus: true,
+                focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+              });
+            }, 40);
+            this.onStatus("关系读取失败，已切到手动新建关系，你仍然可以继续补这条连接。", "warn");
+            return;
+          }
+          const explicitRelationCount = this.currentExplicitRelationCount();
+          if (explicitRelationCount === null) {
+            this.jumpToInspectorSection("[data-note-relations-section]");
+            this.onStatus("关系仍在加载中，先看当前关系区；加载完成后再决定是否新建关系。", "warn");
+            return;
+          }
+          if (explicitRelationCount === 0) {
+            this.openCreateRelationForm();
+            window.setTimeout(() => {
+              this.jumpToInspectorSection("[data-create-relation-form]", {
+                focus: true,
+                focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+              });
+            }, 40);
+            return;
+          }
+          this.jumpToInspectorSection("[data-note-relations-section]");
+          return;
+        }
+        if (action === "graph" || action === "writing") {
+          void this.onStateChange("open-note-main-route", {
+            noteId: this.activeNote()?.id || "",
+            action
+          });
+          return;
+        }
       }
 
       const distillationSection = e.target.closest("[data-note-distillation-section]");

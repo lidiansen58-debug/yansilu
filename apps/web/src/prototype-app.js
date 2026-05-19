@@ -153,6 +153,7 @@ import {
 
 const $ = (id) => document.getElementById(id);
 const state = createInitialState();
+let usingLocalFallbackData = false;
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 const importState = {
@@ -303,6 +304,8 @@ const writingState = {
   loadingScaffoldVersions: false,
   draftVersions: [],
   loadingDraftVersions: false,
+  strongModelEpoch: 0,
+  strongModelRunId: 0,
   strongModelLoading: false,
   strongModelResult: null,
   strongModelError: "",
@@ -2500,17 +2503,20 @@ async function addImportedPermanentNotesToWritingBasket({ openWriting = false } 
     return false;
   }
   await ensureNotesLoaded(noteIds);
-  resetWritingStrongModelState();
-  clearWritingSourceIndexIds();
-  addWritingBasketIds(noteIds);
-  if (!$("writingTitle")?.value.trim()) {
-    const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
-    if (firstNote?.title) $("writingTitle").value = `${firstNote.title} 写作项目`;
-  }
-  renderWritingPanel();
   if (openWriting) {
+    beginWritingEntry(noteIds, {
+      title: suggestedWritingProjectTitle(noteIds),
+      source: "import_permanent_notes"
+    });
     await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮子，并打开写作中心` });
   } else {
+    clearWritingSourceIndexIds();
+    addWritingBasketIds(noteIds);
+    if (!$("writingTitle")?.value.trim()) {
+      const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
+      if (firstNote?.title) $("writingTitle").value = `${firstNote.title} 写作项目`;
+    }
+    renderWritingPanel();
     setStatus(`已把 ${noteIds.length} 条导入永久笔记加入写作篮子`, "ok");
   }
   return true;
@@ -4225,13 +4231,36 @@ async function openStartupUntitledNote() {
   return result;
 }
 
+function resetWritingProjectContext({ title = "", goal = "", audience = "", tone = "" } = {}) {
+  writingState.project = null;
+  writingState.scaffold = null;
+  writingState.scaffoldMarkdown = "";
+  writingState.scaffoldVersions = [];
+  writingState.draftVersions = [];
+  if ($("writingTitle")) $("writingTitle").value = title;
+  if ($("writingGoal")) $("writingGoal").value = goal;
+  if ($("writingAudience")) $("writingAudience").value = audience;
+  if ($("writingTone")) $("writingTone").value = tone;
+}
+
+function preferredLocalFallbackNote() {
+  return (
+    state.notes.find((note) => rootBoxIdFromFolder(state, note.folderId) === "dir_original_default") ||
+    state.notes[0] ||
+    null
+  );
+}
+
 function beginWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
   const normalizedIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   if (!normalizedIds.length) return false;
   const nextGoal = String($("writingGoal")?.value || "").trim();
   const nextAudience = String($("writingAudience")?.value || "").trim();
   const nextTone = String($("writingTone")?.value || "").trim();
-  resetWritingStrongModelState();
+  writingState.strongModelEpoch += 1;
+  writingState.strongModelLoading = false;
+  writingState.strongModelResult = null;
+  writingState.strongModelError = "";
   clearWritingSourceIndexIds();
   setSelectedWritingThemeIndex("");
   setWritingBasketIds(normalizedIds);
@@ -4800,7 +4829,11 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
 }
 
 async function createWritingProjectFromThemeIndex(indexCardId) {
-  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, { replaceBasket: true });
+  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, {
+    replaceBasket: true,
+    resetContext: true,
+    source: "writing_theme_create_project"
+  });
   const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
   const project = await createWritingProject({
     title,
@@ -4859,14 +4892,6 @@ function resetWritingStrongModelState() {
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
-}
-
-function resetWritingProjectContext() {
-  writingState.project = null;
-  writingState.scaffold = null;
-  writingState.scaffoldMarkdown = "";
-  writingState.scaffoldVersions = [];
-  writingState.draftVersions = [];
 }
 
 function resetWritingProjectForm({ keepTitle = false } = {}) {
@@ -5165,107 +5190,96 @@ function renderWritingThemeDetail(indexCard) {
   if (!indexCard?.id) {
     return `
       <div class="writing-empty">
-        还没有选中主题索引。先从左侧选择一个主题，或把当前写作篮保存成新的主题索引。
+        先从左侧主题索引列表里选一张卡，或先把当前写作篮保存成主题索引。这里会显示中心问题、主题压缩和关联笔记。
       </div>
     `;
   }
 
-  const summaryLines = Array.isArray(indexCard.three_line_summary)
-    ? indexCard.three_line_summary
-    : Array.isArray(indexCard.threeLineSummary)
-      ? indexCard.threeLineSummary
-      : [];
-  const items = Array.isArray(indexCard.items) ? indexCard.items : [];
-  const itemNoteIds = Array.isArray(indexCard.item_note_ids) ? indexCard.item_note_ids : [];
-  const noteCount = Number(indexCard.note_count || items.length || itemNoteIds.length || 0);
-  const thinkingBadge = renderThinkingStatusBadge(indexCard.thinkingStatus, "thinking-status-badge writing-thinking-status");
+  const itemIds = uniqueStrings(indexCard.item_note_ids || indexCard.items?.map((item) => item.note_id) || []);
+  const items = itemIds.map((noteId) => {
+    const item = (Array.isArray(indexCard.items) ? indexCard.items : []).find((entry) => entry?.note_id === noteId) || null;
+    const note = writingKnownNoteById(noteId) || item?.note || null;
+    return {
+      noteId,
+      note,
+      shortLabel: String(item?.short_label || note?.title || noteId).trim(),
+      rationale: String(item?.rationale || "").trim()
+    };
+  });
+
+  const summaryLines = [0, 1, 2].map((idx) => String((indexCard.three_line_summary || indexCard.threeLineSummary || [])[idx] || "").trim());
+  const noteCount = Number(indexCard.note_count || items.length || 0);
   const themeId = escapeHtml(indexCard.id);
-  const itemRows = items.length
-    ? items
-        .map((item, index) => {
-          const noteId = item?.note_id || item?.noteId || "";
-          const noteTitle = item?.note?.title || item?.short_label || noteId || `永久笔记 ${index + 1}`;
-          const rationale = item?.rationale || "还没有写明这条笔记为什么属于这个主题。";
-          const order = Number(item?.order || index + 1);
-          return `
-            <article class="writing-note-card" data-writing-note-id="${escapeHtml(noteId)}">
-              <div class="writing-note-card-head">
-                <div>
-                  <div class="writing-note-title">${escapeHtml(order)}. ${escapeHtml(noteTitle)}</div>
-                  <div class="writing-note-meta">${escapeHtml(noteId)}</div>
-                </div>
-              </div>
-              <div class="writing-note-meta">${escapeHtml(rationale)}</div>
-              <div class="writing-note-actions">
-                <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-note-id="${escapeHtml(noteId)}">打开笔记</button>
-                <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-note-id="${escapeHtml(noteId)}">移出主题</button>
-              </div>
-            </article>
-          `;
-        })
-        .join("")
-    : itemNoteIds.length
-      ? itemNoteIds
-          .map(
-            (noteId, index) => `
-              <article class="writing-note-card" data-writing-note-id="${escapeHtml(noteId)}">
-                <div class="writing-note-title">${escapeHtml(index + 1)}. ${escapeHtml(noteId)}</div>
-                <div class="writing-note-actions">
-                  <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-note-id="${escapeHtml(noteId)}">打开笔记</button>
-                  <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-note-id="${escapeHtml(noteId)}">移出主题</button>
-                </div>
-              </article>
-            `
-          )
-          .join("")
-      : `<div class="writing-empty">这个主题索引还没有绑定永久笔记。</div>`;
+  const thinkingBadge = renderThinkingStatusBadge(indexCard.thinkingStatus, "thinking-status-badge writing-thinking-status");
 
   return `
     <section class="writing-theme-detail-card" data-writing-theme-id="${themeId}">
-      <div class="writing-note-card-head">
+      <div class="writing-theme-detail-head">
         <div>
           <div class="writing-note-title">${escapeHtml(indexCard.title || indexCard.id)}</div>
-          <div class="writing-note-meta">${themeId} · ${escapeHtml(indexCard.index_type || "topic")} · ${escapeHtml(noteCount)} 条永久笔记</div>
+          <div class="writing-note-meta">${escapeHtml(indexCard.id)} · 条目 ${escapeHtml(noteCount)} · ${escapeHtml(indexCard.index_type || "topic")}</div>
         </div>
         ${thinkingBadge}
       </div>
-
+      <div class="writing-note-actions">
+        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">把整组加入写作篮</button>
+        <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}">从主题建项目</button>
+      </div>
+      <div class="writing-summary" style="margin-top:12px;">
+        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作入口。
+      </div>
       <div class="import-grid" style="margin-top:12px;">
         <label for="writingThemeDetailTitle">主题标题</label>
         <input id="writingThemeDetailTitle" value="${escapeHtml(indexCard.title || "")}" />
 
+        <label for="writingThemeDetailSummary">主题摘要</label>
+        <textarea id="writingThemeDetailSummary" rows="3" placeholder="这组永久笔记现在共同在讨论什么？">${escapeHtml(indexCard.summary || "")}</textarea>
+
+        <label for="writingThemeDetailThesis">主题一句话判断</label>
+        <textarea id="writingThemeDetailThesis" rows="3" placeholder="这个主题真正想成立的判断是什么？">${escapeHtml(indexCard.thesis || "")}</textarea>
+
+        <label for="writingThemeDetailSummary1">三句话压缩 1</label>
+        <textarea id="writingThemeDetailSummary1" rows="2" placeholder="这组主题在说什么？">${escapeHtml(summaryLines[0])}</textarea>
+
+        <label for="writingThemeDetailSummary2">三句话压缩 2</label>
+        <textarea id="writingThemeDetailSummary2" rows="2" placeholder="为什么它重要？">${escapeHtml(summaryLines[1])}</textarea>
+
+        <label for="writingThemeDetailSummary3">三句话压缩 3</label>
+        <textarea id="writingThemeDetailSummary3" rows="2" placeholder="它会把写作推进到哪里？">${escapeHtml(summaryLines[2])}</textarea>
+
         <label for="writingThemeDetailCentralQuestion">中心问题</label>
-        <textarea id="writingThemeDetailCentralQuestion" rows="2" placeholder="这个主题真正要回答什么问题？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
-
-        <label for="writingThemeDetailThesis">主题判断</label>
-        <textarea id="writingThemeDetailThesis" rows="2" placeholder="把这组笔记压缩成一句自己的判断。">${escapeHtml(indexCard.thesis || "")}</textarea>
-
-        <label for="writingThemeDetailSummary">主题说明</label>
-        <textarea id="writingThemeDetailSummary" rows="2" placeholder="给后续写作看的简短说明。">${escapeHtml(indexCard.summary || "")}</textarea>
-
-        <label for="writingThemeDetailSummary1">三句话 1</label>
-        <input id="writingThemeDetailSummary1" value="${escapeHtml(summaryLines[0] || "")}" />
-
-        <label for="writingThemeDetailSummary2">三句话 2</label>
-        <input id="writingThemeDetailSummary2" value="${escapeHtml(summaryLines[1] || "")}" />
-
-        <label for="writingThemeDetailSummary3">三句话 3</label>
-        <input id="writingThemeDetailSummary3" value="${escapeHtml(summaryLines[2] || "")}" />
+        <textarea id="writingThemeDetailCentralQuestion" rows="3" placeholder="这组笔记真正围绕哪个中心问题组织？">${escapeHtml(indexCard.central_question || indexCard.centralQuestion || "")}</textarea>
       </div>
-
       <div class="writing-note-actions" style="margin-top:12px;">
         <button class="mini-btn primary" type="button" data-writing-theme-action="save" data-writing-theme-id="${themeId}">保存主题</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">加入写作篮</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}">创建写作项目</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用写作篮覆盖</button>
-        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">追加写作篮</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="replace-from-basket" data-writing-theme-id="${themeId}">用当前写作篮覆盖</button>
+        <button class="mini-btn" type="button" data-writing-theme-action="append-from-basket" data-writing-theme-id="${themeId}">把当前写作篮追加进来</button>
       </div>
-
-      <div class="writing-summary" style="margin-top:12px;">
-        主题里的永久笔记会作为写作入口进入篮子；中心问题和三句话压缩会影响后续写作项目的准备度。
-      </div>
-      <div class="writing-note-list" style="margin-top:10px;">
-        ${itemRows}
+      <div style="margin-top:12px;">
+        <h4>主题内的永久笔记</h4>
+        ${
+          items.length
+            ? `<div class="writing-note-list">${items
+                .map(
+                  (item) => `
+                    <article class="writing-note-card">
+                      <div class="writing-note-card-head">
+                        <div>
+                          <div class="writing-note-title">${escapeHtml(item.note?.title || item.shortLabel || item.noteId)}</div>
+                          <div class="writing-note-meta">${escapeHtml(item.noteId)}</div>
+                        </div>
+                      </div>
+                      ${item.rationale ? `<div class="writing-note-meta">${escapeHtml(item.rationale)}</div>` : ""}
+                      <div class="writing-note-actions">
+                        <button class="mini-btn" type="button" data-writing-theme-action="open-note" data-writing-theme-id="${themeId}" data-writing-note-id="${escapeHtml(item.noteId)}">打开笔记</button>
+                        <button class="mini-btn" type="button" data-writing-theme-action="remove-note" data-writing-theme-id="${themeId}" data-writing-note-id="${escapeHtml(item.noteId)}">移出主题</button>
+                      </div>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<div class="writing-empty">这张主题索引还没有挂上永久笔记。</div>`
+        }
       </div>
     </section>
   `;
@@ -7487,6 +7501,33 @@ async function handleStateChange(reason, payload = {}) {
     return true;
   }
 
+  if (reason === "open-note-main-route") {
+    const noteId = String(payload.noteId || "").trim();
+    const action = String(payload.action || "").trim();
+    const note = state.notes.find((item) => item.id === noteId) || null;
+    if (!noteId || !note) return false;
+
+    if (action === "graph") {
+      state.selectedFileId = noteId;
+      activateModule("graph");
+      await refreshDirectoryGraph();
+      setStatus("已打开关系图谱，继续看这条笔记周围的结构和主题候选", "ok");
+      return true;
+    }
+
+    if (action === "writing") {
+      await ensureNoteBodyLoaded(noteId);
+      beginWritingEntry([noteId], {
+        title: `${note.title || "未命名笔记"} 写作项目`,
+        source: "note_main_path"
+      });
+      await openWritingModule({ statusMessage: `已把“${note.title || noteId}”加入写作篮子，并打开写作中心` });
+      return true;
+    }
+
+    return false;
+  }
+
   if (reason === "save-note-distillation") {
     const noteId = String(payload.noteId || "").trim();
     const note = state.notes.find((n) => n.id === noteId);
@@ -8312,21 +8353,20 @@ $("btnWritingUseCurrent")?.addEventListener("click", () => {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   if (!note) return setStatus("请先在左侧选择一条永久笔记", "warn");
 if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受永久笔记，请先切到永久笔记目录选择笔记", "warn");
-  resetWritingStrongModelState();
-  clearWritingSourceIndexIds();
-  addWritingBasketIds([note.id]);
-  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = note.title || "新的写作项目";
-  renderWritingPanel();
+  beginWritingEntry([note.id], {
+    title: note.title || "新的写作项目",
+    source: "writing_panel_current_note"
+  });
   setStatus(`已加入写作篮子：${note.title}`, "ok");
 });
 
 $("btnWritingAddVisible")?.addEventListener("click", () => {
   const candidates = writingCandidateNotes();
   if (!candidates.length) return setStatus("当前目录没有可加入的永久笔记", "warn");
-  resetWritingStrongModelState();
-  clearWritingSourceIndexIds();
-  addWritingBasketIds(candidates.map((note) => note.id));
-  renderWritingPanel();
+  beginWritingEntry(candidates.map((note) => note.id), {
+    title: suggestedWritingProjectTitle(candidates.map((note) => note.id)),
+    source: "writing_panel_visible_notes"
+  });
   setStatus(`已把当前目录观点加入写作篮：${candidates.length} 条`, "ok");
 });
 
@@ -8351,10 +8391,11 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
   if (action === "add") {
-    resetWritingStrongModelState();
-    clearWritingSourceIndexIds();
-    addWritingBasketIds([noteId]);
-    renderWritingPanel();
+    const note = writingNoteById(noteId);
+    beginWritingEntry([noteId], {
+      title: note?.title || noteId,
+      source: "writing_candidate_list"
+    });
     setStatus(`已加入写作篮：${noteId}`, "ok");
     return;
   }
@@ -9220,6 +9261,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 async function bootstrap() {
+  usingLocalFallbackData = false;
   renderImportPageShell();
 
   const importToolbarActions = createImportToolbarActions({
@@ -9496,7 +9538,8 @@ async function bootstrap() {
         }
       } catch {}
     } else {
-      setStatus(`API 连接失败，使用本地工作台数据：${String(error?.message || error)}`, "warn");
+      usingLocalFallbackData = true;
+      setStatus(`API 连接失败，已回退到本地示例数据：${String(error?.message || error)}`, "warn");
     }
   }
 
@@ -9522,6 +9565,16 @@ async function bootstrap() {
     state.browserRootId = rootBoxIdFromFolder(state, initialNote.folderId);
     state.selectedFolderId = initialNote.folderId;
     openNoteById(explicitNoteId);
+  } else if (usingLocalFallbackData) {
+    const fallbackNote = preferredLocalFallbackNote();
+    if (fallbackNote) {
+      state.browserRootId = rootBoxIdFromFolder(state, fallbackNote.folderId);
+      state.selectedFolderId = fallbackNote.folderId;
+      openNoteById(fallbackNote.id, { preferTitleSelection: false });
+      setStatus(`API 连接失败，已打开本地示例笔记：${fallbackNote.title || fallbackNote.id}`, "warn");
+    } else {
+      await openStartupUntitledNote();
+    }
   } else {
     await openStartupUntitledNote();
   }
