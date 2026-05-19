@@ -2524,16 +2524,25 @@ function suggestedWritingProjectTitle(noteIds = []) {
   return `导入笔记写作项目 ${noteIds.length}`;
 }
 
-async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false } = {}) {
+async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
   const id = String(indexCardId || "").trim();
   if (!id) throw new Error("indexCardId is required");
   const indexCard = writingThemeIndexById(id) || (await fetchIndexCard(id));
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
-  resetWritingStrongModelState();
-  if (replaceBasket) setWritingBasketIds(noteIds);
-  else addWritingBasketIds(noteIds);
+  if (resetContext && replaceBasket) {
+    beginWritingEntry(noteIds, {
+      title: `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`,
+      source
+    });
+  } else if (replaceBasket) {
+    resetWritingStrongModelState();
+    setWritingBasketIds(noteIds);
+  } else {
+    resetWritingStrongModelState();
+    addWritingBasketIds(noteIds);
+  }
   setWritingSourceIndexIds([id]);
   if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`;
   renderWritingPanel();
@@ -2578,16 +2587,11 @@ async function createWritingProjectFromImportedPermanentNotes() {
     return false;
   }
   await ensureNotesLoaded(noteIds);
-  resetWritingStrongModelState();
-  resetWritingProjectContext();
-  resetWritingProjectForm();
-  clearWritingSourceIndexIds();
-  setWritingBasketIds(noteIds);
-  const titleInput = $("writingTitle");
-  if (titleInput && !String(titleInput.value || "").trim()) {
-    titleInput.value = suggestedWritingProjectTitle(noteIds);
-  }
-  const title = String(titleInput?.value || "").trim() || suggestedWritingProjectTitle(noteIds);
+  const title = suggestedWritingProjectTitle(noteIds);
+  beginWritingEntry(noteIds, {
+    title,
+    source: "import_create_project"
+  });
   try {
     const project = await createWritingProject({
       title,
@@ -2596,7 +2600,6 @@ async function createWritingProjectFromImportedPermanentNotes() {
       tone: String($("writingTone")?.value || "").trim(),
       basketNoteIds: noteIds
     });
-    resetWritingProjectContext();
     writingState.project = project;
     populateWritingFormFromProject(project);
     showWritingResult({
@@ -4220,6 +4223,31 @@ async function openStartupUntitledNote() {
     setStatus(`API 不可用，已打开本地未命名笔记：${String(result.error?.message || result.error)}`, "warn");
   }
   return result;
+}
+
+function beginWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
+  const normalizedIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
+  if (!normalizedIds.length) return false;
+  const nextGoal = String($("writingGoal")?.value || "").trim();
+  const nextAudience = String($("writingAudience")?.value || "").trim();
+  const nextTone = String($("writingTone")?.value || "").trim();
+  resetWritingStrongModelState();
+  clearWritingSourceIndexIds();
+  setSelectedWritingThemeIndex("");
+  setWritingBasketIds(normalizedIds);
+  resetWritingProjectContext({
+    title: String(title || "").trim(),
+    goal: nextGoal,
+    audience: nextAudience,
+    tone: nextTone
+  });
+  showWritingResult({
+    stage: "writing_entry_from_notes",
+    source,
+    basketNoteIds: normalizedIds
+  });
+  renderWritingPanel();
+  return true;
 }
 
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
@@ -8403,7 +8431,11 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   if (!indexId) return;
   if (action === "use") {
     try {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: true,
+        resetContext: true,
+        source: "writing_theme_index_list"
+      });
       setStatus(`已从主题索引进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
     } catch (error) {
       setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
@@ -8433,7 +8465,11 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "use") {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, { replaceBasket: true });
+      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: true,
+        resetContext: true,
+        source: "writing_theme_detail"
+      });
       setStatus(`已从主题进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
       return;
     }
