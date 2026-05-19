@@ -4209,11 +4209,17 @@ function preferredLocalFallbackNote() {
 function beginWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
   const normalizedIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   if (!normalizedIds.length) return false;
+  const nextGoal = String($("writingGoal")?.value || "").trim();
+  const nextAudience = String($("writingAudience")?.value || "").trim();
+  const nextTone = String($("writingTone")?.value || "").trim();
   clearWritingSourceIndexIds();
   setSelectedWritingThemeIndex("");
   setWritingBasketIds(normalizedIds);
   resetWritingProjectContext({
-    title: String(title || "").trim()
+    title: String(title || "").trim(),
+    goal: nextGoal,
+    audience: nextAudience,
+    tone: nextTone
   });
   showWritingResult({
     stage: "writing_entry_from_notes",
