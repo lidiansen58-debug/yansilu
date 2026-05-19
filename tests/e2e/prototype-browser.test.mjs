@@ -1276,6 +1276,65 @@ test("prototype main-path relation action opens create form and focuses relation
   assert.match(String(createFormText || ""), /Main Path Create Target/);
 });
 
+test("prototype main-path writing readiness matches writing center basket status for the same note", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const note = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Basket Note",
+    body: "# Readiness Basket Note\n\nA confirmed note with no explicit boundary yet.",
+    thesis: "A durable note should be allowed into the basket before it is ready for project creation.",
+    threeLineSummary: [
+      "The note already has a reusable judgment.",
+      "It matters because basket entry should happen earlier than project creation.",
+      "It should still wait for stronger structure before stronger actions."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    }
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Basket Note" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.match(String(text || ""), /可加入写作篮/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const strip = await page.locator("#writingStatusStrip").textContent();
+    assert.match(String(strip || ""), /材料/);
+    assert.match(String(strip || ""), /可加入写作篮/);
+  }, 10000);
+
+  const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
+  assert.match(String(createProjectText || ""), /先补条件再建项目/);
+
+  const strongModelText = await page.locator("#btnWritingStrongModelAnalysis").textContent();
+  assert.match(String(strongModelText || ""), /先补条件/);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
