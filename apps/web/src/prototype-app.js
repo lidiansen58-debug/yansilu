@@ -4792,7 +4792,11 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
 }
 
 async function createWritingProjectFromThemeIndex(indexCardId) {
-  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, { replaceBasket: true });
+  const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexCardId, {
+    replaceBasket: true,
+    resetContext: true,
+    source: "writing_theme_create_project"
+  });
   const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
   const project = await createWritingProject({
     title,
