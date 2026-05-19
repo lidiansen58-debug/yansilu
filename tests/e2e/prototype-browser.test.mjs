@@ -4064,7 +4064,7 @@ test("prototype import confirm can create a writing project from created permane
   assert.match(titleValue || "", /Imported Project Seed/);
 });
 
-test("prototype import create-writing-project failure clears stale writing project context", async (t) => {
+test("prototype import create-writing-project failure clears old writing project context", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -4075,37 +4075,24 @@ test("prototype import create-writing-project failure clears stale writing proje
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page, vaultPath, webBase } = stack;
+  const { apiBase, page, webBase, vaultPath } = stack;
   const recordId = "imp_browser_create_project_failure";
   const createdAt = new Date().toISOString();
 
-  const existing = await postJson(apiBase, "/api/v1/notes", {
+  const oldNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "active",
-    body: "# Existing Writing Note\n\nThis note exists to create an older writing project context."
+    body: "# Existing writing context\n\nThis older project should be cleared before the import flow tries a new project."
   });
-  assert.equal(existing.status, 201);
+  assert.equal(oldNote.status, 201, JSON.stringify(oldNote.json));
 
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Existing Writing Note" }).click();
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.fill("#writingTitle", "Existing Writing Project");
-  await page.fill("#writingGoal", "Old goal");
-  await page.fill("#writingAudience", "Old audience");
-  await page.fill("#writingTone", "Old tone");
-  await page.click("#btnWritingUseCurrent");
-  await page.waitForFunction(() => {
-    const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "").split(/\s+/);
-    return basketIds.filter(Boolean).length === 1;
+  const oldProject = await postJson(apiBase, "/api/v1/writing-projects", {
+    title: "Existing Project Context",
+    goal: "This goal should not leak after the import project creation fails.",
+    audience: "Existing audience",
+    basketNoteIds: [oldNote.json.item.id]
   });
-  await page.click("#btnWritingCreateProject");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes('"stage": "writing_project"') && text.includes('"writingProjectId": "wp_');
-  });
-  const oldSummary = await page.locator("#writingBasketSummary").textContent();
-  assert.match(oldSummary || "", /当前项目：wp_/);
+  assert.equal(oldProject.status, 201, JSON.stringify(oldProject.json));
 
   await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
   await fs.writeFile(
@@ -4139,7 +4126,7 @@ test("prototype import create-writing-project failure clears stale writing proje
             evaluations: [
               {
                 permanentId: "pn_browser_create_project_failure",
-                similarity: 0.12,
+                similarity: 0.11,
                 status: "pass",
                 reasons: []
               }
@@ -4157,7 +4144,7 @@ test("prototype import create-writing-project failure clears stale writing proje
             {
               id: "pn_browser_create_project_failure",
               title: "Imported Failure Seed",
-              core_claim: "An imported permanent note that should replace the stale writing context.",
+              core_claim: "A failed create-project import flow should still clear stale project context.",
               rationale: "",
               from_literature_note_ids: [],
               authorship: { user_confirmed: true, ai_assisted: false },
@@ -4180,21 +4167,29 @@ test("prototype import create-writing-project failure clears stale writing proje
     "utf8"
   );
 
-  let failNextCreateProject = true;
-  await page.route(`${apiBase}/api/v1/writing-projects`, async (route) => {
-    if (route.request().method() === "POST" && failNextCreateProject) {
-      failNextCreateProject = false;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json; charset=utf-8",
-        body: JSON.stringify({
-          error: "WRITING_PROJECT_CREATE_FAILED",
-          message: "Simulated create failure"
-        })
-      });
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.locator(`#writingProjectsList button[data-writing-project-action="open"][data-writing-project-id="${oldProject.json.item.id}"]`).click();
+  await page.waitForFunction((projectId) => {
+    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
+    return text.includes(projectId);
+  }, oldProject.json.item.id);
+
+  await page.route("**/api/v1/writing-projects", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
       return;
     }
-    await route.fallback();
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "WRITING_PROJECT_CREATE_FAILED",
+          message: "simulated writing project create failure"
+        }
+      })
+    });
   });
 
   await openImportsModule(page);
@@ -4209,31 +4204,35 @@ test("prototype import create-writing-project failure clears stale writing proje
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   await page.locator('[data-import-writing-action="create-writing-project"]').click();
 
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes('"stage": "writing_project_error"') && text.includes("Simulated create failure");
-  });
-
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("1 条永久笔记");
-  });
+  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
+  await page.waitForFunction((oldProjectId) => {
+    const resultText = document.querySelector("#writingResult")?.textContent || "";
+    const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
+    const title = document.querySelector("#writingTitle")?.value || "";
+    const goal = document.querySelector("#writingGoal")?.value || "";
+    const audience = document.querySelector("#writingAudience")?.value || "";
+    return (
+      resultText.includes("writing_project_error") &&
+      resultText.includes("simulated writing project create failure") &&
+      basketText.includes("写作篮里已有 1 条永久笔记") &&
+      basketText.includes("尚未创建项目") &&
+      basketText.includes("尚未生成 scaffold") &&
+      basketText.includes("尚未绑定草稿") &&
+      !basketText.includes(oldProjectId) &&
+      !title.includes("Existing Project Context") &&
+      !goal.includes("This goal should not leak") &&
+      !audience.includes("Existing audience")
+    );
+  }, oldProject.json.item.id);
 
-  const newBasketIds = (await page.inputValue("#writingBasketNoteIds")).split(/\s+/).filter(Boolean);
-  assert.deepEqual(newBasketIds, ["pn_browser_create_project_failure"]);
-
-  const summaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.doesNotMatch(summaryText || "", /当前项目：wp_/);
-  assert.match(summaryText || "", /尚未创建项目/);
-  assert.match(summaryText || "", /尚未生成 scaffold/);
-  assert.match(summaryText || "", /尚未绑定草稿/);
-
-  const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
-  assert.match(strongModelSummary || "", /尚未准备强模型分析/);
-
-  const titleValue = await page.inputValue("#writingTitle");
-  assert.match(titleValue || "", /Imported Failure Seed/);
+  const basketSummary = await page.locator("#writingBasketSummary").textContent();
+  assert.match(basketSummary || "", /写作篮里已有 1 条永久笔记/);
+  assert.match(basketSummary || "", /尚未创建项目/);
+  assert.doesNotMatch(basketSummary || "", new RegExp(oldProject.json.item.id));
+  assert.doesNotMatch((await page.inputValue("#writingTitle")) || "", /Existing Project Context/);
+  assert.doesNotMatch((await page.inputValue("#writingGoal")) || "", /This goal should not leak/);
+  assert.doesNotMatch((await page.inputValue("#writingAudience")) || "", /Existing audience/);
 });
 
 test("prototype import panel renders actionable warning hints", async (t) => {
@@ -4858,6 +4857,99 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
 });
 
+test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(() => {
+        window.confirm = () => true;
+      });
+      await page.route("**/api/v1/writing/ai-analysis", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            item: {
+              request: {
+                requestType: "writing_strong_model_analysis",
+                model: { model: "mock-strong-model" }
+              },
+              result: {
+                summary: { artifactCount: 2 },
+                artifacts: [
+                  { type: "WritingMove", status: "pending_review" },
+                  { type: "EvidenceGap", status: "pending_review" }
+                ]
+              }
+            }
+          })
+        });
+      });
+    }
+  });
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const writingDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Writing Entry Reset Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "writing-entry-reset-scope"),
+    maxNotes: 500
+  });
+  assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
+  const writingDirectoryId = writingDirectory.json.item.id;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: writingDirectoryId,
+    status: "active",
+    body: "# Entry reset claim\n\nA fresh writing entry should invalidate previous analysis."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: writingDirectoryId,
+    status: "active",
+    body: "# Entry reset evidence\n\nSwitching inputs should clear old strong-model summaries."
+  });
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${writingDirectoryId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Entry reset claim" }).click();
+  await page.locator('.rail-btn[data-module="writing"]').click();
+
+  await page.click("#btnWritingUseCurrent");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
+    return text.includes("写作篮里已有 1 条永久笔记");
+  });
+
+  await page.click("#btnWritingStrongModelAnalysis");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingStrongModelSummary")?.textContent || "";
+    return text.includes("已归一化 2 条写作待审建议");
+  });
+
+  await page.click("#btnWritingAddVisible");
+  await page.waitForFunction(() => {
+    const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
+    const summaryText = document.querySelector("#writingStrongModelSummary")?.textContent || "";
+    return basketText.includes("写作篮里已有 2 条永久笔记") && summaryText.includes("尚未准备强模型分析");
+  });
+
+  const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
+  assert.match(strongModelSummary || "", /尚未准备强模型分析/);
+});
+
 test("prototype writing center can save a theme index, edit central question, and create a project from theme", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -5103,6 +5195,21 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     }));
     assert.equal(startupState.module, "explorer");
     assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
+  }, 15000);
+
+  await page.click('.rail-btn[data-module="writing"]');
+  await waitFor(async () => {
+    const writingState = await page.evaluate(() => ({
+      title: document.querySelector("#writingTitle")?.value || "",
+      goal: document.querySelector("#writingGoal")?.value || "",
+      audience: document.querySelector("#writingAudience")?.value || "",
+      basketSummary: document.querySelector("#writingBasketSummary")?.textContent || ""
+    }));
+    assert.match(writingState.title, /研思录不是普通笔记软件/);
+    assert.ok(String(writingState.goal || "").trim().length > 0);
+    assert.ok(String(writingState.audience || "").trim().length > 0);
+    assert.match(writingState.basketSummary, /WP-SN-PM-001/);
+    assert.match(writingState.basketSummary, /DS-SN-PM-001/);
   }, 15000);
 
   const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");

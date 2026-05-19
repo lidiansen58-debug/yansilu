@@ -46,6 +46,9 @@ test("canonical artifact adapter converts runtime camelCase into shared snake_ca
         mode: "normal",
         cloudModelUsed: true
       },
+      payload: {
+        fieldSuggestionId: "suggestion_bridge_1"
+      },
       userDecisions: [
         {
           decisionId: "decision_bridge_1",
@@ -70,6 +73,7 @@ test("canonical artifact adapter converts runtime camelCase into shared snake_ca
   assert.deepEqual(canonical.sources.source_doc_ids, ["src_1"]);
   assert.equal(canonical.provenance.citation_required, true);
   assert.equal(canonical.privacy.cloud_model_used, true);
+  assert.equal(canonical.field_suggestion_id, "suggestion_bridge_1");
   assert.equal(canonical.user_decisions[0].decision_id, "decision_bridge_1");
   assert.equal(canonical.user_decisions[0].feedback.useful, true);
   assert.equal(canonical.user_decisions[0].feedback.privacy_concern, false);
@@ -119,7 +123,8 @@ test("canonical suggestion and adoption-event adapters preserve user-mediated re
       id: "suggestion_1",
       target: { type: "permanent_note", id: "pn_3", field: "thesis" },
       scope: "note_field",
-      content: "Clear claims survive review."
+      content: "Clear claims survive review.",
+      sourceArtifactId: "artifact_field_1"
     },
     { now: "2026-05-18T12:00:00.000Z" }
   );
@@ -154,6 +159,7 @@ test("canonical suggestion and adoption-event adapters preserve user-mediated re
 
   assert.equal(canonicalSuggestion.provenance.human_confirmed, true);
   assert.equal(canonicalSuggestion.provenance.human_edited, true);
+  assert.equal(canonicalSuggestion.source_artifact_id, "artifact_field_1");
   assert.equal(canonicalSuggestion.history[2].to_status, "confirmed");
   assert.equal(canonicalEvent.subject_kind, "suggestion");
   assert.equal(canonicalEvent.event_type, "confirmed");
@@ -199,7 +205,17 @@ test("canonical scheduled-task and artifact-decision adapters stabilize persiste
       feedback: { useful: true },
       createdAt: "2026-05-18T13:05:00.000Z"
     },
-    { id: "artifact_link_1", status: "pending_review" }
+    { id: "artifact_link_1", status: "linked_to_note" },
+    {
+      target: {
+        kind: "relation",
+        id: "rel_1"
+      },
+      metadata: {
+        fromStatus: "pending_review",
+        noteId: "pn_5"
+      }
+    }
   );
 
   assert.equal(canonicalTask.scheduled_task_id, "sched_1");
@@ -207,9 +223,12 @@ test("canonical scheduled-task and artifact-decision adapters stabilize persiste
   assert.deepEqual(canonicalTask.scope.note_ids, ["pn_4"]);
   assert.equal(canonicalTask.model.user_mode, "Balanced");
   assert.equal(canonicalTask.output.artifact_types[0], "ReflectionPrompt");
+  assert.equal(canonicalTask.output.destination, "ai_inbox");
   assert.equal(adoptionEvent.subject_kind, "artifact");
   assert.equal(adoptionEvent.event_type, "linked_to_note");
   assert.equal(adoptionEvent.metadata.from_status, "pending_review");
+  assert.equal(adoptionEvent.target.kind, "relation");
+  assert.equal(adoptionEvent.target.id, "rel_1");
   assert.equal(adoptionEvent.feedback.useful, true);
 }
 );

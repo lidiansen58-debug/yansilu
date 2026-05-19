@@ -64,6 +64,7 @@ test("AI shared schemas declare the canonical contracts we want to stabilize", a
   assert.ok(artifact.required.includes("agent_run_id"));
   assert.ok(artifact.required.includes("sources"));
   assert.ok(artifact.properties.type.enum.includes("LinkSuggestion"));
+  assert.equal(artifact.properties.field_suggestion_id.type, "string");
   assert.ok(artifact.properties.user_decisions.items.properties.decision.enum.includes("promoted_to_note"));
 
   assert.ok(inboxItem.required.includes("artifact_id"));
@@ -71,6 +72,7 @@ test("AI shared schemas declare the canonical contracts we want to stabilize", a
   assert.ok(inboxItem.properties.action_state.enum.includes("needs_review"));
 
   assert.deepEqual(suggestion.properties.status.enum, ["suggested", "adopted_as_draft", "rejected", "edited", "confirmed"]);
+  assert.equal(suggestion.properties.source_artifact_id.type, "string");
   assert.ok(suggestion.required.includes("history"));
 
   assert.deepEqual(adoptionEvent.properties.subject_kind.enum, ["artifact", "suggestion"]);
@@ -123,6 +125,7 @@ test("AI shared schemas accept representative canonical payloads", async () => {
       mode: "normal",
       cloud_model_used: true
     },
+    field_suggestion_id: "suggestion_01",
     user_decisions: [
       {
         decision_id: "decision_01",
@@ -181,6 +184,7 @@ test("AI shared schemas accept representative canonical payloads", async () => {
     created_at: "2026-05-18T12:00:00.000Z",
     updated_at: "2026-05-18T12:07:00.000Z",
     model: null,
+    source_artifact_id: "artifact_01",
     provenance: {
       content_origin: "ai_generated",
       human_confirmed: true,

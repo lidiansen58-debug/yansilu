@@ -44,6 +44,12 @@ function canonicalConfidence(confidence = {}) {
 
 export function artifactToCanonical(input = {}, context = {}) {
   const artifact = normalizeArtifact(input, context);
+  const fieldSuggestionId = cleanText(
+    artifact.payload?.fieldSuggestionId ||
+      artifact.payload?.field_suggestion_id ||
+      artifact.payload?.fieldSuggestion?.id ||
+      artifact.payload?.field_suggestion?.id
+  );
   return {
     id: artifact.id,
     type: artifact.type,
@@ -74,6 +80,7 @@ export function artifactToCanonical(input = {}, context = {}) {
       mode: cleanText(artifact.privacy?.mode) || "normal",
       cloud_model_used: artifact.privacy?.cloudModelUsed === true || artifact.privacy?.cloud_model_used === true
     },
+    ...(fieldSuggestionId ? { field_suggestion_id: fieldSuggestionId } : {}),
     user_decisions: Array.isArray(artifact.userDecisions) ? artifact.userDecisions.map((decision) => canonicalDecision(decision, artifact.id)) : [],
     payload: clone(artifact.payload || {})
   };
@@ -119,6 +126,9 @@ export function suggestionToCanonical(input = {}, context = {}) {
     created_at: cleanText(suggestion.createdAt || suggestion.created_at),
     updated_at: cleanText(suggestion.updatedAt || suggestion.updated_at),
     model: clone(suggestion.model),
+    ...(cleanText(suggestion.sourceArtifactId || suggestion.source_artifact_id)
+      ? { source_artifact_id: cleanText(suggestion.sourceArtifactId || suggestion.source_artifact_id) }
+      : {}),
     provenance: {
       content_origin: cleanText(suggestion.provenance?.contentOrigin || suggestion.provenance?.content_origin) || "ai_generated",
       human_confirmed: suggestion.provenance?.humanConfirmed === true || suggestion.provenance?.human_confirmed === true,
@@ -204,8 +214,10 @@ export function scheduledTaskToCanonical(input = {}, existing = {}) {
   };
 }
 
-export function artifactDecisionToCanonicalAdoptionEvent(input = {}, artifact = {}) {
+export function artifactDecisionToCanonicalAdoptionEvent(input = {}, artifact = {}, context = {}) {
   const decision = canonicalDecision(input, artifact.id || input.artifactId || input.artifact_id);
+  const target = context.target && typeof context.target === "object" ? context.target : {};
+  const metadata = context.metadata && typeof context.metadata === "object" ? context.metadata : {};
   return {
     adoption_event_id: cleanText(input.decisionId || input.decision_id) || cleanText(input.id),
     subject_kind: "artifact",
@@ -214,16 +226,16 @@ export function artifactDecisionToCanonicalAdoptionEvent(input = {}, artifact = 
     actor_type: cleanText(input.actorType || input.actor_type) || "user",
     actor_id: cleanText(decision.user_id),
     target: {
-      kind: cleanText(input.targetKind || input.target_kind || "note"),
-      id: cleanText(decision.note_id),
-      field: cleanText(input.targetField || input.target_field)
+      kind: cleanText(target.kind || target.type || input.targetKind || input.target_kind || "note"),
+      id: cleanText(target.id || decision.note_id),
+      field: cleanText(target.field || input.targetField || input.target_field)
     },
     comment: cleanText(decision.comment),
     feedback: normalizeFeedback(decision.feedback || {}),
     metadata: {
-      from_status: cleanText(input.fromStatus || input.from_status || artifact.status),
-      to_status: cleanText(decision.decision),
-      note_id: cleanText(decision.note_id)
+      from_status: cleanText(metadata.fromStatus || metadata.from_status || input.fromStatus || input.from_status || artifact.status),
+      to_status: cleanText(metadata.toStatus || metadata.to_status || decision.decision),
+      note_id: cleanText(metadata.noteId || metadata.note_id || decision.note_id)
     },
     created_at: cleanText(decision.created_at)
   };

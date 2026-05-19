@@ -172,6 +172,7 @@ test("note analysis review items convert local findings into pending artifacts a
   assert.equal(link.status, "pending_review");
   assert.equal(fieldSuggestionArtifact.type, "InsightCard");
   assert.equal(fieldSuggestionArtifact.status, "pending_review");
+  assert.equal(fieldSuggestionArtifact.payload.fieldSuggestionId, fieldSuggestionArtifact.payload.fieldSuggestion.id);
   assert.equal(fieldSuggestionArtifact.payload.fieldSuggestion.status, "suggested");
   assert.equal(fieldSuggestionArtifact.payload.fieldSuggestion.provenance.humanConfirmed, false);
 });

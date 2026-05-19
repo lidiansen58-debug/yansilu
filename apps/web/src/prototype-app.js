@@ -308,7 +308,8 @@ const writingState = {
   strongModelRunId: 0,
   strongModelLoading: false,
   strongModelResult: null,
-  strongModelError: ""
+  strongModelError: "",
+  strongModelRevision: 0
 };
 const desktopCommands = createDesktopFileCommandService({ switchVaultImpl: switchVault });
 let statusRevision = 0;
@@ -2267,6 +2268,39 @@ function showWritingResult(payload) {
   renderWritingScaffoldPreview();
 }
 
+function syncWritingResultFromCurrentState() {
+  const resultEl = $("writingResult");
+  if (!resultEl) return;
+  const currentText = String(resultEl.textContent || "").trim();
+  const shouldHydrate =
+    !currentText ||
+    currentText === "尚未开始写作项目。" ||
+    currentText === "请先创建写作项目";
+  if (!shouldHydrate) return;
+
+  if (writingState.scaffold) {
+    showWritingResult({
+      stage: "draft_scaffold",
+      sections: Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [],
+      markdown: String(writingState.scaffoldMarkdown || "").trim()
+    });
+    return;
+  }
+
+  if (writingState.project) {
+    const basketNotes = (writingState.project.basket_notes || [])
+      .map((note) => ({
+        id: note?.id || "",
+        title: note?.title || note?.id || ""
+      }))
+      .filter((note) => note.id);
+    showWritingResult({
+      stage: "writing_project",
+      basketNotes
+    });
+  }
+}
+
 async function ensureNotesLoaded(noteIds) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
@@ -2457,6 +2491,7 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
     writingState.loadingScaffoldVersions = false;
     writingState.loadingDraftVersions = false;
     renderWritingPanel();
+    syncWritingResultFromCurrentState();
   }
   if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });
 }
@@ -2508,8 +2543,10 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
       source
     });
   } else if (replaceBasket) {
+    resetWritingStrongModelState();
     setWritingBasketIds(noteIds);
   } else {
+    resetWritingStrongModelState();
     addWritingBasketIds(noteIds);
   }
   setWritingSourceIndexIds([id]);
@@ -2570,10 +2607,6 @@ async function createWritingProjectFromImportedPermanentNotes() {
       basketNoteIds: noteIds
     });
     writingState.project = project;
-    writingState.scaffold = null;
-    writingState.scaffoldMarkdown = "";
-    writingState.scaffoldVersions = [];
-    writingState.draftVersions = [];
     populateWritingFormFromProject(project);
     showWritingResult({
       stage: "writing_project",
@@ -4854,6 +4887,28 @@ function setWritingSourceIndexIds(indexIds = []) {
   writingState.sourceIndexIds = uniqueStrings(indexIds);
 }
 
+function resetWritingStrongModelState() {
+  writingState.strongModelRevision += 1;
+  writingState.strongModelLoading = false;
+  writingState.strongModelResult = null;
+  writingState.strongModelError = "";
+}
+
+function resetWritingProjectContext() {
+  writingState.project = null;
+  writingState.scaffold = null;
+  writingState.scaffoldMarkdown = "";
+  writingState.scaffoldVersions = [];
+  writingState.draftVersions = [];
+}
+
+function resetWritingProjectForm({ keepTitle = false } = {}) {
+  if (!keepTitle && $("writingTitle")) $("writingTitle").value = "";
+  if ($("writingGoal")) $("writingGoal").value = "";
+  if ($("writingAudience")) $("writingAudience").value = "";
+  if ($("writingTone")) $("writingTone").value = "";
+}
+
 function writingNoteById(noteId) {
   return state.notes.find((item) => item.id === noteId) || null;
 }
@@ -5395,6 +5450,7 @@ async function loadWritingDraftVersions() {
 }
 
 async function openWritingProject(projectId) {
+  resetWritingStrongModelState();
   const project = await fetchWritingProject(projectId);
   writingState.project = project;
   populateWritingFormFromProject(project);
@@ -5428,10 +5484,10 @@ async function prepareWritingStrongModelAnalysis() {
     typeof window === "undefined" ||
     window.confirm("这会为远程强模型准备写作分析请求。当前实现不会直接调用模型，但请求包包含写作篮笔记摘要。继续？");
   if (!confirmed) return;
-  const requestEpoch = writingState.strongModelEpoch;
-  const requestRunId = writingState.strongModelRunId + 1;
-  writingState.strongModelRunId = requestRunId;
+  const requestRevision = writingState.strongModelRevision + 1;
+  writingState.strongModelRevision = requestRevision;
   writingState.strongModelLoading = true;
+  writingState.strongModelResult = null;
   writingState.strongModelError = "";
   renderWritingPanel();
   try {
@@ -5443,16 +5499,16 @@ async function prepareWritingStrongModelAnalysis() {
       noteIds,
       persistArtifacts: false
     });
-    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
+    if (writingState.strongModelRevision !== requestRevision) return;
     writingState.strongModelResult = result;
     const model = result?.request?.model?.model || "strong_model";
     setStatus(`已准备 ${model} 写作分析请求包，尚未直接调用远程模型`, "ok");
   } catch (error) {
-    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
+    if (writingState.strongModelRevision !== requestRevision) return;
     writingState.strongModelError = String(error?.message || error);
     setStatus(`强模型写作分析准备失败：${writingState.strongModelError}`, "warn");
   } finally {
-    if (requestEpoch !== writingState.strongModelEpoch || requestRunId !== writingState.strongModelRunId) return;
+    if (writingState.strongModelRevision !== requestRevision) return;
     writingState.strongModelLoading = false;
     renderWritingPanel();
   }
@@ -7183,6 +7239,20 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
       state.selectedFileId = firstNoteId;
       openNoteById(firstNoteId, { preferTitleSelection: false });
     }
+    const writingProjectId = String(result?.writingProjectId || "").trim();
+    if (writingProjectId) {
+      try {
+        const project = await fetchWritingProject(writingProjectId);
+        writingState.project = project;
+        populateWritingFormFromProject(project);
+        const draftScaffoldId = String(result?.draftScaffoldId || project?.scaffold_id || "").trim();
+        if (draftScaffoldId) {
+          const scaffold = await fetchDraftScaffold(draftScaffoldId);
+          writingState.scaffold = scaffold.item || null;
+          writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
+        }
+      } catch {}
+    }
     await refreshDirectoryGraph();
     if (startup) activateModule("explorer");
     renderAll();
@@ -8309,13 +8379,10 @@ $("btnWritingAddVisible")?.addEventListener("click", () => {
 });
 
 $("btnWritingClearBasket")?.addEventListener("click", () => {
+  resetWritingStrongModelState();
   clearWritingBasket();
   clearWritingSourceIndexIds();
-  writingState.project = null;
-  writingState.scaffold = null;
-  writingState.scaffoldMarkdown = "";
-  writingState.scaffoldVersions = [];
-  writingState.draftVersions = [];
+  resetWritingProjectContext();
   renderWritingPanel();
   showWritingResult("已清空写作篮。");
   setStatus("已清空写作篮", "ok");
@@ -8341,6 +8408,7 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
     return;
   }
   if (action === "remove") {
+    resetWritingStrongModelState();
     clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
@@ -8360,6 +8428,7 @@ $("writingBasketList")?.addEventListener("click", (event) => {
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
   if (action === "remove") {
+    resetWritingStrongModelState();
     clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();

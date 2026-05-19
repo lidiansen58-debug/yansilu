@@ -165,11 +165,13 @@ export async function fetchAiSuggestions(options = {}) {
   const status = String(options?.status || "").trim();
   const targetType = String(options?.targetType || options?.target_type || "").trim();
   const targetId = String(options?.targetId || options?.target_id || "").trim();
+  const sourceArtifactId = String(options?.sourceArtifactId || options?.source_artifact_id || "").trim();
   const scope = String(options?.scope || "").trim();
   const limit = Math.max(1, Math.min(100, Number(options?.limit || 50) || 50));
   if (status && status !== "all") params.set("status", status);
   if (targetType) params.set("targetType", targetType);
   if (targetId) params.set("targetId", targetId);
+  if (sourceArtifactId) params.set("sourceArtifactId", sourceArtifactId);
   if (scope) params.set("scope", scope);
   if (options?.canonical === true) params.set("canonical", "true");
   params.set("limit", String(limit));
