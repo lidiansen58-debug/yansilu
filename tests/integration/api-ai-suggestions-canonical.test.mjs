@@ -103,7 +103,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
   assert.equal(created.json.item.id, "suggestion_canonical_1");
   assert.equal(created.json.canonical.item.id, "suggestion_canonical_1");
   assert.equal(created.json.canonical.item.target.field, "thesis");
-  assert.equal(created.json.canonical.item.content_source, "target_note_mirror");
+  assert.equal(created.json.canonical.item.content_source, "suggestion_record");
   validateSchemaValue(suggestionSchema, created.json.canonical.item, "$.canonical.item");
 
   const listed = await getJson(baseUrl, `/api/v1/ai-suggestions?canonical=true&targetType=permanent_note&targetId=${encodeURIComponent(note.json.item.id)}`);
@@ -121,6 +121,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
   assert.equal(adopted.status, 200, JSON.stringify(adopted.json));
   assert.equal(adopted.json.item.status, "adopted_as_draft");
   assert.equal(adopted.json.canonical.item.status, "adopted_as_draft");
+  assert.equal(adopted.json.canonical.item.content_source, "target_note_mirror");
   validateSchemaValue(suggestionSchema, adopted.json.canonical.item, "$.canonical.item");
 
   const createdFieldSuggestion = await postJson(baseUrl, "/api/v1/ai-suggestions?canonical=true", {
@@ -130,7 +131,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
     content: "Original suggested thesis"
   });
   assert.equal(createdFieldSuggestion.status, 201, JSON.stringify(createdFieldSuggestion.json));
-  assert.equal(createdFieldSuggestion.json.canonical.item.content_source, "target_note_mirror");
+  assert.equal(createdFieldSuggestion.json.canonical.item.content_source, "suggestion_record");
   validateSchemaValue(suggestionSchema, createdFieldSuggestion.json.canonical.item, "$.canonical.item");
 
   const adoptedField = await patchJson(baseUrl, `/api/v1/ai-suggestions/${encodeURIComponent("suggestion_canonical_field")}?canonical=true`, {
@@ -140,6 +141,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
     userId: "user_1"
   });
   assert.equal(adoptedField.status, 200, JSON.stringify(adoptedField.json));
+  assert.equal(adoptedField.json.canonical.item.content_source, "target_note_mirror");
   validateSchemaValue(suggestionSchema, adoptedField.json.canonical.item, "$.canonical.item");
 
   const updatedNote = await fetch(`${baseUrl}/api/v1/notes/${encodeURIComponent(note.json.item.id)}`, {
@@ -177,6 +179,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
   assert.equal(editedField.status, 200, JSON.stringify(editedField.json));
   assert.equal(editedField.json.item.content, "Edited in target note");
   assert.equal(editedField.json.canonical.item.content, "Edited in target note");
+  assert.equal(editedField.json.canonical.item.content_source, "target_note_mirror");
   validateSchemaValue(suggestionSchema, editedField.json.canonical.item, "$.canonical.item");
 
   const confirmed = await patchJson(baseUrl, "/api/v1/ai-suggestions/suggestion_canonical_1?canonical=true", {
@@ -216,6 +219,7 @@ test("AI suggestions API exposes optional canonical payloads", async (t) => {
   assert.equal(confirmedField.status, 200, JSON.stringify(confirmedField.json));
   assert.equal(confirmedField.json.item.content, "Final confirmed note wording");
   assert.equal(confirmedField.json.canonical.item.content, "Final confirmed note wording");
+  assert.equal(confirmedField.json.canonical.item.content_source, "target_note_mirror");
   validateSchemaValue(suggestionSchema, confirmedField.json.canonical.item, "$.canonical.item");
 
   const fetched = await getJson(baseUrl, "/api/v1/ai-suggestions/suggestion_canonical_1?canonical=true");

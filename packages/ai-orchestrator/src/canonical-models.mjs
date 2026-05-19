@@ -112,7 +112,12 @@ export function aiInboxItemToCanonical(input = {}) {
 
 export function suggestionToCanonical(input = {}, context = {}) {
   const suggestion = normalizeSuggestion(input, context);
-  const contentSource = cleanText(suggestion.target?.field) ? "target_note_mirror" : "suggestion_record";
+  const isFieldTargeted = Boolean(cleanText(suggestion.target?.field));
+  const status = cleanText(suggestion.status);
+  const contentSource =
+    isFieldTargeted && ["adopted_as_draft", "edited", "confirmed"].includes(status)
+      ? "target_note_mirror"
+      : "suggestion_record";
   return {
     id: suggestion.id,
     target: {

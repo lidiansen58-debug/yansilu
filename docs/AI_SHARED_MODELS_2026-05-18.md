@@ -86,7 +86,8 @@ Important mapping:
 Content-source note:
 - `AISuggestion.content` is not always an autonomous record-level draft.
 - For non-field suggestions, `content_source` is `suggestion_record`.
-- For field-targeted suggestions, edited/confirmed review uses the target note field as the source of truth, so canonical payloads mark `content_source` as `target_note_mirror`.
+- For field-targeted suggestions in `suggested` or `rejected`, the canonical payload still reflects the suggestion record itself, so `content_source` remains `suggestion_record`.
+- For field-targeted suggestions in `adopted_as_draft`, `edited`, or `confirmed`, the review flow is note-backed and the target note field becomes the source of truth, so canonical payloads mark `content_source` as `target_note_mirror`.
 - This makes the runtime rule explicit instead of leaving it implicit in server behavior.
 
 Field-level mapping note:

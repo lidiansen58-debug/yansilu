@@ -344,6 +344,21 @@ test("AI inbox model identifies adoptable field suggestion artifacts", () => {
   });
 
   assert.equal(
+    fieldSuggestionSummary({
+      ...artifact,
+      fieldSuggestionId: "suggestion_top_level_1",
+      payload: {
+        ...artifact.payload,
+        fieldSuggestion: {
+          ...artifact.payload.fieldSuggestion,
+          id: "suggestion_nested_ignored"
+        }
+      }
+    }).suggestionId,
+    "suggestion_top_level_1"
+  );
+
+  assert.equal(
     isAdoptableFieldSuggestionArtifact({
       ...artifact,
       userDecisions: [{ decision: "adopted_as_draft", noteId: "pn_1" }]

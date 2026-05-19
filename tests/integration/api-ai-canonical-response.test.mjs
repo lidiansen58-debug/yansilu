@@ -74,6 +74,7 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
   await waitForHealth(baseUrl);
   const inboxItemSchema = await readSchema("ai_inbox_item.schema.json");
   const artifactSchema = await readSchema("ai_artifact.schema.json");
+  const adoptionEventSchema = await readSchema("ai_adoption_event.schema.json");
   const scheduledTaskSchema = await readSchema("ai_scheduled_task.schema.json");
 
   const note = await postJson(baseUrl, "/api/v1/notes", {
@@ -147,6 +148,7 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
     assert.equal(accepted.json.canonical.latestDecision.metadata.from_status, "pending_review");
     validateSchemaValue(inboxItemSchema, accepted.json.canonical.item, "$.canonical.item");
     validateSchemaValue(artifactSchema, accepted.json.canonical.artifact, "$.canonical.artifact");
+    validateSchemaValue(adoptionEventSchema, accepted.json.canonical.latestDecision, "$.canonical.latestDecision");
 
     const detail = await getJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}?canonical=true`);
     assert.equal(detail.status, 200, JSON.stringify(detail.json));
