@@ -31,8 +31,9 @@ After opening the prototype entry:
 1. Confirm the status bar says the Smart Notes demo imported 100 permanent notes, 306 relations, and 1 writing project.
 2. Confirm the first selected note is `GUIDE-SN-001`.
 3. Keep the graph, index cards, and writing project panels ready.
-4. Verify you can open `PN-SN-005`, `IC-SN-002`, `WP-SN-PM-001`, and `DS-SN-PM-001`.
-5. If the workspace contains unrelated notes, discard the generated vault and seed a fresh disposable vault before recording or presenting.
+4. Verify you can open `PN-SN-005`, `IC-SN-001`, `WP-SN-PM-001`, and `DS-SN-PM-001`.
+5. In the writing panel, confirm the project title, writing goal, and audience are already filled instead of showing an empty project shell.
+6. If the workspace contains unrelated notes, discard the generated vault and seed a fresh disposable vault before recording or presenting.
 
 ## Demo Order
 

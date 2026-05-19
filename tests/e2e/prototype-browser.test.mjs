@@ -4933,6 +4933,21 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.equal(startupState.selectedFileId, "GUIDE-SN-001");
   }, 15000);
 
+  await page.click('.rail-btn[data-module="writing"]');
+  await waitFor(async () => {
+    const writingState = await page.evaluate(() => ({
+      title: document.querySelector("#writingTitle")?.value || "",
+      goal: document.querySelector("#writingGoal")?.value || "",
+      audience: document.querySelector("#writingAudience")?.value || "",
+      basketSummary: document.querySelector("#writingBasketSummary")?.textContent || ""
+    }));
+    assert.match(writingState.title, /???????????/);
+    assert.ok(String(writingState.goal || "").trim().length > 0);
+    assert.ok(String(writingState.audience || "").trim().length > 0);
+    assert.match(writingState.basketSummary, /WP-SN-PM-001/);
+    assert.match(writingState.basketSummary, /DS-SN-PM-001/);
+  }, 15000);
+
   const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
   assert.equal(secondSeedDirectory.status, 200, JSON.stringify(secondSeedDirectory.json));
   assert.equal(secondSeedDirectory.json.total, 102);

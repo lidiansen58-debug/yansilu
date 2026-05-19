@@ -525,4 +525,9 @@ test("POST /api/v1/demo/product-thinking/smart-notes seeds the smart notes produ
   assert.equal(secondSeed.json.item.summary.updatedWritingProjects, fixture.counts.writing_projects);
   assert.equal(secondSeed.json.item.summary.createdDraftScaffolds, 0);
   assert.equal(secondSeed.json.item.summary.updatedDraftScaffolds, fixture.counts.draft_scaffolds);
+
+  const reseededProject = await getJson(baseUrl, "/api/v1/writing-projects/WP-SN-PM-001");
+  assert.equal(reseededProject.status, 200, JSON.stringify(reseededProject.json));
+  assert.match(reseededProject.json.item.goal || "", /研思录为什么不是资料仓库|思考工作台/);
+  assert.match(reseededProject.json.item.audience || "", /知识工作者/);
 });

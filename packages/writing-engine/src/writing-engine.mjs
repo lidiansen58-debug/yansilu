@@ -708,6 +708,68 @@ export async function updateWritingProjectIntent(vaultPath, writingProjectId, in
   return getWritingProject(vaultPath, id);
 }
 
+export async function syncWritingProject(vaultPath, writingProjectId, input = {}) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = cleanText(writingProjectId);
+  if (!id) throw new Error("writingProjectId is required");
+
+  const existingProject = await getWritingProject(vaultPath, id);
+  const title = cleanText(input.title) || existingProject.title || "";
+  if (!title) throw new Error("title is required");
+
+  const basketNoteIds = uniqueIds(input.basketNoteIds || input.basket_note_ids || existingProject.basket_note_ids || []);
+  if (!basketNoteIds.length) throw new Error("basketNoteIds is required");
+  const relatedIndexIds = uniqueIds(input.relatedIndexIds || input.related_index_ids || existingProject.related_index_ids || []);
+  const basketNotes = await loadBasketNotes(vaultPath, basketNoteIds);
+  const relatedIndexCards = await loadRelatedIndexCards(vaultPath, relatedIndexIds);
+
+  const goal = input.goal === undefined ? existingProject.goal || "" : cleanText(input.goal);
+  const audience = input.audience === undefined ? existingProject.audience || "" : cleanText(input.audience);
+  const tone = input.tone === undefined ? existingProject.tone || "" : cleanText(input.tone);
+  const intent = input.intent === undefined ? existingProject.intent || "" : cleanText(input.intent);
+  const desiredReaderTakeaway =
+    input.desiredReaderTakeaway === undefined && input.desired_reader_takeaway === undefined
+      ? existingProject.desired_reader_takeaway || ""
+      : cleanText(input.desiredReaderTakeaway || input.desired_reader_takeaway);
+  const status = input.status === undefined ? existingProject.status || "draft" : cleanText(input.status) || "draft";
+  const now = new Date().toISOString();
+
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      db.prepare(
+        `UPDATE writing_projects
+         SET title = ?, goal = ?, audience = ?, tone = ?, intent = ?, desired_reader_takeaway = ?, related_index_ids_json = ?, status = ?, updated_at = ?
+         WHERE id = ?`
+      ).run(title, goal, audience, tone, intent, desiredReaderTakeaway, JSON.stringify(relatedIndexIds), status, now, id);
+
+      db.prepare("DELETE FROM writing_basket_items WHERE project_id = ?").run(id);
+      basketNoteIds.forEach((noteId, index) => {
+        db.prepare(
+          `INSERT INTO writing_basket_items (id, project_id, note_id, order_no)
+           VALUES (?, ?, ?, ?)`
+        ).run(`wbi_${randomUUID().slice(0, 8)}`, id, noteId, index + 1);
+      });
+
+      db.exec("COMMIT;");
+    } catch (error) {
+      db.exec("ROLLBACK;");
+      throw error;
+    }
+  } finally {
+    db.close();
+  }
+
+  const refreshedProject = await getWritingProject(vaultPath, id);
+  return {
+    ...refreshedProject,
+    preflight: buildWritingProjectReadiness(refreshedProject, basketNotes, { indexCards: relatedIndexCards }),
+    thinkingStatus: deriveWritingProjectThinkingStatus(refreshedProject)
+  };
+}
+
 export async function listWritingProjects(vaultPath, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const limit = Math.max(1, Math.min(50, Number(input.limit || 8) || 8));

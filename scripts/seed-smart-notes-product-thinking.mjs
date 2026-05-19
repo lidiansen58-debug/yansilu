@@ -18,7 +18,7 @@ import {
   initVault,
   serializeNote
 } from "../packages/domain/src/index.mjs";
-import { createDraftScaffold, createWritingProject, getDraftScaffold, getWritingProject } from "../packages/writing-engine/src/index.mjs";
+import { createDraftScaffold, createWritingProject, getDraftScaffold, syncWritingProject } from "../packages/writing-engine/src/index.mjs";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
 const DEFAULT_FIXTURE_PATH = path.join(REPO_ROOT, "tests", "fixtures", "demo-smart-notes-product-thinking", "demo.json");
@@ -399,12 +399,22 @@ async function upsertWritingProjectAndScaffold(vaultPath, fixture, counters) {
 
     let writingProject = null;
     try {
-      writingProject = await getWritingProject(vaultPath, projectId);
+      writingProject = await syncWritingProject(vaultPath, projectId, {
+        title,
+        goal: cleanText(project?.goal || project?.writing_goal || project?.writingGoal),
+        intent: cleanText(project?.intent),
+        audience: cleanText(project?.target_reader || project?.targetReader),
+        desiredReaderTakeaway: cleanText(project?.desired_reader_takeaway || project?.desiredReaderTakeaway),
+        basketNoteIds,
+        relatedIndexIds,
+        status: "draft"
+      });
       counters.updatedWritingProjects += 1;
     } catch {
       writingProject = await createWritingProject(vaultPath, {
         id: projectId,
         title,
+        goal: cleanText(project?.goal || project?.writing_goal || project?.writingGoal),
         intent: cleanText(project?.intent),
         audience: cleanText(project?.target_reader || project?.targetReader),
         desiredReaderTakeaway: cleanText(project?.desired_reader_takeaway || project?.desiredReaderTakeaway),

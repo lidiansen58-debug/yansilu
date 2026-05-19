@@ -2049,6 +2049,39 @@ function showWritingResult(payload) {
   renderWritingScaffoldPreview();
 }
 
+function syncWritingResultFromCurrentState() {
+  const resultEl = $("writingResult");
+  if (!resultEl) return;
+  const currentText = String(resultEl.textContent || "").trim();
+  const shouldHydrate =
+    !currentText ||
+    currentText === "?????????" ||
+    currentText === "????????";
+  if (!shouldHydrate) return;
+
+  if (writingState.scaffold) {
+    showWritingResult({
+      stage: "draft_scaffold",
+      sections: Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [],
+      markdown: String(writingState.scaffoldMarkdown || "").trim()
+    });
+    return;
+  }
+
+  if (writingState.project) {
+    const basketNotes = (writingState.project.basket_notes || [])
+      .map((note) => ({
+        id: note?.id || "",
+        title: note?.title || note?.id || ""
+      }))
+      .filter((note) => note.id);
+    showWritingResult({
+      stage: "writing_project",
+      basketNotes
+    });
+  }
+}
+
 async function ensureNotesLoaded(noteIds) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
@@ -2239,6 +2272,7 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
     writingState.loadingScaffoldVersions = false;
     writingState.loadingDraftVersions = false;
     renderWritingPanel();
+    syncWritingResultFromCurrentState();
   }
   if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });
 }

@@ -689,7 +689,7 @@ The guide note should invite the user to inspect the demo in this order:
 2. Open two literature notes and compare source takeaway versus paraphrase.
 3. Open the permanent note `PN-SN-005` and inspect thesis, summary, PM restatement, and product implication.
 4. Open the relation graph around `PN-SN-005`.
-5. Open `IC-SN-002` to see how a question groups several judgments.
+5. Open `IC-SN-001` to see how a question groups several judgments.
 6. Open the writing project and inspect the basket.
 7. Open the draft scaffold and see which permanent notes support each section.
 8. Read the final essay.
@@ -776,7 +776,7 @@ Use the demo in this order:
 5. Open two literature notes to show source trace plus user paraphrase.
 6. Open representative permanent notes such as `PN-SN-001`, `PN-SN-005`, `PN-SN-037`, `PN-SN-065`, and `PN-SN-100`.
 7. Switch to graph and explain relation type plus rationale, not visual density.
-8. Open `IC-SN-002` or `IC-SN-005` to show question-centered organization.
+8. Open `IC-SN-001` or `IC-SN-005` to show question-centered organization.
 9. Open `WP-SN-PM-001` and `DS-SN-PM-001` to show writing from selected judgments.
 10. End with the final essay as traceable product thinking, not AI-authored output.
 
