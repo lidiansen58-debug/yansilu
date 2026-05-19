@@ -402,6 +402,56 @@ function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+export function relationCreateDefaultTypeForNote(note = {}) {
+  const body = String(note?.body || "").trim();
+  if (/反例|counterexample/i.test(body)) return "counterexample_to";
+  if (noteHasBoundarySignal(note)) return "qualifies";
+  if (/例如|比如|for example|for instance/i.test(body)) return "example_of";
+  const links = parseLinks(body);
+  const tags = parseTags(body);
+  if (links.length || tags.length) return "same_topic";
+  return "supports";
+}
+
+function resolveRelationCandidateToken(token = "", candidates = []) {
+  const raw = String(token || "").trim();
+  if (!raw) return null;
+  const byId = candidates.find((note) => normalizeText(note.id) === normalizeText(raw));
+  if (byId) return byId;
+  const exactTitle = candidates.find((note) => normalizeText(note.title) === normalizeText(raw));
+  if (exactTitle) return exactTitle;
+  const fuzzy = candidates.find(
+    (note) => normalizeText(note.title).includes(normalizeText(raw)) || normalizeText(note.id).includes(normalizeText(raw))
+  );
+  return fuzzy || null;
+}
+
+export function sortRelationTargetCandidatesForNote(candidates = [], note = {}) {
+  const current = note || {};
+  const scoped = Array.isArray(candidates) ? candidates.slice() : [];
+  const resolvedForwardIds = new Set(
+    parseLinks(current.body || "")
+      .map((token) => resolveRelationCandidateToken(token, scoped))
+      .filter((item) => item?.id)
+      .map((item) => item.id)
+  );
+  const currentTags = new Set(parseTags(current.body || "").map((tag) => normalizeText(tag)));
+  return scoped.sort((a, b) => {
+    const score = (candidate) => {
+      let value = 0;
+      if (resolvedForwardIds.has(candidate.id)) value += 100;
+      const candidateTags = Array.isArray(candidate?.tags) ? candidate.tags : parseTags(candidate?.body || "");
+      value += candidateTags.filter((tag) => currentTags.has(normalizeText(tag))).length * 10;
+      if (candidate.folderId && candidate.folderId === current.folderId) value += 4;
+      if (String(candidate.thesis || "").trim()) value += 2;
+      return value;
+    };
+    const diff = score(b) - score(a);
+    if (diff) return diff;
+    return String(a.title || a.id || "").localeCompare(String(b.title || b.id || ""), "zh-CN");
+  });
+}
+
 function normalizeClickedTag(token) {
   const value = String(token || "")
     .replace(/^#/, "")
@@ -4700,40 +4750,11 @@ export class EditorPane {
   }
 
   relationCreateDefaultType(note = this.activeNote()) {
-    const body = String(note?.body || "").trim();
-    if (/反例|counterexample/i.test(body)) return "counterexample_to";
-    if (noteHasBoundarySignal(note)) return "qualifies";
-    if (/例如|比如|for example|for instance/i.test(body)) return "example_of";
-    const links = parseLinks(body);
-    const tags = parseTags(body);
-    if (links.length || tags.length) return "same_topic";
-    return "supports";
+    return relationCreateDefaultTypeForNote(note);
   }
 
   sortRelationTargetCandidates(candidates = [], note = this.activeNote()) {
-    const current = note || {};
-    const scoped = Array.isArray(candidates) ? candidates.slice() : [];
-    const resolvedForwardIds = new Set(
-      parseLinks(current.body || "")
-        .map((token) => this.resolveLinkToken(token, scoped))
-        .filter((item) => item?.note?.id)
-        .map((item) => item.note.id)
-    );
-    const currentTags = new Set(parseTags(current.body || "").map((tag) => normalizeText(tag)));
-    return scoped.sort((a, b) => {
-      const score = (candidate) => {
-        let value = 0;
-        if (resolvedForwardIds.has(candidate.id)) value += 100;
-        const candidateTags = Array.isArray(candidate?.tags) ? candidate.tags : parseTags(candidate?.body || "");
-        value += candidateTags.filter((tag) => currentTags.has(normalizeText(tag))).length * 10;
-        if (candidate.folderId && candidate.folderId === current.folderId) value += 4;
-        if (String(candidate.thesis || "").trim()) value += 2;
-        return value;
-      };
-      const diff = score(b) - score(a);
-      if (diff) return diff;
-      return String(a.title || a.id || "").localeCompare(String(b.title || b.id || ""), "zh-CN");
-    });
+    return sortRelationTargetCandidatesForNote(candidates, note);
   }
 
   renderRelationTargetOptions(candidates = [], selectedId = "") {
