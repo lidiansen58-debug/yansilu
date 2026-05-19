@@ -1,0 +1,144 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scheduled_task_id",
+    "workspace_id",
+    "user_id",
+    "name",
+    "status",
+    "task_type",
+    "agent_id",
+    "schedule",
+    "scope",
+    "model",
+    "budget",
+    "privacy",
+    "output",
+    "run_input",
+    "failure_count",
+    "last_run_at",
+    "last_run_status",
+    "last_run_reason",
+    "last_agent_run_id",
+    "next_run_at",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "scheduled_task_id": { "type": "string" },
+    "workspace_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "name": { "type": "string" },
+    "status": { "type": "string", "enum": ["active", "paused", "disabled", "failed"] },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "research_scan",
+        "source_monitor",
+        "relation_scan",
+        "project_digest",
+        "reflection_prompt",
+        "originality_check"
+      ]
+    },
+    "agent_id": { "type": "string" },
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "timezone", "day_of_week", "time", "interval_minutes", "interval_hours", "interval_days", "rrule"],
+      "properties": {
+        "type": { "type": "string", "enum": ["manual_only", "interval", "daily", "weekly", "monthly"] },
+        "timezone": { "type": "string" },
+        "day_of_week": { "type": "string" },
+        "time": { "type": "string" },
+        "interval_minutes": { "type": "number" },
+        "interval_hours": { "type": "number" },
+        "interval_days": { "type": "number" },
+        "rrule": { "type": "string" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_ids",
+        "note_ids",
+        "directory_ids",
+        "tags",
+        "source_feed_ids",
+        "keywords",
+        "include_private_notes"
+      ],
+      "properties": {
+        "project_ids": { "type": "array", "items": { "type": "string" } },
+        "note_ids": { "type": "array", "items": { "type": "string" } },
+        "directory_ids": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "source_feed_ids": { "type": "array", "items": { "type": "string" } },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "include_private_notes": { "type": "boolean" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["user_mode", "model_pack", "max_tier", "allow_strong_reasoning"],
+      "properties": {
+        "user_mode": { "type": "string" },
+        "model_pack": { "type": "string" },
+        "max_tier": { "type": "string" },
+        "allow_strong_reasoning": { "type": "boolean" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_runs_per_period",
+        "max_estimated_cost_per_run",
+        "max_estimated_cost_per_period",
+        "period",
+        "spent_this_period",
+        "runs_this_period"
+      ],
+      "properties": {
+        "max_runs_per_period": { "type": "number" },
+        "max_estimated_cost_per_run": { "type": ["number", "null"] },
+        "max_estimated_cost_per_period": { "type": ["number", "null"] },
+        "period": { "type": "string" },
+        "spent_this_period": { "type": "number" },
+        "runs_this_period": { "type": "number" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "allow_cloud_models", "require_confirmation_for_private_notes"],
+      "properties": {
+        "mode": { "type": "string" },
+        "allow_cloud_models": { "type": "boolean" },
+        "require_confirmation_for_private_notes": { "type": "boolean" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["destination", "artifact_types", "notify_user"],
+      "properties": {
+        "destination": { "type": "string" },
+        "artifact_types": { "type": "array", "items": { "type": "string" } },
+        "notify_user": { "type": "string" }
+      }
+    },
+    "run_input": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+    "failure_count": { "type": "number" },
+    "last_run_at": { "type": "string" },
+    "last_run_status": { "type": "string" },
+    "last_run_reason": { "type": "string" },
+    "last_agent_run_id": { "type": "string" },
+    "next_run_at": { "type": "string" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}
