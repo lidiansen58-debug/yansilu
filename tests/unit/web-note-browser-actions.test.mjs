@@ -69,5 +69,19 @@ test("editor toolbar does not render the file attachment button", () => {
   const html = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
-  assert.doesNotMatch(html, /插入文件附件/);
+  assert.doesNotMatch(html, /鎻掑叆鏂囦欢闄勪欢/);
+});
+
+test("import-result create-writing-project path reuses unified writing entry reset", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/async function createWritingProjectFromImportedPermanentNotes\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected createWritingProjectFromImportedPermanentNotes() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /beginWritingEntry\(noteIds,\s*\{/);
+  assert.doesNotMatch(fnBody, /resetWritingProjectContext\(/);
+  assert.doesNotMatch(fnBody, /setWritingBasketIds\(noteIds\)/);
 });
