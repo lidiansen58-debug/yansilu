@@ -1,58 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
-
-const SCHEMA_ROOT = path.join(process.cwd(), "schemas");
-
-async function readSchema(name) {
-  const raw = await fs.readFile(path.join(SCHEMA_ROOT, name), "utf8");
-  return JSON.parse(raw);
-}
-
-function validate(schema, value, location = "$") {
-  if (!schema || typeof schema !== "object") return;
-
-  if (Array.isArray(schema.type)) {
-    const allowed = schema.type;
-    const matches = allowed.some((type) => matchesType(type, value));
-    assert.equal(matches, true, `${location} expected one of ${allowed.join(", ")}`);
-  } else if (schema.type) {
-    assert.equal(matchesType(schema.type, value), true, `${location} expected type ${schema.type}`);
-  }
-
-  if (schema.enum) {
-    assert.equal(schema.enum.includes(value), true, `${location} expected enum value`);
-  }
-
-  if ((schema.type === "object" || (Array.isArray(schema.type) && value && typeof value === "object" && !Array.isArray(value))) && value !== null) {
-    const required = Array.isArray(schema.required) ? schema.required : [];
-    for (const key of required) {
-      assert.equal(Object.prototype.hasOwnProperty.call(value, key), true, `${location}.${key} is required`);
-    }
-
-    if (schema.additionalProperties === false && schema.properties) {
-      for (const key of Object.keys(value)) {
-        assert.equal(Object.prototype.hasOwnProperty.call(schema.properties, key), true, `${location}.${key} is not allowed`);
-      }
-    }
-
-    for (const [key, childSchema] of Object.entries(schema.properties || {})) {
-      if (Object.prototype.hasOwnProperty.call(value, key)) validate(childSchema, value[key], `${location}.${key}`);
-    }
-  }
-
-  if (schema.type === "array" && Array.isArray(value) && schema.items) {
-    value.forEach((item, index) => validate(schema.items, item, `${location}[${index}]`));
-  }
-}
-
-function matchesType(type, value) {
-  if (type === "null") return value === null;
-  if (type === "array") return Array.isArray(value);
-  if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
-  return typeof value === type;
-}
+import { readSchema, validateSchemaValue as validate } from "../helpers/schema-validation.mjs";
 
 test("AI shared schemas declare the canonical contracts we want to stabilize", async () => {
   const artifact = await readSchema("ai_artifact.schema.json");
@@ -179,6 +127,7 @@ test("AI shared schemas accept representative canonical payloads", async () => {
     },
     scope: "note_field",
     content: "The real leverage comes from compressing judgment, not collecting fragments.",
+    content_source: "target_note_mirror",
     status: "confirmed",
     origin: "ai_generated",
     created_at: "2026-05-18T12:00:00.000Z",

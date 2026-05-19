@@ -1565,6 +1565,45 @@ function fieldSuggestionInputFromArtifact(artifact = {}, body = {}) {
   };
 }
 
+function fieldSuggestionContentFromNote(note = {}, field = "") {
+  const normalizedField = normalizeFieldSuggestionField(field);
+  if (normalizedField === "thesis") {
+    const thesis = cleanText(note.thesis);
+    if (!thesis) {
+      const error = new Error("target note thesis is required before the suggestion can be reviewed");
+      error.code = "AI_SUGGESTION_TARGET_CONTENT_REQUIRED";
+      error.details = { field: normalizedField, noteId: note.id || note.noteId || "" };
+      throw error;
+    }
+    return thesis;
+  }
+
+  const summary = Array.isArray(note.threeLineSummary)
+    ? note.threeLineSummary.map((item) => cleanText(item)).filter(Boolean)
+    : Array.isArray(note.three_line_summary)
+      ? note.three_line_summary.map((item) => cleanText(item)).filter(Boolean)
+      : [];
+  if (summary.length !== 3) {
+    const error = new Error("target note three_line_summary is required before the suggestion can be reviewed");
+    error.code = "AI_SUGGESTION_TARGET_CONTENT_REQUIRED";
+    error.details = { field: normalizedField, noteId: note.id || note.noteId || "", summaryLength: summary.length };
+    throw error;
+  }
+  return summary;
+}
+
+async function reviewedSuggestionContentFromTarget(vaultPath, suggestion = {}, body = {}) {
+  const target = suggestion.target && typeof suggestion.target === "object" ? suggestion.target : {};
+  const field = cleanText(target.field || body.field || body.targetField || body.target_field);
+  const targetId = cleanText(target.id || body.targetId || body.target_id || body.noteId || body.note_id);
+  if (!field || !targetId) {
+    if (Object.prototype.hasOwnProperty.call(body, "content")) return body.content;
+    return suggestion.content;
+  }
+  const note = await getNoteById(vaultPath, targetId);
+  return fieldSuggestionContentFromNote(note, field);
+}
+
 function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, updatedNote = null) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
@@ -2518,7 +2557,13 @@ const server = http.createServer(async (req, res) => {
         await initVault(VAULT_PATH);
         const store = await aiSuggestionStore();
         const toStatus = body.status || body.toStatus || body.to_status;
-        const item = store.transition(aiSuggestionId, toStatus, body);
+        const current = store.get(aiSuggestionId);
+        if (!current) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
+        const transitionInput = { ...body };
+        if (toStatus === "edited" || toStatus === "confirmed") {
+          transitionInput.content = await reviewedSuggestionContentFromTarget(VAULT_PATH, current, body);
+        }
+        const item = store.transition(aiSuggestionId, toStatus, transitionInput);
         return sendJson(res, 200, withCanonical({
           item,
           requestId: rid,
@@ -2738,6 +2783,7 @@ const server = http.createServer(async (req, res) => {
               actor: "user",
               userId: body.userId || body.user_id || "local_user",
               noteId: updatedNote.id,
+              content: fieldSuggestionContentFromNote(updatedNote, fieldSuggestion.field),
               comment: body.comment || `Adopted ${fieldSuggestion.field} suggestion as a draft field.`,
               createdAt: new Date().toISOString()
             })

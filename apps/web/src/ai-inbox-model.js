@@ -219,6 +219,7 @@ export function aiArtifactFromCanonical(artifact = {}) {
       mode: cleanText(artifact.privacy?.mode),
       cloudModelUsed: artifact.privacy?.cloud_model_used === true
     },
+    fieldSuggestionId: cleanText(artifact.field_suggestion_id),
     userDecisions: Array.isArray(artifact.user_decisions)
       ? artifact.user_decisions.map((decision) => ({
           decisionId: cleanText(decision.decision_id),
@@ -334,6 +335,7 @@ export function notePromotionSummary(artifact = {}) {
 export function fieldSuggestionSummary(artifact = {}) {
   const payload = artifact?.payload || {};
   const suggestion = payload.fieldSuggestion || payload.field_suggestion || {};
+  const suggestionId = cleanText(artifact?.fieldSuggestionId || payload.fieldSuggestionId || payload.field_suggestion_id || suggestion.id);
   const target = suggestion.target || {};
   const content = suggestion.content && typeof suggestion.content === "object" ? suggestion.content : {};
   const field = normalizeFieldName(target.field || payload.targetField || payload.target_field);
@@ -350,6 +352,7 @@ export function fieldSuggestionSummary(artifact = {}) {
     );
   const hasAdoptableValue = field === "three_line_summary" ? summary.length === 3 : Boolean(thesis);
   return {
+    suggestionId,
     canAdopt: cleanText(artifact?.type) === "InsightCard" && !adopted && Boolean(noteId) && ["thesis", "three_line_summary"].includes(field) && hasAdoptableValue,
     adopted,
     noteId,

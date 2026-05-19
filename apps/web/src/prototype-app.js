@@ -1238,18 +1238,6 @@ async function refreshAiSuggestions(options = {}) {
   }
 }
 
-function aiSuggestionReviewedContentFromUi(current = {}) {
-  const editorValue = $("aiSuggestionContentEditor")?.value;
-  if (editorValue === undefined) return current.content;
-  const raw = String(editorValue || "");
-  if (typeof current.content === "string") return raw;
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
-  }
-}
-
 async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
   const cleanStatus = String(status || "").trim();
@@ -1273,9 +1261,6 @@ async function applyAiSuggestionStatus(suggestionId, status) {
               ? "reject"
               : cleanStatus
     };
-    if (cleanStatus === "edited" || cleanStatus === "confirmed") {
-      payload.content = aiSuggestionReviewedContentFromUi(current);
-    }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
     const item = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
@@ -8157,6 +8142,16 @@ $("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
   const suggestionButton = event.target.closest("[data-ai-suggestion-id]");
   if (suggestionButton) {
     await loadAiSuggestionDetail(suggestionButton.getAttribute("data-ai-suggestion-id"));
+    return;
+  }
+
+  const openNoteButton = event.target.closest("[data-ai-suggestion-open-note]");
+  if (openNoteButton) {
+    const noteId = String(openNoteButton.getAttribute("data-ai-suggestion-open-note") || "").trim();
+    if (!noteId) return setStatus("Suggestion target note is missing", "warn");
+    activateModule("explorer");
+    openNoteById(noteId, { focusDistillation: true });
+    setStatus(`Opened target note: ${noteId}`, "ok");
     return;
   }
 });

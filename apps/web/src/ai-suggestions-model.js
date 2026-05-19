@@ -17,6 +17,7 @@ export function aiSuggestionFromCanonical(item = {}) {
     },
     scope: cleanText(item.scope),
     content: item.content ?? null,
+    contentSource: cleanText(item.content_source) || "suggestion_record",
     status: cleanText(item.status),
     origin: cleanText(item.origin),
     createdAt: cleanText(item.created_at),

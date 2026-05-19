@@ -81,6 +81,13 @@ Important mapping:
 - runtime `suggestion.provenance.humanConfirmed` -> schema `provenance.human_confirmed`
 - runtime `suggestion.provenance.humanEdited` -> schema `provenance.human_edited`
 - runtime `suggestion.history` -> schema `history`
+- runtime field-targeted review semantics -> schema `content_source = "target_note_mirror"`
+
+Content-source note:
+- `AISuggestion.content` is not always an autonomous record-level draft.
+- For non-field suggestions, `content_source` is `suggestion_record`.
+- For field-targeted suggestions, edited/confirmed review uses the target note field as the source of truth, so canonical payloads mark `content_source` as `target_note_mirror`.
+- This makes the runtime rule explicit instead of leaving it implicit in server behavior.
 
 Field-level mapping note:
 - `AI Inbox` remains the review surface for persisted artifacts.

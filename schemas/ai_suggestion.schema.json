@@ -6,6 +6,7 @@
     "target",
     "scope",
     "content",
+    "content_source",
     "status",
     "origin",
     "created_at",
@@ -28,6 +29,10 @@
     },
     "scope": { "type": "string" },
     "content": {},
+    "content_source": {
+      "type": "string",
+      "enum": ["suggestion_record", "target_note_mirror"]
+    },
     "status": {
       "type": "string",
       "enum": ["suggested", "adopted_as_draft", "rejected", "edited", "confirmed"]

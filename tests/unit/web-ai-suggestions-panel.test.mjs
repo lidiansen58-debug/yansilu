@@ -43,8 +43,8 @@ test("AI suggestions panel renders edited action for adopted draft suggestions",
   assert.match(html, /Mark edited/);
   assert.match(html, /data-ai-suggestion-status="edited"/);
   assert.match(html, /Open target note \(optional\)/);
-  assert.match(html, /id="aiSuggestionContentEditor"/);
-  assert.match(html, /Review and rewrite the adopted draft in this suggestion first/i);
+  assert.doesNotMatch(html, /id="aiSuggestionContentEditor"/);
+  assert.match(html, /Open the target note, rewrite the adopted draft there/i);
 });
 
 test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {
@@ -58,8 +58,8 @@ test("AI suggestions panel renders confirm action only after a suggestion is edi
   assert.match(html, /Confirm/);
   assert.match(html, /data-ai-suggestion-status="confirmed"/);
   assert.match(html, /Ready to confirm/);
-  assert.match(html, /id="aiSuggestionContentEditor"/);
-  assert.match(html, /already been rewritten by a person/i);
+  assert.doesNotMatch(html, /id="aiSuggestionContentEditor"/);
+  assert.match(html, /now reflects the target note wording/i);
 });
 
 test("AI suggestions panel renders loading and empty states", () => {

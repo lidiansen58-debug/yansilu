@@ -6,6 +6,7 @@ import os from "node:os";
 import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { readSchema, validateSchemaValue } from "../helpers/schema-validation.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -71,6 +72,9 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
 
   t.after(() => child.kill());
   await waitForHealth(baseUrl);
+  const inboxItemSchema = await readSchema("ai_inbox_item.schema.json");
+  const artifactSchema = await readSchema("ai_artifact.schema.json");
+  const scheduledTaskSchema = await readSchema("ai_scheduled_task.schema.json");
 
   const note = await postJson(baseUrl, "/api/v1/notes", {
     directoryId: "dir_original_default",
@@ -92,11 +96,13 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
   assert.equal(createdTask.json.canonical.item.scheduled_task_id, "sched_canonical_reflection");
   assert.equal(createdTask.json.canonical.item.scope.note_ids[0], note.json.item.id);
   assert.equal(createdTask.json.canonical.item.output.destination, "ai_inbox");
+  validateSchemaValue(scheduledTaskSchema, createdTask.json.canonical.item, "$.canonical.item");
 
   const listedTasks = await getJson(baseUrl, "/api/v1/ai/scheduled-tasks?canonical=true");
   assert.equal(listedTasks.status, 200, JSON.stringify(listedTasks.json));
   assert.equal(listedTasks.json.items[0].scheduledTaskId, "sched_canonical_reflection");
   assert.equal(listedTasks.json.canonical.items[0].scheduled_task_id, "sched_canonical_reflection");
+  validateSchemaValue(scheduledTaskSchema, listedTasks.json.canonical.items[0], "$.canonical.items[0]");
 
   const updatedTask = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/sched_canonical_reflection/status?canonical=true", {
     status: "paused"
@@ -104,6 +110,7 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
   assert.equal(updatedTask.status, 200, JSON.stringify(updatedTask.json));
   assert.equal(updatedTask.json.item.status, "paused");
   assert.equal(updatedTask.json.canonical.item.status, "paused");
+  validateSchemaValue(scheduledTaskSchema, updatedTask.json.canonical.item, "$.canonical.item");
 
   const resumedTask = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/sched_canonical_reflection/status?canonical=true", {
     status: "active"
@@ -111,6 +118,7 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
   assert.equal(resumedTask.status, 200, JSON.stringify(resumedTask.json));
   assert.equal(resumedTask.json.item.status, "active");
   assert.equal(resumedTask.json.canonical.item.status, "active");
+  validateSchemaValue(scheduledTaskSchema, resumedTask.json.canonical.item, "$.canonical.item");
 
   const due = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/run-due", {
     now: "2026-05-18T09:00:00.000Z"
@@ -137,10 +145,14 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
     assert.equal(accepted.json.canonical.artifact.id, firstRuntime.artifactId);
     assert.equal(accepted.json.canonical.latestDecision.subject_kind, "artifact");
     assert.equal(accepted.json.canonical.latestDecision.metadata.from_status, "pending_review");
+    validateSchemaValue(inboxItemSchema, accepted.json.canonical.item, "$.canonical.item");
+    validateSchemaValue(artifactSchema, accepted.json.canonical.artifact, "$.canonical.artifact");
 
     const detail = await getJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}?canonical=true`);
     assert.equal(detail.status, 200, JSON.stringify(detail.json));
     assert.equal(detail.json.canonical.item.artifact_id, firstRuntime.artifactId);
     assert.equal(detail.json.canonical.artifact.id, firstRuntime.artifactId);
+    validateSchemaValue(inboxItemSchema, detail.json.canonical.item, "$.canonical.item");
+    validateSchemaValue(artifactSchema, detail.json.canonical.artifact, "$.canonical.artifact");
   }
 });

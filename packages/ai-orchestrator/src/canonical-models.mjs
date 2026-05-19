@@ -112,6 +112,7 @@ export function aiInboxItemToCanonical(input = {}) {
 
 export function suggestionToCanonical(input = {}, context = {}) {
   const suggestion = normalizeSuggestion(input, context);
+  const contentSource = cleanText(suggestion.target?.field) ? "target_note_mirror" : "suggestion_record";
   return {
     id: suggestion.id,
     target: {
@@ -121,6 +122,7 @@ export function suggestionToCanonical(input = {}, context = {}) {
     },
     scope: cleanText(suggestion.scope),
     content: clone(suggestion.content),
+    content_source: contentSource,
     status: cleanText(suggestion.status),
     origin: cleanText(suggestion.origin),
     created_at: cleanText(suggestion.createdAt || suggestion.created_at),

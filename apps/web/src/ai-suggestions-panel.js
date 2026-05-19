@@ -117,7 +117,7 @@ function renderDraftEditingGuide(item = {}) {
     return `
       <section class="ai-inbox-detail-section">
         <h3>Next step</h3>
-        <p>Review and rewrite the adopted draft in this suggestion first. When the wording reflects a user-owned claim, mark it edited.</p>
+        <p>Open the target note, rewrite the adopted draft there, then return here and mark the suggestion as edited.</p>
       </section>
     `;
   }
@@ -125,23 +125,11 @@ function renderDraftEditingGuide(item = {}) {
     return `
       <section class="ai-inbox-detail-section">
         <h3>Ready to confirm</h3>
-        <p>This suggestion has already been rewritten by a person. Confirm it only when this reviewed draft is ready to become the final user-owned wording.</p>
+        <p>This suggestion now reflects the target note wording. Confirm it only when that note field is the final user-owned judgment.</p>
       </section>
     `;
   }
   return "";
-}
-
-function renderContentEditor(item = {}) {
-  const status = String(item.status || "").trim();
-  if (status !== "adopted_as_draft" && status !== "edited") return "";
-  const content = typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2);
-  return `
-    <section class="ai-inbox-detail-section">
-      <h3>Reviewed content</h3>
-      <textarea id="aiSuggestionContentEditor" rows="8" placeholder="Update the reviewed draft content before marking it edited or confirmed.">${escapeHtml(content)}</textarea>
-    </section>
-  `;
 }
 
 function renderDetail(state = {}) {
@@ -162,7 +150,6 @@ function renderDetail(state = {}) {
         <pre class="ai-inbox-json">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2))}</pre>
       </section>
       ${renderDraftEditingGuide(item)}
-      ${renderContentEditor(item)}
       <section class="ai-inbox-detail-section">
         <h3>Provenance</h3>
         <pre class="ai-inbox-json">${escapeHtml(JSON.stringify(item.provenance || {}, null, 2))}</pre>

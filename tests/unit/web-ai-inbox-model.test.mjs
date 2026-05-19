@@ -334,6 +334,7 @@ test("AI inbox model identifies adoptable field suggestion artifacts", () => {
 
   assert.equal(isAdoptableFieldSuggestionArtifact(artifact), true);
   assert.deepEqual(fieldSuggestionSummary(artifact), {
+    suggestionId: "",
     canAdopt: true,
     adopted: false,
     noteId: "pn_1",
