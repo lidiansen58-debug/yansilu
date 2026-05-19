@@ -5618,12 +5618,12 @@ function renderWritingStatusStrip() {
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : readiness.level === "basket_ready"
-      ? "先补边界或关系，再决定是否建项目"
+      ? "还没到建项目时机；先补边界或关系。"
       : readiness.level === "needs_distillation"
-        ? "先确认观点，再考虑建项目"
+        ? "先把 thesis 和三句话确认下来。"
         : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
-          ? "先让材料变成可进入写作的永久笔记"
-          : "先明确题目和读者";
+          ? "先让材料完成作者/原创确认，再进入写作。"
+          : "当前材料已到建项目阶段；接下来明确题目和读者。";
   const strongModelTone =
     readiness.level === "strong_model_ready" && projectPreflightSummary.level !== "needs_attention"
       ? "good"
@@ -5857,10 +5857,10 @@ function renderWritingPanel() {
   const basketEntries = writingBasketEntries();
   const basketReadiness = deriveBasketWritingReadiness(parseWritingBasketIds(), writingKnownNoteById, {});
   if (basketSummary) {
-    const sourcePart = sourceIndexSummary || "尚未记录主题入口";
+    const sourcePart = sourceIndexSummary ? `主题入口：${sourceIndexSummary}。` : "主题入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
-      ? `写作篮里已有 ${basketEntries.length} 条永久笔记。当前阶段：${basketReadiness.status}。${basketReadiness.hint} ${sourcePart}。`
-      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}。`;
+      ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${basketReadiness.status}。${basketReadiness.hint} ${sourcePart}`
+      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length

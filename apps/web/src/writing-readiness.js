@@ -20,7 +20,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "blocked_authorship",
       status: "先完成作者确认",
-      hint: "写作篮只接受已完成作者确认的永久笔记。",
+      hint: "写作篮只接收已经完成作者确认的永久笔记。",
       actionLabel: "查看写作要求"
     };
   }
