@@ -22,6 +22,7 @@ export function aiSuggestionFromCanonical(item = {}) {
     createdAt: cleanText(item.created_at),
     updatedAt: cleanText(item.updated_at),
     model: item.model ?? null,
+    sourceArtifactId: cleanText(item.source_artifact_id),
     provenance: {
       contentOrigin: cleanText(item.provenance?.content_origin),
       humanConfirmed: item.provenance?.human_confirmed === true,

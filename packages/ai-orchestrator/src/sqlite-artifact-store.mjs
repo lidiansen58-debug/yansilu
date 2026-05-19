@@ -389,6 +389,37 @@ export async function createSqliteArtifactStore(options = {}) {
     countArtifacts(filter = {}) {
       return listRows(db, { ...filter, limit: 200 }).length;
     },
+    updateArtifact(artifactId, updates = {}) {
+      const id = cleanText(artifactId || updates.artifactId || updates.artifact_id);
+      const existing = getArtifact(id);
+      if (!existing) {
+        const error = new Error(`artifactId not found: ${id}`);
+        error.code = "AI_ARTIFACT_NOT_FOUND";
+        throw error;
+      }
+
+      const now = new Date().toISOString();
+      const payload = Object.prototype.hasOwnProperty.call(updates, "payload") ? updates.payload || {} : existing.payload || {};
+      const provenance = Object.prototype.hasOwnProperty.call(updates, "provenance")
+        ? updates.provenance || {}
+        : existing.provenance || {};
+      const status = cleanText(updates.status) || existing.status;
+      const updatedAt = cleanText(updates.updatedAt || updates.updated_at) || now;
+
+      db.exec("BEGIN IMMEDIATE;");
+      try {
+        db.prepare(
+          `UPDATE ai_artifacts
+           SET status = ?, updated_at = ?, provenance_json = ?, payload_json = ?
+           WHERE id = ?`
+        ).run(status, updatedAt, jsonString(provenance), jsonString(payload), id);
+        db.exec("COMMIT;");
+        return getArtifact(id);
+      } catch (error) {
+        db.exec("ROLLBACK;");
+        throw error;
+      }
+    },
     recordDecision(artifactId, input = {}) {
       const id = cleanText(artifactId || input.artifactId || input.artifact_id);
       const existing = getArtifact(id);

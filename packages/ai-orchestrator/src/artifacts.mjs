@@ -21,6 +21,7 @@ const ARTIFACT_STATUSES = new Set([
   "revised",
   "ignored",
   "archived",
+  "adopted_as_draft",
   "promoted_to_note",
   "linked_to_note",
   "expired"

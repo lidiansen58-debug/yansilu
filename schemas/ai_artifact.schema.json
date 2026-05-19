@@ -106,6 +106,7 @@
         "cloud_model_used": { "type": "boolean" }
       }
     },
+    "field_suggestion_id": { "type": "string" },
     "user_decisions": {
       "type": "array",
       "items": {

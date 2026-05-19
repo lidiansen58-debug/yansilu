@@ -12,10 +12,12 @@ function matchesFilters(suggestion = {}, filters = {}) {
   const status = cleanText(filters.status);
   const targetType = cleanText(filters.targetType || filters.target_type);
   const targetId = cleanText(filters.targetId || filters.target_id);
+  const sourceArtifactId = cleanText(filters.sourceArtifactId || filters.source_artifact_id);
   const scope = cleanText(filters.scope);
   if (status && status !== "all" && suggestion.status !== status) return false;
   if (targetType && suggestion.target?.type !== targetType) return false;
   if (targetId && suggestion.target?.id !== targetId) return false;
+  if (sourceArtifactId && suggestion.sourceArtifactId !== sourceArtifactId) return false;
   if (scope && suggestion.scope !== scope) return false;
   return true;
 }

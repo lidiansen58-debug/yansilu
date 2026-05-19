@@ -21,6 +21,7 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
     created_at: "2026-05-18T12:00:00.000Z",
     updated_at: "2026-05-18T12:05:00.000Z",
     model: { providerId: "openai" },
+    source_artifact_id: "artifact_1",
     provenance: {
       content_origin: "ai_generated",
       human_confirmed: true,
@@ -43,6 +44,7 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
   assert.equal(suggestion.target.type, "permanent_note");
   assert.equal(suggestion.target.field, "thesis");
   assert.equal(suggestion.status, "confirmed");
+  assert.equal(suggestion.sourceArtifactId, "artifact_1");
   assert.equal(suggestion.provenance.humanConfirmed, true);
   assert.equal(suggestion.provenance.humanEdited, true);
   assert.equal(suggestion.history[0].toStatus, "adopted_as_draft");

@@ -22,11 +22,13 @@ test("sqlite suggestion store bootstraps schema in an existing vault and persist
       id: "suggestion_sqlite_1",
       target: { type: "permanent_note", id: "pn_1", field: "thesis" },
       scope: "permanent_note_distillation",
-      content: { thesis: "Reviewable suggestions stay drafts until the user confirms." }
+      content: { thesis: "Reviewable suggestions stay drafts until the user confirms." },
+      sourceArtifactId: "artifact_field_sqlite_1"
     },
     { now: "2026-05-18T00:00:00.000Z" }
   );
   assert.equal(store.get(suggestion.id).status, "suggested");
+  assert.equal(store.get(suggestion.id).sourceArtifactId, "artifact_field_sqlite_1");
 
   const draft = store.transition(suggestion.id, "adopted_as_draft", {
     action: "adopt_as_draft",
@@ -37,7 +39,12 @@ test("sqlite suggestion store bootstraps schema in an existing vault and persist
   assert.equal(draft.status, "adopted_as_draft");
   assert.equal(store.get(suggestion.id).history.length, 1);
 
-  const list = store.list({ targetType: "permanent_note", targetId: "pn_1", scope: "permanent_note_distillation" });
+  const list = store.list({
+    targetType: "permanent_note",
+    targetId: "pn_1",
+    sourceArtifactId: "artifact_field_sqlite_1",
+    scope: "permanent_note_distillation"
+  });
   assert.deepEqual(list.map((item) => item.id), ["suggestion_sqlite_1"]);
 
   await assert.doesNotReject(() => fs.stat(store.dbPath));

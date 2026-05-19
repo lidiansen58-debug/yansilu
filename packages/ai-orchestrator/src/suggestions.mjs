@@ -133,6 +133,7 @@ export function normalizeSuggestion(input = {}, context = {}) {
     createdAt: cleanText(input.createdAt || input.created_at) || now,
     updatedAt: cleanText(input.updatedAt || input.updated_at) || now,
     model: input.model || context.model || null,
+    sourceArtifactId: cleanText(input.sourceArtifactId || input.source_artifact_id || context.sourceArtifactId || context.source_artifact_id),
     provenance: normalizeProvenance(input, status),
     history: normalizeHistory(input.history || input.transitions)
   };
@@ -196,6 +197,7 @@ export function transitionSuggestionStatus(suggestion = {}, toStatus, input = {}
     content: nextContent,
     status: normalizedToStatus,
     updatedAt: now,
+    sourceArtifactId: current.sourceArtifactId || cleanText(input.sourceArtifactId || input.source_artifact_id),
     provenance: {
       ...(current.provenance || {}),
       humanConfirmed: normalizedToStatus === "confirmed" || current.provenance?.humanConfirmed === true,

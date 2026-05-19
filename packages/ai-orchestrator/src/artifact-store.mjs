@@ -116,6 +116,26 @@ export function createInMemoryArtifactStore() {
     countArtifacts(filter = {}) {
       return [...artifacts.values()].filter((artifact) => matchesFilter(artifact, filter)).length;
     },
+    updateArtifact(artifactId, updates = {}) {
+      const id = cleanText(artifactId || updates.artifactId || updates.artifact_id);
+      const artifact = artifacts.get(id);
+      if (!artifact) {
+        const error = new Error(`artifactId not found: ${id}`);
+        error.code = "AI_ARTIFACT_NOT_FOUND";
+        throw error;
+      }
+
+      const now = new Date().toISOString();
+      const next = {
+        ...artifact,
+        ...(Object.prototype.hasOwnProperty.call(updates, "payload") ? { payload: updates.payload || {} } : {}),
+        ...(Object.prototype.hasOwnProperty.call(updates, "provenance") ? { provenance: updates.provenance || {} } : {}),
+        ...(Object.prototype.hasOwnProperty.call(updates, "status") ? { status: updates.status } : {}),
+        updatedAt: cleanText(updates.updatedAt || updates.updated_at) || now
+      };
+      artifacts.set(id, next);
+      return getArtifact(id);
+    },
     recordDecision(artifactId, input = {}) {
       const id = cleanText(artifactId || input.artifactId || input.artifact_id);
       const artifact = artifacts.get(id);

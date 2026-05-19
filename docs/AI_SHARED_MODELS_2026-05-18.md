@@ -42,6 +42,7 @@ Important mapping:
 - runtime `artifact.contextPackId` -> schema `context_pack_id`
 - runtime `artifact.sources.noteIds` -> schema `sources.note_ids`
 - runtime `artifact.userDecisions` -> schema `user_decisions`
+- runtime `artifact.payload.fieldSuggestionId` -> schema `field_suggestion_id` for inbox artifacts that mirror a field-level suggestion
 
 Note:
 - Runtime currently uses camelCase.
@@ -76,9 +77,17 @@ Canonical intent:
 
 Important mapping:
 - runtime `suggestion.target` -> schema `target`
+- runtime `suggestion.sourceArtifactId` -> schema `source_artifact_id` when the suggestion is mirrored by an inbox artifact
 - runtime `suggestion.provenance.humanConfirmed` -> schema `provenance.human_confirmed`
 - runtime `suggestion.provenance.humanEdited` -> schema `provenance.human_edited`
 - runtime `suggestion.history` -> schema `history`
+
+Field-level mapping note:
+- `AI Inbox` remains the review surface for persisted artifacts.
+- `AI Suggestions` remains the field-level suggestion surface.
+- When a field suggestion is mirrored into an inbox artifact, the canonical contract now exposes the stable mapping on both sides:
+  - artifact `field_suggestion_id`
+  - suggestion `source_artifact_id`
 
 ### AIAdoptionEvent
 

@@ -1376,10 +1376,20 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.ok(analysis.json.item.reviewItems.summary.relationCandidateCount >= 1);
   assert.equal(analysis.json.item.reviewItems.summary.canAutoConfirm, false);
   assert.ok(analysis.json.item.reviewItems.suggestions.every((item) => item.status === "suggested"));
+  assert.equal(
+    analysis.json.item.reviewItems.storedSuggestionIds.length,
+    analysis.json.item.reviewItems.suggestions.length
+  );
+  assert.equal(analysis.json.item.reviewItems.suggestionsPersisted, true);
   if (analysis.json.item.reviewItems.suggestions.length) {
     assert.ok(
       analysis.json.item.reviewItems.artifacts.some((item) =>
         analysis.json.item.reviewItems.suggestions.some((suggestion) => item.payload?.fieldSuggestion?.id === suggestion.id)
+      )
+    );
+    assert.ok(
+      analysis.json.item.reviewItems.artifacts.some((item) =>
+        analysis.json.item.reviewItems.suggestions.some((suggestion) => item.payload?.fieldSuggestionId === suggestion.id)
       )
     );
   }
@@ -1401,6 +1411,39 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.ok(existingAnalysis.json.item.items.some((item) => item.type === "LinkSuggestion"));
   if (analysis.json.item.reviewItems.suggestions.length) {
     assert.ok(existingAnalysis.json.item.items.some((item) => item.payload?.fieldSuggestion?.target?.field));
+    const suggestionsList = await getJson(
+      baseUrl,
+      `/api/v1/ai-suggestions?targetType=permanent_note&targetId=${encodeURIComponent(source.json.item.id)}`
+    );
+    assert.equal(suggestionsList.status, 200, JSON.stringify(suggestionsList.json));
+    assert.equal(suggestionsList.json.total, analysis.json.item.reviewItems.suggestions.length);
+    assert.ok(
+      suggestionsList.json.items.every((item) =>
+        analysis.json.item.reviewItems.storedSuggestionIds.includes(item.id)
+      )
+    );
+    assert.ok(
+      suggestionsList.json.items.every((item) =>
+        existingAnalysis.json.item.items.some((artifact) => artifact.payload?.fieldSuggestionId === item.id && item.sourceArtifactId === artifact.artifactId)
+      )
+    );
+
+    const canonicalSuggestionsList = await getJson(
+      baseUrl,
+      `/api/v1/ai-suggestions?canonical=true&targetType=permanent_note&targetId=${encodeURIComponent(source.json.item.id)}`
+    );
+    assert.equal(canonicalSuggestionsList.status, 200, JSON.stringify(canonicalSuggestionsList.json));
+    assert.equal(canonicalSuggestionsList.json.canonical.items.length, analysis.json.item.reviewItems.suggestions.length);
+    assert.ok(
+      canonicalSuggestionsList.json.canonical.items.every((item) =>
+        analysis.json.item.reviewItems.storedSuggestionIds.includes(item.id)
+      )
+    );
+    assert.ok(
+      canonicalSuggestionsList.json.canonical.items.every((item) =>
+        existingAnalysis.json.item.items.some((artifact) => artifact.payload?.fieldSuggestionId === item.id && item.source_artifact_id === artifact.artifactId)
+      )
+    );
   }
 
   const localModelPreview = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/ai-analysis`, {
@@ -1457,10 +1500,13 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
 
   const fieldAnalysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}/ai-analysis`, {});
   assert.equal(fieldAnalysis.status, 200, JSON.stringify(fieldAnalysis.json));
+  const storedFieldSuggestionId = fieldAnalysis.json.item.reviewItems.storedSuggestionIds[0];
+  assert.ok(storedFieldSuggestionId);
   const fieldArtifact = fieldAnalysis.json.item.reviewItems.artifacts.find(
     (artifact) => artifact.type === "InsightCard" && artifact.payload?.fieldSuggestion?.target?.field === "thesis"
   );
   assert.ok(fieldArtifact, "expected a persisted thesis field suggestion artifact");
+  assert.equal(fieldArtifact.payload.fieldSuggestionId, storedFieldSuggestionId);
 
   const adoptedField = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion`, {
     confirm: true,
@@ -1475,6 +1521,34 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedField.json.note.thesis, fieldArtifact.payload.fieldSuggestion.content.thesis);
   assert.equal(adoptedField.json.note.distillationStatus, "draft");
   assert.deepEqual(adoptedField.json.note.authorship, { user_confirmed: false, ai_assisted: true });
+  assert.equal(adoptedField.json.suggestion.id, storedFieldSuggestionId);
+  assert.equal(adoptedField.json.suggestion.status, "adopted_as_draft");
+  assert.equal(adoptedField.json.suggestion.history[0].toStatus, "adopted_as_draft");
+  assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.status, "adopted_as_draft");
+  assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.target.field, "thesis");
+  assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.target.id, draftTarget.json.item.id);
+  assert.equal(adoptedField.json.artifact.payload.adoptedNoteId, draftTarget.json.item.id);
+
+  const adoptedFieldCanonicalDetail = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}?canonical=true`
+  );
+  assert.equal(adoptedFieldCanonicalDetail.status, 200, JSON.stringify(adoptedFieldCanonicalDetail.json));
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.field_suggestion_id, storedFieldSuggestionId);
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.status, "adopted_as_draft");
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.target.field, "thesis");
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.target.id, draftTarget.json.item.id);
+
+  const adoptedSuggestion = await getJson(
+    baseUrl,
+    `/api/v1/ai-suggestions/${encodeURIComponent(storedFieldSuggestionId)}?canonical=true`
+  );
+  assert.equal(adoptedSuggestion.status, 200, JSON.stringify(adoptedSuggestion.json));
+  assert.equal(adoptedSuggestion.json.item.status, "adopted_as_draft");
+  assert.equal(adoptedSuggestion.json.item.sourceArtifactId, fieldArtifact.id);
+  assert.equal(adoptedSuggestion.json.canonical.item.status, "adopted_as_draft");
+  assert.equal(adoptedSuggestion.json.canonical.item.source_artifact_id, fieldArtifact.id);
+  assert.equal(adoptedSuggestion.json.canonical.item.history[0].to_status, "adopted_as_draft");
 
   const adoptedNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}`);
   assert.equal(adoptedNote.status, 200, JSON.stringify(adoptedNote.json));
