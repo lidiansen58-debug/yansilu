@@ -67,7 +67,7 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
-import { deriveBasketWritingReadiness } from "./writing-readiness.js";
+import { deriveBasketWritingReadiness, describeProjectPreflight } from "./writing-readiness.js";
 import {
   scheduledTaskFormDefaults,
   scheduledTaskFromCanonical,
@@ -5596,6 +5596,7 @@ function renderWritingStatusStrip() {
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
   const projectPreflight = writingState.project?.preflight || null;
+  const projectPreflightSummary = describeProjectPreflight(projectPreflight);
   const projectPreflightWarnings = Number(projectPreflight?.warningCount || 0);
   const basketTone =
     readiness.level === "strong_model_ready" || readiness.level === "project_ready"
@@ -5607,14 +5608,14 @@ function renderWritingStatusStrip() {
           : "warn";
   const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectTone =
-    hasProject && projectPreflight?.status === "needs_attention"
+    hasProject && projectPreflightSummary.level === "needs_attention"
       ? "warn"
       : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
         ? "good"
         : "warn";
   const projectNote = hasProject
-    ? projectPreflight?.status === "needs_attention"
-      ? `${writingState.project.id}；仍有 ${projectPreflightWarnings} 项预检提醒`
+    ? projectPreflightSummary.level === "needs_attention"
+      ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : readiness.level === "basket_ready"
       ? "先补边界或关系，再决定是否建项目"
@@ -5624,11 +5625,11 @@ function renderWritingStatusStrip() {
           ? "先让材料变成可进入写作的永久笔记"
           : "先明确题目和读者";
   const strongModelTone =
-    readiness.level === "strong_model_ready" && projectPreflight?.status !== "needs_attention"
+    readiness.level === "strong_model_ready" && projectPreflightSummary.level !== "needs_attention"
       ? "good"
       : "warn";
   const strongModelNote =
-    projectPreflight?.status === "needs_attention"
+    projectPreflightSummary.level === "needs_attention"
       ? `先处理 ${projectPreflightWarnings} 项预检提醒，再做强模型分析。`
       : readiness.level === "strong_model_ready"
         ? "当前材料已经适合进入强模型分析。"
@@ -5703,6 +5704,7 @@ function renderWritingScaffoldPreview() {
   const sections = Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [];
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
+  const preflightSummary = describeProjectPreflight(preflight);
   const preflightChecks = Array.isArray(preflight?.checks) ? preflight.checks : [];
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
@@ -5720,7 +5722,7 @@ function renderWritingScaffoldPreview() {
         ? `<div>
             <h4>生成前检查</h4>
             <div class="writing-summary">
-              ${escapeHtml(preflight.status === "ready" ? "结构准备较完整" : `仍有 ${preflight.warningCount || 0} 项需要注意`)}
+              ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
             </div>
             <ul>
               ${preflightChecks

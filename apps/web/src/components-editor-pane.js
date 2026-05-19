@@ -5454,6 +5454,7 @@ export class EditorPane {
     const thesis = String(note?.thesis || "").trim();
     const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
     const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const writingInfo = this.noteWritingReadinessV2(note, overview);
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
@@ -5496,8 +5497,8 @@ export class EditorPane {
       };
     }
     return {
-      nextStep: "进入主题或写作准备",
-      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+      nextStep: writingInfo.status,
+      summary: writingInfo.hint
     };
   }
 

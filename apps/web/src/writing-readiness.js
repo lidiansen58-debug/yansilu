@@ -165,3 +165,26 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     actionLabel: "强模型分析"
   };
 }
+
+export function describeProjectPreflight(preflight = null) {
+  const warningCount = Number(preflight?.warningCount || 0);
+  if (!preflight) {
+    return {
+      level: "unknown",
+      status: "待检查",
+      hint: "先创建项目或生成骨架，才能看到更具体的写作预检结果。"
+    };
+  }
+  if (String(preflight.status || "").trim() === "ready") {
+    return {
+      level: "ready",
+      status: "结构准备较完整",
+      hint: "当前项目的写作预检已基本通过，可以继续生成骨架或做更强分析。"
+    };
+  }
+  return {
+    level: "needs_attention",
+    status: "仍有预检提醒",
+    hint: `当前项目还有 ${warningCount} 项需要注意，先补齐再继续推进会更稳。`
+  };
+}

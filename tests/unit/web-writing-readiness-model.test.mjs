@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   deriveBasketWritingReadiness,
-  deriveNoteWritingReadiness
+  deriveNoteWritingReadiness,
+  describeProjectPreflight
 } from "../../apps/web/src/writing-readiness.js";
 
 test("note writing readiness blocks notes without authorship confirmation", () => {
@@ -116,4 +117,24 @@ test("basket writing readiness becomes strong-model-ready once relation and them
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "strong_model_ready");
+});
+
+test("project preflight description reports ready status clearly", () => {
+  const summary = describeProjectPreflight({
+    status: "ready",
+    warningCount: 0
+  });
+
+  assert.equal(summary.level, "ready");
+  assert.match(summary.status, /结构准备较完整/);
+});
+
+test("project preflight description reports warning count when attention is still needed", () => {
+  const summary = describeProjectPreflight({
+    status: "needs_attention",
+    warningCount: 3
+  });
+
+  assert.equal(summary.level, "needs_attention");
+  assert.match(summary.hint, /3 项需要注意/);
 });
