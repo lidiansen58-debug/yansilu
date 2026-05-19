@@ -1162,6 +1162,120 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
 
+test("prototype main-path card refreshes relation state and does not leak stale relation status across note switches", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Relation Target\n\nThis note is the target for a loaded semantic relation."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Relation Source\n\nThis note should show a loaded relation in the main-path card."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const plain = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Plain Note\n\nThis note should not inherit the previous note relation state."
+  });
+  assert.equal(plain.status, 201, JSON.stringify(plain.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "This explicit relation should surface in the main-path card after relations load.",
+    insightQuestion: "Does the main-path card wait for explicit relations before deciding the next step?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Relation Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("[data-note-main-path-section]")?.textContent || "";
+    return text.includes("读取中") || text.includes("等关系加载完成");
+  });
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.match(String(text || ""), /已建 1|已连入 1/);
+  }, 10000);
+
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.doesNotMatch(String(text || ""), /已建 1|已连入 1/);
+    assert.match(String(text || ""), /待建立|待聚合|关系 0/);
+  }, 10000);
+});
+
+test("prototype main-path relation action opens create form and focuses relation target search", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Create Target\n\nThis target should appear in the create relation form."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Create Source\n\nThis note has no explicit relations yet."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Create Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await page.locator('[data-note-main-route-action="relations"]').click();
+
+  await page.locator("[data-create-relation-form]").waitFor();
+  await waitFor(async () => {
+    const focused = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active?.hasAttribute?.("data-relation-target-search") || active?.getAttribute?.("name") === "targetQuery";
+    });
+    assert.equal(focused, true);
+  }, 4000);
+
+  const highlighted = await page.evaluate(() =>
+    document.querySelector("[data-note-relations-section]")?.classList.contains("is-jump-target") || false
+  );
+  assert.equal(highlighted, true);
+
+  const createFormText = await page.locator("[data-create-relation-form]").textContent();
+  assert.match(String(createFormText || ""), /Main Path Create Target/);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

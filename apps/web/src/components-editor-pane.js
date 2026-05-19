@@ -4699,9 +4699,46 @@ export class EditorPane {
     `;
   }
 
+  relationCreateDefaultType(note = this.activeNote()) {
+    const body = String(note?.body || "").trim();
+    if (/反例|counterexample/i.test(body)) return "counterexample_to";
+    if (noteHasBoundarySignal(note)) return "qualifies";
+    if (/例如|比如|for example|for instance/i.test(body)) return "example_of";
+    const links = parseLinks(body);
+    const tags = parseTags(body);
+    if (links.length || tags.length) return "same_topic";
+    return "supports";
+  }
+
+  sortRelationTargetCandidates(candidates = [], note = this.activeNote()) {
+    const current = note || {};
+    const scoped = Array.isArray(candidates) ? candidates.slice() : [];
+    const resolvedForwardIds = new Set(
+      parseLinks(current.body || "")
+        .map((token) => this.resolveLinkToken(token, scoped))
+        .filter((item) => item?.note?.id)
+        .map((item) => item.note.id)
+    );
+    const currentTags = new Set(parseTags(current.body || "").map((tag) => normalizeText(tag)));
+    return scoped.sort((a, b) => {
+      const score = (candidate) => {
+        let value = 0;
+        if (resolvedForwardIds.has(candidate.id)) value += 100;
+        const candidateTags = Array.isArray(candidate?.tags) ? candidate.tags : parseTags(candidate?.body || "");
+        value += candidateTags.filter((tag) => currentTags.has(normalizeText(tag))).length * 10;
+        if (candidate.folderId && candidate.folderId === current.folderId) value += 4;
+        if (String(candidate.thesis || "").trim()) value += 2;
+        return value;
+      };
+      const diff = score(b) - score(a);
+      if (diff) return diff;
+      return String(a.title || a.id || "").localeCompare(String(b.title || b.id || ""), "zh-CN");
+    });
+  }
+
   renderRelationTargetOptions(candidates = [], selectedId = "") {
     const selected = String(selectedId || "").trim();
-    return candidates
+    return this.sortRelationTargetCandidates(candidates)
       .map((n) => {
         const meta = `${noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId))} · ${this.folderLabel(n.folderId)}`;
         return `<option value="${escapeHtml(n.id)}"${n.id === selected ? " selected" : ""}>${escapeHtml(n.title || n.id)} · ${escapeHtml(meta)}</option>`;
@@ -4711,8 +4748,9 @@ export class EditorPane {
 
   renderCreateRelationFormSection(noteId) {
     const candidates = this.scopedLinkCandidates();
+    const defaultType = this.relationCreateDefaultType(this.activeNote());
     const typeOptions = RELATION_CREATE_TYPES.map(
-      (type) => `<option value="${escapeHtml(type)}">${escapeHtml(relationTypeLabel(type))}</option>`
+      (type) => `<option value="${escapeHtml(type)}"${type === defaultType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
     const noteOptions = this.renderRelationTargetOptions(candidates);
 
@@ -5180,6 +5218,22 @@ export class EditorPane {
         hint: "已经出现带理由的连接，可以开始判断它在服务哪个主题。",
         badge: themeSignalCount || explicitRelationCount,
         badgeLabel: String(themeSignalCount || explicitRelationCount)
+      };
+    }
+    if (wikilinkCount > 0 && tagRelatedCount === 0) {
+      return {
+        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        badge: themeSignalCount || wikilinkCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount)
+      };
+    }
+    if (tagRelatedCount > 0 && wikilinkCount === 0) {
+      return {
+        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        badge: themeSignalCount || tagRelatedCount,
+        badgeLabel: String(themeSignalCount || tagRelatedCount)
       };
     }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
