@@ -4947,7 +4947,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮里已有 2 条永久笔记");
+    return text.includes("写作篮已有 2 条永久笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -4966,6 +4966,13 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(projectResultText || "", /Writing UI Project/);
   assert.match(projectResultText || "", /Writing UI claim/);
   assert.match(projectResultText || "", /Evidence UI map/);
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /已创建/);
+    assert.match(statusStripText || "", /强模型/);
+    assert.match(statusStripText || "", /先补条件|可分析/);
+  }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
   await page.waitForFunction(() => {
@@ -4984,6 +4991,13 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldPreviewText || "", /Confirmed distillation|提纯/);
   assert.match(scaffoldPreviewText || "", /Opening frame/);
   assert.match(scaffoldPreviewText || "", /Paragraph-Evidence Map/);
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /已创建/);
+    assert.match(statusStripText || "", /强模型/);
+    assert.match(statusStripText || "", /预检提醒|主题线索|可分析|先补条件/);
+  }, 10000);
 
   await page.click("#btnWritingCopyScaffold");
   await page.waitForFunction(() => {
@@ -5053,11 +5067,12 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("草稿：");
+    return text.includes("当前阶段：");
   });
 
   const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.match(writingSummaryText || "", /草稿：Writing UI Project 草稿/);
+  assert.match(writingSummaryText || "", /当前阶段：/);
+  assert.match(writingSummaryText || "", /主题入口：/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
     return text.includes("Writing UI Project");
