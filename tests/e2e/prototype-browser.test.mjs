@@ -4064,6 +4064,178 @@ test("prototype import confirm can create a writing project from created permane
   assert.match(titleValue || "", /Imported Project Seed/);
 });
 
+test("prototype import create-writing-project failure clears stale writing project context", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+  const recordId = "imp_browser_create_project_failure";
+  const createdAt = new Date().toISOString();
+
+  const existing = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Existing Writing Note\n\nThis note exists to create an older writing project context."
+  });
+  assert.equal(existing.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Existing Writing Note" }).click();
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.fill("#writingTitle", "Existing Writing Project");
+  await page.fill("#writingGoal", "Old goal");
+  await page.fill("#writingAudience", "Old audience");
+  await page.fill("#writingTone", "Old tone");
+  await page.click("#btnWritingUseCurrent");
+  await page.waitForFunction(() => {
+    const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "").split(/\s+/);
+    return basketIds.filter(Boolean).length === 1;
+  });
+  await page.click("#btnWritingCreateProject");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingResult")?.textContent || "";
+    return text.includes('"stage": "writing_project"') && text.includes('"writingProjectId": "wp_');
+  });
+  const oldSummary = await page.locator("#writingBasketSummary").textContent();
+  assert.match(oldSummary || "", /当前项目：wp_/);
+
+  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
+  await fs.writeFile(
+    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
+    JSON.stringify(
+      {
+        requestId: "browser_create_project_failure",
+        payload: {},
+        options: {},
+        preview: {
+          importRecordId: recordId,
+          connector: "markdown",
+          status: "preview",
+          state: "preview",
+          summary: { sources: 0, literatureNotes: 0, permanentNotes: 1, warnings: 0 },
+          samples: {
+            sourceIds: [],
+            literatureNoteIds: [],
+            permanentNoteIds: ["pn_browser_create_project_failure"]
+          },
+          warnings: [],
+          originalityGuard: {
+            plan: {
+              warnThreshold: 0.6,
+              blockThreshold: 0.8,
+              requireCitationLocator: true,
+              allowDraftOnWarning: true,
+              blockOnBlocked: true
+            },
+            flaggedPermanentIds: [],
+            evaluations: [
+              {
+                permanentId: "pn_browser_create_project_failure",
+                similarity: 0.12,
+                status: "pass",
+                reasons: []
+              }
+            ]
+          },
+          createdAt,
+          updatedAt: createdAt,
+          payload: {},
+          options: {}
+        },
+        candidates: {
+          sources: [],
+          literature: [],
+          permanent: [
+            {
+              id: "pn_browser_create_project_failure",
+              title: "Imported Failure Seed",
+              core_claim: "An imported permanent note that should replace the stale writing context.",
+              rationale: "",
+              from_literature_note_ids: [],
+              authorship: { user_confirmed: true, ai_assisted: false },
+              originality_status: "pass",
+              status: "active",
+              tags: ["permanent", "project"],
+              citations: [],
+              created_at: createdAt,
+              updated_at: createdAt,
+              connector: "markdown",
+              candidate_only: true
+            }
+          ],
+          warnings: []
+        }
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  let failNextCreateProject = true;
+  await page.route(`${apiBase}/api/v1/writing-projects`, async (route) => {
+    if (route.request().method() === "POST" && failNextCreateProject) {
+      failNextCreateProject = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json; charset=utf-8",
+        body: JSON.stringify({
+          error: "WRITING_PROJECT_CREATE_FAILED",
+          message: "Simulated create failure"
+        })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await openImportsModule(page);
+  await page.fill("#importRecordId", recordId);
+  await page.click("#btnImportRefresh");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "record"') && text.includes("Imported Failure Seed");
+  });
+
+  await page.click("#btnImportConfirm");
+  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
+  await page.locator('[data-import-writing-action="create-writing-project"]').click();
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingResult")?.textContent || "";
+    return text.includes('"stage": "writing_project_error"') && text.includes("Simulated create failure");
+  });
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
+    return text.includes("1 条永久笔记");
+  });
+
+  const newBasketIds = (await page.inputValue("#writingBasketNoteIds")).split(/\s+/).filter(Boolean);
+  assert.deepEqual(newBasketIds, ["pn_browser_create_project_failure"]);
+
+  const summaryText = await page.locator("#writingBasketSummary").textContent();
+  assert.doesNotMatch(summaryText || "", /当前项目：wp_/);
+  assert.match(summaryText || "", /尚未创建项目/);
+  assert.match(summaryText || "", /尚未生成 scaffold/);
+  assert.match(summaryText || "", /尚未绑定草稿/);
+
+  const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
+  assert.match(strongModelSummary || "", /尚未准备强模型分析/);
+
+  const titleValue = await page.inputValue("#writingTitle");
+  assert.match(titleValue || "", /Imported Failure Seed/);
+});
+
 test("prototype import panel renders actionable warning hints", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
