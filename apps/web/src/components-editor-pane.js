@@ -5099,7 +5099,7 @@ export class EditorPane {
     `;
   }
 
-  permanentNoteMainPathSummary(note, overview = {}) {
+  legacyPermanentNoteMainPathSummary(note, overview = {}) {
     const thesis = String(note?.thesis || "").trim();
     const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
     const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
@@ -5150,7 +5150,7 @@ export class EditorPane {
     };
   }
 
-  noteThemeSignalSummary(note, overview = {}) {
+  legacyNoteThemeSignalSummary(note, overview = {}) {
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
@@ -5198,7 +5198,7 @@ export class EditorPane {
     };
   }
 
-  renderPermanentNoteMainPathSection(note, overview = {}) {
+  legacyRenderPermanentNoteMainPathSection(note, overview = {}) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
@@ -5207,8 +5207,8 @@ export class EditorPane {
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const themeInfo = this.noteThemeSignalSummary(note, overview);
-    const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummary(note, overview);
+    const themeInfo = this.legacyNoteThemeSignalSummary(note, overview);
+    const { nextStep, summary: noteSummary } = this.legacyPermanentNoteMainPathSummary(note, overview);
     const relationCountLabel =
       relationState === "loading"
         ? "璇诲彇涓?"
@@ -5521,7 +5521,7 @@ export class EditorPane {
     `;
   }
 
-  buildMainPathOverview({ forward = [], backward = [], tagRelated = [], relations = null } = {}) {
+  legacyBuildMainPathOverview({ forward = [], backward = [], tagRelated = [], relations = null } = {}) {
     const outgoing = Array.isArray(relations?.outgoingLinks)
       ? relations.outgoingLinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
       : [];
