@@ -5432,7 +5432,7 @@ test("prototype writing center can save a theme index, edit central question, an
   assert.deepEqual(themedProject.related_index_ids, [themeCard.id]);
 });
 
-test("prototype writing center can create a project from a cold-start theme index before notes are preloaded", async (t) => {
+test("prototype writing center can create a project from a theme index after its notes were only preloaded as directory stubs", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -5506,6 +5506,9 @@ test("prototype writing center can create a project from a cold-start theme inde
   assert.equal(coldTheme.status, 201, JSON.stringify(coldTheme.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Cold Start Theme Claim" }).waitFor();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Cold Start Theme Tension" }).waitFor();
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Cold Start Theme Index" }).click();
   await page.waitForFunction(() => {

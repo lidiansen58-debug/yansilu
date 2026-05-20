@@ -2443,7 +2443,13 @@ function syncWritingResultFromCurrentState() {
 async function ensureNotesLoaded(noteIds) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
-    if (writingNoteById(noteId)) continue;
+    const existing = writingNoteById(noteId);
+    if (existing) {
+      if (!existing.bodyLoaded && !isLocalOnlyNote(existing)) {
+        await ensureNoteBodyLoaded(noteId);
+      }
+      continue;
+    }
     try {
       const fetched = await fetchNote(noteId);
       if (!fetched) continue;
