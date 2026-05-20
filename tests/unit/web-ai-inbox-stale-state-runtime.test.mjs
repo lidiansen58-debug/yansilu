@@ -48,6 +48,7 @@ test("loadAiInboxDetail ignores stale responses and keeps the latest selected ar
     detail: null,
     detailLoading: false,
     detailError: "",
+    actionError: "",
     detailRequestToken: 0
   };
 
@@ -108,6 +109,7 @@ test("loadAiInboxDetail clears stale errors after a successful retry and when se
     detail: { item: { artifactId: "artifact_old" } },
     detailLoading: false,
     detailError: "stale detail error",
+    actionError: "stale action error",
     detailRequestToken: 0
   };
 
@@ -137,12 +139,14 @@ test("loadAiInboxDetail clears stale errors after a successful retry and when se
   assert.equal(aiInboxState.selectedArtifactId, "artifact_retry");
   assert.equal(aiInboxState.detail?.item?.artifactId, "artifact_retry");
   assert.equal(aiInboxState.detailError, "");
+  assert.equal(aiInboxState.actionError, "");
   assert.equal(aiInboxState.detailLoading, false);
 
   await loadAiInboxDetail("");
   assert.equal(aiInboxState.selectedArtifactId, "");
   assert.equal(aiInboxState.detail, null);
   assert.equal(aiInboxState.detailError, "");
+  assert.equal(aiInboxState.actionError, "");
   assert.equal(aiInboxState.detailLoading, false);
 });
 
@@ -174,7 +178,8 @@ test("applyAiInboxSuggestionStatus is a no-op while another inbox action is alre
         item: { artifactId: "artifact_1" },
         suggestion: { id: "suggestion_1", status: "edited", content: { thesis: "x" } }
       },
-      actionLoading: true
+      actionLoading: true,
+      actionError: "stale action error"
     },
     async () => {
       calls.push("adopt");
@@ -213,6 +218,7 @@ test("refreshAiInbox invalidates stale detail state when a list refresh switches
     detail: { item: { artifactId: "artifact_1", title: "Old detail" } },
     detailLoading: true,
     detailError: "stale detail error",
+    actionError: "stale action error",
     detailRequestToken: 4,
     aiSummary: "stale summary",
     aiSummaryMeta: "stale meta",
@@ -259,11 +265,271 @@ test("refreshAiInbox invalidates stale detail state when a list refresh switches
   assert.equal(aiInboxState.detail, null);
   assert.equal(aiInboxState.detailLoading, false);
   assert.equal(aiInboxState.detailError, "");
+  assert.equal(aiInboxState.actionError, "");
   assert.equal(aiInboxState.detailRequestToken, 5);
   assert.equal(aiInboxState.aiSummary, "");
   assert.equal(aiInboxState.aiSummaryMeta, "");
   assert.equal(aiInboxState.aiSummaryRecommendedAction, "");
   assert.equal(aiInboxState.aiSummaryError, "");
+});
+
+test("refreshAiInbox invalidates stale detail state when the selected artifact metadata changes", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
+
+  const aiInboxState = {
+    filters: { view: "pending", type: "all" },
+    items: [{ artifactId: "artifact_1", title: "Old selection", status: "pending_review", updatedAt: "2026-05-18T12:00:00.000Z" }],
+    counts: {},
+    views: [],
+    loading: false,
+    error: "stale detail error",
+    selectedArtifactId: "artifact_1",
+    detail: {
+      item: {
+        artifactId: "artifact_1",
+        title: "Old detail",
+        status: "pending_review",
+        actionState: "needs_review",
+        updatedAt: "2026-05-18T12:00:00.000Z",
+        decisionCount: 0
+      }
+    },
+    detailLoading: true,
+    detailError: "stale detail error",
+    actionError: "stale action error",
+    detailRequestToken: 8,
+    aiSummary: "stale summary",
+    aiSummaryMeta: "stale meta",
+    aiSummaryRecommendedAction: "ignore",
+    aiSummaryError: "stale summary error"
+  };
+
+  const refreshAiInbox = new Function(
+    "aiInboxState",
+    "normalizeAiInboxFilters",
+    "fetchAiInbox",
+    "aiInboxItemFromCanonical",
+    "rememberAiDebugSnapshot",
+    "resetAiInboxSummaryState",
+    "renderAiInboxWorkspace",
+    "setStatus",
+    `${fnSource}; return refreshAiInbox;`
+  )(
+    aiInboxState,
+    (filters) => filters,
+    async () => ({
+      items: [{ artifactId: "artifact_1", title: "Old selection", status: "ignored", actionState: "reviewed", updatedAt: "2026-05-18T12:05:00.000Z", decisionCount: 1 }],
+      counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
+      views: ["pending", "reviewed"],
+      canonical: {
+        items: [{
+          artifact_id: "artifact_1",
+          title: "Old selection",
+          status: "ignored",
+          action_state: "reviewed",
+          updated_at: "2026-05-18T12:05:00.000Z",
+          decision_count: 1
+        }]
+      }
+    }),
+    (item) => ({
+      artifactId: item.artifact_id,
+      title: item.title,
+      status: item.status,
+      actionState: item.action_state,
+      updatedAt: item.updated_at,
+      decisionCount: item.decision_count
+    }),
+    () => {},
+    () => {
+      aiInboxState.aiSummary = "";
+      aiInboxState.aiSummaryMeta = "";
+      aiInboxState.aiSummaryRecommendedAction = "";
+      aiInboxState.aiSummaryError = "";
+    },
+    () => {},
+    () => {}
+  );
+
+  await refreshAiInbox({ silent: true });
+
+  assert.equal(aiInboxState.selectedArtifactId, "artifact_1");
+  assert.equal(aiInboxState.detail, null);
+  assert.equal(aiInboxState.detailLoading, false);
+  assert.equal(aiInboxState.detailError, "");
+  assert.equal(aiInboxState.actionError, "");
+  assert.equal(aiInboxState.detailRequestToken, 9);
+  assert.equal(aiInboxState.aiSummary, "");
+  assert.equal(aiInboxState.aiSummaryMeta, "");
+  assert.equal(aiInboxState.aiSummaryRecommendedAction, "");
+  assert.equal(aiInboxState.aiSummaryError, "");
+});
+
+test("recordAiInboxReviewDecision stores action failures separately from detail state", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
+
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: { item: { artifactId: "artifact_1" } },
+    actionLoading: false,
+    actionError: "old action error",
+    detailError: "old detail error"
+  };
+
+  const recordDecision = new Function(
+    "$",
+    "aiInboxState",
+    "recordAiInboxDecision",
+    "aiInboxFeedbackFromUi",
+    "aiInboxDetailFromResponse",
+    "rememberAiDebugSnapshot",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "aiInboxActionLabel",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return recordAiInboxReviewDecision;`
+  )(
+    () => ({ value: "" }),
+    aiInboxState,
+    async () => {
+      throw new Error("decision boom");
+    },
+    () => ({}),
+    (response) => response,
+    () => {},
+    async () => {},
+    async () => {},
+    () => "handled",
+    () => {},
+    () => {}
+  );
+
+  const result = await recordDecision("accepted");
+  assert.equal(result, null);
+  assert.equal(aiInboxState.actionError, "decision boom");
+  assert.equal(aiInboxState.detailError, "old detail error");
+  assert.equal(aiInboxState.actionLoading, false);
+});
+
+test("applyAiInboxSuggestionStatus stores action failures separately from detail state", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
+
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: {
+      item: { artifactId: "artifact_1" },
+      suggestion: { id: "suggestion_1", status: "edited", content: { thesis: "x" } }
+    },
+    actionLoading: false,
+    actionError: "old action error",
+    detailError: "old detail error"
+  };
+
+  const applyAiInboxSuggestionStatus = new Function(
+    "$",
+    "aiInboxState",
+    "adoptAiInboxFieldSuggestionDraft",
+    "aiInboxSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "loadAiInboxDetail",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return applyAiInboxSuggestionStatus;`
+  )(
+    () => ({ value: "" }),
+    aiInboxState,
+    async () => {},
+    () => ({ thesis: "x" }),
+    async () => {
+      throw new Error("suggestion action boom");
+    },
+    async () => {},
+    async () => {},
+    async () => {},
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiInboxSuggestionStatus("confirmed");
+  assert.equal(result, null);
+  assert.equal(aiInboxState.actionError, "suggestion action boom");
+  assert.equal(aiInboxState.detailError, "old detail error");
+  assert.equal(aiInboxState.actionLoading, false);
+});
+
+test("applyAiInboxSuggestionStatus reports invalid reviewed content through actionError without starting submit", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
+
+  let updateCalls = 0;
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: {
+      item: { artifactId: "artifact_1" },
+      suggestion: { id: "suggestion_1", status: "edited", content: { thesis: "x" } }
+    },
+    actionLoading: false,
+    actionError: "old action error",
+    detailError: "old detail error"
+  };
+
+  const applyAiInboxSuggestionStatus = new Function(
+    "$",
+    "aiInboxState",
+    "adoptAiInboxFieldSuggestionDraft",
+    "aiInboxSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "loadAiInboxDetail",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return applyAiInboxSuggestionStatus;`
+  )(
+    () => ({ value: "{not valid json}" }),
+    aiInboxState,
+    async () => {},
+    () => {
+      throw new Error("Reviewed suggestion content in AI inbox must be valid JSON before it can be marked edited or confirmed");
+    },
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    async () => {},
+    async () => {},
+    async () => {},
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiInboxSuggestionStatus("confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.equal(aiInboxState.detailError, "old detail error");
+  assert.equal(
+    aiInboxState.actionError,
+    "Reviewed suggestion content in AI inbox must be valid JSON before it can be marked edited or confirmed"
+  );
+  assert.equal(aiInboxState.actionLoading, false);
 });
 
 test("runAiInboxSummary ignores stale failures and keeps the latest summary state", async () => {

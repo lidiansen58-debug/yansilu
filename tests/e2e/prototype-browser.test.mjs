@@ -175,6 +175,16 @@ async function currentStatusText(page) {
   return page.locator("#statusText").textContent().catch(() => "");
 }
 
+async function waitForPrototypeReady(page) {
+  await waitFor(async () => {
+    assert.equal(await page.locator("#statusText").isVisible(), true);
+    assert.equal(
+      await page.evaluate(() => Boolean(window.__prototypeState && typeof window.__prototypeState === "object")),
+      true
+    );
+  }, 10000);
+}
+
 async function chooseToolbarCommand(page, command) {
   await page.locator("#btnToolbarCommandSearch").click();
   const item = page.locator(`[data-toolbar-command="${command}"]`);
@@ -240,18 +250,20 @@ async function startPrototypeStack(t, playwright, options = {}) {
   }
 
   t.after(async () => {
-    if (browser) await browser.close();
-  });
+      if (browser) await browser.close();
+    });
 
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
   if (typeof options.beforeGoto === "function") await options.beforeGoto(page);
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.goto(`${webBase}/prototype`, { waitUntil: "domcontentloaded" });
+  await waitForPrototypeReady(page);
 
   return { apiBase, webBase, vaultPath, browser, page };
 }
 
 async function reloadPrototype(page, webBase) {
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.goto(`${webBase}/prototype`, { waitUntil: "domcontentloaded" });
+  await waitForPrototypeReady(page);
 }
 
 async function openPaperWorkspace(page, webBase) {
@@ -6534,6 +6546,58 @@ test("prototype AI inbox reviewed detail can mark an adopted draft edited and th
     assert.match(String(detailText || ""), /Confirmed/);
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(editedThesis)));
   }, 8000);
+});
+
+test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox invalid reviewed JSON target",
+    body: "This adopted draft should reject invalid reviewed JSON from the AI inbox detail."
+  });
+  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
+
+  let patchCount = 0;
+  await page.route(`${apiBase}/api/v1/ai-suggestions/${fixture.suggestionId}?canonical=true`, async (route, request) => {
+    if (request.method() === "PATCH") patchCount += 1;
+    await route.continue();
+  });
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
+
+  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await reviewedItem.waitFor();
+  await reviewedItem.click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
+  }, 8000);
+
+  await page.locator("#aiInboxSuggestionContentEditor").fill("{not valid json}");
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /must be valid JSON/i);
+  }, 8000);
+
+  assert.equal(patchCount, 0);
+  const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+  assert.equal(suggestion.status, 200);
+  assert.equal(suggestion.json.item.status, "adopted_as_draft");
 });
 
 test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable", async (t) => {

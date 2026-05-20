@@ -437,6 +437,12 @@ function renderSuggestionReviewActions(detail = {}, actionLoading = false) {
     </div>
   `;
 }
+
+function renderActionError(message = "") {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  return `<div class="ai-inbox-empty is-bad">AI inbox review failed: ${escapeHtml(text)}</div>`;
+}
 function renderFeedbackControls() {
   return `
     <div class="ai-inbox-feedback-controls">
@@ -693,6 +699,7 @@ function renderDetail(state = {}) {
       ${renderSuggestionProvenance(activeDetail)}
       ${renderSuggestionHistory(activeDetail)}
       ${renderSuggestionReviewActions(activeDetail, actionDisabled)}
+      ${renderActionError(state.actionError)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}
