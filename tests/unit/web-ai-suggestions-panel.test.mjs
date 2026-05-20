@@ -47,6 +47,26 @@ test("AI suggestions panel renders edited action for adopted draft suggestions",
   assert.match(html, /edit the adopted draft in the note itself/i);
 });
 
+test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_missing_target", target: { type: "permanent_note", id: "", field: "" }, sourceArtifactId: "" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_missing_target",
+    detail: {
+      ...suggestion,
+      id: "suggestion_missing_target",
+      target: { type: "permanent_note", id: "", field: "" },
+      sourceArtifactId: ""
+    }
+  });
+
+  assert.match(html, /Trace/);
+  assert.match(html, /Trace placeholder:/);
+  assert.match(html, /missing target note/);
+  assert.match(html, /does not point to a target note yet/i);
+  assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
+});
+
 test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, status: "edited" }],

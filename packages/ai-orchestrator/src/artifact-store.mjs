@@ -116,6 +116,11 @@ export function createInMemoryArtifactStore() {
     countArtifacts(filter = {}) {
       return [...artifacts.values()].filter((artifact) => matchesFilter(artifact, filter)).length;
     },
+    replaceArtifact(input = {}, context = {}) {
+      const artifact = normalizeArtifact(input, context);
+      artifacts.set(artifact.id, clone(artifact));
+      return getArtifact(artifact.id);
+    },
     updateArtifact(artifactId, updates = {}) {
       const id = cleanText(artifactId || updates.artifactId || updates.artifact_id);
       const artifact = artifacts.get(id);

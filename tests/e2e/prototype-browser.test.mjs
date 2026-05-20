@@ -250,6 +250,104 @@ async function startPrototypeStack(t, playwright, options = {}) {
   return { apiBase, webBase, vaultPath, browser, page };
 }
 
+async function reloadPrototype(page, webBase) {
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+}
+
+async function createAiFieldSuggestionFixture(baseUrl, options = {}) {
+  const title = String(options.title || "AI review fixture").trim();
+  const body =
+    String(options.body || "This note should produce a reviewable thesis suggestion for browser coverage.").trim();
+  const created = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    title,
+    noteType: "permanent",
+    body: `# ${title}\n\n${body}`
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+
+  const analysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(created.json.item.id)}/ai-analysis`, {});
+  assert.equal(analysis.status, 200, JSON.stringify(analysis.json));
+
+  const suggestionId = analysis.json.item.reviewItems.storedSuggestionIds[0];
+  assert.ok(suggestionId, "expected a stored suggestion id");
+
+  const artifact = analysis.json.item.reviewItems.artifacts.find(
+    (item) =>
+      item.type === "InsightCard" &&
+      (item.payload?.fieldSuggestionId === suggestionId || item.payload?.fieldSuggestion?.id === suggestionId)
+  );
+  assert.ok(artifact, "expected an InsightCard artifact linked to the stored suggestion");
+
+  return {
+    noteId: created.json.item.id,
+    noteTitle: title,
+    artifactId: artifact.id,
+    suggestionId,
+    targetField: artifact.payload?.fieldSuggestion?.target?.field || "thesis",
+    suggestedContent: artifact.payload?.fieldSuggestion?.content || {}
+  };
+}
+
+async function adoptSuggestionAsDraftViaApi(baseUrl, fixture, options = {}) {
+  const adopted = await postJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(fixture.artifactId)}/adopt-field-suggestion`,
+    {
+      confirm: true,
+      comment: String(options.comment || "Adopted through test setup.")
+    }
+  );
+  assert.equal(adopted.status, 200, JSON.stringify(adopted.json));
+  assert.equal(adopted.json.item.status, "adopted_as_draft");
+  return adopted.json;
+}
+
+async function openAiInboxModule(page) {
+  await page.locator('.rail-btn[data-module="aiInbox"]').click();
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "aiInbox");
+    assert.equal(await page.locator("#aiInboxPanel").isVisible(), true);
+  }, 5000);
+}
+
+async function openSettingsModule(page) {
+  await page.locator('.rail-btn[data-module="settings"]').click();
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "settings");
+    assert.equal(await page.locator("#settingsPanel").isVisible(), true);
+  }, 5000);
+}
+
+function noteFieldKey(field = "") {
+  return String(field || "").trim() === "three_line_summary" ? "threeLineSummary" : String(field || "").trim() || "thesis";
+}
+
+function suggestionFieldValue(content = {}, field = "") {
+  const direct = content?.[field];
+  if (direct !== undefined) return direct;
+  const normalizedField = noteFieldKey(field);
+  return content?.[normalizedField];
+}
+
+async function filterAiInboxBySourceNote(page, sourceNoteId) {
+  await waitFor(async () => {
+    const input = page.locator("#aiInboxSourceNoteFilter");
+    await input.fill(sourceNoteId);
+    assert.equal(await input.inputValue(), sourceNoteId);
+  }, 8000);
+  await page.locator("#btnAiInboxApplyFilters").click();
+}
+
+async function filterAiSuggestionsByTarget(page, targetId) {
+  await waitFor(async () => {
+    const input = page.locator("#aiSuggestionTargetIdFilter");
+    await input.fill(targetId);
+    assert.equal(await input.inputValue(), targetId);
+  }, 8000);
+  await page.locator("#btnAiSuggestionsApplyFilters").click();
+}
+
 test("prototype desktop updater check no-ops cleanly when no update is available", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -6219,4 +6317,388 @@ test("prototype explorer note context move and delete update disk state", async 
   }, 8000);
 
   await assert.rejects(fs.access(movedMarkdownPath));
+});
+
+test("prototype AI inbox field suggestion flow adopts a suggestion as draft and updates the target note", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox review target",
+    body: "The inbox review flow should only advance after explicit user action."
+  });
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+
+  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await item.waitFor();
+  await item.click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.suggestionId)));
+  }, 8000);
+
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="adopted_as_draft"]').click();
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
+    assert.equal(note.status, 200);
+    assert.equal(
+      note.json.item[noteFieldKey(fixture.targetField)],
+      suggestionFieldValue(fixture.suggestedContent, fixture.targetField)
+    );
+  }, 8000);
+
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "explorer");
+  }, 8000);
+});
+
+test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox reviewed detail target",
+    body: "This adopted draft should be edited and confirmed from the reviewed AI inbox detail."
+  });
+  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
+  const editedThesis = "Inbox browser review changed this thesis before final confirmation.";
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+  await waitFor(async () => {
+    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
+    assert.notEqual(reviewedCount, "0");
+  }, 8000);
+  await page.evaluate(() => {
+    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
+    if (!button) throw new Error("missing reviewed tab");
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+  await waitFor(async () => {
+    const present = await page.evaluate((artifactId) => Boolean(document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`)), fixture.artifactId);
+    assert.equal(present, true);
+  }, 8000);
+  await page.evaluate((artifactId) => {
+    const item = document.querySelector(`#aiInboxPanel [data-ai-inbox-artifact-id="${artifactId}"]`);
+    if (!item) throw new Error(`missing reviewed inbox item: ${artifactId}`);
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  }, fixture.artifactId);
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Adopted as draft/);
+  }, 8000);
+
+  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="edited"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "edited");
+    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
+  }, 8000);
+
+  await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="confirmed"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "confirmed");
+    assert.equal(suggestionFieldValue(suggestion.json.item.content, fixture.targetField), editedThesis);
+    assert.equal(suggestion.json.canonical.latest_review_event.event_type, "confirmed");
+  }, 8000);
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Confirmed/);
+    assert.match(String(detailText || ""), new RegExp(escapeRegExp(editedThesis)));
+  }, 8000);
+});
+
+test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox reject target",
+    body: "This suggestion should be rejected from the AI inbox detail view."
+  });
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+
+  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await item.waitFor();
+  await item.click();
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "rejected");
+  }, 8000);
+
+  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
+  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await reviewedItem.waitFor();
+  await reviewedItem.click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Rejected/);
+  }, 8000);
+
+  const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(fixture.artifactId)}?canonical=true`);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.json.canonical.artifact.status, "ignored");
+  assert.equal(detail.json.canonical.suggestion.status, "rejected");
+});
+
+test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox reject refresh target",
+    body: "This suggestion should remain inspectable after reject plus refresh."
+  });
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+
+  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await item.waitFor();
+  await item.click();
+  await page.locator('#aiInboxPanel .ai-inbox-detail-pane [data-ai-inbox-suggestion-status="rejected"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "rejected");
+  }, 8000);
+
+  await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"]').click();
+  await page.locator("#btnAiInboxRefresh").click();
+
+  const reviewedItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await reviewedItem.waitFor();
+  await reviewedItem.click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Rejected/);
+    assert.doesNotMatch(String(detailText || ""), /加载失败/);
+  }, 8000);
+
+  const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(fixture.artifactId)}?canonical=true`);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.json.canonical.artifact.status, "ignored");
+  assert.equal(detail.json.canonical.suggestion.status, "rejected");
+});
+
+test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const editableFixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Settings editable target",
+    body: "This suggestion should be edited and then confirmed from settings."
+  });
+  await adoptSuggestionAsDraftViaApi(apiBase, editableFixture);
+
+  const rejectFixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Settings reject target",
+    body: "This suggestion should be rejected from settings."
+  });
+  const editedThesis = "Settings browser review produced the final user-owned thesis.";
+
+  await reloadPrototype(page, webBase);
+  await openSettingsModule(page);
+
+  await filterAiSuggestionsByTarget(page, editableFixture.noteId);
+  const editableRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${editableFixture.suggestionId}"]`);
+  await editableRow.waitFor();
+  await editableRow.click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
+    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Adopted as draft/);
+  }, 8000);
+
+  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
+  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "edited");
+    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
+  }, 8000);
+
+  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
+  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(editableFixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "confirmed");
+    assert.equal(suggestionFieldValue(suggestion.json.item.content, editableFixture.targetField), editedThesis);
+  }, 8000);
+
+  await filterAiSuggestionsByTarget(page, rejectFixture.noteId);
+  const rejectRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${rejectFixture.suggestionId}"]`);
+  await rejectRow.waitFor();
+  await rejectRow.click();
+  await page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="rejected"]').click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(rejectFixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "rejected");
+  }, 8000);
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), /Rejected/);
+  }, 8000);
+});
+
+test("prototype settings AI suggestions guards stale detail selection and duplicate review submits", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const slowFixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Settings stale selection slow target",
+    body: "The first detail request should resolve too late and must not overwrite the second selection."
+  });
+  const fastFixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Settings stale selection fast target",
+    body: "The second detail request should win and stay visible."
+  });
+  await adoptSuggestionAsDraftViaApi(apiBase, slowFixture);
+  await adoptSuggestionAsDraftViaApi(apiBase, fastFixture);
+
+  let delayedSlowDetail = false;
+  await page.route(`${apiBase}/api/v1/ai-suggestions/${slowFixture.suggestionId}?canonical=true`, async (route) => {
+    if (!delayedSlowDetail) {
+      delayedSlowDetail = true;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    await route.continue();
+  });
+
+  let editRequestCount = 0;
+  await page.route(`${apiBase}/api/v1/ai-suggestions/${fastFixture.suggestionId}?canonical=true`, async (route, request) => {
+    if (request.method() === "PATCH") {
+      editRequestCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    await route.continue();
+  });
+
+  await reloadPrototype(page, webBase);
+  await openSettingsModule(page);
+
+  const slowRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${slowFixture.suggestionId}"]`);
+  const fastRow = page.locator(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${fastFixture.suggestionId}"]`);
+  await slowRow.waitFor();
+  await fastRow.waitFor();
+
+  await slowRow.click();
+  await fastRow.click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fastFixture.noteId)));
+    assert.doesNotMatch(String(detailText || ""), new RegExp(escapeRegExp(slowFixture.noteId)));
+  }, 8000);
+
+  await page.locator("#aiSuggestionContentEditor").fill(JSON.stringify({ thesis: "Duplicate click should still submit once." }, null, 2));
+  const editButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="edited"]');
+  const firstClick = editButton.click();
+
+  await waitFor(async () => {
+    assert.equal(await editButton.isDisabled(), true);
+  }, 4000);
+
+  await editButton.click({ timeout: 250 }).catch(() => {});
+  await firstClick;
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fastFixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "edited");
+    assert.equal(
+      suggestion.json.item.history.filter((entry) => entry.toStatus === "edited").length,
+      1
+    );
+  }, 8000);
+
+  assert.equal(editRequestCount, 1);
 });

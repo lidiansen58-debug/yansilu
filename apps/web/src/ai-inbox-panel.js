@@ -281,24 +281,40 @@ function suggestionStatusTone(status = "") {
 function renderSuggestionTrace(detail = {}) {
   const suggestion = detail.suggestion || null;
   const trace = detail.trace || {};
+  const artifact = detail.artifact || null;
+  const payload = artifact?.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const suggestionId = suggestion?.id || trace.suggestionId || "";
   const sourceArtifactId = suggestion?.sourceArtifactId || trace.sourceArtifactId || "";
   const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
   const targetNoteId = suggestion?.target?.id || trace.targetNoteId || "";
   const targetField = suggestion?.target?.field || trace.targetField || "";
   const status = suggestion?.status || trace.suggestionStatus || "";
-  if (!suggestionId && !sourceArtifactId && !targetNoteId) return "";
+  const hasLinkedSuggestionContext =
+    Boolean(suggestion) ||
+    Boolean(trace && Object.keys(trace).length) ||
+    Boolean(payload.fieldSuggestionId || payload.field_suggestion_id || payload.fieldSuggestion || payload.field_suggestion);
+  if (!hasLinkedSuggestionContext) return "";
+  const tracePlaceholder =
+    !suggestionId && !sourceArtifactId && !targetNoteId
+      ? `<div class="ai-inbox-detail-muted">Trace placeholder: this artifact can participate in suggestion review, but the linked trace record is not available yet.</div>`
+      : "";
+  const targetHint = targetNoteId
+    ? ""
+    : `<div class="ai-inbox-detail-muted">This suggestion is not linked to a target note yet, so there is nothing to open or confirm in-note.</div>`;
+  const sourceText = sourceNoteIds.join(", ") || trace.primarySourceNoteId || "not recorded";
   return `
     <section class="ai-inbox-detail-section">
       <h3>Suggestion trace</h3>
+      ${tracePlaceholder}
       <dl class="ai-inbox-kv">
-        <dt>Suggestion</dt><dd>${escapeHtml(suggestionId || "none")}</dd>
-        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "none")}</dd>
-        <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "none")}</dd>
-        <dt>Target field</dt><dd>${escapeHtml(targetField || "none")}</dd>
-        <dt>Status</dt><dd>${escapeHtml(suggestionStatusLabel(status))}</dd>
-        <dt>Source notes</dt><dd>${escapeHtml(sourceNoteIds.join(", ") || trace.primarySourceNoteId || "none")}</dd>
+        <dt>Suggestion</dt><dd>${escapeHtml(suggestionId || "not linked")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
+        <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
+        <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(status ? suggestionStatusLabel(status) : "not recorded")}</dd>
+        <dt>Source notes</dt><dd>${escapeHtml(sourceText)}</dd>
       </dl>
+      ${targetHint}
       <div class="ai-inbox-actions">
         <button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(targetNoteId)}" ${targetNoteId ? "" : "disabled"}>
           Open target note
@@ -615,8 +631,13 @@ function renderDecisions(decisions = []) {
 
 function renderDetail(state = {}) {
   const detail = state.detail || {};
-  const item = detail.item || selectedAiInboxItem(state.items, state.selectedArtifactId) || {};
-  const artifact = detail.artifact || null;
+  const selectedArtifactId = String(state.selectedArtifactId || "").trim();
+  const selectedListItem = selectedAiInboxItem(state.items, state.selectedArtifactId) || {};
+  const detailArtifactId = String(detail.item?.artifactId || detail.artifact?.id || "").trim();
+  const detailMatchesSelection = Boolean(detailArtifactId) && detailArtifactId === selectedArtifactId;
+  const activeDetail = detailMatchesSelection ? detail : {};
+  const item = activeDetail.item || selectedListItem || {};
+  const artifact = activeDetail.artifact || null;
 
   if (state.detailLoading) {
     return `<div class="ai-inbox-empty">正在读取建议详情...</div>`;
@@ -667,11 +688,11 @@ function renderDetail(state = {}) {
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
       ${renderFieldSuggestionAction(activeArtifact)}
-      ${renderSuggestionTrace(detail)}
-      ${renderReviewedSuggestionContent(detail)}
-      ${renderSuggestionProvenance(detail)}
-      ${renderSuggestionHistory(detail)}
-      ${renderSuggestionReviewActions(detail, actionDisabled)}
+      ${renderSuggestionTrace(activeDetail)}
+      ${renderReviewedSuggestionContent(activeDetail)}
+      ${renderSuggestionProvenance(activeDetail)}
+      ${renderSuggestionHistory(activeDetail)}
+      ${renderSuggestionReviewActions(activeDetail, actionDisabled)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}

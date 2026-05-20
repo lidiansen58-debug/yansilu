@@ -197,6 +197,35 @@ test("AI inbox panel surfaces suggestion traceability and review history inside 
   assert.match(html, /data-ai-inbox-open-note="pn_1"/);
 });
 
+test("AI inbox panel renders trace placeholders and target-missing guidance when linked trace is incomplete", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_field_placeholder", type: "InsightCard", title: "Field suggestion placeholder" }],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_field_placeholder",
+    detail: {
+      item: { ...item, artifactId: "artifact_field_placeholder", type: "InsightCard", title: "Field suggestion placeholder" },
+      artifact: {
+        ...artifact,
+        id: "artifact_field_placeholder",
+        type: "InsightCard",
+        title: "Field suggestion placeholder",
+        payload: {
+          fieldSuggestionId: "suggestion_field_placeholder",
+          fieldSuggestion: {
+            status: "suggested"
+          }
+        }
+      },
+      trace: {}
+    }
+  });
+
+  assert.match(html, /Trace placeholder:/);
+  assert.match(html, /missing target note/);
+  assert.match(html, /This suggestion is not linked to a target note yet/);
+  assert.match(html, /data-ai-inbox-open-note=""[\s\S]*disabled/);
+});
+
 test("AI inbox panel advances suggestion review actions from edited to confirmed", () => {
   const html = renderAiInboxPanel({
     items: [{ ...item, artifactId: "artifact_field_confirm", type: "InsightCard", title: "Field suggestion confirm" }],
@@ -244,6 +273,34 @@ test("AI inbox panel advances suggestion review actions from edited to confirmed
   assert.match(html, /Confirm/);
   assert.match(html, /Reviewed content/);
 });
+
+test("AI inbox panel does not keep rendering stale detail when selection has moved", () => {
+  const html = renderAiInboxPanel({
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { pending: 2 },
+    selectedArtifactId: "artifact_b",
+    detail: {
+      item: { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      artifact: { ...artifact, id: "artifact_a", title: "Selected artifact A" },
+      suggestion: {
+        id: "suggestion_stale_a",
+        target: { type: "permanent_note", id: "pn_a", field: "thesis" },
+        scope: "note_field",
+        content: { thesis: "Should not leak from stale detail." },
+        status: "adopted_as_draft"
+      }
+    }
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /Selected artifact A/);
+  assert.match(detailPane, /Selected artifact B/);
+  assert.doesNotMatch(detailPane, /Should not leak from stale detail/);
+});
+
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
   const html = renderAiInboxPanel({
     items: [item],

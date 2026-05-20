@@ -1829,6 +1829,7 @@ async function rejectSuggestionAndLinkedArtifactAtomically({
   body = {}
 } = {}) {
   if (!suggestionStore?.dbPath || !artifactStore?.dbPath || !sourceArtifact?.id) {
+    const originalArtifact = artifactStore.getArtifact(sourceArtifact.id);
     const storedSuggestion = suggestionStore.replace(nextSuggestion, { allowReviewedCreate: true });
     try {
       let syncedArtifact = artifactStore.updateArtifact(sourceArtifact.id, {
@@ -1843,6 +1844,20 @@ async function rejectSuggestionAndLinkedArtifactAtomically({
       return { item: storedSuggestion, artifact: syncedArtifact };
     } catch (error) {
       suggestionStore.replace(suggestion, { allowReviewedCreate: true });
+      if (originalArtifact) {
+        try {
+          if (typeof artifactStore.replaceArtifact === "function") {
+            artifactStore.replaceArtifact(originalArtifact);
+          } else {
+            artifactStore.updateArtifact(sourceArtifact.id, {
+              status: originalArtifact.status,
+              payload: originalArtifact.payload,
+              provenance: originalArtifact.provenance,
+              updatedAt: originalArtifact.updatedAt
+            });
+          }
+        } catch {}
+      }
       throw error;
     }
   }
@@ -2823,12 +2838,24 @@ const server = http.createServer(async (req, res) => {
         const store = await aiSuggestionStore();
         const item = store.get(aiSuggestionId);
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
+        const sourceArtifact = await sourceArtifactForSuggestion(item);
+        const reviewEvents = suggestionReviewEventsFromSuggestion(item);
+        const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
+        const trace = suggestionTraceFromRecord(item, sourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
+          reviewEvents,
+          latestReviewEvent,
+          trace,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
-          item: suggestionToCanonical(item)
+          item: suggestionToCanonical(item),
+          review_events: suggestionReviewEventsToCanonical(item),
+          latest_review_event: latestReviewEvent
+            ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)
+            : null,
+          trace: suggestionTraceToCanonical(trace)
         } : null));
       } catch (error) {
         return sendJson(res, 400, err(error?.code || "AI_SUGGESTION_LOAD_FAILED", String(error?.message || error), rid, error?.details));
@@ -3150,14 +3177,31 @@ const server = http.createServer(async (req, res) => {
         if (!artifact) return sendJson(res, 404, err("AI_ARTIFACT_NOT_FOUND", "artifact not found", rid));
         const inbox = createAiInbox({ artifactStore });
         const item = inbox.getItem(aiInboxItemId);
+        const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
+        const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
+        const suggestion = suggestionId ? suggestionStore.get(suggestionId) : null;
+        const suggestionReviewEvents = suggestion ? suggestionReviewEventsFromSuggestion(suggestion) : [];
+        const latestSuggestionReviewEvent = suggestionReviewEvents[suggestionReviewEvents.length - 1] || null;
+        const trace = suggestion ? suggestionTraceFromRecord(suggestion, artifact) : null;
         return sendJson(res, 200, withCanonical({
           item,
           artifact,
+          suggestion,
+          suggestionReviewEvents,
+          latestSuggestionReviewEvent,
+          trace,
           requestId: rid,
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
-          artifact: artifact ? artifactToCanonical(artifact) : null
+          artifact: artifact ? artifactToCanonical(artifact) : null,
+          ...(suggestion ? { suggestion: suggestionToCanonical(suggestion) } : {}),
+          suggestion_review_events: suggestion ? suggestionReviewEventsToCanonical(suggestion) : [],
+          latest_suggestion_review_event:
+            latestSuggestionReviewEvent && suggestion
+              ? suggestionTransitionToCanonicalAdoptionEvent(suggestion.history[suggestion.history.length - 1], suggestion)
+              : null,
+          trace: suggestion ? suggestionTraceToCanonical(trace) : null
         } : null));
       } catch (error) {
         return sendJson(res, 500, err("AI_INBOX_ITEM_LOAD_FAILED", String(error?.message || error), rid));

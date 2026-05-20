@@ -62,6 +62,7 @@ import {
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
+  aiSuggestionFromCanonical,
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
@@ -226,13 +227,14 @@ const aiInboxState = {
   detailError: "",
   evaluationError: "",
   evaluationSummary: null,
-  detailRequestToken: 0
-  ,
+  detailRequestToken: 0,
+  evaluationRequestToken: 0,
   aiSummary: "",
   aiSummaryMeta: "",
   aiSummaryRecommendedAction: "",
   aiSummaryLoading: false,
-  aiSummaryError: ""
+  aiSummaryError: "",
+  aiSummaryRequestToken: 0
 };
 const settingsState = {
   vault: null,
@@ -274,6 +276,7 @@ const settingsState = {
     selectedSuggestionId: "",
     suggestionDetail: null,
     suggestionDetailRequestToken: 0,
+    suggestionDetailLoading: false,
     suggestionsLoading: false,
     suggestionActionLoading: false,
     suggestionsError: "",
@@ -1104,11 +1107,20 @@ function recommendedAiInboxActionFromText(text = "") {
   return aliases[candidate] || "";
 }
 
-function resetAiInboxSummaryState() {
+function resetAiInboxSummaryState(options = {}) {
+  if (options.invalidate === true) aiInboxState.aiSummaryRequestToken += 1;
   aiInboxState.aiSummary = "";
   aiInboxState.aiSummaryMeta = "";
   aiInboxState.aiSummaryRecommendedAction = "";
   aiInboxState.aiSummaryError = "";
+  aiInboxState.aiSummaryLoading = false;
+}
+
+function resetAiInboxEvaluationState(options = {}) {
+  if (options.invalidate === true) aiInboxState.evaluationRequestToken += 1;
+  if (options.clearSummary === true) aiInboxState.evaluationSummary = null;
+  aiInboxState.evaluationError = "";
+  aiInboxState.evaluationLoading = false;
 }
 
 function syncAiInboxSummaryFromDetail(detail = null) {
@@ -1120,7 +1132,7 @@ function syncAiInboxSummaryFromDetail(detail = null) {
     .reverse()
     .find((decision) => String(decision?.comment || "").includes("[AI Summary]"));
   if (!summaryDecision) {
-    resetAiInboxSummaryState();
+    resetAiInboxSummaryState({ invalidate: false });
     return;
   }
   const comment = String(summaryDecision.comment || "").trim();
@@ -1140,7 +1152,13 @@ function syncAiInboxSummaryFromDetail(detail = null) {
 
 async function runAiInboxSummary(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
-  if (!cleanArtifactId) return false;
+  if (!cleanArtifactId) {
+    resetAiInboxSummaryState({ invalidate: true });
+    renderAiInboxWorkspace();
+    return false;
+  }
+  const requestToken = aiInboxState.aiSummaryRequestToken + 1;
+  aiInboxState.aiSummaryRequestToken = requestToken;
   aiInboxState.aiSummaryLoading = true;
   aiInboxState.aiSummaryError = "";
   aiInboxState.aiSummaryMeta = "";
@@ -1154,6 +1172,7 @@ async function runAiInboxSummary(artifactId) {
       modelTier: "cheap_fast",
       privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
     });
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
     aiInboxState.aiSummaryMeta = `${result?.providerId || "provider"} / ${result?.modelRef || "model"}`;
     aiInboxState.aiSummary = String(result?.output?.content || "").trim();
     aiInboxState.aiSummaryRecommendedAction = String(result?.recommendedAction || "").trim() || recommendedAiInboxActionFromText(aiInboxState.aiSummary);
@@ -1161,14 +1180,17 @@ async function runAiInboxSummary(artifactId) {
       aiInboxState.detail = { item: result.inboxItem || aiInboxState.detail?.item || null, artifact: result.artifact };
     } else {
       await loadAiInboxDetail(cleanArtifactId);
+      if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
     }
     setStatus("AI 摘要已生成", "ok");
     return true;
   } catch (error) {
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return false;
     aiInboxState.aiSummaryError = String(error?.message || error);
     setStatus(`AI 摘要失败：${aiInboxState.aiSummaryError}`, "bad");
     return false;
   } finally {
+    if (requestToken !== aiInboxState.aiSummaryRequestToken) return;
     aiInboxState.aiSummaryLoading = false;
     renderAiInboxWorkspace();
   }
@@ -1203,6 +1225,7 @@ function renderAiSuggestionsWorkspace() {
     filters: settingsState.ai.suggestionFilters,
     selectedSuggestionId: settingsState.ai.selectedSuggestionId,
     detail: settingsState.ai.suggestionDetail,
+    detailLoading: settingsState.ai.suggestionDetailLoading,
     loading: settingsState.ai.suggestionsLoading,
     actionLoading: settingsState.ai.suggestionActionLoading,
     error: settingsState.ai.suggestionsError
@@ -1225,6 +1248,7 @@ async function loadAiSuggestionDetail(suggestionId) {
     settingsState.ai.suggestionDetailRequestToken += 1;
     settingsState.ai.selectedSuggestionId = "";
     settingsState.ai.suggestionDetail = null;
+    settingsState.ai.suggestionDetailLoading = false;
     settingsState.ai.suggestionsError = "";
     renderAiSuggestionsWorkspace();
     return null;
@@ -1233,6 +1257,7 @@ async function loadAiSuggestionDetail(suggestionId) {
   settingsState.ai.suggestionDetailRequestToken = requestToken;
   settingsState.ai.selectedSuggestionId = cleanSuggestionId;
   settingsState.ai.suggestionDetail = null;
+  settingsState.ai.suggestionDetailLoading = true;
   settingsState.ai.suggestionsError = "";
   renderAiSuggestionsWorkspace();
   try {
@@ -1248,6 +1273,7 @@ async function loadAiSuggestionDetail(suggestionId) {
     return null;
   } finally {
     if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return;
+    settingsState.ai.suggestionDetailLoading = false;
     renderAiSuggestionsWorkspace();
   }
 }
@@ -1267,7 +1293,15 @@ async function refreshAiSuggestions(options = {}) {
     settingsState.ai.suggestionsError = "";
     const selectedStillVisible = result.items.some((item) => String(item.id || "").trim() === previousSelectedId);
     if (!options.preserveDetail) {
-      settingsState.ai.selectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
+      const nextSelectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
+      const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
+      settingsState.ai.selectedSuggestionId = nextSelectedSuggestionId;
+      if (selectionChanged) {
+        settingsState.ai.suggestionDetailRequestToken += 1;
+        settingsState.ai.suggestionDetail = null;
+        settingsState.ai.suggestionDetailLoading = false;
+        settingsState.ai.suggestionsError = "";
+      }
       if (!settingsState.ai.selectedSuggestionId) settingsState.ai.suggestionDetail = null;
     }
     return result;
@@ -1285,7 +1319,18 @@ function aiSuggestionReviewedContentFromUi(current = {}) {
   const editorValue = $("aiSuggestionContentEditor")?.value;
   if (editorValue === undefined) return current.content;
   const raw = String(editorValue || "");
-  if (typeof current.content === "string") return raw;
+  if (typeof current.content === "string") {
+    const trimmed = raw.trim();
+    if (
+      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+      (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    ) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
+    }
+    return raw;
+  }
   try {
     return JSON.parse(raw);
   } catch (error) {
@@ -1297,7 +1342,18 @@ function aiInboxSuggestionReviewedContentFromUi(current = {}) {
   const editorValue = $("aiInboxSuggestionContentEditor")?.value;
   if (editorValue === undefined) return current.content;
   const raw = String(editorValue || "");
-  if (typeof current.content === "string") return raw;
+  if (typeof current.content === "string") {
+    const trimmed = raw.trim();
+    if (
+      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+      (trimmed.startsWith("[") && trimmed.endsWith("]"))
+    ) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
+    }
+    return raw;
+  }
   try {
     return JSON.parse(raw);
   } catch {
@@ -1310,7 +1366,10 @@ async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanStatus = String(status || "").trim();
   if (!cleanSuggestionId || !cleanStatus) return null;
   if (settingsState.ai.suggestionActionLoading) return null;
-  const current = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || settingsState.ai.suggestionDetail || {};
+  const detail =
+    String(settingsState.ai.suggestionDetail?.id || "").trim() === cleanSuggestionId ? settingsState.ai.suggestionDetail : null;
+  const listed = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || null;
+  const current = detail || listed || {};
   const reviewedContent =
     cleanStatus === "edited" || cleanStatus === "confirmed"
       ? aiSuggestionReviewedContentFromUi(current)
@@ -1517,11 +1576,64 @@ function rememberAiDebugSnapshot(key, response) {
   if (state.module === "settings") renderSettingsPanel();
 }
 
+function aiAdoptionEventFromCanonical(event = {}) {
+  return {
+    adoptionEventId: String(event.adoption_event_id || "").trim(),
+    subjectKind: String(event.subject_kind || "").trim(),
+    subjectId: String(event.subject_id || "").trim(),
+    eventType: String(event.event_type || "").trim(),
+    actorType: String(event.actor_type || "").trim(),
+    actorId: String(event.actor_id || "").trim(),
+    target: {
+      kind: String(event.target?.kind || "").trim(),
+      id: String(event.target?.id || "").trim(),
+      field: String(event.target?.field || "").trim()
+    },
+    comment: String(event.comment || "").trim(),
+    feedback: {
+      useful: event.feedback?.useful === true,
+      noisy: event.feedback?.noisy === true,
+      wrong: event.feedback?.wrong === true,
+      alreadyKnown: event.feedback?.already_known === true,
+      privacyConcern: event.feedback?.privacy_concern === true
+    },
+    metadata: {
+      fromStatus: String(event.metadata?.from_status || "").trim(),
+      toStatus: String(event.metadata?.to_status || "").trim(),
+      noteId: String(event.metadata?.note_id || "").trim()
+    },
+    createdAt: String(event.created_at || "").trim()
+  };
+}
+
+function aiSuggestionTraceFromCanonical(trace = {}) {
+  return {
+    suggestionId: String(trace.suggestion_id || "").trim(),
+    sourceArtifactId: String(trace.source_artifact_id || "").trim(),
+    primarySourceNoteId: String(trace.primary_source_note_id || "").trim(),
+    sourceNoteIds: Array.isArray(trace.source_note_ids) ? [...trace.source_note_ids] : [],
+    targetNoteId: String(trace.target_note_id || "").trim(),
+    targetField: String(trace.target_field || "").trim(),
+    suggestionStatus: String(trace.suggestion_status || "").trim()
+  };
+}
+
 function aiInboxDetailFromResponse(response = {}) {
   const canonical = response?.canonical || {};
   const item = canonical.item ? aiInboxItemFromCanonical(canonical.item) : response?.item || null;
   const artifact = canonical.artifact ? aiArtifactFromCanonical(canonical.artifact) : response?.artifact || null;
-  return { item, artifact };
+  const suggestion = canonical.suggestion ? aiSuggestionFromCanonical(canonical.suggestion) : response?.suggestion || null;
+  const suggestionReviewEvents =
+    Array.isArray(canonical.suggestion_review_events)
+      ? canonical.suggestion_review_events.map((event) => aiAdoptionEventFromCanonical(event))
+      : Array.isArray(response?.suggestionReviewEvents)
+        ? response.suggestionReviewEvents
+        : [];
+  const latestSuggestionReviewEvent = canonical.latest_suggestion_review_event
+    ? aiAdoptionEventFromCanonical(canonical.latest_suggestion_review_event)
+    : response?.latestSuggestionReviewEvent || null;
+  const trace = canonical.trace ? aiSuggestionTraceFromCanonical(canonical.trace) : response?.trace || null;
+  return { item, artifact, suggestion, suggestionReviewEvents, latestSuggestionReviewEvent, trace };
 }
 
 async function loadAiInboxDetail(artifactId) {
@@ -1532,7 +1644,7 @@ async function loadAiInboxDetail(artifactId) {
     aiInboxState.detail = null;
     aiInboxState.detailLoading = false;
     aiInboxState.detailError = "";
-    resetAiInboxSummaryState();
+    resetAiInboxSummaryState({ invalidate: true });
     renderAiInboxWorkspace();
     return null;
   }
@@ -1541,7 +1653,7 @@ async function loadAiInboxDetail(artifactId) {
   aiInboxState.selectedArtifactId = cleanArtifactId;
   aiInboxState.detailLoading = true;
   aiInboxState.detailError = "";
-  resetAiInboxSummaryState();
+  resetAiInboxSummaryState({ invalidate: true });
   renderAiInboxWorkspace();
   try {
     const detail = await fetchAiInboxItemWithOptions(cleanArtifactId, { canonical: true });
@@ -1582,7 +1694,16 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
     aiInboxState.error = "";
     const selectedStillVisible = result.items.some((item) => String(item.artifactId || "").trim() === previousSelectedId);
     if (!preserveDetail) {
-      aiInboxState.selectedArtifactId = selectedStillVisible ? previousSelectedId : result.items[0]?.artifactId || "";
+      const nextSelectedArtifactId = selectedStillVisible ? previousSelectedId : result.items[0]?.artifactId || "";
+      const selectionChanged = nextSelectedArtifactId !== previousSelectedId;
+      aiInboxState.selectedArtifactId = nextSelectedArtifactId;
+      if (selectionChanged) {
+        aiInboxState.detailRequestToken += 1;
+        aiInboxState.detail = null;
+        aiInboxState.detailLoading = false;
+        aiInboxState.detailError = "";
+        resetAiInboxSummaryState({ invalidate: true });
+      }
       if (!aiInboxState.selectedArtifactId) aiInboxState.detail = null;
     }
     return result;
@@ -1598,24 +1719,33 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
 
 async function refreshAiInboxEvaluationSummary({ silent = false } = {}) {
   aiInboxState.filters = normalizeAiInboxFilters(aiInboxState.filters);
+  const requestToken = aiInboxState.evaluationRequestToken + 1;
+  aiInboxState.evaluationRequestToken = requestToken;
+  const hadVisibleError = Boolean(aiInboxState.evaluationError);
+  aiInboxState.evaluationError = "";
   if (!silent) {
     aiInboxState.evaluationLoading = true;
-    aiInboxState.evaluationError = "";
+    renderAiInboxWorkspace();
+  } else if (hadVisibleError) {
     renderAiInboxWorkspace();
   }
   try {
-    aiInboxState.evaluationSummary = await fetchAiInboxEvaluationSummary({
+    const summary = await fetchAiInboxEvaluationSummary({
       ...aiInboxState.filters,
       view: "all"
     });
+    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
+    aiInboxState.evaluationSummary = summary;
     aiInboxState.evaluationError = "";
     return aiInboxState.evaluationSummary;
   } catch (error) {
+    if (requestToken !== aiInboxState.evaluationRequestToken) return null;
     aiInboxState.evaluationSummary = null;
     aiInboxState.evaluationError = String(error?.message || error);
     setStatus(`AI 建议处理统计加载失败：${aiInboxState.evaluationError}`, "warn");
     return null;
   } finally {
+    if (requestToken !== aiInboxState.evaluationRequestToken) return;
     aiInboxState.evaluationLoading = false;
     renderAiInboxWorkspace();
   }

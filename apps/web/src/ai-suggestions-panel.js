@@ -144,6 +144,39 @@ function renderContentEditor(item = {}) {
   `;
 }
 
+function renderTrace(item = {}) {
+  const sourceArtifactId = String(item.sourceArtifactId || item.source_artifact_id || "").trim();
+  const targetNoteId = String(item.target?.id || "").trim();
+  const targetField = String(item.target?.field || "").trim();
+  const status = String(item.status || "").trim();
+  const placeholder =
+    !sourceArtifactId && !targetNoteId
+      ? `<div class="scheduled-task-empty">Trace placeholder: this suggestion exists, but its source/target trace is incomplete.</div>`
+      : "";
+  const targetHint = targetNoteId
+    ? ""
+    : `<div class="scheduled-task-empty">This suggestion does not point to a target note yet.</div>`;
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Trace</h3>
+      ${placeholder}
+      <pre class="ai-inbox-json">${escapeHtml(
+        JSON.stringify(
+          {
+            sourceArtifactId: sourceArtifactId || "not recorded",
+            targetNoteId: targetNoteId || "missing target note",
+            targetField: targetField || "not recorded",
+            status: status || "not recorded"
+          },
+          null,
+          2
+        )
+      )}</pre>
+      ${targetHint}
+    </section>
+  `;
+}
+
 function renderDetail(state = {}) {
   if (state.detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
   const selectedSuggestionId = String(state.selectedSuggestionId || "").trim();
@@ -165,6 +198,7 @@ function renderDetail(state = {}) {
         <h3>Content</h3>
         <pre class="ai-inbox-json">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2))}</pre>
       </section>
+      ${renderTrace(item)}
       ${renderDraftEditingGuide(item)}
       ${renderContentEditor(item)}
       <section class="ai-inbox-detail-section">
