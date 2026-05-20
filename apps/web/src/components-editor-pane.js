@@ -1387,7 +1387,7 @@ export function relationTypeGuidance(type = "") {
     rationalePlaceholder: "这条关系成立，因为...",
     rationaleHint: "写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写‘相关’。",
     questionPlaceholder: "这条连接提出了什么新问题？",
-    questionHint: "${escapeHtml(defaultGuidance.questionHint)}"
+    questionHint: "把问题写成这条连接接下来最值得验证的疑问，而不是泛泛地追问“然后呢”。"
   };
 }
 function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
@@ -5458,7 +5458,7 @@ export class EditorPane {
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const connectedCount = explicitRelationCount + wikilinkCount;
+    const connectedCount = explicitRelationCount;
 
     if (!thesis) {
       return {
@@ -5590,7 +5590,7 @@ export class EditorPane {
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed
         ? "distillation"
-        : relationState === "loading" || relationState === "error" || explicitRelationCount + wikilinkCount === 0
+        : relationState === "loading" || relationState === "error" || explicitRelationCount === 0
           ? "relations"
           : "writing";
     const steps = [

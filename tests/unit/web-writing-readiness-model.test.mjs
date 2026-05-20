@@ -63,6 +63,27 @@ test("note writing readiness becomes project-ready once boundary and relation ex
   assert.match(readiness.status, /创建写作项目/);
 });
 
+test("note writing readiness stays basket-ready when there are only wikilinks but no explicit relations", () => {
+  const readiness = deriveNoteWritingReadiness(
+    {
+      status: "active",
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      boundaryOrCounterpoint: "Only holds in this constrained case.",
+      body: "# Note\n\n[[Linked Note]]"
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 0,
+      wikilinkCount: 1,
+      themeSignalCount: 1
+    }
+  );
+
+  assert.equal(readiness.level, "basket_ready");
+  assert.match(readiness.hint, /显式关系/);
+});
+
 test("note writing readiness becomes strong-model-ready once theme signals are richer", () => {
   const readiness = deriveNoteWritingReadiness(
     {

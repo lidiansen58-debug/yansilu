@@ -64,11 +64,11 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
       actionLabel: "加入写作篮"
     };
   }
-  if (explicitRelationCount + wikilinkCount === 0) {
+  if (explicitRelationCount === 0) {
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: "判断和边界已经具备，但最好补一条关系再建项目。",
+      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成显式关系，才适合进入写作项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
       actionLabel: "加入写作篮"
     };
   }

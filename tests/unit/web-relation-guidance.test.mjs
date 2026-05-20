@@ -60,6 +60,8 @@ test("relation guidance falls back to supports when no stronger signal exists", 
   const guidance = relationTypeGuidance("supports");
   assert.match(guidance.rationalePlaceholder, /因为/);
   assert.match(guidance.questionPlaceholder, /新问题/);
+  assert.doesNotMatch(guidance.questionHint, /\$\{/);
+  assert.match(guidance.questionHint, /最值得验证的疑问/);
 });
 
 test("relation target sorting prioritizes linked notes over tag-only and plain candidates", () => {
