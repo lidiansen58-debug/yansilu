@@ -5356,6 +5356,15 @@ test("prototype writing center can save a theme index, edit central question, an
   });
   assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "supports",
+    rationale: "The first theme note gives the second one a structural support edge before project creation.",
+    insightQuestion: "What central question now organizes these two notes as one theme?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.locator("#writingBasketNoteIds").waitFor({ state: "visible" });

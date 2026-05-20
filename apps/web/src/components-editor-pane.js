@@ -5590,7 +5590,7 @@ export class EditorPane {
         ? "读取中"
         : relationState === "error"
           ? "读取失败"
-          : String(explicitRelationCount + wikilinkCount);
+          : String(explicitRelationCount);
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed
         ? "distillation"

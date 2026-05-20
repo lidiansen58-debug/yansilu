@@ -67,7 +67,11 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
-import { describeWritingNextActionFromState, groupWritingPreflightChecks } from "./writing-center-flow.js";
+import {
+  describeWritingNextActionFromState,
+  describeWritingProjectPreflight,
+  groupWritingPreflightChecks
+} from "./writing-center-flow.js";
 import {
   countExplicitSemanticRelations,
   deriveBasketWritingReadiness,
@@ -4861,6 +4865,19 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
     resetContext: true,
     source: "writing_theme_create_project"
   });
+  const relationPayload = await refreshWritingRelationCounts(noteIds, { render: false });
+  const relationCounts = relationPayload?.counts || writingState.relationCounts || {};
+  const relationErrors = relationPayload?.errors || writingState.relationCountErrors || {};
+  const relationCountsReady = writingRelationCountsReady(noteIds, relationCounts);
+  const relationCountsErrored = writingRelationCountsErrored(noteIds, relationErrors);
+  const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, {
+    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
+  });
+  const projectReady = !relationCountsErrored && relationCountsReady && (readiness.level === "project_ready" || readiness.level === "strong_model_ready");
+  if (!projectReady) {
+    renderWritingPanel();
+    throw new Error(relationCountsErrored ? "主题入口的显式关系暂时读取失败，请稍后重试。" : readiness.hint || "当前主题入口还没满足创建项目的条件。");
+  }
   const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
   const project = await createWritingProject({
     title,
@@ -5701,8 +5718,8 @@ function renderWritingStatusStrip() {
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
   const projectPreflight = writingState.project?.preflight || null;
-  const projectPreflightSummary = describeProjectPreflight(projectPreflight);
-  const projectPreflightWarnings = Number(projectPreflight?.warningCount || 0);
+  const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
+  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
   const basketTone =
     readiness.level === "strong_model_ready" || readiness.level === "project_ready"
       ? "good"
@@ -5713,13 +5730,13 @@ function renderWritingStatusStrip() {
           : "warn";
   const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectTone =
-    hasProject && projectPreflightSummary.level === "needs_attention"
+    hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"
       : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
         ? "good"
         : "warn";
   const projectNote = hasProject
-    ? projectPreflightSummary.level === "needs_attention"
+    ? projectPreflightSummary.level !== "ready"
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : relationCountsErrored
@@ -5738,8 +5755,8 @@ function renderWritingStatusStrip() {
       ? "good"
       : "warn";
   const strongModelNote =
-    projectPreflightSummary.level === "needs_attention"
-      ? `先处理 ${projectPreflightWarnings} 项预检提醒，再做强模型分析。`
+    projectPreflightSummary.level !== "ready" && hasProject
+      ? `先处理项目预检里的 ${projectPreflightChecks.length} 项缺口，再做强模型分析。`
       : relationCountsErrored
         ? "显式关系读取失败，先重试或回到笔记里确认关系。"
       : !relationCountsReady && basketIds.length
@@ -5833,7 +5850,9 @@ function renderWritingScaffoldPreview() {
     basketCount: parseWritingBasketIds().length,
     hasProject: Boolean(writingState.project?.id),
     hasScaffold: Boolean(writingState.scaffold?.id),
-    hasDraft: Boolean(writingState.project?.draft_note_id)
+    hasDraft: Boolean(writingState.project?.draft_note_id),
+    blockingCount: blockingChecks.length,
+    warningCount: warningChecks.length
   });
   el.innerHTML = `
     <h4>骨架预览</h4>
@@ -5854,13 +5873,8 @@ function renderWritingScaffoldPreview() {
               ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
             </div>
             ${
-              blockingChecks.length
-                ? `<div class="writing-summary">阻塞项：${escapeHtml(String(blockingChecks.length))} 个，建议先处理后再保存草稿。</div>`
-                : ""
-            }
-            ${
               warningChecks.length
-                ? `<div class="writing-summary">建议项：${escapeHtml(String(warningChecks.length))} 个，不阻塞继续生成，但最好先补齐。</div>`
+                ? `<div class="writing-summary">提醒项：${escapeHtml(String(warningChecks.length))} 个，建议先补齐再保存草稿。</div>`
                 : ""
             }
             ${
