@@ -267,6 +267,7 @@ const settingsState = {
     },
     selectedSuggestionId: "",
     suggestionDetail: null,
+    suggestionDetailRequestToken: 0,
     suggestionsLoading: false,
     suggestionActionLoading: false,
     suggestionsError: "",
@@ -1223,22 +1224,31 @@ function aiSuggestionFiltersFromUi() {
 async function loadAiSuggestionDetail(suggestionId) {
   const cleanSuggestionId = String(suggestionId || "").trim();
   if (!cleanSuggestionId) {
+    settingsState.ai.suggestionDetailRequestToken += 1;
     settingsState.ai.selectedSuggestionId = "";
     settingsState.ai.suggestionDetail = null;
+    settingsState.ai.suggestionsError = "";
     renderAiSuggestionsWorkspace();
     return null;
   }
+  const requestToken = settingsState.ai.suggestionDetailRequestToken + 1;
+  settingsState.ai.suggestionDetailRequestToken = requestToken;
   settingsState.ai.selectedSuggestionId = cleanSuggestionId;
+  settingsState.ai.suggestionsError = "";
   renderAiSuggestionsWorkspace();
   try {
     const item = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
+    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return null;
     settingsState.ai.suggestionDetail = item;
+    settingsState.ai.suggestionsError = "";
     return item;
   } catch (error) {
+    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return null;
     settingsState.ai.suggestionsError = String(error?.message || error);
     setStatus(`AI suggestion detail failed: ${settingsState.ai.suggestionsError}`, "warn");
     return null;
   } finally {
+    if (requestToken !== settingsState.ai.suggestionDetailRequestToken) return;
     renderAiSuggestionsWorkspace();
   }
 }
@@ -1300,10 +1310,16 @@ async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
   const cleanStatus = String(status || "").trim();
   if (!cleanSuggestionId || !cleanStatus) return null;
+  if (settingsState.ai.suggestionActionLoading) return null;
+  const current = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || settingsState.ai.suggestionDetail || {};
+  const reviewedContent =
+    cleanStatus === "edited" || cleanStatus === "confirmed"
+      ? aiSuggestionReviewedContentFromUi(current)
+      : undefined;
+  settingsState.ai.suggestionsError = "";
   settingsState.ai.suggestionActionLoading = true;
   renderAiSuggestionsWorkspace();
   try {
-    const current = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || settingsState.ai.suggestionDetail || {};
     const payload = {
       status: cleanStatus,
       actor: "user",
@@ -1320,7 +1336,7 @@ async function applyAiSuggestionStatus(suggestionId, status) {
               : cleanStatus
     };
     if (cleanStatus === "edited" || cleanStatus === "confirmed") {
-      payload.content = aiSuggestionReviewedContentFromUi(current);
+      payload.content = reviewedContent;
     }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
@@ -1330,9 +1346,11 @@ async function applyAiSuggestionStatus(suggestionId, status) {
     );
     settingsState.ai.suggestionDetail = item;
     settingsState.ai.selectedSuggestionId = cleanSuggestionId;
+    settingsState.ai.suggestionsError = "";
     setStatus(`AI suggestion ${cleanStatus}: ${cleanSuggestionId}`, "ok");
     return item;
   } catch (error) {
+    settingsState.ai.suggestionsError = String(error?.message || error);
     setStatus(`AI suggestion update failed: ${String(error?.message || error)}`, "bad");
     return null;
   } finally {
