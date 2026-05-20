@@ -1560,6 +1560,28 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedSuggestion.json.canonical.trace.primary_source_note_id, draftTarget.json.item.id);
   assert.deepEqual(adoptedSuggestion.json.canonical.trace.source_note_ids, [draftTarget.json.item.id]);
 
+  const invalidRejectedSuggestion = await patchJson(
+    baseUrl,
+    `/api/v1/ai-suggestions/${encodeURIComponent(storedFieldSuggestionId)}?canonical=true`,
+    {
+      status: "rejected",
+      action: "reject",
+      actor: "user",
+      userId: "user_1",
+      comment: "This should fail after adoption."
+    }
+  );
+  assert.equal(invalidRejectedSuggestion.status, 400, JSON.stringify(invalidRejectedSuggestion.json));
+  assert.equal(invalidRejectedSuggestion.json.error.code, "AI_SUGGESTION_TRANSITION_INVALID");
+
+  const detailAfterInvalidReject = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}?canonical=true`
+  );
+  assert.equal(detailAfterInvalidReject.status, 200, JSON.stringify(detailAfterInvalidReject.json));
+  assert.equal(detailAfterInvalidReject.json.item.status, "adopted_as_draft");
+  assert.equal(detailAfterInvalidReject.json.canonical.suggestion.status, "adopted_as_draft");
+
   const editedSuggestion = await patchJson(
     baseUrl,
     `/api/v1/ai-suggestions/${encodeURIComponent(storedFieldSuggestionId)}?canonical=true`,
