@@ -1,11 +1,12 @@
 import {
+  canCreatePermanentCandidate,
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateLabel,
   candidateStatusLabel,
   paperWorkspaceProgress,
-  selectedPaperCandidate,
   selectedPermanentCandidate,
+  translationDraftForCandidate,
   workspaceStageLabel
 } from "./paper-workspace-model.js";
 
@@ -33,7 +34,7 @@ function renderWorkspaceSummary(workspace = null) {
       <section class="paper-card paper-empty">
         <div class="paper-card-kicker">Step 0</div>
         <h2>先创建一个论文工作台</h2>
-        <p>这个页面不会直接调用 NotebookLM；它承接你从 NotebookLM 复制出来的 summary、Q&A、study guide 或 notes，然后帮助你完成转述和永久笔记确认。</p>
+        <p>这个页面不会直接调用 NotebookLM。它承接你从 NotebookLM 复制出来的 summary、Q&amp;A、study guide 或 notes，再把它们推进到“候选 → 用户转述 → 永久笔记候选 → 明确确认保存”这条链路里。</p>
       </section>
     `;
   }
@@ -58,7 +59,7 @@ function renderWorkspaceSummary(workspace = null) {
 function renderCandidateList(workspace = null, selectedCandidateId = "") {
   const candidates = Array.isArray(workspace?.candidates) ? workspace.candidates : [];
   if (!candidates.length) {
-    return `<div class="paper-muted-box">还没有候选。粘贴 NotebookLM 内容后，系统会先生成 Literature 候选，不会直接生成永久笔记。</div>`;
+    return `<div class="paper-muted-box">还没有候选。粘贴 NotebookLM 输出后，这里会先生成 literature 候选，而不是直接生成永久笔记。</div>`;
   }
   return `
     <div class="paper-candidate-list">
@@ -78,9 +79,19 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
   `;
 }
 
+function renderTranslationHint(draft = null) {
+  if (!draft?.candidate) {
+    return `<div class="paper-muted-box">先从左侧选一条候选，再用你自己的话完成转述。</div>`;
+  }
+  if (draft.hasSavedTranslation) {
+    return `<div class="paper-muted-box">这条候选已经保存过转述。你可以继续修改，也可以直接生成永久笔记候选。</div>`;
+  }
+  return `<div class="paper-muted-box">先保存这条候选的用户转述，再进入永久笔记候选。这样回到这个工作台时，关系和边界信息也会一起恢复。</div>`;
+}
+
 function renderPermanentCandidate(candidate = null) {
   if (!candidate) {
-    return `<div class="paper-muted-box">保存转述后，可以生成永久笔记候选。候选只是草稿骨架，必须确认 authorship 后才会保存为永久笔记。</div>`;
+    return `<div class="paper-muted-box">保存转述后，可以为当前候选生成永久笔记候选。候选只是一份草稿骨架，确认 authorship 之后才会真正保存为永久笔记。</div>`;
   }
   const citation = Array.isArray(candidate.citations) ? candidate.citations[0] || {} : {};
   return `
@@ -103,7 +114,7 @@ function renderPermanentCandidate(candidate = null) {
       </div>
       <div class="paper-preview-row">
         <span>引用</span>
-        <p>${escapeHtml(citation.source_id || "unknown")} ${citation.locator ? `· ${escapeHtml(citation.locator)}` : ""}</p>
+        <p>${escapeHtml(citation.source_id || "unknown")}${citation.locator ? ` · ${escapeHtml(citation.locator)}` : ""}</p>
       </div>
       ${candidate.savedPermanentNoteId ? `<div class="paper-saved-note">已保存为：${escapeHtml(candidate.savedPermanentNoteId)}</div>` : ""}
     </div>
@@ -111,23 +122,26 @@ function renderPermanentCandidate(candidate = null) {
 }
 
 function renderLastResult(result = null) {
-  if (!result) return `<div class="paper-result-empty">操作结果会显示在这里。</div>`;
+  if (!result) return `<div class="paper-result-empty">最近一次操作的返回结果会显示在这里。</div>`;
   return `<pre class="paper-result-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
 }
 
 export function renderPaperWorkspacePage(state = {}) {
   const form = state.form || {};
   const workspace = state.workspace || null;
-  const selectedCandidate = selectedPaperCandidate(workspace, state.selectedCandidateId);
+  const selectedDraft = translationDraftForCandidate(workspace, state.selectedCandidateId);
+  const selectedCandidate = selectedDraft.candidate;
   const selectedPermanent = selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId);
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
+  const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
+
   return `
     <div class="paper-shell">
       <header class="paper-hero">
         <div>
           <div class="paper-eyebrow">NotebookLM assisted paper workflow</div>
           <h1>从论文阅读，到自己的永久笔记</h1>
-          <p>把 NotebookLM 当作阅读加速器，而不是代写器。这里强制经过候选、转述、永久笔记候选、确认保存四步。</p>
+          <p>把 NotebookLM 当作阅读加速器，而不是代写器。这里强制经过候选、转述、永久笔记候选、确认保存四步，避免把外部材料直接当成自己的判断。</p>
         </div>
         ${renderStatus(state.statusText, state.statusTone)}
       </header>
@@ -154,11 +168,11 @@ export function renderPaperWorkspacePage(state = {}) {
           <h2>粘贴 NotebookLM 输出</h2>
           <label>Notebook 名称<input id="notebookNameInput" value="${valueAttr(form.notebookName)}" /></label>
           <label>Summary<textarea id="notebookSummaryInput" placeholder="粘贴 NotebookLM summary">${escapeHtml(form.summary || "")}</textarea></label>
-          <label>Q&A<textarea id="notebookQaInput" placeholder="粘贴 Q&A，可直接放整段文本">${escapeHtml(form.qa || "")}</textarea></label>
+          <label>Q&amp;A<textarea id="notebookQaInput" placeholder="粘贴 Q&amp;A，可直接放整段文本">${escapeHtml(form.qa || "")}</textarea></label>
           <label>Study guide<textarea id="notebookStudyGuideInput" placeholder="粘贴 study guide / outline">${escapeHtml(form.studyGuide || "")}</textarea></label>
           <label>Notes<textarea id="notebookNotesInput" placeholder="粘贴 NotebookLM notes">${escapeHtml(form.notes || "")}</textarea></label>
           <div class="paper-actions">
-            <button id="btnAddNotebookDraft" type="button" ${notebookDisabled ? "disabled" : ""}>生成 Literature 候选</button>
+            <button id="btnAddNotebookDraft" type="button" ${notebookDisabled ? "disabled" : ""}>生成 literature 候选</button>
           </div>
         </section>
 
@@ -170,14 +184,15 @@ export function renderPaperWorkspacePage(state = {}) {
             <div class="paper-translation-box">
               <div class="paper-selected-note">
                 <strong>${escapeHtml(selectedCandidate ? candidateLabel(selectedCandidate) : "尚未选择候选")}</strong>
-                <p>${escapeHtml(selectedCandidate?.quoteText || "先选择一条候选，再写成你自己的理解。")}</p>
+                <p>${escapeHtml(selectedCandidate?.quoteText || "先选择一条候选，再把它改写成你自己的理解。")}</p>
               </div>
-              <label>我的转述<textarea id="translationParaphraseInput" placeholder="必须写成自己的话">${escapeHtml(form.paraphraseText || selectedCandidate?.paraphraseText || "")}</textarea></label>
+              ${renderTranslationHint(selectedDraft)}
+              <label>我的转述<textarea id="translationParaphraseInput" placeholder="必须写成自己的话">${escapeHtml(form.paraphraseText || "")}</textarea></label>
               <label>它和我的问题有什么关系？<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
               <label>边界或反例<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
                 <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>保存转述</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${selectedCandidate ? "" : "disabled"}>生成永久笔记候选</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>生成永久笔记候选</button>
               </div>
             </div>
           </div>
@@ -188,10 +203,10 @@ export function renderPaperWorkspacePage(state = {}) {
           <h2>永久笔记候选与确认保存</h2>
           ${renderPermanentCandidate(selectedPermanent)}
           <div class="paper-save-row">
-            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> 我确认这是我自己的判断，不是 NotebookLM 原文或论文原句。</label>
+            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> 我确认这已经是我自己的判断，而不是 NotebookLM 原文或论文原句。</label>
             <label>保存状态
               <select id="permanentStatusInput">
-                <option value="active" ${form.saveStatus === "active" ? "selected" : ""}>active，如果通过检查</option>
+                <option value="active" ${form.saveStatus === "active" ? "selected" : ""}>active，如通过 originality 检查</option>
                 <option value="draft" ${form.saveStatus === "draft" ? "selected" : ""}>draft</option>
               </select>
             </label>
