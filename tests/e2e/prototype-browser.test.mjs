@@ -1162,6 +1162,286 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
 
+test("prototype main-path card refreshes relation state and does not leak stale relation status across note switches", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Relation Target\n\nThis note is the target for a loaded semantic relation."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Relation Source\n\nThis note should show a loaded relation in the main-path card."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const plain = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Plain Note\n\nThis note should not inherit the previous note relation state."
+  });
+  assert.equal(plain.status, 201, JSON.stringify(plain.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "This explicit relation should surface in the main-path card after relations load.",
+    insightQuestion: "Does the main-path card wait for explicit relations before deciding the next step?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Relation Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("[data-note-main-path-section]")?.textContent || "";
+    return text.includes("读取中") || text.includes("等关系加载完成");
+  });
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.match(String(text || ""), /已建 1|已连入 1/);
+  }, 10000);
+
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.doesNotMatch(String(text || ""), /已建 1|已连入 1/);
+    assert.match(String(text || ""), /待建立|待聚合|关系 0/);
+  }, 10000);
+});
+
+test("prototype main-path relation action opens create form and focuses relation target search", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Create Target\n\nThis target should appear in the create relation form."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Main Path Create Source\n\nThis note has no explicit relations yet."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Create Source" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await page.locator('[data-note-main-route-action="relations"]').click();
+
+  await page.locator("[data-create-relation-form]").waitFor();
+  await waitFor(async () => {
+    const focused = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active?.hasAttribute?.("data-relation-target-search") || active?.getAttribute?.("name") === "targetQuery";
+    });
+    assert.equal(focused, true);
+  }, 4000);
+
+  const highlighted = await page.evaluate(() =>
+    document.querySelector("[data-note-relations-section]")?.classList.contains("is-jump-target") || false
+  );
+  assert.equal(highlighted, true);
+
+  const createFormText = await page.locator("[data-create-relation-form]").textContent();
+  assert.match(String(createFormText || ""), /Main Path Create Target/);
+});
+
+test("prototype main-path writing readiness matches writing center basket status for the same note", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const note = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Basket Note",
+    body: "# Readiness Basket Note\n\nA confirmed note with no explicit boundary yet.",
+    thesis: "A durable note should be allowed into the basket before it is ready for project creation.",
+    threeLineSummary: [
+      "The note already has a reusable judgment.",
+      "It matters because basket entry should happen earlier than project creation.",
+      "It should still wait for stronger structure before stronger actions."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    }
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Basket Note" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const text = await page.locator("[data-note-main-path-section]").textContent();
+    assert.match(String(text || ""), /可加入写作篮/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const strip = await page.locator("#writingStatusStrip").textContent();
+    assert.match(String(strip || ""), /材料/);
+    assert.match(String(strip || ""), /可加入写作篮/);
+  }, 10000);
+
+  const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
+  assert.match(String(createProjectText || ""), /先补条件再建项目/);
+
+  const strongModelText = await page.locator("#btnWritingStrongModelAnalysis").textContent();
+  assert.match(String(strongModelText || ""), /先补条件/);
+});
+
+test("prototype main-path project-ready state matches writing center project readiness", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const target = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Project Target",
+    body: "# Readiness Project Target\n\nA durable target note.",
+    thesis: "A target note helps the source note become structurally ready for project creation.",
+    threeLineSummary: [
+      "The target note already has a reusable judgment.",
+      "It matters because the source note should not remain isolated.",
+      "It helps the source note move beyond basket-only readiness."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "This target note is only useful when its relation is explicit."
+  });
+  assert.equal(target.status, 201, JSON.stringify(target.json));
+
+  const source = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    title: "Readiness Project Note",
+    body: "# Readiness Project Note\n\n[[Readiness Project Target]]\n\nA confirmed note with one explicit relation and a boundary.",
+    thesis: "A durable note should become project-ready once boundary and relation are both explicit.",
+    threeLineSummary: [
+      "The note has a reusable judgment.",
+      "It matters because project creation should happen after basket entry, not before.",
+      "It should still wait for richer theme signals before strong-model analysis."
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "This readiness only makes sense after at least one explicit relation is added."
+  });
+  assert.equal(source.status, 201, JSON.stringify(source.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
+    toNoteId: target.json.item.id,
+    relationType: "supports",
+    rationale: "The target note strengthens the source note enough to justify project creation.",
+    insightQuestion: "What is still missing before this turns into strong-model-ready material?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Readiness Project Note" }).click();
+  await ensureNoteMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /创建项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const state = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll("#writingStatusStrip .writing-status-card")).map((card) => ({
+        label: card.querySelector("span")?.textContent || "",
+        value: card.querySelector("strong")?.textContent || "",
+        note: card.querySelector("small")?.textContent || ""
+      }));
+      const cardByLabel = (label) => cards.find((card) => card.label === label) || null;
+      const createProject = document.querySelector("#btnWritingCreateProject");
+      const strongModel = document.querySelector("#btnWritingStrongModelAnalysis");
+      return {
+        projectCard: cardByLabel("项目"),
+        strongModelCard: cardByLabel("强模型"),
+        createProjectText: createProject?.textContent || "",
+        createProjectDisabled: Boolean(createProject?.disabled),
+        strongModelText: strongModel?.textContent || "",
+        strongModelDisabled: Boolean(strongModel?.disabled)
+      };
+    });
+
+    assert.equal(state.projectCard?.value, "可创建");
+    assert.match(String(state.projectCard?.note || ""), /建项目/);
+    assert.equal(state.strongModelCard?.value, "先补条件");
+    assert.match(String(state.strongModelCard?.note || ""), /主题线索/);
+    assert.equal(state.createProjectDisabled, false);
+    assert.equal(state.strongModelDisabled, true);
+    assert.match(String(state.createProjectText || ""), /创建写作项目/);
+    assert.match(String(state.strongModelText || ""), /先补条件/);
+  }, 10000);
+});
+
 test("prototype editor keeps related inspector collapsed until explicitly opened", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
@@ -1258,13 +1538,39 @@ test("prototype related inspector can create an explicit semantic relation", asy
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# 可连接目标\n\n这条笔记等待被一条带理由的关系连接。"
+    status: "active",
+    body: "# 可连接目标\n\n这条笔记等待被一条带理由的关系连接。",
+    thesis: "另一条永久笔记应该能为它提供明确支撑。",
+    threeLineSummary: [
+      "这条目标笔记已经形成了可复用判断。",
+      "它值得被接入，因为它会成为更大论证的一部分。",
+      "它让来源笔记不再停留在孤立状态。"
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "只有在支撑理由明确时，这条目标才值得被接入。"
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# 可连接来源\n\n这条笔记需要主动建立语义关系。"
+    status: "active",
+    body: "# 可连接来源\n\n这条笔记需要主动建立语义关系。",
+    thesis: "一条已确认且有边界的笔记，应该在补出第一条关系后进入写作项目准备。",
+    threeLineSummary: [
+      "这条来源笔记已经有了可复用判断。",
+      "它需要关系来证明自己不再孤立。",
+      "一旦连通，就应该升级到项目准备。"
+    ],
+    distillationStatus: "confirmed",
+    authorship: {
+      user_confirmed: true,
+      ai_assisted: false
+    },
+    boundaryOrCounterpoint: "只有当关系带着明确理由时，这条笔记才适合进入写作项目。"
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
@@ -1272,6 +1578,10 @@ test("prototype related inspector can create an explicit semantic relation", asy
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "可连接来源" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /加入写作篮/);
+  }, 10000);
   await page.locator('#resultArea [data-relation-action="open-create"]').click();
 
   const createFormText = await page.locator("[data-create-relation-form]").textContent();
@@ -1293,6 +1603,36 @@ test("prototype related inspector can create an explicit semantic relation", asy
     assert.match(String(relatedText || ""), /可连接目标/);
     assert.match(String(relatedText || ""), /可连接来源为目标提供了一条明确支撑/);
     assert.match(String(relatedText || ""), /主题索引/);
+  }, 10000);
+
+  await waitFor(async () => {
+    const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
+    assert.match(String(actionText || ""), /创建项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => !document.querySelector("#writingPanel")?.classList.contains("hidden"));
+  await page.click("#btnWritingUseCurrent");
+
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(String(statusStripText || ""), /项目/);
+    assert.match(String(statusStripText || ""), /可创建/);
+    assert.match(String(statusStripText || ""), /强模型/);
+    assert.match(String(statusStripText || ""), /先补条件/);
+    const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
+    assert.match(String(createProjectText || ""), /创建写作项目/);
+  }, 10000);
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
+    const graphText = await page.locator("#graphCanvas").textContent();
+    assert.match(String(graphText || ""), /可连接来源/);
+    assert.match(String(graphText || ""), /可连接目标/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
@@ -4667,7 +5007,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮里已有 2 条永久笔记");
+    return text.includes("写作篮已有 2 条永久笔记");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -4686,6 +5026,13 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(projectResultText || "", /Writing UI Project/);
   assert.match(projectResultText || "", /Writing UI claim/);
   assert.match(projectResultText || "", /Evidence UI map/);
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /已创建/);
+    assert.match(statusStripText || "", /强模型/);
+    assert.match(statusStripText || "", /先补条件|可分析/);
+  }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
   await page.waitForFunction(() => {
@@ -4704,6 +5051,13 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldPreviewText || "", /Confirmed distillation|提纯/);
   assert.match(scaffoldPreviewText || "", /Opening frame/);
   assert.match(scaffoldPreviewText || "", /Paragraph-Evidence Map/);
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /已创建/);
+    assert.match(statusStripText || "", /强模型/);
+    assert.match(statusStripText || "", /预检提醒|主题线索|可分析|先补条件/);
+  }, 10000);
 
   await page.click("#btnWritingCopyScaffold");
   await page.waitForFunction(() => {
@@ -4773,11 +5127,12 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("草稿：");
+    return text.includes("当前阶段：");
   });
 
   const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.match(writingSummaryText || "", /草稿：Writing UI Project 草稿/);
+  assert.match(writingSummaryText || "", /当前阶段：/);
+  assert.match(writingSummaryText || "", /主题入口：/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
     return text.includes("Writing UI Project");

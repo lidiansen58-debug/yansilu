@@ -71,6 +71,11 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  countExplicitSemanticRelations,
+  deriveBasketWritingReadiness,
+  describeProjectPreflight
+} from "./writing-readiness.js";
+import {
   scheduledTaskFormDefaults,
   scheduledTaskFromCanonical,
   scheduledTaskFormFromTask,
@@ -120,6 +125,7 @@ import {
   listImportRecords,
   listIndexCards,
   fetchNote,
+  fetchNoteRelations,
   fetchWritingProject,
   listProjectDraftVersions,
   listProjectScaffolds,
@@ -292,6 +298,10 @@ const writingState = {
   project: null,
   scaffold: null,
   scaffoldMarkdown: "",
+  relationCounts: {},
+  relationCountErrors: {},
+  loadingRelationCounts: false,
+  relationCountRequestSerial: 0,
   sourceIndexIds: [],
   selectedThemeIndexId: "",
   themeIndexes: [],
@@ -2488,13 +2498,15 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
   const statusRevisionAtStart = statusRevision;
   activateModule("writing");
   const writingProjectId = String(writingState.project?.id || "").trim();
+  const basketIds = parseWritingBasketIds();
   writingState.loadingProjects = true;
   writingState.loadingThemeIndexes = true;
   writingState.loadingScaffoldVersions = Boolean(writingProjectId);
   writingState.loadingDraftVersions = Boolean(writingProjectId);
+  writingState.loadingRelationCounts = basketIds.length > 0;
   renderWritingPanel();
   try {
-    const [projects, themeIndexes, project, scaffoldVersions, draftVersions] = await Promise.all([
+    const [projects, themeIndexes, project, scaffoldVersions, draftVersions, relationPayload] = await Promise.all([
       listWritingProjects({
         limit: 8,
         q: writingState.projectFilters.q,
@@ -2509,18 +2521,28 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
       }).catch(() => writingState.themeIndexes),
       writingProjectId ? fetchWritingProject(writingProjectId).catch(() => writingState.project) : Promise.resolve(null),
       writingProjectId ? listProjectScaffolds(writingProjectId, 12).catch(() => writingState.scaffoldVersions) : Promise.resolve([]),
-      writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([])
+      writingProjectId ? listProjectDraftVersions(writingProjectId, 12).catch(() => writingState.draftVersions) : Promise.resolve([]),
+      refreshWritingRelationCounts(basketIds, { render: false }).catch(() => ({
+        counts: writingState.relationCounts,
+        errors: writingState.relationCountErrors
+      }))
     ]);
     writingState.projects = Array.isArray(projects) ? projects : writingState.projects;
     writingState.themeIndexes = Array.isArray(themeIndexes) ? themeIndexes : writingState.themeIndexes;
     if (project) writingState.project = project;
     writingState.scaffoldVersions = Array.isArray(scaffoldVersions) ? scaffoldVersions : writingState.scaffoldVersions;
     writingState.draftVersions = Array.isArray(draftVersions) ? draftVersions : writingState.draftVersions;
+    if (relationPayload && typeof relationPayload === "object") {
+      writingState.relationCounts = relationPayload.counts && typeof relationPayload.counts === "object" ? relationPayload.counts : writingState.relationCounts;
+      writingState.relationCountErrors =
+        relationPayload.errors && typeof relationPayload.errors === "object" ? relationPayload.errors : writingState.relationCountErrors;
+    }
   } finally {
     writingState.loadingProjects = false;
     writingState.loadingThemeIndexes = false;
     writingState.loadingScaffoldVersions = false;
     writingState.loadingDraftVersions = false;
+    writingState.loadingRelationCounts = false;
     renderWritingPanel();
     syncWritingResultFromCurrentState();
   }
@@ -4292,6 +4314,9 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   writingState.strongModelLoading = false;
   writingState.strongModelResult = null;
   writingState.strongModelError = "";
+  writingState.relationCounts = {};
+  writingState.relationCountErrors = {};
+  writingState.loadingRelationCounts = normalizedIds.length > 0;
   clearWritingSourceIndexIds();
   setSelectedWritingThemeIndex("");
   setWritingBasketIds(normalizedIds);
@@ -4307,6 +4332,7 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
     basketNoteIds: normalizedIds
   });
   renderWritingPanel();
+  void refreshWritingRelationCounts(normalizedIds);
   return true;
 }
 
@@ -4991,15 +5017,23 @@ function setWritingBasketIds(noteIds) {
 }
 
 function addWritingBasketIds(noteIds) {
-  setWritingBasketIds([...parseWritingBasketIds(), ...noteIds]);
+  const merged = [...parseWritingBasketIds(), ...noteIds];
+  setWritingBasketIds(merged);
+  void refreshWritingRelationCounts(merged);
 }
 
 function removeWritingBasketId(noteId) {
-  setWritingBasketIds(parseWritingBasketIds().filter((item) => item !== noteId));
+  const remaining = parseWritingBasketIds().filter((item) => item !== noteId);
+  setWritingBasketIds(remaining);
+  delete writingState.relationCounts[String(noteId || "").trim()];
+  void refreshWritingRelationCounts(remaining);
 }
 
 function clearWritingBasket() {
   setWritingBasketIds([]);
+  writingState.relationCounts = {};
+  writingState.relationCountErrors = {};
+  writingState.loadingRelationCounts = false;
 }
 
 function writingKnownNoteById(noteId) {
@@ -5044,6 +5078,72 @@ function writingIneligibleSummary(items = []) {
 
 function currentWritingBasketEligibility() {
   return partitionWritingEligibleNoteIds(parseWritingBasketIds());
+}
+
+function countExplicitRelationsForWriting(relations = null) {
+  return countExplicitSemanticRelations(relations);
+}
+
+async function loadWritingRelationCounts(noteIds = []) {
+  const ids = uniqueStrings(noteIds);
+  if (!ids.length) return { counts: {}, errors: {} };
+  const results = await Promise.all(
+    ids.map(async (noteId) => {
+      try {
+        const relations = await fetchNoteRelations(noteId);
+        return [noteId, { count: countExplicitRelationsForWriting(relations), error: false }];
+      } catch {
+        return [noteId, { count: 0, error: true }];
+      }
+    })
+  );
+  return results.reduce(
+    (acc, [noteId, value]) => {
+      acc.counts[noteId] = value.count;
+      acc.errors[noteId] = value.error;
+      return acc;
+    },
+    { counts: {}, errors: {} }
+  );
+}
+
+async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), { render = true } = {}) {
+  const ids = uniqueStrings(noteIds);
+  const requestSerial = ++writingState.relationCountRequestSerial;
+  writingState.loadingRelationCounts = ids.length > 0;
+  if (!ids.length) {
+    writingState.relationCounts = {};
+    writingState.relationCountErrors = {};
+    if (render && state.module === "writing") renderWritingPanel();
+    return { counts: {}, errors: {} };
+  }
+  if (render && state.module === "writing") renderWritingPanel();
+  try {
+    const payload = await loadWritingRelationCounts(ids);
+    if (requestSerial !== writingState.relationCountRequestSerial) {
+      return { counts: writingState.relationCounts, errors: writingState.relationCountErrors };
+    }
+    writingState.relationCounts = payload.counts;
+    writingState.relationCountErrors = payload.errors;
+    return payload;
+  } finally {
+    if (requestSerial === writingState.relationCountRequestSerial) {
+      writingState.loadingRelationCounts = false;
+      if (render && state.module === "writing") renderWritingPanel();
+    }
+  }
+}
+
+function writingRelationCountsReady(noteIds = [], relationCounts = {}) {
+  const ids = uniqueStrings(noteIds);
+  if (!ids.length) return true;
+  return ids.every((noteId) => Object.prototype.hasOwnProperty.call(relationCounts || {}, noteId));
+}
+
+function writingRelationCountsErrored(noteIds = [], relationCountErrors = {}) {
+  const ids = uniqueStrings(noteIds);
+  if (!ids.length) return false;
+  return ids.some((noteId) => Boolean(relationCountErrors?.[noteId]));
 }
 
 function writingBasketEntries() {
@@ -5621,19 +5721,69 @@ function renderWritingStatusStrip() {
   if (!el) return;
   const basketIds = parseWritingBasketIds();
   const eligibility = currentWritingBasketEligibility();
+  const relationCounts = writingState.relationCounts || {};
+  const relationCountErrors = writingState.relationCountErrors || {};
+  const relationCountsReady = writingRelationCountsReady(basketIds, relationCounts) && !writingState.loadingRelationCounts;
+  const relationCountsErrored = writingRelationCountsErrored(basketIds, relationCountErrors);
+  const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
+  const readiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, relationCounts, { relationState });
   const hasProject = Boolean(writingState.project?.id);
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
-  const basketTone = eligibility.ineligible.length ? "warn" : basketIds.length ? "good" : "warn";
-  const basketNote = eligibility.ineligible.length
-    ? writingIneligibleSummary(eligibility.ineligible)
-    : basketIds.length
-      ? "材料已进入写作篮"
-      : "从永久笔记开始";
+  const projectPreflight = writingState.project?.preflight || null;
+  const projectPreflightSummary = describeProjectPreflight(projectPreflight);
+  const projectPreflightWarnings = Number(projectPreflight?.warningCount || 0);
+  const basketTone =
+    readiness.level === "strong_model_ready" || readiness.level === "project_ready"
+      ? "good"
+      : readiness.level === "basket_ready"
+        ? "warn"
+        : readiness.level === "needs_basket"
+          ? "warn"
+          : "warn";
+  const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const projectTone =
+    hasProject && projectPreflightSummary.level === "needs_attention"
+      ? "warn"
+      : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
+        ? "good"
+        : "warn";
+  const projectNote = hasProject
+    ? projectPreflightSummary.level === "needs_attention"
+      ? `${writingState.project.id}；${projectPreflightSummary.hint}`
+      : writingState.project.id
+    : relationCountsErrored
+      ? "显式关系读取失败，先稍后重试或回到笔记里手动确认关系。"
+    : !relationCountsReady && basketIds.length
+      ? "正在读取显式关系，再判断是否可建项目。"
+    : readiness.level === "basket_ready"
+      ? "还没到建项目时机；先补边界或关系。"
+      : readiness.level === "needs_distillation"
+        ? "先把 thesis 和三句话确认下来。"
+        : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
+          ? "先让材料完成作者/原创确认，再进入写作。"
+          : "当前材料已到建项目阶段；接下来明确题目和读者。";
+  const strongModelTone =
+    readiness.level === "strong_model_ready" && projectPreflightSummary.level !== "needs_attention"
+      ? "good"
+      : "warn";
+  const strongModelNote =
+    projectPreflightSummary.level === "needs_attention"
+      ? `先处理 ${projectPreflightWarnings} 项预检提醒，再做强模型分析。`
+      : relationCountsErrored
+        ? "显式关系读取失败，先重试或回到笔记里确认关系。"
+      : !relationCountsReady && basketIds.length
+        ? "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。"
+      : readiness.level === "strong_model_ready"
+        ? "当前材料已经适合进入强模型分析。"
+        : readiness.level === "project_ready"
+          ? "先补更多主题线索，再做强模型分析。"
+          : readiness.hint;
   el.innerHTML = [
-    renderWritingStatusCard("材料", `${basketIds.length} 条`, basketNote, basketTone),
-    renderWritingStatusCard("项目", hasProject ? "已创建" : "待创建", hasProject ? writingState.project.id : "先明确题目和读者", hasProject ? "good" : "warn"),
+    renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
+    renderWritingStatusCard("项目", hasProject ? "已创建" : relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "project_ready" || readiness.level === "strong_model_ready" ? "可创建" : "待创建", projectNote, projectTone),
     renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "strong_model_ready" ? "可分析" : "先补条件", strongModelNote, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
 }
@@ -5697,6 +5847,7 @@ function renderWritingScaffoldPreview() {
   const sections = Array.isArray(writingState.scaffold.sections) ? writingState.scaffold.sections : [];
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
+  const preflightSummary = describeProjectPreflight(preflight);
   const preflightChecks = Array.isArray(preflight?.checks) ? preflight.checks : [];
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
@@ -5714,7 +5865,7 @@ function renderWritingScaffoldPreview() {
         ? `<div>
             <h4>生成前检查</h4>
             <div class="writing-summary">
-              ${escapeHtml(preflight.status === "ready" ? "结构准备较完整" : `仍有 ${preflight.warningCount || 0} 项需要注意`)}
+              ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
             </div>
             <ul>
               ${preflightChecks
@@ -5847,16 +5998,17 @@ function renderWritingPanel() {
   }
 
   const basketEntries = writingBasketEntries();
+  const basketIds = parseWritingBasketIds();
+  const relationCountsReady = writingRelationCountsReady(basketIds, writingState.relationCounts || {}) && !writingState.loadingRelationCounts;
+  const relationCountsErrored = writingRelationCountsErrored(basketIds, writingState.relationCountErrors || {});
+  const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
+    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
+  });
   if (basketSummary) {
-    const projectPart = writingState.project?.id ? `当前项目：${writingState.project.id}` : "尚未创建项目";
-    const scaffoldPart = writingState.scaffold?.id ? `Scaffold：${writingState.scaffold.id}` : "尚未生成 scaffold";
-    const draftPart = writingState.project?.draft_note_id
-      ? `草稿：${writingState.project?.draft_note?.title || writingState.project.draft_note_id}`
-      : "尚未绑定草稿";
-    const sourcePart = sourceIndexSummary || "尚未记录主题入口";
+    const sourcePart = sourceIndexSummary ? `主题入口：${sourceIndexSummary}。` : "主题入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
-      ? `写作篮里已有 ${basketEntries.length} 条永久笔记，正在为当前主题组织论点与证据。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`
-      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}；${projectPart}；${scaffoldPart}；${draftPart}。`;
+      ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "显式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等显式关系读取完成后，再判断是否能建项目。"} ${sourcePart}`
+      : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
@@ -5865,7 +6017,7 @@ function renderWritingPanel() {
   }
 
   const candidates = writingCandidateNotes();
-  const basketIds = new Set(parseWritingBasketIds());
+  const basketIdSet = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
       ? `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记进入写作篮。`
@@ -5876,9 +6028,9 @@ function renderWritingPanel() {
       ? candidates
           .map((entry) =>
             renderWritingNoteCard(entry, {
-              selected: basketIds.has(entry.id),
-              action: basketIds.has(entry.id) ? "remove" : "add",
-              actionLabel: basketIds.has(entry.id) ? "移出篮子" : "加入篮子"
+              selected: basketIdSet.has(entry.id),
+              action: basketIdSet.has(entry.id) ? "remove" : "add",
+              actionLabel: basketIdSet.has(entry.id) ? "移出篮子" : "加入篮子"
             })
           )
           .join("")
@@ -5890,7 +6042,11 @@ function renderWritingPanel() {
     openDraftButton.disabled = !hasDraft;
     openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
   }
-  if (createProjectButton) createProjectButton.disabled = false;
+  if (createProjectButton) {
+    const projectReady = !relationCountsErrored && relationCountsReady && (basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready");
+    createProjectButton.disabled = !projectReady;
+    createProjectButton.textContent = relationCountsErrored ? "关系读取失败" : !relationCountsReady && basketIds.length ? "正在读取关系" : projectReady ? "创建写作项目" : "先补条件再建项目";
+  }
   if (createScaffoldButton) {
     createScaffoldButton.disabled = !writingState.project?.id;
     createScaffoldButton.textContent = writingState.project?.id ? "生成草稿骨架" : "先创建项目";
@@ -5899,13 +6055,20 @@ function renderWritingPanel() {
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   if (strongModelButton) {
-    const strongModelBasketIds = parseWritingBasketIds();
-    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0;
+    const strongModelBasketIds = basketIds;
+    const strongModelReady = !relationCountsErrored && relationCountsReady && basketReadiness.level === "strong_model_ready";
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
     strongModelButton.textContent = writingState.strongModelLoading
       ? "准备中..."
-      : strongModelBasketIds.length
-        ? "准备强模型分析"
-        : "先加入笔记";
+      : !strongModelBasketIds.length
+        ? "先加入笔记"
+        : relationCountsErrored
+          ? "关系读取失败"
+        : !relationCountsReady
+          ? "正在读取关系"
+        : strongModelReady
+          ? "准备强模型分析"
+          : "先补条件";
   }
   if (strongModelSummary) {
     const result = writingState.strongModelResult;
