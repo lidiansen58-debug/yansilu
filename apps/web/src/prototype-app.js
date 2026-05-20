@@ -70,6 +70,7 @@ import {
 import { graphFollowupActionForRelationType, graphNextActionForSummary } from "./graph-followup.js";
 import {
   describeWritingProjectEntryState,
+  describeWritingThemeProjectEntryState,
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
   groupWritingPreflightChecks,
@@ -5350,17 +5351,16 @@ function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
 
 function writingThemeProjectEntry(indexCard) {
   const noteIds = writingThemeIndexNoteIds(indexCard);
-  if (!writingThemeNotesLoaded(noteIds) || (writingState.loadingThemeNoteDetails && sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds))) {
+  const notesLoaded = writingThemeNotesLoaded(noteIds);
+  const loadingNoteDetails = writingState.loadingThemeNoteDetails && sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds);
+  if (!notesLoaded || loadingNoteDetails) {
     return {
       noteIds,
       readiness: null,
-      projectEntry: {
-        level: "loading",
-        status: "读取中",
-        hint: "正在读取主题里的永久笔记，再判断是否能直接创建项目。",
-        actionLabel: "正在读取主题",
-        canCreateProject: false
-      }
+      projectEntry: describeWritingThemeProjectEntryState({
+        notesLoaded,
+        loadingNoteDetails
+      })
     };
   }
   const hasMatchingCounts = sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
@@ -5376,7 +5376,9 @@ function writingThemeProjectEntry(indexCard) {
   return {
     noteIds,
     readiness,
-    projectEntry: describeWritingProjectEntryState({
+    projectEntry: describeWritingThemeProjectEntryState({
+      notesLoaded,
+      loadingNoteDetails,
       relationCountsReady,
       relationCountsErrored,
       readinessLevel: readiness.level,

@@ -169,3 +169,28 @@ export function describeWritingProjectEntryState({
     canCreateProject: false
   };
 }
+
+export function describeWritingThemeProjectEntryState({
+  notesLoaded = false,
+  loadingNoteDetails = false,
+  relationCountsReady = false,
+  relationCountsErrored = false,
+  readinessLevel = "",
+  readinessHint = ""
+} = {}) {
+  if (!notesLoaded || loadingNoteDetails) {
+    return {
+      level: "loading",
+      status: "读取中",
+      hint: "正在读取主题里的永久笔记，再判断是否能直接创建项目。",
+      actionLabel: "正在读取主题",
+      canCreateProject: false
+    };
+  }
+  return describeWritingProjectEntryState({
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel,
+    readinessHint
+  });
+}
