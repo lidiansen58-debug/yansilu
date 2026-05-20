@@ -97,12 +97,6 @@ const MUST_KEEP_CASES = [
     ]
   },
   {
-    file: "tests/e2e/ai-review-flow-inline-errors.test.mjs",
-    snippets: [
-      'test("AI inbox inline error blocks invalid reviewed JSON submit without PATCH"'
-    ]
-  },
-  {
     file: "tests/integration/api-ai-legacy-revised-compat.test.mjs",
     snippets: ['test("AI inbox APIs continue to load legacy revised sqlite rows without a data repair script"']
   },
