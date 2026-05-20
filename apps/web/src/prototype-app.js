@@ -67,6 +67,7 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
+import { graphFollowupActionForRelationType, graphNextActionForSummary } from "./graph-followup.js";
 import {
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
@@ -6429,9 +6430,7 @@ function renderGraphInsightCoach(context = {}) {
         .map((edge, index) => {
           const sourceId = edge.fromNoteId || "";
           const relation = graphRelationTypeLabel(edge.relationType);
-          const relationType = String(edge.relationType || "").trim().toLowerCase();
-          const followupAction =
-            GRAPH_CONFLICT_RELATION_TYPES.has(relationType) ? "tension" : relationType === "bridges" ? "bridge" : "relations";
+          const followupAction = graphFollowupActionForRelationType(edge.relationType);
           return `
             <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(followupAction)}">
               <span>${index + 1}</span>
@@ -7112,58 +7111,16 @@ function renderGraphPanel() {
     `);
   }
 
-  const nextAction = (() => {
-    if (!nodes.length) {
-      return {
-        title: "先写出几条永久笔记",
-        note: "当前目录还没有节点。先回到编辑器建立笔记，再用 [[关联笔记]] 串起观点。"
-      };
-    }
-    if (!allEdges.length) {
-      return {
-        title: "下一步：建立第一条关系",
-        note: "在两条相关笔记之间加入 [[关联笔记]]，再刷新图谱查看局部结构。",
-        noteId: nodes[0]?.id || "",
-        action: "relations",
-        actionLabel: "去补关系"
-      };
-    }
-    if (untypedRelations.length) {
-      return {
-        title: "下一步：补关系理由",
-        note: `${untypedRelations.length} 条连接还没写清为什么成立。优先打开关系整理队列里的源笔记。`,
-        noteId: untypedRelations[0]?.fromNoteId || "",
-        action: "relations",
-        actionLabel: "去补关系"
-      };
-    }
-    if (conflictingRelations.length + conflictItems.length) {
-      const focusConflictNoteId =
-        conflictingRelations[0]?.fromNoteId ||
-        (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : "");
-      return {
-        title: "下一步：处理张力",
-        note: "已经有冲突或重名信号。补反方、边界和例外条件后，写作时更稳。",
-        noteId: focusConflictNoteId,
-        action: "tension",
-        actionLabel: "去补反例/边界"
-      };
-    }
-    if (bridgeGaps.length) {
-      const focusBridgeNoteId = Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "";
-      return {
-        title: "下一步：补桥接",
-        note: "当前结构已经有局部中心，但桥接缺口还会让读者断在半路。优先补过渡关系。",
-        noteId: focusBridgeNoteId,
-        action: "bridge",
-        actionLabel: "去补桥接"
-      };
-    }
-    return {
-      title: "下一步：进入写作中心",
-      note: "当前目录结构已经比较清楚，可以挑选永久笔记放入写作篮。"
-    };
-  })();
+  const nextAction = graphNextActionForSummary({
+    hasNodes: nodes.length > 0,
+    hasEdges: allEdges.length > 0,
+    firstNodeId: nodes[0]?.id || "",
+    untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
+    conflictFromNoteId:
+      conflictingRelations[0]?.fromNoteId ||
+      (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),
+    bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : ""
+  });
 
   summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
