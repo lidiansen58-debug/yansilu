@@ -1,3 +1,12 @@
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function textOrUndefined(value) {
+  const text = cleanText(value);
+  return text ? text : undefined;
+}
+
 export function emptyPaperWorkspaceForm() {
   return {
     paperId: "",
@@ -27,15 +36,6 @@ export function createInitialPaperWorkspaceState() {
     statusTone: "",
     lastResult: null
   };
-}
-
-function cleanText(value) {
-  return String(value || "").trim();
-}
-
-function textOrUndefined(value) {
-  const text = cleanText(value);
-  return text ? text : undefined;
 }
 
 export function buildNotebookLmPayload(form = {}) {
@@ -94,6 +94,25 @@ export function selectedPaperCandidate(workspace = null, candidateId = "") {
   return candidates.find((item) => item.id === id || item.externalCandidateId === id) || candidates[0] || null;
 }
 
+export function selectedPaperTranslation(workspace = null, candidateId = "") {
+  const id = cleanText(candidateId);
+  const translations = Array.isArray(workspace?.translations) ? workspace.translations : [];
+  return translations.find((item) => item.candidateId === id) || null;
+}
+
+export function translationDraftForCandidate(workspace = null, candidateId = "") {
+  const candidate = selectedPaperCandidate(workspace, candidateId);
+  const translation = selectedPaperTranslation(workspace, candidate?.id || candidateId);
+  return {
+    candidate,
+    translation,
+    paraphraseText: cleanText(translation?.paraphraseText || candidate?.paraphraseText),
+    relationToQuestion: cleanText(translation?.relationToQuestion),
+    boundaryOrCondition: cleanText(translation?.boundaryOrCondition),
+    hasSavedTranslation: Boolean(cleanText(translation?.id) && cleanText(translation?.paraphraseText))
+  };
+}
+
 export function selectedPermanentCandidate(workspace = null, candidateId = "") {
   const id = cleanText(candidateId);
   const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
@@ -114,6 +133,11 @@ export function canSubmitNotebookDraft(form = {}, workspace = null) {
   if (!workspace?.paperId) return false;
   const payload = buildNotebookLmPayload(form);
   return Boolean(payload.summary || payload.qa || payload.studyGuide || payload.notes);
+}
+
+export function canCreatePermanentCandidate(workspace = null, candidateId = "") {
+  const draft = translationDraftForCandidate(workspace, candidateId);
+  return Boolean(cleanText(draft.candidate?.id) && cleanText(draft.translation?.id) && cleanText(draft.translation?.paraphraseText));
 }
 
 export function nextSelectedCandidateId(workspace = null, preferredId = "") {

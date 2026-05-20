@@ -254,6 +254,10 @@ async function reloadPrototype(page, webBase) {
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
 }
 
+async function openPaperWorkspace(page, webBase) {
+  await page.goto(`${webBase}/paper-workspace`, { waitUntil: "networkidle" });
+}
+
 async function createAiFieldSuggestionFixture(baseUrl, options = {}) {
   const title = String(options.title || "AI review fixture").trim();
   const body =
@@ -5362,6 +5366,96 @@ test("prototype writing panel creates project and draft scaffold through real AP
     assert.match(statusStripText || "", /项目/);
     assert.match(statusStripText || "", /已创建/);
   }, 10000);
+});
+
+test("paper workspace browser flow restores saved translations across reload and candidate switching", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  const paperId = "paper_browser_workspace";
+  const savedParaphrase = "My takeaway is that retrieval effort improves later access to the idea.";
+  const savedRelation = "This supports turning reading work into durable notes.";
+  const savedBoundary = "Only when the study task is comparable.";
+
+  await openPaperWorkspace(page, webBase);
+
+  await page.fill("#paperIdInput", paperId);
+  await page.fill("#paperTitleInput", "Browser Paper Workspace");
+  await page.click("#btnCreatePaperWorkspace");
+  await waitFor(async () => {
+    const text = await page.locator(".paper-result-json").textContent();
+    assert.match(text || "", /"stage": "create_workspace"/);
+  }, 6000);
+
+  await page.fill(
+    "#notebookSummaryInput",
+    "Claim: retrieval practice improves retention.\n\nLimitation: sample size was small."
+  );
+  await page.click("#btnAddNotebookDraft");
+  await waitFor(async () => {
+    assert.equal(await page.locator(".paper-candidate").count(), 2);
+  }, 6000);
+
+  const permanentCandidateButton = page.locator("#btnCreatePermanentCandidate");
+  await waitFor(async () => {
+    assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 4000);
+
+  await page.fill("#translationParaphraseInput", savedParaphrase);
+  await page.fill("#translationRelationInput", savedRelation);
+  await page.fill("#translationBoundaryInput", savedBoundary);
+  await waitFor(async () => {
+    assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 4000);
+
+  await page.click("#btnSaveTranslation");
+  await waitFor(async () => {
+    const text = await page.locator(".paper-result-json").textContent();
+    assert.match(text || "", /"stage": "save_translation"/);
+  }, 6000);
+  await waitFor(async () => {
+    assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 4000);
+
+  await page.locator(".paper-candidate").nth(1).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#translationParaphraseInput").inputValue(), "");
+    assert.equal(await page.locator("#translationRelationInput").inputValue(), "");
+    assert.equal(await page.locator("#translationBoundaryInput").inputValue(), "");
+    assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 4000);
+
+  await page.locator(".paper-candidate").nth(0).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
+    assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+    assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
+    assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 4000);
+
+  await openPaperWorkspace(page, webBase);
+  await page.fill("#paperIdInput", paperId);
+  await page.click("#btnLoadPaperWorkspace");
+  await waitFor(async () => {
+    const text = await page.locator(".paper-result-json").textContent();
+    assert.match(text || "", /"stage": "load_workspace"/);
+  }, 6000);
+  await waitFor(async () => {
+    assert.equal(await page.locator(".paper-candidate").count(), 2);
+    assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
+    assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+    assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
+    assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
+  }, 6000);
 });
 
 test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
