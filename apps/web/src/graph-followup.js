@@ -19,8 +19,10 @@ export function graphNextActionForSummary({
   hasEdges = false,
   firstNodeId = "",
   untypedFromNoteId = "",
+  untypedRelationId = "",
   conflictFromNoteId = "",
-  bridgeNoteId = ""
+  bridgeNoteId = "",
+  bridgeTargetNoteId = ""
 } = {}) {
   if (!hasNodes) {
     return {
@@ -42,8 +44,9 @@ export function graphNextActionForSummary({
       title: "下一步：补关系理由",
       note: "优先打开关系整理队列里的源笔记，把“为什么相连”写清楚。",
       noteId: String(untypedFromNoteId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系"
+      action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "去补关系",
+      relationId: String(untypedRelationId || "").trim()
     };
   }
   if (conflictFromNoteId) {
@@ -61,7 +64,9 @@ export function graphNextActionForSummary({
       note: "当前结构已经有局部中心，但桥接缺口还会让读者断在半路。优先补过渡关系。",
       noteId: String(bridgeNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.bridge,
-      actionLabel: "去补桥接"
+      actionLabel: "去补桥接",
+      targetNoteId: String(bridgeTargetNoteId || "").trim(),
+      relationType: "bridges"
     };
   }
   return {

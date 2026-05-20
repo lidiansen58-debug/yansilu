@@ -21,11 +21,13 @@ test("graph next action prefers relation followup when graph only has untyped re
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
     hasEdges: true,
-    untypedFromNoteId: "pn_rel_1"
+    untypedFromNoteId: "pn_rel_1",
+    untypedRelationId: "lnk_rel_1"
   });
 
-  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.action, "relations-edit");
   assert.equal(nextAction.noteId, "pn_rel_1");
+  assert.equal(nextAction.relationId, "lnk_rel_1");
 });
 
 test("graph next action prefers tension followup before bridge followup", () => {
@@ -44,9 +46,12 @@ test("graph next action offers bridge followup when bridge gaps exist without te
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
     hasEdges: true,
-    bridgeNoteId: "pn_bridge_1"
+    bridgeNoteId: "pn_bridge_1",
+    bridgeTargetNoteId: "pn_bridge_target_1"
   });
 
   assert.equal(nextAction.action, "bridge");
   assert.equal(nextAction.noteId, "pn_bridge_1");
+  assert.equal(nextAction.targetNoteId, "pn_bridge_target_1");
+  assert.equal(nextAction.relationType, "bridges");
 });

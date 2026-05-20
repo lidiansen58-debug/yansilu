@@ -6072,7 +6072,13 @@ function renderWritingPanel() {
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   if (strongModelButton) {
     const strongModelBasketIds = basketIds;
-    const strongModelReady = !relationCountsErrored && relationCountsReady && basketReadiness.level === "strong_model_ready";
+    const strongModelReady =
+      !relationCountsErrored &&
+      relationCountsReady &&
+      isWritingStrongModelReady({
+        readinessLevel: basketReadiness.level,
+        projectPreflightLevel: projectPreflightSummary.level
+      });
     strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
     strongModelButton.textContent = writingState.strongModelLoading
       ? "准备中..."
@@ -6828,7 +6834,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
                           </span>
                           <span class="graph-review-actions">
-                            <span class="mini-btn" data-graph-followup-action="relations" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">去补关系</span>
+                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系</span>
                           </span>
                         </button>
                       `;
@@ -7078,7 +7084,7 @@ function renderGraphPanel() {
             .map((gap) => (Array.isArray(gap.noteTitles) ? gap.noteTitles.join(" / ") : "未命名缺口"))
             .join(" / ")
         )}</small>
-        ${focusBridgeNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="bridge" data-open-note="${escapeHtml(focusBridgeNoteId)}">去补桥接</button>` : ""}
+        ${focusBridgeNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="bridge" data-open-note="${escapeHtml(focusBridgeNoteId)}" data-graph-target-note="${escapeHtml(Array.isArray(firstGap?.targetNoteIds) ? String(firstGap.targetNoteIds[0] || "").trim() : "")}" data-graph-relation-type="bridges">去补桥接</button>` : ""}
       </div>
     `);
   } else if (isolatedNodes.length) {
@@ -7119,7 +7125,8 @@ function renderGraphPanel() {
     conflictFromNoteId:
       conflictingRelations[0]?.fromNoteId ||
       (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),
-    bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : ""
+    bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "",
+    bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : ""
   });
 
   summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
@@ -7172,7 +7179,7 @@ function renderGraphPanel() {
         <div class="graph-next-card">
           <strong>${escapeHtml(nextAction.title)}</strong>
           <small>${escapeHtml(nextAction.note)}</small>
-          ${nextAction.noteId && nextAction.action ? `<button class="mini-btn" type="button" data-open-note="${escapeHtml(nextAction.noteId)}" data-graph-followup-action="${escapeHtml(nextAction.action)}">${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
+          ${nextAction.noteId && nextAction.action ? `<button class="mini-btn" type="button" data-open-note="${escapeHtml(nextAction.noteId)}" data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
         </div>
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
@@ -7531,9 +7538,12 @@ function openNoteById(id, options = {}) {
   return true;
 }
 
-function openGraphFollowupNote(noteId = "", action = "") {
+function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanNoteId = String(noteId || "").trim();
   const cleanAction = String(action || "").trim().toLowerCase();
+  const cleanRelationId = String(options.relationId || "").trim();
+  const cleanTargetNoteId = String(options.targetNoteId || "").trim();
+  const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
   if (!cleanNoteId) return false;
   activateModule("explorer");
   openNoteById(cleanNoteId, { preferTitleSelection: false });
@@ -7544,11 +7554,37 @@ function openGraphFollowupNote(noteId = "", action = "") {
   const focusRelationCreate = () => {
     editor?.openCreateRelationForm?.();
     window.setTimeout(() => {
+      const form = document.querySelector("[data-create-relation-form]");
+      const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
+      const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
+      if (targetSelect && cleanTargetNoteId) targetSelect.value = cleanTargetNoteId;
+      if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
       editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
         focus: true,
         focusSelector: '[data-create-relation-form] [data-relation-target-search]'
       });
     }, 40);
+  };
+
+  const focusExistingRelationEdit = () => {
+    const tryOpen = () => {
+      const relation = editor?.findSemanticRelation?.(cleanRelationId);
+      if (!relation) return false;
+      editor?.openEditRelationForm?.(cleanRelationId);
+      window.setTimeout(() => {
+        editor?.jumpToInspectorSection?.("[data-edit-relation-form]", {
+          focus: true,
+          focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
+        });
+      }, 40);
+      return true;
+    };
+    if (tryOpen()) return;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (tryOpen() || attempts >= 20) window.clearInterval(timer);
+    }, 120);
   };
 
   const focusBoundaryField = () => {
@@ -7560,7 +7596,20 @@ function openGraphFollowupNote(noteId = "", action = "") {
     }, 40);
   };
 
+  if (cleanAction === "relations-edit" && cleanRelationId) {
+    focusExistingRelationEdit();
+    setStatus("已从图谱打开笔记，继续补当前关系的理由或类型", "ok");
+    return true;
+  }
+
   if (cleanAction === "relations" || cleanAction === "bridge") {
+    window.setTimeout(() => {
+      const form = document.querySelector("[data-create-relation-form]");
+      const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
+      const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
+      if (targetSelect && cleanTargetNoteId) targetSelect.value = cleanTargetNoteId;
+      if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
+    }, 20);
     focusRelationCreate();
     setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
     return true;
@@ -9280,7 +9329,11 @@ $("graphCanvas")?.addEventListener("click", (event) => {
   }
   const graphFollowup = event.target.closest("[data-graph-followup-action]");
   if (graphFollowup) {
-    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"));
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
+      relationId: graphFollowup.getAttribute("data-graph-relation-id"),
+      targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
+      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+    });
     return;
   }
   const zoomButton = event.target.closest("[data-graph-zoom-option]");
@@ -9302,7 +9355,11 @@ $("graphCanvas")?.addEventListener("keydown", (event) => {
   const graphFollowup = event.target.closest("[data-graph-followup-action]");
   if (graphFollowup) {
     event.preventDefault();
-    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"));
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
+      relationId: graphFollowup.getAttribute("data-graph-relation-id"),
+      targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
+      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+    });
     return;
   }
   const row = event.target.closest("[data-open-note]");
