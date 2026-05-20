@@ -145,7 +145,10 @@ function renderContentEditor(item = {}) {
 }
 
 function renderDetail(state = {}) {
-  const item = state.detail || state.items?.find((entry) => String(entry.id || "") === String(state.selectedSuggestionId || "")) || null;
+  const selectedSuggestionId = String(state.selectedSuggestionId || "").trim();
+  const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
+  const detailMatchesSelection = String(state.detail?.id || "").trim() && String(state.detail?.id || "").trim() === selectedSuggestionId;
+  const item = (detailMatchesSelection ? state.detail : null) || selectedListItem || null;
   if (!item) return `<div class="scheduled-task-empty">Pick a suggestion to inspect its target, content, and review history.</div>`;
   return `
     <article class="ai-inbox-detail">
