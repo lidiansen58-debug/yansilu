@@ -1560,6 +1560,102 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedSuggestion.json.canonical.trace.primary_source_note_id, draftTarget.json.item.id);
   assert.deepEqual(adoptedSuggestion.json.canonical.trace.source_note_ids, [draftTarget.json.item.id]);
 
+  const editedSuggestion = await patchJson(
+    baseUrl,
+    `/api/v1/ai-suggestions/${encodeURIComponent(storedFieldSuggestionId)}?canonical=true`,
+    {
+      status: "edited",
+      action: "edit",
+      actor: "user",
+      userId: "user_1",
+      content: {
+        thesis: "AI suggestions can become user-owned claims after explicit editing."
+      }
+    }
+  );
+  assert.equal(editedSuggestion.status, 200, JSON.stringify(editedSuggestion.json));
+  assert.equal(editedSuggestion.json.item.status, "edited");
+  assert.equal(editedSuggestion.json.item.content.thesis, "AI suggestions can become user-owned claims after explicit editing.");
+  assert.equal(editedSuggestion.json.canonical.latest_review_event.event_type, "edited");
+
+  const confirmedSuggestion = await patchJson(
+    baseUrl,
+    `/api/v1/ai-suggestions/${encodeURIComponent(storedFieldSuggestionId)}?canonical=true`,
+    {
+      status: "confirmed",
+      action: "confirm",
+      actor: "user",
+      userId: "user_1",
+      userConfirmed: true,
+      content: {
+        thesis: "AI suggestions can become user-owned claims after explicit editing."
+      }
+    }
+  );
+  assert.equal(confirmedSuggestion.status, 200, JSON.stringify(confirmedSuggestion.json));
+  assert.equal(confirmedSuggestion.json.item.status, "confirmed");
+  assert.equal(confirmedSuggestion.json.canonical.latest_review_event.event_type, "confirmed");
+  assert.equal(confirmedSuggestion.json.canonical.review_events.at(-1).metadata.to_status, "confirmed");
+
+  const confirmedFieldCanonicalDetail = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}?canonical=true`
+  );
+  assert.equal(confirmedFieldCanonicalDetail.status, 200, JSON.stringify(confirmedFieldCanonicalDetail.json));
+  assert.equal(confirmedFieldCanonicalDetail.json.canonical.suggestion.status, "confirmed");
+  assert.equal(confirmedFieldCanonicalDetail.json.canonical.suggestion.content.thesis, "AI suggestions can become user-owned claims after explicit editing.");
+  assert.equal(confirmedFieldCanonicalDetail.json.canonical.latest_suggestion_review_event.event_type, "confirmed");
+  assert.equal(confirmedFieldCanonicalDetail.json.canonical.suggestion_review_events.at(-1).metadata.to_status, "confirmed");
+
+  const rejectTarget = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    title: "Reject target",
+    noteType: "permanent",
+    body: "# Reject target\n\nThis note should exercise suggestion rejection from AI inbox."
+  });
+  assert.equal(rejectTarget.status, 201, JSON.stringify(rejectTarget.json));
+
+  const rejectAnalysis = await postJson(baseUrl, `/api/v1/notes/${encodeURIComponent(rejectTarget.json.item.id)}/ai-analysis`, {});
+  assert.equal(rejectAnalysis.status, 200, JSON.stringify(rejectAnalysis.json));
+  const rejectSuggestionId = rejectAnalysis.json.item.reviewItems.storedSuggestionIds[0];
+  assert.ok(rejectSuggestionId);
+  const rejectArtifact = rejectAnalysis.json.item.reviewItems.artifacts.find(
+    (artifact) => artifact.type === "InsightCard" && artifact.payload?.fieldSuggestionId === rejectSuggestionId
+  );
+  assert.ok(rejectArtifact, "expected a persisted field suggestion artifact for rejection");
+
+  const rejectedSuggestion = await patchJson(
+    baseUrl,
+    `/api/v1/ai-suggestions/${encodeURIComponent(rejectSuggestionId)}?canonical=true`,
+    {
+      status: "rejected",
+      action: "reject",
+      actor: "user",
+      userId: "user_1",
+      comment: "Not useful enough for drafting."
+    }
+  );
+  assert.equal(rejectedSuggestion.status, 200, JSON.stringify(rejectedSuggestion.json));
+  assert.equal(rejectedSuggestion.json.item.status, "rejected");
+  assert.equal(rejectedSuggestion.json.canonical.latest_review_event.event_type, "rejected");
+  assert.equal(rejectedSuggestion.json.canonical.artifact.status, "ignored");
+
+  const rejectedInboxDetail = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(rejectArtifact.id)}?canonical=true`
+  );
+  assert.equal(rejectedInboxDetail.status, 200, JSON.stringify(rejectedInboxDetail.json));
+  assert.equal(rejectedInboxDetail.json.item.status, "ignored");
+  assert.equal(rejectedInboxDetail.json.canonical.artifact.status, "ignored");
+  assert.equal(rejectedInboxDetail.json.canonical.suggestion.status, "rejected");
+
+  const reviewedAfterReject = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox?view=reviewed&sourceNoteId=${encodeURIComponent(rejectTarget.json.item.id)}`
+  );
+  assert.equal(reviewedAfterReject.status, 200, JSON.stringify(reviewedAfterReject.json));
+  assert.ok(reviewedAfterReject.json.items.some((entry) => entry.artifactId === rejectArtifact.id && entry.status === "ignored"));
+
   const adoptedNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}`);
   assert.equal(adoptedNote.status, 200, JSON.stringify(adoptedNote.json));
   assert.equal(adoptedNote.json.item.thesis, fieldArtifact.payload.fieldSuggestion.content.thesis);

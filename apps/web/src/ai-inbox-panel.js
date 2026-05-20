@@ -16,6 +16,7 @@ import {
   normalizeAiInboxFilters,
   selectedAiInboxItem
 } from "./ai-inbox-model.js";
+import { aiSuggestionActionSet } from "./ai-suggestions-model.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -312,6 +313,14 @@ function renderReviewedSuggestionContent(detail = {}) {
   const status = String(suggestion?.status || "").trim();
   if (!suggestion || !["adopted_as_draft", "edited", "confirmed"].includes(status)) return "";
   const content = typeof suggestion.content === "string" ? suggestion.content : JSON.stringify(suggestion.content || {}, null, 2);
+  if (status === "adopted_as_draft" || status === "edited") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Reviewed content</h3>
+        <textarea id="aiInboxSuggestionContentEditor" rows="8" placeholder="Update the reviewed content before marking it edited or confirmed.">${escapeHtml(content)}</textarea>
+      </section>
+    `;
+  }
   return `
     <section class="ai-inbox-detail-section">
       <h3>Reviewed content</h3>
@@ -368,6 +377,48 @@ function renderSuggestionHistory(detail = {}) {
           .join("")}
       </div>
     </section>
+  `;
+}
+
+function renderSuggestionReviewActions(detail = {}, actionLoading = false) {
+  const suggestion = detail.suggestion || null;
+  if (!suggestion) return "";
+  const artifact = detail.artifact || null;
+  const adoptableFieldSuggestion = fieldSuggestionSummary(artifact);
+  const actions = aiSuggestionActionSet(suggestion).filter((action) => {
+    if (action === "adopted_as_draft") return adoptableFieldSuggestion.canAdopt;
+    return true;
+  });
+  if (!actions.length) return "";
+  const labels = {
+    adopted_as_draft: "Adopt as draft",
+    edited: "Mark edited",
+    rejected: "Reject",
+    confirmed: "Confirm"
+  };
+  return `
+    <div class="ai-inbox-action-card">
+      <div>
+        <h3>Suggestion review</h3>
+        <p>Process the linked suggestion here without leaving AI inbox. Draft adoption still requires explicit user action before anything becomes confirmed.</p>
+      </div>
+      <div class="ai-inbox-actions">
+        ${actions
+          .map(
+            (action) => `
+              <button
+                class="mini-btn ${action === "confirmed" ? "primary" : ""}"
+                type="button"
+                data-ai-inbox-suggestion-status="${attr(action)}"
+                ${actionLoading ? "disabled" : ""}
+              >
+                ${escapeHtml(labels[action] || action)}
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -621,6 +672,7 @@ function renderDetail(state = {}) {
       ${renderReviewedSuggestionContent(detail)}
       ${renderSuggestionProvenance(detail)}
       ${renderSuggestionHistory(detail)}
+      ${renderSuggestionReviewActions(detail, actionDisabled)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}

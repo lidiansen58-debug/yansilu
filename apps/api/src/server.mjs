@@ -1599,6 +1599,27 @@ function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, 
   };
 }
 
+function payloadWithRejectedFieldSuggestion(artifact = {}) {
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
+  if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
+
+  const nextSuggestion = {
+    ...originalSuggestion,
+    status: "rejected",
+    provenance: {
+      ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
+      humanConfirmed: false
+    }
+  };
+
+  return {
+    ...payload,
+    fieldSuggestion: nextSuggestion,
+    field_suggestion: nextSuggestion
+  };
+}
+
 function fieldSuggestionIdFromArtifactPayload(artifact = {}) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   return cleanText(
@@ -2712,13 +2733,30 @@ const server = http.createServer(async (req, res) => {
         assertSuggestionPatchDoesNotRetarget(body);
         const store = await aiSuggestionStore();
         const toStatus = body.status || body.toStatus || body.to_status;
+        const existingItem = store.get(aiSuggestionId);
+        if (!existingItem) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
+        const sourceArtifact = await sourceArtifactForSuggestion(existingItem);
+        let syncedArtifact = null;
+        if (cleanText(toStatus) === "rejected" && sourceArtifact) {
+          const artifactStore = await aiArtifactStore();
+          syncedArtifact = artifactStore.updateArtifact(sourceArtifact.id, {
+            payload: payloadWithRejectedFieldSuggestion(sourceArtifact)
+          });
+          syncedArtifact = artifactStore.recordDecision(sourceArtifact.id, {
+            decision: "ignored",
+            userId: body.userId || body.user_id || "local_user",
+            noteId: cleanText(body.noteId || body.note_id),
+            comment: body.comment || "Rejected linked AI suggestion."
+          });
+        }
         const item = store.transition(aiSuggestionId, toStatus, body);
-        const sourceArtifact = await sourceArtifactForSuggestion(item);
+        const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
         const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
-        const trace = suggestionTraceFromRecord(item, sourceArtifact || {});
+        const trace = suggestionTraceFromRecord(item, finalSourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
+          artifact: syncedArtifact,
           reviewEvents,
           latestReviewEvent,
           trace,
@@ -2726,6 +2764,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: suggestionToCanonical(item),
+          ...(syncedArtifact ? { artifact: artifactToCanonical(syncedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
           latest_review_event: latestReviewEvent
             ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)

@@ -1273,6 +1273,18 @@ function aiSuggestionReviewedContentFromUi(current = {}) {
   }
 }
 
+function aiInboxSuggestionReviewedContentFromUi(current = {}) {
+  const editorValue = $("aiInboxSuggestionContentEditor")?.value;
+  if (editorValue === undefined) return current.content;
+  const raw = String(editorValue || "");
+  if (typeof current.content === "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("Reviewed suggestion content in AI inbox must be valid JSON before it can be marked edited or confirmed");
+  }
+}
+
 async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
   const cleanStatus = String(status || "").trim();
@@ -1754,6 +1766,74 @@ async function adoptAiInboxFieldSuggestionDraft(artifactId) {
     return result;
   } catch (error) {
     setStatus(`AI field suggestion adopt failed: ${String(error?.message || error)}`, "bad");
+    return null;
+  } finally {
+    aiInboxState.actionLoading = false;
+    renderAiInboxWorkspace();
+  }
+}
+
+async function applyAiInboxSuggestionStatus(status) {
+  const cleanStatus = String(status || "").trim();
+  const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
+  const suggestion = aiInboxState.detail?.suggestion || null;
+  if (!cleanStatus || !artifactId || !suggestion?.id) return null;
+
+  if (cleanStatus === "adopted_as_draft") {
+    return adoptAiInboxFieldSuggestionDraft(artifactId);
+  }
+
+  const reviewedContent =
+    cleanStatus === "edited" || cleanStatus === "confirmed"
+      ? aiInboxSuggestionReviewedContentFromUi(suggestion)
+      : undefined;
+  const reviewComment = $("aiInboxDecisionComment")?.value || "";
+
+  aiInboxState.actionLoading = true;
+  renderAiInboxWorkspace();
+  try {
+    const payload = {
+      status: cleanStatus,
+      actor: "user",
+      userId: "local_user",
+      action:
+        cleanStatus === "edited"
+          ? "edit"
+          : cleanStatus === "confirmed"
+            ? "confirm"
+            : cleanStatus === "rejected"
+              ? "reject"
+              : cleanStatus,
+      comment: reviewComment
+    };
+    if (cleanStatus === "edited" || cleanStatus === "confirmed") {
+      payload.content = reviewedContent;
+    }
+    if (cleanStatus === "confirmed") payload.userConfirmed = true;
+
+    const result = await updateAiSuggestion(suggestion.id, { ...payload, canonical: true });
+
+    if (cleanStatus === "rejected") {
+      await Promise.all([
+        refreshAiInbox({ silent: true }),
+        refreshAiInboxEvaluationSummary({ silent: true })
+      ]);
+      if (aiInboxState.selectedArtifactId) await loadAiInboxDetail(aiInboxState.selectedArtifactId);
+      else aiInboxState.detail = null;
+      rememberAiDebugSnapshot("inboxDecision", result);
+      setStatus(`AI suggestion ${cleanStatus}: ${suggestion.id}`, "ok");
+      return true;
+    }
+
+    await loadAiInboxDetail(artifactId);
+    await Promise.all([
+      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInboxEvaluationSummary({ silent: true })
+    ]);
+    setStatus(`AI suggestion ${cleanStatus}: ${suggestion.id}`, "ok");
+    return true;
+  } catch (error) {
+    setStatus(`AI inbox suggestion update failed: ${String(error?.message || error)}`, "bad");
     return null;
   } finally {
     aiInboxState.actionLoading = false;
@@ -9044,6 +9124,12 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
   const adoptFieldButton = event.target.closest("[data-ai-inbox-adopt-field]");
   if (adoptFieldButton) {
     await adoptAiInboxFieldSuggestionDraft(adoptFieldButton.getAttribute("data-ai-inbox-adopt-field"));
+    return;
+  }
+
+  const suggestionStatusButton = event.target.closest("[data-ai-inbox-suggestion-status]");
+  if (suggestionStatusButton) {
+    await applyAiInboxSuggestionStatus(suggestionStatusButton.getAttribute("data-ai-inbox-suggestion-status"));
     return;
   }
 
