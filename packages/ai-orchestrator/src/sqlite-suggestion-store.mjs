@@ -210,6 +210,11 @@ export async function createSqliteSuggestionStore(options = {}) {
       insertOrReplaceSuggestion(db, next);
       return next;
     },
+    replace(input, context = {}) {
+      const suggestion = normalizeSuggestion(input, context);
+      insertOrReplaceSuggestion(db, suggestion);
+      return suggestion;
+    },
     close() {
       db.close();
     }

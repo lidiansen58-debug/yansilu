@@ -192,7 +192,57 @@ test("AI inbox panel surfaces suggestion traceability and review history inside 
   assert.match(html, /Reviewed content/);
   assert.match(html, /Suggestion provenance/);
   assert.match(html, /Suggestion history/);
+  assert.match(html, /data-ai-inbox-suggestion-status="edited"/);
+  assert.match(html, /id="aiInboxSuggestionContentEditor"/);
   assert.match(html, /data-ai-inbox-open-note="pn_1"/);
+});
+
+test("AI inbox panel advances suggestion review actions from edited to confirmed", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_field_confirm", type: "InsightCard", title: "Field suggestion confirm" }],
+    counts: { reviewed: 1 },
+    selectedArtifactId: "artifact_field_confirm",
+    detail: {
+      item: { ...item, artifactId: "artifact_field_confirm", type: "InsightCard", title: "Field suggestion confirm", status: "adopted_as_draft" },
+      artifact: {
+        ...artifact,
+        id: "artifact_field_confirm",
+        type: "InsightCard",
+        status: "adopted_as_draft",
+        userDecisions: [{ decision: "adopted_as_draft", noteId: "pn_1" }]
+      },
+      suggestion: {
+        id: "suggestion_field_confirm",
+        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+        scope: "note_field",
+        content: { thesis: "Edited content awaiting confirmation." },
+        status: "edited",
+        sourceArtifactId: "artifact_field_confirm",
+        provenance: { contentOrigin: "ai_generated", humanEdited: true, humanConfirmed: false }
+      },
+      suggestionReviewEvents: [
+        {
+          adoptionEventId: "evt_field_confirm",
+          eventType: "edited",
+          createdAt: "2026-05-18T12:10:00.000Z",
+          metadata: { fromStatus: "adopted_as_draft", toStatus: "edited" },
+          comment: "Tightened the wording."
+        }
+      ],
+      trace: {
+        suggestionId: "suggestion_field_confirm",
+        sourceArtifactId: "artifact_field_confirm",
+        sourceNoteIds: ["pn_1"],
+        targetNoteId: "pn_1",
+        targetField: "thesis",
+        suggestionStatus: "edited"
+      }
+    }
+  });
+
+  assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
+  assert.match(html, /Confirm/);
+  assert.match(html, /Reviewed content/);
 });
 
 test("AI inbox panel renders an actionable AI summary recommendation", () => {

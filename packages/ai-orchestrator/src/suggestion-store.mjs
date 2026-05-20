@@ -86,6 +86,11 @@ export function createInMemorySuggestionStore(seed = []) {
       records.set(next.id, next);
       return clone(next);
     },
+    replace(input, context = {}) {
+      const suggestion = normalizeSuggestion(input, context);
+      records.set(suggestion.id, suggestion);
+      return clone(suggestion);
+    },
     close() {}
   };
 }
