@@ -309,6 +309,9 @@ const writingState = {
   relationCountErrors: {},
   loadingRelationCounts: false,
   relationCountRequestSerial: 0,
+  themeNoteDetailIds: [],
+  loadingThemeNoteDetails: false,
+  themeNoteDetailRequestSerial: 0,
   themeRelationNoteIds: [],
   themeRelationCounts: {},
   themeRelationCountErrors: {},
@@ -4909,6 +4912,34 @@ function clearWritingThemeRelationCounts(noteIds = []) {
   writingState.loadingThemeRelationCounts = false;
 }
 
+function writingThemeNotesLoaded(noteIds = []) {
+  return uniqueStrings(noteIds).every((noteId) => Boolean(writingKnownNoteById(noteId)?.bodyLoaded));
+}
+
+async function hydrateWritingThemeNotes(noteIds = [], { render = true } = {}) {
+  const ids = uniqueStrings(noteIds);
+  const requestSerial = ++writingState.themeNoteDetailRequestSerial;
+  writingState.themeNoteDetailIds = ids;
+  writingState.loadingThemeNoteDetails = ids.length > 0;
+  if (render && state.module === "writing") renderWritingPanel();
+  try {
+    await ensureNotesLoaded(ids);
+  } finally {
+    if (requestSerial === writingState.themeNoteDetailRequestSerial && sameUniqueStringSet(ids, writingState.themeNoteDetailIds)) {
+      writingState.loadingThemeNoteDetails = false;
+      if (render && state.module === "writing") renderWritingPanel();
+    }
+  }
+}
+
+function shouldHydrateWritingThemeNotes(noteIds = []) {
+  const ids = uniqueStrings(noteIds);
+  if (!ids.length) return false;
+  if (writingThemeNotesLoaded(ids)) return false;
+  if (writingState.loadingThemeNoteDetails && sameUniqueStringSet(ids, writingState.themeNoteDetailIds)) return false;
+  return true;
+}
+
 function upsertWritingThemeIndex(indexCard) {
   if (!indexCard?.id) return;
   writingState.themeIndexes = [
@@ -4922,11 +4953,14 @@ async function selectWritingThemeIndex(indexId) {
   if (!id) return null;
   const fetched = await fetchIndexCard(id);
   if (!fetched?.id) return null;
+  const noteIds = writingThemeIndexNoteIds(fetched);
+  await ensureNotesLoaded(noteIds);
   upsertWritingThemeIndex(fetched);
   setSelectedWritingThemeIndex(fetched.id);
-  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(fetched));
+  writingState.themeNoteDetailIds = noteIds;
+  writingState.loadingThemeNoteDetails = false;
+  clearWritingThemeRelationCounts(noteIds);
   renderWritingPanel();
-  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(fetched));
   return fetched;
 }
 
@@ -4972,14 +5006,16 @@ async function syncSelectedThemeIndexWithBasket(mode = "replace") {
     mode === "append"
       ? uniqueStrings([...(selected.item_note_ids || []), ...basketIds])
       : uniqueStrings(basketIds);
+  await ensureNotesLoaded(mergedIds);
   const item = await updateIndexCard(selected.id, {
     items: buildThemeIndexItemsFromIds(selected, mergedIds)
   });
   upsertWritingThemeIndex(item);
   setSelectedWritingThemeIndex(item.id);
-  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
+  writingState.themeNoteDetailIds = mergedIds;
+  writingState.loadingThemeNoteDetails = false;
+  clearWritingThemeRelationCounts(mergedIds);
   renderWritingPanel();
-  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   return item;
 }
 
@@ -4988,14 +5024,16 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
   if (!selected?.id) throw new Error("theme index is required");
   const nextIds = (selected.item_note_ids || []).filter((id) => id !== noteId);
   if (!nextIds.length) throw new Error("theme index must keep at least one permanent note");
+  await ensureNotesLoaded(nextIds);
   const item = await updateIndexCard(selected.id, {
     items: buildThemeIndexItemsFromIds(selected, nextIds)
   });
   upsertWritingThemeIndex(item);
   setSelectedWritingThemeIndex(item.id);
-  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
+  writingState.themeNoteDetailIds = nextIds;
+  writingState.loadingThemeNoteDetails = false;
+  clearWritingThemeRelationCounts(nextIds);
   renderWritingPanel();
-  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   return item;
 }
 
@@ -5304,6 +5342,7 @@ function writingRelationCountsErrored(noteIds = [], relationCountErrors = {}) {
 function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return false;
+  if (!writingThemeNotesLoaded(ids)) return false;
   if (!sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) return true;
   if (writingState.loadingThemeRelationCounts) return false;
   return !writingRelationCountsReady(ids, writingState.themeRelationCounts);
@@ -5311,6 +5350,19 @@ function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
 
 function writingThemeProjectEntry(indexCard) {
   const noteIds = writingThemeIndexNoteIds(indexCard);
+  if (!writingThemeNotesLoaded(noteIds) || (writingState.loadingThemeNoteDetails && sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds))) {
+    return {
+      noteIds,
+      readiness: null,
+      projectEntry: {
+        level: "loading",
+        status: "读取中",
+        hint: "正在读取主题里的永久笔记，再判断是否能直接创建项目。",
+        actionLabel: "正在读取主题",
+        canCreateProject: false
+      }
+    };
+  }
   const hasMatchingCounts = sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
   const relationCounts = hasMatchingCounts ? writingState.themeRelationCounts : {};
   const relationErrors = hasMatchingCounts ? writingState.themeRelationCountErrors : {};
@@ -6206,10 +6258,19 @@ function renderWritingPanel() {
   const selectedTheme = selectedWritingThemeIndex();
   if (selectedTheme) {
     const selectedThemeNoteIds = writingThemeIndexNoteIds(selectedTheme);
+    if (shouldHydrateWritingThemeNotes(selectedThemeNoteIds)) {
+      void hydrateWritingThemeNotes(selectedThemeNoteIds);
+    }
     if (shouldRefreshWritingThemeRelationCounts(selectedThemeNoteIds)) {
       void refreshWritingThemeRelationCounts(selectedThemeNoteIds);
     }
-  } else if (writingState.themeRelationNoteIds.length || Object.keys(writingState.themeRelationCounts).length) {
+  } else if (
+    writingState.themeRelationNoteIds.length ||
+    Object.keys(writingState.themeRelationCounts).length ||
+    writingState.themeNoteDetailIds.length
+  ) {
+    writingState.themeNoteDetailIds = [];
+    writingState.loadingThemeNoteDetails = false;
     clearWritingThemeRelationCounts();
   }
   if (themeDetailHint) {

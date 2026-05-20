@@ -5432,6 +5432,112 @@ test("prototype writing center can save a theme index, edit central question, an
   assert.deepEqual(themedProject.related_index_ids, [themeCard.id]);
 });
 
+test("prototype writing center can create a project from a cold-start theme index before notes are preloaded", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Cold Start Theme Claim\n\nA cold-start theme should still hydrate its member notes before gating project creation.",
+    authorshipConfirmed: true,
+    thesis: "Cold-start theme readiness should not depend on whether notes were already opened in the UI.",
+    threeLineSummary: [
+      "Cold-start theme readiness should not depend on UI preload order.",
+      "That matters because theme entry is supposed to be a real writing shortcut.",
+      "The UI should hydrate the needed notes before it decides whether project creation is allowed."
+    ],
+    distillationStatus: "confirmed",
+    boundaryOrCounterpoint: "This only works if the theme reuses the same readiness semantics as the writing basket."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    status: "active",
+    body: "# Cold Start Theme Tension\n\nA second mature note adds enough relation structure for project creation.",
+    authorshipConfirmed: true,
+    thesis: "A second mature note gives the theme enough structure to become project-ready.",
+    threeLineSummary: [
+      "A second mature note gives the theme enough structure.",
+      "That matters because project creation should depend on structure, not cache state.",
+      "It keeps the theme entry path consistent with the writing basket."
+    ],
+    distillationStatus: "confirmed",
+    boundaryOrCounterpoint: "A theme with only one isolated note should still stop before project creation."
+  });
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "supports",
+    rationale: "The second note gives the first enough explicit structure to justify project creation.",
+    insightQuestion: "What question now organizes these notes as one reusable writing entry?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  const coldTheme = await postJson(apiBase, "/api/v1/index-cards", {
+    directoryId: "dir_original_default",
+    indexType: "topic",
+    title: "Cold Start Theme Index",
+    summary: "A theme index created entirely through the API before the browser loads any note bodies.",
+    thesis: "Theme entry should hydrate its own context before deciding whether project creation is allowed.",
+    threeLineSummary: [
+      "Theme entry should hydrate its own context.",
+      "That keeps project gating tied to note quality instead of cache timing.",
+      "It makes cold-start theme entry behave like the rest of the writing flow."
+    ],
+    centralQuestion: "How should a cold-start theme decide whether it can create a writing project?",
+    items: [
+      { noteId: noteA.json.item.id, shortLabel: "claim", rationale: "Sets the cold-start claim." },
+      { noteId: noteB.json.item.id, shortLabel: "tension", rationale: "Adds the missing structure." }
+    ]
+  });
+  assert.equal(coldTheme.status, 201, JSON.stringify(coldTheme.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Cold Start Theme Index" }).click();
+  await page.waitForFunction(() => {
+    const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
+    return value.includes("Cold Start Theme Index");
+  }, null, { timeout: 10000 });
+
+  await page.waitForFunction(() => {
+    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
+    return summary.includes("正在读取主题里的永久笔记");
+  }, null, { timeout: 10000 });
+
+  await page.waitForFunction(() => {
+    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
+    const button = document.querySelector('[data-writing-theme-action="create-project"]');
+    return summary.includes("可创建") && button?.textContent?.includes("创建写作项目") && !button?.hasAttribute("disabled");
+  }, null, { timeout: 10000 });
+
+  await page.click('[data-writing-theme-action="create-project"]');
+
+  await waitFor(async () => {
+    const resultText = await page.locator("#writingResult").textContent();
+    assert.match(String(resultText || ""), /\"stage\": \"writing_project\"/);
+  }, 10000);
+
+  const projects = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
+  assert.equal(projects.status, 200, JSON.stringify(projects.json));
+  const themedProject = projects.json.items.find((item) => item.title.includes("Cold Start Theme Index"));
+  assert.ok(themedProject);
+  assert.deepEqual(themedProject.related_index_ids, [coldTheme.json.item.id]);
+});
+
 test("prototype graph panel renders directory wikilinks and opens graph nodes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
