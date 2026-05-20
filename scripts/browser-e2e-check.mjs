@@ -103,6 +103,13 @@ const groups = [
       "prototype mobile viewport keeps new note entry discoverable",
       "prototype mobile viewport keeps permanent-note capture flow usable"
     ]
+  },
+  {
+    name: "paper-workspace",
+    description: "Standalone paper workspace flow for saved translation recovery and candidate gating.",
+    tests: [
+      "paper workspace browser flow restores saved translations across reload and candidate switching"
+    ]
   }
 ];
 

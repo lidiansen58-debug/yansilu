@@ -9,11 +9,12 @@ import {
 } from "./paper-workspace-api.js";
 import {
   buildNotebookLmPayload,
+  canCreatePermanentCandidate,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
-  selectedPaperCandidate
+  translationDraftForCandidate
 } from "./paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
 
@@ -45,6 +46,13 @@ function syncFormFromDom() {
   state.form.saveStatus = document.getElementById("permanentStatusInput")?.value || "active";
 }
 
+function hydrateTranslationForm(candidateId = "") {
+  const draft = translationDraftForCandidate(state.workspace, candidateId);
+  state.form.paraphraseText = draft.paraphraseText;
+  state.form.relationToQuestion = draft.relationToQuestion;
+  state.form.boundaryOrCondition = draft.boundaryOrCondition;
+}
+
 function hydrateFormFromWorkspace(workspace) {
   if (!workspace) return;
   state.form.paperId = workspace.paperId || state.form.paperId;
@@ -52,6 +60,7 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.title = workspace.title || state.form.title;
   state.selectedCandidateId = nextSelectedCandidateId(workspace, state.selectedCandidateId);
   state.selectedPermanentCandidateId = nextSelectedPermanentCandidateId(workspace, state.selectedPermanentCandidateId);
+  hydrateTranslationForm(state.selectedCandidateId);
 }
 
 function render() {
@@ -120,7 +129,7 @@ async function handleAddNotebookDraft() {
     state.workspace = result.item;
     hydrateFormFromWorkspace(state.workspace);
     return { stage: "notebooklm_draft", ...result };
-  }, "NotebookLM 内容已转成 Literature 候选");
+  }, "NotebookLM 内容已转成 literature 候选");
 }
 
 async function handleSaveTranslation() {
@@ -134,7 +143,7 @@ async function handleSaveTranslation() {
     state.workspace = result.item;
     hydrateFormFromWorkspace(state.workspace);
     return { stage: "save_translation", ...result };
-  }, "转述已保存");
+  }, "用户转述已保存");
 }
 
 async function handleCreatePermanentCandidate() {
@@ -176,11 +185,12 @@ root?.addEventListener("click", (event) => {
   if (candidateButton) {
     syncFormFromDom();
     state.selectedCandidateId = candidateButton.getAttribute("data-paper-candidate-id") || "";
-    const candidate = selectedPaperCandidate(state.workspace, state.selectedCandidateId);
-    state.form.paraphraseText = candidate?.paraphraseText || "";
-    state.form.relationToQuestion = "";
-    state.form.boundaryOrCondition = "";
-    setStatus("已选择候选", "");
+    hydrateTranslationForm(state.selectedCandidateId);
+    if (canCreatePermanentCandidate(state.workspace, state.selectedCandidateId)) {
+      setStatus("已恢复这条候选的用户转述，可以继续修改或进入永久笔记候选。", "ok");
+    } else {
+      setStatus("已选择候选。先用自己的话完成转述并保存，再进入永久笔记候选。", "");
+    }
     render();
     return;
   }
