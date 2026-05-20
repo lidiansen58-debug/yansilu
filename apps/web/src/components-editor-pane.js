@@ -1,4 +1,10 @@
-import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
+import {
+  countExplicitSemanticRelations,
+  deriveNoteWritingReadiness,
+  isHiddenSemanticRelation,
+  isMarkdownWikilinkSemanticRelation
+} from "./writing-readiness.js";
 import {
   assetPreviewUrl,
   checkOriginality,
@@ -400,6 +406,56 @@ function tokenAtCursor(text, cursor) {
 
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+export function relationCreateDefaultTypeForNote(note = {}) {
+  const body = String(note?.body || "").trim();
+  if (/反例|counterexample/i.test(body)) return "counterexample_to";
+  if (noteHasBoundarySignal(note)) return "qualifies";
+  if (/例如|比如|for example|for instance/i.test(body)) return "example_of";
+  const links = parseLinks(body);
+  const tags = parseTags(body);
+  if (links.length || tags.length) return "same_topic";
+  return "supports";
+}
+
+function resolveRelationCandidateToken(token = "", candidates = []) {
+  const raw = String(token || "").trim();
+  if (!raw) return null;
+  const byId = candidates.find((note) => normalizeText(note.id) === normalizeText(raw));
+  if (byId) return byId;
+  const exactTitle = candidates.find((note) => normalizeText(note.title) === normalizeText(raw));
+  if (exactTitle) return exactTitle;
+  const fuzzy = candidates.find(
+    (note) => normalizeText(note.title).includes(normalizeText(raw)) || normalizeText(note.id).includes(normalizeText(raw))
+  );
+  return fuzzy || null;
+}
+
+export function sortRelationTargetCandidatesForNote(candidates = [], note = {}) {
+  const current = note || {};
+  const scoped = Array.isArray(candidates) ? candidates.slice() : [];
+  const resolvedForwardIds = new Set(
+    parseLinks(current.body || "")
+      .map((token) => resolveRelationCandidateToken(token, scoped))
+      .filter((item) => item?.id)
+      .map((item) => item.id)
+  );
+  const currentTags = new Set(parseTags(current.body || "").map((tag) => normalizeText(tag)));
+  return scoped.sort((a, b) => {
+    const score = (candidate) => {
+      let value = 0;
+      if (resolvedForwardIds.has(candidate.id)) value += 100;
+      const candidateTags = Array.isArray(candidate?.tags) ? candidate.tags : parseTags(candidate?.body || "");
+      value += candidateTags.filter((tag) => currentTags.has(normalizeText(tag))).length * 10;
+      if (candidate.folderId && candidate.folderId === current.folderId) value += 4;
+      if (String(candidate.thesis || "").trim()) value += 2;
+      return value;
+    };
+    const diff = score(b) - score(a);
+    if (diff) return diff;
+    return String(a.title || a.id || "").localeCompare(String(b.title || b.id || ""), "zh-CN");
+  });
 }
 
 function normalizeClickedTag(token) {
@@ -1255,12 +1311,11 @@ function relationStatusLabel(status) {
 }
 
 function isHiddenRelation(link) {
-  const status = String(link?.status || "confirmed").trim().toLowerCase();
-  return status === "dismissed" || status === "archived";
+  return isHiddenSemanticRelation(link);
 }
 
 function isMarkdownWikilinkRelation(link) {
-  return String(link?.relationType || "").trim().toLowerCase() === "associated_with" && String(link?.rationale || "").trim() === "markdown_wikilink";
+  return isMarkdownWikilinkSemanticRelation(link);
 }
 
 function relationTone(link) {
@@ -1298,6 +1353,47 @@ function relationQualityLabel(level = "") {
   return "质量 待补充";
 }
 
+export function relationTypeGuidance(type = "") {
+  const key = String(type || "").trim().toLowerCase();
+  if (key === "qualifies") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记补充了目标判断的边界、条件或例外。",
+      rationaleHint: "写清楚它限制了哪条判断、在什么条件下成立或不成立。",
+      questionPlaceholder: "这条限定关系还暴露了什么未验证的条件？",
+      questionHint: "把问题写成下一步要验证的边界条件，而不是泛泛的追问。"
+    };
+  }
+  if (key === "counterexample_to") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记提供了目标判断不成立的反例。",
+      rationaleHint: "写清楚它反驳的是哪条判断，以及为什么它构成反例。",
+      questionPlaceholder: "这个反例逼出了什么新的判断边界？",
+      questionHint: "把问题写成下一步要澄清的边界，而不是只停在‘它不对’。"
+    };
+  }
+  if (key === "example_of") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为当前笔记给出了目标判断的一个具体例子。",
+      rationaleHint: "写清楚这个例子具体说明了什么，而不是只说它‘相关’。",
+      questionPlaceholder: "这个例子还支持扩展出什么更一般的判断？",
+      questionHint: "把问题写成从例子回到更一般判断的下一步。"
+    };
+  }
+  if (key === "same_topic") {
+    return {
+      rationalePlaceholder: "这条关系成立，因为两条笔记围绕同一个问题或主题张力展开。",
+      rationaleHint: "写清楚它们共享的是哪个主题，而不只是标签相同。",
+      questionPlaceholder: "这两条笔记共同指向的中心问题是什么？",
+      questionHint: "把问题写成主题索引或写作可能继续推进的中心问题。"
+    };
+  }
+  return {
+    rationalePlaceholder: "这条关系成立，因为...",
+    rationaleHint: "写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写‘相关’。",
+    questionPlaceholder: "这条连接提出了什么新问题？",
+    questionHint: "把问题写成这条连接接下来最值得验证的疑问，而不是泛泛地追问“然后呢”。"
+  };
+}
 function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
   const quality = relationQualityEvaluation(rationale, insightQuestion);
   return `
@@ -4699,9 +4795,17 @@ export class EditorPane {
     `;
   }
 
+  relationCreateDefaultType(note = this.activeNote()) {
+    return relationCreateDefaultTypeForNote(note);
+  }
+
+  sortRelationTargetCandidates(candidates = [], note = this.activeNote()) {
+    return sortRelationTargetCandidatesForNote(candidates, note);
+  }
+
   renderRelationTargetOptions(candidates = [], selectedId = "") {
     const selected = String(selectedId || "").trim();
-    return candidates
+    return this.sortRelationTargetCandidates(candidates)
       .map((n) => {
         const meta = `${noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId))} · ${this.folderLabel(n.folderId)}`;
         return `<option value="${escapeHtml(n.id)}"${n.id === selected ? " selected" : ""}>${escapeHtml(n.title || n.id)} · ${escapeHtml(meta)}</option>`;
@@ -4711,8 +4815,10 @@ export class EditorPane {
 
   renderCreateRelationFormSection(noteId) {
     const candidates = this.scopedLinkCandidates();
+    const defaultType = this.relationCreateDefaultType(this.activeNote());
+    const defaultGuidance = relationTypeGuidance(defaultType);
     const typeOptions = RELATION_CREATE_TYPES.map(
-      (type) => `<option value="${escapeHtml(type)}">${escapeHtml(relationTypeLabel(type))}</option>`
+      (type) => `<option value="${escapeHtml(type)}"${type === defaultType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
     const noteOptions = this.renderRelationTargetOptions(candidates);
 
@@ -4737,13 +4843,13 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="这条关系成立，因为..."></textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}"></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="这条连接提出了什么新问题？"></textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}"></textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
           ${renderRelationQualityMeter("", "")}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
@@ -4791,13 +4897,13 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="这条关系成立，因为...">${escapeHtml(link?.rationale || "")}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">写成一句可检验的判断：当前笔记如何支持、限定或反驳目标；尽量点出证据、边界或张力，避免只写“相关”。</small>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(link?.rationale || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="这条连接提出了什么新问题？">${escapeHtml(link?.insightQuestion || "")}</textarea>
-            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">把问题写成下一步要验证的疑问：这条连接会改变哪个主题、索引或写作判断？</small>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(link?.insightQuestion || "")}</textarea>
+            <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
           ${renderRelationQualityMeter(link?.rationale || "", link?.insightQuestion || "")}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
@@ -5182,6 +5288,22 @@ export class EditorPane {
         badgeLabel: String(themeSignalCount || explicitRelationCount)
       };
     }
+    if (wikilinkCount > 0 && tagRelatedCount === 0) {
+      return {
+        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        badge: themeSignalCount || wikilinkCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount)
+      };
+    }
+    if (tagRelatedCount > 0 && wikilinkCount === 0) {
+      return {
+        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        badge: themeSignalCount || tagRelatedCount,
+        badgeLabel: String(themeSignalCount || tagRelatedCount)
+      };
+    }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
@@ -5336,50 +5458,51 @@ export class EditorPane {
     const thesis = String(note?.thesis || "").trim();
     const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
     const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const writingInfo = this.noteWritingReadinessV2(note, overview);
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
-    const connectedCount = explicitRelationCount + wikilinkCount;
+    const connectedCount = explicitRelationCount;
 
     if (!thesis) {
       return {
         nextStep: "先写一句判断",
-        summary: "这条永久笔记还没有稳定的判断句，先把它从材料变成可复用的观点。"
+        summary: "先把这条笔记写成一句可复用的判断。"
       };
     }
     if (summary.length < 3) {
       return {
         nextStep: "补成三句话压缩",
-        summary: "判断已经出现，但还没有压缩成清晰的三句话，后面的关系和写作会发虚。"
+        summary: "判断已经出现，但还缺三句话压缩。"
       };
     }
     if (!confirmed) {
       return {
         nextStep: "确认观点",
-        summary: "观点已经成形，下一步是明确确认它，避免它一直停在半成品状态。"
+        summary: "观点已经成形，但还没进入 confirmed。"
       };
     }
     if (relationState === "loading") {
       return {
         nextStep: "等关系加载完成",
-        summary: "显式关系仍在读取中，先不要把当前计数当成最终结果。"
+        summary: "关系还在读取，等结果稳定后再判断下一步。"
       };
     }
     if (relationState === "error") {
       return {
         nextStep: "手动补关系或稍后重试",
-        summary: "显式关系暂时读取失败；如果你知道这条笔记应该有连接，可以先手动补建或稍后重试。"
+        summary: "关系读取失败，先手动补关系或稍后重试。"
       };
     }
     if (connectedCount === 0) {
       return {
         nextStep: "补关系，不要让它孤立",
-        summary: "这条笔记已经能成立，但还没有真正接入网络。下一步先补一条有理由的关系。"
+        summary: "这条笔记还没真正接入网络，先补第一条有理由的关系。"
       };
     }
     return {
-      nextStep: "进入主题或写作准备",
-      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+      nextStep: writingInfo.status,
+      summary: writingInfo.hint
     };
   }
 
@@ -5414,6 +5537,22 @@ export class EditorPane {
         badgeLabel: String(themeSignalCount || explicitRelationCount)
       };
     }
+    if (wikilinkCount > 0 && tagRelatedCount === 0) {
+      return {
+        status: `链接线索 ${themeSignalCount || wikilinkCount}`,
+        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        badge: themeSignalCount || wikilinkCount,
+        badgeLabel: String(themeSignalCount || wikilinkCount)
+      };
+    }
+    if (tagRelatedCount > 0 && wikilinkCount === 0) {
+      return {
+        status: `标签线索 ${themeSignalCount || tagRelatedCount}`,
+        hint: "目前只有标签重合，还不足以直接当成主题。先补一条有理由的关系。",
+        badge: themeSignalCount || tagRelatedCount,
+        badgeLabel: String(themeSignalCount || tagRelatedCount)
+      };
+    }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
@@ -5430,6 +5569,10 @@ export class EditorPane {
     };
   }
 
+  noteWritingReadinessV2(note, overview = {}) {
+    return deriveNoteWritingReadiness(note, overview);
+  }
+
   renderPermanentNoteMainPathSectionV2(note, overview = {}) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
@@ -5440,6 +5583,7 @@ export class EditorPane {
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
     const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
+    const writingInfo = this.noteWritingReadinessV2(note, overview);
     const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummaryV2(note, overview);
     const relationCountLabel =
       relationState === "loading"
@@ -5450,21 +5594,21 @@ export class EditorPane {
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed
         ? "distillation"
-        : relationState === "loading" || relationState === "error" || explicitRelationCount + wikilinkCount === 0
+        : relationState === "loading" || relationState === "error" || explicitRelationCount === 0
           ? "relations"
           : "writing";
     const steps = [
       {
         label: "观点提纯",
         status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
-        hint: !thesis ? "先写一句判断" : summary.length < 3 ? "补三句话压缩" : confirmed ? "继续往关系和主题走" : "确认这条观点",
+        hint: !thesis ? "先写一句判断。" : summary.length < 3 ? "补齐三句话压缩。" : confirmed ? "可以往关系和主题推进。" : "把这条观点确认下来。",
         action: "distillation",
         actionLabel: "继续提纯"
       },
       {
         label: "关系连接",
         status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
-        hint: relationState === "loading" ? "先等显式关系读取完成" : relationState === "error" ? "显式关系读取失败，但你仍然可以手动补建" : explicitRelationCount ? "已经有带理由的关系" : wikilinkCount ? "有基础链接，值得补理由" : "先连出第一条关系",
+        hint: relationState === "loading" ? "先等显式关系读取完成。" : relationState === "error" ? "读取失败，但仍然可以手动补建。" : explicitRelationCount ? "已经有带理由的关系。" : wikilinkCount ? "有基础链接，值得补理由。" : "先连出第一条关系。",
         action: "relations",
         actionLabel: "处理关系"
       },
@@ -5477,10 +5621,10 @@ export class EditorPane {
       },
       {
         label: "写作入口",
-        status: confirmed ? "可准备" : "未就绪",
-        hint: confirmed ? "可加入写作篮子继续推进" : "先确认观点，再进入写作准备",
+        status: writingInfo.status,
+        hint: writingInfo.hint,
         action: "writing",
-        actionLabel: "进入写作"
+        actionLabel: writingInfo.actionLabel
       }
     ];
 
