@@ -10,6 +10,8 @@ test("graph followup action maps conflict relations to tension", () => {
 
 test("graph followup action maps bridges to bridge followup", () => {
   assert.equal(graphFollowupActionForRelationType("bridges"), "bridge");
+  assert.equal(graphFollowupActionForRelationType("unexpected_connection"), "bridge");
+  assert.equal(graphFollowupActionForRelationType("reframes"), "bridge");
 });
 
 test("graph followup action defaults ordinary relations to relation followup", () => {

@@ -6438,8 +6438,10 @@ function renderGraphInsightCoach(context = {}) {
           const sourceId = edge.fromNoteId || "";
           const relation = graphRelationTypeLabel(edge.relationType);
           const followupAction = graphFollowupActionForRelationType(edge.relationType);
+          const targetNoteId = String(edge.toNoteId || "").trim();
+          const relationType = String(edge.relationType || "").trim().toLowerCase();
           return `
-            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(followupAction)}">
+            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(followupAction)}"${followupAction === "bridge" && targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}${followupAction === "bridge" && relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}>
               <span>${index + 1}</span>
               <strong>${escapeHtml(graphEdgeTitle(edge, insight.nodeMap))}</strong>
               <small>${escapeHtml(relation)}${edge.rationale ? ` · ${escapeHtml(edge.rationale)}` : ""}</small>
