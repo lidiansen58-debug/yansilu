@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { graphFollowupActionForRelationType, graphNextActionForSummary } from "../../apps/web/src/graph-followup.js";
+import { graphFollowupActionForRelationType, graphNextActionForSummary, graphPathFollowupContext } from "../../apps/web/src/graph-followup.js";
 
 test("graph followup action maps conflict relations to tension", () => {
   assert.equal(graphFollowupActionForRelationType("counterexample_to"), "tension");
@@ -56,4 +56,32 @@ test("graph next action offers bridge followup when bridge gaps exist without te
   assert.equal(nextAction.noteId, "pn_bridge_1");
   assert.equal(nextAction.targetNoteId, "pn_bridge_target_1");
   assert.equal(nextAction.relationType, "bridges");
+});
+
+test("graph path followup preserves relation-edit context for ordinary existing relations", () => {
+  const followup = graphPathFollowupContext({
+    id: "lnk_1",
+    fromNoteId: "pn_from",
+    toNoteId: "pn_to",
+    relationType: "supports"
+  });
+
+  assert.equal(followup.action, "relations-edit");
+  assert.equal(followup.noteId, "pn_from");
+  assert.equal(followup.relationId, "lnk_1");
+  assert.equal(followup.targetNoteId, "pn_to");
+});
+
+test("graph path followup preserves bridge context for bridge-like relations", () => {
+  const followup = graphPathFollowupContext({
+    id: "lnk_bridge",
+    fromNoteId: "pn_bridge_from",
+    toNoteId: "pn_bridge_to",
+    relationType: "unexpected_connection"
+  });
+
+  assert.equal(followup.action, "bridge");
+  assert.equal(followup.noteId, "pn_bridge_from");
+  assert.equal(followup.targetNoteId, "pn_bridge_to");
+  assert.equal(followup.relationType, "unexpected_connection");
 });

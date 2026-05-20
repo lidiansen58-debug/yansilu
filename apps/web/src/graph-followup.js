@@ -74,3 +74,35 @@ export function graphNextActionForSummary({
     note: "当前目录结构已经比较清楚，可以挑选永久笔记放入写作篮。"
   };
 }
+
+export function graphPathFollowupContext(edge = {}) {
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const noteId = String(edge?.fromNoteId || "").trim();
+  const targetNoteId = String(edge?.toNoteId || "").trim();
+  const relationId = String(edge?.id || "").trim();
+  const baseAction = graphFollowupActionForRelationType(relationType);
+
+  if (baseAction === GRAPH_FOLLOWUP_ACTIONS.bridge) {
+    return {
+      action: GRAPH_FOLLOWUP_ACTIONS.bridge,
+      noteId,
+      targetNoteId,
+      relationType
+    };
+  }
+
+  if (baseAction === GRAPH_FOLLOWUP_ACTIONS.tension) {
+    return {
+      action: GRAPH_FOLLOWUP_ACTIONS.tension,
+      noteId
+    };
+  }
+
+  return {
+    action: relationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
+    noteId,
+    relationId,
+    targetNoteId,
+    relationType
+  };
+}
