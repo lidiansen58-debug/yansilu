@@ -161,8 +161,11 @@ test("canonical suggestion and adoption-event adapters preserve user-mediated re
   assert.equal(canonicalSuggestion.provenance.human_edited, true);
   assert.equal(canonicalSuggestion.source_artifact_id, "artifact_field_1");
   assert.equal(canonicalSuggestion.history[2].to_status, "confirmed");
+  assert.equal(canonicalSuggestion.history[0].target_id, "pn_3");
+  assert.equal(canonicalSuggestion.history[0].target_field, "thesis");
   assert.equal(canonicalEvent.subject_kind, "suggestion");
   assert.equal(canonicalEvent.event_type, "confirmed");
+  assert.equal(canonicalEvent.target.id, "pn_3");
   assert.equal(canonicalEvent.target.field, "thesis");
   assert.equal(canonicalEvent.metadata.from_status, "edited");
 }

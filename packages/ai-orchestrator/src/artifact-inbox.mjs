@@ -1,11 +1,10 @@
 const INBOX_VIEWS = {
   pending: ["pending_review"],
-  reviewed: ["accepted", "revised", "ignored", "adopted_as_draft", "promoted_to_note", "linked_to_note"],
+  reviewed: ["accepted", "ignored", "adopted_as_draft", "promoted_to_note", "linked_to_note"],
   archived: ["archived", "expired"],
   all: [
     "pending_review",
     "accepted",
-    "revised",
     "ignored",
     "adopted_as_draft",
     "promoted_to_note",

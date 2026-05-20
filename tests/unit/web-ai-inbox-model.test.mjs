@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  aiAdoptionEventFromCanonical,
   aiArtifactFromCanonical,
   aiInboxCounts,
   aiInboxEvaluationMetrics,
   aiInboxItemFromCanonical,
+  aiSuggestionTraceFromCanonical,
   aiInboxSummary,
   aiInboxTypeLabel,
   aiInboxTypeOptions,
@@ -152,7 +154,7 @@ test("AI inbox model can hydrate runtime artifact detail objects from canonical 
       {
         decision_id: "decision_1",
         artifact_id: "artifact_1",
-        decision: "revised",
+        decision: "accepted",
         user_id: "user_1",
         note_id: "note_a",
         comment: "needs more precision",
@@ -177,6 +179,50 @@ test("AI inbox model can hydrate runtime artifact detail objects from canonical 
   assert.equal(artifact.provenance.citationRequired, true);
   assert.equal(artifact.privacy.mode, "local_only");
   assert.equal(artifact.userDecisions[0].feedback.useful, true);
+});
+
+test("AI inbox model can hydrate canonical suggestion review events and trace data", () => {
+  const event = aiAdoptionEventFromCanonical({
+    adoption_event_id: "evt_1",
+    subject_kind: "suggestion",
+    subject_id: "suggestion_1",
+    event_type: "edited",
+    actor_type: "user",
+    actor_id: "user_1",
+    target: {
+      kind: "permanent_note",
+      id: "pn_1",
+      field: "thesis"
+    },
+    comment: "tightened wording",
+    feedback: {
+      useful: true,
+      noisy: false,
+      wrong: false,
+      already_known: false,
+      privacy_concern: false
+    },
+    metadata: {
+      from_status: "adopted_as_draft",
+      to_status: "edited",
+      note_id: "pn_1"
+    },
+    created_at: "2026-05-18T12:06:00.000Z"
+  });
+  const trace = aiSuggestionTraceFromCanonical({
+    suggestion_id: "suggestion_1",
+    source_artifact_id: "artifact_1",
+    primary_source_note_id: "pn_source",
+    source_note_ids: ["pn_source"],
+    target_note_id: "pn_1",
+    target_field: "thesis",
+    suggestion_status: "edited"
+  });
+
+  assert.equal(event.target.field, "thesis");
+  assert.equal(event.metadata.fromStatus, "adopted_as_draft");
+  assert.equal(trace.sourceArtifactId, "artifact_1");
+  assert.equal(trace.targetNoteId, "pn_1");
 });
 
 test("AI inbox model derives evaluation metrics", () => {

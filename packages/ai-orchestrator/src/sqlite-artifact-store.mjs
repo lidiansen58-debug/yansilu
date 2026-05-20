@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { normalizeArtifact } from "./artifacts.mjs";
 
-const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
+const DECISION_STATUSES = new Set(["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -49,6 +49,16 @@ function normalizeFeedback(input = {}) {
     alreadyKnown: booleanFeedback(input, feedback, "alreadyKnown", "already_known"),
     privacyConcern: booleanFeedback(input, feedback, "privacyConcern", "privacy_concern")
   };
+}
+
+function reviewedArtifactStatuses() {
+  return new Set(["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
+}
+
+function latestDecisionStatus(artifact = {}) {
+  const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
+  const latest = decisions[decisions.length - 1] || {};
+  return cleanText(latest.decision || latest.status);
 }
 
 async function loadDatabaseSync() {
@@ -178,6 +188,7 @@ function decisionsForArtifact(db, artifactId) {
        ORDER BY created_at ASC, id ASC`
     )
     .all(artifactId)
+    .filter((row) => row.decision !== "revised")
     .map((row) => ({
       decisionId: row.id,
       artifactId: row.artifact_id,
@@ -198,7 +209,7 @@ function rowToArtifact(db, row) {
     title: row.title,
     summary: row.summary || "",
     body: parseJson(row.body_json, ""),
-    status: row.status,
+    status: row.status === "revised" ? "pending_review" : row.status,
     origin: row.origin,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -289,11 +300,13 @@ function insertArtifact(db, artifact) {
 }
 
 function listRows(db, filter = {}) {
+  const status = cleanText(filter.status);
+  const normalizedStatus = status === "pending_review" ? "revised" : "";
   const rows = db
     .prepare(
       `SELECT a.*
        FROM ai_artifacts a
-       WHERE (? = '' OR a.status = ?)
+       WHERE (? = '' OR a.status = ? OR (? = 'revised' AND a.status = 'revised'))
          AND (? = '' OR a.type = ?)
          AND (? = '' OR a.agent_run_id = ?)
          AND (? = '' OR a.context_pack_id = ?)
@@ -311,8 +324,9 @@ function listRows(db, filter = {}) {
        LIMIT ?`
     )
     .all(
-      cleanText(filter.status),
-      cleanText(filter.status),
+      status,
+      status,
+      normalizedStatus,
       cleanText(filter.type || filter.artifactType || filter.artifact_type),
       cleanText(filter.type || filter.artifactType || filter.artifact_type),
       cleanText(filter.agentRunId || filter.agent_run_id),
@@ -404,6 +418,19 @@ export async function createSqliteArtifactStore(options = {}) {
         ? updates.provenance || {}
         : existing.provenance || {};
       const status = cleanText(updates.status) || existing.status;
+      if (reviewedArtifactStatuses().has(status)) {
+        const latestStatus = latestDecisionStatus(existing);
+        if (!latestStatus) {
+          const error = new Error("reviewed artifact statuses require a user decision");
+          error.code = "AI_ARTIFACT_REVIEW_DECISION_REQUIRED";
+          throw error;
+        }
+        if (latestStatus !== status) {
+          const error = new Error(`artifact status ${status} must match latest user decision ${latestStatus}`);
+          error.code = "AI_ARTIFACT_DECISION_STATUS_MISMATCH";
+          throw error;
+        }
+      }
       const updatedAt = cleanText(updates.updatedAt || updates.updated_at) || now;
 
       db.exec("BEGIN IMMEDIATE;");
@@ -435,7 +462,7 @@ export async function createSqliteArtifactStore(options = {}) {
         humanAccepted: ["accepted", "adopted_as_draft", "promoted_to_note", "linked_to_note"].includes(decision.decision)
           ? true
           : existing.provenance?.humanAccepted === true,
-        humanRewritten: decision.decision === "revised" ? true : existing.provenance?.humanRewritten === true
+        humanRewritten: existing.provenance?.humanRewritten === true
       };
       const now = new Date().toISOString();
 
