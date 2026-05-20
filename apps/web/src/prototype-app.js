@@ -57,11 +57,14 @@ import {
 } from "./ai-suggestions-panel.js";
 import {
   aiInboxActionLabel,
+  aiAdoptionEventFromCanonical,
   aiArtifactFromCanonical,
   aiInboxItemFromCanonical,
+  aiSuggestionTraceFromCanonical,
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
+  aiSuggestionFromCanonical,
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
@@ -1083,6 +1086,22 @@ function resetAiInboxSummaryState() {
 }
 
 function syncAiInboxSummaryFromDetail(detail = null) {
+  const payloadSummary = detail?.artifact?.payload?.aiReviewSummary || detail?.artifact?.payload?.ai_review_summary || null;
+  if (payloadSummary && typeof payloadSummary === "object") {
+    const provider = String(payloadSummary.providerId || payloadSummary.provider_id || "").trim();
+    const model = String(payloadSummary.modelRef || payloadSummary.model_ref || "").trim();
+    const comment = String(payloadSummary.content || "").trim();
+    aiInboxState.aiSummary = comment
+      .replace(/^\[AI Summary]\s*/m, "")
+      .replace(/^provider=.*$/m, "")
+      .replace(/^model=.*$/m, "")
+      .replace(/^recommendedAction=.*$/m, "")
+      .trim();
+    aiInboxState.aiSummaryMeta = [provider, model].filter(Boolean).join(" / ") || "persisted";
+    aiInboxState.aiSummaryRecommendedAction = String(payloadSummary.recommendedAction || payloadSummary.recommended_action || "").trim() || recommendedAiInboxActionFromText(comment);
+    aiInboxState.aiSummaryError = "";
+    return;
+  }
   const decisions = Array.isArray(detail?.artifact?.userDecisions || detail?.item?.userDecisions)
     ? detail?.artifact?.userDecisions || detail?.item?.userDecisions
     : [];
@@ -1462,7 +1481,18 @@ function aiInboxDetailFromResponse(response = {}) {
   const canonical = response?.canonical || {};
   const item = canonical.item ? aiInboxItemFromCanonical(canonical.item) : response?.item || null;
   const artifact = canonical.artifact ? aiArtifactFromCanonical(canonical.artifact) : response?.artifact || null;
-  return { item, artifact };
+  const suggestion = canonical.suggestion ? aiSuggestionFromCanonical(canonical.suggestion) : response?.suggestion || null;
+  const suggestionReviewEvents =
+    Array.isArray(canonical.suggestion_review_events)
+      ? canonical.suggestion_review_events.map((event) => aiAdoptionEventFromCanonical(event))
+      : Array.isArray(response?.suggestionReviewEvents)
+        ? response.suggestionReviewEvents
+        : [];
+  const latestSuggestionReviewEvent = canonical.latest_suggestion_review_event
+    ? aiAdoptionEventFromCanonical(canonical.latest_suggestion_review_event)
+    : response?.latestSuggestionReviewEvent || null;
+  const trace = canonical.trace ? aiSuggestionTraceFromCanonical(canonical.trace) : response?.trace || null;
+  return { item, artifact, suggestion, suggestionReviewEvents, latestSuggestionReviewEvent, trace };
 }
 
 async function loadAiInboxDetail(artifactId) {
@@ -1625,7 +1655,8 @@ async function applyAiInboxRecommendedAction(action = "") {
     const comment = `${$("aiInboxDecisionComment")?.value || ""}\n\nAI recommendation: needs_more_context`.trim();
     const commentEl = $("aiInboxDecisionComment");
     if (commentEl) commentEl.value = comment;
-    return recordAiInboxReviewDecision("revised");
+    setStatus("Added needs_more_context note. Review manually after checking more context.", "warn");
+    return true;
   }
   return setStatus(`Unsupported AI recommended action: ${normalized}`, "warn");
 }

@@ -1007,8 +1007,11 @@ test("prototype API can manage canonical AI suggestions payloads", async () => {
               item: {
                 id: "suggestion_1",
                 status: "adopted_as_draft",
-                history: [{ to_status: "adopted_as_draft" }]
-              }
+                history: [{ to_status: "adopted_as_draft", target_id: "pn_1", target_field: "thesis" }]
+              },
+              review_events: [{ event_type: "adopted_as_draft", target: { kind: "permanent_note", id: "pn_1", field: "thesis" } }],
+              latest_review_event: { event_type: "adopted_as_draft", target: { kind: "permanent_note", id: "pn_1", field: "thesis" } },
+              trace: { suggestion_id: "suggestion_1", source_artifact_id: "artifact_1", target_note_id: "pn_1", target_field: "thesis", suggestion_status: "adopted_as_draft", source_note_ids: ["pn_source"], primary_source_note_id: "pn_source" }
             }
           };
         }
@@ -1024,7 +1027,10 @@ test("prototype API can manage canonical AI suggestions payloads", async () => {
               item: {
                 id: "suggestion_1",
                 status: "adopted_as_draft"
-              }
+              },
+              review_events: [{ event_type: "adopted_as_draft", target: { kind: "permanent_note", id: "pn_1", field: "thesis" } }],
+              latest_review_event: { event_type: "adopted_as_draft", target: { kind: "permanent_note", id: "pn_1", field: "thesis" } },
+              trace: { suggestion_id: "suggestion_1", source_artifact_id: "artifact_1", target_note_id: "pn_1", target_field: "thesis", suggestion_status: "adopted_as_draft", source_note_ids: ["pn_source"], primary_source_note_id: "pn_source" }
             }
           };
         }
@@ -1092,6 +1098,8 @@ test("prototype API can manage canonical AI suggestions payloads", async () => {
     const fetched = await api.fetchAiSuggestion("suggestion_1", { canonical: true });
     assert.equal(fetched.id, "suggestion_1");
     assert.equal(fetched.canonical.item.status, "adopted_as_draft");
+    assert.equal(fetched.canonical.latest_review_event.event_type, "adopted_as_draft");
+    assert.equal(fetched.canonical.trace.target_note_id, "pn_1");
     assert.equal(new URL(calls[2].url).searchParams.get("canonical"), "true");
 
     const updated = await api.updateAiSuggestion("suggestion_1", {
@@ -1103,7 +1111,9 @@ test("prototype API can manage canonical AI suggestions payloads", async () => {
     });
     assert.equal(updated.status, "adopted_as_draft");
     assert.equal(updated.history[0].toStatus, "adopted_as_draft");
+    assert.equal(updated.history[0].targetId, "pn_1");
     assert.equal(updated.canonical.item.history[0].to_status, "adopted_as_draft");
+    assert.equal(updated.canonical.review_events[0].target.field, "thesis");
     assert.equal(new URL(calls[3].url).searchParams.get("canonical"), "true");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;

@@ -1524,6 +1524,9 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedField.json.suggestion.id, storedFieldSuggestionId);
   assert.equal(adoptedField.json.suggestion.status, "adopted_as_draft");
   assert.equal(adoptedField.json.suggestion.history[0].toStatus, "adopted_as_draft");
+  assert.equal(adoptedField.json.suggestionReviewEvents[0].eventType, "adopted_as_draft");
+  assert.equal(adoptedField.json.latestSuggestionReviewEvent.target.field, "thesis");
+  assert.equal(adoptedField.json.trace.targetNoteId, draftTarget.json.item.id);
   assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.status, "adopted_as_draft");
   assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.target.field, "thesis");
   assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.target.id, draftTarget.json.item.id);
@@ -1538,6 +1541,9 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.status, "adopted_as_draft");
   assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.target.field, "thesis");
   assert.equal(adoptedFieldCanonicalDetail.json.canonical.artifact.payload.fieldSuggestion.target.id, draftTarget.json.item.id);
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.suggestion.id, storedFieldSuggestionId);
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.suggestion_review_events[0].event_type, "adopted_as_draft");
+  assert.equal(adoptedFieldCanonicalDetail.json.canonical.trace.target_note_id, draftTarget.json.item.id);
 
   const adoptedSuggestion = await getJson(
     baseUrl,
@@ -1549,6 +1555,10 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedSuggestion.json.canonical.item.status, "adopted_as_draft");
   assert.equal(adoptedSuggestion.json.canonical.item.source_artifact_id, fieldArtifact.id);
   assert.equal(adoptedSuggestion.json.canonical.item.history[0].to_status, "adopted_as_draft");
+  assert.equal(adoptedSuggestion.json.canonical.review_events[0].target.id, draftTarget.json.item.id);
+  assert.equal(adoptedSuggestion.json.canonical.trace.source_artifact_id, fieldArtifact.id);
+  assert.equal(adoptedSuggestion.json.canonical.trace.primary_source_note_id, draftTarget.json.item.id);
+  assert.deepEqual(adoptedSuggestion.json.canonical.trace.source_note_ids, [draftTarget.json.item.id]);
 
   const adoptedNote = await getJson(baseUrl, `/api/v1/notes/${encodeURIComponent(draftTarget.json.item.id)}`);
   assert.equal(adoptedNote.status, 200, JSON.stringify(adoptedNote.json));

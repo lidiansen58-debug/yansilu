@@ -22,7 +22,6 @@
       "type": "string",
       "enum": [
         "accepted",
-        "revised",
         "ignored",
         "archived",
         "adopted_as_draft",

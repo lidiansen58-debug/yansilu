@@ -258,6 +258,119 @@ function renderPayloadPreview(payload = {}) {
   `;
 }
 
+function suggestionStatusLabel(status = "") {
+  const labels = {
+    suggested: "Suggested",
+    adopted_as_draft: "Adopted as draft",
+    edited: "Edited",
+    confirmed: "Confirmed",
+    rejected: "Rejected"
+  };
+  return labels[String(status || "").trim()] || String(status || "").trim() || "Unknown";
+}
+
+function suggestionStatusTone(status = "") {
+  const value = String(status || "").trim();
+  if (value === "suggested") return "warn";
+  if (value === "adopted_as_draft" || value === "edited" || value === "confirmed") return "ok";
+  if (value === "rejected") return "muted";
+  return "";
+}
+
+function renderSuggestionTrace(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  const trace = detail.trace || {};
+  const suggestionId = suggestion?.id || trace.suggestionId || "";
+  const sourceArtifactId = suggestion?.sourceArtifactId || trace.sourceArtifactId || "";
+  const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
+  const targetNoteId = suggestion?.target?.id || trace.targetNoteId || "";
+  const targetField = suggestion?.target?.field || trace.targetField || "";
+  const status = suggestion?.status || trace.suggestionStatus || "";
+  if (!suggestionId && !sourceArtifactId && !targetNoteId) return "";
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Suggestion trace</h3>
+      <dl class="ai-inbox-kv">
+        <dt>Suggestion</dt><dd>${escapeHtml(suggestionId || "none")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "none")}</dd>
+        <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "none")}</dd>
+        <dt>Target field</dt><dd>${escapeHtml(targetField || "none")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(suggestionStatusLabel(status))}</dd>
+        <dt>Source notes</dt><dd>${escapeHtml(sourceNoteIds.join(", ") || trace.primarySourceNoteId || "none")}</dd>
+      </dl>
+      <div class="ai-inbox-actions">
+        <button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(targetNoteId)}" ${targetNoteId ? "" : "disabled"}>
+          Open target note
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderReviewedSuggestionContent(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  const status = String(suggestion?.status || "").trim();
+  if (!suggestion || !["adopted_as_draft", "edited", "confirmed"].includes(status)) return "";
+  const content = typeof suggestion.content === "string" ? suggestion.content : JSON.stringify(suggestion.content || {}, null, 2);
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Reviewed content</h3>
+      <pre class="ai-inbox-json">${escapeHtml(content)}</pre>
+    </section>
+  `;
+}
+
+function renderSuggestionProvenance(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  if (!suggestion) return "";
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Suggestion provenance</h3>
+      <dl class="ai-inbox-kv">
+        <dt>Origin</dt><dd>${escapeHtml(suggestion.provenance?.contentOrigin || suggestion.origin || "ai_generated")}</dd>
+        <dt>Human edited</dt><dd>${escapeHtml(suggestion.provenance?.humanEdited ? "yes" : "no")}</dd>
+        <dt>Human confirmed</dt><dd>${escapeHtml(suggestion.provenance?.humanConfirmed ? "yes" : "no")}</dd>
+        <dt>Status</dt><dd>${renderBadge(suggestionStatusLabel(suggestion.status), suggestionStatusTone(suggestion.status))}</dd>
+      </dl>
+    </section>
+  `;
+}
+
+function renderSuggestionHistory(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  const events = Array.isArray(detail.suggestionReviewEvents) ? detail.suggestionReviewEvents : [];
+  if (!suggestion && !events.length) return "";
+  if (!events.length) {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Suggestion history</h3>
+        <div class="ai-inbox-detail-muted">No review events recorded yet.</div>
+      </section>
+    `;
+  }
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Suggestion history</h3>
+      <div class="ai-inbox-decision-list">
+        ${events
+          .slice()
+          .reverse()
+          .map((event) => `
+            <div class="ai-inbox-decision">
+              <div>
+                <strong>${escapeHtml(suggestionStatusLabel(event.eventType || event.metadata?.toStatus))}</strong>
+                <span>${escapeHtml(formatDate(event.createdAt) || event.createdAt || "")}</span>
+              </div>
+              <p>${escapeHtml(`${event.metadata?.fromStatus || "unknown"} -> ${event.metadata?.toStatus || event.eventType || "unknown"}`)}</p>
+              ${event.comment ? `<p>${escapeHtml(event.comment)}</p>` : ""}
+            </div>
+          `)
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderFeedbackControls() {
   return `
     <div class="ai-inbox-feedback-controls">
@@ -504,6 +617,10 @@ function renderDetail(state = {}) {
       ${renderLinkSuggestionAction(activeArtifact)}
       ${renderNotePromotionAction(activeArtifact)}
       ${renderFieldSuggestionAction(activeArtifact)}
+      ${renderSuggestionTrace(detail)}
+      ${renderReviewedSuggestionContent(detail)}
+      ${renderSuggestionProvenance(detail)}
+      ${renderSuggestionHistory(detail)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}

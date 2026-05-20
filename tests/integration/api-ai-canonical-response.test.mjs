@@ -137,10 +137,15 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
     assert.equal(accepted.json.canonical.artifact.id, firstRuntime.artifactId);
     assert.equal(accepted.json.canonical.latestDecision.subject_kind, "artifact");
     assert.equal(accepted.json.canonical.latestDecision.metadata.from_status, "pending_review");
+    assert.equal(accepted.json.canonical.review_events.length, 1);
+    assert.equal(accepted.json.canonical.latest_review_event.event_type, "accepted");
+    assert.equal(accepted.json.canonical.latest_review_event.metadata.to_status, "accepted");
 
     const detail = await getJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}?canonical=true`);
     assert.equal(detail.status, 200, JSON.stringify(detail.json));
     assert.equal(detail.json.canonical.item.artifact_id, firstRuntime.artifactId);
     assert.equal(detail.json.canonical.artifact.id, firstRuntime.artifactId);
+    assert.equal(detail.json.canonical.review_events.length, 1);
+    assert.equal(detail.json.canonical.latest_review_event.event_type, "accepted");
   }
 });

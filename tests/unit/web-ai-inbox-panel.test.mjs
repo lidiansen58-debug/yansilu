@@ -138,6 +138,63 @@ test("AI inbox panel renders field suggestion adoption for InsightCard artifacts
   assert.match(html, /data-ai-inbox-adopt-field="artifact_field_1"/);
 });
 
+test("AI inbox panel surfaces suggestion traceability and review history inside inbox detail", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_field_trace", type: "InsightCard", title: "Field suggestion trace" }],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_field_trace",
+    detail: {
+      item: { ...item, artifactId: "artifact_field_trace", type: "InsightCard", title: "Field suggestion trace" },
+      artifact: {
+        ...artifact,
+        id: "artifact_field_trace",
+        type: "InsightCard",
+        title: "Field suggestion trace",
+        body: "AI suggestions should become a draft before they become a judgment.",
+        payload: {
+          targetField: "thesis",
+          fieldSuggestion: {
+            target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+            content: { thesis: "AI suggestions should become a draft before they become a judgment." }
+          }
+        }
+      },
+      suggestion: {
+        id: "suggestion_field_trace",
+        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+        scope: "note_field",
+        content: { thesis: "AI suggestions should become a draft before they become a judgment." },
+        status: "adopted_as_draft",
+        sourceArtifactId: "artifact_field_trace",
+        provenance: { contentOrigin: "ai_generated", humanEdited: true, humanConfirmed: false }
+      },
+      suggestionReviewEvents: [
+        {
+          adoptionEventId: "evt_field_trace",
+          eventType: "adopted_as_draft",
+          createdAt: "2026-05-18T12:05:00.000Z",
+          metadata: { fromStatus: "suggested", toStatus: "adopted_as_draft" },
+          comment: "Use as draft."
+        }
+      ],
+      trace: {
+        suggestionId: "suggestion_field_trace",
+        sourceArtifactId: "artifact_field_trace",
+        sourceNoteIds: ["pn_1"],
+        targetNoteId: "pn_1",
+        targetField: "thesis",
+        suggestionStatus: "adopted_as_draft"
+      }
+    }
+  });
+
+  assert.match(html, /Suggestion trace/);
+  assert.match(html, /Reviewed content/);
+  assert.match(html, /Suggestion provenance/);
+  assert.match(html, /Suggestion history/);
+  assert.match(html, /data-ai-inbox-open-note="pn_1"/);
+});
+
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
   const html = renderAiInboxPanel({
     items: [item],
