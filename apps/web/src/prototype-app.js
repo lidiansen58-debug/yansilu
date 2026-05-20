@@ -7031,17 +7031,20 @@ function renderGraphPanel() {
       .map((note) => note.title || note.id)
       .slice(0, 3)
       .join(" / ");
+    const focusNoteId = Array.isArray(conflict.noteIds) ? String(conflict.noteIds[0] || "").trim() : "";
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>概念错位 / 重名冲突</strong>
         <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
         <small>${escapeHtml(conflict.rationale || "永久笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
         <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
+        ${focusNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="boundary" data-open-note="${escapeHtml(focusNoteId)}">去补边界</button>` : ""}
       </div>
     `);
   });
 
   if (conflictingRelations.length) {
+    const focusEdge = conflictingRelations[0] || null;
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>显式冲突关系</strong>
@@ -7052,11 +7055,14 @@ function renderGraphPanel() {
             .map((edge) => `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`)
             .join(" / ")
         )}</small>
+        ${focusEdge?.fromNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="tension" data-open-note="${escapeHtml(focusEdge.fromNoteId)}">去补反例/边界</button>` : ""}
       </div>
     `);
   }
 
   if (bridgeGaps.length) {
+    const firstGap = bridgeGaps[0] || null;
+    const focusBridgeNoteId = Array.isArray(firstGap?.noteIds) ? String(firstGap.noteIds[0] || "").trim() : "";
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>桥接缺口</strong>
@@ -7067,6 +7073,7 @@ function renderGraphPanel() {
             .map((gap) => (Array.isArray(gap.noteTitles) ? gap.noteTitles.join(" / ") : "未命名缺口"))
             .join(" / ")
         )}</small>
+        ${focusBridgeNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="bridge" data-open-note="${escapeHtml(focusBridgeNoteId)}">去补桥接</button>` : ""}
       </div>
     `);
   } else if (isolatedNodes.length) {
@@ -7109,19 +7116,41 @@ function renderGraphPanel() {
     if (!allEdges.length) {
       return {
         title: "下一步：建立第一条关系",
-        note: "在两条相关笔记之间加入 [[关联笔记]]，再刷新图谱查看局部结构。"
+        note: "在两条相关笔记之间加入 [[关联笔记]]，再刷新图谱查看局部结构。",
+        noteId: nodes[0]?.id || "",
+        action: "relations",
+        actionLabel: "去补关系"
       };
     }
     if (untypedRelations.length) {
       return {
         title: "下一步：补关系理由",
-        note: `${untypedRelations.length} 条连接还没写清为什么成立。优先打开关系整理队列里的源笔记。`
+        note: `${untypedRelations.length} 条连接还没写清为什么成立。优先打开关系整理队列里的源笔记。`,
+        noteId: untypedRelations[0]?.fromNoteId || "",
+        action: "relations",
+        actionLabel: "去补关系"
       };
     }
     if (conflictingRelations.length + conflictItems.length) {
+      const focusConflictNoteId =
+        conflictingRelations[0]?.fromNoteId ||
+        (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : "");
       return {
         title: "下一步：处理张力",
-        note: "已经有冲突或重名信号。补反方、边界和例外条件后，写作时更稳。"
+        note: "已经有冲突或重名信号。补反方、边界和例外条件后，写作时更稳。",
+        noteId: focusConflictNoteId,
+        action: "tension",
+        actionLabel: "去补反例/边界"
+      };
+    }
+    if (bridgeGaps.length) {
+      const focusBridgeNoteId = Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "";
+      return {
+        title: "下一步：补桥接",
+        note: "当前结构已经有局部中心，但桥接缺口还会让读者断在半路。优先补过渡关系。",
+        noteId: focusBridgeNoteId,
+        action: "bridge",
+        actionLabel: "去补桥接"
       };
     }
     return {
@@ -7180,6 +7209,7 @@ function renderGraphPanel() {
         <div class="graph-next-card">
           <strong>${escapeHtml(nextAction.title)}</strong>
           <small>${escapeHtml(nextAction.note)}</small>
+          ${nextAction.noteId && nextAction.action ? `<button class="mini-btn" type="button" data-open-note="${escapeHtml(nextAction.noteId)}" data-graph-followup-action="${escapeHtml(nextAction.action)}">${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
         </div>
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
@@ -7535,6 +7565,49 @@ function openNoteById(id, options = {}) {
   editor.openNoteTab(id, options);
   renderAll();
   ensureNoteBodyLoaded(id);
+  return true;
+}
+
+function openGraphFollowupNote(noteId = "", action = "") {
+  const cleanNoteId = String(noteId || "").trim();
+  const cleanAction = String(action || "").trim().toLowerCase();
+  if (!cleanNoteId) return false;
+  activateModule("explorer");
+  openNoteById(cleanNoteId, { preferTitleSelection: false });
+  state.inspectorVisible = true;
+  editor?.setInspectorVisible?.(true);
+  editor?.renderRelated?.("图谱下一步");
+
+  const focusRelationCreate = () => {
+    editor?.openCreateRelationForm?.();
+    window.setTimeout(() => {
+      editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
+        focus: true,
+        focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+      });
+    }, 40);
+  };
+
+  const focusBoundaryField = () => {
+    window.setTimeout(() => {
+      editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
+        focus: true,
+        focusSelector: '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]'
+      });
+    }, 40);
+  };
+
+  if (cleanAction === "relations" || cleanAction === "bridge") {
+    focusRelationCreate();
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
+    return true;
+  }
+  if (cleanAction === "boundary" || cleanAction === "tension") {
+    focusBoundaryField();
+    setStatus("已从图谱打开笔记，继续补反例、边界或张力说明", "ok");
+    return true;
+  }
+  setStatus("已从图谱打开笔记", "ok");
   return true;
 }
 
@@ -9242,6 +9315,11 @@ $("graphCanvas")?.addEventListener("click", (event) => {
     runGraphAiAnalysis();
     return;
   }
+  const graphFollowup = event.target.closest("[data-graph-followup-action]");
+  if (graphFollowup) {
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"));
+    return;
+  }
   const zoomButton = event.target.closest("[data-graph-zoom-option]");
   if (zoomButton) {
     graphState.zoom = graphZoomOption(zoomButton.getAttribute("data-graph-zoom-option")).key;
@@ -9258,6 +9336,12 @@ $("graphCanvas")?.addEventListener("click", (event) => {
 
 $("graphCanvas")?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
+  const graphFollowup = event.target.closest("[data-graph-followup-action]");
+  if (graphFollowup) {
+    event.preventDefault();
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"));
+    return;
+  }
   const row = event.target.closest("[data-open-note]");
   if (!row) return;
   event.preventDefault();

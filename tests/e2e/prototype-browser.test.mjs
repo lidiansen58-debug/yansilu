@@ -5473,13 +5473,155 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="relations"]', { hasText: "去补关系" }).waitFor({ timeout: 500 });
   }, 7000);
+
+  await page.locator('[data-graph-followup-action="relations"]', { hasText: "去补关系" }).first().click();
+  await page.waitForFunction(() => {
+    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
+    const form = document.querySelector("[data-create-relation-form]");
+    const focus = document.activeElement;
+    return Boolean(activeModule && form && focus && focus.getAttribute("data-relation-target-search") !== null);
+  });
+
+  const relationFormText = await page.locator("[data-create-relation-form]").textContent();
+  assert.match(relationFormText || "", /建立语义关系|连接理由|可检验的判断/);
+  const statusTextAfterFollowup = await currentStatusText(page);
+  assert.match(statusTextAfterFollowup || "", /图谱打开笔记|补关系/);
 
   await page.locator("#graphCanvas .graph-node", { hasText: "Graph target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
   assert.match(activeEditorText, /Graph target/);
+});
+
+test("prototype graph panel bridge gap followup opens relation creation on an isolated note", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Bridge Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-bridge-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Bridge Gap A\n\nThis note is currently isolated and should ask for a bridge relation."
+  });
+  assert.equal(noteA.status, 201);
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Bridge Gap B\n\nThis second isolated note creates a disconnected structure."
+  });
+  assert.equal(noteB.status, 201);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const [nodeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    await page.locator('[data-graph-followup-action="bridge"]', { hasText: "去补桥接" }).waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-followup-action="bridge"]', { hasText: "去补桥接" }).first().click();
+  await page.waitForFunction(() => {
+    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
+    const form = document.querySelector("[data-create-relation-form]");
+    const focus = document.activeElement;
+    return Boolean(activeModule && form && focus && focus.getAttribute("data-relation-target-search") !== null);
+  });
+
+  const relationFormText = await page.locator("[data-create-relation-form]").textContent();
+  assert.match(relationFormText || "", /建立语义关系|连接理由|可检验的判断/);
+  const statusTextAfterFollowup = await currentStatusText(page);
+  assert.match(statusTextAfterFollowup || "", /补桥接关系/);
+});
+
+test("prototype graph panel tension followup opens boundary field on the source note", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Tension Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-tension-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Tension Source\n\nThis note should be opened so the user can add a sharper boundary."
+  });
+  assert.equal(noteA.status, 201);
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Tension Target\n\nThis note is challenged by the source note."
+  });
+  assert.equal(noteB.status, 201);
+
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "counterexample_to",
+    rationale: "The source note provides a counterexample that should push the user to clarify the boundary.",
+    insightQuestion: "What boundary would keep this judgment from overreaching?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
+    assert.ok(nodeCount >= 2, summary || "");
+    assert.ok(edgeCount >= 1, summary || "");
+    await page.locator('[data-graph-followup-action="tension"]', { hasText: "去补反例/边界" }).waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-followup-action="tension"]', { hasText: "去补反例/边界" }).first().click();
+  await page.waitForFunction(() => {
+    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
+    const boundaryField = document.querySelector('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]');
+    const focus = document.activeElement;
+    return Boolean(activeModule && boundaryField && focus === boundaryField);
+  });
+
+  const statusTextAfterFollowup = await currentStatusText(page);
+  assert.match(statusTextAfterFollowup || "", /补反例、边界或张力说明/);
 });
 
 test("prototype graph panel seeds the Yijing demo network", async (t) => {
