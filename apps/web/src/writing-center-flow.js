@@ -99,3 +99,73 @@ export function describeWritingProjectPreflight(preflight = null) {
 export function isWritingStrongModelReady({ readinessLevel = "", projectPreflightLevel = "" } = {}) {
   return String(readinessLevel || "").trim() === "strong_model_ready" && String(projectPreflightLevel || "").trim() === "ready";
 }
+
+export function describeWritingProjectEntryState({
+  relationCountsReady = false,
+  relationCountsErrored = false,
+  readinessLevel = "",
+  readinessHint = ""
+} = {}) {
+  if (relationCountsErrored) {
+    return {
+      level: "error",
+      status: "读取失败",
+      hint: "显式关系读取失败，先稍后重试或回到笔记里手动确认关系。",
+      actionLabel: "关系读取失败",
+      canCreateProject: false
+    };
+  }
+  if (!relationCountsReady) {
+    return {
+      level: "loading",
+      status: "读取中",
+      hint: "正在读取显式关系，再判断是否能建项目。",
+      actionLabel: "正在读取关系",
+      canCreateProject: false
+    };
+  }
+  const cleanLevel = String(readinessLevel || "").trim();
+  if (cleanLevel === "project_ready" || cleanLevel === "strong_model_ready") {
+    return {
+      level: "ready",
+      status: "可创建",
+      hint: "当前材料已到建项目阶段；接下来明确题目和读者。",
+      actionLabel: "创建写作项目",
+      canCreateProject: true
+    };
+  }
+  if (cleanLevel === "basket_ready") {
+    return {
+      level: "needs_structure",
+      status: "待创建",
+      hint: "还没到建项目时机；先补边界或关系。",
+      actionLabel: "先补条件再建项目",
+      canCreateProject: false
+    };
+  }
+  if (cleanLevel === "needs_distillation") {
+    return {
+      level: "needs_distillation",
+      status: "待创建",
+      hint: "先把 thesis 和三句话确认下来。",
+      actionLabel: "先补条件再建项目",
+      canCreateProject: false
+    };
+  }
+  if (cleanLevel === "blocked_authorship" || cleanLevel === "blocked_draft") {
+    return {
+      level: cleanLevel,
+      status: "待创建",
+      hint: "先让材料完成作者/原创确认，再进入写作。",
+      actionLabel: "先补条件再建项目",
+      canCreateProject: false
+    };
+  }
+  return {
+    level: cleanLevel || "needs_basket",
+    status: "待创建",
+    hint: String(readinessHint || "").trim() || "先补齐写作材料，再创建项目。",
+    actionLabel: "先补条件再建项目",
+    canCreateProject: false
+  };
+}

@@ -69,6 +69,7 @@ import {
 } from "./scheduled-tasks-panel.js";
 import { graphFollowupActionForRelationType, graphNextActionForSummary } from "./graph-followup.js";
 import {
+  describeWritingProjectEntryState,
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
   groupWritingPreflightChecks,
@@ -308,6 +309,11 @@ const writingState = {
   relationCountErrors: {},
   loadingRelationCounts: false,
   relationCountRequestSerial: 0,
+  themeRelationNoteIds: [],
+  themeRelationCounts: {},
+  themeRelationCountErrors: {},
+  loadingThemeRelationCounts: false,
+  themeRelationCountRequestSerial: 0,
   sourceIndexIds: [],
   selectedThemeIndexId: "",
   themeIndexes: [],
@@ -4868,6 +4874,16 @@ function writingThemeIndexById(indexId) {
   return writingState.themeIndexes.find((item) => item.id === indexId) || null;
 }
 
+function writingThemeIndexNoteIds(indexCard) {
+  return uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
+}
+
+function sameUniqueStringSet(left = [], right = []) {
+  const a = uniqueStrings(left);
+  const b = uniqueStrings(right);
+  return a.length === b.length && a.every((value) => b.includes(value));
+}
+
 function selectedWritingThemeIndex() {
   const selectedId = String(writingState.selectedThemeIndexId || "").trim();
   if (selectedId) {
@@ -4886,6 +4902,13 @@ function setSelectedWritingThemeIndex(indexId = "") {
   writingState.selectedThemeIndexId = String(indexId || "").trim();
 }
 
+function clearWritingThemeRelationCounts(noteIds = []) {
+  writingState.themeRelationNoteIds = uniqueStrings(noteIds);
+  writingState.themeRelationCounts = {};
+  writingState.themeRelationCountErrors = {};
+  writingState.loadingThemeRelationCounts = false;
+}
+
 function upsertWritingThemeIndex(indexCard) {
   if (!indexCard?.id) return;
   writingState.themeIndexes = [
@@ -4901,7 +4924,9 @@ async function selectWritingThemeIndex(indexId) {
   if (!fetched?.id) return null;
   upsertWritingThemeIndex(fetched);
   setSelectedWritingThemeIndex(fetched.id);
+  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(fetched));
   renderWritingPanel();
+  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(fetched));
   return fetched;
 }
 
@@ -4952,7 +4977,9 @@ async function syncSelectedThemeIndexWithBasket(mode = "replace") {
   });
   upsertWritingThemeIndex(item);
   setSelectedWritingThemeIndex(item.id);
+  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   renderWritingPanel();
+  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   return item;
 }
 
@@ -4966,7 +4993,9 @@ async function removeNoteFromSelectedThemeIndex(noteId) {
   });
   upsertWritingThemeIndex(item);
   setSelectedWritingThemeIndex(item.id);
+  clearWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   renderWritingPanel();
+  void refreshWritingThemeRelationCounts(writingThemeIndexNoteIds(item));
   return item;
 }
 
@@ -5232,6 +5261,34 @@ async function refreshWritingRelationCounts(noteIds = parseWritingBasketIds(), {
   }
 }
 
+async function refreshWritingThemeRelationCounts(noteIds = [], { render = true } = {}) {
+  const ids = uniqueStrings(noteIds);
+  const requestSerial = ++writingState.themeRelationCountRequestSerial;
+  writingState.themeRelationNoteIds = ids;
+  writingState.loadingThemeRelationCounts = ids.length > 0;
+  if (!ids.length) {
+    writingState.themeRelationCounts = {};
+    writingState.themeRelationCountErrors = {};
+    if (render && state.module === "writing") renderWritingPanel();
+    return { counts: {}, errors: {} };
+  }
+  if (render && state.module === "writing") renderWritingPanel();
+  try {
+    const payload = await loadWritingRelationCounts(ids);
+    if (requestSerial !== writingState.themeRelationCountRequestSerial || !sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+      return { counts: writingState.themeRelationCounts, errors: writingState.themeRelationCountErrors };
+    }
+    writingState.themeRelationCounts = payload.counts;
+    writingState.themeRelationCountErrors = payload.errors;
+    return payload;
+  } finally {
+    if (requestSerial === writingState.themeRelationCountRequestSerial && sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) {
+      writingState.loadingThemeRelationCounts = false;
+      if (render && state.module === "writing") renderWritingPanel();
+    }
+  }
+}
+
 function writingRelationCountsReady(noteIds = [], relationCounts = {}) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return true;
@@ -5242,6 +5299,38 @@ function writingRelationCountsErrored(noteIds = [], relationCountErrors = {}) {
   const ids = uniqueStrings(noteIds);
   if (!ids.length) return false;
   return ids.some((noteId) => Boolean(relationCountErrors?.[noteId]));
+}
+
+function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
+  const ids = uniqueStrings(noteIds);
+  if (!ids.length) return false;
+  if (!sameUniqueStringSet(ids, writingState.themeRelationNoteIds)) return true;
+  if (writingState.loadingThemeRelationCounts) return false;
+  return !writingRelationCountsReady(ids, writingState.themeRelationCounts);
+}
+
+function writingThemeProjectEntry(indexCard) {
+  const noteIds = writingThemeIndexNoteIds(indexCard);
+  const hasMatchingCounts = sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
+  const relationCounts = hasMatchingCounts ? writingState.themeRelationCounts : {};
+  const relationErrors = hasMatchingCounts ? writingState.themeRelationCountErrors : {};
+  const relationCountsReady =
+    hasMatchingCounts &&
+    writingRelationCountsReady(noteIds, relationCounts) &&
+    !writingState.loadingThemeRelationCounts;
+  const relationCountsErrored = hasMatchingCounts && writingRelationCountsErrored(noteIds, relationErrors);
+  const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
+  const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, { relationState });
+  return {
+    noteIds,
+    readiness,
+    projectEntry: describeWritingProjectEntryState({
+      relationCountsReady,
+      relationCountsErrored,
+      readinessLevel: readiness.level,
+      readinessHint: readiness.hint
+    })
+  };
 }
 
 function writingBasketEntries() {
@@ -5424,7 +5513,7 @@ function renderWritingThemeDetail(indexCard) {
     `;
   }
 
-  const itemIds = uniqueStrings(indexCard.item_note_ids || indexCard.items?.map((item) => item.note_id) || []);
+  const { noteIds: itemIds, readiness, projectEntry } = writingThemeProjectEntry(indexCard);
   const items = itemIds.map((noteId) => {
     const item = (Array.isArray(indexCard.items) ? indexCard.items : []).find((entry) => entry?.note_id === noteId) || null;
     const note = writingKnownNoteById(noteId) || item?.note || null;
@@ -5452,10 +5541,13 @@ function renderWritingThemeDetail(indexCard) {
       </div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-theme-action="use" data-writing-theme-id="${themeId}">把整组加入写作篮</button>
-        <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}">从主题建项目</button>
+        <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
         这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作入口。
+      </div>
+      <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
+        当前主题入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题进入写作项目。")}
       </div>
       <div class="import-grid" style="margin-top:12px;">
         <label for="writingThemeDetailTitle">主题标题</label>
@@ -5841,6 +5933,12 @@ function renderWritingStatusStrip() {
           ? "warn"
           : "warn";
   const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const projectEntry = describeWritingProjectEntryState({
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: readiness.level,
+    readinessHint: readiness.hint
+  });
   const projectTone =
     hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"
@@ -5851,17 +5949,7 @@ function renderWritingStatusStrip() {
     ? projectPreflightSummary.level !== "ready"
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
-    : relationCountsErrored
-      ? "显式关系读取失败，先稍后重试或回到笔记里手动确认关系。"
-    : !relationCountsReady && basketIds.length
-      ? "正在读取显式关系，再判断是否可建项目。"
-    : readiness.level === "basket_ready"
-      ? "还没到建项目时机；先补边界或关系。"
-      : readiness.level === "needs_distillation"
-        ? "先把 thesis 和三句话确认下来。"
-        : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
-          ? "先让材料完成作者/原创确认，再进入写作。"
-          : "当前材料已到建项目阶段；接下来明确题目和读者。";
+    : projectEntry.hint;
   const strongModelReady = isWritingStrongModelReady({
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
@@ -5881,7 +5969,7 @@ function renderWritingStatusStrip() {
           : readiness.hint;
   el.innerHTML = [
     renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
-    renderWritingStatusCard("项目", hasProject ? "已创建" : relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "project_ready" || readiness.level === "strong_model_ready" ? "可创建" : "待创建", projectNote, projectTone),
+    renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
     renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
     renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : strongModelReady ? "可分析" : "先补条件", strongModelNote, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
@@ -6116,6 +6204,14 @@ function renderWritingPanel() {
   }
 
   const selectedTheme = selectedWritingThemeIndex();
+  if (selectedTheme) {
+    const selectedThemeNoteIds = writingThemeIndexNoteIds(selectedTheme);
+    if (shouldRefreshWritingThemeRelationCounts(selectedThemeNoteIds)) {
+      void refreshWritingThemeRelationCounts(selectedThemeNoteIds);
+    }
+  } else if (writingState.themeRelationNoteIds.length || Object.keys(writingState.themeRelationCounts).length) {
+    clearWritingThemeRelationCounts();
+  }
   if (themeDetailHint) {
     themeDetailHint.textContent = selectedTheme
       ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成写作项目。`
@@ -6131,6 +6227,12 @@ function renderWritingPanel() {
   const relationCountsErrored = writingRelationCountsErrored(basketIds, writingState.relationCountErrors || {});
   const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
     relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
+  });
+  const projectEntry = describeWritingProjectEntryState({
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: basketReadiness.level,
+    readinessHint: basketReadiness.hint
   });
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (basketSummary) {
@@ -6172,9 +6274,8 @@ function renderWritingPanel() {
     openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
   }
   if (createProjectButton) {
-    const projectReady = !relationCountsErrored && relationCountsReady && (basketReadiness.level === "project_ready" || basketReadiness.level === "strong_model_ready");
-    createProjectButton.disabled = !projectReady;
-    createProjectButton.textContent = relationCountsErrored ? "关系读取失败" : !relationCountsReady && basketIds.length ? "正在读取关系" : projectReady ? "创建写作项目" : "先补条件再建项目";
+    createProjectButton.disabled = !projectEntry.canCreateProject;
+    createProjectButton.textContent = projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
     createScaffoldButton.disabled = !writingState.project?.id;

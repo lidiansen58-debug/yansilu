@@ -5398,6 +5398,11 @@ test("prototype writing center can save a theme index, edit central question, an
     const value = document.querySelector("#writingThemeDetailTitle")?.value || "";
     return value.includes("Browser Theme Index");
   }, null, { timeout: 10000 });
+  await page.waitForFunction(() => {
+    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
+    const button = document.querySelector('[data-writing-theme-action="create-project"]');
+    return summary.includes("可创建") && button?.textContent?.includes("创建写作项目") && !button?.hasAttribute("disabled");
+  }, null, { timeout: 10000 });
 
   await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these two permanent notes before writing begins?");
   await page.fill("#writingThemeDetailThesis", "A theme becomes useful when it organizes notes around one reusable question.");

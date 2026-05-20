@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  describeWritingProjectEntryState,
   describeWritingProjectPreflight,
   describeWritingNextActionFromState,
   groupWritingPreflightChecks,
@@ -112,4 +113,47 @@ test("writing center strong-model gate requires both strong_model_ready basket s
     isWritingStrongModelReady({ readinessLevel: "project_ready", projectPreflightLevel: "ready" }),
     false
   );
+});
+
+test("writing center project entry stays loading until relation counts are ready", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: false,
+    relationCountsErrored: false,
+    readinessLevel: "project_ready"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "读取中");
+  assert.match(entry.hint, /正在读取显式关系/);
+});
+
+test("writing center project entry reports relation fetch failures separately", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: false,
+    relationCountsErrored: true,
+    readinessLevel: "project_ready"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "读取失败");
+  assert.match(entry.hint, /显式关系读取失败/);
+});
+
+test("writing center project entry only opens creation once basket readiness reaches project stage", () => {
+  const ready = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "project_ready"
+  });
+  const blocked = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "basket_ready"
+  });
+
+  assert.equal(ready.canCreateProject, true);
+  assert.equal(ready.actionLabel, "创建写作项目");
+  assert.equal(blocked.canCreateProject, false);
+  assert.equal(blocked.actionLabel, "先补条件再建项目");
+  assert.match(blocked.hint, /先补边界或关系/);
 });
