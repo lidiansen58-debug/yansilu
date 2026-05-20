@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  countExplicitSemanticRelations,
   deriveBasketWritingReadiness,
   deriveNoteWritingReadiness,
   describeProjectPreflight
@@ -143,6 +144,33 @@ test("basket writing readiness becomes strong-model-ready once relation and them
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "strong_model_ready");
+});
+
+test("basket writing readiness keeps relation fetch errors distinct from missing relations", () => {
+  const notesById = new Map([
+    ["n1", { id: "n1", authorship: { user_confirmed: true }, status: "active", distillationStatus: "confirmed", body: "# A\n\nBoundary: yes.", boundaryOrCounterpoint: "yes" }],
+    ["n2", { id: "n2", authorship: { user_confirmed: true }, status: "active", distillationStatus: "confirmed", body: "# B\n\nBoundary: yes.", boundaryOrCounterpoint: "yes" }]
+  ]);
+
+  const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), {}, { relationState: "error" });
+  assert.equal(readiness.level, "basket_ready");
+  assert.match(readiness.hint, /读取失败|稍后重试|手动确认关系/);
+});
+
+test("explicit relation counting excludes markdown wikilinks and hidden relations", () => {
+  const count = countExplicitSemanticRelations({
+    outgoingLinks: [
+      { relationType: "associated_with", rationale: "markdown_wikilink", status: "confirmed" },
+      { relationType: "supports", rationale: "A real explicit relation.", status: "confirmed" },
+      { relationType: "supports", rationale: "Dismissed relation", status: "dismissed" }
+    ],
+    backlinks: [
+      { relationType: "counterexample_to", rationale: "Backlink relation", status: "confirmed" },
+      { relationType: "qualifies", rationale: "Archived relation", status: "archived" }
+    ]
+  });
+
+  assert.equal(count, 2);
 });
 
 test("project preflight description reports ready status clearly", () => {

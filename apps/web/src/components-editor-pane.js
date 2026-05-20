@@ -1,5 +1,10 @@
 ﻿import { parseLinks, parseTags, rootBoxIdFromFolder, typeFromFolder } from "./prototype-store.js";
-import { deriveNoteWritingReadiness } from "./writing-readiness.js";
+import {
+  countExplicitSemanticRelations,
+  deriveNoteWritingReadiness,
+  isHiddenSemanticRelation,
+  isMarkdownWikilinkSemanticRelation
+} from "./writing-readiness.js";
 import {
   assetPreviewUrl,
   checkOriginality,
@@ -1306,12 +1311,11 @@ function relationStatusLabel(status) {
 }
 
 function isHiddenRelation(link) {
-  const status = String(link?.status || "confirmed").trim().toLowerCase();
-  return status === "dismissed" || status === "archived";
+  return isHiddenSemanticRelation(link);
 }
 
 function isMarkdownWikilinkRelation(link) {
-  return String(link?.relationType || "").trim().toLowerCase() === "associated_with" && String(link?.rationale || "").trim() === "markdown_wikilink";
+  return isMarkdownWikilinkSemanticRelation(link);
 }
 
 function relationTone(link) {

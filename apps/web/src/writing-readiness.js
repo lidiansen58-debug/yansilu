@@ -6,6 +6,21 @@ export function noteHasBoundarySignal(note = {}) {
   return /边界|反例|不成立|适用条件|反方|counterpoint|boundary|counterexample/i.test(body);
 }
 
+export function isHiddenSemanticRelation(link = {}) {
+  const status = String(link?.status || "confirmed").trim().toLowerCase();
+  return status === "dismissed" || status === "archived";
+}
+
+export function isMarkdownWikilinkSemanticRelation(link = {}) {
+  return String(link?.relationType || "").trim().toLowerCase() === "associated_with" && String(link?.rationale || "").trim() === "markdown_wikilink";
+}
+
+export function countExplicitSemanticRelations(relations = null) {
+  const outgoing = Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : [];
+  const backlinks = Array.isArray(relations?.backlinks) ? relations.backlinks : [];
+  return [...outgoing, ...backlinks].filter((link) => !isHiddenSemanticRelation(link) && !isMarkdownWikilinkSemanticRelation(link)).length;
+}
+
 export function deriveNoteWritingReadiness(note = {}, overview = {}) {
   const authorshipConfirmed = Boolean(note?.authorship?.user_confirmed);
   const noteStatus = String(note?.status || "").trim().toLowerCase();
@@ -88,9 +103,10 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
   };
 }
 
-export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationCounts = {}) {
+export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationCounts = {}, options = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const notes = uniqueIds.map((id) => noteLookup(id)).filter(Boolean);
+  const relationState = String(options?.relationState || "loaded").trim().toLowerCase();
 
   if (!notes.length) {
     return {
@@ -138,6 +154,15 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     const body = String(note?.body || "");
     return sum + parseLinks(body).length + parseTags(body).length;
   }, 0);
+
+  if (relationState === "error") {
+    return {
+      level: "basket_ready",
+      status: "可加入写作篮",
+      hint: "显式关系暂时读取失败，先稍后重试或回到笔记里手动确认关系。",
+      actionLabel: "加入写作篮"
+    };
+  }
 
   if (boundaryMissing.length || totalRelationCount === 0) {
     return {
