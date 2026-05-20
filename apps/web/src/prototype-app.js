@@ -7123,6 +7123,7 @@ function renderGraphPanel() {
     hasEdges: allEdges.length > 0,
     firstNodeId: nodes[0]?.id || "",
     untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
+    untypedRelationId: untypedRelations[0]?.id || "",
     conflictFromNoteId:
       conflictingRelations[0]?.fromNoteId ||
       (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),

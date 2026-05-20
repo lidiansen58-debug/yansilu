@@ -10,7 +10,7 @@ const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to
 export function graphFollowupActionForRelationType(type = "") {
   const relationType = String(type || "").trim().toLowerCase();
   if (GRAPH_CONFLICT_RELATION_TYPES.has(relationType)) return GRAPH_FOLLOWUP_ACTIONS.tension;
-  if (relationType === "bridges") return GRAPH_FOLLOWUP_ACTIONS.bridge;
+  if (relationType === "bridges" || relationType === "unexpected_connection" || relationType === "reframes") return GRAPH_FOLLOWUP_ACTIONS.bridge;
   return GRAPH_FOLLOWUP_ACTIONS.relations;
 }
 
