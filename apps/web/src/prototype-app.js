@@ -4709,10 +4709,7 @@ function renderAiCanonicalDebugPanel() {
 }
 
 function isWritingEligibleNote(note) {
-  if (!note) return false;
-  const noteType = String(note.noteType || "").trim().toLowerCase();
-  if (noteType === "permanent") return true;
-  return rootBoxIdFromFolder(state, note.folderId) === "dir_original_default";
+  return writingNoteEligibility(note).ok;
 }
 
 function writingScopeDirectoryIds() {
@@ -5577,6 +5574,7 @@ async function openWritingProject(projectId) {
     writingState.scaffold = null;
     writingState.scaffoldMarkdown = "";
   }
+  await refreshWritingRelationCounts(parseWritingBasketIds(), { render: false });
   await refreshWritingProjectState();
   await loadWritingScaffoldVersions();
   await loadWritingDraftVersions();
@@ -5751,9 +5749,10 @@ function renderWritingStatusStrip() {
           ? "先让材料完成作者/原创确认，再进入写作。"
           : "当前材料已到建项目阶段；接下来明确题目和读者。";
   const strongModelTone =
-    readiness.level === "strong_model_ready" && projectPreflightSummary.level !== "needs_attention"
+    readiness.level === "strong_model_ready" && projectPreflightSummary.level === "ready"
       ? "good"
       : "warn";
+  const strongModelReady = readiness.level === "strong_model_ready" && projectPreflightSummary.level === "ready";
   const strongModelNote =
     projectPreflightSummary.level !== "ready" && hasProject
       ? `先处理项目预检里的 ${projectPreflightChecks.length} 项缺口，再做强模型分析。`
@@ -5761,7 +5760,7 @@ function renderWritingStatusStrip() {
         ? "显式关系读取失败，先重试或回到笔记里确认关系。"
       : !relationCountsReady && basketIds.length
         ? "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。"
-      : readiness.level === "strong_model_ready"
+      : strongModelReady
         ? "当前材料已经适合进入强模型分析。"
         : readiness.level === "project_ready"
           ? "先补更多主题线索，再做强模型分析。"
@@ -5770,7 +5769,7 @@ function renderWritingStatusStrip() {
     renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "project_ready" || readiness.level === "strong_model_ready" ? "可创建" : "待创建", projectNote, projectTone),
     renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
-    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "strong_model_ready" ? "可分析" : "先补条件", strongModelNote, strongModelTone),
+    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : strongModelReady ? "可分析" : "先补条件", strongModelNote, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
 }

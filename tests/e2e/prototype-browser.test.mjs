@@ -5218,6 +5218,12 @@ test("prototype writing panel creates project and draft scaffold through real AP
     const title = document.querySelector("#writingTitle")?.value || "";
     return title.includes("Writing UI Project");
   });
+  await waitFor(async () => {
+    const statusStripText = await page.locator("#writingStatusStrip").textContent();
+    assert.doesNotMatch(statusStripText || "", /读取中/);
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /已创建/);
+  }, 10000);
 });
 
 test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
