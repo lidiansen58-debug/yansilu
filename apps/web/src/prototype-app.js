@@ -219,7 +219,8 @@ const aiInboxState = {
   error: "",
   detailError: "",
   evaluationError: "",
-  evaluationSummary: null
+  evaluationSummary: null,
+  detailRequestToken: 0
   ,
   aiSummary: "",
   aiSummaryMeta: "",
@@ -1520,13 +1521,17 @@ function aiInboxDetailFromResponse(response = {}) {
 async function loadAiInboxDetail(artifactId) {
   const cleanArtifactId = String(artifactId || "").trim();
   if (!cleanArtifactId) {
+    aiInboxState.detailRequestToken += 1;
     aiInboxState.selectedArtifactId = "";
     aiInboxState.detail = null;
+    aiInboxState.detailLoading = false;
     aiInboxState.detailError = "";
     resetAiInboxSummaryState();
     renderAiInboxWorkspace();
     return null;
   }
+  const requestToken = aiInboxState.detailRequestToken + 1;
+  aiInboxState.detailRequestToken = requestToken;
   aiInboxState.selectedArtifactId = cleanArtifactId;
   aiInboxState.detailLoading = true;
   aiInboxState.detailError = "";
@@ -1534,16 +1539,19 @@ async function loadAiInboxDetail(artifactId) {
   renderAiInboxWorkspace();
   try {
     const detail = await fetchAiInboxItemWithOptions(cleanArtifactId, { canonical: true });
+    if (requestToken !== aiInboxState.detailRequestToken) return null;
     aiInboxState.detail = aiInboxDetailFromResponse(detail);
     rememberAiDebugSnapshot("inboxDetail", detail);
     syncAiInboxSummaryFromDetail(detail);
     return detail;
   } catch (error) {
+    if (requestToken !== aiInboxState.detailRequestToken) return null;
     aiInboxState.detail = null;
     aiInboxState.detailError = String(error?.message || error);
     setStatus(`AI 建议详情加载失败：${aiInboxState.detailError}`, "warn");
     return null;
   } finally {
+    if (requestToken !== aiInboxState.detailRequestToken) return;
     aiInboxState.detailLoading = false;
     renderAiInboxWorkspace();
   }
@@ -1628,6 +1636,7 @@ async function applyAiInboxFiltersFromUi() {
 async function recordAiInboxReviewDecision(decision) {
   const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
   if (!artifactId) return setStatus("请先选择一条 AI 建议", "warn");
+  if (aiInboxState.actionLoading) return null;
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1686,6 +1695,7 @@ async function applyAiInboxRecommendedAction(action = "") {
 async function acceptAiInboxLinkSuggestion(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId) return setStatus("请先选择一条关联建议", "warn");
+  if (aiInboxState.actionLoading) return null;
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1715,6 +1725,7 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
 async function promoteAiInboxArtifactToNote(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId) return setStatus("请先选择一条问题卡片或反思提示", "warn");
+  if (aiInboxState.actionLoading) return null;
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1750,6 +1761,7 @@ async function promoteAiInboxArtifactToNote(artifactId) {
 async function adoptAiInboxFieldSuggestionDraft(artifactId) {
   const cleanArtifactId = String(artifactId || aiInboxState.selectedArtifactId || "").trim();
   if (!cleanArtifactId) return setStatus("请先选择一条字段建议", "warn");
+  if (aiInboxState.actionLoading) return null;
   aiInboxState.actionLoading = true;
   renderAiInboxWorkspace();
   try {
@@ -1788,6 +1800,7 @@ async function applyAiInboxSuggestionStatus(status) {
   const artifactId = String(aiInboxState.selectedArtifactId || aiInboxState.detail?.item?.artifactId || "").trim();
   const suggestion = aiInboxState.detail?.suggestion || null;
   if (!cleanStatus || !artifactId || !suggestion?.id) return null;
+  if (aiInboxState.actionLoading) return null;
 
   if (cleanStatus === "adopted_as_draft") {
     return adoptAiInboxFieldSuggestionDraft(artifactId);
