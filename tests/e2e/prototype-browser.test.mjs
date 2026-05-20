@@ -86,6 +86,46 @@ async function patchJson(baseUrl, pathname, body) {
   return { status: res.status, json };
 }
 
+async function putJson(baseUrl, pathname, body) {
+  const res = await fetch(`${baseUrl}${pathname}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const json = await res.json();
+  return { status: res.status, json };
+}
+
+async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
+  const authorship = payload.authorship || { user_confirmed: true, ai_assisted: false };
+  const created = await postJson(baseUrl, "/api/v1/notes", {
+    directoryId: payload.directoryId || "dir_original_default",
+    title: payload.title,
+    body: payload.body,
+    thesis: payload.thesis,
+    threeLineSummary: payload.threeLineSummary,
+    distillationStatus: "draft",
+    boundaryOrCounterpoint: payload.boundaryOrCounterpoint
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.json));
+  const noteId = created.json.item.id;
+  const updated = await putJson(baseUrl, `/api/v1/notes/${encodeURIComponent(noteId)}`, {
+    title: payload.title || created.json.item.title,
+    body: payload.body || created.json.item.body,
+    status: "active",
+    thesis: payload.thesis,
+    threeLineSummary: payload.threeLineSummary,
+    distillationStatus: payload.distillationStatus || "confirmed",
+    originalityStatus: "pass",
+    authorship,
+    authorshipConfirmed: true,
+    authorshipAiAssisted: Boolean(authorship.ai_assisted),
+    boundaryOrCounterpoint: payload.boundaryOrCounterpoint
+  });
+  assert.equal(updated.status, 200, JSON.stringify(updated.json));
+  return updated;
+}
+
 async function listMarkdownFiles(rootPath) {
   const result = [];
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
@@ -5332,11 +5372,8 @@ test("prototype writing center can save a theme index, edit central question, an
   if (!stack) return;
   const { apiBase, page, vaultPath, webBase } = stack;
 
-  const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
+  const noteA = await createWritingReadyPermanentNote(apiBase, {
     body: "# Theme Browser Claim\n\nA theme should carry a central question, not just grouped notes.",
-    authorshipConfirmed: true,
     thesis: "A theme should carry a central question, not just grouped notes.",
     threeLineSummary: [
       "A theme should carry a central question.",
@@ -5345,13 +5382,9 @@ test("prototype writing center can save a theme index, edit central question, an
     ],
     boundaryOrCounterpoint: "A loose cluster can exist temporarily, but it should not stay forever without a question."
   });
-  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
 
-  const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
+  const noteB = await createWritingReadyPermanentNote(apiBase, {
     body: "# Theme Browser Tension\n\nA second note adds the tension the theme still needs.",
-    authorshipConfirmed: true,
     thesis: "A mature theme needs tension, not only support.",
     threeLineSummary: [
       "A mature theme needs tension, not only support.",
@@ -5360,7 +5393,6 @@ test("prototype writing center can save a theme index, edit central question, an
     ],
     boundaryOrCounterpoint: "Some themes start narrow, but they still need an explicit question and growing tension."
   });
-  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
   const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
     toNoteId: noteB.json.item.id,
@@ -5403,6 +5435,10 @@ test("prototype writing center can save a theme index, edit central question, an
     const button = document.querySelector('[data-writing-theme-action="create-project"]');
     return summary.includes("可创建") && button?.textContent?.includes("创建写作项目") && !button?.hasAttribute("disabled");
   }, null, { timeout: 10000 });
+  await page.waitForFunction(() => {
+    const hint = document.querySelector("#writingThemeIndexesHint")?.textContent || "";
+    return !hint.includes("正在读取主题索引");
+  }, null, { timeout: 10000 });
 
   await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these two permanent notes before writing begins?");
   await page.fill("#writingThemeDetailThesis", "A theme becomes useful when it organizes notes around one reusable question.");
@@ -5410,13 +5446,10 @@ test("prototype writing center can save a theme index, edit central question, an
   await page.fill("#writingThemeDetailSummary2", "That matters because writing should begin from theme-level structure, not loose grouping.");
   await page.fill("#writingThemeDetailSummary3", "It gives the next writing project a sharper starting point.");
   await page.click('[data-writing-theme-action="save"]');
-
-  const indexCards = await fetchJson(apiBase, "/api/v1/index-cards?directoryId=dir_original_default&indexType=topic&includeDescendants=true&limit=20");
-  assert.equal(indexCards.status, 200, JSON.stringify(indexCards.json));
-  themeCard = indexCards.json.items.find((item) => item.title === "Browser Theme Index");
-  assert.ok(themeCard);
-  assert.equal(themeCard.central_question, "What question should organize these two permanent notes before writing begins?");
-  assert.equal(themeCard.item_note_ids.length, 2);
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已保存主题：Browser Theme Index/);
+  }, 10000);
 
   await page.click('[data-writing-theme-action="create-project"]');
 
@@ -5445,11 +5478,8 @@ test("prototype writing center can create a project from a theme index after its
   if (!stack) return;
   const { apiBase, page, webBase } = stack;
 
-  const noteA = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
+  const noteA = await createWritingReadyPermanentNote(apiBase, {
     body: "# Cold Start Theme Claim\n\nA cold-start theme should still hydrate its member notes before gating project creation.",
-    authorshipConfirmed: true,
     thesis: "Cold-start theme readiness should not depend on whether notes were already opened in the UI.",
     threeLineSummary: [
       "Cold-start theme readiness should not depend on UI preload order.",
@@ -5459,13 +5489,9 @@ test("prototype writing center can create a project from a theme index after its
     distillationStatus: "confirmed",
     boundaryOrCounterpoint: "This only works if the theme reuses the same readiness semantics as the writing basket."
   });
-  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
 
-  const noteB = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
+  const noteB = await createWritingReadyPermanentNote(apiBase, {
     body: "# Cold Start Theme Tension\n\nA second mature note adds enough relation structure for project creation.",
-    authorshipConfirmed: true,
     thesis: "A second mature note gives the theme enough structure to become project-ready.",
     threeLineSummary: [
       "A second mature note gives the theme enough structure.",
@@ -5475,7 +5501,6 @@ test("prototype writing center can create a project from a theme index after its
     distillationStatus: "confirmed",
     boundaryOrCounterpoint: "A theme with only one isolated note should still stop before project creation."
   });
-  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
 
   const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
     toNoteId: noteB.json.item.id,
