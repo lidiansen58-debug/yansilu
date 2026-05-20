@@ -195,11 +195,14 @@ test("AI canonical contracts keep inbox detail, suggestion detail, and review ac
   );
   assert.equal(suggestionDetail.status, 200, JSON.stringify(suggestionDetail.json));
   assert.deepEqual(sortedKeys(suggestionDetail.json.canonical), [
+    "artifact",
     "item",
     "latest_review_event",
     "review_events",
     "trace"
   ]);
+  assert.equal(suggestionDetail.json.artifact.id, artifact.id);
+  assert.equal(suggestionDetail.json.canonical.artifact.id, artifact.id);
   assert.deepEqual(sortedKeys(suggestionDetail.json.canonical.item.history[0]), [
     "action",
     "actor",
