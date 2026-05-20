@@ -80,6 +80,12 @@ Remove a worktree:
 
 Direct script usage (PowerShell):
 - `./scripts/worktree-create.ps1 -Name graph-perf -Kind feat`
+- `./scripts/worktree-create.ps1 -Name ai-inbox -Kind feat -Theme "AI inbox / suggestions / adoption" -Lifecycle long-lived`
 - `./scripts/worktree-list.ps1`
 - `./scripts/worktree-run-dev.ps1 -Target all`
 - `./scripts/worktree-remove.ps1 -Target feat-graph-perf -Prune`
+
+`worktree-create.ps1` now also:
+- prefers `origin/<base>` when available, so new worktrees start closer to the latest remote baseline
+- writes a local `WORKTREE.md` manifest with theme, lifecycle, sync rules, and suggested checks
+- supports `-Theme` and `-Lifecycle` to make scope explicit at creation time
