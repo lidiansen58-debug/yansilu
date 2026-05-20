@@ -6429,8 +6429,11 @@ function renderGraphInsightCoach(context = {}) {
         .map((edge, index) => {
           const sourceId = edge.fromNoteId || "";
           const relation = graphRelationTypeLabel(edge.relationType);
+          const relationType = String(edge.relationType || "").trim().toLowerCase();
+          const followupAction =
+            GRAPH_CONFLICT_RELATION_TYPES.has(relationType) ? "tension" : relationType === "bridges" ? "bridge" : "relations";
           return `
-            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}">
+            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(followupAction)}">
               <span>${index + 1}</span>
               <strong>${escapeHtml(graphEdgeTitle(edge, insight.nodeMap))}</strong>
               <small>${escapeHtml(relation)}${edge.rationale ? ` · ${escapeHtml(edge.rationale)}` : ""}</small>
@@ -6824,6 +6827,9 @@ function renderRelationReviewQueueSection(reviewQueue) {
                               graphRelationQualityLabel(item.rationaleQualityLevel)
                             )} · ${escapeHtml(graphRelationTypeLabel(item.relationType))} · ${escapeHtml(graphRelationStatusLabel(item.status))}</span>
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
+                          </span>
+                          <span class="graph-review-actions">
+                            <span class="mini-btn" data-graph-followup-action="relations" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">去补关系</span>
                           </span>
                         </button>
                       `;
