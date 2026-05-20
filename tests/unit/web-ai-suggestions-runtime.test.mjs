@@ -42,18 +42,23 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
 
   let resolveFirst;
   let resolveSecond;
+  const snapshots = [];
   const settingsState = {
     ai: {
       selectedSuggestionId: "",
       suggestionDetail: null,
       suggestionDetailRequestToken: 0,
-      suggestionsError: ""
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
     }
   };
 
   const loadAiSuggestionDetail = new Function(
     "settingsState",
     "fetchAiSuggestion",
+    "suggestionDetailFromResponse",
+    "rememberAiDebugSnapshot",
     "renderAiSuggestionsWorkspace",
     "setStatus",
     `${fnSource}; return loadAiSuggestionDetail;`
@@ -64,6 +69,8 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
         if (suggestionId === "suggestion_1") resolveFirst = () => resolve({ id: suggestionId, status: "suggested" });
         else resolveSecond = () => resolve({ id: suggestionId, status: "edited" });
       }),
+    (item) => ({ item }),
+    (key, response) => snapshots.push({ key, response }),
     () => {},
     () => {}
   );
@@ -81,8 +88,9 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
   await firstPromise;
 
   assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
-  assert.equal(settingsState.ai.suggestionDetail?.id, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_2");
   assert.equal(settingsState.ai.suggestionDetailRequestToken, 2);
+  assert.deepEqual(snapshots.map((entry) => entry.key), ["suggestionDetail"]);
 });
 
 test("loadAiSuggestionDetail clears stale errors after a successful retry and when selection is reset", async () => {
@@ -97,19 +105,25 @@ test("loadAiSuggestionDetail clears stale errors after a successful retry and wh
       suggestionDetail: { id: "suggestion_old", status: "suggested" },
       suggestionDetailRequestToken: 0,
       suggestionDetailLoading: false,
-      suggestionsError: "stale detail error"
+      suggestionsError: "stale list error",
+      suggestionDetailError: "stale detail error",
+      suggestionActionError: "stale action error"
     }
   };
 
   const loadAiSuggestionDetail = new Function(
     "settingsState",
     "fetchAiSuggestion",
+    "suggestionDetailFromResponse",
+    "rememberAiDebugSnapshot",
     "renderAiSuggestionsWorkspace",
     "setStatus",
     `${fnSource}; return loadAiSuggestionDetail;`
   )(
     settingsState,
     async (suggestionId) => ({ id: suggestionId, status: "edited" }),
+    (item) => ({ item }),
+    () => {},
     () => {},
     () => {}
   );
@@ -117,14 +131,63 @@ test("loadAiSuggestionDetail clears stale errors after a successful retry and wh
   const fetched = await loadAiSuggestionDetail("suggestion_retry");
   assert.equal(fetched.id, "suggestion_retry");
   assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_retry");
-  assert.equal(settingsState.ai.suggestionDetail?.id, "suggestion_retry");
-  assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_retry");
+  assert.equal(settingsState.ai.suggestionsError, "stale list error");
+  assert.equal(settingsState.ai.suggestionDetailError, "");
+  assert.equal(settingsState.ai.suggestionActionError, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
 
   await loadAiSuggestionDetail("");
   assert.equal(settingsState.ai.selectedSuggestionId, "");
   assert.equal(settingsState.ai.suggestionDetail, null);
-  assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionsError, "stale list error");
+  assert.equal(settingsState.ai.suggestionDetailError, "");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+  assert.equal(settingsState.ai.suggestionDetailLoading, false);
+});
+
+test("loadAiSuggestionDetail stores detail failures separately from list errors", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "loadAiSuggestionDetail");
+
+  const settingsState = {
+    ai: {
+      selectedSuggestionId: "suggestion_old",
+      suggestionDetail: { id: "suggestion_old", status: "suggested" },
+      suggestionDetailRequestToken: 0,
+      suggestionDetailLoading: false,
+      suggestionsError: "list failed earlier",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const loadAiSuggestionDetail = new Function(
+    "settingsState",
+    "fetchAiSuggestion",
+    "suggestionDetailFromResponse",
+    "rememberAiDebugSnapshot",
+    "renderAiSuggestionsWorkspace",
+    "setStatus",
+    `${fnSource}; return loadAiSuggestionDetail;`
+  )(
+    settingsState,
+    async () => {
+      throw new Error("detail boom");
+    },
+    (item) => ({ item }),
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const fetched = await loadAiSuggestionDetail("suggestion_retry");
+  assert.equal(fetched, null);
+  assert.equal(settingsState.ai.suggestionsError, "list failed earlier");
+  assert.equal(settingsState.ai.suggestionDetailError, "detail boom");
+  assert.equal(settingsState.ai.suggestionActionError, "");
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
 });
 
@@ -138,32 +201,39 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
     aiSuggestionContentEditor: { value: "{\"thesis\":\"Edited in settings panel.\"}" }
   };
   const calls = [];
+  const snapshots = [];
   const settingsState = {
     ai: {
       suggestions: [{ id: "suggestion_1", status: "adopted_as_draft", content: "Stale list fallback." }],
       suggestionDetail: { id: "suggestion_1", status: "adopted_as_draft", content: { thesis: "Original." } },
       selectedSuggestionId: "suggestion_1",
       suggestionActionLoading: false,
-      suggestionsError: "stale error"
+      suggestionsError: "stale list error",
+      suggestionDetailError: "stale detail error",
+      suggestionActionError: "stale action error"
     }
   };
 
   const applyAiSuggestionStatus = new Function(
     "$",
     "settingsState",
+    "suggestionDetailFromResponse",
     "aiSuggestionReviewedContentFromUi",
     "updateAiSuggestion",
+    "rememberAiDebugSnapshot",
     "setStatus",
     "renderAiSuggestionsWorkspace",
     `${fnSource}; return applyAiSuggestionStatus;`
   )(
     (id) => domState[id],
     settingsState,
+    (item) => ({ item }),
     (current) => JSON.parse(String(domState.aiSuggestionContentEditor.value || "")),
     async (suggestionId, payload) => {
       calls.push({ suggestionId, payload });
       return { id: suggestionId, status: payload.status, content: payload.content };
     },
+    (key, response) => snapshots.push({ key, response }),
     () => {},
     () => {
       domState.aiSuggestionContentEditor.value = "{\"thesis\":\"stale\"}";
@@ -174,7 +244,10 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
   assert.equal(first.status, "edited");
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].payload.content, { thesis: "Edited in settings panel." });
-  assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionsError, "stale list error");
+  assert.equal(settingsState.ai.suggestionDetailError, "stale detail error");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+  assert.deepEqual(snapshots.map((entry) => entry.key), ["suggestionDecision"]);
 
   settingsState.ai.suggestionActionLoading = true;
   const second = await applyAiSuggestionStatus("suggestion_1", "confirmed");
@@ -194,32 +267,97 @@ test("applyAiSuggestionStatus replaces stale errors with the latest failure", as
       suggestionDetail: { id: "suggestion_1", status: "edited", content: { thesis: "Original." } },
       selectedSuggestionId: "suggestion_1",
       suggestionActionLoading: false,
-      suggestionsError: "old error"
+      suggestionsError: "old list error",
+      suggestionDetailError: "old detail error",
+      suggestionActionError: "old action error"
     }
   };
 
   const applyAiSuggestionStatus = new Function(
     "$",
     "settingsState",
+    "suggestionDetailFromResponse",
     "aiSuggestionReviewedContentFromUi",
     "updateAiSuggestion",
+    "rememberAiDebugSnapshot",
     "setStatus",
     "renderAiSuggestionsWorkspace",
     `${fnSource}; return applyAiSuggestionStatus;`
   )(
     () => ({ value: "{\"thesis\":\"Edited in settings panel.\"}" }),
     settingsState,
+    (item) => ({ item }),
     () => ({ thesis: "Edited in settings panel." }),
     async () => {
       throw new Error("new failure");
     },
+    () => {},
     () => {},
     () => {}
   );
 
   const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
   assert.equal(result, null);
-  assert.equal(settingsState.ai.suggestionsError, "new failure");
+  assert.equal(settingsState.ai.suggestionsError, "old list error");
+  assert.equal(settingsState.ai.suggestionDetailError, "old detail error");
+  assert.equal(settingsState.ai.suggestionActionError, "new failure");
+});
+
+test("applyAiSuggestionStatus reports invalid reviewed content through actionError without starting submit", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
+
+  let updateCalls = 0;
+  const settingsState = {
+    ai: {
+      suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "Original." } }],
+      suggestionDetail: { id: "suggestion_1", status: "edited", content: { thesis: "Original." } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionsError: "old list error",
+      suggestionDetailError: "old detail error",
+      suggestionActionError: "old action error"
+    }
+  };
+
+  const applyAiSuggestionStatus = new Function(
+    "$",
+    "settingsState",
+    "suggestionDetailFromResponse",
+    "aiSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiSuggestionsWorkspace",
+    `${fnSource}; return applyAiSuggestionStatus;`
+  )(
+    () => ({ value: "{not valid json}" }),
+    settingsState,
+    (item) => ({ item }),
+    () => {
+      throw new Error("Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed");
+    },
+    async () => {
+      updateCalls += 1;
+      return null;
+    },
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result, null);
+  assert.equal(updateCalls, 0);
+  assert.equal(settingsState.ai.suggestionsError, "old list error");
+  assert.equal(settingsState.ai.suggestionDetailError, "old detail error");
+  assert.equal(
+    settingsState.ai.suggestionActionError,
+    "Reviewed suggestion content must be valid JSON before it can be marked edited or confirmed"
+  );
+  assert.equal(settingsState.ai.suggestionActionLoading, false);
 });
 
 test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion", async () => {
@@ -239,7 +377,9 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
       suggestionDetailLoading: true,
       suggestionsLoading: false,
       suggestionActionLoading: false,
-      suggestionsError: "stale suggestion error"
+      suggestionsError: "stale suggestion error",
+      suggestionDetailError: "stale detail error",
+      suggestionActionError: "stale action error"
     }
   };
 
@@ -247,6 +387,7 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
     "settingsState",
     "normalizeAiSuggestionFilters",
     "fetchAiSuggestions",
+    "rememberAiDebugSnapshot",
     "renderAiSuggestionsWorkspace",
     "setStatus",
     `${fnSource}; return refreshAiSuggestions;`
@@ -258,6 +399,7 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
       total: 1
     }),
     () => {},
+    () => {},
     () => {}
   );
 
@@ -268,4 +410,117 @@ test("refreshAiSuggestions invalidates stale detail state when a list refresh sw
   assert.equal(settingsState.ai.suggestionDetailLoading, false);
   assert.equal(settingsState.ai.suggestionDetailRequestToken, 8);
   assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionDetailError, "");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+});
+
+test("refreshAiSuggestions invalidates stale detail state when the selected suggestion metadata changes", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
+
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [{ id: "suggestion_1", status: "suggested", updatedAt: "2026-05-18T12:00:00.000Z" }],
+      suggestionsTotal: 1,
+      selectedSuggestionId: "suggestion_1",
+      suggestionDetail: {
+        item: {
+          id: "suggestion_1",
+          status: "suggested",
+          updatedAt: "2026-05-18T12:00:00.000Z",
+          sourceArtifactId: "artifact_1",
+          content: { thesis: "Old detail" }
+        }
+      },
+      suggestionDetailRequestToken: 3,
+      suggestionDetailLoading: true,
+      suggestionsLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "stale suggestion error",
+      suggestionDetailError: "stale detail error",
+      suggestionActionError: "stale action error"
+    }
+  };
+
+  const refreshAiSuggestions = new Function(
+    "settingsState",
+    "normalizeAiSuggestionFilters",
+    "fetchAiSuggestions",
+    "rememberAiDebugSnapshot",
+    "renderAiSuggestionsWorkspace",
+    "setStatus",
+    `${fnSource}; return refreshAiSuggestions;`
+  )(
+    settingsState,
+    (filters) => filters,
+    async () => ({
+      items: [{ id: "suggestion_1", status: "edited", updatedAt: "2026-05-18T12:05:00.000Z", sourceArtifactId: "artifact_1" }],
+      total: 1
+    }),
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  await refreshAiSuggestions({ silent: true });
+
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_1");
+  assert.equal(settingsState.ai.suggestionDetail, null);
+  assert.equal(settingsState.ai.suggestionDetailLoading, false);
+  assert.equal(settingsState.ai.suggestionDetailRequestToken, 4);
+  assert.equal(settingsState.ai.suggestionsError, "");
+  assert.equal(settingsState.ai.suggestionDetailError, "");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+});
+
+test("refreshAiSuggestions captures a suggestionsList debug snapshot", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "refreshAiSuggestions");
+
+  const snapshots = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "all", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [],
+      suggestionsTotal: 0,
+      selectedSuggestionId: "",
+      suggestionDetail: null,
+      suggestionDetailRequestToken: 0,
+      suggestionDetailLoading: false,
+      suggestionsLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const refreshAiSuggestions = new Function(
+    "settingsState",
+    "normalizeAiSuggestionFilters",
+    "fetchAiSuggestions",
+    "rememberAiDebugSnapshot",
+    "renderAiSuggestionsWorkspace",
+    "setStatus",
+    `${fnSource}; return refreshAiSuggestions;`
+  )(
+    settingsState,
+    (filters) => filters,
+    async () => ({
+      items: [{ id: "suggestion_1", status: "suggested" }],
+      total: 1,
+      canonical: { items: [{ id: "suggestion_1", status: "suggested" }] }
+    }),
+    (key, response) => snapshots.push({ key, response }),
+    () => {},
+    () => {}
+  );
+
+  await refreshAiSuggestions({ silent: true });
+  assert.deepEqual(snapshots.map((entry) => entry.key), ["suggestionsList"]);
 });

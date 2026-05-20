@@ -1,3 +1,5 @@
+import { aiArtifactFromCanonical } from "./ai-inbox-model.js";
+
 function cleanText(value) {
   return String(value || "").trim();
 }
@@ -39,6 +41,81 @@ export function aiSuggestionFromCanonical(item = {}) {
           createdAt: cleanText(entry.created_at)
         }))
       : []
+  };
+}
+
+export function aiSuggestionReviewEventFromCanonical(event = {}) {
+  return {
+    adoptionEventId: cleanText(event.adoption_event_id),
+    subjectKind: cleanText(event.subject_kind),
+    subjectId: cleanText(event.subject_id),
+    eventType: cleanText(event.event_type),
+    actorType: cleanText(event.actor_type),
+    actorId: cleanText(event.actor_id),
+    target: {
+      kind: cleanText(event.target?.kind),
+      id: cleanText(event.target?.id),
+      field: cleanText(event.target?.field)
+    },
+    comment: cleanText(event.comment),
+    feedback: {
+      useful: event.feedback?.useful === true,
+      noisy: event.feedback?.noisy === true,
+      wrong: event.feedback?.wrong === true,
+      alreadyKnown: event.feedback?.already_known === true,
+      privacyConcern: event.feedback?.privacy_concern === true
+    },
+    metadata: {
+      fromStatus: cleanText(event.metadata?.from_status),
+      toStatus: cleanText(event.metadata?.to_status),
+      noteId: cleanText(event.metadata?.note_id)
+    },
+    createdAt: cleanText(event.created_at)
+  };
+}
+
+export function aiSuggestionTraceFromCanonical(trace = {}) {
+  return {
+    suggestionId: cleanText(trace.suggestion_id),
+    sourceArtifactId: cleanText(trace.source_artifact_id),
+    primarySourceNoteId: cleanText(trace.primary_source_note_id),
+    sourceNoteIds: Array.isArray(trace.source_note_ids) ? [...trace.source_note_ids] : [],
+    targetNoteId: cleanText(trace.target_note_id),
+    targetField: cleanText(trace.target_field),
+    suggestionStatus: cleanText(trace.suggestion_status)
+  };
+}
+
+function fallbackSuggestionItem(response = {}) {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return null;
+  if (cleanText(response.id) || response.target || cleanText(response.status)) return response;
+  if (response.item && typeof response.item === "object" && !Array.isArray(response.item)) return response.item;
+  return null;
+}
+
+export function aiSuggestionDetailFromResponse(response = {}) {
+  const canonical = response?.canonical || {};
+  const item = canonical.item ? aiSuggestionFromCanonical(canonical.item) : fallbackSuggestionItem(response);
+  const reviewEvents = Array.isArray(canonical.review_events)
+    ? canonical.review_events.map((event) => aiSuggestionReviewEventFromCanonical(event))
+    : Array.isArray(response?.reviewEvents)
+      ? response.reviewEvents
+      : [];
+  const latestReviewEvent = canonical.latest_review_event
+    ? aiSuggestionReviewEventFromCanonical(canonical.latest_review_event)
+    : response?.latestReviewEvent || null;
+  const trace = canonical.trace
+    ? aiSuggestionTraceFromCanonical(canonical.trace)
+    : response?.trace || null;
+  const linkedArtifact = canonical.artifact
+    ? aiArtifactFromCanonical(canonical.artifact)
+    : response?.artifact || null;
+  return {
+    item,
+    reviewEvents,
+    latestReviewEvent,
+    trace,
+    linkedArtifact
   };
 }
 

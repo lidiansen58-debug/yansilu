@@ -47,6 +47,62 @@ test("AI suggestions panel renders edited action for adopted draft suggestions",
   assert.match(html, /edit the adopted draft in the note itself/i);
 });
 
+test("AI suggestions panel surfaces canonical traceability and review history inside suggestion detail", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_trace", status: "edited" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_trace",
+    detail: {
+      item: {
+        ...suggestion,
+        id: "suggestion_trace",
+        status: "edited",
+        content: { thesis: "A reviewable claim starts life as a draft." },
+        sourceArtifactId: "artifact_trace",
+        provenance: { humanConfirmed: false, humanEdited: true, contentOrigin: "ai_generated" },
+        history: []
+      },
+      trace: {
+        suggestionId: "suggestion_trace",
+        sourceArtifactId: "artifact_trace",
+        sourceNoteIds: ["pn_1"],
+        targetNoteId: "pn_1",
+        targetField: "thesis",
+        suggestionStatus: "edited"
+      },
+      reviewEvents: [
+        {
+          adoptionEventId: "evt_trace",
+          eventType: "edited",
+          createdAt: "2026-05-18T12:04:00.000Z",
+          metadata: { fromStatus: "adopted_as_draft", toStatus: "edited" },
+          comment: "Tightened the wording."
+        }
+      ],
+      linkedArtifact: {
+        id: "artifact_trace",
+        type: "InsightCard",
+        title: "Field suggestion artifact",
+        status: "adopted_as_draft",
+        payload: {
+          fieldSuggestion: {
+            status: "edited"
+          }
+        }
+      }
+    }
+  });
+
+  assert.match(html, /Source artifact/);
+  assert.match(html, /artifact_trace/);
+  assert.match(html, /Linked artifact/);
+  assert.match(html, /Field suggestion status/);
+  assert.match(html, /Review history/);
+  assert.match(html, /Review event: evt_trace/);
+  assert.match(html, /Tightened the wording/);
+  assert.match(html, /data-ai-suggestion-status="confirmed"/);
+});
+
 test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete", () => {
   const html = renderAiSuggestionsPanel({
     items: [{ ...suggestion, id: "suggestion_missing_target", target: { type: "permanent_note", id: "", field: "" }, sourceArtifactId: "" }],
@@ -89,7 +145,10 @@ test("AI suggestions panel does not keep rendering stale detail when selection h
     ],
     total: 2,
     selectedSuggestionId: "suggestion_b",
-    detail: { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } }
+    detail: {
+      item: { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
+      trace: { sourceArtifactId: "artifact_a", targetNoteId: "pn_a", targetField: "thesis" }
+    }
   });
   const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
 
@@ -109,6 +168,33 @@ test("AI suggestions panel renders a loading placeholder while the selected deta
 
   assert.match(detailPane, /Loading suggestion detail/);
   assert.doesNotMatch(detailPane, /id="aiSuggestionContentEditor"/);
+});
+
+test("AI suggestions panel keeps the list visible when detail loading fails", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_detail_error" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_detail_error",
+    detail: null,
+    detailError: "detail boom"
+  });
+
+  assert.match(html, /data-ai-suggestion-id="suggestion_detail_error"/);
+  assert.match(html, /AI suggestion detail failed to load: detail boom/);
+  assert.doesNotMatch(html, /AI suggestions failed to load/);
+});
+
+test("AI suggestions panel surfaces review action errors inside the detail pane", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_action_error", status: "edited" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_action_error",
+    detail: { ...suggestion, id: "suggestion_action_error", status: "edited" },
+    actionError: "action boom"
+  });
+
+  assert.match(html, /AI suggestion review failed: action boom/);
+  assert.match(html, /data-ai-suggestion-status="confirmed"/);
 });
 
 test("AI suggestions panel renders loading and empty states", () => {

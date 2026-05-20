@@ -26,6 +26,17 @@ function badge(text = "", tone = "") {
   return `<span class="settings-stat-badge ${cleanTone ? escapeHtml(cleanTone) : ""}">${escapeHtml(text)}</span>`;
 }
 
+function formatDate(value = "") {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function renderControls(state = {}) {
   const filters = normalizeAiSuggestionFilters(state.filters || {});
   return `
@@ -132,6 +143,21 @@ function renderDraftEditingGuide(item = {}) {
   return "";
 }
 
+function suggestionDetailRecord(detail = null) {
+  const item = detail?.item && typeof detail.item === "object" && !Array.isArray(detail.item)
+    ? detail.item
+    : detail && typeof detail === "object" && !Array.isArray(detail)
+      ? detail
+      : null;
+  return {
+    item,
+    trace: detail?.trace || null,
+    reviewEvents: Array.isArray(detail?.reviewEvents) ? detail.reviewEvents : [],
+    latestReviewEvent: detail?.latestReviewEvent || null,
+    linkedArtifact: detail?.linkedArtifact || null
+  };
+}
+
 function renderContentEditor(item = {}) {
   const status = String(item.status || "").trim();
   if (status !== "adopted_as_draft" && status !== "edited") return "";
@@ -144,46 +170,151 @@ function renderContentEditor(item = {}) {
   `;
 }
 
-function renderTrace(item = {}) {
-  const sourceArtifactId = String(item.sourceArtifactId || item.source_artifact_id || "").trim();
-  const targetNoteId = String(item.target?.id || "").trim();
-  const targetField = String(item.target?.field || "").trim();
-  const status = String(item.status || "").trim();
+function renderTrace(detail = {}) {
+  const item = detail.item || {};
+  const trace = detail.trace || {};
+  const sourceArtifactId = String(trace.sourceArtifactId || item.sourceArtifactId || item.source_artifact_id || detail.linkedArtifact?.id || "").trim();
+  const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
+  const targetNoteId = String(item.target?.id || trace.targetNoteId || "").trim();
+  const targetField = String(item.target?.field || trace.targetField || "").trim();
+  const status = String(trace.suggestionStatus || item.status || "").trim();
   const placeholder =
     !sourceArtifactId && !targetNoteId
       ? `<div class="scheduled-task-empty">Trace placeholder: this suggestion exists, but its source/target trace is incomplete.</div>`
       : "";
   const targetHint = targetNoteId
     ? ""
-    : `<div class="scheduled-task-empty">This suggestion does not point to a target note yet.</div>`;
+      : `<div class="scheduled-task-empty">This suggestion does not point to a target note yet.</div>`;
+  const sourceText = sourceNoteIds.join(", ") || trace.primarySourceNoteId || "not recorded";
   return `
     <section class="ai-inbox-detail-section">
       <h3>Trace</h3>
       ${placeholder}
-      <pre class="ai-inbox-json">${escapeHtml(
-        JSON.stringify(
-          {
-            sourceArtifactId: sourceArtifactId || "not recorded",
-            targetNoteId: targetNoteId || "missing target note",
-            targetField: targetField || "not recorded",
-            status: status || "not recorded"
-          },
-          null,
-          2
-        )
-      )}</pre>
+      <dl class="ai-inbox-kv">
+        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
+        <dt>Source notes</dt><dd>${escapeHtml(sourceText)}</dd>
+        <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
+        <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "not recorded")}</dd>
+      </dl>
       ${targetHint}
     </section>
   `;
 }
 
+function renderLinkedArtifact(detail = {}) {
+  const artifact = detail.linkedArtifact || null;
+  if (!artifact) return "";
+  const fieldSuggestionStatus = String(
+    artifact.payload?.fieldSuggestion?.status ||
+    artifact.payload?.field_suggestion?.status ||
+    ""
+  ).trim();
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Linked artifact</h3>
+      <dl class="ai-inbox-kv">
+        <dt>Artifact</dt><dd>${escapeHtml(artifact.id || "unknown artifact")}</dd>
+        <dt>Type</dt><dd>${escapeHtml(artifact.type || "unknown")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(artifact.status || "not recorded")}</dd>
+        <dt>Title</dt><dd>${escapeHtml(artifact.title || "untitled artifact")}</dd>
+        <dt>Field suggestion status</dt><dd>${escapeHtml(fieldSuggestionStatus || "not recorded")}</dd>
+      </dl>
+    </section>
+  `;
+}
+
+function renderProvenance(detail = {}) {
+  const item = detail.item || {};
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Provenance</h3>
+      <dl class="ai-inbox-kv">
+        <dt>Origin</dt><dd>${escapeHtml(item.provenance?.contentOrigin || item.origin || "ai_generated")}</dd>
+        <dt>Human edited</dt><dd>${escapeHtml(item.provenance?.humanEdited ? "yes" : "no")}</dd>
+        <dt>Human confirmed</dt><dd>${escapeHtml(item.provenance?.humanConfirmed ? "yes" : "no")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(item.sourceArtifactId || detail.trace?.sourceArtifactId || "not recorded")}</dd>
+      </dl>
+    </section>
+  `;
+}
+
+function renderHistory(detail = {}) {
+  const reviewEvents = Array.isArray(detail.reviewEvents) ? detail.reviewEvents : [];
+  if (reviewEvents.length) {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Review history</h3>
+        <div class="ai-inbox-decision-list">
+          ${reviewEvents
+            .slice()
+            .reverse()
+            .map((event) => `
+              <div class="ai-inbox-decision">
+                <div>
+                  <strong>${escapeHtml(aiSuggestionStatusLabel(event.eventType || event.metadata?.toStatus))}</strong>
+                  <span>${escapeHtml(formatDate(event.createdAt) || event.createdAt || "")}</span>
+                </div>
+                <p>${escapeHtml(`${event.metadata?.fromStatus || "unknown"} -> ${event.metadata?.toStatus || event.eventType || "unknown"}`)}</p>
+                ${event.adoptionEventId ? `<p>${escapeHtml(`Review event: ${event.adoptionEventId}`)}</p>` : ""}
+                ${event.comment ? `<p>${escapeHtml(event.comment)}</p>` : ""}
+              </div>
+            `)
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  const history = Array.isArray(detail.item?.history) ? detail.item.history : [];
+  if (!history.length) {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Review history</h3>
+        <div class="scheduled-task-empty">No review events recorded yet.</div>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="ai-inbox-detail-section">
+      <h3>Review history</h3>
+      <div class="ai-inbox-decision-list">
+        ${history
+          .slice()
+          .reverse()
+          .map((entry) => `
+            <div class="ai-inbox-decision">
+              <div>
+                <strong>${escapeHtml(aiSuggestionStatusLabel(entry.toStatus || entry.action))}</strong>
+                <span>${escapeHtml(formatDate(entry.createdAt) || entry.createdAt || "")}</span>
+              </div>
+              <p>${escapeHtml(`${entry.fromStatus || "unknown"} -> ${entry.toStatus || entry.action || "unknown"}`)}</p>
+              ${entry.comment ? `<p>${escapeHtml(entry.comment)}</p>` : ""}
+            </div>
+          `)
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderActionError(message = "") {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  return `<div class="scheduled-task-empty is-bad">AI suggestion review failed: ${escapeHtml(text)}</div>`;
+}
+
 function renderDetail(state = {}) {
   if (state.detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
+  if (state.detailError) return `<div class="scheduled-task-empty is-bad">AI suggestion detail failed to load: ${escapeHtml(state.detailError)}</div>`;
   const selectedSuggestionId = String(state.selectedSuggestionId || "").trim();
   const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
-  const detailMatchesSelection = String(state.detail?.id || "").trim() && String(state.detail?.id || "").trim() === selectedSuggestionId;
-  const item = (detailMatchesSelection ? state.detail : null) || selectedListItem || null;
+  const detail = suggestionDetailRecord(state.detail);
+  const detailMatchesSelection = String(detail.item?.id || "").trim() && String(detail.item?.id || "").trim() === selectedSuggestionId;
+  const item = (detailMatchesSelection ? detail.item : null) || selectedListItem || null;
   if (!item) return `<div class="scheduled-task-empty">Pick a suggestion to inspect its target, content, and review history.</div>`;
+  const activeDetail = detailMatchesSelection ? { ...detail, item } : { item };
   return `
     <article class="ai-inbox-detail">
       <header class="ai-inbox-detail-head">
@@ -198,17 +329,13 @@ function renderDetail(state = {}) {
         <h3>Content</h3>
         <pre class="ai-inbox-json">${escapeHtml(typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2))}</pre>
       </section>
-      ${renderTrace(item)}
+      ${renderTrace(activeDetail)}
+      ${renderLinkedArtifact(activeDetail)}
       ${renderDraftEditingGuide(item)}
       ${renderContentEditor(item)}
-      <section class="ai-inbox-detail-section">
-        <h3>Provenance</h3>
-        <pre class="ai-inbox-json">${escapeHtml(JSON.stringify(item.provenance || {}, null, 2))}</pre>
-      </section>
-      <section class="ai-inbox-detail-section">
-        <h3>History</h3>
-        <pre class="ai-inbox-json">${escapeHtml(JSON.stringify(item.history || [], null, 2))}</pre>
-      </section>
+      ${renderProvenance(activeDetail)}
+      ${renderHistory(activeDetail)}
+      ${renderActionError(state.actionError)}
       <div class="scheduled-task-actions">
         <button
           class="mini-btn"
