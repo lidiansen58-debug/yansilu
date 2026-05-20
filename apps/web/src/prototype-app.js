@@ -1234,6 +1234,7 @@ async function loadAiSuggestionDetail(suggestionId) {
   const requestToken = settingsState.ai.suggestionDetailRequestToken + 1;
   settingsState.ai.suggestionDetailRequestToken = requestToken;
   settingsState.ai.selectedSuggestionId = cleanSuggestionId;
+  settingsState.ai.suggestionDetail = null;
   settingsState.ai.suggestionsError = "";
   renderAiSuggestionsWorkspace();
   try {

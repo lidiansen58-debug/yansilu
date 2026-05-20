@@ -61,6 +61,22 @@ test("AI suggestions panel renders confirm action only after a suggestion is edi
   assert.match(html, /id="aiSuggestionContentEditor"/);
 });
 
+test("AI suggestions panel does not keep rendering stale detail when selection has moved", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [
+      { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } },
+      { ...suggestion, id: "suggestion_b", target: { type: "permanent_note", id: "pn_b", field: "thesis" } }
+    ],
+    total: 2,
+    selectedSuggestionId: "suggestion_b",
+    detail: { ...suggestion, id: "suggestion_a", target: { type: "permanent_note", id: "pn_a", field: "thesis" } }
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /permanent_note \/ pn_a \/ thesis/);
+  assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
+});
+
 test("AI suggestions panel renders loading and empty states", () => {
   assert.match(renderAiSuggestionsPanel({ loading: true }), /Loading AI suggestions/);
   assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /No AI suggestions match these filters/);

@@ -56,7 +56,11 @@ test("loadAiSuggestionDetail ignores stale responses and keeps the latest select
   );
 
   const firstPromise = loadAiSuggestionDetail("suggestion_1");
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_1");
+  assert.equal(settingsState.ai.suggestionDetail, null);
   const secondPromise = loadAiSuggestionDetail("suggestion_2");
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetail, null);
 
   resolveSecond();
   await secondPromise;
