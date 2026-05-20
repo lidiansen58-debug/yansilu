@@ -6020,6 +6020,7 @@ function renderWritingPanel() {
   const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
     relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
   });
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `主题入口：${sourceIndexSummary}。` : "主题入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
