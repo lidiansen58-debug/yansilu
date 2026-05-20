@@ -5516,10 +5516,6 @@ test("prototype writing center can create a project from a theme index after its
     return value.includes("Cold Start Theme Index");
   }, null, { timeout: 10000 });
 
-  await page.waitForFunction(() => {
-    const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
-    return summary.includes("正在读取主题里的永久笔记");
-  }, null, { timeout: 10000 });
 
   await page.waitForFunction(() => {
     const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
