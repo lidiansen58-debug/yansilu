@@ -67,6 +67,7 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
+import { describeWritingNextActionFromState, groupWritingPreflightChecks } from "./writing-center-flow.js";
 import {
   countExplicitSemanticRelations,
   deriveBasketWritingReadiness,
@@ -5764,6 +5765,7 @@ function renderWritingFlowSteps() {
   const hasProject = Boolean(writingState.project?.id);
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const preflightGroups = groupWritingPreflightChecks(writingState.scaffold?.preflight || null);
   const steps = [
     {
       done: basketCount > 0,
@@ -5778,12 +5780,18 @@ function renderWritingFlowSteps() {
     {
       done: hasScaffold,
       title: "生成骨架",
-      note: hasScaffold ? "可预览/导出" : "检查证据和缺口"
+      note: hasScaffold
+        ? preflightGroups.blocking.length
+          ? `先补 ${preflightGroups.blocking.length} 个阻塞项`
+          : preflightGroups.warnings.length
+            ? `可继续，但建议先补 ${preflightGroups.warnings.length} 个提醒`
+            : "可直接进入草稿"
+        : "检查证据、缺口和反方"
     },
     {
       done: hasDraft,
       title: "保存草稿",
-      note: hasDraft ? "回到编辑器继续写" : "生成后再保存"
+      note: hasDraft ? "草稿已保存，下一步打开继续写" : "生成骨架后再保存"
     }
   ];
   const firstOpenIndex = steps.findIndex((step) => !step.done);
@@ -5817,10 +5825,16 @@ function renderWritingScaffoldPreview() {
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
   const preflightSummary = describeProjectPreflight(preflight);
-  const preflightChecks = Array.isArray(preflight?.checks) ? preflight.checks : [];
+  const { checks: preflightChecks, blocking: blockingChecks, warnings: warningChecks, passes: passingChecks } = groupWritingPreflightChecks(preflight);
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
   const targetFolder = folderById(state, targetDirectoryId);
+  const nextAction = describeWritingNextActionFromState({
+    basketCount: parseWritingBasketIds().length,
+    hasProject: Boolean(writingState.project?.id),
+    hasScaffold: Boolean(writingState.scaffold?.id),
+    hasDraft: Boolean(writingState.project?.draft_note_id)
+  });
   el.innerHTML = `
     <h4>骨架预览</h4>
     <div class="writing-summary">
@@ -5829,6 +5843,9 @@ function renderWritingScaffoldPreview() {
     <div class="writing-summary">
       保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
     </div>
+    <div class="writing-summary">
+      下一步：${escapeHtml(nextAction.title)}。${escapeHtml(nextAction.note)}
+    </div>
     ${
       preflightChecks.length
         ? `<div>
@@ -5836,6 +5853,21 @@ function renderWritingScaffoldPreview() {
             <div class="writing-summary">
               ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
             </div>
+            ${
+              blockingChecks.length
+                ? `<div class="writing-summary">阻塞项：${escapeHtml(String(blockingChecks.length))} 个，建议先处理后再保存草稿。</div>`
+                : ""
+            }
+            ${
+              warningChecks.length
+                ? `<div class="writing-summary">建议项：${escapeHtml(String(warningChecks.length))} 个，不阻塞继续生成，但最好先补齐。</div>`
+                : ""
+            }
+            ${
+              passingChecks.length
+                ? `<div class="writing-summary">已通过：${escapeHtml(String(passingChecks.length))} 项。</div>`
+                : ""
+            }
             <ul>
               ${preflightChecks
                 .map(
@@ -9062,9 +9094,8 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
     await loadWritingProjectsList();
     await loadWritingScaffoldVersions();
     await loadWritingDraftVersions();
-    activateModule("explorer");
-    openNoteById(note.id);
-    setStatus(`已创建草稿笔记：${note.title}`, "ok");
+    renderWritingPanel();
+    setStatus(`已创建草稿笔记：${note.title}。你可以继续留在写作中心检查版本，或直接打开当前草稿。`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_draft_note_error",

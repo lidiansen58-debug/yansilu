@@ -5118,13 +5118,10 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(draftVersionsTextV1 || "", /当前草稿/);
   assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
 
-  await page.locator("#editorWorkspace:not(.hidden)").waitFor();
+  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
+  const openDraftText = await page.locator("#btnWritingOpenDraft").textContent();
+  assert.match(openDraftText || "", /打开当前草稿/);
 
-  const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /# Writing UI Project 草稿/);
-  assert.match(editorValue, /DraftScaffold: ds\\?_/);
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
     return text.includes("当前阶段：");
@@ -5133,12 +5130,23 @@ test("prototype writing panel creates project and draft scaffold through real AP
   const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
   assert.match(writingSummaryText || "", /当前阶段：/);
   assert.match(writingSummaryText || "", /主题入口：/);
+  const scaffoldPreviewAfterDraft = await page.locator("#writingScaffoldPreview").textContent();
+  assert.match(scaffoldPreviewAfterDraft || "", /下一步：打开当前草稿/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
     return text.includes("Writing UI Project");
   });
   const projectsListText = await page.locator("#writingProjectsList").textContent();
   assert.match(projectsListText || "", /Writing UI Project/);
+
+  await page.locator("#btnWritingOpenDraft").click({ force: true });
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#statusText")?.textContent || "";
+    return text.includes("已打开草稿笔记");
+  });
+  const editorValue = await page.locator("#editorBody").inputValue();
+  assert.match(editorValue, /# Writing UI Project 草稿/);
+  assert.match(editorValue, /DraftScaffold: ds\\?_/);
 
   await page.fill("#writingVersionNote", "Second draft note saved from browser flow.");
   await page.click("#btnWritingSaveDraft");
