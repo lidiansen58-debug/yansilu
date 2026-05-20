@@ -6,6 +6,9 @@ param(
   [string]$Kind = "feat",
 
   [string]$Base = "main",
+  [string]$Theme = "",
+  [ValidateSet("long-lived", "temporary", "review")]
+  [string]$Lifecycle = "temporary",
   [string]$Root = "",
   [int]$ApiPort = 0,
   [int]$WebPort = 0
@@ -94,6 +97,75 @@ function Ensure-Vault([string]$RepoRoot, [string]$VaultPath) {
   }
 }
 
+function Resolve-BaseRef([string]$RepoRoot, [string]$BaseBranch) {
+  & git -C $RepoRoot fetch origin 2>$null | Out-Null
+  $remoteRef = "refs/remotes/origin/$BaseBranch"
+  & git -C $RepoRoot show-ref --verify --quiet $remoteRef
+  if ($LASTEXITCODE -eq 0) {
+    return "origin/$BaseBranch"
+  }
+  return $BaseBranch
+}
+
+function SuggestedChecks([string]$ThemeText, [string]$KindName) {
+  $theme = ($ThemeText | Out-String).Trim().ToLower()
+  if ($theme -match "ai|inbox|suggestion|artifact|canonical") {
+    return @(
+      "node --test ./tests/unit/web-ai-inbox-model.test.mjs ./tests/unit/web-ai-inbox-panel.test.mjs",
+      "node --test ./tests/integration/api-ai-suggestions-canonical.test.mjs ./tests/integration/api-ai-canonical-response.test.mjs"
+    )
+  }
+  if ($theme -match "paper|translation|workspace") {
+    return @(
+      "node --test ./tests/unit/web-paper-workspace-model.test.mjs ./tests/unit/web-paper-workspace-panel.test.mjs",
+      "node --test ./tests/e2e/prototype-browser.test.mjs"
+    )
+  }
+  if ($theme -match "graph|writing|main-path|product") {
+    return @(
+      "node --test ./tests/unit/web-note-browser-actions.test.mjs ./tests/unit/web-prototype-api.test.mjs",
+      "node --test ./tests/e2e/prototype-browser.test.mjs"
+    )
+  }
+  if ($KindName -eq "docs") {
+    return @("No mandatory code checks. Keep the diff docs-only.")
+  }
+  return @(
+    "git status --short --branch",
+    "node --test"
+  )
+}
+
+function Write-WorktreeManifest([string]$WorktreePath, [string]$WorktreeName, [string]$BranchName, [string]$BaseRef, [string]$ThemeText, [string]$LifecycleName, [string[]]$Checks) {
+  $manifestPath = Join-Path $WorktreePath "WORKTREE.md"
+  $scope = if ([string]::IsNullOrWhiteSpace($ThemeText)) { $WorktreeName } else { $ThemeText.Trim() }
+  $lines = @(
+    "# Worktree",
+    "",
+    "Name: $WorktreeName",
+    "Branch: $BranchName",
+    "Created from: $BaseRef",
+    "Lifecycle: $LifecycleName",
+    "",
+    "## Theme",
+    $scope,
+    "",
+    "## Sync Rule",
+    "Before starting work:",
+    "- git fetch origin",
+    "- git merge main",
+    "",
+    "Before pushing:",
+    "- git fetch origin",
+    "",
+    "## Suggested Checks"
+  )
+  foreach ($check in $Checks) {
+    $lines += "- $check"
+  }
+  $lines | Set-Content -Encoding UTF8 -LiteralPath $manifestPath
+}
+
 $repoRoot = Get-RepoRoot
 $slug = Normalize-Slug $Name
 if (-not $slug) { throw "Name must contain at least one letter or number." }
@@ -111,6 +183,7 @@ New-Item -ItemType Directory -Force -Path $Root | Out-Null
 $branch = "$Kind/$slug"
 $worktreeDirName = "$Kind-$slug"
 $worktreePath = Join-Path $Root $worktreeDirName
+$baseRef = Resolve-BaseRef $repoRoot $Base
 
 if (Test-Path -LiteralPath $worktreePath) {
   throw "Worktree path already exists: $worktreePath"
@@ -122,7 +195,7 @@ $branchExists = ($LASTEXITCODE -eq 0)
 if ($branchExists) {
   & git -C $repoRoot worktree add "$worktreePath" "$branch"
 } else {
-  & git -C $repoRoot worktree add -b "$branch" "$worktreePath" "$Base"
+  & git -C $repoRoot worktree add -b "$branch" "$worktreePath" "$baseRef"
 }
 if ($LASTEXITCODE -ne 0) {
   throw "git worktree add failed."
@@ -162,9 +235,14 @@ $envLines = @(
 )
 $envLines | Set-Content -Encoding UTF8 -LiteralPath $envFile
 
+$checks = SuggestedChecks $Theme $Kind
+Write-WorktreeManifest $worktreePath $worktreeDirName $branch $baseRef $Theme $Lifecycle $checks
+
 Write-Output "Created worktree: $worktreePath"
 Write-Output "Branch: $branch"
+Write-Output "Base ref: $baseRef"
 Write-Output "Env file: $envFile"
+Write-Output "Manifest: $(Join-Path $worktreePath 'WORKTREE.md')"
 Write-Output "API_PORT=$ApiPort WEB_PORT=$WebPort"
 Write-Output "VAULT_PATH=$vaultPath"
 Write-Output "Next: cd `"$worktreePath`" ; ./scripts/worktree-run-dev.ps1"

@@ -1621,6 +1621,80 @@ function payloadWithRejectedFieldSuggestion(artifact = {}) {
   };
 }
 
+function artifactWithProjectedSuggestionState(artifact = null, suggestion = null) {
+  if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) return artifact;
+  if (!suggestion || typeof suggestion !== "object" || Array.isArray(suggestion)) return artifact;
+
+  const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
+  if (!originalSuggestion || typeof originalSuggestion !== "object") return artifact;
+
+  const target = suggestion.target && typeof suggestion.target === "object" ? suggestion.target : {};
+  const existingTarget = originalSuggestion.target && typeof originalSuggestion.target === "object" ? originalSuggestion.target : {};
+  const suggestionProvenance = suggestion.provenance && typeof suggestion.provenance === "object" ? suggestion.provenance : {};
+  const suggestionStatus = cleanText(suggestion.status);
+  const adoptedStatus = suggestionStatus === "adopted_as_draft" || suggestionStatus === "edited" || suggestionStatus === "confirmed";
+  const rewrittenStatus = suggestionStatus === "edited" || suggestionStatus === "confirmed";
+
+  const nextSuggestion = {
+    ...originalSuggestion,
+    id: cleanText(suggestion.id || originalSuggestion.id),
+    content: Object.prototype.hasOwnProperty.call(suggestion, "content") ? suggestion.content : originalSuggestion.content,
+    status: suggestionStatus || cleanText(originalSuggestion.status),
+    target: {
+      ...existingTarget,
+      type: cleanText(target.type || target.kind || existingTarget.type || existingTarget.kind),
+      id: cleanText(target.id || existingTarget.id),
+      field: cleanText(target.field || existingTarget.field)
+    },
+    provenance: {
+      ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
+      humanEdited:
+        suggestionProvenance.humanEdited === true ||
+        suggestionProvenance.human_edited === true ||
+        rewrittenStatus,
+      humanConfirmed:
+        suggestionProvenance.humanConfirmed === true ||
+        suggestionProvenance.human_confirmed === true ||
+        suggestionStatus === "confirmed"
+    }
+  };
+
+  return {
+    ...artifact,
+    status:
+      suggestionStatus === "rejected"
+        ? "ignored"
+        : adoptedStatus
+          ? "adopted_as_draft"
+          : cleanText(artifact.status),
+    provenance: {
+      ...(artifact.provenance && typeof artifact.provenance === "object" ? artifact.provenance : {}),
+      humanAccepted:
+        (artifact.provenance?.humanAccepted === true || artifact.provenance?.human_accepted === true || adoptedStatus) === true,
+      humanRewritten:
+        (artifact.provenance?.humanRewritten === true || artifact.provenance?.human_rewritten === true || rewrittenStatus) === true
+    },
+    payload: {
+      ...payload,
+      ...(cleanText(nextSuggestion.target.field)
+        ? {
+            targetField: cleanText(nextSuggestion.target.field),
+            target_field: cleanText(nextSuggestion.target.field)
+          }
+        : {}),
+      ...(adoptedStatus && cleanText(nextSuggestion.target.id)
+        ? {
+            adoptedNoteId: cleanText(nextSuggestion.target.id),
+            adopted_note_id: cleanText(nextSuggestion.target.id)
+          }
+        : {}),
+      fieldSuggestion: nextSuggestion,
+      field_suggestion: nextSuggestion
+    }
+  };
+}
+
 let sqliteDatabaseSyncPromise = null;
 
 async function loadSqliteDatabaseSync() {
@@ -2839,11 +2913,13 @@ const server = http.createServer(async (req, res) => {
         const item = store.get(aiSuggestionId);
         if (!item) return sendJson(res, 404, err("AI_SUGGESTION_NOT_FOUND", `suggestionId not found: ${aiSuggestionId}`, rid));
         const sourceArtifact = await sourceArtifactForSuggestion(item);
+        const projectedArtifact = artifactWithProjectedSuggestionState(sourceArtifact, item);
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
         const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
         const trace = suggestionTraceFromRecord(item, sourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
+          artifact: projectedArtifact || null,
           reviewEvents,
           latestReviewEvent,
           trace,
@@ -2851,6 +2927,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: suggestionToCanonical(item),
+          ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
           latest_review_event: latestReviewEvent
             ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)
@@ -2890,12 +2967,13 @@ const server = http.createServer(async (req, res) => {
           item = store.transition(aiSuggestionId, toStatus, body);
         }
         const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
+        const projectedArtifact = artifactWithProjectedSuggestionState(finalSourceArtifact, item);
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
         const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
         const trace = suggestionTraceFromRecord(item, finalSourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
-          artifact: syncedArtifact,
+          artifact: projectedArtifact || null,
           reviewEvents,
           latestReviewEvent,
           trace,
@@ -2903,7 +2981,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: suggestionToCanonical(item),
-          ...(syncedArtifact ? { artifact: artifactToCanonical(syncedArtifact) } : {}),
+          ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
           latest_review_event: latestReviewEvent
             ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)
