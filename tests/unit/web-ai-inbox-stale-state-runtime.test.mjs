@@ -418,6 +418,63 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
   assert.equal(aiInboxState.actionLoading, false);
 });
 
+test("recordAiInboxReviewDecision does not restore the old artifact when selection changes mid-submit", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
+
+  const refreshCalls = [];
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: { item: { artifactId: "artifact_1", title: "Original artifact" } },
+    actionLoading: false,
+    actionError: "",
+    detailError: ""
+  };
+
+  const recordDecision = new Function(
+    "$",
+    "aiInboxState",
+    "recordAiInboxDecision",
+    "aiInboxFeedbackFromUi",
+    "aiInboxDetailFromResponse",
+    "rememberAiDebugSnapshot",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "aiInboxActionLabel",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return recordAiInboxReviewDecision;`
+  )(
+    () => ({ value: "" }),
+    aiInboxState,
+    async () => {
+      aiInboxState.selectedArtifactId = "artifact_2";
+      aiInboxState.detail = { item: { artifactId: "artifact_2", title: "Newer selection" } };
+      return { item: { artifactId: "artifact_1", title: "Old action result" } };
+    },
+    () => ({}),
+    (response) => response,
+    () => {},
+    async (options) => {
+      refreshCalls.push(options);
+      return true;
+    },
+    async () => true,
+    () => "handled",
+    () => {},
+    () => {}
+  );
+
+  const result = await recordDecision("accepted");
+  assert.equal(result.item.artifactId, "artifact_1");
+  assert.equal(aiInboxState.selectedArtifactId, "artifact_2");
+  assert.equal(aiInboxState.detail.item.artifactId, "artifact_2");
+  assert.deepEqual(refreshCalls, [{ silent: true, preserveDetail: false }]);
+  assert.equal(aiInboxState.actionLoading, false);
+});
+
 test("applyAiInboxSuggestionStatus stores action failures separately from detail state", async () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -468,6 +525,74 @@ test("applyAiInboxSuggestionStatus stores action failures separately from detail
   assert.equal(result, null);
   assert.equal(aiInboxState.actionError, "suggestion action boom");
   assert.equal(aiInboxState.detailError, "old detail error");
+  assert.equal(aiInboxState.actionLoading, false);
+});
+
+test("applyAiInboxSuggestionStatus does not reload the old inbox detail when selection changes mid-submit", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
+
+  const loadCalls = [];
+  const refreshCalls = [];
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: {
+      item: { artifactId: "artifact_1" },
+      suggestion: { id: "suggestion_1", status: "edited", content: { thesis: "x" } }
+    },
+    actionLoading: false,
+    actionError: "",
+    detailError: ""
+  };
+
+  const applyAiInboxSuggestionStatus = new Function(
+    "$",
+    "aiInboxState",
+    "adoptAiInboxFieldSuggestionDraft",
+    "aiInboxSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "loadAiInboxDetail",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return applyAiInboxSuggestionStatus;`
+  )(
+    () => ({ value: "" }),
+    aiInboxState,
+    async () => {},
+    () => ({ thesis: "x" }),
+    async () => {
+      aiInboxState.selectedArtifactId = "artifact_2";
+      aiInboxState.detail = {
+        item: { artifactId: "artifact_2" },
+        suggestion: { id: "suggestion_2", status: "suggested", content: { thesis: "new" } }
+      };
+      return { item: { id: "suggestion_1", status: "confirmed" } };
+    },
+    async (artifactId) => {
+      loadCalls.push(artifactId);
+      return true;
+    },
+    async (options) => {
+      refreshCalls.push(options);
+      return true;
+    },
+    async () => true,
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiInboxSuggestionStatus("confirmed");
+  assert.equal(result, true);
+  assert.deepEqual(loadCalls, []);
+  assert.deepEqual(refreshCalls, [{ silent: true, preserveDetail: false }]);
+  assert.equal(aiInboxState.selectedArtifactId, "artifact_2");
+  assert.equal(aiInboxState.detail.item.artifactId, "artifact_2");
   assert.equal(aiInboxState.actionLoading, false);
 });
 
