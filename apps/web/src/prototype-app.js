@@ -70,7 +70,8 @@ import {
 import {
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
-  groupWritingPreflightChecks
+  groupWritingPreflightChecks,
+  isWritingStrongModelReady
 } from "./writing-center-flow.js";
 import {
   countExplicitSemanticRelations,
@@ -5748,11 +5749,11 @@ function renderWritingStatusStrip() {
         : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
           ? "先让材料完成作者/原创确认，再进入写作。"
           : "当前材料已到建项目阶段；接下来明确题目和读者。";
-  const strongModelTone =
-    readiness.level === "strong_model_ready" && projectPreflightSummary.level === "ready"
-      ? "good"
-      : "warn";
-  const strongModelReady = readiness.level === "strong_model_ready" && projectPreflightSummary.level === "ready";
+  const strongModelReady = isWritingStrongModelReady({
+    readinessLevel: readiness.level,
+    projectPreflightLevel: projectPreflightSummary.level
+  });
+  const strongModelTone = strongModelReady ? "good" : "warn";
   const strongModelNote =
     projectPreflightSummary.level !== "ready" && hasProject
       ? `先处理项目预检里的 ${projectPreflightChecks.length} 项缺口，再做强模型分析。`

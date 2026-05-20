@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import {
   describeWritingProjectPreflight,
   describeWritingNextActionFromState,
-  groupWritingPreflightChecks
+  groupWritingPreflightChecks,
+  isWritingStrongModelReady
 } from "../../apps/web/src/writing-center-flow.js";
 
 test("writing center next action starts with material selection when basket is empty", () => {
@@ -96,4 +97,19 @@ test("writing center project preflight summary distinguishes needs_clarification
   assert.match(clarification.hint, /Clarify what this writing project is trying to say/);
   assert.equal(gaps.level, "has_gaps");
   assert.match(gaps.hint, /central question/);
+});
+
+test("writing center strong-model gate requires both strong_model_ready basket state and ready project preflight", () => {
+  assert.equal(
+    isWritingStrongModelReady({ readinessLevel: "strong_model_ready", projectPreflightLevel: "ready" }),
+    true
+  );
+  assert.equal(
+    isWritingStrongModelReady({ readinessLevel: "strong_model_ready", projectPreflightLevel: "needs_clarification" }),
+    false
+  );
+  assert.equal(
+    isWritingStrongModelReady({ readinessLevel: "project_ready", projectPreflightLevel: "ready" }),
+    false
+  );
 });

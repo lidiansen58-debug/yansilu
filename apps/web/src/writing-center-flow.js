@@ -95,3 +95,7 @@ export function describeWritingProjectPreflight(preflight = null) {
     hint: firstGap?.message || `当前项目还有 ${checks.length} 项建议先补齐。`
   };
 }
+
+export function isWritingStrongModelReady({ readinessLevel = "", projectPreflightLevel = "" } = {}) {
+  return String(readinessLevel || "").trim() === "strong_model_ready" && String(projectPreflightLevel || "").trim() === "ready";
+}
