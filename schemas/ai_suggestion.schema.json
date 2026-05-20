@@ -59,8 +59,6 @@
           "action": { "type": "string" },
           "actor": { "type": "string", "enum": ["user", "system", "ai"] },
           "user_id": { "type": "string" },
-          "target_id": { "type": "string" },
-          "target_field": { "type": "string" },
           "comment": { "type": "string" },
           "created_at": { "type": "string" }
         }

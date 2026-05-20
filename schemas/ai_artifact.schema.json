@@ -21,24 +21,6 @@
     "user_decisions",
     "payload"
   ],
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "status": {
-            "enum": ["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "user_decisions": {
-            "minItems": 1
-          }
-        }
-      }
-    }
-  ],
   "properties": {
     "id": { "type": "string" },
     "type": {
@@ -68,6 +50,7 @@
       "enum": [
         "pending_review",
         "accepted",
+        "revised",
         "ignored",
         "archived",
         "adopted_as_draft",
@@ -137,6 +120,7 @@
             "type": "string",
             "enum": [
               "accepted",
+              "revised",
               "ignored",
               "archived",
               "adopted_as_draft",

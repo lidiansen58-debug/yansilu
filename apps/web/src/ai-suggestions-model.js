@@ -35,8 +35,6 @@ export function aiSuggestionFromCanonical(item = {}) {
           action: cleanText(entry.action),
           actor: cleanText(entry.actor),
           userId: cleanText(entry.user_id),
-          targetId: cleanText(entry.target_id),
-          targetField: cleanText(entry.target_field),
           comment: cleanText(entry.comment),
           createdAt: cleanText(entry.created_at)
         }))

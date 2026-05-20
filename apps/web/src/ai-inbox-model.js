@@ -91,6 +91,7 @@ export function aiInboxStatusLabel(status = "") {
   const labels = {
     pending_review: "待判断",
     accepted: "已采纳",
+    revised: "已修订",
     ignored: "已忽略",
     archived: "已归档",
     adopted_as_draft: "已采纳为草稿",
@@ -237,48 +238,6 @@ export function aiArtifactFromCanonical(artifact = {}) {
         }))
       : [],
     payload: artifact.payload ?? {}
-  };
-}
-
-export function aiAdoptionEventFromCanonical(event = {}) {
-  return {
-    adoptionEventId: cleanText(event.adoption_event_id),
-    subjectKind: cleanText(event.subject_kind),
-    subjectId: cleanText(event.subject_id),
-    eventType: cleanText(event.event_type),
-    actorType: cleanText(event.actor_type),
-    actorId: cleanText(event.actor_id),
-    target: {
-      kind: cleanText(event.target?.kind),
-      id: cleanText(event.target?.id),
-      field: cleanText(event.target?.field)
-    },
-    comment: cleanText(event.comment),
-    feedback: {
-      useful: event.feedback?.useful === true,
-      noisy: event.feedback?.noisy === true,
-      wrong: event.feedback?.wrong === true,
-      alreadyKnown: event.feedback?.already_known === true,
-      privacyConcern: event.feedback?.privacy_concern === true
-    },
-    metadata: {
-      fromStatus: cleanText(event.metadata?.from_status),
-      toStatus: cleanText(event.metadata?.to_status),
-      noteId: cleanText(event.metadata?.note_id)
-    },
-    createdAt: cleanText(event.created_at)
-  };
-}
-
-export function aiSuggestionTraceFromCanonical(trace = {}) {
-  return {
-    suggestionId: cleanText(trace.suggestion_id),
-    sourceArtifactId: cleanText(trace.source_artifact_id),
-    primarySourceNoteId: cleanText(trace.primary_source_note_id),
-    sourceNoteIds: Array.isArray(trace.source_note_ids) ? [...trace.source_note_ids] : [],
-    targetNoteId: cleanText(trace.target_note_id),
-    targetField: cleanText(trace.target_field),
-    suggestionStatus: cleanText(trace.suggestion_status)
   };
 }
 

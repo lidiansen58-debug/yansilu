@@ -57,19 +57,23 @@ import {
 } from "./ai-suggestions-panel.js";
 import {
   aiInboxActionLabel,
-  aiAdoptionEventFromCanonical,
   aiArtifactFromCanonical,
   aiInboxItemFromCanonical,
-  aiSuggestionTraceFromCanonical,
   normalizeAiInboxFilters
 } from "./ai-inbox-model.js";
 import {
-  aiSuggestionFromCanonical,
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
+import { graphFollowupActionForRelationType, graphNextActionForSummary } from "./graph-followup.js";
+import {
+  describeWritingNextActionFromState,
+  describeWritingProjectPreflight,
+  groupWritingPreflightChecks,
+  isWritingStrongModelReady
+} from "./writing-center-flow.js";
 import {
   countExplicitSemanticRelations,
   deriveBasketWritingReadiness,
@@ -1098,22 +1102,6 @@ function resetAiInboxSummaryState() {
 }
 
 function syncAiInboxSummaryFromDetail(detail = null) {
-  const payloadSummary = detail?.artifact?.payload?.aiReviewSummary || detail?.artifact?.payload?.ai_review_summary || null;
-  if (payloadSummary && typeof payloadSummary === "object") {
-    const provider = String(payloadSummary.providerId || payloadSummary.provider_id || "").trim();
-    const model = String(payloadSummary.modelRef || payloadSummary.model_ref || "").trim();
-    const comment = String(payloadSummary.content || "").trim();
-    aiInboxState.aiSummary = comment
-      .replace(/^\[AI Summary]\s*/m, "")
-      .replace(/^provider=.*$/m, "")
-      .replace(/^model=.*$/m, "")
-      .replace(/^recommendedAction=.*$/m, "")
-      .trim();
-    aiInboxState.aiSummaryMeta = [provider, model].filter(Boolean).join(" / ") || "persisted";
-    aiInboxState.aiSummaryRecommendedAction = String(payloadSummary.recommendedAction || payloadSummary.recommended_action || "").trim() || recommendedAiInboxActionFromText(comment);
-    aiInboxState.aiSummaryError = "";
-    return;
-  }
   const decisions = Array.isArray(detail?.artifact?.userDecisions || detail?.item?.userDecisions)
     ? detail?.artifact?.userDecisions || detail?.item?.userDecisions
     : [];
@@ -1523,18 +1511,7 @@ function aiInboxDetailFromResponse(response = {}) {
   const canonical = response?.canonical || {};
   const item = canonical.item ? aiInboxItemFromCanonical(canonical.item) : response?.item || null;
   const artifact = canonical.artifact ? aiArtifactFromCanonical(canonical.artifact) : response?.artifact || null;
-  const suggestion = canonical.suggestion ? aiSuggestionFromCanonical(canonical.suggestion) : response?.suggestion || null;
-  const suggestionReviewEvents =
-    Array.isArray(canonical.suggestion_review_events)
-      ? canonical.suggestion_review_events.map((event) => aiAdoptionEventFromCanonical(event))
-      : Array.isArray(response?.suggestionReviewEvents)
-        ? response.suggestionReviewEvents
-        : [];
-  const latestSuggestionReviewEvent = canonical.latest_suggestion_review_event
-    ? aiAdoptionEventFromCanonical(canonical.latest_suggestion_review_event)
-    : response?.latestSuggestionReviewEvent || null;
-  const trace = canonical.trace ? aiSuggestionTraceFromCanonical(canonical.trace) : response?.trace || null;
-  return { item, artifact, suggestion, suggestionReviewEvents, latestSuggestionReviewEvent, trace };
+  return { item, artifact };
 }
 
 async function loadAiInboxDetail(artifactId) {
@@ -1705,8 +1682,7 @@ async function applyAiInboxRecommendedAction(action = "") {
     const comment = `${$("aiInboxDecisionComment")?.value || ""}\n\nAI recommendation: needs_more_context`.trim();
     const commentEl = $("aiInboxDecisionComment");
     if (commentEl) commentEl.value = comment;
-    setStatus("Added needs_more_context note. Review manually after checking more context.", "warn");
-    return true;
+    return recordAiInboxReviewDecision("revised");
   }
   return setStatus(`Unsupported AI recommended action: ${normalized}`, "warn");
 }
@@ -4847,10 +4823,7 @@ function renderAiCanonicalDebugPanel() {
 }
 
 function isWritingEligibleNote(note) {
-  if (!note) return false;
-  const noteType = String(note.noteType || "").trim().toLowerCase();
-  if (noteType === "permanent") return true;
-  return rootBoxIdFromFolder(state, note.folderId) === "dir_original_default";
+  return writingNoteEligibility(note).ok;
 }
 
 function writingScopeDirectoryIds() {
@@ -5003,6 +4976,19 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
     resetContext: true,
     source: "writing_theme_create_project"
   });
+  const relationPayload = await refreshWritingRelationCounts(noteIds, { render: false });
+  const relationCounts = relationPayload?.counts || writingState.relationCounts || {};
+  const relationErrors = relationPayload?.errors || writingState.relationCountErrors || {};
+  const relationCountsReady = writingRelationCountsReady(noteIds, relationCounts);
+  const relationCountsErrored = writingRelationCountsErrored(noteIds, relationErrors);
+  const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, {
+    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
+  });
+  const projectReady = !relationCountsErrored && relationCountsReady && (readiness.level === "project_ready" || readiness.level === "strong_model_ready");
+  if (!projectReady) {
+    renderWritingPanel();
+    throw new Error(relationCountsErrored ? "主题入口的显式关系暂时读取失败，请稍后重试。" : readiness.hint || "当前主题入口还没满足创建项目的条件。");
+  }
   const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
   const project = await createWritingProject({
     title,
@@ -5702,6 +5688,7 @@ async function openWritingProject(projectId) {
     writingState.scaffold = null;
     writingState.scaffoldMarkdown = "";
   }
+  await refreshWritingRelationCounts(parseWritingBasketIds(), { render: false });
   await refreshWritingProjectState();
   await loadWritingScaffoldVersions();
   await loadWritingDraftVersions();
@@ -5843,8 +5830,8 @@ function renderWritingStatusStrip() {
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
   const projectPreflight = writingState.project?.preflight || null;
-  const projectPreflightSummary = describeProjectPreflight(projectPreflight);
-  const projectPreflightWarnings = Number(projectPreflight?.warningCount || 0);
+  const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
+  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
   const basketTone =
     readiness.level === "strong_model_ready" || readiness.level === "project_ready"
       ? "good"
@@ -5855,13 +5842,13 @@ function renderWritingStatusStrip() {
           : "warn";
   const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectTone =
-    hasProject && projectPreflightSummary.level === "needs_attention"
+    hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"
       : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
         ? "good"
         : "warn";
   const projectNote = hasProject
-    ? projectPreflightSummary.level === "needs_attention"
+    ? projectPreflightSummary.level !== "ready"
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : relationCountsErrored
@@ -5875,18 +5862,19 @@ function renderWritingStatusStrip() {
         : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
           ? "先让材料完成作者/原创确认，再进入写作。"
           : "当前材料已到建项目阶段；接下来明确题目和读者。";
-  const strongModelTone =
-    readiness.level === "strong_model_ready" && projectPreflightSummary.level !== "needs_attention"
-      ? "good"
-      : "warn";
+  const strongModelReady = isWritingStrongModelReady({
+    readinessLevel: readiness.level,
+    projectPreflightLevel: projectPreflightSummary.level
+  });
+  const strongModelTone = strongModelReady ? "good" : "warn";
   const strongModelNote =
-    projectPreflightSummary.level === "needs_attention"
-      ? `先处理 ${projectPreflightWarnings} 项预检提醒，再做强模型分析。`
+    projectPreflightSummary.level !== "ready" && hasProject
+      ? `先处理项目预检里的 ${projectPreflightChecks.length} 项缺口，再做强模型分析。`
       : relationCountsErrored
         ? "显式关系读取失败，先重试或回到笔记里确认关系。"
       : !relationCountsReady && basketIds.length
         ? "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。"
-      : readiness.level === "strong_model_ready"
+      : strongModelReady
         ? "当前材料已经适合进入强模型分析。"
         : readiness.level === "project_ready"
           ? "先补更多主题线索，再做强模型分析。"
@@ -5895,7 +5883,7 @@ function renderWritingStatusStrip() {
     renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "project_ready" || readiness.level === "strong_model_ready" ? "可创建" : "待创建", projectNote, projectTone),
     renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
-    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : readiness.level === "strong_model_ready" ? "可分析" : "先补条件", strongModelNote, strongModelTone),
+    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : strongModelReady ? "可分析" : "先补条件", strongModelNote, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
 }
@@ -5907,6 +5895,7 @@ function renderWritingFlowSteps() {
   const hasProject = Boolean(writingState.project?.id);
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const preflightGroups = groupWritingPreflightChecks(writingState.scaffold?.preflight || null);
   const steps = [
     {
       done: basketCount > 0,
@@ -5921,12 +5910,18 @@ function renderWritingFlowSteps() {
     {
       done: hasScaffold,
       title: "生成骨架",
-      note: hasScaffold ? "可预览/导出" : "检查证据和缺口"
+      note: hasScaffold
+        ? preflightGroups.blocking.length
+          ? `先补 ${preflightGroups.blocking.length} 个阻塞项`
+          : preflightGroups.warnings.length
+            ? `可继续，但建议先补 ${preflightGroups.warnings.length} 个提醒`
+            : "可直接进入草稿"
+        : "检查证据、缺口和反方"
     },
     {
       done: hasDraft,
       title: "保存草稿",
-      note: hasDraft ? "回到编辑器继续写" : "生成后再保存"
+      note: hasDraft ? "草稿已保存，下一步打开继续写" : "生成骨架后再保存"
     }
   ];
   const firstOpenIndex = steps.findIndex((step) => !step.done);
@@ -5960,10 +5955,18 @@ function renderWritingScaffoldPreview() {
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
   const preflightSummary = describeProjectPreflight(preflight);
-  const preflightChecks = Array.isArray(preflight?.checks) ? preflight.checks : [];
+  const { checks: preflightChecks, blocking: blockingChecks, warnings: warningChecks, passes: passingChecks } = groupWritingPreflightChecks(preflight);
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
   const targetFolder = folderById(state, targetDirectoryId);
+  const nextAction = describeWritingNextActionFromState({
+    basketCount: parseWritingBasketIds().length,
+    hasProject: Boolean(writingState.project?.id),
+    hasScaffold: Boolean(writingState.scaffold?.id),
+    hasDraft: Boolean(writingState.project?.draft_note_id),
+    blockingCount: blockingChecks.length,
+    warningCount: warningChecks.length
+  });
   el.innerHTML = `
     <h4>骨架预览</h4>
     <div class="writing-summary">
@@ -5972,6 +5975,9 @@ function renderWritingScaffoldPreview() {
     <div class="writing-summary">
       保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
     </div>
+    <div class="writing-summary">
+      下一步：${escapeHtml(nextAction.title)}。${escapeHtml(nextAction.note)}
+    </div>
     ${
       preflightChecks.length
         ? `<div>
@@ -5979,6 +5985,16 @@ function renderWritingScaffoldPreview() {
             <div class="writing-summary">
               ${escapeHtml(preflightSummary.level === "ready" ? preflightSummary.status : preflightSummary.hint)}
             </div>
+            ${
+              warningChecks.length
+                ? `<div class="writing-summary">提醒项：${escapeHtml(String(warningChecks.length))} 个，建议先补齐再保存草稿。</div>`
+                : ""
+            }
+            ${
+              passingChecks.length
+                ? `<div class="writing-summary">已通过：${escapeHtml(String(passingChecks.length))} 项。</div>`
+                : ""
+            }
             <ul>
               ${preflightChecks
                 .map(
@@ -6116,6 +6132,7 @@ function renderWritingPanel() {
   const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
     relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
   });
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (basketSummary) {
     const sourcePart = sourceIndexSummary ? `主题入口：${sourceIndexSummary}。` : "主题入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
@@ -6168,7 +6185,13 @@ function renderWritingPanel() {
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   if (strongModelButton) {
     const strongModelBasketIds = basketIds;
-    const strongModelReady = !relationCountsErrored && relationCountsReady && basketReadiness.level === "strong_model_ready";
+    const strongModelReady =
+      !relationCountsErrored &&
+      relationCountsReady &&
+      isWritingStrongModelReady({
+        readinessLevel: basketReadiness.level,
+        projectPreflightLevel: projectPreflightSummary.level
+      });
     strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
     strongModelButton.textContent = writingState.strongModelLoading
       ? "准备中..."
@@ -6526,8 +6549,11 @@ function renderGraphInsightCoach(context = {}) {
         .map((edge, index) => {
           const sourceId = edge.fromNoteId || "";
           const relation = graphRelationTypeLabel(edge.relationType);
+          const followupAction = graphFollowupActionForRelationType(edge.relationType);
+          const targetNoteId = String(edge.toNoteId || "").trim();
+          const relationType = String(edge.relationType || "").trim().toLowerCase();
           return `
-            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}">
+            <button class="graph-insight-path-item" type="button" data-open-note="${escapeHtml(sourceId)}" data-graph-followup-action="${escapeHtml(followupAction)}"${followupAction === "bridge" && targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}${followupAction === "bridge" && relationType ? ` data-graph-relation-type="${escapeHtml(relationType)}"` : ""}>
               <span>${index + 1}</span>
               <strong>${escapeHtml(graphEdgeTitle(edge, insight.nodeMap))}</strong>
               <small>${escapeHtml(relation)}${edge.rationale ? ` · ${escapeHtml(edge.rationale)}` : ""}</small>
@@ -6922,6 +6948,9 @@ function renderRelationReviewQueueSection(reviewQueue) {
                             )} · ${escapeHtml(graphRelationTypeLabel(item.relationType))} · ${escapeHtml(graphRelationStatusLabel(item.status))}</span>
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
                           </span>
+                          <span class="graph-review-actions">
+                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系</span>
+                          </span>
                         </button>
                       `;
                     })
@@ -7128,17 +7157,20 @@ function renderGraphPanel() {
       .map((note) => note.title || note.id)
       .slice(0, 3)
       .join(" / ");
+    const focusNoteId = Array.isArray(conflict.noteIds) ? String(conflict.noteIds[0] || "").trim() : "";
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>概念错位 / 重名冲突</strong>
         <small>${escapeHtml(conflict.title || "未命名冲突")}</small>
         <small>${escapeHtml(conflict.rationale || "永久笔记里有多条笔记标题相同，容易让连接和引用失真。")}</small>
         <small>涉及：${escapeHtml(noteTitles || String(conflict.noteIds?.length || 0))}</small>
+        ${focusNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="boundary" data-open-note="${escapeHtml(focusNoteId)}">去补边界</button>` : ""}
       </div>
     `);
   });
 
   if (conflictingRelations.length) {
+    const focusEdge = conflictingRelations[0] || null;
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>显式冲突关系</strong>
@@ -7149,11 +7181,14 @@ function renderGraphPanel() {
             .map((edge) => `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`)
             .join(" / ")
         )}</small>
+        ${focusEdge?.fromNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="tension" data-open-note="${escapeHtml(focusEdge.fromNoteId)}">去补反例/边界</button>` : ""}
       </div>
     `);
   }
 
   if (bridgeGaps.length) {
+    const firstGap = bridgeGaps[0] || null;
+    const focusBridgeNoteId = Array.isArray(firstGap?.noteIds) ? String(firstGap.noteIds[0] || "").trim() : "";
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>桥接缺口</strong>
@@ -7164,6 +7199,7 @@ function renderGraphPanel() {
             .map((gap) => (Array.isArray(gap.noteTitles) ? gap.noteTitles.join(" / ") : "未命名缺口"))
             .join(" / ")
         )}</small>
+        ${focusBridgeNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="bridge" data-open-note="${escapeHtml(focusBridgeNoteId)}" data-graph-target-note="${escapeHtml(Array.isArray(firstGap?.targetNoteIds) ? String(firstGap.targetNoteIds[0] || "").trim() : "")}" data-graph-relation-type="bridges">去补桥接</button>` : ""}
       </div>
     `);
   } else if (isolatedNodes.length) {
@@ -7196,36 +7232,18 @@ function renderGraphPanel() {
     `);
   }
 
-  const nextAction = (() => {
-    if (!nodes.length) {
-      return {
-        title: "先写出几条永久笔记",
-        note: "当前目录还没有节点。先回到编辑器建立笔记，再用 [[关联笔记]] 串起观点。"
-      };
-    }
-    if (!allEdges.length) {
-      return {
-        title: "下一步：建立第一条关系",
-        note: "在两条相关笔记之间加入 [[关联笔记]]，再刷新图谱查看局部结构。"
-      };
-    }
-    if (untypedRelations.length) {
-      return {
-        title: "下一步：补关系理由",
-        note: `${untypedRelations.length} 条连接还没写清为什么成立。优先打开关系整理队列里的源笔记。`
-      };
-    }
-    if (conflictingRelations.length + conflictItems.length) {
-      return {
-        title: "下一步：处理张力",
-        note: "已经有冲突或重名信号。补反方、边界和例外条件后，写作时更稳。"
-      };
-    }
-    return {
-      title: "下一步：进入写作中心",
-      note: "当前目录结构已经比较清楚，可以挑选永久笔记放入写作篮。"
-    };
-  })();
+  const nextAction = graphNextActionForSummary({
+    hasNodes: nodes.length > 0,
+    hasEdges: allEdges.length > 0,
+    firstNodeId: nodes[0]?.id || "",
+    untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
+    untypedRelationId: untypedRelations[0]?.id || "",
+    conflictFromNoteId:
+      conflictingRelations[0]?.fromNoteId ||
+      (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),
+    bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "",
+    bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : ""
+  });
 
   summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
   canvas.innerHTML = `
@@ -7277,6 +7295,7 @@ function renderGraphPanel() {
         <div class="graph-next-card">
           <strong>${escapeHtml(nextAction.title)}</strong>
           <small>${escapeHtml(nextAction.note)}</small>
+          ${nextAction.noteId && nextAction.action ? `<button class="mini-btn" type="button" data-open-note="${escapeHtml(nextAction.noteId)}" data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
         </div>
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
@@ -7632,6 +7651,91 @@ function openNoteById(id, options = {}) {
   editor.openNoteTab(id, options);
   renderAll();
   ensureNoteBodyLoaded(id);
+  return true;
+}
+
+function openGraphFollowupNote(noteId = "", action = "", options = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  const cleanAction = String(action || "").trim().toLowerCase();
+  const cleanRelationId = String(options.relationId || "").trim();
+  const cleanTargetNoteId = String(options.targetNoteId || "").trim();
+  const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
+  if (!cleanNoteId) return false;
+  activateModule("explorer");
+  openNoteById(cleanNoteId, { preferTitleSelection: false });
+  state.inspectorVisible = true;
+  editor?.setInspectorVisible?.(true);
+  editor?.renderRelated?.("图谱下一步");
+
+  const focusRelationCreate = () => {
+    editor?.openCreateRelationForm?.();
+    window.setTimeout(() => {
+      const form = document.querySelector("[data-create-relation-form]");
+      const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
+      const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
+      if (targetSelect && cleanTargetNoteId) targetSelect.value = cleanTargetNoteId;
+      if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
+      editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
+        focus: true,
+        focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+      });
+    }, 40);
+  };
+
+  const focusExistingRelationEdit = () => {
+    const tryOpen = () => {
+      const relation = editor?.findSemanticRelation?.(cleanRelationId);
+      if (!relation) return false;
+      editor?.openEditRelationForm?.(cleanRelationId);
+      window.setTimeout(() => {
+        editor?.jumpToInspectorSection?.("[data-edit-relation-form]", {
+          focus: true,
+          focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
+        });
+      }, 40);
+      return true;
+    };
+    if (tryOpen()) return;
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      if (tryOpen() || attempts >= 20) window.clearInterval(timer);
+    }, 120);
+  };
+
+  const focusBoundaryField = () => {
+    window.setTimeout(() => {
+      editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
+        focus: true,
+        focusSelector: '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]'
+      });
+    }, 40);
+  };
+
+  if (cleanAction === "relations-edit" && cleanRelationId) {
+    focusExistingRelationEdit();
+    setStatus("已从图谱打开笔记，继续补当前关系的理由或类型", "ok");
+    return true;
+  }
+
+  if (cleanAction === "relations" || cleanAction === "bridge") {
+    window.setTimeout(() => {
+      const form = document.querySelector("[data-create-relation-form]");
+      const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
+      const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
+      if (targetSelect && cleanTargetNoteId) targetSelect.value = cleanTargetNoteId;
+      if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
+    }, 20);
+    focusRelationCreate();
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
+    return true;
+  }
+  if (cleanAction === "boundary" || cleanAction === "tension") {
+    focusBoundaryField();
+    setStatus("已从图谱打开笔记，继续补反例、边界或张力说明", "ok");
+    return true;
+  }
+  setStatus("已从图谱打开笔记", "ok");
   return true;
 }
 
@@ -9205,9 +9309,8 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
     await loadWritingProjectsList();
     await loadWritingScaffoldVersions();
     await loadWritingDraftVersions();
-    activateModule("explorer");
-    openNoteById(note.id);
-    setStatus(`已创建草稿笔记：${note.title}`, "ok");
+    renderWritingPanel();
+    setStatus(`已创建草稿笔记：${note.title}。你可以继续留在写作中心检查版本，或直接打开当前草稿。`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_draft_note_error",
@@ -9346,6 +9449,15 @@ $("graphCanvas")?.addEventListener("click", (event) => {
     runGraphAiAnalysis();
     return;
   }
+  const graphFollowup = event.target.closest("[data-graph-followup-action]");
+  if (graphFollowup) {
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
+      relationId: graphFollowup.getAttribute("data-graph-relation-id"),
+      targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
+      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+    });
+    return;
+  }
   const zoomButton = event.target.closest("[data-graph-zoom-option]");
   if (zoomButton) {
     graphState.zoom = graphZoomOption(zoomButton.getAttribute("data-graph-zoom-option")).key;
@@ -9362,6 +9474,16 @@ $("graphCanvas")?.addEventListener("click", (event) => {
 
 $("graphCanvas")?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
+  const graphFollowup = event.target.closest("[data-graph-followup-action]");
+  if (graphFollowup) {
+    event.preventDefault();
+    openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
+      relationId: graphFollowup.getAttribute("data-graph-relation-id"),
+      targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
+      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+    });
+    return;
+  }
   const row = event.target.closest("[data-open-note]");
   if (!row) return;
   event.preventDefault();

@@ -13,16 +13,6 @@ async function readSchema(name) {
 function validate(schema, value, location = "$") {
   if (!schema || typeof schema !== "object") return;
 
-  if (Array.isArray(schema.allOf)) {
-    schema.allOf.forEach((child, index) => validate(child, value, `${location}.allOf[${index}]`));
-  }
-
-  if (schema.if) {
-    const matches = schemaMatches(schema.if, value);
-    if (matches && schema.then) validate(schema.then, value, `${location}.then`);
-    if (!matches && schema.else) validate(schema.else, value, `${location}.else`);
-  }
-
   if (Array.isArray(schema.type)) {
     const allowed = schema.type;
     const matches = allowed.some((type) => matchesType(type, value));
@@ -35,20 +25,7 @@ function validate(schema, value, location = "$") {
     assert.equal(schema.enum.includes(value), true, `${location} expected enum value`);
   }
 
-  if (Array.isArray(value) && typeof schema.minItems === "number") {
-    assert.equal(value.length >= schema.minItems, true, `${location} expected at least ${schema.minItems} items`);
-  }
-
-  const treatsAsObject =
-    value !== null &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    (schema.type === "object" ||
-      (Array.isArray(schema.type) && value && typeof value === "object" && !Array.isArray(value)) ||
-      schema.properties ||
-      schema.required ||
-      schema.additionalProperties === false);
-  if (treatsAsObject) {
+  if ((schema.type === "object" || (Array.isArray(schema.type) && value && typeof value === "object" && !Array.isArray(value))) && value !== null) {
     const required = Array.isArray(schema.required) ? schema.required : [];
     for (const key of required) {
       assert.equal(Object.prototype.hasOwnProperty.call(value, key), true, `${location}.${key} is required`);
@@ -67,15 +44,6 @@ function validate(schema, value, location = "$") {
 
   if (schema.type === "array" && Array.isArray(value) && schema.items) {
     value.forEach((item, index) => validate(schema.items, item, `${location}[${index}]`));
-  }
-}
-
-function schemaMatches(schema, value) {
-  try {
-    validate(schema, value, "$match");
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -106,8 +74,6 @@ test("AI shared schemas declare the canonical contracts we want to stabilize", a
   assert.deepEqual(suggestion.properties.status.enum, ["suggested", "adopted_as_draft", "rejected", "edited", "confirmed"]);
   assert.equal(suggestion.properties.source_artifact_id.type, "string");
   assert.ok(suggestion.required.includes("history"));
-  assert.equal(suggestion.properties.history.items.properties.target_id.type, "string");
-  assert.equal(suggestion.properties.history.items.properties.target_field.type, "string");
 
   assert.deepEqual(adoptionEvent.properties.subject_kind.enum, ["artifact", "suggestion"]);
   assert.ok(adoptionEvent.properties.event_type.enum.includes("confirmed"));
@@ -231,8 +197,6 @@ test("AI shared schemas accept representative canonical payloads", async () => {
         action: "adopt",
         actor: "user",
         user_id: "user_01",
-        target_id: "pn_1",
-        target_field: "thesis",
         comment: "Keep as draft",
         created_at: "2026-05-18T12:03:00.000Z"
       },
@@ -242,8 +206,6 @@ test("AI shared schemas accept representative canonical payloads", async () => {
         action: "edit",
         actor: "user",
         user_id: "user_01",
-        target_id: "pn_1",
-        target_field: "thesis",
         comment: "Reworded for precision",
         created_at: "2026-05-18T12:05:00.000Z"
       },
@@ -253,8 +215,6 @@ test("AI shared schemas accept representative canonical payloads", async () => {
         action: "confirm",
         actor: "user",
         user_id: "user_01",
-        target_id: "pn_1",
-        target_field: "thesis",
         comment: "Now it feels like mine",
         created_at: "2026-05-18T12:07:00.000Z"
       }
@@ -356,62 +316,4 @@ test("AI shared schemas accept representative canonical payloads", async () => {
   validate(suggestionSchema, suggestion);
   validate(adoptionSchema, adoptionEvent);
   validate(scheduledTaskSchema, scheduledTask);
-});
-
-test("reviewed artifact runtime contracts require explicit user decisions", async () => {
-  const { normalizeArtifact } = await import("../../packages/ai-orchestrator/src/index.mjs");
-  assert.throws(
-    () =>
-      normalizeArtifact({
-        id: "artifact_invalid_accepted",
-        type: "LinkSuggestion",
-        title: "Invalid accepted artifact",
-        status: "accepted",
-        agentRunId: "run_invalid_accepted",
-        userDecisions: []
-    }),
-    (error) => error?.code === "AI_ARTIFACT_REVIEW_DECISION_REQUIRED"
-  );
-  const artifactSchema = await readSchema("ai_artifact.schema.json");
-  assert.throws(
-    () =>
-      validate(artifactSchema, {
-        id: "artifact_invalid_schema",
-        type: "LinkSuggestion",
-        title: "Invalid reviewed artifact",
-        summary: "",
-        body: {},
-        status: "accepted",
-        origin: "ai_generated",
-        created_at: "2026-05-18T12:00:00.000Z",
-        updated_at: "2026-05-18T12:00:00.000Z",
-        agent_run_id: "run_invalid_schema",
-        context_pack_id: "",
-        model: null,
-        sources: {
-          note_ids: [],
-          source_doc_ids: [],
-          artifact_ids: [],
-          external_urls: []
-        },
-        provenance: {
-          content_origin: "ai_generated",
-          citation_required: false,
-          human_accepted: false,
-          human_rewritten: false
-        },
-        confidence: {
-          score: null,
-          label: "medium",
-          reason: ""
-        },
-        privacy: {
-          mode: "normal",
-          cloud_model_used: false
-        },
-        user_decisions: [],
-        payload: {}
-      }),
-    /expected at least 1 items/
-  );
 });

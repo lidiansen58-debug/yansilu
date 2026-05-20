@@ -521,9 +521,6 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(accepted.json.latestDecision.decision, "accepted");
   assert.equal(accepted.json.latestDecision.feedback.useful, true);
   assert.equal(accepted.json.artifact.provenance.humanAccepted, true);
-  assert.equal(accepted.json.reviewEvents.length, 1);
-  assert.equal(accepted.json.latestReviewEvent.eventType, "accepted");
-  assert.equal(accepted.json.latestReviewEvent.metadata.fromStatus, "pending_review");
 
   const reviewedInbox = await getJson(baseUrl, `/api/v1/ai/inbox?view=reviewed&sourceNoteId=${encodeURIComponent(note.json.item.id)}`);
   assert.equal(reviewedInbox.status, 200, JSON.stringify(reviewedInbox.json));
@@ -544,8 +541,6 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(ignored.json.item.status, "ignored");
   assert.equal(ignored.json.latestDecision.feedback.noisy, true);
   assert.equal(ignored.json.latestDecision.feedback.alreadyKnown, true);
-  assert.equal(ignored.json.latestReviewEvent.eventType, "ignored");
-  assert.equal(ignored.json.latestReviewEvent.metadata.toStatus, "ignored");
 
   const dueForArchive = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/run-due", {
     now: "2026-05-11T10:30:00.000Z"
@@ -647,7 +642,6 @@ test("AI inbox accepts LinkSuggestion artifacts into explicit note relations", a
   assert.equal(accepted.status, 200, JSON.stringify(accepted.json));
   assert.equal(accepted.json.item.status, "linked_to_note");
   assert.equal(accepted.json.latestDecision.decision, "linked_to_note");
-  assert.equal(accepted.json.latestReviewEvent.eventType, "linked_to_note");
   assert.equal(accepted.json.relation.created, true);
   assert.equal(accepted.json.relation.relationType, "related");
   assert.deepEqual([accepted.json.relation.fromNoteId, accepted.json.relation.toNoteId].sort(), [first.json.item.id, second.json.item.id].sort());
@@ -758,7 +752,6 @@ test("AI inbox promotes QuestionCard artifacts into explicit draft notes", async
   assert.equal(promoted.json.item.status, "promoted_to_note");
   assert.equal(promoted.json.latestDecision.decision, "promoted_to_note");
   assert.equal(promoted.json.latestDecision.noteId, promoted.json.note.id);
-  assert.equal(promoted.json.latestReviewEvent.eventType, "promoted_to_note");
   assert.equal(promoted.json.note.noteType, "fleeting");
   assert.equal(promoted.json.note.status, "draft");
   assert.match(promoted.json.note.body, /AI artifact draft/);
@@ -781,7 +774,6 @@ test("AI inbox promotes QuestionCard artifacts into explicit draft notes", async
   assert.equal(promotedReflection.status, 201, JSON.stringify(promotedReflection.json));
   assert.equal(promotedReflection.json.item.status, "promoted_to_note");
   assert.equal(promotedReflection.json.latestDecision.noteId, promotedReflection.json.note.id);
-  assert.equal(promotedReflection.json.latestReviewEvent.eventType, "promoted_to_note");
   assert.equal(promotedReflection.json.note.noteType, "fleeting");
   assert.match(promotedReflection.json.note.body, /Try the opposite case/);
   assert.match(promotedReflection.json.note.body, new RegExp(source.json.item.id));
@@ -857,19 +849,17 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.equal(summarized.json.item.modelRef, "ollama_local_gateway:local_private");
   assert.equal(summarized.json.item.recommendedAction, "accept_link");
   assert.match(summarized.json.item.output.content, /Recommended action: accept_link/);
-  assert.equal(summarized.json.item.artifact.status, "pending_review");
-  assert.equal(summarized.json.item.inboxItem.latestDecision, null);
-  assert.match(summarized.json.item.artifact.payload.aiReviewSummary.content, /\[AI Summary\]/);
-  assert.match(summarized.json.item.artifact.payload.aiReviewSummary.content, /provider=ollama_local_gateway/);
-  assert.match(summarized.json.item.artifact.payload.aiReviewSummary.content, /recommendedAction=accept_link/);
-  assert.equal(summarized.json.item.artifact.payload.aiReviewSummary.recommendedAction, "accept_link");
+  assert.equal(summarized.json.item.artifact.status, "revised");
+  assert.equal(summarized.json.item.inboxItem.latestDecision.decision, "revised");
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=ollama_local_gateway/);
+  assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
 
   assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
   assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));
 
   const detail = await getJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary");
   assert.equal(detail.status, 200, JSON.stringify(detail.json));
-  assert.equal(detail.json.item.latestDecision, null);
-  assert.equal(detail.json.artifact.payload.aiReviewSummary.recommendedAction, "accept_link");
-  assert.match(detail.json.artifact.payload.aiReviewSummary.content, /Recommended action: accept_link/);
+  assert.equal(detail.json.item.latestDecision.decision, "revised");
+  assert.match(detail.json.item.latestDecision.comment, /Recommended action: accept_link/);
 });

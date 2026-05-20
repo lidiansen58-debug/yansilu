@@ -421,7 +421,6 @@ function renderSuggestionReviewActions(detail = {}, actionLoading = false) {
     </div>
   `;
 }
-
 function renderFeedbackControls() {
   return `
     <div class="ai-inbox-feedback-controls">

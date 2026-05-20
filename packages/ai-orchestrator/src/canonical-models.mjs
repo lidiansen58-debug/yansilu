@@ -141,8 +141,6 @@ export function suggestionToCanonical(input = {}, context = {}) {
           action: cleanText(item.action),
           actor: cleanText(item.actor),
           user_id: cleanText(item.userId || item.user_id),
-          target_id: cleanText(item.targetId || item.target_id || item.noteId || item.note_id),
-          target_field: cleanText(item.targetField || item.target_field),
           comment: cleanText(item.comment),
           created_at: cleanText(item.createdAt || item.created_at)
         }))
@@ -253,15 +251,15 @@ export function suggestionTransitionToCanonicalAdoptionEvent(input = {}, suggest
     actor_id: cleanText(input.userId || input.user_id),
     target: {
       kind: cleanText(suggestion.target?.type),
-      id: cleanText(input.targetId || input.target_id || input.noteId || input.note_id || suggestion.target?.id),
-      field: cleanText(input.targetField || input.target_field || suggestion.target?.field)
+      id: cleanText(suggestion.target?.id),
+      field: cleanText(suggestion.target?.field)
     },
     comment: cleanText(input.comment),
     feedback: normalizeFeedback(input.feedback || {}),
     metadata: {
       from_status: cleanText(input.fromStatus || input.from_status),
       to_status: cleanText(input.toStatus || input.to_status),
-      note_id: cleanText(input.targetId || input.target_id || input.noteId || input.note_id || suggestion.target?.id)
+      note_id: cleanText(input.noteId || input.note_id || suggestion.target?.id)
     },
     created_at: cleanText(input.createdAt || input.created_at)
   };

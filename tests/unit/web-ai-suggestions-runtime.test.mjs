@@ -84,7 +84,7 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
   const calls = [];
   const settingsState = {
     ai: {
-      suggestions: [{ id: "suggestion_1", status: "adopted_as_draft", content: { thesis: "Original." } }],
+      suggestions: [{ id: "suggestion_1", status: "adopted_as_draft", content: "Stale list fallback." }],
       suggestionDetail: { id: "suggestion_1", status: "adopted_as_draft", content: { thesis: "Original." } },
       selectedSuggestionId: "suggestion_1",
       suggestionActionLoading: false,

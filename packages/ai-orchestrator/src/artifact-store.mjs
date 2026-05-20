@@ -1,6 +1,6 @@
 import { normalizeArtifact } from "./artifacts.mjs";
 
-const DECISION_STATUSES = new Set(["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
+const DECISION_STATUSES = new Set(["accepted", "revised", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -37,16 +37,6 @@ function normalizeFeedback(input = {}) {
     alreadyKnown: booleanFeedback(input, feedback, "alreadyKnown", "already_known"),
     privacyConcern: booleanFeedback(input, feedback, "privacyConcern", "privacy_concern")
   };
-}
-
-function reviewedArtifactStatuses() {
-  return new Set(["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
-}
-
-function latestDecisionStatus(artifact = {}) {
-  const decisions = Array.isArray(artifact.userDecisions) ? artifact.userDecisions : [];
-  const latest = decisions[decisions.length - 1] || {};
-  return cleanText(latest.decision || latest.status);
 }
 
 function normalizeDecision(input = {}, artifactId) {
@@ -136,25 +126,11 @@ export function createInMemoryArtifactStore() {
       }
 
       const now = new Date().toISOString();
-      const nextStatus = Object.prototype.hasOwnProperty.call(updates, "status") ? cleanText(updates.status) : artifact.status;
-      if (reviewedArtifactStatuses().has(nextStatus)) {
-        const latestStatus = latestDecisionStatus(artifact);
-        if (!latestStatus) {
-          const error = new Error("reviewed artifact statuses require a user decision");
-          error.code = "AI_ARTIFACT_REVIEW_DECISION_REQUIRED";
-          throw error;
-        }
-        if (latestStatus !== nextStatus) {
-          const error = new Error(`artifact status ${nextStatus} must match latest user decision ${latestStatus}`);
-          error.code = "AI_ARTIFACT_DECISION_STATUS_MISMATCH";
-          throw error;
-        }
-      }
       const next = {
         ...artifact,
         ...(Object.prototype.hasOwnProperty.call(updates, "payload") ? { payload: updates.payload || {} } : {}),
         ...(Object.prototype.hasOwnProperty.call(updates, "provenance") ? { provenance: updates.provenance || {} } : {}),
-        ...(Object.prototype.hasOwnProperty.call(updates, "status") ? { status: nextStatus } : {}),
+        ...(Object.prototype.hasOwnProperty.call(updates, "status") ? { status: updates.status } : {}),
         updatedAt: cleanText(updates.updatedAt || updates.updated_at) || now
       };
       artifacts.set(id, next);
@@ -179,7 +155,7 @@ export function createInMemoryArtifactStore() {
         humanAccepted: ["accepted", "adopted_as_draft", "promoted_to_note", "linked_to_note"].includes(decision.decision)
           ? true
           : artifact.provenance?.humanAccepted === true,
-        humanRewritten: artifact.provenance?.humanRewritten === true
+        humanRewritten: decision.decision === "revised" ? true : artifact.provenance?.humanRewritten === true
       };
       artifacts.set(id, artifact);
       return getArtifact(id);

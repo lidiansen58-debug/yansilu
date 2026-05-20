@@ -25,25 +25,6 @@ function normalizeLimit(value) {
   return Math.max(1, Math.min(200, Math.floor(limit)));
 }
 
-function assertInitialSuggestionCreate(suggestion = {}, context = {}) {
-  if (context.allowReviewedCreate === true || context.allow_reviewed_create === true) return;
-  if (suggestion.status !== "suggested") {
-    const error = new Error("new suggestions must start in suggested status");
-    error.code = "AI_SUGGESTION_CREATE_STATUS_INVALID";
-    throw error;
-  }
-}
-
-function assertRequestedSuggestionCreateStatus(input = {}, context = {}) {
-  if (context.allowReviewedCreate === true || context.allow_reviewed_create === true) return;
-  const requestedStatus = cleanText(input.status || context.status) || "suggested";
-  if (requestedStatus !== "suggested") {
-    const error = new Error("new suggestions must start in suggested status");
-    error.code = "AI_SUGGESTION_CREATE_STATUS_INVALID";
-    throw error;
-  }
-}
-
 async function loadDatabaseSync() {
   try {
     const mod = await import("node:sqlite");
@@ -152,9 +133,7 @@ export async function createSqliteSuggestionStore(options = {}) {
   return {
     dbPath,
     create(input, context = {}) {
-      assertRequestedSuggestionCreateStatus(input, context);
       const suggestion = normalizeSuggestion(input, context);
-      assertInitialSuggestionCreate(suggestion, context);
       insertOrReplaceSuggestion(db, suggestion);
       return suggestion;
     },

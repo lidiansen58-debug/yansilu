@@ -18,6 +18,7 @@ const ARTIFACT_TYPES = new Set([
 const ARTIFACT_STATUSES = new Set([
   "pending_review",
   "accepted",
+  "revised",
   "ignored",
   "archived",
   "adopted_as_draft",
@@ -32,15 +33,6 @@ function cleanText(value) {
 
 function generatedId(prefix = "artifact") {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function reviewDecisionStatuses() {
-  return new Set(["accepted", "ignored", "archived", "adopted_as_draft", "promoted_to_note", "linked_to_note"]);
-}
-
-function latestDecisionStatus(userDecisions = []) {
-  const latest = userDecisions[userDecisions.length - 1] || {};
-  return cleanText(latest.decision || latest.status);
 }
 
 export function normalizeArtifact(input = {}, context = {}) {
@@ -73,23 +65,6 @@ export function normalizeArtifact(input = {}, context = {}) {
     throw error;
   }
 
-  const userDecisions = Array.isArray(input.userDecisions || input.user_decisions)
-    ? [...(input.userDecisions || input.user_decisions)]
-    : [];
-  if (reviewDecisionStatuses().has(status) && userDecisions.length === 0) {
-    const error = new Error("reviewed artifact statuses require at least one user decision");
-      error.code = "AI_ARTIFACT_REVIEW_DECISION_REQUIRED";
-      throw error;
-  }
-  if (reviewDecisionStatuses().has(status)) {
-    const latestStatus = latestDecisionStatus(userDecisions);
-    if (latestStatus !== status) {
-      const error = new Error(`artifact status ${status} must match latest user decision ${latestStatus || "(missing)"}`);
-      error.code = "AI_ARTIFACT_DECISION_STATUS_MISMATCH";
-      throw error;
-    }
-  }
-
   return {
     id: cleanText(input.id) || generatedId("artifact"),
     type,
@@ -112,7 +87,9 @@ export function normalizeArtifact(input = {}, context = {}) {
     },
     confidence: input.confidence || { score: null, label: "medium", reason: "" },
     privacy: input.privacy || context.privacy || { mode: "normal", cloudModelUsed: false },
-    userDecisions,
+    userDecisions: Array.isArray(input.userDecisions || input.user_decisions)
+      ? [...(input.userDecisions || input.user_decisions)]
+      : [],
     payload: input.payload || {}
   };
 }

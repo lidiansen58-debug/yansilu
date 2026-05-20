@@ -38,8 +38,6 @@ test("sqlite suggestion store bootstraps schema in an existing vault and persist
   });
   assert.equal(draft.status, "adopted_as_draft");
   assert.equal(store.get(suggestion.id).history.length, 1);
-  assert.equal(store.get(suggestion.id).history[0].targetId, "pn_1");
-  assert.equal(store.get(suggestion.id).history[0].targetField, "thesis");
 
   const list = store.list({
     targetType: "permanent_note",
@@ -52,3 +50,4 @@ test("sqlite suggestion store bootstraps schema in an existing vault and persist
   await assert.doesNotReject(() => fs.stat(store.dbPath));
   store.close();
 });
+

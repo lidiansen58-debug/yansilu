@@ -73,10 +73,6 @@ function normalizeHistory(value) {
   return Array.isArray(value) ? value.map((item) => ({ ...item })) : [];
 }
 
-function reviewedSuggestionStatuses() {
-  return new Set(["adopted_as_draft", "rejected", "edited", "confirmed"]);
-}
-
 function hasHumanConfirmation(provenance = {}) {
   return provenance.humanConfirmed === true || provenance.userConfirmed === true;
 }
@@ -126,22 +122,6 @@ export function normalizeSuggestion(input = {}, context = {}) {
   if (!scope) {
     throw createSuggestionError("suggestion scope is required", "AI_SUGGESTION_SCOPE_REQUIRED");
   }
-  const history = normalizeHistory(input.history || input.transitions);
-  if (reviewedSuggestionStatuses().has(status) && history.length === 0) {
-    throw createSuggestionError(
-      "reviewed suggestion statuses require review history",
-      "AI_SUGGESTION_HISTORY_REQUIRED"
-    );
-  }
-  if (history.length) {
-    const lastStatus = cleanText(history[history.length - 1]?.toStatus || history[history.length - 1]?.to_status);
-    if (lastStatus && lastStatus !== status) {
-      throw createSuggestionError(
-        `suggestion status ${status} must match the latest review history status ${lastStatus}`,
-        "AI_SUGGESTION_HISTORY_STATUS_MISMATCH"
-      );
-    }
-  }
 
   return {
     id: cleanText(input.id) || generatedId("suggestion"),
@@ -155,7 +135,7 @@ export function normalizeSuggestion(input = {}, context = {}) {
     model: input.model || context.model || null,
     sourceArtifactId: cleanText(input.sourceArtifactId || input.source_artifact_id || context.sourceArtifactId || context.source_artifact_id),
     provenance: normalizeProvenance(input, status),
-    history
+    history: normalizeHistory(input.history || input.transitions)
   };
 }
 
@@ -202,32 +182,18 @@ export function transitionSuggestionStatus(suggestion = {}, toStatus, input = {}
     ? normalizeContent(input.content)
     : current.content;
   const actor = cleanText(input.actor || input.actorType || input.actor_type) || (isUserConfirmation(input) ? "user" : "system");
-  const allowTargetRetarget = input.allowTargetRetarget === true || input.allow_target_retarget === true;
-  const nextTargetId = allowTargetRetarget
-    ? cleanText(input.targetId || input.target_id || input.noteId || input.note_id || current.target?.id)
-    : cleanText(current.target?.id);
-  const nextTargetField = allowTargetRetarget
-    ? cleanText(input.targetField || input.target_field || current.target?.field)
-    : cleanText(current.target?.field);
   const transition = {
     fromStatus,
     toStatus: normalizedToStatus,
     action: cleanText(input.action || input.decision),
     actor,
     userId: cleanText(input.userId || input.user_id),
-    targetId: nextTargetId,
-    targetField: nextTargetField,
     comment: cleanText(input.comment),
     createdAt: now
   };
 
   return {
     ...current,
-    target: {
-      ...(current.target || {}),
-      id: nextTargetId,
-      ...(nextTargetField ? { field: nextTargetField } : {})
-    },
     content: nextContent,
     status: normalizedToStatus,
     updatedAt: now,

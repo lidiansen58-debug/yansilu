@@ -145,6 +145,7 @@ function renderContentEditor(item = {}) {
 }
 
 function renderDetail(state = {}) {
+  if (state.detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
   const selectedSuggestionId = String(state.selectedSuggestionId || "").trim();
   const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
   const detailMatchesSelection = String(state.detail?.id || "").trim() && String(state.detail?.id || "").trim() === selectedSuggestionId;

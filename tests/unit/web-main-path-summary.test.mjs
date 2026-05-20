@@ -67,3 +67,30 @@ test("main-path summary reuses writing readiness hint after note is connected", 
   assert.equal(result.nextStep, "可创建写作项目");
   assert.match(result.summary, /补更多主题线索后再做强模型分析/);
 });
+
+test("main-path card relation badge counts only explicit relations", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    {
+      id: "pn_1",
+      noteType: "permanent",
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in this constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 0,
+      wikilinkCount: 1,
+      tagRelatedCount: 0,
+      themeSignalCount: 1
+    }
+  );
+
+  assert.match(html, /关系 0/);
+  assert.match(html, /wikilink 1/);
+});

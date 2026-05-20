@@ -244,7 +244,6 @@ test("AI inbox panel advances suggestion review actions from edited to confirmed
   assert.match(html, /Confirm/);
   assert.match(html, /Reviewed content/);
 });
-
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
   const html = renderAiInboxPanel({
     items: [item],

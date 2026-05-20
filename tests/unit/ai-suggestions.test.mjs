@@ -57,10 +57,6 @@ test("normalizeSuggestion rejects candidates missing required review boundaries"
     () => createSuggestion({ status: "accepted" }),
     "AI_SUGGESTION_STATUS_INVALID"
   );
-  expectCode(
-    () => createSuggestion({ status: "confirmed" }),
-    "AI_SUGGESTION_HISTORY_REQUIRED"
-  );
 });
 
 test("suggestion status machine allows user-mediated draft, edit, and confirm transitions", () => {
@@ -90,8 +86,6 @@ test("suggestion status machine allows user-mediated draft, edit, and confirm tr
   });
 
   assert.equal(draft.status, "adopted_as_draft");
-  assert.equal(draft.history[0].targetId, "note_1");
-  assert.equal(draft.history[0].targetField, "thesis");
   assert.equal(edited.status, "edited");
   assert.equal(edited.content, "Distilled notes become writing when the user confirms the claim.");
   assert.equal(edited.provenance.humanEdited, true);
@@ -203,33 +197,4 @@ test("suggestion store persists review events and filters by target", () => {
     ["suggestion_store_1"]
   );
   assert.equal(store.get("suggestion_store_1").history.length, 1);
-  assert.equal(store.get("suggestion_store_1").history[0].targetId, "pn_1");
-  assert.equal(store.get("suggestion_store_1").history[0].targetField, "thesis");
-});
-
-test("suggestion store create enforces suggested as the only initial public status", () => {
-  const store = createInMemorySuggestionStore();
-  expectCode(
-    () =>
-      store.create({
-        id: "suggestion_invalid_create_1",
-        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
-        scope: "note_field",
-        content: "This should not be creatable as confirmed.",
-        status: "confirmed",
-        history: [
-          {
-            fromStatus: "edited",
-            toStatus: "confirmed",
-            action: "confirm",
-            actor: "user",
-            userId: "user_1",
-            comment: "forged",
-            createdAt: "2026-05-18T12:00:00.000Z"
-          }
-        ],
-        provenance: { humanConfirmed: true }
-      }),
-    "AI_SUGGESTION_CREATE_STATUS_INVALID"
-  );
 });

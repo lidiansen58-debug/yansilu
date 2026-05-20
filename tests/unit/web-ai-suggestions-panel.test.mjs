@@ -77,6 +77,20 @@ test("AI suggestions panel does not keep rendering stale detail when selection h
   assert.match(detailPane, /permanent_note \/ pn_b \/ thesis/);
 });
 
+test("AI suggestions panel renders a loading placeholder while the selected detail is hydrating", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_loading", status: "adopted_as_draft" }],
+    total: 1,
+    selectedSuggestionId: "suggestion_loading",
+    detail: null,
+    detailLoading: true
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.match(detailPane, /Loading suggestion detail/);
+  assert.doesNotMatch(detailPane, /id="aiSuggestionContentEditor"/);
+});
+
 test("AI suggestions panel renders loading and empty states", () => {
   assert.match(renderAiSuggestionsPanel({ loading: true }), /Loading AI suggestions/);
   assert.match(renderAiSuggestionsPanel({ items: [], total: 0 }), /No AI suggestions match these filters/);

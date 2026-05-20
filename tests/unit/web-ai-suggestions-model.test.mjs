@@ -34,8 +34,6 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
         action: "adopt_as_draft",
         actor: "user",
         user_id: "user_1",
-        target_id: "pn_1",
-        target_field: "thesis",
         comment: "keep as draft",
         created_at: "2026-05-18T12:02:00.000Z"
       }
@@ -51,8 +49,6 @@ test("AI suggestions model hydrates runtime suggestions from canonical payloads"
   assert.equal(suggestion.provenance.humanEdited, true);
   assert.equal(suggestion.history[0].toStatus, "adopted_as_draft");
   assert.equal(suggestion.history[0].userId, "user_1");
-  assert.equal(suggestion.history[0].targetId, "pn_1");
-  assert.equal(suggestion.history[0].targetField, "thesis");
 });
 
 test("AI suggestions model only exposes confirm after the edited step", () => {
