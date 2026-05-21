@@ -10,6 +10,7 @@ import {
   describeWritingStrongModelIdleSummary,
   describeWritingStrongModelStatus,
   describeWritingBatchAppendStatus,
+  planWritingCandidateFocus,
   describeWritingProjectEntryState,
   describeWritingProjectPreflight,
   describeWritingProjectStepState,
@@ -475,4 +476,29 @@ test("writing center project entry only opens creation once basket readiness rea
   assert.equal(blocked.canCreateProject, false);
   assert.equal(blocked.actionLabel, "先补条件再建项目");
   assert.match(blocked.hint, /边界|关系/);
+});
+test("writing candidate focus prefers the current graph slice when focused ids are present", () => {
+  const plan = planWritingCandidateFocus({
+    candidateNoteIds: ["n-dir-1", "n-graph-1", "n-dir-2", "n-graph-2"],
+    focusedNoteIds: ["n-graph-2", "n-missing", "n-graph-1"],
+    focusedScopeLabel: "当前图谱切片"
+  });
+
+  assert.deepEqual(plan.noteIds, ["n-graph-2", "n-graph-1"]);
+  assert.equal(plan.usingFocusedScope, true);
+  assert.equal(plan.scopeLabel, "当前图谱切片");
+  assert.equal(plan.addActionLabel, "把当前图谱切片加入写作篮");
+});
+
+test("writing candidate focus falls back to current directory when no graph slice is focused", () => {
+  const plan = planWritingCandidateFocus({
+    candidateNoteIds: ["n-dir-1", "n-dir-2"],
+    focusedNoteIds: [],
+    focusedScopeLabel: "当前图谱切片"
+  });
+
+  assert.deepEqual(plan.noteIds, ["n-dir-1", "n-dir-2"]);
+  assert.equal(plan.usingFocusedScope, false);
+  assert.equal(plan.scopeLabel, "当前目录观点");
+  assert.equal(plan.addActionLabel, "把当前目录观点加入写作篮");
 });
