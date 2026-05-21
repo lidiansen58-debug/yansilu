@@ -75,6 +75,9 @@ Run dev with that worktree env:
 - `npm run wt:run -- -Target all`
 - or `npm run wt:run -- -Target api`
 
+Prepare worktree dependencies by linking the primary checkout `node_modules`:
+- `npm run wt:deps`
+
 Remove a worktree:
 - `npm run wt:remove -- -Target feat-fleeting-note -Prune`
 
@@ -89,3 +92,8 @@ Direct script usage (PowerShell):
 - prefers `origin/<base>` when available, so new worktrees start closer to the latest remote baseline
 - writes a local `WORKTREE.md` manifest with theme, lifecycle, sync rules, and suggested checks
 - supports `-Theme` and `-Lifecycle` to make scope explicit at creation time
+
+If browser e2e is required in a worktree:
+- run `npm run wt:deps` first when the worktree does not have its own `node_modules`
+- then run `npx.cmd playwright --version` to confirm Playwright resolves from the linked dependency tree
+- Chromium still uses the normal Playwright browser cache on the machine

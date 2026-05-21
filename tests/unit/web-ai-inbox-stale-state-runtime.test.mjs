@@ -368,6 +368,78 @@ test("refreshAiInbox invalidates stale detail state when the selected artifact m
   assert.equal(aiInboxState.aiSummaryError, "");
 });
 
+test("refreshAiInbox realigns selection even when preserveDetail was requested but the current artifact left the filtered list", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "refreshAiInbox");
+
+  const aiInboxState = {
+    filters: { view: "reviewed", type: "all" },
+    items: [{ artifactId: "artifact_1", title: "Old reviewed selection" }],
+    counts: {},
+    views: [],
+    loading: false,
+    error: "",
+    selectedArtifactId: "artifact_1",
+    detail: { item: { artifactId: "artifact_1", title: "Old reviewed detail" } },
+    detailLoading: false,
+    detailError: "stale detail error",
+    actionError: "stale action error",
+    detailRequestToken: 10,
+    aiSummary: "stale summary",
+    aiSummaryMeta: "stale meta",
+    aiSummaryRecommendedAction: "ignore",
+    aiSummaryError: "stale summary error"
+  };
+
+  const refreshAiInbox = new Function(
+    "aiInboxState",
+    "normalizeAiInboxFilters",
+    "fetchAiInbox",
+    "aiInboxItemFromCanonical",
+    "rememberAiDebugSnapshot",
+    "resetAiInboxSummaryState",
+    "renderAiInboxWorkspace",
+    "setStatus",
+    `${fnSource}; return refreshAiInbox;`
+  )(
+    aiInboxState,
+    (filters) => filters,
+    async () => ({
+      items: [{ artifactId: "artifact_2", title: "Remaining reviewed item" }],
+      counts: { pending: 0, reviewed: 1, archived: 0, all: 1 },
+      views: ["reviewed"],
+      canonical: {
+        items: [{ artifact_id: "artifact_2", title: "Remaining reviewed item" }]
+      }
+    }),
+    (item) => ({ artifactId: item.artifact_id, title: item.title }),
+    () => {},
+    () => {
+      aiInboxState.aiSummary = "";
+      aiInboxState.aiSummaryMeta = "";
+      aiInboxState.aiSummaryRecommendedAction = "";
+      aiInboxState.aiSummaryError = "";
+    },
+    () => {},
+    () => {}
+  );
+
+  await refreshAiInbox({ silent: true, preserveDetail: true });
+
+  assert.equal(aiInboxState.selectedArtifactId, "artifact_2");
+  assert.equal(aiInboxState.detail, null);
+  assert.equal(aiInboxState.detailLoading, false);
+  assert.equal(aiInboxState.detailRequestToken, 11);
+  assert.equal(aiInboxState.detailError, "");
+  assert.equal(aiInboxState.actionError, "");
+  assert.equal(aiInboxState.aiSummary, "");
+  assert.equal(aiInboxState.aiSummaryMeta, "");
+  assert.equal(aiInboxState.aiSummaryRecommendedAction, "");
+  assert.equal(aiInboxState.aiSummaryError, "");
+});
+
 test("recordAiInboxReviewDecision stores action failures separately from detail state", async () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
@@ -388,6 +460,7 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
     "recordAiInboxDecision",
     "aiInboxFeedbackFromUi",
     "aiInboxDetailFromResponse",
+    "loadAiInboxDetail",
     "rememberAiDebugSnapshot",
     "refreshAiInbox",
     "refreshAiInboxEvaluationSummary",
@@ -403,6 +476,7 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
     },
     () => ({}),
     (response) => response,
+    async () => true,
     () => {},
     async () => {},
     async () => {},
@@ -415,6 +489,70 @@ test("recordAiInboxReviewDecision stores action failures separately from detail 
   assert.equal(result, null);
   assert.equal(aiInboxState.actionError, "decision boom");
   assert.equal(aiInboxState.detailError, "old detail error");
+  assert.equal(aiInboxState.actionLoading, false);
+});
+
+test("recordAiInboxReviewDecision clears stale detail when refresh removes the artifact from the current inbox view", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
+
+  const refreshCalls = [];
+  const loadCalls = [];
+  const aiInboxState = {
+    selectedArtifactId: "artifact_1",
+    detail: { item: { artifactId: "artifact_1", title: "Old reviewed detail" } },
+    actionLoading: false,
+    actionError: "",
+    detailError: "stale detail error",
+    detailLoading: true
+  };
+
+  const recordDecision = new Function(
+    "$",
+    "aiInboxState",
+    "recordAiInboxDecision",
+    "aiInboxFeedbackFromUi",
+    "aiInboxDetailFromResponse",
+    "loadAiInboxDetail",
+    "rememberAiDebugSnapshot",
+    "refreshAiInbox",
+    "refreshAiInboxEvaluationSummary",
+    "aiInboxActionLabel",
+    "setStatus",
+    "renderAiInboxWorkspace",
+    `${fnSource}; return recordAiInboxReviewDecision;`
+  )(
+    () => ({ value: "" }),
+    aiInboxState,
+    async () => ({ item: { artifactId: "artifact_1", title: "Archived action result" } }),
+    () => ({}),
+    (response) => response,
+    async (artifactId) => {
+      loadCalls.push(artifactId);
+      return null;
+    },
+    () => {},
+    async (options) => {
+      refreshCalls.push(options);
+      aiInboxState.selectedArtifactId = "";
+      return true;
+    },
+    async () => true,
+    () => "archived",
+    () => {},
+    () => {}
+  );
+
+  const result = await recordDecision("archived");
+  assert.equal(result.item.artifactId, "artifact_1");
+  assert.deepEqual(refreshCalls, [{ silent: true, preserveDetail: true }]);
+  assert.deepEqual(loadCalls, []);
+  assert.equal(aiInboxState.selectedArtifactId, "");
+  assert.equal(aiInboxState.detail, null);
+  assert.equal(aiInboxState.detailLoading, false);
+  assert.equal(aiInboxState.detailError, "");
   assert.equal(aiInboxState.actionLoading, false);
 });
 
@@ -439,6 +577,7 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
     "recordAiInboxDecision",
     "aiInboxFeedbackFromUi",
     "aiInboxDetailFromResponse",
+    "loadAiInboxDetail",
     "rememberAiDebugSnapshot",
     "refreshAiInbox",
     "refreshAiInboxEvaluationSummary",
@@ -456,6 +595,7 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
     },
     () => ({}),
     (response) => response,
+    async () => true,
     () => {},
     async (options) => {
       refreshCalls.push(options);

@@ -62,9 +62,11 @@ Otherwise, review in the development worktree.
 - If browser validation is required in a worktree, check:
 
 ```powershell
-npm.cmd install
+npm.cmd run wt:deps
 npx.cmd playwright --version
 ```
+
+- `wt:deps` links the current worktree `node_modules` to the primary checkout dependency tree, which is usually enough for local browser E2E when the machine already has Playwright and Chromium installed.
 
 - If the worktree is only for code review and merge validation, prefer diff review and targeted unit/integration tests unless browser E2E is required.
 
