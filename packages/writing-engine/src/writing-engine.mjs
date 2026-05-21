@@ -1,4 +1,4 @@
-import path from "node:path";
+﻿import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "../../domain/src/sqlite-migrations.mjs";
 import { collectDistillationQualityWarnings } from "../../domain/src/distillation-quality.mjs";
@@ -317,39 +317,59 @@ export async function createWritingProject(vaultPath, input = {}) {
 
 function purposeFromNote(note) {
   const excerpt = noteExcerpt(note);
-  return excerpt ? `Use this note to support the claim: ${excerpt}` : "Use this note as evidence for the argument.";
+  return excerpt ? `用这条笔记支撑这个判断：${excerpt}` : "用这条笔记为论证提供证据。";
 }
 
 function noteLabel(note) {
   return cleanText(note?.title) || cleanText(note?.id) || "this note";
 }
 
+function renderWritingMarkdownField(field = "") {
+  const normalized = cleanText(field).toLowerCase();
+  const labels = {
+    intent: "写作意图",
+    desired_reader_takeaway: "读者收获"
+  };
+  return labels[normalized] || cleanText(field) || "字段";
+}
+
+function renderWritingMarkdownStatus(status = "") {
+  const normalized = cleanText(status).toLowerCase();
+  const labels = {
+    needs_clarification: "待澄清",
+    needs_attention: "仍有提醒",
+    has_gaps: "仍有缺口",
+    ready: "已就绪"
+  };
+  return labels[normalized] || cleanText(status) || "未知";
+}
+
 function gapPromptFromNote(note) {
-  return `What evidence, example, or transition is still missing before "${noteLabel(note)}" can carry a full paragraph?`;
+  return `在「${noteLabel(note)}」能独立撑起一整段之前，还缺哪条证据、例子或过渡？`;
 }
 
 function counterpointPromptFromNote(note) {
   const boundary = boundarySummary(note);
   return boundary
-    ? `Address this counterpoint or boundary in "${noteLabel(note)}": ${boundary}`
-    : `What counterpoint, limit, or exception should "${noteLabel(note)}" acknowledge?`;
+    ? `在「${noteLabel(note)}」这一段里，要正面处理哪条反方或边界：${boundary}`
+    : `「${noteLabel(note)}」这一段还应该补出哪条反方、限制或例外？`;
 }
 
 function conceptShiftPromptFromBasket(basketNotes) {
   const titledNotes = basketNotes.map((note) => noteLabel(note)).slice(0, 3);
-  if (!titledNotes.length) return "Where do similar concepts in this basket need sharper separation?";
-  return `Where do apparently similar concepts around ${titledNotes.join(", ")} need sharper separation?`;
+  if (!titledNotes.length) return "这组写作篮里有哪些相近概念还需要进一步区分？";
+  return `围绕 ${titledNotes.join(", ")} 的相近概念，哪些地方还需要进一步区分？`;
 }
 
 function scaffoldOpenQuestionsFromBasket(basketNotes) {
   const questions = [
-    "What evidence is missing?",
-    "What counterpoint should be handled before drafting?",
+    "还缺哪部分证据？",
+    "正式起草前还要处理哪条反方？",
     conceptShiftPromptFromBasket(basketNotes)
   ];
   const noteWithBoundary = basketNotes.find((note) => boundarySummary(note));
   if (noteWithBoundary) {
-    questions.push(`Which boundary matters most for the overall argument: ${noteLabel(noteWithBoundary)}?`);
+    questions.push(`对整体论证来说，${noteLabel(noteWithBoundary)} 的哪条边界最关键？`);
   }
   return questions;
 }
@@ -390,38 +410,38 @@ function buildScaffoldPreflight(project, basketNotes) {
   const checks = [
     preflightCheck(
       "basket_size",
-      "Permanent-note basket",
+      "永久笔记篮",
       basketCount >= 2 ? "pass" : "warning",
       basketCount >= 2
-        ? `${basketCount} permanent notes are ready to be organized into a scaffold.`
-        : "Add at least two permanent notes before treating this as a real argument.",
+        ? `${basketCount} 条永久笔记已经可以组织成草稿骨架。`
+        : "至少先放入两条永久笔记，再把这次组织当成一条真正的论证。",
       { count: basketCount, targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
       "writing_intent",
-      "Writing intent",
+      "写作意图",
       cleanText(project.intent) ? "pass" : "warning",
       cleanText(project.intent)
-        ? "The project has a clear writing intent."
-        : "Clarify what this piece is trying to explain before trusting the scaffold.",
+        ? "项目已经有清晰的写作意图。"
+        : "先说清这篇内容到底要解释什么，再继续推进草稿骨架。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
       "reader_takeaway",
-      "Reader takeaway",
+      "读者收获",
       cleanText(project.desired_reader_takeaway) ? "pass" : "warning",
       cleanText(project.desired_reader_takeaway)
-        ? "The desired reader takeaway is explicit."
-        : "Add the reader takeaway so the scaffold has a target judgment.",
+        ? "读者最后应带走的判断已经明确。"
+        : "补上读者应该带走的判断，让草稿骨架有明确目标。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
       "confirmed_distillation",
-      "Confirmed distillation",
+      "已确认提纯",
       confirmedNotes.length === basketCount && basketCount > 0 ? "pass" : "warning",
       confirmedNotes.length === basketCount && basketCount > 0
-        ? "Every basket note has confirmed thesis and three-line distillation."
-        : `${Math.max(0, basketCount - confirmedNotes.length)} basket notes still need confirmed thesis and three-line distillation.`,
+        ? "写作篮里的每条笔记都已经完成一句话判断与三句话提纯确认。"
+        : `还有 ${Math.max(0, basketCount - confirmedNotes.length)} 条写作篮笔记需要补齐一句话判断与三句话提纯确认。`,
       {
         count: confirmedNotes.length,
         total: basketCount,
@@ -432,11 +452,11 @@ function buildScaffoldPreflight(project, basketNotes) {
     ),
     preflightCheck(
       "distillation_quality",
-      "Distillation quality",
+      "提纯质量",
       distillationQualityWarnings.length ? "warning" : "pass",
       distillationQualityWarnings.length
-        ? `${affectedQualityNotes.length} basket notes still look rough. ${qualitySample}`
-        : "Basket notes do not show obvious short, repetitive, or boundary-missing distillation issues.",
+        ? `${affectedQualityNotes.length} 条写作篮笔记的提纯还比较粗糙。${qualitySample}`
+        : "写作篮笔记里没有明显的提纯过短、重复或缺边界问题。",
       {
         count: distillationQualityWarnings.length,
         targetNoteIds: affectedQualityNotes,
@@ -445,20 +465,20 @@ function buildScaffoldPreflight(project, basketNotes) {
     ),
     preflightCheck(
       "topic_entry",
-      "Theme entry",
+      "主题入口",
       Array.isArray(project.related_index_ids) && project.related_index_ids.length ? "pass" : "warning",
       Array.isArray(project.related_index_ids) && project.related_index_ids.length
-        ? "The project is tied to a theme/index entry."
-        : "Link a theme/index card so this scaffold has a reusable question context.",
+        ? "这个项目已经挂到主题或索引入口上。"
+        : "补一张主题或索引卡，让草稿骨架有可复用的问题上下文。",
       { targetType: "writing_project", targetId: project.id }
     ),
     preflightCheck(
       "counterpoint_boundary",
-      "Counterpoint boundary",
+      "反方与边界",
       notesWithBoundary.length ? "pass" : "warning",
       notesWithBoundary.length
-        ? `${notesWithBoundary.length} basket notes carry boundaries or counterpoints.`
-        : "Add at least one boundary or counterpoint before drafting, or the argument may become too smooth.",
+        ? `${notesWithBoundary.length} 条写作篮笔记已经带有反方或边界。`
+        : "正式起草前，至少先补一条反方或边界，不然论证会太顺。",
       { count: notesWithBoundary.length, targetNoteIds: notesWithBoundary.map((note) => note.id) }
     )
   ];
@@ -475,14 +495,14 @@ function buildSections(project, basketNotes) {
   const noteWithBoundary = basketNotes.find((note) => boundarySummary(note));
   const sections = [
     {
-      heading: "Opening frame",
-      purpose: project.goal || `Introduce ${project.title}.`,
+      heading: "开篇框架",
+      purpose: project.goal || `介绍 ${project.title}。`,
       evidence_note_ids: basketNotes.slice(0, 1).map((note) => note.id),
-      gaps: ["Need a sharper opening tension, scene, or question before drafting prose."],
-      counterpoints: ["What reader assumption or opposing frame should the opening acknowledge?"],
+      gaps: ["正式起草前，还需要更鲜明的开场张力、场景或问题。"],
+      counterpoints: ["开头应该先承认哪种读者预设或对立框架？"],
       open_questions: [
-        "What tension or question makes this piece necessary?",
-        ...(noteWithBoundary ? [`Which disagreement or limit from "${noteLabel(noteWithBoundary)}" should surface early?`] : [])
+        "是什么张力或问题让这篇内容有必要存在？",
+        ...(noteWithBoundary ? [`应该尽早亮出来自「${noteLabel(noteWithBoundary)}」的哪条分歧、反例或边界？`] : [])
       ],
       order: 1
     }
@@ -496,20 +516,20 @@ function buildSections(project, basketNotes) {
       gaps: [gapPromptFromNote(note)],
       counterpoints: [counterpointPromptFromNote(note)],
       open_questions: [
-        "How does this note connect to the broader line of argument instead of standing alone?",
-        "Which boundary, counterexample, or opposing use-case should this section make explicit?"
+        "这条笔记怎样接进更大的论证，而不只是单独站着？",
+        "这一段应该明确亮出哪条边界、反例或对立用例？"
       ],
       order: index + 2
     });
   });
 
   sections.push({
-    heading: "Synthesis and next step",
-    purpose: "Connect the selected notes into a final implication without drafting the full article.",
+    heading: "综合与下一步",
+    purpose: "把选中的笔记串成一个最终含义，但先不展开成完整文章。",
     evidence_note_ids: basketNotes.map((note) => note.id),
-    gaps: ["What connective move is still missing to turn the selected notes into one argument?"],
-    counterpoints: ["Which tension between the selected notes should be made explicit instead of smoothed over?"],
-    open_questions: ["Which claim still needs stronger evidence before drafting?"],
+    gaps: ["还缺哪一步连接动作，才能把选中的笔记串成一个完整论证？"],
+    counterpoints: ["这组笔记之间的哪条张力应该被明确说出来，而不是被抹平？"],
+    open_questions: ["正式起草前，哪条判断还需要更强的证据？"],
     order: sections.length + 1
   });
 
@@ -525,69 +545,69 @@ function renderMarkdown(project, scaffold, basketNotes, options = {}) {
   const lines = [
     `# ${project.title}`,
     "",
-    "## Writing Brief",
-    `- Goal: ${project.goal || "TBD"}`,
-    `- Audience: ${project.audience || "TBD"}`,
-    `- Tone: ${project.tone || "TBD"}`,
-    `- Intent: ${project.intent || "TBD"}`,
-    `- Reader takeaway: ${project.desired_reader_takeaway || "TBD"}`,
+    "## 写作简述",
+    `- 目标: ${project.goal || "待补充"}`,
+    `- 读者: ${project.audience || "待补充"}`,
+    `- 语气: ${project.tone || "待补充"}`,
+    `- 意图: ${project.intent || "待补充"}`,
+    `- 读者收获: ${project.desired_reader_takeaway || "待补充"}`,
     "",
-    "## Readiness Check",
-    `- Status: ${readiness.status}`,
+    "## 就绪检查",
+    `- 状态: ${renderWritingMarkdownStatus(readiness.status)}`,
     ...(
       readiness.checks.length
-        ? readiness.checks.map((item) => `- ${item.field}: ${item.message}`)
-        : ["- No blocking gaps detected for scaffold generation."]
+        ? readiness.checks.map((item) => `- ${renderWritingMarkdownField(item.field)}: ${item.message}`)
+        : ["- 当前没有阻塞项，可以继续生成草稿骨架。"]
     ),
     "",
-    "## Draft Scaffold"
+    "## 草稿骨架"
   ];
 
   if (preflight?.checks?.length) {
     lines.push(
-      "## Scaffold Readiness Check",
-      `- Status: ${preflight.status}`,
-      `- Passing checks: ${preflight.passCount}/${preflight.checks.length}`,
-      `- Warnings: ${preflight.warningCount}`,
+      "## 草稿骨架预检",
+      `- 状态: ${renderWritingMarkdownStatus(preflight.status)}`,
+      `- 通过项: ${preflight.passCount}/${preflight.checks.length}`,
+      `- 提醒项: ${preflight.warningCount}`,
       ""
     );
     for (const check of preflight.checks) {
-      lines.push(`- ${check.status === "pass" ? "PASS" : "WARN"} ${check.label}: ${check.message}`);
+      lines.push(`- ${check.status === "pass" ? "通过" : "提醒"} ${check.label}: ${check.message}`);
     }
     lines.push("");
   }
 
-  lines.push("## Draft Scaffold");
+  lines.push("## 草稿骨架");
 
   for (const section of scaffold.sections) {
     lines.push("", `### ${section.order}. ${section.heading}`, "", section.purpose || "");
     if (section.evidence_note_ids?.length) {
-      lines.push("", "Evidence:");
+      lines.push("", "证据:");
       for (const noteId of section.evidence_note_ids) {
         const note = noteById.get(noteId);
         lines.push(`- ${note?.title || noteId} (${noteId})`);
       }
     }
     if (section.gaps?.length) {
-      lines.push("", "Gaps:");
+      lines.push("", "待补缺口:");
       for (const gap of section.gaps) lines.push(`- ${gap}`);
     }
     if (section.counterpoints?.length) {
-      lines.push("", "Counterpoints:");
+      lines.push("", "反方与边界:");
       for (const counterpoint of section.counterpoints) lines.push(`- ${counterpoint}`);
     }
     if (section.open_questions?.length) {
-      lines.push("", "Open questions:");
+      lines.push("", "待回答问题:");
       for (const question of section.open_questions) lines.push(`- ${question}`);
     }
   }
 
   if (scaffold.open_questions?.length) {
-    lines.push("", "## Draft-level tensions", "");
+    lines.push("", "## 待处理的反方与漏洞", "");
     for (const question of scaffold.open_questions) lines.push(`- ${question}`);
   }
 
-  lines.push("", "## Paragraph-Evidence Map", "", "| Section | Evidence notes | Gaps | Counterpoints | Open questions |", "|---|---|---|---|---|");
+  lines.push("", "## 段落-证据对照表", "", "| 章节 | 证据笔记 | 缺口 | 反方与边界 | 待回答问题 |", "|---|---|---|---|---|");
   for (const section of scaffold.sections) {
     const evidence = (section.evidence_note_ids || [])
       .map((noteId) => noteById.get(noteId)?.title || noteId)
@@ -595,12 +615,11 @@ function renderMarkdown(project, scaffold, basketNotes, options = {}) {
     const gaps = (section.gaps || []).join(" / ");
     const counterpoints = (section.counterpoints || []).join(" / ");
     const questions = (section.open_questions || []).join(" / ");
-    lines.push(`| ${section.heading} | ${evidence || "TBD"} | ${gaps || "TBD"} | ${counterpoints || "TBD"} | ${questions || "TBD"} |`);
+    lines.push(`| ${section.heading} | ${evidence || "待补充"} | ${gaps || "待补充"} | ${counterpoints || "待补充"} | ${questions || "待补充"} |`);
   }
 
   return `${lines.join("\n")}\n`;
 }
-
 export async function createDraftScaffold(vaultPath, input = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const project = await loadProject(vaultPath, input.writingProjectId || input.writing_project_id);

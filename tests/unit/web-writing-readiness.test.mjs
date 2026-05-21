@@ -63,7 +63,7 @@ test("writing readiness upgrades to project-ready once boundary and relation exi
   );
 
   assert.equal(readiness.level, "project_ready");
-  assert.match(readiness.status, /创建写作项目/);
+  assert.match(readiness.status, /先创建项目/);
 });
 
 test("writing readiness upgrades to strong-model-ready once theme signals are richer", () => {
@@ -85,5 +85,216 @@ test("writing readiness upgrades to strong-model-ready once theme signals are ri
   );
 
   assert.equal(readiness.level, "strong_model_ready");
-  assert.match(readiness.status, /强模型分析/);
+  assert.match(readiness.status, /先创建项目/);
+});
+
+test("main-path focuses boundary follow-up once a confirmed note already has an explicit relation", () => {
+  const pane = createPane();
+  const note = {
+    id: "note-boundary-gap",
+    folderId: "dir_original_default",
+    noteType: "original",
+    status: "active",
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true },
+    title: "Boundary Gap Note",
+    body: "# Gap Note\n\nA confirmed note with one explicit relation but its limiting condition is still unstated.",
+    thesis: "A structurally connected note still needs a boundary before it becomes truly writing-ready.",
+    threeLineSummary: [
+      "The judgment is already reusable.",
+      "The explicit relation means the note is no longer isolated.",
+      "What is still missing is the boundary that limits where the judgment holds."
+    ]
+  };
+  const overview = {
+    relationState: "loaded",
+    explicitRelationCount: 1,
+    wikilinkCount: 0,
+    themeSignalCount: 1
+  };
+
+  const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
+  assert.match(summary.nextStep, /边界|反例/);
+  assert.match(summary.summary, /边界|反例/);
+  assert.match(summary.summary, /写作中心/);
+
+  const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
+  assert.match(
+    html,
+    /data-note-main-route-action="distillation" data-note-main-route-focus="boundary">补边界\/反例<\/button>/
+  );
+  assert.match(html, /观点提纯<\/strong> <span>待补边界 · 当前重点<\/span>/);
+});
+
+test("main-path writing action uses project mode once a note is project-ready", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const note = {
+    id: "pn_project_ready",
+    noteType: "permanent",
+    thesis: "A stable claim.",
+    threeLineSummary: ["one", "two", "three"],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true },
+    status: "active",
+    boundaryOrCounterpoint: "Only holds in this constrained case."
+  };
+  const overview = {
+    relationState: "loaded",
+    explicitRelationCount: 1,
+    wikilinkCount: 0,
+    tagRelatedCount: 0,
+    themeSignalCount: 1
+  };
+  const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
+  assert.match(summary.nextStep, /先创建项目/);
+  assert.match(summary.summary, /先创建项目/);
+
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    note,
+    overview
+  );
+
+  assert.match(html, /data-note-main-route-action="writing"/);
+  assert.match(html, /data-note-main-route-mode="project"/);
+  assert.match(html, />创建项目<\/button>/);
+});
+
+test("main-path project-ready card aligns chip and writing-step wording to create-project", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    {
+      id: "pn_project_ready_alignment",
+      noteType: "permanent",
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in this constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 1,
+      wikilinkCount: 0,
+      tagRelatedCount: 0,
+      themeSignalCount: 1
+    }
+  ).replace(/\s+/g, " ");
+
+  assert.match(html, /<span class="inspector-chip">先创建项目<\/span>/);
+  assert.match(html, /写作中心<\/strong> <span>先创建项目 · 当前重点<\/span>/);
+  assert.match(html, /data-note-main-route-mode="project">创建项目<\/button>/);
+});
+
+test("main-path reframes strong-model-ready notes to create-project wording before project exists", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const note = {
+    id: "pn_strong_model_ready",
+    noteType: "permanent",
+    thesis: "A stable claim.",
+    threeLineSummary: ["one", "two", "three"],
+    distillationStatus: "confirmed",
+    authorship: { user_confirmed: true },
+    status: "active",
+    boundaryOrCounterpoint: "Only holds in this constrained case."
+  };
+  const overview = {
+    relationState: "loaded",
+    explicitRelationCount: 1,
+    wikilinkCount: 1,
+    tagRelatedCount: 0,
+    themeSignalCount: 3
+  };
+
+  const summary = pane.permanentNoteMainPathSummaryV2(note, overview);
+  assert.match(summary.nextStep, /先创建项目/);
+  assert.match(summary.summary, /强模型分析前|先创建项目/);
+
+  const html = pane.renderPermanentNoteMainPathSectionV2(note, overview).replace(/\s+/g, " ");
+  assert.match(html, /data-note-main-route-mode="project"/);
+  assert.match(html, /写作中心<\/strong> <span>先创建项目 · 当前重点<\/span>/);
+  assert.match(html, />创建项目<\/button>/);
+});
+
+test("main-path writing step uses requirements mode for authorship-blocked notes", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    {
+      id: "pn_blocked_authorship",
+      noteType: "permanent",
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: false },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in this constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 1,
+      wikilinkCount: 0,
+      tagRelatedCount: 0,
+      themeSignalCount: 1
+    }
+  ).replace(/\s+/g, " ");
+
+  assert.match(html, /data-note-main-route-mode="requirements"/);
+  assert.match(html, /查看写作要求/);
+});
+
+test("main-path basket-ready card labels the writing step as 可进入写作中心", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    {
+      id: "pn_basket_ready_label",
+      noteType: "permanent",
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      status: "active"
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 0,
+      wikilinkCount: 0,
+      tagRelatedCount: 0,
+      themeSignalCount: 0
+    }
+  ).replace(/\s+/g, " ");
+
+  assert.match(html, /写作中心<\/strong> <span>可进入写作中心<\/span>/);
+  assert.match(html, /加入写作篮<\/button>/);
+});
+
+test("main-path writing step uses distillation mode when the note still needs distillation", () => {
+  const pane = createPane();
+  pane.state = { notes: [] };
+  const html = pane.renderPermanentNoteMainPathSectionV2(
+    {
+      id: "pn_needs_distillation",
+      noteType: "permanent",
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "draft",
+      authorship: { user_confirmed: true },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in this constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 1,
+      wikilinkCount: 0,
+      tagRelatedCount: 0,
+      themeSignalCount: 1
+    }
+  ).replace(/\s+/g, " ");
+
+  assert.match(html, /data-note-main-route-mode="distillation"/);
+  assert.match(html, /先完成提纯/);
 });
