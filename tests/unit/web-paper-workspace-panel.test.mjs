@@ -22,6 +22,7 @@ test("renderPaperWorkspacePage exposes the four-step paper workflow", () => {
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
   assert.doesNotMatch(html, /id="confirmAuthorshipInput"[^>]*checked/);
   assert.match(html, /<option value="active" selected>/);
+  assert.match(html, /active，如果通过 originality 检查/);
 });
 
 test("renderPaperWorkspacePage restores saved translation context and unlocks the next step", () => {
