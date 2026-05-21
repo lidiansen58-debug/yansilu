@@ -99,16 +99,16 @@ export function resultTitle(stage) {
     rollback_error: "导入回滚失败",
     export_markdown: "Markdown 导出完成",
     export_error: "Markdown 导出失败",
-    writing_project: "写作项目已创建",
-    writing_project_error: "写作项目创建失败",
+    writing_project: "项目已创建",
+    writing_project_error: "项目创建失败",
     draft_scaffold: "草稿骨架已生成",
     draft_scaffold_error: "草稿骨架生成失败",
     writing_draft_note: "草稿笔记已创建",
     writing_draft_note_error: "草稿笔记创建失败",
-    writing_copy_scaffold: "Scaffold Markdown 已复制",
-    writing_copy_scaffold_error: "Scaffold 复制失败",
-    writing_export_scaffold: "Scaffold Markdown 已导出",
-    writing_export_scaffold_error: "Scaffold 导出失败"
+    writing_copy_scaffold: "草稿骨架 Markdown 已复制",
+    writing_copy_scaffold_error: "草稿骨架 Markdown 复制失败",
+    writing_export_scaffold: "草稿骨架 Markdown 已导出",
+    writing_export_scaffold_error: "草稿骨架 Markdown 导出失败"
   };
   return titles[stage] || "操作结果";
 }
@@ -181,30 +181,30 @@ export function resultMetrics(payload = {}) {
   }
 
   if (stage === "writing_project") {
-    push("写作项目", payload.writingProjectId);
+    push("项目", payload.writingProjectId);
     push("标题", payload.title);
     push("篮子笔记", Array.isArray(payload.basketNoteIds) ? payload.basketNoteIds.length : undefined);
     return metrics;
   }
 
   if (stage === "draft_scaffold") {
-    push("写作项目", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
+    push("项目", payload.writingProjectId);
+    push("鑽夌楠ㄦ灦", payload.draftScaffoldId);
     push("章节数", Array.isArray(payload.sections) ? payload.sections.length : undefined);
     return metrics;
   }
 
   if (stage === "writing_draft_note") {
-    push("写作项目", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
+    push("项目", payload.writingProjectId);
+    push("鑽夌楠ㄦ灦", payload.draftScaffoldId);
     push("笔记", payload.noteId);
     push("目录", payload.directoryId);
     return metrics;
   }
 
   if (stage === "writing_copy_scaffold" || stage === "writing_export_scaffold") {
-    push("写作项目", payload.writingProjectId);
-    push("Scaffold", payload.draftScaffoldId);
+    push("项目", payload.writingProjectId);
+    push("鑽夌楠ㄦ灦", payload.draftScaffoldId);
     push("文件", payload.fileName);
     push("字符数", payload.characters);
     return metrics;
@@ -252,8 +252,8 @@ function actionableTextForCode(code, payload = {}) {
     ORIGINALITY_WARNING: "补充引用定位或增强转述，再重新运行原创性检查。",
     ORIGINALITY_BLOCKED: "降低与文献摘录的相似度，保留证据链但重写永久笔记表述。",
     WRITING_PROJECT_INVALID: "确认标题不为空，并且篮子里只放永久笔记 ID。",
-    DRAFT_SCAFFOLD_INVALID: "先创建有效写作项目，再用返回的 writingProjectId 生成草稿骨架。",
-    WRITING_DRAFT_INVALID: "请先生成 scaffold，再保存成草稿笔记。"
+    DRAFT_SCAFFOLD_INVALID: "先创建有效项目，再用返回的 writingProjectId 生成草稿骨架。",
+    WRITING_DRAFT_INVALID: "请先生成草稿骨架，再保存成草稿笔记。"
   };
   if (map[normalized]) return map[normalized];
   if (payload.message) return `根据错误信息处理：${payload.message}`;
@@ -307,7 +307,7 @@ export function actionItems(payload = {}, warnings = []) {
     actions.push("至少加入一条永久笔记 ID；可先打开一条永久笔记后点击“加入当前笔记”。");
   }
   if (payload.stage === "writing_project_error" && /title/i.test(payload.message || "")) {
-    actions.push("补充写作项目标题后再创建。");
+    actions.push("补充项目标题后再创建。");
   }
   if (payload.stage === "writing_draft_note_error" && /scaffold/i.test(payload.message || "")) {
     actions.push("先点击“生成草稿骨架”，确认预览区已经出现章节和 Markdown。");
@@ -339,11 +339,11 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
     record: "记录已读取。你可以继续确认、回滚，或从历史里打开相关队列。",
     rollback: "回滚已完成。被系统保留的文件需要手动检查后再处理。",
     export_markdown: "导出已完成。目标目录中包含 Markdown 笔记和关联资源文件。",
-    writing_project: "写作项目已创建。下一步可以生成草稿骨架。",
+    writing_project: "项目已创建。下一步可以生成草稿骨架。",
     draft_scaffold: "草稿骨架已生成。检查结构后可以复制、导出或保存成草稿笔记。",
     writing_draft_note: "草稿笔记已创建。可以回到编辑器继续手写修改。",
-    writing_copy_scaffold: "Scaffold Markdown 已复制，可以粘贴到你的写作环境。",
-    writing_export_scaffold: "Scaffold Markdown 已导出，可以在目标位置继续整理。"
+    writing_copy_scaffold: "草稿骨架 Markdown 已复制，可以粘贴到你的写作环境。",
+    writing_export_scaffold: "草稿骨架 Markdown 已导出，可以在目标位置继续整理。"
   };
   return briefs[stage] || "操作已完成。可以查看下方结果，按需继续下一步。";
 }

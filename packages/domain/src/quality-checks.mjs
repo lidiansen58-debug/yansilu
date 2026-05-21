@@ -95,14 +95,14 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
     checks.push(check("missing_basket_notes", "basket_note_ids", "Add at least one permanent note before building a scaffold.", "next"));
   }
   if (!intent) {
-    checks.push(check("missing_intent", "intent", "Clarify what this writing project is trying to say.", "next"));
+    checks.push(check("missing_intent", "intent", "先说清这个项目到底想表达什么。", "next"));
   }
   if (!desiredReaderTakeaway) {
     checks.push(
       check(
         "missing_desired_reader_takeaway",
         "desired_reader_takeaway",
-        "Write the judgment the reader should take away."
+        "写下读者最后应该带走的判断。"
       )
     );
   }
@@ -113,7 +113,7 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
       check(
         "basket_notes_missing_thesis",
         "basket_note_ids",
-        `${notesWithoutThesis.length} basket note(s) still need a thesis.`
+        `${notesWithoutThesis.length} 条写作篮笔记还需要补一句话判断。`
       )
     );
   }
@@ -124,13 +124,13 @@ export function analyzeWritingProjectReadiness(project = {}, options = {}) {
       check(
         "basket_notes_missing_three_line_summary",
         "basket_note_ids",
-        `${notesWithoutSummary.length} basket note(s) still need a three-line summary.`
+        `${notesWithoutSummary.length} 条写作篮笔记还需要补齐三句话提纯。`
       )
     );
   }
 
   if (indexCards.length && !indexCards.some((item) => cleanText(item.centralQuestion || item.central_question))) {
-    checks.push(check("missing_central_question", "related_index_ids", "Add or choose a topic with a central question."));
+    checks.push(check("missing_central_question", "related_index_ids", "补一张带中心问题的主题卡，或改用已经写出中心问题的主题。"));
   }
 
   return {
