@@ -14,6 +14,7 @@ export * from "./context-pack.mjs";
 export * from "./context-pack-store.mjs";
 export * from "./core-note-tools.mjs";
 export * from "./harness.mjs";
+export * from "./inbox-review-actions.mjs";
 export * from "./mock-provider-adapter.mjs";
 export * from "./note-analysis.mjs";
 export * from "./model-pack-config-contract.mjs";
