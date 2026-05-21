@@ -138,6 +138,25 @@ test("AI inbox and scheduled task APIs expose optional canonical payloads", asyn
     assert.equal(accepted.json.canonical.latestDecision.subject_kind, "artifact");
     assert.equal(accepted.json.canonical.latestDecision.metadata.from_status, "pending_review");
 
+    const acceptedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}/decision?canonical=true`, {
+      action: "accept"
+    });
+    assert.equal(acceptedAgain.status, 200, JSON.stringify(acceptedAgain.json));
+    assert.equal(acceptedAgain.json.canonical.item.artifact_id, firstRuntime.artifactId);
+    assert.equal(acceptedAgain.json.item.decisionCount, accepted.json.item.decisionCount);
+    assert.equal(acceptedAgain.json.artifact.userDecisions.length, accepted.json.artifact.userDecisions.length);
+    assert.equal(acceptedAgain.json.canonical.latestDecision.event_type, "accepted");
+    assert.equal(acceptedAgain.json.canonical.latestDecision.metadata.from_status, "pending_review");
+
+    const conflicting = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}/decision?canonical=true`, {
+      action: "archive"
+    });
+    assert.equal(conflicting.status, 409, JSON.stringify(conflicting.json));
+    assert.equal(conflicting.json.error.code, "AI_INBOX_DECISION_CONFLICT");
+    assert.equal(conflicting.json.error.details.currentStatus, "accepted");
+    assert.equal(conflicting.json.error.details.latestDecision, "accepted");
+    assert.equal(conflicting.json.error.details.requestedDecision, "archived");
+
     const detail = await getJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(firstRuntime.artifactId)}?canonical=true`);
     assert.equal(detail.status, 200, JSON.stringify(detail.json));
     assert.equal(detail.json.canonical.item.artifact_id, firstRuntime.artifactId);

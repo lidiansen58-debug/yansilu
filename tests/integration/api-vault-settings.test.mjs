@@ -541,6 +541,30 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(ignored.json.item.status, "ignored");
   assert.equal(ignored.json.latestDecision.feedback.noisy, true);
   assert.equal(ignored.json.latestDecision.feedback.alreadyKnown, true);
+  const ignoredAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {
+    action: "ignore"
+  });
+  assert.equal(ignoredAgain.status, 200, JSON.stringify(ignoredAgain.json));
+  assert.equal(ignoredAgain.json.item.status, "ignored");
+  assert.equal(ignoredAgain.json.item.decisionCount, ignored.json.item.decisionCount);
+  assert.equal(ignoredAgain.json.artifact.userDecisions.length, ignored.json.artifact.userDecisions.length);
+  const ignoredWithNewFeedback = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {
+    action: "ignore",
+    privacy_concern: true
+  });
+  assert.equal(ignoredWithNewFeedback.status, 200, JSON.stringify(ignoredWithNewFeedback.json));
+  assert.equal(ignoredWithNewFeedback.json.item.status, "ignored");
+  assert.equal(ignoredWithNewFeedback.json.item.decisionCount, ignored.json.item.decisionCount + 1);
+  assert.equal(ignoredWithNewFeedback.json.artifact.userDecisions.length, ignored.json.artifact.userDecisions.length + 1);
+  assert.equal(ignoredWithNewFeedback.json.latestDecision.feedback.privacyConcern, true);
+  const ignoredConflict = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {
+    action: "accept"
+  });
+  assert.equal(ignoredConflict.status, 409, JSON.stringify(ignoredConflict.json));
+  assert.equal(ignoredConflict.json.error.code, "AI_INBOX_DECISION_CONFLICT");
+  assert.equal(ignoredConflict.json.error.details.currentStatus, "ignored");
+  assert.equal(ignoredConflict.json.error.details.latestDecision, "ignored");
+  assert.equal(ignoredConflict.json.error.details.requestedDecision, "accepted");
 
   const dueForArchive = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/run-due", {
     now: "2026-05-11T10:30:00.000Z"
@@ -550,6 +574,11 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   const archived = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(archivedArtifactId)}/decision`, { action: "archive" });
   assert.equal(archived.status, 200, JSON.stringify(archived.json));
   assert.equal(archived.json.item.status, "archived");
+  const archivedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(archivedArtifactId)}/decision`, { action: "archive" });
+  assert.equal(archivedAgain.status, 200, JSON.stringify(archivedAgain.json));
+  assert.equal(archivedAgain.json.item.status, "archived");
+  assert.equal(archivedAgain.json.item.decisionCount, archived.json.item.decisionCount);
+  assert.equal(archivedAgain.json.artifact.userDecisions.length, archived.json.artifact.userDecisions.length);
 
   const archivedInbox = await getJson(baseUrl, "/api/v1/ai/inbox?view=archived");
   assert.equal(archivedInbox.status, 200, JSON.stringify(archivedInbox.json));
@@ -561,7 +590,7 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(evaluationSummary.json.item.artifacts.total, 3);
   assert.equal(evaluationSummary.json.item.artifacts.reviewed, 2);
   assert.equal(evaluationSummary.json.item.artifacts.archived, 1);
-  assert.equal(evaluationSummary.json.item.decisions.total, 3);
+  assert.equal(evaluationSummary.json.item.decisions.total, 4);
   assert.equal(evaluationSummary.json.item.decisions.latest.accepted, 1);
   assert.equal(evaluationSummary.json.item.decisions.latest.ignored, 1);
   assert.equal(evaluationSummary.json.item.decisions.latest.archived, 1);
@@ -571,6 +600,7 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(evaluationSummary.json.item.feedback.all.useful, 1);
   assert.equal(evaluationSummary.json.item.feedback.all.noisy, 1);
   assert.equal(evaluationSummary.json.item.feedback.all.alreadyKnown, 1);
+  assert.equal(evaluationSummary.json.item.feedback.all.privacyConcern, 1);
 });
 
 test("AI inbox accepts LinkSuggestion artifacts into explicit note relations", async (t) => {
@@ -656,6 +686,8 @@ test("AI inbox accepts LinkSuggestion artifacts into explicit note relations", a
   assert.equal(acceptedAgain.status, 200, JSON.stringify(acceptedAgain.json));
   assert.equal(acceptedAgain.json.relation.created, false);
   assert.equal(acceptedAgain.json.relation.id, accepted.json.relation.id);
+  assert.equal(acceptedAgain.json.item.decisionCount, accepted.json.item.decisionCount);
+  assert.equal(acceptedAgain.json.latestDecision.decision, "linked_to_note");
 
   const artifactStore = await createSqliteArtifactStore({ vaultPath });
   artifactStore.createArtifact({
@@ -764,9 +796,12 @@ test("AI inbox promotes QuestionCard artifacts into explicit draft notes", async
   const promotedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {
     confirm: true
   });
-  assert.equal(promotedAgain.status, 409, JSON.stringify(promotedAgain.json));
-  assert.equal(promotedAgain.json.error.code, "AI_ARTIFACT_ALREADY_PROMOTED");
-  assert.equal(promotedAgain.json.error.details.noteId, promoted.json.note.id);
+  assert.equal(promotedAgain.status, 200, JSON.stringify(promotedAgain.json));
+  assert.equal(promotedAgain.json.item.status, "promoted_to_note");
+  assert.equal(promotedAgain.json.latestDecision.decision, "promoted_to_note");
+  assert.equal(promotedAgain.json.note.id, promoted.json.note.id);
+  assert.equal(promotedAgain.json.item.decisionCount, promoted.json.item.decisionCount);
+  assert.equal(promotedAgain.json.artifact.userDecisions.length, promoted.json.artifact.userDecisions.length);
 
   const promotedReflection = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_reflection_promote/promote-note", {
     confirm: true
@@ -854,6 +889,19 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=ollama_local_gateway/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
+
+  const summarizedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
+  assert.equal(summarizedAgain.status, 200, JSON.stringify(summarizedAgain.json));
+  assert.equal(summarizedAgain.json.item.artifact.status, "revised");
+  assert.equal(summarizedAgain.json.item.inboxItem.latestDecision.decision, "revised");
+  assert.equal(
+    summarizedAgain.json.item.inboxItem.decisionCount,
+    summarized.json.item.inboxItem.decisionCount
+  );
+  assert.equal(
+    summarizedAgain.json.item.artifact.userDecisions.length,
+    summarized.json.item.artifact.userDecisions.length
+  );
 
   assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
   assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));

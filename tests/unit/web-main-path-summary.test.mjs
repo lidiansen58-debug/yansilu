@@ -19,7 +19,7 @@ test("main-path summary prefers concise thesis guidance before distillation exis
   );
 
   assert.equal(result.nextStep, "先写一句判断");
-  assert.match(result.summary, /写成一句可复用的判断/);
+  assert.match(result.summary, /可复用的判断/);
 });
 
 test("main-path summary calls for first explicit relation once note is confirmed but isolated", () => {
@@ -45,7 +45,57 @@ test("main-path summary calls for first explicit relation once note is confirmed
   assert.match(result.summary, /第一条有理由的关系/);
 });
 
-test("main-path summary reuses writing readiness hint after note is connected", () => {
+test("main-path summary distinguishes wikilink-only notes from fully isolated notes", () => {
+  const pane = createPane();
+  const result = pane.permanentNoteMainPathSummaryV2(
+    {
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in one constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 0,
+      wikilinkCount: 2,
+      tagRelatedCount: 0,
+      themeSignalCount: 2
+    }
+  );
+
+  assert.equal(result.nextStep, "补关系理由");
+  assert.match(result.summary, /wikilink/);
+  assert.match(result.summary, /显式关系/);
+});
+
+test("main-path summary distinguishes tag-only theme hints from actual network connections", () => {
+  const pane = createPane();
+  const result = pane.permanentNoteMainPathSummaryV2(
+    {
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"],
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      status: "active",
+      boundaryOrCounterpoint: "Only holds in one constrained case."
+    },
+    {
+      relationState: "loaded",
+      explicitRelationCount: 0,
+      wikilinkCount: 0,
+      tagRelatedCount: 2,
+      themeSignalCount: 2
+    }
+  );
+
+  assert.equal(result.nextStep, "别只停在标签重合");
+  assert.match(result.summary, /标签/);
+  assert.match(result.summary, /关系/);
+});
+
+test("main-path summary asks to create a project once note is project-ready", () => {
   const pane = createPane();
   const result = pane.permanentNoteMainPathSummaryV2(
     {
@@ -64,8 +114,8 @@ test("main-path summary reuses writing readiness hint after note is connected", 
     }
   );
 
-  assert.equal(result.nextStep, "可创建写作项目");
-  assert.match(result.summary, /补更多主题线索后再做强模型分析/);
+  assert.equal(result.nextStep, "先创建项目");
+  assert.match(result.summary, /先创建项目/);
 });
 
 test("main-path card relation badge counts only explicit relations", () => {

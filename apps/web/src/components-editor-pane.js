@@ -143,7 +143,7 @@ function distillationDraftFromForm(form, note = {}) {
 function renderDistillationQualityContent(note = {}) {
   const warnings = collectDistillationWarnings(note);
   if (!warnings.length) {
-    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作准备。</div>`;
+    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作中心。</div>`;
   }
   return `
     <div class="related-empty bad">当前还有 ${warnings.length} 项需要打磨。</div>
@@ -1262,7 +1262,7 @@ const RELATION_TYPE_LABELS = {
   bridges: "桥接",
   restates: "重述",
   reframes: "改写问题",
-  appears_in_draft: "进入写作",
+  appears_in_draft: "进入草稿",
   belongs_to_topic: "归属主题",
   associated_with: "关联",
   free_link: "自由关联"
@@ -5252,7 +5252,7 @@ export class EditorPane {
     }
     return {
       nextStep: "进入主题或写作准备",
-      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮子。"
+      summary: "这条笔记已经具备判断和连接，可以继续放进主题索引或加入写作篮。"
     };
   }
 
@@ -5366,9 +5366,9 @@ export class EditorPane {
         actionLabel: "看图谱"
       },
       {
-        label: "写作入口",
-        status: confirmed ? "可准备" : "未就绪",
-        hint: confirmed ? "可加入写作篮子继续推进" : "先确认观点，再进入写作准备",
+        label: "写作中心",
+        status: confirmed ? "可进入写作中心" : "未就绪",
+        hint: confirmed ? "可加入写作篮继续推进" : "先确认观点，再进入写作中心",
         action: "writing",
         actionLabel: "进入写作"
       }
@@ -5495,14 +5495,141 @@ export class EditorPane {
       };
     }
     if (connectedCount === 0) {
+      if (wikilinkCount > 0) {
+        return {
+          nextStep: "补关系理由",
+          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成显式关系。"
+        };
+      }
+      if (Number(overview.tagRelatedCount || 0) > 0) {
+        return {
+          nextStep: "别只停在标签重合",
+          summary: "现在还只有标签上的接近，先挑一条最关键的关系写清楚，不要把标签重合直接当成网络连接。"
+        };
+      }
       return {
         nextStep: "补关系，不要让它孤立",
         summary: "这条笔记还没真正接入网络，先补第一条有理由的关系。"
       };
     }
+    if (writingInfo.level === "project_ready") {
+      return {
+        nextStep: "先创建项目",
+        summary: "这条笔记已经到创建项目阶段；先创建项目，再继续推进后续结构和分析。"
+      };
+    }
+    if (writingInfo.level === "strong_model_ready") {
+      return {
+        nextStep: "先创建项目",
+        summary: "这条笔记已经具备强模型分析前的材料质量；先创建项目，项目就绪后再做强模型分析。"
+      };
+    }
+    if (writingInfo.level === "basket_ready") {
+      return {
+        nextStep: "补边界/反例",
+        summary: "关系已经接上，但还缺适用边界或反例；先补这一格，再决定是否进入写作中心。"
+      };
+    }
     return {
       nextStep: writingInfo.status,
       summary: writingInfo.hint
+    };
+  }
+
+  permanentNoteDistillationStepV2(note, overview = {}, writingInfo = null) {
+    const thesis = String(note?.thesis || "").trim();
+    const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
+    const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
+    const relationState = String(overview.relationState || "loaded").trim();
+    const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const readiness = writingInfo || this.noteWritingReadinessV2(note, overview);
+
+    if (!thesis) {
+      return {
+        status: "待开始",
+        hint: "先写一句判断。",
+        actionLabel: "继续提纯",
+        focusTarget: "thesis"
+      };
+    }
+    if (summary.length < 3) {
+      return {
+        status: "进行中",
+        hint: "补齐三句话压缩。",
+        actionLabel: "继续提纯",
+        focusTarget: "thesis"
+      };
+    }
+    if (!confirmed) {
+      return {
+        status: "待确认",
+        hint: "把这条观点确认下来。",
+        actionLabel: "继续提纯",
+        focusTarget: "thesis"
+      };
+    }
+    if (relationState === "loaded" && explicitRelationCount > 0 && readiness.level === "basket_ready") {
+      return {
+        status: "待补边界",
+        hint: "关系已经接上，但还缺适用边界或反例。",
+        actionLabel: "补边界/反例",
+        focusTarget: "boundary"
+      };
+    }
+    return {
+      status: "已确认",
+      hint: "可以往关系和主题推进。",
+      actionLabel: "继续提纯",
+      focusTarget: "thesis"
+    };
+  }
+
+  permanentNoteWritingStepV2(note, overview = {}, writingInfo = null) {
+    const readiness = writingInfo || this.noteWritingReadinessV2(note, overview);
+    const routeMode =
+      readiness.level === "project_ready" || readiness.level === "strong_model_ready"
+        ? "project"
+        : readiness.level === "needs_distillation"
+          ? "distillation"
+          : readiness.level === "blocked_authorship" || readiness.level === "blocked_draft"
+            ? "requirements"
+            : "basket";
+
+    if (routeMode === "project") {
+      return {
+        status: "先创建项目",
+        hint:
+          readiness.level === "strong_model_ready"
+            ? "这条笔记已经具备强模型分析前的材料质量；先创建项目，项目就绪后再做强模型分析。"
+            : "这条笔记已经到创建项目阶段；先创建项目，再继续推进后续结构和分析。",
+        actionLabel: "创建项目",
+        routeMode
+      };
+    }
+
+    if (routeMode === "distillation") {
+      return {
+        status: "先完成提纯",
+        hint: readiness.hint,
+        actionLabel: "先完成提纯",
+        routeMode
+      };
+    }
+
+    if (routeMode === "requirements") {
+      return {
+        status: readiness.status,
+        hint: readiness.hint,
+        actionLabel: "查看写作要求",
+        routeMode
+      };
+    }
+
+    return {
+      status: routeMode === "basket" ? "可进入写作中心" : readiness.status,
+      hint: readiness.hint,
+      actionLabel: readiness.actionLabel,
+      routeMode
     };
   }
 
@@ -5584,6 +5711,8 @@ export class EditorPane {
     const wikilinkCount = Number(overview.wikilinkCount || 0);
     const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
     const writingInfo = this.noteWritingReadinessV2(note, overview);
+    const distillationInfo = this.permanentNoteDistillationStepV2(note, overview, writingInfo);
+    const writingStep = this.permanentNoteWritingStepV2(note, overview, writingInfo);
     const { nextStep, summary: noteSummary } = this.permanentNoteMainPathSummaryV2(note, overview);
     const relationCountLabel =
       relationState === "loading"
@@ -5594,23 +5723,37 @@ export class EditorPane {
     const primaryAction =
       !thesis || summary.length < 3 || !confirmed
         ? "distillation"
+        : distillationInfo.focusTarget === "boundary"
+          ? "distillation"
         : relationState === "loading" || relationState === "error" || explicitRelationCount === 0
           ? "relations"
           : "writing";
     const steps = [
       {
         label: "观点提纯",
-        status: !thesis ? "待开始" : summary.length < 3 ? "进行中" : confirmed ? "已确认" : "待确认",
-        hint: !thesis ? "先写一句判断。" : summary.length < 3 ? "补齐三句话压缩。" : confirmed ? "可以往关系和主题推进。" : "把这条观点确认下来。",
+        status: distillationInfo.status,
+        hint: distillationInfo.hint,
         action: "distillation",
-        actionLabel: "继续提纯"
+        actionLabel: distillationInfo.actionLabel,
+        focusTarget: distillationInfo.focusTarget
       },
       {
         label: "关系连接",
         status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
-        hint: relationState === "loading" ? "先等显式关系读取完成。" : relationState === "error" ? "读取失败，但仍然可以手动补建。" : explicitRelationCount ? "已经有带理由的关系。" : wikilinkCount ? "有基础链接，值得补理由。" : "先连出第一条关系。",
+        hint:
+          relationState === "loading"
+            ? "先等显式关系读取完成。"
+            : relationState === "error"
+              ? "读取失败，但仍然可以手动补建。"
+              : explicitRelationCount
+                ? "已经有带理由的关系。"
+                : wikilinkCount
+                  ? "有基础链接，下一步把关系为什么成立写清楚。"
+                  : Number(overview.tagRelatedCount || 0) > 0
+                    ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
+                    : "先连出第一条关系。",
         action: "relations",
-        actionLabel: "处理关系"
+        actionLabel: wikilinkCount > 0 ? "补关系理由" : Number(overview.tagRelatedCount || 0) > 0 ? "从标签里补关系" : "处理关系"
       },
       {
         label: "主题索引",
@@ -5620,11 +5763,12 @@ export class EditorPane {
         actionLabel: "看图谱"
       },
       {
-        label: "写作入口",
-        status: writingInfo.status,
-        hint: writingInfo.hint,
+        label: "写作中心",
+        status: writingStep.status,
+        hint: writingStep.hint,
         action: "writing",
-        actionLabel: writingInfo.actionLabel
+        actionLabel: writingStep.actionLabel,
+        routeMode: writingStep.routeMode
       }
     ];
 
@@ -5654,7 +5798,7 @@ export class EditorPane {
                   </div>
                   <div class="related-empty">${escapeHtml(step.hint)}</div>
                   <div class="semantic-relation-actions">
-                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}">${escapeHtml(step.actionLabel)}</button>
+                    <button class="mini-btn ${step.action === primaryAction ? "primary" : "is-ghost"}" type="button" data-note-main-route-action="${escapeHtml(step.action)}"${step.focusTarget ? ` data-note-main-route-focus="${escapeHtml(step.focusTarget)}"` : ""}${step.routeMode ? ` data-note-main-route-mode="${escapeHtml(step.routeMode)}"` : ""}>${escapeHtml(step.actionLabel)}</button>
                   </div>
                 </div>
               `
@@ -6552,7 +6696,10 @@ export class EditorPane {
         if (action === "distillation") {
           this.jumpToInspectorSection("[data-note-distillation-section]", {
             focus: true,
-            focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+            focusSelector:
+              String(mainRouteButton.dataset.noteMainRouteFocus || "").trim() === "boundary"
+                ? '[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]'
+                : '[data-note-distillation-form] textarea[name="thesis"]'
           });
           return;
         }
@@ -6595,7 +6742,8 @@ export class EditorPane {
         if (action === "graph" || action === "writing") {
           void this.onStateChange("open-note-main-route", {
             noteId: this.activeNote()?.id || "",
-            action
+            action,
+            mode: String(mainRouteButton.dataset.noteMainRouteMode || "").trim()
           });
           return;
         }
