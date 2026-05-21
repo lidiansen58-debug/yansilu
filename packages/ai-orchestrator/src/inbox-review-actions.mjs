@@ -10,6 +10,17 @@ function latestDecision(artifact = {}) {
   return decisions[decisions.length - 1] || null;
 }
 
+function hasRelationOverride(body = {}) {
+  return [
+    body.fromNoteId,
+    body.from_note_id,
+    body.toNoteId,
+    body.to_note_id,
+    body.relationType,
+    body.relation_type
+  ].some((value) => cleanText(value));
+}
+
 export function noteRestoreInputFromSnapshot(note = {}) {
   return {
     title: note.title,
@@ -69,6 +80,7 @@ export async function acceptLinkAndRecordArtifactDecisionAtomically({
   const priorDecision = latestDecision(originalArtifact);
   if (
     relation?.created === false &&
+    !hasRelationOverride(body) &&
     cleanText(priorDecision?.decision) === "linked_to_note" &&
     cleanText(priorDecision?.noteId || priorDecision?.note_id) === cleanText(relation.fromNoteId)
   ) {

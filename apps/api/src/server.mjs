@@ -1301,6 +1301,57 @@ function normalizeAiInboxDecision(body = {}) {
   return aliases[raw] || raw;
 }
 
+function normalizeAiInboxDecisionFeedback(body = {}) {
+  const feedback = body.feedback && typeof body.feedback === "object" ? body.feedback : {};
+  const readBool = (...values) => {
+    for (const value of values) {
+      if (typeof value === "boolean") return value;
+    }
+    return false;
+  };
+  return {
+    useful: readBool(body.useful, feedback.useful),
+    noisy: readBool(body.noisy, feedback.noisy),
+    wrong: readBool(body.wrong, feedback.wrong),
+    alreadyKnown: readBool(body.alreadyKnown, body.already_known, feedback.alreadyKnown, feedback.already_known),
+    privacyConcern: readBool(body.privacyConcern, body.privacy_concern, feedback.privacyConcern, feedback.privacy_concern)
+  };
+}
+
+function sameAiInboxDecisionPayload(existingDecision = null, body = {}) {
+  if (!existingDecision) return false;
+  const nextFeedback = normalizeAiInboxDecisionFeedback(body);
+  const previousFeedback = existingDecision.feedback && typeof existingDecision.feedback === "object"
+    ? existingDecision.feedback
+    : {};
+  const hasComment = Object.prototype.hasOwnProperty.call(body, "comment");
+  const hasUserId = Object.prototype.hasOwnProperty.call(body, "userId") || Object.prototype.hasOwnProperty.call(body, "user_id");
+  const hasNoteId = Object.prototype.hasOwnProperty.call(body, "noteId") || Object.prototype.hasOwnProperty.call(body, "note_id");
+  const hasUseful = Object.prototype.hasOwnProperty.call(body, "useful") || Object.prototype.hasOwnProperty.call(body.feedback || {}, "useful");
+  const hasNoisy = Object.prototype.hasOwnProperty.call(body, "noisy") || Object.prototype.hasOwnProperty.call(body.feedback || {}, "noisy");
+  const hasWrong = Object.prototype.hasOwnProperty.call(body, "wrong") || Object.prototype.hasOwnProperty.call(body.feedback || {}, "wrong");
+  const hasAlreadyKnown =
+    Object.prototype.hasOwnProperty.call(body, "alreadyKnown") ||
+    Object.prototype.hasOwnProperty.call(body, "already_known") ||
+    Object.prototype.hasOwnProperty.call(body.feedback || {}, "alreadyKnown") ||
+    Object.prototype.hasOwnProperty.call(body.feedback || {}, "already_known");
+  const hasPrivacyConcern =
+    Object.prototype.hasOwnProperty.call(body, "privacyConcern") ||
+    Object.prototype.hasOwnProperty.call(body, "privacy_concern") ||
+    Object.prototype.hasOwnProperty.call(body.feedback || {}, "privacyConcern") ||
+    Object.prototype.hasOwnProperty.call(body.feedback || {}, "privacy_concern");
+  return (
+    (!hasComment || cleanText(body.comment) === cleanText(existingDecision.comment)) &&
+    (!hasUserId || cleanText(body.userId || body.user_id || "local_user") === cleanText(existingDecision.userId || existingDecision.user_id || "local_user")) &&
+    (!hasNoteId || cleanText(body.noteId || body.note_id) === cleanText(existingDecision.noteId || existingDecision.note_id)) &&
+    (!hasUseful || nextFeedback.useful === (previousFeedback.useful === true)) &&
+    (!hasNoisy || nextFeedback.noisy === (previousFeedback.noisy === true)) &&
+    (!hasWrong || nextFeedback.wrong === (previousFeedback.wrong === true)) &&
+    (!hasAlreadyKnown || nextFeedback.alreadyKnown === (previousFeedback.alreadyKnown === true)) &&
+    (!hasPrivacyConcern || nextFeedback.privacyConcern === (previousFeedback.privacyConcern === true))
+  );
+}
+
 function assertReviewDecision(decision) {
   if (["accepted", "revised", "ignored", "archived"].includes(decision)) return;
   const error = new Error("Use a dedicated promotion API for adopted_as_draft, promoted_to_note, or linked_to_note decisions");
@@ -3016,7 +3067,11 @@ const server = http.createServer(async (req, res) => {
         const existingLatestDecision = Array.isArray(existingArtifact.userDecisions)
           ? existingArtifact.userDecisions[existingArtifact.userDecisions.length - 1] || null
           : null;
-        if (["accepted", "ignored", "archived"].includes(decision) && existingLatestDecision?.decision === decision) {
+        if (
+          ["accepted", "ignored", "archived"].includes(decision) &&
+          existingLatestDecision?.decision === decision &&
+          sameAiInboxDecisionPayload(existingLatestDecision, body)
+        ) {
           const inbox = createAiInbox({ artifactStore });
           const item = inbox.getItem(aiInboxDecisionId);
           const latestDecision = item?.latestDecision || existingLatestDecision;

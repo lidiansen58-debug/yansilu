@@ -548,6 +548,15 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(ignoredAgain.json.item.status, "ignored");
   assert.equal(ignoredAgain.json.item.decisionCount, ignored.json.item.decisionCount);
   assert.equal(ignoredAgain.json.artifact.userDecisions.length, ignored.json.artifact.userDecisions.length);
+  const ignoredWithNewFeedback = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {
+    action: "ignore",
+    privacy_concern: true
+  });
+  assert.equal(ignoredWithNewFeedback.status, 200, JSON.stringify(ignoredWithNewFeedback.json));
+  assert.equal(ignoredWithNewFeedback.json.item.status, "ignored");
+  assert.equal(ignoredWithNewFeedback.json.item.decisionCount, ignored.json.item.decisionCount + 1);
+  assert.equal(ignoredWithNewFeedback.json.artifact.userDecisions.length, ignored.json.artifact.userDecisions.length + 1);
+  assert.equal(ignoredWithNewFeedback.json.latestDecision.feedback.privacyConcern, true);
 
   const dueForArchive = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/run-due", {
     now: "2026-05-11T10:30:00.000Z"
@@ -573,7 +582,7 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(evaluationSummary.json.item.artifacts.total, 3);
   assert.equal(evaluationSummary.json.item.artifacts.reviewed, 2);
   assert.equal(evaluationSummary.json.item.artifacts.archived, 1);
-  assert.equal(evaluationSummary.json.item.decisions.total, 3);
+  assert.equal(evaluationSummary.json.item.decisions.total, 4);
   assert.equal(evaluationSummary.json.item.decisions.latest.accepted, 1);
   assert.equal(evaluationSummary.json.item.decisions.latest.ignored, 1);
   assert.equal(evaluationSummary.json.item.decisions.latest.archived, 1);
@@ -583,6 +592,7 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(evaluationSummary.json.item.feedback.all.useful, 1);
   assert.equal(evaluationSummary.json.item.feedback.all.noisy, 1);
   assert.equal(evaluationSummary.json.item.feedback.all.alreadyKnown, 1);
+  assert.equal(evaluationSummary.json.item.feedback.all.privacyConcern, 1);
 });
 
 test("AI inbox accepts LinkSuggestion artifacts into explicit note relations", async (t) => {
