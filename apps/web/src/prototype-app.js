@@ -2719,11 +2719,20 @@ function syncWritingResultFromCurrentState() {
   }
 }
 
-async function ensureNotesLoaded(noteIds) {
+async function ensureNotesLoaded(noteIds, { force = false } = {}) {
   const uniqueIds = [...new Set((noteIds || []).map((item) => String(item || "").trim()).filter(Boolean))];
   for (const noteId of uniqueIds) {
     const existing = writingNoteById(noteId);
     if (existing) {
+      if (force && !isLocalOnlyNote(existing)) {
+        try {
+          const fetched = await fetchNote(noteId);
+          if (!fetched) continue;
+          const mapped = mapNoteItem(fetched);
+          state.notes = [mapped, ...state.notes.filter((item) => item.id !== mapped.id)];
+        } catch {}
+        continue;
+      }
       if (!existing.bodyLoaded && !isLocalOnlyNote(existing)) {
         await ensureNoteBodyLoaded(noteId);
       }
@@ -2877,8 +2886,24 @@ async function openImportedLiteratureQueue() {
   return true;
 }
 
-async function openWritingModule({ statusMessage = "已打开写作中心" } = {}) {
+async function openWritingModule({
+  statusMessage = "已打开写作中心",
+  focusedCandidateNoteIds = null,
+  focusedCandidateScopeLabel = "",
+  preserveFocusedCandidateScope = false
+} = {}) {
+  const normalizedFocusedCandidateNoteIds = Array.isArray(focusedCandidateNoteIds) ? uniqueStrings(focusedCandidateNoteIds) : null;
+  if (normalizedFocusedCandidateNoteIds?.length) {
+    try {
+      await ensureNotesLoaded(normalizedFocusedCandidateNoteIds, { force: true });
+    } catch {}
+  }
   const statusRevisionAtStart = statusRevision;
+  if (normalizedFocusedCandidateNoteIds) {
+    setWritingFocusedCandidateScope(normalizedFocusedCandidateNoteIds, focusedCandidateScopeLabel || "当前图谱切片");
+  } else if (!preserveFocusedCandidateScope) {
+    clearWritingFocusedCandidateScope();
+  }
   activateModule("writing");
   const writingProjectId = String(writingState.project?.id || "").trim();
   const basketIds = parseWritingBasketIds();
@@ -3274,6 +3299,12 @@ function mapDirectoryItem(item) {
 
 function mapNoteItem(item) {
   const body = item.body || `# ${item.title || "未命名笔记"}\n`;
+  const normalizedAuthorship =
+    normalizeAuthorshipItem(item.authorship) ||
+    normalizeAuthorshipItem({
+      user_confirmed: item.authorshipConfirmed ?? item.authorship_confirmed,
+      ai_assisted: item.authorshipAiAssisted ?? item.authorship_ai_assisted
+    });
   return {
     id: item.id,
     title: item.title || "未命名笔记",
@@ -3284,7 +3315,7 @@ function mapNoteItem(item) {
     body,
     originalityStatus: item.originalityStatus || item.originality_status || "",
     originalitySimilarity: normalizeOptionalNumber(item.originalitySimilarity ?? item.originality_similarity),
-    authorship: normalizeAuthorshipItem(item.authorship),
+    authorship: normalizedAuthorship,
     thesis: item.thesis || "",
     threeLineSummary: Array.isArray(item.threeLineSummary || item.three_line_summary)
       ? item.threeLineSummary || item.three_line_summary
@@ -5338,6 +5369,15 @@ function clearWritingThemeRelationCounts(noteIds = []) {
   writingState.loadingThemeRelationCounts = false;
 }
 
+function setWritingFocusedCandidateScope(noteIds = [], scopeLabel = "") {
+  writingState.focusedCandidateNoteIds = uniqueStrings(noteIds);
+  writingState.focusedCandidateScopeLabel = String(scopeLabel || "").trim();
+}
+
+function clearWritingFocusedCandidateScope() {
+  setWritingFocusedCandidateScope([], "");
+}
+
 function writingThemeNotesLoaded(noteIds = []) {
   return uniqueStrings(noteIds).every((noteId) => Boolean(writingKnownNoteById(noteId)?.bodyLoaded));
 }
@@ -6659,8 +6699,26 @@ function renderWritingPanel() {
 
   const scopeFolder = folderById(state, state.selectedFolderId);
   const scopeRoot = folderById(state, rootBoxIdFromFolder(state, state.selectedFolderId));
+  const allCandidates = writingCandidateNotes();
+  const candidateFocusSourceIds = uniqueStrings([
+    ...allCandidates.map((entry) => entry.id),
+    ...writingState.focusedCandidateNoteIds
+  ]);
+  const candidateFocusPlan = planWritingCandidateFocus({
+    candidateNoteIds: candidateFocusSourceIds,
+    focusedNoteIds: writingState.focusedCandidateNoteIds,
+    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+  });
+  const candidateEntriesById = new Map(allCandidates.map((entry) => [entry.id, entry]));
+  const candidates = candidateFocusPlan.usingFocusedScope
+    ? candidateFocusPlan.noteIds
+        .map((id) => writingKnownNoteById(id) || null)
+        .filter((entry) => Boolean(entry) && isWritingEligibleNote(entry))
+    : candidateFocusPlan.noteIds.map((id) => candidateEntriesById.get(id) || null).filter(Boolean);
   if (scopeHint) {
-    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
+    scopeHint.textContent = candidateFocusPlan.usingFocusedScope
+      ? `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。你是从图谱切片进入写作中心的，候选区会优先显示${candidateFocusPlan.scopeLabel}里的永久笔记；写作篮和主题索引仍保持当前目录范围。`
+      : `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
   }
   renderWritingStatusStrip();
 
@@ -6757,13 +6815,15 @@ function renderWritingPanel() {
       ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出写作篮" })).join("")
       : `<div class="writing-empty">\u5148\u5728\u5de6\u4fa7\u6253\u5f00\u4e00\u6761\u539f\u521b\u7b14\u8bb0\u70b9\u51fb“\u628a\u5f53\u524d\u7b14\u8bb0\u52a0\u5165\u5199\u4f5c\u7bee”\uff0c\u6216\u5148\u770b\u4e0b\u9762\u54ea\u4e9b\u4e3b\u9898\u5df2\u7ecf\u6210\u5f62\uff0c\u518d\u628a\u76f8\u5173\u7b14\u8bb0\u6279\u91cf\u52a0\u5165\u5199\u4f5c\u7bee\u3002</div>`;
   }
-
-  const candidates = writingCandidateNotes();
   const basketIdSet = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
-      ? `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记加入写作篮。`
-    : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
+      ? candidateFocusPlan.usingFocusedScope
+        ? `${candidateFocusPlan.scopeLabel}里有 ${candidates.length} 条可加入写作篮的永久笔记，${writingThemeSummary(candidates)}。先沿着这段图谱结构推进，再决定哪些笔记加入写作篮。`
+        : `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记加入写作篮。`
+      : candidateFocusPlan.usingFocusedScope
+        ? `${candidateFocusPlan.scopeLabel}里暂时还没有可加入写作篮的永久笔记。可以先回图谱继续补关系，或回到目录范围挑选成熟观点。`
+        : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
     candidateList.innerHTML = candidates.length
@@ -6776,7 +6836,11 @@ function renderWritingPanel() {
             })
           )
           .join("")
-      : `<div class="writing-empty">当前目录还没有可用的永久笔记候选。</div>`;
+      : `<div class="writing-empty">${candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里还没有可用的永久笔记候选。` : "当前目录还没有可用的永久笔记候选。"}</div>`;
+  }
+  if ($("btnWritingAddVisible")) {
+    $("btnWritingAddVisible").textContent = candidateFocusPlan.addActionLabel;
+    $("btnWritingAddVisible").disabled = candidates.length === 0;
   }
 
   if (openDraftButton) {
@@ -7580,6 +7644,25 @@ function renderGraphMetricCard(label, value, note, tone = "") {
   `;
 }
 
+function currentGraphVisibleNodeIds() {
+  const graph = graphState.item;
+  if (!graph) return [];
+  const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const allEdges = Array.isArray(graph.edges) ? graph.edges : [];
+  const filters = graphState.filters || { relationType: "all", status: "all" };
+  const edges = allEdges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
+  const filterActive = filters.relationType !== "all" || filters.status !== "all";
+  const visibleNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
+  return (filterActive ? nodes.filter((node) => visibleNodeIds.has(node.id)) : nodes).map((node) => node.id);
+}
+
+function currentGraphWritingCandidateNoteIds() {
+  return graphWritingCandidateNoteIds(currentGraphVisibleNodeIds(), {
+    noteLookup: writingKnownNoteById,
+    isEligible: isWritingEligibleNote
+  });
+}
+
 function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()) {
   if (!nodes.length) {
     return `
@@ -7902,7 +7985,7 @@ function renderGraphPanel() {
         <div class="graph-next-card">
           <strong>${escapeHtml(nextAction.title)}</strong>
           <small>${escapeHtml(nextAction.note)}</small>
-          ${nextAction.action ? `<button class="mini-btn" type="button"${nextAction.noteId ? ` data-open-note="${escapeHtml(nextAction.noteId)}"` : ""} data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.action === "writing" ? ` data-graph-basket-note-ids="${escapeHtml(graphWritingCandidateNoteIds(visibleNodes.map((node) => node.id), { noteLookup: writingKnownNoteById, isEligible: isWritingEligibleNote }).join(","))}"` : ""}${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
+          ${nextAction.action ? `<button class="mini-btn" type="button"${nextAction.noteId ? ` data-open-note="${escapeHtml(nextAction.noteId)}"` : ""} data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.action === "writing" ? ` data-graph-basket-note-ids="${escapeHtml(visibleNodes.map((node) => node.id).join(","))}"` : ""}${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
         </div>
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
@@ -8267,11 +8350,16 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanRelationId = String(options.relationId || "").trim();
   const cleanTargetNoteId = String(options.targetNoteId || "").trim();
   const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
-  const graphBasketNoteIds = String(options.basketNoteIds || "")
+  const requestedGraphFocusNoteIds = String(options.basketNoteIds || "")
     .split(",")
     .map((id) => String(id || "").trim())
     .filter(Boolean);
   if (cleanAction === "writing") {
+    const graphFocusNoteIds = requestedGraphFocusNoteIds.length ? requestedGraphFocusNoteIds : currentGraphVisibleNodeIds();
+    const graphBasketNoteIds = graphWritingCandidateNoteIds(graphFocusNoteIds, {
+      noteLookup: writingKnownNoteById,
+      isEligible: isWritingEligibleNote
+    });
     const plan = graphWritingFollowupEntryPlan({
       basketNoteIds: parseWritingBasketIds(),
       candidateNoteIds: graphBasketNoteIds.length ? graphBasketNoteIds : writingCandidateNotes().map((note) => note.id)
@@ -8283,7 +8371,11 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       });
     }
     void (async () => {
-      await openWritingModule({ statusMessage: "" });
+      await openWritingModule({
+        statusMessage: "",
+        focusedCandidateNoteIds: graphFocusNoteIds,
+        focusedCandidateScopeLabel: "当前图谱切片"
+      });
       setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
     })();
     return true;
@@ -9440,16 +9532,37 @@ $("btnWritingUseCurrent")?.addEventListener("click", () => {
 });
 
 $("btnWritingAddVisible")?.addEventListener("click", () => {
-  const candidates = writingCandidateNotes();
-  if (!candidates.length) return setStatus("当前目录没有可加入的永久笔记", "warn");
-  const plan = continueWritingEntry(candidates.map((note) => note.id), {
-    title: suggestedWritingProjectTitle(candidates.map((note) => note.id)),
+  const allCandidates = writingCandidateNotes();
+  const candidateFocusSourceIds = uniqueStrings([
+    ...allCandidates.map((note) => note.id),
+    ...writingState.focusedCandidateNoteIds
+  ]);
+  const candidateFocusPlan = planWritingCandidateFocus({
+    candidateNoteIds: candidateFocusSourceIds,
+    focusedNoteIds: writingState.focusedCandidateNoteIds,
+    focusedScopeLabel: writingState.focusedCandidateScopeLabel || "当前图谱切片"
+  });
+  const candidateById = new Map(allCandidates.map((note) => [note.id, note]));
+  const candidates = candidateFocusPlan.usingFocusedScope
+    ? candidateFocusPlan.noteIds
+        .map((id) => writingKnownNoteById(id) || null)
+        .filter((note) => Boolean(note) && isWritingEligibleNote(note))
+    : candidateFocusPlan.noteIds.map((id) => candidateById.get(id) || null).filter(Boolean);
+  if (!candidates.length) {
+    return setStatus(
+      candidateFocusPlan.usingFocusedScope ? `${candidateFocusPlan.scopeLabel}里没有可加入的永久笔记` : "当前目录没有可加入的永久笔记",
+      "warn"
+    );
+  }
+  const candidateIds = candidates.map((note) => note.id);
+  const plan = continueWritingEntry(candidateIds, {
+    title: suggestedWritingProjectTitle(candidateIds),
     source: "writing_panel_visible_notes"
   });
   const addedCount = Number(plan?.addedNoteIds?.length || 0);
   setStatus(
     describeWritingBatchAppendStatus({
-      scopeLabel: "当前目录观点",
+      scopeLabel: candidateFocusPlan.scopeLabel,
       addedCount,
       totalCount: candidates.length
     }),
