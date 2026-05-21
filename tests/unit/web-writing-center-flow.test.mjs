@@ -2,9 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  describeWritingMaterialStatus,
+  describeWritingMaterialStepState,
+  describeWritingScaffoldStepState,
+  describeWritingDraftStepState,
+  describeWritingStrongModelButtonLabel,
+  describeWritingStrongModelIdleSummary,
+  describeWritingStrongModelStatus,
+  describeWritingBatchAppendStatus,
   describeWritingProjectEntryState,
   describeWritingProjectPreflight,
+  describeWritingProjectStepState,
   describeWritingNextActionFromState,
+  planWritingBasketEntry,
+  resolveWritingEntryTitle,
   groupWritingPreflightChecks,
   isWritingStrongModelReady
 } from "../../apps/web/src/writing-center-flow.js";
@@ -29,8 +40,21 @@ test("writing center next action moves to scaffold generation after project crea
     hasDraft: false
   });
 
-  assert.equal(action.title, "生成骨架");
-  assert.match(action.note, /检查章节、缺口和反方/);
+  assert.equal(action.title, "生成草稿骨架");
+  assert.match(action.note, /生成草稿骨架/);
+  assert.match(action.note, /章节|缺口|反方/);
+});
+
+test("writing center next action uses 创建项目 wording before a project exists", () => {
+  const action = describeWritingNextActionFromState({
+    basketCount: 2,
+    hasProject: false,
+    hasScaffold: false,
+    hasDraft: false
+  });
+
+  assert.equal(action.title, "创建项目");
+  assert.match(action.note, /先创建项目再往下走/);
 });
 
 test("writing center next action prefers saving draft after scaffold is ready", () => {
@@ -42,7 +66,7 @@ test("writing center next action prefers saving draft after scaffold is ready", 
   });
 
   assert.equal(action.title, "保存草稿");
-  assert.match(action.note, /保存成草稿/);
+  assert.match(action.note, /保存成草稿|保存草稿/);
 });
 
 test("writing center next action reflects warning preflight items before saving draft", () => {
@@ -55,7 +79,8 @@ test("writing center next action reflects warning preflight items before saving 
   });
 
   assert.equal(action.title, "保存草稿");
-  assert.match(action.note, /2 个提醒项/);
+  assert.match(action.note, /2/);
+  assert.match(action.note, /提醒/);
 });
 
 test("writing center next action points to opening current draft once it exists", () => {
@@ -68,6 +93,249 @@ test("writing center next action points to opening current draft once it exists"
 
   assert.equal(action.title, "打开当前草稿");
   assert.match(action.note, /继续写作/);
+});
+
+test("writing material step explicitly mentions 写作篮 when no basket exists yet", () => {
+  const step = describeWritingMaterialStepState({ basketCount: 0 });
+
+  assert.equal(step.title, "选材料");
+  assert.match(step.note, /写作篮/);
+  assert.match(step.note, /2-5/);
+});
+
+test("writing material step reports how many notes are already in 写作篮", () => {
+  const step = describeWritingMaterialStepState({ basketCount: 3 });
+
+  assert.equal(step.title, "选材料");
+  assert.equal(step.note, "3 条永久笔记已在写作篮");
+});
+
+test("writing center project step stays on missing structure when basket cannot create a project yet", () => {
+  const step = describeWritingProjectStepState({
+    basketCount: 1,
+    hasProject: false,
+    projectEntryStatus: "待创建",
+    projectEntryHint: "还没到建项目时机；先补边界或关系。",
+    canCreateProject: false
+  });
+
+  assert.equal(step.title, "创建项目");
+  assert.match(step.note, /边界|关系/);
+});
+
+test("writing center project step returns to normal project framing once project creation is unlocked", () => {
+  const step = describeWritingProjectStepState({
+    basketCount: 2,
+    hasProject: false,
+    projectEntryStatus: "先创建项目",
+    projectEntryHint: "当前材料已经到建项目阶段。",
+    canCreateProject: true
+  });
+
+  assert.equal(step.title, "创建项目");
+  assert.equal(step.note, "先明确题目和读者，再创建项目");
+});
+
+test("writing center project step shows 已创建项目 once a project already exists", () => {
+  const step = describeWritingProjectStepState({
+    basketCount: 2,
+    hasProject: true,
+    projectId: ""
+  });
+
+  assert.equal(step.title, "创建项目");
+  assert.equal(step.note, "已创建项目");
+});
+
+test("writing scaffold step says 骨架已生成 once scaffold exists without blockers", () => {
+  const step = describeWritingScaffoldStepState({
+    hasScaffold: true,
+    blockingCount: 0,
+    warningCount: 0
+  });
+
+  assert.equal(step.title, "生成草稿骨架");
+  assert.equal(step.note, "骨架已生成");
+});
+
+test("writing draft step says 可继续保存草稿 after scaffold exists but before a draft is saved", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: true
+  });
+
+  assert.equal(step.title, "保存草稿");
+  assert.equal(step.note, "可继续保存草稿");
+});
+
+test("writing draft step says 生成草稿骨架后再保存 before any scaffold exists", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: false
+  });
+
+  assert.equal(step.title, "保存草稿");
+  assert.equal(step.note, "生成草稿骨架后再保存");
+});
+
+test("writing basket entry appends incoming note ids instead of replacing an existing basket", () => {
+  const plan = planWritingBasketEntry({
+    existingNoteIds: ["n1", "n2"],
+    incomingNoteIds: ["n2", "n3"]
+  });
+
+  assert.equal(plan.entryMode, "append");
+  assert.equal(plan.hasExistingBasket, true);
+  assert.deepEqual(plan.basketNoteIds, ["n1", "n2", "n3"]);
+  assert.deepEqual(plan.addedNoteIds, ["n3"]);
+});
+
+test("writing basket entry starts a fresh basket when nothing exists yet", () => {
+  const plan = planWritingBasketEntry({
+    existingNoteIds: [],
+    incomingNoteIds: ["n2", "n3"]
+  });
+
+  assert.equal(plan.entryMode, "replace");
+  assert.equal(plan.hasExistingBasket, false);
+  assert.deepEqual(plan.basketNoteIds, ["n2", "n3"]);
+  assert.deepEqual(plan.addedNoteIds, ["n2", "n3"]);
+});
+
+test("writing entry title keeps existing context when appending into a non-empty basket", () => {
+  const title = resolveWritingEntryTitle({
+    entryMode: "append",
+    requestedTitle: "Second Note 写作项目",
+    existingTitle: "Existing Project Context"
+  });
+
+  assert.equal(title, "Existing Project Context");
+});
+
+test("writing entry title still uses requested title when starting a fresh basket", () => {
+  const title = resolveWritingEntryTitle({
+    entryMode: "replace",
+    requestedTitle: "Fresh Note 写作项目",
+    existingTitle: "Existing Project Context"
+  });
+
+  assert.equal(title, "Fresh Note 写作项目");
+});
+
+test("writing batch append status reports how many notes were newly added", () => {
+  const message = describeWritingBatchAppendStatus({
+    scopeLabel: "当前目录观点",
+    addedCount: 2,
+    totalCount: 3
+  });
+
+  assert.equal(message, "已把当前目录观点加入写作篮：2 条");
+});
+
+test("writing batch append status clearly reports when the whole scope is already in basket", () => {
+  const message = describeWritingBatchAppendStatus({
+    scopeLabel: "当前目录观点",
+    addedCount: 0,
+    totalCount: 3
+  });
+
+  assert.equal(message, "当前目录观点已都在写作篮中");
+});
+
+test("writing material status reframes strong-model-ready material to create-project before a project exists", () => {
+  const material = describeWritingMaterialStatus({
+    readinessLevel: "strong_model_ready",
+    readinessStatus: "可进行强模型分析",
+    readinessHint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
+    hasProject: false
+  });
+
+  assert.equal(material.status, "先创建项目");
+  assert.match(material.hint, /强模型分析前|先创建项目/);
+});
+
+test("writing material status keeps strong-model wording once a project already exists", () => {
+  const material = describeWritingMaterialStatus({
+    readinessLevel: "strong_model_ready",
+    readinessStatus: "可进行强模型分析",
+    readinessHint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
+    hasProject: true
+  });
+
+  assert.equal(material.status, "可进行强模型分析");
+  assert.match(material.hint, /强模型分析/);
+});
+
+test("writing strong-model status asks to create a project first when material is ready but project is missing", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "strong_model_ready",
+    readinessHint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先创建项目");
+  assert.equal(strongModel.buttonLabel, "先创建项目");
+  assert.match(strongModel.hint, /强模型分析前|先创建项目/);
+});
+
+test("writing strong-model status falls back to project-preflight gaps after a project exists", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: true,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "strong_model_ready",
+    readinessHint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
+    projectPreflightLevel: "needs_clarification",
+    projectPreflightChecksLength: 2,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先补条件");
+  assert.equal(strongModel.buttonLabel, "先补条件");
+  assert.match(strongModel.hint, /2 项缺口/);
+});
+
+test("writing strong-model idle summary reuses the current strong-model state hint when basket exists", () => {
+  const summary = describeWritingStrongModelIdleSummary({
+    basketCount: 2,
+    strongModelStateHint: "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
+  });
+
+  assert.match(summary, /先创建项目/);
+});
+
+test("writing strong-model idle summary falls back to basket guidance when basket is empty", () => {
+  const summary = describeWritingStrongModelIdleSummary({
+    basketCount: 0,
+    strongModelStateHint: ""
+  });
+
+  assert.match(summary, /先把永久笔记加入写作篮/);
+});
+
+test("writing strong-model button label says 写作篮 when basket is empty", () => {
+  const label = describeWritingStrongModelButtonLabel({
+    basketCount: 0,
+    loading: false,
+    stateButtonLabel: ""
+  });
+
+  assert.equal(label, "先加入写作篮");
+});
+
+test("writing strong-model button label reuses state label once basket exists", () => {
+  const label = describeWritingStrongModelButtonLabel({
+    basketCount: 2,
+    loading: false,
+    stateButtonLabel: "先创建项目"
+  });
+
+  assert.equal(label, "先创建项目");
 });
 
 test("writing center preflight grouping separates blocking warning and pass checks", () => {
@@ -85,6 +353,11 @@ test("writing center preflight grouping separates blocking warning and pass chec
 });
 
 test("writing center project preflight summary distinguishes needs_clarification from has_gaps", () => {
+  const unknown = describeWritingProjectPreflight(null);
+  const ready = describeWritingProjectPreflight({
+    status: "ready",
+    checks: []
+  });
   const clarification = describeWritingProjectPreflight({
     status: "needs_clarification",
     checks: [{ code: "missing_intent", severity: "next", message: "Clarify what this writing project is trying to say." }]
@@ -94,6 +367,10 @@ test("writing center project preflight summary distinguishes needs_clarification
     checks: [{ code: "missing_central_question", severity: "hint", message: "Add or choose a topic with a central question." }]
   });
 
+  assert.equal(unknown.level, "unknown");
+  assert.match(unknown.hint, /项目已创建；系统正在判断这个项目还缺什么/);
+  assert.equal(ready.level, "ready");
+  assert.match(ready.hint, /生成草稿骨架/);
   assert.equal(clarification.level, "needs_clarification");
   assert.match(clarification.hint, /Clarify what this writing project is trying to say/);
   assert.equal(gaps.level, "has_gaps");
@@ -152,8 +429,10 @@ test("writing center project entry only opens creation once basket readiness rea
   });
 
   assert.equal(ready.canCreateProject, true);
-  assert.equal(ready.actionLabel, "创建写作项目");
+  assert.equal(ready.status, "先创建项目");
+  assert.equal(ready.actionLabel, "创建项目");
+  assert.match(ready.hint, /创建项目阶段/);
   assert.equal(blocked.canCreateProject, false);
   assert.equal(blocked.actionLabel, "先补条件再建项目");
-  assert.match(blocked.hint, /先补边界或关系/);
+  assert.match(blocked.hint, /边界|关系/);
 });

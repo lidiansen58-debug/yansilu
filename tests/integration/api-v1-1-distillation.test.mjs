@@ -163,8 +163,8 @@ test("V1.1 distillation queue, writing intent, and AI suggestions expose review-
   assert.equal(scaffold.status, 201, JSON.stringify(scaffold.json));
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((item) => item.id === "distillation_quality" && item.status === "warning"));
-  assert.match(scaffold.json.export.markdown, /## Readiness Check/);
-  assert.match(scaffold.json.export.markdown, /Intent: Explain why confirmed note judgments/);
+  assert.match(scaffold.json.export.markdown, /## 就绪检查/);
+  assert.match(scaffold.json.export.markdown, /- 意图: Explain why confirmed note judgments/);
 
   const suggestion = await postJson(baseUrl, "/api/v1/ai-suggestions", {
     id: "suggestion_api_thesis",
