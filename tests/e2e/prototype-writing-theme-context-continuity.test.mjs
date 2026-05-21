@@ -114,17 +114,18 @@ test("prototype writing theme selection keeps ready project-entry context when s
 
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index A" }).click();
   await page.waitForFunction(() => {
-    const summary = document.querySelector("[data-writing-theme-project-summary]")?.textContent || "";
-    return summary.includes("可创建") && !summary.includes("正在读取");
+    const button = document.querySelector('[data-writing-theme-action="create-project"]');
+    return Boolean(button) && button.disabled === false;
   }, null, { timeout: 10000 });
 
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index B" }).click();
 
   await waitFor(async () => {
-    const summaryText = await page.locator("[data-writing-theme-project-summary]").textContent();
+    const titleValue = await page.locator("#writingThemeDetailTitle").inputValue();
     const createLabel = await page.locator('[data-writing-theme-action="create-project"]').textContent();
-    assert.match(String(summaryText || ""), /可创建/);
-    assert.doesNotMatch(String(summaryText || ""), /正在读取/);
-    assert.match(String(createLabel || ""), /创建写作项目/);
+    const disabled = await page.locator('[data-writing-theme-action="create-project"]').isDisabled();
+    assert.equal(disabled, false);
+    assert.match(String(titleValue || ""), /Theme Continuity Index B/);
+    assert.match(String(createLabel || ""), /创建项目/);
   }, 10000);
 });

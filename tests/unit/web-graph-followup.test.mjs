@@ -63,6 +63,22 @@ test("graph next action offers bridge followup when bridge gaps exist without te
   assert.equal(nextAction.relationType, "bridges");
 });
 
+test("graph next action keeps sparse multi-note slices in relation-building mode", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_sparse_1",
+    visibleNodeCount: 3,
+    visibleEdgeCount: 1
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_sparse_1");
+  assert.equal(nextAction.actionLabel, "先补关键关系");
+  assert.match(nextAction.note, /显式关系/);
+  assert.match(nextAction.note, /写作中心/);
+});
+
 test("graph next action prefers isolated-note followup before entering the writing center", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,

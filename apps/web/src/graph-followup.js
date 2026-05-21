@@ -21,6 +21,8 @@ export function graphNextActionForSummary({
   hasNodes = false,
   hasEdges = false,
   firstNodeId = "",
+  visibleNodeCount = 0,
+  visibleEdgeCount = 0,
   isolatedNoteId = "",
   isolatedCount = 0,
   untypedFromNoteId = "",
@@ -43,6 +45,16 @@ export function graphNextActionForSummary({
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "去补关系"
+    };
+  }
+
+  if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
+    return {
+      title: "下一步：先补关键关系",
+      note: "当前切片里已经不止两条永久笔记，但显式关系还太少。先补出 1-2 条最关键的关系，再进入写作中心会更稳。",
+      noteId: String(firstNodeId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补关键关系"
     };
   }
 

@@ -7926,6 +7926,8 @@ function renderGraphPanel() {
     hasNodes: nodes.length > 0,
     hasEdges: allEdges.length > 0,
     firstNodeId: nodes[0]?.id || "",
+    visibleNodeCount: visibleNodes.length,
+    visibleEdgeCount: edges.length,
     isolatedNoteId: isolatedNodes[0]?.id || "",
     isolatedCount,
     untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
