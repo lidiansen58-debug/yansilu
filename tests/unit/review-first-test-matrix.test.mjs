@@ -11,7 +11,8 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/integration/api-ai-canonical-contract.test.mjs",
     snippets: [
-      'test("AI canonical contracts keep inbox detail, suggestion detail, and review action response shapes stable"'
+      'test("AI canonical contracts keep inbox detail, suggestion detail, and review action response shapes stable"',
+      'test("AI canonical inbox detail keeps degraded suggestion trace stable when the linked suggestion record is missing"'
     ]
   },
   {
@@ -30,12 +31,40 @@ const MUST_KEEP_CASES = [
     ]
   },
   {
+    file: "tests/unit/api-ai-accept-link-runtime.test.mjs",
+    snippets: [
+      'test("accept-link helper deletes a newly created relation when artifact decision recording fails"',
+      'test("accept-link helper is idempotent when the relation already exists and the latest decision is already linked_to_note"'
+    ]
+  },
+  {
+    file: "tests/unit/api-ai-promote-note-runtime.test.mjs",
+    snippets: [
+      'test("promote-note helper records promoted_to_note after creating a draft note"',
+      'test("promote-note helper deletes a newly created draft note when artifact decision recording fails"'
+    ]
+  },
+  {
+    file: "tests/unit/api-ai-field-adoption-runtime.test.mjs",
+    snippets: [
+      'test("non-sqlite adopt helper updates note artifact and suggestion together"',
+      'test("non-sqlite adopt helper rolls note and stores back when suggestion transition fails"'
+    ]
+  },
+  {
     file: "tests/integration/api-ai-suggestion-reject-consistency.test.mjs",
     snippets: ['test("AI suggestion reject keeps linked artifact semantics aligned in sqlite-backed API flows"']
   },
   {
+    file: "tests/integration/api-ai-field-adoption-rollback.test.mjs",
+    snippets: ['test("AI field adoption rolls note and inbox state back if the linked suggestion disappears before review commit"']
+  },
+  {
     file: "tests/integration/api-notes.test.mjs",
-    snippets: ['test("notes AI analysis API stores reviewable local candidates without confirming relations"']
+    snippets: [
+      'test("notes AI analysis API stores reviewable local candidates without confirming relations"',
+      'const adoptedFieldAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion`, {'
+    ]
   },
   {
     file: "tests/unit/web-ai-inbox-stale-state-runtime.test.mjs",
@@ -117,7 +146,13 @@ const MUST_KEEP_CASES = [
   },
   {
     file: "tests/integration/api-vault-settings.test.mjs",
-    snippets: ['test("AI inbox summarize runs current local route and persists summary decision"']
+    snippets: [
+      'test("AI inbox summarize runs current local route and persists summary decision"',
+      'const acceptedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(artifact.id)}/accept-link`, {',
+      'const promotedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_question_promote/promote-note", {',
+      'const ignoredAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {',
+      'const archivedAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(archivedArtifactId)}/decision`, {'
+    ]
   }
 ];
 
