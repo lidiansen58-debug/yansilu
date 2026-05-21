@@ -40,7 +40,13 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/unit/web-ai-inbox-stale-state-runtime.test.mjs",
     snippets: [
+      'test("recordAiInboxReviewDecision stores action failures separately from detail state"',
+      'test("applyAiInboxSuggestionStatus stores action failures separately from detail state"',
+      'test("applyAiInboxSuggestionStatus reports invalid reviewed content through actionError without starting submit"',
       'test("refreshAiInbox invalidates stale detail state when a list refresh switches the selected artifact"',
+      'test("refreshAiInbox invalidates stale detail state when the selected artifact metadata changes"',
+      'test("refreshAiInbox realigns selection even when preserveDetail was requested but the current artifact left the filtered list"',
+      'test("recordAiInboxReviewDecision clears stale detail when refresh removes the artifact from the current inbox view"',
       'test("runAiInboxSummary ignores stale failures and keeps the latest summary state"',
       'test("refreshAiInboxEvaluationSummary ignores stale failures and keeps the latest evaluation state"'
     ]
@@ -48,13 +54,22 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/unit/web-ai-suggestions-runtime.test.mjs",
     snippets: [
+      'test("loadAiSuggestionDetail stores detail failures separately from list errors"',
+      'test("applyAiSuggestionStatus reports invalid reviewed content through actionError without starting submit"',
+      'test("refreshAiSuggestions captures a suggestionsList debug snapshot"',
       'test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion"',
+      'test("refreshAiSuggestions invalidates stale detail state when the selected suggestion metadata changes"',
+      'test("applyAiSuggestionStatus realigns filtered settings suggestions after a status change removes the current item"',
+      'test("applyAiSuggestionStatus loads the newly selected filtered suggestion detail after refresh switches selection"',
+      'test("applyAiSuggestionStatus keeps selection and detail cleared when refresh leaves no filtered suggestions"',
+      'test("applyAiSuggestionStatus preserves a newer settings suggestion selection while an older submit resolves"',
       'test("applyAiSuggestionStatus captures edited content before rerender and blocks duplicate submission"'
     ]
   },
   {
     file: "tests/unit/web-ai-inbox-panel.test.mjs",
     snippets: [
+      'test("AI inbox panel surfaces review action errors inside the detail pane"',
       'test("AI inbox panel surfaces suggestion traceability and review history inside inbox detail"',
       'test("AI inbox panel renders trace placeholders and target-missing guidance when linked trace is incomplete"',
       'test("AI inbox panel does not keep rendering stale detail when selection has moved"'
@@ -63,8 +78,16 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/unit/web-ai-suggestions-panel.test.mjs",
     snippets: [
+      'test("AI suggestions panel keeps the list visible when detail loading fails"',
+      'test("AI suggestions panel surfaces review action errors inside the detail pane"',
       'test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete"',
       'test("AI suggestions panel does not keep rendering stale detail when selection has moved"'
+    ]
+  },
+  {
+    file: "tests/unit/web-ai-canonical-debug-panel.test.mjs",
+    snippets: [
+      'test("AI canonical debug panel renders suggestion snapshots alongside inbox snapshots"'
     ]
   },
   {
@@ -72,10 +95,20 @@ const MUST_KEEP_CASES = [
     snippets: [
       'test("prototype AI inbox field suggestion flow adopts a suggestion as draft and updates the target note"',
       'test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed"',
+      'test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting"',
       'test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable"',
       'test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable"',
+      'test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes"',
+      'test("prototype AI inbox guards stale detail selection and duplicate reviewed submit"',
       'test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow"',
-      'test("prototype settings AI suggestions guards stale detail selection and duplicate review submits"'
+      'test("prototype settings AI suggestions guards stale detail selection and duplicate review submits"',
+      'test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes"'
+    ]
+  },
+  {
+    file: "tests/e2e/ai-review-flow-inline-errors.test.mjs",
+    snippets: [
+      'test("AI inbox inline error blocks invalid reviewed JSON submit without PATCH"'
     ]
   },
   {

@@ -274,6 +274,36 @@ test("AI inbox panel advances suggestion review actions from edited to confirmed
   assert.match(html, /Reviewed content/);
 });
 
+test("AI inbox panel surfaces review action errors inside the detail pane", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_action_error", type: "InsightCard", title: "Field suggestion error" }],
+    counts: { reviewed: 1 },
+    selectedArtifactId: "artifact_action_error",
+    actionError: "action boom",
+    detail: {
+      item: { ...item, artifactId: "artifact_action_error", type: "InsightCard", title: "Field suggestion error", status: "adopted_as_draft" },
+      artifact: {
+        ...artifact,
+        id: "artifact_action_error",
+        type: "InsightCard",
+        status: "adopted_as_draft"
+      },
+      suggestion: {
+        id: "suggestion_action_error",
+        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+        scope: "note_field",
+        content: { thesis: "Edited content awaiting confirmation." },
+        status: "edited",
+        sourceArtifactId: "artifact_action_error",
+        provenance: { contentOrigin: "ai_generated", humanEdited: true, humanConfirmed: false }
+      }
+    }
+  });
+
+  assert.match(html, /AI inbox review failed: action boom/);
+  assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
+});
+
 test("AI inbox panel does not keep rendering stale detail when selection has moved", () => {
   const html = renderAiInboxPanel({
     items: [
