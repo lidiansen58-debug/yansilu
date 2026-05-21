@@ -280,6 +280,29 @@ export function planWritingBasketEntry({
   };
 }
 
+export function resolveWritingSourceIndexIds({
+  existingSourceIndexIds = [],
+  incomingSourceIndexIds = [],
+  preserveExisting = true
+} = {}) {
+  const existingIds = preserveExisting
+    ? [...new Set((existingSourceIndexIds || []).map((id) => String(id || "").trim()).filter(Boolean))]
+    : [];
+  const incomingIds = [...new Set((incomingSourceIndexIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  return [...new Set([...existingIds, ...incomingIds])];
+}
+
+export function resolveWritingSelectedThemeIndexId({
+  currentSelectedThemeIndexId = "",
+  nextSourceIndexIds = []
+} = {}) {
+  const currentId = String(currentSelectedThemeIndexId || "").trim();
+  const sourceIds = [...new Set((nextSourceIndexIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  if (currentId && sourceIds.includes(currentId)) return currentId;
+  if (sourceIds.length === 1) return sourceIds[0];
+  return "";
+}
+
 export function resolveWritingEntryTitle({
   entryMode = "replace",
   requestedTitle = "",

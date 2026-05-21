@@ -90,6 +90,8 @@ import {
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
   planWritingBasketEntry,
+  resolveWritingSelectedThemeIndexId,
+  resolveWritingSourceIndexIds,
   resolveWritingEntryTitle,
   groupWritingPreflightChecks,
   isWritingStrongModelReady
@@ -2912,14 +2914,39 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
       title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
       source
     });
+    setWritingSourceIndexIds([id]);
   } else if (replaceBasket) {
     resetWritingStrongModelState();
     setWritingBasketIds(noteIds);
+    resetWritingProjectContext({
+      title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
+      goal: "",
+      audience: "",
+      tone: ""
+    });
+    setWritingSourceIndexIds([id]);
   } else {
-    resetWritingStrongModelState();
-    addWritingBasketIds(entryPlan.addedNoteIds);
+    if (entryPlan.addedNoteIds.length) {
+      continueWritingEntry(noteIds, {
+        title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
+        source,
+        sourceIndexIds: [id]
+      });
+    } else {
+      const nextSourceIndexIds = resolveWritingSourceIndexIds({
+        existingSourceIndexIds: writingState.sourceIndexIds,
+        incomingSourceIndexIds: [id],
+        preserveExisting: true
+      });
+      setWritingSourceIndexIds(nextSourceIndexIds);
+      setSelectedWritingThemeIndex(
+        resolveWritingSelectedThemeIndexId({
+          currentSelectedThemeIndexId: writingState.selectedThemeIndexId,
+          nextSourceIndexIds
+        })
+      );
+    }
   }
-  setWritingSourceIndexIds([id]);
   if (!$("writingTitle")?.value.trim()) $("writingTitle").value = normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds));
   renderWritingPanel();
   return {
@@ -4658,7 +4685,7 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   return true;
 }
 
-function continueWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
+function continueWritingEntry(noteIds = [], { title = "", source = "writing_center", sourceIndexIds = [], preserveSourceIndexIds = true } = {}) {
   const plan = planWritingBasketEntry({
     existingNoteIds: parseWritingBasketIds(),
     incomingNoteIds: noteIds
@@ -4681,8 +4708,19 @@ function continueWritingEntry(noteIds = [], { title = "", source = "writing_cent
   writingState.relationCounts = {};
   writingState.relationCountErrors = {};
   writingState.loadingRelationCounts = plan.basketNoteIds.length > 0;
-  clearWritingSourceIndexIds();
-  setSelectedWritingThemeIndex("");
+  const nextSourceIndexIds = resolveWritingSourceIndexIds({
+    existingSourceIndexIds: writingState.sourceIndexIds,
+    incomingSourceIndexIds: sourceIndexIds,
+    preserveExisting: preserveSourceIndexIds
+  });
+  if (nextSourceIndexIds.length) setWritingSourceIndexIds(nextSourceIndexIds);
+  else clearWritingSourceIndexIds();
+  setSelectedWritingThemeIndex(
+    resolveWritingSelectedThemeIndexId({
+      currentSelectedThemeIndexId: writingState.selectedThemeIndexId,
+      nextSourceIndexIds
+    })
+  );
   setWritingBasketIds(plan.basketNoteIds);
   resetWritingProjectContext({
     title: resolvedTitle,
