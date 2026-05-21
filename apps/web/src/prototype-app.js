@@ -68,12 +68,29 @@ import {
 import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
-import { graphFollowupActionForRelationType, graphNextActionForSummary } from "./graph-followup.js";
 import {
+  graphFollowupActionForRelationType,
+  graphNextActionForSummary,
+  graphWritingCandidateNoteIds,
+  graphWritingFollowupEntryPlan
+} from "./graph-followup.js";
+import {
+  describeWritingMaterialStatus,
+  describeWritingMaterialStepState,
+  describeWritingStrongModelButtonLabel,
+  describeWritingStrongModelIdleSummary,
+  describeWritingStrongModelStatus,
+  describeWritingBatchAppendStatus,
+  planWritingCandidateFocus,
   describeWritingProjectEntryState,
+  describeWritingProjectStepState,
+  describeWritingScaffoldStepState,
+  describeWritingDraftStepState,
   describeWritingThemeProjectEntryState,
   describeWritingNextActionFromState,
   describeWritingProjectPreflight,
+  planWritingBasketEntry,
+  resolveWritingEntryTitle,
   groupWritingPreflightChecks,
   isWritingStrongModelReady
 } from "./writing-center-flow.js";
@@ -322,6 +339,8 @@ const writingState = {
   loadingThemeRelationCounts: false,
   themeRelationCountRequestSerial: 0,
   sourceIndexIds: [],
+  focusedCandidateNoteIds: [],
+  focusedCandidateScopeLabel: "",
   selectedThemeIndexId: "",
   themeIndexes: [],
   loadingThemeIndexes: false,
@@ -2336,13 +2355,13 @@ function renderImportWritingActions(payload = {}) {
         permanentNoteIds.length
           ? `
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes">
-        加入写作篮子 ${permanentNoteIds.length}
+        加入写作篮 ${permanentNoteIds.length}
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="add-permanent-notes-open-writing">
         加入并打开写作中心
       </button>
       <button class="mini-btn" type="button" data-import-writing-action="create-writing-project">
-        直接创建写作项目
+        直接创建项目
       </button>
       <div class="toolbar-note">把本次新写入的 PermanentNote 直接送进写作中心。</div>
       `
@@ -2529,6 +2548,14 @@ function showExportResult(payload) {
   renderResult($("exportResult"), payload);
 }
 
+function normalizeWritingProjectTitleSeed(title = "") {
+  const cleanTitle = String(title || "").trim();
+  if (!cleanTitle) return "未命名项目";
+  if (cleanTitle.endsWith("写作项目")) return `${cleanTitle.slice(0, -"写作项目".length).trim()} 项目`.trim();
+  if (cleanTitle.endsWith("项目")) return cleanTitle;
+  return `${cleanTitle} 项目`;
+}
+
 function showWritingResult(payload) {
   if (payload?.stage === "draft_scaffold" && typeof payload.markdown === "string") {
     writingState.scaffoldMarkdown = payload.markdown;
@@ -2544,7 +2571,9 @@ function syncWritingResultFromCurrentState() {
   const shouldHydrate =
     !currentText ||
     currentText === "尚未开始写作项目。" ||
-    currentText === "请先创建写作项目";
+    currentText === "尚未开始项目。" ||
+    currentText === "请先创建写作项目" ||
+    currentText === "请先创建项目";
   if (!shouldHydrate) return;
 
   if (writingState.scaffold) {
@@ -2783,10 +2812,60 @@ async function openWritingModule({ statusMessage = "已打开写作中心" } = {
   if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });
 }
 
+async function createWritingProjectFromCurrentBasket() {
+  const title = String($("writingTitle")?.value || "").trim();
+  const basketNoteIds = parseWritingBasketIds();
+  const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
+  if (!title) {
+    setStatus("请先填写项目标题", "warn");
+    return null;
+  }
+  if (!basketNoteIds.length) {
+    setStatus("请先加入至少一条永久笔记", "warn");
+    return null;
+  }
+  try {
+    const project = await createWritingProject({
+      title,
+      goal: String($("writingGoal")?.value || "").trim(),
+      audience: String($("writingAudience")?.value || "").trim(),
+      tone: String($("writingTone")?.value || "").trim(),
+      basketNoteIds,
+      relatedIndexIds
+    });
+    writingState.project = project;
+    writingState.scaffold = null;
+    writingState.scaffoldMarkdown = "";
+    showWritingResult({
+      stage: "writing_project",
+      writingProjectId: project?.id,
+      title: project?.title,
+      relatedIndexIds: project?.related_index_ids,
+      basketNoteIds: project?.basket_note_ids,
+      basketNotes: project?.basket_notes
+    });
+    await loadWritingProjectsList();
+    await loadWritingScaffoldVersions();
+    await loadWritingDraftVersions();
+    renderWritingPanel();
+    setStatus(`项目已创建：${project?.id}`, "ok");
+    return project;
+  } catch (error) {
+    showWritingResult({
+      stage: "writing_project_error",
+      message: String(error?.message || error),
+      code: error?.code || null,
+      details: error?.details || null
+    });
+    setStatus(`项目创建失败：${String(error?.message || error)}`, "bad");
+    return null;
+  }
+}
+
 async function addImportedPermanentNotesToWritingBasket({ openWriting = false } = {}) {
   const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
   if (!noteIds.length) {
-    setStatus("当前导入结果里没有可加入写作篮子的 PermanentNote", "warn");
+    setStatus("当前导入结果里没有可加入写作篮的 PermanentNote", "warn");
     return false;
   }
   await ensureNotesLoaded(noteIds);
@@ -2795,26 +2874,26 @@ async function addImportedPermanentNotesToWritingBasket({ openWriting = false } 
       title: suggestedWritingProjectTitle(noteIds),
       source: "import_permanent_notes"
     });
-    await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮子，并打开写作中心` });
+    await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮，并打开写作中心` });
   } else {
     clearWritingSourceIndexIds();
     addWritingBasketIds(noteIds);
     if (!$("writingTitle")?.value.trim()) {
       const firstNote = noteIds.map((id) => writingNoteById(id)).find(Boolean);
-      if (firstNote?.title) $("writingTitle").value = `${firstNote.title} 写作项目`;
+      if (firstNote?.title) $("writingTitle").value = normalizeWritingProjectTitleSeed(firstNote.title);
     }
     renderWritingPanel();
-    setStatus(`已把 ${noteIds.length} 条导入永久笔记加入写作篮子`, "ok");
+    setStatus(`已把 ${noteIds.length} 条导入永久笔记加入写作篮`, "ok");
   }
   return true;
 }
 
 function suggestedWritingProjectTitle(noteIds = []) {
   const notes = noteIds.map((id) => writingNoteById(id)).filter(Boolean);
-  if (notes.length === 1) return `${notes[0].title || notes[0].id} 写作项目`;
+  if (notes.length === 1) return normalizeWritingProjectTitleSeed(notes[0].title || notes[0].id);
   const first = notes[0];
-  if (first?.title) return `${first.title} 等 ${notes.length} 条笔记`;
-  return `导入笔记写作项目 ${noteIds.length}`;
+  if (first?.title) return normalizeWritingProjectTitleSeed(`${first.title} 等 ${notes.length} 条笔记`);
+  return `导入笔记项目 ${noteIds.length}`;
 }
 
 async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false, resetContext = false, source = "writing_theme_index" } = {}) {
@@ -2824,9 +2903,13 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
   const noteIds = uniqueStrings(indexCard?.item_note_ids || indexCard?.items?.map((item) => item.note_id) || []);
   if (!noteIds.length) throw new Error("theme index is empty");
   await ensureNotesLoaded(noteIds);
+  const entryPlan = planWritingBasketEntry({
+    existingNoteIds: parseWritingBasketIds(),
+    incomingNoteIds: noteIds
+  });
   if (resetContext && replaceBasket) {
     beginWritingEntry(noteIds, {
-      title: `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`,
+      title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
       source
     });
   } else if (replaceBasket) {
@@ -2834,12 +2917,17 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
     setWritingBasketIds(noteIds);
   } else {
     resetWritingStrongModelState();
-    addWritingBasketIds(noteIds);
+    addWritingBasketIds(entryPlan.addedNoteIds);
   }
   setWritingSourceIndexIds([id]);
-  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = `${indexCard.title || suggestedWritingProjectTitle(noteIds)} 写作项目`;
+  if (!$("writingTitle")?.value.trim()) $("writingTitle").value = normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds));
   renderWritingPanel();
-  return { indexCard, noteIds };
+  return {
+    indexCard,
+    noteIds,
+    addedNoteIds: entryPlan.addedNoteIds,
+    addedCount: entryPlan.addedNoteIds.length
+  };
 }
 
 async function saveWritingBasketAsThemeIndex() {
@@ -2851,7 +2939,7 @@ async function saveWritingBasketAsThemeIndex() {
   if (title === null) return null;
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) throw new Error("title is required");
-  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作入口。";
+  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作中心入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
@@ -2876,7 +2964,7 @@ async function saveWritingBasketAsThemeIndex() {
 async function createWritingProjectFromImportedPermanentNotes() {
   const noteIds = createdNoteIdsByTypeFromImportPayload(importState.lastResultPayload || {}, "permanent");
   if (!noteIds.length) {
-    setStatus("当前导入结果里没有可创建写作项目的 PermanentNote", "warn");
+    setStatus("当前导入结果里没有可创建项目的 PermanentNote", "warn");
     return false;
   }
   await ensureNotesLoaded(noteIds);
@@ -2902,7 +2990,7 @@ async function createWritingProjectFromImportedPermanentNotes() {
       basketNoteIds: project?.basket_note_ids,
       basketNotes: project?.basket_notes
     });
-    await openWritingModule({ statusMessage: `已从导入结果创建写作项目：${project?.id}` });
+    await openWritingModule({ statusMessage: `已从导入结果创建项目：${project?.id}` });
     return true;
   } catch (error) {
     showWritingResult({
@@ -2911,7 +2999,7 @@ async function createWritingProjectFromImportedPermanentNotes() {
       code: error?.code || null,
       details: error?.details || null
     });
-    setStatus(`从导入结果创建写作项目失败：${String(error?.message || error)}`, "bad");
+    setStatus(`从导入结果创建项目失败：${String(error?.message || error)}`, "bad");
     return false;
   }
 }
@@ -3478,31 +3566,31 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
     ? topGaps.length
       ? `下一步：${topGaps.slice(0, 2).join("，")}。`
       : distillation.writingReady
-        ? "当前观点已经可以进入写作准备。"
+        ? "当前观点已经可以进入写作中心。"
         : "先写出第一条可以被确认的观点。"
     : isLiterature
       ? "先写转述，再记录永久笔记。来源字段保留追溯能力，但不让资料管理盖过判断形成。"
       : isFleeting
         ? "先捕捉还不成熟的问题和线索，等它出现判断，再单独沉淀为永久笔记。"
-        : "这一级目录会被放回永久笔记、关系网络、主题索引和写作准备的路径里理解。";
+        : "这一级目录会被放回永久笔记、关系网络、主题索引和写作中心的路径里理解。";
   const steps = isOriginal
     ? [
         ["写一句判断", distillation.missingThesis < originalNotes.length],
         ["压缩成三句话", distillation.missingSummary < originalNotes.length],
         ["确认观点", distillation.confirmed > 0],
-        ["写作准备", distillation.writingReady > 0]
+        ["写作中心", distillation.writingReady > 0]
       ]
     : [
         ["素材入口", true],
         ["记录永久笔记", generatedMaterialCount > 0],
         ["关系网络", linkedOriginalCount > 0],
-        ["写作准备", false]
+        ["写作中心", false]
       ];
   const metrics = isOriginal
     ? [
         [distillation.pending, "待提纯"],
         [distillation.confirmed, "已确认观点"],
-        [distillation.writingReady, "可进入写作"]
+        [distillation.writingReady, "可进入写作中心"]
       ]
     : [
         [currentNotes.length, "素材条目"],
@@ -3537,7 +3625,7 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
         isOriginal
           ? `<div class="sidebar-flow-gaps">${topGaps.length ? topGaps.map((gap) => `<span>${escapeHtml(gap)}</span>`).join("") : `<span>观点链路已清爽</span>`}</div>
              <button class="mini-btn primary sidebar-flow-action" type="button" data-sidebar-flow-action="${escapeHtml(primaryAction)}">${escapeHtml(
-               primaryAction === "continue-distillation" ? "继续观点提纯" : primaryAction === "open-writing" ? "进入写作准备" : "新建永久笔记"
+               primaryAction === "continue-distillation" ? "继续观点提纯" : primaryAction === "open-writing" ? "进入写作中心" : "新建永久笔记"
              )}</button>`
           : ""
       }
@@ -3726,21 +3814,21 @@ function currentModuleUi() {
     },
     writing: {
       sidebarTitle: "写作中心",
-      sidebarSubtitle: "从成熟笔记进入写作准备。",
+      sidebarSubtitle: "从成熟笔记进入写作中心。",
       sidebarFoot: "写作中心应从成熟笔记出发，不替代笔记编辑器。",
       title: "写作中心",
-      summary: "这里不是囤积观点卡的地方，而是把已经成熟的永久笔记组织成可写主题、写作项目和脚手架的地方。页面应围绕写作准备展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
+      summary: "这里不是囤积观点卡的地方，而是把已经成熟的永久笔记组织成可写主题、项目和草稿骨架的地方。页面应围绕写作中心这条主路径展开，也要逼你处理反方、边界和概念错位，而不只是堆叠相近观点。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>写作原则</h3>
-          <p>先判断哪些主题已经值得写，再挑选支撑该主题的永久笔记进入写作篮。这里帮助组织结构，也会提醒你补反方、边界和漏洞，但不直接代替你完成最终写作。</p>
+          <p>先判断哪些主题已经值得写，再挑选支撑该主题的永久笔记加入写作篮。这里帮助组织结构，也会提醒你补反方、边界和漏洞，但不直接代替你完成最终写作。</p>
         </div>
         <div class="module-sidebar-card">
           <h3>建议路径</h3>
           <ol class="module-sidebar-list">
             <li>先确认一个可推进的主题</li>
             <li>把相关永久笔记加入写作篮</li>
-            <li>生成并迭代 scaffold，优先处理冲突与缺口</li>
+            <li>生成并迭代草稿骨架，优先处理冲突与缺口</li>
           </ol>
         </div>
       `
@@ -4199,13 +4287,13 @@ function renderDistillationPanel() {
         })
         .join("")
     : activeFilter !== "all"
-      ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作准备。</div>`
+      ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作中心。</div>`
       : activeCount === 0 && writingReadyCount > 0
-        ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作准备。</div>`
+        ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作中心。</div>`
         : `<div class="distillation-empty">还没有可提纯的永久笔记。先在永久笔记工作台新建或导入一条笔记。</div>`;
   const nextActiveItem = items.find((item) => item.stage !== "confirmed") || null;
   const primaryAction = nextActiveItem ? "open-next" : writingReadyCount > 0 ? "open-writing" : "create-permanent";
-  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作准备" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续观点提纯";
+  const primaryActionLabel = primaryAction === "open-writing" ? "进入写作中心" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续观点提纯";
   const primaryActionAttrs = primaryAction === "open-next"
     ? `data-distillation-open-note="${escapeHtml(nextActiveItem.note.id)}"`
     : `data-distillation-action="${escapeHtml(primaryAction)}"`;
@@ -4215,7 +4303,7 @@ function renderDistillationPanel() {
         <div>
           <div class="import-card-kicker">Opinion Distillation</div>
           <strong>先把材料压缩成你愿意确认的观点</strong>
-          <p>${escapeHtml(gapChips.length ? `优先处理：${gapChips.join("，")}。` : writingReadyCount ? "当前观点已经准备进入写作。" : "从第一条永久笔记开始写一句判断。")}</p>
+          <p>${escapeHtml(gapChips.length ? `优先处理：${gapChips.join("，")}。` : writingReadyCount ? "当前观点已经准备进入写作中心。" : "从第一条永久笔记开始写一句判断。")}</p>
         </div>
         <button class="mini-btn primary" type="button" ${primaryActionAttrs}>${escapeHtml(primaryActionLabel)}</button>
       </section>
@@ -4229,7 +4317,7 @@ function renderDistillationPanel() {
           <strong>${counts.confirmed || 0}</strong>
         </div>
         <div>
-          <span>可进入写作</span>
+          <span>可进入写作中心</span>
           <strong>${writingReadyCount}</strong>
         </div>
         <div>
@@ -4568,6 +4656,48 @@ function beginWritingEntry(noteIds = [], { title = "", source = "writing_center"
   renderWritingPanel();
   void refreshWritingRelationCounts(normalizedIds);
   return true;
+}
+
+function continueWritingEntry(noteIds = [], { title = "", source = "writing_center" } = {}) {
+  const plan = planWritingBasketEntry({
+    existingNoteIds: parseWritingBasketIds(),
+    incomingNoteIds: noteIds
+  });
+  if (!plan.basketNoteIds.length) return null;
+
+  const resolvedTitle = resolveWritingEntryTitle({
+    entryMode: plan.entryMode,
+    requestedTitle: title,
+    existingTitle: String($("writingTitle")?.value || "").trim()
+  });
+  const nextGoal = String($("writingGoal")?.value || "").trim();
+  const nextAudience = String($("writingAudience")?.value || "").trim();
+  const nextTone = String($("writingTone")?.value || "").trim();
+
+  writingState.strongModelEpoch += 1;
+  writingState.strongModelLoading = false;
+  writingState.strongModelResult = null;
+  writingState.strongModelError = "";
+  writingState.relationCounts = {};
+  writingState.relationCountErrors = {};
+  writingState.loadingRelationCounts = plan.basketNoteIds.length > 0;
+  clearWritingSourceIndexIds();
+  setSelectedWritingThemeIndex("");
+  setWritingBasketIds(plan.basketNoteIds);
+  resetWritingProjectContext({
+    title: resolvedTitle,
+    goal: nextGoal,
+    audience: nextAudience,
+    tone: nextTone
+  });
+  showWritingResult({
+    stage: "writing_entry_from_notes",
+    source,
+    basketNoteIds: plan.basketNoteIds
+  });
+  renderWritingPanel();
+  void refreshWritingRelationCounts(plan.basketNoteIds);
+  return plan;
 }
 
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
@@ -5180,20 +5310,7 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
     resetContext: true,
     source: "writing_theme_create_project"
   });
-  const relationPayload = await refreshWritingRelationCounts(noteIds, { render: false });
-  const relationCounts = relationPayload?.counts || writingState.relationCounts || {};
-  const relationErrors = relationPayload?.errors || writingState.relationCountErrors || {};
-  const relationCountsReady = writingRelationCountsReady(noteIds, relationCounts);
-  const relationCountsErrored = writingRelationCountsErrored(noteIds, relationErrors);
-  const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, {
-    relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
-  });
-  const projectReady = !relationCountsErrored && relationCountsReady && (readiness.level === "project_ready" || readiness.level === "strong_model_ready");
-  if (!projectReady) {
-    renderWritingPanel();
-    throw new Error(relationCountsErrored ? "主题入口的显式关系暂时读取失败，请稍后重试。" : readiness.hint || "当前主题入口还没满足创建项目的条件。");
-  }
-  const title = String($("writingTitle")?.value || "").trim() || `${indexCard.title || indexCard.id} 写作项目`;
+  const title = String($("writingTitle")?.value || "").trim() || normalizeWritingProjectTitleSeed(indexCard.title || indexCard.id);
   const project = await createWritingProject({
     title,
     goal: String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim(),
@@ -5301,7 +5418,7 @@ function writingNoteEligibility(note) {
     return {
       ok: false,
       key: "draft",
-      message: "这条永久笔记仍是 draft，先完成原创性检查后再进入写作。"
+      message: "这条永久笔记仍是 draft，先完成原创性检查后再进入写作中心。"
     };
   }
   return { ok: true, key: "ok", message: "" };
@@ -5534,7 +5651,7 @@ function writingDraftDirectoryId() {
 }
 
 function writingDraftTitle() {
-  const projectTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名写作项目";
+  const projectTitle = String(writingState.project?.title || $("writingTitle")?.value || "").trim() || "未命名项目";
   return `${projectTitle} 草稿`;
 }
 
@@ -5552,8 +5669,8 @@ function writingDraftBody() {
   const projectId = writingState.project?.id || "";
   const scaffoldId = writingState.scaffold?.id || "";
   const references = uniqueStrings([
-    projectId ? `WritingProject: ${projectId}` : "",
-    scaffoldId ? `DraftScaffold: ${scaffoldId}` : ""
+    projectId ? `项目：${projectId}` : "",
+    scaffoldId ? `草稿骨架：${scaffoldId}` : ""
   ]);
   const tail = references.length ? `\n\n---\n${references.join("\n")}\n` : "\n";
   return `${scaffoldMarkdown}${tail}`;
@@ -5624,7 +5741,7 @@ function writingNoteMeta(note) {
   ]).join(" · ");
 }
 
-function renderWritingNoteCard(note, { selected = false, action = "add", actionLabel = "加入篮子" } = {}) {
+function renderWritingNoteCard(note, { selected = false, action = "add", actionLabel = "加入写作篮" } = {}) {
   const thinkingBadge = renderThinkingStatusBadge(note?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card ${selected ? "selected" : ""}" data-writing-note-id="${escapeHtml(note.id)}">
@@ -5685,7 +5802,7 @@ function renderWritingThemeIndexCard(indexCard) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作入口。")}</div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作中心入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
@@ -5734,10 +5851,10 @@ function renderWritingThemeDetail(indexCard) {
         <button class="mini-btn primary" type="button" data-writing-theme-action="create-project" data-writing-theme-id="${themeId}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
-        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作入口。
+        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作中心入口。
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
-        当前主题入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题进入写作项目。")}
+        当前主题入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题创建项目。")}
       </div>
       <div class="import-grid" style="margin-top:12px;">
         <label for="writingThemeDetailTitle">主题标题</label>
@@ -5831,12 +5948,12 @@ function renderWritingProjectCard(project) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">Scaffold：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；主题入口 ${escapeHtml(sourceCount)}</div>
+      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project.goal || "暂无写作目标说明。")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="open" data-writing-project-id="${escapeHtml(project.id)}">打开项目</button>
-        <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>复制 Scaffold</button>
-        <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>导出 .md</button>
+        <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>复制草稿骨架</button>
+        <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>导出草稿骨架 .md</button>
       </div>
     </article>
   `;
@@ -5854,7 +5971,7 @@ function renderScaffoldVersionCard(version) {
         </div>
       </div>
       <div class="writing-note-meta">生成于：${escapeHtml(version.created_at || version.updated_at || "")}${isActive ? " · 当前预览中" : ""}</div>
-      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的 scaffold 版本")}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "自动生成的草稿骨架版本")}</div>
         <div class="writing-note-actions">
           <button class="mini-btn" type="button" data-writing-scaffold-action="open" data-writing-scaffold-id="${escapeHtml(version.id)}">打开版本</button>
           <button class="mini-btn" type="button" data-writing-scaffold-action="copy" data-writing-scaffold-id="${escapeHtml(version.id)}">复制</button>
@@ -5875,19 +5992,19 @@ function renderDraftVersionCard(version) {
       <div class="writing-note-card-head">
         <div>
           <div class="writing-note-title">v${escapeHtml(version.version_no || 0)} · ${escapeHtml(noteTitle)}</div>
-          <div class="writing-note-meta">${escapeHtml(version.draft_note_id)} · ${escapeHtml(noteStatus)}${version?.is_current ? " · 当前草稿" : ""}</div>
+          <div class="writing-note-meta">${escapeHtml(version.draft_note_id)} · ${escapeHtml(noteStatus)}${version?.is_current ? " · 当前版本" : ""}</div>
         </div>
       </div>
-      <div class="writing-note-meta">来源 Scaffold：${escapeHtml(sourceScaffold)}</div>
-      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前 scaffold 保存的草稿版本")}</div>
+      <div class="writing-note-meta">来源草稿骨架：${escapeHtml(sourceScaffold)}</div>
+      <div class="writing-note-meta">说明：${escapeHtml(versionNote || "从当前草稿骨架保存的草稿版本")}</div>
       <div class="writing-note-meta">创建时间：${escapeHtml(version.created_at || "")}</div>
         <div class="writing-note-actions">
-          <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿</button>
+          <button class="mini-btn" type="button" data-writing-draft-action="open" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">打开草稿版本</button>
           <button class="mini-btn" type="button" data-writing-draft-action="edit-note" data-writing-draft-version-id="${escapeHtml(version.id)}" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">编辑说明</button>
           ${
             version?.is_current
-              ? `<button class="mini-btn" type="button" disabled>当前草稿</button>`
-            : `<button class="mini-btn" type="button" data-writing-draft-action="set-current" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">设为当前草稿</button>`
+              ? `<button class="mini-btn" type="button" disabled>当前版本</button>`
+            : `<button class="mini-btn" type="button" data-writing-draft-action="set-current" data-writing-draft-note-id="${escapeHtml(version.draft_note_id)}">设为当前版本</button>`
         }
       </div>
     </article>
@@ -6122,7 +6239,13 @@ function renderWritingStatusStrip() {
         : readiness.level === "needs_basket"
           ? "warn"
           : "warn";
-  const basketNote = readiness.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const materialStatus = describeWritingMaterialStatus({
+    readinessLevel: readiness.level,
+    readinessStatus: readiness.status,
+    readinessHint: readiness.hint,
+    hasProject
+  });
+  const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectEntry = describeWritingProjectEntryState({
     relationCountsReady,
     relationCountsErrored,
@@ -6144,62 +6267,75 @@ function renderWritingStatusStrip() {
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
   });
+  const strongModelState = describeWritingStrongModelStatus({
+    hasProject,
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: readiness.level,
+    readinessHint: readiness.hint,
+    projectPreflightLevel: projectPreflightSummary.level,
+    projectPreflightChecksLength: projectPreflightChecks.length,
+    strongModelReady
+  });
   const strongModelTone = strongModelReady ? "good" : "warn";
-  const strongModelNote =
-    projectPreflightSummary.level !== "ready" && hasProject
-      ? `先处理项目预检里的 ${projectPreflightChecks.length} 项缺口，再做强模型分析。`
-      : relationCountsErrored
-        ? "显式关系读取失败，先重试或回到笔记里确认关系。"
-      : !relationCountsReady && basketIds.length
-        ? "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。"
-      : strongModelReady
-        ? "当前材料已经适合进入强模型分析。"
-        : readiness.level === "project_ready"
-          ? "先补更多主题线索，再做强模型分析。"
-          : readiness.hint;
   el.innerHTML = [
-    renderWritingStatusCard("材料", readiness.status, basketNote, basketTone),
+    renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
-    renderWritingStatusCard("骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
-    renderWritingStatusCard("强模型", relationCountsErrored ? "读取失败" : !relationCountsReady && basketIds.length ? "读取中" : strongModelReady ? "可分析" : "先补条件", strongModelNote, strongModelTone),
+    renderWritingStatusCard("草稿骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
 }
 
-function renderWritingFlowSteps() {
+function renderWritingFlowSteps({
+  basketCount = 0,
+  hasProject = false,
+  projectId = "",
+  projectEntry = null
+} = {}) {
   const el = $("writingFlowSteps");
   if (!el) return;
-  const basketCount = parseWritingBasketIds().length;
-  const hasProject = Boolean(writingState.project?.id);
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
   const preflightGroups = groupWritingPreflightChecks(writingState.scaffold?.preflight || null);
+  const materialStep = describeWritingMaterialStepState({ basketCount });
+  const projectStep = describeWritingProjectStepState({
+    basketCount,
+    hasProject,
+    projectId,
+    projectEntryStatus: projectEntry?.status || "",
+    projectEntryHint: projectEntry?.hint || "",
+    canCreateProject: Boolean(projectEntry?.canCreateProject)
+  });
+  const scaffoldStep = describeWritingScaffoldStepState({
+    hasScaffold,
+    blockingCount: preflightGroups.blocking.length,
+    warningCount: preflightGroups.warnings.length
+  });
+  const draftStep = describeWritingDraftStepState({
+    hasDraft,
+    hasScaffold
+  });
   const steps = [
     {
       done: basketCount > 0,
-      title: "选材料",
-      note: basketCount ? `${basketCount} 条永久笔记` : "加入 2-5 条永久笔记"
+      title: materialStep.title,
+      note: materialStep.note
     },
     {
       done: hasProject,
-      title: "建项目",
-      note: hasProject ? writingState.project.id : "明确题目和读者"
+      title: projectStep.title,
+      note: projectStep.note
     },
     {
       done: hasScaffold,
-      title: "生成骨架",
-      note: hasScaffold
-        ? preflightGroups.blocking.length
-          ? `先补 ${preflightGroups.blocking.length} 个阻塞项`
-          : preflightGroups.warnings.length
-            ? `可继续，但建议先补 ${preflightGroups.warnings.length} 个提醒`
-            : "可直接进入草稿"
-        : "检查证据、缺口和反方"
+      title: scaffoldStep.title,
+      note: scaffoldStep.note
     },
     {
       done: hasDraft,
-      title: "保存草稿",
-      note: hasDraft ? "草稿已保存，下一步打开继续写" : "生成骨架后再保存"
+      title: draftStep.title,
+      note: draftStep.note
     }
   ];
   const firstOpenIndex = steps.findIndex((step) => !step.done);
@@ -6223,7 +6359,7 @@ function renderWritingScaffoldPreview() {
   if (!el) return;
   if (!writingState.scaffold) {
     el.innerHTML = `
-      <h4>骨架预览</h4>
+      <h4>草稿骨架预览</h4>
       <div class="writing-empty">先选材料并创建项目，再生成草稿骨架；这里会显示章节、证据和开放问题。</div>
     `;
     return;
@@ -6246,9 +6382,9 @@ function renderWritingScaffoldPreview() {
     warningCount: warningChecks.length
   });
   el.innerHTML = `
-    <h4>骨架预览</h4>
+    <h4>草稿骨架预览</h4>
     <div class="writing-summary">
-      Scaffold：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
+      草稿骨架：${escapeHtml(writingState.scaffold.id || "未命名")}；章节 ${escapeHtml(sections.length || 0)} 个；开放问题 ${escapeHtml(questions.length || 0)} 个。
     </div>
     <div class="writing-summary">
       保存草稿时会写入：${escapeHtml(targetFolder?.name || targetDirectoryId)}。
@@ -6315,7 +6451,7 @@ function renderWritingScaffoldPreview() {
                 `;
               })
               .join("")}</ol>`
-          : `<div class="writing-empty">当前 scaffold 还没有章节。</div>`
+          : `<div class="writing-empty">当前草稿骨架还没有章节。</div>`
       }
     </div>
     <div>
@@ -6323,7 +6459,7 @@ function renderWritingScaffoldPreview() {
       ${
         questions.length
           ? `<ul>${questions.map((question) => `<li>${escapeHtml(question)}</li>`).join("")}</ul>`
-          : `<div class="writing-empty">当前 scaffold 还没有开放问题。</div>`
+          : `<div class="writing-empty">当前草稿骨架还没有开放问题。</div>`
       }
     </div>
     <div>
@@ -6365,7 +6501,7 @@ function renderWritingPanel() {
   const scopeFolder = folderById(state, state.selectedFolderId);
   const scopeRoot = folderById(state, rootBoxIdFromFolder(state, state.selectedFolderId));
   if (scopeHint) {
-    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作入口默认从已有观点开始。`;
+    scopeHint.textContent = `当前作用范围：${scopeRoot?.name || "永久笔记"} / ${scopeFolder?.name || "当前目录"}。这里只显示当前目录及其子目录里已经转化出的永久笔记，不展示原始导入资料；写作中心入口默认从已有观点开始。`;
   }
   renderWritingStatusStrip();
 
@@ -6376,7 +6512,7 @@ function renderWritingPanel() {
     } else if (writingState.loadingThemeIndexes) {
       themeIndexesHint.textContent = "正在读取主题索引...";
     } else if (writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作入口。`;
+      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作中心入口。`;
     } else {
       themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织进写作篮，再保存为主题索引。";
     }
@@ -6389,7 +6525,7 @@ function renderWritingPanel() {
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map(renderWritingThemeIndexCard).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接开始写作。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接进入写作中心。</div>`;
     }
   }
 
@@ -6413,8 +6549,8 @@ function renderWritingPanel() {
   }
   if (themeDetailHint) {
     themeDetailHint.textContent = selectedTheme
-      ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成写作项目。`
-      : "查看中心问题、主题压缩、相关永久笔记，并从主题直接进入写作项目。";
+      ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成项目。`
+      : "查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。";
   }
   if (themeDetail) {
     themeDetail.innerHTML = renderWritingThemeDetail(selectedTheme);
@@ -6434,23 +6570,40 @@ function renderWritingPanel() {
     readinessHint: basketReadiness.hint
   });
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
+  const strongModelReady =
+    !relationCountsErrored &&
+    relationCountsReady &&
+    isWritingStrongModelReady({
+      readinessLevel: basketReadiness.level,
+      projectPreflightLevel: projectPreflightSummary.level
+    });
+  const strongModelState = describeWritingStrongModelStatus({
+    hasProject: Boolean(writingState.project?.id),
+    relationCountsReady,
+    relationCountsErrored,
+    readinessLevel: basketReadiness.level,
+    readinessHint: basketReadiness.hint,
+    projectPreflightLevel: projectPreflightSummary.level,
+    projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
+    strongModelReady
+  });
   if (basketSummary) {
-    const sourcePart = sourceIndexSummary ? `主题入口：${sourceIndexSummary}。` : "主题入口：尚未记录。";
+    const sourcePart = sourceIndexSummary ? `写作中心入口：${sourceIndexSummary}。` : "写作中心入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
       ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "显式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等显式关系读取完成后，再判断是否能建项目。"} ${sourcePart}`
       : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
   }
   if (basketList) {
     basketList.innerHTML = basketEntries.length
-      ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出篮子" })).join("")
-      : `<div class="writing-empty">\u5148\u5728\u5de6\u4fa7\u6253\u5f00\u4e00\u6761\u539f\u521b\u7b14\u8bb0\u70b9\u51fb“\u52a0\u5165\u5f53\u524d\u7b14\u8bb0”\uff0c\u6216\u5148\u770b\u4e0b\u9762\u54ea\u4e9b\u4e3b\u9898\u5df2\u7ecf\u6210\u5f62\uff0c\u518d\u628a\u76f8\u5173\u7b14\u8bb0\u6279\u91cf\u52a0\u5165\u5199\u4f5c\u7bee\u3002</div>`;
+      ? basketEntries.map((entry) => renderWritingNoteCard(entry, { selected: true, action: "remove", actionLabel: "移出写作篮" })).join("")
+      : `<div class="writing-empty">\u5148\u5728\u5de6\u4fa7\u6253\u5f00\u4e00\u6761\u539f\u521b\u7b14\u8bb0\u70b9\u51fb“\u628a\u5f53\u524d\u7b14\u8bb0\u52a0\u5165\u5199\u4f5c\u7bee”\uff0c\u6216\u5148\u770b\u4e0b\u9762\u54ea\u4e9b\u4e3b\u9898\u5df2\u7ecf\u6210\u5f62\uff0c\u518d\u628a\u76f8\u5173\u7b14\u8bb0\u6279\u91cf\u52a0\u5165\u5199\u4f5c\u7bee\u3002</div>`;
   }
 
   const candidates = writingCandidateNotes();
   const basketIdSet = new Set(parseWritingBasketIds());
   if (candidateSummary) {
     candidateSummary.textContent = candidates.length
-      ? `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记进入写作篮。`
+      ? `当前目录内有 ${candidates.length} 条永久笔记，${writingThemeSummary(candidates)}。先确认自己的判断，再决定哪些笔记加入写作篮。`
     : "当前目录里还没有已加载的永久笔记。可以先回到永久笔记目录形成几条自己的观点，再来组织可写主题。";
   }
   if (candidateList) {
@@ -6460,7 +6613,7 @@ function renderWritingPanel() {
             renderWritingNoteCard(entry, {
               selected: basketIdSet.has(entry.id),
               action: basketIdSet.has(entry.id) ? "remove" : "add",
-              actionLabel: basketIdSet.has(entry.id) ? "移出篮子" : "加入篮子"
+              actionLabel: basketIdSet.has(entry.id) ? "移出写作篮" : "加入写作篮"
             })
           )
           .join("")
@@ -6483,27 +6636,14 @@ function renderWritingPanel() {
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
+  const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    const strongModelBasketIds = basketIds;
-    const strongModelReady =
-      !relationCountsErrored &&
-      relationCountsReady &&
-      isWritingStrongModelReady({
-        readinessLevel: basketReadiness.level,
-        projectPreflightLevel: projectPreflightSummary.level
-      });
     strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
-    strongModelButton.textContent = writingState.strongModelLoading
-      ? "准备中..."
-      : !strongModelBasketIds.length
-        ? "先加入笔记"
-        : relationCountsErrored
-          ? "关系读取失败"
-        : !relationCountsReady
-          ? "正在读取关系"
-        : strongModelReady
-          ? "准备强模型分析"
-          : "先补条件";
+    strongModelButton.textContent = describeWritingStrongModelButtonLabel({
+      basketCount: strongModelBasketIds.length,
+      loading: writingState.strongModelLoading,
+      stateButtonLabel: strongModelState.buttonLabel
+    });
   }
   if (strongModelSummary) {
     const result = writingState.strongModelResult;
@@ -6518,7 +6658,10 @@ function renderWritingPanel() {
         ? `已归一化 ${artifactCount} 条写作待审建议，全部进入 AI Inbox 后再决定是否采用。`
         : `已准备 ${request.model?.model || "strong_model"} 请求包；当前没有直接调用远程模型。`;
     } else {
-      strongModelSummary.textContent = "尚未准备强模型分析。需要你确认后，才会把写作篮发送给远程强模型。";
+      strongModelSummary.textContent = describeWritingStrongModelIdleSummary({
+        basketCount: strongModelBasketIds.length,
+        strongModelStateHint: strongModelState.hint
+      });
     }
   }
 
@@ -6535,7 +6678,7 @@ function renderWritingPanel() {
     else if (writingState.loadingProjects) projectsHint.textContent = "正在读取最近项目...";
     else if (writingState.projects.length) projectsHint.textContent = `${filterSummary ? `${filterSummary}，` : ""}共找到 ${writingState.projects.length} 个项目。`;
     else if (filterSummary) projectsHint.textContent = `${filterSummary}，但暂时没有匹配项目。`;
-    else projectsHint.textContent = "还没有写作项目，创建后会出现在这里。";
+    else projectsHint.textContent = "还没有项目，创建后会出现在这里。";
   }
   if (projectsList) {
     if (writingState.loadingProjects) {
@@ -6545,34 +6688,34 @@ function renderWritingPanel() {
     } else if (writingState.projects.length) {
       projectsList.innerHTML = writingState.projects.map(renderWritingProjectCard).join("");
     } else {
-      projectsList.innerHTML = `<div class="writing-empty">还没有写作项目。先从永久笔记创建一个项目，这里就会出现可恢复入口。</div>`;
+      projectsList.innerHTML = `<div class="writing-empty">还没有项目。先从永久笔记创建一个项目，这里就会出现可恢复入口。</div>`;
     }
   }
 
   if (scaffoldVersionsHint) {
-    if (!writingState.project?.id) scaffoldVersionsHint.textContent = "先创建或打开一个写作项目，这里才会显示版本。";
+    if (!writingState.project?.id) scaffoldVersionsHint.textContent = "先创建或打开一个项目，这里才会显示版本。";
     else if (writingState.loadingScaffoldVersions && writingState.scaffoldVersions.length) {
-      scaffoldVersionsHint.textContent = `正在刷新 scaffold 版本... 当前显示 ${writingState.scaffoldVersions.length} 个版本。`;
-    } else if (writingState.loadingScaffoldVersions) scaffoldVersionsHint.textContent = "正在读取 scaffold 版本...";
-    else if (writingState.scaffoldVersions.length) scaffoldVersionsHint.textContent = `当前项目共有 ${writingState.scaffoldVersions.length} 个 scaffold 版本。`;
-    else scaffoldVersionsHint.textContent = "当前项目还没有 scaffold 版本。";
+      scaffoldVersionsHint.textContent = `正在刷新草稿骨架版本... 当前显示 ${writingState.scaffoldVersions.length} 个版本。`;
+    } else if (writingState.loadingScaffoldVersions) scaffoldVersionsHint.textContent = "正在读取草稿骨架版本...";
+    else if (writingState.scaffoldVersions.length) scaffoldVersionsHint.textContent = `当前项目共有 ${writingState.scaffoldVersions.length} 个草稿骨架版本。`;
+    else scaffoldVersionsHint.textContent = "当前项目还没有草稿骨架版本。";
   }
   if (scaffoldVersionsList) {
     if (!writingState.project?.id) {
-      scaffoldVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示历史 scaffold 版本。</div>`;
+      scaffoldVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示历史草稿骨架版本。</div>`;
     } else if (writingState.loadingScaffoldVersions) {
       scaffoldVersionsList.innerHTML = writingState.scaffoldVersions.length
         ? writingState.scaffoldVersions.map(renderScaffoldVersionCard).join("")
-        : `<div class="writing-empty">正在加载 scaffold 版本...</div>`;
+        : `<div class="writing-empty">正在加载草稿骨架版本...</div>`;
     } else if (writingState.scaffoldVersions.length) {
       scaffoldVersionsList.innerHTML = writingState.scaffoldVersions.map(renderScaffoldVersionCard).join("");
     } else {
-      scaffoldVersionsList.innerHTML = `<div class="writing-empty">还没有 scaffold 版本。点击“生成草稿骨架”后会开始累积版本。</div>`;
+      scaffoldVersionsList.innerHTML = `<div class="writing-empty">还没有草稿骨架版本。点击“生成草稿骨架”后会开始累积版本。</div>`;
     }
   }
 
   if (draftVersionsHint) {
-    if (!writingState.project?.id) draftVersionsHint.textContent = "先创建或打开一个写作项目，这里才会显示草稿版本。";
+    if (!writingState.project?.id) draftVersionsHint.textContent = "先创建或打开一个项目，这里才会显示草稿版本。";
     else if (writingState.loadingDraftVersions && writingState.draftVersions.length) {
       draftVersionsHint.textContent = `正在刷新草稿版本... 当前显示 ${writingState.draftVersions.length} 个版本。`;
     } else if (writingState.loadingDraftVersions) draftVersionsHint.textContent = "正在读取草稿版本...";
@@ -6593,7 +6736,12 @@ function renderWritingPanel() {
     }
   }
 
-  renderWritingFlowSteps();
+  renderWritingFlowSteps({
+    basketCount: basketEntries.length,
+    hasProject: Boolean(writingState.project?.id),
+    projectId: writingState.project?.id || "",
+    projectEntry
+  });
   renderWritingScaffoldPreview();
 }
 
@@ -6653,7 +6801,7 @@ const GRAPH_RELATION_TYPE_LABELS = {
   bridges: "桥接",
   restates: "重述",
   reframes: "改写问题",
-  appears_in_draft: "进入写作"
+  appears_in_draft: "进入草稿"
 };
 
 const GRAPH_RELATION_STATUS_LABELS = {
@@ -6829,7 +6977,7 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
   const prompts = [
     central?.degree ? `为什么「${centralTitle}」会成为连接最多的节点？它是主题，还是只是材料中转站？` : "哪一条笔记最像这组材料的中心判断？",
     nearestTension ? `「${graphEdgeTitle(nearestTension, nodeMap)}」这条张力能不能变成文章里的反方段落？` : "有没有一条笔记能反驳或限定当前中心观点？",
-    untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作。"
+    untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作中心。"
   ];
 
   return {
@@ -7158,7 +7306,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false } =
       </div>
       <div class="graph-map-interpretation">
         <strong>读图目标</strong>
-        <span>${manyNodes ? "节点较多时全览先突出中心和高连接节点，再放大读标题和关系；右侧清单保留可检索的文字入口。" : "先看中心节点，再顺着支持、反驳、限定和桥接关系判断这组笔记是否能进入写作。"}</span>
+        <span>${manyNodes ? "节点较多时全览先突出中心和高连接节点，再放大读标题和关系；右侧清单保留可检索的文字入口。" : "先看中心节点，再顺着支持、反驳、限定和桥接关系判断这组笔记是否能进入写作中心。"}</span>
       </div>
       <div class="graph-map-stage">
         ${
@@ -7595,7 +7743,7 @@ function renderGraphPanel() {
         <div class="graph-next-card">
           <strong>${escapeHtml(nextAction.title)}</strong>
           <small>${escapeHtml(nextAction.note)}</small>
-          ${nextAction.noteId && nextAction.action ? `<button class="mini-btn" type="button" data-open-note="${escapeHtml(nextAction.noteId)}" data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
+          ${nextAction.action ? `<button class="mini-btn" type="button"${nextAction.noteId ? ` data-open-note="${escapeHtml(nextAction.noteId)}"` : ""} data-graph-followup-action="${escapeHtml(nextAction.action)}"${nextAction.action === "writing" ? ` data-graph-basket-note-ids="${escapeHtml(graphWritingCandidateNoteIds(visibleNodes.map((node) => node.id), { noteLookup: writingKnownNoteById, isEligible: isWritingEligibleNote }).join(","))}"` : ""}${nextAction.targetNoteId ? ` data-graph-target-note="${escapeHtml(nextAction.targetNoteId)}"` : ""}${nextAction.relationType ? ` data-graph-relation-type="${escapeHtml(nextAction.relationType)}"` : ""}${nextAction.relationId ? ` data-graph-relation-id="${escapeHtml(nextAction.relationId)}"` : ""}>${escapeHtml(nextAction.actionLabel || "继续处理")}</button>` : ""}
         </div>
         ${renderGraphMapPreview(visibleNodes, edges, linkedNodeIds)}
         <div class="graph-overview">
@@ -7879,7 +8027,7 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
     const relationCount = counts.relations || summary.createdRelations || summary.updatedRelations || 0;
     const projectCount = counts.writing_projects || summary.createdWritingProjects || summary.updatedWritingProjects || 0;
     const suffix = startup && firstNoteId ? "，已打开导览笔记" : "";
-    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个写作项目${suffix}`, "ok");
+    setStatus(`已导入 Smart Notes 产品思考 Demo：${noteCount} 条永久笔记，${relationCount} 条关系，${projectCount} 个项目${suffix}`, "ok");
     return true;
   } catch (error) {
     setStatus(`Smart Notes Demo 导入失败：${String(error?.message || error)}`, "bad");
@@ -7960,6 +8108,27 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   const cleanRelationId = String(options.relationId || "").trim();
   const cleanTargetNoteId = String(options.targetNoteId || "").trim();
   const cleanRelationType = String(options.relationType || "").trim().toLowerCase();
+  const graphBasketNoteIds = String(options.basketNoteIds || "")
+    .split(",")
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
+  if (cleanAction === "writing") {
+    const plan = graphWritingFollowupEntryPlan({
+      basketNoteIds: parseWritingBasketIds(),
+      candidateNoteIds: graphBasketNoteIds.length ? graphBasketNoteIds : writingCandidateNotes().map((note) => note.id)
+    });
+    if (plan.prefillNoteIds.length) {
+      continueWritingEntry(plan.prefillNoteIds, {
+        title: suggestedWritingProjectTitle(plan.prefillNoteIds),
+        source: "graph_followup_writing"
+      });
+    }
+    void (async () => {
+      await openWritingModule({ statusMessage: "" });
+      setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
+    })();
+    return true;
+  }
   if (!cleanNoteId) return false;
   activateModule("explorer");
   openNoteById(cleanNoteId, { preferTitleSelection: false });
@@ -8214,6 +8383,7 @@ async function handleStateChange(reason, payload = {}) {
   if (reason === "open-note-main-route") {
     const noteId = String(payload.noteId || "").trim();
     const action = String(payload.action || "").trim();
+    const mode = String(payload.mode || "").trim().toLowerCase();
     const note = state.notes.find((item) => item.id === noteId) || null;
     if (!noteId || !note) return false;
 
@@ -8227,11 +8397,43 @@ async function handleStateChange(reason, payload = {}) {
 
     if (action === "writing") {
       await ensureNoteBodyLoaded(noteId);
-      beginWritingEntry([noteId], {
-        title: `${note.title || "未命名笔记"} 写作项目`,
+      if (mode === "distillation") {
+        state.selectedFileId = noteId;
+        activateModule("explorer");
+        openNoteById(noteId, { preferTitleSelection: false });
+        state.inspectorVisible = true;
+        editor?.setInspectorVisible?.(true);
+        editor?.renderRelated?.("主路径下一步");
+        window.setTimeout(() => {
+          editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
+            focus: true,
+            focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+          });
+        }, 40);
+        setStatus(`已打开“${note.title || noteId}”的观点提纯区域`, "ok");
+        return true;
+      }
+      if (mode === "requirements") {
+        await openWritingModule({ statusMessage: "" });
+        const requirementsMessage = note?.authorship?.user_confirmed
+          ? "这条笔记还没满足写作要求：先完成原创确认，再进入写作中心。"
+          : "这条笔记还没满足写作要求：先完成作者确认，再进入写作中心。";
+        setStatus(requirementsMessage, "warn", { requireModule: "writing" });
+        return true;
+      }
+      const plan = continueWritingEntry([noteId], {
+        title: normalizeWritingProjectTitleSeed(note.title || "未命名笔记"),
         source: "note_main_path"
       });
-      await openWritingModule({ statusMessage: `已把“${note.title || noteId}”加入写作篮子，并打开写作中心` });
+      const addedCount = Number(plan?.addedNoteIds?.length || 0);
+      const statusMessage =
+        addedCount > 0
+          ? `已把“${note.title || noteId}”加入写作篮，并打开写作中心`
+          : `“${note.title || noteId}”已在写作篮中，已打开写作中心`;
+      await openWritingModule({ statusMessage: mode === "project" ? "" : statusMessage });
+      if (mode === "project") {
+        await createWritingProjectFromCurrentBasket();
+      }
       return true;
     }
 
@@ -9062,22 +9264,38 @@ window.addEventListener("beforeunload", (event) => {
 $("btnWritingUseCurrent")?.addEventListener("click", () => {
   const note = state.notes.find((item) => item.id === state.selectedFileId);
   if (!note) return setStatus("请先在左侧选择一条永久笔记", "warn");
-if (!isWritingEligibleNote(note)) return setStatus("写作篮只接受永久笔记，请先切到永久笔记目录选择笔记", "warn");
-  beginWritingEntry([note.id], {
-    title: note.title || "新的写作项目",
+  const eligibility = writingNoteEligibility(note);
+  if (!eligibility.ok) {
+    const message =
+      eligibility.key === "type"
+        ? "写作篮只接受永久笔记，请先切到永久笔记目录选择笔记"
+        : eligibility.message;
+    return setStatus(message, "warn");
+  }
+  const plan = continueWritingEntry([note.id], {
+    title: normalizeWritingProjectTitleSeed(note.title || "新的项目"),
     source: "writing_panel_current_note"
   });
-  setStatus(`已加入写作篮子：${note.title}`, "ok");
+  const addedCount = Number(plan?.addedNoteIds?.length || 0);
+  setStatus(addedCount > 0 ? `已加入写作篮：${note.title}` : `写作篮已包含：${note.title}`, "ok");
 });
 
 $("btnWritingAddVisible")?.addEventListener("click", () => {
   const candidates = writingCandidateNotes();
   if (!candidates.length) return setStatus("当前目录没有可加入的永久笔记", "warn");
-  beginWritingEntry(candidates.map((note) => note.id), {
+  const plan = continueWritingEntry(candidates.map((note) => note.id), {
     title: suggestedWritingProjectTitle(candidates.map((note) => note.id)),
     source: "writing_panel_visible_notes"
   });
-  setStatus(`已把当前目录观点加入写作篮：${candidates.length} 条`, "ok");
+  const addedCount = Number(plan?.addedNoteIds?.length || 0);
+  setStatus(
+    describeWritingBatchAppendStatus({
+      scopeLabel: "当前目录观点",
+      addedCount,
+      totalCount: candidates.length
+    }),
+    "ok"
+  );
 });
 
 $("btnWritingClearBasket")?.addEventListener("click", () => {
@@ -9100,13 +9318,15 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
   const action = String(button.getAttribute("data-writing-action") || "");
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
+  const noteLabel = writingKnownNoteById(noteId)?.title || noteId;
   if (action === "add") {
     const note = writingNoteById(noteId);
-    beginWritingEntry([noteId], {
+    const plan = continueWritingEntry([noteId], {
       title: note?.title || noteId,
       source: "writing_candidate_list"
     });
-    setStatus(`已加入写作篮：${noteId}`, "ok");
+    const addedCount = Number(plan?.addedNoteIds?.length || 0);
+    setStatus(addedCount > 0 ? `已加入写作篮：${noteLabel}` : `写作篮已包含：${noteLabel}`, "ok");
     return;
   }
   if (action === "remove") {
@@ -9114,12 +9334,12 @@ $("writingCandidateList")?.addEventListener("click", (event) => {
     clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
-    setStatus(`已移出写作篮：${noteId}`, "ok");
+    setStatus(`已移出写作篮：${noteLabel}`, "ok");
     return;
   }
   if (action === "open") {
     openNoteById(noteId);
-    setStatus(`已打开永久笔记：${noteId}`, "ok");
+    setStatus(`已打开永久笔记：${noteLabel}`, "ok");
   }
 });
 
@@ -9129,17 +9349,18 @@ $("writingBasketList")?.addEventListener("click", (event) => {
   const action = String(button.getAttribute("data-writing-action") || "");
   const noteId = String(button.getAttribute("data-writing-note-id") || "");
   if (!noteId) return;
+  const noteLabel = writingKnownNoteById(noteId)?.title || noteId;
   if (action === "remove") {
     resetWritingStrongModelState();
     clearWritingSourceIndexIds();
     removeWritingBasketId(noteId);
     renderWritingPanel();
-    setStatus(`已移出写作篮：${noteId}`, "ok");
+    setStatus(`已移出写作篮：${noteLabel}`, "ok");
     return;
   }
   if (action === "open") {
     openNoteById(noteId);
-    setStatus(`已打开永久笔记：${noteId}`, "ok");
+    setStatus(`已打开永久笔记：${noteLabel}`, "ok");
   }
 });
 
@@ -9182,12 +9403,17 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   if (!indexId) return;
   if (action === "use") {
     try {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
-        replaceBasket: true,
-        resetContext: true,
+      const { indexCard, noteIds, addedCount } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: false,
+        resetContext: false,
         source: "writing_theme_index_list"
       });
-      setStatus(`已从主题索引进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
+      setStatus(
+        addedCount > 0
+          ? `已从主题索引进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `主题索引已在写作篮中：${indexCard.title || indexId}`,
+        "ok"
+      );
     } catch (error) {
       setStatus(`使用主题索引失败：${String(error?.message || error)}`, "bad");
     }
@@ -9216,17 +9442,22 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "use") {
-      const { indexCard, noteIds } = await useThemeIndexAsWritingEntry(indexId, {
-        replaceBasket: true,
-        resetContext: true,
+      const { indexCard, noteIds, addedCount } = await useThemeIndexAsWritingEntry(indexId, {
+        replaceBasket: false,
+        resetContext: false,
         source: "writing_theme_detail"
       });
-      setStatus(`已从主题进入写作篮：${indexCard.title || indexId}（${noteIds.length} 条）`, "ok");
+      setStatus(
+        addedCount > 0
+          ? `已从主题进入写作篮：${indexCard.title || indexId}（新增 ${addedCount} 条，共 ${noteIds.length} 条）`
+          : `主题已在写作篮中：${indexCard.title || indexId}`,
+        "ok"
+      );
       return;
     }
     if (action === "create-project") {
       const project = await createWritingProjectFromThemeIndex(indexId);
-      setStatus(`已从主题创建写作项目：${project?.id}`, "ok");
+      setStatus(`已从主题创建项目：${project?.id}`, "ok");
       return;
     }
     if (action === "replace-from-basket") {
@@ -9264,9 +9495,9 @@ $("writingProjectsList")?.addEventListener("click", async (event) => {
   if (action === "open") {
     try {
       await openWritingProject(projectId);
-      setStatus(`已恢复写作项目：${projectId}`, "ok");
+      setStatus(`已恢复项目：${projectId}`, "ok");
     } catch (error) {
-      setStatus(`打开写作项目失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开项目失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -9275,18 +9506,18 @@ $("writingProjectsList")?.addEventListener("click", async (event) => {
   if (action === "copy-scaffold") {
     try {
       const result = await copyWritingScaffold(project);
-      setStatus(`已复制 Scaffold Markdown：${result.fileName}`, "ok");
+      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`复制 Scaffold 失败：${String(error?.message || error)}`, "bad");
+      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "export-scaffold") {
     try {
       const result = await exportWritingScaffold(project);
-      setStatus(`已导出 Scaffold Markdown：${result.fileName}`, "ok");
+      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`导出 Scaffold 失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
     }
   }
 });
@@ -9302,9 +9533,9 @@ $("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {
   if (action === "open") {
     try {
       await openScaffoldVersion(scaffoldId);
-      setStatus(`已切换到 scaffold 版本：${scaffoldId}`, "ok");
+      setStatus(`已切换到草稿骨架版本：${scaffoldId}`, "ok");
     } catch (error) {
-      setStatus(`打开 scaffold 版本失败：${String(error?.message || error)}`, "bad");
+      setStatus(`打开草稿骨架版本失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -9317,23 +9548,23 @@ $("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {
   if (action === "copy") {
     try {
       const result = await copyWritingScaffold(projectLike);
-      setStatus(`已复制 Scaffold Markdown：${result.fileName}`, "ok");
+      setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`复制 Scaffold 失败：${String(error?.message || error)}`, "bad");
+      setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "export") {
     try {
       const result = await exportWritingScaffold(projectLike);
-      setStatus(`已导出 Scaffold Markdown：${result.fileName}`, "ok");
+      setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
     } catch (error) {
-      setStatus(`导出 Scaffold 失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
   if (action === "edit-note") {
-    const nextNote = promptVersionNoteEdit(version?.version_note || "", "Scaffold 版本");
+    const nextNote = promptVersionNoteEdit(version?.version_note || "", "草稿骨架版本");
     if (nextNote === null) return;
     try {
       const updated = await updateDraftScaffoldVersionNote(scaffoldId, nextNote);
@@ -9347,9 +9578,9 @@ $("writingScaffoldVersionsList")?.addEventListener("click", async (event) => {
         };
       }
       renderWritingPanel();
-      setStatus(`已更新 scaffold 版本说明：${scaffoldId}`, "ok");
+      setStatus(`已更新草稿骨架版本说明：${scaffoldId}`, "ok");
     } catch (error) {
-      setStatus(`更新 scaffold 版本说明失败：${String(error?.message || error)}`, "bad");
+      setStatus(`更新草稿骨架版本说明失败：${String(error?.message || error)}`, "bad");
     }
   }
 });
@@ -9386,7 +9617,7 @@ $("writingDraftVersionsList")?.addEventListener("click", async (event) => {
       renderWritingPanel();
       setStatus(`已将草稿版本设为当前：${draftNoteId}`, "ok");
     } catch (error) {
-      setStatus(`设为当前草稿失败：${String(error?.message || error)}`, "bad");
+      setStatus(`设为当前版本失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }
@@ -9439,9 +9670,9 @@ $("writingProjectsDraftFilter")?.addEventListener("change", async () => {
 $("btnWritingRefreshScaffolds")?.addEventListener("click", async () => {
   try {
     await loadWritingScaffoldVersions();
-    setStatus("已刷新 scaffold 版本", "ok");
+    setStatus("已刷新草稿骨架版本", "ok");
   } catch (error) {
-    setStatus(`刷新 scaffold 版本失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新草稿骨架版本失败：${String(error?.message || error)}`, "bad");
   }
 });
 
@@ -9455,50 +9686,12 @@ $("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
 });
 
 $("btnWritingCreateProject")?.addEventListener("click", async () => {
-  const title = String($("writingTitle")?.value || "").trim();
-  const basketNoteIds = parseWritingBasketIds();
-  const relatedIndexIds = uniqueStrings(writingState.sourceIndexIds);
-  if (!title) return setStatus("请先填写写作项目标题", "warn");
-  if (!basketNoteIds.length) return setStatus("请先加入至少一条永久笔记", "warn");
-  try {
-    const project = await createWritingProject({
-      title,
-      goal: String($("writingGoal")?.value || "").trim(),
-      audience: String($("writingAudience")?.value || "").trim(),
-      tone: String($("writingTone")?.value || "").trim(),
-      basketNoteIds,
-      relatedIndexIds
-    });
-    writingState.project = project;
-    writingState.scaffold = null;
-    writingState.scaffoldMarkdown = "";
-    showWritingResult({
-      stage: "writing_project",
-      writingProjectId: project?.id,
-      title: project?.title,
-      relatedIndexIds: project?.related_index_ids,
-      basketNoteIds: project?.basket_note_ids,
-      basketNotes: project?.basket_notes
-    });
-    await loadWritingProjectsList();
-    await loadWritingScaffoldVersions();
-    await loadWritingDraftVersions();
-    renderWritingPanel();
-    setStatus(`写作项目已创建：${project?.id}`, "ok");
-  } catch (error) {
-    showWritingResult({
-      stage: "writing_project_error",
-      message: String(error?.message || error),
-      code: error?.code || null,
-      details: error?.details || null
-    });
-    setStatus(`写作项目创建失败：${String(error?.message || error)}`, "bad");
-  }
+  await createWritingProjectFromCurrentBasket();
 });
 
 $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
-  if (!writingProjectId) return setStatus("请先创建写作项目", "warn");
+  if (!writingProjectId) return setStatus("请先创建项目", "warn");
   try {
     const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
     writingState.scaffold = result.item || null;
@@ -9539,7 +9732,7 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
 $("btnWritingCopyScaffold")?.addEventListener("click", async () => {
   try {
     const result = await copyWritingScaffold();
-    setStatus(`已复制 Scaffold Markdown：${result.fileName}`, "ok");
+    setStatus(`已复制草稿骨架 Markdown：${result.fileName}`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_copy_scaffold_error",
@@ -9548,14 +9741,14 @@ $("btnWritingCopyScaffold")?.addEventListener("click", async () => {
       message: String(error?.message || error),
       code: error?.code || null
     });
-    setStatus(`复制 Scaffold 失败：${String(error?.message || error)}`, "bad");
+    setStatus(`复制草稿骨架失败：${String(error?.message || error)}`, "bad");
   }
 });
 
 $("btnWritingExportScaffold")?.addEventListener("click", async () => {
   try {
     const result = await exportWritingScaffold();
-    setStatus(`已导出 Scaffold Markdown：${result.fileName}`, "ok");
+    setStatus(`已导出草稿骨架 Markdown：${result.fileName}`, "ok");
   } catch (error) {
     showWritingResult({
       stage: "writing_export_scaffold_error",
@@ -9564,7 +9757,7 @@ $("btnWritingExportScaffold")?.addEventListener("click", async () => {
       message: String(error?.message || error),
       code: error?.code || null
     });
-    setStatus(`导出 Scaffold 失败：${String(error?.message || error)}`, "bad");
+    setStatus(`导出草稿骨架失败：${String(error?.message || error)}`, "bad");
   }
 });
 
@@ -9754,7 +9947,8 @@ $("graphCanvas")?.addEventListener("click", (event) => {
     openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
       relationId: graphFollowup.getAttribute("data-graph-relation-id"),
       targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
-      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+      relationType: graphFollowup.getAttribute("data-graph-relation-type"),
+      basketNoteIds: graphFollowup.getAttribute("data-graph-basket-note-ids")
     });
     return;
   }
@@ -9780,7 +9974,8 @@ $("graphCanvas")?.addEventListener("keydown", (event) => {
     openGraphFollowupNote(graphFollowup.getAttribute("data-open-note"), graphFollowup.getAttribute("data-graph-followup-action"), {
       relationId: graphFollowup.getAttribute("data-graph-relation-id"),
       targetNoteId: graphFollowup.getAttribute("data-graph-target-note"),
-      relationType: graphFollowup.getAttribute("data-graph-relation-type")
+      relationType: graphFollowup.getAttribute("data-graph-relation-type"),
+      basketNoteIds: graphFollowup.getAttribute("data-graph-basket-note-ids")
     });
     return;
   }
