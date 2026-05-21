@@ -85,3 +85,30 @@ test("import-result create-writing-project path reuses unified writing entry res
   assert.doesNotMatch(fnBody, /resetWritingProjectContext\(/);
   assert.doesNotMatch(fnBody, /setWritingBasketIds\(noteIds\)/);
 });
+
+test("theme index append skips writing-entry reset when the basket already contains all theme notes", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/async function useThemeIndexAsWritingEntry\(indexCardId, \{ replaceBasket = false, resetContext = false, source = "writing_theme_index" \} = \{\}\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected useThemeIndexAsWritingEntry() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /if \(entryPlan\.addedNoteIds\.length\) \{\s*continueWritingEntry\(/);
+  assert.match(fnBody, /else \{\s*const nextSourceIndexIds = resolveWritingSourceIndexIds\(/);
+  assert.doesNotMatch(fnBody, /else \{\s*continueWritingEntry\(/);
+});
+
+test("continueWritingEntry preserves the current selected theme when merged provenance still contains it", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/function continueWritingEntry\(noteIds = \[\], \{ title = "", source = "writing_center", sourceIndexIds = \[\], preserveSourceIndexIds = true \} = \{\}\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected continueWritingEntry() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /setSelectedWritingThemeIndex\(\s*resolveWritingSelectedThemeIndexId\(\s*\{\s*currentSelectedThemeIndexId: writingState\.selectedThemeIndexId,/);
+  assert.doesNotMatch(fnBody, /setSelectedWritingThemeIndex\(nextSourceIndexIds\.length === 1 \? nextSourceIndexIds\[0\] : ""\)/);
+});
