@@ -63,6 +63,21 @@ test("graph next action offers bridge followup when bridge gaps exist without te
   assert.equal(nextAction.relationType, "bridges");
 });
 
+test("graph next action prefers isolated-note followup before entering the writing center", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    isolatedNoteId: "pn_isolated_1",
+    isolatedCount: 2
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_isolated_1");
+  assert.equal(nextAction.actionLabel, "先补孤立观点");
+  assert.match(nextAction.note, /2/);
+  assert.match(nextAction.note, /孤立|关系网络/);
+});
+
 test("graph next action points to writing center once structure is already clear", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,

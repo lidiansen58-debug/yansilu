@@ -3059,15 +3059,12 @@ async function useThemeIndexAsWritingEntry(indexCardId, { replaceBasket = false,
     });
     setWritingSourceIndexIds([id]);
   } else if (replaceBasket) {
-    resetWritingStrongModelState();
-    setWritingBasketIds(noteIds);
-    resetWritingProjectContext({
+    continueWritingEntry(noteIds, {
       title: normalizeWritingProjectTitleSeed(indexCard.title || suggestedWritingProjectTitle(noteIds)),
-      goal: "",
-      audience: "",
-      tone: ""
+      source,
+      sourceIndexIds: [id],
+      preserveSourceIndexIds: false
     });
-    setWritingSourceIndexIds([id]);
   } else {
     if (entryPlan.addedNoteIds.length) {
       continueWritingEntry(noteIds, {
@@ -7926,6 +7923,8 @@ function renderGraphPanel() {
     hasNodes: nodes.length > 0,
     hasEdges: allEdges.length > 0,
     firstNodeId: nodes[0]?.id || "",
+    isolatedNoteId: isolatedNodes[0]?.id || "",
+    isolatedCount,
     untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
     untypedRelationId: untypedRelations[0]?.id || "",
     conflictFromNoteId:
