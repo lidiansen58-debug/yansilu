@@ -1857,6 +1857,11 @@ function artifactReviewEventsFromArtifact(artifact = {}) {
   return artifactReviewEventsToCanonical(artifact).map((event) => adoptionEventFromCanonical(event));
 }
 
+function latestArtifactReviewEventCanonical(artifact = {}) {
+  const events = artifactReviewEventsToCanonical(artifact);
+  return events[events.length - 1] || null;
+}
+
 function suggestionTraceFromRecord(suggestion = {}, artifact = {}) {
   const sourceNoteIds = Array.isArray(artifact.sources?.noteIds) ? artifact.sources.noteIds.filter(Boolean) : [];
   return {
@@ -3015,6 +3020,7 @@ const server = http.createServer(async (req, res) => {
           const inbox = createAiInbox({ artifactStore });
           const item = inbox.getItem(aiInboxDecisionId);
           const latestDecision = item?.latestDecision || existingLatestDecision;
+          const latestDecisionCanonical = latestArtifactReviewEventCanonical(existingArtifact);
           return sendJson(res, 200, withCanonical({
             item,
             artifact: existingArtifact,
@@ -3024,13 +3030,7 @@ const server = http.createServer(async (req, res) => {
           }, wantsCanonical(url) ? {
             item: item ? aiInboxItemToCanonical(item) : null,
             artifact: artifactToCanonical(existingArtifact),
-            latestDecision: latestDecision
-              ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, existingArtifact, {
-                  metadata: {
-                    fromStatus: existingArtifact.status
-                  }
-                })
-              : null
+            latestDecision: latestDecisionCanonical
           } : null));
         }
         const artifact = artifactStore.recordDecision(aiInboxDecisionId, {
@@ -3150,6 +3150,7 @@ const server = http.createServer(async (req, res) => {
             const inbox = createAiInbox({ artifactStore });
             const item = inbox.getItem(aiInboxPromoteNoteId);
             const latestDecision = item?.latestDecision || existingPromotion;
+            const latestDecisionCanonical = latestArtifactReviewEventCanonical(existingArtifact);
             return sendJson(res, 200, withCanonical({
               item,
               artifact: existingArtifact,
@@ -3160,18 +3161,7 @@ const server = http.createServer(async (req, res) => {
             }, wantsCanonical(url) ? {
               item: item ? aiInboxItemToCanonical(item) : null,
               artifact: artifactToCanonical(existingArtifact),
-              latestDecision: latestDecision
-                ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, existingArtifact, {
-                    target: {
-                      kind: "note",
-                      id: note.id
-                    },
-                    metadata: {
-                      fromStatus: "promoted_to_note",
-                      noteId: note.id
-                    }
-                  })
-                : null
+              latestDecision: latestDecisionCanonical
             } : null));
           }
         }
@@ -3256,6 +3246,7 @@ const server = http.createServer(async (req, res) => {
             const inbox = createAiInbox({ artifactStore });
             const item = inbox.getItem(aiInboxAdoptFieldSuggestionId);
             const latestDecision = item?.latestDecision || existingAdoption;
+            const latestDecisionCanonical = latestArtifactReviewEventCanonical(existingArtifact);
             const targetField = cleanText(
               existingArtifact.payload?.targetField ||
                 existingArtifact.payload?.target_field ||
@@ -3278,19 +3269,7 @@ const server = http.createServer(async (req, res) => {
               item: item ? aiInboxItemToCanonical(item) : null,
               artifact: artifactToCanonical(existingArtifact),
               suggestion: suggestion ? suggestionToCanonical(suggestion) : null,
-              latestDecision: latestDecision
-                ? artifactDecisionToCanonicalAdoptionEvent(latestDecision, existingArtifact, {
-                    target: {
-                      kind: "permanent_note",
-                      id: adoptedNote.id,
-                      field: targetField
-                    },
-                    metadata: {
-                      fromStatus: "adopted_as_draft",
-                      noteId: adoptedNote.id
-                    }
-                  })
-                : null
+              latestDecision: latestDecisionCanonical
             } : null));
           }
         }

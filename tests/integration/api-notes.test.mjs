@@ -1529,7 +1529,7 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedField.json.artifact.payload.fieldSuggestion.target.id, draftTarget.json.item.id);
   assert.equal(adoptedField.json.artifact.payload.adoptedNoteId, draftTarget.json.item.id);
 
-  const adoptedFieldAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion`, {
+  const adoptedFieldAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion?canonical=true`, {
     confirm: true
   });
   assert.equal(adoptedFieldAgain.status, 200, JSON.stringify(adoptedFieldAgain.json));
@@ -1538,6 +1538,7 @@ test("notes AI analysis API stores reviewable local candidates without confirmin
   assert.equal(adoptedFieldAgain.json.note.id, draftTarget.json.item.id);
   assert.equal(adoptedFieldAgain.json.item.decisionCount, adoptedField.json.item.decisionCount);
   assert.equal(adoptedFieldAgain.json.artifact.userDecisions.length, adoptedField.json.artifact.userDecisions.length);
+  assert.equal(adoptedFieldAgain.json.canonical.latestDecision.metadata.from_status, "pending_review");
 
   const adoptedFieldCanonicalDetail = await getJson(
     baseUrl,
