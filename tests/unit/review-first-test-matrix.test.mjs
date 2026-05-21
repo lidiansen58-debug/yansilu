@@ -45,6 +45,8 @@ const MUST_KEEP_CASES = [
       'test("applyAiInboxSuggestionStatus reports invalid reviewed content through actionError without starting submit"',
       'test("refreshAiInbox invalidates stale detail state when a list refresh switches the selected artifact"',
       'test("refreshAiInbox invalidates stale detail state when the selected artifact metadata changes"',
+      'test("refreshAiInbox realigns selection even when preserveDetail was requested but the current artifact left the filtered list"',
+      'test("recordAiInboxReviewDecision clears stale detail when refresh removes the artifact from the current inbox view"',
       'test("runAiInboxSummary ignores stale failures and keeps the latest summary state"',
       'test("refreshAiInboxEvaluationSummary ignores stale failures and keeps the latest evaluation state"'
     ]
@@ -57,6 +59,10 @@ const MUST_KEEP_CASES = [
       'test("refreshAiSuggestions captures a suggestionsList debug snapshot"',
       'test("refreshAiSuggestions invalidates stale detail state when a list refresh switches the selected suggestion"',
       'test("refreshAiSuggestions invalidates stale detail state when the selected suggestion metadata changes"',
+      'test("applyAiSuggestionStatus realigns filtered settings suggestions after a status change removes the current item"',
+      'test("applyAiSuggestionStatus loads the newly selected filtered suggestion detail after refresh switches selection"',
+      'test("applyAiSuggestionStatus keeps selection and detail cleared when refresh leaves no filtered suggestions"',
+      'test("applyAiSuggestionStatus preserves a newer settings suggestion selection while an older submit resolves"',
       'test("applyAiSuggestionStatus captures edited content before rerender and blocks duplicate submission"'
     ]
   },
@@ -92,8 +98,11 @@ const MUST_KEEP_CASES = [
       'test("prototype AI inbox reviewed detail keeps invalid reviewed JSON as inline error without submitting"',
       'test("prototype AI inbox can reject a linked suggestion and keeps the reviewed artifact inspectable"',
       'test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable"',
+      'test("prototype AI inbox review-action continuity keeps detail aligned with filtered pending selection changes"',
+      'test("prototype AI inbox guards stale detail selection and duplicate reviewed submit"',
       'test("prototype settings AI suggestions panel edits confirms and rejects suggestions through the real review flow"',
-      'test("prototype settings AI suggestions guards stale detail selection and duplicate review submits"'
+      'test("prototype settings AI suggestions guards stale detail selection and duplicate review submits"',
+      'test("prototype settings AI suggestions review-action continuity keeps detail aligned with filtered selection changes"'
     ]
   },
   {

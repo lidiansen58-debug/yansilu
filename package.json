@@ -34,6 +34,7 @@
     "test:review-first:browser": "node ./scripts/review-first-core-check.mjs --browser",
     "test:review-first:all": "node ./scripts/review-first-core-check.mjs --all",
     "wt:create": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-create.ps1",
+    "wt:deps": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-link-node-modules.ps1",
     "wt:list": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-list.ps1",
     "wt:remove": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-remove.ps1",
     "wt:run": "powershell -ExecutionPolicy Bypass -File ./scripts/worktree-run-dev.ps1"

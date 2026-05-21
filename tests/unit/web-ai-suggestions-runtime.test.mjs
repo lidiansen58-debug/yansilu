@@ -220,6 +220,8 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
     "suggestionDetailFromResponse",
     "aiSuggestionReviewedContentFromUi",
     "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
     "rememberAiDebugSnapshot",
     "setStatus",
     "renderAiSuggestionsWorkspace",
@@ -233,6 +235,8 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
       calls.push({ suggestionId, payload });
       return { id: suggestionId, status: payload.status, content: payload.content };
     },
+    async () => null,
+    async () => null,
     (key, response) => snapshots.push({ key, response }),
     () => {},
     () => {
@@ -253,6 +257,278 @@ test("applyAiSuggestionStatus captures edited content before rerender and blocks
   const second = await applyAiSuggestionStatus("suggestion_1", "confirmed");
   assert.equal(second, null);
   assert.equal(calls.length, 1);
+});
+
+test("applyAiSuggestionStatus preserves a newer settings suggestion selection while an older submit resolves", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
+
+  const settingsState = {
+    ai: {
+      suggestions: [
+        { id: "suggestion_1", status: "edited", content: { thesis: "Original." } },
+        { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+      ],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Original." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+  const snapshots = [];
+
+  const applyAiSuggestionStatus = new Function(
+    "$",
+    "settingsState",
+    "suggestionDetailFromResponse",
+    "aiSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiSuggestionsWorkspace",
+    `${fnSource}; return applyAiSuggestionStatus;`
+  )(
+    () => ({ value: "{\"thesis\":\"Updated old selection.\"}" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Updated old selection." }),
+    async (suggestionId, payload) => {
+      settingsState.ai.selectedSuggestionId = "suggestion_2";
+      settingsState.ai.suggestionDetail = {
+        item: { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+      };
+      return { id: suggestionId, status: payload.status, content: payload.content };
+    },
+    async () => null,
+    async () => null,
+    (key, response) => snapshots.push({ key, response }),
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result.status, "confirmed");
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_2");
+  assert.equal(
+    settingsState.ai.suggestions.find((item) => item.id === "suggestion_1")?.status,
+    "confirmed"
+  );
+  assert.deepEqual(snapshots.map((entry) => entry.key), ["suggestionDecision"]);
+  assert.equal(settingsState.ai.suggestionActionLoading, false);
+});
+
+test("applyAiSuggestionStatus realigns filtered settings suggestions after a status change removes the current item", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
+
+  const refreshCalls = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [
+        { id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } },
+        { id: "suggestion_2", status: "edited", content: { thesis: "Next filtered item." } }
+      ],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = new Function(
+    "$",
+    "settingsState",
+    "suggestionDetailFromResponse",
+    "aiSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiSuggestionsWorkspace",
+    `${fnSource}; return applyAiSuggestionStatus;`
+  )(
+    () => ({ value: "{\"thesis\":\"Confirmed and should leave edited filter.\"}" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Confirmed and should leave edited filter." }),
+    async (suggestionId, payload) => ({ id: suggestionId, status: payload.status, content: payload.content }),
+    async (options) => {
+      refreshCalls.push(options);
+      settingsState.ai.suggestions = [
+        { id: "suggestion_2", status: "edited", content: { thesis: "Next filtered item." } }
+      ];
+      settingsState.ai.selectedSuggestionId = "suggestion_2";
+      settingsState.ai.suggestionDetail = {
+        item: { id: "suggestion_2", status: "edited", content: { thesis: "Next filtered item." } }
+      };
+      return { items: settingsState.ai.suggestions, total: 1 };
+    },
+    async () => null,
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result.status, "confirmed");
+  assert.deepEqual(refreshCalls, [{ silent: true }]);
+  assert.deepEqual(settingsState.ai.suggestions.map((item) => item.id), ["suggestion_2"]);
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+  assert.equal(settingsState.ai.suggestionActionLoading, false);
+});
+
+test("applyAiSuggestionStatus loads the newly selected filtered suggestion detail after refresh switches selection", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
+
+  const refreshCalls = [];
+  const detailLoads = [];
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [
+        { id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } },
+        { id: "suggestion_2", status: "edited", content: { thesis: "Next filtered item." } }
+      ],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = new Function(
+    "$",
+    "settingsState",
+    "suggestionDetailFromResponse",
+    "aiSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiSuggestionsWorkspace",
+    `${fnSource}; return applyAiSuggestionStatus;`
+  )(
+    () => ({ value: "{\"thesis\":\"Confirmed and should leave edited filter.\"}" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Confirmed and should leave edited filter." }),
+    async (suggestionId, payload) => ({ id: suggestionId, status: payload.status, content: payload.content }),
+    async (options) => {
+      refreshCalls.push(options);
+      settingsState.ai.suggestions = [
+        { id: "suggestion_2", status: "edited", content: { thesis: "Next filtered item." } }
+      ];
+      settingsState.ai.selectedSuggestionId = "suggestion_2";
+      settingsState.ai.suggestionDetail = null;
+      settingsState.ai.suggestionDetailLoading = false;
+      return { items: settingsState.ai.suggestions, total: 1 };
+    },
+    async (suggestionId) => {
+      detailLoads.push(suggestionId);
+      settingsState.ai.suggestionDetail = {
+        item: { id: suggestionId, status: "edited", content: { thesis: "Loaded next filtered item." } }
+      };
+      return settingsState.ai.suggestionDetail.item;
+    },
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result.status, "confirmed");
+  assert.deepEqual(refreshCalls, [{ silent: true }]);
+  assert.deepEqual(detailLoads, ["suggestion_2"]);
+  assert.equal(settingsState.ai.selectedSuggestionId, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionDetail?.item?.id, "suggestion_2");
+  assert.equal(settingsState.ai.suggestionActionError, "");
+  assert.equal(settingsState.ai.suggestionActionLoading, false);
+});
+
+test("applyAiSuggestionStatus keeps selection and detail cleared when refresh leaves no filtered suggestions", async () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const fnSource = extractAsyncFunctionSource(source, "applyAiSuggestionStatus");
+
+  let detailLoadCount = 0;
+  const settingsState = {
+    ai: {
+      suggestionFilters: { status: "edited", targetType: "", targetId: "", scope: "", limit: 50 },
+      suggestions: [{ id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } }],
+      suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Current filtered item." } } },
+      selectedSuggestionId: "suggestion_1",
+      suggestionDetailLoading: false,
+      suggestionActionLoading: false,
+      suggestionsError: "",
+      suggestionDetailError: "",
+      suggestionActionError: ""
+    }
+  };
+
+  const applyAiSuggestionStatus = new Function(
+    "$",
+    "settingsState",
+    "suggestionDetailFromResponse",
+    "aiSuggestionReviewedContentFromUi",
+    "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
+    "rememberAiDebugSnapshot",
+    "setStatus",
+    "renderAiSuggestionsWorkspace",
+    `${fnSource}; return applyAiSuggestionStatus;`
+  )(
+    () => ({ value: "{\"thesis\":\"Confirmed and should empty edited filter.\"}" }),
+    settingsState,
+    (item) => ({ item }),
+    () => ({ thesis: "Confirmed and should empty edited filter." }),
+    async (suggestionId, payload) => ({ id: suggestionId, status: payload.status, content: payload.content }),
+    async () => {
+      settingsState.ai.suggestions = [];
+      settingsState.ai.selectedSuggestionId = "";
+      settingsState.ai.suggestionDetail = null;
+      settingsState.ai.suggestionDetailLoading = false;
+      return { items: [], total: 0 };
+    },
+    async () => {
+      detailLoadCount += 1;
+      return null;
+    },
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  const result = await applyAiSuggestionStatus("suggestion_1", "confirmed");
+  assert.equal(result.status, "confirmed");
+  assert.equal(detailLoadCount, 0);
+  assert.equal(settingsState.ai.selectedSuggestionId, "");
+  assert.equal(settingsState.ai.suggestionDetail, null);
+  assert.equal(settingsState.ai.suggestionDetailLoading, false);
+  assert.equal(settingsState.ai.suggestionActionError, "");
+  assert.equal(settingsState.ai.suggestionActionLoading, false);
 });
 
 test("applyAiSuggestionStatus replaces stale errors with the latest failure", async () => {
@@ -279,6 +555,8 @@ test("applyAiSuggestionStatus replaces stale errors with the latest failure", as
     "suggestionDetailFromResponse",
     "aiSuggestionReviewedContentFromUi",
     "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
     "rememberAiDebugSnapshot",
     "setStatus",
     "renderAiSuggestionsWorkspace",
@@ -291,6 +569,8 @@ test("applyAiSuggestionStatus replaces stale errors with the latest failure", as
     async () => {
       throw new Error("new failure");
     },
+    async () => null,
+    async () => null,
     () => {},
     () => {},
     () => {}
@@ -328,6 +608,8 @@ test("applyAiSuggestionStatus reports invalid reviewed content through actionErr
     "suggestionDetailFromResponse",
     "aiSuggestionReviewedContentFromUi",
     "updateAiSuggestion",
+    "refreshAiSuggestions",
+    "loadAiSuggestionDetail",
     "rememberAiDebugSnapshot",
     "setStatus",
     "renderAiSuggestionsWorkspace",
@@ -343,6 +625,8 @@ test("applyAiSuggestionStatus reports invalid reviewed content through actionErr
       updateCalls += 1;
       return null;
     },
+    async () => null,
+    async () => null,
     () => {},
     () => {},
     () => {}

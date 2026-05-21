@@ -1441,16 +1441,25 @@ async function applyAiSuggestionStatus(suggestionId, status) {
     }
     if (cleanStatus === "confirmed" && !String(current.status || "").trim()) payload.userConfirmed = true;
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
-      const response = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
-      const detailResult = suggestionDetailFromResponse(response);
-      const item = detailResult.item || {};
-      settingsState.ai.suggestions = settingsState.ai.suggestions.map((entry) =>
-        String(entry.id || "").trim() === cleanSuggestionId ? item : entry
-      );
+    const response = await updateAiSuggestion(cleanSuggestionId, { ...payload, canonical: true });
+    const detailResult = suggestionDetailFromResponse(response);
+    const item = detailResult.item || {};
+    const selectionChangedDuringAction =
+      String(settingsState.ai.selectedSuggestionId || "").trim() !== cleanSuggestionId;
+    settingsState.ai.suggestions = settingsState.ai.suggestions.map((entry) =>
+      String(entry.id || "").trim() === cleanSuggestionId ? item : entry
+    );
+    if (!selectionChangedDuringAction) {
       settingsState.ai.suggestionDetail = detailResult;
-      rememberAiDebugSnapshot("suggestionDecision", response);
       settingsState.ai.selectedSuggestionId = cleanSuggestionId;
-      settingsState.ai.suggestionActionError = "";
+    }
+    await refreshAiSuggestions({ silent: true });
+    const nextSelectedSuggestionId = String(settingsState.ai.selectedSuggestionId || "").trim();
+    if (nextSelectedSuggestionId && !settingsState.ai.suggestionDetail) {
+      await loadAiSuggestionDetail(nextSelectedSuggestionId);
+    }
+    rememberAiDebugSnapshot("suggestionDecision", response);
+    settingsState.ai.suggestionActionError = "";
     setStatus(`AI suggestion ${cleanStatus}: ${cleanSuggestionId}`, "ok");
     return item;
   } catch (error) {
@@ -1743,7 +1752,8 @@ async function refreshAiInbox({ silent = false, preserveDetail = false } = {}) {
     aiInboxState.error = "";
     const selectedListItem = nextItems.find((item) => String(item.artifactId || "").trim() === previousSelectedId) || null;
     const selectedStillVisible = Boolean(selectedListItem);
-    if (!preserveDetail) {
+    const shouldRealignSelection = !preserveDetail || !selectedStillVisible;
+    if (shouldRealignSelection) {
       const nextSelectedArtifactId = selectedStillVisible ? previousSelectedId : nextItems[0]?.artifactId || "";
       const selectionChanged = nextSelectedArtifactId !== previousSelectedId;
       const detailItem = aiInboxState.detail?.item || null;
@@ -1847,13 +1857,23 @@ async function recordAiInboxReviewDecision(decision) {
       feedback: aiInboxFeedbackFromUi(),
       canonical: true
     });
-    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== artifactId;
+    if (!selectionChangedDuringAction) {
+      aiInboxState.detail = aiInboxDetailFromResponse(result);
+      aiInboxState.selectedArtifactId = artifactId;
+    }
     rememberAiDebugSnapshot("inboxDecision", result);
-    aiInboxState.selectedArtifactId = artifactId;
     await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
       refreshAiInboxEvaluationSummary({ silent: true })
       ]);
+      if (aiInboxState.selectedArtifactId) {
+        if (!aiInboxState.detail) await loadAiInboxDetail(aiInboxState.selectedArtifactId);
+      } else {
+        aiInboxState.detail = null;
+        aiInboxState.detailLoading = false;
+        aiInboxState.detailError = "";
+      }
       aiInboxState.actionError = "";
       setStatus(`AI 建议已${aiInboxActionLabel(decision) || "处理"}`, "ok");
       return result;
@@ -1906,11 +1926,14 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
       comment: $("aiInboxDecisionComment")?.value || "",
       canonical: true
     });
-    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
+    if (!selectionChangedDuringAction) {
+      aiInboxState.detail = aiInboxDetailFromResponse(result);
+      aiInboxState.selectedArtifactId = cleanArtifactId;
+    }
     rememberAiDebugSnapshot("inboxDecision", result);
-    aiInboxState.selectedArtifactId = cleanArtifactId;
     await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
       refreshAiInboxEvaluationSummary({ silent: true })
       ]);
       if (state.module === "graph") await refreshDirectoryGraph();
@@ -1939,17 +1962,20 @@ async function promoteAiInboxArtifactToNote(artifactId) {
       comment: $("aiInboxDecisionComment")?.value || "",
       canonical: true
     });
-    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
+    if (!selectionChangedDuringAction) {
+      aiInboxState.detail = aiInboxDetailFromResponse(result);
+      aiInboxState.selectedArtifactId = cleanArtifactId;
+    }
     rememberAiDebugSnapshot("inboxDecision", result);
-    aiInboxState.selectedArtifactId = cleanArtifactId;
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
     }
     await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
-      if (result.note?.id) {
+      if (result.note?.id && !selectionChangedDuringAction) {
         activateModule("explorer");
         openNoteById(result.note.id);
       }
@@ -1979,17 +2005,20 @@ async function adoptAiInboxFieldSuggestionDraft(artifactId) {
       feedback: aiInboxFeedbackFromUi(),
       canonical: true
     });
-    aiInboxState.detail = aiInboxDetailFromResponse(result);
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== cleanArtifactId;
+    if (!selectionChangedDuringAction) {
+      aiInboxState.detail = aiInboxDetailFromResponse(result);
+      aiInboxState.selectedArtifactId = cleanArtifactId;
+    }
     rememberAiDebugSnapshot("inboxDecision", result);
-    aiInboxState.selectedArtifactId = cleanArtifactId;
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
     }
     await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: true }),
+      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
       refreshAiInboxEvaluationSummary({ silent: true })
     ]);
-      if (result.note?.id) {
+      if (result.note?.id && !selectionChangedDuringAction) {
         activateModule("explorer");
         openNoteById(result.note.id, { focusDistillation: true });
       }
@@ -2055,6 +2084,7 @@ async function applyAiInboxSuggestionStatus(status) {
     if (cleanStatus === "confirmed") payload.userConfirmed = true;
 
     const result = await updateAiSuggestion(suggestion.id, { ...payload, canonical: true });
+    const selectionChangedDuringAction = String(aiInboxState.selectedArtifactId || "").trim() !== artifactId;
 
     if (cleanStatus === "rejected") {
       await Promise.all([
@@ -2069,9 +2099,9 @@ async function applyAiInboxSuggestionStatus(status) {
         return true;
       }
 
-    await loadAiInboxDetail(artifactId);
+    if (!selectionChangedDuringAction) await loadAiInboxDetail(artifactId);
       await Promise.all([
-        refreshAiInbox({ silent: true, preserveDetail: true }),
+        refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
         refreshAiInboxEvaluationSummary({ silent: true })
       ]);
       aiInboxState.actionError = "";
