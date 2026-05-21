@@ -25,7 +25,9 @@ function valueAttr(value) {
 
 function renderStatus(text = "", tone = "") {
   const cleanTone = String(tone || "").trim();
-  return `<div class="paper-status ${cleanTone ? `paper-status-${escapeHtml(cleanTone)}` : ""}">${escapeHtml(text || "准备就绪")}</div>`;
+  return `<div class="paper-status ${cleanTone ? `paper-status-${escapeHtml(cleanTone)}` : ""}">${escapeHtml(
+    text || "\u51c6\u5907\u5c31\u7eea"
+  )}</div>`;
 }
 
 function renderWorkspaceSummary(workspace = null) {
@@ -33,24 +35,25 @@ function renderWorkspaceSummary(workspace = null) {
     return `
       <section class="paper-card paper-empty">
         <div class="paper-card-kicker">Step 0</div>
-        <h2>先创建一个论文工作台</h2>
-        <p>这个页面不会直接调用 NotebookLM。它承接你从 NotebookLM 复制出来的 summary、Q&amp;A、study guide 或 notes，再把它们推进到“候选 → 用户转述 → 永久笔记候选 → 明确确认保存”这条链路里。</p>
+        <h2>\u5148\u521b\u5efa\u4e00\u4e2a\u8bba\u6587\u5de5\u4f5c\u53f0</h2>
+        <p>\u8fd9\u4e2a\u9875\u9762\u4e0d\u4f1a\u76f4\u63a5\u8c03\u7528 NotebookLM\u3002\u5b83\u627f\u63a5\u4f60\u4ece NotebookLM \u590d\u5236\u51fa\u6765\u7684 summary\u3001Q&amp;A\u3001study guide \u6216 notes\uff0c\u518d\u628a\u5b83\u4eec\u63a8\u8fdb\u5230\u201c\u5019\u9009 -> \u7528\u6237\u8f6c\u8ff0 -> \u6c38\u4e45\u7b14\u8bb0\u5019\u9009 -> \u660e\u786e\u786e\u8ba4\u4fdd\u5b58\u201d\u8fd9\u6761\u94fe\u8def\u91cc\u3002</p>
       </section>
     `;
   }
+
   const progress = paperWorkspaceProgress(workspace);
   return `
     <section class="paper-card paper-summary-card">
       <div>
-        <div class="paper-card-kicker">当前工作台</div>
+        <div class="paper-card-kicker">\u5f53\u524d\u5de5\u4f5c\u53f0</div>
         <h2>${escapeHtml(workspace.title || workspace.paperId)}</h2>
-        <p>${escapeHtml(workspace.paperId)} · ${escapeHtml(workspaceStageLabel(workspace.stage))}</p>
+        <p>${escapeHtml(workspace.paperId)} \u00b7 ${escapeHtml(workspaceStageLabel(workspace.stage))}</p>
       </div>
       <div class="paper-stats">
-        <span>${progress.candidates} 候选</span>
-        <span>${progress.translations} 转述</span>
-        <span>${progress.permanentCandidates} 永久笔记候选</span>
-        <span>${progress.savedPermanentNotes} 已保存</span>
+        <span>${progress.candidates} \u5019\u9009</span>
+        <span>${progress.translations} \u8f6c\u8ff0</span>
+        <span>${progress.permanentCandidates} \u6c38\u4e45\u7b14\u8bb0\u5019\u9009</span>
+        <span>${progress.savedPermanentNotes} \u5df2\u4fdd\u5b58</span>
       </div>
     </section>
   `;
@@ -59,8 +62,9 @@ function renderWorkspaceSummary(workspace = null) {
 function renderCandidateList(workspace = null, selectedCandidateId = "") {
   const candidates = Array.isArray(workspace?.candidates) ? workspace.candidates : [];
   if (!candidates.length) {
-    return `<div class="paper-muted-box">还没有候选。粘贴 NotebookLM 输出后，这里会先生成 literature 候选，而不是直接生成永久笔记。</div>`;
+    return `<div class="paper-muted-box">\u8fd8\u6ca1\u6709\u5019\u9009\u3002\u7c98\u8d34 NotebookLM \u8f93\u51fa\u540e\uff0c\u8fd9\u91cc\u4f1a\u5148\u751f\u6210 literature \u5019\u9009\uff0c\u800c\u4e0d\u662f\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u3002</div>`;
   }
+
   return `
     <div class="paper-candidate-list">
       ${candidates
@@ -69,7 +73,7 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
           return `
             <button class="paper-candidate ${active ? "is-active" : ""}" type="button" data-paper-candidate-id="${escapeHtml(candidate.id)}">
               <span class="paper-candidate-title">${escapeHtml(candidateLabel(candidate))}</span>
-              <span class="paper-candidate-meta">${escapeHtml(candidateKindLabel(candidate.candidateKind))} · ${escapeHtml(candidateStatusLabel(candidate.status))}</span>
+              <span class="paper-candidate-meta">${escapeHtml(candidateKindLabel(candidate.candidateKind))} \u00b7 ${escapeHtml(candidateStatusLabel(candidate.status))}</span>
               <span class="paper-candidate-quote">${escapeHtml(candidate.quoteText || "")}</span>
             </button>
           `;
@@ -81,18 +85,49 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
 
 function renderTranslationHint(draft = null) {
   if (!draft?.candidate) {
-    return `<div class="paper-muted-box">先从左侧选一条候选，再用你自己的话完成转述。</div>`;
+    return `<div class="paper-muted-box">\u5148\u4ece\u5de6\u4fa7\u9009\u4e00\u6761\u5019\u9009\uff0c\u518d\u7528\u4f60\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u3002</div>`;
+  }
+  if (draft.hasSavedTranslation && draft.hasLocalChanges) {
+    return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u5f53\u524d\u8868\u5355\u5185\u5bb9\u8fd8\u6ca1\u6709\u5199\u56de\u5df2\u4fdd\u5b58\u8f6c\u8ff0\uff0c\u4fdd\u5b58\u540e\u4f1a\u66f4\u65b0\u8fd9\u6761\u5019\u9009\u7684\u6b63\u5f0f\u8f6c\u8ff0\u3002</div>`;
   }
   if (draft.hasSavedTranslation) {
-    return `<div class="paper-muted-box">这条候选已经保存过转述。你可以继续修改，也可以直接生成永久笔记候选。</div>`;
+    return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u4fdd\u5b58\u8fc7\u8f6c\u8ff0\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002</div>`;
   }
-  return `<div class="paper-muted-box">先保存这条候选的用户转述，再进入永久笔记候选。这样回到这个工作台时，关系和边界信息也会一起恢复。</div>`;
+  if (draft.hasLocalChanges) {
+    return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\u3002\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002</div>`;
+  }
+  return `<div class="paper-muted-box">\u5148\u4fdd\u5b58\u8fd9\u6761\u5019\u9009\u7684\u7528\u6237\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u8fd9\u6837\u56de\u5230\u8fd9\u4e2a\u5de5\u4f5c\u53f0\u65f6\uff0c\u5173\u7cfb\u548c\u8fb9\u754c\u4fe1\u606f\u4e5f\u4f1a\u4e00\u8d77\u6062\u590d\u3002</div>`;
+}
+
+function renderPermanentCandidateList(workspace = null, selectedPermanentCandidateId = "") {
+  const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
+  if (!candidates.length) {
+    return `<div class="paper-muted-box">\u8fd8\u6ca1\u6709\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u5148\u5728 Step 3 \u4fdd\u5b58\u8f6c\u8ff0\u5e76\u751f\u6210\u5019\u9009\u3002</div>`;
+  }
+
+  return `
+    <div class="paper-candidate-list">
+      ${candidates
+        .map((candidate) => {
+          const active = candidate.id === selectedPermanentCandidateId;
+          return `
+            <button class="paper-candidate ${active ? "is-active" : ""}" type="button" data-paper-permanent-candidate-id="${escapeHtml(candidate.id)}">
+              <span class="paper-candidate-title">${escapeHtml(candidate.title || candidate.id)}</span>
+              <span class="paper-candidate-meta">${escapeHtml(candidate.originality_status || "warning")} \u00b7 ${escapeHtml(candidate.status || "draft")}</span>
+              <span class="paper-candidate-quote">${escapeHtml(candidate.core_claim || candidate.rationale || "")}</span>
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
 function renderPermanentCandidate(candidate = null) {
   if (!candidate) {
-    return `<div class="paper-muted-box">保存转述后，可以为当前候选生成永久笔记候选。候选只是一份草稿骨架，确认 authorship 之后才会真正保存为永久笔记。</div>`;
+    return `<div class="paper-muted-box">\u4fdd\u5b58\u8f6c\u8ff0\u540e\uff0c\u53ef\u4ee5\u4e3a\u5f53\u524d\u5019\u9009\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u5019\u9009\u53ea\u662f\u4e00\u4efd\u8349\u7a3f\u9aa8\u67b6\uff0c\u786e\u8ba4 authorship \u4e4b\u540e\u624d\u4f1a\u771f\u6b63\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0\u3002</div>`;
   }
+
   const citation = Array.isArray(candidate.citations) ? candidate.citations[0] || {} : {};
   return `
     <div class="paper-permanent-preview">
@@ -101,47 +136,52 @@ function renderPermanentCandidate(candidate = null) {
         <span class="paper-risk paper-risk-${escapeHtml(candidate.originality_status || "warning")}">${escapeHtml(candidate.originality_status || "warning")}</span>
       </div>
       <div class="paper-preview-row">
-        <span>核心判断</span>
+        <span>\u6838\u5fc3\u5224\u65ad</span>
         <p>${escapeHtml(candidate.core_claim || "")}</p>
       </div>
       <div class="paper-preview-row">
-        <span>理由</span>
+        <span>\u7406\u7531</span>
         <p>${escapeHtml(candidate.rationale || "")}</p>
       </div>
       <div class="paper-preview-row">
-        <span>边界</span>
-        <p>${escapeHtml(candidate.boundary_or_counterpoint || "未填写")}</p>
+        <span>\u8fb9\u754c</span>
+        <p>${escapeHtml(candidate.boundary_or_counterpoint || "\u672a\u586b\u5199")}</p>
       </div>
       <div class="paper-preview-row">
-        <span>引用</span>
-        <p>${escapeHtml(citation.source_id || "unknown")}${citation.locator ? ` · ${escapeHtml(citation.locator)}` : ""}</p>
+        <span>\u5f15\u7528</span>
+        <p>${escapeHtml(citation.source_id || "unknown")}${citation.locator ? ` \u00b7 ${escapeHtml(citation.locator)}` : ""}</p>
       </div>
-      ${candidate.savedPermanentNoteId ? `<div class="paper-saved-note">已保存为：${escapeHtml(candidate.savedPermanentNoteId)}</div>` : ""}
+      ${candidate.savedPermanentNoteId ? `<div class="paper-saved-note">\u5df2\u4fdd\u5b58\u4e3a\uff1a${escapeHtml(candidate.savedPermanentNoteId)}</div>` : ""}
     </div>
   `;
 }
 
 function renderLastResult(result = null) {
-  if (!result) return `<div class="paper-result-empty">最近一次操作的返回结果会显示在这里。</div>`;
+  if (!result) return `<div class="paper-result-empty">\u6700\u8fd1\u4e00\u6b21\u64cd\u4f5c\u7684\u8fd4\u56de\u7ed3\u679c\u4f1a\u663e\u793a\u5728\u8fd9\u91cc\u3002</div>`;
   return `<pre class="paper-result-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
 }
 
 export function renderPaperWorkspacePage(state = {}) {
   const form = state.form || {};
   const workspace = state.workspace || null;
-  const selectedDraft = translationDraftForCandidate(workspace, state.selectedCandidateId);
+  const selectedDraft = translationDraftForCandidate(workspace, state.selectedCandidateId, {
+    paraphraseText: form.paraphraseText,
+    relationToQuestion: form.relationToQuestion,
+    boundaryOrCondition: form.boundaryOrCondition
+  });
   const selectedCandidate = selectedDraft.candidate;
   const selectedPermanent = selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId);
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
   const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
+  const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
 
   return `
     <div class="paper-shell">
       <header class="paper-hero">
         <div>
           <div class="paper-eyebrow">NotebookLM assisted paper workflow</div>
-          <h1>从论文阅读，到自己的永久笔记</h1>
-          <p>把 NotebookLM 当作阅读加速器，而不是代写器。这里强制经过候选、转述、永久笔记候选、确认保存四步，避免把外部材料直接当成自己的判断。</p>
+          <h1>\u4ece\u8bba\u6587\u9605\u8bfb\uff0c\u5230\u81ea\u5df1\u7684\u6c38\u4e45\u7b14\u8bb0</h1>
+          <p>\u628a NotebookLM \u5f53\u4f5c\u9605\u8bfb\u52a0\u901f\u5668\uff0c\u800c\u4e0d\u662f\u4ee3\u5199\u5668\u3002\u8fd9\u91cc\u5f3a\u5236\u7ecf\u8fc7\u5019\u9009\u3001\u8f6c\u8ff0\u3001\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3001\u786e\u8ba4\u4fdd\u5b58\u56db\u6b65\uff0c\u907f\u514d\u628a\u5916\u90e8\u6750\u6599\u76f4\u63a5\u5f53\u6210\u81ea\u5df1\u7684\u5224\u65ad\u3002</p>
         </div>
         ${renderStatus(state.statusText, state.statusTone)}
       </header>
@@ -151,48 +191,48 @@ export function renderPaperWorkspacePage(state = {}) {
       <main class="paper-grid">
         <section class="paper-card">
           <div class="paper-card-kicker">Step 1</div>
-          <h2>论文工作台</h2>
+          <h2>\u8bba\u6587\u5de5\u4f5c\u53f0</h2>
           <div class="paper-form-grid">
             <label>Paper ID<input id="paperIdInput" value="${valueAttr(form.paperId)}" placeholder="paper_retrieval_practice" /></label>
             <label>Source ID<input id="paperSourceIdInput" value="${valueAttr(form.sourceId)}" placeholder="src_paper_optional" /></label>
-            <label class="paper-span-2">标题<input id="paperTitleInput" value="${valueAttr(form.title)}" placeholder="例如：Retrieval Practice and Long-term Recall" /></label>
+            <label class="paper-span-2">\u6807\u9898<input id="paperTitleInput" value="${valueAttr(form.title)}" placeholder="\u4f8b\u5982\uff1aRetrieval Practice and Long-term Recall" /></label>
           </div>
           <div class="paper-actions">
-            <button id="btnCreatePaperWorkspace" type="button">创建工作台</button>
-            <button id="btnLoadPaperWorkspace" type="button">读取工作台</button>
+            <button id="btnCreatePaperWorkspace" type="button">\u521b\u5efa\u5de5\u4f5c\u53f0</button>
+            <button id="btnLoadPaperWorkspace" type="button">\u8bfb\u53d6\u5de5\u4f5c\u53f0</button>
           </div>
         </section>
 
         <section class="paper-card">
           <div class="paper-card-kicker">Step 2</div>
-          <h2>粘贴 NotebookLM 输出</h2>
-          <label>Notebook 名称<input id="notebookNameInput" value="${valueAttr(form.notebookName)}" /></label>
-          <label>Summary<textarea id="notebookSummaryInput" placeholder="粘贴 NotebookLM summary">${escapeHtml(form.summary || "")}</textarea></label>
-          <label>Q&amp;A<textarea id="notebookQaInput" placeholder="粘贴 Q&amp;A，可直接放整段文本">${escapeHtml(form.qa || "")}</textarea></label>
-          <label>Study guide<textarea id="notebookStudyGuideInput" placeholder="粘贴 study guide / outline">${escapeHtml(form.studyGuide || "")}</textarea></label>
-          <label>Notes<textarea id="notebookNotesInput" placeholder="粘贴 NotebookLM notes">${escapeHtml(form.notes || "")}</textarea></label>
+          <h2>\u7c98\u8d34 NotebookLM \u8f93\u51fa</h2>
+          <label>Notebook \u540d\u79f0<input id="notebookNameInput" value="${valueAttr(form.notebookName)}" /></label>
+          <label>Summary<textarea id="notebookSummaryInput" placeholder="\u7c98\u8d34 NotebookLM summary">${escapeHtml(form.summary || "")}</textarea></label>
+          <label>Q&amp;A<textarea id="notebookQaInput" placeholder="\u7c98\u8d34 Q&amp;A\uff0c\u53ef\u76f4\u63a5\u653e\u6574\u6bb5\u6587\u672c">${escapeHtml(form.qa || "")}</textarea></label>
+          <label>Study guide<textarea id="notebookStudyGuideInput" placeholder="\u7c98\u8d34 study guide / outline">${escapeHtml(form.studyGuide || "")}</textarea></label>
+          <label>Notes<textarea id="notebookNotesInput" placeholder="\u7c98\u8d34 NotebookLM notes">${escapeHtml(form.notes || "")}</textarea></label>
           <div class="paper-actions">
-            <button id="btnAddNotebookDraft" type="button" ${notebookDisabled ? "disabled" : ""}>生成 literature 候选</button>
+            <button id="btnAddNotebookDraft" type="button" ${notebookDisabled ? "disabled" : ""}>\u751f\u6210 literature \u5019\u9009</button>
           </div>
         </section>
 
         <section class="paper-card paper-span-2">
           <div class="paper-card-kicker">Step 3</div>
-          <h2>候选与用户转述</h2>
+          <h2>\u5019\u9009\u4e0e\u7528\u6237\u8f6c\u8ff0</h2>
           <div class="paper-two-col">
             <div>${renderCandidateList(workspace, selectedCandidate?.id || "")}</div>
             <div class="paper-translation-box">
               <div class="paper-selected-note">
-                <strong>${escapeHtml(selectedCandidate ? candidateLabel(selectedCandidate) : "尚未选择候选")}</strong>
-                <p>${escapeHtml(selectedCandidate?.quoteText || "先选择一条候选，再把它改写成你自己的理解。")}</p>
+                <strong>${escapeHtml(selectedCandidate ? candidateLabel(selectedCandidate) : "\u5c1a\u672a\u9009\u62e9\u5019\u9009")}</strong>
+                <p>${escapeHtml(selectedCandidate?.quoteText || "\u5148\u9009\u62e9\u4e00\u6761\u5019\u9009\uff0c\u518d\u628a\u5b83\u6539\u5199\u6210\u4f60\u81ea\u5df1\u7684\u7406\u89e3\u3002")}</p>
               </div>
               ${renderTranslationHint(selectedDraft)}
-              <label>我的转述<textarea id="translationParaphraseInput" placeholder="必须写成自己的话">${escapeHtml(form.paraphraseText || "")}</textarea></label>
-              <label>它和我的问题有什么关系？<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
-              <label>边界或反例<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
+              <label>\u6211\u7684\u8f6c\u8ff0<textarea id="translationParaphraseInput" placeholder="\u5fc5\u987b\u5199\u6210\u81ea\u5df1\u7684\u8bdd">${escapeHtml(form.paraphraseText || "")}</textarea></label>
+              <label>\u5b83\u548c\u6211\u7684\u95ee\u9898\u6709\u4ec0\u4e48\u5173\u7cfb\uff1f<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
+              <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
-                <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>保存转述</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>生成永久笔记候选</button>
+                <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>\u4fdd\u5b58\u8f6c\u8ff0</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009</button>
               </div>
             </div>
           </div>
@@ -200,23 +240,24 @@ export function renderPaperWorkspacePage(state = {}) {
 
         <section class="paper-card paper-span-2">
           <div class="paper-card-kicker">Step 4</div>
-          <h2>永久笔记候选与确认保存</h2>
+          <h2>\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u4e0e\u786e\u8ba4\u4fdd\u5b58</h2>
+          ${renderPermanentCandidateList(workspace, selectedPermanent?.id || "")}
           ${renderPermanentCandidate(selectedPermanent)}
           <div class="paper-save-row">
-            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> 我确认这已经是我自己的判断，而不是 NotebookLM 原文或论文原句。</label>
-            <label>保存状态
+            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>
+            <label>\u4fdd\u5b58\u72b6\u6001
               <select id="permanentStatusInput">
-                <option value="active" ${form.saveStatus === "active" ? "selected" : ""}>active，如通过 originality 检查</option>
+                <option value="active" ${form.saveStatus === "active" ? "selected" : ""}>active\uff0c\u5982\u679c\u901a\u8fc7 originality \u68c0\u67e5</option>
                 <option value="draft" ${form.saveStatus === "draft" ? "selected" : ""}>draft</option>
               </select>
             </label>
-            <button id="btnSavePermanentNote" type="button" ${selectedPermanent ? "" : "disabled"}>确认保存为永久笔记</button>
+            <button id="btnSavePermanentNote" type="button" ${selectedPermanent && !permanentNoteAlreadySaved ? "" : "disabled"}>${permanentNoteAlreadySaved ? "\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0" : "\u786e\u8ba4\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0"}</button>
           </div>
         </section>
 
         <section class="paper-card paper-span-2">
           <div class="paper-card-kicker">Debug</div>
-          <h2>最近操作</h2>
+          <h2>\u6700\u8fd1\u64cd\u4f5c</h2>
           ${renderLastResult(state.lastResult)}
         </section>
       </main>

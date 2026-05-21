@@ -106,9 +106,9 @@ const groups = [
   },
   {
     name: "paper-workspace",
-    description: "Standalone paper workspace flow for saved translation recovery and candidate gating.",
+    description: "Standalone paper workspace flow for draft persistence, selection recovery, failure continuity, and permanent-note continuity across reload.",
     tests: [
-      "paper workspace browser flow restores saved translations across reload and candidate switching"
+      "paper workspace browser flow preserves draft, selection, failure, and permanent-note continuity across reload"
     ]
   }
 ];

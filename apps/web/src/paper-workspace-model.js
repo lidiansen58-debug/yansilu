@@ -7,6 +7,10 @@ function textOrUndefined(value) {
   return text ? text : undefined;
 }
 
+function hasOwn(value, key) {
+  return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+
 export function emptyPaperWorkspaceForm() {
   return {
     paperId: "",
@@ -32,7 +36,7 @@ export function createInitialPaperWorkspaceState() {
     selectedCandidateId: "",
     selectedPermanentCandidateId: "",
     loading: false,
-    statusText: "准备就绪",
+    statusText: "\u51c6\u5907\u5c31\u7eea",
     statusTone: "",
     lastResult: null
   };
@@ -54,26 +58,26 @@ export function candidateLabel(candidate = {}) {
 
 export function candidateKindLabel(kind = "") {
   const labels = {
-    claim: "判断",
-    method: "方法",
-    result: "结果",
-    limitation: "边界",
-    question: "问题",
-    quote: "摘录"
+    claim: "\u5224\u65ad",
+    method: "\u65b9\u6cd5",
+    result: "\u7ed3\u679c",
+    limitation: "\u8fb9\u754c",
+    question: "\u95ee\u9898",
+    quote: "\u6458\u5f55"
   };
-  return labels[cleanText(kind)] || cleanText(kind) || "候选";
+  return labels[cleanText(kind)] || cleanText(kind) || "\u5019\u9009";
 }
 
 export function candidateStatusLabel(status = "") {
   const labels = {
-    new: "待处理",
-    selected: "已选中",
-    skipped: "已跳过",
-    translated: "转述完成",
-    converted: "已生成候选",
-    saved: "已保存"
+    new: "\u5f85\u5904\u7406",
+    selected: "\u5df2\u9009\u4e2d",
+    skipped: "\u5df2\u8df3\u8fc7",
+    translated: "\u8f6c\u8ff0\u5b8c\u6210",
+    converted: "\u5df2\u751f\u6210\u5019\u9009",
+    saved: "\u5df2\u4fdd\u5b58"
   };
-  return labels[cleanText(status)] || cleanText(status) || "未知";
+  return labels[cleanText(status)] || cleanText(status) || "\u672a\u77e5";
 }
 
 export function paperWorkspaceProgress(workspace = null) {
@@ -94,23 +98,66 @@ export function selectedPaperCandidate(workspace = null, candidateId = "") {
   return candidates.find((item) => item.id === id || item.externalCandidateId === id) || candidates[0] || null;
 }
 
+function exactSelectedPaperCandidate(workspace = null, candidateId = "") {
+  const id = cleanText(candidateId);
+  if (!id) return null;
+  const candidates = Array.isArray(workspace?.candidates) ? workspace.candidates : [];
+  return candidates.find((item) => item.id === id || item.externalCandidateId === id) || null;
+}
+
 export function selectedPaperTranslation(workspace = null, candidateId = "") {
   const id = cleanText(candidateId);
   const translations = Array.isArray(workspace?.translations) ? workspace.translations : [];
   return translations.find((item) => item.candidateId === id) || null;
 }
 
-export function translationDraftForCandidate(workspace = null, candidateId = "") {
+export function normalizeTranslationDraftInput(input = {}) {
+  return {
+    paraphraseText: cleanText(input.paraphraseText),
+    relationToQuestion: cleanText(input.relationToQuestion),
+    boundaryOrCondition: cleanText(input.boundaryOrCondition)
+  };
+}
+
+export function translationDraftForCandidate(workspace = null, candidateId = "", draftInput = null) {
   const candidate = selectedPaperCandidate(workspace, candidateId);
   const translation = selectedPaperTranslation(workspace, candidate?.id || candidateId);
+  const normalizedDraft = normalizeTranslationDraftInput(draftInput || {});
+  const paraphraseText = hasOwn(draftInput, "paraphraseText")
+    ? normalizedDraft.paraphraseText
+    : cleanText(translation?.paraphraseText || candidate?.paraphraseText);
+  const relationToQuestion = hasOwn(draftInput, "relationToQuestion")
+    ? normalizedDraft.relationToQuestion
+    : cleanText(translation?.relationToQuestion);
+  const boundaryOrCondition = hasOwn(draftInput, "boundaryOrCondition")
+    ? normalizedDraft.boundaryOrCondition
+    : cleanText(translation?.boundaryOrCondition);
   return {
     candidate,
     translation,
-    paraphraseText: cleanText(translation?.paraphraseText || candidate?.paraphraseText),
-    relationToQuestion: cleanText(translation?.relationToQuestion),
-    boundaryOrCondition: cleanText(translation?.boundaryOrCondition),
-    hasSavedTranslation: Boolean(cleanText(translation?.id) && cleanText(translation?.paraphraseText))
+    paraphraseText,
+    relationToQuestion,
+    boundaryOrCondition,
+    hasSavedTranslation: Boolean(cleanText(translation?.id) && cleanText(translation?.paraphraseText)),
+    hasLocalChanges:
+      hasOwn(draftInput, "paraphraseText") ||
+      hasOwn(draftInput, "relationToQuestion") ||
+      hasOwn(draftInput, "boundaryOrCondition")
+        ? translationDraftHasLocalChanges(workspace, candidate?.id || candidateId, normalizedDraft)
+        : false
   };
+}
+
+export function translationDraftHasLocalChanges(workspace = null, candidateId = "", draftInput = {}) {
+  const candidate = selectedPaperCandidate(workspace, candidateId);
+  if (!candidate) return false;
+  const baseline = translationDraftForCandidate(workspace, candidateId);
+  const current = normalizeTranslationDraftInput(draftInput);
+  return (
+    baseline.paraphraseText !== current.paraphraseText ||
+    baseline.relationToQuestion !== current.relationToQuestion ||
+    baseline.boundaryOrCondition !== current.boundaryOrCondition
+  );
 }
 
 export function selectedPermanentCandidate(workspace = null, candidateId = "") {
@@ -119,14 +166,21 @@ export function selectedPermanentCandidate(workspace = null, candidateId = "") {
   return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || candidates[0] || null;
 }
 
+function exactSelectedPermanentCandidate(workspace = null, candidateId = "") {
+  const id = cleanText(candidateId);
+  if (!id) return null;
+  const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
+  return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || null;
+}
+
 export function workspaceStageLabel(stage = "") {
   const labels = {
-    candidates: "候选整理",
-    translations: "用户转述",
-    permanent_candidates: "永久笔记候选",
-    saved: "已保存永久笔记"
+    candidates: "\u5019\u9009\u6574\u7406",
+    translations: "\u7528\u6237\u8f6c\u8ff0",
+    permanent_candidates: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+    saved: "\u5df2\u4fdd\u5b58\u6c38\u4e45\u7b14\u8bb0"
   };
-  return labels[cleanText(stage)] || cleanText(stage) || "尚未开始";
+  return labels[cleanText(stage)] || cleanText(stage) || "\u5c1a\u672a\u5f00\u59cb";
 }
 
 export function canSubmitNotebookDraft(form = {}, workspace = null) {
@@ -140,12 +194,21 @@ export function canCreatePermanentCandidate(workspace = null, candidateId = "") 
   return Boolean(cleanText(draft.candidate?.id) && cleanText(draft.translation?.id) && cleanText(draft.translation?.paraphraseText));
 }
 
-export function nextSelectedCandidateId(workspace = null, preferredId = "") {
-  const preferred = selectedPaperCandidate(workspace, preferredId);
-  return cleanText(preferred?.id);
+export function nextSelectedCandidateId(workspace = null, preferredId = "", options = {}) {
+  const preferred = exactSelectedPaperCandidate(workspace, preferredId);
+  if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
+
+  const hasLocalDraft =
+    typeof options.candidateIdHasLocalDraft === "function" ? options.candidateIdHasLocalDraft : () => false;
+  const candidates = Array.isArray(workspace?.candidates) ? workspace.candidates : [];
+  const localDraftCandidate = candidates.find((item) => hasLocalDraft(cleanText(item?.id)));
+  if (cleanText(localDraftCandidate?.id)) return cleanText(localDraftCandidate.id);
+
+  return cleanText(selectedPaperCandidate(workspace, "")?.id);
 }
 
 export function nextSelectedPermanentCandidateId(workspace = null, preferredId = "") {
-  const preferred = selectedPermanentCandidate(workspace, preferredId);
-  return cleanText(preferred?.id);
+  const preferred = exactSelectedPermanentCandidate(workspace, preferredId);
+  if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
+  return cleanText(selectedPermanentCandidate(workspace, "")?.id);
 }
