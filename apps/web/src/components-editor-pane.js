@@ -5495,6 +5495,18 @@ export class EditorPane {
       };
     }
     if (connectedCount === 0) {
+      if (wikilinkCount > 0) {
+        return {
+          nextStep: "补关系理由",
+          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成显式关系。"
+        };
+      }
+      if (Number(overview.tagRelatedCount || 0) > 0) {
+        return {
+          nextStep: "别只停在标签重合",
+          summary: "现在还只有标签上的接近，先挑一条最关键的关系写清楚，不要把标签重合直接当成网络连接。"
+        };
+      }
       return {
         nextStep: "补关系，不要让它孤立",
         summary: "这条笔记还没真正接入网络，先补第一条有理由的关系。"
@@ -5728,9 +5740,20 @@ export class EditorPane {
       {
         label: "关系连接",
         status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
-        hint: relationState === "loading" ? "先等显式关系读取完成。" : relationState === "error" ? "读取失败，但仍然可以手动补建。" : explicitRelationCount ? "已经有带理由的关系。" : wikilinkCount ? "有基础链接，值得补理由。" : "先连出第一条关系。",
+        hint:
+          relationState === "loading"
+            ? "先等显式关系读取完成。"
+            : relationState === "error"
+              ? "读取失败，但仍然可以手动补建。"
+              : explicitRelationCount
+                ? "已经有带理由的关系。"
+                : wikilinkCount
+                  ? "有基础链接，下一步把关系为什么成立写清楚。"
+                  : Number(overview.tagRelatedCount || 0) > 0
+                    ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
+                    : "先连出第一条关系。",
         action: "relations",
-        actionLabel: "处理关系"
+        actionLabel: wikilinkCount > 0 ? "补关系理由" : Number(overview.tagRelatedCount || 0) > 0 ? "从标签里补关系" : "处理关系"
       },
       {
         label: "主题索引",
