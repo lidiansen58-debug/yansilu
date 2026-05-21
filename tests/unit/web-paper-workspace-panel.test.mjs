@@ -450,5 +450,6 @@ test("renderPaperWorkspacePage keeps the selected permanent-note save status", (
 
   const html = renderPaperWorkspacePage(state);
 
+  assert.match(html, /active\uff0c\u5982\u679c\u901a\u8fc7 originality \u68c0\u67e5/);
   assert.match(html, /<option value="draft" selected>/);
 });
