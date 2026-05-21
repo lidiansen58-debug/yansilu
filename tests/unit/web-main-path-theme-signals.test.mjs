@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
 function createPane() {
   return Object.create(EditorPane.prototype);
@@ -57,4 +58,33 @@ test("theme signal summary keeps mixed weak signals under theme-signal bucket", 
   });
 
   assert.match(result.status, /主题线索/);
+});
+test("main-path local relation signals fall back to parsing body tags on neighboring notes", () => {
+  const pane = createPane();
+  const state = createInitialState();
+  state.notes = [
+      {
+        id: "n-source",
+        folderId: "dir_original_default",
+        body: "# Source\n\n#product-judgment",
+        tags: []
+      },
+      {
+        id: "n-neighbor",
+        folderId: "dir_original_default",
+        body: "# Neighbor\n\n#product-judgment",
+        tags: []
+      }
+    ];
+  pane.state = state;
+
+  const signals = pane.buildLocalRelationSignals(
+    { id: "n-source", folderId: "dir_original_default" },
+    { body: "# Source\n\n#product-judgment" }
+  );
+
+  assert.deepEqual(
+    signals.tagRelated.map((note) => note.id),
+    ["n-neighbor"]
+  );
 });

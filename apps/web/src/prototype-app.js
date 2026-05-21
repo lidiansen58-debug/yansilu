@@ -72,6 +72,7 @@ import {
   renderScheduledTasksPanel
 } from "./scheduled-tasks-panel.js";
 import {
+  graphIsolatedNodeIds,
   graphFollowupActionForRelationType,
   graphNextActionForSummary,
   graphWritingCandidateNoteIds,
@@ -5804,6 +5805,7 @@ function shouldRefreshWritingThemeRelationCounts(noteIds = []) {
 function writingThemeProjectEntry(indexCard) {
   const noteIds = writingThemeIndexNoteIds(indexCard);
   const notesLoaded = writingThemeNotesLoaded(noteIds);
+  const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
   const loadingNoteDetails = writingState.loadingThemeNoteDetails && sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds);
   if (!notesLoaded || loadingNoteDetails) {
     return {
@@ -5831,12 +5833,34 @@ function writingThemeProjectEntry(indexCard) {
     projectEntry: describeWritingThemeProjectEntryState({
       notesLoaded,
       loadingNoteDetails,
+      existingProjectId: existingProject?.id || "",
+      existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
+      existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
       relationCountsReady,
       relationCountsErrored,
       readinessLevel: readiness.level,
       readinessHint: readiness.hint
     })
   };
+}
+
+function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
+  const themeId = String(indexCard?.id || "").trim();
+  const normalizedNoteIds = uniqueStrings(noteIds);
+  if (!themeId && !normalizedNoteIds.length) return null;
+
+  const projects = [writingState.project, ...(Array.isArray(writingState.projects) ? writingState.projects : [])]
+    .filter(Boolean)
+    .filter((project, index, items) => items.findIndex((item) => item?.id === project?.id) === index);
+
+  return (
+    projects.find((project) => {
+      const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
+      const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
+      if (themeId && relatedIndexIds.includes(themeId)) return true;
+      return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
+    }) || null
+  );
 }
 
 function writingBasketEntries() {
@@ -7821,7 +7845,8 @@ function renderGraphPanel() {
     .map(([type, count]) => `${graphRelationTypeLabel(type)} × ${count}`)
     .join(" / ");
   const linkedNodeIds = new Set(edges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const isolatedNodes = nodes.filter((node) => !linkedNodeIds.has(node.id));
+  const isolatedNodeIdSet = new Set(graphIsolatedNodeIds(nodes, edges, { filterActive }));
+  const isolatedNodes = nodes.filter((node) => isolatedNodeIdSet.has(node.id));
   const isolatedCount = isolatedNodes.length;
   const busiestNode = visibleNodes
     .map((node) => ({
@@ -9732,6 +9757,13 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "create-project") {
+      const selectedTheme = writingThemeIndexById(indexId) || (await fetchIndexCard(indexId));
+      const existingProject = findExistingWritingProjectForTheme(selectedTheme, writingThemeIndexNoteIds(selectedTheme));
+      if (existingProject?.id) {
+        await openWritingProject(existingProject.id);
+        setStatus(`已继续当前项目：${existingProject.id}`, "ok");
+        return;
+      }
       const project = await createWritingProjectFromThemeIndex(indexId);
       setStatus(`已从主题创建项目：${project?.id}`, "ok");
       return;

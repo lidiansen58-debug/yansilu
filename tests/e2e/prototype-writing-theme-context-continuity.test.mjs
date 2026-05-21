@@ -33,7 +33,7 @@ async function createWritingReadyPermanentNote(baseUrl, payload = {}) {
   return updated;
 }
 
-test("prototype writing theme selection keeps ready project-entry context when switching between themes with the same notes", async (t) => {
+test("prototype writing theme selection keeps current project continuity when switching between themes with the same notes", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -118,6 +118,13 @@ test("prototype writing theme selection keeps ready project-entry context when s
     return Boolean(button) && button.disabled === false;
   }, null, { timeout: 10000 });
 
+  await page.click('[data-writing-theme-action="create-project"]');
+
+  await waitFor(async () => {
+    const statusText = await page.locator("#statusText").textContent();
+    assert.match(String(statusText || ""), /已从主题创建项目：wp_/);
+  }, 10000);
+
   await page.locator('#writingThemeIndexList .writing-note-card', { hasText: "Theme Continuity Index B" }).click();
 
   await waitFor(async () => {
@@ -126,6 +133,13 @@ test("prototype writing theme selection keeps ready project-entry context when s
     const disabled = await page.locator('[data-writing-theme-action="create-project"]').isDisabled();
     assert.equal(disabled, false);
     assert.match(String(titleValue || ""), /Theme Continuity Index B/);
-    assert.match(String(createLabel || ""), /创建项目/);
+    assert.match(String(createLabel || ""), /继续当前项目/);
+  }, 10000);
+
+  await page.click('[data-writing-theme-action="create-project"]');
+
+  await waitFor(async () => {
+    const statusText = await page.locator("#statusText").textContent();
+    assert.match(String(statusText || ""), /已继续当前项目：wp_/);
   }, 10000);
 });

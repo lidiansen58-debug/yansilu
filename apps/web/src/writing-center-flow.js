@@ -457,6 +457,9 @@ export function describeWritingStrongModelButtonLabel({
 export function describeWritingThemeProjectEntryState({
   notesLoaded = false,
   loadingNoteDetails = false,
+  existingProjectId = "",
+  existingProjectHasScaffold = false,
+  existingProjectHasDraft = false,
   relationCountsReady = false,
   relationCountsErrored = false,
   readinessLevel = "",
@@ -469,6 +472,20 @@ export function describeWritingThemeProjectEntryState({
       hint: "正在读取主题里的永久笔记，再判断是否能直接创建项目。",
       actionLabel: "正在读取主题",
       canCreateProject: false
+    };
+  }
+  const currentProjectId = String(existingProjectId || "").trim();
+  if (currentProjectId) {
+    return {
+      level: "current_project",
+      status: "继续当前项目",
+      hint: existingProjectHasDraft
+        ? `当前主题已经对应项目 ${currentProjectId}，而且草稿也在推进中。直接回到这个项目继续写作会更连续。`
+        : existingProjectHasScaffold
+          ? `当前主题已经对应项目 ${currentProjectId}，草稿骨架也已生成。直接回到这个项目继续推进会更连续。`
+          : `当前主题已经对应项目 ${currentProjectId}。直接回到这个项目继续推进，会比重新创建更连续。`,
+      actionLabel: "继续当前项目",
+      canCreateProject: true
     };
   }
   return describeWritingProjectEntryState({

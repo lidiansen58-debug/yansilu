@@ -43,3 +43,23 @@ test("writing theme project entry reuses normal project gating after theme notes
   assert.equal(entry.level, "ready");
   assert.equal(entry.canCreateProject, true);
 });
+
+test("writing theme project entry prefers continuing the current project when one already matches the theme", () => {
+  const entry = describeWritingThemeProjectEntryState({
+    notesLoaded: true,
+    loadingNoteDetails: false,
+    existingProjectId: "wp_existing",
+    existingProjectHasScaffold: true,
+    existingProjectHasDraft: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "project_ready"
+  });
+
+  assert.equal(entry.level, "current_project");
+  assert.equal(entry.status, "继续当前项目");
+  assert.equal(entry.actionLabel, "继续当前项目");
+  assert.equal(entry.canCreateProject, true);
+  assert.match(entry.hint, /wp_existing/);
+  assert.match(entry.hint, /草稿骨架/);
+});

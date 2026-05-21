@@ -152,3 +152,12 @@ export function graphWritingCandidateNoteIds(visibleNodeIds = [], { noteLookup =
     return Boolean(note) && Boolean(isEligible(note));
   });
 }
+
+export function graphIsolatedNodeIds(nodes = [], edges = [], { filterActive = false } = {}) {
+  if (filterActive) return [];
+  const nodeIds = [...new Set((nodes || []).map((node) => String(node?.id || "").trim()).filter(Boolean))];
+  const linkedNodeIds = new Set(
+    (edges || []).flatMap((edge) => [edge?.fromNoteId, edge?.toNoteId].map((id) => String(id || "").trim()).filter(Boolean))
+  );
+  return nodeIds.filter((id) => !linkedNodeIds.has(id));
+}

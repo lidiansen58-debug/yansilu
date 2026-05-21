@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   graphFollowupActionForRelationType,
+  graphIsolatedNodeIds,
   graphNextActionForSummary,
   graphWritingCandidateNoteIds,
   graphWritingFollowupEntryPlan
@@ -160,4 +161,36 @@ test("graph writing candidate note ids keep only visible eligible notes in visib
   });
 
   assert.deepEqual(ids, ["n-visible-1", "n-visible-3"]);
+});
+
+test("graph isolated node ids ignore hidden nodes when the current graph view is filtered", () => {
+  const isolatedIds = graphIsolatedNodeIds(
+    [
+      { id: "n1" },
+      { id: "n2" },
+      { id: "n3" }
+    ],
+    [
+      { fromNoteId: "n1", toNoteId: "n2" }
+    ],
+    { filterActive: true }
+  );
+
+  assert.deepEqual(isolatedIds, []);
+});
+
+test("graph isolated node ids still report true isolates in the full unfiltered view", () => {
+  const isolatedIds = graphIsolatedNodeIds(
+    [
+      { id: "n1" },
+      { id: "n2" },
+      { id: "n3" }
+    ],
+    [
+      { fromNoteId: "n1", toNoteId: "n2" }
+    ],
+    { filterActive: false }
+  );
+
+  assert.deepEqual(isolatedIds, ["n3"]);
 });

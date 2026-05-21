@@ -5429,7 +5429,12 @@ export class EditorPane {
       return refs.some((token) => this.resolveLinkToken(token, scoped)?.note?.id === note.id);
     });
     const tagRelated = tags.length
-      ? scoped.filter((n) => (n.tags || []).some((tg) => tags.includes(tg))).slice(0, 20)
+      ? scoped
+          .filter((n) => {
+            const noteTags = Array.isArray(n.tags) && n.tags.length ? n.tags : parseTags(String(n.body || ""));
+            return noteTags.some((tg) => tags.includes(tg));
+          })
+          .slice(0, 20)
       : [];
     return { forward, backward, tagRelated };
   }
