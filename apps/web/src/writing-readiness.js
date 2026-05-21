@@ -43,7 +43,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "blocked_draft",
       status: "先完成原创确认",
-      hint: "当前仍是 draft，先完成原创性检查后再进入写作。",
+      hint: "当前仍是 draft，先完成原创性检查后再进入写作中心。",
       actionLabel: "查看写作要求"
     };
   }
@@ -51,7 +51,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "needs_distillation",
       status: "先确认观点",
-      hint: "至少先确认 thesis 和三句话压缩，再决定是否进入写作。",
+      hint: "至少先确认 thesis 和三句话压缩，再决定是否进入写作中心。",
       actionLabel: "先完成提纯"
     };
   }
@@ -59,7 +59,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: "已经能进入写作篮，但先补边界或反例，后面建项目会更稳。",
+      hint: "已经可以先加入写作篮，但先补边界或反例，后面建项目会更稳。",
       actionLabel: "加入写作篮"
     };
   }
@@ -75,7 +75,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: "当前可先进入写作篮，但最好补一条清楚的关系后再建项目。",
+      hint: "当前可以先加入写作篮，但最好补一条清楚的关系后再建项目。",
       actionLabel: "加入写作篮"
     };
   }
@@ -83,23 +83,23 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
     return {
       level: "basket_ready",
       status: "可加入写作篮",
-      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成显式关系，才适合进入写作项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
+      hint: wikilinkCount > 0 ? "已经有基础链接，但还要补成显式关系，才适合创建项目。" : "判断和边界已经具备，但最好补一条关系再建项目。",
       actionLabel: "加入写作篮"
     };
   }
   if (themeSignalCount < 2) {
     return {
       level: "project_ready",
-      status: "可创建写作项目",
+      status: "先创建项目",
       hint: "判断、边界和关系已具备，可以先建项目；补更多主题线索后再做强模型分析。",
       actionLabel: "创建项目"
     };
   }
   return {
     level: "strong_model_ready",
-    status: "可进行强模型分析",
-    hint: "判断、边界、关系和主题线索都较完整，可以继续做项目和强模型分析。",
-    actionLabel: "强模型分析"
+    status: "先创建项目",
+    hint: "判断、边界、关系和主题线索都较完整；先创建项目，项目就绪后再做强模型分析。",
+    actionLabel: "创建项目"
   };
 }
 
@@ -112,7 +112,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
     return {
       level: "needs_basket",
       status: "先加入写作篮",
-      hint: "至少加入 1 条永久笔记，最好 2-5 条再进入写作项目。",
+      hint: "至少加入 1 条永久笔记，最好 2-5 条再创建项目。",
       actionLabel: "加入写作篮"
     };
   }
@@ -178,7 +178,7 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
   if (uniqueIds.length < 2 || totalThemeSignals < 2) {
     return {
       level: "project_ready",
-      status: "可创建写作项目",
+      status: "先创建项目",
       hint: "当前材料足够先建项目，但主题线索还不算丰富，先别急着做强模型分析。",
       actionLabel: "创建项目"
     };
@@ -186,9 +186,9 @@ export function deriveBasketWritingReadiness(noteIds = [], noteLookup, relationC
 
   return {
     level: "strong_model_ready",
-    status: "可进行强模型分析",
-    hint: "篮子、关系和主题线索都较完整，可以继续做项目和强模型分析。",
-    actionLabel: "强模型分析"
+    status: "先创建项目",
+    hint: "篮子、关系和主题线索都较完整；先创建项目，项目就绪后再做强模型分析。",
+    actionLabel: "创建项目"
   };
 }
 

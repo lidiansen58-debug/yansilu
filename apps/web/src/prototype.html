@@ -9444,7 +9444,7 @@
             <header class="writing-topline">
               <div>
                 <div class="import-card-kicker">Writing Center</div>
-                <strong>写作中心：把永久笔记组织成可修改的草稿骨架</strong>
+                <strong>写作中心：把永久笔记组织成可推进的项目与草稿骨架</strong>
                 <p>它不是代写终稿，而是帮你把观点、证据、缺口和反方先摆到一张工作台上。</p>
               </div>
               <div class="writing-topline-actions">
@@ -9452,10 +9452,10 @@
               </div>
             </header>
             <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
-              <div class="writing-flow-step is-active"><span>1</span><strong>选材料</strong><small>加入 2-5 条永久笔记</small></div>
-              <div class="writing-flow-step"><span>2</span><strong>建项目</strong><small>明确题目和读者</small></div>
-              <div class="writing-flow-step"><span>3</span><strong>生成骨架</strong><small>检查证据和缺口</small></div>
-              <div class="writing-flow-step"><span>4</span><strong>保存草稿</strong><small>回到编辑器继续写</small></div>
+                  <div class="writing-flow-step is-active"><span>1</span><strong>选材料</strong><small>把 2-5 条永久笔记加入写作篮</small></div>
+              <div class="writing-flow-step"><span>2</span><strong>创建项目</strong><small>先明确题目和读者，再创建项目</small></div>
+              <div class="writing-flow-step"><span>3</span><strong>生成草稿骨架</strong><small>检查证据和缺口</small></div>
+              <div class="writing-flow-step"><span>4</span><strong>保存草稿</strong><small>生成草稿骨架后再保存</small></div>
             </div>
             <div class="writing-status-strip" id="writingStatusStrip" aria-live="polite"></div>
             <div class="writing-project-grid">
@@ -9463,7 +9463,7 @@
                 <div class="writing-section-head">
                   <div>
                     <div class="writing-section-title">项目信息</div>
-                    <div class="writing-section-note">先明确要推进的论题，再从已有永久笔记里挑选观点与证据，组织进写作篮和 scaffold。</div>
+                    <div class="writing-section-note">先明确要推进的论题，再从已有永久笔记里挑选观点与证据，组织进写作篮和草稿骨架。</div>
                   </div>
                 </div>
                 <div class="import-grid writing-form-grid">
@@ -9481,26 +9481,26 @@
                     <textarea id="writingVersionNote" style="min-height:58px;" placeholder="例如：调整段落顺序，先铺背景再落论点"></textarea>
                   </div>
                 <div class="writing-actions-primary">
-                  <button class="mini-btn" id="btnWritingUseCurrent">加入当前笔记</button>
+                  <button class="mini-btn" id="btnWritingUseCurrent">把当前笔记加入写作篮</button>
                   <button class="mini-btn" id="btnWritingAddVisible">把当前目录观点加入写作篮</button>
-                  <button class="mini-btn primary" id="btnWritingCreateProject">创建写作项目</button>
+                  <button class="mini-btn primary" id="btnWritingCreateProject">创建项目</button>
                   <button class="mini-btn primary" id="btnWritingCreateScaffold">生成草稿骨架</button>
-                  <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空篮子</button>
+                  <button class="mini-btn is-ghost" id="btnWritingClearBasket">清空写作篮</button>
                 </div>
               </section>
               <section class="writing-section">
                 <div class="writing-section-head">
                   <div>
                     <div class="writing-section-title">当前进度与输出</div>
-                    <div class="writing-section-note">看项目是否已创建、骨架是否已生成，以及下一步能否导出或保存草稿。</div>
+                    <div class="writing-section-note">看项目是否已创建、草稿骨架是否已生成，以及下一步能否导出或保存草稿。</div>
                   </div>
                 </div>
                 <label for="writingBasketNoteIds" class="writing-section-note">材料清单（可编辑 Note IDs）</label>
                 <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="每行一个 note id，或用逗号分隔"></textarea>
-                <div class="import-result" id="writingResult">尚未开始写作项目。</div>
+                <div class="import-result" id="writingResult">尚未开始项目。</div>
                 <div class="writing-actions-secondary">
-                  <button class="mini-btn" id="btnWritingCopyScaffold">复制 Scaffold Markdown</button>
-                  <button class="mini-btn" id="btnWritingExportScaffold">导出 Scaffold .md</button>
+                  <button class="mini-btn" id="btnWritingCopyScaffold">复制草稿骨架 Markdown</button>
+                  <button class="mini-btn" id="btnWritingExportScaffold">导出草稿骨架 .md</button>
                   <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿笔记</button>
                   <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
                 </div>
@@ -9510,9 +9510,9 @@
                       <div class="writing-section-title">强模型写作分析</div>
                       <div class="writing-section-note">仅在你明确确认后准备远程模型请求；输出进入 AI Inbox，不直接写草稿。</div>
                     </div>
-                    <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">准备强模型分析</button>
+                    <button class="mini-btn" id="btnWritingStrongModelAnalysis" type="button">先加入写作篮</button>
                   </div>
-                  <div class="writing-summary" id="writingStrongModelSummary">尚未准备强模型分析。</div>
+                  <div class="writing-summary" id="writingStrongModelSummary">先把永久笔记加入写作篮，再准备强模型分析。</div>
                 </div>
               </section>
             </div>
@@ -9535,7 +9535,7 @@
                     <div class="writing-section-head">
                       <div>
                         <div class="writing-section-title">主题详情</div>
-                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、主题压缩、相关永久笔记，并从主题直接进入写作项目。</div>
+                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。</div>
                       </div>
                     </div>
                     <div id="writingThemeDetail"></div>
@@ -9570,7 +9570,7 @@
                   </div>
                 </div>
                 <div class="writing-preview" id="writingScaffoldPreview">
-                  <h4>骨架预览</h4>
+                  <h4>草稿骨架预览</h4>
                   <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 预览。</div>
                 </div>
               </section>
@@ -9580,7 +9580,7 @@
                     <div class="writing-section-head">
                       <div>
                         <div class="writing-section-title">最近项目</div>
-                        <div class="writing-section-note" id="writingProjectsHint">显示最近更新的写作项目，支持恢复到当前工作区。</div>
+                        <div class="writing-section-note" id="writingProjectsHint">显示最近更新的项目，支持恢复到当前工作区。</div>
                       </div>
                     </div>
                     <div class="import-grid" style="margin-bottom:12px;">
@@ -9604,8 +9604,8 @@
                 <section class="writing-section">
                   <div class="writing-section-head">
                     <div>
-                      <div class="writing-section-title">Scaffold 版本</div>
-                      <div class="writing-section-note" id="writingScaffoldVersionsHint">每次生成 scaffold 都会保留历史版本。</div>
+                      <div class="writing-section-title">草稿骨架版本</div>
+                      <div class="writing-section-note" id="writingScaffoldVersionsHint">每次生成草稿骨架都会保留历史版本。</div>
                     </div>
                     <button class="mini-btn" id="btnWritingRefreshScaffolds">刷新版本</button>
                   </div>
@@ -9615,7 +9615,7 @@
                   <div class="writing-section-head">
                     <div>
                       <div class="writing-section-title">草稿版本</div>
-                      <div class="writing-section-note" id="writingDraftVersionsHint">每次保存草稿都会保留一个新版本，并记录来源 scaffold。</div>
+                      <div class="writing-section-note" id="writingDraftVersionsHint">每次保存草稿都会保留一个新版本，并记录来源草稿骨架。</div>
                     </div>
                     <button class="mini-btn" id="btnWritingRefreshDraftVersions">刷新草稿版本</button>
                   </div>
