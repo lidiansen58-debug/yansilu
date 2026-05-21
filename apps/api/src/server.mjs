@@ -3068,7 +3068,7 @@ const server = http.createServer(async (req, res) => {
           ? existingArtifact.userDecisions[existingArtifact.userDecisions.length - 1] || null
           : null;
         if (
-          ["accepted", "ignored", "archived"].includes(decision) &&
+          ["accepted", "revised", "ignored", "archived"].includes(decision) &&
           existingLatestDecision?.decision === decision &&
           sameAiInboxDecisionPayload(existingLatestDecision, body)
         ) {
@@ -3087,6 +3087,22 @@ const server = http.createServer(async (req, res) => {
             artifact: artifactToCanonical(existingArtifact),
             latestDecision: latestDecisionCanonical
           } : null));
+        }
+        if (
+          existingArtifact.status !== "pending_review" &&
+          existingLatestDecision?.decision &&
+          existingLatestDecision.decision !== decision
+        ) {
+          return sendJson(
+            res,
+            409,
+            err("AI_INBOX_DECISION_CONFLICT", "artifact review state has changed; reload the inbox item before submitting a different decision", rid, {
+              artifactId: aiInboxDecisionId,
+              currentStatus: existingArtifact.status,
+              latestDecision: existingLatestDecision.decision,
+              requestedDecision: decision
+            })
+          );
         }
         const artifact = artifactStore.recordDecision(aiInboxDecisionId, {
           ...body,
@@ -3917,11 +3933,18 @@ const server = http.createServer(async (req, res) => {
           "",
           summaryText || "(empty)"
         ].join("\n");
-        const updatedArtifact = artifactStore.recordDecision(aiInboxSummarizeId, {
+        const existingLatestDecision = Array.isArray(artifact.userDecisions)
+          ? artifact.userDecisions[artifact.userDecisions.length - 1] || null
+          : null;
+        const summarizeDecisionInput = {
           decision: "revised",
           userId: body.userId || body.user_id || "local_user",
           comment: decorated
-        });
+        };
+        const updatedArtifact =
+          existingLatestDecision?.decision === "revised" && sameAiInboxDecisionPayload(existingLatestDecision, summarizeDecisionInput)
+            ? artifact
+            : artifactStore.recordDecision(aiInboxSummarizeId, summarizeDecisionInput);
         const inbox = createAiInbox({ artifactStore });
         const updatedItem = inbox.getItem(aiInboxSummarizeId);
 

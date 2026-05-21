@@ -557,6 +557,14 @@ test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) 
   assert.equal(ignoredWithNewFeedback.json.item.decisionCount, ignored.json.item.decisionCount + 1);
   assert.equal(ignoredWithNewFeedback.json.artifact.userDecisions.length, ignored.json.artifact.userDecisions.length + 1);
   assert.equal(ignoredWithNewFeedback.json.latestDecision.feedback.privacyConcern, true);
+  const ignoredConflict = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(ignoredArtifactId)}/decision`, {
+    action: "accept"
+  });
+  assert.equal(ignoredConflict.status, 409, JSON.stringify(ignoredConflict.json));
+  assert.equal(ignoredConflict.json.error.code, "AI_INBOX_DECISION_CONFLICT");
+  assert.equal(ignoredConflict.json.error.details.currentStatus, "ignored");
+  assert.equal(ignoredConflict.json.error.details.latestDecision, "ignored");
+  assert.equal(ignoredConflict.json.error.details.requestedDecision, "accepted");
 
   const dueForArchive = await postJson(baseUrl, "/api/v1/ai/scheduled-tasks/run-due", {
     now: "2026-05-11T10:30:00.000Z"
@@ -881,6 +889,19 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /\[AI Summary\]/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /provider=ollama_local_gateway/);
   assert.match(summarized.json.item.inboxItem.latestDecision.comment, /recommendedAction=accept_link/);
+
+  const summarizedAgain = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
+  assert.equal(summarizedAgain.status, 200, JSON.stringify(summarizedAgain.json));
+  assert.equal(summarizedAgain.json.item.artifact.status, "revised");
+  assert.equal(summarizedAgain.json.item.inboxItem.latestDecision.decision, "revised");
+  assert.equal(
+    summarizedAgain.json.item.inboxItem.decisionCount,
+    summarized.json.item.inboxItem.decisionCount
+  );
+  assert.equal(
+    summarizedAgain.json.item.artifact.userDecisions.length,
+    summarized.json.item.artifact.userDecisions.length
+  );
 
   assert.equal(chatServer.lastRequest().model, "qwen2.5:3b");
   assert.ok(chatServer.lastRequest().messages.some((message) => String(message.content || "").includes("Connect these two notes")));
