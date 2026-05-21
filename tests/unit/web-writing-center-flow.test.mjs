@@ -15,6 +15,8 @@ import {
   describeWritingProjectStepState,
   describeWritingNextActionFromState,
   planWritingBasketEntry,
+  resolveWritingSelectedThemeIndexId,
+  resolveWritingSourceIndexIds,
   resolveWritingEntryTitle,
   groupWritingPreflightChecks,
   isWritingStrongModelReady
@@ -220,6 +222,44 @@ test("writing entry title still uses requested title when starting a fresh baske
   });
 
   assert.equal(title, "Fresh Note 写作项目");
+});
+
+test("writing source index ids preserve existing theme provenance on append", () => {
+  const sourceIndexIds = resolveWritingSourceIndexIds({
+    existingSourceIndexIds: ["idx_existing"],
+    incomingSourceIndexIds: [],
+    preserveExisting: true
+  });
+
+  assert.deepEqual(sourceIndexIds, ["idx_existing"]);
+});
+
+test("writing source index ids merge incoming theme provenance without duplicates", () => {
+  const sourceIndexIds = resolveWritingSourceIndexIds({
+    existingSourceIndexIds: ["idx_existing"],
+    incomingSourceIndexIds: ["idx_existing", "idx_new"],
+    preserveExisting: true
+  });
+
+  assert.deepEqual(sourceIndexIds, ["idx_existing", "idx_new"]);
+});
+
+test("writing selected theme index stays on the current theme when merged provenance still includes it", () => {
+  const selectedThemeIndexId = resolveWritingSelectedThemeIndexId({
+    currentSelectedThemeIndexId: "idx_existing",
+    nextSourceIndexIds: ["idx_existing", "idx_new"]
+  });
+
+  assert.equal(selectedThemeIndexId, "idx_existing");
+});
+
+test("writing selected theme index falls back to the only source theme when there is no current selection", () => {
+  const selectedThemeIndexId = resolveWritingSelectedThemeIndexId({
+    currentSelectedThemeIndexId: "",
+    nextSourceIndexIds: ["idx_only"]
+  });
+
+  assert.equal(selectedThemeIndexId, "idx_only");
 });
 
 test("writing batch append status reports how many notes were newly added", () => {
