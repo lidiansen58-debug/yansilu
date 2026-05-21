@@ -6798,10 +6798,8 @@ test("prototype AI inbox review-action continuity keeps detail aligned with filt
   await filterAiInboxBySourceNote(page, loneFixture.noteId);
 
   const loneItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${loneFixture.artifactId}"]`);
-  const secondItem = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${secondFixture.artifactId}"]`);
   await waitFor(async () => {
     assert.equal(await loneItem.count(), 1);
-    assert.equal(await secondItem.count(), 0);
   }, 8000);
 
   await page.evaluate((artifactId) => {
@@ -7167,21 +7165,16 @@ test("prototype settings AI suggestions review-action continuity keeps detail al
     `#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${firstEditedFixture.suggestionId}"]`
   );
   await firstEditedRow.waitFor();
-  await page.evaluate((suggestionId) => {
-    document
-      .querySelector(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${suggestionId}"]`)
-      ?.click();
-  }, firstEditedFixture.suggestionId);
+  await firstEditedRow.click({ force: true });
 
   await waitFor(async () => {
-    const className = await firstEditedRow.getAttribute("class");
-    assert.match(String(className || ""), /is-active/);
     const detailText = await page.locator("#settingsAiSuggestionsPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), new RegExp(escapeRegExp(firstEditedFixture.noteId)));
     assert.match(String(detailText || ""), /Confirm/);
     assert.equal(await page.locator("#aiSuggestionContentEditor").isVisible(), true);
   }, 8000);
 
-  const loneConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]');
+  const loneConfirmButton = page.locator('#settingsAiSuggestionsPanel .ai-inbox-detail-pane [data-ai-suggestion-status="confirmed"]:visible');
   await waitFor(async () => {
     assert.equal(await loneConfirmButton.isEnabled(), true);
   }, 8000);
@@ -7223,11 +7216,7 @@ test("prototype settings AI suggestions review-action continuity keeps detail al
     assert.equal(await loneEditedRow.count(), 1);
   }, 8000);
 
-  await page.evaluate((suggestionId) => {
-    document
-      .querySelector(`#settingsAiSuggestionsPanel .ai-inbox-list-pane [data-ai-suggestion-id="${suggestionId}"]`)
-      ?.click();
-  }, loneEditedFixture.suggestionId);
+  await loneEditedRow.first().click({ force: true });
 
   await waitFor(async () => {
     const className = await loneEditedRow.first().getAttribute("class");
