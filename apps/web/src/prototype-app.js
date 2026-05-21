@@ -5417,12 +5417,15 @@ async function selectWritingThemeIndex(indexId) {
   const fetched = await fetchIndexCard(id);
   if (!fetched?.id) return null;
   const noteIds = writingThemeIndexNoteIds(fetched);
+  const preservingExistingThemeContext =
+    sameUniqueStringSet(noteIds, writingState.themeNoteDetailIds) &&
+    sameUniqueStringSet(noteIds, writingState.themeRelationNoteIds);
   await ensureNotesLoaded(noteIds);
   upsertWritingThemeIndex(fetched);
   setSelectedWritingThemeIndex(fetched.id);
   writingState.themeNoteDetailIds = noteIds;
   writingState.loadingThemeNoteDetails = false;
-  clearWritingThemeRelationCounts(noteIds);
+  if (!preservingExistingThemeContext) clearWritingThemeRelationCounts(noteIds);
   renderWritingPanel();
   return fetched;
 }
