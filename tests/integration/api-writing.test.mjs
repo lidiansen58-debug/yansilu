@@ -403,8 +403,8 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.ok(scaffold.json.item.sections.every((section) => Array.isArray(section.gaps)));
   assert.ok(scaffold.json.item.sections.every((section) => Array.isArray(section.counterpoints)));
   assert.ok(scaffold.json.item.sections.some((section) => section.counterpoints.some((item) => /stable note|conflated/i.test(item))));
-  assert.ok(scaffold.json.item.sections.some((section) => section.open_questions.some((item) => /boundary|counterexample/i.test(item))));
-  assert.ok(scaffold.json.item.open_questions.some((item) => /counterpoint|sharper separation|boundary/i.test(item)));
+  assert.ok(scaffold.json.item.sections.some((section) => section.open_questions.some((item) => /边界|反例/i.test(item))));
+  assert.ok(scaffold.json.item.open_questions.some((item) => /反方|区分|边界/i.test(item)));
   assert.equal(scaffold.json.item.preflight.status, "needs_attention");
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "pass"));
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "confirmed_distillation" && check.status === "warning"));
@@ -412,16 +412,16 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(scaffold.json.item.writing_project.scaffold_id, scaffold.json.item.id);
   assert.equal(scaffold.json.item.writing_project.thinkingStatus.status, "ready_for_review");
   assert.match(scaffold.json.export.markdown, /# Writing mainline/);
-  assert.match(scaffold.json.export.markdown, /## Scaffold Readiness Check/);
-  assert.match(scaffold.json.export.markdown, /WARN Confirmed distillation/);
-  assert.match(scaffold.json.export.markdown, /WARN Distillation quality/);
-  assert.match(scaffold.json.export.markdown, /## Paragraph-Evidence Map/);
-  assert.match(scaffold.json.export.markdown, /Intent: Explain why writing should begin from distilled notes rather than blank prompts\./);
-  assert.match(scaffold.json.export.markdown, /Reader takeaway: Readers should see thought compression as the bridge between note-taking and writing\./);
-  assert.match(scaffold.json.export.markdown, /Gaps:/);
-  assert.match(scaffold.json.export.markdown, /Counterpoints:/);
-  assert.match(scaffold.json.export.markdown, /Address this counterpoint or boundary/);
-  assert.match(scaffold.json.export.markdown, /sharper separation/i);
+  assert.match(scaffold.json.export.markdown, /## 草稿骨架预检/);
+  assert.match(scaffold.json.export.markdown, /- 提醒 已确认提纯/);
+  assert.match(scaffold.json.export.markdown, /- 提醒 提纯质量/);
+  assert.match(scaffold.json.export.markdown, /## 段落-证据对照表/);
+  assert.match(scaffold.json.export.markdown, /- 意图: Explain why writing should begin from distilled notes rather than blank prompts\./);
+  assert.match(scaffold.json.export.markdown, /- 读者收获: Readers should see thought compression as the bridge between note-taking and writing\./);
+  assert.match(scaffold.json.export.markdown, /待补缺口:/);
+  assert.match(scaffold.json.export.markdown, /反方与边界:/);
+  assert.match(scaffold.json.export.markdown, /要正面处理哪条反方或边界|补出哪条反方、限制或例外/);
+  assert.match(scaffold.json.export.markdown, /进一步区分|区分/i);
   assert.match(scaffold.json.export.markdown, /Writing from claims/);
   assert.equal(scaffold.json.export.json.sections.length, scaffold.json.item.sections.length);
   assert.equal(scaffold.json.export.json.preflight.status, "needs_attention");
@@ -430,8 +430,8 @@ test("writing APIs create project basket and draft scaffold from permanent notes
   assert.equal(fetchedScaffold.status, 200, JSON.stringify(fetchedScaffold.json));
   assert.equal(fetchedScaffold.json.item.id, scaffold.json.item.id);
   assert.equal(fetchedScaffold.json.item.preflight.status, "needs_attention");
-  assert.match(fetchedScaffold.json.export.markdown, /Paragraph-Evidence Map/);
-  assert.match(fetchedScaffold.json.export.markdown, /Counterpoints:/);
+  assert.match(fetchedScaffold.json.export.markdown, /段落-证据对照表/);
+  assert.match(fetchedScaffold.json.export.markdown, /反方与边界:/);
 
   const scaffoldV2 = await postJson(baseUrl, "/api/v1/draft-scaffolds", {
     writingProjectId: project.json.item.id,
@@ -652,10 +652,10 @@ test("core writing flow keeps working when status guidance is ignored", async (t
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "writing_intent" && check.status === "warning"));
   assert.ok(scaffold.json.item.preflight.checks.some((check) => check.id === "distillation_quality" && check.status === "warning"));
   assert.match(scaffold.json.export.markdown, /# Regression draft/);
-  assert.match(scaffold.json.export.markdown, /- Intent: TBD/);
-  assert.match(scaffold.json.export.markdown, /WARN Writing intent/);
-  assert.match(scaffold.json.export.markdown, /WARN Distillation quality/);
-  assert.match(scaffold.json.export.markdown, /Add or choose a topic with a central question/);
+  assert.match(scaffold.json.export.markdown, /- 意图: 待补充/);
+  assert.match(scaffold.json.export.markdown, /- 提醒 写作意图/);
+  assert.match(scaffold.json.export.markdown, /- 提醒 提纯质量/);
+  assert.match(scaffold.json.export.markdown, /补一张带中心问题的主题卡，或改用已经写出中心问题的主题/);
   assert.match(scaffold.json.export.markdown, /Rough claim/);
   assert.match(scaffold.json.export.markdown, /Supporting example/);
 

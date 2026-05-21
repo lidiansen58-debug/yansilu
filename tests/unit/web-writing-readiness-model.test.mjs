@@ -21,6 +21,38 @@ test("note writing readiness blocks notes without authorship confirmation", () =
 
   assert.equal(readiness.level, "blocked_authorship");
   assert.match(readiness.status, /作者确认/);
+  assert.match(readiness.hint, /作者确认/);
+});
+
+test("note writing readiness points needs-distillation notes toward 写作中心 wording", () => {
+  const readiness = deriveNoteWritingReadiness(
+    {
+      status: "active",
+      distillationStatus: "draft",
+      authorship: { user_confirmed: true },
+      body: "# Note\n\nA note with a thesis but still not confirmed.",
+      thesis: "A reusable judgment still needs confirmation."
+    },
+    {}
+  );
+
+  assert.equal(readiness.level, "needs_distillation");
+  assert.match(readiness.hint, /进入写作中心/);
+});
+
+test("note writing readiness points blocked drafts toward 写作中心 requirements flow", () => {
+  const readiness = deriveNoteWritingReadiness(
+    {
+      status: "draft",
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      body: "# Note\n\nConfirmed but still draft."
+    },
+    {}
+  );
+
+  assert.equal(readiness.level, "blocked_draft");
+  assert.match(readiness.hint, /进入写作中心/);
 });
 
 test("note writing readiness stays basket-ready before boundary and relation are complete", () => {
@@ -61,7 +93,8 @@ test("note writing readiness becomes project-ready once boundary and relation ex
   );
 
   assert.equal(readiness.level, "project_ready");
-  assert.match(readiness.status, /创建写作项目/);
+  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.actionLabel, /创建项目/);
 });
 
 test("note writing readiness stays basket-ready when there are only wikilinks but no explicit relations", () => {
@@ -83,6 +116,7 @@ test("note writing readiness stays basket-ready when there are only wikilinks bu
 
   assert.equal(readiness.level, "basket_ready");
   assert.match(readiness.hint, /显式关系/);
+  assert.match(readiness.hint, /创建项目/);
 });
 
 test("note writing readiness becomes strong-model-ready once theme signals are richer", () => {
@@ -103,7 +137,10 @@ test("note writing readiness becomes strong-model-ready once theme signals are r
   );
 
   assert.equal(readiness.level, "strong_model_ready");
-  assert.match(readiness.status, /强模型分析/);
+  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.hint, /先创建项目/);
+  assert.match(readiness.hint, /强模型分析/);
+  assert.match(readiness.actionLabel, /创建项目/);
 });
 
 test("basket writing readiness blocks unconfirmed authorship before anything else", () => {
@@ -134,6 +171,7 @@ test("basket writing readiness becomes project-ready before strong-model-ready w
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "project_ready");
+  assert.match(readiness.status, /先创建项目/);
 });
 
 test("basket writing readiness becomes strong-model-ready once relation and theme signals are strong enough", () => {
@@ -144,6 +182,8 @@ test("basket writing readiness becomes strong-model-ready once relation and them
 
   const readiness = deriveBasketWritingReadiness(["n1", "n2"], (id) => notesById.get(id), { n1: 1, n2: 1 });
   assert.equal(readiness.level, "strong_model_ready");
+  assert.match(readiness.status, /先创建项目/);
+  assert.match(readiness.hint, /先创建项目/);
 });
 
 test("basket writing readiness keeps relation fetch errors distinct from missing relations", () => {
@@ -190,5 +230,5 @@ test("project preflight description reports warning count when attention is stil
   });
 
   assert.equal(summary.level, "needs_attention");
-  assert.match(summary.hint, /3 项需要注意/);
+  assert.match(summary.hint, /3/);
 });

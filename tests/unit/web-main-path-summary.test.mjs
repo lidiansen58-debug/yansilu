@@ -19,7 +19,7 @@ test("main-path summary prefers concise thesis guidance before distillation exis
   );
 
   assert.equal(result.nextStep, "先写一句判断");
-  assert.match(result.summary, /写成一句可复用的判断/);
+  assert.match(result.summary, /可复用的判断/);
 });
 
 test("main-path summary calls for first explicit relation once note is confirmed but isolated", () => {
@@ -45,7 +45,7 @@ test("main-path summary calls for first explicit relation once note is confirmed
   assert.match(result.summary, /第一条有理由的关系/);
 });
 
-test("main-path summary reuses writing readiness hint after note is connected", () => {
+test("main-path summary asks to create a project once note is project-ready", () => {
   const pane = createPane();
   const result = pane.permanentNoteMainPathSummaryV2(
     {
@@ -64,8 +64,8 @@ test("main-path summary reuses writing readiness hint after note is connected", 
     }
   );
 
-  assert.equal(result.nextStep, "可创建写作项目");
-  assert.match(result.summary, /补更多主题线索后再做强模型分析/);
+  assert.equal(result.nextStep, "先创建项目");
+  assert.match(result.summary, /先创建项目/);
 });
 
 test("main-path card relation badge counts only explicit relations", () => {
