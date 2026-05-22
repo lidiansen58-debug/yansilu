@@ -41,6 +41,7 @@ Current closure status:
 
 - Segment 1 active closure note: [PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md)
 - Segment 1 should now be treated as the active reference slice for the first cleanup pass
+- Segment 4 continuity note: [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
 
 ## Segment 1
 
@@ -187,6 +188,10 @@ Mixed in / adjacent:
 Final-round additions:
 
 - only the slice-scoped handoff from graph belongs here, and it is better treated as part of the grouped graph segment for now
+
+Authoritative reference:
+
+- [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
 
 ## Segment 5
 
