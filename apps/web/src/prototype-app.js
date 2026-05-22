@@ -8406,7 +8406,8 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     });
     const plan = graphWritingFollowupEntryPlan({
       basketNoteIds: parseWritingBasketIds(),
-      candidateNoteIds: graphBasketNoteIds.length ? graphBasketNoteIds : writingCandidateNotes().map((note) => note.id)
+      candidateNoteIds: graphBasketNoteIds,
+      scopeNoteIds: graphFocusNoteIds
     });
     if (plan.prefillNoteIds.length) {
       continueWritingEntry(plan.prefillNoteIds, {

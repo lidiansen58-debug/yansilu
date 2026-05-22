@@ -95,6 +95,21 @@ test("graph next action prefers isolated-note followup before entering the writi
   assert.match(nextAction.note, /孤立|关系网络/);
 });
 
+test("graph next action prefers strengthening thin rationale before entering the writing center", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    thinRationaleFromNoteId: "pn_basic_1",
+    thinRationaleCount: 2
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_basic_1");
+  assert.equal(nextAction.actionLabel, "先补关系理由");
+  assert.match(nextAction.note, /2/);
+  assert.match(nextAction.note, /显式关系/);
+});
+
 test("graph next action points to writing center once structure is already clear", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
@@ -110,7 +125,8 @@ test("graph next action points to writing center once structure is already clear
 test("graph writing followup preloads current scope notes when basket is empty and scope is small", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n1", "n2"]);
@@ -120,7 +136,8 @@ test("graph writing followup preloads current scope notes when basket is empty a
 test("graph writing followup appends newly visible notes into an existing basket", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: ["n1"],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n2"]);
@@ -130,7 +147,8 @@ test("graph writing followup appends newly visible notes into an existing basket
 test("graph writing followup avoids auto-prefill when current scope is too large", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
-    candidateNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"]
+    candidateNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"],
+    scopeNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
@@ -141,11 +159,24 @@ test("graph writing followup avoids auto-prefill when current scope is too large
 test("graph writing followup keeps current basket untouched when the whole visible slice is already present", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: ["n1", "n2"],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /已经都在写作篮中|继续推进/);
+});
+
+test("graph writing followup stays inside the current graph slice when no note is ready for writing", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: [],
+    candidateNoteIds: [],
+    scopeNoteIds: ["n1", "n2"]
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /当前图谱切片里还没有可直接推进写作的永久笔记/);
+  assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });
 
 test("graph writing candidate note ids keep only visible eligible notes in visible order", () => {
@@ -165,14 +196,8 @@ test("graph writing candidate note ids keep only visible eligible notes in visib
 
 test("graph isolated node ids ignore hidden nodes when the current graph view is filtered", () => {
   const isolatedIds = graphIsolatedNodeIds(
-    [
-      { id: "n1" },
-      { id: "n2" },
-      { id: "n3" }
-    ],
-    [
-      { fromNoteId: "n1", toNoteId: "n2" }
-    ],
+    [{ id: "n1" }, { id: "n2" }, { id: "n3" }],
+    [{ fromNoteId: "n1", toNoteId: "n2" }],
     { filterActive: true }
   );
 
@@ -181,30 +206,10 @@ test("graph isolated node ids ignore hidden nodes when the current graph view is
 
 test("graph isolated node ids still report true isolates in the full unfiltered view", () => {
   const isolatedIds = graphIsolatedNodeIds(
-    [
-      { id: "n1" },
-      { id: "n2" },
-      { id: "n3" }
-    ],
-    [
-      { fromNoteId: "n1", toNoteId: "n2" }
-    ],
+    [{ id: "n1" }, { id: "n2" }, { id: "n3" }],
+    [{ fromNoteId: "n1", toNoteId: "n2" }],
     { filterActive: false }
   );
 
   assert.deepEqual(isolatedIds, ["n3"]);
-});
-test("graph next action prefers strengthening thin rationale before entering the writing center", () => {
-  const nextAction = graphNextActionForSummary({
-    hasNodes: true,
-    hasEdges: true,
-    thinRationaleFromNoteId: "pn_basic_1",
-    thinRationaleCount: 2
-  });
-
-  assert.equal(nextAction.action, "relations");
-  assert.equal(nextAction.noteId, "pn_basic_1");
-  assert.equal(nextAction.actionLabel, "先补关系理由");
-  assert.match(nextAction.note, /2/);
-  assert.match(nextAction.note, /显式关系/);
 });
