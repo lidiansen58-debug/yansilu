@@ -39,6 +39,7 @@ This grouped segment is the first one to close out because the product behavior 
 
 Current closure status:
 
+- Main-path / writing readiness note: [PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md)
 - Segment 1 active closure note: [PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md)
 - Segment 1 should now be treated as the active reference slice for the first cleanup pass
 - Segment 4 continuity note: [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
@@ -82,6 +83,10 @@ Mixed in / adjacent:
 Final-round additions:
 
 - none directly attributable to the final `graph followup continuity` pass
+
+Authoritative reference:
+
+- [PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md)
 
 ## Segment 2 + 3
 
