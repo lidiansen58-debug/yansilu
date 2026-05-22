@@ -7,12 +7,42 @@ import {
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
+  emptyPaperWorkspaceForm,
+  createInitialPaperWorkspaceState,
+  normalizeTranslationDraftInput,
+  nextSelectedCandidateId,
+  nextSelectedPermanentCandidateId,
   paperWorkspaceProgress,
   selectedPaperCandidate,
+  selectedPermanentCandidate,
   selectedPaperTranslation,
+  translationDraftHasLocalChanges,
   translationDraftForCandidate,
   workspaceStageLabel
 } from "../../apps/web/src/paper-workspace-model.js";
+
+test("createInitialPaperWorkspaceState starts with a ready status", () => {
+  const state = createInitialPaperWorkspaceState();
+  assert.equal(state.statusText, "准备就绪");
+});
+
+test("emptyPaperWorkspaceForm provides the expected workflow defaults", () => {
+  assert.deepEqual(emptyPaperWorkspaceForm(), {
+    paperId: "",
+    sourceId: "",
+    title: "",
+    notebookName: "NotebookLM",
+    summary: "",
+    qa: "",
+    studyGuide: "",
+    notes: "",
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: "",
+    confirmAuthorship: false,
+    saveStatus: "active"
+  });
+});
 
 test("buildNotebookLmPayload keeps only provided NotebookLM fields", () => {
   assert.deepEqual(
@@ -58,6 +88,7 @@ test("paper workspace model reports progress and restores saved translation cont
     savedPermanentNotes: 1
   });
   assert.equal(selectedPaperCandidate(workspace, "pwc_2").title, "Second");
+  assert.equal(selectedPermanentCandidate(workspace, "pn_2").savedPermanentNoteId, "pn_2");
   assert.equal(selectedPaperTranslation(workspace, "pwc_2").id, "ptr_1");
   assert.deepEqual(translationDraftForCandidate(workspace, "pwc_2"), {
     candidate: workspace.candidates[1],
@@ -65,9 +96,20 @@ test("paper workspace model reports progress and restores saved translation cont
     paraphraseText: "Second in my own words.",
     relationToQuestion: "Connects to the research question.",
     boundaryOrCondition: "Only for delayed recall.",
-    hasSavedTranslation: true
+    hasSavedTranslation: true,
+    hasLocalChanges: false
   });
   assert.equal(workspaceStageLabel(workspace.stage), "永久笔记候选");
+});
+
+test("paper workspace selection helpers resolve alias ids", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", externalCandidateId: "ext_1", title: "First" }],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+
+  assert.equal(selectedPaperCandidate(workspace, "ext_1").id, "pwc_1");
+  assert.equal(selectedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
 });
 
 test("paper workspace labels expose user-facing workflow states", () => {
@@ -103,4 +145,141 @@ test("canCreatePermanentCandidate stays blocked when only legacy candidate parap
 
   assert.equal(translationDraftForCandidate(workspace, "pwc_1").hasSavedTranslation, false);
   assert.equal(canCreatePermanentCandidate(workspace, "pwc_1"), false);
+});
+
+test("translationDraftForCandidate lets unsaved draft input override saved translation fields", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  assert.deepEqual(
+    translationDraftForCandidate(workspace, "pwc_1", {
+      paraphraseText: "Unsaved wording.",
+      relationToQuestion: "",
+      boundaryOrCondition: "Unsaved boundary."
+    }),
+    {
+      candidate: workspace.candidates[0],
+      translation: workspace.translations[0],
+      paraphraseText: "Unsaved wording.",
+      relationToQuestion: "",
+      boundaryOrCondition: "Unsaved boundary.",
+      hasSavedTranslation: true,
+      hasLocalChanges: true
+    }
+  );
+});
+
+test("translationDraftHasLocalChanges only stores unsaved translation deltas", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  assert.deepEqual(
+    normalizeTranslationDraftInput({
+      paraphraseText: " Draft wording ",
+      relationToQuestion: " Relation ",
+      boundaryOrCondition: " Boundary "
+    }),
+    {
+      paraphraseText: "Draft wording",
+      relationToQuestion: "Relation",
+      boundaryOrCondition: "Boundary"
+    }
+  );
+  assert.equal(
+    translationDraftHasLocalChanges(workspace, "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    false
+  );
+  assert.equal(
+    translationDraftHasLocalChanges(workspace, "pwc_1", {
+      paraphraseText: "",
+      relationToQuestion: "",
+      boundaryOrCondition: ""
+    }),
+    true
+  );
+});
+
+test("nextSelectedCandidateId prefers a candidate with local draft when no current selection exists", () => {
+  const workspace = {
+    candidates: [
+      { id: "pwc_1", title: "First" },
+      { id: "pwc_2", title: "Second" }
+    ]
+  };
+
+  assert.equal(
+    nextSelectedCandidateId(workspace, "", {
+      candidateIdHasLocalDraft: (candidateId) => candidateId === "pwc_2"
+    }),
+    "pwc_2"
+  );
+  assert.equal(
+    nextSelectedCandidateId(workspace, "pwc_1", {
+      candidateIdHasLocalDraft: (candidateId) => candidateId === "pwc_2"
+    }),
+    "pwc_1"
+  );
+});
+
+test("nextSelectedCandidateId falls back to local draft when stored selection is stale", () => {
+  const workspace = {
+    candidates: [
+      { id: "pwc_1", title: "First" },
+      { id: "pwc_2", title: "Second" }
+    ]
+  };
+
+  assert.equal(
+    nextSelectedCandidateId(workspace, "pwc_missing", {
+      candidateIdHasLocalDraft: (candidateId) => candidateId === "pwc_2"
+    }),
+    "pwc_2"
+  );
+  assert.equal(
+    nextSelectedCandidateId(workspace, "pwc_missing", {
+      candidateIdHasLocalDraft: () => false
+    }),
+    "pwc_1"
+  );
+});
+
+test("nextSelectedPermanentCandidateId falls back to first permanent candidate when stored selection is stale", () => {
+  const workspace = {
+    permanentCandidates: [
+      { id: "pn_1", title: "First permanent" },
+      { id: "pn_2", title: "Second permanent" }
+    ]
+  };
+
+  assert.equal(nextSelectedPermanentCandidateId(workspace, "pn_2"), "pn_2");
+  assert.equal(nextSelectedPermanentCandidateId(workspace, "pn_missing"), "pn_1");
+});
+
+test("workspaceStageLabel falls back to a not-started label", () => {
+  assert.equal(workspaceStageLabel(""), "尚未开始");
+  assert.equal(workspaceStageLabel("mystery"), "mystery");
 });
