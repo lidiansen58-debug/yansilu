@@ -155,7 +155,7 @@ async function confirmAuthorshipIfVisible(page, options = {}) {
   if (!visible) return false;
   const claimInput = page.locator("#authorshipClaimInput");
   const existingClaim = await claimInput.inputValue();
-  const claim = String(options.claim || existingClaim || "ÕâÊÇÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£").trim();
+  const claim = String(options.claim || existingClaim || "ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½").trim();
   if (!existingClaim.trim() || options.forceClaim === true) {
     await claimInput.fill(claim);
   }
@@ -478,7 +478,7 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   await page.waitForFunction(() => {
     const value = document.querySelector("#editorBody")?.value || "";
     const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
-    return value.startsWith("# Î´ÃüÃû±Ê¼Ç") && String(title).includes("Î´ÃüÃû±Ê¼Ç");
+    return value.startsWith("# Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½") && String(title).includes("Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½");
   });
   await page.evaluate((value) => {
     const editor = document.querySelector("#editorHost")?.__markdownEditor;
@@ -497,7 +497,7 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   );
   if (confirmAuthorship) {
     await confirmAuthorshipIfVisible(page, {
-      claim: options.authorshipClaim || `${expectedTitle} ÊÇÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£`
+      claim: options.authorshipClaim || `${expectedTitle} ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½`
     });
   }
   const editorValueBeforeSave = await page.locator("#editorBody").inputValue();
@@ -510,7 +510,7 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
     const editorValue = await page.locator("#editorBody").inputValue();
     const statusText = await currentStatusText(page);
     assert.match(editorValue, new RegExp(escapeRegExp(expectedTitle)));
-    assert.match(String(statusText || ""), /ÒÑÍ¬²½|×Ô¶¯Í¬²½|ÈÔ°´ draft ´¦Àí|×÷ÕßÈ·ÈÏ/);
+    assert.match(String(statusText || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|ï¿½Ô¶ï¿½Í¬ï¿½ï¿½|ï¿½Ô°ï¿½ draft ï¿½ï¿½ï¿½ï¿½|ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½/);
   }, 10000);
   return editorValueBeforeSave;
 }
@@ -589,7 +589,7 @@ async function waitForPlaceholderTitleSelection(page) {
     if (!editor) return false;
     const value = String(editor.getValue?.() || "");
     const selection = editor.selection?.();
-    return Boolean(selection && value.slice(selection.from, selection.to) === "Î´ÃüÃû±Ê¼Ç");
+    return Boolean(selection && value.slice(selection.from, selection.to) === "Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½");
   });
 }
 
@@ -750,11 +750,11 @@ test("prototype permanent note can save and persists content after authorship co
   assert.equal(blockedNote.status, 200);
   assert.ok(
     /Authorship Gate Note/.test(blockedNote.json.item.body || "") ||
-      /# Î´ÃüÃû±Ê¼Ç/.test(blockedNote.json.item.body || ""),
+      /# Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½/.test(blockedNote.json.item.body || ""),
     blockedNote.json.item.body || ""
   );
 
-  await confirmAuthorshipIfVisible(page, { claim: "Authorship Gate Note ÊÇÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Authorship Gate Note ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -787,31 +787,31 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     directoryId: "dir_literature_default",
     status: "draft",
     body: [
-      "# ÔÄ¶ÁÕªÂ¼ÑùÀý",
+      "# ï¿½Ä¶ï¿½ÕªÂ¼ï¿½ï¿½ï¿½ï¿½",
       "",
-      "## ÒýÓÃÐÅÏ¢",
+      "## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢",
       "",
-      "- ±êÌâ£º¸ÅÄîÀí½âÑÐ¾¿",
-      "- ×÷Õß£ºÍõÒ»",
-      "- Äê·Ý£º2024",
-      "- ÈÝÆ÷£ºÈÏÖªÐ´×÷ÆÀÂÛ",
-      "- ³ö°æÉç / À´Ô´£ºÑÐË¼Â¼×ÊÁÏ¿â",
-      "- Ò³Âë / ¶¨Î»£ºp. 12",
-      "- °æ±¾£º",
-      "- ÒëÕß / ±àÕß£º",
-      "- DOI / ISBN / arXiv / URL / PDF£ºhttps://example.com/concept-understanding",
+      "- ï¿½ï¿½ï¿½â£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¾ï¿½",
+      "- ï¿½ï¿½ï¿½ß£ï¿½ï¿½ï¿½Ò»",
+      "- ï¿½ï¿½Ý£ï¿½2024",
+      "- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÖªÐ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",
+      "- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Ë¼Â¼ï¿½ï¿½ï¿½Ï¿ï¿½",
+      "- Ò³ï¿½ï¿½ / ï¿½ï¿½Î»ï¿½ï¿½p. 12",
+      "- ï¿½æ±¾ï¿½ï¿½",
+      "- ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½ï¿½ß£ï¿½",
+      "- DOI / ISBN / arXiv / URL / PDFï¿½ï¿½https://example.com/concept-understanding",
       "",
-      "## Ô­ÎÄ",
-      "¸ÅÄîºÍÓïÑÔ¿ÉÄÜÈÃÈËÍ£ÁôÔÚ±í²ã£¬¶øÎ´ÕæÕý½øÈëÀí½â¡£",
+      "## Ô­ï¿½ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½Ú±ï¿½ã£¬ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â¡£",
       "",
-      "## ×ªÊö",
-      "Èç¹ûÖ»Í£ÁôÔÚ¸ÅÄî±íÊö²ã£¬ÈË»áÎóÒÔÎª×Ô¼ºÀí½âÁË£¬ÆäÊµ»¹Ã»ÓÐÐÎ³É×Ô¼ºµÄÅÐ¶Ï¡£",
+      "## ×ªï¿½ï¿½",
+      "ï¿½ï¿½ï¿½Ö»Í£ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ã£¬ï¿½Ë»ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½Êµï¿½ï¿½Ã»ï¿½ï¿½ï¿½Î³ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½",
       "",
-      "## ±£ÁôÔ­Òò",
-      "ËüÌáÐÑÎÒ£¬ÕªÂ¼Ö»ÓÐÔÚ±»¸ÄÐ´³É×Ô¼ºµÄÅÐ¶Ïºó²ÅÕæÕýÓÐ¼ÛÖµ¡£",
+      "## ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò£ï¿½ÕªÂ¼Ö»ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ð¶Ïºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¼ï¿½Öµï¿½ï¿½",
       "",
-      "## Ö§³ÖÅÐ¶Ï",
-      "Ëü»áÖ§³ÖÎÒ¶ÔÑÐË¼Â¼Òª·´¶Ô¡°ÕªÂ¼¼´Íê³É¡±ÕâÀà±Ê¼ÇÏ°¹ßµÄÅÐ¶Ï¡£"
+      "## Ö§ï¿½ï¿½ï¿½Ð¶ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½Ò¶ï¿½ï¿½ï¿½Ë¼Â¼Òªï¿½ï¿½ï¿½Ô¡ï¿½ÕªÂ¼ï¿½ï¿½ï¿½ï¿½É¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Ï°ï¿½ßµï¿½ï¿½Ð¶Ï¡ï¿½"
     ].join("\n")
   });
   assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
@@ -820,18 +820,18 @@ test("prototype literature note keeps permanent-note actions out of the editor t
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ÔÄ¶ÁÕªÂ¼ÑùÀý" }).waitFor();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ÔÄ¶ÁÕªÂ¼ÑùÀý" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ï¿½Ä¶ï¿½ÕªÂ¼ï¿½ï¿½ï¿½ï¿½" }).waitFor();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ï¿½Ä¶ï¿½ÕªÂ¼ï¿½ï¿½ï¿½ï¿½" }).click();
   await ensureSourceMode(page);
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(String(editorValue || ""), /## ÒýÓÃÐÅÏ¢/);
+    assert.match(String(editorValue || ""), /## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢/);
     assert.match(String(editorValue || ""), /DOI \/ ISBN \/ arXiv \/ URL \/ PDF/);
-    assert.match(String(editorValue || ""), /## Ô­ÎÄ/);
-    assert.match(String(editorValue || ""), /## ×ªÊö/);
-    assert.match(String(editorValue || ""), /## ±£ÁôÔ­Òò/);
-    assert.match(String(editorValue || ""), /## Ö§³ÖÅÐ¶Ï/);
+    assert.match(String(editorValue || ""), /## Ô­ï¿½ï¿½/);
+    assert.match(String(editorValue || ""), /## ×ªï¿½ï¿½/);
+    assert.match(String(editorValue || ""), /## ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½/);
+    assert.match(String(editorValue || ""), /## Ö§ï¿½ï¿½ï¿½Ð¶ï¿½/);
   }, 7000);
   assert.equal(await page.locator("#btnRunGuard").count(), 0);
   assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
@@ -841,10 +841,10 @@ test("prototype literature note keeps permanent-note actions out of the editor t
   await waitFor(async () => {
     const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(literatureNoteId)}`);
     assert.equal(note.status, 200);
-    assert.match(note.json.item.body || "", /## ×ªÊö/);
-    assert.match(note.json.item.body || "", /ÕªÂ¼¼´Íê³É/);
+    assert.match(note.json.item.body || "", /## ×ªï¿½ï¿½/);
+    assert.match(note.json.item.body || "", /ÕªÂ¼ï¿½ï¿½ï¿½ï¿½ï¿½/);
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /ÒÑÍ¬²½|×Ô¶¯Í¬²½/);
+    assert.match(String(statusText || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|ï¿½Ô¶ï¿½Í¬ï¿½ï¿½/);
   }, 10000);
 
   assert.equal(await page.locator("#btnToolbarCommandSearch").isVisible(), true);
@@ -867,19 +867,19 @@ test("prototype literature note with missing metadata has no toolbar recording a
     directoryId: "dir_literature_default",
     status: "draft",
     body: [
-      "# È±ÒýÓÃÐÅÏ¢ÑùÀý",
+      "# È±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½",
       "",
-      "## Ô­ÎÄ",
-      "ÕâÌõÕªÂ¼»¹Ã»ÓÐ¿ÉÓÃÓÚ²Î¿¼ÎÄÏ×µÄÀ´Ô´ÐÅÏ¢¡£",
+      "## Ô­ï¿½ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½ÕªÂ¼ï¿½ï¿½Ã»ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½Ú²Î¿ï¿½ï¿½ï¿½ï¿½×µï¿½ï¿½ï¿½Ô´ï¿½ï¿½Ï¢ï¿½ï¿½",
       "",
-      "## ×ªÊö",
-      "ÎÒÒÑ¾­ÓÃ×Ô¼ºµÄ»°Àí½âÁËÕâÌõ²ÄÁÏ£¬µ«»¹²»ÄÜ×·ËÝÒýÓÃ¡£",
+      "## ×ªï¿½ï¿½",
+      "ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×·ï¿½ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½",
       "",
-      "## ±£ÁôÔ­Òò",
-      "ËüÄÜÌáÐÑÎÒÒýÓÃÐÅÏ¢²»ÄÜÊÂºóÔÙ²Â¡£",
+      "## ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Âºï¿½ï¿½Ù²Â¡ï¿½",
       "",
-      "## Ö§³ÖÅÐ¶Ï",
-      "ËüÖ§³ÖÎÄÏ×±Ê¼Ç±ØÐëÏÈ±£ÁôÀ´Ô´×Ö¶ÎµÄÅÐ¶Ï¡£"
+      "## Ö§ï¿½ï¿½ï¿½Ð¶ï¿½",
+      "ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½×±Ê¼Ç±ï¿½ï¿½ï¿½ï¿½È±ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½Ö¶Îµï¿½ï¿½Ð¶Ï¡ï¿½"
     ].join("\n")
   });
   assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
@@ -887,11 +887,11 @@ test("prototype literature note with missing metadata has no toolbar recording a
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "È±ÒýÓÃÐÅÏ¢ÑùÀý" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "È±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½" }).click();
   await waitFor(async () => {
     const editorBody = await page.locator("#editorBody").inputValue();
-    assert.match(editorBody || "", /È±ÒýÓÃÐÅÏ¢ÑùÀý/);
-    assert.match(editorBody || "", /ÎÒÒÑ¾­ÓÃ×Ô¼ºµÄ»°Àí½âÁËÕâÌõ²ÄÁÏ/);
+    assert.match(editorBody || "", /È±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½/);
+    assert.match(editorBody || "", /ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 7000);
   const originalsBefore = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
   assert.equal(originalsBefore.status, 200);
@@ -969,7 +969,7 @@ test("standalone editor route loads and saves a note without workspace chrome", 
     assert.equal(note.status, 200);
     assert.match(note.json.item.body, /Saved from \/editor\./);
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /ÒÑÍ¬²½|Í¬²½/);
+    assert.match(String(status || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|Í¬ï¿½ï¿½/);
   }, 10000);
 });
 
@@ -994,11 +994,11 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     const editorValue = await page.locator("#editorBody").inputValue();
     const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     assert.match(editorValue, /^# Immediate Title\b/);
-    assert.doesNotMatch(editorValue, /Î´ÃüÃû±Ê¼Ç/);
-    assert.match(editorValue, /## ºËÐÄ¹Ûµã/);
-    assert.match(editorValue, /## ÎªÊ²Ã´³ÉÁ¢/);
-    assert.match(editorValue, /## ±ß½ç \/ ·´Àý/);
-    assert.match(editorValue, /## ¹ØÁªÏßË÷/);
+    assert.doesNotMatch(editorValue, /Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½/);
+    assert.match(editorValue, /## ï¿½ï¿½ï¿½Ä¹Ûµï¿½/);
+    assert.match(editorValue, /## ÎªÊ²Ã´ï¿½ï¿½ï¿½ï¿½/);
+    assert.match(editorValue, /## ï¿½ß½ï¿½ \/ ï¿½ï¿½ï¿½ï¿½/);
+    assert.match(editorValue, /## ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
     assert.match(tabTitle || "", /Immediate Title/);
   }, 7000);
 });
@@ -1039,7 +1039,7 @@ test("prototype note browser stays minimal and creates literature notes in the l
       };
     });
 
-    assert.doesNotMatch(sidebar.title, /¹¤×÷Ì¨|Èë¿Ú/);
+    assert.doesNotMatch(sidebar.title, /ï¿½ï¿½ï¿½ï¿½Ì¨|ï¿½ï¿½ï¿½/);
     assert.equal(sidebar.subtitleVisible, false);
     assert.equal(sidebar.flowVisible, false);
     assert.equal(sidebar.footVisible, false);
@@ -1058,7 +1058,7 @@ test("prototype note browser stays minimal and creates literature notes in the l
   assert.equal(literatureBefore.status, 200);
   assert.equal(originalBefore.status, 200);
 
-  assert.match((await page.locator("#btnNewNote").getAttribute("aria-label")) || "", /ÎÄÕª/);
+  assert.match((await page.locator("#btnNewNote").getAttribute("aria-label")) || "", /ï¿½ï¿½Õª/);
   await page.locator("#btnNewNote").click();
 
   await waitFor(async () => {
@@ -1106,7 +1106,7 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   const { page } = stack;
 
   await page.waitForSelector("#btnMobileNewNote");
-  await page.locator("#editorThinkingStatus", { hasText: "´ýÐ´ÂÛµã" }).waitFor();
+  await page.locator("#editorThinkingStatus", { hasText: "ï¿½ï¿½Ð´ï¿½Ûµï¿½" }).waitFor();
 
   const mobileLayout = await page.evaluate(() => {
     const fab = document.querySelector("#btnMobileNewNote");
@@ -1142,9 +1142,9 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   });
 
   assert.equal(mobileLayout.fab.visible, true);
-  assert.match(mobileLayout.fab.text, /ÐÂ½¨|ÓÀ¾Ã/);
+  assert.match(mobileLayout.fab.text, /ï¿½Â½ï¿½|ï¿½ï¿½ï¿½ï¿½/);
   assert.equal(mobileLayout.thinkingStatus.visible, true);
-  assert.match(mobileLayout.thinkingStatus.text, /´ýÐ´ÂÛµã/);
+  assert.match(mobileLayout.thinkingStatus.text, /ï¿½ï¿½Ð´ï¿½Ûµï¿½/);
   assert.equal(mobileLayout.sidebarNew.visible, false);
   assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
   assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
@@ -1283,10 +1283,10 @@ test("prototype renders thinking status in note tree and editor header", async (
   if (!stack) return;
   const { page } = stack;
 
-  await page.locator("#editorThinkingStatus", { hasText: "´ýÐ´ÂÛµã" }).waitFor();
+  await page.locator("#editorThinkingStatus", { hasText: "ï¿½ï¿½Ð´ï¿½Ûµï¿½" }).waitFor();
   await page.waitForFunction(() => {
     const listText = document.querySelector("#listArea")?.textContent || "";
-    return listText.includes("´ýÐ´ÂÛµã");
+    return listText.includes("ï¿½ï¿½Ð´ï¿½Ûµï¿½");
   });
 
   const thinkingUi = await page.evaluate(() => {
@@ -1308,13 +1308,13 @@ test("prototype renders thinking status in note tree and editor header", async (
     };
   });
 
-  assert.match(thinkingUi.headerText, /´ýÐ´ÂÛµã/);
-  assert.match(thinkingUi.headerText, /Ð´Ò»¾ä»°¿´·¨/);
+  assert.match(thinkingUi.headerText, /ï¿½ï¿½Ð´ï¿½Ûµï¿½/);
+  assert.match(thinkingUi.headerText, /Ð´Ò»ï¿½ä»°ï¿½ï¿½ï¿½ï¿½/);
   assert.equal(thinkingUi.headerTone, "next");
   assert.equal(thinkingUi.treeBadgeVisible, true);
-  assert.match(thinkingUi.treeBadgeText, /´ýÐ´ÂÛµã/);
+  assert.match(thinkingUi.treeBadgeText, /ï¿½ï¿½Ð´ï¿½Ûµï¿½/);
   assert.equal(thinkingUi.treeBadgeStatus, "needs_thesis");
-  assert.match(thinkingUi.treeBadgeTitle, /Ð´Ò»¾ä»°¿´·¨/);
+  assert.match(thinkingUi.treeBadgeTitle, /Ð´Ò»ï¿½ä»°ï¿½ï¿½ï¿½ï¿½/);
 });
 
 test("prototype permanent note distillation panel saves thesis and three-line summary", async (t) => {
@@ -1354,7 +1354,7 @@ test("prototype permanent note distillation panel saves thesis and three-line su
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /¹Ûµã×Ö¶Î/);
+    assert.match(String(statusText || ""), /ï¿½Ûµï¿½ï¿½Ö¶ï¿½/);
   }, 10000);
 
   await waitFor(async () => {
@@ -1366,14 +1366,14 @@ test("prototype permanent note distillation panel saves thesis and three-line su
   }, 10000);
 
   await page.locator('[data-module="distillation"]').click();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "´ýÒ»¾ä»°ÅÐ¶Ï" }).waitFor();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "´ýÈý¾ä»°Ñ¹Ëõ" }).waitFor();
-  await page.locator("#distillationPanel .distillation-filter", { hasText: "´ýÈ·ÈÏ" }).waitFor();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "ï¿½ï¿½Ò»ï¿½ä»°ï¿½Ð¶ï¿½" }).waitFor();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "ï¿½ï¿½ï¿½ï¿½ï¿½ä»°Ñ¹ï¿½ï¿½" }).waitFor();
+  await page.locator("#distillationPanel .distillation-filter", { hasText: "ï¿½ï¿½È·ï¿½ï¿½" }).waitFor();
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).waitFor();
   await page.locator("#distillationPanel .distillation-queue-item", { hasText: "Distillation Seed" }).click();
-  await page.locator("[data-note-distillation-section]", { hasText: "¹ÛµãÌá´¿" }).waitFor();
-  await page.locator("[data-note-distillation-quality]", { hasText: "ÖÊÁ¿ÌáÊ¾" }).waitFor();
-  await page.locator("[data-note-distillation-quality]", { hasText: "»¹È±±ß½ç¡¢·´Àý»ò·´·½" }).waitFor();
+  await page.locator("[data-note-distillation-section]", { hasText: "ï¿½Ûµï¿½ï¿½á´¿" }).waitFor();
+  await page.locator("[data-note-distillation-quality]", { hasText: "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾" }).waitFor();
+  await page.locator("[data-note-distillation-quality]", { hasText: "ï¿½ï¿½È±ï¿½ß½ç¡¢ï¿½ï¿½ï¿½ï¿½ï¿½ò·´·ï¿½" }).waitFor();
   await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').waitFor({ state: "visible" });
   assert.equal(await page.locator('[data-note-distillation-form] select[name="distillationStatus"]').inputValue(), "confirmed");
 });
@@ -1425,20 +1425,20 @@ test("prototype main-path card refreshes relation state and does not leak stale 
 
   await page.waitForFunction(() => {
     const text = document.querySelector("[data-note-main-path-section]")?.textContent || "";
-    return text.includes("¶ÁÈ¡ÖÐ") || text.includes("µÈ¹ØÏµ¼ÓÔØÍê³É");
+    return text.includes("ï¿½ï¿½È¡ï¿½ï¿½") || text.includes("ï¿½È¹ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
   });
 
   await waitFor(async () => {
     const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(text || ""), /ÒÑ½¨ 1|ÒÑÁ¬Èë 1/);
+    assert.match(String(text || ""), /ï¿½Ñ½ï¿½ 1|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/);
   }, 10000);
 
   await page.locator('.explorer-item[data-kind="file"]', { hasText: "Main Path Plain Note" }).click();
 
   await waitFor(async () => {
     const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.doesNotMatch(String(text || ""), /ÒÑ½¨ 1|ÒÑÁ¬Èë 1/);
-    assert.match(String(text || ""), /´ý½¨Á¢|´ý¾ÛºÏ|¹ØÏµ 0/);
+    assert.doesNotMatch(String(text || ""), /ï¿½Ñ½ï¿½ 1|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/);
+    assert.match(String(text || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½ï¿½ï¿½Ûºï¿½|ï¿½ï¿½Ïµ 0/);
   }, 10000);
 });
 
@@ -1531,7 +1531,7 @@ test("prototype main-path writing readiness matches writing center basket status
 
   await waitFor(async () => {
     const text = await page.locator("[data-note-main-path-section]").textContent();
-    assert.match(String(text || ""), /¿É¼ÓÈëÐ´×÷Àº/);
+    assert.match(String(text || ""), /ï¿½É¼ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -1540,15 +1540,15 @@ test("prototype main-path writing readiness matches writing center basket status
 
   await waitFor(async () => {
     const strip = await page.locator("#writingStatusStrip").textContent();
-    assert.match(String(strip || ""), /²ÄÁÏ/);
-    assert.match(String(strip || ""), /¿É¼ÓÈëÐ´×÷Àº/);
+    assert.match(String(strip || ""), /ï¿½ï¿½ï¿½ï¿½/);
+    assert.match(String(strip || ""), /ï¿½É¼ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
 
   const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
-  assert.match(String(createProjectText || ""), /ÏÈ²¹Ìõ¼þÔÙ½¨ÏîÄ¿/);
+  assert.match(String(createProjectText || ""), /ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù½ï¿½ï¿½ï¿½Ä¿/);
 
   const strongModelText = await page.locator("#btnWritingStrongModelAnalysis").textContent();
-  assert.match(String(strongModelText || ""), /ÏÈ²¹Ìõ¼þ/);
+  assert.match(String(strongModelText || ""), /ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½/);
 });
 
 test("prototype main-path project-ready state matches writing center project readiness", async (t) => {
@@ -1620,7 +1620,7 @@ test("prototype main-path project-ready state matches writing center project rea
 
   await waitFor(async () => {
     const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /´´½¨ÏîÄ¿/);
+    assert.match(String(actionText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿/);
   }, 10000);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -1638,8 +1638,8 @@ test("prototype main-path project-ready state matches writing center project rea
       const createProject = document.querySelector("#btnWritingCreateProject");
       const strongModel = document.querySelector("#btnWritingStrongModelAnalysis");
       return {
-        projectCard: cardByLabel("ÏîÄ¿"),
-        strongModelCard: cardByLabel("Ç¿Ä£ÐÍ"),
+        projectCard: cardByLabel("ï¿½ï¿½Ä¿"),
+        strongModelCard: cardByLabel("Ç¿Ä£ï¿½ï¿½"),
         createProjectText: createProject?.textContent || "",
         createProjectDisabled: Boolean(createProject?.disabled),
         strongModelText: strongModel?.textContent || "",
@@ -1647,14 +1647,14 @@ test("prototype main-path project-ready state matches writing center project rea
       };
     });
 
-    assert.equal(state.projectCard?.value, "¿É´´½¨");
-    assert.match(String(state.projectCard?.note || ""), /½¨ÏîÄ¿/);
-    assert.equal(state.strongModelCard?.value, "ÏÈ²¹Ìõ¼þ");
-    assert.match(String(state.strongModelCard?.note || ""), /Ö÷ÌâÏßË÷/);
+    assert.equal(state.projectCard?.value, "ï¿½É´ï¿½ï¿½ï¿½");
+    assert.match(String(state.projectCard?.note || ""), /ï¿½ï¿½ï¿½ï¿½Ä¿/);
+    assert.equal(state.strongModelCard?.value, "ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½");
+    assert.match(String(state.strongModelCard?.note || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
     assert.equal(state.createProjectDisabled, false);
     assert.equal(state.strongModelDisabled, true);
-    assert.match(String(state.createProjectText || ""), /´´½¨Ð´×÷ÏîÄ¿/);
-    assert.match(String(state.strongModelText || ""), /ÏÈ²¹Ìõ¼þ/);
+    assert.match(String(state.createProjectText || ""), /ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿/);
+    assert.match(String(state.strongModelText || ""), /ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
 });
 
@@ -1704,38 +1704,38 @@ test("prototype related inspector renders explicit semantic relations", async (t
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# ¹ØÏµÄ¿±ê\n\nÕâÌõ±Ê¼ÇÌá¹©Ò»¸ö¿É±»Ö§³ÖµÄÅÐ¶Ï¡£"
+    body: "# ï¿½ï¿½ÏµÄ¿ï¿½ï¿½\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½á¹©Ò»ï¿½ï¿½ï¿½É±ï¿½Ö§ï¿½Öµï¿½ï¿½Ð¶Ï¡ï¿½"
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# ¹ØÏµÔ´\n\nÕâÌõ±Ê¼ÇÒªÍ¨¹ýÓïÒå¹ØÏµ½ÓÈëÁíÒ»ÌõÅÐ¶Ï¡£"
+    body: "# ï¿½ï¿½ÏµÔ´\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ÒªÍ¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½"
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
     toNoteId: target.json.item.id,
     relationType: "supports",
-    rationale: "¹ØÏµÔ´Îª¹ØÏµÄ¿±êÌá¹©ÁËÅÐ¶ÏÖ§³Å¡£",
-    insightQuestion: "ÕâÌõÖ§³Ö¹ØÏµÄÜ·ñ½øÈëÒ»¸ö¸ü´óµÄÂÛÖ¤Á´£¿",
+    rationale: "ï¿½ï¿½ÏµÔ´Îªï¿½ï¿½ÏµÄ¿ï¿½ï¿½ï¿½á¹©ï¿½ï¿½ï¿½Ð¶ï¿½Ö§ï¿½Å¡ï¿½",
+    insightQuestion: "ï¿½ï¿½ï¿½ï¿½Ö§ï¿½Ö¹ï¿½Ïµï¿½Ü·ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½",
     confidence: 1
   });
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "¹ØÏµÔ´" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ï¿½ï¿½ÏµÔ´" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /ÓïÒå¹ØÏµ/);
-    assert.match(String(relatedText || ""), /ÒÑ½ÓÈë/);
-    assert.match(String(relatedText || ""), /¹ØÏµÄ¿±ê/);
-    assert.match(String(relatedText || ""), /Ö§³Ö/);
-    assert.match(String(relatedText || ""), /¹ØÏµÔ´Îª¹ØÏµÄ¿±êÌá¹©ÁËÅÐ¶ÏÖ§³Å/);
-    assert.match(String(relatedText || ""), /¸ü´óµÄÂÛÖ¤Á´/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½Ïµ/);
+    assert.match(String(relatedText || ""), /ï¿½Ñ½ï¿½ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ÏµÄ¿ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /Ö§ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ÏµÔ´Îªï¿½ï¿½ÏµÄ¿ï¿½ï¿½ï¿½á¹©ï¿½ï¿½ï¿½Ð¶ï¿½Ö§ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½/);
   }, 10000);
 });
 
@@ -1755,75 +1755,75 @@ test("prototype related inspector can create an explicit semantic relation", asy
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "active",
-    body: "# ¿ÉÁ¬½ÓÄ¿±ê\n\nÕâÌõ±Ê¼ÇµÈ´ý±»Ò»Ìõ´øÀíÓÉµÄ¹ØÏµÁ¬½Ó¡£",
-    thesis: "ÁíÒ»ÌõÓÀ¾Ã±Ê¼ÇÓ¦¸ÃÄÜÎªËüÌá¹©Ã÷È·Ö§³Å¡£",
+    body: "# ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ÇµÈ´ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÉµÄ¹ï¿½Ïµï¿½ï¿½ï¿½Ó¡ï¿½",
+    thesis: "ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½á¹©ï¿½ï¿½È·Ö§ï¿½Å¡ï¿½",
     threeLineSummary: [
-      "ÕâÌõÄ¿±ê±Ê¼ÇÒÑ¾­ÐÎ³ÉÁË¿É¸´ÓÃÅÐ¶Ï¡£",
-      "ËüÖµµÃ±»½ÓÈë£¬ÒòÎªËü»á³ÉÎª¸ü´óÂÛÖ¤µÄÒ»²¿·Ö¡£",
-      "ËüÈÃÀ´Ô´±Ê¼Ç²»ÔÙÍ£ÁôÔÚ¹ÂÁ¢×´Ì¬¡£"
+      "ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ê¼ï¿½ï¿½Ñ¾ï¿½ï¿½Î³ï¿½ï¿½Ë¿É¸ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½",
+      "ï¿½ï¿½Öµï¿½Ã±ï¿½ï¿½ï¿½ï¿½ë£¬ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö¡ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½Ê¼Ç²ï¿½ï¿½ï¿½Í£ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½"
     ],
     distillationStatus: "confirmed",
     authorship: {
       user_confirmed: true,
       ai_assisted: false
     },
-    boundaryOrCounterpoint: "Ö»ÓÐÔÚÖ§³ÅÀíÓÉÃ÷È·Ê±£¬ÕâÌõÄ¿±ê²ÅÖµµÃ±»½ÓÈë¡£"
+    boundaryOrCounterpoint: "Ö»ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Öµï¿½Ã±ï¿½ï¿½ï¿½ï¿½ë¡£"
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
     status: "active",
-    body: "# ¿ÉÁ¬½ÓÀ´Ô´\n\nÕâÌõ±Ê¼ÇÐèÒªÖ÷¶¯½¨Á¢ÓïÒå¹ØÏµ¡£",
-    thesis: "Ò»ÌõÒÑÈ·ÈÏÇÒÓÐ±ß½çµÄ±Ê¼Ç£¬Ó¦¸ÃÔÚ²¹³öµÚÒ»Ìõ¹ØÏµºó½øÈëÐ´×÷ÏîÄ¿×¼±¸¡£",
+    body: "# ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½",
+    thesis: "Ò»ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ß½ï¿½Ä±Ê¼Ç£ï¿½Ó¦ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿×¼ï¿½ï¿½ï¿½ï¿½",
     threeLineSummary: [
-      "ÕâÌõÀ´Ô´±Ê¼ÇÒÑ¾­ÓÐÁË¿É¸´ÓÃÅÐ¶Ï¡£",
-      "ËüÐèÒª¹ØÏµÀ´Ö¤Ã÷×Ô¼º²»ÔÙ¹ÂÁ¢¡£",
-      "Ò»µ©Á¬Í¨£¬¾ÍÓ¦¸ÃÉý¼¶µ½ÏîÄ¿×¼±¸¡£"
+      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½Ê¼ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Ë¿É¸ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½",
+      "ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ïµï¿½ï¿½Ö¤ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ù¹ï¿½ï¿½ï¿½ï¿½ï¿½",
+      "Ò»ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿×¼ï¿½ï¿½ï¿½ï¿½"
     ],
     distillationStatus: "confirmed",
     authorship: {
       user_confirmed: true,
       ai_assisted: false
     },
-    boundaryOrCounterpoint: "Ö»ÓÐµ±¹ØÏµ´ø×ÅÃ÷È·ÀíÓÉÊ±£¬ÕâÌõ±Ê¼Ç²ÅÊÊºÏ½øÈëÐ´×÷ÏîÄ¿¡£"
+    boundaryOrCounterpoint: "Ö»ï¿½Ðµï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Ç²ï¿½ï¿½ÊºÏ½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½"
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "¿ÉÁ¬½ÓÀ´Ô´" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
   await waitFor(async () => {
     const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /¼ÓÈëÐ´×÷Àº/);
+    assert.match(String(actionText || ""), /ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
   await page.locator('#resultArea [data-relation-action="open-create"]').click();
 
   const createFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.match(String(createFormText || ""), /¿É¼ìÑéµÄÅÐ¶Ï/);
-  assert.match(String(createFormText || ""), /ÏÂÒ»²½ÒªÑéÖ¤µÄÒÉÎÊ/);
-  assert.match(String(createFormText || ""), /ÀíÓÉÖÊÁ¿£º´ý²¹³ä/);
+  assert.match(String(createFormText || ""), /ï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½/);
+  assert.match(String(createFormText || ""), /ï¿½ï¿½Ò»ï¿½ï¿½Òªï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
+  assert.match(String(createFormText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
 
   await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
   await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("supports");
-  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("¿ÉÁ¬½ÓÀ´Ô´ÎªÄ¿±êÌá¹©ÁËÒ»ÌõÃ÷È·Ö§³Å£¬ÒòÎªËü¸ø³öÁËÖ¤¾ÝºÍ±ß½ç¡£");
-  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("ÕâÌõÖ§³Å¹ØÏµÄÜ·ñ¼ÌÐøÁ¬½Óµ½Ö÷ÌâË÷Òý£¿");
+  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ÎªÄ¿ï¿½ï¿½ï¿½á¹©ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½È·Ö§ï¿½Å£ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ÝºÍ±ß½ç¡£");
+  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("ï¿½ï¿½ï¿½ï¿½Ö§ï¿½Å¹ï¿½Ïµï¿½Ü·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
   const qualityText = await page.locator('[data-create-relation-form] [data-relation-quality]').textContent();
-  assert.match(String(qualityText || ""), /ÀíÓÉÖÊÁ¿£º¿É¸´ÓÃ/);
+  assert.match(String(qualityText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¸ï¿½ï¿½ï¿½/);
   await page.locator('[data-create-relation-form] button[type="submit"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /¹ØÏµÒÑ½¨Á¢/);
-    assert.match(String(relatedText || ""), /¿ÉÁ¬½ÓÄ¿±ê/);
-    assert.match(String(relatedText || ""), /¿ÉÁ¬½ÓÀ´Ô´ÎªÄ¿±êÌá¹©ÁËÒ»ÌõÃ÷È·Ö§³Å/);
-    assert.match(String(relatedText || ""), /Ö÷ÌâË÷Òý/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½Ïµï¿½Ñ½ï¿½ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ÎªÄ¿ï¿½ï¿½ï¿½á¹©ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½È·Ö§ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
 
   await waitFor(async () => {
     const actionText = await page.locator('[data-note-main-route-action="writing"]').textContent();
-    assert.match(String(actionText || ""), /´´½¨ÏîÄ¿/);
+    assert.match(String(actionText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿/);
   }, 10000);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -1832,12 +1832,12 @@ test("prototype related inspector can create an explicit semantic relation", asy
 
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(String(statusStripText || ""), /ÏîÄ¿/);
-    assert.match(String(statusStripText || ""), /¿É´´½¨/);
-    assert.match(String(statusStripText || ""), /Ç¿Ä£ÐÍ/);
-    assert.match(String(statusStripText || ""), /ÏÈ²¹Ìõ¼þ/);
+    assert.match(String(statusStripText || ""), /ï¿½ï¿½Ä¿/);
+    assert.match(String(statusStripText || ""), /ï¿½É´ï¿½ï¿½ï¿½/);
+    assert.match(String(statusStripText || ""), /Ç¿Ä£ï¿½ï¿½/);
+    assert.match(String(statusStripText || ""), /ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½/);
     const createProjectText = await page.locator("#btnWritingCreateProject").textContent();
-    assert.match(String(createProjectText || ""), /´´½¨Ð´×÷ÏîÄ¿/);
+    assert.match(String(createProjectText || ""), /ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿/);
   }, 10000);
 
   await page.locator('.rail-btn[data-module="graph"]').click();
@@ -1847,8 +1847,8 @@ test("prototype related inspector can create an explicit semantic relation", asy
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
     const graphText = await page.locator("#graphCanvas").textContent();
-    assert.match(String(graphText || ""), /¿ÉÁ¬½ÓÀ´Ô´/);
-    assert.match(String(graphText || ""), /¿ÉÁ¬½ÓÄ¿±ê/);
+    assert.match(String(graphText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´/);
+    assert.match(String(graphText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
@@ -1856,7 +1856,7 @@ test("prototype related inspector can create an explicit semantic relation", asy
   assert.equal(relations.json.item.outgoingLinks.length, 1);
   assert.equal(relations.json.item.outgoingLinks[0].toNoteId, target.json.item.id);
   assert.equal(relations.json.item.outgoingLinks[0].relationType, "supports");
-  assert.equal(relations.json.item.outgoingLinks[0].rationale, "¿ÉÁ¬½ÓÀ´Ô´ÎªÄ¿±êÌá¹©ÁËÒ»ÌõÃ÷È·Ö§³Å£¬ÒòÎªËü¸ø³öÁËÖ¤¾ÝºÍ±ß½ç¡£");
+  assert.equal(relations.json.item.outgoingLinks[0].rationale, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ÎªÄ¿ï¿½ï¿½ï¿½á¹©ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½È·Ö§ï¿½Å£ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ÝºÍ±ß½ç¡£");
 });
 
 test("prototype related inspector searches unloaded SQLite relation targets", async (t) => {
@@ -1907,15 +1907,15 @@ test("prototype related inspector searches unloaded SQLite relation targets", as
 
   await page.locator('[data-create-relation-form] select[name="toNoteId"]').selectOption(target.json.item.id);
   await page.locator('[data-create-relation-form] select[name="relationType"]').selectOption("bridges");
-  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("SQLite ËÑË÷ÈÃµ±Ç°±Ê¼ÇÁ¬½Óµ½ÉÐÎ´¼ÓÔØµÄÄ¿±ê¡£");
-  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("¿çÄ¿Â¼Ä¿±êËÑË÷ÊÇ·ñ×ã¹»¿ì£¿");
+  await page.locator('[data-create-relation-form] textarea[name="rationale"]').fill("SQLite ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½Ç°ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½Øµï¿½Ä¿ï¿½ê¡£");
+  await page.locator('[data-create-relation-form] textarea[name="insightQuestion"]').fill("ï¿½ï¿½Ä¿Â¼Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ã¹»ï¿½ì£¿");
   await page.locator('[data-create-relation-form] button[type="submit"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /¹ØÏµÒÑ½¨Á¢/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½Ïµï¿½Ñ½ï¿½ï¿½ï¿½/);
     assert.match(String(relatedText || ""), /Remote Relation Target/);
-    assert.match(String(relatedText || ""), /SQLite ËÑË÷ÈÃµ±Ç°±Ê¼ÇÁ¬½Óµ½ÉÐÎ´¼ÓÔØµÄÄ¿±ê/);
+    assert.match(String(relatedText || ""), /SQLite ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½Ç°ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½Øµï¿½Ä¿ï¿½ï¿½/);
   }, 10000);
 
   const relations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
@@ -1940,69 +1940,69 @@ test("prototype related inspector can edit and delete an explicit semantic relat
 
   const target = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# ¿É±à¼­Ä¿±ê\n\nÕâÌõ±Ê¼ÇÓÃÓÚÑéÖ¤¹ØÏµ±à¼­¡£"
+    body: "# ï¿½É±à¼­Ä¿ï¿½ï¿½\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½Ïµï¿½à¼­ï¿½ï¿½"
   });
   assert.equal(target.status, 201, JSON.stringify(target.json));
 
   const source = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_original_default",
-    body: "# ¿É±à¼­À´Ô´\n\nÕâÌõ±Ê¼ÇÓÐÒ»ÌõµÈ´ýÐÞ¸ÄµÄ¹ØÏµ¡£"
+    body: "# ï¿½É±à¼­ï¿½ï¿½Ô´\n\nï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½È´ï¿½ï¿½Þ¸ÄµÄ¹ï¿½Ïµï¿½ï¿½"
   });
   assert.equal(source.status, 201, JSON.stringify(source.json));
 
   const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`, {
     toNoteId: target.json.item.id,
     relationType: "supports",
-    rationale: "³õÊ¼ÀíÓÉÓÃÓÚ±à¼­¡£",
-    insightQuestion: "³õÊ¼ÎÊÌâ£¿",
+    rationale: "ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±à¼­ï¿½ï¿½",
+    insightQuestion: "ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½â£¿",
     confidence: 1
   });
   assert.equal(relation.status, 201, JSON.stringify(relation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: "¿É±à¼­À´Ô´" }).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "ï¿½É±à¼­ï¿½ï¿½Ô´" }).click();
   await ensureNoteMode(page);
   await page.locator("#btnShowRelated").click();
   await page.locator('#resultArea [data-relation-action="open-edit"]').click();
 
   const editFormText = await page.locator("[data-edit-relation-form]").textContent();
-  assert.match(String(editFormText || ""), /¿É¼ìÑéµÄÅÐ¶Ï/);
-  assert.match(String(editFormText || ""), /ÏÂÒ»²½ÒªÑéÖ¤µÄÒÉÎÊ/);
-  assert.match(String(editFormText || ""), /ÀíÓÉÖÊÁ¿£º´ý²¹³ä/);
+  assert.match(String(editFormText || ""), /ï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½/);
+  assert.match(String(editFormText || ""), /ï¿½ï¿½Ò»ï¿½ï¿½Òªï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
+  assert.match(String(editFormText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
 
   await page.locator('[data-edit-relation-form] select[name="relationType"]').selectOption("qualifies");
   await page.locator('[data-edit-relation-form] select[name="status"]').selectOption("draft");
-  await page.locator('[data-edit-relation-form] textarea[name="rationale"]').fill("±à¼­ºóµÄÀíÓÉ°ÑÊÊÓÃ±ß½çËµÇå³þ£¬ÒòÎªËüÏÞ¶¨ÁËÖ¤¾Ý³ÉÁ¢µÄÌõ¼þ¡£");
-  await page.locator('[data-edit-relation-form] textarea[name="insightQuestion"]').fill("±ß½çÌõ¼þÊÇÊ²Ã´£¿");
+  await page.locator('[data-edit-relation-form] textarea[name="rationale"]').fill("ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½Ã±ß½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Þ¶ï¿½ï¿½ï¿½Ö¤ï¿½Ý³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
+  await page.locator('[data-edit-relation-form] textarea[name="insightQuestion"]').fill("ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê²Ã´ï¿½ï¿½");
   const editQualityText = await page.locator('[data-edit-relation-form] [data-relation-quality]').textContent();
-  assert.match(String(editQualityText || ""), /ÀíÓÉÖÊÁ¿£º¿É¸´ÓÃ/);
+  assert.match(String(editQualityText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¸ï¿½ï¿½ï¿½/);
   await page.locator('[data-edit-relation-form] button[type="submit"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /¹ØÏµÒÑ¸üÐÂ/);
-    assert.match(String(relatedText || ""), /ÏÞ¶¨/);
-    assert.match(String(relatedText || ""), /²Ý¸å/);
-    assert.match(String(relatedText || ""), /±à¼­ºóµÄÀíÓÉ°ÑÊÊÓÃ±ß½çËµÇå³þ/);
-    assert.match(String(relatedText || ""), /±ß½çÌõ¼þÊÇÊ²Ã´/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½Ïµï¿½Ñ¸ï¿½ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½Þ¶ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½Ý¸ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½Ã±ß½ï¿½Ëµï¿½ï¿½ï¿½/);
+    assert.match(String(relatedText || ""), /ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê²Ã´/);
   }, 10000);
 
   const updatedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
   assert.equal(updatedRelations.status, 200, JSON.stringify(updatedRelations.json));
   assert.equal(updatedRelations.json.item.outgoingLinks[0].relationType, "qualifies");
   assert.equal(updatedRelations.json.item.outgoingLinks[0].status, "draft");
-  assert.equal(updatedRelations.json.item.outgoingLinks[0].rationale, "±à¼­ºóµÄÀíÓÉ°ÑÊÊÓÃ±ß½çËµÇå³þ£¬ÒòÎªËüÏÞ¶¨ÁËÖ¤¾Ý³ÉÁ¢µÄÌõ¼þ¡£");
+  assert.equal(updatedRelations.json.item.outgoingLinks[0].rationale, "ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½Ã±ß½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Þ¶ï¿½ï¿½ï¿½Ö¤ï¿½Ý³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
 
   page.once("dialog", async (dialog) => {
-    assert.match(dialog.message(), /É¾³ý/);
+    assert.match(dialog.message(), /É¾ï¿½ï¿½/);
     await dialog.accept();
   });
   await page.locator('#resultArea [data-relation-action="delete"]').click();
 
   await waitFor(async () => {
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /¹ØÏµÒÑÉ¾³ý/);
-    assert.doesNotMatch(String(relatedText || ""), /±à¼­ºóµÄÀíÓÉ°ÑÊÊÓÃ±ß½çËµÇå³þ/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½Ïµï¿½ï¿½É¾ï¿½ï¿½/);
+    assert.doesNotMatch(String(relatedText || ""), /ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É°ï¿½ï¿½ï¿½ï¿½Ã±ß½ï¿½Ëµï¿½ï¿½ï¿½/);
   }, 10000);
 
   const deletedRelations = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(source.json.item.id)}/relations`);
@@ -2037,8 +2037,8 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
       app?.getAttribute("data-focus-mode") === "true" &&
       panel &&
       window.getComputedStyle(panel).display === "none" &&
-      /ÒÑ¿ªÆô×¨×¢Ä£Ê½/.test(status) &&
-      /µÍ¸ÉÈÅÊÓÍ¼/.test(intent)
+      /ï¿½Ñ¿ï¿½ï¿½ï¿½×¨×¢Ä£Ê½/.test(status) &&
+      /ï¿½Í¸ï¿½ï¿½ï¿½ï¿½ï¿½Í¼/.test(intent)
     );
   });
 
@@ -2050,8 +2050,8 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
     const intent = document.querySelector("#editorIntentNote")?.textContent || "";
     return (
       app?.getAttribute("data-focus-mode") === "false" &&
-      /ÒÑÍË³ö×¨×¢Ä£Ê½/.test(status) &&
-      /²»Ç¿µ÷¸ü¿ìÍê³É/.test(intent)
+      /ï¿½ï¿½ï¿½Ë³ï¿½×¨×¢Ä£Ê½/.test(status) &&
+      /ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/.test(intent)
     );
   });
 });
@@ -2083,7 +2083,7 @@ test("prototype editor defaults to note mode and toggles markdown source", async
   await ensurePlaceholderTitleSelection(page);
   await page.keyboard.type("Source Mode Note");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("Body with [[¹ØÁªÄ¿±ê]] and #±êÇ©Ô´Âë");
+  await page.keyboard.type("Body with [[ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½]] and #ï¿½ï¿½Ç©Ô´ï¿½ï¿½");
 
   await page.waitForFunction(() => {
     const split = document.querySelector("#markdownSplit");
@@ -2099,7 +2099,7 @@ test("prototype editor defaults to note mode and toggles markdown source", async
   });
   const editorValue = await page.locator("#editorBody").inputValue();
   assert.match(editorValue, /Source Mode Note/);
-  assert.match(editorValue, /±êÇ©Ô´Âë/);
+  assert.match(editorValue, /ï¿½ï¿½Ç©Ô´ï¿½ï¿½/);
 
   await page.locator("#btnModeToggle").click();
   await page.waitForFunction(() => document.querySelector("#markdownSplit")?.classList.contains("editor-mode-wysiwyg"));
@@ -2154,7 +2154,7 @@ test("prototype editor inserts uploaded image into markdown and preview", async 
     assert.deepEqual(brokenAssetResponses, []);
   }, 10000);
 
-  await confirmAuthorshipIfVisible(page, { claim: "Asset note ±£ÁôÁËÎÒÏÖÔÚÈÏ¿ÉµÄ²åÍ¼ËµÃ÷¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Asset note ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ÉµÄ²ï¿½Í¼Ëµï¿½ï¿½ï¿½ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -2195,7 +2195,7 @@ test("prototype editor inserts uploaded file into markdown and preview action", 
     assert.match(previewHtml, /reference pack \u8d44\u6599\.pdf/);
   }, 10000);
 
-  await confirmAuthorshipIfVisible(page, { claim: "Attachment note ±£ÁôÁËÎÒÏÖÔÚÈÏ¿ÉµÄÎÄ¼þÒýÓÃ¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Attachment note ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿Éµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -2303,15 +2303,15 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
 
   await createAndSaveNoteViaEditor(
     page,
-    "# Helper Mute Recovery\nµã»÷²»ÔÙÌáÊ¾ÒÔºó£¬ÈÔÈ»¿ÉÒÔ¼ÌÐø´´½¨¡¢±à¼­²¢±£´æ±Ê¼Ç¡£",
+    "# Helper Mute Recovery\nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ôºï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½à¼­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Ç¡ï¿½",
     {
-      authorshipClaim: "µã»÷²»ÔÙÌáÊ¾ÒÔºó£¬ÎÒÒÀÈ»¿ÉÒÔ¼ÌÐøÍê³ÉÕâÌõ±Ê¼Ç¡£"
+      authorshipClaim: "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ôºï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Ç¡ï¿½"
     }
   );
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /ÒÑÍ¬²½|×Ô¶¯Í¬²½|ÈÔ°´ draft ´¦Àí|×÷ÕßÈ·ÈÏ/);
+    assert.match(String(statusText || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|ï¿½Ô¶ï¿½Í¬ï¿½ï¿½|ï¿½Ô°ï¿½ draft ï¿½ï¿½ï¿½ï¿½|ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½/);
   }, 10000);
 });
 
@@ -2347,7 +2347,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /```[\s\S]*const answer = 42;[\s\S]*```/);
-    assert.match(editorValue, /\| ÁÐ 1 \| ÁÐ 2 \|/);
+    assert.match(editorValue, /\| ï¿½ï¿½ 1 \| ï¿½ï¿½ 2 \|/);
     assert.match(editorValue, /\| --- \| --- \|/);
   }, 7000);
 
@@ -2355,8 +2355,8 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await chooseToolbarCommand(page, "table-column");
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\| ÁÐ 1 \| ÁÐ 2 \| ÁÐ 3 \|/);
-    const contentRows = editorValue.split("\n").filter((line) => /^\| ÄÚÈÝ \|/u.test(line));
+    assert.match(editorValue, /\| ï¿½ï¿½ 1 \| ï¿½ï¿½ 2 \| ï¿½ï¿½ 3 \|/);
+    const contentRows = editorValue.split("\n").filter((line) => /^\| ï¿½ï¿½ï¿½ï¿½ \|/u.test(line));
     assert.ok(contentRows.length >= 2);
   }, 7000);
 
@@ -2796,7 +2796,7 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t
     assert.equal(await page.locator("#btnSave").isVisible(), false);
   }, 7000);
 
-  await confirmAuthorshipIfVisible(page, { claim: "Shortcut Save Note ÊÇÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Shortcut Save Note ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -2807,7 +2807,7 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t
 
     const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
     const status = await currentStatusText(page);
-    assert.ok(!String(tabDirty || "").trim() || /ÒÑÍ¬²½/.test(String(status || "")));
+    assert.ok(!String(tabDirty || "").trim() || /ï¿½ï¿½Í¬ï¿½ï¿½/.test(String(status || "")));
     assert.equal(await page.locator("#btnSave").isVisible(), false);
   }, 10000);
 });
@@ -2891,11 +2891,11 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
     assert.match(editorValue, /Unsaved alpha appendix line 2\./);
   }, 7000);
 
-  await confirmAuthorshipIfVisible(page, { claim: "Longform Alpha ×·¼Ó¶ÎÂäºóÈÔ´ú±íÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Longform Alpha ×·ï¿½Ó¶ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await waitFor(async () => {
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /ÒÑÍ¬²½|Í¬²½/);
+    assert.match(String(status || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|Í¬ï¿½ï¿½/);
   }, 10000);
 
   const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
@@ -2944,7 +2944,7 @@ test("prototype tab switch syncs the left navigation to the active note location
   const literatureNote = await postJson(apiBase, "/api/v1/notes", {
     directoryId: "dir_literature_default",
     status: "draft",
-    body: "# Tab Sync Literature\n\n## Ô­ÎÄ\n\nA quoted source fragment.\n\n## ×ªÊö\n\nI restate the source in my own words."
+    body: "# Tab Sync Literature\n\n## Ô­ï¿½ï¿½\n\nA quoted source fragment.\n\n## ×ªï¿½ï¿½\n\nI restate the source in my own words."
   });
   assert.equal(originalNote.status, 201, JSON.stringify(originalNote.json));
   assert.equal(literatureNote.status, 201, JSON.stringify(literatureNote.json));
@@ -3072,7 +3072,7 @@ test("prototype editor stays editable after opening related panel and switching 
   }, 7000);
 
   page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("Î´±£´æ") || dialog.message().includes("unsaved") || dialog.message().includes("¸ü¸Ä"));
+    assert.ok(dialog.message().includes("Î´ï¿½ï¿½ï¿½ï¿½") || dialog.message().includes("unsaved") || dialog.message().includes("ï¿½ï¿½ï¿½ï¿½"));
     await dialog.accept();
   });
   await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Panel Switch Folder" }).click();
@@ -3167,7 +3167,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
     );
   });
 
-  await confirmAuthorshipIfVisible(page, { claim: "Mode Guard Note ÈÔ´ú±íÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Mode Guard Note ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   const notes = await waitFor(async () => {
@@ -3176,7 +3176,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
     const matched = result.json.items.find((item) => item.title === "Mode Guard Note");
     assert.ok(matched, JSON.stringify(result.json.items, null, 2));
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /ÒÑÍ¬²½|×Ô¶¯Í¬²½|Í¬²½|ÈÔ°´ draft ´¦Àí/);
+    assert.match(String(status || ""), /ï¿½ï¿½Í¬ï¿½ï¿½|ï¿½Ô¶ï¿½Í¬ï¿½ï¿½|Í¬ï¿½ï¿½|ï¿½Ô°ï¿½ draft ï¿½ï¿½ï¿½ï¿½/);
     return matched;
   }, 10000);
 
@@ -3387,7 +3387,7 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   await waitFor(async () => {
     assert.equal(page.url(), startUrl);
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /±êÇ©¼ìË÷£º#thinkingflow/);
+    assert.match(String(relatedText || ""), /ï¿½ï¿½Ç©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½#thinkingflow/);
     assert.match(String(relatedText || ""), /Tag Peer|Token Target/);
   }, 10000);
 
@@ -3445,7 +3445,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   }, 7000);
 
   const linkSectionText = await page.locator("#linkPicker .picker-section-label").first().textContent();
-  assert.match(String(linkSectionText || ""), /×îÆ¥Åä|Í¬Ä¿Â¼±Ê¼Ç/);
+  assert.match(String(linkSectionText || ""), /ï¿½ï¿½Æ¥ï¿½ï¿½|Í¬Ä¿Â¼ï¿½Ê¼ï¿½/);
 
   const linkCandidateHtml = await page.locator("#linkPicker .link-picker-item.active").innerHTML();
   assert.match(linkCandidateHtml, /picker-mark/);
@@ -3496,7 +3496,7 @@ test("prototype editor confirms before closing or switching away from dirty note
   }, 7000);
 
   page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("Î´±£´æ") || dialog.message().includes("unsaved") || dialog.message().includes("¸ü¸Ä"));
+    assert.ok(dialog.message().includes("Î´ï¿½ï¿½ï¿½ï¿½") || dialog.message().includes("unsaved") || dialog.message().includes("ï¿½ï¿½ï¿½ï¿½"));
     await dialog.dismiss();
   });
   await page.locator(".tab.active .tab-close").click();
@@ -3512,7 +3512,7 @@ test("prototype editor confirms before closing or switching away from dirty note
   }, 10000);
 
   page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("Î´±£´æ") || dialog.message().includes("unsaved") || dialog.message().includes("¸ü¸Ä"));
+    assert.ok(dialog.message().includes("Î´ï¿½ï¿½ï¿½ï¿½") || dialog.message().includes("unsaved") || dialog.message().includes("ï¿½ï¿½ï¿½ï¿½"));
     await dialog.accept();
   });
   await page.locator(".tab", { hasText: "Dirty source" }).locator(".tab-close").click();
@@ -3566,15 +3566,15 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Recovered draft line."));
 
   assert.ok(
-    dialogMessages.some((message) => String(message || "").includes("²Ý¸å") || String(message || "").includes("»Ö¸´")),
+    dialogMessages.some((message) => String(message || "").includes("ï¿½Ý¸ï¿½") || String(message || "").includes("ï¿½Ö¸ï¿½")),
     JSON.stringify(dialogMessages)
   );
   const restored = await page.locator("#editorBody").inputValue();
   assert.match(restored, /Recovered draft line\./);
   const restoreStatus = await currentStatusText(page);
-  assert.match(String(restoreStatus || ""), /ÒÑ»Ö¸´ÉÏ´ÎÎ´Íê³ÉµÄ±à¼­ÄÚÈÝ|»Ö¸´/);
+  assert.match(String(restoreStatus || ""), /ï¿½Ñ»Ö¸ï¿½ï¿½Ï´ï¿½Î´ï¿½ï¿½ÉµÄ±à¼­ï¿½ï¿½ï¿½ï¿½|ï¿½Ö¸ï¿½/);
 
-  await confirmAuthorshipIfVisible(page, { claim: "Autosave source Õâ´Î»Ö¸´ºóµÄ²¹Ð´´ú±íÎÒµ±Ç°ÈÏ¿ÉµÄÅÐ¶Ï¡£" });
+  await confirmAuthorshipIfVisible(page, { claim: "Autosave source ï¿½ï¿½Î»Ö¸ï¿½ï¿½ï¿½Ä²ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½Ç°ï¿½Ï¿Éµï¿½ï¿½Ð¶Ï¡ï¿½" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await waitFor(async () => {
     const draftCount = await page.evaluate(() =>
@@ -3636,7 +3636,7 @@ test("prototype tag click searches SQLite beyond the loaded directory", async (t
   }, 7000);
 
   const resultText = await page.locator("#resultArea").textContent();
-  assert.ok(String(resultText || "").includes("±êÇ©") && String(resultText || "").includes("#sharedtag"));
+  assert.ok(String(resultText || "").includes("ï¿½ï¿½Ç©") && String(resultText || "").includes("#sharedtag"));
   const siblingNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(hiddenSiblingNote.json.item.id)}`);
   assert.equal(siblingNote.status, 200);
 });
@@ -3687,7 +3687,7 @@ test("prototype editor inline tag picker inserts SQLite-backed tag suggestion", 
   }, 7000);
 
   const tagSectionText = await page.locator("#tagPicker .picker-section-label").first().textContent();
-  assert.match(String(tagSectionText || ""), /×îÆ¥Åä|ÒÑÓÐ±êÇ©|Ïà¹Ø±êÇ©/);
+  assert.match(String(tagSectionText || ""), /ï¿½ï¿½Æ¥ï¿½ï¿½|ï¿½ï¿½ï¿½Ð±ï¿½Ç©|ï¿½ï¿½Ø±ï¿½Ç©/);
 
   const tagCandidateHtml = await page.locator("#tagPicker .link-picker-item.active").innerHTML();
   assert.match(tagCandidateHtml, /picker-mark/);
@@ -3778,12 +3778,12 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
     const selectedPath = await page.locator("#settingsVaultPath").inputValue();
     const statusText = await page.locator("#statusText").textContent();
     assert.equal(path.resolve(selectedPath), path.resolve(nextVaultPath));
-    assert.match(String(statusText || ""), /ÒÑÑ¡Ôñ Vault Â·¾¶£¨browser£©/);
+    assert.match(String(statusText || ""), /ï¿½ï¿½Ñ¡ï¿½ï¿½ Vault Â·ï¿½ï¿½ï¿½ï¿½browserï¿½ï¿½/);
   }, 7000);
 
   const promptMeta = await page.evaluate(() => window.__lastVaultPrompt || null);
   assert.ok(promptMeta);
-  assert.match(String(promptMeta.message || ""), /ÇëÊäÈëÄ¿Â¼Â·¾¶/);
+  assert.match(String(promptMeta.message || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼Â·ï¿½ï¿½/);
   assert.equal(path.resolve(String(promptMeta.defaultPath || "")), path.resolve(vaultPath));
 });
 
@@ -3870,7 +3870,7 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   });
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   await page.locator("#importResult .result-candidates", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-group", { hasText: "ÎÄÏ×±Ê¼Ç" }).waitFor();
+  await page.locator("#importResult .candidate-group", { hasText: "ï¿½ï¿½ï¿½×±Ê¼ï¿½" }).waitFor();
 
   const previewResultText = await page.locator("#importResult").textContent();
   assert.match(previewResultText || "", /"importRecordId":\s*"/);
@@ -3878,10 +3878,10 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   assert.ok(importRecordId.startsWith("imp_"));
 
   const sourceGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^À´Ô´¿¨Æ¬$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^ï¿½ï¿½Ô´ï¿½ï¿½Æ¬$/ })
   });
   const literatureGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^ÎÄÏ×±Ê¼Ç$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^ï¿½ï¿½ï¿½×±Ê¼ï¿½$/ })
   });
   await sourceGroup.waitFor();
   const sourceCheckbox = sourceGroup.locator(".candidate-checkbox").first();
@@ -3906,14 +3906,14 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   assert.match(confirmResultText || "", /"literatureNotes":\s*0/);
   assert.match(confirmResultText || "", /"selectedCandidates":\s*1/);
   assert.match(confirmResultText || "", /"notes\/sources"/);
-  await page.locator("#importResult .candidate-summary-title", { hasText: "Î´Ð´ÈëºòÑ¡" }).waitFor();
+  await page.locator("#importResult .candidate-summary-title", { hasText: "Î´Ð´ï¿½ï¿½ï¿½Ñ¡" }).waitFor();
   await page.locator("#importResult .candidate-summary-item", { hasText: "Fixture Import Note" }).waitFor();
   await page.locator('#importResult [data-skip-focus="unselected"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "Î´¹´Ñ¡Ìø¹ý" }).waitFor();
+  await page.locator("#importResult .candidate-focus-banner", { hasText: "Î´ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½" }).waitFor();
   await page.locator("#importResult .candidate-item.is-focused", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-inline-note", { hasText: "È·ÈÏÇ°È¡Ïû¹´Ñ¡" }).waitFor();
+  await page.locator("#importResult .candidate-inline-note", { hasText: "È·ï¿½ï¿½Ç°È¡ï¿½ï¿½ï¿½ï¿½Ñ¡" }).waitFor();
   const sourceConfirmGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^À´Ô´¿¨Æ¬$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^ï¿½ï¿½Ô´ï¿½ï¿½Æ¬$/ })
   });
   await sourceConfirmGroup.locator(".candidate-item.is-muted").waitFor();
   await page.locator('#importResult [data-clear-candidate-focus="1"]').click();
@@ -3967,7 +3967,7 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes("ÖÐÎÄÔÄ¶Á¿¨Æ¬") && text.includes('"blocked"');
+    return text.includes('"stage": "preview"') && text.includes("ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½Æ¬") && text.includes('"blocked"');
   });
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Spacing Note" }).waitFor();
@@ -3998,12 +3998,12 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
     assert.equal(result.json.total, 2);
     return result;
   }, 7000);
-  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "ÖÐÎÄÔÄ¶Á¿¨Æ¬");
+  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½Æ¬");
   assert.ok(chineseNote, JSON.stringify(importedLiteratureNotes.json.items, null, 2));
   const chineseMarkdownPath = path.join(vaultPath, String(chineseNote.markdownPath || "").replaceAll("/", path.sep));
   const chineseMarkdown = await fs.readFile(chineseMarkdownPath, "utf8");
-  assert.match(chineseMarkdown, /À´Ô´\/·ÃÌ¸/);
-  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|Ó¢ÎÄ²ÄÁÏ\]\]/);
+  assert.match(chineseMarkdown, /ï¿½ï¿½Ô´\/ï¿½ï¿½Ì¸/);
+  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|Ó¢ï¿½Ä²ï¿½ï¿½ï¿½\]\]/);
 
   await page.selectOption("#importHistoryStatus", "completed");
   await page.selectOption("#importHistoryConnector", "obsidian");
@@ -4057,7 +4057,7 @@ test("prototype import history filters records and supports inline actions", asy
     const item = page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`);
     await item.waitFor({ timeout: 500 });
     const text = await item.textContent();
-    assert.match(text || "", /Ô¤ÀÀ/);
+    assert.match(text || "", /Ô¤ï¿½ï¿½/);
   }, 7000);
 
   await page.selectOption("#importHistoryStatus", "preview");
@@ -4066,7 +4066,7 @@ test("prototype import history filters records and supports inline actions", asy
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      return Boolean(item && /Ô¤ÀÀ/.test(item.textContent || ""));
+      return Boolean(item && /Ô¤ï¿½ï¿½/.test(item.textContent || ""));
     },
     importRecordId
   );
@@ -4089,7 +4089,7 @@ test("prototype import history filters records and supports inline actions", asy
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#importHistory")?.textContent || "";
-    return text.includes("µ±Ç°É¸Ñ¡Ìõ¼þÏÂÃ»ÓÐµ¼Èë¼ÇÂ¼");
+    return text.includes("ï¿½ï¿½Ç°É¸Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ðµï¿½ï¿½ï¿½ï¿½Â¼");
   });
 
   await page.selectOption("#importHistoryStatus", "completed");
@@ -4100,9 +4100,9 @@ test("prototype import history filters records and supports inline actions", asy
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /ÒÑÐ´Èë/.test(text) &&
-          /ÒÑ´´½¨ 1 À´Ô´¿¨Æ¬ \/ 1 ÎÄÏ×±Ê¼Ç \/ 0 ÓÀ¾Ã±Ê¼Ç/.test(text) &&
-          /Ð´Èë notes\/sources/.test(text) &&
+          /ï¿½ï¿½Ð´ï¿½ï¿½/.test(text) &&
+          /ï¿½Ñ´ï¿½ï¿½ï¿½ 1 ï¿½ï¿½Ô´ï¿½ï¿½Æ¬ \/ 1 ï¿½ï¿½ï¿½×±Ê¼ï¿½ \/ 0 ï¿½ï¿½ï¿½Ã±Ê¼ï¿½/.test(text) &&
+          /Ð´ï¿½ï¿½ notes\/sources/.test(text) &&
           item.querySelector('[data-import-history-action="rollback"]')
       );
     },
@@ -4115,13 +4115,13 @@ test("prototype import history filters records and supports inline actions", asy
     const historyText = document.querySelector("#importHistory")?.textContent || "";
     return (
       (resultText.includes('"stage": "rollback"') && resultText.includes('"status": "rolled_back"')) ||
-      historyText.includes("µ±Ç°É¸Ñ¡Ìõ¼þÏÂÃ»ÓÐµ¼Èë¼ÇÂ¼")
+      historyText.includes("ï¿½ï¿½Ç°É¸Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ðµï¿½ï¿½ï¿½ï¿½Â¼")
     );
   });
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#importHistory")?.textContent || "";
-    return text.includes("µ±Ç°É¸Ñ¡Ìõ¼þÏÂÃ»ÓÐµ¼Èë¼ÇÂ¼");
+    return text.includes("ï¿½ï¿½Ç°É¸Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ðµï¿½ï¿½ï¿½ï¿½Â¼");
   });
 
   await page.selectOption("#importHistoryStatus", "rolled_back");
@@ -4132,9 +4132,9 @@ test("prototype import history filters records and supports inline actions", asy
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /ÒÑ»Ø¹ö/.test(text) &&
-          /ÒÑ»Ø¹ö 2 Ïî/.test(text) &&
-          /Ìø¹ý 0 Ïî/.test(text) &&
+          /ï¿½Ñ»Ø¹ï¿½/.test(text) &&
+          /ï¿½Ñ»Ø¹ï¿½ 2 ï¿½ï¿½/.test(text) &&
+          /ï¿½ï¿½ï¿½ï¿½ 0 ï¿½ï¿½/.test(text) &&
           item.querySelector('[data-import-history-action="load"]')
       );
     },
@@ -4210,10 +4210,10 @@ test("prototype import history highlights modified files skipped during rollback
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /ÒÑ»Ø¹ö 1 Ïî/.test(text) &&
-          /Ìø¹ý 1 Ïî/.test(text) &&
-          /±£Áô 1/.test(text) &&
-          /ÒÑ±»ÐÞ¸Ä¶ø±£Áô/.test(text)
+          /ï¿½Ñ»Ø¹ï¿½ 1 ï¿½ï¿½/.test(text) &&
+          /ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½/.test(text) &&
+          /ï¿½ï¿½ï¿½ï¿½ 1/.test(text) &&
+          /ï¿½Ñ±ï¿½ï¿½Þ¸Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½/.test(text)
       );
     },
     importRecordId
@@ -4276,7 +4276,7 @@ test("prototype import history recent summary can open literature queue for a co
     const editorBody = await page.locator("#editorBody").inputValue();
     const currentRecordValue = await page.inputValue("#importRecordId");
     assert.equal(currentRecordValue, importRecordId);
-    assert.match(String(statusText || ""), new RegExp(`ÒÑ´ÓÀúÊ·¼ÇÂ¼¼ÌÐøÏÂÒ»Ìõ´ý´¦ÀíÎÄÏ×ÌõÄ¿£º${importRecordId}`));
+    assert.match(String(statusText || ""), new RegExp(`ï¿½Ñ´ï¿½ï¿½ï¿½Ê·ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½${importRecordId}`));
     assert.match(String(editorBody || ""), /# Fixture Import Note/);
     assert.match(String(editorBody || ""), /This note comes from tests fixture markdown import\./);
   }, 10000);
@@ -4327,8 +4327,8 @@ test("prototype import panel explains conflicted candidates after repeated confi
   });
 
   await page.locator('#importResult [data-skip-focus="conflicted"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "ÎÄ¼þ³åÍ»Ìø¹ý" }).waitFor();
-  await page.locator("#importResult .candidate-item.is-focused .candidate-inline-note", { hasText: "Ä¿±êÂ·¾¶ÒÑÓÐÍ¬ÃûÎÄ¼þ" }).first().waitFor();
+  await page.locator("#importResult .candidate-focus-banner", { hasText: "ï¿½Ä¼ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½" }).waitFor();
+  await page.locator("#importResult .candidate-item.is-focused .candidate-inline-note", { hasText: "Ä¿ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½Ä¼ï¿½" }).first().waitFor();
 });
 
 test("prototype import confirm can send created permanent notes into writing basket and open writing panel", async (t) => {
@@ -4434,7 +4434,7 @@ test("prototype import confirm can send created permanent notes into writing bas
   await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("1 ÌõÓÀ¾Ã±Ê¼Ç");
+    return text.includes("1 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½");
   });
   await page.locator('.rail-btn[data-module="writing"].active').waitFor();
 
@@ -4476,20 +4476,20 @@ test("prototype import confirm can open imported literature notes in paraphrase 
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult .result-actions-inline")?.textContent || "";
-    return text.includes("´ý×ªÊö") && text.includes("´¦Àí´ý×ªÊö¶ÓÁÐ 1") && text.includes("Ê£Óà´ý´¦Àí 1 Ìõ");
+    return text.includes("ï¿½ï¿½×ªï¿½ï¿½") && text.includes("ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1") && text.includes("Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½");
   });
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
   const actionText = await page.locator('[data-import-writing-action="open-literature-queue"]').textContent();
   const actionNoteText = await page.locator("#importResult .result-actions-inline .toolbar-note").first().textContent();
   const importActionAreaText = await page.locator("#importResult .result-actions-inline").textContent();
-  assert.match(String(actionText || ""), /´¦Àí´ý×ªÊö¶ÓÁÐ 1/);
-  assert.match(String(actionNoteText || ""), /Ê£Óà´ý´¦Àí 1 Ìõ/);
-  assert.match(String(importActionAreaText || ""), /´ý×ªÊö/);
-  assert.match(String(importActionAreaText || ""), /´ýÌáÁ¶/);
-  assert.match(String(importActionAreaText || ""), /¿É×ªÓÀ¾Ã±Ê¼Ç/);
+  assert.match(String(actionText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/);
+  assert.match(String(actionNoteText || ""), /Ê£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½/);
+  assert.match(String(importActionAreaText || ""), /ï¿½ï¿½×ªï¿½ï¿½/);
+  assert.match(String(importActionAreaText || ""), /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
+  assert.match(String(importActionAreaText || ""), /ï¿½ï¿½×ªï¿½ï¿½ï¿½Ã±Ê¼ï¿½/);
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /µ¼ÈëÈ·ÈÏÍê³É/);
+    assert.match(String(statusText || ""), /ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
 
@@ -4497,7 +4497,7 @@ test("prototype import confirm can open imported literature notes in paraphrase 
     await page.locator("#editorWorkspace:not(.hidden)").waitFor({ timeout: 500 });
     const statusText = await currentStatusText(page);
     const editorBody = await page.locator("#editorBody").inputValue();
-    assert.match(String(statusText || ""), /ÒÑ´ò¿ª 1 Ìõµ¼ÈëÎÄÏ×ÖÐµÄµÚÒ»Ìõ£¬²¢Ö»ÏÔÊ¾±¾´Îµ¼ÈëµÄ´ý×ªÊö¶ÓÁÐ/);
+    assert.match(String(statusText || ""), /ï¿½Ñ´ï¿½ 1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄµï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Îµï¿½ï¿½ï¿½Ä´ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
     assert.match(String(editorBody || ""), /# Fixture Import Note/);
     assert.match(String(editorBody || ""), /It should produce source and literature candidates\./);
   }, 10000);
@@ -4611,7 +4611,7 @@ test("prototype import confirm can create a writing project from created permane
   });
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("µ±Ç°ÏîÄ¿£ºwp_") && text.includes("1 ÌõÓÀ¾Ã±Ê¼Ç");
+    return text.includes("ï¿½ï¿½Ç°ï¿½ï¿½Ä¿ï¿½ï¿½wp_") && text.includes("1 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -4771,10 +4771,10 @@ test("prototype import create-writing-project failure clears old writing project
     return (
       resultText.includes("writing_project_error") &&
       resultText.includes("simulated writing project create failure") &&
-      basketText.includes("Ð´×÷ÀºÀïÒÑÓÐ 1 ÌõÓÀ¾Ã±Ê¼Ç") &&
-      basketText.includes("ÉÐÎ´´´½¨ÏîÄ¿") &&
-      basketText.includes("ÉÐÎ´Éú³É scaffold") &&
-      basketText.includes("ÉÐÎ´°ó¶¨²Ý¸å") &&
+      basketText.includes("Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½") &&
+      basketText.includes("ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿") &&
+      basketText.includes("ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ scaffold") &&
+      basketText.includes("ï¿½ï¿½Î´ï¿½ó¶¨²Ý¸ï¿½") &&
       !basketText.includes(oldProjectId) &&
       !title.includes("Existing Project Context") &&
       !goal.includes("This goal should not leak") &&
@@ -4783,8 +4783,8 @@ test("prototype import create-writing-project failure clears old writing project
   }, oldProject.json.item.id);
 
   const basketSummary = await page.locator("#writingBasketSummary").textContent();
-  assert.match(basketSummary || "", /Ð´×÷ÀºÀïÒÑÓÐ 1 ÌõÓÀ¾Ã±Ê¼Ç/);
-  assert.match(basketSummary || "", /ÉÐÎ´´´½¨ÏîÄ¿/);
+  assert.match(basketSummary || "", /Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½/);
+  assert.match(basketSummary || "", /ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿/);
   assert.doesNotMatch(basketSummary || "", new RegExp(oldProject.json.item.id));
   assert.doesNotMatch((await page.inputValue("#writingTitle")) || "", /Existing Project Context/);
   assert.doesNotMatch((await page.inputValue("#writingGoal")) || "", /This goal should not leak/);
@@ -4872,11 +4872,11 @@ test("prototype import panel can focus blocked and excluded candidates", async (
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
       const text = item?.textContent || "";
-      return Boolean(item && /×è¶Ï 1/.test(text));
+      return Boolean(item && /ï¿½ï¿½ï¿½ 1/.test(text));
     },
     importRecordId
   );
-  await page.locator('[data-candidate-filter="blocked"]', { hasText: "×è¶Ï 1" }).click();
+  await page.locator('[data-candidate-filter="blocked"]', { hasText: "ï¿½ï¿½ï¿½ 1" }).click();
   await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Blocked candidate note" }).waitFor();
   await page.locator("#importResult .candidate-reason").first().waitFor();
 
@@ -5045,10 +5045,10 @@ test("prototype import panel can exclude warning candidates with one action", as
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /¾¯¸æ 2/.test(text) &&
-          /×è¶Ï 1/.test(text) &&
-          /ºòÑ¡ 1 À´Ô´¿¨Æ¬ \/ 1 ÎÄÏ×±Ê¼Ç \/ 2 ÓÀ¾Ã±Ê¼Ç/.test(text) &&
-          /ÐèÒªÈË¹¤¼ì²é£ºÆÕÍ¨¾¯¸æ 2 \/ Ô­´´ÐÔ¾¯¸æ 1 \/ Ô­´´ÐÔ×è¶Ï 1/.test(text)
+          /ï¿½ï¿½ï¿½ï¿½ 2/.test(text) &&
+          /ï¿½ï¿½ï¿½ 1/.test(text) &&
+          /ï¿½ï¿½Ñ¡ 1 ï¿½ï¿½Ô´ï¿½ï¿½Æ¬ \/ 1 ï¿½ï¿½ï¿½×±Ê¼ï¿½ \/ 2 ï¿½ï¿½ï¿½Ã±Ê¼ï¿½/.test(text) &&
+          /ï¿½ï¿½Òªï¿½Ë¹ï¿½ï¿½ï¿½é£ºï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ 2 \/ Ô­ï¿½ï¿½ï¿½Ô¾ï¿½ï¿½ï¿½ 1 \/ Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1/.test(text)
       );
     },
     recordId
@@ -5119,15 +5119,15 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1') && text.includes("×ÊÔ´ÎÄ¼þ");
+    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1') && text.includes("ï¿½ï¿½Ô´ï¿½Ä¼ï¿½");
   });
   await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
   assert.match(exportResultText || "", /"status":\s*"queued"/);
-  assert.match(exportResultText || "", /Markdown ÎÄ¼þ/);
-  assert.match(exportResultText || "", /×ÊÔ´ÎÄ¼þ/);
+  assert.match(exportResultText || "", /Markdown ï¿½Ä¼ï¿½/);
+  assert.match(exportResultText || "", /ï¿½ï¿½Ô´ï¿½Ä¼ï¿½/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
   assert.ok(exportedFiles.length >= 1, JSON.stringify(exportedFiles, null, 2));
@@ -5223,7 +5223,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   }
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("Ð´×÷ÀºÒÑÓÐ 2 ÌõÓÀ¾Ã±Ê¼Ç");
+    return text.includes("Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½");
   });
 
   const basketText = await page.locator("#writingBasketList").textContent();
@@ -5244,10 +5244,10 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(projectResultText || "", /Evidence UI map/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /ÏîÄ¿/);
-    assert.match(statusStripText || "", /ÒÑ´´½¨/);
-    assert.match(statusStripText || "", /Ç¿Ä£ÐÍ/);
-    assert.match(statusStripText || "", /ÏÈ²¹Ìõ¼þ|¿É·ÖÎö/);
+    assert.match(statusStripText || "", /ï¿½ï¿½Ä¿/);
+    assert.match(statusStripText || "", /ï¿½Ñ´ï¿½ï¿½ï¿½/);
+    assert.match(statusStripText || "", /Ç¿Ä£ï¿½ï¿½/);
+    assert.match(statusStripText || "", /ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½É·ï¿½ï¿½ï¿½/);
   }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
@@ -5263,16 +5263,16 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.match(scaffoldResultText || "", /Evidence UI map/);
 
   const scaffoldPreviewText = await page.locator("#writingScaffoldPreview").textContent();
-  assert.match(scaffoldPreviewText || "", /Éú³ÉÇ°¼ì²é/);
-  assert.match(scaffoldPreviewText || "", /Confirmed distillation|Ìá´¿/);
+  assert.match(scaffoldPreviewText || "", /ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½/);
+  assert.match(scaffoldPreviewText || "", /Confirmed distillation|ï¿½á´¿/);
   assert.match(scaffoldPreviewText || "", /Opening frame/);
   assert.match(scaffoldPreviewText || "", /Paragraph-Evidence Map/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /ÏîÄ¿/);
-    assert.match(statusStripText || "", /ÒÑ´´½¨/);
-    assert.match(statusStripText || "", /Ç¿Ä£ÐÍ/);
-    assert.match(statusStripText || "", /Ô¤¼ìÌáÐÑ|Ö÷ÌâÏßË÷|¿É·ÖÎö|ÏÈ²¹Ìõ¼þ/);
+    assert.match(statusStripText || "", /ï¿½ï¿½Ä¿/);
+    assert.match(statusStripText || "", /ï¿½Ñ´ï¿½ï¿½ï¿½/);
+    assert.match(statusStripText || "", /Ç¿Ä£ï¿½ï¿½/);
+    assert.match(statusStripText || "", /Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½É·ï¿½ï¿½ï¿½|ï¿½È²ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 10000);
 
   await page.click("#btnWritingCopyScaffold");
@@ -5311,7 +5311,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="edit-note"]').first().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ¸üÐÂ scaffold °æ±¾ËµÃ÷");
+    return text.includes("ï¿½Ñ¸ï¿½ï¿½ï¿½ scaffold ï¿½æ±¾Ëµï¿½ï¿½");
   });
   const editedScaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
   assert.match(editedScaffoldVersionText || "", /Edited scaffold note from browser flow/);
@@ -5326,28 +5326,28 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.click("#btnWritingSaveDraft");
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ´´½¨²Ý¸å±Ê¼Ç");
+    return text.includes("ï¿½Ñ´ï¿½ï¿½ï¿½ï¿½Ý¸ï¿½Ê¼ï¿½");
   });
 
   const draftVersionsTextV1 = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(draftVersionsTextV1 || "", /v1/);
-  assert.match(draftVersionsTextV1 || "", /µ±Ç°²Ý¸å/);
+  assert.match(draftVersionsTextV1 || "", /ï¿½ï¿½Ç°ï¿½Ý¸ï¿½/);
   assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
 
   await page.locator('.rail-btn[data-module="writing"].active').waitFor();
   const openDraftText = await page.locator("#btnWritingOpenDraft").textContent();
-  assert.match(openDraftText || "", /´ò¿ªµ±Ç°²Ý¸å/);
+  assert.match(openDraftText || "", /ï¿½ò¿ªµï¿½Ç°ï¿½Ý¸ï¿½/);
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("µ±Ç°½×¶Î£º");
+    return text.includes("ï¿½ï¿½Ç°ï¿½×¶Î£ï¿½");
   });
 
   const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.match(writingSummaryText || "", /µ±Ç°½×¶Î£º/);
-  assert.match(writingSummaryText || "", /Ö÷ÌâÈë¿Ú£º/);
+  assert.match(writingSummaryText || "", /ï¿½ï¿½Ç°ï¿½×¶Î£ï¿½/);
+  assert.match(writingSummaryText || "", /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½/);
   const scaffoldPreviewAfterDraft = await page.locator("#writingScaffoldPreview").textContent();
-  assert.match(scaffoldPreviewAfterDraft || "", /ÏÂÒ»²½£º´ò¿ªµ±Ç°²Ý¸å/);
+  assert.match(scaffoldPreviewAfterDraft || "", /ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ò¿ªµï¿½Ç°ï¿½Ý¸ï¿½/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
     return text.includes("Writing UI Project");
@@ -5358,10 +5358,10 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ´ò¿ª²Ý¸å±Ê¼Ç");
+    return text.includes("ï¿½Ñ´ò¿ª²Ý¸ï¿½Ê¼ï¿½");
   });
   const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /# Writing UI Project ²Ý¸å/);
+  assert.match(editorValue, /# Writing UI Project ï¿½Ý¸ï¿½/);
   assert.match(editorValue, /DraftScaffold: ds\\?_/);
 
   await page.fill("#writingVersionNote", "Second draft note saved from browser flow.");
@@ -5381,7 +5381,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingDraftVersionsList [data-writing-draft-action="edit-note"]').last().evaluate((button) => button.click());
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ¸üÐÂ²Ý¸å°æ±¾ËµÃ÷");
+    return text.includes("ï¿½Ñ¸ï¿½ï¿½Â²Ý¸ï¿½æ±¾Ëµï¿½ï¿½");
   });
   const editedDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(editedDraftVersionsText || "", /Edited draft note from browser flow/);
@@ -5391,7 +5391,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ´ò¿ª²Ý¸å±Ê¼Ç");
+    return text.includes("ï¿½Ñ´ò¿ª²Ý¸ï¿½Ê¼ï¿½");
   });
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -5402,7 +5402,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingDraftVersionsList [data-writing-draft-action="open"]').last().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ´ò¿ª²Ý¸å°æ±¾");
+    return text.includes("ï¿½Ñ´ò¿ª²Ý¸ï¿½æ±¾");
   });
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -5413,19 +5413,19 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingDraftVersionsList [data-writing-draft-action="set-current"]').last().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ½«²Ý¸å°æ±¾ÉèÎªµ±Ç°");
+    return text.includes("ï¿½Ñ½ï¿½ï¿½Ý¸ï¿½æ±¾ï¿½ï¿½Îªï¿½ï¿½Ç°");
   });
   const reboundDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(reboundDraftVersionsText || "", /v1/);
-  assert.match(reboundDraftVersionsText || "", /µ±Ç°²Ý¸å/);
+  assert.match(reboundDraftVersionsText || "", /ï¿½ï¿½Ç°ï¿½Ý¸ï¿½/);
 
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("ÒÑ´ò¿ª²Ý¸å±Ê¼Ç");
+    return text.includes("ï¿½Ñ´ò¿ª²Ý¸ï¿½Ê¼ï¿½");
   });
   const reboundEditorValue = await page.locator("#editorBody").inputValue();
-  assert.match(reboundEditorValue, /# Writing UI Project ²Ý¸å/);
+  assert.match(reboundEditorValue, /# Writing UI Project ï¿½Ý¸ï¿½/);
   assert.doesNotMatch(reboundEditorValue, /second scaffold/i);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
@@ -5436,9 +5436,9 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.doesNotMatch(statusStripText || "", /¶ÁÈ¡ÖÐ/);
-    assert.match(statusStripText || "", /ÏîÄ¿/);
-    assert.match(statusStripText || "", /ÒÑ´´½¨/);
+    assert.doesNotMatch(statusStripText || "", /ï¿½ï¿½È¡ï¿½ï¿½/);
+    assert.match(statusStripText || "", /ï¿½ï¿½Ä¿/);
+    assert.match(statusStripText || "", /ï¿½Ñ´ï¿½ï¿½ï¿½/);
   }, 10000);
 });
 
@@ -5760,6 +5760,14 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 
 	              await page.selectOption("#permanentStatusInput", "draft");
 	              await page.selectOption("#permanentStatusInput", "draft");
+                await page.locator("[data-paper-permanent-candidate-id]").nth(0).click();
+                await waitFor(async () => {
+                  assert.equal(await page.locator("#permanentStatusInput").inputValue(), "active");
+                }, 4000);
+                await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
+                await waitFor(async () => {
+                  assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
+                }, 4000);
 
 	            await page.click("#btnSavePermanentNote");
             await waitFor(async () => {
@@ -5791,11 +5799,12 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             }, 6000);
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();
-              assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
-              assert.doesNotMatch(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+              assert.match(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+              assert.doesNotMatch(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
               assert.doesNotMatch(String(previewText || ""), /å·²ä¿å­˜ä¸ºï¼š/);
-              assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
-              assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
+              assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
+              assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
+              assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
               assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /ç¡®è®¤ä¿å­˜ä¸ºæ°¸ä¹…ç¬”è®°/);
@@ -5954,24 +5963,24 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   await page.click("#btnWritingUseCurrent");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("Ð´×÷ÀºÀïÒÑÓÐ 1 ÌõÓÀ¾Ã±Ê¼Ç");
+    return text.includes("Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½");
   });
 
   await page.click("#btnWritingStrongModelAnalysis");
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingStrongModelSummary")?.textContent || "";
-    return text.includes("ÒÑ¹éÒ»»¯ 2 ÌõÐ´×÷´ýÉó½¨Òé");
+    return text.includes("ï¿½Ñ¹ï¿½Ò»ï¿½ï¿½ 2 ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
   });
 
   await page.click("#btnWritingAddVisible");
   await page.waitForFunction(() => {
     const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
     const summaryText = document.querySelector("#writingStrongModelSummary")?.textContent || "";
-    return basketText.includes("Ð´×÷ÀºÀïÒÑÓÐ 2 ÌõÓÀ¾Ã±Ê¼Ç") && summaryText.includes("ÉÐÎ´×¼±¸Ç¿Ä£ÐÍ·ÖÎö");
+    return basketText.includes("Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 2 ï¿½ï¿½ï¿½ï¿½ï¿½Ã±Ê¼ï¿½") && summaryText.includes("ï¿½ï¿½Î´×¼ï¿½ï¿½Ç¿Ä£ï¿½Í·ï¿½ï¿½ï¿½");
   });
 
   const strongModelSummary = await page.locator("#writingStrongModelSummary").textContent();
-  assert.match(strongModelSummary || "", /ÉÐÎ´×¼±¸Ç¿Ä£ÐÍ·ÖÎö/);
+  assert.match(strongModelSummary || "", /ï¿½ï¿½Î´×¼ï¿½ï¿½Ç¿Ä£ï¿½Í·ï¿½ï¿½ï¿½/);
 });
 
 test("prototype writing center can save a theme index, edit central question, and create a project from theme", async (t) => {
@@ -6048,11 +6057,11 @@ test("prototype writing center can save a theme index, edit central question, an
   await page.waitForFunction(() => {
     const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
     const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return summary.includes("¿É´´½¨") && button?.textContent?.includes("´´½¨Ð´×÷ÏîÄ¿") && !button?.hasAttribute("disabled");
+    return summary.includes("ï¿½É´ï¿½ï¿½ï¿½") && button?.textContent?.includes("ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿") && !button?.hasAttribute("disabled");
   }, null, { timeout: 10000 });
   await page.waitForFunction(() => {
     const hint = document.querySelector("#writingThemeIndexesHint")?.textContent || "";
-    return !hint.includes("ÕýÔÚ¶ÁÈ¡Ö÷ÌâË÷Òý");
+    return !hint.includes("ï¿½ï¿½ï¿½Ú¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
   }, null, { timeout: 10000 });
 
   await page.fill("#writingThemeDetailCentralQuestion", "What question should organize these two permanent notes before writing begins?");
@@ -6063,7 +6072,7 @@ test("prototype writing center can save a theme index, edit central question, an
   await page.click('[data-writing-theme-action="save"]');
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /ÒÑ±£´æÖ÷Ìâ£ºBrowser Theme Index/);
+    assert.match(String(statusText || ""), /ï¿½Ñ±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£ºBrowser Theme Index/);
   }, 10000);
 
   await page.click('[data-writing-theme-action="create-project"]');
@@ -6160,7 +6169,7 @@ test("prototype writing center can create a project from a theme index after its
   await page.waitForFunction(() => {
     const summary = document.querySelector('[data-writing-theme-project-summary]')?.textContent || "";
     const button = document.querySelector('[data-writing-theme-action="create-project"]');
-    return summary.includes("¿É´´½¨") && button?.textContent?.includes("´´½¨Ð´×÷ÏîÄ¿") && !button?.hasAttribute("disabled");
+    return summary.includes("ï¿½É´ï¿½ï¿½ï¿½") && button?.textContent?.includes("ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ä¿") && !button?.hasAttribute("disabled");
   }, null, { timeout: 10000 });
 
   await page.click('[data-writing-theme-action="create-project"]');
@@ -6223,10 +6232,10 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
-    await page.locator('[data-graph-followup-action="relations"]', { hasText: "È¥²¹¹ØÏµ" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="relations"]', { hasText: "È¥ï¿½ï¿½ï¿½ï¿½Ïµ" }).waitFor({ timeout: 500 });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="relations"]', { hasText: "È¥²¹¹ØÏµ" }).first().click();
+  await page.locator('[data-graph-followup-action="relations"]', { hasText: "È¥ï¿½ï¿½ï¿½ï¿½Ïµ" }).first().click();
   await page.waitForFunction(() => {
     const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
     const form = document.querySelector("[data-create-relation-form]");
@@ -6235,9 +6244,9 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   });
 
   const relationFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.match(relationFormText || "", /½¨Á¢ÓïÒå¹ØÏµ|Á¬½ÓÀíÓÉ|¿É¼ìÑéµÄÅÐ¶Ï/);
+  assert.match(relationFormText || "", /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµ|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½/);
   const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /Í¼Æ×´ò¿ª±Ê¼Ç|²¹¹ØÏµ/);
+  assert.match(statusTextAfterFollowup || "", /Í¼ï¿½×´ò¿ª±Ê¼ï¿½|ï¿½ï¿½ï¿½ï¿½Ïµ/);
 
   await page.locator("#graphCanvas .graph-node", { hasText: "Graph target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
@@ -6289,10 +6298,10 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
     const summary = await page.locator("#graphSummary").textContent();
     const [nodeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
-    await page.locator('[data-graph-followup-action="bridge"]', { hasText: "È¥²¹ÇÅ½Ó" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="bridge"]', { hasText: "È¥ï¿½ï¿½ï¿½Å½ï¿½" }).waitFor({ timeout: 500 });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="bridge"]', { hasText: "È¥²¹ÇÅ½Ó" }).first().click();
+  await page.locator('[data-graph-followup-action="bridge"]', { hasText: "È¥ï¿½ï¿½ï¿½Å½ï¿½" }).first().click();
   await page.waitForFunction(() => {
     const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
     const form = document.querySelector("[data-create-relation-form]");
@@ -6301,9 +6310,9 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
   });
 
   const relationFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.match(relationFormText || "", /½¨Á¢ÓïÒå¹ØÏµ|Á¬½ÓÀíÓÉ|¿É¼ìÑéµÄÅÐ¶Ï/);
+  assert.match(relationFormText || "", /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµ|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½/);
   const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /²¹ÇÅ½Ó¹ØÏµ/);
+  assert.match(statusTextAfterFollowup || "", /ï¿½ï¿½ï¿½Å½Ó¹ï¿½Ïµ/);
 });
 
 test("prototype graph panel tension followup opens boundary field on the source note", async (t) => {
@@ -6359,10 +6368,10 @@ test("prototype graph panel tension followup opens boundary field on the source 
     const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
-    await page.locator('[data-graph-followup-action="tension"]', { hasText: "È¥²¹·´Àý/±ß½ç" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="tension"]', { hasText: "È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ß½ï¿½" }).waitFor({ timeout: 500 });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="tension"]', { hasText: "È¥²¹·´Àý/±ß½ç" }).first().click();
+  await page.locator('[data-graph-followup-action="tension"]', { hasText: "È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ß½ï¿½" }).first().click();
   await page.waitForFunction(() => {
     const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
     const boundaryField = document.querySelector('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]');
@@ -6371,7 +6380,7 @@ test("prototype graph panel tension followup opens boundary field on the source 
   });
 
   const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /²¹·´Àý¡¢±ß½ç»òÕÅÁ¦ËµÃ÷/);
+  assert.match(statusTextAfterFollowup || "", /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½/);
 });
 
 test("prototype graph panel seeds the Yijing demo network", async (t) => {
@@ -6402,7 +6411,7 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
     assert.equal(graph.json.item.totalEdges, 27);
 
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /Ò×¾­°¸Àý/);
+    assert.match(String(statusText || ""), /ï¿½×¾ï¿½ï¿½ï¿½ï¿½ï¿½/);
     assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 21);
     assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 27);
   }, 15000);
@@ -6410,8 +6419,8 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
   await page.locator("#graphRelationTypeFilter").selectOption("supports");
   await waitFor(async () => {
     const summaryText = await page.locator("#graphSummary").textContent();
-    assert.match(String(summaryText || ""), /µ±Ç°ÏÔÊ¾/);
-    assert.match(String(summaryText || ""), /Ö§³Ö/);
+    assert.match(String(summaryText || ""), /ï¿½ï¿½Ç°ï¿½ï¿½Ê¾/);
+    assert.match(String(summaryText || ""), /Ö§ï¿½ï¿½/);
     assert.equal(await page.locator("#graphCanvas .graph-edge").count(), 6);
   }, 5000);
 
@@ -6438,8 +6447,8 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /Smart Notes ²úÆ·Ë¼¿¼ Demo/);
-    assert.match(String(statusText || ""), /ÒÑ´ò¿ªµ¼ÀÀ±Ê¼Ç/);
+    assert.match(String(statusText || ""), /Smart Notes ï¿½ï¿½Æ·Ë¼ï¿½ï¿½ Demo/);
+    assert.match(String(statusText || ""), /ï¿½Ñ´ò¿ªµï¿½ï¿½ï¿½ï¿½Ê¼ï¿½/);
 
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
@@ -6458,7 +6467,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /ÒÑ´ò¿ªµ¼ÀÀ±Ê¼Ç/);
+    assert.match(String(statusText || ""), /ï¿½Ñ´ò¿ªµï¿½ï¿½ï¿½ï¿½Ê¼ï¿½/);
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
       selectedFileId: window.__prototypeState?.selectedFileId || ""
@@ -6475,7 +6484,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
       audience: document.querySelector("#writingAudience")?.value || "",
       basketSummary: document.querySelector("#writingBasketSummary")?.textContent || ""
     }));
-    assert.match(writingState.title, /ÑÐË¼Â¼²»ÊÇÆÕÍ¨±Ê¼ÇÈí¼þ/);
+    assert.match(writingState.title, /ï¿½ï¿½Ë¼Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½/);
     assert.ok(String(writingState.goal || "").trim().length > 0);
     assert.ok(String(writingState.audience || "").trim().length > 0);
     assert.match(writingState.basketSummary, /WP-SN-PM-001/);
@@ -6522,13 +6531,13 @@ test("prototype explorer context rename moves directory fsPath and note markdown
   const folderRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Rename Me" });
   await folderRow.waitFor();
 
-  await acceptPrompt(page, /ÖØÃüÃûÄ¿Â¼/, "Renamed Folder");
+  await acceptPrompt(page, /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼/, "Renamed Folder");
   await openContextAction(page, folderRow, "rename");
 
   await waitFor(async () => {
     await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Renamed Folder" }).waitFor({ timeout: 500 });
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /Ä¿Â¼ÒÑ¸üÐÂ²¢ÂäÅÌ/);
+    assert.match(statusText || "", /Ä¿Â¼ï¿½Ñ¸ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 8000);
 
   const directories = await fetchJson(apiBase, "/api/v1/directories?includeHidden=true");
@@ -6653,7 +6662,7 @@ test("prototype explorer drag and drop moves directory under another folder and 
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /Ä¿Â¼²ã¼¶ÒÑ¸üÐÂ²¢ÂäÅÌ/);
+    assert.match(statusText || "", /Ä¿Â¼ï¿½ã¼¶ï¿½Ñ¸ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½/);
     const directories = await fetchJson(apiBase, "/api/v1/directories?includeHidden=true");
     const movedDirectory = directories.json.items.find((item) => item.id === sourceDirectory.json.item.id);
     assert.ok(movedDirectory);
@@ -6695,13 +6704,13 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Rename source note" });
   await noteRow.waitFor();
 
-  await acceptPrompt(page, /ÖØÃüÃû±Ê¼Ç/, "Renamed note title");
+  await acceptPrompt(page, /ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½/, "Renamed note title");
   await openContextAction(page, noteRow, "rename");
 
   await waitFor(async () => {
     await page.locator('.explorer-item[data-kind="file"]', { hasText: "Renamed note title" }).waitFor({ timeout: 500 });
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /ÒÑÍ¬²½µ½ Markdown|±Ê¼ÇÒÑÖØÃüÃû/);
+    assert.match(statusText || "", /ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ Markdown|ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/);
   }, 8000);
 
   const noteAfter = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
@@ -6754,7 +6763,7 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /ÒÑ´ò¿ªMarkdown ÎÄ¼þÎ»ÖÃ/);
+    assert.match(String(statusText || ""), /ï¿½Ñ´ï¿½Markdown ï¿½Ä¼ï¿½Î»ï¿½ï¿½/);
   }, 7000);
 
   const revealCalls = await page.evaluate(() => window.__tauriRevealCalls || []);
@@ -6797,12 +6806,12 @@ test("prototype explorer note context move and delete update disk state", async 
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Note move source" });
   await noteRow.waitFor();
 
-  await acceptPrompt(page, /ÒÆ¶¯µ½Ä¿Â¼ ID/, targetDirectory.json.item.id);
+  await acceptPrompt(page, /ï¿½Æ¶ï¿½ï¿½ï¿½Ä¿Â¼ ID/, targetDirectory.json.item.id);
   await openContextAction(page, noteRow, "move");
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /ÒÑÒÆ¶¯±Ê¼Ç²¢ÂäÅÌ/);
+    assert.match(statusText || "", /ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½Ê¼Ç²ï¿½ï¿½ï¿½ï¿½ï¿½/);
     const noteAfterMove = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
     assert.equal(noteAfterMove.status, 200);
     assert.equal(noteAfterMove.json.item.directoryId, targetDirectory.json.item.id);
@@ -6820,15 +6829,15 @@ test("prototype explorer note context move and delete update disk state", async 
 
   page.once("dialog", async (dialog) => {
     assert.equal(dialog.type(), "confirm");
-    assert.match(dialog.message(), /È·ÈÏÉ¾³ý±Ê¼Ç/);
-    assert.match(dialog.message(), /Markdown ÎÄ¼þ/);
+    assert.match(dialog.message(), /È·ï¿½ï¿½É¾ï¿½ï¿½ï¿½Ê¼ï¿½/);
+    assert.match(dialog.message(), /Markdown ï¿½Ä¼ï¿½/);
     await dialog.accept();
   });
   await openContextAction(page, movedRow, "delete");
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /ÒÑÉ¾³ý±Ê¼Ç²¢ÂäÅÌ/);
+    assert.match(statusText || "", /ï¿½ï¿½É¾ï¿½ï¿½ï¿½Ê¼Ç²ï¿½ï¿½ï¿½ï¿½ï¿½/);
     const deletedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
     assert.equal(deletedNote.status, 404);
   }, 8000);
@@ -7103,7 +7112,7 @@ test("prototype AI inbox reject plus refresh keeps the reviewed artifact stable"
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
     assert.match(String(detailText || ""), /Rejected/);
-    assert.doesNotMatch(String(detailText || ""), /¼ÓÔØÊ§°Ü/);
+    assert.doesNotMatch(String(detailText || ""), /ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½/);
   }, 8000);
 
   const detail = await fetchJson(apiBase, `/api/v1/ai/inbox/${encodeURIComponent(fixture.artifactId)}?canonical=true`);

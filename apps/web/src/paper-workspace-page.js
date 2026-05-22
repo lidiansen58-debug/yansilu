@@ -57,6 +57,10 @@ function currentPaperId() {
   return String(state.workspace?.paperId || state.form.paperId || "").trim();
 }
 
+function currentLoadedWorkspacePaperId() {
+  return String(state.workspace?.paperId || "").trim();
+}
+
 function translationDraftStorageKey(paperId, candidateId) {
   const cleanPaperId = String(paperId || "").trim();
   const cleanCandidateId = String(candidateId || "").trim();
@@ -103,10 +107,19 @@ function readStoredWorkspaceSelection(paperId) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
+    const saveStatusByPermanentCandidate =
+      parsed.saveStatusByPermanentCandidate && typeof parsed.saveStatusByPermanentCandidate === "object"
+        ? Object.fromEntries(
+            Object.entries(parsed.saveStatusByPermanentCandidate)
+              .map(([candidateId, saveStatus]) => [String(candidateId || "").trim(), String(saveStatus || "").trim()])
+              .filter(([candidateId, saveStatus]) => candidateId && saveStatus)
+          )
+        : {};
     return {
       selectedCandidateId: String(parsed.selectedCandidateId || "").trim(),
       selectedPermanentCandidateId: String(parsed.selectedPermanentCandidateId || "").trim(),
-      saveStatus: String(parsed.saveStatus || "").trim()
+      saveStatus: String(parsed.saveStatus || "").trim(),
+      saveStatusByPermanentCandidate
     };
   } catch {
     return null;
@@ -114,10 +127,19 @@ function readStoredWorkspaceSelection(paperId) {
 }
 
 function persistWorkspaceSelection(overrides = {}) {
-  const paperId = currentPaperId();
+  const paperId = currentLoadedWorkspacePaperId();
   const key = workspaceSelectionStorageKey(paperId);
   if (!key) return;
   try {
+    const currentSelection = readStoredWorkspaceSelection(paperId);
+    const currentPermanentCandidateId = String(state.selectedPermanentCandidateId || "").trim();
+    const saveStatusByPermanentCandidate = {
+      ...(currentSelection?.saveStatusByPermanentCandidate || {})
+    };
+    const nextSaveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
+    if (currentPermanentCandidateId && nextSaveStatus) {
+      saveStatusByPermanentCandidate[currentPermanentCandidateId] = nextSaveStatus;
+    }
     window.localStorage?.setItem(
       key,
       JSON.stringify({
@@ -125,10 +147,23 @@ function persistWorkspaceSelection(overrides = {}) {
         selectedCandidateId: String(state.selectedCandidateId || "").trim(),
         selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
         saveStatus: String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim(),
+        saveStatusByPermanentCandidate,
         updatedAt: new Date().toISOString()
       })
     );
   } catch {}
+}
+
+function resolvedSaveStatusForPermanentCandidate(storedSelection, permanentCandidateId) {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  const mappedStatus =
+    cleanPermanentCandidateId && storedSelection?.saveStatusByPermanentCandidate
+      ? String(storedSelection.saveStatusByPermanentCandidate[cleanPermanentCandidateId] || "").trim()
+      : "";
+  if (mappedStatus) return mappedStatus;
+  const legacyStatus = String(storedSelection?.saveStatus || "").trim();
+  if (legacyStatus) return legacyStatus;
+  return "active";
 }
 
 function persistTranslationDraft(candidateId = state.selectedCandidateId) {
@@ -206,6 +241,7 @@ function hydrateFormFromWorkspace(workspace) {
     workspace,
     state.selectedPermanentCandidateId || storedSelection?.selectedPermanentCandidateId || state.selectedCandidateId || ""
   );
+  state.form.saveStatus = resolvedSaveStatusForPermanentCandidate(storedSelection, state.selectedPermanentCandidateId);
   hydrateTranslationForm(state.selectedCandidateId);
   persistWorkspaceSelection();
 }
@@ -360,7 +396,9 @@ root?.addEventListener("click", (event) => {
   const permanentCandidateButton = event.target?.closest?.("[data-paper-permanent-candidate-id]");
   if (permanentCandidateButton) {
     syncFormFromDom();
+    const storedSelection = readStoredWorkspaceSelection(currentPaperId());
     state.selectedPermanentCandidateId = permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || "";
+    state.form.saveStatus = resolvedSaveStatusForPermanentCandidate(storedSelection, state.selectedPermanentCandidateId);
     persistWorkspaceSelection();
     setStatus(STATUS.restoredPermanentCandidate, "ok");
     render();
