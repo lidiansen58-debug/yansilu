@@ -204,3 +204,38 @@ After this first closure note exists, the next practical step should be:
 - keep using this segment name when discussing related commits and diffs
 - stop treating `graph followup actions` and `writing center continuity` as one undifferentiated blob
 - only pull in adjacent writing-center or copy work when it is necessary to explain the graph-slice handoff boundary
+
+## Later Extraction Checklist
+
+These items are currently acknowledged as adjacent, but they should be peeled away from Segment 1 in later cleanup passes.
+
+`Move toward Segment 4: writing center continuity`
+
+- `958e14b` unify writing entry reset flow
+- `53838af` preserve writing theme context on basket updates
+- `a12f07f` preserve writing theme context on basket updates
+- `eddcf6c` preserve theme entry continuity across equivalent note sets
+- `391a405` resume current project from theme list
+
+When to move them:
+
+- once the discussion is about basket persistence, theme provenance, project resume, or source-index continuity more than graph-triggered handoff scope
+
+`Move toward Segment 5: copy / regression tests / Chinese copy coverage`
+
+- `e7c2590` add and deduplicate Chinese copy regression coverage
+- copy-dominant parts of `30d4ba9`
+
+When to move them:
+
+- once the discussion is mostly about wording stability, Chinese copy drift, or regression snapshot protection rather than graph action semantics
+
+`Keep in Segment 1 unless proven otherwise`
+
+- `c19cca3` preserve graph slice continuity into writing center
+- `c6d4e0c` Tighten graph followup continuity into writing center
+
+Why they stay:
+
+- these two commits are the clearest expression of the Segment 1 closure edge
+- moving them out would blur the distinction between graph action logic and graph-triggered writing scope
