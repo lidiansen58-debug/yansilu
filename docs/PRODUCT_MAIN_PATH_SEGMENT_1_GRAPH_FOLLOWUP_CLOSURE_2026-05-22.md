@@ -168,6 +168,24 @@ These are the current best evidence anchors for Segment 1.
 - `tests/unit/web-main-path-summary.test.mjs`
 - `tests/unit/web-note-browser-actions.test.mjs`
 
+## Evidence Mapping Table
+
+Use this table when we need to connect a Segment 1 claim back to concrete repository evidence.
+
+| Segment 1 concern | Primary file evidence | Primary test evidence | Representative commit themes |
+| --- | --- | --- | --- |
+| graph next-action vocabulary and mapping | `apps/web/src/graph-followup.js` | `tests/unit/web-graph-followup.test.mjs` | `03b77f5`, `f23e8c5`, `31ba692` |
+| bridge / tension / isolated / sparse / rationale-gap prioritization | `apps/web/src/graph-followup.js` | `tests/unit/web-graph-followup.test.mjs` | `3add766`, `f9fd242`, `698140e`, `d7dab8e` |
+| graph followup action context carried into the next step | `apps/web/src/prototype-app.js` | `tests/unit/web-graph-followup.test.mjs` | `5a394f7`, `638b940` |
+| graph-slice-to-writing continuity | `apps/web/src/prototype-app.js`, `apps/web/src/graph-followup.js` | `tests/unit/web-graph-followup.test.mjs` | `c19cca3`, `c6d4e0c` |
+| adjacent writing continuity that should later move out of Segment 1 | `apps/web/src/prototype-app.js` | `tests/unit/web-note-browser-actions.test.mjs` | `958e14b`, `53838af`, `a12f07f`, `eddcf6c`, `391a405` |
+| adjacent copy / regression coverage that should later move out of Segment 1 | mostly test and copy surfaces, not Segment 1 core files | `tests/unit/web-main-path-summary.test.mjs`, copy regression suites | `30d4ba9`, `e7c2590` |
+
+Reading rule:
+
+- if the strongest evidence for a change lives in `graph-followup.js` plus `web-graph-followup.test.mjs`, it is probably still Segment 1
+- if the strongest evidence lives in broader writing continuity tests or copy-only coverage, it is probably adjacent support and should be challenged before keeping it in Segment 1
+
 ## Current Verification Standard
 
 For Segment 1, stronger evidence should answer these questions directly:
