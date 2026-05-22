@@ -165,6 +165,47 @@ This note does not claim that:
 
 Those remain later cleanup passes.
 
+## Later Extraction Checklist
+
+These items are still adjacent to Segment 4, but should not be left ambiguous in future cleanup.
+
+`Move back toward Segment 1: graph followup actions + graph-slice-to-writing continuity`
+
+- `c19cca3` preserve graph slice continuity into writing center
+- `c6d4e0c` Tighten graph followup continuity into writing center
+- graph-triggered scope decisions that determine whether writing entry stays slice-scoped
+
+When to move them:
+
+- once the discussion is primarily about whether graph should route to writing at all
+- once the strongest evidence is graph next-action semantics rather than post-entry writing-state preservation
+
+`Move toward Segment 5: copy / regression tests / Chinese copy coverage`
+
+- `e7c2590` add and deduplicate Chinese copy regression coverage
+- copy-dominant parts of `30d4ba9`
+- wording-only changes in writing center hints that do not change continuity behavior
+
+When to move them:
+
+- once the discussion is mostly about wording drift, Chinese copy stability, or regression snapshots rather than continuity semantics
+
+`Keep in Segment 4 unless proven otherwise`
+
+- `958e14b` unify writing entry reset flow
+- `53838af` preserve writing theme context on basket updates
+- `a12f07f` preserve writing theme context on basket updates
+- `eddcf6c` preserve theme entry continuity across equivalent note sets
+- `391a405` resume current project from theme list
+- `5f9114d` Smooth writing center project flow
+- `8920de4` Refine writing theme project entry readiness
+
+Why they stay:
+
+- these changes are strongest when explained as preserving the right state after entry
+- moving them back into Segment 1 would blur the line between routing into writing and preserving continuity inside writing
+- moving them into Segment 5 would reduce behavior continuity to a copy-only concern
+
 ## Immediate Next Move After This Note
 
 After this note exists, the next practical step should be:
