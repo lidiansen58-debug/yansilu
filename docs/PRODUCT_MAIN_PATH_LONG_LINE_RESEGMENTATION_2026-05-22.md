@@ -45,6 +45,7 @@ Current closure status:
 - Segment 4 continuity note: [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
 - Segment 5 copy and regression note: [PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md)
 - Cross-segment routing matrix: [PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md)
+- Commit allocation note: [PRODUCT_MAIN_PATH_COMMIT_ALLOCATION_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_COMMIT_ALLOCATION_2026-05-22.md)
 
 ## Segment 1
 
@@ -256,3 +257,7 @@ Recommended order for future restructuring:
 Shared routing reference:
 
 - [PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md)
+
+Commit-to-segment reference:
+
+- [PRODUCT_MAIN_PATH_COMMIT_ALLOCATION_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_COMMIT_ALLOCATION_2026-05-22.md)
