@@ -6013,8 +6013,10 @@ function renderWritingThemeIndexCard(indexCard) {
     .filter(Boolean)
     .slice(0, 3);
   const preview = itemTitles.join("、");
+  const noteIds = writingThemeIndexNoteIds(indexCard);
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
+  const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
   const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) || writingState.selectedThemeIndexId === indexCard.id ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
@@ -6027,8 +6029,18 @@ function renderWritingThemeIndexCard(indexCard) {
       </div>
       <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作中心入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
+      ${
+        existingProject?.id
+          ? `<div class="writing-note-meta">当前项目：${escapeHtml(existingProject.id)}${existingProject.draft_note_id ? " · 已有草稿" : existingProject.scaffold_id ? " · 已有草稿骨架" : ""}</div>`
+          : ""
+      }
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
+        ${
+          existingProject?.id
+            ? `<button class="mini-btn" type="button" data-writing-index-action="resume-project" data-writing-project-id="${escapeHtml(existingProject.id)}">继续当前项目</button>`
+            : ""
+        }
       </div>
     </article>
   `;
@@ -9701,6 +9713,17 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   if (!button) return;
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
+  const projectId = String(button.getAttribute("data-writing-project-id") || "");
+  if (action === "resume-project") {
+    if (!projectId) return;
+    try {
+      await openWritingProject(projectId);
+      setStatus(`已继续当前项目：${projectId}`, "ok");
+    } catch (error) {
+      setStatus(`打开当前项目失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
   if (!indexId) return;
   if (action === "use") {
     try {
