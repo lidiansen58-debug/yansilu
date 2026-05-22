@@ -78,7 +78,8 @@ test("graph next action points to writing center once structure is already clear
 test("graph writing followup preloads current scope notes when basket is empty and scope is small", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n1", "n2"]);
@@ -88,7 +89,8 @@ test("graph writing followup preloads current scope notes when basket is empty a
 test("graph writing followup appends newly visible notes into an existing basket", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: ["n1"],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n2"]);
@@ -98,7 +100,8 @@ test("graph writing followup appends newly visible notes into an existing basket
 test("graph writing followup avoids auto-prefill when current scope is too large", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
-    candidateNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"]
+    candidateNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"],
+    scopeNoteIds: ["n1", "n2", "n3", "n4", "n5", "n6"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
@@ -109,11 +112,24 @@ test("graph writing followup avoids auto-prefill when current scope is too large
 test("graph writing followup keeps current basket untouched when the whole visible slice is already present", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: ["n1", "n2"],
-    candidateNoteIds: ["n1", "n2"]
+    candidateNoteIds: ["n1", "n2"],
+    scopeNoteIds: ["n1", "n2"]
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /已经都在写作篮中|继续推进/);
+});
+
+test("graph writing followup stays inside the current graph slice when no note is ready for writing", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: [],
+    candidateNoteIds: [],
+    scopeNoteIds: ["n1", "n2"]
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /当前图谱切片里还没有可直接推进写作的永久笔记/);
+  assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });
 
 test("graph writing candidate note ids keep only visible eligible notes in visible order", () => {

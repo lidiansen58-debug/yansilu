@@ -11,7 +11,9 @@ const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to
 export function graphFollowupActionForRelationType(type = "") {
   const relationType = String(type || "").trim().toLowerCase();
   if (GRAPH_CONFLICT_RELATION_TYPES.has(relationType)) return GRAPH_FOLLOWUP_ACTIONS.tension;
-  if (relationType === "bridges" || relationType === "unexpected_connection" || relationType === "reframes") return GRAPH_FOLLOWUP_ACTIONS.bridge;
+  if (relationType === "bridges" || relationType === "unexpected_connection" || relationType === "reframes") {
+    return GRAPH_FOLLOWUP_ACTIONS.bridge;
+  }
   return GRAPH_FOLLOWUP_ACTIONS.relations;
 }
 
@@ -80,35 +82,43 @@ export function graphNextActionForSummary({
 
 export function graphWritingFollowupEntryPlan({
   basketNoteIds = [],
-  candidateNoteIds = []
+  candidateNoteIds = [],
+  scopeNoteIds = []
 } = {}) {
   const basketIds = [...new Set((basketNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const candidateIds = [...new Set((candidateNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  const scopeIds = [...new Set((scopeNoteIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const addedCandidateIds = candidateIds.filter((id) => !basketIds.includes(id));
 
   if (!candidateIds.length) {
     return {
       prefillNoteIds: [],
-      statusMessage: basketIds.length ? "已从图谱进入写作中心，继续推进当前写作篮" : "已从图谱进入写作中心，继续挑选可推进的永久笔记"
+      statusMessage: scopeIds.length
+        ? basketIds.length
+          ? "已从图谱进入写作中心；当前图谱切片里还没有适合新增到写作篮的永久笔记，可以继续推进现有写作篮，或回到图谱补关系/边界。"
+          : "已从图谱进入写作中心；当前图谱切片里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"
+        : basketIds.length
+          ? "已从图谱进入写作中心，继续推进当前写作篮。"
+          : "已从图谱进入写作中心，继续挑选可推进的永久笔记。"
     };
   }
   if (candidateIds.length <= 5 && addedCandidateIds.length) {
     return {
       prefillNoteIds: addedCandidateIds,
       statusMessage: basketIds.length
-        ? `已从图谱进入写作中心，并把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记加入写作篮`
-        : `已从图谱进入写作中心，并带入当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记`
+        ? `已从图谱进入写作中心，并把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记加入写作篮。`
+        : `已从图谱进入写作中心，并带入当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记。`
     };
   }
   if (basketIds.length && !addedCandidateIds.length) {
     return {
       prefillNoteIds: [],
-      statusMessage: "当前可见图谱里的永久笔记已经都在写作篮中，已打开写作中心继续推进"
+      statusMessage: "当前可见图谱里的永久笔记已经都在写作篮中，已打开写作中心继续推进。"
     };
   }
   return {
     prefillNoteIds: [],
-    statusMessage: `已从图谱进入写作中心；当前可见图谱里有 ${candidateIds.length} 条可用永久笔记，先挑 2-5 条加入写作篮`
+    statusMessage: `已从图谱进入写作中心；当前可见图谱里有 ${candidateIds.length} 条可用永久笔记，先挑 2-5 条加入写作篮。`
   };
 }
 
