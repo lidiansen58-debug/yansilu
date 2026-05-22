@@ -194,3 +194,17 @@ test("graph isolated node ids still report true isolates in the full unfiltered 
 
   assert.deepEqual(isolatedIds, ["n3"]);
 });
+test("graph next action prefers strengthening thin rationale before entering the writing center", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    thinRationaleFromNoteId: "pn_basic_1",
+    thinRationaleCount: 2
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_basic_1");
+  assert.equal(nextAction.actionLabel, "先补关系理由");
+  assert.match(nextAction.note, /2/);
+  assert.match(nextAction.note, /显式关系/);
+});

@@ -7871,6 +7871,7 @@ function renderGraphPanel() {
     const rationale = String(edge.rationale || "").trim();
     return !rationale || rationale === "markdown_wikilink";
   });
+  const thinRationaleEdges = edges.filter((edge) => String(edge.rationaleQualityLevel || "").trim().toLowerCase() === "basic");
   const untypedRelations = filterActive ? weakRationaleEdges : Array.isArray(insights.untypedRelations) ? insights.untypedRelations : weakRationaleEdges;
   const typeFilterLabel = filters.relationType === "all" ? "全部类型" : graphRelationTypeLabel(filters.relationType);
   const statusFilterLabel = filters.status === "all" ? "全部状态" : graphRelationStatusLabel(filters.status);
@@ -7967,6 +7968,8 @@ function renderGraphPanel() {
     visibleEdgeCount: edges.length,
     isolatedNoteId: isolatedNodes[0]?.id || "",
     isolatedCount,
+    thinRationaleFromNoteId: thinRationaleEdges[0]?.fromNoteId || "",
+    thinRationaleCount: thinRationaleEdges.length,
     untypedFromNoteId: untypedRelations[0]?.fromNoteId || "",
     untypedRelationId: untypedRelations[0]?.id || "",
     conflictFromNoteId:

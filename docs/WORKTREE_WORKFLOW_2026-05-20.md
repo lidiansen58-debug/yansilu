@@ -86,3 +86,40 @@ Do not create a separate review worktree unless the merge is complex.
 Run development and the smallest relevant tests in the same worktree.
 After review and merge, delete the short-lived worktree.
 ```
+
+## Short Prompt Templates
+
+### Product
+
+```text
+工作目录：<path>
+分支：feat/<name>
+目标：<一句话>
+
+只改：<模块/文件>
+验证：<最小测试命令>
+按 docs/WORKTREE_WORKFLOW_2026-05-20.md 执行。
+```
+
+### Bugfix
+
+```text
+工作目录：<path>
+分支：fix/<name>
+目标：修复 <bug>
+
+只改：<文件/模块>
+验证：<最小测试命令>
+不要扩大范围。
+```
+
+### Review
+
+```text
+工作目录：<path>
+分支：<branch>
+目标：判断是否可以合并 main
+
+只看：bug、越界修改、测试缺口
+不要继续开发。
+```
