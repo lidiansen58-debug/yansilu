@@ -44,6 +44,7 @@ Current closure status:
 - Segment 1 should now be treated as the active reference slice for the first cleanup pass
 - Segment 4 continuity note: [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
 - Segment 5 copy and regression note: [PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md)
+- Cross-segment routing matrix: [PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md)
 
 ## Segment 1
 
@@ -251,3 +252,7 @@ Recommended order for future restructuring:
 2. separate `writing center continuity` from the graph-triggered handoff specifics
 3. re-isolate `main-path / writing readiness`
 4. leave `copy / regression tests / Chinese copy coverage` as a cross-cutting support layer rather than a primary product slice
+
+Shared routing reference:
+
+- [PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md)
