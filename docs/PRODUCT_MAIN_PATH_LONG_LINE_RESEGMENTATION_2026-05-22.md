@@ -28,20 +28,16 @@ The long line should be reframed into these four segments:
 
 1. `main-path / writing readiness`
 2. `graph followup actions`
-3. `writing center continuity`
-4. `copy / regression tests / Chinese copy coverage`
-
-For immediate cleanup purposes, segment 2 and segment 3 should be temporarily grouped as one working segment:
-
-- `graph followup actions + graph-slice-to-writing continuity`
-
-This grouped segment is the first one to close out because the product behavior is already mostly coherent, and the last round of work was specifically about tightening its continuity boundary.
+3. `graph-slice-to-writing continuity`
+4. `writing center continuity`
+5. `copy / regression tests / Chinese copy coverage`
 
 Current closure status:
 
 - Main-path / writing readiness note: [PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md)
-- Segment 1 active closure note: [PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md)
-- Segment 1 should now be treated as the active reference slice for the first cleanup pass
+- Combined Segment 1 legacy note: [PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md)
+- Segment 2 graph actions note: [PRODUCT_MAIN_PATH_SEGMENT_2_GRAPH_FOLLOWUP_ACTIONS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_2_GRAPH_FOLLOWUP_ACTIONS_2026-05-22.md)
+- Segment 3 graph-slice continuity note: [PRODUCT_MAIN_PATH_SEGMENT_3_GRAPH_SLICE_TO_WRITING_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_3_GRAPH_SLICE_TO_WRITING_CONTINUITY_2026-05-22.md)
 - Segment 4 continuity note: [PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_4_WRITING_CENTER_CONTINUITY_2026-05-22.md)
 - Segment 5 copy and regression note: [PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_5_COPY_AND_REGRESSION_COVERAGE_2026-05-22.md)
 - Cross-segment routing matrix: [PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_BOUNDARY_MATRIX_2026-05-22.md)
@@ -90,17 +86,11 @@ Authoritative reference:
 
 - [PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_MAIN_PATH_WRITING_READINESS_2026-05-22.md)
 
-## Segment 2 + 3
+## Segment 2
 
-### `graph followup actions + graph-slice-to-writing continuity`
+### `graph followup actions`
 
-This is the first segment to close.
-
-Why treat them together for now:
-
-- graph followup actions define what the next move should be
-- writing continuity defines whether that move lands in the right scope
-- splitting them too early would separate decision logic from entry continuity
+This segment owns the graph-side route-decision layer.
 
 ### Mature Core
 
@@ -126,7 +116,7 @@ What is mature here:
 
 ### Mixed In Opportunistically
 
-These changes support the graph-to-writing path, but they are not core graph followup logic:
+These changes support the graph-to-writing path, but they are not core graph action logic:
 
 - `30d4ba9` refine main-path and writing-center flow and copy
 - `e7c2590` Chinese copy regression coverage
@@ -137,8 +127,18 @@ These changes support the graph-to-writing path, but they are not core graph fol
   - `eddcf6c` preserve theme entry continuity across equivalent note sets
   - `391a405` resume current project from theme list
 
-These should not be treated as the essence of graph followup.
-They belong either to writing center continuity or to copy / regression coverage.
+These should not be treated as the essence of Segment 2.
+They belong either to Segment 3, Segment 4, or Segment 5 depending on strongest evidence.
+
+Authoritative reference:
+
+- [PRODUCT_MAIN_PATH_SEGMENT_2_GRAPH_FOLLOWUP_ACTIONS_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_2_GRAPH_FOLLOWUP_ACTIONS_2026-05-22.md)
+
+## Segment 3
+
+### `graph-slice-to-writing continuity`
+
+This segment owns the graph-to-writing handoff boundary.
 
 ### Truly New In The Final Round
 
@@ -153,14 +153,9 @@ What was actually added in that last round:
 - when the current slice has no writing-eligible notes, the path no longer silently falls back to global writing candidates
 - status messaging now explicitly tells the user to go back and repair relations, boundaries, or originality checks instead of drifting into a broader unrelated writing flow
 
-### Closure Boundary For This Segment
+Authoritative reference:
 
-Treat this segment as closed when we agree on this product statement:
-
-- graph followup decides whether the user should repair structure first or proceed to writing
-- if graph followup sends the user to writing, the writing entry stays scoped to the current graph slice unless the user explicitly broadens scope
-
-That is the cleanest boundary for the first closed segment.
+- [PRODUCT_MAIN_PATH_SEGMENT_3_GRAPH_SLICE_TO_WRITING_CONTINUITY_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_3_GRAPH_SLICE_TO_WRITING_CONTINUITY_2026-05-22.md)
 
 ## Segment 4
 
@@ -231,17 +226,12 @@ Authoritative reference:
 
 ## Immediate Working Conclusion
 
-The first segment to explicitly close is:
+The former combined Segment 1 has now been split into:
 
-- `graph followup actions + graph-slice-to-writing continuity`
+- Segment 2: graph followup actions
+- Segment 3: graph-slice-to-writing continuity
 
-Within that segment:
-
-- mature core: graph next-action decision logic
-- mixed in: general writing-center continuity helpers and broad copy/test cleanup
-- final-round addition: slice-scoped writing-center handoff from graph
-
-Authoritative first-closure reference:
+The older combined note remains useful as a historical bridge note:
 
 - [PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md](E:/Projects/Thinking%20in%20Notes/yansilu/docs/PRODUCT_MAIN_PATH_SEGMENT_1_GRAPH_FOLLOWUP_CLOSURE_2026-05-22.md)
 
@@ -249,10 +239,10 @@ Authoritative first-closure reference:
 
 Recommended order for future restructuring:
 
-1. close `graph followup actions + graph-slice-to-writing continuity`
-2. separate `writing center continuity` from the graph-triggered handoff specifics
-3. re-isolate `main-path / writing readiness`
-4. leave `copy / regression tests / Chinese copy coverage` as a cross-cutting support layer rather than a primary product slice
+1. keep refining Segment 2 / Segment 3 boundaries as separate layers
+2. keep Segment 4 focused on post-entry writing continuity
+3. keep readiness separate from routing and continuity
+4. keep `copy / regression tests / Chinese copy coverage` as a cross-cutting support layer rather than a primary behavior slice
 
 Shared routing reference:
 
