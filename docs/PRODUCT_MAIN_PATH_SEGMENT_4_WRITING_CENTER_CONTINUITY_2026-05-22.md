@@ -90,7 +90,7 @@ Segment 4 is about what writing center does after the user gets there:
 - whether the same writing project should resume
 - whether a theme entry path reuses rather than resets context
 
-If a change can be described as “after entry, preserve the right writing state,” it belongs here by default.
+If a change can be described as "after entry, preserve the right writing state," it belongs here by default.
 
 ## Primary Evidence Files
 
@@ -170,5 +170,5 @@ Those remain later cleanup passes.
 After this note exists, the next practical step should be:
 
 - use Segment 4 as the default home for basket / theme / project continuity discussions
-- stop treating theme continuity and project resume logic as merely “mixed into graph”
+- stop treating theme continuity and project resume logic as merely "mixed into graph"
 - challenge future changes by asking whether their strongest evidence is post-entry writing continuity rather than graph-triggered routing
