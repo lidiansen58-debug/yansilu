@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildNotebookLmPayload,
   canCreatePermanentCandidate,
+  canSavePermanentNote,
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
@@ -174,6 +175,39 @@ test("canCreatePermanentCandidate stays blocked while saved translation has unsa
   );
   assert.equal(
     canCreatePermanentCandidate(workspace, "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    true
+  );
+});
+
+test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+
+  assert.equal(
+    canSavePermanentNote(workspace, "pn_1", "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Updated relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    false
+  );
+  assert.equal(
+    canSavePermanentNote(workspace, "pn_1", "pwc_1", {
       paraphraseText: "Saved wording.",
       relationToQuestion: "Saved relation.",
       boundaryOrCondition: "Saved boundary."

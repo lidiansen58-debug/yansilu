@@ -10,6 +10,7 @@ import {
 import {
   buildNotebookLmPayload,
   canCreatePermanentCandidate,
+  canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   nextSelectedCandidateId,
@@ -43,6 +44,8 @@ const STATUS = {
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
   translationNeedsResaveBeforePermanentCandidate:
     "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+  translationNeedsResaveBeforePermanentNote:
+    "\u5f53\u524d Step 3 \u7684\u8f6c\u8ff0\u5df2\u53d1\u751f\u53d8\u5316\u3002\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u786e\u8ba4\u6c38\u4e45\u7b14\u8bb0",
   savedPermanentNote: "\u6c38\u4e45\u7b14\u8bb0\u5df2\u4fdd\u5b58",
   restoredLocalTranslationDraftOverSavedTranslation:
     "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\uff0c\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\uff0c\u4e5f\u53ef\u4ee5\u56de\u770b\u5df2\u4fdd\u5b58\u7684\u8f6c\u8ff0\u8def\u5f84\u3002",
@@ -329,6 +332,19 @@ function updateDynamicControls() {
       boundaryOrCondition: state.form.boundaryOrCondition
     });
   }
+  const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
+  if (savePermanentNoteButton) {
+    savePermanentNoteButton.disabled = !canSavePermanentNote(
+      state.workspace,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    );
+  }
 }
 
 async function runAction(action, successMessage) {
@@ -432,6 +448,22 @@ async function handleCreatePermanentCandidate() {
 async function handleSavePermanentNote() {
   syncFormFromDom();
   persistWorkspaceSelection();
+  if (
+    !canSavePermanentNote(
+      state.workspace,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    )
+  ) {
+    setStatus(STATUS.translationNeedsResaveBeforePermanentNote, "warn");
+    render();
+    return;
+  }
   await runAction(async () => {
     const result = await savePaperPermanentNote(state.workspace?.paperId || state.form.paperId, {
       permanentCandidateId: state.selectedPermanentCandidateId,

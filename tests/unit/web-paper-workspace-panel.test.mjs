@@ -391,6 +391,54 @@ test("renderPaperWorkspacePage keeps step four aligned to the selected paper can
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
 
+test("renderPaperWorkspacePage blocks permanent-note save while aligned translation has unsaved edits", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_candidates",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "converted"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "My claim.",
+        rationale: "My reason.",
+        originality_status: "warning",
+        status: "draft",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.selectedPermanentCandidateId = "pn_1";
+  state.form.paraphraseText = "Saved wording.";
+  state.form.relationToQuestion = "Updated relation before saving again.";
+  state.form.boundaryOrCondition = "Saved boundary.";
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
+});
+
 test("renderPaperWorkspacePage renders a selectable permanent candidate list", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {

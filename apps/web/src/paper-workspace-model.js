@@ -260,6 +260,18 @@ export function canCreatePermanentCandidate(workspace = null, candidateId = "", 
   );
 }
 
+export function canSavePermanentNote(workspace = null, permanentCandidateId = "", candidateId = "", draftInput = null) {
+  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, permanentCandidateId);
+  if (!cleanText(permanentCandidate?.id) || cleanText(permanentCandidate?.savedPermanentNoteId)) return false;
+  const selectedCandidate = selectedPaperCandidate(workspace, candidateId);
+  const isAlignedToSelectedCandidate =
+    cleanText(selectedCandidate?.id) &&
+    cleanText(permanentCandidate?.paper_candidate_id) === cleanText(selectedCandidate?.id);
+  if (!isAlignedToSelectedCandidate) return true;
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  return !draft.hasLocalChanges;
+}
+
 export function nextSelectedCandidateId(workspace = null, preferredId = "", options = {}) {
   const preferred = exactSelectedPaperCandidate(workspace, preferredId);
   if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
