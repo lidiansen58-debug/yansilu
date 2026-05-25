@@ -6800,7 +6800,7 @@ function renderWritingStatusStrip() {
         ? projectEntry.status
         : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
           ? projectEntry.status
-      : "未保存";
+          : projectEntry.status;
   const draftNote = hasDraft
     ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
     : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
@@ -6813,7 +6813,7 @@ function renderWritingStatusStrip() {
         ? "当前草稿骨架已经存在。先回到草稿骨架，再继续保存草稿。"
         : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
           ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
-      : "检查骨架后再保存";
+          : projectEntry.hint;
   const draftTone =
     hasDraft
       ? "good"
