@@ -6398,6 +6398,7 @@ function renderWritingProjectCard(project) {
   });
   const primaryProjectAction = String(continuation?.action || "open").trim() || "open";
   const primaryProjectActionLabel = String(continuation?.actionLabel || "打开项目").trim() || "打开项目";
+  const primaryProjectStatus = String(continuation?.status || "打开项目").trim() || "打开项目";
   const thinkingBadge = renderThinkingStatusBadge(project?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project.id)}">
@@ -6408,7 +6409,7 @@ function renderWritingProjectCard(project) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
+      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；当前入口：${escapeHtml(primaryProjectStatus)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project.goal || "暂无写作目标说明。")}</div>
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-project-action="${escapeHtml(primaryProjectAction)}" data-writing-project-id="${escapeHtml(project.id)}">${escapeHtml(primaryProjectActionLabel)}</button>

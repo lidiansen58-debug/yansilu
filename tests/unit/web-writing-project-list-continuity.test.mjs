@@ -16,6 +16,8 @@ test("writing project cards reuse continuity actions based on draft and scaffold
   assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
   assert.match(fnBody, /existingProjectHasScaffold: hasScaffold/);
   assert.match(fnBody, /existingProjectHasDraft: Boolean\(project\?\.draft_note_id\)/);
+  assert.match(fnBody, /const primaryProjectStatus = String\(continuation\?\.status \|\| "打开项目"\)\.trim\(\) \|\| "打开项目";/);
+  assert.match(fnBody, /当前入口：\$\{escapeHtml\(primaryProjectStatus\)\}/);
   assert.match(fnBody, /data-writing-project-action="\$\{escapeHtml\(primaryProjectAction\)\}"/);
   assert.match(fnBody, /\$\{escapeHtml\(primaryProjectActionLabel\)\}/);
 });
