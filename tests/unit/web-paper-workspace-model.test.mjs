@@ -874,10 +874,40 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
         hasLocalChanges: true
       },
       {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "saved_permanent_note"
+      }
+    ),
+    "restoredLocalTranslationDraftForSavedPermanentNote"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "ready"
+      }
+    ),
+    "restoredLocalTranslationDraftForPermanentNote"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: true
+      },
+      {
         selectedPermanentCandidateId: "pn_1"
       }
     ),
-    "restoredLocalTranslationDraftOverSavedTranslation"
+    "restoredLocalTranslationDraftForPermanentNote"
   );
 
   assert.equal(
