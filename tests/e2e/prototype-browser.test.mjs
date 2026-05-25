@@ -6621,6 +6621,30 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 4000);
 
+            await openPaperWorkspace(page, webBase);
+            await page.fill("#paperIdInput", paperId);
+            await page.click("#btnLoadPaperWorkspace");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "load_workspace"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
+                /先重新生成永久笔记候选，再继续写 draft/
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
+              assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
+            }, 6000);
+
             await page
               .locator("[data-paper-permanent-candidate-id]", {
                 hasText: secondSavedPermanentNoteId
