@@ -10000,7 +10000,9 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
       await continueWritingProjectEntry(projectId, {
         openDraft: action === "open-draft",
         statusMessage:
-          action === "resume-scaffold"
+          action === "open-draft"
+            ? `已从主题索引打开当前草稿：${projectId}`
+            : action === "resume-scaffold"
             ? `已回到草稿骨架：${projectId}`
             : action === "resume-project"
               ? `已继续当前项目：${projectId}`
@@ -10071,7 +10073,10 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "open-draft" && projectId) {
-      await continueWritingProjectEntry(projectId, { openDraft: true });
+      await continueWritingProjectEntry(projectId, {
+        openDraft: true,
+        statusMessage: `已从主题打开当前草稿：${projectId}`
+      });
       return;
     }
     if ((action === "resume-project" || action === "resume-scaffold") && projectId) {
@@ -10086,7 +10091,9 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       if (existingProject?.id) {
         await continueWritingProjectEntry(existingProject.id, {
           openDraft: Boolean(existingProject.draft_note_id),
-          statusMessage: existingProject.draft_note_id ? "" : `已继续当前项目：${existingProject.id}`
+          statusMessage: existingProject.draft_note_id
+            ? `已从主题打开当前草稿：${existingProject.id}`
+            : `已继续当前项目：${existingProject.id}`
         });
         return;
       }
