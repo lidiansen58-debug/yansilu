@@ -233,6 +233,10 @@ export function renderPaperWorkspacePage(state = {}) {
     }
   );
   const permanentNoteSaveDisabled = !permanentNoteContinuity.allowed;
+  const createPermanentCandidateLabel =
+    hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"
+      ? "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009"
+      : "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009";
   const permanentNoteActionLabel =
     permanentNoteContinuity.reason === "stale_translation_signature"
       ? "\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009"
@@ -302,7 +306,7 @@ export function renderPaperWorkspacePage(state = {}) {
               <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
                 <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>\u4fdd\u5b58\u8f6c\u8ff0</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>${createPermanentCandidateLabel}</button>
               </div>
             </div>
           </div>
