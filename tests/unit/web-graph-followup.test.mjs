@@ -239,6 +239,20 @@ test("graph writing followup stays inside the current graph slice when no note i
   assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });
 
+test("graph writing followup keeps basket-first wording when no new visible note is ready", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: ["n1"],
+    candidateNoteIds: [],
+    scopeNoteIds: ["n1", "n2"]
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /还没有适合新增到写作篮的永久笔记/);
+  assert.match(plan.statusMessage, /继续当前写作篮/);
+  assert.match(plan.statusMessage, /回到图谱补关系\/边界/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
+});
+
 test("graph writing candidate note ids keep only visible eligible notes in visible order", () => {
   const notesById = new Map([
     ["n-visible-1", { id: "n-visible-1", ok: true }],
