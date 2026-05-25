@@ -7270,7 +7270,9 @@ function renderWritingPanel() {
           : "生成草稿骨架"
       : projectEntry?.projectId && projectEntry?.actionLabel
         ? `先${projectEntry.actionLabel}`
-        : "先创建项目";
+        : projectEntry?.actionLabel === "创建项目"
+          ? "先创建项目"
+          : projectEntry?.actionLabel || "先补写作材料";
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
