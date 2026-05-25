@@ -315,6 +315,12 @@ export async function createPaperPermanentCandidate(vaultPath, paperId, input = 
   }
 
   const permanentCandidate = buildPermanentCandidateFromPaperTranslation(workspace, input);
+  const existingSavedCandidate = workspace.permanentCandidates.find(
+    (item) => item.id === permanentCandidate.id && cleanText(item.savedPermanentNoteId)
+  );
+  if (existingSavedCandidate) {
+    permanentCandidate.id = generatedId("pn");
+  }
   const sourceCandidate = findCandidate(workspace, permanentCandidate.paper_candidate_id);
   const guard = originalityGuard(
     {
@@ -329,10 +335,13 @@ export async function createPaperPermanentCandidate(vaultPath, paperId, input = 
 
   const existingIndex = workspace.permanentCandidates.findIndex((item) => item.id === permanentCandidate.id);
   if (existingIndex >= 0) {
+    const existingCandidate = workspace.permanentCandidates[existingIndex];
     workspace.permanentCandidates[existingIndex] = {
-      ...workspace.permanentCandidates[existingIndex],
+      ...existingCandidate,
       ...permanentCandidate,
-      created_at: workspace.permanentCandidates[existingIndex].created_at || permanentCandidate.created_at
+      created_at: existingCandidate.created_at || permanentCandidate.created_at,
+      savedPermanentNoteId: "",
+      savedAt: ""
     };
   } else {
     workspace.permanentCandidates.push(permanentCandidate);

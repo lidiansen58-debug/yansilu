@@ -410,8 +410,34 @@ export function nextSelectedPermanentCandidateId(workspace = null, preferredId =
   if (cleanText(preferredId) && cleanText(preferred?.id) && preferredMatchesSelectedPaperCandidate) {
     return cleanText(preferred.id);
   }
-  const candidateMatchedPermanent = selectedAlignedPermanentCandidate(workspace, selectedPaperCandidateId);
-  if (selectedPaperCandidateId && cleanText(candidateMatchedPermanent?.id)) return cleanText(candidateMatchedPermanent.id);
+  const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
+  if (selectedPaperCandidateId) {
+    const currentTranslationSignature = translationContinuitySignature(workspace, selectedPaperCandidateId);
+    const matchingCandidates = candidates
+      .filter((item) => cleanText(item?.paper_candidate_id) === selectedPaperCandidateId)
+      .sort((left, right) => {
+        const leftSignature =
+          currentTranslationSignature &&
+          resolvedTranslationSignatureForPermanentCandidate(options.storedSelection || null, cleanText(left?.id)) ===
+            currentTranslationSignature
+            ? 1
+            : 0;
+        const rightSignature =
+          currentTranslationSignature &&
+          resolvedTranslationSignatureForPermanentCandidate(options.storedSelection || null, cleanText(right?.id)) ===
+            currentTranslationSignature
+            ? 1
+            : 0;
+        if (leftSignature !== rightSignature) return rightSignature - leftSignature;
+        const leftSaved = cleanText(left?.savedPermanentNoteId) ? 1 : 0;
+        const rightSaved = cleanText(right?.savedPermanentNoteId) ? 1 : 0;
+        if (leftSaved !== rightSaved) return rightSaved - leftSaved;
+        const leftUpdated = Date.parse(cleanText(left?.updated_at || left?.updatedAt || left?.created_at || left?.createdAt)) || 0;
+        const rightUpdated = Date.parse(cleanText(right?.updated_at || right?.updatedAt || right?.created_at || right?.createdAt)) || 0;
+        return rightUpdated - leftUpdated;
+      });
+    if (cleanText(matchingCandidates[0]?.id)) return cleanText(matchingCandidates[0].id);
+  }
   if (!fallbackToFirst) return "";
   return cleanText(selectedPermanentCandidate(workspace, "")?.id);
 }
@@ -506,6 +532,7 @@ export function resolveSelectedPaperWorkspaceState(
     options.preferredPermanentCandidateId || "",
     {
       selectedPaperCandidateId: selectedCandidateId,
+      storedSelection,
       fallbackToFirst: false
     }
   );

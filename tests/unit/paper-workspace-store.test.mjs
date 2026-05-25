@@ -249,6 +249,57 @@ test("savePaperPermanentNote writes a confirmed permanent note and updates works
   assert.match(markdown, /originality_status: pass/);
 });
 
+test("createPaperPermanentCandidate clears saved markers when refreshing an already-saved path", async () => {
+  const vaultPath = await makeTempVault();
+  await createPaperWorkspace(vaultPath, { paperId: "paper_refresh_saved_path" });
+  const draft = await addNotebookLmDraft(vaultPath, "paper_refresh_saved_path", {
+    notes: [
+      {
+        id: "note_1",
+        title: "Notebook note",
+        content: "The paper says retrieval practice improved delayed recall.",
+        locator: "p. 12"
+      }
+    ]
+  });
+  const candidateId = draft.candidates[0].id;
+  await savePaperTranslation(vaultPath, "paper_refresh_saved_path", {
+    candidateId,
+    paraphraseText: "My takeaway is that effortful recall can make an idea easier to access later.",
+    relationToQuestion: "Supports the reading-to-original-note workflow.",
+    boundaryOrCondition: "This may depend on the study task."
+  });
+  const created = await createPaperPermanentCandidate(vaultPath, "paper_refresh_saved_path", { candidateId });
+  const saved = await savePaperPermanentNote(vaultPath, "paper_refresh_saved_path", {
+    permanentCandidateId: created.permanentCandidate.id,
+    confirmAuthorship: true,
+    status: "active"
+  });
+
+  await savePaperTranslation(vaultPath, "paper_refresh_saved_path", {
+    candidateId,
+    paraphraseText: "My takeaway is that effortful recall can make the idea easier to access later.",
+    relationToQuestion: "Updated relation after saving the first permanent note.",
+    boundaryOrCondition: "This may still depend on the study task."
+  });
+  const refreshed = await createPaperPermanentCandidate(vaultPath, "paper_refresh_saved_path", { candidateId });
+
+  assert.notEqual(refreshed.permanentCandidate.id, created.permanentCandidate.id);
+  assert.equal(refreshed.workspace.permanentCandidates.length, 2);
+  assert.equal(refreshed.workspace.permanentCandidates[0].savedPermanentNoteId, saved.permanentNote.id);
+  assert.equal(refreshed.workspace.permanentCandidates[1].savedPermanentNoteId || "", "");
+  assert.equal(refreshed.workspace.permanentCandidates[1].savedAt || "", "");
+
+  const reSaved = await savePaperPermanentNote(vaultPath, "paper_refresh_saved_path", {
+    permanentCandidateId: refreshed.permanentCandidate.id,
+    confirmAuthorship: true,
+    status: "active"
+  });
+
+  assert.notEqual(reSaved.permanentNote.id, saved.permanentNote.id);
+  assert.equal(reSaved.workspace.permanentCandidates[1].savedPermanentNoteId, reSaved.permanentNote.id);
+});
+
 test("savePaperPermanentNote keeps warning candidates as drafts", async () => {
   const vaultPath = await makeTempVault();
   await createPaperWorkspace(vaultPath, { paperId: "paper_warning_save" });
