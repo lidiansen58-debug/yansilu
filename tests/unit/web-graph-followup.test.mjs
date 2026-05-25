@@ -144,7 +144,8 @@ test("graph next action keeps sparse multi-note slices in relation-building mode
   assert.equal(nextAction.noteId, "pn_sparse_1");
   assert.equal(nextAction.actionLabel, "先补关键关系");
   assert.match(nextAction.note, /显式关系/);
-  assert.match(nextAction.note, /写作中心/);
+  assert.match(nextAction.note, /下一步写作/);
+  assert.doesNotMatch(nextAction.note, /写作中心/);
 });
 
 test("graph next action prefers isolated-note followup before entering the writing center", () => {
