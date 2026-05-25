@@ -6272,6 +6272,19 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
             }, 4000);
 
+            await waitFor(async () => {
+              assert.notEqual(await page.locator("#btnStartDraftKickoff").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                /Kickoff written before refreshing stale Step 4\.|Local draft kickoff wording that should survive refresh\./
+              );
+            }, 4000);
+
             await page.locator(".paper-candidate").nth(1).click();
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();
@@ -6296,6 +6309,15 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(draftBriefText || ""), /Step 4: 已生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /先刷新 Step 4/);
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                /Kickoff written before refreshing stale Step 4\.|Local draft kickoff wording that should survive refresh\./
+              );
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);

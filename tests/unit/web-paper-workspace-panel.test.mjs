@@ -317,6 +317,80 @@ test("renderPaperWorkspacePage keeps the previous kickoff snapshot visible after
   assert.ok(html.includes("刷新后保留了上一版 kickoff"));
 });
 
+test("renderPaperWorkspacePage keeps kickoff snapshot visible when step four is stale", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_note",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Updated wording.",
+        relationToQuestion: "Updated relation.",
+        boundaryOrCondition: "Updated boundary."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "My claim.",
+        rationale: "My reason.",
+        originality_status: "warning",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.selectedPermanentCandidateId = "pn_1";
+  state.form.paraphraseText = "Updated wording.";
+  state.form.relationToQuestion = "Updated relation.";
+  state.form.boundaryOrCondition = "Updated boundary.";
+  state.workspaceSelection = {
+    selectedCandidateId: "pwc_1",
+    selectedPermanentCandidateId: "pn_1",
+    translationSignatureByPermanentCandidate: {
+      pn_1: "old_signature"
+    }
+  };
+  state.draftKickoffState = {
+    content: "# Draft brief: Candidate One\n\n## Relation to question\nUpdated relation.",
+    translationSignature: "new_signature",
+    currentTranslationSignature: "new_signature",
+    hasContent: true,
+    isStale: false,
+    previousSnapshot: {
+      content: "Kickoff written before refreshing stale Step 4.",
+      previousSignature: "old_signature",
+      replacementSignature: "new_signature"
+    },
+    action: {
+      enabled: false,
+      key: "refresh_permanent_candidate",
+      label: "先刷新 Step 4"
+    }
+  };
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /id="btnStartDraftKickoff"[^>]*disabled>先刷新 Step 4</);
+  assert.match(html, /id="draftKickoffTextarea"/);
+  assert.match(html, /id="draftKickoffPreviousTextarea"/);
+  assert.ok(html.includes("Kickoff written before refreshing stale Step 4."));
+});
+
 test("renderPaperWorkspacePage surfaces saved-note handoff details in the draft brief card", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {
