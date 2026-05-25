@@ -6742,6 +6742,11 @@ function renderWritingStatusStrip() {
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : projectEntry.hint;
+  const scaffoldNote = hasScaffold
+    ? "章节、证据、缺口已返回"
+    : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
+      ? `先${projectEntry.actionLabel}，再生成草稿骨架`
+      : "创建项目后生成";
   const strongModelReady = isWritingStrongModelReady({
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
@@ -6760,7 +6765,7 @@ function renderWritingStatusStrip() {
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
-    renderWritingStatusCard("草稿骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("草稿骨架", hasScaffold ? "可预览" : "待生成", scaffoldNote, hasScaffold ? "good" : ""),
     renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
     renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
   ].join("");
@@ -6848,10 +6853,15 @@ function renderWritingFlowSteps({
 function renderWritingScaffoldPreview() {
   const el = $("writingScaffoldPreview");
   if (!el) return;
+  const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前写作篮")) || null;
   if (!writingState.scaffold) {
     el.innerHTML = `
       <h4>草稿骨架预览</h4>
-      <div class="writing-empty">先选材料并创建项目，再生成草稿骨架；这里会显示章节、证据和开放问题。</div>
+      <div class="writing-empty">${
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，再回来查看草稿骨架预览。`
+          : "先选材料并创建项目，再生成草稿骨架；这里会显示章节、证据和开放问题。"
+      }</div>
     `;
     return;
   }
