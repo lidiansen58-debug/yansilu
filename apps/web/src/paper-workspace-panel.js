@@ -1,4 +1,4 @@
-import {
+﻿import {
   canCreatePermanentCandidate,
   permanentCandidateActionState,
   canSavePermanentNote,
@@ -148,10 +148,17 @@ function renderPermanentCandidate(candidate = null, options = {}) {
   const hasOtherPermanentCandidates = Boolean(options.hasOtherPermanentCandidates);
   const hasCurrentCandidate = Boolean(options.hasCurrentCandidate);
   const canCreateCurrentPermanentCandidate = Boolean(options.canCreateCurrentPermanentCandidate);
+  const currentPermanentCandidateActionLabel = String(options.currentPermanentCandidateActionLabel || "").trim();
   const isAlignedToSelectedCandidate = Boolean(options.isAlignedToSelectedCandidate);
   const hasUnsavedAlignedTranslationChanges = Boolean(options.hasUnsavedAlignedTranslationChanges);
   const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
   if (!candidate) {
+    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先补 relation / boundary") {
+      return `<div class="paper-muted-box">这条候选的转述已经保存，但 relation 和 boundary 还不足以支撑 Step 4。先补全它们，再生成永久笔记候选或继续写 draft。</div>`;
+    }
+    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先更新转述") {
+      return `<div class="paper-muted-box">当前 Step 3 还有未保存改动。先更新这条转述，再生成对应的永久笔记候选。</div>`;
+    }
     if (hasCurrentCandidate && hasOtherPermanentCandidates && canCreateCurrentPermanentCandidate) {
       return `<div class="paper-muted-box">\u5f53\u524d\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u5c31\u7eea\uff0c\u4f46\u8fd8\u6ca1\u6709\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u65b9\u5217\u8868\u91cc\u7684\u6761\u76ee\u5c5e\u4e8e\u5176\u4ed6\u5019\u9009\uff0c\u9700\u8981\u7684\u8bdd\u53ef\u4ee5\u5148\u56de\u770b\uff0c\u4f46\u5f53\u524d\u8def\u5f84\u7684\u4e0b\u4e00\u6b65\u662f\u70b9\u51fb\u201c\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u201d\u3002</div>`;
     }
@@ -342,9 +349,10 @@ export function renderPaperWorkspacePage(state = {}) {
           ${renderPermanentCandidateList(workspace, selectedPermanent?.id || "")}
           ${renderPermanentCandidate(selectedPermanent, {
             hasOtherPermanentCandidates: Array.isArray(workspace?.permanentCandidates) && workspace.permanentCandidates.length > 0,
-              hasCurrentCandidate: Boolean(selectedCandidate?.id),
-              canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
-              isAlignedToSelectedCandidate: hasAlignedPermanentCandidate,
+            hasCurrentCandidate: Boolean(selectedCandidate?.id),
+            canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
+            currentPermanentCandidateActionLabel: permanentCandidateAction.label,
+            isAlignedToSelectedCandidate: hasAlignedPermanentCandidate,
             hasUnsavedAlignedTranslationChanges: hasAlignedPermanentCandidate && selectedDraft.hasLocalChanges,
             hasStaleAlignedPermanentCandidate:
               hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"

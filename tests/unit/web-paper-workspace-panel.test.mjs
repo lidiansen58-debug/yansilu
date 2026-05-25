@@ -190,6 +190,7 @@ test("renderPaperWorkspacePage keeps the next step blocked until saved translati
   assert.ok(html.includes("relation 和 boundary 还不足以支撑下一步"));
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先补 relation \/ boundary</);
+  assert.ok(html.includes("relation 和 boundary 还不足以支撑 Step 4"));
 });
 
 test("renderPaperWorkspacePage disables permanent candidate creation while saved translation has unsaved edits", () => {
@@ -261,9 +262,9 @@ test("renderPaperWorkspacePage shows an empty-state hint before any permanent ca
 
   assert.ok(html.includes("还没有永久笔记候选"));
   assert.ok(html.includes("先在 Step 3 保存转述并生成候选"));
-  assert.ok(html.includes("保存转述后，可以为当前候选生成永久笔记候选"));
-  assert.ok(html.includes("候选只是一份草稿骨架"));
-  assert.ok(html.includes("确认 authorship 之后才会真正保存为永久笔记"));
+  assert.ok(html.includes("relation 和 boundary 还不足以支撑 Step 4"));
+  assert.ok(html.includes("先补全它们，再生成永久笔记候选或继续写 draft"));
+  assert.doesNotMatch(html, /保存转述后，可以为当前候选生成永久笔记候选/);
 });
 
 test("renderPaperWorkspacePage explains when an unsaved local translation draft has been restored", () => {
