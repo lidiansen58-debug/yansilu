@@ -532,3 +532,28 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
   }
   return "loadedWorkspace";
 }
+
+export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceState = null) {
+  if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
+    return "translationNeedsFreshPermanentCandidate";
+  }
+  if (candidateState?.hasLocalChanges && cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "translationNeedsResaveBeforePermanentNote";
+  }
+  if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
+    return "translationNeedsResaveBeforePermanentCandidate";
+  }
+  if (candidateState?.hasLocalChanges) {
+    return "translationNeedsSaveBeforePermanentCandidate";
+  }
+  if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "restoredPermanentCandidateForSelectedPaper";
+  }
+  if (candidateState?.hasSavedTranslation) {
+    return "savedTranslationReadyForPermanentCandidate";
+  }
+  if (cleanText(candidateState?.selectedCandidateId)) {
+    return "selectedCandidate";
+  }
+  return "loadedWorkspace";
+}

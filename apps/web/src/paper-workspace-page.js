@@ -18,6 +18,7 @@ import {
   permanentCandidateActionState,
   permanentNoteActionState,
   permanentNoteContinuityState,
+  paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
@@ -48,6 +49,8 @@ const STATUS = {
   addedNotebookDraft: "NotebookLM \u5185\u5bb9\u5df2\u8f6c\u6210 literature \u5019\u9009",
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
+  translationNeedsSaveBeforePermanentCandidate:
+    "\u5148\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
   translationNeedsResaveBeforePermanentCandidate:
     "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
   translationNeedsFreshPermanentCandidate:
@@ -75,10 +78,26 @@ const STATUS = {
 const state = createInitialPaperWorkspaceState();
 state.workspaceSelection = null;
 const root = document.getElementById("paperWorkspaceApp");
+const CONTINUITY_STATUS_FIELD_IDS = new Set([
+  "translationParaphraseInput",
+  "translationRelationInput",
+  "translationBoundaryInput",
+  "confirmAuthorshipInput",
+  "permanentStatusInput"
+]);
 
 function setStatus(text, tone = "") {
   state.statusText = text;
   state.statusTone = tone;
+  updateStatusStrip();
+}
+
+function updateStatusStrip() {
+  const statusNode = root?.querySelector?.(".paper-status");
+  if (!statusNode) return;
+  const cleanTone = String(state.statusTone || "").trim();
+  statusNode.className = cleanTone ? `paper-status paper-status-${cleanTone}` : "paper-status";
+  statusNode.textContent = String(state.statusText || "准备就绪");
 }
 
 function setResult(result) {
@@ -379,9 +398,53 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
   };
 }
 
+function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const workspaceState = {
+    selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
+    permanentNoteContinuityReason: permanentNoteContinuityState(
+      state.workspace,
+      storedSelection,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    ).reason
+  };
+  const statusKey = paperWorkspaceLiveStatusKey(
+    {
+      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
+      hasSavedTranslation: draft.hasSavedTranslation,
+      hasLocalChanges: draft.hasLocalChanges
+    },
+    workspaceState
+  );
+  return {
+    key: statusKey,
+    tone: statusKey.startsWith("translationNeeds") ? "warn" : statusKey === "selectedCandidate" ? "" : "ok"
+  };
+}
+
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   const resumeStatus = currentSelectionResumeStatus(storedSelection);
   setStatus(STATUS[resumeStatus.key] || STATUS.loadedWorkspace, resumeStatus.tone);
+}
+
+function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  if (!currentLoadedWorkspacePaperId()) return;
+  const liveStatus = currentSelectionLiveStatus(storedSelection);
+  setStatus(STATUS[liveStatus.key] || STATUS.loadedWorkspace, liveStatus.tone);
+}
+
+function shouldRefreshContinuityStatus(target) {
+  return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
 }
 
 function hydrateFormFromWorkspace(workspace) {
@@ -663,11 +726,14 @@ async function handleSavePermanentNote() {
   }, STATUS.savedPermanentNote);
 }
 
-root?.addEventListener("input", () => {
+root?.addEventListener("input", (event) => {
   syncFormFromDom();
   persistTranslationDraft();
   persistWorkspaceSelection();
   updateDynamicControls();
+  if (shouldRefreshContinuityStatus(event.target)) {
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+  }
 });
 
 root?.addEventListener("change", (event) => {
@@ -681,6 +747,9 @@ root?.addEventListener("change", (event) => {
     persistWorkspaceSelection();
   }
   updateDynamicControls();
+  if (shouldRefreshContinuityStatus(event.target)) {
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+  }
 });
 
 root?.addEventListener("click", (event) => {

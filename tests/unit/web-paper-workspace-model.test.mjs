@@ -15,6 +15,7 @@ import {
   nextSelectedPermanentCandidateId,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
+  paperWorkspaceLiveStatusKey,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
   permanentNoteActionState,
@@ -951,6 +952,65 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
   );
 
   assert.equal(paperWorkspaceResumeStatusKey(null, null), "loadedWorkspace");
+});
+
+test("paperWorkspaceLiveStatusKey prefers the next required action while editing", () => {
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: false,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "translationNeedsSaveBeforePermanentCandidate"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "translationNeedsResaveBeforePermanentCandidate"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: "pn_1"
+      }
+    ),
+    "translationNeedsResaveBeforePermanentNote"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "stale_translation_signature"
+      }
+    ),
+    "translationNeedsFreshPermanentCandidate"
+  );
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {

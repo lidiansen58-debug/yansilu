@@ -5555,6 +5555,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 
     await page.fill("#translationRelationInput", "This relation should survive a failed save.");
     await page.fill("#translationBoundaryInput", "This boundary should survive a failed save.");
+    await waitFor(async () => {
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /先保存这条转述，再进入永久笔记候选/);
+    }, 4000);
     await page.click("#btnSaveTranslation");
     await waitFor(async () => {
       const text = await page.locator(".paper-result-json").textContent();
@@ -5972,6 +5976,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await waitFor(async () => {
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /先重新保存这条转述，再更新或确认永久笔记/);
             }, 4000);
 
             await openPaperWorkspace(page, webBase);
