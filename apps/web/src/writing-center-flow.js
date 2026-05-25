@@ -574,6 +574,11 @@ export function describeWritingStrongModelStatus({
   projectPreflightChecksLength = 0,
   strongModelReady = false
 } = {}) {
+  const cleanReadinessLevel = String(readinessLevel || "").trim();
+  const cleanProjectEntryActionLabel = String(projectEntryActionLabel || "").trim();
+  const cleanProjectEntryProjectId = String(projectEntryProjectId || "").trim();
+  const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+  const cleanReadinessHint = String(readinessHint || "").trim();
   if (relationCountsErrored) {
     return {
       status: "读取失败",
@@ -588,29 +593,53 @@ export function describeWritingStrongModelStatus({
       buttonLabel: "正在读取关系"
     };
   }
-  if (!hasProject && String(projectEntryProjectId || "").trim() && String(projectEntryActionLabel || "").trim() && String(readinessLevel || "").trim() === "strong_model_ready") {
+  if (!hasProject && cleanProjectEntryProjectId && cleanProjectEntryActionLabel && cleanReadinessLevel === "strong_model_ready") {
     return {
-      status: `先${String(projectEntryActionLabel || "").trim()}`,
-      hint: `当前材料已经到强模型分析前的就绪阶段；先${String(projectEntryActionLabel || "").trim()}，再继续后续分析。`,
-      buttonLabel: `先${String(projectEntryActionLabel || "").trim()}`
+      status: `先${cleanProjectEntryActionLabel}`,
+      hint: `当前材料已经到强模型分析前的就绪阶段；先${cleanProjectEntryActionLabel}，再继续后续分析。`,
+      buttonLabel: `先${cleanProjectEntryActionLabel}`
     };
   }
-  if (!hasProject && String(readinessLevel || "").trim() === "strong_model_ready") {
+  if (!hasProject && (cleanReadinessLevel === "project_ready" || cleanReadinessLevel === "strong_model_ready")) {
     return {
       status: "先创建项目",
-      hint: "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。",
+      hint:
+        cleanReadinessLevel === "strong_model_ready"
+          ? "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
+          : "当前材料已经到创建项目阶段；先创建项目，再继续准备强模型分析。",
       buttonLabel: "先创建项目"
     };
   }
-  if (hasProject && String(projectPreflightLevel || "").trim() !== "ready") {
-    if (String(projectPreflightLevel || "").trim() === "needs_clarification") {
+  if (!hasProject && cleanReadinessLevel === "basket_ready") {
+    return {
+      status: "先补关系/边界",
+      hint: "还没到强模型分析时机；先补边界或关系，再继续准备项目和强模型分析。",
+      buttonLabel: "先补关系/边界"
+    };
+  }
+  if (!hasProject && cleanReadinessLevel === "needs_distillation") {
+    return {
+      status: "先确认判断",
+      hint: "先把 thesis 和三句话确认下来，再继续准备项目和强模型分析。",
+      buttonLabel: "先确认判断/三句话"
+    };
+  }
+  if (!hasProject && (cleanReadinessLevel === "blocked_authorship" || cleanReadinessLevel === "blocked_draft")) {
+    return {
+      status: "先完成作者/原创确认",
+      hint: "先让材料完成作者/原创确认，再继续准备项目和强模型分析。",
+      buttonLabel: "先完成作者/原创确认"
+    };
+  }
+  if (hasProject && cleanProjectPreflightLevel !== "ready") {
+    if (cleanProjectPreflightLevel === "needs_clarification") {
       return {
         status: "先澄清项目问题",
         hint: "先澄清项目关键问题，再做强模型分析。",
         buttonLabel: "先澄清项目问题"
       };
     }
-    if (String(projectPreflightLevel || "").trim() === "has_gaps") {
+    if (cleanProjectPreflightLevel === "has_gaps") {
       return {
         status: "先补项目缺口",
         hint: `先补齐项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
@@ -618,9 +647,9 @@ export function describeWritingStrongModelStatus({
       };
     }
     return {
-      status: "先补条件",
-      hint: `先处理项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
-      buttonLabel: "先补条件"
+      status: "先检查项目条件",
+      hint: `先确认项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项条件，再做强模型分析。`,
+      buttonLabel: "先检查项目条件"
     };
   }
   if (strongModelReady) {
@@ -630,17 +659,10 @@ export function describeWritingStrongModelStatus({
       buttonLabel: "准备强模型分析"
     };
   }
-  if (String(readinessLevel || "").trim() === "project_ready") {
-    return {
-      status: "先补条件",
-      hint: "先补更多主题线索，再做强模型分析。",
-      buttonLabel: "先补条件"
-    };
-  }
   return {
-    status: "先补条件",
-    hint: String(readinessHint || "").trim(),
-    buttonLabel: "先补条件"
+    status: "先补写作材料",
+    hint: cleanReadinessHint || "先补齐写作材料，再继续准备项目和强模型分析。",
+    buttonLabel: "先补写作材料"
   };
 }
 

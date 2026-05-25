@@ -324,6 +324,57 @@ test("writing strong-model status asks to create a project first when material i
   assert.match(strongModel.hint, /强模型分析前|先创建项目/);
 });
 
+test("writing strong-model status also creates a project first once material reaches project-ready", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "project_ready",
+    readinessHint: "判断、边界、关系和主题线索已经够用，可以先创建项目。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先创建项目");
+  assert.equal(strongModel.buttonLabel, "先创建项目");
+  assert.match(strongModel.hint, /创建项目阶段|先创建项目/);
+});
+
+test("writing strong-model status spells out distillation before project creation", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "needs_distillation",
+    readinessHint: "先把 thesis 和三句话确认下来。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先确认判断");
+  assert.equal(strongModel.buttonLabel, "先确认判断/三句话");
+  assert.match(strongModel.hint, /thesis|三句话/);
+});
+
+test("writing strong-model status blocks on authorship confirmation before project creation", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "blocked_authorship",
+    readinessHint: "先完成作者/原创确认。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先完成作者/原创确认");
+  assert.equal(strongModel.buttonLabel, "先完成作者/原创确认");
+  assert.match(strongModel.hint, /作者\/原创确认/);
+});
+
 test("writing strong-model status falls back to project-preflight gaps after a project exists", () => {
   const strongModel = describeWritingStrongModelStatus({
     hasProject: true,
