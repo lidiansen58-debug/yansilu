@@ -6830,6 +6830,43 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
               assert.doesNotMatch(String(copiedText || ""), new RegExp(`Saved permanent note: ${refreshedSavedPermanentNoteId}`));
             }, 4000);
+
+            await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+              assert.equal(await page.locator("#draftKickoffTextarea").count(), 0);
+            }, 4000);
+
+            await page
+              .locator("[data-paper-permanent-candidate-id]", {
+                hasText: secondSavedPermanentNoteId
+              })
+              .click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-saved-note]").textContent()) || ""),
+                new RegExp(`Saved note: ${secondSavedPermanentNoteId}`)
+              );
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+            }, 4000);
+
+            await page.click("#btnCopyDraftBrief");
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已复制 draft brief/);
+              const copiedText = await page.evaluate(
+                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+              );
+              assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
+              assert.doesNotMatch(String(copiedText || ""), new RegExp(`Saved permanent note: ${refreshedSavedPermanentNoteId}`));
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
