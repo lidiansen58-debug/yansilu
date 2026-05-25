@@ -36,7 +36,9 @@ jobs:
               - 'scripts/desktop-*.mjs'
 
   preflight:
-    if: github.event_name == 'pull_request'
+    needs:
+      - detect-desktop-surface
+    if: github.event_name == 'pull_request' && needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
