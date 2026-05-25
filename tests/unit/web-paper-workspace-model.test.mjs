@@ -33,6 +33,8 @@ import {
   resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
+  resolvePermanentCandidateRuntimeState,
+  resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
@@ -814,6 +816,156 @@ test("resolveDraftKickoffRuntimeState combines kickoff continuity, saved-path ac
     key: "resume_local_draft",
     label: "继续本地 draft"
   });
+});
+
+test("resolvePermanentCandidateRuntimeState reports the real blocked next step for step four entry", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ]
+  };
+
+  const supportMissingState = resolvePermanentCandidateRuntimeState(
+    workspace,
+    null,
+    "pwc_1",
+    "",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "",
+      boundaryOrCondition: "Only when the sample is comparable."
+    }
+  );
+  assert.deepEqual(supportMissingState.action, {
+    enabled: false,
+    label: "先补 relation / boundary"
+  });
+  assert.equal(supportMissingState.blockedStatusKey, "savedTranslationNeedsDraftSupport");
+  assert.equal(supportMissingState.blockedStatusTone, "warn");
+
+  const unsavedDraftState = resolvePermanentCandidateRuntimeState(
+    {
+      candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+      translations: []
+    },
+    null,
+    "pwc_1",
+    "",
+    {
+      paraphraseText: "Unsaved wording.",
+      relationToQuestion: "Why this matters.",
+      boundaryOrCondition: "Only when the sample is comparable."
+    }
+  );
+  assert.deepEqual(unsavedDraftState.action, {
+    enabled: false,
+    label: "先保存转述"
+  });
+  assert.equal(unsavedDraftState.blockedStatusKey, "translationNeedsSaveBeforePermanentCandidate");
+  assert.equal(unsavedDraftState.blockedStatusTone, "warn");
+});
+
+test("resolvePermanentNoteRuntimeState reports stale and resave blockers for step four save", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Why this matters.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+
+  const staleSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: "sig_old"
+    }
+  };
+  const staleState = resolvePermanentNoteRuntimeState(
+    workspace,
+    staleSelection,
+    "pn_1",
+    "pwc_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Why this matters.",
+      boundaryOrCondition: "Only when the sample is comparable."
+    }
+  );
+  assert.deepEqual(staleState.action, {
+    enabled: false,
+    label: "先重新生成永久笔记候选"
+  });
+  assert.equal(staleState.blockedStatusKey, "translationNeedsFreshPermanentCandidate");
+  assert.equal(staleState.blockedStatusTone, "warn");
+
+  const unsavedChangeState = resolvePermanentNoteRuntimeState(
+    workspace,
+    {
+      translationSignatureByPermanentCandidate: {
+        pn_1: translationContinuitySignature(workspace, "pwc_1", {
+          paraphraseText: "Saved wording.",
+          relationToQuestion: "Why this matters.",
+          boundaryOrCondition: "Only when the sample is comparable."
+        })
+      }
+    },
+    "pn_1",
+    "pwc_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Updated relation.",
+      boundaryOrCondition: "Only when the sample is comparable."
+    }
+  );
+  assert.deepEqual(unsavedChangeState.action, {
+    enabled: false,
+    label: "确认保存为永久笔记"
+  });
+  assert.equal(unsavedChangeState.blockedStatusKey, "translationNeedsResaveBeforePermanentNote");
+  assert.equal(unsavedChangeState.blockedStatusTone, "warn");
+
+  const savedState = resolvePermanentNoteRuntimeState(
+    {
+      ...workspace,
+      permanentCandidates: [
+        { id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One", savedPermanentNoteId: "note_1" }
+      ]
+    },
+    {
+      translationSignatureByPermanentCandidate: {
+        pn_1: translationContinuitySignature(workspace, "pwc_1", {
+          paraphraseText: "Saved wording.",
+          relationToQuestion: "Why this matters.",
+          boundaryOrCondition: "Only when the sample is comparable."
+        })
+      }
+    },
+    "pn_1",
+    "pwc_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Why this matters.",
+      boundaryOrCondition: "Only when the sample is comparable."
+    }
+  );
+  assert.deepEqual(savedState.action, {
+    enabled: false,
+    label: "已保存为永久笔记"
+  });
+  assert.equal(savedState.blockedStatusKey, "savedPermanentNote");
+  assert.equal(savedState.blockedStatusTone, "ok");
 });
 
 test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its translation signature still matches", () => {

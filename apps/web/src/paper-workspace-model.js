@@ -1059,6 +1059,48 @@ export function resolveDraftBriefState(
   };
 }
 
+export function resolvePermanentCandidateRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuityReason = permanentNoteContinuityState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  ).reason;
+  const candidateState = {
+    selectedCandidateId: cleanText(candidateId),
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
+  };
+  const workspaceState = {
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    permanentNoteContinuityReason: continuityReason
+  };
+  const action = permanentCandidateActionState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    draftInput
+  );
+
+  return {
+    draft,
+    continuityReason,
+    action,
+    blockedStatusKey: action.enabled ? "" : paperWorkspaceLiveStatusKey(candidateState, workspaceState),
+    blockedStatusTone: action.enabled ? "" : "warn"
+  };
+}
+
 export function resolveDraftKickoffRuntimeState(
   workspace = null,
   workspaceSelection = null,
@@ -1096,5 +1138,47 @@ export function resolveDraftKickoffRuntimeState(
       hasContent: kickoffState.hasContent,
       isStale: kickoffState.isStale
     })
+  };
+}
+
+export function resolvePermanentNoteRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    workspaceSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  const action = permanentNoteActionState(
+    workspace,
+    workspaceSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  );
+
+  return {
+    draft,
+    continuityReason: continuity.reason,
+    action,
+    blockedStatusKey: continuity.allowed
+      ? ""
+      : continuity.reason === "saved_permanent_note"
+      ? "savedPermanentNote"
+      : continuity.reason === "stale_translation_signature"
+      ? "translationNeedsFreshPermanentCandidate"
+      : "translationNeedsResaveBeforePermanentNote",
+    blockedStatusTone: continuity.allowed
+      ? ""
+      : continuity.reason === "saved_permanent_note"
+      ? "ok"
+      : "warn"
   };
 }

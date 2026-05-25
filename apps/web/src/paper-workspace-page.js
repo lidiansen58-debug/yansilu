@@ -10,8 +10,6 @@ import {
 import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusMessage,
-  canCreatePermanentCandidate,
-  canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
@@ -20,8 +18,6 @@ import {
   draftKickoffStatusMessage,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
-  permanentCandidateActionState,
-  permanentNoteActionState,
   permanentNoteContinuityState,
   paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
@@ -29,6 +25,8 @@ import {
   resolveAdoptedDraftKickoff,
   resolveDraftBriefState,
   resolveDraftKickoffRuntimeState,
+  resolvePermanentCandidateRuntimeState,
+  resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -705,42 +703,22 @@ function updateDynamicControls() {
   }
   const permanentCandidateButton = document.getElementById("btnCreatePermanentCandidate");
   if (permanentCandidateButton) {
-    const permanentCandidateAction = permanentCandidateActionState(
-      state.workspace,
-      state.workspaceSelection,
-      state.selectedCandidateId,
-      state.selectedPermanentCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    );
-    permanentCandidateButton.disabled = !permanentCandidateAction.enabled;
-    permanentCandidateButton.textContent = permanentCandidateAction.label;
+    const permanentCandidateState = currentPermanentCandidateState();
+    permanentCandidateButton.disabled = !permanentCandidateState.action.enabled;
+    permanentCandidateButton.textContent = permanentCandidateState.action.label;
   }
   const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
   const confirmAuthorshipInput = document.getElementById("confirmAuthorshipInput");
   const permanentStatusInput = document.getElementById("permanentStatusInput");
   if (savePermanentNoteButton) {
-    const permanentNoteAction = permanentNoteActionState(
-      state.workspace,
-      state.workspaceSelection,
-      state.selectedPermanentCandidateId,
-      state.selectedCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    );
-    savePermanentNoteButton.disabled = !permanentNoteAction.enabled;
-    savePermanentNoteButton.textContent = permanentNoteAction.label;
+    const permanentNoteState = currentPermanentNoteState();
+    savePermanentNoteButton.disabled = !permanentNoteState.action.enabled;
+    savePermanentNoteButton.textContent = permanentNoteState.action.label;
     if (confirmAuthorshipInput) {
-      confirmAuthorshipInput.disabled = !permanentNoteAction.enabled;
+      confirmAuthorshipInput.disabled = !permanentNoteState.action.enabled;
     }
     if (permanentStatusInput) {
-      permanentStatusInput.disabled = !permanentNoteAction.enabled;
+      permanentStatusInput.disabled = !permanentNoteState.action.enabled;
     }
   }
   const copyDraftBriefButton = document.getElementById("btnCopyDraftBrief");
@@ -802,6 +780,34 @@ function currentDraftKickoffState() {
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
     state.form,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  );
+}
+
+function currentPermanentCandidateState() {
+  return resolvePermanentCandidateRuntimeState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  );
+}
+
+function currentPermanentNoteState() {
+  return resolvePermanentNoteRuntimeState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedPermanentCandidateId,
+    state.selectedCandidateId,
     {
       paraphraseText: state.form.paraphraseText,
       relationToQuestion: state.form.relationToQuestion,
@@ -1004,14 +1010,14 @@ async function handleSaveTranslation() {
 }
 
 async function handleCreatePermanentCandidate() {
-  if (
-    !canCreatePermanentCandidate(state.workspace, state.selectedCandidateId, {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    })
-  ) {
-    setStatus(STATUS.translationNeedsResaveBeforePermanentCandidate, "warn");
+  const permanentCandidateState = currentPermanentCandidateState();
+  if (!permanentCandidateState.action.enabled) {
+    if (permanentCandidateState.blockedStatusKey) {
+      setStatus(
+        STATUS[permanentCandidateState.blockedStatusKey] || STATUS.translationNeedsResaveBeforePermanentCandidate,
+        permanentCandidateState.blockedStatusTone || "warn"
+      );
+    }
     render();
     return;
   }
@@ -1031,26 +1037,14 @@ async function handleCreatePermanentCandidate() {
 async function handleSavePermanentNote() {
   syncFormFromDom();
   persistWorkspaceSelection();
-  const continuityState = permanentNoteContinuityState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedPermanentCandidateId,
-    state.selectedCandidateId,
-    {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
+  const permanentNoteState = currentPermanentNoteState();
+  if (!permanentNoteState.action.enabled) {
+    if (permanentNoteState.blockedStatusKey) {
+      setStatus(
+        STATUS[permanentNoteState.blockedStatusKey],
+        permanentNoteState.blockedStatusTone || "warn"
+      );
     }
-  );
-  if (
-    !continuityState.allowed
-  ) {
-    setStatus(
-      continuityState.reason === "stale_translation_signature"
-        ? STATUS.translationNeedsFreshPermanentCandidate
-        : STATUS.translationNeedsResaveBeforePermanentNote,
-      "warn"
-    );
     render();
     return;
   }
