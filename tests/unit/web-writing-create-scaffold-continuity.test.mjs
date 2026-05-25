@@ -1,25 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+
 import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 
-test("writing scaffold button stays enabled when the current basket already maps to a projected continuity target", async () => {
+test("writing scaffold button stays continuity-aware while respecting project preflight readiness", async () => {
   const source = await readPrototypeAppSource();
 
   assert.match(source, /const canContinueProjectedProject = Boolean\(projectEntry\?\.projectId\) && Boolean\(projectEntry\?\.actionLabel\);/);
-  assert.match(source, /createScaffoldButton\.disabled = !\(writingState\.project\?\.id \|\| canContinueProjectedProject\);/);
+  assert.match(source, /const canGenerateScaffold = Boolean\(writingState\.project\?\.id\) && projectPreflightSummary\.level === "ready";/);
+  assert.match(source, /createScaffoldButton\.disabled = !\(canGenerateScaffold \|\| canContinueProjectedProject\);/);
+  assert.match(source, /projectPreflightSummary\.level === "needs_clarification"/);
+  assert.match(source, /projectPreflightSummary\.level === "has_gaps"/);
 });
 
-test("writing scaffold handler reuses projected continuity before warning about a missing project", async () => {
+test("writing scaffold handler reuses projected continuity before warning about a missing or unready project", async () => {
   const source = await readPrototypeAppSource();
   const match = source.match(/\$\("btnWritingCreateScaffold"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
 
   assert.ok(match, "expected writing create-scaffold handler to exist");
   const fnBody = match[1];
 
+  assert.match(fnBody, /const projectPreflightSummary = describeWritingProjectPreflight\(writingState\.project\?\.preflight \|\| null\);/);
   assert.match(fnBody, /const continuation = !writingProjectId \? currentWritingContinuationEntry\("当前写作篮"\) : null;/);
   assert.match(fnBody, /if \(!writingProjectId && continuation\?\.projectId\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
-  assert.match(fnBody, /continuation\.action === "resume-scaffold"/);
-  assert.match(fnBody, /continuation\.action === "resume-project"/);
   assert.match(fnBody, /if \(!writingProjectId\) return setStatus\("请先创建项目", "warn"\);/);
+  assert.match(fnBody, /if \(projectPreflightSummary\.level !== "ready"\) \{/);
+  assert.match(fnBody, /setStatus\(projectPreflightSummary\.hint \|\| "先补项目条件，再生成草稿骨架。", "warn"\)/);
 });

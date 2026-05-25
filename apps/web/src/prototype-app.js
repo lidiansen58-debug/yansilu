@@ -7226,9 +7226,14 @@ function renderWritingPanel() {
   }
   if (createScaffoldButton) {
     const canContinueProjectedProject = Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
-    createScaffoldButton.disabled = !(writingState.project?.id || canContinueProjectedProject);
+    const canGenerateScaffold = Boolean(writingState.project?.id) && projectPreflightSummary.level === "ready";
+    createScaffoldButton.disabled = !(canGenerateScaffold || canContinueProjectedProject);
     createScaffoldButton.textContent = writingState.project?.id
-      ? "生成草稿骨架"
+      ? projectPreflightSummary.level === "needs_clarification"
+        ? "先澄清项目问题"
+        : projectPreflightSummary.level === "has_gaps"
+          ? "先补项目缺口"
+          : "生成草稿骨架"
       : projectEntry?.projectId && projectEntry?.actionLabel
         ? `先${projectEntry.actionLabel}`
         : "先创建项目";
@@ -10457,6 +10462,7 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
 
 $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
   if (!writingProjectId && continuation?.projectId) {
     try {
@@ -10480,6 +10486,9 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
     return;
   }
   if (!writingProjectId) return setStatus("请先创建项目", "warn");
+  if (projectPreflightSummary.level !== "ready") {
+    return setStatus(projectPreflightSummary.hint || "先补项目条件，再生成草稿骨架。", "warn");
+  }
   try {
     const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
     writingState.scaffold = result.item || null;
