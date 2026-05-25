@@ -672,8 +672,6 @@ test("renderPaperWorkspacePage falls back when permanent preview boundary or cit
   state.form.paraphraseText = "My own wording.";
   state.form.relationToQuestion = "This matters for the writing question.";
   state.form.boundaryOrCondition = "Only when the sample is comparable.";
-  state.form.relationToQuestion = "This matters for the writing question.";
-  state.form.boundaryOrCondition = "Only when the sample is comparable.";
 
   const html = renderPaperWorkspacePage(state);
 
@@ -700,7 +698,9 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
       {
         id: "ptr_1",
         candidateId: "pwc_1",
-        paraphraseText: "My own wording."
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
       }
     ],
     permanentCandidates: [
@@ -720,6 +720,8 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   state.selectedCandidateId = "pwc_1";
   state.selectedPermanentCandidateId = "pn_1";
   state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
 
   const html = renderPaperWorkspacePage(state);
 
@@ -731,6 +733,8 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   assert.ok(html.includes("已保存的永久笔记路径") || html.includes("永久笔记路径"));
   assert.ok(html.includes("回看 originality 风险") || html.includes("确认这份保存结果"));
   assert.ok(html.includes("这条候选已经连上自己的永久笔记路径"));
+  assert.match(html, /data-paper-draft-continuity="review_saved_permanent_note"/);
+  assert.ok(html.includes("继续写 draft 前，先回看 originality / authorship"));
   assert.match(html, /\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
@@ -840,6 +844,9 @@ test("renderPaperWorkspacePage warns in step three when the aligned permanent ca
 
   assert.match(html, /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*>重新生成永久笔记候选</);
+  assert.match(html, /data-paper-draft-continuity="refresh_permanent_candidate"/);
+  assert.ok(html.includes("Step 4 仍对应旧版转述"));
+  assert.ok(html.includes("先重新生成永久笔记候选，再继续写 draft"));
   assert.ok(html.includes("先重新生成永久笔记候选"));
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
