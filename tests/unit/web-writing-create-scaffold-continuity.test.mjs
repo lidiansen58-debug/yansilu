@@ -27,5 +27,9 @@ test("writing scaffold handler reuses projected continuity before warning about 
   assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
   assert.match(fnBody, /if \(!writingProjectId\) return setStatus\(missingProjectLabel \|\| "先补写作材料", "warn"\);/);
   assert.match(fnBody, /if \(projectPreflightSummary\.level !== "ready"\) \{/);
-  assert.match(fnBody, /setStatus\(projectPreflightSummary\.hint \|\| "先补项目条件，再生成草稿骨架。", "warn"\)/);
+  assert.match(fnBody, /projectPreflightSummary\.level === "needs_clarification"/);
+  assert.match(fnBody, /先澄清项目关键问题，再生成草稿骨架。/);
+  assert.match(fnBody, /projectPreflightSummary\.level === "has_gaps"/);
+  assert.match(fnBody, /先补项目缺口，再生成草稿骨架。/);
+  assert.match(fnBody, /先检查项目条件，再生成草稿骨架。/);
 });

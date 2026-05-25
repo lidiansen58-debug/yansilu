@@ -10544,7 +10544,15 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   }
   if (!writingProjectId) return setStatus(missingProjectLabel || "先补写作材料", "warn");
   if (projectPreflightSummary.level !== "ready") {
-    return setStatus(projectPreflightSummary.hint || "先补项目条件，再生成草稿骨架。", "warn");
+    return setStatus(
+      projectPreflightSummary.hint ||
+        (projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目关键问题，再生成草稿骨架。"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口，再生成草稿骨架。"
+            : "先检查项目条件，再生成草稿骨架。"),
+      "warn"
+    );
   }
   try {
     const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
@@ -10627,7 +10635,15 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
   }
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
-    return setStatus(projectPreflightSummary.hint || "先补项目条件，再保存草稿。", "warn");
+    return setStatus(
+      projectPreflightSummary.hint ||
+        (projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目关键问题，再保存草稿。"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口，再保存草稿。"
+            : "先检查项目条件，再保存草稿。"),
+      "warn"
+    );
   }
 
   const directoryId = writingDraftDirectoryId();

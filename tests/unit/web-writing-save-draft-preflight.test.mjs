@@ -25,5 +25,9 @@ test("writing save-draft handler blocks draft creation until project preflight i
   assert.match(fnBody, /return setStatus\(missingScaffoldLabel \|\| "先生成草稿骨架", "warn"\);/);
   assert.match(fnBody, /const projectPreflightSummary = describeWritingProjectPreflight\(writingState\.project\?\.preflight \|\| null\);/);
   assert.match(fnBody, /if \(writingState\.project\?\.id && projectPreflightSummary\.level !== "ready"\) \{/);
-  assert.match(fnBody, /setStatus\(projectPreflightSummary\.hint \|\| "先补项目条件，再保存草稿。", "warn"\)/);
+  assert.match(fnBody, /projectPreflightSummary\.level === "needs_clarification"/);
+  assert.match(fnBody, /先澄清项目关键问题，再保存草稿。/);
+  assert.match(fnBody, /projectPreflightSummary\.level === "has_gaps"/);
+  assert.match(fnBody, /先补项目缺口，再保存草稿。/);
+  assert.match(fnBody, /先检查项目条件，再保存草稿。/);
 });
