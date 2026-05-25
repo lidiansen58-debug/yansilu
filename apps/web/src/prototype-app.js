@@ -6763,8 +6763,8 @@ function renderWritingStatusStrip() {
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
         ? "先回到草稿骨架，再检查证据、缺口和开放问题。"
         : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
-      ? `先${projectEntry.actionLabel}，再生成草稿骨架`
-      : "创建项目后生成";
+          ? `先${projectEntry.actionLabel}，再生成草稿骨架`
+          : projectEntry.hint;
   const scaffoldStatus = hasScaffold
     ? "可预览"
     : hasProject && projectPreflightSummary.level === "needs_clarification"
@@ -6777,7 +6777,7 @@ function renderWritingStatusStrip() {
         ? "先回到草稿骨架"
         : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
-          : "待生成";
+          : projectEntry.status;
   const scaffoldTone =
     hasScaffold
       ? "good"
