@@ -7910,7 +7910,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
                           </span>
                           <span class="graph-review-actions">
-                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系</span>
+                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系理由</span>
                           </span>
                         </button>
                       `;
