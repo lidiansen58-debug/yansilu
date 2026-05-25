@@ -7345,7 +7345,7 @@ const GRAPH_RELATION_QUALITY_LABELS = {
 };
 
 const GRAPH_RELATION_REVIEW_REASON_LABELS = {
-  missing_rationale: "补关系说明",
+  missing_rationale: "补关系理由",
   thin_rationale: "补证据或边界",
   needs_review: "复查关系"
 };
@@ -7879,7 +7879,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
       <section class="graph-section graph-review-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">待补关系说明</div>
+            <div class="graph-section-title">待补关系理由</div>
             <div class="graph-section-note">这里列出“线已经连上，但为什么连还没说清楚”的关系。优先补这些，图谱才有解释力。</div>
           </div>
         </div>
@@ -7890,7 +7890,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
               ? `
                 <div class="graph-review-summary">
                   <strong>${total} 条待整理关系</strong>
-                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系类型、关联理由或追问。</small>
+                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系理由或追问。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -8742,7 +8742,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
     focusExistingRelationEdit();
-    setStatus("已从图谱打开笔记，继续补当前关系的理由或类型", "ok");
+    setStatus("已从图谱打开笔记，继续补当前关系理由", "ok");
     return true;
   }
 
@@ -8755,7 +8755,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
     }, 20);
     focusRelationCreate();
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
     return true;
   }
   if (cleanAction === "boundary" || cleanAction === "tension") {
