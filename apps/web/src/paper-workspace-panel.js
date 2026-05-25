@@ -135,10 +135,12 @@ function renderPermanentCandidateList(workspace = null, selectedPermanentCandida
       ${candidates
         .map((candidate) => {
           const active = candidate.id === selectedPermanentCandidateId;
+          const savedPermanentNoteId = String(candidate.savedPermanentNoteId || "").trim();
           return `
-            <button class="paper-candidate ${active ? "is-active" : ""}" type="button" data-paper-permanent-candidate-id="${escapeHtml(candidate.id)}">
+            <button class="paper-candidate ${active ? "is-active" : ""}" type="button" data-paper-permanent-candidate-id="${escapeHtml(candidate.id)}"${savedPermanentNoteId ? ` data-paper-permanent-saved-note-id="${escapeHtml(savedPermanentNoteId)}"` : ""}>
               <span class="paper-candidate-title">${escapeHtml(candidate.title || candidate.id)}</span>
               <span class="paper-candidate-meta">${escapeHtml(candidate.originality_status || "warning")} \u00b7 ${escapeHtml(candidate.status || "draft")}</span>
+              ${savedPermanentNoteId ? `<span class="paper-candidate-meta">已保存为 ${escapeHtml(savedPermanentNoteId)}</span>` : ""}
               <span class="paper-candidate-quote">${escapeHtml(candidate.core_claim || candidate.rationale || "")}</span>
             </button>
           `;
