@@ -6772,6 +6772,10 @@ function renderWritingStatusStrip() {
       : "";
   const draftStatus = hasDraft
     ? "已绑定"
+    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.status
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -6781,6 +6785,10 @@ function renderWritingStatusStrip() {
       : "未保存";
   const draftNote = hasDraft
     ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
+    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
+      ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
+      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
+        ? projectPreflightSummary.hint || "先补项目条件，再保存草稿。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.hint
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
