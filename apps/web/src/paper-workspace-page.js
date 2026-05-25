@@ -14,7 +14,6 @@ import {
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusMessage,
-  draftKickoffActionState,
   draftKickoffStatusMessage,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
@@ -596,7 +595,18 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   hydrateDraftKickoff(resolvedCandidateState.selectedCandidateId);
   persistWorkspaceSelection();
-  return paperWorkspaceResumeStatusKey(resolvedCandidateState, resolvedState);
+  return resolvePaperWorkspaceContinuityStatus(
+    workspace,
+    storedSelection,
+    resolvedCandidateState.selectedCandidateId,
+    resolvedState.selectedPermanentCandidateId,
+    {
+      paraphraseText: resolvedCandidateState.paraphraseText,
+      relationToQuestion: resolvedCandidateState.relationToQuestion,
+      boundaryOrCondition: resolvedCandidateState.boundaryOrCondition
+    },
+    "resume"
+  ).key;
 }
 
 function render() {
