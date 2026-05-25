@@ -598,35 +598,9 @@ function updateDynamicControls() {
   }
   const copyDraftBriefButton = document.getElementById("btnCopyDraftBrief");
   if (copyDraftBriefButton) {
-    const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    });
-    const draftBriefAction = draftBriefActionState(
-      {
-        selectedCandidateId: state.selectedCandidateId,
-        hasSavedTranslation: draft.hasSavedTranslation,
-        hasLocalChanges: draft.hasLocalChanges,
-        supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
-      },
-      {
-        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
-        permanentNoteContinuityReason: permanentNoteContinuityState(
-          state.workspace,
-          state.workspaceSelection,
-          state.selectedPermanentCandidateId,
-          state.selectedCandidateId,
-          {
-            paraphraseText: state.form.paraphraseText,
-            relationToQuestion: state.form.relationToQuestion,
-            boundaryOrCondition: state.form.boundaryOrCondition
-          }
-        ).reason
-      }
-    );
+    const { draftBriefAction, draftContinuationAction } = currentDraftBriefState();
     copyDraftBriefButton.disabled = !draftBriefAction.enabled;
-    copyDraftBriefButton.textContent = draftBriefAction.label;
+    copyDraftBriefButton.textContent = runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction);
   }
 }
 
@@ -696,6 +670,35 @@ function currentDraftBriefState() {
       }
     )
   };
+}
+
+function runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction) {
+  if (!draftBriefAction?.enabled) {
+    switch (String(draftContinuationAction?.key || "").trim()) {
+      case "save_translation":
+        return "先保存转述";
+      case "fill_support":
+        return "先补 relation / boundary";
+      case "update_translation":
+      case "update_translation_affects_step_four":
+        return "先更新转述";
+      case "refresh_permanent_candidate":
+        return "先刷新 Step 4";
+      case "select_candidate":
+        return "先选择候选";
+      default:
+        return String(draftBriefAction?.label || "当前还不能复制 draft brief");
+    }
+  }
+  switch (String(draftContinuationAction?.key || "").trim()) {
+    case "review_saved_permanent_note":
+      return "复制 brief，回看已保存路径";
+    case "review_permanent_candidate":
+      return "复制 brief，回看 Step 4";
+    case "draft_ready":
+    default:
+      return "复制 brief，继续写 draft";
+  }
 }
 
 async function runAction(action, successMessage) {
