@@ -521,6 +521,9 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
   if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
     return "translationNeedsFreshPermanentCandidate";
   }
+  if (workspaceState?.permanentNoteContinuityReason === "saved_permanent_note") {
+    return "restoredSavedPermanentNoteForSelectedPaper";
+  }
   if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
     return "restoredPermanentCandidateForSelectedPaper";
   }
@@ -536,6 +539,9 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
 export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceState = null) {
   if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
     return "translationNeedsFreshPermanentCandidate";
+  }
+  if (workspaceState?.permanentNoteContinuityReason === "saved_permanent_note") {
+    return "restoredSavedPermanentNoteForSelectedPaper";
   }
   if (candidateState?.hasLocalChanges && cleanText(workspaceState?.selectedPermanentCandidateId)) {
     return "translationNeedsResaveBeforePermanentNote";
