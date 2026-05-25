@@ -9,6 +9,7 @@ import {
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
+  continuityStatusTone,
   draftBriefButtonLabel,
   draftBriefCopyStatusMessage,
   draftKickoffStatusMessage,
@@ -33,6 +34,7 @@ import {
   resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
+  resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
@@ -2098,6 +2100,66 @@ test("paperWorkspaceLiveStatusKey prefers the next required action while editing
     ),
     "savedTranslationNeedsDraftSupport"
   );
+});
+
+test("continuityStatusTone maps warning and ready continuity states to stable tones", () => {
+  assert.equal(continuityStatusTone("translationNeedsFreshPermanentCandidate"), "warn");
+  assert.equal(continuityStatusTone("savedTranslationNeedsDraftSupport"), "warn");
+  assert.equal(continuityStatusTone("restoredSavedPermanentNoteForSelectedPaper"), "ok");
+  assert.equal(continuityStatusTone("selectedCandidate"), "");
+});
+
+test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+  const staleSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: "sig_old"
+    }
+  };
+
+  const resumeStatus = resolvePaperWorkspaceContinuityStatus(
+    workspace,
+    staleSelection,
+    "pwc_1",
+    "pn_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    },
+    "resume"
+  );
+  assert.equal(resumeStatus.key, "translationNeedsFreshPermanentCandidate");
+  assert.equal(resumeStatus.tone, "warn");
+  assert.equal(resumeStatus.workspaceState.permanentNoteContinuityReason, "stale_translation_signature");
+
+  const liveStatus = resolvePaperWorkspaceContinuityStatus(
+    workspace,
+    null,
+    "pwc_1",
+    "",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    },
+    "live"
+  );
+  assert.equal(liveStatus.key, "savedTranslationReadyForPermanentCandidate");
+  assert.equal(liveStatus.tone, "ok");
+  assert.equal(liveStatus.candidateState.supportsNextStep, true);
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {
