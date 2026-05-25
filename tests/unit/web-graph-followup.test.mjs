@@ -161,6 +161,8 @@ test("graph next action prefers isolated-note followup before entering the writi
   assert.equal(nextAction.actionLabel, "先补孤立观点");
   assert.match(nextAction.note, /2/);
   assert.match(nextAction.note, /孤立|关系网络/);
+  assert.match(nextAction.note, /下一步写作/);
+  assert.doesNotMatch(nextAction.note, /写作中心/);
 });
 
 test("graph next action prefers strengthening thin rationale before entering the writing center", () => {

@@ -56,7 +56,7 @@ export function graphNextActionForSummary({
   if (isolatedNoteId) {
     return {
       title: "先处理孤立观点",
-      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再进入写作中心会更稳。`,
+      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再决定下一步写作会更稳。`,
       noteId: String(isolatedNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补孤立观点"
