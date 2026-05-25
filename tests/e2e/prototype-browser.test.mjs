@@ -6241,6 +6241,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已复制 draft brief/);
               assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+                /最近一次已复制。下一步：.*originality \/ authorship/
+              );
               const copiedText = await page.evaluate(
                 () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
               );
@@ -6824,6 +6828,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await waitFor(async () => {
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已复制 draft brief/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+                /最近一次已复制。下一步：.*originality \/ authorship/
+              );
               const copiedText = await page.evaluate(
                 () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
               );
@@ -6905,6 +6913,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
                 new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
               );
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+                /最近一次已复制。下一步：.*originality \/ authorship/
+              );
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 6000);
 
@@ -6944,6 +6956,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
                 new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+                /最近一次已复制。下一步：.*originality \/ authorship/
               );
             }, 4000);
 
