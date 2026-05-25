@@ -7173,7 +7173,8 @@ function renderWritingPanel() {
     createProjectButton.textContent = projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
-    createScaffoldButton.disabled = !writingState.project?.id;
+    const canContinueProjectedProject = Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
+    createScaffoldButton.disabled = !(writingState.project?.id || canContinueProjectedProject);
     createScaffoldButton.textContent = writingState.project?.id
       ? "生成草稿骨架"
       : projectEntry?.projectId && projectEntry?.actionLabel
@@ -10363,6 +10364,26 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
 
 $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
+  const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
+  if (!writingProjectId && continuation?.projectId) {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "resume-scaffold"
+            ? `已回到草稿骨架：${continuation.projectId}`
+            : continuation.action === "resume-project"
+              ? `已继续当前项目：${continuation.projectId}`
+              : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
   if (!writingProjectId) return setStatus("请先创建项目", "warn");
   try {
     const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
