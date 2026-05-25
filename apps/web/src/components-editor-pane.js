@@ -5446,9 +5446,13 @@ export class EditorPane {
     const backlinks = Array.isArray(relations?.backlinks)
       ? relations.backlinks.filter((link) => !isHiddenRelation(link) && !isMarkdownWikilinkRelation(link))
       : [];
+    const explicitRelations = [...outgoing, ...backlinks];
     return {
       relationState: String(relationState || "loaded").trim() || "loaded",
-      explicitRelationCount: outgoing.length + backlinks.length,
+      explicitRelationCount: explicitRelations.length,
+      thinExplicitRelationCount: explicitRelations.filter(
+        (link) => String(link?.rationaleQualityLevel || "").trim().toLowerCase() === "basic"
+      ).length,
       wikilinkCount: forward.length + backward.length,
       tagRelatedCount: tagRelated.length,
       themeSignalCount: new Set([
@@ -5466,6 +5470,7 @@ export class EditorPane {
     const writingInfo = this.noteWritingReadinessV2(note, overview);
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
+    const thinExplicitRelationCount = Number(overview.thinExplicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
     const connectedCount = explicitRelationCount;
 
@@ -5497,6 +5502,12 @@ export class EditorPane {
       return {
         nextStep: "手动补关系或稍后重试",
         summary: "关系读取失败，先手动补关系或稍后重试。"
+      };
+    }
+    if (connectedCount > 0 && thinExplicitRelationCount > 0) {
+      return {
+        nextStep: "补关系理由",
+        summary: `已经有 ${explicitRelationCount} 条显式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
       };
     }
     if (connectedCount === 0) {
@@ -5714,6 +5725,7 @@ export class EditorPane {
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const wikilinkCount = Number(overview.wikilinkCount || 0);
+    const thinExplicitRelationCount = Number(overview.thinExplicitRelationCount || 0);
     const themeInfo = this.noteThemeSignalSummaryV2(note, overview);
     const writingInfo = this.noteWritingReadinessV2(note, overview);
     const distillationInfo = this.permanentNoteDistillationStepV2(note, overview, writingInfo);
@@ -5730,7 +5742,7 @@ export class EditorPane {
         ? "distillation"
         : distillationInfo.focusTarget === "boundary"
           ? "distillation"
-        : relationState === "loading" || relationState === "error" || explicitRelationCount === 0
+        : relationState === "loading" || relationState === "error" || explicitRelationCount === 0 || thinExplicitRelationCount > 0
           ? "relations"
           : "writing";
     const steps = [
@@ -5744,21 +5756,41 @@ export class EditorPane {
       },
       {
         label: "关系连接",
-        status: relationState === "loading" ? "读取中" : relationState === "error" ? "读取失败" : explicitRelationCount ? `已建 ${explicitRelationCount}` : wikilinkCount ? `wikilink ${wikilinkCount}` : "待建立",
+        status:
+          relationState === "loading"
+            ? "读取中"
+            : relationState === "error"
+              ? "读取失败"
+              : explicitRelationCount
+                ? thinExplicitRelationCount > 0
+                  ? `理由待补 ${thinExplicitRelationCount}`
+                  : `已建 ${explicitRelationCount}`
+                : wikilinkCount
+                  ? `wikilink ${wikilinkCount}`
+                  : "待建立",
         hint:
           relationState === "loading"
             ? "先等显式关系读取完成。"
             : relationState === "error"
               ? "读取失败，但仍然可以手动补建。"
               : explicitRelationCount
-                ? "已经有带理由的关系。"
+                ? thinExplicitRelationCount > 0
+                  ? "已经连上关系，但还有理由偏薄的连接，先把它写具体。"
+                  : "已经有带理由的关系。"
                 : wikilinkCount
                   ? "有基础链接，下一步把关系为什么成立写清楚。"
                   : Number(overview.tagRelatedCount || 0) > 0
                     ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
                     : "先连出第一条关系。",
         action: "relations",
-        actionLabel: wikilinkCount > 0 ? "补关系理由" : Number(overview.tagRelatedCount || 0) > 0 ? "从标签里补关系" : "处理关系"
+        actionLabel:
+          thinExplicitRelationCount > 0
+            ? "补关系理由"
+            : wikilinkCount > 0
+              ? "补关系理由"
+              : Number(overview.tagRelatedCount || 0) > 0
+                ? "从标签里补关系"
+                : "处理关系"
       },
       {
         label: "主题索引",
