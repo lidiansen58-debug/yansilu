@@ -6052,7 +6052,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), /旧版转述|重新生成永久笔记候选/);
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
-              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /已保存为永久笔记/);
+              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
             }, 4000);
 	        });
   

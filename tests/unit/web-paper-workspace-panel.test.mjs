@@ -496,6 +496,7 @@ test("renderPaperWorkspacePage blocks permanent-note save when the aligned perma
   const html = renderPaperWorkspacePage(state);
 
   assert.match(html, /旧版转述|重新生成永久笔记候选/);
+  assert.match(html, /先重新生成永久笔记候选/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
 
@@ -768,5 +769,6 @@ test("renderPaperWorkspacePage warns in step three when the aligned permanent ca
   const html = renderPaperWorkspacePage(state);
 
   assert.match(html, /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
+  assert.match(html, /先重新生成永久笔记候选/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
