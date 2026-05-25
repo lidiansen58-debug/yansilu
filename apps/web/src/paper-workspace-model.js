@@ -26,6 +26,9 @@ export function emptyPaperWorkspaceForm() {
     boundaryOrCondition: "",
     draftKickoffText: "",
     draftKickoffSignature: "",
+    draftKickoffPreviousText: "",
+    draftKickoffPreviousSignature: "",
+    draftKickoffReplacementSignature: "",
     confirmAuthorship: false,
     saveStatus: "active"
   };

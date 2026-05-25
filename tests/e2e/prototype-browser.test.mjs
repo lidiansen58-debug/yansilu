@@ -5470,6 +5470,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   const paperId = "paper_browser_workspace";
   const savedParaphrase = "My takeaway is that retrieval effort improves later access to the idea.";
   const savedRelation = "This supports turning reading work into durable notes.";
+  const refreshedKickoffRelation = "Updated relation after local kickoff started.";
   const savedBoundary = "Only when the study task is comparable.";
   const unsavedParaphrase = "An unsaved draft should survive candidate switches.";
   const unsavedRelation = "This is still in progress and should come back.";
@@ -5617,6 +5618,37 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       );
     }, 4000);
 
+    await page.fill("#draftKickoffTextarea", "Local draft kickoff wording that should survive refresh.");
+    await page.fill("#translationRelationInput", refreshedKickoffRelation);
+    await waitFor(async () => {
+      assert.equal(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
+      assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /更新转述/);
+    }, 4000);
+    await page.click("#btnSaveTranslation");
+    await waitFor(async () => {
+      const text = await page.locator(".paper-result-json").textContent();
+      assert.match(text || "", /"stage": "save_translation"/);
+      assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /载入新版 brief，更新本地 draft/);
+      assert.match(
+        String((await page.locator("[data-paper-draft-kickoff-note]").textContent()) || ""),
+        /仍基于旧版转述/
+      );
+    }, 6000);
+    await page.click("#btnStartDraftKickoff");
+    await waitFor(async () => {
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
+      assert.match(
+        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+        new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      );
+      assert.match(String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""), /Local draft kickoff wording that should survive refresh\./);
+      assert.match(
+        String((await page.locator("[data-paper-draft-kickoff-previous-note]").textContent()) || ""),
+        /保留了上一版 kickoff/
+      );
+    }, 4000);
+
     await page.locator(".paper-candidate").nth(1).click();
     await waitFor(async () => {
       assert.equal(await page.locator("#translationParaphraseInput").inputValue(), "");
@@ -5684,7 +5716,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   await page.locator(".paper-candidate").nth(0).click();
   await waitFor(async () => {
     assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
-    assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+    assert.equal(await page.locator("#translationRelationInput").inputValue(), refreshedKickoffRelation);
     assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
     assert.notEqual(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
     assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /已保存转述/);
@@ -5714,7 +5746,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     await page.locator(".paper-candidate").nth(0).click();
     await waitFor(async () => {
       assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
-      assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+      assert.equal(await page.locator("#translationRelationInput").inputValue(), refreshedKickoffRelation);
       assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
       assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
       assert.doesNotMatch(String((await page.locator("[data-paper-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
@@ -5723,11 +5755,12 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(statusText || ""), /这条候选的转述已就绪，但还没有生成对应的永久笔记候选/);
       const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
       assert.match(String(translationStepText || ""), /这条候选已经保存过转述/);
+      assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
       assert.match(
-        String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
-        /最近一次已复制。下一步：.*具备继续写 draft 的最小条件/
+        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+        new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       );
-      assert.match(String((await page.locator("#draftKickoffTextarea").inputValue()) || ""), /# Draft brief:/);
+      assert.match(String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""), /Local draft kickoff wording that should survive refresh\./);
       assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
     }, 4000);
 
@@ -5778,7 +5811,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           await page.locator(".paper-candidate").nth(0).click();
           await waitFor(async () => {
       assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
-      assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+      assert.equal(await page.locator("#translationRelationInput").inputValue(), refreshedKickoffRelation);
       assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
       assert.notEqual(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
       assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /已保存转述/);
@@ -5801,7 +5834,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             assert.match(String(permanentStepText || ""), /当前 Step 3 还有未保存改动/);
             assert.match(String(permanentStepText || ""), /先更新这条转述，再生成对应的永久笔记候选/);
           }, 4000);
-          await page.fill("#translationRelationInput", savedRelation);
+          await page.fill("#translationRelationInput", refreshedKickoffRelation);
           await waitFor(async () => {
             assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
           }, 4000);
@@ -5860,7 +5893,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
               assert.doesNotMatch(String(previewText || ""), /已保存为：/);
               assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
-              assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+              assert.equal(await page.locator("#translationRelationInput").inputValue(), refreshedKickoffRelation);
               assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
               assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.doesNotMatch(String((await page.locator("[data-paper-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
@@ -5984,7 +6017,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	            assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
 	            assert.doesNotMatch(String(previewText || ""), /An unsaved draft should survive candidate switches/);
               assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
-              assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+              assert.equal(await page.locator("#translationRelationInput").inputValue(), refreshedKickoffRelation);
               assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
               assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.doesNotMatch(String((await page.locator("[data-paper-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
@@ -6090,7 +6123,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
             }, 4000);
-            await page.fill("#translationRelationInput", savedRelation);
+            await page.fill("#translationRelationInput", refreshedKickoffRelation);
             await waitFor(async () => {
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);

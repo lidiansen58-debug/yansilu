@@ -45,6 +45,7 @@ import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
 
 const TRANSLATION_DRAFT_STORAGE_PREFIX = "yansilu:paper-workspace:translation-draft";
 const DRAFT_KICKOFF_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff";
+const DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff-snapshot";
 const WORKSPACE_SELECTION_STORAGE_PREFIX = "yansilu:paper-workspace:selection";
 
 const STATUS = {
@@ -146,6 +147,13 @@ function draftKickoffStorageKey(paperId, candidateId) {
   return `${DRAFT_KICKOFF_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
 }
 
+function draftKickoffSnapshotStorageKey(paperId, candidateId) {
+  const cleanPaperId = String(paperId || "").trim();
+  const cleanCandidateId = String(candidateId || "").trim();
+  if (!cleanPaperId || !cleanCandidateId) return "";
+  return `${DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
   const key = translationDraftStorageKey(paperId, candidateId);
   if (!key) return null;
@@ -190,6 +198,37 @@ function readStoredDraftKickoff(paperId, candidateId) {
 
 function clearStoredDraftKickoff(paperId, candidateId) {
   const key = draftKickoffStorageKey(paperId, candidateId);
+  if (!key) return;
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {}
+}
+
+function readStoredDraftKickoffSnapshot(paperId, candidateId) {
+  const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
+  if (!key) return null;
+  try {
+    const raw = window.localStorage?.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const content = String(parsed.content || "").trim();
+    const previousSignature = String(parsed.previousSignature || "").trim();
+    const replacementSignature = String(parsed.replacementSignature || "").trim();
+    if (!content || !previousSignature || !replacementSignature) return null;
+    return {
+      content,
+      previousSignature,
+      replacementSignature,
+      updatedAt: String(parsed.updatedAt || "").trim()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredDraftKickoffSnapshot(paperId, candidateId) {
+  const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
   if (!key) return;
   try {
     window.localStorage?.removeItem(key);
@@ -468,8 +507,12 @@ function hydrateTranslationForm(candidateId = "") {
 function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
   const cleanCandidateId = String(candidateId || "").trim();
   const storedKickoff = cleanCandidateId ? readStoredDraftKickoff(currentPaperId(), cleanCandidateId) : null;
+  const storedSnapshot = cleanCandidateId ? readStoredDraftKickoffSnapshot(currentPaperId(), cleanCandidateId) : null;
   state.form.draftKickoffText = String(storedKickoff?.content || "");
   state.form.draftKickoffSignature = String(storedKickoff?.translationSignature || "");
+  state.form.draftKickoffPreviousText = String(storedSnapshot?.content || "");
+  state.form.draftKickoffPreviousSignature = String(storedSnapshot?.previousSignature || "");
+  state.form.draftKickoffReplacementSignature = String(storedSnapshot?.replacementSignature || "");
 }
 
 function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
@@ -799,6 +842,9 @@ function currentDraftKickoffState() {
   });
   const content = String(state.form.draftKickoffText || "").trim();
   const storedSignature = String(state.form.draftKickoffSignature || "").trim();
+  const previousContent = String(state.form.draftKickoffPreviousText || "").trim();
+  const previousSignature = String(state.form.draftKickoffPreviousSignature || "").trim();
+  const replacementSignature = String(state.form.draftKickoffReplacementSignature || "").trim();
   const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
     paraphraseText: state.form.paraphraseText,
     relationToQuestion: state.form.relationToQuestion,
@@ -816,12 +862,26 @@ function currentDraftKickoffState() {
     }
   ).reason;
   const isStale = Boolean(content && storedSignature && currentTranslationSignature && storedSignature !== currentTranslationSignature);
+  const showPreviousSnapshot = Boolean(
+    previousContent &&
+      previousSignature &&
+      replacementSignature &&
+      storedSignature &&
+      replacementSignature === storedSignature
+  );
   return {
     content,
     translationSignature: storedSignature,
     currentTranslationSignature,
     hasContent: Boolean(content),
     isStale,
+    previousSnapshot: showPreviousSnapshot
+      ? {
+          content: previousContent,
+          previousSignature,
+          replacementSignature
+        }
+      : null,
     action: draftKickoffActionState(
       {
         selectedCandidateId: state.selectedCandidateId,
@@ -890,6 +950,35 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
         candidateId: cleanCandidateId,
         content,
         translationSignature,
+        updatedAt: new Date().toISOString()
+      })
+    );
+  } catch {}
+}
+
+function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, snapshot = null) {
+  const paperId = currentPaperId();
+  const cleanCandidateId = String(candidateId || "").trim();
+  if (!paperId || !cleanCandidateId) return;
+  const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
+  if (!key) return;
+  const normalizedSnapshot = snapshot && typeof snapshot === "object" ? snapshot : null;
+  const content = String(normalizedSnapshot?.content || "").trim();
+  const previousSignature = String(normalizedSnapshot?.previousSignature || "").trim();
+  const replacementSignature = String(normalizedSnapshot?.replacementSignature || "").trim();
+  if (!content || !previousSignature || !replacementSignature) {
+    clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
+    return;
+  }
+  try {
+    window.localStorage?.setItem(
+      key,
+      JSON.stringify({
+        paperId,
+        candidateId: cleanCandidateId,
+        content,
+        previousSignature,
+        replacementSignature,
         updatedAt: new Date().toISOString()
       })
     );
@@ -1152,6 +1241,16 @@ async function handleStartDraftKickoff() {
       relationToQuestion: state.form.relationToQuestion,
       boundaryOrCondition: state.form.boundaryOrCondition
     });
+    if (kickoffState.isStale && kickoffState.hasContent) {
+      state.form.draftKickoffPreviousText = state.form.draftKickoffText;
+      state.form.draftKickoffPreviousSignature = state.form.draftKickoffSignature;
+      state.form.draftKickoffReplacementSignature = translationSignature;
+      persistDraftKickoffSnapshot(state.selectedCandidateId, {
+        content: state.form.draftKickoffPreviousText,
+        previousSignature: state.form.draftKickoffPreviousSignature,
+        replacementSignature: state.form.draftKickoffReplacementSignature
+      });
+    }
     state.form.draftKickoffText = draftBrief.markdown;
     state.form.draftKickoffSignature = translationSignature;
     persistDraftKickoff(state.selectedCandidateId, {
