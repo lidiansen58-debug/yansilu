@@ -603,6 +603,20 @@ export function describeWritingStrongModelStatus({
     };
   }
   if (hasProject && String(projectPreflightLevel || "").trim() !== "ready") {
+    if (String(projectPreflightLevel || "").trim() === "needs_clarification") {
+      return {
+        status: "先澄清项目问题",
+        hint: "先澄清项目关键问题，再做强模型分析。",
+        buttonLabel: "先澄清项目问题"
+      };
+    }
+    if (String(projectPreflightLevel || "").trim() === "has_gaps") {
+      return {
+        status: "先补项目缺口",
+        hint: `先补齐项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
+        buttonLabel: "先补项目缺口"
+      };
+    }
     return {
       status: "先补条件",
       hint: `先处理项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,

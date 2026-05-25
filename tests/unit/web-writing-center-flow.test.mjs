@@ -336,8 +336,25 @@ test("writing strong-model status falls back to project-preflight gaps after a p
     strongModelReady: false
   });
 
-  assert.equal(strongModel.status, "先补条件");
-  assert.equal(strongModel.buttonLabel, "先补条件");
+  assert.equal(strongModel.status, "先澄清项目问题");
+  assert.equal(strongModel.buttonLabel, "先澄清项目问题");
+  assert.match(strongModel.hint, /先澄清项目关键问题/);
+});
+
+test("writing strong-model status distinguishes project gaps after a project exists", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: true,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "strong_model_ready",
+    readinessHint: "判断、边界、关系和主题线索都比较完整，可以继续做项目和强模型分析。",
+    projectPreflightLevel: "has_gaps",
+    projectPreflightChecksLength: 2,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先补项目缺口");
+  assert.equal(strongModel.buttonLabel, "先补项目缺口");
   assert.match(strongModel.hint, /2 项缺口/);
 });
 
