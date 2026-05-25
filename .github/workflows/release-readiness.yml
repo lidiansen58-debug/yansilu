@@ -1,42 +1,19 @@
-name: desktop-ci
+name: release-readiness
 
 on:
   workflow_dispatch:
     inputs:
+      run_full_browser_e2e:
+        description: "Run the full browser E2E suite in addition to mvp:check."
+        type: boolean
+        default: false
       updater_artifacts:
         description: "Generate signed Tauri updater artifacts. Requires TAURI_SIGNING_PRIVATE_KEY."
         type: boolean
         default: false
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  detect-desktop-surface:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    outputs:
-      full_bundle_required: ${{ steps.filter.outputs.full_bundle_required }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Detect desktop bundle-impacting changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            full_bundle_required:
-              - '.github/workflows/desktop-bundles.yml'
-              - '.github/workflows/desktop-release.yml'
-              - 'apps/desktop/**'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'scripts/build-desktop.mjs'
-              - 'scripts/desktop-*.mjs'
-
-  preflight:
-    if: github.event_name == 'pull_request'
+  validate:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -48,39 +25,56 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf
+
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Desktop dev preflight
-        run: npm run dev:desktop:check
+      - name: Install Playwright Chromium
+        if: inputs.run_full_browser_e2e
+        run: npx playwright install --with-deps chromium
 
-      - name: Desktop bundle preflight
-        run: npm run build:desktop:check
+      - name: Release readiness MVP check
+        run: npm run mvp:check
+
+      - name: Full browser E2E
+        if: inputs.run_full_browser_e2e
+        run: npm run test:e2e:browser
+        env:
+          RUN_BROWSER_E2E: "1"
 
   build:
-    needs:
-      - detect-desktop-surface
-      - preflight
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.detect-desktop-surface.outputs.full_bundle_required == 'true')
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             bundle_env: nsis
-            artifact_name: yansilu-windows-bundles
+            artifact_name: release-readiness-windows-nsis
           - os: ubuntu-24.04
             bundle_env: deb,appimage
-            artifact_name: yansilu-linux-bundles
+            artifact_name: release-readiness-linux-bundles
           - os: macos-latest
             bundle_env: app,dmg
-            artifact_name: yansilu-macos-bundles
+            artifact_name: release-readiness-macos-arm64-bundles
+          - os: macos-15-intel
+            bundle_env: app,dmg
+            artifact_name: release-readiness-macos-intel-bundles
 
     runs-on: ${{ matrix.os }}
 
     env:
       YANSILU_DESKTOP_BUNDLES: ${{ matrix.bundle_env }}
-      YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ github.event_name == 'workflow_dispatch' && inputs.updater_artifacts && 'true' || 'false' }}
+      YANSILU_DESKTOP_UPDATER_ARTIFACTS: ${{ inputs.updater_artifacts && 'true' || 'false' }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
