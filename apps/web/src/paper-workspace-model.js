@@ -858,5 +858,7 @@ export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidate
   if (!cleanCandidateId || !cleanTranslationSignature) return null;
   const storedCopy = workspaceSelection?.draftBriefByCandidate?.[cleanCandidateId];
   if (!storedCopy || cleanText(storedCopy.translationSignature) !== cleanTranslationSignature) return null;
+  const storedCandidateId = cleanText(storedCopy.candidateId);
+  if (storedCandidateId && storedCandidateId !== cleanCandidateId) return null;
   return storedCopy;
 }
