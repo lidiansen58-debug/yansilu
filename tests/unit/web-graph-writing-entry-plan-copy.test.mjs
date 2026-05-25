@@ -101,6 +101,8 @@ test("graph next action previews manual picking when the visible slice is too la
   assert.equal(nextAction.title, "下一步：先挑 2-5 条加入写作篮");
   assert.equal(nextAction.actionLabel, "先挑 2-5 条");
   assert.match(nextAction.note, /6 条可用永久笔记/);
+  assert.match(nextAction.note, /先挑 2-5 条加入写作篮/);
+  assert.doesNotMatch(nextAction.note, /在写作中心挑/);
 });
 
 test("graph panel passes the current writing entry plan into graph next-action planning", () => {

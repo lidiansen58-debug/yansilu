@@ -209,7 +209,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "pick-manually" && Number(writingEntryPlan.candidateCount || 0) > 0) {
     return {
       title: "下一步：先挑 2-5 条加入写作篮",
-      note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先在写作中心挑 2-5 条加入写作篮，再推进成主题或项目会更稳。`,
+      note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先挑 2-5 条加入写作篮，再推进成主题或项目会更稳。`,
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "先挑 2-5 条"
     };
