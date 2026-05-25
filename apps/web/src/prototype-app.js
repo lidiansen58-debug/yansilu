@@ -6860,7 +6860,9 @@ function renderWritingFlowSteps({
     hasDraft,
     hasScaffold,
     projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryAction: hasProject ? "" : String(projectEntry?.action || "").trim()
+    projectEntryAction: hasProject ? "" : String(projectEntry?.action || "").trim(),
+    projectPreflightLevel: hasProject ? projectPreflightSummary.level : "",
+    projectPreflightHint: hasProject ? projectPreflightSummary.hint : ""
   });
   const scaffoldReadyForDraft = isWritingScaffoldReadyForDraft({
     hasScaffold,

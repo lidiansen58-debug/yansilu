@@ -368,10 +368,14 @@ export function describeWritingDraftStepState({
   hasDraft = false,
   hasScaffold = false,
   projectEntryProjectId = "",
-  projectEntryAction = ""
+  projectEntryAction = "",
+  projectPreflightLevel = "",
+  projectPreflightHint = ""
 } = {}) {
   const continuationProjectId = String(projectEntryProjectId || "").trim();
   const continuationAction = String(projectEntryAction || "").trim();
+  const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+  const cleanProjectPreflightHint = String(projectPreflightHint || "").trim();
   if (continuationProjectId && continuationAction === "open-draft") {
     return {
       title: "打开当前草稿",
@@ -394,6 +398,18 @@ export function describeWritingDraftStepState({
     return {
       title: "打开当前草稿",
       note: "草稿已保存，下一步打开当前草稿继续写作。"
+    };
+  }
+  if (hasScaffold && cleanProjectPreflightLevel === "needs_clarification") {
+    return {
+      title: "先澄清项目问题",
+      note: cleanProjectPreflightHint || "先澄清项目关键问题，再保存草稿。"
+    };
+  }
+  if (hasScaffold && cleanProjectPreflightLevel === "has_gaps") {
+    return {
+      title: "先补项目缺口",
+      note: cleanProjectPreflightHint || "先补项目条件，再保存草稿。"
     };
   }
   if (hasDraft) {
