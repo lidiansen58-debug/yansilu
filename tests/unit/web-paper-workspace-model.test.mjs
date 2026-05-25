@@ -25,6 +25,7 @@ import {
   permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedStoredTranslationDraft,
@@ -427,6 +428,60 @@ test("draftContinuationBrief summarizes the current draft handoff path", () => {
   assert.match(brief.preview, /Relation: This matters for the writing question\./);
   assert.match(brief.preview, /Saved note: note_1/);
   assert.match(brief.preview, /Next: .*回看 originality \/ authorship/);
+});
+
+test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its translation signature still matches", () => {
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_1",
+        title: "Draft brief: Candidate One",
+        nextAction: "回看 originality / authorship",
+        translationSignature: "sig_current",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    }
+  };
+
+  assert.deepEqual(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current"), {
+    candidateId: "pwc_1",
+    title: "Draft brief: Candidate One",
+    nextAction: "回看 originality / authorship",
+    translationSignature: "sig_current",
+    copiedAt: "2026-05-26T00:00:00.000Z"
+  });
+});
+
+test("resolveRecentDraftBriefCopy clears the recent copy when the translation signature has moved", () => {
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_1",
+        title: "Draft brief: Candidate One",
+        nextAction: "回看 originality / authorship",
+        translationSignature: "sig_old",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    }
+  };
+
+  assert.equal(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_new"), null);
+});
+
+test("resolveRecentDraftBriefCopy does not leak a copied brief across paper candidates", () => {
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_1",
+        title: "Draft brief: Candidate One",
+        nextAction: "回看 originality / authorship",
+        translationSignature: "sig_current",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    }
+  };
+
+  assert.equal(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_2", "sig_current"), null);
 });
 
 test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {

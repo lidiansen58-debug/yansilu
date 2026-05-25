@@ -851,3 +851,12 @@ export function draftContinuationBrief(
     ].join("\n")
   };
 }
+
+export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidateId = "", translationSignature = "") {
+  const cleanCandidateId = cleanText(candidateId);
+  const cleanTranslationSignature = cleanText(translationSignature);
+  if (!cleanCandidateId || !cleanTranslationSignature) return null;
+  const storedCopy = workspaceSelection?.draftBriefByCandidate?.[cleanCandidateId];
+  if (!storedCopy || cleanText(storedCopy.translationSignature) !== cleanTranslationSignature) return null;
+  return storedCopy;
+}
