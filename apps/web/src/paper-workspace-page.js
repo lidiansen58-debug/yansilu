@@ -11,6 +11,7 @@ import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusMessage,
   canSubmitNotebookDraft,
+  continuityStatusTone,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusMessage,
@@ -555,6 +556,15 @@ function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspace
   setStatus(STATUS[liveStatus.key] || STATUS.loadedWorkspace, liveStatus.tone);
 }
 
+function successStatusFeedback(statusKey = "", fallbackKey = "loadedWorkspace") {
+  const cleanStatusKey = String(statusKey || "").trim();
+  const fallback = String(fallbackKey || "loadedWorkspace").trim() || "loadedWorkspace";
+  return {
+    text: STATUS[cleanStatusKey] || STATUS[fallback] || STATUS.loadedWorkspace,
+    tone: continuityStatusTone(cleanStatusKey) || "ok"
+  };
+}
+
 function shouldRefreshContinuityStatus(target) {
   return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
 }
@@ -845,7 +855,17 @@ async function runAction(action, successMessage) {
     setResult(result);
     const resolvedSuccessMessage =
       typeof successMessage === "function" ? successMessage(result) : successMessage;
-    setStatus(String(resolvedSuccessMessage || STATUS.loadedWorkspace), "ok");
+    const successStatus =
+      resolvedSuccessMessage && typeof resolvedSuccessMessage === "object"
+        ? {
+            text: String(resolvedSuccessMessage.text || STATUS.loadedWorkspace),
+            tone: String(resolvedSuccessMessage.tone || "").trim() || "ok"
+          }
+        : {
+            text: String(resolvedSuccessMessage || STATUS.loadedWorkspace),
+            tone: "ok"
+          };
+    setStatus(successStatus.text, successStatus.tone);
     return result;
   } catch (error) {
     setResult({
@@ -881,7 +901,7 @@ async function handleLoadWorkspace() {
     state.workspace = workspace;
     const resumeStatusKey = hydrateFormFromWorkspace(workspace);
     return { stage: "load_workspace", item: workspace, resumeStatusKey };
-  }, (result) => STATUS[result?.resumeStatusKey] || STATUS.loadedWorkspace);
+  }, (result) => successStatusFeedback(result?.resumeStatusKey, "loadedWorkspace"));
   if (state.workspace) {
     setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
@@ -954,7 +974,7 @@ async function handleSaveTranslation() {
       ),
       ...result
     };
-  }, (result) => STATUS[result?.successStatusKey] || STATUS.savedTranslation);
+  }, (result) => successStatusFeedback(result?.successStatusKey, "savedTranslation"));
 }
 
 async function handleCreatePermanentCandidate() {

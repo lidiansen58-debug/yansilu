@@ -5544,6 +5544,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(text || "", /"stage": "save_translation"/);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /relation 和 boundary|支撑下一步/);
+      assert.match(String((await page.locator(".paper-status").getAttribute("class")) || ""), /paper-status-warn/);
     }, 6000);
     await waitFor(async () => {
       assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
