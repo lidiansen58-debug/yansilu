@@ -10117,15 +10117,17 @@ $("writingProjectsList")?.addEventListener("click", async (event) => {
       await continueWritingProjectEntry(projectId, {
         openDraft: action === "open-draft",
         statusMessage:
-          action === "resume-scaffold"
-            ? `已回到草稿骨架：${projectId}`
-            : action === "resume-project"
-              ? `已继续当前项目：${projectId}`
-              : ""
+          action === "open-draft"
+            ? `已从项目列表打开当前草稿：${projectId}`
+            : action === "resume-scaffold"
+              ? `已从项目列表回到草稿骨架：${projectId}`
+              : action === "resume-project"
+                ? `已从项目列表继续当前项目：${projectId}`
+                : ""
       });
     } catch (error) {
       setStatus(
-        `${action === "open-draft" ? "打开当前草稿" : action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${action === "open-draft" ? "从项目列表打开当前草稿" : action === "resume-scaffold" ? "从项目列表回到草稿骨架" : "从项目列表继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }

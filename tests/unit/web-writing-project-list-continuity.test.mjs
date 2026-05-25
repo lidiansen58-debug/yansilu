@@ -4,10 +4,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-test("writing project cards reuse continuity actions based on draft and scaffold state", () => {
+function repoSource() {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+}
+
+test("writing project cards reuse continuity actions based on draft and scaffold state", () => {
+  const source = repoSource();
   const match = source.match(/function renderWritingProjectCard\(project\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected renderWritingProjectCard() to exist");
@@ -22,10 +26,8 @@ test("writing project cards reuse continuity actions based on draft and scaffold
   assert.match(fnBody, /\$\{escapeHtml\(primaryProjectActionLabel\)\}/);
 });
 
-test("writing project list actions reuse the unified continuity entry handler", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+test("writing project list actions keep scoped continuity success and failure copy", () => {
+  const source = repoSource();
   const match = source.match(/\$\("writingProjectsList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
 
   assert.ok(match, "expected writingProjectsList click handler to exist");
@@ -34,5 +36,8 @@ test("writing project list actions reuse the unified continuity entry handler", 
   assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
   assert.match(fnBody, /openDraft: action === "open-draft"/);
-  assert.match(fnBody, /action === "open-draft" \? "打开当前草稿" : action === "resume-scaffold" \? "回到草稿骨架" : "继续当前项目"/);
+  assert.match(fnBody, /已从项目列表打开当前草稿：\$\{projectId\}/);
+  assert.match(fnBody, /已从项目列表回到草稿骨架：\$\{projectId\}/);
+  assert.match(fnBody, /已从项目列表继续当前项目：\$\{projectId\}/);
+  assert.match(fnBody, /action === "open-draft" \? "从项目列表打开当前草稿" : action === "resume-scaffold" \? "从项目列表回到草稿骨架" : "从项目列表继续当前项目"/);
 });
