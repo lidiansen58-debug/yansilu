@@ -12,7 +12,56 @@ on:
       - main
 
 jobs:
+  detect-desktop-surface:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    outputs:
+      full_bundle_required: ${{ steps.filter.outputs.full_bundle_required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect desktop bundle-impacting changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            full_bundle_required:
+              - '.github/workflows/desktop-bundles.yml'
+              - '.github/workflows/desktop-release.yml'
+              - 'apps/desktop/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'scripts/build-desktop.mjs'
+              - 'scripts/desktop-*.mjs'
+
+  preflight:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Desktop dev preflight
+        run: npm run dev:desktop:check
+
+      - name: Desktop bundle preflight
+        run: npm run build:desktop:check
+
   build:
+    needs:
+      - detect-desktop-surface
+      - preflight
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.detect-desktop-surface.outputs.full_bundle_required == 'true')
     strategy:
       fail-fast: false
       matrix:
