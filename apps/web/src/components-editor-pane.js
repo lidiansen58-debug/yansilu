@@ -5840,7 +5840,14 @@ export class EditorPane {
           <span class="inspector-chip">判断 ${escapeHtml(thesis ? "已有" : "缺失")}</span>
           <span class="inspector-chip">压缩 ${summary.length}/3</span>
           <span class="inspector-chip">关系 ${escapeHtml(relationCountLabel)}</span>
-          <span class="inspector-chip">${escapeHtml(themeInfo.status || `主题线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`)}</span>
+          <span class="inspector-chip">${escapeHtml(
+            themeInfo.status ||
+              (Number(overview.tagRelatedCount || 0) > 0 && Number(overview.wikilinkCount || 0) > 0
+                ? `混合线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`
+                : Number(overview.tagRelatedCount || 0) > 0
+                  ? `标签线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`
+                  : `链接线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? 0)}`)
+          )}</span>
         </div>
         <div class="semantic-relation-groups">
           ${steps
