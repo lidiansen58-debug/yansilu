@@ -198,7 +198,7 @@ export function selectedPermanentCandidate(workspace = null, candidateId = "") {
   return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || candidates[0] || null;
 }
 
-function exactSelectedPermanentCandidate(workspace = null, candidateId = "") {
+export function selectedAlignedPermanentCandidate(workspace = null, candidateId = "") {
   const id = cleanText(candidateId);
   if (!id) return null;
   const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
@@ -256,9 +256,9 @@ export function nextSelectedCandidateId(workspace = null, preferredId = "", opti
 export function nextSelectedPermanentCandidateId(workspace = null, preferredId = "", options = {}) {
   const fallbackToFirst = options.fallbackToFirst !== false;
   const selectedPaperCandidateId = cleanText(options.selectedPaperCandidateId);
-  const preferred = exactSelectedPermanentCandidate(workspace, preferredId);
+  const preferred = selectedAlignedPermanentCandidate(workspace, preferredId);
   if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
-  const candidateMatchedPermanent = exactSelectedPermanentCandidate(workspace, selectedPaperCandidateId);
+  const candidateMatchedPermanent = selectedAlignedPermanentCandidate(workspace, selectedPaperCandidateId);
   if (selectedPaperCandidateId && cleanText(candidateMatchedPermanent?.id)) return cleanText(candidateMatchedPermanent.id);
   if (!fallbackToFirst) return "";
   return cleanText(selectedPermanentCandidate(workspace, "")?.id);
@@ -271,6 +271,7 @@ export function resolvedSaveStatusForPermanentCandidate(storedSelection = null, 
       ? String(storedSelection.saveStatusByPermanentCandidate[cleanPermanentCandidateId] || "").trim()
       : "";
   if (mappedStatus) return mappedStatus;
+  if (!cleanPermanentCandidateId) return "active";
   const legacyStatus = String(storedSelection?.saveStatus || "").trim();
   if (legacyStatus) return legacyStatus;
   return "active";
@@ -308,7 +309,7 @@ export function resolveSelectedPaperWorkspaceState(
       fallbackToFirst: false
     }
   );
-  const permanentCandidate = selectedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId);
   return {
     selectedCandidateId,
     selectedPermanentCandidateId,

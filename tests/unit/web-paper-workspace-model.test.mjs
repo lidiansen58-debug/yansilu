@@ -19,6 +19,7 @@ import {
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  selectedAlignedPermanentCandidate,
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
@@ -116,6 +117,7 @@ test("paper workspace selection helpers resolve alias ids", () => {
 
   assert.equal(selectedPaperCandidate(workspace, "ext_1").id, "pwc_1");
   assert.equal(selectedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
+  assert.equal(selectedAlignedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
 });
 
 test("paper workspace labels expose user-facing workflow states", () => {
@@ -455,6 +457,41 @@ test("resolveSelectedPaperWorkspaceState restores aligned paper and permanent se
       confirmAuthorship: true
     }
   );
+});
+
+test("resolveSelectedPaperWorkspaceState keeps step 4 empty when the selected paper candidate has no aligned permanent candidate", () => {
+  const workspace = {
+    candidates: [
+      { id: "pwc_1", title: "First" },
+      { id: "pwc_2", title: "Second" }
+    ],
+    permanentCandidates: [
+      { id: "pn_1", paper_candidate_id: "pwc_1", status: "draft", authorship: { user_confirmed: false } }
+    ]
+  };
+  const storedSelection = {
+    selectedCandidateId: "pwc_2",
+    selectedPermanentCandidateId: "",
+    saveStatus: "draft",
+    saveStatusByPermanentCandidate: { pn_1: "draft" },
+    confirmAuthorshipByPermanentCandidate: { pn_1: true }
+  };
+
+  assert.deepEqual(
+    resolveSelectedPaperWorkspaceState(workspace, storedSelection, {
+      preferredCandidateId: "pwc_2",
+      preferredPermanentCandidateId: "",
+      candidateIdHasLocalDraft: () => false
+    }),
+    {
+      selectedCandidateId: "pwc_2",
+      selectedPermanentCandidateId: "",
+      saveStatus: "active",
+      confirmAuthorship: false
+    }
+  );
+  assert.equal(selectedAlignedPermanentCandidate(workspace, ""), null);
+  assert.equal(resolvedSaveStatusForPermanentCandidate(storedSelection, ""), "active");
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {

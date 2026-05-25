@@ -20,6 +20,7 @@ import {
   resolvedSaveStatusForPermanentCandidate,
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
+  selectedAlignedPermanentCandidate,
   selectedPermanentCandidate,
   translationDraftHasLocalChanges,
   translationDraftForCandidate
@@ -172,7 +173,7 @@ function persistWorkspaceSelection(overrides = {}) {
         paperId,
         selectedCandidateId: String(state.selectedCandidateId || "").trim(),
         selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-        saveStatus: String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim(),
+        saveStatus: currentPermanentCandidateId ? nextSaveStatus : "",
         saveStatusByPermanentCandidate,
         confirmAuthorshipByPermanentCandidate,
         updatedAt: new Date().toISOString()
@@ -182,7 +183,7 @@ function persistWorkspaceSelection(overrides = {}) {
 }
 
 function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const selectedPermanent = selectedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
+  const selectedPermanent = selectedAlignedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
   state.form.saveStatus = permanentCandidatePersistenceDefaults(selectedPermanent, {
     saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, state.selectedPermanentCandidateId)
   }).saveStatus;
