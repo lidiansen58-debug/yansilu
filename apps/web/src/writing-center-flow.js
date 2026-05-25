@@ -55,6 +55,9 @@ export function describeWritingNextActionFromState({
   hasProject = false,
   hasScaffold = false,
   hasDraft = false,
+  projectEntryProjectId = "",
+  projectEntryAction = "",
+  projectEntryActionLabel = "",
   projectPreflightLevel = "",
   projectPreflightHint = "",
   projectPreflightChecksLength = 0,
@@ -65,6 +68,27 @@ export function describeWritingNextActionFromState({
     return {
       title: "先选材料",
       note: "先把 2-5 条能支撑论证的永久笔记放进写作篮。"
+    };
+  }
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationAction = String(projectEntryAction || "").trim();
+  const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+  if (!hasProject && continuationProjectId && continuationActionLabel) {
+    if (continuationAction === "open-draft") {
+      return {
+        title: "打开当前草稿",
+        note: `当前写作篮已经对应项目 ${continuationProjectId}，先打开当前草稿继续写作。`
+      };
+    }
+    if (continuationAction === "resume-scaffold") {
+      return {
+        title: "继续草稿骨架",
+        note: `当前写作篮已经对应项目 ${continuationProjectId}，先回到草稿骨架，再继续检查证据、缺口和开放问题。`
+      };
+    }
+    return {
+      title: "继续当前项目",
+      note: `当前写作篮已经对应项目 ${continuationProjectId}，先继续当前项目，再决定是否生成草稿骨架或保存草稿。`
     };
   }
   if (!hasProject) {
