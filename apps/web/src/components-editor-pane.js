@@ -5799,7 +5799,7 @@ export class EditorPane {
             ? "补关系理由"
             : wikilinkCount > 0
               ? Number(overview.tagRelatedCount || 0) > 0
-                ? "把线索收成关系"
+                ? "把线索收成显式关系"
                 : "补关系理由"
               : Number(overview.tagRelatedCount || 0) > 0
                 ? "从标签里补关系"

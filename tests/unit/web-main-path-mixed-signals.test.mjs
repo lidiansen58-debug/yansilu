@@ -58,5 +58,5 @@ test("main-path card relation step keeps mixed weak signals in relation-building
 
   assert.match(html, /关系连接<\/strong> <span>wikilink 1 · 当前重点<\/span>/);
   assert.match(html, /同时有链接线索和标签接近/);
-  assert.match(html, /data-note-main-route-action="relations"[^>]*>把线索收成关系<\/button>/);
+  assert.match(html, /data-note-main-route-action="relations"[^>]*>把线索收成显式关系<\/button>/);
 });
