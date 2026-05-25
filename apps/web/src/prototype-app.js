@@ -7150,8 +7150,10 @@ function renderWritingPanel() {
 
   if (openDraftButton) {
     const hasDraft = Boolean(writingState.project?.draft_note_id);
-    openDraftButton.disabled = !hasDraft;
-    openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
+    const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
+    const canOpenProjectedDraft = Boolean(draftContinuation?.projectId) && draftContinuation.action === "open-draft";
+    openDraftButton.disabled = !(hasDraft || canOpenProjectedDraft);
+    openDraftButton.textContent = hasDraft || canOpenProjectedDraft ? "打开当前草稿" : "暂无草稿";
   }
   if (createProjectButton) {
     createProjectButton.disabled = !projectEntry.canCreateProject;
@@ -10476,6 +10478,15 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
 
 $("btnWritingOpenDraft")?.addEventListener("click", async () => {
   const draftNoteId = String(writingState.project?.draft_note_id || "").trim();
+  const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
+  if (!draftNoteId && continuation?.projectId && continuation.action === "open-draft") {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, { openDraft: true });
+    } catch (error) {
+      setStatus(`打开当前草稿失败：${String(error?.message || error)}`, "bad");
+    }
+    return;
+  }
   if (!draftNoteId) return setStatus("当前项目还没有绑定草稿笔记", "warn");
   try {
     await openWritingDraftNoteById(draftNoteId);
