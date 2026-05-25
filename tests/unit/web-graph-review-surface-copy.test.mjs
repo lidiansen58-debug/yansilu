@@ -22,9 +22,11 @@ test("graph review queue consistently frames missing-rationale work as relation 
   assert.match(source, /renderGraphMetricCard\("待整理", reviewQueueTotal, reviewQueueTotal \? "优先补理由" : "关系理由清爽"/);
   assert.match(source, /已从图谱打开笔记，继续补当前关系理由/);
   assert.match(source, /已从图谱打开笔记，继续补关系理由/);
+  assert.match(source, /已从图谱打开笔记，继续补反例、边界或例外条件/);
   assert.doesNotMatch(source, /empty: "缺说明"/);
   assert.doesNotMatch(source, /missing_rationale: "补关系说明"/);
   assert.doesNotMatch(source, /graph-section-title">待补关系说明</);
   assert.doesNotMatch(source, /优先补说明/);
   assert.doesNotMatch(source, /继续补当前关系的理由或类型/);
+  assert.doesNotMatch(source, /继续补反例、边界或张力说明/);
 });

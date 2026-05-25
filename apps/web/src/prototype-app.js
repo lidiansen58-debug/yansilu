@@ -8760,7 +8760,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   }
   if (cleanAction === "boundary" || cleanAction === "tension") {
     focusBoundaryField();
-    setStatus("已从图谱打开笔记，继续补反例、边界或张力说明", "ok");
+    setStatus("已从图谱打开笔记，继续补反例、边界或例外条件", "ok");
     return true;
   }
   setStatus("已从图谱打开笔记", "ok");
