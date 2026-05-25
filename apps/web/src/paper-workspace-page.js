@@ -1290,7 +1290,8 @@ async function handleAdoptPreviousKickoff() {
     return;
   }
   const currentContent = String(state.form.draftKickoffText || "").trim();
-  const currentSignature = currentDraftKickoffSignature();
+  const currentSignature =
+    String(kickoffState.currentTranslationSignature || "").trim() || currentDraftKickoffSignature();
   const adoptedContent = String(kickoffState.previousSnapshot.content || "").trim();
   if (!adoptedContent || !currentSignature) {
     render();
