@@ -512,6 +512,16 @@ export function resolveSelectedPaperWorkspaceState(
 }
 
 export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceState = null) {
+  if (
+    candidateState?.hasLocalChanges &&
+    cleanText(workspaceState?.selectedPermanentCandidateId) &&
+    workspaceState?.permanentNoteContinuityReason === "saved_permanent_note"
+  ) {
+    return "restoredLocalTranslationDraftForSavedPermanentNote";
+  }
+  if (candidateState?.hasLocalChanges && cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "restoredLocalTranslationDraftForPermanentNote";
+  }
   if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
     return "restoredLocalTranslationDraftOverSavedTranslation";
   }
