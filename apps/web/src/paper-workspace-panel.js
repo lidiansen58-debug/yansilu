@@ -8,6 +8,7 @@ import {
   permanentNoteContinuityState,
   paperWorkspaceProgress,
   selectedPermanentCandidate,
+  translationSaveActionState,
   translationDraftForCandidate,
   workspaceStageLabel
 } from "./paper-workspace-model.js";
@@ -205,6 +206,11 @@ export function renderPaperWorkspacePage(state = {}) {
     relationToQuestion: form.relationToQuestion,
     boundaryOrCondition: form.boundaryOrCondition
   });
+  const translationSaveAction = translationSaveActionState(workspace, state.selectedCandidateId, {
+    paraphraseText: form.paraphraseText,
+    relationToQuestion: form.relationToQuestion,
+    boundaryOrCondition: form.boundaryOrCondition
+  });
   const selectedCandidate = selectedDraft.candidate;
   const selectedPermanent = state.selectedPermanentCandidateId
     ? selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId)
@@ -305,7 +311,7 @@ export function renderPaperWorkspacePage(state = {}) {
               <label>\u5b83\u548c\u6211\u7684\u95ee\u9898\u6709\u4ec0\u4e48\u5173\u7cfb\uff1f<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
               <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
-                <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>\u4fdd\u5b58\u8f6c\u8ff0</button>
+                <button id="btnSaveTranslation" type="button" ${translationSaveAction.enabled ? "" : "disabled"}>${translationSaveAction.label}</button>
                 <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>${createPermanentCandidateLabel}</button>
               </div>
             </div>

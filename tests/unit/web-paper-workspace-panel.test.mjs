@@ -146,6 +146,7 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   const html = renderPaperWorkspacePage(state);
 
   assert.match(html, /这条候选已经保存过转述/);
+  assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
   assert.match(html, /如果要继续写 draft/);
   assert.match(html, /先确认 relation 和 boundary 已经足够支撑下一步/);
 });
@@ -183,6 +184,7 @@ test("renderPaperWorkspacePage disables permanent candidate creation while saved
 
   const html = renderPaperWorkspacePage(state);
 
+  assert.match(html, /id="btnSaveTranslation"[^>]*>更新转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
 });
 

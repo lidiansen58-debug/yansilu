@@ -29,6 +29,7 @@ import {
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
+  translationSaveActionState,
   translationContinuitySignature,
   translationDraftHasLocalChanges,
   translationDraftForCandidate,
@@ -376,6 +377,41 @@ test("translationDraftHasLocalChanges only stores unsaved translation deltas", (
       boundaryOrCondition: ""
     }),
     true
+  );
+});
+
+test("translationSaveActionState reflects whether the current translation still needs saving", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  assert.deepEqual(translationSaveActionState(workspace, ""), {
+    enabled: false,
+    label: "已保存转述"
+  });
+  assert.deepEqual(translationSaveActionState(workspace, "pwc_1"), {
+    enabled: false,
+    label: "已保存转述"
+  });
+  assert.deepEqual(
+    translationSaveActionState(workspace, "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Updated relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    {
+      enabled: true,
+      label: "更新转述"
+    }
   );
 });
 

@@ -181,6 +181,20 @@ export function translationDraftHasLocalChanges(workspace = null, candidateId = 
   );
 }
 
+export function translationSaveActionState(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  if (!cleanText(draft.candidate?.id)) {
+    return { enabled: false, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
+  }
+  if (draft.hasSavedTranslation && !draft.hasLocalChanges) {
+    return { enabled: false, label: "\u5df2\u4fdd\u5b58\u8f6c\u8ff0" };
+  }
+  if (draft.hasSavedTranslation) {
+    return { enabled: true, label: "\u66f4\u65b0\u8f6c\u8ff0" };
+  }
+  return { enabled: true, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
+}
+
 export function resolveSelectedPaperCandidateState(workspace = null, options = {}) {
   const selectedCandidateId = nextSelectedCandidateId(
     workspace,

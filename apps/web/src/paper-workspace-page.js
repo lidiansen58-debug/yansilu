@@ -23,6 +23,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  translationSaveActionState,
   translationContinuitySignature,
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
@@ -426,6 +427,16 @@ function render() {
 }
 
 function updateDynamicControls() {
+  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const saveTranslationButton = document.getElementById("btnSaveTranslation");
+  if (saveTranslationButton) {
+    saveTranslationButton.disabled = !translationSaveAction.enabled;
+    saveTranslationButton.textContent = translationSaveAction.label;
+  }
   const notebookDraftButton = document.getElementById("btnAddNotebookDraft");
   if (notebookDraftButton) {
     notebookDraftButton.disabled = !canSubmitNotebookDraft(state.form, state.workspace);
@@ -514,6 +525,15 @@ async function handleAddNotebookDraft() {
 }
 
 async function handleSaveTranslation() {
+  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  if (!translationSaveAction.enabled) {
+    render();
+    return;
+  }
   const alignedPermanentCandidateBeforeSave = selectedAlignedPermanentCandidate(
     state.workspace,
     state.selectedPermanentCandidateId
