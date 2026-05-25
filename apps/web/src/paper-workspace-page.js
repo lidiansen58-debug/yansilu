@@ -400,7 +400,7 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
   );
   return {
     key: statusKey,
-    tone: statusKey === "translationNeedsFreshPermanentCandidate" ? "warn" : statusKey === "selectedCandidate" ? "" : "ok"
+    tone: continuityStatusTone(statusKey)
   };
 }
 
@@ -434,8 +434,21 @@ function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelecti
   );
   return {
     key: statusKey,
-    tone: statusKey.startsWith("translationNeeds") ? "warn" : statusKey === "selectedCandidate" ? "" : "ok"
+    tone: continuityStatusTone(statusKey)
   };
+}
+
+function continuityStatusTone(statusKey = "") {
+  const cleanKey = String(statusKey || "").trim();
+  if (
+    cleanKey.startsWith("translationNeeds") ||
+    cleanKey === "restoredLocalTranslationDraftForPermanentNote" ||
+    cleanKey === "restoredLocalTranslationDraftForSavedPermanentNote"
+  ) {
+    return "warn";
+  }
+  if (cleanKey === "selectedCandidate") return "";
+  return "ok";
 }
 
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
@@ -594,6 +607,10 @@ async function handleLoadWorkspace() {
     const resumeStatusKey = hydrateFormFromWorkspace(workspace);
     return { stage: "load_workspace", item: workspace, resumeStatusKey };
   }, (result) => STATUS[result?.resumeStatusKey] || STATUS.loadedWorkspace);
+  if (state.workspace) {
+    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    render();
+  }
 }
 
 async function handleAddNotebookDraft() {
