@@ -6784,6 +6784,8 @@ function renderWritingFlowSteps({
     projectId,
     projectEntryStatus: projectEntry?.status || "",
     projectEntryHint: projectEntry?.hint || "",
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     canCreateProject: Boolean(projectEntry?.canCreateProject),
     projectPreflightLevel: hasProject ? projectPreflightSummary.level : "",
     projectPreflightHint: hasProject ? projectPreflightSummary.hint : "",

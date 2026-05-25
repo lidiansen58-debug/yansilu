@@ -242,6 +242,8 @@ export function describeWritingProjectStepState({
   projectId = "",
   projectEntryStatus = "",
   projectEntryHint = "",
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   canCreateProject = false,
   projectPreflightLevel = "",
   projectPreflightHint = "",
@@ -270,6 +272,14 @@ export function describeWritingProjectStepState({
     return {
       title: "创建项目",
       note: "先选出能支撑论证的永久笔记，再创建项目。"
+    };
+  }
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+  if (continuationProjectId && continuationActionLabel) {
+    return {
+      title: "创建项目",
+      note: String(projectEntryHint || "").trim() || `当前写作篮已经对应 ${continuationProjectId}。先${continuationActionLabel}，再继续项目准备。`
     };
   }
   if (!canCreateProject) {
