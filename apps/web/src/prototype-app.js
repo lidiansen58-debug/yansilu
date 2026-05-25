@@ -7349,7 +7349,7 @@ function renderWritingPanel() {
       scaffoldVersionsHint.textContent =
         projectEntry?.projectId && projectEntry?.actionLabel
           ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿骨架版本。`
-          : "先创建或打开一个项目，这里才会显示版本。";
+          : `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
     }
     else if (writingState.loadingScaffoldVersions && writingState.scaffoldVersions.length) {
       scaffoldVersionsHint.textContent = `正在刷新草稿骨架版本... 当前显示 ${writingState.scaffoldVersions.length} 个版本。`;
@@ -7362,7 +7362,7 @@ function renderWritingPanel() {
       scaffoldVersionsList.innerHTML =
         projectEntry?.projectId && projectEntry?.actionLabel
           ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的历史草稿骨架版本。</div>`
-          : `<div class="writing-empty">创建或打开项目后，这里会显示历史草稿骨架版本。</div>`;
+          : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     } else if (writingState.loadingScaffoldVersions) {
       scaffoldVersionsList.innerHTML = writingState.scaffoldVersions.length
         ? writingState.scaffoldVersions.map(renderScaffoldVersionCard).join("")
@@ -7379,7 +7379,7 @@ function renderWritingPanel() {
       draftVersionsHint.textContent =
         projectEntry?.projectId && projectEntry?.actionLabel
           ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿版本。`
-          : "先创建或打开一个项目，这里才会显示草稿版本。";
+          : `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
     }
     else if (writingState.loadingDraftVersions && writingState.draftVersions.length) {
       draftVersionsHint.textContent = `正在刷新草稿版本... 当前显示 ${writingState.draftVersions.length} 个版本。`;
@@ -7392,7 +7392,7 @@ function renderWritingPanel() {
       draftVersionsList.innerHTML =
         projectEntry?.projectId && projectEntry?.actionLabel
           ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的草稿版本。</div>`
-          : `<div class="writing-empty">创建或打开项目后，这里会显示草稿版本。</div>`;
+          : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     } else if (writingState.loadingDraftVersions) {
       draftVersionsList.innerHTML = writingState.draftVersions.length
         ? writingState.draftVersions.map(renderDraftVersionCard).join("")
