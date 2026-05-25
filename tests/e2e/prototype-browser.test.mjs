@@ -5998,6 +5998,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await waitFor(async () => {
               assert.equal(await page.locator("#translationRelationInput").inputValue(), "Step 4 is now stale because Step 3 changed.");
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
               assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
             }, 4000);
@@ -6005,6 +6007,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await waitFor(async () => {
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
+            }, 4000);
+
+            await waitFor(async () => {
+              assert.equal(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.equal(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
             }, 4000);
 
             await page.locator("#confirmAuthorshipInput").check();
@@ -6052,8 +6059,15 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
               assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), true);
+              assert.notEqual(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /已保存为永久笔记/);
+            }, 4000);
+
+            await waitFor(async () => {
+              assert.notEqual(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
             }, 4000);
 
             await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
@@ -6104,6 +6118,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.notEqual(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
             }, 4000);
 

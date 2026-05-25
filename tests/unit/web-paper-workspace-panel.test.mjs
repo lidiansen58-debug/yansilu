@@ -19,6 +19,8 @@ test("renderPaperWorkspacePage exposes the four-step paper workflow", () => {
   assert.match(html, /粘贴 NotebookLM 输出后，这里会先生成 literature 候选，而不是直接生成永久笔记/);
   assert.match(html, /先从左侧选一条候选，再用你自己的话完成转述/);
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled/);
+  assert.match(html, /id="confirmAuthorshipInput"[^>]*disabled/);
+  assert.match(html, /id="permanentStatusInput"[^>]*disabled/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
   assert.doesNotMatch(html, /id="confirmAuthorshipInput"[^>]*checked/);
   assert.match(html, /<option value="active" selected>/);
@@ -777,4 +779,110 @@ test("renderPaperWorkspacePage warns in step three when the aligned permanent ca
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*>重新生成永久笔记候选</);
   assert.match(html, /先重新生成永久笔记候选/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
+});
+
+test("renderPaperWorkspacePage disables step-four form fields when the permanent path is stale or already saved", () => {
+  const staleState = createInitialPaperWorkspaceState();
+  staleState.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_candidates",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "converted"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "Saved claim.",
+        rationale: "Saved reason.",
+        originality_status: "warning",
+        status: "draft",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  staleState.workspaceSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+  staleState.selectedCandidateId = "pwc_1";
+  staleState.selectedPermanentCandidateId = "pn_1";
+  staleState.form.paraphraseText = "Saved wording v2.";
+  staleState.form.relationToQuestion = "Saved relation v2.";
+  staleState.form.boundaryOrCondition = "Saved boundary v2.";
+
+  const staleHtml = renderPaperWorkspacePage(staleState);
+
+  assert.match(staleHtml, /id="confirmAuthorshipInput"[^>]*disabled/);
+  assert.match(staleHtml, /id="permanentStatusInput"[^>]*disabled/);
+  assert.match(staleHtml, /id="btnSavePermanentNote"[^>]*disabled/);
+
+  const savedState = createInitialPaperWorkspaceState();
+  savedState.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "saved",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "saved"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "Saved claim.",
+        rationale: "Saved reason.",
+        originality_status: "pass",
+        status: "active",
+        savedPermanentNoteId: "pn_1",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  savedState.selectedCandidateId = "pwc_1";
+  savedState.selectedPermanentCandidateId = "pn_1";
+  savedState.form.paraphraseText = "My own wording.";
+
+  const savedHtml = renderPaperWorkspacePage(savedState);
+
+  assert.match(savedHtml, /id="confirmAuthorshipInput"[^>]*disabled/);
+  assert.match(savedHtml, /id="permanentStatusInput"[^>]*disabled/);
+  assert.match(savedHtml, /id="btnSavePermanentNote"[^>]*disabled/);
 });

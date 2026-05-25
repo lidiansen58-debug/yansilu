@@ -262,6 +262,7 @@ export function renderPaperWorkspacePage(state = {}) {
       boundaryOrCondition: form.boundaryOrCondition
     }
   );
+  const permanentNoteFormDisabled = !permanentNoteAction.enabled;
 
   return `
     <div class="paper-shell">
@@ -345,9 +346,9 @@ export function renderPaperWorkspacePage(state = {}) {
               hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"
           })}
           <div class="paper-save-row">
-            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>
+            <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} ${permanentNoteFormDisabled ? "disabled" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>
             <label>\u4fdd\u5b58\u72b6\u6001
-              <select id="permanentStatusInput">
+              <select id="permanentStatusInput" ${permanentNoteFormDisabled ? "disabled" : ""}>
                 <option value="active" ${form.saveStatus === "active" ? "selected" : ""}>active\uff0c\u5982\u679c\u901a\u8fc7 originality \u68c0\u67e5</option>
                 <option value="draft" ${form.saveStatus === "draft" ? "selected" : ""}>draft</option>
               </select>

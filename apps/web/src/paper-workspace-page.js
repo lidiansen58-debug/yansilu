@@ -542,6 +542,8 @@ function updateDynamicControls() {
     permanentCandidateButton.textContent = permanentCandidateAction.label;
   }
   const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
+  const confirmAuthorshipInput = document.getElementById("confirmAuthorshipInput");
+  const permanentStatusInput = document.getElementById("permanentStatusInput");
   if (savePermanentNoteButton) {
     const permanentNoteAction = permanentNoteActionState(
       state.workspace,
@@ -556,6 +558,12 @@ function updateDynamicControls() {
     );
     savePermanentNoteButton.disabled = !permanentNoteAction.enabled;
     savePermanentNoteButton.textContent = permanentNoteAction.label;
+    if (confirmAuthorshipInput) {
+      confirmAuthorshipInput.disabled = !permanentNoteAction.enabled;
+    }
+    if (permanentStatusInput) {
+      permanentStatusInput.disabled = !permanentNoteAction.enabled;
+    }
   }
 }
 
