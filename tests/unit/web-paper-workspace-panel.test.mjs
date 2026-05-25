@@ -231,6 +231,8 @@ test("renderPaperWorkspacePage disables permanent candidate creation while saved
   assert.match(html, /id="btnSaveTranslation"[^>]*>更新转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先更新转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
+  assert.ok(html.includes("当前 Step 3 还有未保存改动"));
+  assert.ok(html.includes("先更新这条转述，再生成对应的永久笔记候选"));
 });
 
 test("renderPaperWorkspacePage shows an empty-state hint before any permanent candidate exists", () => {
