@@ -7020,6 +7020,28 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 /先重新生成永久笔记候选，再继续写 draft/
               );
             }, 4000);
+
+            await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
+            }, 4000);
+
+            await page
+              .locator("[data-paper-permanent-candidate-id]", {
+                hasText: secondSavedPermanentNoteId
+              })
+              .click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
+              assert.match(
+                String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
+                /先重新生成永久笔记候选，再继续写 draft/
+              );
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
