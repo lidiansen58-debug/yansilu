@@ -6763,6 +6763,13 @@ function renderWritingStatusStrip() {
         : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
           ? `先${projectEntry.actionLabel}`
           : "待生成";
+  const scaffoldTone =
+    hasScaffold ||
+    (!hasProject &&
+      projectEntry?.projectId &&
+      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
+      ? "good"
+      : "";
   const draftStatus = hasDraft
     ? "已绑定"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
@@ -6810,7 +6817,7 @@ function renderWritingStatusStrip() {
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
-    renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, hasScaffold ? "good" : ""),
+    renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, scaffoldTone),
     renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
     renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
   ].join("");
