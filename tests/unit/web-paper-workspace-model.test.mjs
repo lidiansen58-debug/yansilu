@@ -616,14 +616,14 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
     paperWorkspaceResumeStatusKey(
       {
         selectedCandidateId: "pwc_1",
-        hasSavedTranslation: false,
-        hasLocalChanges: false
+        hasSavedTranslation: true,
+        hasLocalChanges: true
       },
       {
         selectedPermanentCandidateId: "pn_1"
       }
     ),
-    "restoredPermanentCandidateForSelectedPaper"
+    "restoredLocalTranslationDraftOverSavedTranslation"
   );
 
   assert.equal(

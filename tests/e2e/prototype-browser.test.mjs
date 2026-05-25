@@ -5894,6 +5894,22 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await waitFor(async () => {
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
             }, 4000);
+
+            await openPaperWorkspace(page, webBase);
+            await page.fill("#paperIdInput", paperId);
+            await page.click("#btnLoadPaperWorkspace");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "load_workspace"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已恢复这条候选的本地未保存草稿/);
+            }, 6000);
+            await waitFor(async () => {
+              assert.equal(await page.locator("#translationRelationInput").inputValue(), "Step 4 is now stale because Step 3 changed.");
+              assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
+              assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
+            }, 4000);
             await page.fill("#translationRelationInput", savedRelation);
             await waitFor(async () => {
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
