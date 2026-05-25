@@ -10003,14 +10003,14 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
           action === "open-draft"
             ? `已从主题索引打开当前草稿：${projectId}`
             : action === "resume-scaffold"
-            ? `已回到草稿骨架：${projectId}`
+            ? `已从主题索引回到草稿骨架：${projectId}`
             : action === "resume-project"
-              ? `已继续当前项目：${projectId}`
+              ? `已从主题索引继续当前项目：${projectId}`
               : ""
       });
     } catch (error) {
       setStatus(
-        `${action === "open-draft" ? "打开当前草稿" : action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }
@@ -10081,7 +10081,7 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
     }
     if ((action === "resume-project" || action === "resume-scaffold") && projectId) {
       await continueWritingProjectEntry(projectId, {
-        statusMessage: action === "resume-scaffold" ? `已回到草稿骨架：${projectId}` : `已继续当前项目：${projectId}`
+        statusMessage: action === "resume-scaffold" ? `已从主题回到草稿骨架：${projectId}` : `已从主题继续当前项目：${projectId}`
       });
       return;
     }
@@ -10093,7 +10093,7 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
           openDraft: Boolean(existingProject.draft_note_id),
           statusMessage: existingProject.draft_note_id
             ? `已从主题打开当前草稿：${existingProject.id}`
-            : `已继续当前项目：${existingProject.id}`
+            : `已从主题继续当前项目：${existingProject.id}`
         });
         return;
       }
@@ -10125,7 +10125,7 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
   } catch (error) {
     if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
       setStatus(
-        `${action === "open-draft" ? "打开当前草稿" : action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到草稿骨架" : "从主题继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
       return;
