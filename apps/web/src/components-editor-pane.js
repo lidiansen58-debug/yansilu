@@ -143,7 +143,7 @@ function distillationDraftFromForm(form, note = {}) {
 function renderDistillationQualityContent(note = {}) {
   const warnings = collectDistillationWarnings(note);
   if (!warnings.length) {
-    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或进入写作中心。</div>`;
+    return `<div class="related-empty">一句话判断、三句话压缩和边界提示都已具备，可以继续确认观点或加入写作篮。</div>`;
   }
   return `
     <div class="related-empty bad">当前还有 ${warnings.length} 项需要打磨。</div>
