@@ -6485,10 +6485,16 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             }, 6000);
 
             await page.locator("#confirmAuthorshipInput").check();
+            let secondSavedPermanentNoteId = "";
             await page.click("#btnSavePermanentNote");
             await waitFor(async () => {
               const text = await page.locator(".paper-result-json").textContent();
               assert.match(text || "", /"stage": "save_permanent_note"/);
+              const parsed = JSON.parse(text || "{}");
+              secondSavedPermanentNoteId = String(
+                parsed?.permanentNote?.id || parsed?.permanentCandidate?.savedPermanentNoteId || ""
+              ).trim();
+              assert.ok(secondSavedPermanentNoteId);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记已保存/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /载入新版 brief，更新本地 draft/);
@@ -6541,6 +6547,37 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             }, 4000);
 
             await page.locator(".paper-candidate").nth(0).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""),
+                /Step 4: 已保存永久笔记路径/
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
+              assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
+            }, 4000);
+
+            await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+              assert.equal(await page.locator("#draftKickoffTextarea").count(), 0);
+            }, 4000);
+
+            await page
+              .locator("[data-paper-permanent-candidate-id]", {
+                hasText: secondSavedPermanentNoteId
+              })
+              .click();
             await waitFor(async () => {
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);

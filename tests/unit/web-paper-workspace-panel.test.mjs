@@ -902,6 +902,7 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
         rationale: "Second reason.",
         originality_status: "pass",
         status: "active",
+        savedPermanentNoteId: "saved_note_2",
         citations: [{ source_id: "src_2" }]
       }
     ]
@@ -916,7 +917,9 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
 
   assert.match(html, /data-paper-permanent-candidate-id="pn_1"/);
   assert.match(html, /data-paper-permanent-candidate-id="pn_2"/);
+  assert.match(html, /data-paper-permanent-saved-note-id="saved_note_2"/);
   assert.match(html, /Permanent Two/);
+  assert.match(html, /已保存为 saved_note_2/);
   assert.match(html, /Second claim\./);
   assert.match(html, /Second reason\./);
   assert.match(html, /核心判断/);
@@ -925,8 +928,8 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
   assert.match(html, /引用/);
   assert.match(html, /src_2/);
   assert.match(html, /class="paper-candidate is-active" type="button" data-paper-permanent-candidate-id="pn_2"/);
-  assert.ok(html.includes("这条候选已经生成对应的永久笔记候选"));
-  assert.ok(html.includes("下一步就是检查 originality 风险"));
+  assert.ok(html.includes("这条候选已经连上自己的永久笔记路径"));
+  assert.ok(html.includes("你可以回看 originality 风险"));
 });
 
 test("renderPaperWorkspacePage falls back when permanent preview boundary or citation are missing", () => {
