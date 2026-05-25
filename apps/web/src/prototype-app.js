@@ -10298,19 +10298,30 @@ $("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
 
 $("btnWritingCreateProject")?.addEventListener("click", async () => {
   const continuation = currentWritingContinuationEntry("当前写作篮");
-  if (continuation?.projectId) {
-    await continueWritingProjectEntry(continuation.projectId, {
-      openDraft: continuation.action === "open-draft",
-      statusMessage:
-        continuation.action === "resume-scaffold"
-          ? `已回到草稿骨架：${continuation.projectId}`
-          : continuation.action === "resume-project"
-            ? `已继续当前项目：${continuation.projectId}`
-            : ""
-    });
-    return;
+  try {
+    if (continuation?.projectId) {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "resume-scaffold"
+            ? `已回到草稿骨架：${continuation.projectId}`
+            : continuation.action === "resume-project"
+              ? `已继续当前项目：${continuation.projectId}`
+              : ""
+      });
+      return;
+    }
+    await createWritingProjectFromCurrentBasket();
+  } catch (error) {
+    if (continuation?.projectId) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+      return;
+    }
+    setStatus(`从写作中心创建项目失败：${String(error?.message || error)}`, "bad");
   }
-  await createWritingProjectFromCurrentBasket();
 });
 
 $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
