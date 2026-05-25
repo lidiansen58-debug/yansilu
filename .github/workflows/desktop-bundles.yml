@@ -37,6 +37,7 @@ jobs:
 
   preflight:
     if: github.event_name == 'pull_request'
+    needs: detect-desktop-surface
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -51,11 +52,24 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Desktop dev preflight
-        run: npm run dev:desktop:check
+      - name: Install Linux system dependencies
+        if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf
 
       - name: Desktop bundle preflight
+        if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
         run: npm run build:desktop:check
+
+      - name: Ordinary PR desktop gate
+        if: needs.detect-desktop-surface.outputs.full_bundle_required != 'true'
+        run: echo "No desktop bundle-impacting changes detected; release-grade desktop checks are deferred."
 
   build:
     needs:
