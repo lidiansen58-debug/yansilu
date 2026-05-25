@@ -2263,6 +2263,18 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
   const { page, webBase } = stack;
+
+  await page.addInitScript(() => {
+    window.__copiedTexts = [];
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.__copiedTexts.push(String(text || ""));
+        }
+      }
+    });
+  });
   const showEditorHelper = async () => {
     const helper = page.locator("#editorHelper");
     const hidden = await helper.evaluate((node) => node.classList.contains("hidden")).catch(() => true);
@@ -5564,9 +5576,22 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(permanentStepText || ""), /先在 Step 3 保存转述并生成候选/);
       assert.match(String(permanentStepText || ""), /保存转述后，可以为当前候选生成永久笔记候选/);
       assert.match(String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""), /具备继续写 draft 的最小条件/);
+      assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
       assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
       assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
       assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
+    }, 4000);
+
+    await page.click("#btnCopyDraftBrief");
+    await waitFor(async () => {
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /已复制 draft brief/);
+      const copiedText = await page.evaluate(
+        () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+      );
+      assert.match(String(copiedText || ""), /# Draft brief:/);
+      assert.match(String(copiedText || ""), /## Relation to question/);
+      assert.match(String(copiedText || ""), /This supports turning reading work into durable notes\./);
     }, 4000);
 
     await page.locator(".paper-candidate").nth(1).click();
@@ -6179,6 +6204,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
                 /先重新生成永久笔记候选，再继续写 draft/
               );
+              assert.notEqual(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
