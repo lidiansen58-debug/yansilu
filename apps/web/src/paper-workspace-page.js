@@ -28,13 +28,12 @@ import {
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
+  resolveTranslationSaveRuntimeState,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
-  translationSaveActionState,
-  translationDraftSupportsNextStep,
   translationContinuitySignature,
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
@@ -687,15 +686,11 @@ function rerenderPreservingContinuityFocus(target = null) {
 }
 
 function updateDynamicControls() {
-  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const translationSaveState = currentTranslationSaveState();
   const saveTranslationButton = document.getElementById("btnSaveTranslation");
   if (saveTranslationButton) {
-    saveTranslationButton.disabled = !translationSaveAction.enabled;
-    saveTranslationButton.textContent = translationSaveAction.label;
+    saveTranslationButton.disabled = !translationSaveState.action.enabled;
+    saveTranslationButton.textContent = translationSaveState.action.label;
   }
   const notebookDraftButton = document.getElementById("btnAddNotebookDraft");
   if (notebookDraftButton) {
@@ -761,6 +756,20 @@ async function copyTextToClipboard(text) {
 
 function currentDraftBriefState() {
   return resolveDraftBriefState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  );
+}
+
+function currentTranslationSaveState() {
+  return resolveTranslationSaveRuntimeState(
     state.workspace,
     state.workspaceSelection,
     state.selectedCandidateId,
@@ -935,12 +944,8 @@ async function handleAddNotebookDraft() {
 }
 
 async function handleSaveTranslation() {
-  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  if (!translationSaveAction.enabled) {
+  const translationSaveState = currentTranslationSaveState();
+  if (!translationSaveState.action.enabled) {
     render();
     return;
   }
@@ -980,33 +985,22 @@ async function handleSaveTranslation() {
         baselineTranslationSignatureBeforeSave
       );
     }
-    const continuityState = permanentNoteContinuityState(
-      state.workspace,
-      state.workspaceSelection,
-      state.selectedPermanentCandidateId,
-      state.selectedCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    );
     return {
       stage: "save_translation",
-      permanentNoteContinuityReason: continuityState.reason,
-      supportsNextStep: translationDraftSupportsNextStep(state.workspace, state.selectedCandidateId, {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }),
+      ...resolveTranslationSaveRuntimeState(
+        state.workspace,
+        state.workspaceSelection,
+        state.selectedCandidateId,
+        state.selectedPermanentCandidateId,
+        {
+          paraphraseText: state.form.paraphraseText,
+          relationToQuestion: state.form.relationToQuestion,
+          boundaryOrCondition: state.form.boundaryOrCondition
+        }
+      ),
       ...result
     };
-  }, (result) =>
-    result?.permanentNoteContinuityReason === "stale_translation_signature"
-      ? STATUS.translationNeedsFreshPermanentCandidate
-      : result?.supportsNextStep === false
-      ? STATUS.savedTranslationNeedsDraftSupport
-      : STATUS.savedTranslation);
+  }, (result) => STATUS[result?.successStatusKey] || STATUS.savedTranslation);
 }
 
 async function handleCreatePermanentCandidate() {

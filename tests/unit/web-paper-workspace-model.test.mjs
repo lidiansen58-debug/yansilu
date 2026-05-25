@@ -43,11 +43,13 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
+  savedTranslationStatusKey,
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
+  resolveTranslationSaveRuntimeState,
   translationSaveActionState,
   translationContinuitySignature,
   translationDraftHasLocalChanges,
@@ -1292,6 +1294,78 @@ test("translationSaveActionState reflects whether the current translation still 
       label: "更新转述"
     }
   );
+});
+
+test("savedTranslationStatusKey prefers stale step-four warnings before ready translation messages", () => {
+  assert.equal(savedTranslationStatusKey("stale_translation_signature", true), "translationNeedsFreshPermanentCandidate");
+  assert.equal(savedTranslationStatusKey("ok", false), "savedTranslationNeedsDraftSupport");
+  assert.equal(savedTranslationStatusKey("ok", true), "savedTranslation");
+});
+
+test("resolveTranslationSaveRuntimeState combines save action, continuity reason, and success status key", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+  const staleSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: "sig_old"
+    }
+  };
+
+  const staleState = resolveTranslationSaveRuntimeState(
+    workspace,
+    staleSelection,
+    "pwc_1",
+    "pn_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    }
+  );
+  assert.deepEqual(staleState.action, {
+    enabled: false,
+    label: "已保存转述"
+  });
+  assert.equal(staleState.continuityReason, "stale_translation_signature");
+  assert.equal(staleState.supportsNextStep, true);
+  assert.equal(staleState.successStatusKey, "translationNeedsFreshPermanentCandidate");
+
+  const supportMissingState = resolveTranslationSaveRuntimeState(
+    {
+      ...workspace,
+      translations: [
+        {
+          id: "ptr_1",
+          candidateId: "pwc_1",
+          paraphraseText: "Saved wording.",
+          relationToQuestion: "",
+          boundaryOrCondition: "Saved boundary."
+        }
+      ]
+    },
+    null,
+    "pwc_1",
+    "",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "",
+      boundaryOrCondition: "Saved boundary."
+    }
+  );
+  assert.equal(supportMissingState.continuityReason, "missing_permanent_candidate");
+  assert.equal(supportMissingState.supportsNextStep, false);
+  assert.equal(supportMissingState.successStatusKey, "savedTranslationNeedsDraftSupport");
 });
 
 test("permanentCandidateActionState reflects the current translation prerequisite", () => {

@@ -205,6 +205,19 @@ export function translationSaveActionState(workspace = null, candidateId = "", d
   return { enabled: true, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
 }
 
+export function savedTranslationStatusKey(
+  permanentNoteContinuityReason = "",
+  supportsNextStep = true
+) {
+  if (cleanText(permanentNoteContinuityReason) === "stale_translation_signature") {
+    return "translationNeedsFreshPermanentCandidate";
+  }
+  if (supportsNextStep === false) {
+    return "savedTranslationNeedsDraftSupport";
+  }
+  return "savedTranslation";
+}
+
 export function permanentCandidateActionState(
   workspace = null,
   storedSelection = null,
@@ -1056,6 +1069,32 @@ export function resolveDraftBriefState(
     recentDraftBriefCopy,
     currentTranslationSignature,
     continuityReason
+  };
+}
+
+export function resolveTranslationSaveRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuityReason = permanentNoteContinuityState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  ).reason;
+  const supportsNextStep = translationDraftSupportsNextStep(workspace, candidateId, draftInput);
+
+  return {
+    draft,
+    supportsNextStep,
+    continuityReason,
+    action: translationSaveActionState(workspace, candidateId, draftInput),
+    successStatusKey: savedTranslationStatusKey(continuityReason, supportsNextStep)
   };
 }
 
