@@ -6806,7 +6806,7 @@ function renderWritingStatusStrip() {
     : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
       ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
       : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
-        ? projectPreflightSummary.hint || "先补项目条件，再保存草稿。"
+        ? projectPreflightSummary.hint || "先补项目缺口，再保存草稿。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? projectEntry.hint
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"

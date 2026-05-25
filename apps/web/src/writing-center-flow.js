@@ -409,7 +409,7 @@ export function describeWritingDraftStepState({
   if (hasScaffold && cleanProjectPreflightLevel === "has_gaps") {
     return {
       title: "先补项目缺口",
-      note: cleanProjectPreflightHint || "先补项目条件，再保存草稿。"
+      note: cleanProjectPreflightHint || "先补项目缺口，再保存草稿。"
     };
   }
   if (hasDraft) {

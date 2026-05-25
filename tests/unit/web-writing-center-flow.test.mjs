@@ -171,6 +171,17 @@ test("writing draft step says 可继续保存草稿 after scaffold exists but be
   assert.equal(step.note, "可继续保存草稿");
 });
 
+test("writing draft step reflects project gaps before draft saving", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: true,
+    projectPreflightLevel: "has_gaps"
+  });
+
+  assert.equal(step.title, "\u5148\u8865\u9879\u76ee\u7f3a\u53e3");
+  assert.equal(step.note, "\u5148\u8865\u9879\u76ee\u7f3a\u53e3\uff0c\u518d\u4fdd\u5b58\u8349\u7a3f\u3002");
+});
+
 test("writing draft step says 生成草稿骨架后再保存 before any scaffold exists", () => {
   const step = describeWritingDraftStepState({
     hasDraft: false,

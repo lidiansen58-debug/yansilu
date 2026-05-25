@@ -13,7 +13,10 @@ test("writing draft status card reflects project clarification before draft savi
 test("writing draft status card reflects project gaps before draft saving", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /hasProject && hasScaffold && projectPreflightSummary\.level === "has_gaps"\s*\?\s*"先补项目缺口"/);
-  assert.match(source, /hasProject && hasScaffold && projectPreflightSummary\.level === "has_gaps"[\s\S]*projectPreflightSummary\.hint \|\| "先补项目条件，再保存草稿。"/);
-  assert.match(source, /renderWritingStatusCard\("草稿", draftStatus, draftNote, draftTone\)/);
+  assert.match(source, /hasProject && hasScaffold && projectPreflightSummary\.level === "has_gaps"\s*\?\s*"\u5148\u8865\u9879\u76ee\u7f3a\u53e3"/);
+  assert.match(
+    source,
+    /hasProject && hasScaffold && projectPreflightSummary\.level === "has_gaps"[\s\S]*projectPreflightSummary\.hint \|\| "\u5148\u8865\u9879\u76ee\u7f3a\u53e3\uff0c\u518d\u4fdd\u5b58\u8349\u7a3f\u3002"/
+  );
+  assert.match(source, /renderWritingStatusCard\("\u8349\u7a3f", draftStatus, draftNote, draftTone\)/);
 });
