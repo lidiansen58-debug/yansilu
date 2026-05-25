@@ -6733,10 +6733,11 @@ function renderWritingStatusStrip() {
     projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim()
   });
   const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const canContinueProjectedProjectStatus = !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
   const projectTone =
     hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"
-      : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
+      : hasProject || canContinueProjectedProjectStatus || readiness.level === "project_ready" || readiness.level === "strong_model_ready"
         ? "good"
         : "warn";
   const projectNote = hasProject
