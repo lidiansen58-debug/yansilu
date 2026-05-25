@@ -6867,6 +6867,22 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
               assert.doesNotMatch(String(copiedText || ""), new RegExp(`Saved permanent note: ${refreshedSavedPermanentNoteId}`));
             }, 4000);
+
+            await page.click("#btnStartDraftKickoff");
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /继续本地 draft|已载入本地 draft kickoff/);
+              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
