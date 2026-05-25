@@ -16,7 +16,11 @@ import {
   normalizeAiInboxFilters,
   selectedAiInboxItem
 } from "./ai-inbox-model.js";
-import { aiSuggestionActionSet } from "./ai-suggestions-model.js";
+import {
+  aiSuggestionActionSet,
+  aiSuggestionStatusLabel,
+  aiSuggestionStatusTone
+} from "./ai-suggestions-model.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -259,25 +263,6 @@ function renderPayloadPreview(payload = {}) {
   `;
 }
 
-function suggestionStatusLabel(status = "") {
-  const labels = {
-    suggested: "Suggested",
-    adopted_as_draft: "Adopted as draft",
-    edited: "Edited",
-    confirmed: "Confirmed",
-    rejected: "Rejected"
-  };
-  return labels[String(status || "").trim()] || String(status || "").trim() || "Unknown";
-}
-
-function suggestionStatusTone(status = "") {
-  const value = String(status || "").trim();
-  if (value === "suggested") return "warn";
-  if (value === "adopted_as_draft" || value === "edited" || value === "confirmed") return "ok";
-  if (value === "rejected") return "muted";
-  return "";
-}
-
 function renderSuggestionTrace(detail = {}) {
   const suggestion = detail.suggestion || null;
   const trace = detail.trace || {};
@@ -311,7 +296,7 @@ function renderSuggestionTrace(detail = {}) {
         <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
         <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
         <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
-        <dt>Status</dt><dd>${escapeHtml(status ? suggestionStatusLabel(status) : "not recorded")}</dd>
+        <dt>Status</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "not recorded")}</dd>
         <dt>Source notes</dt><dd>${escapeHtml(sourceText)}</dd>
       </dl>
       ${targetHint}
@@ -355,7 +340,7 @@ function renderSuggestionProvenance(detail = {}) {
         <dt>Origin</dt><dd>${escapeHtml(suggestion.provenance?.contentOrigin || suggestion.origin || "ai_generated")}</dd>
         <dt>Human edited</dt><dd>${escapeHtml(suggestion.provenance?.humanEdited ? "yes" : "no")}</dd>
         <dt>Human confirmed</dt><dd>${escapeHtml(suggestion.provenance?.humanConfirmed ? "yes" : "no")}</dd>
-        <dt>Status</dt><dd>${renderBadge(suggestionStatusLabel(suggestion.status), suggestionStatusTone(suggestion.status))}</dd>
+        <dt>Status</dt><dd>${renderBadge(aiSuggestionStatusLabel(suggestion.status), aiSuggestionStatusTone(suggestion.status))}</dd>
       </dl>
     </section>
   `;
@@ -383,7 +368,7 @@ function renderSuggestionHistory(detail = {}) {
           .map((event) => `
             <div class="ai-inbox-decision">
               <div>
-                <strong>${escapeHtml(suggestionStatusLabel(event.eventType || event.metadata?.toStatus))}</strong>
+                <strong>${escapeHtml(aiSuggestionStatusLabel(event.eventType || event.metadata?.toStatus))}</strong>
                 <span>${escapeHtml(formatDate(event.createdAt) || event.createdAt || "")}</span>
               </div>
               <p>${escapeHtml(`${event.metadata?.fromStatus || "unknown"} -> ${event.metadata?.toStatus || event.eventType || "unknown"}`)}</p>
@@ -442,6 +427,13 @@ function renderActionError(message = "") {
   const text = String(message || "").trim();
   if (!text) return "";
   return `<div class="ai-inbox-empty is-bad">AI inbox review failed: ${escapeHtml(text)}</div>`;
+}
+
+function renderActionNotice(message = "", tone = "") {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  const cleanTone = String(tone || "").trim();
+  return `<div class="ai-inbox-detail-muted ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}" data-ai-inbox-action-notice="true">${escapeHtml(text)}</div>`;
 }
 function renderFeedbackControls() {
   return `
@@ -635,6 +627,26 @@ function renderDecisions(decisions = []) {
   `;
 }
 
+function renderDetailRefreshGate(item = {}) {
+  if (!item?.artifactId) return "";
+  return `
+    <article class="ai-inbox-detail">
+      <header class="ai-inbox-detail-head">
+        <div>
+          <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(item.type))}</div>
+          <h2>${escapeHtml(item.title || item.artifactId || "未命名建议")}</h2>
+          <p>${escapeHtml(item.summary || "正在加载这条建议的最新详情。")}</p>
+        </div>
+        ${renderBadge(aiInboxStatusLabel(item.status), aiInboxStatusTone(item.status))}
+      </header>
+      <section class="ai-inbox-detail-section">
+        <h3>Review safety</h3>
+        <div class="ai-inbox-detail-muted">The selected inbox item changed. Refresh the latest detail before running review actions so the decision stays aligned with the current canonical artifact.</div>
+      </section>
+    </article>
+  `;
+}
+
 function renderDetail(state = {}) {
   const detail = state.detail || {};
   const selectedArtifactId = String(state.selectedArtifactId || "").trim();
@@ -653,6 +665,9 @@ function renderDetail(state = {}) {
   }
   if (!item.artifactId && !artifact) {
     return `<div class="ai-inbox-empty">从左侧选择一条建议，右侧会显示来源、理由、可执行动作和处理记录。</div>`;
+  }
+  if (!detailMatchesSelection) {
+    return renderDetailRefreshGate(item);
   }
 
   const activeArtifact = artifact || item;
@@ -700,6 +715,7 @@ function renderDetail(state = {}) {
       ${renderSuggestionHistory(activeDetail)}
       ${renderSuggestionReviewActions(activeDetail, actionDisabled)}
       ${renderActionError(state.actionError)}
+      ${renderActionNotice(state.actionNotice, state.actionNoticeTone)}
       ${renderAiSummary(state, item)}
       ${renderRecommendedSummaryAction(state)}
       ${renderReviewActions(item)}

@@ -304,6 +304,37 @@ test("AI inbox panel surfaces review action errors inside the detail pane", () =
   assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
 });
 
+test("AI inbox panel surfaces inline no-op review notices inside the detail pane", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_action_notice", type: "InsightCard", title: "Field suggestion notice" }],
+    counts: { reviewed: 1 },
+    selectedArtifactId: "artifact_action_notice",
+    actionNotice: "This reviewed suggestion is already confirmed.",
+    actionNoticeTone: "ok",
+    detail: {
+      item: { ...item, artifactId: "artifact_action_notice", type: "InsightCard", title: "Field suggestion notice", status: "adopted_as_draft" },
+      artifact: {
+        ...artifact,
+        id: "artifact_action_notice",
+        type: "InsightCard",
+        status: "adopted_as_draft"
+      },
+      suggestion: {
+        id: "suggestion_action_notice",
+        target: { type: "permanent_note", id: "pn_1", field: "thesis" },
+        scope: "note_field",
+        content: { thesis: "Edited content awaiting confirmation." },
+        status: "confirmed",
+        sourceArtifactId: "artifact_action_notice",
+        provenance: { contentOrigin: "ai_generated", humanEdited: true, humanConfirmed: true }
+      }
+    }
+  });
+
+  assert.match(html, /data-ai-inbox-action-notice="true"/);
+  assert.match(html, /This reviewed suggestion is already confirmed\./);
+});
+
 test("AI inbox panel does not keep rendering stale detail when selection has moved", () => {
   const html = renderAiInboxPanel({
     items: [
@@ -329,6 +360,10 @@ test("AI inbox panel does not keep rendering stale detail when selection has mov
   assert.doesNotMatch(detailPane, /Selected artifact A/);
   assert.match(detailPane, /Selected artifact B/);
   assert.doesNotMatch(detailPane, /Should not leak from stale detail/);
+  assert.match(detailPane, /Review safety/);
+  assert.match(detailPane, /Refresh the latest detail before running review actions/);
+  assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
+  assert.doesNotMatch(detailPane, /data-ai-inbox-suggestion-status=/);
 });
 
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
