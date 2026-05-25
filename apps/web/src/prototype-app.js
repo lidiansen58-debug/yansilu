@@ -6248,7 +6248,7 @@ function renderWritingThemeIndexCard(indexCard) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作中心入口。")}</div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续可续接的写作入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       ${
         existingProject?.id

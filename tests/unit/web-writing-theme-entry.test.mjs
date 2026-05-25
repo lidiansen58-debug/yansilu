@@ -91,3 +91,9 @@ test("theme detail empty hint no longer hardcodes create-project wording", () =>
 
   assert.match(source, /查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作入口。/);
 });
+
+test("theme index card fallback summary also uses resumable-entry wording", () => {
+  const source = repoSource();
+
+  assert.match(source, /把一组成熟永久笔记当成后续可续接的写作入口。/);
+});
