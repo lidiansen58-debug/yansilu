@@ -6973,6 +6973,20 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
               assert.doesNotMatch(String(copiedText || ""), new RegExp(`Saved permanent note: ${refreshedSavedPermanentNoteId}`));
             }, 4000);
+
+            await page.fill("#translationRelationInput", "A third saved-path update should invalidate the late recent-copy hint.");
+            await page.click("#btnSaveTranslation");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "save_translation"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
+              assert.match(
+                String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
+                /先重新生成永久笔记候选，再继续写 draft/
+              );
+            }, 6000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
