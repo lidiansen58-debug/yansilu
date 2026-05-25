@@ -5802,7 +5802,7 @@ export class EditorPane {
                 ? "把线索收成显式关系"
                 : "补关系理由"
               : Number(overview.tagRelatedCount || 0) > 0
-                ? "从标签里补关系"
+                ? "从标签线索补关系"
                 : "处理关系"
       },
       {
