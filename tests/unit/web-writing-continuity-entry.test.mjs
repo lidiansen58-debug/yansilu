@@ -93,7 +93,21 @@ test("note main-path project entry still funnels through the unified writing-cen
   assert.ok(match, "expected open-note-main-route handler to exist");
 
   const fnBody = match[1];
-  assert.match(fnBody, /if \(mode === "project"\) \{\s*await createWritingProjectFromCurrentBasket\(\);/);
+  assert.match(fnBody, /if \(mode === "project"\) \{\s*await openWritingModule\(\{ statusMessage: "" \}\);\s*await createWritingProjectFromCurrentBasket\(\);/);
+});
+
+test("note main-path writing entry resumes an existing continuity target before opening the generic writing center", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  const match = source.match(/if \(reason === "open-note-main-route"\) \{([\s\S]*?)\n  \}/);
+  assert.ok(match, "expected open-note-main-route handler to exist");
+
+  const fnBody = match[1];
+  assert.match(fnBody, /const continuation = currentWritingContinuationEntry\("当前笔记"\);/);
+  assert.match(fnBody, /if \(continuation\?\.projectId\) \{\s*await continueWritingProjectEntry\(continuation\.projectId,/);
+  assert.match(fnBody, /await openWritingModule\(\{ statusMessage \}\);/);
 });
 
 test("createWritingProjectFromCurrentBasket resumes an existing project before creating a new one", () => {
