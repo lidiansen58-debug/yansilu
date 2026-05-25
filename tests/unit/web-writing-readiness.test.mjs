@@ -21,6 +21,42 @@ test("writing readiness blocks notes without authorship confirmation", () => {
 
   assert.equal(readiness.level, "blocked_authorship");
   assert.match(readiness.status, /作者确认/);
+  assert.equal(readiness.actionLabel, "先完成作者确认");
+});
+
+test("writing readiness asks draft notes to finish originality confirmation before writing-center", () => {
+  const pane = createPane();
+  const readiness = pane.noteWritingReadinessV2(
+    {
+      status: "draft",
+      distillationStatus: "confirmed",
+      authorship: { user_confirmed: true },
+      body: "# Note\n\nStill a draft note."
+    },
+    {}
+  );
+
+  assert.equal(readiness.level, "blocked_draft");
+  assert.match(readiness.status, /原创确认/);
+  assert.equal(readiness.actionLabel, "先完成原创确认");
+});
+
+test("writing readiness asks unconfirmed notes to confirm the claim before writing-center", () => {
+  const pane = createPane();
+  const readiness = pane.noteWritingReadinessV2(
+    {
+      status: "active",
+      distillationStatus: "draft",
+      authorship: { user_confirmed: true },
+      thesis: "A stable claim.",
+      threeLineSummary: ["one", "two", "three"]
+    },
+    {}
+  );
+
+  assert.equal(readiness.level, "needs_distillation");
+  assert.match(readiness.status, /确认观点/);
+  assert.equal(readiness.actionLabel, "先确认观点/三句话");
 });
 
 test("writing readiness allows basket entry before boundary and relation are complete", () => {
@@ -243,7 +279,7 @@ test("main-path writing step uses requirements mode for authorship-blocked notes
   ).replace(/\s+/g, " ");
 
   assert.match(html, /data-note-main-route-mode="requirements"/);
-  assert.match(html, /查看写作要求/);
+  assert.match(html, /先完成作者确认/);
 });
 
 test("main-path basket-ready card labels the writing step as 可进入写作中心", () => {
@@ -296,5 +332,5 @@ test("main-path writing step uses distillation mode when the note still needs di
   ).replace(/\s+/g, " ");
 
   assert.match(html, /data-note-main-route-mode="distillation"/);
-  assert.match(html, /先完成提纯/);
+  assert.match(html, /先确认观点\/三句话/);
 });

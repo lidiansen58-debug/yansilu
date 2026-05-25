@@ -5631,9 +5631,9 @@ export class EditorPane {
 
     if (routeMode === "distillation") {
       return {
-        status: "先完成提纯",
+        status: readiness.status,
         hint: readiness.hint,
-        actionLabel: "先完成提纯",
+        actionLabel: readiness.actionLabel || "先确认观点/三句话",
         routeMode
       };
     }
@@ -5642,7 +5642,7 @@ export class EditorPane {
       return {
         status: readiness.status,
         hint: readiness.hint,
-        actionLabel: "查看写作要求",
+        actionLabel: readiness.actionLabel || readiness.status || "先完成写作要求",
         routeMode
       };
     }

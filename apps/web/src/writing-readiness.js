@@ -36,7 +36,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
       level: "blocked_authorship",
       status: "先完成作者确认",
       hint: "写作篮只接收已经完成作者确认的永久笔记。",
-      actionLabel: "查看写作要求"
+      actionLabel: "先完成作者确认"
     };
   }
   if (noteStatus !== "active") {
@@ -44,7 +44,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
       level: "blocked_draft",
       status: "先完成原创确认",
       hint: "当前仍是 draft，先完成原创性检查后再进入写作中心。",
-      actionLabel: "查看写作要求"
+      actionLabel: "先完成原创确认"
     };
   }
   if (!confirmed) {
@@ -52,7 +52,7 @@ export function deriveNoteWritingReadiness(note = {}, overview = {}) {
       level: "needs_distillation",
       status: "先确认观点",
       hint: "至少先确认 thesis 和三句话压缩，再决定是否进入写作中心。",
-      actionLabel: "先完成提纯"
+      actionLabel: "先确认观点/三句话"
     };
   }
   if (!hasBoundary) {
