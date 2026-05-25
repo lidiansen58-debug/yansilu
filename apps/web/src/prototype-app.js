@@ -7338,7 +7338,7 @@ function graphRelationStatusLabel(status) {
 }
 
 const GRAPH_RELATION_QUALITY_LABELS = {
-  empty: "缺说明",
+  empty: "缺理由",
   basic: "待补强",
   good: "较清楚",
   strong: "清楚"
@@ -7890,7 +7890,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
               ? `
                 <div class="graph-review-summary">
                   <strong>${total} 条待整理关系</strong>
-                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系理由或追问。</small>
+                  <small>缺理由 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系理由或追问。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -7918,7 +7918,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">永久笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
+              : `<div class="graph-empty">永久笔记范围内没有缺理由或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
       </section>
   `;
@@ -8269,7 +8269,7 @@ function renderGraphPanel() {
     <div class="graph-metrics" aria-label="图谱摘要">
       ${renderGraphMetricCard("节点", `${visibleNodes.length}/${nodes.length}`, densityLabel, nodes.length ? "good" : "warn")}
       ${renderGraphMetricCard("显式关系", edges.length, relationSummary || "等待建立关系", edges.length ? "good" : "warn")}
-      ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
+      ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补理由" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
       ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
     </div>
     ${renderGraphInsightCoach({
