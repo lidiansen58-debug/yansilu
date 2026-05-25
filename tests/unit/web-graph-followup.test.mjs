@@ -42,6 +42,18 @@ test("graph next action prefers relation followup when graph only has untyped re
   assert.equal(nextAction.relationId, "lnk_rel_1");
 });
 
+test("graph next action uses an explicit first-relation action when the graph has nodes but no edges", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: false,
+    firstNodeId: "pn_first_edge_1"
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_first_edge_1");
+  assert.equal(nextAction.actionLabel, "去补第一条关系");
+});
+
 test("graph next action prefers tension followup before bridge followup", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,

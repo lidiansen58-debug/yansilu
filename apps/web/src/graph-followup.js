@@ -49,7 +49,7 @@ export function graphNextActionForSummary({
       note: "在两条相关笔记之间加上一条 [[关联笔记]]，再刷新图谱查看局部结构。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系"
+      actionLabel: "去补第一条关系"
     };
   }
 
