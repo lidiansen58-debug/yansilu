@@ -349,10 +349,12 @@ test("draftContinuationBrief summarizes the current draft handoff path", () => {
   assert.match(brief.markdown, /# Draft brief: Candidate One/);
   assert.match(brief.markdown, /Step 4: 已保存永久笔记路径 \(Permanent One\)/);
   assert.match(brief.markdown, /Saved permanent note: note_1/);
+  assert.match(brief.markdown, /Next action: .*回看 originality \/ authorship/);
   assert.match(brief.markdown, /## Paraphrase/);
   assert.match(brief.markdown, /My own wording\./);
   assert.match(brief.preview, /Relation: This matters for the writing question\./);
   assert.match(brief.preview, /Saved note: note_1/);
+  assert.match(brief.preview, /Next: .*回看 originality \/ authorship/);
 });
 
 test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {
