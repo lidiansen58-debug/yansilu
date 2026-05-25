@@ -6372,7 +6372,7 @@ function renderWritingThemeDetail(indexCard) {
 }
 
 function writingThemeDetailHintText(indexCard) {
-  if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。";
+  if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作入口。";
   const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
   const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
   return `${themeLabel}：当前主题入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前项目还是创建项目。"}`;

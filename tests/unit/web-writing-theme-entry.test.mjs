@@ -85,3 +85,9 @@ test("theme detail summary describes a resumable writing entry", () => {
 
   assert.match(source, /可续接的写作入口/);
 });
+
+test("theme detail empty hint no longer hardcodes create-project wording", () => {
+  const source = repoSource();
+
+  assert.match(source, /查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作入口。/);
+});
