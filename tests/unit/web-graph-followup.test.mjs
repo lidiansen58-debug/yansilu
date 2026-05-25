@@ -178,6 +178,8 @@ test("graph next action prefers strengthening thin rationale before entering the
   assert.equal(nextAction.actionLabel, "先补关系理由");
   assert.match(nextAction.note, /2/);
   assert.match(nextAction.note, /显式关系/);
+  assert.match(nextAction.note, /下一步写作/);
+  assert.doesNotMatch(nextAction.note, /写作中心/);
 });
 
 test("graph next action points to writing center once structure is already clear", () => {

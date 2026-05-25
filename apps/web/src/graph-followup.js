@@ -66,7 +66,7 @@ export function graphNextActionForSummary({
   if (thinRationaleFromNoteId) {
     return {
       title: "先补关系理由",
-      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再进入写作中心会更稳。`,
+      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再决定下一步写作会更稳。`,
       noteId: String(thinRationaleFromNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关系理由"
