@@ -6532,6 +6532,33 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 6000);
+
+            await page.locator(".paper-candidate").nth(1).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+              assert.equal(await page.locator("#draftKickoffTextarea").count(), 0);
+            }, 4000);
+
+            await page.locator(".paper-candidate").nth(0).click();
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""),
+                /Step 4: 已保存永久笔记路径/
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
+              assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
