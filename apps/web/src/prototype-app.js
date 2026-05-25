@@ -7240,7 +7240,17 @@ function renderWritingPanel() {
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
-  if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
+  if (saveDraftButton) {
+    const canSaveDraft = Boolean(writingState.scaffold?.id) && projectPreflightSummary.level === "ready";
+    saveDraftButton.disabled = !canSaveDraft;
+    saveDraftButton.textContent = !writingState.scaffold?.id
+      ? "保存为草稿笔记"
+      : projectPreflightSummary.level === "needs_clarification"
+        ? "先澄清项目问题"
+        : projectPreflightSummary.level === "has_gaps"
+          ? "先补项目缺口"
+          : "保存为草稿笔记";
+  }
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
     strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !(strongModelReady || canContinueProjectedStrongModel);
@@ -10566,6 +10576,10 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
       code: "WRITING_DRAFT_INVALID"
     });
     return setStatus("请先生成草稿骨架", "warn");
+  }
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
+  if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
+    return setStatus(projectPreflightSummary.hint || "先补项目条件，再保存草稿。", "warn");
   }
 
   const directoryId = writingDraftDirectoryId();
