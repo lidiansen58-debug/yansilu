@@ -6746,7 +6746,11 @@ function renderWritingStatusStrip() {
     : projectEntry.hint;
   const scaffoldNote = hasScaffold
     ? "章节、证据、缺口已返回"
-    : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? "当前草稿已经存在。先打开当前草稿继续写作。"
+      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
+        ? "先回到草稿骨架，再检查证据、缺口和开放问题。"
+        : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
       ? `先${projectEntry.actionLabel}，再生成草稿骨架`
       : "创建项目后生成";
   const draftStatus = hasDraft
