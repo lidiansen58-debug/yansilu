@@ -6791,6 +6791,9 @@ function renderWritingFlowSteps({
   });
   const scaffoldStep = describeWritingScaffoldStepState({
     hasScaffold,
+    hasProject,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     blockingCount: preflightGroups.blocking.length,
     warningCount: preflightGroups.warnings.length
   });
@@ -7144,7 +7147,11 @@ function renderWritingPanel() {
   }
   if (createScaffoldButton) {
     createScaffoldButton.disabled = !writingState.project?.id;
-    createScaffoldButton.textContent = writingState.project?.id ? "生成草稿骨架" : "先创建项目";
+    createScaffoldButton.textContent = writingState.project?.id
+      ? "生成草稿骨架"
+      : projectEntry?.projectId && projectEntry?.actionLabel
+        ? `先${projectEntry.actionLabel}`
+        : "先创建项目";
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;

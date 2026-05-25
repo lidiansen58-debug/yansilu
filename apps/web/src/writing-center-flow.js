@@ -293,10 +293,20 @@ export function isWritingScaffoldReadyForDraft({
 
 export function describeWritingScaffoldStepState({
   hasScaffold = false,
+  hasProject = false,
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   blockingCount = 0,
   warningCount = 0
 } = {}) {
   if (!hasScaffold) {
+    const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+    if (!hasProject && String(projectEntryProjectId || "").trim() && continuationActionLabel) {
+      return {
+        title: "生成草稿骨架",
+        note: `先${continuationActionLabel}，再检查证据、缺口和反方`
+      };
+    }
     return {
       title: "生成草稿骨架",
       note: "检查证据、缺口和反方"
