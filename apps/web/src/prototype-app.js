@@ -6039,12 +6039,32 @@ function findExistingWritingProjectForTheme(indexCard, noteIds = []) {
   );
 }
 
+function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = {}) {
+  const normalizedThemeId = String(themeId || "").trim();
+  const normalizedNoteIds = uniqueStrings(noteIds);
+  if (!project?.id) return false;
+
+  const relatedIndexIds = uniqueStrings(project?.related_index_ids || project?.relatedIndexIds || []);
+  const basketNoteIds = uniqueStrings(project?.basket_note_ids || project?.basketNoteIds || []);
+
+  if (normalizedThemeId && relatedIndexIds.includes(normalizedThemeId)) return true;
+  return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
+}
+
 function currentWritingEntryProject() {
-  if (writingState.project?.id) return writingState.project;
   const basketNoteIds = parseWritingBasketIds();
   if (!basketNoteIds.length) return null;
   const sourceIndexIds = uniqueStrings([writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]);
-  const sourceTheme = sourceIndexIds.length ? writingThemeIndexById(sourceIndexIds[0]) : null;
+  const sourceThemeId = sourceIndexIds[0] || "";
+  const sourceTheme = sourceThemeId ? writingThemeIndexById(sourceThemeId) : null;
+  if (
+    writingProjectMatchesContext(writingState.project, {
+      themeId: sourceThemeId,
+      noteIds: basketNoteIds
+    })
+  ) {
+    return writingState.project;
+  }
   return findExistingWritingProjectForTheme(sourceTheme, basketNoteIds);
 }
 

@@ -23,6 +23,30 @@ test("writing continuation action prefers opening the current draft when one alr
   assert.match(entry.hint, /wp_existing/);
 });
 
+test("current writing continuity only reuses the open project when it still matches the basket or theme context", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  assert.match(source, /function writingProjectMatchesContext\(project, \{ themeId = "", noteIds = \[\] \} = \{\}\) \{/);
+  assert.match(source, /if \(normalizedThemeId && relatedIndexIds\.includes\(normalizedThemeId\)\) return true;/);
+  assert.match(source, /return normalizedNoteIds\.length > 0 && sameUniqueStringSet\(basketNoteIds, normalizedNoteIds\);/);
+});
+
+test("currentWritingEntryProject no longer returns the open project unconditionally", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  const match = source.match(/function currentWritingEntryProject\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(match, "expected currentWritingEntryProject() to exist");
+
+  const fnBody = match[1];
+  assert.doesNotMatch(fnBody, /if \(writingState\.project\?\.id\) return writingState\.project;/);
+  assert.match(fnBody, /if \(\s*writingProjectMatchesContext\(writingState\.project,/);
+  assert.match(fnBody, /return findExistingWritingProjectForTheme\(sourceTheme, basketNoteIds\);/);
+});
+
 test("writing continuation action prefers resuming scaffold when draft is not ready yet", () => {
   const entry = describeWritingContinuationAction({
     existingProjectId: "wp_existing",
