@@ -109,6 +109,7 @@ test("renderPaperWorkspacePage keeps permanent candidate action disabled before 
 
   assert.match(html, /先保存这条候选的用户转述，再进入永久笔记候选/);
   assert.match(html, /这样回到这个工作台时，关系和边界信息也会一起恢复/);
+  assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先保存转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
 });
 
@@ -185,6 +186,7 @@ test("renderPaperWorkspacePage disables permanent candidate creation while saved
   const html = renderPaperWorkspacePage(state);
 
   assert.match(html, /id="btnSaveTranslation"[^>]*>更新转述</);
+  assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先更新转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
 });
 

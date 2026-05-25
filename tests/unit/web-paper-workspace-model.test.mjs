@@ -16,6 +16,7 @@ import {
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   permanentCandidatePersistenceDefaults,
+  permanentCandidateActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
@@ -411,6 +412,58 @@ test("translationSaveActionState reflects whether the current translation still 
     {
       enabled: true,
       label: "更新转述"
+    }
+  );
+});
+
+test("permanentCandidateActionState reflects the current translation prerequisite", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: []
+  };
+
+  assert.deepEqual(permanentCandidateActionState(workspace, null, "missing"), {
+    enabled: true,
+    label: "生成永久笔记候选"
+  });
+  assert.deepEqual(
+    permanentCandidateActionState(
+      {
+        ...workspace,
+        translations: []
+      },
+      null,
+      "pwc_1",
+      "",
+      {
+        paraphraseText: "Unsaved wording.",
+        relationToQuestion: "",
+        boundaryOrCondition: ""
+      }
+    ),
+    {
+      enabled: false,
+      label: "先保存转述"
+    }
+  );
+  assert.deepEqual(
+    permanentCandidateActionState(workspace, null, "pwc_1", "", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Updated relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    {
+      enabled: false,
+      label: "先更新转述"
     }
   );
 });

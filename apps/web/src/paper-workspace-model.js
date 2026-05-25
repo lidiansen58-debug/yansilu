@@ -195,6 +195,43 @@ export function translationSaveActionState(workspace = null, candidateId = "", d
   return { enabled: true, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
 }
 
+export function permanentCandidateActionState(
+  workspace = null,
+  storedSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  const hasAlignedPermanentCandidate =
+    cleanText(draft.candidate?.id) &&
+    cleanText(selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId)?.paper_candidate_id) ===
+      cleanText(draft.candidate?.id);
+  if (!cleanText(draft.candidate?.id)) {
+    return { enabled: false, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  if (!draft.hasSavedTranslation) {
+    return {
+      enabled: false,
+      label: draft.hasLocalChanges ? "\u5148\u4fdd\u5b58\u8f6c\u8ff0" : "\u5148\u4fdd\u5b58\u8f6c\u8ff0"
+    };
+  }
+  if (draft.hasLocalChanges) {
+    return { enabled: false, label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
+  }
+  if (hasAlignedPermanentCandidate && continuity.reason === "stale_translation_signature") {
+    return { enabled: true, label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  return { enabled: true, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+}
+
 export function resolveSelectedPaperCandidateState(workspace = null, options = {}) {
   const selectedCandidateId = nextSelectedCandidateId(
     workspace,

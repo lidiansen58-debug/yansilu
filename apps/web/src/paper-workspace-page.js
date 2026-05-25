@@ -15,6 +15,7 @@ import {
   createInitialPaperWorkspaceState,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
+  permanentCandidateActionState,
   permanentNoteContinuityState,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
@@ -443,11 +444,19 @@ function updateDynamicControls() {
   }
   const permanentCandidateButton = document.getElementById("btnCreatePermanentCandidate");
   if (permanentCandidateButton) {
-    permanentCandidateButton.disabled = !canCreatePermanentCandidate(state.workspace, state.selectedCandidateId, {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    });
+    const permanentCandidateAction = permanentCandidateActionState(
+      state.workspace,
+      state.workspaceSelection,
+      state.selectedCandidateId,
+      state.selectedPermanentCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    );
+    permanentCandidateButton.disabled = !permanentCandidateAction.enabled;
+    permanentCandidateButton.textContent = permanentCandidateAction.label;
   }
   const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
   if (savePermanentNoteButton) {

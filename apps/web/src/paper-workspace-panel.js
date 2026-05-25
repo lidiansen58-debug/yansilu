@@ -1,5 +1,6 @@
 import {
   canCreatePermanentCandidate,
+  permanentCandidateActionState,
   canSavePermanentNote,
   canSubmitNotebookDraft,
   candidateKindLabel,
@@ -221,6 +222,17 @@ export function renderPaperWorkspacePage(state = {}) {
     relationToQuestion: form.relationToQuestion,
     boundaryOrCondition: form.boundaryOrCondition
   });
+  const permanentCandidateAction = permanentCandidateActionState(
+    workspace,
+    state.workspaceSelection || null,
+    selectedCandidate?.id || "",
+    selectedPermanent?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
   const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
   const hasAlignedPermanentCandidate = Boolean(
     selectedCandidate?.id &&
@@ -239,10 +251,6 @@ export function renderPaperWorkspacePage(state = {}) {
     }
   );
   const permanentNoteSaveDisabled = !permanentNoteContinuity.allowed;
-  const createPermanentCandidateLabel =
-    hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"
-      ? "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009"
-      : "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009";
   const permanentNoteActionLabel =
     permanentNoteContinuity.reason === "stale_translation_signature"
       ? "\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009"
@@ -312,7 +320,7 @@ export function renderPaperWorkspacePage(state = {}) {
               <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
                 <button id="btnSaveTranslation" type="button" ${translationSaveAction.enabled ? "" : "disabled"}>${translationSaveAction.label}</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>${createPermanentCandidateLabel}</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateAction.enabled ? "" : "disabled"}>${permanentCandidateAction.label}</button>
               </div>
             </div>
           </div>

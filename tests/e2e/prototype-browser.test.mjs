@@ -5504,12 +5504,13 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
     assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
     assert.doesNotMatch(String((await page.locator("[data-paper-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
-    assert.equal(await page.locator("#translationParaphraseInput").inputValue(), "");
-    assert.equal(await page.locator("#translationRelationInput").inputValue(), "");
-    assert.equal(await page.locator("#translationBoundaryInput").inputValue(), "");
-    const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
-    assert.match(String(translationStepText || ""), /先保存这条候选的用户转述，再进入永久笔记候选/);
-    assert.match(String(translationStepText || ""), /关系和边界信息也会一起恢复/);
+      assert.equal(await page.locator("#translationParaphraseInput").inputValue(), "");
+      assert.equal(await page.locator("#translationRelationInput").inputValue(), "");
+      assert.equal(await page.locator("#translationBoundaryInput").inputValue(), "");
+      assert.match(String((await permanentCandidateButton.textContent()) || ""), /先保存转述/);
+      const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+      assert.match(String(translationStepText || ""), /先保存这条候选的用户转述，再进入永久笔记候选/);
+      assert.match(String(translationStepText || ""), /关系和边界信息也会一起恢复/);
   }, 4000);
 
   await page.fill("#translationParaphraseInput", savedParaphrase);
@@ -5702,6 +5703,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           await waitFor(async () => {
             assert.equal(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
             assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /更新转述/);
+            assert.match(String((await permanentCandidateButton.textContent()) || ""), /先更新转述/);
             assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
           }, 4000);
           await page.fill("#translationRelationInput", savedRelation);
