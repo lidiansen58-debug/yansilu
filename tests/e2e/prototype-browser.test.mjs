@@ -6150,6 +6150,16 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               );
             }, 4000);
 
+            await page.click("#btnCopyDraftBrief");
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已复制 draft brief/);
+              const copiedText = await page.evaluate(
+                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+              );
+              assert.match(String(copiedText || ""), /Step 4: 已保存永久笔记路径 \(.+\)/);
+            }, 4000);
+
             await page.locator(".paper-candidate").nth(1).click();
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();
