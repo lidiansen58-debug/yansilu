@@ -15,6 +15,7 @@ import {
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
   paperWorkspaceResumeStatusKey,
+  preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedConfirmAuthorshipForPermanentCandidate,
@@ -273,11 +274,17 @@ function hydrateTranslationForm(candidateId = "") {
 function hydrateFormFromWorkspace(workspace) {
   if (!workspace) return;
   const storedSelection = readStoredWorkspaceSelection(workspace.paperId);
+  const preferredPermanentCandidateId = state.selectedPermanentCandidateId || storedSelection?.selectedPermanentCandidateId || "";
+  const preferredCandidateId = preferredPaperCandidateIdForWorkspaceResume(
+    workspace,
+    preferredPermanentCandidateId,
+    state.selectedCandidateId || storedSelection?.selectedCandidateId || ""
+  );
   state.form.paperId = workspace.paperId || state.form.paperId;
   state.form.sourceId = workspace.sourceId || state.form.sourceId;
   state.form.title = workspace.title || state.form.title;
   const resolvedCandidateState = resolveSelectedPaperCandidateState(workspace, {
-    preferredCandidateId: state.selectedCandidateId || storedSelection?.selectedCandidateId || "",
+    preferredCandidateId,
     candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId),
     readStoredTranslationDraft: (candidateId) => readStoredTranslationDraft(workspace.paperId, candidateId)
   });
@@ -286,7 +293,7 @@ function hydrateFormFromWorkspace(workspace) {
     storedSelection,
     {
       preferredCandidateId: resolvedCandidateState.selectedCandidateId,
-      preferredPermanentCandidateId: state.selectedPermanentCandidateId || storedSelection?.selectedPermanentCandidateId || "",
+      preferredPermanentCandidateId,
       candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId)
     }
   );

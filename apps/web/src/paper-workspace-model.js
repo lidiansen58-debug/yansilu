@@ -209,6 +209,17 @@ export function selectedPaperCandidateIdForPermanentCandidate(workspace = null, 
   return cleanText(selectedAlignedPermanentCandidate(workspace, candidateId)?.paper_candidate_id);
 }
 
+export function preferredPaperCandidateIdForWorkspaceResume(
+  workspace = null,
+  preferredPermanentCandidateId = "",
+  fallbackCandidateId = ""
+) {
+  return (
+    selectedPaperCandidateIdForPermanentCandidate(workspace, preferredPermanentCandidateId) ||
+    cleanText(fallbackCandidateId)
+  );
+}
+
 export function permanentCandidatePersistenceDefaults(candidate = null, fallback = {}) {
   const fallbackSaveStatus = cleanText(fallback.saveStatus);
   const candidateStatus = cleanText(candidate?.status);

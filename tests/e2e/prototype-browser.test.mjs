@@ -5848,7 +5848,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 JSON.stringify({
                   paperId,
                   selectedCandidateId: "pwc_2",
-                  selectedPermanentCandidateId: "pn_missing",
+                  selectedPermanentCandidateId: "pn_1",
                   updatedAt: new Date().toISOString()
                 })
               );
@@ -5868,6 +5868,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	            const previewText = await page.locator(".paper-permanent-preview").textContent();
 	            assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
 	            assert.doesNotMatch(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+              assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);
+              assert.equal(await page.locator("#translationRelationInput").inputValue(), savedRelation);
+              assert.equal(await page.locator("#translationBoundaryInput").inputValue(), savedBoundary);
+              assert.match(String((await page.locator("[data-paper-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
+              assert.doesNotMatch(String((await page.locator("[data-paper-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);

@@ -15,6 +15,7 @@ import {
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   permanentCandidatePersistenceDefaults,
+  preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedStoredTranslationDraft,
@@ -121,6 +122,7 @@ test("paper workspace selection helpers resolve alias ids", () => {
   assert.equal(selectedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
   assert.equal(selectedAlignedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
   assert.equal(selectedPaperCandidateIdForPermanentCandidate(workspace, "pn_1"), "pwc_1");
+  assert.equal(preferredPaperCandidateIdForWorkspaceResume(workspace, "pn_1", "pwc_2"), "pwc_1");
 });
 
 test("paper workspace labels expose user-facing workflow states", () => {
