@@ -6,11 +6,13 @@ export const GRAPH_FOLLOWUP_ACTIONS = {
   writing: "writing"
 };
 
-const GRAPH_CONFLICT_RELATION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts", "qualifies"]);
+const GRAPH_TENSION_RELATION_TYPES = new Set(["contradicts", "counterexample_to", "contrasts"]);
+const GRAPH_BOUNDARY_RELATION_TYPES = new Set(["qualifies"]);
 
 export function graphFollowupActionForRelationType(type = "") {
   const relationType = String(type || "").trim().toLowerCase();
-  if (GRAPH_CONFLICT_RELATION_TYPES.has(relationType)) return GRAPH_FOLLOWUP_ACTIONS.tension;
+  if (GRAPH_BOUNDARY_RELATION_TYPES.has(relationType)) return GRAPH_FOLLOWUP_ACTIONS.boundary;
+  if (GRAPH_TENSION_RELATION_TYPES.has(relationType)) return GRAPH_FOLLOWUP_ACTIONS.tension;
   if (relationType === "bridges" || relationType === "unexpected_connection" || relationType === "reframes") {
     return GRAPH_FOLLOWUP_ACTIONS.bridge;
   }
@@ -30,6 +32,7 @@ export function graphNextActionForSummary({
   untypedFromNoteId = "",
   untypedRelationId = "",
   conflictFromNoteId = "",
+  conflictRelationType = "",
   bridgeNoteId = "",
   bridgeTargetNoteId = ""
 } = {}) {
@@ -47,6 +50,37 @@ export function graphNextActionForSummary({
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "去补关系"
+    };
+  }
+
+  if (isolatedNoteId) {
+    return {
+      title: "先处理孤立观点",
+      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再进入写作中心会更稳。`,
+      noteId: String(isolatedNoteId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补孤立观点"
+    };
+  }
+
+  if (thinRationaleFromNoteId) {
+    return {
+      title: "先补关系理由",
+      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再进入写作中心会更稳。`,
+      noteId: String(thinRationaleFromNoteId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补关系理由"
+    };
+  }
+
+  if (untypedFromNoteId) {
+    return {
+      title: "补关系理由",
+      note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
+      noteId: String(untypedFromNoteId || "").trim(),
+      action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "去补关系",
+      relationId: String(untypedRelationId || "").trim()
     };
   }
 
@@ -92,6 +126,15 @@ export function graphNextActionForSummary({
   }
 
   if (conflictFromNoteId) {
+    if (graphFollowupActionForRelationType(conflictRelationType) === GRAPH_FOLLOWUP_ACTIONS.boundary) {
+      return {
+        title: "先补边界",
+        note: "当前已经出现限定/适用条件一类关系。先把这条判断在哪些条件下成立、在哪些条件下不成立写清，再继续推进图谱或写作。",
+        noteId: String(conflictFromNoteId || "").trim(),
+        action: GRAPH_FOLLOWUP_ACTIONS.boundary,
+        actionLabel: "去补边界"
+      };
+    }
     return {
       title: "下一步：处理张力",
       note: "已经有冲突或反例信号。补反方、边界和例外条件后，写作时会更稳。",

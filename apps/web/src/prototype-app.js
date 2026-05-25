@@ -8068,7 +8068,15 @@ function renderGraphPanel() {
             .map((edge) => `${edge.fromTitle || edge.fromNoteId} → ${edge.toTitle || edge.toNoteId}`)
             .join(" / ")
         )}</small>
-        ${focusEdge?.fromNoteId ? `<button class="mini-btn" type="button" data-graph-followup-action="tension" data-open-note="${escapeHtml(focusEdge.fromNoteId)}">去补反例/边界</button>` : ""}
+        ${
+          focusEdge?.fromNoteId
+            ? `<button class="mini-btn" type="button" data-graph-followup-action="${escapeHtml(
+                graphFollowupActionForRelationType(focusEdge.relationType) === "boundary" ? "boundary" : "tension"
+              )}" data-open-note="${escapeHtml(focusEdge.fromNoteId)}">${
+                graphFollowupActionForRelationType(focusEdge.relationType) === "boundary" ? "去补边界" : "去补反例/边界"
+              }</button>`
+            : ""
+        }
       </div>
     `);
   }
@@ -8134,6 +8142,7 @@ function renderGraphPanel() {
     conflictFromNoteId:
       conflictingRelations[0]?.fromNoteId ||
       (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),
+    conflictRelationType: String(conflictingRelations[0]?.relationType || "").trim(),
     bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "",
     bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : ""
   });
