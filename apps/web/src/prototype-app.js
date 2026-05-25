@@ -8987,60 +8987,91 @@ async function handleStateChange(reason, payload = {}) {
     }
 
     if (action === "writing") {
-      await ensureNoteBodyLoaded(noteId);
-      if (mode === "distillation") {
-        state.selectedFileId = noteId;
-        activateModule("explorer");
-        openNoteById(noteId, { preferTitleSelection: false });
-        state.inspectorVisible = true;
-        editor?.setInspectorVisible?.(true);
-        editor?.renderRelated?.("主路径下一步");
-        window.setTimeout(() => {
-          editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
-            focus: true,
-            focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
-          });
-        }, 40);
-        setStatus(`已打开“${note.title || noteId}”的观点提纯区域`, "ok");
-        return true;
-      }
-      if (mode === "requirements") {
-        await openWritingModule({ statusMessage: "" });
-        const requirementsMessage = note?.authorship?.user_confirmed
-          ? "这条笔记还没满足写作要求：先完成原创确认，再进入写作中心。"
-          : "这条笔记还没满足写作要求：先完成作者确认，再进入写作中心。";
-        setStatus(requirementsMessage, "warn", { requireModule: "writing" });
-        return true;
-      }
-      const plan = continueWritingEntry([noteId], {
-        title: normalizeWritingProjectTitleSeed(note.title || "未命名笔记"),
-        source: "note_main_path"
-      });
-      const addedCount = Number(plan?.addedNoteIds?.length || 0);
-      const statusMessage =
-        addedCount > 0
-          ? `已把“${note.title || noteId}”加入写作篮，并打开写作中心`
-          : `“${note.title || noteId}”已在写作篮中，已打开写作中心`;
-      if (mode === "project") {
-        await openWritingModule({ statusMessage: "" });
-        await createWritingProjectFromCurrentBasket();
-        return true;
-      }
-      const continuation = currentWritingContinuationEntry("当前笔记");
-      if (continuation?.projectId) {
-        await continueWritingProjectEntry(continuation.projectId, {
-          openDraft: continuation.action === "open-draft",
-          statusMessage:
-            continuation.action === "resume-scaffold"
-              ? `已回到当前项目的草稿骨架：${continuation.projectId}`
-              : continuation.action === "resume-project"
-                ? `已继续当前项目：${continuation.projectId}`
-                : ""
+      const noteContinuation = noteMainPathWritingContinuationEntry(noteId, "当前笔记");
+      try {
+        await ensureNoteBodyLoaded(noteId);
+        if (mode === "distillation") {
+          state.selectedFileId = noteId;
+          activateModule("explorer");
+          openNoteById(noteId, { preferTitleSelection: false });
+          state.inspectorVisible = true;
+          editor?.setInspectorVisible?.(true);
+          editor?.renderRelated?.("主路径下一步");
+          window.setTimeout(() => {
+            editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
+              focus: true,
+              focusSelector: '[data-note-distillation-form] textarea[name="thesis"]'
+            });
+          }, 40);
+          setStatus(`已打开“${note.title || noteId}”的观点提纯区域`, "ok");
+          return true;
+        }
+        if (mode === "requirements") {
+          await openWritingModule({ statusMessage: "" });
+          const requirementsMessage = note?.authorship?.user_confirmed
+            ? "这条笔记还没满足写作要求：先完成原创确认，再进入写作中心。"
+            : "这条笔记还没满足写作要求：先完成作者确认，再进入写作中心。";
+          setStatus(requirementsMessage, "warn", { requireModule: "writing" });
+          return true;
+        }
+        const plan = continueWritingEntry([noteId], {
+          title: normalizeWritingProjectTitleSeed(note.title || "未命名笔记"),
+          source: "note_main_path"
         });
+        const addedCount = Number(plan?.addedNoteIds?.length || 0);
+        const statusMessage =
+          addedCount > 0
+            ? `已把“${note.title || noteId}”加入写作篮，并打开写作中心`
+            : `“${note.title || noteId}”已在写作篮中，已打开写作中心`;
+        if (mode === "project") {
+          await openWritingModule({ statusMessage: "" });
+          if (noteContinuation?.projectId) {
+            await continueWritingProjectEntry(noteContinuation.projectId, {
+              openDraft: noteContinuation.action === "open-draft",
+              statusMessage:
+                noteContinuation.action === "resume-scaffold"
+                  ? `已回到当前项目的草稿骨架：${noteContinuation.projectId}`
+                  : noteContinuation.action === "resume-project"
+                    ? `已继续当前项目：${noteContinuation.projectId}`
+                    : ""
+            });
+            return true;
+          }
+          await createWritingProjectFromCurrentBasket();
+          return true;
+        }
+        if (noteContinuation?.projectId) {
+          await continueWritingProjectEntry(noteContinuation.projectId, {
+            openDraft: noteContinuation.action === "open-draft",
+            statusMessage:
+              noteContinuation.action === "resume-scaffold"
+                ? `已回到当前项目的草稿骨架：${noteContinuation.projectId}`
+                : noteContinuation.action === "resume-project"
+                  ? `已继续当前项目：${noteContinuation.projectId}`
+                  : ""
+          });
+          return true;
+        }
+        await openWritingModule({ statusMessage });
         return true;
+      } catch (error) {
+        if (mode === "distillation") {
+          setStatus(`打开观点提纯区域失败：${String(error?.message || error)}`, "bad");
+          return false;
+        }
+        if (mode === "requirements" || mode === "project" || mode === "writing") {
+          if (noteContinuation?.projectId) {
+            setStatus(
+              `${noteContinuation.action === "open-draft" ? "从主路径打开当前草稿" : noteContinuation.action === "resume-scaffold" ? "从主路径回到当前项目的草稿骨架" : "从主路径继续当前项目"}失败：${String(error?.message || error)}`,
+              "bad"
+            );
+            return false;
+          }
+          setStatus(`${mode === "project" ? "从主路径创建项目" : "从主路径进入写作中心"}失败：${String(error?.message || error)}`, "bad");
+          return false;
+        }
+        throw error;
       }
-      await openWritingModule({ statusMessage });
-      return true;
     }
 
     return false;
