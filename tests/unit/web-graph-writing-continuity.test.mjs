@@ -19,6 +19,20 @@ test("graph writing followup reuses the projected writing continuity entry when 
   assert.match(fnBody, /openDraft: continuation\.action === "open-draft"/);
 });
 
+test("graph writing followup keeps action-specific failure copy for continuity actions", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+
+  assert.ok(match, "expected graph writing followup handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /catch \(error\) \{/);
+  assert.match(fnBody, /continuation\.action === "open-draft" \? "从图谱打开当前草稿" : continuation\.action === "resume-scaffold" \? "从图谱回到草稿骨架" : "从图谱继续当前项目"/);
+  assert.match(fnBody, /从图谱进入写作中心失败：\$\{String\(error\?\.message \|\| error\)\}/);
+});
+
 test("graph next-action card computes projected continuity from the visible writing candidates", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

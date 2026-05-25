@@ -8719,24 +8719,35 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     }
     const continuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
     void (async () => {
-      if (continuation?.projectId) {
-        await continueWritingProjectEntry(continuation.projectId, {
-          openDraft: continuation.action === "open-draft",
-          statusMessage:
-            continuation.action === "resume-scaffold"
-              ? `已从图谱回到草稿骨架：${continuation.projectId}`
-              : continuation.action === "resume-project"
-                ? `已从图谱继续当前项目：${continuation.projectId}`
-                : ""
+      try {
+        if (continuation?.projectId) {
+          await continueWritingProjectEntry(continuation.projectId, {
+            openDraft: continuation.action === "open-draft",
+            statusMessage:
+              continuation.action === "resume-scaffold"
+                ? `已从图谱回到草稿骨架：${continuation.projectId}`
+                : continuation.action === "resume-project"
+                  ? `已从图谱继续当前项目：${continuation.projectId}`
+                  : ""
+          });
+          return;
+        }
+        await openWritingModule({
+          statusMessage: "",
+          focusedCandidateNoteIds: graphFocusNoteIds,
+          focusedCandidateScopeLabel: "当前图谱切片"
         });
-        return;
+        setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
+      } catch (error) {
+        if (continuation?.projectId) {
+          setStatus(
+            `${continuation.action === "open-draft" ? "从图谱打开当前草稿" : continuation.action === "resume-scaffold" ? "从图谱回到草稿骨架" : "从图谱继续当前项目"}失败：${String(error?.message || error)}`,
+            "bad"
+          );
+          return;
+        }
+        setStatus(`从图谱进入写作中心失败：${String(error?.message || error)}`, "bad");
       }
-      await openWritingModule({
-        statusMessage: "",
-        focusedCandidateNoteIds: graphFocusNoteIds,
-        focusedCandidateScopeLabel: "当前图谱切片"
-      });
-      setStatus(plan.statusMessage, "ok", { requireModule: "writing" });
     })();
     return true;
   }
