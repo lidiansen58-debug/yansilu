@@ -447,6 +447,16 @@ test("writing strong-model button label reuses state label once basket exists", 
   assert.equal(label, "先创建项目");
 });
 
+test("writing strong-model button label falls back to material guidance instead of generic conditions", () => {
+  const label = describeWritingStrongModelButtonLabel({
+    basketCount: 2,
+    loading: false,
+    stateButtonLabel: ""
+  });
+
+  assert.equal(label, "先补写作材料");
+});
+
 test("writing center preflight grouping separates blocking warning and pass checks", () => {
   const groups = groupWritingPreflightChecks({
     checks: [

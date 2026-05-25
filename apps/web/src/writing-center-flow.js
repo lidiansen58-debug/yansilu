@@ -681,7 +681,7 @@ export function describeWritingStrongModelButtonLabel({
 } = {}) {
   if (loading) return "准备中...";
   if (!basketCount) return "先加入写作篮";
-  return String(stateButtonLabel || "").trim() || "先补条件";
+  return String(stateButtonLabel || "").trim() || "先补写作材料";
 }
 
 export function describeWritingThemeProjectEntryState({
