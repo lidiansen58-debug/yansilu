@@ -225,7 +225,14 @@ function renderDraftBriefCard(actionState = null, brief = null, recentCopy = nul
   if (!String(brief?.title || "").trim()) return "";
   return `
     <div class="paper-preview-row" data-paper-draft-brief>
-      <span>Draft brief</span>
+      <span>Draft handoff</span>
+      <p data-paper-draft-brief-step-four>${escapeHtml(brief.stepFourLabel || "")}</p>
+      <p data-paper-draft-brief-next-action>Next action: ${escapeHtml(brief.nextAction || "")}</p>
+      ${
+        brief.savedPermanentNoteId
+          ? `<p data-paper-draft-brief-saved-note>Saved note: ${escapeHtml(brief.savedPermanentNoteId)}</p>`
+          : ""
+      }
       <p>${escapeHtml(brief.preview || "")}</p>
       <div class="paper-actions">
         <button id="btnCopyDraftBrief" type="button" ${actionState?.enabled ? "" : "disabled"}>${escapeHtml(

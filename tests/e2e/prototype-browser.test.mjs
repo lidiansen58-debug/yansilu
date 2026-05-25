@@ -5576,6 +5576,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(permanentStepText || ""), /先在 Step 3 保存转述并生成候选/);
       assert.match(String(permanentStepText || ""), /保存转述后，可以为当前候选生成永久笔记候选/);
       assert.match(String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""), /具备继续写 draft 的最小条件/);
+      assert.match(String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""), /Step 4: 尚未生成永久笔记候选/);
+      assert.match(
+        String((await page.locator("[data-paper-draft-brief-next-action]").textContent()) || ""),
+        /Next action: .*具备继续写 draft 的最小条件/
+      );
       assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
       assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /复制 brief，继续写 draft/);
       assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
@@ -6153,6 +6158,12 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
               const draftBriefText = await page.locator("[data-paper-draft-brief]").textContent();
               assert.match(String(draftBriefText || ""), /Step 4: 已保存永久笔记路径/);
+              assert.match(String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""), /Step 4: 已保存永久笔记路径/);
+              assert.match(String((await page.locator("[data-paper-draft-brief-saved-note]").textContent()) || ""), new RegExp(`Saved note: ${savedPermanentNoteId}`));
+              assert.match(
+                String((await page.locator("[data-paper-draft-brief-next-action]").textContent()) || ""),
+                /Next action: .*originality \/ authorship/
+              );
               assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /复制 brief，回看已保存路径/);
               assert.match(
