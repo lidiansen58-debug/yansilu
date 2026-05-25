@@ -5790,7 +5790,7 @@ export class EditorPane {
               ? "补关系理由"
               : Number(overview.tagRelatedCount || 0) > 0
                 ? "从标签里补关系"
-                : "处理关系"
+                : "补第一条关系"
       },
       {
         label: "主题索引",
