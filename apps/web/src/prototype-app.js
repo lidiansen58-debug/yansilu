@@ -9955,7 +9955,7 @@ $("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
       });
     } catch (error) {
       setStatus(
-        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }
@@ -10389,7 +10389,7 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
   } catch (error) {
     if (continuation?.projectId) {
       setStatus(
-        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
       return;
@@ -10416,7 +10416,7 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
       });
     } catch (error) {
       setStatus(
-        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
         "bad"
       );
     }

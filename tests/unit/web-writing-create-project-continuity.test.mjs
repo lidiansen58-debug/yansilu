@@ -21,6 +21,6 @@ test("writing-center create-project button keeps continuity-aware failure copy",
   assert.match(fnBody, /if \(continuation\?\.projectId\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId,/);
   assert.match(fnBody, /catch \(error\) \{/);
-  assert.match(fnBody, /continuation\.action === "open-draft" \? "打开当前草稿" : continuation\.action === "resume-scaffold" \? "回到草稿骨架" : "继续当前项目"/);
+  assert.match(fnBody, /continuation\.action === "open-draft" \? "从写作中心打开当前草稿" : continuation\.action === "resume-scaffold" \? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"/);
   assert.match(fnBody, /从写作中心创建项目失败：\$\{String\(error\?\.message \|\| error\)\}/);
 });
