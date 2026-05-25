@@ -64,6 +64,9 @@ test("emptyPaperWorkspaceForm provides the expected workflow defaults", () => {
     boundaryOrCondition: "",
     draftKickoffText: "",
     draftKickoffSignature: "",
+    draftKickoffPreviousText: "",
+    draftKickoffPreviousSignature: "",
+    draftKickoffReplacementSignature: "",
     confirmAuthorship: false,
     saveStatus: "active"
   });

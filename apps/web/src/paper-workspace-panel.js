@@ -262,6 +262,14 @@ function renderDraftBriefCard(actionState = null, brief = null, recentCopy = nul
       }</div>`
           : ""
       }
+      ${
+        kickoffState?.previousSnapshot?.content
+          ? `<label>Previous local kickoff<textarea id="draftKickoffPreviousTextarea" readonly>${escapeHtml(
+              kickoffState.previousSnapshot.content || ""
+            )}</textarea></label>
+      <div class="paper-result-empty" data-paper-draft-kickoff-previous-note>刷新后保留了上一版 kickoff，方便你回看并手动迁移仍然想保留的写法。</div>`
+          : ""
+      }
     </div>
   `;
 }

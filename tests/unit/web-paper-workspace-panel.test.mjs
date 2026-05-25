@@ -262,6 +262,61 @@ test("renderPaperWorkspacePage restores a local draft kickoff for the selected c
   assert.ok(html.includes("这份本地 draft kickoff 会跟着当前候选连续恢复"));
 });
 
+test("renderPaperWorkspacePage keeps the previous kickoff snapshot visible after a stale refresh", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "translations",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Updated wording.",
+        relationToQuestion: "Updated relation.",
+        boundaryOrCondition: "Updated boundary."
+      }
+    ],
+    permanentCandidates: []
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.form.paraphraseText = "Updated wording.";
+  state.form.relationToQuestion = "Updated relation.";
+  state.form.boundaryOrCondition = "Updated boundary.";
+  state.draftKickoffState = {
+    content: "# Draft brief: Candidate One\n\n## Paraphrase\nUpdated wording.",
+    translationSignature: "sig_new",
+    currentTranslationSignature: "sig_new",
+    hasContent: true,
+    isStale: false,
+    previousSnapshot: {
+      content: "Old kickoff that should not be lost.",
+      previousSignature: "sig_old",
+      replacementSignature: "sig_new"
+    },
+    action: {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    }
+  };
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /id="draftKickoffPreviousTextarea"/);
+  assert.ok(html.includes("Old kickoff that should not be lost."));
+  assert.ok(html.includes("刷新后保留了上一版 kickoff"));
+});
+
 test("renderPaperWorkspacePage surfaces saved-note handoff details in the draft brief card", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {
