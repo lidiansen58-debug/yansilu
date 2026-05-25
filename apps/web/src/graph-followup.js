@@ -185,6 +185,16 @@ export function graphNextActionForSummary({
     };
   }
 
+  if (writingEntryPlan?.mode === "no-candidates") {
+    return {
+      title: "下一步：先补关系和边界",
+      note: "当前图谱切片里还没有可直接推进写作的永久笔记。先补关系、边界或完成原创性检查，再进入写作中心会更顺。",
+      noteId: String(firstNodeId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补关系/边界"
+    };
+  }
+
   if (writingEntryPlan?.mode === "prefill-visible" && Number(writingEntryPlan.addedCount || 0) > 0) {
     return {
       title: `下一步：带入 ${Number(writingEntryPlan.addedCount || 0)} 条永久笔记`,
@@ -233,7 +243,7 @@ export function graphWritingFollowupEntryPlan({
       statusMessage: scopeIds.length
         ? basketIds.length
           ? "已从图谱进入写作中心；当前图谱切片里还没有适合新增到写作篮的永久笔记，可以继续推进现有写作篮，或回到图谱补关系/边界。"
-          : "已从图谱进入写作中心；当前图谱切片里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"
+          : "当前图谱切片里还没有可直接推进写作的永久笔记，先补关系、边界或完成原创性检查会更顺。"
         : basketIds.length
           ? "已从图谱进入写作中心，继续推进当前写作篮。"
           : "已从图谱进入写作中心，继续挑选可推进的永久笔记。"

@@ -33,6 +33,19 @@ test("graph writing followup keeps action-specific failure copy for continuity a
   assert.match(fnBody, /从图谱进入写作中心失败：\$\{String\(error\?\.message \|\| error\)\}/);
 });
 
+test("graph writing followup stops before opening the writing center when no candidate note is ready", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/if \(cleanAction === "writing"\) \{([\s\S]*?)return true;\n  \}/);
+
+  assert.ok(match, "expected graph writing followup handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /if \(plan\.mode === "no-candidates" && !plan\.hasBasket\) \{/);
+  assert.match(fnBody, /setStatus\(plan\.statusMessage, "warn"\);/);
+});
+
 test("graph next-action card computes projected continuity from the visible writing candidates", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

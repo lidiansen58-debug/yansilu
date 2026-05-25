@@ -8740,6 +8740,10 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
           });
           return;
         }
+        if (plan.mode === "no-candidates" && !plan.hasBasket) {
+          setStatus(plan.statusMessage, "warn");
+          return;
+        }
         await openWritingModule({
           statusMessage: "",
           focusedCandidateNoteIds: graphFocusNoteIds,

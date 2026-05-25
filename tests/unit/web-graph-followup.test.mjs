@@ -141,6 +141,26 @@ test("graph next action points to writing center once structure is already clear
   assert.match(nextAction.note, /带进写作中心/);
 });
 
+test("graph next action keeps no-candidate slices in graph cleanup mode before writing", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_graph_1",
+    writingEntryPlan: {
+      mode: "no-candidates",
+      candidateCount: 0,
+      addedCount: 0,
+      hasBasket: false
+    }
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_graph_1");
+  assert.equal(nextAction.actionLabel, "先补关系/边界");
+  assert.match(nextAction.note, /还没有可直接推进写作的永久笔记/);
+  assert.match(nextAction.note, /关系、边界|原创性检查/);
+});
+
 test("graph next action reuses continuity wording when the current slice already maps to an existing draft", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
@@ -213,6 +233,7 @@ test("graph writing followup stays inside the current graph slice when no note i
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /当前图谱切片里还没有可直接推进写作的永久笔记/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
   assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });
 
