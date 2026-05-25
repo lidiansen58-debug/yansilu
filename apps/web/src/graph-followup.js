@@ -280,7 +280,7 @@ export function graphWritingFollowupEntryPlan({
     addedCount: addedCandidateIds.length,
     hasBasket: basketIds.length > 0,
     prefillNoteIds: [],
-    statusMessage: `已从图谱进入写作中心；当前可见图谱里有 ${candidateIds.length} 条可用永久笔记，先挑 2-5 条加入写作篮。`
+    statusMessage: `当前可见图谱里有 ${candidateIds.length} 条可用永久笔记，先挑 2-5 条加入写作篮。`
   };
 }
 

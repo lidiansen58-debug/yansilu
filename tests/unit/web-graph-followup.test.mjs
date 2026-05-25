@@ -214,6 +214,7 @@ test("graph writing followup avoids auto-prefill when current scope is too large
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /当前可见图谱里有 6 条可用永久笔记/);
   assert.match(plan.statusMessage, /2-5 条加入写作篮/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
 test("graph writing followup keeps current basket untouched when the whole visible slice is already present", () => {
