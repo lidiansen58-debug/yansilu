@@ -6716,6 +6716,14 @@ function renderWritingStatusStrip() {
         : readiness.level === "needs_basket"
           ? "warn"
           : "warn";
+  const projectEntry =
+    (!hasProject && currentWritingContinuationEntry("当前写作篮")) ||
+    describeWritingProjectEntryState({
+      relationCountsReady,
+      relationCountsErrored,
+      readinessLevel: readiness.level,
+      readinessHint: readiness.hint
+    });
   const materialStatus = describeWritingMaterialStatus({
     readinessLevel: readiness.level,
     readinessStatus: readiness.status,
@@ -6725,14 +6733,6 @@ function renderWritingStatusStrip() {
     projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim()
   });
   const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
-  const projectEntry =
-    (!hasProject && currentWritingContinuationEntry("当前写作篮")) ||
-    describeWritingProjectEntryState({
-      relationCountsReady,
-      relationCountsErrored,
-      readinessLevel: readiness.level,
-      readinessHint: readiness.hint
-    });
   const projectTone =
     hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"

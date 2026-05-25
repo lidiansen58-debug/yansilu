@@ -21,6 +21,10 @@ test("writing material status reuses projected project continuity before a proje
 test("writing material status card passes projected continuity into the helper", async () => {
   const source = await readPrototypeAppSource();
 
+  assert.match(
+    source,
+    /const projectEntry =\s*\(!hasProject && currentWritingContinuationEntry\("当前写作篮"\)\) \|\|\s*describeWritingProjectEntryState\(\{[\s\S]*?const materialStatus = describeWritingMaterialStatus\(\{/ 
+  );
   assert.match(source, /const materialStatus = describeWritingMaterialStatus\(\{/);
   assert.match(source, /projectEntryProjectId: hasProject \? "" : String\(projectEntry\?\.projectId \|\| ""\)\.trim\(\),/);
   assert.match(source, /projectEntryActionLabel: hasProject \? "" : String\(projectEntry\?\.actionLabel \|\| ""\)\.trim\(\)/);
