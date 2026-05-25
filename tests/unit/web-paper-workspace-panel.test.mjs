@@ -1,7 +1,10 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createInitialPaperWorkspaceState } from "../../apps/web/src/paper-workspace-model.js";
+import {
+  createInitialPaperWorkspaceState,
+  translationContinuitySignature
+} from "../../apps/web/src/paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "../../apps/web/src/paper-workspace-panel.js";
 
 test("renderPaperWorkspacePage exposes the four-step paper workflow", () => {
@@ -160,6 +163,9 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   assert.match(html, /id="btnCopyDraftBrief"[^>]*>复制 draft brief</);
   assert.ok(html.includes("Paraphrase: My own wording."));
   assert.ok(html.includes("Step 4: 尚未生成永久笔记候选"));
+  assert.match(html, /data-paper-draft-brief-step-four/);
+  assert.match(html, /data-paper-draft-brief-next-action/);
+  assert.ok(html.includes("Next action: 这条转述已经具备继续写 draft 的最小条件"));
 });
 
 test("renderPaperWorkspacePage shows the most recent copied draft brief action when it still matches the candidate", () => {
@@ -203,6 +209,68 @@ test("renderPaperWorkspacePage shows the most recent copied draft brief action w
 
   assert.match(html, /data-paper-draft-brief-copy/);
   assert.ok(html.includes("最近一次已复制。下一步：这条转述已经具备继续写 draft 的最小条件"));
+});
+
+test("renderPaperWorkspacePage surfaces saved-note handoff details in the draft brief card", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_note",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "My claim.",
+        rationale: "My reason.",
+        originality_status: "warning",
+        savedPermanentNoteId: "saved_note_1",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.selectedPermanentCandidateId = "pn_1";
+  state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.workspaceSelection = {
+    selectedCandidateId: "pwc_1",
+    selectedPermanentCandidateId: "pn_1",
+    translationSignatureByPermanentCandidate: {
+      pn_1: translationContinuitySignature(state.workspace, "pwc_1", {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      })
+    }
+  };
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.ok(html.includes("Draft handoff"));
+  assert.ok(html.includes("Step 4: 已保存永久笔记路径 (Permanent One)"));
+  assert.ok(html.includes("Saved note: saved_note_1"));
+  assert.match(html, /Next action: .*originality \/ authorship/);
 });
 
 test("renderPaperWorkspacePage keeps the next step blocked until saved translation has relation and boundary", () => {

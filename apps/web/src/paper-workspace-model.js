@@ -754,6 +754,9 @@ export function draftContinuationBrief(
   return {
     title,
     markdown: lines.join("\n"),
+    stepFourLabel: `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+    savedPermanentNoteId,
+    nextAction: cleanText(draftContinuationAction?.label),
     preview: [
       `Paraphrase: ${paraphraseText}`,
       `Relation: ${relationToQuestion}`,
