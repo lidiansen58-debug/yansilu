@@ -11,12 +11,13 @@ import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusMessage,
   canSubmitNotebookDraft,
-  continuityStatusTone,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusMessage,
   draftKickoffStatusMessage,
   nextSelectedCandidateId,
+  PAPER_WORKSPACE_STATUS,
+  paperWorkspaceStatusFeedback,
   permanentCandidatePersistenceDefaults,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
@@ -48,47 +49,7 @@ const DRAFT_KICKOFF_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff";
 const DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff-snapshot";
 const WORKSPACE_SELECTION_STORAGE_PREFIX = "yansilu:paper-workspace:selection";
 
-const STATUS = {
-  loading: "\u5904\u7406\u4e2d...",
-  errorPrefix: "\u64cd\u4f5c\u5931\u8d25\uff1a",
-  createdWorkspace: "\u8bba\u6587\u5de5\u4f5c\u53f0\u5df2\u521b\u5efa",
-  loadedWorkspace: "\u8bba\u6587\u5de5\u4f5c\u53f0\u5df2\u8bfb\u53d6",
-  addedNotebookDraft: "NotebookLM \u5185\u5bb9\u5df2\u8f6c\u6210 literature \u5019\u9009",
-  savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
-  createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
-  translationNeedsSaveBeforePermanentCandidate:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\u3002\u5148\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
-  translationNeedsResaveBeforePermanentCandidate:
-    "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
-  translationNeedsFreshPermanentCandidate:
-    "\u8fd9\u6761\u8f6c\u8ff0\u5df2\u7ecf\u66f4\u65b0\u8fc7\uff0c\u5f53\u524d Step 4 \u5019\u9009\u5df2\u8fc7\u671f\u3002\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
-  translationNeedsResaveBeforePermanentNote:
-    "\u5f53\u524d Step 3 \u7684\u8f6c\u8ff0\u5df2\u53d1\u751f\u53d8\u5316\u3002\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u786e\u8ba4\u6c38\u4e45\u7b14\u8bb0",
-  savedPermanentNote: "\u6c38\u4e45\u7b14\u8bb0\u5df2\u4fdd\u5b58",
-  restoredLocalTranslationDraftOverSavedTranslation:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\uff0c\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\uff0c\u4e5f\u53ef\u4ee5\u56de\u770b\u5df2\u4fdd\u5b58\u7684\u8f6c\u8ff0\u8def\u5f84\u3002",
-  restoredLocalTranslationDraftForPermanentNote:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u8fd9\u6761\u8def\u5f84\u5df2\u7ecf\u8fde\u5230 Step 4\uff0c\u6240\u4ee5\u4e0b\u4e00\u6b65\u662f\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u786e\u8ba4\u6c38\u4e45\u7b14\u8bb0\u3002",
-  restoredLocalTranslationDraftForSavedPermanentNote:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u8fd9\u6761\u8def\u5f84\u5df2\u7ecf\u8fde\u5230\u5df2\u4fdd\u5b58\u7684\u6c38\u4e45\u7b14\u8bb0\uff0c\u6240\u4ee5\u4e0b\u4e00\u6b65\u662f\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u56de\u770b\u8fd9\u6761\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002",
-  restoredLocalTranslationDraft:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002",
-  restoredSavedTranslation:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u7528\u6237\u8f6c\u8ff0\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u6216\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002",
-  restoredSavedPermanentNoteForSelectedPaper:
-    "\u5df2\u5bf9\u9f50\u5230\u8fd9\u6761\u5019\u9009\u5df2\u4fdd\u5b58\u7684\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\uff0c\u53ef\u4ee5\u56de\u770b originality \u98ce\u9669\u3001authorship \u786e\u8ba4\u548c\u4fdd\u5b58\u7ed3\u679c\u3002",
-  restoredPermanentCandidateForSelectedPaper:
-    "\u5df2\u5bf9\u9f50\u5230\u8fd9\u6761\u5019\u9009\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u53ef\u4ee5\u7ee7\u7eed\u786e\u8ba4\u4fdd\u5b58\u6216\u56de\u770b originality \u98ce\u9669\u3002",
-  savedTranslationReadyForPermanentCandidate:
-    "\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u5c31\u7eea\uff0c\u4f46\u8fd8\u6ca1\u6709\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u4e00\u6b65\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u3002",
-  savedTranslationNeedsDraftSupport:
-    "\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u4fdd\u5b58\uff0c\u4f46 relation \u548c boundary \u8fd8\u4e0d\u8db3\u4ee5\u652f\u6491\u4e0b\u4e00\u6b65\u3002\u5148\u8865\u5168\u5b83\u4eec\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u6216\u7ee7\u7eed\u5199 draft\u3002",
-  selectedCandidate:
-    "\u5df2\u9009\u62e9\u5019\u9009\u3002\u5148\u7528\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u5e76\u4fdd\u5b58\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002",
-  restoredPermanentCandidate:
-    "\u5df2\u6062\u590d\u8fd9\u6761\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u53ef\u7ee7\u7eed\u786e\u8ba4\u4fdd\u5b58\u6216\u56de\u770b\u98ce\u9669\u63d0\u793a\u3002",
-  connectedApiPrefix: "\u5df2\u8fde\u63a5 API\uff1a"
-};
+const STATUS = PAPER_WORKSPACE_STATUS;
 
 const state = createInitialPaperWorkspaceState();
 state.workspaceSelection = null;
@@ -556,15 +517,6 @@ function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspace
   setStatus(STATUS[liveStatus.key] || STATUS.loadedWorkspace, liveStatus.tone);
 }
 
-function successStatusFeedback(statusKey = "", fallbackKey = "loadedWorkspace") {
-  const cleanStatusKey = String(statusKey || "").trim();
-  const fallback = String(fallbackKey || "loadedWorkspace").trim() || "loadedWorkspace";
-  return {
-    text: STATUS[cleanStatusKey] || STATUS[fallback] || STATUS.loadedWorkspace,
-    tone: continuityStatusTone(cleanStatusKey) || "ok"
-  };
-}
-
 function shouldRefreshContinuityStatus(target) {
   return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
 }
@@ -901,7 +853,7 @@ async function handleLoadWorkspace() {
     state.workspace = workspace;
     const resumeStatusKey = hydrateFormFromWorkspace(workspace);
     return { stage: "load_workspace", item: workspace, resumeStatusKey };
-  }, (result) => successStatusFeedback(result?.resumeStatusKey, "loadedWorkspace"));
+  }, (result) => paperWorkspaceStatusFeedback(result?.resumeStatusKey, "loadedWorkspace"));
   if (state.workspace) {
     setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
@@ -974,17 +926,19 @@ async function handleSaveTranslation() {
       ),
       ...result
     };
-  }, (result) => successStatusFeedback(result?.successStatusKey, "savedTranslation"));
+  }, (result) => paperWorkspaceStatusFeedback(result?.successStatusKey, "savedTranslation"));
 }
 
 async function handleCreatePermanentCandidate() {
   const permanentCandidateState = currentPermanentCandidateState();
   if (!permanentCandidateState.action.enabled) {
     if (permanentCandidateState.blockedStatusKey) {
-      setStatus(
-        STATUS[permanentCandidateState.blockedStatusKey] || STATUS.translationNeedsResaveBeforePermanentCandidate,
+      const blockedStatus = paperWorkspaceStatusFeedback(
+        permanentCandidateState.blockedStatusKey,
+        "translationNeedsResaveBeforePermanentCandidate",
         permanentCandidateState.blockedStatusTone || "warn"
       );
+      setStatus(blockedStatus.text, blockedStatus.tone);
     }
     render();
     return;
@@ -1008,10 +962,12 @@ async function handleSavePermanentNote() {
   const permanentNoteState = currentPermanentNoteState();
   if (!permanentNoteState.action.enabled) {
     if (permanentNoteState.blockedStatusKey) {
-      setStatus(
-        STATUS[permanentNoteState.blockedStatusKey],
+      const blockedStatus = paperWorkspaceStatusFeedback(
+        permanentNoteState.blockedStatusKey,
+        "translationNeedsResaveBeforePermanentNote",
         permanentNoteState.blockedStatusTone || "warn"
       );
+      setStatus(blockedStatus.text, blockedStatus.tone);
     }
     render();
     return;

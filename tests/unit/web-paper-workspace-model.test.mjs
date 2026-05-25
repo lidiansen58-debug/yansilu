@@ -25,6 +25,7 @@ import {
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
+  paperWorkspaceStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
   permanentNoteActionState,
@@ -2107,6 +2108,27 @@ test("continuityStatusTone maps warning and ready continuity states to stable to
   assert.equal(continuityStatusTone("savedTranslationNeedsDraftSupport"), "warn");
   assert.equal(continuityStatusTone("restoredSavedPermanentNoteForSelectedPaper"), "ok");
   assert.equal(continuityStatusTone("selectedCandidate"), "");
+});
+
+test("paperWorkspaceStatusFeedback resolves continuity text and tone from status keys", () => {
+  const warnFeedback = paperWorkspaceStatusFeedback(
+    "savedTranslationNeedsDraftSupport",
+    "loadedWorkspace"
+  );
+  assert.match(warnFeedback.text, /relation|boundary/);
+  assert.equal(warnFeedback.tone, "warn");
+
+  const readyFeedback = paperWorkspaceStatusFeedback(
+    "savedPermanentNote",
+    "loadedWorkspace",
+    "warn"
+  );
+  assert.match(readyFeedback.text, /永久笔记已保存/);
+  assert.equal(readyFeedback.tone, "ok");
+
+  const fallbackFeedback = paperWorkspaceStatusFeedback("", "savedTranslation", "warn");
+  assert.match(fallbackFeedback.text, /用户转述已保存/);
+  assert.equal(fallbackFeedback.tone, "warn");
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
