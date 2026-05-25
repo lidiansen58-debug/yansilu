@@ -99,6 +99,7 @@ import {
   resolveWritingSourceIndexIds,
   resolveWritingEntryTitle,
   groupWritingPreflightChecks,
+  isWritingScaffoldReadyForDraft,
   isWritingStrongModelReady
 } from "./writing-center-flow.js";
 import {
@@ -6705,6 +6706,10 @@ function renderWritingFlowSteps({
     hasDraft,
     hasScaffold
   });
+  const scaffoldReadyForDraft = isWritingScaffoldReadyForDraft({
+    hasScaffold,
+    blockingCount: preflightGroups.blocking.length
+  });
   const steps = [
     {
       done: basketCount > 0,
@@ -6717,7 +6722,7 @@ function renderWritingFlowSteps({
       note: projectStep.note
     },
     {
-      done: hasScaffold,
+      done: scaffoldReadyForDraft,
       title: scaffoldStep.title,
       note: scaffoldStep.note
     },
