@@ -10,6 +10,7 @@ import {
   candidateStatusLabel,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
+  draftContinuationActionState,
   normalizeTranslationDraftInput,
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
@@ -214,6 +215,68 @@ test("canCreatePermanentCandidate stays blocked while saved translation has unsa
       boundaryOrCondition: "Saved boundary."
     }),
     true
+  );
+});
+
+test("draftContinuationActionState points draft flow at the next real action", () => {
+  assert.deepEqual(
+    draftContinuationActionState(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: false
+      },
+      {
+        selectedPermanentCandidateId: "",
+        permanentNoteContinuityReason: "missing_permanent_candidate"
+      }
+    ),
+    {
+      tone: "warn",
+      key: "fill_support",
+      label: "relation 和 boundary 还不够支撑继续写 draft。先补全它们，再进入下一步。"
+    }
+  );
+
+  assert.deepEqual(
+    draftContinuationActionState(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: true
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "stale_translation_signature"
+      }
+    ),
+    {
+      tone: "warn",
+      key: "refresh_permanent_candidate",
+      label: "Step 4 仍对应旧版转述。先重新生成永久笔记候选，再继续写 draft。"
+    }
+  );
+
+  assert.deepEqual(
+    draftContinuationActionState(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: true
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "saved_permanent_note"
+      }
+    ),
+    {
+      tone: "ok",
+      key: "review_saved_permanent_note",
+      label: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。"
+    }
   );
 });
 

@@ -590,3 +590,74 @@ export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceStat
   }
   return "loadedWorkspace";
 }
+
+export function draftContinuationActionState(candidateState = null, workspaceState = null) {
+  if (!cleanText(candidateState?.selectedCandidateId)) {
+    return {
+      tone: "",
+      key: "select_candidate",
+      label: "先选择一条候选，再继续写 draft。"
+    };
+  }
+  if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
+    return {
+      tone: "warn",
+      key: "refresh_permanent_candidate",
+      label: "Step 4 仍对应旧版转述。先重新生成永久笔记候选，再继续写 draft。"
+    };
+  }
+  if (candidateState?.hasLocalChanges && cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return {
+      tone: "warn",
+      key: "update_translation_affects_step_four",
+      label: "当前 Step 3 还有未保存改动。先更新这条转述，再更新或确认永久笔记，之后再继续写 draft。"
+    };
+  }
+  if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
+    return {
+      tone: "warn",
+      key: "update_translation",
+      label: "当前 Step 3 还有未保存改动。先更新这条转述，再继续写 draft。"
+    };
+  }
+  if (candidateState?.hasLocalChanges) {
+    return {
+      tone: "warn",
+      key: "save_translation",
+      label: "先保存这条转述，再继续写 draft。"
+    };
+  }
+  if (candidateState?.hasSavedTranslation && candidateState?.supportsNextStep === false) {
+    return {
+      tone: "warn",
+      key: "fill_support",
+      label: "relation 和 boundary 还不够支撑继续写 draft。先补全它们，再进入下一步。"
+    };
+  }
+  if (workspaceState?.permanentNoteContinuityReason === "saved_permanent_note") {
+    return {
+      tone: "ok",
+      key: "review_saved_permanent_note",
+      label: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。"
+    };
+  }
+  if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return {
+      tone: "ok",
+      key: "review_permanent_candidate",
+      label: "这条路径已连到永久笔记候选。继续写 draft 前，先确认 Step 4 的 originality / authorship。"
+    };
+  }
+  if (candidateState?.hasSavedTranslation) {
+    return {
+      tone: "ok",
+      key: "draft_ready",
+      label: "这条转述已经具备继续写 draft 的最小条件。"
+    };
+  }
+  return {
+    tone: "warn",
+    key: "save_translation",
+    label: "先保存这条转述，再继续写 draft。"
+  };
+}

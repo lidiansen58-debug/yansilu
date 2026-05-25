@@ -115,6 +115,8 @@ test("renderPaperWorkspacePage keeps permanent candidate action disabled before 
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
   assert.ok(html.includes("当前这条候选只有本地未保存的转述草稿"));
   assert.ok(html.includes("先保存这条转述，再进入永久笔记候选或继续写 draft"));
+  assert.match(html, /data-paper-draft-continuity="save_translation"/);
+  assert.ok(html.includes("先保存这条转述，再继续写 draft"));
 });
 
 test("renderPaperWorkspacePage clarifies the next action from saved translation before a permanent candidate exists", () => {
@@ -193,6 +195,8 @@ test("renderPaperWorkspacePage keeps the next step blocked until saved translati
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先补 relation \/ boundary</);
   assert.ok(html.includes("relation 和 boundary 还不足以支撑 Step 4"));
+  assert.match(html, /data-paper-draft-continuity="fill_support"/);
+  assert.ok(html.includes("relation 和 boundary 还不够支撑继续写 draft"));
 });
 
 test("renderPaperWorkspacePage disables permanent candidate creation while saved translation has unsaved edits", () => {
@@ -233,6 +237,8 @@ test("renderPaperWorkspacePage disables permanent candidate creation while saved
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
   assert.ok(html.includes("当前 Step 3 还有未保存改动"));
   assert.ok(html.includes("先更新这条转述，再生成对应的永久笔记候选"));
+  assert.match(html, /data-paper-draft-continuity="update_translation"/);
+  assert.ok(html.includes("先更新这条转述，再继续写 draft"));
 });
 
 test("renderPaperWorkspacePage shows an empty-state hint before any permanent candidate exists", () => {
