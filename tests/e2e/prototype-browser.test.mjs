@@ -6045,6 +6045,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
               assert.doesNotMatch(String(previewText || ""), /An unsaved draft should survive candidate switches/);
               assert.match(String(previewText || ""), new RegExp(`已保存为：${savedPermanentNoteId}`));
+              const savedPathStatusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(savedPathStatusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
               assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");

@@ -900,6 +900,21 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
       {
         selectedCandidateId: "pwc_1",
         hasSavedTranslation: true,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "saved_permanent_note"
+      }
+    ),
+    "restoredSavedPermanentNoteForSelectedPaper"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
         hasLocalChanges: true
       },
       {
@@ -1010,6 +1025,21 @@ test("paperWorkspaceLiveStatusKey prefers the next required action while editing
       }
     ),
     "translationNeedsFreshPermanentCandidate"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "saved_permanent_note"
+      }
+    ),
+    "restoredSavedPermanentNoteForSelectedPaper"
   );
 });
 
