@@ -8211,7 +8211,7 @@ function renderGraphPanel() {
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>待补链接理由</strong>
-        <small>${untypedRelations.length} 条连接仍主要依赖 wikilink，没有写清是支持、反驳、延展还是对照。</small>
+        <small>${untypedRelations.length} 条连接仍主要依赖正文链接，没有写清是支持、反驳、延展还是对照。</small>
         <small>${escapeHtml(
           untypedRelations
             .slice(0, 3)
@@ -8384,7 +8384,7 @@ function renderGraphPanel() {
                 <small>类型：${escapeHtml(graphRelationTypeLabel(highlightedEdge.relationType))}；状态：${escapeHtml(
                   graphRelationStatusLabel(highlightedEdge.status)
                 )}；理由：${escapeHtml(
-                  highlightedEdge.rationale || "尚未写明，当前来自 Markdown wikilink。"
+                  highlightedEdge.rationale || "尚未写明，当前来自 Markdown 链接。"
                 )}</small>
               </div>
             `
