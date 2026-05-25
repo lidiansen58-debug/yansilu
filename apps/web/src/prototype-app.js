@@ -8755,7 +8755,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
     }, 20);
     focusRelationCreate();
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
     return true;
   }
   if (cleanAction === "boundary" || cleanAction === "tension") {
