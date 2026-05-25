@@ -156,6 +156,9 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
   assert.ok(html.includes("如果要继续写 draft"));
   assert.ok(html.includes("先确认 relation 和 boundary 已经足够支撑下一步"));
+  assert.match(html, /data-paper-draft-brief/);
+  assert.match(html, /id="btnCopyDraftBrief"[^>]*>复制 draft brief</);
+  assert.ok(html.includes("Paraphrase: My own wording."));
 });
 
 test("renderPaperWorkspacePage keeps the next step blocked until saved translation has relation and boundary", () => {
@@ -847,6 +850,7 @@ test("renderPaperWorkspacePage warns in step three when the aligned permanent ca
   assert.match(html, /data-paper-draft-continuity="refresh_permanent_candidate"/);
   assert.ok(html.includes("Step 4 仍对应旧版转述"));
   assert.ok(html.includes("先重新生成永久笔记候选，再继续写 draft"));
+  assert.match(html, /id="btnCopyDraftBrief"[^>]*disabled>当前还不能复制 draft brief</);
   assert.ok(html.includes("先重新生成永久笔记候选"));
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });

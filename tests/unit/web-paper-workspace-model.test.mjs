@@ -10,6 +10,8 @@ import {
   candidateStatusLabel,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
+  draftBriefActionState,
+  draftContinuationBrief,
   draftContinuationActionState,
   normalizeTranslationDraftInput,
   nextSelectedCandidateId,
@@ -278,6 +280,77 @@ test("draftContinuationActionState points draft flow at the next real action", (
       label: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。"
     }
   );
+});
+
+test("draftBriefActionState only unlocks when the draft path is ready to hand off", () => {
+  assert.deepEqual(
+    draftBriefActionState(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: true
+      },
+      {
+        selectedPermanentCandidateId: "",
+        permanentNoteContinuityReason: "missing_permanent_candidate"
+      }
+    ),
+    {
+      enabled: true,
+      label: "复制 draft brief"
+    }
+  );
+
+  assert.deepEqual(
+    draftBriefActionState(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: true
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "stale_translation_signature"
+      }
+    ),
+    {
+      enabled: false,
+      label: "当前还不能复制 draft brief"
+    }
+  );
+});
+
+test("draftContinuationBrief summarizes the current draft handoff path", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const brief = draftContinuationBrief(workspace, null, "pwc_1", "pn_1");
+
+  assert.equal(brief.title, "Candidate One");
+  assert.match(brief.markdown, /# Draft brief: Candidate One/);
+  assert.match(brief.markdown, /Step 4: 已保存永久笔记路径 \(Permanent One\)/);
+  assert.match(brief.markdown, /## Paraphrase/);
+  assert.match(brief.markdown, /My own wording\./);
+  assert.match(brief.preview, /Relation: This matters for the writing question\./);
 });
 
 test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {

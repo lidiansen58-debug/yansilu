@@ -661,3 +661,88 @@ export function draftContinuationActionState(candidateState = null, workspaceSta
     label: "先保存这条转述，再继续写 draft。"
   };
 }
+
+export function draftBriefActionState(candidateState = null, workspaceState = null) {
+  const continuation = draftContinuationActionState(candidateState, workspaceState);
+  const blockedKeys = new Set([
+    "select_candidate",
+    "refresh_permanent_candidate",
+    "update_translation_affects_step_four",
+    "update_translation",
+    "save_translation",
+    "fill_support"
+  ]);
+  if (blockedKeys.has(continuation.key)) {
+    return {
+      enabled: false,
+      label: "当前还不能复制 draft brief"
+    };
+  }
+  return {
+    enabled: true,
+    label: "复制 draft brief"
+  };
+}
+
+export function draftContinuationBrief(
+  workspace = null,
+  storedSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const candidate = draft.candidate;
+  if (!cleanText(candidate?.id)) {
+    return { title: "", markdown: "", preview: "" };
+  }
+  const selectedPermanent = selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  const stepFourLabel =
+    continuity.reason === "saved_permanent_note"
+      ? "已保存永久笔记路径"
+      : cleanText(selectedPermanent?.id) &&
+        cleanText(selectedPermanent?.paper_candidate_id) === cleanText(candidate?.id)
+      ? "已生成永久笔记候选"
+      : "尚未生成永久笔记候选";
+  const title = candidateLabel(candidate);
+  const paraphraseText = cleanText(draft.paraphraseText) || "未填写";
+  const relationToQuestion = cleanText(draft.relationToQuestion) || "未填写";
+  const boundaryOrCondition = cleanText(draft.boundaryOrCondition) || "未填写";
+  const permanentTitle =
+    cleanText(selectedPermanent?.paper_candidate_id) === cleanText(candidate?.id)
+      ? cleanText(selectedPermanent?.title || selectedPermanent?.id) || "未命名永久笔记候选"
+      : "";
+  const lines = [
+    `# Draft brief: ${title}`,
+    "",
+    `- Candidate ID: ${cleanText(candidate.id)}`,
+    `- Candidate kind: ${candidateKindLabel(candidate.candidateKind)}`,
+    `- Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+    "",
+    "## Paraphrase",
+    paraphraseText,
+    "",
+    "## Relation to question",
+    relationToQuestion,
+    "",
+    "## Boundary or condition",
+    boundaryOrCondition
+  ];
+  return {
+    title,
+    markdown: lines.join("\n"),
+    preview: [
+      `Paraphrase: ${paraphraseText}`,
+      `Relation: ${relationToQuestion}`,
+      `Boundary: ${boundaryOrCondition}`,
+      `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`
+    ].join("\n")
+  };
+}

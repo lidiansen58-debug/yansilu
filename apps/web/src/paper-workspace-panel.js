@@ -6,6 +6,8 @@
   candidateKindLabel,
   candidateLabel,
   candidateStatusLabel,
+  draftBriefActionState,
+  draftContinuationBrief,
   draftContinuationActionState,
   permanentNoteContinuityState,
   paperWorkspaceProgress,
@@ -219,6 +221,21 @@ function renderDraftContinuationNotice(actionState = null) {
   )}">${escapeHtml(label)}</div>`;
 }
 
+function renderDraftBriefCard(actionState = null, brief = null) {
+  if (!String(brief?.title || "").trim()) return "";
+  return `
+    <div class="paper-preview-row" data-paper-draft-brief>
+      <span>Draft brief</span>
+      <p>${escapeHtml(brief.preview || "")}</p>
+      <div class="paper-actions">
+        <button id="btnCopyDraftBrief" type="button" ${actionState?.enabled ? "" : "disabled"}>${escapeHtml(
+          actionState?.label || "复制 draft brief"
+        )}</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderLastResult(result = null) {
   if (!result) return `<div class="paper-result-empty">\u6700\u8fd1\u4e00\u6b21\u64cd\u4f5c\u7684\u8fd4\u56de\u7ed3\u679c\u4f1a\u663e\u793a\u5728\u8fd9\u91cc\u3002</div>`;
   return `<pre class="paper-result-json">${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
@@ -302,6 +319,32 @@ export function renderPaperWorkspacePage(state = {}) {
       permanentNoteContinuityReason: permanentNoteContinuity.reason
     }
   );
+  const draftBriefAction = draftBriefActionState(
+    {
+      selectedCandidateId: selectedCandidate?.id || "",
+      hasSavedTranslation: selectedDraft.hasSavedTranslation,
+      hasLocalChanges: selectedDraft.hasLocalChanges,
+      supportsNextStep: Boolean(
+        String(selectedDraft.relationToQuestion || "").trim() &&
+          String(selectedDraft.boundaryOrCondition || "").trim()
+      )
+    },
+    {
+      selectedPermanentCandidateId: selectedPermanent?.id || "",
+      permanentNoteContinuityReason: permanentNoteContinuity.reason
+    }
+  );
+  const draftBrief = draftContinuationBrief(
+    workspace,
+    state.workspaceSelection || null,
+    selectedCandidate?.id || "",
+    selectedPermanent?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
 
   return `
     <div class="paper-shell">
@@ -368,6 +411,7 @@ export function renderPaperWorkspacePage(state = {}) {
                 <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateAction.enabled ? "" : "disabled"}>${permanentCandidateAction.label}</button>
               </div>
               ${renderDraftContinuationNotice(draftContinuationAction)}
+              ${renderDraftBriefCard(draftBriefAction, draftBrief)}
             </div>
           </div>
         </section>

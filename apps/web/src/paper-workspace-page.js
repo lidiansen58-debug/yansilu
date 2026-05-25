@@ -13,6 +13,9 @@ import {
   canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
+  draftBriefActionState,
+  draftContinuationActionState,
+  draftContinuationBrief,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
@@ -593,6 +596,106 @@ function updateDynamicControls() {
       permanentStatusInput.disabled = !permanentNoteAction.enabled;
     }
   }
+  const copyDraftBriefButton = document.getElementById("btnCopyDraftBrief");
+  if (copyDraftBriefButton) {
+    const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    });
+    const draftBriefAction = draftBriefActionState(
+      {
+        selectedCandidateId: state.selectedCandidateId,
+        hasSavedTranslation: draft.hasSavedTranslation,
+        hasLocalChanges: draft.hasLocalChanges,
+        supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
+      },
+      {
+        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
+        permanentNoteContinuityReason: permanentNoteContinuityState(
+          state.workspace,
+          state.workspaceSelection,
+          state.selectedPermanentCandidateId,
+          state.selectedCandidateId,
+          {
+            paraphraseText: state.form.paraphraseText,
+            relationToQuestion: state.form.relationToQuestion,
+            boundaryOrCondition: state.form.boundaryOrCondition
+          }
+        ).reason
+      }
+    );
+    copyDraftBriefButton.disabled = !draftBriefAction.enabled;
+    copyDraftBriefButton.textContent = draftBriefAction.label;
+  }
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text || "");
+  if (!value) throw new Error("clipboard unavailable");
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      if (Array.isArray(window.__copiedTexts)) window.__copiedTexts.push(value);
+      return;
+    }
+  } catch {}
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "readonly");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-10000px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const success = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!success) throw new Error("clipboard unavailable");
+  if (Array.isArray(window.__copiedTexts)) window.__copiedTexts.push(value);
+}
+
+function currentDraftBriefState() {
+  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const continuityReason = permanentNoteContinuityState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedPermanentCandidateId,
+    state.selectedCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  ).reason;
+  const candidateState = {
+    selectedCandidateId: state.selectedCandidateId,
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
+  };
+  const workspaceState = {
+    selectedPermanentCandidateId: state.selectedPermanentCandidateId,
+    permanentNoteContinuityReason: continuityReason
+  };
+  return {
+    draftBriefAction: draftBriefActionState(candidateState, workspaceState),
+    draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
+    draftBrief: draftContinuationBrief(
+      state.workspace,
+      state.workspaceSelection,
+      state.selectedCandidateId,
+      state.selectedPermanentCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    )
+  };
 }
 
 async function runAction(action, successMessage) {
@@ -796,6 +899,24 @@ async function handleSavePermanentNote() {
   }, STATUS.savedPermanentNote);
 }
 
+async function handleCopyDraftBrief() {
+  syncFormFromDom();
+  const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
+  if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
+    setStatus(String(draftContinuationAction?.label || "当前还不能继续写 draft。"), "warn");
+    render();
+    return;
+  }
+  try {
+    await copyTextToClipboard(draftBrief.markdown);
+    window.__paperWorkspaceLastDraftBrief = draftBrief.markdown;
+    setStatus(`已复制 draft brief：${draftBrief.title}`, "ok");
+  } catch (error) {
+    setStatus(`复制 draft brief 失败：${String(error?.message || error)}`, "bad");
+  }
+  render();
+}
+
 root?.addEventListener("input", (event) => {
   syncFormFromDom();
   persistTranslationDraft();
@@ -866,6 +987,7 @@ root?.addEventListener("click", (event) => {
   if (id === "btnSaveTranslation") void handleSaveTranslation();
   if (id === "btnCreatePermanentCandidate") void handleCreatePermanentCandidate();
   if (id === "btnSavePermanentNote") void handleSavePermanentNote();
+  if (id === "btnCopyDraftBrief") void handleCopyDraftBrief();
 });
 
 setStatus(`${STATUS.connectedApiPrefix}${getPaperWorkspaceApiBase()}`, "ok");
