@@ -27,6 +27,7 @@ import {
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
   resolveDraftKickoffState,
+  resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -530,6 +531,68 @@ test("resolveAdoptedDraftKickoff falls back to the provided translation signatur
     ),
     null
   );
+});
+
+test("resolveRefreshedDraftKickoff captures the stale kickoff as a previous snapshot before loading the new brief", () => {
+  assert.deepEqual(
+    resolveRefreshedDraftKickoff(
+      {
+        draftKickoffText: "Current kickoff wording.",
+        draftKickoffSignature: "sig_old",
+        draftKickoffPreviousText: "Older kickoff wording.",
+        draftKickoffPreviousSignature: "sig_older",
+        draftKickoffReplacementSignature: "sig_old"
+      },
+      {
+        hasContent: true,
+        isStale: true
+      },
+      "# Draft brief: Candidate One",
+      "sig_new"
+    ),
+    {
+      draftKickoffText: "# Draft brief: Candidate One",
+      draftKickoffSignature: "sig_new",
+      draftKickoffPreviousText: "Current kickoff wording.",
+      draftKickoffPreviousSignature: "sig_old",
+      draftKickoffReplacementSignature: "sig_new",
+      snapshotToPersist: {
+        content: "Current kickoff wording.",
+        previousSignature: "sig_old",
+        replacementSignature: "sig_new"
+      }
+    }
+  );
+});
+
+test("resolveRefreshedDraftKickoff keeps the existing snapshot when the kickoff is not stale", () => {
+  assert.deepEqual(
+    resolveRefreshedDraftKickoff(
+      {
+        draftKickoffText: "",
+        draftKickoffSignature: "",
+        draftKickoffPreviousText: "Previous kickoff wording.",
+        draftKickoffPreviousSignature: "sig_previous",
+        draftKickoffReplacementSignature: "sig_previous"
+      },
+      {
+        hasContent: false,
+        isStale: false
+      },
+      "# Draft brief: Candidate One",
+      "sig_current"
+    ),
+    {
+      draftKickoffText: "# Draft brief: Candidate One",
+      draftKickoffSignature: "sig_current",
+      draftKickoffPreviousText: "Previous kickoff wording.",
+      draftKickoffPreviousSignature: "sig_previous",
+      draftKickoffReplacementSignature: "sig_previous",
+      snapshotToPersist: null
+    }
+  );
+
+  assert.equal(resolveRefreshedDraftKickoff({}, { hasContent: false, isStale: false }, "", "sig_current"), null);
 });
 
 test("draftContinuationBrief summarizes the current draft handoff path", () => {

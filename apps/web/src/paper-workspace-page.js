@@ -27,6 +27,7 @@ import {
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
   resolveDraftKickoffState,
+  resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -1226,21 +1227,22 @@ async function handleStartDraftKickoff() {
       relationToQuestion: state.form.relationToQuestion,
       boundaryOrCondition: state.form.boundaryOrCondition
     });
-    if (kickoffState.isStale && kickoffState.hasContent) {
-      state.form.draftKickoffPreviousText = state.form.draftKickoffText;
-      state.form.draftKickoffPreviousSignature = state.form.draftKickoffSignature;
-      state.form.draftKickoffReplacementSignature = translationSignature;
-      persistDraftKickoffSnapshot(state.selectedCandidateId, {
-        content: state.form.draftKickoffPreviousText,
-        previousSignature: state.form.draftKickoffPreviousSignature,
-        replacementSignature: state.form.draftKickoffReplacementSignature
-      });
+    const refreshedKickoff = resolveRefreshedDraftKickoff(state.form, kickoffState, draftBrief.markdown, translationSignature);
+    if (!refreshedKickoff) {
+      render();
+      return;
     }
-    state.form.draftKickoffText = draftBrief.markdown;
-    state.form.draftKickoffSignature = translationSignature;
+    state.form.draftKickoffText = refreshedKickoff.draftKickoffText;
+    state.form.draftKickoffSignature = refreshedKickoff.draftKickoffSignature;
+    state.form.draftKickoffPreviousText = refreshedKickoff.draftKickoffPreviousText;
+    state.form.draftKickoffPreviousSignature = refreshedKickoff.draftKickoffPreviousSignature;
+    state.form.draftKickoffReplacementSignature = refreshedKickoff.draftKickoffReplacementSignature;
+    if (refreshedKickoff.snapshotToPersist) {
+      persistDraftKickoffSnapshot(state.selectedCandidateId, refreshedKickoff.snapshotToPersist);
+    }
     persistDraftKickoff(state.selectedCandidateId, {
       content: state.form.draftKickoffText,
-      translationSignature
+      translationSignature: state.form.draftKickoffSignature
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
     setStatus(

@@ -818,6 +818,42 @@ export function resolveAdoptedDraftKickoff(form = null, kickoffState = null, fal
   };
 }
 
+export function resolveRefreshedDraftKickoff(
+  form = null,
+  kickoffState = null,
+  nextKickoffContent = "",
+  nextTranslationSignature = ""
+) {
+  const refreshedContent = cleanText(nextKickoffContent);
+  const refreshedTranslationSignature = cleanText(nextTranslationSignature);
+  if (!refreshedContent || !refreshedTranslationSignature) return null;
+
+  const currentContent = cleanText(form?.draftKickoffText);
+  const currentStoredSignature = cleanText(form?.draftKickoffSignature);
+  const previousContent = cleanText(form?.draftKickoffPreviousText);
+  const previousSignature = cleanText(form?.draftKickoffPreviousSignature);
+  const replacementSignature = cleanText(form?.draftKickoffReplacementSignature);
+  const shouldCapturePreviousSnapshot = Boolean(kickoffState?.isStale && kickoffState?.hasContent && currentContent && currentStoredSignature);
+  const snapshotToPersist = shouldCapturePreviousSnapshot
+    ? {
+        content: currentContent,
+        previousSignature: currentStoredSignature,
+        replacementSignature: refreshedTranslationSignature
+      }
+    : null;
+
+  return {
+    draftKickoffText: refreshedContent,
+    draftKickoffSignature: refreshedTranslationSignature,
+    draftKickoffPreviousText: shouldCapturePreviousSnapshot ? currentContent : previousContent,
+    draftKickoffPreviousSignature: shouldCapturePreviousSnapshot ? currentStoredSignature : previousSignature,
+    draftKickoffReplacementSignature: shouldCapturePreviousSnapshot
+      ? refreshedTranslationSignature
+      : replacementSignature,
+    snapshotToPersist
+  };
+}
+
 export function draftContinuationBrief(
   workspace = null,
   storedSelection = null,
