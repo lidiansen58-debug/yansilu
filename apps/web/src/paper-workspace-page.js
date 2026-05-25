@@ -195,13 +195,37 @@ function readStoredWorkspaceSelection(paperId) {
               .filter(([candidateId, signature]) => candidateId && signature)
           )
         : {};
+    const draftBriefByCandidate =
+      parsed.draftBriefByCandidate && typeof parsed.draftBriefByCandidate === "object"
+        ? Object.fromEntries(
+            Object.entries(parsed.draftBriefByCandidate)
+              .map(([candidateId, value]) => {
+                const cleanCandidateId = String(candidateId || "").trim();
+                const entry = value && typeof value === "object" ? value : {};
+                return [
+                  cleanCandidateId,
+                  {
+                    title: String(entry.title || "").trim(),
+                    nextAction: String(entry.nextAction || "").trim(),
+                    translationSignature: String(entry.translationSignature || "").trim(),
+                    copiedAt: String(entry.copiedAt || "").trim()
+                  }
+                ];
+              })
+              .filter(
+                ([candidateId, value]) =>
+                  candidateId && value.title && value.nextAction && value.translationSignature
+              )
+          )
+        : {};
     return {
       selectedCandidateId: String(parsed.selectedCandidateId || "").trim(),
       selectedPermanentCandidateId: String(parsed.selectedPermanentCandidateId || "").trim(),
       saveStatus: String(parsed.saveStatus || "").trim(),
       saveStatusByPermanentCandidate,
       confirmAuthorshipByPermanentCandidate,
-      translationSignatureByPermanentCandidate
+      translationSignatureByPermanentCandidate,
+      draftBriefByCandidate
     };
   } catch {
     return null;
@@ -224,6 +248,9 @@ function persistWorkspaceSelection(overrides = {}) {
     const translationSignatureByPermanentCandidate = {
       ...(currentSelection?.translationSignatureByPermanentCandidate || {})
     };
+    const draftBriefByCandidate = {
+      ...(currentSelection?.draftBriefByCandidate || {})
+    };
     const nextSaveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
     if (currentPermanentCandidateId && nextSaveStatus) {
       saveStatusByPermanentCandidate[currentPermanentCandidateId] = nextSaveStatus;
@@ -235,6 +262,27 @@ function persistWorkspaceSelection(overrides = {}) {
     if (currentPermanentCandidateId && overrides.translationSignature) {
       translationSignatureByPermanentCandidate[currentPermanentCandidateId] = String(overrides.translationSignature || "").trim();
     }
+    if (overrides.draftBriefCopy) {
+      const draftBriefCopy = overrides.draftBriefCopy && typeof overrides.draftBriefCopy === "object" ? overrides.draftBriefCopy : {};
+      const draftBriefCandidateId = String(draftBriefCopy.candidateId ?? state.selectedCandidateId ?? "").trim();
+      if (draftBriefCandidateId) {
+        if (draftBriefCopy.clear === true) {
+          delete draftBriefByCandidate[draftBriefCandidateId];
+        } else {
+          const title = String(draftBriefCopy.title || "").trim();
+          const nextAction = String(draftBriefCopy.nextAction || "").trim();
+          const translationSignature = String(draftBriefCopy.translationSignature || "").trim();
+          if (title && nextAction && translationSignature) {
+            draftBriefByCandidate[draftBriefCandidateId] = {
+              title,
+              nextAction,
+              translationSignature,
+              copiedAt: String(draftBriefCopy.copiedAt || new Date().toISOString()).trim()
+            };
+          }
+        }
+      }
+    }
     const nextSelection = {
       paperId,
       selectedCandidateId: String(state.selectedCandidateId || "").trim(),
@@ -243,6 +291,7 @@ function persistWorkspaceSelection(overrides = {}) {
       saveStatusByPermanentCandidate,
       confirmAuthorshipByPermanentCandidate,
       translationSignatureByPermanentCandidate,
+      draftBriefByCandidate,
       updatedAt: new Date().toISOString()
     };
     window.localStorage?.setItem(
@@ -515,6 +564,7 @@ function hydrateFormFromWorkspace(workspace) {
 
 function render() {
   if (!root) return;
+  state.lastCopiedDraftBrief = currentDraftBriefState().recentDraftBriefCopy;
   root.innerHTML = renderPaperWorkspacePage(state);
   updateDynamicControls();
 }
@@ -655,20 +705,34 @@ function currentDraftBriefState() {
     selectedPermanentCandidateId: state.selectedPermanentCandidateId,
     permanentNoteContinuityReason: continuityReason
   };
+  const draftBrief = draftContinuationBrief(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  );
+  const currentTranslationSignature = translationContinuitySignature(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const recentDraftBriefCopy = (() => {
+    const selectedCandidateId = String(state.selectedCandidateId || "").trim();
+    if (!selectedCandidateId || !currentTranslationSignature) return null;
+    const storedCopy = state.workspaceSelection?.draftBriefByCandidate?.[selectedCandidateId];
+    if (!storedCopy || storedCopy.translationSignature !== currentTranslationSignature) return null;
+    return storedCopy;
+  })();
   return {
     draftBriefAction: draftBriefActionState(candidateState, workspaceState),
     draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
-    draftBrief: draftContinuationBrief(
-      state.workspace,
-      state.workspaceSelection,
-      state.selectedCandidateId,
-      state.selectedPermanentCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    )
+    draftBrief,
+    recentDraftBriefCopy
   };
 }
 
@@ -913,6 +977,19 @@ async function handleCopyDraftBrief() {
   try {
     await copyTextToClipboard(draftBrief.markdown);
     window.__paperWorkspaceLastDraftBrief = draftBrief.markdown;
+    persistWorkspaceSelection({
+      draftBriefCopy: {
+        candidateId: state.selectedCandidateId,
+        title: draftBrief.title,
+        nextAction: draftContinuationAction?.label,
+        translationSignature: translationContinuitySignature(state.workspace, state.selectedCandidateId, {
+          paraphraseText: state.form.paraphraseText,
+          relationToQuestion: state.form.relationToQuestion,
+          boundaryOrCondition: state.form.boundaryOrCondition
+        }),
+        copiedAt: new Date().toISOString()
+      }
+    });
     const nextAction = String(draftContinuationAction?.label || "").trim();
     setStatus(nextAction ? `已复制 draft brief：${draftBrief.title}。下一步：${nextAction}` : `已复制 draft brief：${draftBrief.title}`, "ok");
   } catch (error) {

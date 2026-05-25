@@ -162,6 +162,49 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   assert.ok(html.includes("Step 4: 尚未生成永久笔记候选"));
 });
 
+test("renderPaperWorkspacePage shows the most recent copied draft brief action when it still matches the candidate", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "translations",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: []
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.lastCopiedDraftBrief = {
+    title: "Draft brief: Candidate One",
+    nextAction: "这条转述已经具备继续写 draft 的最小条件",
+    translationSignature: "sig_1",
+    copiedAt: "2026-05-26T00:00:00.000Z"
+  };
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /data-paper-draft-brief-copy/);
+  assert.ok(html.includes("最近一次已复制。下一步：这条转述已经具备继续写 draft 的最小条件"));
+});
+
 test("renderPaperWorkspacePage keeps the next step blocked until saved translation has relation and boundary", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {

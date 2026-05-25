@@ -221,7 +221,7 @@ function renderDraftContinuationNotice(actionState = null) {
   )}">${escapeHtml(label)}</div>`;
 }
 
-function renderDraftBriefCard(actionState = null, brief = null) {
+function renderDraftBriefCard(actionState = null, brief = null, recentCopy = null) {
   if (!String(brief?.title || "").trim()) return "";
   return `
     <div class="paper-preview-row" data-paper-draft-brief>
@@ -232,6 +232,13 @@ function renderDraftBriefCard(actionState = null, brief = null) {
           actionState?.label || "复制 draft brief"
         )}</button>
       </div>
+      ${
+        recentCopy?.nextAction
+          ? `<div class="paper-result-empty" data-paper-draft-brief-copy>最近一次已复制。下一步：${escapeHtml(
+              recentCopy.nextAction
+            )}</div>`
+          : ""
+      }
     </div>
   `;
 }
@@ -411,7 +418,7 @@ export function renderPaperWorkspacePage(state = {}) {
                 <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateAction.enabled ? "" : "disabled"}>${permanentCandidateAction.label}</button>
               </div>
               ${renderDraftContinuationNotice(draftContinuationAction)}
-              ${renderDraftBriefCard(draftBriefAction, draftBrief)}
+              ${renderDraftBriefCard(draftBriefAction, draftBrief, state.lastCopiedDraftBrief)}
             </div>
           </div>
         </section>
