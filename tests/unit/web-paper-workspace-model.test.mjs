@@ -8,6 +8,7 @@ import {
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
+  draftBriefButtonLabel,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
@@ -330,6 +331,60 @@ test("draftBriefActionState only unlocks when the draft path is ready to hand of
       enabled: false,
       label: "当前还不能复制 draft brief"
     }
+  );
+});
+
+test("draftBriefButtonLabel reflects the next real draft-brief action for blocked and ready paths", () => {
+  assert.equal(
+    draftBriefButtonLabel(
+      {
+        enabled: false,
+        label: "当前还不能复制 draft brief"
+      },
+      {
+        key: "save_translation"
+      }
+    ),
+    "先保存转述"
+  );
+
+  assert.equal(
+    draftBriefButtonLabel(
+      {
+        enabled: false,
+        label: "当前还不能复制 draft brief"
+      },
+      {
+        key: "refresh_permanent_candidate"
+      }
+    ),
+    "先刷新 Step 4"
+  );
+
+  assert.equal(
+    draftBriefButtonLabel(
+      {
+        enabled: true,
+        label: "复制 draft brief"
+      },
+      {
+        key: "review_saved_permanent_note"
+      }
+    ),
+    "复制 brief，回看已保存路径"
+  );
+
+  assert.equal(
+    draftBriefButtonLabel(
+      {
+        enabled: true,
+        label: "复制 draft brief"
+      },
+      {
+        key: "draft_ready"
+      }
+    ),
+    "复制 brief，继续写 draft"
   );
 });
 

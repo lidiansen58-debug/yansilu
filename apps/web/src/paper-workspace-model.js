@@ -716,6 +716,35 @@ export function draftBriefActionState(candidateState = null, workspaceState = nu
   };
 }
 
+export function draftBriefButtonLabel(draftBriefAction = null, draftContinuationAction = null) {
+  if (!draftBriefAction?.enabled) {
+    switch (cleanText(draftContinuationAction?.key)) {
+      case "save_translation":
+        return "先保存转述";
+      case "fill_support":
+        return "先补 relation / boundary";
+      case "update_translation":
+      case "update_translation_affects_step_four":
+        return "先更新转述";
+      case "refresh_permanent_candidate":
+        return "先刷新 Step 4";
+      case "select_candidate":
+        return "先选择候选";
+      default:
+        return cleanText(draftBriefAction?.label) || "当前还不能复制 draft brief";
+    }
+  }
+  switch (cleanText(draftContinuationAction?.key)) {
+    case "review_saved_permanent_note":
+      return "复制 brief，回看已保存路径";
+    case "review_permanent_candidate":
+      return "复制 brief，回看 Step 4";
+    case "draft_ready":
+    default:
+      return "复制 brief，继续写 draft";
+  }
+}
+
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
   const continuation = draftContinuationActionState(candidateState, workspaceState);
   const blockedLabels = {
