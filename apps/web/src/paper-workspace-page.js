@@ -13,6 +13,7 @@ import {
   canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
+  draftBriefButtonLabel,
   draftKickoffActionState,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
@@ -743,7 +744,7 @@ function updateDynamicControls() {
   if (copyDraftBriefButton) {
     const { draftBriefAction, draftContinuationAction } = currentDraftBriefState();
     copyDraftBriefButton.disabled = !draftBriefAction.enabled;
-    copyDraftBriefButton.textContent = runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction);
+    copyDraftBriefButton.textContent = draftBriefButtonLabel(draftBriefAction, draftContinuationAction);
   }
   const startDraftKickoffButton = document.getElementById("btnStartDraftKickoff");
   if (startDraftKickoffButton) {
@@ -833,35 +834,6 @@ function currentDraftKickoffState() {
       }
     )
   };
-}
-
-function runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction) {
-  if (!draftBriefAction?.enabled) {
-    switch (String(draftContinuationAction?.key || "").trim()) {
-      case "save_translation":
-        return "先保存转述";
-      case "fill_support":
-        return "先补 relation / boundary";
-      case "update_translation":
-      case "update_translation_affects_step_four":
-        return "先更新转述";
-      case "refresh_permanent_candidate":
-        return "先刷新 Step 4";
-      case "select_candidate":
-        return "先选择候选";
-      default:
-        return String(draftBriefAction?.label || "当前还不能复制 draft brief");
-    }
-  }
-  switch (String(draftContinuationAction?.key || "").trim()) {
-    case "review_saved_permanent_note":
-      return "复制 brief，回看已保存路径";
-    case "review_permanent_candidate":
-      return "复制 brief，回看 Step 4";
-    case "draft_ready":
-    default:
-      return "复制 brief，继续写 draft";
-  }
 }
 
 function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
