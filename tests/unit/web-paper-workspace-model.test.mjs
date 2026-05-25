@@ -13,6 +13,12 @@ import {
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
   paperWorkspaceProgress,
+  permanentCandidatePersistenceDefaults,
+  resolveSelectedPaperCandidateState,
+  resolveSelectedPaperWorkspaceState,
+  resolvedStoredTranslationDraft,
+  resolvedConfirmAuthorshipForPermanentCandidate,
+  resolvedSaveStatusForPermanentCandidate,
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
@@ -223,6 +229,62 @@ test("translationDraftHasLocalChanges only stores unsaved translation deltas", (
   );
 });
 
+test("resolvedStoredTranslationDraft normalizes recovered translation draft input", () => {
+  assert.deepEqual(
+    resolvedStoredTranslationDraft({
+      paraphraseText: " Draft wording ",
+      relationToQuestion: " Relation ",
+      boundaryOrCondition: " Boundary "
+    }),
+    {
+      paraphraseText: "Draft wording",
+      relationToQuestion: "Relation",
+      boundaryOrCondition: "Boundary"
+    }
+  );
+});
+
+test("resolveSelectedPaperCandidateState restores candidate selection and candidate-scoped draft together", () => {
+  const workspace = {
+    candidates: [
+      { id: "pwc_1", title: "First" },
+      { id: "pwc_2", title: "Second" }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording one.",
+        relationToQuestion: "Saved relation one.",
+        boundaryOrCondition: "Saved boundary one."
+      }
+    ]
+  };
+
+  assert.deepEqual(
+    resolveSelectedPaperCandidateState(workspace, {
+      preferredCandidateId: "pwc_missing",
+      candidateIdHasLocalDraft: (candidateId) => candidateId === "pwc_2",
+      readStoredTranslationDraft: (candidateId) =>
+        candidateId === "pwc_2"
+          ? {
+              paraphraseText: " Unsaved wording two. ",
+              relationToQuestion: " Unsaved relation two. ",
+              boundaryOrCondition: " Unsaved boundary two. "
+            }
+          : null
+    }),
+    {
+      selectedCandidateId: "pwc_2",
+      paraphraseText: "Unsaved wording two.",
+      relationToQuestion: "Unsaved relation two.",
+      boundaryOrCondition: "Unsaved boundary two.",
+      hasSavedTranslation: false,
+      hasLocalChanges: true
+    }
+  );
+});
+
 test("nextSelectedCandidateId prefers a candidate with local draft when no current selection exists", () => {
   const workspace = {
     candidates: [
@@ -277,6 +339,122 @@ test("nextSelectedPermanentCandidateId falls back to first permanent candidate w
 
   assert.equal(nextSelectedPermanentCandidateId(workspace, "pn_2"), "pn_2");
   assert.equal(nextSelectedPermanentCandidateId(workspace, "pn_missing"), "pn_1");
+});
+
+test("nextSelectedPermanentCandidateId can stay empty until the selected paper candidate has its own permanent candidate", () => {
+  const workspace = {
+    permanentCandidates: [
+      { id: "pn_1", paper_candidate_id: "pwc_1", title: "First permanent" },
+      { id: "pn_2", paper_candidate_id: "pwc_2", title: "Second permanent" }
+    ]
+  };
+
+  assert.equal(
+    nextSelectedPermanentCandidateId(workspace, "", {
+      selectedPaperCandidateId: "pwc_2",
+      fallbackToFirst: false
+    }),
+    "pn_2"
+  );
+  assert.equal(
+    nextSelectedPermanentCandidateId(workspace, "", {
+      selectedPaperCandidateId: "pwc_3",
+      fallbackToFirst: false
+    }),
+    ""
+  );
+});
+
+test("permanentCandidatePersistenceDefaults prefers candidate-backed save status and authorship", () => {
+  assert.deepEqual(
+    permanentCandidatePersistenceDefaults(
+      {
+        status: "draft",
+        authorship: { user_confirmed: true }
+      },
+      {
+        saveStatus: "active",
+        confirmAuthorship: false
+      }
+    ),
+    {
+      saveStatus: "draft",
+      confirmAuthorship: true
+    }
+  );
+
+  assert.deepEqual(
+    permanentCandidatePersistenceDefaults(
+      {
+        status: "",
+        savedPermanentNoteId: "pn_1"
+      },
+      {
+        saveStatus: "active",
+        confirmAuthorship: false
+      }
+    ),
+    {
+      saveStatus: "active",
+      confirmAuthorship: true
+    }
+  );
+});
+
+test("resolved permanent candidate persistence prefers candidate-specific stored values before legacy fallbacks", () => {
+  const storedSelection = {
+    saveStatus: "active",
+    saveStatusByPermanentCandidate: {
+      pn_2: "draft"
+    },
+    confirmAuthorshipByPermanentCandidate: {
+      pn_2: true
+    }
+  };
+
+  assert.equal(resolvedSaveStatusForPermanentCandidate(storedSelection, "pn_2"), "draft");
+  assert.equal(resolvedSaveStatusForPermanentCandidate(storedSelection, "pn_missing"), "active");
+  assert.equal(
+    resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, {
+      id: "pn_2",
+      authorship: { user_confirmed: false }
+    }),
+    true
+  );
+});
+
+test("resolveSelectedPaperWorkspaceState restores aligned paper and permanent selections together", () => {
+  const workspace = {
+    candidates: [
+      { id: "pwc_1", title: "First" },
+      { id: "pwc_2", title: "Second" }
+    ],
+    permanentCandidates: [
+      { id: "pn_1", paper_candidate_id: "pwc_1", status: "active", authorship: { user_confirmed: false } },
+      { id: "pn_2", paper_candidate_id: "pwc_2", status: "draft", authorship: { user_confirmed: false } }
+    ]
+  };
+  const storedSelection = {
+    selectedCandidateId: "pwc_missing",
+    selectedPermanentCandidateId: "pn_missing",
+    saveStatus: "active",
+    saveStatusByPermanentCandidate: { pn_2: "draft" },
+    confirmAuthorshipByPermanentCandidate: { pn_2: true }
+  };
+
+  assert.deepEqual(
+    resolveSelectedPaperWorkspaceState(workspace, storedSelection, {
+      preferredCandidateId: storedSelection.selectedCandidateId,
+      preferredPermanentCandidateId: storedSelection.selectedPermanentCandidateId,
+      candidateIdHasLocalDraft: (candidateId) => candidateId === "pwc_2"
+    }),
+    {
+      selectedCandidateId: "pwc_2",
+      selectedPermanentCandidateId: "pn_2",
+      saveStatus: "draft",
+      confirmAuthorship: true
+    }
+  );
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {

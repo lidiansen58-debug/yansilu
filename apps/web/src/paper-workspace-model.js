@@ -119,6 +119,10 @@ export function normalizeTranslationDraftInput(input = {}) {
   };
 }
 
+export function resolvedStoredTranslationDraft(storedDraft = null) {
+  return normalizeTranslationDraftInput(storedDraft || {});
+}
+
 export function translationDraftForCandidate(workspace = null, candidateId = "", draftInput = null) {
   const candidate = selectedPaperCandidate(workspace, candidateId);
   const translation = selectedPaperTranslation(workspace, candidate?.id || candidateId);
@@ -160,6 +164,34 @@ export function translationDraftHasLocalChanges(workspace = null, candidateId = 
   );
 }
 
+export function resolveSelectedPaperCandidateState(workspace = null, options = {}) {
+  const selectedCandidateId = nextSelectedCandidateId(
+    workspace,
+    options.preferredCandidateId || "",
+    {
+      candidateIdHasLocalDraft:
+        typeof options.candidateIdHasLocalDraft === "function" ? options.candidateIdHasLocalDraft : () => false
+    }
+  );
+  const draft = translationDraftForCandidate(
+    workspace,
+    selectedCandidateId,
+    resolvedStoredTranslationDraft(
+      typeof options.readStoredTranslationDraft === "function"
+        ? options.readStoredTranslationDraft(selectedCandidateId)
+        : null
+    )
+  );
+  return {
+    selectedCandidateId,
+    paraphraseText: draft.paraphraseText,
+    relationToQuestion: draft.relationToQuestion,
+    boundaryOrCondition: draft.boundaryOrCondition,
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges
+  };
+}
+
 export function selectedPermanentCandidate(workspace = null, candidateId = "") {
   const id = cleanText(candidateId);
   const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
@@ -171,6 +203,20 @@ function exactSelectedPermanentCandidate(workspace = null, candidateId = "") {
   if (!id) return null;
   const candidates = Array.isArray(workspace?.permanentCandidates) ? workspace.permanentCandidates : [];
   return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || null;
+}
+
+export function permanentCandidatePersistenceDefaults(candidate = null, fallback = {}) {
+  const fallbackSaveStatus = cleanText(fallback.saveStatus);
+  const candidateStatus = cleanText(candidate?.status);
+  const resolvedSaveStatus = candidateStatus || fallbackSaveStatus || "active";
+  const resolvedConfirmAuthorship =
+    candidate?.authorship?.user_confirmed === true ||
+    Boolean(cleanText(candidate?.savedPermanentNoteId)) ||
+    fallback.confirmAuthorship === true;
+  return {
+    saveStatus: resolvedSaveStatus,
+    confirmAuthorship: resolvedConfirmAuthorship
+  };
 }
 
 export function workspaceStageLabel(stage = "") {
@@ -207,8 +253,68 @@ export function nextSelectedCandidateId(workspace = null, preferredId = "", opti
   return cleanText(selectedPaperCandidate(workspace, "")?.id);
 }
 
-export function nextSelectedPermanentCandidateId(workspace = null, preferredId = "") {
+export function nextSelectedPermanentCandidateId(workspace = null, preferredId = "", options = {}) {
+  const fallbackToFirst = options.fallbackToFirst !== false;
+  const selectedPaperCandidateId = cleanText(options.selectedPaperCandidateId);
   const preferred = exactSelectedPermanentCandidate(workspace, preferredId);
   if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
+  const candidateMatchedPermanent = exactSelectedPermanentCandidate(workspace, selectedPaperCandidateId);
+  if (selectedPaperCandidateId && cleanText(candidateMatchedPermanent?.id)) return cleanText(candidateMatchedPermanent.id);
+  if (!fallbackToFirst) return "";
   return cleanText(selectedPermanentCandidate(workspace, "")?.id);
+}
+
+export function resolvedSaveStatusForPermanentCandidate(storedSelection = null, permanentCandidateId = "") {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  const mappedStatus =
+    cleanPermanentCandidateId && storedSelection?.saveStatusByPermanentCandidate
+      ? String(storedSelection.saveStatusByPermanentCandidate[cleanPermanentCandidateId] || "").trim()
+      : "";
+  if (mappedStatus) return mappedStatus;
+  const legacyStatus = String(storedSelection?.saveStatus || "").trim();
+  if (legacyStatus) return legacyStatus;
+  return "active";
+}
+
+export function resolvedConfirmAuthorshipForPermanentCandidate(storedSelection = null, permanentCandidate = null) {
+  const cleanPermanentCandidateId = String(permanentCandidate?.id || "").trim();
+  const mappedConfirmAuthorship =
+    cleanPermanentCandidateId && storedSelection?.confirmAuthorshipByPermanentCandidate
+      ? storedSelection.confirmAuthorshipByPermanentCandidate[cleanPermanentCandidateId] === true
+      : false;
+  return permanentCandidatePersistenceDefaults(permanentCandidate, {
+    confirmAuthorship: mappedConfirmAuthorship
+  }).confirmAuthorship;
+}
+
+export function resolveSelectedPaperWorkspaceState(
+  workspace = null,
+  storedSelection = null,
+  options = {}
+) {
+  const selectedCandidateId = nextSelectedCandidateId(
+    workspace,
+    options.preferredCandidateId || "",
+    {
+      candidateIdHasLocalDraft:
+        typeof options.candidateIdHasLocalDraft === "function" ? options.candidateIdHasLocalDraft : () => false
+    }
+  );
+  const selectedPermanentCandidateId = nextSelectedPermanentCandidateId(
+    workspace,
+    options.preferredPermanentCandidateId || "",
+    {
+      selectedPaperCandidateId: selectedCandidateId,
+      fallbackToFirst: false
+    }
+  );
+  const permanentCandidate = selectedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  return {
+    selectedCandidateId,
+    selectedPermanentCandidateId,
+    saveStatus: permanentCandidatePersistenceDefaults(permanentCandidate, {
+      saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, selectedPermanentCandidateId)
+    }).saveStatus,
+    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate)
+  };
 }

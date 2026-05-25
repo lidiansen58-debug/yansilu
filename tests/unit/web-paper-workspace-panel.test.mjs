@@ -253,6 +253,67 @@ test("renderPaperWorkspacePage shows the permanent-candidate empty state after t
   assert.match(html, /确认 authorship 之后才会真正保存为永久笔记/);
 });
 
+test("renderPaperWorkspacePage keeps step four aligned to the selected paper candidate", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_candidates",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "converted"
+      },
+      {
+        id: "pwc_2",
+        title: "Candidate Two",
+        quoteText: "Second candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording one."
+      },
+      {
+        id: "ptr_2",
+        candidateId: "pwc_2",
+        paraphraseText: "Saved wording two."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "First claim.",
+        rationale: "First reason.",
+        originality_status: "warning",
+        status: "draft",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  state.selectedCandidateId = "pwc_2";
+  state.selectedPermanentCandidateId = "";
+  state.form.paraphraseText = "Saved wording two.";
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.ok(html.includes("当前候选的转述已经就绪"));
+  assert.ok(html.includes("列表里的条目属于其他候选"));
+  assert.ok(html.includes("生成永久笔记候选"));
+  assert.doesNotMatch(html, /paper-permanent-preview/);
+  assert.doesNotMatch(html, /First reason\./);
+  assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
+});
+
 test("renderPaperWorkspacePage renders a selectable permanent candidate list", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {
@@ -278,6 +339,7 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
     permanentCandidates: [
       {
         id: "pn_1",
+        paper_candidate_id: "pwc_1",
         title: "Permanent One",
         core_claim: "First claim.",
         rationale: "First reason.",
@@ -287,6 +349,7 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
       },
       {
         id: "pn_2",
+        paper_candidate_id: "pwc_1",
         title: "Permanent Two",
         core_claim: "Second claim.",
         rationale: "Second reason.",
@@ -313,6 +376,8 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
   assert.match(html, /引用/);
   assert.match(html, /src_2/);
   assert.match(html, /class="paper-candidate is-active" type="button" data-paper-permanent-candidate-id="pn_2"/);
+  assert.ok(html.includes("这条候选已经生成对应的永久笔记候选"));
+  assert.ok(html.includes("下一步就是检查 originality 风险"));
 });
 
 test("renderPaperWorkspacePage falls back when permanent preview boundary or citation are missing", () => {
@@ -340,6 +405,7 @@ test("renderPaperWorkspacePage falls back when permanent preview boundary or cit
     permanentCandidates: [
       {
         id: "pn_1",
+        paper_candidate_id: "pwc_1",
         title: "Permanent One",
         core_claim: "First claim.",
         rationale: "First reason.",
@@ -384,6 +450,7 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
     permanentCandidates: [
       {
         id: "pn_1",
+        paper_candidate_id: "pwc_1",
         title: "Permanent One",
         core_claim: "Saved claim.",
         rationale: "Saved reason.",
@@ -405,6 +472,7 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   assert.match(html, /Saved reason\./);
   assert.match(html, /src_1/);
   assert.match(html, /paper-risk-pass/);
+  assert.ok(html.includes("这条候选已经连上自己的永久笔记路径"));
   assert.match(html, /\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
@@ -434,6 +502,7 @@ test("renderPaperWorkspacePage keeps the selected permanent-note save status", (
     permanentCandidates: [
       {
         id: "pn_1",
+        paper_candidate_id: "pwc_1",
         title: "Permanent One",
         core_claim: "Saved claim.",
         rationale: "Saved reason.",

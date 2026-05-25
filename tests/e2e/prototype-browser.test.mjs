@@ -5718,6 +5718,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           assert.equal(await page.locator("#translationParaphraseInput").inputValue(), unsavedParaphrase);
           assert.equal(await page.locator("#translationRelationInput").inputValue(), unsavedRelation);
           assert.equal(await page.locator("#translationBoundaryInput").inputValue(), unsavedBoundary);
+          assert.equal(await page.locator(".paper-permanent-preview").count(), 0);
+          assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+          const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
+          assert.match(String(permanentStepText || ""), /鍒楄〃閲岀殑鏉＄洰灞炰簬鍏朵粬鍊欓€?/);
+          assert.doesNotMatch(String(permanentStepText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
         }, 4000);
         await page.click("#btnSaveTranslation");
         await waitFor(async () => {
@@ -5767,6 +5772,22 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
                 await waitFor(async () => {
                   assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
+                }, 4000);
+                await page.locator(".paper-candidate").nth(0).click();
+                await waitFor(async () => {
+                  const previewText = await page.locator(".paper-permanent-preview").textContent();
+                  assert.match(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
+                  assert.doesNotMatch(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+                  assert.equal(await page.locator("#permanentStatusInput").inputValue(), "active");
+                  assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
+                }, 4000);
+                await page.locator(".paper-candidate").nth(1).click();
+                await waitFor(async () => {
+                  const previewText = await page.locator(".paper-permanent-preview").textContent();
+                  assert.match(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+                  assert.doesNotMatch(String(previewText || ""), /My takeaway is that retrieval effort improves later access to the idea/);
+                  assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
+                  assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
                 }, 4000);
 
 	            await page.click("#btnSavePermanentNote");
@@ -5885,6 +5906,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), new RegExp(`已保存为：${savedPermanentNoteId}`));
               assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
+              assert.equal(await page.locator("#permanentStatusInput").inputValue(), "active");
+              assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), true);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /已保存为永久笔记/);
             }, 4000);
