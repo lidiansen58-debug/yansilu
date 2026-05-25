@@ -10,17 +10,28 @@ import {
 import {
   buildNotebookLmPayload,
   canCreatePermanentCandidate,
+  canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
+  permanentCandidateActionState,
+  permanentNoteActionState,
+  permanentNoteContinuityState,
+  paperWorkspaceLiveStatusKey,
+  paperWorkspaceResumeStatusKey,
+  preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
+  resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  translationSaveActionState,
+  translationContinuitySignature,
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
   selectedAlignedPermanentCandidate,
+  selectedPaperCandidateIdForPermanentCandidate,
   selectedPermanentCandidate,
   translationDraftHasLocalChanges,
   translationDraftForCandidate
@@ -38,7 +49,19 @@ const STATUS = {
   addedNotebookDraft: "NotebookLM \u5185\u5bb9\u5df2\u8f6c\u6210 literature \u5019\u9009",
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
+  translationNeedsSaveBeforePermanentCandidate:
+    "\u5148\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+  translationNeedsResaveBeforePermanentCandidate:
+    "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+  translationNeedsFreshPermanentCandidate:
+    "\u8fd9\u6761\u8f6c\u8ff0\u5df2\u7ecf\u66f4\u65b0\u8fc7\uff0c\u5f53\u524d Step 4 \u5019\u9009\u5df2\u8fc7\u671f\u3002\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+  translationNeedsResaveBeforePermanentNote:
+    "\u5f53\u524d Step 3 \u7684\u8f6c\u8ff0\u5df2\u53d1\u751f\u53d8\u5316\u3002\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u786e\u8ba4\u6c38\u4e45\u7b14\u8bb0",
   savedPermanentNote: "\u6c38\u4e45\u7b14\u8bb0\u5df2\u4fdd\u5b58",
+  restoredLocalTranslationDraftOverSavedTranslation:
+    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\uff0c\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\uff0c\u4e5f\u53ef\u4ee5\u56de\u770b\u5df2\u4fdd\u5b58\u7684\u8f6c\u8ff0\u8def\u5f84\u3002",
+  restoredLocalTranslationDraft:
+    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002",
   restoredSavedTranslation:
     "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u7528\u6237\u8f6c\u8ff0\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u6216\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002",
   restoredPermanentCandidateForSelectedPaper:
@@ -53,11 +76,28 @@ const STATUS = {
 };
 
 const state = createInitialPaperWorkspaceState();
+state.workspaceSelection = null;
 const root = document.getElementById("paperWorkspaceApp");
+const CONTINUITY_STATUS_FIELD_IDS = new Set([
+  "translationParaphraseInput",
+  "translationRelationInput",
+  "translationBoundaryInput",
+  "confirmAuthorshipInput",
+  "permanentStatusInput"
+]);
 
 function setStatus(text, tone = "") {
   state.statusText = text;
   state.statusTone = tone;
+  updateStatusStrip();
+}
+
+function updateStatusStrip() {
+  const statusNode = root?.querySelector?.(".paper-status");
+  if (!statusNode) return;
+  const cleanTone = String(state.statusTone || "").trim();
+  statusNode.className = cleanTone ? `paper-status paper-status-${cleanTone}` : "paper-status";
+  statusNode.textContent = String(state.statusText || "准备就绪");
 }
 
 function setResult(result) {
@@ -134,12 +174,22 @@ function readStoredWorkspaceSelection(paperId) {
               .filter(([candidateId]) => candidateId)
           )
         : {};
+    const translationSignatureByPermanentCandidate =
+      parsed.translationSignatureByPermanentCandidate &&
+      typeof parsed.translationSignatureByPermanentCandidate === "object"
+        ? Object.fromEntries(
+            Object.entries(parsed.translationSignatureByPermanentCandidate)
+              .map(([candidateId, signature]) => [String(candidateId || "").trim(), String(signature || "").trim()])
+              .filter(([candidateId, signature]) => candidateId && signature)
+          )
+        : {};
     return {
       selectedCandidateId: String(parsed.selectedCandidateId || "").trim(),
       selectedPermanentCandidateId: String(parsed.selectedPermanentCandidateId || "").trim(),
       saveStatus: String(parsed.saveStatus || "").trim(),
       saveStatusByPermanentCandidate,
-      confirmAuthorshipByPermanentCandidate
+      confirmAuthorshipByPermanentCandidate,
+      translationSignatureByPermanentCandidate
     };
   } catch {
     return null;
@@ -159,6 +209,9 @@ function persistWorkspaceSelection(overrides = {}) {
     const confirmAuthorshipByPermanentCandidate = {
       ...(currentSelection?.confirmAuthorshipByPermanentCandidate || {})
     };
+    const translationSignatureByPermanentCandidate = {
+      ...(currentSelection?.translationSignatureByPermanentCandidate || {})
+    };
     const nextSaveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
     if (currentPermanentCandidateId && nextSaveStatus) {
       saveStatusByPermanentCandidate[currentPermanentCandidateId] = nextSaveStatus;
@@ -167,22 +220,69 @@ function persistWorkspaceSelection(overrides = {}) {
       confirmAuthorshipByPermanentCandidate[currentPermanentCandidateId] =
         overrides.confirmAuthorship ?? state.form.confirmAuthorship === true;
     }
+    if (currentPermanentCandidateId && overrides.translationSignature) {
+      translationSignatureByPermanentCandidate[currentPermanentCandidateId] = String(overrides.translationSignature || "").trim();
+    }
+    const nextSelection = {
+      paperId,
+      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
+      selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
+      saveStatus: currentPermanentCandidateId ? nextSaveStatus : "",
+      saveStatusByPermanentCandidate,
+      confirmAuthorshipByPermanentCandidate,
+      translationSignatureByPermanentCandidate,
+      updatedAt: new Date().toISOString()
+    };
     window.localStorage?.setItem(
       key,
-      JSON.stringify({
-        paperId,
-        selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-        selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-        saveStatus: currentPermanentCandidateId ? nextSaveStatus : "",
-        saveStatusByPermanentCandidate,
-        confirmAuthorshipByPermanentCandidate,
-        updatedAt: new Date().toISOString()
-      })
+      JSON.stringify(nextSelection)
     );
+    state.workspaceSelection = nextSelection;
   } catch {}
 }
 
+function persistTranslationSignatureForPermanentCandidate(permanentCandidateId = "", translationSignature = "") {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  const cleanTranslationSignature = String(translationSignature || "").trim();
+  if (!cleanPermanentCandidateId || !cleanTranslationSignature) return;
+  const paperId = currentLoadedWorkspacePaperId();
+  const key = workspaceSelectionStorageKey(paperId);
+  if (!key) return;
+  try {
+    const currentSelection = readStoredWorkspaceSelection(paperId);
+    const nextSelection = {
+      paperId,
+      ...(currentSelection || {}),
+      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
+      selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
+      translationSignatureByPermanentCandidate: {
+        ...(currentSelection?.translationSignatureByPermanentCandidate || {}),
+        [cleanPermanentCandidateId]: cleanTranslationSignature
+      },
+      updatedAt: new Date().toISOString()
+    };
+    window.localStorage?.setItem(key, JSON.stringify(nextSelection));
+    state.workspaceSelection = nextSelection;
+  } catch {}
+}
+
+function persistPermanentCandidateTranslationSignature(
+  permanentCandidateId = state.selectedPermanentCandidateId,
+  candidateId = state.selectedCandidateId
+) {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  if (!cleanPermanentCandidateId) return;
+  const translationSignature = translationContinuitySignature(state.workspace, candidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  if (!translationSignature) return;
+  persistWorkspaceSelection({ translationSignature });
+}
+
 function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  state.workspaceSelection = storedSelection;
   const selectedPermanent = selectedAlignedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
   state.form.saveStatus = permanentCandidatePersistenceDefaults(selectedPermanent, {
     saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, state.selectedPermanentCandidateId)
@@ -264,14 +364,104 @@ function hydrateTranslationForm(candidateId = "") {
   state.form.boundaryOrCondition = resolvedState.boundaryOrCondition;
 }
 
+function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const workspaceState = {
+    selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
+    permanentNoteContinuityReason: permanentNoteContinuityState(
+      state.workspace,
+      storedSelection,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    ).reason
+  };
+  const statusKey = paperWorkspaceResumeStatusKey(
+    {
+      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
+      hasSavedTranslation: draft.hasSavedTranslation,
+      hasLocalChanges: draft.hasLocalChanges
+    },
+    workspaceState
+  );
+  return {
+    key: statusKey,
+    tone: statusKey === "translationNeedsFreshPermanentCandidate" ? "warn" : statusKey === "selectedCandidate" ? "" : "ok"
+  };
+}
+
+function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const workspaceState = {
+    selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
+    permanentNoteContinuityReason: permanentNoteContinuityState(
+      state.workspace,
+      storedSelection,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    ).reason
+  };
+  const statusKey = paperWorkspaceLiveStatusKey(
+    {
+      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
+      hasSavedTranslation: draft.hasSavedTranslation,
+      hasLocalChanges: draft.hasLocalChanges
+    },
+    workspaceState
+  );
+  return {
+    key: statusKey,
+    tone: statusKey.startsWith("translationNeeds") ? "warn" : statusKey === "selectedCandidate" ? "" : "ok"
+  };
+}
+
+function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const resumeStatus = currentSelectionResumeStatus(storedSelection);
+  setStatus(STATUS[resumeStatus.key] || STATUS.loadedWorkspace, resumeStatus.tone);
+}
+
+function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  if (!currentLoadedWorkspacePaperId()) return;
+  const liveStatus = currentSelectionLiveStatus(storedSelection);
+  setStatus(STATUS[liveStatus.key] || STATUS.loadedWorkspace, liveStatus.tone);
+}
+
+function shouldRefreshContinuityStatus(target) {
+  return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
+}
+
 function hydrateFormFromWorkspace(workspace) {
   if (!workspace) return;
   const storedSelection = readStoredWorkspaceSelection(workspace.paperId);
+  state.workspaceSelection = storedSelection;
+  const preferredPermanentCandidateId = state.selectedPermanentCandidateId || storedSelection?.selectedPermanentCandidateId || "";
+  const preferredCandidateId = preferredPaperCandidateIdForWorkspaceResume(
+    workspace,
+    preferredPermanentCandidateId,
+    state.selectedCandidateId || storedSelection?.selectedCandidateId || ""
+  );
   state.form.paperId = workspace.paperId || state.form.paperId;
   state.form.sourceId = workspace.sourceId || state.form.sourceId;
   state.form.title = workspace.title || state.form.title;
   const resolvedCandidateState = resolveSelectedPaperCandidateState(workspace, {
-    preferredCandidateId: state.selectedCandidateId || storedSelection?.selectedCandidateId || "",
+    preferredCandidateId,
     candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId),
     readStoredTranslationDraft: (candidateId) => readStoredTranslationDraft(workspace.paperId, candidateId)
   });
@@ -280,7 +470,7 @@ function hydrateFormFromWorkspace(workspace) {
     storedSelection,
     {
       preferredCandidateId: resolvedCandidateState.selectedCandidateId,
-      preferredPermanentCandidateId: state.selectedPermanentCandidateId || storedSelection?.selectedPermanentCandidateId || "",
+      preferredPermanentCandidateId,
       candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId)
     }
   );
@@ -292,6 +482,7 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.relationToQuestion = resolvedCandidateState.relationToQuestion;
   state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   persistWorkspaceSelection();
+  return paperWorkspaceResumeStatusKey(resolvedCandidateState, resolvedState);
 }
 
 function render() {
@@ -301,9 +492,51 @@ function render() {
 }
 
 function updateDynamicControls() {
+  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const saveTranslationButton = document.getElementById("btnSaveTranslation");
+  if (saveTranslationButton) {
+    saveTranslationButton.disabled = !translationSaveAction.enabled;
+    saveTranslationButton.textContent = translationSaveAction.label;
+  }
   const notebookDraftButton = document.getElementById("btnAddNotebookDraft");
   if (notebookDraftButton) {
     notebookDraftButton.disabled = !canSubmitNotebookDraft(state.form, state.workspace);
+  }
+  const permanentCandidateButton = document.getElementById("btnCreatePermanentCandidate");
+  if (permanentCandidateButton) {
+    const permanentCandidateAction = permanentCandidateActionState(
+      state.workspace,
+      state.workspaceSelection,
+      state.selectedCandidateId,
+      state.selectedPermanentCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    );
+    permanentCandidateButton.disabled = !permanentCandidateAction.enabled;
+    permanentCandidateButton.textContent = permanentCandidateAction.label;
+  }
+  const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
+  if (savePermanentNoteButton) {
+    const permanentNoteAction = permanentNoteActionState(
+      state.workspace,
+      state.workspaceSelection,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    );
+    savePermanentNoteButton.disabled = !permanentNoteAction.enabled;
+    savePermanentNoteButton.textContent = permanentNoteAction.label;
   }
 }
 
@@ -316,7 +549,9 @@ async function runAction(action, successMessage) {
   try {
     const result = await action();
     setResult(result);
-    setStatus(successMessage, "ok");
+    const resolvedSuccessMessage =
+      typeof successMessage === "function" ? successMessage(result) : successMessage;
+    setStatus(String(resolvedSuccessMessage || STATUS.loadedWorkspace), "ok");
     return result;
   } catch (error) {
     setResult({
@@ -350,9 +585,9 @@ async function handleLoadWorkspace() {
   await runAction(async () => {
     const workspace = await fetchPaperWorkspace(state.form.paperId);
     state.workspace = workspace;
-    hydrateFormFromWorkspace(workspace);
-    return { stage: "load_workspace", item: workspace };
-  }, STATUS.loadedWorkspace);
+    const resumeStatusKey = hydrateFormFromWorkspace(workspace);
+    return { stage: "load_workspace", item: workspace, resumeStatusKey };
+  }, (result) => STATUS[result?.resumeStatusKey] || STATUS.loadedWorkspace);
 }
 
 async function handleAddNotebookDraft() {
@@ -365,6 +600,31 @@ async function handleAddNotebookDraft() {
 }
 
 async function handleSaveTranslation() {
+  const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  if (!translationSaveAction.enabled) {
+    render();
+    return;
+  }
+  const alignedPermanentCandidateBeforeSave = selectedAlignedPermanentCandidate(
+    state.workspace,
+    state.selectedPermanentCandidateId
+  );
+  const selectedPermanentCandidateIdBeforeSave =
+    String(alignedPermanentCandidateBeforeSave?.paper_candidate_id || "").trim() === String(state.selectedCandidateId || "").trim()
+      ? String(alignedPermanentCandidateBeforeSave?.id || "").trim()
+      : "";
+  const storedSignatureBeforeSave = resolvedTranslationSignatureForPermanentCandidate(
+    state.workspaceSelection,
+    selectedPermanentCandidateIdBeforeSave
+  );
+  const baselineTranslationSignatureBeforeSave = translationContinuitySignature(
+    state.workspace,
+    state.selectedCandidateId
+  );
   await runAction(async () => {
     const result = await savePaperTranslation(state.workspace?.paperId || state.form.paperId, {
       candidateId: state.selectedCandidateId,
@@ -375,11 +635,46 @@ async function handleSaveTranslation() {
     state.workspace = result.item;
     clearStoredTranslationDraft(currentPaperId(), state.selectedCandidateId);
     hydrateFormFromWorkspace(state.workspace);
-    return { stage: "save_translation", ...result };
-  }, STATUS.savedTranslation);
+    if (
+      selectedPermanentCandidateIdBeforeSave &&
+      !storedSignatureBeforeSave &&
+      baselineTranslationSignatureBeforeSave
+    ) {
+      persistTranslationSignatureForPermanentCandidate(
+        selectedPermanentCandidateIdBeforeSave,
+        baselineTranslationSignatureBeforeSave
+      );
+    }
+    const continuityState = permanentNoteContinuityState(
+      state.workspace,
+      state.workspaceSelection,
+      state.selectedPermanentCandidateId,
+      state.selectedCandidateId,
+      {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }
+    );
+    return { stage: "save_translation", permanentNoteContinuityReason: continuityState.reason, ...result };
+  }, (result) =>
+    result?.permanentNoteContinuityReason === "stale_translation_signature"
+      ? STATUS.translationNeedsFreshPermanentCandidate
+      : STATUS.savedTranslation);
 }
 
 async function handleCreatePermanentCandidate() {
+  if (
+    !canCreatePermanentCandidate(state.workspace, state.selectedCandidateId, {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    })
+  ) {
+    setStatus(STATUS.translationNeedsResaveBeforePermanentCandidate, "warn");
+    render();
+    return;
+  }
   await runAction(async () => {
     const result = await createPaperPermanentCandidate(state.workspace?.paperId || state.form.paperId, {
       candidateId: state.selectedCandidateId
@@ -387,6 +682,7 @@ async function handleCreatePermanentCandidate() {
     state.workspace = result.item;
     state.selectedPermanentCandidateId = result.permanentCandidate?.id || "";
     hydratePermanentCandidateForm();
+    persistPermanentCandidateTranslationSignature(state.selectedPermanentCandidateId, state.selectedCandidateId);
     persistWorkspaceSelection();
     return { stage: "permanent_candidate", ...result };
   }, STATUS.createdPermanentCandidate);
@@ -395,6 +691,29 @@ async function handleCreatePermanentCandidate() {
 async function handleSavePermanentNote() {
   syncFormFromDom();
   persistWorkspaceSelection();
+  const continuityState = permanentNoteContinuityState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedPermanentCandidateId,
+    state.selectedCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  );
+  if (
+    !continuityState.allowed
+  ) {
+    setStatus(
+      continuityState.reason === "stale_translation_signature"
+        ? STATUS.translationNeedsFreshPermanentCandidate
+        : STATUS.translationNeedsResaveBeforePermanentNote,
+      "warn"
+    );
+    render();
+    return;
+  }
   await runAction(async () => {
     const result = await savePaperPermanentNote(state.workspace?.paperId || state.form.paperId, {
       permanentCandidateId: state.selectedPermanentCandidateId,
@@ -407,11 +726,14 @@ async function handleSavePermanentNote() {
   }, STATUS.savedPermanentNote);
 }
 
-root?.addEventListener("input", () => {
+root?.addEventListener("input", (event) => {
   syncFormFromDom();
   persistTranslationDraft();
   persistWorkspaceSelection();
   updateDynamicControls();
+  if (shouldRefreshContinuityStatus(event.target)) {
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+  }
 });
 
 root?.addEventListener("change", (event) => {
@@ -425,6 +747,9 @@ root?.addEventListener("change", (event) => {
     persistWorkspaceSelection();
   }
   updateDynamicControls();
+  if (shouldRefreshContinuityStatus(event.target)) {
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+  }
 });
 
 root?.addEventListener("click", (event) => {
@@ -436,13 +761,7 @@ root?.addEventListener("click", (event) => {
     state.selectedCandidateId = candidateButton.getAttribute("data-paper-candidate-id") || "";
     hydrateSelectedPaperCandidateState(storedSelection);
     persistWorkspaceSelection();
-    if (state.selectedPermanentCandidateId) {
-      setStatus(STATUS.restoredPermanentCandidateForSelectedPaper, "ok");
-    } else if (canCreatePermanentCandidate(state.workspace, state.selectedCandidateId)) {
-      setStatus(STATUS.savedTranslationReadyForPermanentCandidate, "ok");
-    } else {
-      setStatus(STATUS.selectedCandidate, "");
-    }
+    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
     return;
   }
@@ -450,11 +769,20 @@ root?.addEventListener("click", (event) => {
   const permanentCandidateButton = event.target?.closest?.("[data-paper-permanent-candidate-id]");
   if (permanentCandidateButton) {
     syncFormFromDom();
+    persistTranslationDraft();
     const storedSelection = readStoredWorkspaceSelection(currentPaperId());
     state.selectedPermanentCandidateId = permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || "";
+    const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
+      state.workspace,
+      state.selectedPermanentCandidateId
+    );
+    if (alignedPaperCandidateId) {
+      state.selectedCandidateId = alignedPaperCandidateId;
+      hydrateTranslationForm(state.selectedCandidateId);
+    }
     hydratePermanentCandidateForm(storedSelection);
     persistWorkspaceSelection();
-    setStatus(STATUS.restoredPermanentCandidate, "ok");
+    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
     return;
   }

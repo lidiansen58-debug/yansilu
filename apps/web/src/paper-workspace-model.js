@@ -123,6 +123,23 @@ export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
 
+export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
+  const cleanTranslationId = cleanText(draft.translation?.id);
+  const normalizedDraft = normalizeTranslationDraftInput({
+    paraphraseText: draft.paraphraseText,
+    relationToQuestion: draft.relationToQuestion,
+    boundaryOrCondition: draft.boundaryOrCondition
+  });
+  if (!cleanCandidateId || !cleanTranslationId || !cleanText(normalizedDraft.paraphraseText)) return "";
+  return JSON.stringify({
+    candidateId: cleanCandidateId,
+    translationId: cleanTranslationId,
+    ...normalizedDraft
+  });
+}
+
 export function translationDraftForCandidate(workspace = null, candidateId = "", draftInput = null) {
   const candidate = selectedPaperCandidate(workspace, candidateId);
   const translation = selectedPaperTranslation(workspace, candidate?.id || candidateId);
@@ -162,6 +179,83 @@ export function translationDraftHasLocalChanges(workspace = null, candidateId = 
     baseline.relationToQuestion !== current.relationToQuestion ||
     baseline.boundaryOrCondition !== current.boundaryOrCondition
   );
+}
+
+export function translationSaveActionState(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  if (!cleanText(draft.candidate?.id)) {
+    return { enabled: false, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
+  }
+  if (draft.hasSavedTranslation && !draft.hasLocalChanges) {
+    return { enabled: false, label: "\u5df2\u4fdd\u5b58\u8f6c\u8ff0" };
+  }
+  if (draft.hasSavedTranslation) {
+    return { enabled: true, label: "\u66f4\u65b0\u8f6c\u8ff0" };
+  }
+  return { enabled: true, label: "\u4fdd\u5b58\u8f6c\u8ff0" };
+}
+
+export function permanentCandidateActionState(
+  workspace = null,
+  storedSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  const hasAlignedPermanentCandidate =
+    cleanText(draft.candidate?.id) &&
+    cleanText(selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId)?.paper_candidate_id) ===
+      cleanText(draft.candidate?.id);
+  if (!cleanText(draft.candidate?.id)) {
+    return { enabled: false, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  if (!draft.hasSavedTranslation) {
+    return {
+      enabled: false,
+      label: draft.hasLocalChanges ? "\u5148\u4fdd\u5b58\u8f6c\u8ff0" : "\u5148\u4fdd\u5b58\u8f6c\u8ff0"
+    };
+  }
+  if (draft.hasLocalChanges) {
+    return { enabled: false, label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
+  }
+  if (hasAlignedPermanentCandidate && continuity.reason === "stale_translation_signature") {
+    return { enabled: true, label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  return { enabled: true, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+}
+
+export function permanentNoteActionState(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  if (continuity.reason === "stale_translation_signature") {
+    return { enabled: false, label: "\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  if (continuity.reason === "saved_permanent_note") {
+    return { enabled: false, label: "\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0" };
+  }
+  return {
+    enabled: continuity.allowed,
+    label: "\u786e\u8ba4\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0"
+  };
 }
 
 export function resolveSelectedPaperCandidateState(workspace = null, options = {}) {
@@ -205,6 +299,21 @@ export function selectedAlignedPermanentCandidate(workspace = null, candidateId 
   return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || null;
 }
 
+export function selectedPaperCandidateIdForPermanentCandidate(workspace = null, candidateId = "") {
+  return cleanText(selectedAlignedPermanentCandidate(workspace, candidateId)?.paper_candidate_id);
+}
+
+export function preferredPaperCandidateIdForWorkspaceResume(
+  workspace = null,
+  preferredPermanentCandidateId = "",
+  fallbackCandidateId = ""
+) {
+  return (
+    selectedPaperCandidateIdForPermanentCandidate(workspace, preferredPermanentCandidateId) ||
+    cleanText(fallbackCandidateId)
+  );
+}
+
 export function permanentCandidatePersistenceDefaults(candidate = null, fallback = {}) {
   const fallbackSaveStatus = cleanText(fallback.saveStatus);
   const candidateStatus = cleanText(candidate?.status);
@@ -235,9 +344,30 @@ export function canSubmitNotebookDraft(form = {}, workspace = null) {
   return Boolean(payload.summary || payload.qa || payload.studyGuide || payload.notes);
 }
 
-export function canCreatePermanentCandidate(workspace = null, candidateId = "") {
-  const draft = translationDraftForCandidate(workspace, candidateId);
-  return Boolean(cleanText(draft.candidate?.id) && cleanText(draft.translation?.id) && cleanText(draft.translation?.paraphraseText));
+export function canCreatePermanentCandidate(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  return Boolean(
+    cleanText(draft.candidate?.id) &&
+      cleanText(draft.translation?.id) &&
+      cleanText(draft.translation?.paraphraseText) &&
+      !draft.hasLocalChanges
+  );
+}
+
+export function canSavePermanentNote(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  return permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  ).allowed;
 }
 
 export function nextSelectedCandidateId(workspace = null, preferredId = "", options = {}) {
@@ -294,6 +424,54 @@ export function resolvedConfirmAuthorshipForPermanentCandidate(storedSelection =
   }).confirmAuthorship;
 }
 
+export function resolvedTranslationSignatureForPermanentCandidate(storedSelection = null, permanentCandidateId = "") {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  return cleanPermanentCandidateId && storedSelection?.translationSignatureByPermanentCandidate
+    ? String(storedSelection.translationSignatureByPermanentCandidate[cleanPermanentCandidateId] || "").trim()
+    : "";
+}
+
+export function permanentNoteContinuityState(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, permanentCandidateId);
+  if (!cleanText(permanentCandidate?.id)) {
+    return { allowed: false, reason: "missing_permanent_candidate" };
+  }
+  const selectedCandidate = selectedPaperCandidate(workspace, candidateId);
+  const cleanSelectedCandidateId = cleanText(selectedCandidate?.id || candidateId);
+  const isAlignedToSelectedCandidate =
+    cleanSelectedCandidateId &&
+    cleanText(permanentCandidate?.paper_candidate_id) === cleanSelectedCandidateId;
+  if (!isAlignedToSelectedCandidate) {
+    return cleanText(permanentCandidate?.savedPermanentNoteId)
+      ? { allowed: false, reason: "saved_permanent_note" }
+      : { allowed: true, reason: "ok" };
+  }
+  const draft = translationDraftForCandidate(workspace, cleanSelectedCandidateId, draftInput);
+  if (draft.hasLocalChanges) {
+    return { allowed: false, reason: "unsaved_translation_changes" };
+  }
+  const storedSignature = resolvedTranslationSignatureForPermanentCandidate(storedSelection, permanentCandidate.id);
+  if (!storedSignature) {
+    return cleanText(permanentCandidate?.savedPermanentNoteId)
+      ? { allowed: false, reason: "saved_permanent_note" }
+      : { allowed: true, reason: "ok" };
+  }
+  const currentSignature = translationContinuitySignature(workspace, cleanSelectedCandidateId, draftInput);
+  if (!currentSignature || currentSignature !== storedSignature) {
+    return { allowed: false, reason: "stale_translation_signature" };
+  }
+  if (cleanText(permanentCandidate?.savedPermanentNoteId)) {
+    return { allowed: false, reason: "saved_permanent_note" };
+  }
+  return { allowed: true, reason: "ok" };
+}
+
 export function resolveSelectedPaperWorkspaceState(
   workspace = null,
   storedSelection = null,
@@ -316,12 +494,66 @@ export function resolveSelectedPaperWorkspaceState(
     }
   );
   const permanentCandidate = selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  const continuityState = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    selectedPermanentCandidateId,
+    selectedCandidateId
+  );
   return {
     selectedCandidateId,
     selectedPermanentCandidateId,
     saveStatus: permanentCandidatePersistenceDefaults(permanentCandidate, {
       saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, selectedPermanentCandidateId)
     }).saveStatus,
-    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate)
+    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate),
+    permanentNoteContinuityReason: continuityState.reason
   };
+}
+
+export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceState = null) {
+  if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
+    return "restoredLocalTranslationDraftOverSavedTranslation";
+  }
+  if (candidateState?.hasLocalChanges) {
+    return "restoredLocalTranslationDraft";
+  }
+  if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
+    return "translationNeedsFreshPermanentCandidate";
+  }
+  if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "restoredPermanentCandidateForSelectedPaper";
+  }
+  if (candidateState?.hasSavedTranslation) {
+    return "savedTranslationReadyForPermanentCandidate";
+  }
+  if (cleanText(candidateState?.selectedCandidateId)) {
+    return "selectedCandidate";
+  }
+  return "loadedWorkspace";
+}
+
+export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceState = null) {
+  if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
+    return "translationNeedsFreshPermanentCandidate";
+  }
+  if (candidateState?.hasLocalChanges && cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "translationNeedsResaveBeforePermanentNote";
+  }
+  if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
+    return "translationNeedsResaveBeforePermanentCandidate";
+  }
+  if (candidateState?.hasLocalChanges) {
+    return "translationNeedsSaveBeforePermanentCandidate";
+  }
+  if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "restoredPermanentCandidateForSelectedPaper";
+  }
+  if (candidateState?.hasSavedTranslation) {
+    return "savedTranslationReadyForPermanentCandidate";
+  }
+  if (cleanText(candidateState?.selectedCandidateId)) {
+    return "selectedCandidate";
+  }
+  return "loadedWorkspace";
 }

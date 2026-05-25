@@ -1,11 +1,16 @@
 import {
   canCreatePermanentCandidate,
+  permanentCandidateActionState,
+  canSavePermanentNote,
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateLabel,
   candidateStatusLabel,
+  permanentNoteContinuityState,
   paperWorkspaceProgress,
+  permanentNoteActionState,
   selectedPermanentCandidate,
+  translationSaveActionState,
   translationDraftForCandidate,
   workspaceStageLabel
 } from "./paper-workspace-model.js";
@@ -83,7 +88,10 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
   `;
 }
 
-function renderTranslationHint(draft = null) {
+function renderTranslationHint(draft = null, options = {}) {
+  const hasAlignedPermanentCandidate = Boolean(options.hasAlignedPermanentCandidate);
+  const hasSavedPermanentNote = Boolean(options.hasSavedPermanentNote);
+  const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
   if (!draft?.candidate) {
     return `<div class="paper-muted-box">\u5148\u4ece\u5de6\u4fa7\u9009\u4e00\u6761\u5019\u9009\uff0c\u518d\u7528\u4f60\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u3002</div>`;
   }
@@ -91,7 +99,16 @@ function renderTranslationHint(draft = null) {
     return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u5f53\u524d\u8868\u5355\u5185\u5bb9\u8fd8\u6ca1\u6709\u5199\u56de\u5df2\u4fdd\u5b58\u8f6c\u8ff0\uff0c\u4fdd\u5b58\u540e\u4f1a\u66f4\u65b0\u8fd9\u6761\u5019\u9009\u7684\u6b63\u5f0f\u8f6c\u8ff0\u3002</div>`;
   }
   if (draft.hasSavedTranslation) {
-    return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u4fdd\u5b58\u8fc7\u8f6c\u8ff0\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002</div>`;
+    if (hasStaleAlignedPermanentCandidate) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u66f4\u65b0\u8fc7\uff0c\u4f46\u5f53\u524d Step 4 \u91cc\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u4ecd\u7136\u5bf9\u5e94\u65e7\u7248\u8f6c\u8ff0\u3002\u4e0b\u4e00\u6b65\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft \u6216\u4fdd\u5b58\u3002</div>`;
+    }
+    if (hasSavedPermanentNote) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u8fde\u4e0a\u5df2\u4fdd\u5b58\u7684\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u8f6c\u8ff0\uff0c\u6216\u56de\u5230 Step 4 \u590d\u6838 originality / authorship\uff0c\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft\u3002</div>`;
+    }
+    if (hasAlignedPermanentCandidate) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u8fde\u4e0a\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u8f6c\u8ff0\uff0c\u6216\u56de\u5230 Step 4 \u68c0\u67e5 originality / authorship\uff0c\u7136\u540e\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft\u3002</div>`;
+    }
+    return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u4fdd\u5b58\u8fc7\u8f6c\u8ff0\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff1b\u5982\u679c\u8981\u7ee7\u7eed\u5199 draft\uff0c\u5148\u786e\u8ba4 relation \u548c boundary \u5df2\u7ecf\u8db3\u591f\u652f\u6491\u4e0b\u4e00\u6b65\u3002</div>`;
   }
   if (draft.hasLocalChanges) {
     return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\u3002\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002</div>`;
@@ -128,6 +145,8 @@ function renderPermanentCandidate(candidate = null, options = {}) {
   const hasCurrentCandidate = Boolean(options.hasCurrentCandidate);
   const canCreateCurrentPermanentCandidate = Boolean(options.canCreateCurrentPermanentCandidate);
   const isAlignedToSelectedCandidate = Boolean(options.isAlignedToSelectedCandidate);
+  const hasUnsavedAlignedTranslationChanges = Boolean(options.hasUnsavedAlignedTranslationChanges);
+  const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
   if (!candidate) {
     if (hasCurrentCandidate && hasOtherPermanentCandidates && canCreateCurrentPermanentCandidate) {
       return `<div class="paper-muted-box">\u5f53\u524d\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u5c31\u7eea\uff0c\u4f46\u8fd8\u6ca1\u6709\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u65b9\u5217\u8868\u91cc\u7684\u6761\u76ee\u5c5e\u4e8e\u5176\u4ed6\u5019\u9009\uff0c\u9700\u8981\u7684\u8bdd\u53ef\u4ee5\u5148\u56de\u770b\uff0c\u4f46\u5f53\u524d\u8def\u5f84\u7684\u4e0b\u4e00\u6b65\u662f\u70b9\u51fb\u201c\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u201d\u3002</div>`;
@@ -141,7 +160,11 @@ function renderPermanentCandidate(candidate = null, options = {}) {
       ${
         hasCurrentCandidate && isAlignedToSelectedCandidate
           ? `<div class="paper-muted-box">${
-              candidate.savedPermanentNoteId
+              hasUnsavedAlignedTranslationChanges
+                ? "\u5f53\u524d Step 3 \u7684\u8f6c\u8ff0\u53c8\u6709\u4e86\u672a\u4fdd\u5b58\u6539\u52a8\u3002\u5148\u91cd\u65b0\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u66f4\u65b0\u6216\u786e\u8ba4\u8fd9\u4efd\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002"
+                : hasStaleAlignedPermanentCandidate
+                ? "\u8fd9\u6761 Step 4 \u5019\u9009\u4ecd\u7136\u5bf9\u5e94\u65e7\u7248\u8f6c\u8ff0\u3002Step 3 \u5df2\u7ecf\u6362\u6210\u65b0\u7684\u5df2\u4fdd\u5b58\u7248\u672c\uff0c\u6240\u4ee5\u4e0b\u4e00\u6b65\u662f\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u800c\u4e0d\u662f\u76f4\u63a5\u4fdd\u5b58\u8fd9\u4efd\u65e7\u8349\u7a3f\u3002"
+                : candidate.savedPermanentNoteId
                 ? "\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u8fde\u4e0a\u81ea\u5df1\u7684\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002\u4f60\u53ef\u4ee5\u56de\u770b originality \u98ce\u9669\u3001\u5f15\u7528\u8fb9\u754c\uff0c\u6216\u76f4\u63a5\u786e\u8ba4\u8fd9\u4efd\u4fdd\u5b58\u7ed3\u679c\u3002"
                 : "\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u4e00\u6b65\u5c31\u662f\u68c0\u67e5 originality \u98ce\u9669\u3001\u5f15\u7528\u4e0e authorship \u786e\u8ba4\uff0c\u7136\u540e\u518d\u51b3\u5b9a\u662f\u5426\u4fdd\u5b58\u3002"
             }</div>`
@@ -185,13 +208,60 @@ export function renderPaperWorkspacePage(state = {}) {
     relationToQuestion: form.relationToQuestion,
     boundaryOrCondition: form.boundaryOrCondition
   });
+  const translationSaveAction = translationSaveActionState(workspace, state.selectedCandidateId, {
+    paraphraseText: form.paraphraseText,
+    relationToQuestion: form.relationToQuestion,
+    boundaryOrCondition: form.boundaryOrCondition
+  });
   const selectedCandidate = selectedDraft.candidate;
   const selectedPermanent = state.selectedPermanentCandidateId
     ? selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId)
     : null;
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
-  const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
+  const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "", {
+    paraphraseText: form.paraphraseText,
+    relationToQuestion: form.relationToQuestion,
+    boundaryOrCondition: form.boundaryOrCondition
+  });
+  const permanentCandidateAction = permanentCandidateActionState(
+    workspace,
+    state.workspaceSelection || null,
+    selectedCandidate?.id || "",
+    selectedPermanent?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
   const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
+  const hasAlignedPermanentCandidate = Boolean(
+    selectedCandidate?.id &&
+      selectedPermanent?.paper_candidate_id &&
+      selectedPermanent.paper_candidate_id === selectedCandidate.id
+  );
+  const permanentNoteContinuity = permanentNoteContinuityState(
+    workspace,
+    state.workspaceSelection || null,
+    selectedPermanent?.id || "",
+    selectedCandidate?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
+  const permanentNoteAction = permanentNoteActionState(
+    workspace,
+    state.workspaceSelection || null,
+    selectedPermanent?.id || "",
+    selectedCandidate?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
 
   return `
     <div class="paper-shell">
@@ -244,13 +314,18 @@ export function renderPaperWorkspacePage(state = {}) {
                 <strong>${escapeHtml(selectedCandidate ? candidateLabel(selectedCandidate) : "\u5c1a\u672a\u9009\u62e9\u5019\u9009")}</strong>
                 <p>${escapeHtml(selectedCandidate?.quoteText || "\u5148\u9009\u62e9\u4e00\u6761\u5019\u9009\uff0c\u518d\u628a\u5b83\u6539\u5199\u6210\u4f60\u81ea\u5df1\u7684\u7406\u89e3\u3002")}</p>
               </div>
-              ${renderTranslationHint(selectedDraft)}
+              ${renderTranslationHint(selectedDraft, {
+                hasAlignedPermanentCandidate,
+                hasSavedPermanentNote: permanentNoteAlreadySaved,
+                hasStaleAlignedPermanentCandidate:
+                  hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"
+              })}
               <label>\u6211\u7684\u8f6c\u8ff0<textarea id="translationParaphraseInput" placeholder="\u5fc5\u987b\u5199\u6210\u81ea\u5df1\u7684\u8bdd">${escapeHtml(form.paraphraseText || "")}</textarea></label>
               <label>\u5b83\u548c\u6211\u7684\u95ee\u9898\u6709\u4ec0\u4e48\u5173\u7cfb\uff1f<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
               <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
               <div class="paper-actions">
-                <button id="btnSaveTranslation" type="button" ${selectedCandidate ? "" : "disabled"}>\u4fdd\u5b58\u8f6c\u8ff0</button>
-                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateDisabled ? "disabled" : ""}>\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009</button>
+                <button id="btnSaveTranslation" type="button" ${translationSaveAction.enabled ? "" : "disabled"}>${translationSaveAction.label}</button>
+                <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateAction.enabled ? "" : "disabled"}>${permanentCandidateAction.label}</button>
               </div>
             </div>
           </div>
@@ -262,13 +337,12 @@ export function renderPaperWorkspacePage(state = {}) {
           ${renderPermanentCandidateList(workspace, selectedPermanent?.id || "")}
           ${renderPermanentCandidate(selectedPermanent, {
             hasOtherPermanentCandidates: Array.isArray(workspace?.permanentCandidates) && workspace.permanentCandidates.length > 0,
-            hasCurrentCandidate: Boolean(selectedCandidate?.id),
-            canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
-            isAlignedToSelectedCandidate: Boolean(
-              selectedCandidate?.id &&
-                selectedPermanent?.paper_candidate_id &&
-                selectedPermanent.paper_candidate_id === selectedCandidate.id
-            )
+              hasCurrentCandidate: Boolean(selectedCandidate?.id),
+              canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
+              isAlignedToSelectedCandidate: hasAlignedPermanentCandidate,
+            hasUnsavedAlignedTranslationChanges: hasAlignedPermanentCandidate && selectedDraft.hasLocalChanges,
+            hasStaleAlignedPermanentCandidate:
+              hasAlignedPermanentCandidate && permanentNoteContinuity.reason === "stale_translation_signature"
           })}
           <div class="paper-save-row">
             <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>
@@ -278,7 +352,7 @@ export function renderPaperWorkspacePage(state = {}) {
                 <option value="draft" ${form.saveStatus === "draft" ? "selected" : ""}>draft</option>
               </select>
             </label>
-            <button id="btnSavePermanentNote" type="button" ${selectedPermanent && !permanentNoteAlreadySaved ? "" : "disabled"}>${permanentNoteAlreadySaved ? "\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0" : "\u786e\u8ba4\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0"}</button>
+            <button id="btnSavePermanentNote" type="button" ${permanentNoteAction.enabled ? "" : "disabled"}>${permanentNoteAction.label}</button>
           </div>
         </section>
 
