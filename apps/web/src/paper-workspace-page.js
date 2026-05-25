@@ -25,6 +25,7 @@ import {
   paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedTranslationSignatureForPermanentCandidate,
@@ -819,13 +820,11 @@ function currentDraftBriefState() {
     relationToQuestion: state.form.relationToQuestion,
     boundaryOrCondition: state.form.boundaryOrCondition
   });
-  const recentDraftBriefCopy = (() => {
-    const selectedCandidateId = String(state.selectedCandidateId || "").trim();
-    if (!selectedCandidateId || !currentTranslationSignature) return null;
-    const storedCopy = state.workspaceSelection?.draftBriefByCandidate?.[selectedCandidateId];
-    if (!storedCopy || storedCopy.translationSignature !== currentTranslationSignature) return null;
-    return storedCopy;
-  })();
+  const recentDraftBriefCopy = resolveRecentDraftBriefCopy(
+    state.workspaceSelection,
+    state.selectedCandidateId,
+    currentTranslationSignature
+  );
   return {
     draftBriefAction: draftBriefActionState(candidateState, workspaceState),
     draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
