@@ -719,12 +719,15 @@ export function draftContinuationBrief(
     cleanText(selectedPermanent?.paper_candidate_id) === cleanText(candidate?.id)
       ? cleanText(selectedPermanent?.title || selectedPermanent?.id) || "未命名永久笔记候选"
       : "";
+  const savedPermanentNoteId =
+    continuity.reason === "saved_permanent_note" ? cleanText(selectedPermanent?.savedPermanentNoteId) : "";
   const lines = [
     `# Draft brief: ${title}`,
     "",
     `- Candidate ID: ${cleanText(candidate.id)}`,
     `- Candidate kind: ${candidateKindLabel(candidate.candidateKind)}`,
     `- Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+    ...(savedPermanentNoteId ? [`- Saved permanent note: ${savedPermanentNoteId}`] : []),
     "",
     "## Paraphrase",
     paraphraseText,
@@ -742,7 +745,8 @@ export function draftContinuationBrief(
       `Paraphrase: ${paraphraseText}`,
       `Relation: ${relationToQuestion}`,
       `Boundary: ${boundaryOrCondition}`,
-      `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`
+      `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+      ...(savedPermanentNoteId ? [`Saved note: ${savedPermanentNoteId}`] : [])
     ].join("\n")
   };
 }
