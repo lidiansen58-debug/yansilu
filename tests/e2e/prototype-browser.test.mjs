@@ -6498,6 +6498,15 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记已保存/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /载入新版 brief，更新本地 draft/);
+              assert.ok((await page.locator("[data-paper-permanent-saved-note-id]").count()) >= 3);
+              assert.equal(
+                await page.locator(`[data-paper-permanent-saved-note-id="${savedPermanentNoteId}"]`).count(),
+                1
+              );
+              assert.equal(
+                await page.locator(`[data-paper-permanent-saved-note-id="${secondSavedPermanentNoteId}"]`).count(),
+                1
+              );
             }, 6000);
 
             await page.click("#btnStartDraftKickoff");
@@ -6523,6 +6532,15 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "load_workspace"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              assert.ok((await page.locator("[data-paper-permanent-saved-note-id]").count()) >= 3);
+              assert.equal(
+                await page.locator(`[data-paper-permanent-saved-note-id="${savedPermanentNoteId}"]`).count(),
+                1
+              );
+              assert.equal(
+                await page.locator(`[data-paper-permanent-saved-note-id="${secondSavedPermanentNoteId}"]`).count(),
+                1
+              );
               assert.match(
                 String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""),
                 /Step 4: 已保存永久笔记路径/
@@ -6629,6 +6647,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "load_workspace"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              assert.ok((await page.locator("[data-paper-permanent-saved-note-id]").count()) >= 3);
               assert.match(
                 String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
                 /先重新生成永久笔记候选，再继续写 draft/
