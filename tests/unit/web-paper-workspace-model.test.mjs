@@ -287,6 +287,36 @@ test("resolveSelectedPaperCandidateState restores candidate selection and candid
   );
 });
 
+test("resolveSelectedPaperCandidateState keeps saved translation when no local draft exists for the selected candidate", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording one.",
+        relationToQuestion: "Saved relation one.",
+        boundaryOrCondition: "Saved boundary one."
+      }
+    ]
+  };
+
+  assert.deepEqual(
+    resolveSelectedPaperCandidateState(workspace, {
+      preferredCandidateId: "pwc_1",
+      readStoredTranslationDraft: () => null
+    }),
+    {
+      selectedCandidateId: "pwc_1",
+      paraphraseText: "Saved wording one.",
+      relationToQuestion: "Saved relation one.",
+      boundaryOrCondition: "Saved boundary one.",
+      hasSavedTranslation: true,
+      hasLocalChanges: false
+    }
+  );
+});
+
 test("nextSelectedCandidateId prefers a candidate with local draft when no current selection exists", () => {
   const workspace = {
     candidates: [
@@ -361,6 +391,22 @@ test("nextSelectedPermanentCandidateId can stay empty until the selected paper c
   assert.equal(
     nextSelectedPermanentCandidateId(workspace, "", {
       selectedPaperCandidateId: "pwc_3",
+      fallbackToFirst: false
+    }),
+    ""
+  );
+});
+
+test("nextSelectedPermanentCandidateId ignores a stale preferred permanent candidate when switching to a different paper candidate", () => {
+  const workspace = {
+    permanentCandidates: [
+      { id: "pn_1", paper_candidate_id: "pwc_1", title: "First permanent" }
+    ]
+  };
+
+  assert.equal(
+    nextSelectedPermanentCandidateId(workspace, "pn_1", {
+      selectedPaperCandidateId: "pwc_2",
       fallbackToFirst: false
     }),
     ""

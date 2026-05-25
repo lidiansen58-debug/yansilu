@@ -173,14 +173,14 @@ export function resolveSelectedPaperCandidateState(workspace = null, options = {
         typeof options.candidateIdHasLocalDraft === "function" ? options.candidateIdHasLocalDraft : () => false
     }
   );
+  const storedDraft =
+    typeof options.readStoredTranslationDraft === "function"
+      ? options.readStoredTranslationDraft(selectedCandidateId)
+      : null;
   const draft = translationDraftForCandidate(
     workspace,
     selectedCandidateId,
-    resolvedStoredTranslationDraft(
-      typeof options.readStoredTranslationDraft === "function"
-        ? options.readStoredTranslationDraft(selectedCandidateId)
-        : null
-    )
+    storedDraft ? resolvedStoredTranslationDraft(storedDraft) : null
   );
   return {
     selectedCandidateId,
@@ -257,7 +257,13 @@ export function nextSelectedPermanentCandidateId(workspace = null, preferredId =
   const fallbackToFirst = options.fallbackToFirst !== false;
   const selectedPaperCandidateId = cleanText(options.selectedPaperCandidateId);
   const preferred = selectedAlignedPermanentCandidate(workspace, preferredId);
-  if (cleanText(preferredId) && cleanText(preferred?.id)) return cleanText(preferred.id);
+  const preferredMatchesSelectedPaperCandidate =
+    !selectedPaperCandidateId ||
+    cleanText(preferred?.paper_candidate_id) === selectedPaperCandidateId ||
+    cleanText(preferred?.id) === selectedPaperCandidateId;
+  if (cleanText(preferredId) && cleanText(preferred?.id) && preferredMatchesSelectedPaperCandidate) {
+    return cleanText(preferred.id);
+  }
   const candidateMatchedPermanent = selectedAlignedPermanentCandidate(workspace, selectedPaperCandidateId);
   if (selectedPaperCandidateId && cleanText(candidateMatchedPermanent?.id)) return cleanText(candidateMatchedPermanent.id);
   if (!fallbackToFirst) return "";
