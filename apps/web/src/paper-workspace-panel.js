@@ -83,7 +83,9 @@ function renderCandidateList(workspace = null, selectedCandidateId = "") {
   `;
 }
 
-function renderTranslationHint(draft = null) {
+function renderTranslationHint(draft = null, options = {}) {
+  const hasAlignedPermanentCandidate = Boolean(options.hasAlignedPermanentCandidate);
+  const hasSavedPermanentNote = Boolean(options.hasSavedPermanentNote);
   if (!draft?.candidate) {
     return `<div class="paper-muted-box">\u5148\u4ece\u5de6\u4fa7\u9009\u4e00\u6761\u5019\u9009\uff0c\u518d\u7528\u4f60\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u3002</div>`;
   }
@@ -91,7 +93,13 @@ function renderTranslationHint(draft = null) {
     return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u5f53\u524d\u8868\u5355\u5185\u5bb9\u8fd8\u6ca1\u6709\u5199\u56de\u5df2\u4fdd\u5b58\u8f6c\u8ff0\uff0c\u4fdd\u5b58\u540e\u4f1a\u66f4\u65b0\u8fd9\u6761\u5019\u9009\u7684\u6b63\u5f0f\u8f6c\u8ff0\u3002</div>`;
   }
   if (draft.hasSavedTranslation) {
-    return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u4fdd\u5b58\u8fc7\u8f6c\u8ff0\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002</div>`;
+    if (hasSavedPermanentNote) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u8fde\u4e0a\u5df2\u4fdd\u5b58\u7684\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u8f6c\u8ff0\uff0c\u6216\u56de\u5230 Step 4 \u590d\u6838 originality / authorship\uff0c\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft\u3002</div>`;
+    }
+    if (hasAlignedPermanentCandidate) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u8fde\u4e0a\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u8f6c\u8ff0\uff0c\u6216\u56de\u5230 Step 4 \u68c0\u67e5 originality / authorship\uff0c\u7136\u540e\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft\u3002</div>`;
+    }
+    return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u4fdd\u5b58\u8fc7\u8f6c\u8ff0\u3002\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\uff0c\u4e5f\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff1b\u5982\u679c\u8981\u7ee7\u7eed\u5199 draft\uff0c\u5148\u786e\u8ba4 relation \u548c boundary \u5df2\u7ecf\u8db3\u591f\u652f\u6491\u4e0b\u4e00\u6b65\u3002</div>`;
   }
   if (draft.hasLocalChanges) {
     return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\u3002\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002</div>`;
@@ -192,6 +200,11 @@ export function renderPaperWorkspacePage(state = {}) {
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
   const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
   const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
+  const hasAlignedPermanentCandidate = Boolean(
+    selectedCandidate?.id &&
+      selectedPermanent?.paper_candidate_id &&
+      selectedPermanent.paper_candidate_id === selectedCandidate.id
+  );
 
   return `
     <div class="paper-shell">
@@ -244,7 +257,10 @@ export function renderPaperWorkspacePage(state = {}) {
                 <strong>${escapeHtml(selectedCandidate ? candidateLabel(selectedCandidate) : "\u5c1a\u672a\u9009\u62e9\u5019\u9009")}</strong>
                 <p>${escapeHtml(selectedCandidate?.quoteText || "\u5148\u9009\u62e9\u4e00\u6761\u5019\u9009\uff0c\u518d\u628a\u5b83\u6539\u5199\u6210\u4f60\u81ea\u5df1\u7684\u7406\u89e3\u3002")}</p>
               </div>
-              ${renderTranslationHint(selectedDraft)}
+              ${renderTranslationHint(selectedDraft, {
+                hasAlignedPermanentCandidate,
+                hasSavedPermanentNote: permanentNoteAlreadySaved
+              })}
               <label>\u6211\u7684\u8f6c\u8ff0<textarea id="translationParaphraseInput" placeholder="\u5fc5\u987b\u5199\u6210\u81ea\u5df1\u7684\u8bdd">${escapeHtml(form.paraphraseText || "")}</textarea></label>
               <label>\u5b83\u548c\u6211\u7684\u95ee\u9898\u6709\u4ec0\u4e48\u5173\u7cfb\uff1f<textarea id="translationRelationInput">${escapeHtml(form.relationToQuestion || "")}</textarea></label>
               <label>\u8fb9\u754c\u6216\u53cd\u4f8b<textarea id="translationBoundaryInput">${escapeHtml(form.boundaryOrCondition || "")}</textarea></label>
@@ -264,11 +280,7 @@ export function renderPaperWorkspacePage(state = {}) {
             hasOtherPermanentCandidates: Array.isArray(workspace?.permanentCandidates) && workspace.permanentCandidates.length > 0,
             hasCurrentCandidate: Boolean(selectedCandidate?.id),
             canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
-            isAlignedToSelectedCandidate: Boolean(
-              selectedCandidate?.id &&
-                selectedPermanent?.paper_candidate_id &&
-                selectedPermanent.paper_candidate_id === selectedCandidate.id
-            )
+            isAlignedToSelectedCandidate: hasAlignedPermanentCandidate
           })}
           <div class="paper-save-row">
             <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>

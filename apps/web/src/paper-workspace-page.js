@@ -14,6 +14,7 @@ import {
   createInitialPaperWorkspaceState,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
+  paperWorkspaceResumeStatusKey,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedConfirmAuthorshipForPermanentCandidate,
@@ -39,6 +40,10 @@ const STATUS = {
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
   savedPermanentNote: "\u6c38\u4e45\u7b14\u8bb0\u5df2\u4fdd\u5b58",
+  restoredLocalTranslationDraftOverSavedTranslation:
+    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\uff0c\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\uff0c\u4e5f\u53ef\u4ee5\u56de\u770b\u5df2\u4fdd\u5b58\u7684\u8f6c\u8ff0\u8def\u5f84\u3002",
+  restoredLocalTranslationDraft:
+    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\u3002",
   restoredSavedTranslation:
     "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u7528\u6237\u8f6c\u8ff0\uff0c\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u6216\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002",
   restoredPermanentCandidateForSelectedPaper:
@@ -292,6 +297,7 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.relationToQuestion = resolvedCandidateState.relationToQuestion;
   state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   persistWorkspaceSelection();
+  return paperWorkspaceResumeStatusKey(resolvedCandidateState, resolvedState);
 }
 
 function render() {
@@ -316,7 +322,9 @@ async function runAction(action, successMessage) {
   try {
     const result = await action();
     setResult(result);
-    setStatus(successMessage, "ok");
+    const resolvedSuccessMessage =
+      typeof successMessage === "function" ? successMessage(result) : successMessage;
+    setStatus(String(resolvedSuccessMessage || STATUS.loadedWorkspace), "ok");
     return result;
   } catch (error) {
     setResult({
@@ -350,9 +358,9 @@ async function handleLoadWorkspace() {
   await runAction(async () => {
     const workspace = await fetchPaperWorkspace(state.form.paperId);
     state.workspace = workspace;
-    hydrateFormFromWorkspace(workspace);
-    return { stage: "load_workspace", item: workspace };
-  }, STATUS.loadedWorkspace);
+    const resumeStatusKey = hydrateFormFromWorkspace(workspace);
+    return { stage: "load_workspace", item: workspace, resumeStatusKey };
+  }, (result) => STATUS[result?.resumeStatusKey] || STATUS.loadedWorkspace);
 }
 
 async function handleAddNotebookDraft() {

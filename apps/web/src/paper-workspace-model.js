@@ -325,3 +325,22 @@ export function resolveSelectedPaperWorkspaceState(
     confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate)
   };
 }
+
+export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceState = null) {
+  if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
+    return "restoredPermanentCandidateForSelectedPaper";
+  }
+  if (candidateState?.hasLocalChanges && candidateState?.hasSavedTranslation) {
+    return "restoredLocalTranslationDraftOverSavedTranslation";
+  }
+  if (candidateState?.hasLocalChanges) {
+    return "restoredLocalTranslationDraft";
+  }
+  if (candidateState?.hasSavedTranslation) {
+    return "savedTranslationReadyForPermanentCandidate";
+  }
+  if (cleanText(candidateState?.selectedCandidateId)) {
+    return "selectedCandidate";
+  }
+  return "loadedWorkspace";
+}

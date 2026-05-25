@@ -5607,7 +5607,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /保存转述/);
     assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
     const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
-    assert.match(String(translationStepText || ""), /你可以继续修改，也可以直接生成永久笔记候选/);
+    assert.match(String(translationStepText || ""), /如果要继续写 draft/);
   }, 4000);
 
   await page.locator(".paper-candidate").nth(1).click();
@@ -5694,6 +5694,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
             assert.match(String(translationStepText || ""), /这条候选已经保存过转述/);
             assert.match(String(translationStepText || ""), /也可以直接生成永久笔记候选/);
+            assert.match(String(translationStepText || ""), /如果要继续写 draft/);
           }, 4000);
 
           await page.click("#btnCreatePermanentCandidate");
@@ -5815,7 +5816,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "load_workspace"/);
               assert.equal(await page.locator("[data-paper-permanent-candidate-id]").count(), 2);
               const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /论文工作台已读取/);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
             }, 6000);
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();

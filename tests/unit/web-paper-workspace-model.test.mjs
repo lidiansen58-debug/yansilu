@@ -13,6 +13,7 @@ import {
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
   paperWorkspaceProgress,
+  paperWorkspaceResumeStatusKey,
   permanentCandidatePersistenceDefaults,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -538,6 +539,80 @@ test("resolveSelectedPaperWorkspaceState keeps step 4 empty when the selected pa
   );
   assert.equal(selectedAlignedPermanentCandidate(workspace, ""), null);
   assert.equal(resolvedSaveStatusForPermanentCandidate(storedSelection, ""), "active");
+});
+
+test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state", () => {
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: "pn_1"
+      }
+    ),
+    "restoredPermanentCandidateForSelectedPaper"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "restoredLocalTranslationDraftOverSavedTranslation"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: false,
+        hasLocalChanges: true
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "restoredLocalTranslationDraft"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "savedTranslationReadyForPermanentCandidate"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "selectedCandidate"
+  );
+
+  assert.equal(paperWorkspaceResumeStatusKey(null, null), "loadedWorkspace");
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {
