@@ -5511,6 +5511,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
       assert.match(String(translationStepText || ""), /先保存这条候选的用户转述，再进入永久笔记候选/);
       assert.match(String(translationStepText || ""), /关系和边界信息也会一起恢复/);
+      assert.match(String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""), /先保存这条转述，再继续写 draft/);
       const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
       assert.match(String(permanentStepText || ""), /当前这条候选只有本地未保存的转述草稿/);
       assert.match(String(permanentStepText || ""), /先保存这条转述，再进入永久笔记候选或继续写 draft/);
@@ -5536,6 +5537,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String((await permanentCandidateButton.textContent()) || ""), /先补 relation \/ boundary/);
       const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
       assert.match(String(translationStepText || ""), /relation 和 boundary|支撑下一步/);
+      assert.match(String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""), /relation 和 boundary .*继续写 draft/);
       const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
       assert.match(String(permanentStepText || ""), /relation 和 boundary 还不足以支撑 Step 4/);
       assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /已保存转述/);
@@ -5561,6 +5563,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(permanentStepText || ""), /还没有永久笔记候选/);
       assert.match(String(permanentStepText || ""), /先在 Step 3 保存转述并生成候选/);
       assert.match(String(permanentStepText || ""), /保存转述后，可以为当前候选生成永久笔记候选/);
+      assert.match(String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""), /具备继续写 draft 的最小条件/);
       assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
       assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
       assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
