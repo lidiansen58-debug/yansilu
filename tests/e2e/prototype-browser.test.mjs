@@ -5993,6 +5993,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "load_workspace"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已恢复这条候选的本地未保存草稿|先重新保存这条转述，再更新或确认永久笔记/);
+              assert.match(String((await page.locator(".paper-status").getAttribute("class")) || ""), /paper-status-warn/);
             }, 6000);
             await waitFor(async () => {
               assert.equal(await page.locator("#translationRelationInput").inputValue(), "Step 4 is now stale because Step 3 changed.");
