@@ -27,7 +27,7 @@ test("graph next action names already-basket writing entry explicitly", () => {
   assert.equal(nextAction.action, "writing");
   assert.equal(nextAction.title, "下一步：继续当前写作篮");
   assert.equal(nextAction.actionLabel, "继续当前写作篮");
-  assert.match(nextAction.note, /已经都在写作篮中|继续推进/);
+  assert.match(nextAction.note, /已经都在写作篮中|继续当前写作篮推进/);
 });
 
 test("graph next action previews auto-prefill when the visible slice is small", () => {
@@ -64,6 +64,7 @@ test("graph next action keeps the user in the current basket when there are no n
   assert.equal(nextAction.title, "下一步：继续当前写作篮");
   assert.equal(nextAction.actionLabel, "继续当前写作篮");
   assert.match(nextAction.note, /暂时没有适合新增到写作篮的永久笔记/);
+  assert.match(nextAction.note, /直接继续当前写作篮/);
 });
 
 test("graph next action previews manual picking when the visible slice is too large to auto-prefill", () => {

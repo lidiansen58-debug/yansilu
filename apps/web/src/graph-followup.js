@@ -170,7 +170,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "already-in-basket") {
     return {
       title: "下一步：继续当前写作篮",
-      note: "当前可见图谱里的永久笔记已经都在写作篮中。直接进入写作中心继续推进，会比重复挑选更顺。",
+      note: "当前可见图谱里的永久笔记已经都在写作篮中。直接继续当前写作篮推进，会比重复挑选更顺。",
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "继续当前写作篮"
     };
@@ -179,7 +179,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "no-candidates" && writingEntryPlan.hasBasket) {
     return {
       title: "下一步：继续当前写作篮",
-      note: "当前图谱切片里暂时没有适合新增到写作篮的永久笔记。直接进入写作中心继续推进当前写作篮，或先回到图谱补关系和边界，会比重复挑选更顺。",
+      note: "当前图谱切片里暂时没有适合新增到写作篮的永久笔记。直接继续当前写作篮，或先回到图谱补关系和边界，会比重复挑选更顺。",
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "继续当前写作篮"
     };
