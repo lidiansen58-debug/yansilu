@@ -6747,6 +6747,10 @@ function renderWritingStatusStrip() {
     : projectEntry.hint;
   const scaffoldNote = hasScaffold
     ? "章节、证据、缺口已返回"
+    : hasProject && projectPreflightSummary.level === "needs_clarification"
+      ? projectPreflightSummary.hint || "先澄清项目关键问题，再生成草稿骨架。"
+      : hasProject && projectPreflightSummary.level === "has_gaps"
+        ? projectPreflightSummary.hint || "先补项目条件，再生成草稿骨架。"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "当前草稿已经存在。先打开当前草稿继续写作。"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -6756,6 +6760,10 @@ function renderWritingStatusStrip() {
       : "创建项目后生成";
   const scaffoldStatus = hasScaffold
     ? "可预览"
+    : hasProject && projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : hasProject && projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
     : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
       ? "先打开当前草稿"
       : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
@@ -6764,8 +6772,11 @@ function renderWritingStatusStrip() {
           ? `先${projectEntry.actionLabel}`
           : "待生成";
   const scaffoldTone =
-    hasScaffold ||
-    (!hasProject &&
+    hasScaffold
+      ? "good"
+      : hasProject && projectPreflightSummary.level !== "ready"
+        ? "warn"
+        : (!hasProject &&
       projectEntry?.projectId &&
       (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
       ? "good"
