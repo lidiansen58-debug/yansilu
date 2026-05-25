@@ -46,6 +46,7 @@ test("graph next action previews auto-prefill when the visible slice is small", 
   assert.equal(nextAction.title, "下一步：带入 2 条永久笔记");
   assert.equal(nextAction.actionLabel, "带入写作篮");
   assert.match(nextAction.note, /一起带入写作篮/);
+  assert.doesNotMatch(nextAction.note, /进入写作中心时/);
 });
 
 test("graph next action keeps basket-scoped wording when visible notes are appended into an existing basket", () => {

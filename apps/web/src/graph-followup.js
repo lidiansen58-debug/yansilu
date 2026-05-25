@@ -200,7 +200,7 @@ export function graphNextActionForSummary({
       title: `下一步：带入 ${Number(writingEntryPlan.addedCount || 0)} 条永久笔记`,
       note: writingEntryPlan.hasBasket
         ? `当前图谱切片里还有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。继续当前写作篮时会一起加入。`
-        : `当前图谱切片里有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。进入写作中心时会一起带入写作篮。`,
+        : `当前图谱切片里有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。这些笔记会一起带入写作篮。`,
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "带入写作篮"
     };
