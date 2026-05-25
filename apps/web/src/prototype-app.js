@@ -7280,7 +7280,17 @@ function renderWritingPanel() {
     const canSaveDraft = Boolean(writingState.scaffold?.id) && projectPreflightSummary.level === "ready";
     saveDraftButton.disabled = !canSaveDraft;
     saveDraftButton.textContent = !writingState.scaffold?.id
-      ? "保存为草稿笔记"
+      ? !writingState.project?.id
+        ? projectEntry?.projectId && projectEntry?.actionLabel
+          ? `先${projectEntry.actionLabel}`
+          : projectEntry?.actionLabel === "创建项目"
+            ? "先创建项目"
+            : projectEntry?.actionLabel || "先补写作材料"
+        : projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目问题"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口"
+            : "先生成草稿骨架"
       : projectPreflightSummary.level === "needs_clarification"
         ? "先澄清项目问题"
         : projectPreflightSummary.level === "has_gaps"
@@ -10606,13 +10616,14 @@ $("btnWritingExportScaffold")?.addEventListener("click", async () => {
 });
 
 $("btnWritingSaveDraft")?.addEventListener("click", async () => {
+  const missingScaffoldLabel = String($("btnWritingSaveDraft")?.textContent || "").trim();
   if (!writingState.scaffold || !String(writingState.scaffoldMarkdown || "").trim()) {
     showWritingResult({
       stage: "writing_draft_note_error",
       message: "scaffold is required before creating a draft note",
       code: "WRITING_DRAFT_INVALID"
     });
-    return setStatus("请先生成草稿骨架", "warn");
+    return setStatus(missingScaffoldLabel || "先生成草稿骨架", "warn");
   }
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
