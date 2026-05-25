@@ -8678,7 +8678,20 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         source: "graph_followup_writing"
       });
     }
+    const continuation = currentWritingContinuationEntry("当前图谱切片");
     void (async () => {
+      if (continuation?.projectId) {
+        await continueWritingProjectEntry(continuation.projectId, {
+          openDraft: continuation.action === "open-draft",
+          statusMessage:
+            continuation.action === "resume-scaffold"
+              ? `已从图谱回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从图谱继续当前项目：${continuation.projectId}`
+                : ""
+        });
+        return;
+      }
       await openWritingModule({
         statusMessage: "",
         focusedCandidateNoteIds: graphFocusNoteIds,
