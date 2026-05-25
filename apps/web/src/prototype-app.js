@@ -9029,11 +9029,13 @@ async function handleStateChange(reason, payload = {}) {
             await continueWritingProjectEntry(noteContinuation.projectId, {
               openDraft: noteContinuation.action === "open-draft",
               statusMessage:
-                noteContinuation.action === "resume-scaffold"
-                  ? `已回到当前项目的草稿骨架：${noteContinuation.projectId}`
-                  : noteContinuation.action === "resume-project"
-                    ? `已继续当前项目：${noteContinuation.projectId}`
-                    : ""
+                noteContinuation.action === "open-draft"
+                  ? `已从主路径打开当前草稿：${noteContinuation.projectId}`
+                  : noteContinuation.action === "resume-scaffold"
+                    ? `已从主路径回到当前项目的草稿骨架：${noteContinuation.projectId}`
+                    : noteContinuation.action === "resume-project"
+                      ? `已从主路径继续当前项目：${noteContinuation.projectId}`
+                      : ""
             });
             return true;
           }
@@ -9044,11 +9046,13 @@ async function handleStateChange(reason, payload = {}) {
           await continueWritingProjectEntry(noteContinuation.projectId, {
             openDraft: noteContinuation.action === "open-draft",
             statusMessage:
-              noteContinuation.action === "resume-scaffold"
-                ? `已回到当前项目的草稿骨架：${noteContinuation.projectId}`
-                : noteContinuation.action === "resume-project"
-                  ? `已继续当前项目：${noteContinuation.projectId}`
-                  : ""
+              noteContinuation.action === "open-draft"
+                ? `已从主路径打开当前草稿：${noteContinuation.projectId}`
+                : noteContinuation.action === "resume-scaffold"
+                  ? `已从主路径回到当前项目的草稿骨架：${noteContinuation.projectId}`
+                  : noteContinuation.action === "resume-project"
+                    ? `已从主路径继续当前项目：${noteContinuation.projectId}`
+                    : ""
           });
           return true;
         }
