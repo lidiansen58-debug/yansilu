@@ -10113,6 +10113,13 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
   } catch (error) {
+    if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
+      setStatus(
+        `${action === "open-draft" ? "打开当前草稿" : action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+      return;
+    }
     setStatus(`主题操作失败：${String(error?.message || error)}`, "bad");
   }
 });
