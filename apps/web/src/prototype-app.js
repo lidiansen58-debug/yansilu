@@ -7266,7 +7266,12 @@ function renderWritingPanel() {
   }
 
   if (scaffoldVersionsHint) {
-    if (!writingState.project?.id) scaffoldVersionsHint.textContent = "先创建或打开一个项目，这里才会显示版本。";
+    if (!writingState.project?.id) {
+      scaffoldVersionsHint.textContent =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿骨架版本。`
+          : "先创建或打开一个项目，这里才会显示版本。";
+    }
     else if (writingState.loadingScaffoldVersions && writingState.scaffoldVersions.length) {
       scaffoldVersionsHint.textContent = `正在刷新草稿骨架版本... 当前显示 ${writingState.scaffoldVersions.length} 个版本。`;
     } else if (writingState.loadingScaffoldVersions) scaffoldVersionsHint.textContent = "正在读取草稿骨架版本...";
@@ -7275,7 +7280,10 @@ function renderWritingPanel() {
   }
   if (scaffoldVersionsList) {
     if (!writingState.project?.id) {
-      scaffoldVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示历史草稿骨架版本。</div>`;
+      scaffoldVersionsList.innerHTML =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的历史草稿骨架版本。</div>`
+          : `<div class="writing-empty">创建或打开项目后，这里会显示历史草稿骨架版本。</div>`;
     } else if (writingState.loadingScaffoldVersions) {
       scaffoldVersionsList.innerHTML = writingState.scaffoldVersions.length
         ? writingState.scaffoldVersions.map(renderScaffoldVersionCard).join("")
@@ -7288,7 +7296,12 @@ function renderWritingPanel() {
   }
 
   if (draftVersionsHint) {
-    if (!writingState.project?.id) draftVersionsHint.textContent = "先创建或打开一个项目，这里才会显示草稿版本。";
+    if (!writingState.project?.id) {
+      draftVersionsHint.textContent =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿版本。`
+          : "先创建或打开一个项目，这里才会显示草稿版本。";
+    }
     else if (writingState.loadingDraftVersions && writingState.draftVersions.length) {
       draftVersionsHint.textContent = `正在刷新草稿版本... 当前显示 ${writingState.draftVersions.length} 个版本。`;
     } else if (writingState.loadingDraftVersions) draftVersionsHint.textContent = "正在读取草稿版本...";
@@ -7297,7 +7310,10 @@ function renderWritingPanel() {
   }
   if (draftVersionsList) {
     if (!writingState.project?.id) {
-      draftVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示草稿版本。</div>`;
+      draftVersionsList.innerHTML =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的草稿版本。</div>`
+          : `<div class="writing-empty">创建或打开项目后，这里会显示草稿版本。</div>`;
     } else if (writingState.loadingDraftVersions) {
       draftVersionsList.innerHTML = writingState.draftVersions.length
         ? writingState.draftVersions.map(renderDraftVersionCard).join("")
