@@ -491,8 +491,35 @@ test("writing center project entry only opens creation once basket readiness rea
   assert.equal(ready.actionLabel, "创建项目");
   assert.match(ready.hint, /创建项目阶段/);
   assert.equal(blocked.canCreateProject, false);
-  assert.equal(blocked.actionLabel, "先补条件再建项目");
+  assert.equal(blocked.status, "先补关系/边界");
+  assert.equal(blocked.actionLabel, "先补关系/边界");
   assert.match(blocked.hint, /边界|关系/);
+});
+
+test("writing center project entry spells out distillation before project creation", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "needs_distillation"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "先确认判断");
+  assert.equal(entry.actionLabel, "先确认判断/三句话");
+  assert.match(entry.hint, /thesis|三句话/);
+});
+
+test("writing center project entry blocks on authorship confirmation before project creation", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "blocked_authorship"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "先完成作者/原创确认");
+  assert.equal(entry.actionLabel, "先完成作者/原创确认");
+  assert.match(entry.hint, /作者\/原创确认/);
 });
 test("writing candidate focus prefers the current graph slice when focused ids are present", () => {
   const plan = planWritingCandidateFocus({

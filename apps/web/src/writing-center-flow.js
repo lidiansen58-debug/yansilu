@@ -227,35 +227,35 @@ export function describeWritingProjectEntryState({
   if (cleanLevel === "basket_ready") {
     return {
       level: "needs_structure",
-      status: "待创建",
+      status: "先补关系/边界",
       hint: "还没到建项目时机；先补边界或关系。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先补关系/边界",
       canCreateProject: false
     };
   }
   if (cleanLevel === "needs_distillation") {
     return {
       level: "needs_distillation",
-      status: "待创建",
+      status: "先确认判断",
       hint: "先把 thesis 和三句话确认下来。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先确认判断/三句话",
       canCreateProject: false
     };
   }
   if (cleanLevel === "blocked_authorship" || cleanLevel === "blocked_draft") {
     return {
       level: cleanLevel,
-      status: "待创建",
+      status: "先完成作者/原创确认",
       hint: "先让材料完成作者/原创确认，再进入写作中心。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先完成作者/原创确认",
       canCreateProject: false
     };
   }
   return {
     level: cleanLevel || "needs_basket",
-    status: "待创建",
+    status: "先补写作材料",
     hint: String(readinessHint || "").trim() || "先补齐写作材料，再创建项目。",
-    actionLabel: "先补条件再建项目",
+    actionLabel: "先补写作材料",
     canCreateProject: false
   };
 }
