@@ -802,6 +802,22 @@ export function resolveDraftKickoffState(form = null, currentTranslationSignatur
   };
 }
 
+export function resolveAdoptedDraftKickoff(form = null, kickoffState = null, fallbackTranslationSignature = "") {
+  const adoptedContent = cleanText(kickoffState?.previousSnapshot?.content);
+  const currentContent = cleanText(form?.draftKickoffText);
+  const currentTranslationSignature =
+    cleanText(kickoffState?.currentTranslationSignature) || cleanText(fallbackTranslationSignature);
+  if (!adoptedContent || !currentTranslationSignature) return null;
+
+  return {
+    draftKickoffText: adoptedContent,
+    draftKickoffSignature: currentTranslationSignature,
+    draftKickoffPreviousText: currentContent,
+    draftKickoffPreviousSignature: currentTranslationSignature,
+    draftKickoffReplacementSignature: currentTranslationSignature
+  };
+}
+
 export function draftContinuationBrief(
   workspace = null,
   storedSelection = null,

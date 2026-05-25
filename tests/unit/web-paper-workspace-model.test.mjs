@@ -25,6 +25,7 @@ import {
   permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveAdoptedDraftKickoff,
   resolveDraftKickoffState,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
@@ -464,6 +465,70 @@ test("resolveDraftKickoffState only restores the previous kickoff snapshot when 
       isStale: false,
       previousSnapshot: null
     }
+  );
+});
+
+test("resolveAdoptedDraftKickoff swaps the current and previous kickoff wording onto the latest translation chain", () => {
+  assert.deepEqual(
+    resolveAdoptedDraftKickoff(
+      {
+        draftKickoffText: "Current kickoff wording."
+      },
+      {
+        currentTranslationSignature: "sig_current",
+        previousSnapshot: {
+          content: "Previous kickoff wording.",
+          previousSignature: "sig_previous",
+          replacementSignature: "sig_current"
+        }
+      }
+    ),
+    {
+      draftKickoffText: "Previous kickoff wording.",
+      draftKickoffSignature: "sig_current",
+      draftKickoffPreviousText: "Current kickoff wording.",
+      draftKickoffPreviousSignature: "sig_current",
+      draftKickoffReplacementSignature: "sig_current"
+    }
+  );
+});
+
+test("resolveAdoptedDraftKickoff falls back to the provided translation signature and rejects empty previous wording", () => {
+  assert.deepEqual(
+    resolveAdoptedDraftKickoff(
+      {
+        draftKickoffText: "Current kickoff wording."
+      },
+      {
+        currentTranslationSignature: "",
+        previousSnapshot: {
+          content: "Previous kickoff wording."
+        }
+      },
+      "sig_fallback"
+    ),
+    {
+      draftKickoffText: "Previous kickoff wording.",
+      draftKickoffSignature: "sig_fallback",
+      draftKickoffPreviousText: "Current kickoff wording.",
+      draftKickoffPreviousSignature: "sig_fallback",
+      draftKickoffReplacementSignature: "sig_fallback"
+    }
+  );
+
+  assert.equal(
+    resolveAdoptedDraftKickoff(
+      {
+        draftKickoffText: "Current kickoff wording."
+      },
+      {
+        currentTranslationSignature: "sig_current",
+        previousSnapshot: {
+          content: ""
+        }
+      }
+    ),
+    null
   );
 });
 
