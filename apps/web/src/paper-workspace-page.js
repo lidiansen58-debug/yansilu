@@ -25,6 +25,7 @@ import {
   paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveAdoptedDraftKickoff,
   resolveDraftKickoffState,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
@@ -1266,19 +1267,16 @@ async function handleAdoptPreviousKickoff() {
     render();
     return;
   }
-  const currentContent = String(state.form.draftKickoffText || "").trim();
-  const currentSignature =
-    String(kickoffState.currentTranslationSignature || "").trim() || currentDraftKickoffSignature();
-  const adoptedContent = String(kickoffState.previousSnapshot.content || "").trim();
-  if (!adoptedContent || !currentSignature) {
+  const adoptedKickoff = resolveAdoptedDraftKickoff(state.form, kickoffState, currentDraftKickoffSignature());
+  if (!adoptedKickoff) {
     render();
     return;
   }
-  state.form.draftKickoffText = adoptedContent;
-  state.form.draftKickoffSignature = currentSignature;
-  state.form.draftKickoffPreviousText = currentContent;
-  state.form.draftKickoffPreviousSignature = currentSignature;
-  state.form.draftKickoffReplacementSignature = currentSignature;
+  state.form.draftKickoffText = adoptedKickoff.draftKickoffText;
+  state.form.draftKickoffSignature = adoptedKickoff.draftKickoffSignature;
+  state.form.draftKickoffPreviousText = adoptedKickoff.draftKickoffPreviousText;
+  state.form.draftKickoffPreviousSignature = adoptedKickoff.draftKickoffPreviousSignature;
+  state.form.draftKickoffReplacementSignature = adoptedKickoff.draftKickoffReplacementSignature;
   persistDraftKickoff(state.selectedCandidateId, {
     content: state.form.draftKickoffText,
     translationSignature: state.form.draftKickoffSignature
