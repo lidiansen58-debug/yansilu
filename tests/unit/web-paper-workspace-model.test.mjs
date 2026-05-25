@@ -484,6 +484,22 @@ test("resolveRecentDraftBriefCopy does not leak a copied brief across paper cand
   assert.equal(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_2", "sig_current"), null);
 });
 
+test("resolveRecentDraftBriefCopy rejects a corrupted copied brief that claims a different candidate", () => {
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_2",
+        title: "Draft brief: Candidate One",
+        nextAction: "回看 originality / authorship",
+        translationSignature: "sig_current",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    }
+  };
+
+  assert.equal(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current"), null);
+});
+
 test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {
   const workspace = {
     candidates: [{ id: "pwc_1", title: "First" }],
