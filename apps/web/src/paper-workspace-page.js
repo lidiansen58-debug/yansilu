@@ -14,6 +14,7 @@ import {
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
+  draftKickoffActionState,
   draftContinuationActionState,
   draftContinuationBrief,
   nextSelectedCandidateId,
@@ -43,6 +44,7 @@ import {
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
 
 const TRANSLATION_DRAFT_STORAGE_PREFIX = "yansilu:paper-workspace:translation-draft";
+const DRAFT_KICKOFF_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff";
 const WORKSPACE_SELECTION_STORAGE_PREFIX = "yansilu:paper-workspace:selection";
 
 const STATUS = {
@@ -137,6 +139,13 @@ function workspaceSelectionStorageKey(paperId) {
   return `${WORKSPACE_SELECTION_STORAGE_PREFIX}:${cleanPaperId}`;
 }
 
+function draftKickoffStorageKey(paperId, candidateId) {
+  const cleanPaperId = String(paperId || "").trim();
+  const cleanCandidateId = String(candidateId || "").trim();
+  if (!cleanPaperId || !cleanCandidateId) return "";
+  return `${DRAFT_KICKOFF_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
   const key = translationDraftStorageKey(paperId, candidateId);
   if (!key) return null;
@@ -152,6 +161,35 @@ function readStoredTranslationDraft(paperId, candidateId) {
 
 function clearStoredTranslationDraft(paperId, candidateId) {
   const key = translationDraftStorageKey(paperId, candidateId);
+  if (!key) return;
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {}
+}
+
+function readStoredDraftKickoff(paperId, candidateId) {
+  const key = draftKickoffStorageKey(paperId, candidateId);
+  if (!key) return null;
+  try {
+    const raw = window.localStorage?.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const content = String(parsed.content || "").trim();
+    const translationSignature = String(parsed.translationSignature || "").trim();
+    if (!content || !translationSignature) return null;
+    return {
+      content,
+      translationSignature,
+      updatedAt: String(parsed.updatedAt || "").trim()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredDraftKickoff(paperId, candidateId) {
+  const key = draftKickoffStorageKey(paperId, candidateId);
   if (!key) return;
   try {
     window.localStorage?.removeItem(key);
@@ -411,6 +449,7 @@ function syncFormFromDom() {
   state.form.paraphraseText = document.getElementById("translationParaphraseInput")?.value || "";
   state.form.relationToQuestion = document.getElementById("translationRelationInput")?.value || "";
   state.form.boundaryOrCondition = document.getElementById("translationBoundaryInput")?.value || "";
+  state.form.draftKickoffText = document.getElementById("draftKickoffTextarea")?.value || state.form.draftKickoffText || "";
   state.form.confirmAuthorship = document.getElementById("confirmAuthorshipInput")?.checked === true;
   state.form.saveStatus = document.getElementById("permanentStatusInput")?.value || "active";
 }
@@ -423,6 +462,14 @@ function hydrateTranslationForm(candidateId = "") {
   state.form.paraphraseText = resolvedState.paraphraseText;
   state.form.relationToQuestion = resolvedState.relationToQuestion;
   state.form.boundaryOrCondition = resolvedState.boundaryOrCondition;
+  hydrateDraftKickoff(candidateId || resolvedState.selectedCandidateId || state.selectedCandidateId);
+}
+
+function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
+  const cleanCandidateId = String(candidateId || "").trim();
+  const storedKickoff = cleanCandidateId ? readStoredDraftKickoff(currentPaperId(), cleanCandidateId) : null;
+  state.form.draftKickoffText = String(storedKickoff?.content || "");
+  state.form.draftKickoffSignature = String(storedKickoff?.translationSignature || "");
 }
 
 function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
@@ -558,6 +605,7 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.paraphraseText = resolvedCandidateState.paraphraseText;
   state.form.relationToQuestion = resolvedCandidateState.relationToQuestion;
   state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
+  hydrateDraftKickoff(resolvedCandidateState.selectedCandidateId);
   persistWorkspaceSelection();
   return paperWorkspaceResumeStatusKey(resolvedCandidateState, resolvedState);
 }
@@ -565,6 +613,7 @@ function hydrateFormFromWorkspace(workspace) {
 function render() {
   if (!root) return;
   state.lastCopiedDraftBrief = currentDraftBriefState().recentDraftBriefCopy;
+  state.draftKickoffState = currentDraftKickoffState();
   root.innerHTML = renderPaperWorkspacePage(state);
   updateDynamicControls();
 }
@@ -652,6 +701,12 @@ function updateDynamicControls() {
     copyDraftBriefButton.disabled = !draftBriefAction.enabled;
     copyDraftBriefButton.textContent = runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction);
   }
+  const startDraftKickoffButton = document.getElementById("btnStartDraftKickoff");
+  if (startDraftKickoffButton) {
+    const kickoffState = currentDraftKickoffState();
+    startDraftKickoffButton.disabled = !kickoffState.action?.enabled;
+    startDraftKickoffButton.textContent = String(kickoffState.action?.label || "载入 brief，开始本地 draft");
+  }
 }
 
 async function copyTextToClipboard(text) {
@@ -736,6 +791,56 @@ function currentDraftBriefState() {
   };
 }
 
+function currentDraftKickoffState() {
+  const currentTranslationSignature = translationContinuitySignature(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const content = String(state.form.draftKickoffText || "").trim();
+  const storedSignature = String(state.form.draftKickoffSignature || "").trim();
+  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
+    paraphraseText: state.form.paraphraseText,
+    relationToQuestion: state.form.relationToQuestion,
+    boundaryOrCondition: state.form.boundaryOrCondition
+  });
+  const continuityReason = permanentNoteContinuityState(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedPermanentCandidateId,
+    state.selectedCandidateId,
+    {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    }
+  ).reason;
+  const isStale = Boolean(content && storedSignature && currentTranslationSignature && storedSignature !== currentTranslationSignature);
+  return {
+    content,
+    translationSignature: storedSignature,
+    currentTranslationSignature,
+    hasContent: Boolean(content),
+    isStale,
+    action: draftKickoffActionState(
+      {
+        selectedCandidateId: state.selectedCandidateId,
+        hasSavedTranslation: draft.hasSavedTranslation,
+        hasLocalChanges: draft.hasLocalChanges,
+        supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
+      },
+      {
+        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
+        permanentNoteContinuityReason: continuityReason
+      },
+      {
+        hasContent: Boolean(content),
+        isStale
+      }
+    )
+  };
+}
+
 function runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction) {
   if (!draftBriefAction?.enabled) {
     switch (String(draftContinuationAction?.key || "").trim()) {
@@ -763,6 +868,32 @@ function runtimeDraftBriefButtonLabel(draftBriefAction, draftContinuationAction)
     default:
       return "复制 brief，继续写 draft";
   }
+}
+
+function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
+  const paperId = currentPaperId();
+  const cleanCandidateId = String(candidateId || "").trim();
+  if (!paperId || !cleanCandidateId) return;
+  const content = String(overrides.content ?? state.form.draftKickoffText ?? "").trim();
+  const translationSignature = String(overrides.translationSignature ?? state.form.draftKickoffSignature ?? "").trim();
+  if (!content || !translationSignature) {
+    clearStoredDraftKickoff(paperId, cleanCandidateId);
+    return;
+  }
+  const key = draftKickoffStorageKey(paperId, cleanCandidateId);
+  if (!key) return;
+  try {
+    window.localStorage?.setItem(
+      key,
+      JSON.stringify({
+        paperId,
+        candidateId: cleanCandidateId,
+        content,
+        translationSignature,
+        updatedAt: new Date().toISOString()
+      })
+    );
+  } catch {}
 }
 
 async function runAction(action, successMessage) {
@@ -998,9 +1129,59 @@ async function handleCopyDraftBrief() {
   render();
 }
 
+function focusDraftKickoffTextarea() {
+  const textarea = document.getElementById("draftKickoffTextarea");
+  if (!textarea) return;
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+async function handleStartDraftKickoff() {
+  syncFormFromDom();
+  const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
+  const kickoffState = currentDraftKickoffState();
+  if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
+    setStatus(String(draftContinuationAction?.label || "当前还不能继续写 draft。"), "warn");
+    render();
+    return;
+  }
+  const shouldLoadFreshBrief = !kickoffState.hasContent || kickoffState.isStale;
+  if (shouldLoadFreshBrief) {
+    const translationSignature = translationContinuitySignature(state.workspace, state.selectedCandidateId, {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    });
+    state.form.draftKickoffText = draftBrief.markdown;
+    state.form.draftKickoffSignature = translationSignature;
+    persistDraftKickoff(state.selectedCandidateId, {
+      content: state.form.draftKickoffText,
+      translationSignature
+    });
+    const nextAction = String(draftContinuationAction?.label || "").trim();
+    setStatus(
+      nextAction
+        ? `已载入本地 draft kickoff：${draftBrief.title}。下一步：${nextAction}`
+        : `已载入本地 draft kickoff：${draftBrief.title}`,
+      "ok"
+    );
+  } else {
+    const nextAction = String(draftContinuationAction?.label || "").trim();
+    setStatus(
+      nextAction ? `继续本地 draft：${draftBrief.title}。下一步：${nextAction}` : `继续本地 draft：${draftBrief.title}`,
+      "ok"
+    );
+  }
+  render();
+  focusDraftKickoffTextarea();
+}
+
 root?.addEventListener("input", (event) => {
   syncFormFromDom();
   persistTranslationDraft();
+  if (event.target?.id === "draftKickoffTextarea") {
+    persistDraftKickoff();
+  }
   persistWorkspaceSelection();
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
@@ -1069,6 +1250,7 @@ root?.addEventListener("click", (event) => {
   if (id === "btnCreatePermanentCandidate") void handleCreatePermanentCandidate();
   if (id === "btnSavePermanentNote") void handleSavePermanentNote();
   if (id === "btnCopyDraftBrief") void handleCopyDraftBrief();
+  if (id === "btnStartDraftKickoff") void handleStartDraftKickoff();
 });
 
 setStatus(`${STATUS.connectedApiPrefix}${getPaperWorkspaceApiBase()}`, "ok");

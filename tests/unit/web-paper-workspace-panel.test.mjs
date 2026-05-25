@@ -161,6 +161,7 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   assert.ok(html.includes("先确认 relation 和 boundary 已经足够支撑下一步"));
   assert.match(html, /data-paper-draft-brief/);
   assert.match(html, /id="btnCopyDraftBrief"[^>]*>复制 draft brief</);
+  assert.match(html, /id="btnStartDraftKickoff"[^>]*>载入 brief，开始本地 draft</);
   assert.ok(html.includes("Paraphrase: My own wording."));
   assert.ok(html.includes("Step 4: 尚未生成永久笔记候选"));
   assert.match(html, /data-paper-draft-brief-step-four/);
@@ -209,6 +210,56 @@ test("renderPaperWorkspacePage shows the most recent copied draft brief action w
 
   assert.match(html, /data-paper-draft-brief-copy/);
   assert.ok(html.includes("最近一次已复制。下一步：这条转述已经具备继续写 draft 的最小条件"));
+});
+
+test("renderPaperWorkspacePage restores a local draft kickoff for the selected candidate", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "translations",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: []
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.draftKickoffState = {
+    content: "# Draft brief: Candidate One\n\n## Paraphrase\nMy own wording.",
+    translationSignature: "sig_1",
+    currentTranslationSignature: "sig_1",
+    hasContent: true,
+    isStale: false,
+    action: {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    }
+  };
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /id="btnStartDraftKickoff"[^>]*>继续本地 draft</);
+  assert.match(html, /id="draftKickoffTextarea"/);
+  assert.ok(html.includes("这份本地 draft kickoff 会跟着当前候选连续恢复"));
 });
 
 test("renderPaperWorkspacePage surfaces saved-note handoff details in the draft brief card", () => {

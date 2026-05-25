@@ -24,6 +24,8 @@ export function emptyPaperWorkspaceForm() {
     paraphraseText: "",
     relationToQuestion: "",
     boundaryOrCondition: "",
+    draftKickoffText: "",
+    draftKickoffSignature: "",
     confirmAuthorship: false,
     saveStatus: "active"
   };
@@ -681,6 +683,58 @@ export function draftBriefActionState(candidateState = null, workspaceState = nu
   return {
     enabled: true,
     label: "复制 draft brief"
+  };
+}
+
+export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
+  const continuation = draftContinuationActionState(candidateState, workspaceState);
+  const blockedLabels = {
+    select_candidate: "先选择候选",
+    refresh_permanent_candidate: "先刷新 Step 4",
+    update_translation_affects_step_four: "先更新转述",
+    update_translation: "先更新转述",
+    save_translation: "先保存转述",
+    fill_support: "先补 relation / boundary"
+  };
+  if (blockedLabels[continuation.key]) {
+    return {
+      enabled: false,
+      key: continuation.key,
+      label: blockedLabels[continuation.key]
+    };
+  }
+  if (kickoffState?.isStale) {
+    return {
+      enabled: true,
+      key: "refresh_local_draft",
+      label: "载入新版 brief，更新本地 draft"
+    };
+  }
+  if (kickoffState?.hasContent) {
+    return {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    };
+  }
+  if (continuation.key === "review_saved_permanent_note") {
+    return {
+      enabled: true,
+      key: "start_local_draft_saved_path",
+      label: "载入 brief，回看已保存路径"
+    };
+  }
+  if (continuation.key === "review_permanent_candidate") {
+    return {
+      enabled: true,
+      key: "start_local_draft_step_four",
+      label: "载入 brief，回看 Step 4"
+    };
+  }
+  return {
+    enabled: true,
+    key: "start_local_draft",
+    label: "载入 brief，开始本地 draft"
   };
 }
 
