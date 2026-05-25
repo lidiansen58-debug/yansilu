@@ -5648,7 +5648,7 @@ export class EditorPane {
     }
 
     return {
-      status: routeMode === "basket" ? "可进入写作中心" : readiness.status,
+      status: readiness.status,
       hint: readiness.hint,
       actionLabel: readiness.actionLabel,
       routeMode
