@@ -26,6 +26,7 @@ import {
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
+  resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
@@ -628,6 +629,66 @@ test("draftContinuationBrief summarizes the current draft handoff path", () => {
   assert.match(brief.preview, /Relation: This matters for the writing question\./);
   assert.match(brief.preview, /Saved note: note_1/);
   assert.match(brief.preview, /Next: .*回看 originality \/ authorship/);
+});
+
+test("resolveDraftBriefState combines brief, action state, and candidate-scoped recent copy for the selected path", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const draftInput = {
+    paraphraseText: "My own wording.",
+    relationToQuestion: "This matters for the writing question.",
+    boundaryOrCondition: "Only when the sample is comparable."
+  };
+  const translationSignature = translationContinuitySignature(workspace, "pwc_1", draftInput);
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_1",
+        title: "Draft brief: Candidate One",
+        nextAction: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。",
+        translationSignature,
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    },
+    translationSignatureByPermanentCandidate: {
+      pn_1: translationSignature
+    }
+  };
+
+  const state = resolveDraftBriefState(workspace, workspaceSelection, "pwc_1", "pn_1", draftInput);
+
+  assert.equal(state.draft.hasSavedTranslation, true);
+  assert.equal(state.continuityReason, "saved_permanent_note");
+  assert.deepEqual(state.draftBriefAction, {
+    enabled: true,
+    label: "复制 draft brief"
+  });
+  assert.deepEqual(state.draftContinuationAction, {
+    tone: "ok",
+    key: "review_saved_permanent_note",
+    label: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。"
+  });
+  assert.equal(state.currentTranslationSignature, translationSignature);
+  assert.equal(state.recentDraftBriefCopy?.candidateId, "pwc_1");
+  assert.match(state.draftBrief.markdown, /Saved permanent note: note_1/);
 });
 
 test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its translation signature still matches", () => {
