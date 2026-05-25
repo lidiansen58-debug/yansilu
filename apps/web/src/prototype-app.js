@@ -10553,9 +10553,12 @@ $("btnWritingOpenDraft")?.addEventListener("click", async () => {
   const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
   if (!draftNoteId && continuation?.projectId && continuation.action === "open-draft") {
     try {
-      await continueWritingProjectEntry(continuation.projectId, { openDraft: true });
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: true,
+        statusMessage: `已从写作中心打开当前草稿：${continuation.projectId}`
+      });
     } catch (error) {
-      setStatus(`打开当前草稿失败：${String(error?.message || error)}`, "bad");
+      setStatus(`从写作中心打开当前草稿失败：${String(error?.message || error)}`, "bad");
     }
     return;
   }

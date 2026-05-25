@@ -20,6 +20,7 @@ test("writing open-draft handler resumes projected draft continuity before warni
 
   assert.match(fnBody, /const continuation = !draftNoteId \? currentWritingContinuationEntry\("当前写作篮"\) : null;/);
   assert.match(fnBody, /if \(!draftNoteId && continuation\?\.projectId && continuation\.action === "open-draft"\) \{/);
-  assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{ openDraft: true \}\);/);
+  assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
+  assert.match(fnBody, /openDraft: true/);
   assert.match(fnBody, /if \(!draftNoteId\) return setStatus\("当前项目还没有绑定草稿笔记", "warn"\);/);
 });
