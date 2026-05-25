@@ -5514,13 +5514,13 @@ export class EditorPane {
       if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
         return {
           nextStep: "把线索收成显式关系",
-          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
+          summary: "已经同时出现正文链接和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
         };
       }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系理由",
-          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成显式关系。"
+          summary: "已经有正文链接线索，下一步把“为什么相关”写成显式关系。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
