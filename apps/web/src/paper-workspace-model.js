@@ -721,6 +721,18 @@ export function draftContinuationBrief(
       : "";
   const savedPermanentNoteId =
     continuity.reason === "saved_permanent_note" ? cleanText(selectedPermanent?.savedPermanentNoteId) : "";
+  const draftContinuationAction = draftContinuationActionState(
+    {
+      selectedCandidateId: cleanText(candidate?.id),
+      hasSavedTranslation: draft.hasSavedTranslation,
+      hasLocalChanges: draft.hasLocalChanges,
+      supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
+    },
+    {
+      selectedPermanentCandidateId: cleanText(selectedPermanent?.id),
+      permanentNoteContinuityReason: continuity.reason
+    }
+  );
   const lines = [
     `# Draft brief: ${title}`,
     "",
@@ -728,6 +740,7 @@ export function draftContinuationBrief(
     `- Candidate kind: ${candidateKindLabel(candidate.candidateKind)}`,
     `- Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
     ...(savedPermanentNoteId ? [`- Saved permanent note: ${savedPermanentNoteId}`] : []),
+    `- Next action: ${cleanText(draftContinuationAction?.label)}`,
     "",
     "## Paraphrase",
     paraphraseText,
@@ -746,7 +759,8 @@ export function draftContinuationBrief(
       `Relation: ${relationToQuestion}`,
       `Boundary: ${boundaryOrCondition}`,
       `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
-      ...(savedPermanentNoteId ? [`Saved note: ${savedPermanentNoteId}`] : [])
+      ...(savedPermanentNoteId ? [`Saved note: ${savedPermanentNoteId}`] : []),
+      `Next: ${cleanText(draftContinuationAction?.label)}`
     ].join("\n")
   };
 }

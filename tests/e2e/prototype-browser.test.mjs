@@ -6159,6 +6159,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               );
               assert.match(String(copiedText || ""), /Step 4: 已保存永久笔记路径 \(.+\)/);
               assert.match(String(copiedText || ""), /Saved permanent note: /);
+              assert.match(String(copiedText || ""), /Next action: .*originality \/ authorship/);
             }, 4000);
 
             await page.locator(".paper-candidate").nth(1).click();
