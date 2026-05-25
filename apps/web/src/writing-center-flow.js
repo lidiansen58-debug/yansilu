@@ -9,11 +9,55 @@ export function groupWritingPreflightChecks(preflight = null) {
   return { checks, blocking, warnings, passes };
 }
 
+export function describeWritingContinuationAction({
+  existingProjectId = "",
+  existingProjectHasScaffold = false,
+  existingProjectHasDraft = false,
+  scopeLabel = "当前材料"
+} = {}) {
+  const currentProjectId = String(existingProjectId || "").trim();
+  if (!currentProjectId) return null;
+  if (existingProjectHasDraft) {
+    return {
+      level: "current_draft",
+      status: "打开当前草稿",
+      hint: `${scopeLabel}已经对应项目 ${currentProjectId}，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新创建项目更连续。`,
+      actionLabel: "打开当前草稿",
+      action: "open-draft",
+      projectId: currentProjectId,
+      canCreateProject: true
+    };
+  }
+  if (existingProjectHasScaffold) {
+    return {
+      level: "current_scaffold",
+      status: "继续草稿骨架",
+      hint: `${scopeLabel}已经对应项目 ${currentProjectId}，草稿骨架也已生成。先回到这个项目继续补骨架，会比重新创建项目更连续。`,
+      actionLabel: "继续草稿骨架",
+      action: "resume-scaffold",
+      projectId: currentProjectId,
+      canCreateProject: true
+    };
+  }
+  return {
+    level: "current_project",
+    status: "继续当前项目",
+    hint: `${scopeLabel}已经对应项目 ${currentProjectId}。直接回到这个项目继续推进，会比重新创建项目更连续。`,
+    actionLabel: "继续当前项目",
+    action: "resume-project",
+    projectId: currentProjectId,
+    canCreateProject: true
+  };
+}
+
 export function describeWritingNextActionFromState({
   basketCount = 0,
   hasProject = false,
   hasScaffold = false,
   hasDraft = false,
+  projectPreflightLevel = "",
+  projectPreflightHint = "",
+  projectPreflightChecksLength = 0,
   blockingCount = 0,
   warningCount = 0
 } = {}) {
@@ -27,6 +71,28 @@ export function describeWritingNextActionFromState({
     return {
       title: "创建项目",
       note: "确认题目、目标读者和材料后，先创建项目再往下走。"
+    };
+  }
+  const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+  const cleanProjectPreflightHint = String(projectPreflightHint || "").trim();
+  if (!hasScaffold && cleanProjectPreflightLevel && cleanProjectPreflightLevel !== "ready") {
+    if (cleanProjectPreflightLevel === "needs_clarification") {
+      return {
+        title: "先澄清项目问题",
+        note: cleanProjectPreflightHint || "项目已创建，但还需要先处理关键问题，再生成草稿骨架。"
+      };
+    }
+    if (cleanProjectPreflightLevel === "has_gaps") {
+      return {
+        title: "先补项目缺口",
+        note:
+          cleanProjectPreflightHint ||
+          `项目已创建，但还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐，再生成草稿骨架。`
+      };
+    }
+    return {
+      title: "先检查项目条件",
+      note: cleanProjectPreflightHint || "项目已创建，先等系统完成项目检查，再决定是否进入草稿骨架步骤。"
     };
   }
   if (!hasScaffold) {
@@ -176,9 +242,25 @@ export function describeWritingProjectStepState({
   projectId = "",
   projectEntryStatus = "",
   projectEntryHint = "",
-  canCreateProject = false
+  canCreateProject = false,
+  projectPreflightLevel = "",
+  projectPreflightHint = "",
+  projectPreflightChecksLength = 0
 } = {}) {
   if (hasProject) {
+    const cleanProjectId = String(projectId || "").trim();
+    const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+    const cleanProjectPreflightHint = String(projectPreflightHint || "").trim();
+    if (cleanProjectPreflightLevel && cleanProjectPreflightLevel !== "ready") {
+      return {
+        title: "创建项目",
+        note:
+          cleanProjectPreflightHint ||
+          (cleanProjectPreflightLevel === "has_gaps"
+            ? `${cleanProjectId || "项目已创建"}，还有 ${Number(projectPreflightChecksLength || 0)} 项缺口需要先补齐。`
+            : cleanProjectId || "项目已创建，但还需要先处理后续条件。")
+      };
+    }
     return {
       title: "创建项目",
       note: String(projectId || "").trim() || "已创建项目"

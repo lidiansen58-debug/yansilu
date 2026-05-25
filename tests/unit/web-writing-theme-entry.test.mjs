@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { describeWritingThemeProjectEntryState } from "../../apps/web/src/writing-center-flow.js";
+import {
+  describeWritingContinuationAction,
+  describeWritingThemeProjectEntryState
+} from "../../apps/web/src/writing-center-flow.js";
 
 test("writing theme project entry stays loading when theme note details are not loaded yet", () => {
   const entry = describeWritingThemeProjectEntryState({
