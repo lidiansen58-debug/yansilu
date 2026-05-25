@@ -10,6 +10,10 @@ test("writing open-draft projected continuity keeps writing-center-scoped feedba
   assert.ok(match, "expected writing open-draft handler to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /statusMessage: `已从写作中心打开当前草稿：\$\{continuation\.projectId\}`/);
-  assert.match(fnBody, /从写作中心打开当前草稿失败：\$\{String\(error\?\.message \|\| error\)\}/);
+  assert.match(fnBody, /continuation\.action === "open-draft"[\s\S]*已从写作中心打开当前草稿：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /continuation\.action === "resume-scaffold"[\s\S]*已从写作中心回到草稿骨架：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /continuation\.action === "resume-project"[\s\S]*已从写作中心继续当前项目：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /continuation\.action === "open-draft"[\s\S]*从写作中心打开当前草稿/);
+  assert.match(fnBody, /continuation\.action === "resume-scaffold"[\s\S]*从写作中心回到草稿骨架/);
+  assert.match(fnBody, /continuation\.action === "resume-project"[\s\S]*从写作中心继续当前项目/);
 });

@@ -7185,9 +7185,15 @@ function renderWritingPanel() {
   if (openDraftButton) {
     const hasDraft = Boolean(writingState.project?.draft_note_id);
     const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
-    const canOpenProjectedDraft = Boolean(draftContinuation?.projectId) && draftContinuation.action === "open-draft";
-    openDraftButton.disabled = !(hasDraft || canOpenProjectedDraft);
-    openDraftButton.textContent = hasDraft || canOpenProjectedDraft ? "打开当前草稿" : "暂无草稿";
+    const canContinueProjectedDraft = Boolean(draftContinuation?.projectId) && Boolean(draftContinuation?.actionLabel);
+    openDraftButton.disabled = !(hasDraft || canContinueProjectedDraft);
+    openDraftButton.textContent = hasDraft
+      ? "打开当前草稿"
+      : draftContinuation?.projectId && draftContinuation?.action === "open-draft"
+        ? "打开当前草稿"
+        : draftContinuation?.projectId && draftContinuation?.actionLabel
+          ? `先${draftContinuation.actionLabel}`
+          : "暂无草稿";
   }
   if (createProjectButton) {
     createProjectButton.disabled = !projectEntry.canCreateProject;
@@ -10578,14 +10584,24 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
 $("btnWritingOpenDraft")?.addEventListener("click", async () => {
   const draftNoteId = String(writingState.project?.draft_note_id || "").trim();
   const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
-  if (!draftNoteId && continuation?.projectId && continuation.action === "open-draft") {
+  if (!draftNoteId && continuation?.projectId) {
     try {
       await continueWritingProjectEntry(continuation.projectId, {
-        openDraft: true,
-        statusMessage: `已从写作中心打开当前草稿：${continuation.projectId}`
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
       });
     } catch (error) {
-      setStatus(`从写作中心打开当前草稿失败：${String(error?.message || error)}`, "bad");
+      setStatus(
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
     }
     return;
   }
