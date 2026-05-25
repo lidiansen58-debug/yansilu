@@ -5629,6 +5629,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     assert.match(String(translationStepText || ""), /可以继续修改后再保存/);
   }, 4000);
 
+  await waitFor(async () => {
+    const statusText = await currentPaperWorkspaceStatusText(page);
+    assert.match(String(statusText || ""), /先保存这条转述，再进入永久笔记候选/);
+  }, 4000);
+
     await page.locator(".paper-candidate").nth(0).click();
     await waitFor(async () => {
       assert.equal(await page.locator("#translationParaphraseInput").inputValue(), savedParaphrase);

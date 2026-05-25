@@ -50,7 +50,7 @@ const STATUS = {
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
   translationNeedsSaveBeforePermanentCandidate:
-    "\u5148\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
+    "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8f6c\u8ff0\u8349\u7a3f\u3002\u5148\u4fdd\u5b58\u8fd9\u6761\u8f6c\u8ff0\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
   translationNeedsResaveBeforePermanentCandidate:
     "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
   translationNeedsFreshPermanentCandidate:
@@ -761,7 +761,7 @@ root?.addEventListener("click", (event) => {
     state.selectedCandidateId = candidateButton.getAttribute("data-paper-candidate-id") || "";
     hydrateSelectedPaperCandidateState(storedSelection);
     persistWorkspaceSelection();
-    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
     return;
   }
@@ -782,7 +782,7 @@ root?.addEventListener("click", (event) => {
     }
     hydratePermanentCandidateForm(storedSelection);
     persistWorkspaceSelection();
-    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
     return;
   }
