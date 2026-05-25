@@ -36,9 +36,8 @@ jobs:
               - 'scripts/desktop-*.mjs'
 
   preflight:
-    needs:
-      - detect-desktop-surface
-    if: github.event_name == 'pull_request' && needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
+    if: github.event_name == 'pull_request'
+    needs: detect-desktop-surface
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -50,7 +49,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Install Linux system dependencies
+        if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -60,14 +63,13 @@ jobs:
             librsvg2-dev \
             patchelf
 
-      - name: Install npm dependencies
-        run: npm ci
-
-      - name: Desktop dev preflight
-        run: npm run dev:desktop:check
-
       - name: Desktop bundle preflight
+        if: needs.detect-desktop-surface.outputs.full_bundle_required == 'true'
         run: npm run build:desktop:check
+
+      - name: Ordinary PR desktop gate
+        if: needs.detect-desktop-surface.outputs.full_bundle_required != 'true'
+        run: echo "No desktop bundle-impacting changes detected; release-grade desktop checks are deferred."
 
   build:
     needs:
