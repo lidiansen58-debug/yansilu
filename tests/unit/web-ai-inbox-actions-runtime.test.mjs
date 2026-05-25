@@ -46,6 +46,8 @@ test("AI inbox suggestion edited action submits current reviewed content and com
     "refreshAiInboxEvaluationSummary",
     "rememberAiDebugSnapshot",
     "setStatus",
+    "clearAiInboxActionNotice",
+    "setAiInboxActionNotice",
     "renderAiInboxWorkspace",
     `${fnSource}; return applyAiInboxSuggestionStatus;`
   );
@@ -79,6 +81,8 @@ test("AI inbox suggestion edited action submits current reviewed content and com
     async () => true,
     async () => true,
     async () => true,
+    () => {},
+    () => {},
     () => {},
     () => {},
     () => {
