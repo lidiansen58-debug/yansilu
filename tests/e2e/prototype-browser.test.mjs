@@ -6072,6 +6072,22 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
             }, 4000);
 
+            await page.locator(".paper-candidate").nth(1).click();
+            await waitFor(async () => {
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+            }, 4000);
+
+            await page.locator(".paper-candidate").nth(0).click();
+            await waitFor(async () => {
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), new RegExp(`已保存为：${savedPermanentNoteId}`));
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+            }, 4000);
+
             await page.fill("#translationRelationInput", "Saved relation after the permanent note was already confirmed.");
             await page.click("#btnSaveTranslation");
             await waitFor(async () => {
