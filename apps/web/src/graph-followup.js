@@ -35,7 +35,8 @@ export function graphNextActionForSummary({
   conflictRelationType = "",
   bridgeNoteId = "",
   bridgeTargetNoteId = "",
-  writingContinuation = null
+  writingContinuation = null,
+  writingEntryPlan = null
 } = {}) {
   if (!hasNodes) {
     return {
@@ -166,6 +167,35 @@ export function graphNextActionForSummary({
     };
   }
 
+  if (writingEntryPlan?.mode === "already-in-basket") {
+    return {
+      title: "下一步：继续当前写作篮",
+      note: "当前可见图谱里的永久笔记已经都在写作篮中。直接进入写作中心继续推进，会比重复挑选更顺。",
+      action: GRAPH_FOLLOWUP_ACTIONS.writing,
+      actionLabel: "继续当前写作篮"
+    };
+  }
+
+  if (writingEntryPlan?.mode === "prefill-visible" && Number(writingEntryPlan.addedCount || 0) > 0) {
+    return {
+      title: `下一步：带入 ${Number(writingEntryPlan.addedCount || 0)} 条永久笔记`,
+      note: writingEntryPlan.hasBasket
+        ? `当前图谱切片里还有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。进入写作中心时会一起加入当前写作篮。`
+        : `当前图谱切片里有 ${Number(writingEntryPlan.addedCount || 0)} 条可直接推进写作的永久笔记。进入写作中心时会一起带入写作篮。`,
+      action: GRAPH_FOLLOWUP_ACTIONS.writing,
+      actionLabel: "带入写作篮"
+    };
+  }
+
+  if (writingEntryPlan?.mode === "pick-manually" && Number(writingEntryPlan.candidateCount || 0) > 0) {
+    return {
+      title: "下一步：先挑 2-5 条加入写作篮",
+      note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先在写作中心挑 2-5 条加入写作篮，再推进成主题或项目会更稳。`,
+      action: GRAPH_FOLLOWUP_ACTIONS.writing,
+      actionLabel: "先挑 2-5 条"
+    };
+  }
+
   return {
     title: "下一步：进入写作中心",
     note: "当前目录结构已经比较清晰，可以把这组永久笔记带进写作中心，继续推进成主题或项目。",
@@ -186,6 +216,10 @@ export function graphWritingFollowupEntryPlan({
 
   if (!candidateIds.length) {
     return {
+      mode: "no-candidates",
+      candidateCount: 0,
+      addedCount: 0,
+      hasBasket: basketIds.length > 0,
       prefillNoteIds: [],
       statusMessage: scopeIds.length
         ? basketIds.length
@@ -199,6 +233,10 @@ export function graphWritingFollowupEntryPlan({
 
   if (candidateIds.length <= 5 && addedCandidateIds.length) {
     return {
+      mode: "prefill-visible",
+      candidateCount: candidateIds.length,
+      addedCount: addedCandidateIds.length,
+      hasBasket: basketIds.length > 0,
       prefillNoteIds: addedCandidateIds,
       statusMessage: basketIds.length
         ? `已从图谱进入写作中心，并把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记加入写作篮。`
@@ -208,12 +246,20 @@ export function graphWritingFollowupEntryPlan({
 
   if (basketIds.length && !addedCandidateIds.length) {
     return {
+      mode: "already-in-basket",
+      candidateCount: candidateIds.length,
+      addedCount: 0,
+      hasBasket: true,
       prefillNoteIds: [],
       statusMessage: "当前可见图谱里的永久笔记已经都在写作篮中，已打开写作中心继续推进。"
     };
   }
 
   return {
+    mode: "pick-manually",
+    candidateCount: candidateIds.length,
+    addedCount: addedCandidateIds.length,
+    hasBasket: basketIds.length > 0,
     prefillNoteIds: [],
     statusMessage: `已从图谱进入写作中心；当前可见图谱里有 ${candidateIds.length} 条可用永久笔记，先挑 2-5 条加入写作篮。`
   };

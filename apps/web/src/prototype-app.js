@@ -8260,6 +8260,11 @@ function renderGraphPanel() {
     isEligible: isWritingEligibleNote
   });
   const graphWritingContinuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
+  const graphWritingPlan = graphWritingFollowupEntryPlan({
+    basketNoteIds: parseWritingBasketIds(),
+    candidateNoteIds: graphBasketNoteIds,
+    scopeNoteIds: graphFocusNoteIds
+  });
   const nextAction = graphNextActionForSummary({
     hasNodes: nodes.length > 0,
     hasEdges: allEdges.length > 0,
@@ -8278,7 +8283,8 @@ function renderGraphPanel() {
     conflictRelationType: String(conflictingRelations[0]?.relationType || "").trim(),
     bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "",
     bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : "",
-    writingContinuation: graphWritingContinuation
+    writingContinuation: graphWritingContinuation,
+    writingEntryPlan: graphWritingPlan
   });
 
   summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
