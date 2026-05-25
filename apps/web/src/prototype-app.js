@@ -6780,7 +6780,13 @@ function renderWritingStatusStrip() {
         : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
           ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
       : "检查骨架后再保存";
-  const draftTone = hasDraft || (!hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft") ? "good" : "";
+  const draftTone =
+    hasDraft ||
+    (!hasProject &&
+      projectEntry?.projectId &&
+      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
+      ? "good"
+      : "";
   const strongModelReady = isWritingStrongModelReady({
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
