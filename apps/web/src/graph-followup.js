@@ -270,7 +270,7 @@ export function graphWritingFollowupEntryPlan({
       addedCount: 0,
       hasBasket: true,
       prefillNoteIds: [],
-      statusMessage: "当前可见图谱里的永久笔记已经都在写作篮中，已打开写作中心继续推进。"
+      statusMessage: "当前可见图谱里的永久笔记已经都在写作篮中，继续当前写作篮推进。"
     };
   }
 

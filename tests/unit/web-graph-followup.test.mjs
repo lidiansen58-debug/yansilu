@@ -221,7 +221,9 @@ test("graph writing followup keeps current basket untouched when the whole visib
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /已经都在写作篮中|继续推进/);
+  assert.match(plan.statusMessage, /已经都在写作篮中/);
+  assert.match(plan.statusMessage, /继续当前写作篮推进/);
+  assert.doesNotMatch(plan.statusMessage, /已打开写作中心/);
 });
 
 test("graph writing followup stays inside the current graph slice when no note is ready for writing", () => {
