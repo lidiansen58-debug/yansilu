@@ -1027,3 +1027,43 @@ export function resolveDraftBriefState(
     continuityReason
   };
 }
+
+export function resolveDraftKickoffRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  form = null,
+  draftInput = null
+) {
+  const currentTranslationSignature = translationContinuitySignature(workspace, candidateId, draftInput);
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuityReason = permanentNoteContinuityState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  ).reason;
+  const kickoffState = resolveDraftKickoffState(form, currentTranslationSignature);
+  const candidateState = {
+    selectedCandidateId: cleanText(candidateId),
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
+  };
+  const workspaceState = {
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    permanentNoteContinuityReason: continuityReason
+  };
+
+  return {
+    ...kickoffState,
+    draft,
+    continuityReason,
+    action: draftKickoffActionState(candidateState, workspaceState, {
+      hasContent: kickoffState.hasContent,
+      isStale: kickoffState.isStale
+    })
+  };
+}

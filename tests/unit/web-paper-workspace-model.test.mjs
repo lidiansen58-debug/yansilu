@@ -29,6 +29,7 @@ import {
   resolveAdoptedDraftKickoff,
   resolveDraftBriefState,
   resolveDraftKickoffState,
+  resolveDraftKickoffRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
@@ -744,6 +745,72 @@ test("resolveDraftBriefState combines brief, action state, and candidate-scoped 
   assert.equal(state.currentTranslationSignature, translationSignature);
   assert.equal(state.recentDraftBriefCopy?.candidateId, "pwc_1");
   assert.match(state.draftBrief.markdown, /Saved permanent note: note_1/);
+});
+
+test("resolveDraftKickoffRuntimeState combines kickoff continuity, saved-path action, and current translation signature", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const draftInput = {
+    paraphraseText: "My own wording.",
+    relationToQuestion: "This matters for the writing question.",
+    boundaryOrCondition: "Only when the sample is comparable."
+  };
+  const translationSignature = translationContinuitySignature(workspace, "pwc_1", draftInput);
+  const form = {
+    draftKickoffText: "Current kickoff wording.",
+    draftKickoffSignature: translationSignature,
+    draftKickoffPreviousText: "Previous kickoff wording.",
+    draftKickoffPreviousSignature: "sig_previous",
+    draftKickoffReplacementSignature: translationSignature
+  };
+  const workspaceSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: translationSignature
+    }
+  };
+
+  const state = resolveDraftKickoffRuntimeState(
+    workspace,
+    workspaceSelection,
+    "pwc_1",
+    "pn_1",
+    form,
+    draftInput
+  );
+
+  assert.equal(state.draft.hasSavedTranslation, true);
+  assert.equal(state.currentTranslationSignature, translationSignature);
+  assert.equal(state.continuityReason, "saved_permanent_note");
+  assert.equal(state.hasContent, true);
+  assert.equal(state.isStale, false);
+  assert.deepEqual(state.previousSnapshot, {
+    content: "Previous kickoff wording.",
+    previousSignature: "sig_previous",
+    replacementSignature: translationSignature
+  });
+  assert.deepEqual(state.action, {
+    enabled: true,
+    key: "resume_local_draft",
+    label: "继续本地 draft"
+  });
 });
 
 test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its translation signature still matches", () => {
