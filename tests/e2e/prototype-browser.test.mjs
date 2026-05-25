@@ -6690,6 +6690,19 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 4000);
 
+            await page.click("#btnCopyDraftBrief");
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已复制 draft brief/);
+              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+              const copiedText = await page.evaluate(
+                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+              );
+              assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
+              assert.match(String(copiedText || ""), /Step 4: 已保存永久笔记路径 \(.+\)/);
+              assert.doesNotMatch(String(copiedText || ""), new RegExp(`Saved permanent note: ${refreshedSavedPermanentNoteId}`));
+            }, 4000);
+
             await page.locator(".paper-candidate").nth(1).click();
             await waitFor(async () => {
               const statusText = await currentPaperWorkspaceStatusText(page);
