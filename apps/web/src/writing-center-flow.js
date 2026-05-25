@@ -570,6 +570,21 @@ export function describeWritingThemeProjectEntryState({
     };
   }
   const currentProjectId = String(existingProjectId || "").trim();
+  const continuation = currentProjectId
+    ? describeWritingContinuationAction({
+        existingProjectId: currentProjectId,
+        existingProjectHasScaffold,
+        existingProjectHasDraft,
+        scopeLabel: "当前主题"
+      })
+    : null;
+  if (continuation) {
+    return {
+      ...continuation,
+      level: "current_project",
+      canCreateProject: true
+    };
+  }
   if (currentProjectId) {
     return {
       level: "current_project",
