@@ -636,6 +636,64 @@ export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceStat
   return "loadedWorkspace";
 }
 
+export function continuityStatusTone(statusKey = "") {
+  const cleanKey = cleanText(statusKey);
+  if (
+    cleanKey.startsWith("translationNeeds") ||
+    cleanKey === "savedTranslationNeedsDraftSupport" ||
+    cleanKey === "restoredLocalTranslationDraftForPermanentNote" ||
+    cleanKey === "restoredLocalTranslationDraftForSavedPermanentNote"
+  ) {
+    return "warn";
+  }
+  if (
+    cleanKey === "restoredSavedPermanentNoteForSelectedPaper" ||
+    cleanKey === "restoredPermanentCandidateForSelectedPaper" ||
+    cleanKey === "savedTranslationReadyForPermanentCandidate" ||
+    cleanKey === "savedPermanentNote"
+  ) {
+    return "ok";
+  }
+  return "";
+}
+
+export function resolvePaperWorkspaceContinuityStatus(
+  workspace = null,
+  storedSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null,
+  mode = "live"
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const candidateState = {
+    selectedCandidateId: cleanText(candidateId),
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
+  };
+  const workspaceState = {
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    permanentNoteContinuityReason: permanentNoteContinuityState(
+      workspace,
+      storedSelection,
+      selectedPermanentCandidateId,
+      candidateId,
+      draftInput
+    ).reason
+  };
+  const key =
+    mode === "resume"
+      ? paperWorkspaceResumeStatusKey(candidateState, workspaceState)
+      : paperWorkspaceLiveStatusKey(candidateState, workspaceState);
+  return {
+    key,
+    tone: continuityStatusTone(key),
+    candidateState,
+    workspaceState
+  };
+}
+
 export function draftContinuationActionState(candidateState = null, workspaceState = null) {
   if (!cleanText(candidateState?.selectedCandidateId)) {
     return {

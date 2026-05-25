@@ -18,13 +18,12 @@ import {
   draftKickoffStatusMessage,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
-  permanentNoteContinuityState,
-  paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
   resolveDraftBriefState,
   resolveDraftKickoffRuntimeState,
+  resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
@@ -40,8 +39,7 @@ import {
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
   selectedPermanentCandidate,
-  translationDraftHasLocalChanges,
-  translationDraftForCandidate
+  translationDraftHasLocalChanges
 } from "./paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
 
@@ -518,87 +516,33 @@ function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
 }
 
 function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const workspaceState = {
-    selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-    permanentNoteContinuityReason: permanentNoteContinuityState(
-      state.workspace,
-      storedSelection,
-      state.selectedPermanentCandidateId,
-      state.selectedCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    ).reason
-  };
-  const statusKey = paperWorkspaceResumeStatusKey(
+  return resolvePaperWorkspaceContinuityStatus(
+    state.workspace,
+    storedSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
     {
-      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-      hasSavedTranslation: draft.hasSavedTranslation,
-      hasLocalChanges: draft.hasLocalChanges,
-      supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
     },
-    workspaceState
+    "resume"
   );
-  return {
-    key: statusKey,
-    tone: continuityStatusTone(statusKey)
-  };
 }
 
 function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const workspaceState = {
-    selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-    permanentNoteContinuityReason: permanentNoteContinuityState(
-      state.workspace,
-      storedSelection,
-      state.selectedPermanentCandidateId,
-      state.selectedCandidateId,
-      {
-        paraphraseText: state.form.paraphraseText,
-        relationToQuestion: state.form.relationToQuestion,
-        boundaryOrCondition: state.form.boundaryOrCondition
-      }
-    ).reason
-  };
-  const statusKey = paperWorkspaceLiveStatusKey(
+  return resolvePaperWorkspaceContinuityStatus(
+    state.workspace,
+    storedSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
     {
-      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-      hasSavedTranslation: draft.hasSavedTranslation,
-      hasLocalChanges: draft.hasLocalChanges,
-      supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
     },
-    workspaceState
+    "live"
   );
-  return {
-    key: statusKey,
-    tone: continuityStatusTone(statusKey)
-  };
-}
-
-function continuityStatusTone(statusKey = "") {
-  const cleanKey = String(statusKey || "").trim();
-  if (
-    cleanKey.startsWith("translationNeeds") ||
-    cleanKey === "savedTranslationNeedsDraftSupport" ||
-    cleanKey === "restoredLocalTranslationDraftForPermanentNote" ||
-    cleanKey === "restoredLocalTranslationDraftForSavedPermanentNote"
-  ) {
-    return "warn";
-  }
-  if (cleanKey === "selectedCandidate") return "";
-  return "ok";
 }
 
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
