@@ -202,6 +202,13 @@ export function describeWritingProjectStepState({
   };
 }
 
+export function isWritingScaffoldReadyForDraft({
+  hasScaffold = false,
+  blockingCount = 0
+} = {}) {
+  return Boolean(hasScaffold) && Number(blockingCount || 0) <= 0;
+}
+
 export function describeWritingScaffoldStepState({
   hasScaffold = false,
   blockingCount = 0,
@@ -235,6 +242,12 @@ export function describeWritingDraftStepState({
   hasDraft = false,
   hasScaffold = false
 } = {}) {
+  if (hasDraft) {
+    return {
+      title: "打开当前草稿",
+      note: "草稿已保存，下一步打开当前草稿继续写作。"
+    };
+  }
   if (hasDraft) {
     return {
       title: "保存草稿",
