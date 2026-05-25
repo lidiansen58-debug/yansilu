@@ -948,3 +948,53 @@ export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidate
   if (storedCandidateId && storedCandidateId !== cleanCandidateId) return null;
   return storedCopy;
 }
+
+export function resolveDraftBriefState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null
+) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const continuityReason = permanentNoteContinuityState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    draftInput
+  ).reason;
+  const candidateState = {
+    selectedCandidateId: cleanText(candidateId),
+    hasSavedTranslation: draft.hasSavedTranslation,
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
+  };
+  const workspaceState = {
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    permanentNoteContinuityReason: continuityReason
+  };
+  const draftBrief = draftContinuationBrief(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    draftInput
+  );
+  const currentTranslationSignature = translationContinuitySignature(workspace, candidateId, draftInput);
+  const recentDraftBriefCopy = resolveRecentDraftBriefCopy(
+    workspaceSelection,
+    candidateId,
+    currentTranslationSignature
+  );
+
+  return {
+    draft,
+    draftBriefAction: draftBriefActionState(candidateState, workspaceState),
+    draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
+    draftBrief,
+    recentDraftBriefCopy,
+    currentTranslationSignature,
+    continuityReason
+  };
+}

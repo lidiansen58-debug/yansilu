@@ -13,10 +13,7 @@ import {
   canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
-  draftBriefActionState,
   draftKickoffActionState,
-  draftContinuationActionState,
-  draftContinuationBrief,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
@@ -26,9 +23,9 @@ import {
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
+  resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveRefreshedDraftKickoff,
-  resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolvedTranslationSignatureForPermanentCandidate,
@@ -781,33 +778,7 @@ async function copyTextToClipboard(text) {
 }
 
 function currentDraftBriefState() {
-  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const continuityReason = permanentNoteContinuityState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedPermanentCandidateId,
-    state.selectedCandidateId,
-    {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    }
-  ).reason;
-  const candidateState = {
-    selectedCandidateId: state.selectedCandidateId,
-    hasSavedTranslation: draft.hasSavedTranslation,
-    hasLocalChanges: draft.hasLocalChanges,
-    supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
-  };
-  const workspaceState = {
-    selectedPermanentCandidateId: state.selectedPermanentCandidateId,
-    permanentNoteContinuityReason: continuityReason
-  };
-  const draftBrief = draftContinuationBrief(
+  return resolveDraftBriefState(
     state.workspace,
     state.workspaceSelection,
     state.selectedCandidateId,
@@ -818,22 +789,6 @@ function currentDraftBriefState() {
       boundaryOrCondition: state.form.boundaryOrCondition
     }
   );
-  const currentTranslationSignature = translationContinuitySignature(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const recentDraftBriefCopy = resolveRecentDraftBriefCopy(
-    state.workspaceSelection,
-    state.selectedCandidateId,
-    currentTranslationSignature
-  );
-  return {
-    draftBriefAction: draftBriefActionState(candidateState, workspaceState),
-    draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
-    draftBrief,
-    recentDraftBriefCopy
-  };
 }
 
 function currentDraftKickoffState() {
