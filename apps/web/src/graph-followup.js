@@ -79,7 +79,7 @@ export function graphNextActionForSummary({
       note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
       noteId: String(untypedFromNoteId || "").trim(),
       action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系",
+      actionLabel: "去补关系理由",
       relationId: String(untypedRelationId || "").trim()
     };
   }
@@ -120,7 +120,7 @@ export function graphNextActionForSummary({
       note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
       noteId: String(untypedFromNoteId || "").trim(),
       action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系",
+      actionLabel: "去补关系理由",
       relationId: String(untypedRelationId || "").trim()
     };
   }

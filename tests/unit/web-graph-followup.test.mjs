@@ -40,6 +40,7 @@ test("graph next action prefers relation followup when graph only has untyped re
   assert.equal(nextAction.action, "relations-edit");
   assert.equal(nextAction.noteId, "pn_rel_1");
   assert.equal(nextAction.relationId, "lnk_rel_1");
+  assert.equal(nextAction.actionLabel, "去补关系理由");
 });
 
 test("graph next action prefers tension followup before bridge followup", () => {
