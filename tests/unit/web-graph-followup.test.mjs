@@ -11,7 +11,11 @@ import {
 
 test("graph followup action maps conflict relations to tension", () => {
   assert.equal(graphFollowupActionForRelationType("counterexample_to"), "tension");
-  assert.equal(graphFollowupActionForRelationType("qualifies"), "tension");
+  assert.equal(graphFollowupActionForRelationType("contrasts"), "tension");
+});
+
+test("graph followup action maps qualifies relations to boundary followup", () => {
+  assert.equal(graphFollowupActionForRelationType("qualifies"), "boundary");
 });
 
 test("graph followup action maps bridges to bridge followup", () => {
@@ -48,6 +52,21 @@ test("graph next action prefers tension followup before bridge followup", () => 
 
   assert.equal(nextAction.action, "tension");
   assert.equal(nextAction.noteId, "pn_tension_1");
+});
+
+test("graph next action routes qualifies relations to boundary followup before bridge followup", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    conflictFromNoteId: "pn_boundary_1",
+    conflictRelationType: "qualifies",
+    bridgeNoteId: "pn_bridge_1"
+  });
+
+  assert.equal(nextAction.action, "boundary");
+  assert.equal(nextAction.noteId, "pn_boundary_1");
+  assert.equal(nextAction.actionLabel, "去补边界");
+  assert.match(nextAction.note, /适用条件|不成立/);
 });
 
 test("graph next action offers bridge followup when bridge gaps exist without tensions", () => {
@@ -212,4 +231,38 @@ test("graph isolated node ids still report true isolates in the full unfiltered 
   );
 
   assert.deepEqual(isolatedIds, ["n3"]);
+});
+
+test("graph next action prefers isolated-note followup over generic sparse guidance", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_sparse_1",
+    visibleNodeCount: 3,
+    visibleEdgeCount: 1,
+    isolatedNoteId: "pn_isolated_1",
+    isolatedCount: 1
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_isolated_1");
+  assert.equal(nextAction.actionLabel, "先补孤立观点");
+  assert.match(nextAction.note, /关系网络|写作中心/);
+});
+
+test("graph next action prefers rationale followup over generic sparse guidance", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_sparse_1",
+    visibleNodeCount: 3,
+    visibleEdgeCount: 1,
+    thinRationaleFromNoteId: "pn_basic_1",
+    thinRationaleCount: 1
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_basic_1");
+  assert.equal(nextAction.actionLabel, "先补关系理由");
+  assert.match(nextAction.note, /理由|写作中心/);
 });
