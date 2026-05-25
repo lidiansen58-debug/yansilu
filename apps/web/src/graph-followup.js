@@ -84,47 +84,6 @@ export function graphNextActionForSummary({
     };
   }
 
-  if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
-    return {
-      title: "下一步：先补关键关系",
-      note: "当前切片里已经不止两条永久笔记，但显式关系还太少。先补出 1-2 条最关键的关系，再进入写作中心会更稳。",
-      noteId: String(firstNodeId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补关键关系"
-    };
-  }
-
-  if (isolatedNoteId) {
-    return {
-      title: "下一步：处理孤立观点",
-      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再进入写作中心会更稳。`,
-      noteId: String(isolatedNoteId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补孤立观点"
-    };
-  }
-
-  if (thinRationaleFromNoteId) {
-    return {
-      title: "下一步：先补关系理由",
-      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再进入写作中心会更稳。`,
-      noteId: String(thinRationaleFromNoteId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补关系理由"
-    };
-  }
-
-  if (untypedFromNoteId) {
-    return {
-      title: "下一步：补关系理由",
-      note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
-      noteId: String(untypedFromNoteId || "").trim(),
-      action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系",
-      relationId: String(untypedRelationId || "").trim()
-    };
-  }
-
   if (conflictFromNoteId) {
     if (graphFollowupActionForRelationType(conflictRelationType) === GRAPH_FOLLOWUP_ACTIONS.boundary) {
       return {
@@ -153,6 +112,16 @@ export function graphNextActionForSummary({
       actionLabel: "去补桥接",
       targetNoteId: String(bridgeTargetNoteId || "").trim(),
       relationType: "bridges"
+    };
+  }
+
+  if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
+    return {
+      title: "下一步：先补关键关系",
+      note: "当前切片里已经不止两条永久笔记，但显式关系还太少。先补出 1-2 条最关键的关系，再进入写作中心会更稳。",
+      noteId: String(firstNodeId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补关键关系"
     };
   }
 

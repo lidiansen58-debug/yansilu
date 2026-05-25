@@ -84,6 +84,22 @@ test("graph next action routes qualifies relations to boundary followup before b
   assert.match(nextAction.note, /适用条件|不成立/);
 });
 
+test("graph next action keeps boundary followup ahead of generic sparse guidance", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_sparse_1",
+    visibleNodeCount: 4,
+    visibleEdgeCount: 1,
+    conflictFromNoteId: "pn_boundary_1",
+    conflictRelationType: "qualifies"
+  });
+
+  assert.equal(nextAction.action, "boundary");
+  assert.equal(nextAction.noteId, "pn_boundary_1");
+  assert.equal(nextAction.actionLabel, "去补边界");
+});
+
 test("graph next action offers bridge followup when bridge gaps exist without tensions", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
@@ -96,6 +112,22 @@ test("graph next action offers bridge followup when bridge gaps exist without te
   assert.equal(nextAction.noteId, "pn_bridge_1");
   assert.equal(nextAction.targetNoteId, "pn_bridge_target_1");
   assert.equal(nextAction.relationType, "bridges");
+});
+
+test("graph next action keeps bridge followup ahead of generic sparse guidance", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_sparse_1",
+    visibleNodeCount: 4,
+    visibleEdgeCount: 1,
+    bridgeNoteId: "pn_bridge_1",
+    bridgeTargetNoteId: "pn_bridge_target_1"
+  });
+
+  assert.equal(nextAction.action, "bridge");
+  assert.equal(nextAction.noteId, "pn_bridge_1");
+  assert.equal(nextAction.targetNoteId, "pn_bridge_target_1");
 });
 
 test("graph next action keeps sparse multi-note slices in relation-building mode", () => {
