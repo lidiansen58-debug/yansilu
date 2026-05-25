@@ -709,3 +709,64 @@ test("renderPaperWorkspacePage keeps the selected permanent-note save status", (
   assert.match(html, /active\uff0c\u5982\u679c\u901a\u8fc7 originality \u68c0\u67e5/);
   assert.match(html, /<option value="draft" selected>/);
 });
+
+test("renderPaperWorkspacePage warns in step three when the aligned permanent candidate is stale", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "permanent_candidates",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "converted"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        core_claim: "Saved claim.",
+        rationale: "Saved reason.",
+        originality_status: "warning",
+        status: "draft",
+        savedPermanentNoteId: "note_1",
+        citations: [{ source_id: "src_1" }]
+      }
+    ]
+  };
+  state.workspaceSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.selectedPermanentCandidateId = "pn_1";
+  state.form.paraphraseText = "Saved wording v2.";
+  state.form.relationToQuestion = "Saved relation v2.";
+  state.form.boundaryOrCondition = "Saved boundary v2.";
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
+  assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
+});

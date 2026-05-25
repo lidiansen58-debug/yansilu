@@ -5735,6 +5735,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           assert.equal(await page.locator("#translationBoundaryInput").inputValue(), unsavedBoundary);
           assert.equal(await page.locator(".paper-permanent-preview").count(), 0);
           assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+          const statusText = await currentPaperWorkspaceStatusText(page);
+          assert.match(String(statusText || ""), /已恢复这条候选的本地未保存(转述)?草稿/);
           const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
           assert.match(String(permanentStepText || ""), /保存转述后，可以为当前候选生成永久笔记候选/);
         }, 4000);
@@ -5767,7 +5769,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
               const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /已恢复这条永久笔记候选/);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
             }, 4000);
 	            await page.locator("[data-paper-permanent-candidate-id]").nth(1).click();
 	            await waitFor(async () => {
@@ -5932,6 +5934,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               const previewText = await page.locator(".paper-permanent-preview").textContent();
               assert.match(String(previewText || ""), /旧版转述|重新生成永久笔记候选/);
+              const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+              assert.match(String(translationStepText || ""), /旧版转述|重新生成永久笔记候选/);
             }, 4000);
 
             await page.evaluate(
@@ -6029,6 +6033,24 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.doesNotMatch(String((await page.locator("[data-paper-permanent-candidate-id]").nth(1).getAttribute("class")) || ""), /is-active/);
               assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
               assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), true);
+              assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /已保存为永久笔记/);
+            }, 4000);
+
+            await page.fill("#translationRelationInput", "Saved relation after the permanent note was already confirmed.");
+            await page.click("#btnSaveTranslation");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "save_translation"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+            }, 6000);
+            await waitFor(async () => {
+              const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+              assert.match(String(translationStepText || ""), /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), /旧版转述|重新生成永久笔记候选/);
+              assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /已保存为永久笔记/);
             }, 4000);

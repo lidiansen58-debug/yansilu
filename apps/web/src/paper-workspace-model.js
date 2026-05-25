@@ -365,16 +365,15 @@ export function permanentNoteContinuityState(
   if (!cleanText(permanentCandidate?.id)) {
     return { allowed: false, reason: "missing_permanent_candidate" };
   }
-  if (cleanText(permanentCandidate?.savedPermanentNoteId)) {
-    return { allowed: false, reason: "saved_permanent_note" };
-  }
   const selectedCandidate = selectedPaperCandidate(workspace, candidateId);
   const cleanSelectedCandidateId = cleanText(selectedCandidate?.id || candidateId);
   const isAlignedToSelectedCandidate =
     cleanSelectedCandidateId &&
     cleanText(permanentCandidate?.paper_candidate_id) === cleanSelectedCandidateId;
   if (!isAlignedToSelectedCandidate) {
-    return { allowed: true, reason: "ok" };
+    return cleanText(permanentCandidate?.savedPermanentNoteId)
+      ? { allowed: false, reason: "saved_permanent_note" }
+      : { allowed: true, reason: "ok" };
   }
   const draft = translationDraftForCandidate(workspace, cleanSelectedCandidateId, draftInput);
   if (draft.hasLocalChanges) {
@@ -382,11 +381,16 @@ export function permanentNoteContinuityState(
   }
   const storedSignature = resolvedTranslationSignatureForPermanentCandidate(storedSelection, permanentCandidate.id);
   if (!storedSignature) {
-    return { allowed: true, reason: "ok" };
+    return cleanText(permanentCandidate?.savedPermanentNoteId)
+      ? { allowed: false, reason: "saved_permanent_note" }
+      : { allowed: true, reason: "ok" };
   }
   const currentSignature = translationContinuitySignature(workspace, cleanSelectedCandidateId, draftInput);
   if (!currentSignature || currentSignature !== storedSignature) {
     return { allowed: false, reason: "stale_translation_signature" };
+  }
+  if (cleanText(permanentCandidate?.savedPermanentNoteId)) {
+    return { allowed: false, reason: "saved_permanent_note" };
   }
   return { allowed: true, reason: "ok" };
 }

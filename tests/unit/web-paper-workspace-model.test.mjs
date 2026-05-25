@@ -16,6 +16,7 @@ import {
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   permanentCandidatePersistenceDefaults,
+  permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -251,6 +252,45 @@ test("canSavePermanentNote stays blocked when the saved translation has moved pa
 
   assert.equal(resolvedTranslationSignatureForPermanentCandidate(storedSelection, "pn_1").includes("v1"), true);
   assert.equal(canSavePermanentNote(workspace, storedSelection, "pn_1", "pwc_1"), false);
+});
+
+test("permanentNoteContinuityState prioritizes stale saved translations before a saved permanent-note path", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const storedSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+
+  assert.equal(
+    permanentNoteContinuityState(workspace, storedSelection, "pn_1", "pwc_1").reason,
+    "stale_translation_signature"
+  );
 });
 
 test("canCreatePermanentCandidate stays blocked when only legacy candidate paraphrase exists", () => {
