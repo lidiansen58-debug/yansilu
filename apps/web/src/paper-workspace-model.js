@@ -123,6 +123,23 @@ export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
 
+export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
+  const cleanTranslationId = cleanText(draft.translation?.id);
+  const normalizedDraft = normalizeTranslationDraftInput({
+    paraphraseText: draft.paraphraseText,
+    relationToQuestion: draft.relationToQuestion,
+    boundaryOrCondition: draft.boundaryOrCondition
+  });
+  if (!cleanCandidateId || !cleanTranslationId || !cleanText(normalizedDraft.paraphraseText)) return "";
+  return JSON.stringify({
+    candidateId: cleanCandidateId,
+    translationId: cleanTranslationId,
+    ...normalizedDraft
+  });
+}
+
 export function translationDraftForCandidate(workspace = null, candidateId = "", draftInput = null) {
   const candidate = selectedPaperCandidate(workspace, candidateId);
   const translation = selectedPaperTranslation(workspace, candidate?.id || candidateId);
@@ -260,16 +277,20 @@ export function canCreatePermanentCandidate(workspace = null, candidateId = "", 
   );
 }
 
-export function canSavePermanentNote(workspace = null, permanentCandidateId = "", candidateId = "", draftInput = null) {
-  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, permanentCandidateId);
-  if (!cleanText(permanentCandidate?.id) || cleanText(permanentCandidate?.savedPermanentNoteId)) return false;
-  const selectedCandidate = selectedPaperCandidate(workspace, candidateId);
-  const isAlignedToSelectedCandidate =
-    cleanText(selectedCandidate?.id) &&
-    cleanText(permanentCandidate?.paper_candidate_id) === cleanText(selectedCandidate?.id);
-  if (!isAlignedToSelectedCandidate) return true;
-  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
-  return !draft.hasLocalChanges;
+export function canSavePermanentNote(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  return permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  ).allowed;
 }
 
 export function nextSelectedCandidateId(workspace = null, preferredId = "", options = {}) {
@@ -326,6 +347,50 @@ export function resolvedConfirmAuthorshipForPermanentCandidate(storedSelection =
   }).confirmAuthorship;
 }
 
+export function resolvedTranslationSignatureForPermanentCandidate(storedSelection = null, permanentCandidateId = "") {
+  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
+  return cleanPermanentCandidateId && storedSelection?.translationSignatureByPermanentCandidate
+    ? String(storedSelection.translationSignatureByPermanentCandidate[cleanPermanentCandidateId] || "").trim()
+    : "";
+}
+
+export function permanentNoteContinuityState(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, permanentCandidateId);
+  if (!cleanText(permanentCandidate?.id)) {
+    return { allowed: false, reason: "missing_permanent_candidate" };
+  }
+  if (cleanText(permanentCandidate?.savedPermanentNoteId)) {
+    return { allowed: false, reason: "saved_permanent_note" };
+  }
+  const selectedCandidate = selectedPaperCandidate(workspace, candidateId);
+  const cleanSelectedCandidateId = cleanText(selectedCandidate?.id || candidateId);
+  const isAlignedToSelectedCandidate =
+    cleanSelectedCandidateId &&
+    cleanText(permanentCandidate?.paper_candidate_id) === cleanSelectedCandidateId;
+  if (!isAlignedToSelectedCandidate) {
+    return { allowed: true, reason: "ok" };
+  }
+  const draft = translationDraftForCandidate(workspace, cleanSelectedCandidateId, draftInput);
+  if (draft.hasLocalChanges) {
+    return { allowed: false, reason: "unsaved_translation_changes" };
+  }
+  const storedSignature = resolvedTranslationSignatureForPermanentCandidate(storedSelection, permanentCandidate.id);
+  if (!storedSignature) {
+    return { allowed: true, reason: "ok" };
+  }
+  const currentSignature = translationContinuitySignature(workspace, cleanSelectedCandidateId, draftInput);
+  if (!currentSignature || currentSignature !== storedSignature) {
+    return { allowed: false, reason: "stale_translation_signature" };
+  }
+  return { allowed: true, reason: "ok" };
+}
+
 export function resolveSelectedPaperWorkspaceState(
   workspace = null,
   storedSelection = null,
@@ -348,13 +413,20 @@ export function resolveSelectedPaperWorkspaceState(
     }
   );
   const permanentCandidate = selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  const continuityState = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    selectedPermanentCandidateId,
+    selectedCandidateId
+  );
   return {
     selectedCandidateId,
     selectedPermanentCandidateId,
     saveStatus: permanentCandidatePersistenceDefaults(permanentCandidate, {
       saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, selectedPermanentCandidateId)
     }).saveStatus,
-    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate)
+    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, permanentCandidate),
+    permanentNoteContinuityReason: continuityState.reason
   };
 }
 
@@ -364,6 +436,9 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
   }
   if (candidateState?.hasLocalChanges) {
     return "restoredLocalTranslationDraft";
+  }
+  if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
+    return "translationNeedsFreshPermanentCandidate";
   }
   if (cleanText(workspaceState?.selectedPermanentCandidateId)) {
     return "restoredPermanentCandidateForSelectedPaper";

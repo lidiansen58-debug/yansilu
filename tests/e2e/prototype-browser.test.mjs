@@ -5455,13 +5455,14 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   if (!stack) return;
   const { page, webBase } = stack;
 
-    const paperId = "paper_browser_workspace";
-    const savedParaphrase = "My takeaway is that retrieval effort improves later access to the idea.";
-    const savedRelation = "This supports turning reading work into durable notes.";
-    const savedBoundary = "Only when the study task is comparable.";
-    const unsavedParaphrase = "An unsaved draft should survive candidate switches.";
+  const paperId = "paper_browser_workspace";
+  const savedParaphrase = "My takeaway is that retrieval effort improves later access to the idea.";
+  const savedRelation = "This supports turning reading work into durable notes.";
+  const savedBoundary = "Only when the study task is comparable.";
+  const unsavedParaphrase = "An unsaved draft should survive candidate switches.";
   const unsavedRelation = "This is still in progress and should come back.";
   const unsavedBoundary = "This draft is not ready to save yet.";
+  let firstPermanentCandidateId = "";
 
     await openPaperWorkspace(page, webBase);
     await waitFor(async () => {
@@ -5711,6 +5712,9 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           await waitFor(async () => {
             const text = await page.locator(".paper-result-json").textContent();
             assert.match(text || "", /"stage": "permanent_candidate"/);
+            const parsed = JSON.parse(text || "{}");
+            firstPermanentCandidateId = String(parsed?.permanentCandidate?.id || "").trim();
+            assert.ok(firstPermanentCandidateId);
             assert.equal(await page.locator("[data-paper-permanent-candidate-id]").count(), 1);
             assert.match(String((await page.locator("[data-paper-permanent-candidate-id]").nth(0).getAttribute("class")) || ""), /is-active/);
             const previewText = await page.locator(".paper-permanent-preview").textContent();
@@ -5889,6 +5893,73 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
 	          }, 4000);
+
+            await page.evaluate(
+              ({ key, paperId, permanentCandidateId }) => {
+                const parsed = JSON.parse(window.localStorage.getItem(key) || "{}");
+                window.localStorage.setItem(
+                  key,
+                  JSON.stringify({
+                    ...parsed,
+                    paperId,
+                    translationSignatureByPermanentCandidate: {
+                      ...(parsed.translationSignatureByPermanentCandidate || {}),
+                      [permanentCandidateId]: JSON.stringify({
+                        candidateId: "pwc_1",
+                        translationId: "ptr_1",
+                        paraphraseText: "Saved wording v1.",
+                        relationToQuestion: "Saved relation v1.",
+                        boundaryOrCondition: "Saved boundary v1."
+                      })
+                    },
+                    updatedAt: new Date().toISOString()
+                  })
+                );
+              },
+              { key: paperWorkspaceSelectionStorageKey(paperId), paperId, permanentCandidateId: firstPermanentCandidateId }
+            );
+
+            await openPaperWorkspace(page, webBase);
+            await page.fill("#paperIdInput", paperId);
+            await page.click("#btnLoadPaperWorkspace");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "load_workspace"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+            }, 6000);
+            await waitFor(async () => {
+              assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), /旧版转述|重新生成永久笔记候选/);
+            }, 4000);
+
+            await page.evaluate(
+              ({ key, paperId, permanentCandidateId }) => {
+                const parsed = JSON.parse(window.localStorage.getItem(key) || "{}");
+                const nextSignatures = { ...(parsed.translationSignatureByPermanentCandidate || {}) };
+                delete nextSignatures[permanentCandidateId];
+                window.localStorage.setItem(
+                  key,
+                  JSON.stringify({
+                    ...parsed,
+                    paperId,
+                    translationSignatureByPermanentCandidate: nextSignatures,
+                    updatedAt: new Date().toISOString()
+                  })
+                );
+              },
+              { key: paperWorkspaceSelectionStorageKey(paperId), paperId, permanentCandidateId: firstPermanentCandidateId }
+            );
+
+            await openPaperWorkspace(page, webBase);
+            await page.fill("#paperIdInput", paperId);
+            await page.click("#btnLoadPaperWorkspace");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "load_workspace"/);
+              assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+            }, 6000);
 
             await page.fill("#translationRelationInput", "Step 4 is now stale because Step 3 changed.");
             await waitFor(async () => {

@@ -22,11 +22,13 @@ import {
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  resolvedTranslationSignatureForPermanentCandidate,
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
+  translationContinuitySignature,
   translationDraftHasLocalChanges,
   translationDraftForCandidate,
   workspaceStageLabel
@@ -197,9 +199,14 @@ test("canSavePermanentNote stays blocked while aligned translation has unsaved l
     ],
     permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
   };
+  const storedSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: translationContinuitySignature(workspace, "pwc_1")
+    }
+  };
 
   assert.equal(
-    canSavePermanentNote(workspace, "pn_1", "pwc_1", {
+    canSavePermanentNote(workspace, storedSelection, "pn_1", "pwc_1", {
       paraphraseText: "Saved wording.",
       relationToQuestion: "Updated relation.",
       boundaryOrCondition: "Saved boundary."
@@ -207,13 +214,43 @@ test("canSavePermanentNote stays blocked while aligned translation has unsaved l
     false
   );
   assert.equal(
-    canSavePermanentNote(workspace, "pn_1", "pwc_1", {
+    canSavePermanentNote(workspace, storedSelection, "pn_1", "pwc_1", {
       paraphraseText: "Saved wording.",
       relationToQuestion: "Saved relation.",
       boundaryOrCondition: "Saved boundary."
     }),
     true
   );
+});
+
+test("canSavePermanentNote stays blocked when the saved translation has moved past the stored permanent-candidate signature", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+  const storedSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+
+  assert.equal(resolvedTranslationSignatureForPermanentCandidate(storedSelection, "pn_1").includes("v1"), true);
+  assert.equal(canSavePermanentNote(workspace, storedSelection, "pn_1", "pwc_1"), false);
 });
 
 test("canCreatePermanentCandidate stays blocked when only legacy candidate paraphrase exists", () => {
@@ -571,7 +608,8 @@ test("resolveSelectedPaperWorkspaceState restores aligned paper and permanent se
       selectedCandidateId: "pwc_2",
       selectedPermanentCandidateId: "pn_2",
       saveStatus: "draft",
-      confirmAuthorship: true
+      confirmAuthorship: true,
+      permanentNoteContinuityReason: "ok"
     }
   );
 });
@@ -604,11 +642,49 @@ test("resolveSelectedPaperWorkspaceState keeps step 4 empty when the selected pa
       selectedCandidateId: "pwc_2",
       selectedPermanentCandidateId: "",
       saveStatus: "active",
-      confirmAuthorship: false
+      confirmAuthorship: false,
+      permanentNoteContinuityReason: "missing_permanent_candidate"
     }
   );
   assert.equal(selectedAlignedPermanentCandidate(workspace, ""), null);
   assert.equal(resolvedSaveStatusForPermanentCandidate(storedSelection, ""), "active");
+});
+
+test("resolveSelectedPaperWorkspaceState marks an aligned permanent candidate as stale when its stored translation signature no longer matches", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+  const storedSelection = {
+    selectedCandidateId: "pwc_1",
+    selectedPermanentCandidateId: "pn_1",
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+
+  assert.equal(
+    resolveSelectedPaperWorkspaceState(workspace, storedSelection, {
+      preferredCandidateId: "pwc_1",
+      preferredPermanentCandidateId: "pn_1"
+    }).permanentNoteContinuityReason,
+    "stale_translation_signature"
+  );
 });
 
 test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state", () => {
@@ -624,6 +700,21 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
       }
     ),
     "restoredLocalTranslationDraftOverSavedTranslation"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "stale_translation_signature"
+      }
+    ),
+    "translationNeedsFreshPermanentCandidate"
   );
 
   assert.equal(
