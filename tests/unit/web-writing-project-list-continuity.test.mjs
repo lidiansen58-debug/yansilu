@@ -34,4 +34,5 @@ test("writing project list actions reuse the unified continuity entry handler", 
   assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
   assert.match(fnBody, /openDraft: action === "open-draft"/);
+  assert.match(fnBody, /action === "open-draft" \? "打开当前草稿" : action === "resume-scaffold" \? "回到草稿骨架" : "继续当前项目"/);
 });
