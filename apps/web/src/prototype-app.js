@@ -6768,6 +6768,8 @@ function renderWritingStatusStrip() {
     relationCountsErrored,
     readinessLevel: readiness.level,
     readinessHint: readiness.hint,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: projectPreflightSummary.level,
     projectPreflightChecksLength: projectPreflightChecks.length,
     strongModelReady
@@ -7118,6 +7120,8 @@ function renderWritingPanel() {
     relationCountsErrored,
     readinessLevel: basketReadiness.level,
     readinessHint: basketReadiness.hint,
+    projectEntryProjectId: writingState.project?.id ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: writingState.project?.id ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: projectPreflightSummary.level,
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
     strongModelReady
@@ -7186,7 +7190,8 @@ function renderWritingPanel() {
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
+    const canContinueProjectedStrongModel = !writingState.project?.id && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !(strongModelReady || canContinueProjectedStrongModel);
     strongModelButton.textContent = describeWritingStrongModelButtonLabel({
       basketCount: strongModelBasketIds.length,
       loading: writingState.strongModelLoading,
@@ -9927,6 +9932,27 @@ $("btnWritingClearBasket")?.addEventListener("click", () => {
 });
 
 $("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
+  const continuation = !writingState.project?.id ? currentWritingContinuationEntry("当前写作篮") : null;
+  const basketReadiness = currentWritingBasketReadiness();
+  if (continuation?.projectId && basketReadiness.level === "strong_model_ready") {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "resume-scaffold"
+            ? `已回到草稿骨架：${continuation.projectId}`
+            : continuation.action === "resume-project"
+              ? `已继续当前项目：${continuation.projectId}`
+              : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "打开当前草稿" : continuation.action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
   await prepareWritingStrongModelAnalysis();
 });
 

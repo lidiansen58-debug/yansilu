@@ -506,6 +506,8 @@ export function describeWritingStrongModelStatus({
   relationCountsErrored = false,
   readinessLevel = "",
   readinessHint = "",
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   projectPreflightLevel = "",
   projectPreflightChecksLength = 0,
   strongModelReady = false
@@ -522,6 +524,13 @@ export function describeWritingStrongModelStatus({
       status: "读取中",
       hint: "正在读取显式关系，等结果回来后再判断是否能进入强模型分析。",
       buttonLabel: "正在读取关系"
+    };
+  }
+  if (!hasProject && String(projectEntryProjectId || "").trim() && String(projectEntryActionLabel || "").trim() && String(readinessLevel || "").trim() === "strong_model_ready") {
+    return {
+      status: `先${String(projectEntryActionLabel || "").trim()}`,
+      hint: `当前材料已经到强模型分析前的就绪阶段；先${String(projectEntryActionLabel || "").trim()}，再继续后续分析。`,
+      buttonLabel: `先${String(projectEntryActionLabel || "").trim()}`
     };
   }
   if (!hasProject && String(readinessLevel || "").trim() === "strong_model_ready") {
