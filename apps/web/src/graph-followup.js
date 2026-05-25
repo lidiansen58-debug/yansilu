@@ -258,8 +258,8 @@ export function graphWritingFollowupEntryPlan({
       hasBasket: basketIds.length > 0,
       prefillNoteIds: addedCandidateIds,
       statusMessage: basketIds.length
-        ? `已从图谱进入写作中心，并把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记加入写作篮。`
-        : `已从图谱进入写作中心，并带入当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记。`
+        ? `已把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记加入写作篮，继续当前写作篮推进。`
+        : `已把当前可见图谱里的 ${addedCandidateIds.length} 条永久笔记带入写作篮。`
     };
   }
 
