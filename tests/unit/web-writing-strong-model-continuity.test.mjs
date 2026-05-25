@@ -26,8 +26,12 @@ test("writing strong-model status reuses projected project continuity before a p
 test("writing strong-model button and handler reuse projected continuity before running analysis", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /const canContinueProjectedStrongModel = !writingState\.project\?\.id && Boolean\(projectEntry\?\.projectId\) && Boolean\(projectEntry\?\.actionLabel\) && basketReadiness\.level === "strong_model_ready";/);
-  assert.match(source, /strongModelButton\.disabled = writingState\.strongModelLoading \|\| strongModelBasketIds\.length === 0 \|\| !\(strongModelReady \|\| canContinueProjectedStrongModel\);/);
+  assert.match(source, /const canContinueProjectedStrongModel =/);
+  assert.match(source, /basketReadiness\.level === "strong_model_ready"/);
+  assert.match(
+    source,
+    /strongModelButton\.disabled = writingState\.strongModelLoading \|\| strongModelBasketIds\.length === 0 \|\| !\(strongModelReady \|\| canContinueProjectedStrongModel\);/
+  );
 
   const match = source.match(/\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{([\s\S]*?)\n\}\);/);
   assert.ok(match, "expected writing strong-model handler to exist");

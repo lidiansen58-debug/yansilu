@@ -6791,6 +6791,8 @@ function renderWritingStatusStrip() {
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
   });
+  const canContinueProjectedStrongModel =
+    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
     hasProject,
     relationCountsReady,
@@ -6803,7 +6805,7 @@ function renderWritingStatusStrip() {
     projectPreflightChecksLength: projectPreflightChecks.length,
     strongModelReady
   });
-  const strongModelTone = strongModelReady ? "good" : "warn";
+  const strongModelTone = strongModelReady || canContinueProjectedStrongModel ? "good" : "warn";
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
     renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
@@ -7228,7 +7230,6 @@ function renderWritingPanel() {
   if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    const canContinueProjectedStrongModel = !writingState.project?.id && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
     strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !(strongModelReady || canContinueProjectedStrongModel);
     strongModelButton.textContent = describeWritingStrongModelButtonLabel({
       basketCount: strongModelBasketIds.length,
