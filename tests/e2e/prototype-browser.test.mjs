@@ -6458,6 +6458,56 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 6000);
+
+            const secondRefreshedKickoffRelation = "Saved path relation after a second kickoff refresh cycle.";
+            await page.fill("#translationRelationInput", secondRefreshedKickoffRelation);
+            await page.click("#btnSaveTranslation");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "save_translation"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
+              assert.match(
+                String((await page.locator("[data-paper-draft-kickoff-note]").textContent()) || ""),
+                /仍基于旧版转述/
+              );
+              assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
+            }, 6000);
+
+            await page.click("#btnCreatePermanentCandidate");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "(create_permanent_candidate|permanent_candidate)"/);
+              assert.equal(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
+              assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+            }, 6000);
+
+            await page.locator("#confirmAuthorshipInput").check();
+            await page.click("#btnSavePermanentNote");
+            await waitFor(async () => {
+              const text = await page.locator(".paper-result-json").textContent();
+              assert.match(text || "", /"stage": "save_permanent_note"/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /永久笔记已保存/);
+              assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /载入新版 brief，更新本地 draft/);
+            }, 6000);
+
+            await page.click("#btnStartDraftKickoff");
+            await waitFor(async () => {
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
+              assert.match(
+                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+                new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.match(
+                String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+              );
+              assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
