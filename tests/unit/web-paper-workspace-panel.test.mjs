@@ -969,6 +969,26 @@ test("renderPaperWorkspacePage falls back when permanent preview boundary or cit
   state.form.paraphraseText = "My own wording.";
   state.form.relationToQuestion = "This matters for the writing question.";
   state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.form.draftKickoffText = "Current kickoff wording.";
+  state.form.draftKickoffSignature = "sig_current";
+  state.form.draftKickoffPreviousText = "Previous kickoff wording.";
+  state.form.draftKickoffPreviousSignature = "sig_previous";
+  state.form.draftKickoffReplacementSignature = "sig_current";
+  state.draftKickoffState = {
+    content: "Current kickoff wording.",
+    hasContent: true,
+    isStale: false,
+    action: {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    },
+    previousSnapshot: {
+      content: "Previous kickoff wording.",
+      signature: "sig_previous",
+      replacementSignature: "sig_current"
+    }
+  };
 
   const html = renderPaperWorkspacePage(state);
 
@@ -1019,6 +1039,21 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   state.form.paraphraseText = "My own wording.";
   state.form.relationToQuestion = "This matters for the writing question.";
   state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.draftKickoffState = {
+    content: "Current kickoff wording.",
+    hasContent: true,
+    isStale: false,
+    action: {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    },
+    previousSnapshot: {
+      content: "Previous kickoff wording.",
+      signature: "sig_previous",
+      replacementSignature: "sig_current"
+    }
+  };
 
   const html = renderPaperWorkspacePage(state);
 
@@ -1033,6 +1068,9 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   assert.match(html, /data-paper-draft-continuity="review_saved_permanent_note"/);
   assert.ok(html.includes("继续写 draft 前，先回看 originality / authorship"));
   assert.match(html, /id="btnCopyDraftBrief"[^>]*>复制 draft brief</);
+  assert.match(html, /id="draftKickoffTextarea"/);
+  assert.match(html, /id="draftKickoffPreviousTextarea"/);
+  assert.match(html, /id="btnAdoptPreviousKickoff"/);
   assert.ok(html.includes("Step 4: 已保存永久笔记路径 (Permanent One)"));
   assert.match(html, /\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);

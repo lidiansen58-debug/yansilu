@@ -940,6 +940,51 @@ test("nextSelectedPermanentCandidateId ignores a stale preferred permanent candi
   );
 });
 
+test("nextSelectedPermanentCandidateId prefers the latest matching saved path for the selected paper candidate", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Updated paraphrase.",
+        relationToQuestion: "Updated relation.",
+        boundaryOrCondition: "Updated boundary."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_old",
+        paper_candidate_id: "pwc_1",
+        savedPermanentNoteId: "saved_old",
+        updated_at: "2026-05-20T00:00:00.000Z"
+      },
+      {
+        id: "pn_new",
+        paper_candidate_id: "pwc_1",
+        savedPermanentNoteId: "saved_new",
+        updated_at: "2026-05-21T00:00:00.000Z"
+      }
+    ]
+  };
+  const currentSignature = translationContinuitySignature(workspace, "pwc_1");
+  const storedSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_old: "stale-signature",
+      pn_new: currentSignature
+    }
+  };
+
+  assert.equal(
+    nextSelectedPermanentCandidateId(workspace, "", {
+      selectedPaperCandidateId: "pwc_1",
+      storedSelection,
+      fallbackToFirst: false
+    }),
+    "pn_new"
+  );
+});
+
 test("permanentCandidatePersistenceDefaults prefers candidate-backed save status and authorship", () => {
   assert.deepEqual(
     permanentCandidatePersistenceDefaults(
