@@ -346,10 +346,24 @@ export function describeWritingDraftStepState({
   projectEntryProjectId = "",
   projectEntryAction = ""
 } = {}) {
-  if (String(projectEntryProjectId || "").trim() && String(projectEntryAction || "").trim() === "open-draft") {
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationAction = String(projectEntryAction || "").trim();
+  if (continuationProjectId && continuationAction === "open-draft") {
     return {
       title: "打开当前草稿",
       note: "先打开当前草稿，再继续当前写作。"
+    };
+  }
+  if (continuationProjectId && continuationAction === "resume-scaffold") {
+    return {
+      title: "继续草稿骨架",
+      note: "先回到草稿骨架，再继续保存草稿。"
+    };
+  }
+  if (continuationProjectId && continuationAction === "resume-project") {
+    return {
+      title: "继续当前项目",
+      note: "先继续当前项目，再生成草稿骨架并保存草稿。"
     };
   }
   if (hasDraft) {

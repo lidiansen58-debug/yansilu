@@ -12,5 +12,29 @@ test("writing draft step reuses projected draft continuity before a project is r
   });
 
   assert.equal(step.title, "打开当前草稿");
-  assert.match(step.note, /打开当前草稿|继续写作/);
+  assert.equal(step.note, "先打开当前草稿，再继续当前写作。");
+});
+
+test("writing draft step reuses projected scaffold continuity before a project is reopened", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: false,
+    projectEntryProjectId: "wp_existing",
+    projectEntryAction: "resume-scaffold"
+  });
+
+  assert.equal(step.title, "继续草稿骨架");
+  assert.equal(step.note, "先回到草稿骨架，再继续保存草稿。");
+});
+
+test("writing draft step reuses projected project continuity before a project is reopened", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: false,
+    projectEntryProjectId: "wp_existing",
+    projectEntryAction: "resume-project"
+  });
+
+  assert.equal(step.title, "继续当前项目");
+  assert.equal(step.note, "先继续当前项目，再生成草稿骨架并保存草稿。");
 });
