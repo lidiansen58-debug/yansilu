@@ -6740,6 +6740,13 @@ function renderWritingStatusStrip() {
       : hasProject || canContinueProjectedProjectStatus || readiness.level === "project_ready" || readiness.level === "strong_model_ready"
         ? "good"
         : "warn";
+  const projectStatus = hasProject
+    ? projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
+        : "已创建"
+    : projectEntry.status;
   const projectNote = hasProject
     ? projectPreflightSummary.level !== "ready"
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
@@ -6838,7 +6845,7 @@ function renderWritingStatusStrip() {
   const strongModelTone = strongModelReady || canContinueProjectedStrongModel ? "good" : "warn";
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
-    renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
+    renderWritingStatusCard("项目", projectStatus, projectNote, projectTone),
     renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, scaffoldTone),
     renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
     renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
