@@ -10510,6 +10510,7 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
+  const missingProjectLabel = String($("btnWritingCreateScaffold")?.textContent || "").trim();
   if (!writingProjectId && continuation?.projectId) {
     try {
       await continueWritingProjectEntry(continuation.projectId, {
@@ -10531,7 +10532,7 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
     }
     return;
   }
-  if (!writingProjectId) return setStatus("请先创建项目", "warn");
+  if (!writingProjectId) return setStatus(missingProjectLabel || "先补写作材料", "warn");
   if (projectPreflightSummary.level !== "ready") {
     return setStatus(projectPreflightSummary.hint || "先补项目条件，再生成草稿骨架。", "warn");
   }

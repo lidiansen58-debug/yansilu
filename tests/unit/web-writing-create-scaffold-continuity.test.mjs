@@ -22,9 +22,10 @@ test("writing scaffold handler reuses projected continuity before warning about 
 
   assert.match(fnBody, /const projectPreflightSummary = describeWritingProjectPreflight\(writingState\.project\?\.preflight \|\| null\);/);
   assert.match(fnBody, /const continuation = !writingProjectId \? currentWritingContinuationEntry\("当前写作篮"\) : null;/);
+  assert.match(fnBody, /const missingProjectLabel = String\(\$\("btnWritingCreateScaffold"\)\?\.textContent \|\| ""\)\.trim\(\);/);
   assert.match(fnBody, /if \(!writingProjectId && continuation\?\.projectId\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
-  assert.match(fnBody, /if \(!writingProjectId\) return setStatus\("请先创建项目", "warn"\);/);
+  assert.match(fnBody, /if \(!writingProjectId\) return setStatus\(missingProjectLabel \|\| "先补写作材料", "warn"\);/);
   assert.match(fnBody, /if \(projectPreflightSummary\.level !== "ready"\) \{/);
   assert.match(fnBody, /setStatus\(projectPreflightSummary\.hint \|\| "先补项目条件，再生成草稿骨架。", "warn"\)/);
 });
