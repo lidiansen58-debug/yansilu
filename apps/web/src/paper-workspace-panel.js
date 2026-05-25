@@ -7,6 +7,7 @@
   candidateLabel,
   candidateStatusLabel,
   draftBriefActionState,
+  draftKickoffActionState,
   draftContinuationBrief,
   draftContinuationActionState,
   permanentNoteContinuityState,
@@ -221,7 +222,7 @@ function renderDraftContinuationNotice(actionState = null) {
   )}">${escapeHtml(label)}</div>`;
 }
 
-function renderDraftBriefCard(actionState = null, brief = null, recentCopy = null) {
+function renderDraftBriefCard(actionState = null, brief = null, recentCopy = null, kickoffState = null) {
   if (!String(brief?.title || "").trim()) return "";
   return `
     <div class="paper-preview-row" data-paper-draft-brief>
@@ -238,12 +239,27 @@ function renderDraftBriefCard(actionState = null, brief = null, recentCopy = nul
         <button id="btnCopyDraftBrief" type="button" ${actionState?.enabled ? "" : "disabled"}>${escapeHtml(
           actionState?.label || "复制 draft brief"
         )}</button>
+        <button id="btnStartDraftKickoff" type="button" ${kickoffState?.action?.enabled ? "" : "disabled"}>${escapeHtml(
+          kickoffState?.action?.label || "载入 brief，开始本地 draft"
+        )}</button>
       </div>
       ${
         recentCopy?.nextAction
           ? `<div class="paper-result-empty" data-paper-draft-brief-copy>最近一次已复制。下一步：${escapeHtml(
               recentCopy.nextAction
             )}</div>`
+          : ""
+      }
+      ${
+        kickoffState?.hasContent
+          ? `<label>Local draft kickoff<textarea id="draftKickoffTextarea" placeholder="这里会保留 candidate-scoped 的本地 draft kickoff。">${escapeHtml(
+              kickoffState.content || ""
+            )}</textarea></label>
+      <div class="paper-result-empty" data-paper-draft-kickoff-note>${
+        kickoffState.isStale
+          ? "这份本地 draft kickoff 仍基于旧版转述。先载入新版 brief，再决定保留哪些写法。"
+          : "这份本地 draft kickoff 会跟着当前候选连续恢复，你可以直接继续写。"
+      }</div>`
           : ""
       }
     </div>
@@ -348,6 +364,29 @@ export function renderPaperWorkspacePage(state = {}) {
       permanentNoteContinuityReason: permanentNoteContinuity.reason
     }
   );
+  const draftKickoffState = state.draftKickoffState || {
+    content: String(form.draftKickoffText || ""),
+    hasContent: Boolean(String(form.draftKickoffText || "").trim()),
+    isStale: false
+  };
+  draftKickoffState.action =
+    draftKickoffState.action ||
+    draftKickoffActionState(
+      {
+        selectedCandidateId: selectedCandidate?.id || "",
+        hasSavedTranslation: selectedDraft.hasSavedTranslation,
+        hasLocalChanges: selectedDraft.hasLocalChanges,
+        supportsNextStep: Boolean(
+          String(selectedDraft.relationToQuestion || "").trim() &&
+            String(selectedDraft.boundaryOrCondition || "").trim()
+        )
+      },
+      {
+        selectedPermanentCandidateId: selectedPermanent?.id || "",
+        permanentNoteContinuityReason: permanentNoteContinuity.reason
+      },
+      draftKickoffState
+    );
   const draftBrief = draftContinuationBrief(
     workspace,
     state.workspaceSelection || null,
@@ -425,7 +464,7 @@ export function renderPaperWorkspacePage(state = {}) {
                 <button id="btnCreatePermanentCandidate" type="button" ${permanentCandidateAction.enabled ? "" : "disabled"}>${permanentCandidateAction.label}</button>
               </div>
               ${renderDraftContinuationNotice(draftContinuationAction)}
-              ${renderDraftBriefCard(draftBriefAction, draftBrief, state.lastCopiedDraftBrief)}
+              ${renderDraftBriefCard(draftBriefAction, draftBrief, state.lastCopiedDraftBrief, draftKickoffState)}
             </div>
           </div>
         </section>

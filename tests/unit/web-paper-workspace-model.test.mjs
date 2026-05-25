@@ -11,6 +11,7 @@ import {
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
+  draftKickoffActionState,
   draftContinuationBrief,
   draftContinuationActionState,
   normalizeTranslationDraftInput,
@@ -61,6 +62,8 @@ test("emptyPaperWorkspaceForm provides the expected workflow defaults", () => {
     paraphraseText: "",
     relationToQuestion: "",
     boundaryOrCondition: "",
+    draftKickoffText: "",
+    draftKickoffSignature: "",
     confirmAuthorship: false,
     saveStatus: "active"
   });
@@ -318,6 +321,72 @@ test("draftBriefActionState only unlocks when the draft path is ready to hand of
     {
       enabled: false,
       label: "当前还不能复制 draft brief"
+    }
+  );
+});
+
+test("draftKickoffActionState reflects whether local draft work should start, resume, or stay blocked", () => {
+  const candidateState = {
+    selectedCandidateId: "pwc_1",
+    hasSavedTranslation: true,
+    hasLocalChanges: false,
+    supportsNextStep: true
+  };
+
+  assert.deepEqual(
+    draftKickoffActionState(
+      candidateState,
+      {
+        selectedPermanentCandidateId: "",
+        permanentNoteContinuityReason: "missing_permanent_candidate"
+      },
+      {
+        hasContent: false,
+        isStale: false
+      }
+    ),
+    {
+      enabled: true,
+      key: "start_local_draft",
+      label: "载入 brief，开始本地 draft"
+    }
+  );
+
+  assert.deepEqual(
+    draftKickoffActionState(
+      candidateState,
+      {
+        selectedPermanentCandidateId: "",
+        permanentNoteContinuityReason: "missing_permanent_candidate"
+      },
+      {
+        hasContent: true,
+        isStale: false
+      }
+    ),
+    {
+      enabled: true,
+      key: "resume_local_draft",
+      label: "继续本地 draft"
+    }
+  );
+
+  assert.deepEqual(
+    draftKickoffActionState(
+      candidateState,
+      {
+        selectedPermanentCandidateId: "pn_1",
+        permanentNoteContinuityReason: "stale_translation_signature"
+      },
+      {
+        hasContent: true,
+        isStale: true
+      }
+    ),
+    {
+      enabled: false,
+      key: "refresh_permanent_candidate",
+      label: "先刷新 Step 4"
     }
   );
 });

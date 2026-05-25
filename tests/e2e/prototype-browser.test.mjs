@@ -5605,6 +5605,18 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(copiedText || ""), /This supports turning reading work into durable notes\./);
     }, 4000);
 
+    await page.click("#btnStartDraftKickoff");
+    await waitFor(async () => {
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
+      assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
+      assert.match(String((await page.locator("#draftKickoffTextarea").inputValue()) || ""), /# Draft brief:/);
+      assert.match(
+        String((await page.locator("[data-paper-draft-kickoff-note]").textContent()) || ""),
+        /本地 draft kickoff 会跟着当前候选连续恢复/
+      );
+    }, 4000);
+
     await page.locator(".paper-candidate").nth(1).click();
     await waitFor(async () => {
       assert.equal(await page.locator("#translationParaphraseInput").inputValue(), "");
@@ -5615,6 +5627,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /已选择候选/);
+      assert.equal(await page.locator("#draftKickoffTextarea").count(), 0);
     }, 4000);
 
     await page.fill("#translationRelationInput", "This relation should survive a failed save.");
@@ -5714,6 +5727,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
         String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
         /最近一次已复制。下一步：.*具备继续写 draft 的最小条件/
       );
+      assert.match(String((await page.locator("#draftKickoffTextarea").inputValue()) || ""), /# Draft brief:/);
+      assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
     }, 4000);
 
       await page.locator(".paper-candidate").nth(1).click();
