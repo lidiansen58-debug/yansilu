@@ -5775,7 +5775,9 @@ export class EditorPane {
                   ? `理由待补 ${thinExplicitRelationCount}`
                   : `已建 ${explicitRelationCount}`
                 : wikilinkCount
-                  ? `wikilink ${wikilinkCount}`
+                  ? Number(overview.tagRelatedCount || 0) > 0
+                    ? `混合线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + Number(overview.tagRelatedCount || 0))}`
+                    : `wikilink ${wikilinkCount}`
                   : "待建立",
         hint:
           relationState === "loading"
