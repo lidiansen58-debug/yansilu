@@ -6635,6 +6635,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
                 new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
               );
+              assert.notEqual(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /先刷新 Step 4/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 4000);
@@ -6660,6 +6662,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
                 new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
               );
+              assert.notEqual(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /先刷新 Step 4/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 6000);
@@ -6676,6 +6680,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("[data-paper-draft-brief-saved-note]").textContent()) || ""),
                 new RegExp(`Saved note: ${secondSavedPermanentNoteId}`)
               );
+              assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /复制 brief，回看已保存路径/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
               assert.match(
                 String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
