@@ -481,12 +481,20 @@ export function describeWritingMaterialStatus({
   readinessLevel = "",
   readinessStatus = "",
   readinessHint = "",
-  hasProject = false
+  hasProject = false,
+  projectEntryProjectId = "",
+  projectEntryActionLabel = ""
 } = {}) {
   const cleanLevel = String(readinessLevel || "").trim();
   const cleanStatus = String(readinessStatus || "").trim();
   const cleanHint = String(readinessHint || "").trim();
 
+  if (!hasProject && cleanLevel === "strong_model_ready" && String(projectEntryProjectId || "").trim() && String(projectEntryActionLabel || "").trim()) {
+    return {
+      status: `先${String(projectEntryActionLabel || "").trim()}`,
+      hint: `当前材料已经到强模型分析前的就绪阶段；先${String(projectEntryActionLabel || "").trim()}，再继续后续分析。`
+    };
+  }
   if (!hasProject && cleanLevel === "strong_model_ready") {
     return {
       status: "先创建项目",

@@ -6720,7 +6720,9 @@ function renderWritingStatusStrip() {
     readinessLevel: readiness.level,
     readinessStatus: readiness.status,
     readinessHint: readiness.hint,
-    hasProject
+    hasProject,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim()
   });
   const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectEntry =
