@@ -6051,29 +6051,61 @@ function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = 
   return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
 }
 
-function currentWritingEntryProject() {
-  const basketNoteIds = parseWritingBasketIds();
-  if (!basketNoteIds.length) return null;
-  const sourceIndexIds = uniqueStrings([writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]);
-  const sourceThemeId = sourceIndexIds[0] || "";
+function writingEntryProjectForContext({ basketNoteIds = [], sourceIndexIds = [] } = {}) {
+  const normalizedBasketNoteIds = uniqueStrings(basketNoteIds);
+  if (!normalizedBasketNoteIds.length) return null;
+  const normalizedSourceIndexIds = uniqueStrings(sourceIndexIds);
+  const activeSourceIndexIds = normalizedSourceIndexIds.length
+    ? normalizedSourceIndexIds
+    : uniqueStrings([writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]);
+  const sourceThemeId = activeSourceIndexIds[0] || "";
   const sourceTheme = sourceThemeId ? writingThemeIndexById(sourceThemeId) : null;
   if (
     writingProjectMatchesContext(writingState.project, {
       themeId: sourceThemeId,
-      noteIds: basketNoteIds
+      noteIds: normalizedBasketNoteIds
     })
   ) {
     return writingState.project;
   }
-  return findExistingWritingProjectForTheme(sourceTheme, basketNoteIds);
+  return findExistingWritingProjectForTheme(sourceTheme, normalizedBasketNoteIds);
 }
 
-function currentWritingContinuationEntry(scopeLabel = "当前材料") {
-  const existingProject = currentWritingEntryProject();
+function writingContinuationEntryForContext({ basketNoteIds = [], sourceIndexIds = [], scopeLabel = "当前材料" } = {}) {
+  const existingProject = writingEntryProjectForContext({ basketNoteIds, sourceIndexIds });
   return describeWritingContinuationAction({
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
+    scopeLabel
+  });
+}
+
+function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱切片") {
+  const projectedEntry = planWritingBasketEntry({
+    existingNoteIds: parseWritingBasketIds(),
+    incomingNoteIds: candidateNoteIds
+  });
+  return writingContinuationEntryForContext({
+    basketNoteIds: projectedEntry.basketNoteIds,
+    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds],
+    scopeLabel
+  });
+}
+
+function currentWritingEntryProject() {
+  const basketNoteIds = parseWritingBasketIds();
+  if (!basketNoteIds.length) return null;
+  return writingEntryProjectForContext({
+    basketNoteIds,
+    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]
+  });
+}
+
+function currentWritingContinuationEntry(scopeLabel = "当前材料") {
+  return writingContinuationEntryForContext({
+    basketNoteIds: parseWritingBasketIds(),
+    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds],
     scopeLabel
   });
 }
@@ -8222,6 +8254,12 @@ function renderGraphPanel() {
     `);
   }
 
+  const graphFocusNoteIds = visibleNodes.map((node) => node.id);
+  const graphBasketNoteIds = graphWritingCandidateNoteIds(graphFocusNoteIds, {
+    noteLookup: writingKnownNoteById,
+    isEligible: isWritingEligibleNote
+  });
+  const graphWritingContinuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
   const nextAction = graphNextActionForSummary({
     hasNodes: nodes.length > 0,
     hasEdges: allEdges.length > 0,
@@ -8239,7 +8277,8 @@ function renderGraphPanel() {
       (Array.isArray(conflictItems[0]?.noteIds) ? String(conflictItems[0]?.noteIds?.[0] || "").trim() : ""),
     conflictRelationType: String(conflictingRelations[0]?.relationType || "").trim(),
     bridgeNoteId: Array.isArray(bridgeGaps[0]?.noteIds) ? String(bridgeGaps[0]?.noteIds?.[0] || "").trim() : "",
-    bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : ""
+    bridgeTargetNoteId: Array.isArray(bridgeGaps[0]?.targetNoteIds) ? String(bridgeGaps[0]?.targetNoteIds?.[0] || "").trim() : "",
+    writingContinuation: graphWritingContinuation
   });
 
   summary.textContent = `${graph.directoryTitle || folder?.name || "永久笔记盒"}：${nodes.length} 个永久笔记节点，${allEdges.length} 条链接；当前显示 ${visibleNodes.length} 个节点、${edges.length} 条关系（${typeFilterLabel} / ${statusFilterLabel}）。`;
@@ -8678,7 +8717,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
         source: "graph_followup_writing"
       });
     }
-    const continuation = currentWritingContinuationEntry("当前图谱切片");
+    const continuation = graphWritingContinuationEntry(graphBasketNoteIds, "当前图谱切片");
     void (async () => {
       if (continuation?.projectId) {
         await continueWritingProjectEntry(continuation.projectId, {

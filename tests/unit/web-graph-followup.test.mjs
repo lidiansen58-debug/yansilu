@@ -141,6 +141,24 @@ test("graph next action points to writing center once structure is already clear
   assert.match(nextAction.note, /带进写作中心/);
 });
 
+test("graph next action reuses continuity wording when the current slice already maps to an existing draft", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    writingContinuation: {
+      projectId: "wp_existing",
+      status: "打开当前草稿",
+      hint: "当前图谱切片已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新进入写作中心更连续。",
+      actionLabel: "打开当前草稿"
+    }
+  });
+
+  assert.equal(nextAction.action, "writing");
+  assert.equal(nextAction.title, "下一步：打开当前草稿");
+  assert.equal(nextAction.actionLabel, "打开当前草稿");
+  assert.match(nextAction.note, /wp_existing|当前草稿/);
+});
+
 test("graph writing followup preloads current scope notes when basket is empty and scope is small", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],

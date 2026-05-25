@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-test("graph writing followup reuses the unified writing continuity entry when a matching project already exists", () => {
+test("graph writing followup reuses the projected writing continuity entry when a matching project already exists", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
@@ -13,8 +13,19 @@ test("graph writing followup reuses the unified writing continuity entry when a 
   assert.ok(match, "expected graph writing followup handler to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /const continuation = currentWritingContinuationEntry\("当前图谱切片"\);/);
+  assert.match(fnBody, /const continuation = graphWritingContinuationEntry\(graphBasketNoteIds, "当前图谱切片"\);/);
   assert.match(fnBody, /if \(continuation\?\.projectId\) \{/);
   assert.match(fnBody, /await continueWritingProjectEntry\(continuation\.projectId, \{/);
   assert.match(fnBody, /openDraft: continuation\.action === "open-draft"/);
+});
+
+test("graph next-action card computes projected continuity from the visible writing candidates", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  assert.match(source, /function graphWritingContinuationEntry\(candidateNoteIds = \[\], scopeLabel = "当前图谱切片"\) \{/);
+  assert.match(source, /const projectedEntry = planWritingBasketEntry\(\{\s*existingNoteIds: parseWritingBasketIds\(\),\s*incomingNoteIds: candidateNoteIds\s*\}\);/);
+  assert.match(source, /const graphWritingContinuation = graphWritingContinuationEntry\(graphBasketNoteIds, "当前图谱切片"\);/);
+  assert.match(source, /writingContinuation: graphWritingContinuation/);
 });

@@ -34,7 +34,8 @@ export function graphNextActionForSummary({
   conflictFromNoteId = "",
   conflictRelationType = "",
   bridgeNoteId = "",
-  bridgeTargetNoteId = ""
+  bridgeTargetNoteId = "",
+  writingContinuation = null
 } = {}) {
   if (!hasNodes) {
     return {
@@ -153,6 +154,15 @@ export function graphNextActionForSummary({
       actionLabel: "去补桥接",
       targetNoteId: String(bridgeTargetNoteId || "").trim(),
       relationType: "bridges"
+    };
+  }
+
+  if (writingContinuation?.projectId) {
+    return {
+      title: `下一步：${writingContinuation.status}`,
+      note: writingContinuation.hint,
+      action: GRAPH_FOLLOWUP_ACTIONS.writing,
+      actionLabel: writingContinuation.actionLabel
     };
   }
 
