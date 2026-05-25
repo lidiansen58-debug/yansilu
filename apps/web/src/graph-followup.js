@@ -176,6 +176,15 @@ export function graphNextActionForSummary({
     };
   }
 
+  if (writingEntryPlan?.mode === "no-candidates" && writingEntryPlan.hasBasket) {
+    return {
+      title: "下一步：继续当前写作篮",
+      note: "当前图谱切片里暂时没有适合新增到写作篮的永久笔记。直接进入写作中心继续推进当前写作篮，或先回到图谱补关系和边界，会比重复挑选更顺。",
+      action: GRAPH_FOLLOWUP_ACTIONS.writing,
+      actionLabel: "继续当前写作篮"
+    };
+  }
+
   if (writingEntryPlan?.mode === "prefill-visible" && Number(writingEntryPlan.addedCount || 0) > 0) {
     return {
       title: `下一步：带入 ${Number(writingEntryPlan.addedCount || 0)} 条永久笔记`,
