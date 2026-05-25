@@ -27,6 +27,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   translationSaveActionState,
+  translationDraftSupportsNextStep,
   translationContinuitySignature,
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
@@ -74,6 +75,8 @@ const STATUS = {
     "\u5df2\u5bf9\u9f50\u5230\u8fd9\u6761\u5019\u9009\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u53ef\u4ee5\u7ee7\u7eed\u786e\u8ba4\u4fdd\u5b58\u6216\u56de\u770b originality \u98ce\u9669\u3002",
   savedTranslationReadyForPermanentCandidate:
     "\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u5c31\u7eea\uff0c\u4f46\u8fd8\u6ca1\u6709\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u4e00\u6b65\u53ef\u4ee5\u76f4\u63a5\u751f\u6210\u3002",
+  savedTranslationNeedsDraftSupport:
+    "\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u4fdd\u5b58\uff0c\u4f46 relation \u548c boundary \u8fd8\u4e0d\u8db3\u4ee5\u652f\u6491\u4e0b\u4e00\u6b65\u3002\u5148\u8865\u5168\u5b83\u4eec\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u6216\u7ee7\u7eed\u5199 draft\u3002",
   selectedCandidate:
     "\u5df2\u9009\u62e9\u5019\u9009\u3002\u5148\u7528\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u5e76\u4fdd\u5b58\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002",
   restoredPermanentCandidate:
@@ -394,7 +397,8 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
     {
       selectedCandidateId: String(state.selectedCandidateId || "").trim(),
       hasSavedTranslation: draft.hasSavedTranslation,
-      hasLocalChanges: draft.hasLocalChanges
+      hasLocalChanges: draft.hasLocalChanges,
+      supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
     },
     workspaceState
   );
@@ -428,7 +432,8 @@ function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelecti
     {
       selectedCandidateId: String(state.selectedCandidateId || "").trim(),
       hasSavedTranslation: draft.hasSavedTranslation,
-      hasLocalChanges: draft.hasLocalChanges
+      hasLocalChanges: draft.hasLocalChanges,
+      supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
     },
     workspaceState
   );
@@ -442,6 +447,7 @@ function continuityStatusTone(statusKey = "") {
   const cleanKey = String(statusKey || "").trim();
   if (
     cleanKey.startsWith("translationNeeds") ||
+    cleanKey === "savedTranslationNeedsDraftSupport" ||
     cleanKey === "restoredLocalTranslationDraftForPermanentNote" ||
     cleanKey === "restoredLocalTranslationDraftForSavedPermanentNote"
   ) {
@@ -510,6 +516,28 @@ function render() {
   updateDynamicControls();
 }
 
+function rerenderPreservingContinuityFocus(target = null) {
+  const activeId = String(target?.id || "").trim();
+  const selectionStart =
+    typeof target?.selectionStart === "number" ? target.selectionStart : null;
+  const selectionEnd =
+    typeof target?.selectionEnd === "number" ? target.selectionEnd : null;
+  render();
+  if (!activeId) return;
+  const nextTarget = document.getElementById(activeId);
+  if (!nextTarget) return;
+  if (typeof nextTarget.focus === "function") {
+    nextTarget.focus();
+  }
+  if (
+    selectionStart !== null &&
+    selectionEnd !== null &&
+    typeof nextTarget.setSelectionRange === "function"
+  ) {
+    nextTarget.setSelectionRange(selectionStart, selectionEnd);
+  }
+}
+
 function updateDynamicControls() {
   const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
     paraphraseText: state.form.paraphraseText,
@@ -542,6 +570,8 @@ function updateDynamicControls() {
     permanentCandidateButton.textContent = permanentCandidateAction.label;
   }
   const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
+  const confirmAuthorshipInput = document.getElementById("confirmAuthorshipInput");
+  const permanentStatusInput = document.getElementById("permanentStatusInput");
   if (savePermanentNoteButton) {
     const permanentNoteAction = permanentNoteActionState(
       state.workspace,
@@ -556,6 +586,12 @@ function updateDynamicControls() {
     );
     savePermanentNoteButton.disabled = !permanentNoteAction.enabled;
     savePermanentNoteButton.textContent = permanentNoteAction.label;
+    if (confirmAuthorshipInput) {
+      confirmAuthorshipInput.disabled = !permanentNoteAction.enabled;
+    }
+    if (permanentStatusInput) {
+      permanentStatusInput.disabled = !permanentNoteAction.enabled;
+    }
   }
 }
 
@@ -679,10 +715,21 @@ async function handleSaveTranslation() {
         boundaryOrCondition: state.form.boundaryOrCondition
       }
     );
-    return { stage: "save_translation", permanentNoteContinuityReason: continuityState.reason, ...result };
+    return {
+      stage: "save_translation",
+      permanentNoteContinuityReason: continuityState.reason,
+      supportsNextStep: translationDraftSupportsNextStep(state.workspace, state.selectedCandidateId, {
+        paraphraseText: state.form.paraphraseText,
+        relationToQuestion: state.form.relationToQuestion,
+        boundaryOrCondition: state.form.boundaryOrCondition
+      }),
+      ...result
+    };
   }, (result) =>
     result?.permanentNoteContinuityReason === "stale_translation_signature"
       ? STATUS.translationNeedsFreshPermanentCandidate
+      : result?.supportsNextStep === false
+      ? STATUS.savedTranslationNeedsDraftSupport
       : STATUS.savedTranslation);
 }
 
@@ -756,6 +803,7 @@ root?.addEventListener("input", (event) => {
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
     setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    rerenderPreservingContinuityFocus(event.target);
   }
 });
 
@@ -772,6 +820,7 @@ root?.addEventListener("change", (event) => {
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
     setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    rerenderPreservingContinuityFocus(event.target);
   }
 });
 
