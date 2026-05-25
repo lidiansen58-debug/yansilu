@@ -8742,7 +8742,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
     focusExistingRelationEdit();
-    setStatus("已从图谱打开笔记，继续补当前关系的理由或类型", "ok");
+    setStatus("已从图谱打开笔记，继续补当前关系理由", "ok");
     return true;
   }
 
