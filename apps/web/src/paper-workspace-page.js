@@ -910,7 +910,8 @@ async function handleCopyDraftBrief() {
   try {
     await copyTextToClipboard(draftBrief.markdown);
     window.__paperWorkspaceLastDraftBrief = draftBrief.markdown;
-    setStatus(`已复制 draft brief：${draftBrief.title}`, "ok");
+    const nextAction = String(draftContinuationAction?.label || "").trim();
+    setStatus(nextAction ? `已复制 draft brief：${draftBrief.title}。下一步：${nextAction}` : `已复制 draft brief：${draftBrief.title}`, "ok");
   } catch (error) {
     setStatus(`复制 draft brief 失败：${String(error?.message || error)}`, "bad");
   }
