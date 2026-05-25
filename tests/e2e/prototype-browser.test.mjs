@@ -6106,6 +6106,28 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
             }, 4000);
+
+            await page.locator(".paper-candidate").nth(1).click();
+            await waitFor(async () => {
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), /An unsaved draft should survive candidate switches/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
+            }, 4000);
+
+            await page.locator(".paper-candidate").nth(0).click();
+            await waitFor(async () => {
+              const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+              assert.match(String(translationStepText || ""), /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
+              const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
+              const previewText = await page.locator(".paper-permanent-preview").textContent();
+              assert.match(String(previewText || ""), /旧版转述|重新生成永久笔记候选/);
+              assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
+              assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
+            }, 4000);
 	        });
   
   test("prototype writing entry switch clears stale strong-model analysis summary", async (t) => {
