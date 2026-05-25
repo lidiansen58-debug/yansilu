@@ -25,6 +25,7 @@ import {
   permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveDraftKickoffState,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -391,6 +392,77 @@ test("draftKickoffActionState reflects whether local draft work should start, re
       enabled: false,
       key: "refresh_permanent_candidate",
       label: "先刷新 Step 4"
+    }
+  );
+});
+
+test("resolveDraftKickoffState marks kickoff content stale when its stored translation signature falls behind", () => {
+  assert.deepEqual(
+    resolveDraftKickoffState(
+      {
+        draftKickoffText: " Current kickoff wording. ",
+        draftKickoffSignature: "sig_old",
+        draftKickoffPreviousText: "",
+        draftKickoffPreviousSignature: "",
+        draftKickoffReplacementSignature: ""
+      },
+      "sig_new"
+    ),
+    {
+      content: "Current kickoff wording.",
+      translationSignature: "sig_old",
+      currentTranslationSignature: "sig_new",
+      hasContent: true,
+      isStale: true,
+      previousSnapshot: null
+    }
+  );
+});
+
+test("resolveDraftKickoffState only restores the previous kickoff snapshot when it matches the current stored kickoff chain", () => {
+  assert.deepEqual(
+    resolveDraftKickoffState(
+      {
+        draftKickoffText: "Current kickoff wording.",
+        draftKickoffSignature: "sig_current",
+        draftKickoffPreviousText: "Previous kickoff wording.",
+        draftKickoffPreviousSignature: "sig_previous",
+        draftKickoffReplacementSignature: "sig_current"
+      },
+      "sig_current"
+    ),
+    {
+      content: "Current kickoff wording.",
+      translationSignature: "sig_current",
+      currentTranslationSignature: "sig_current",
+      hasContent: true,
+      isStale: false,
+      previousSnapshot: {
+        content: "Previous kickoff wording.",
+        previousSignature: "sig_previous",
+        replacementSignature: "sig_current"
+      }
+    }
+  );
+
+  assert.deepEqual(
+    resolveDraftKickoffState(
+      {
+        draftKickoffText: "Current kickoff wording.",
+        draftKickoffSignature: "sig_current",
+        draftKickoffPreviousText: "Previous kickoff wording.",
+        draftKickoffPreviousSignature: "sig_previous",
+        draftKickoffReplacementSignature: "sig_other"
+      },
+      "sig_current"
+    ),
+    {
+      content: "Current kickoff wording.",
+      translationSignature: "sig_current",
+      currentTranslationSignature: "sig_current",
+      hasContent: true,
+      isStale: false,
+      previousSnapshot: null
     }
   );
 });
