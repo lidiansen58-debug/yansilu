@@ -5588,6 +5588,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /已复制 draft brief/);
       assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
+      assert.match(
+        String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+        /最近一次已复制。下一步：.*具备继续写 draft 的最小条件/
+      );
       const copiedText = await page.evaluate(
         () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
       );
@@ -5701,6 +5705,10 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(statusText || ""), /这条候选的转述已就绪，但还没有生成对应的永久笔记候选/);
       const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
       assert.match(String(translationStepText || ""), /这条候选已经保存过转述/);
+      assert.match(
+        String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
+        /最近一次已复制。下一步：.*具备继续写 draft 的最小条件/
+      );
     }, 4000);
 
       await page.locator(".paper-candidate").nth(1).click();
@@ -6233,6 +6241,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /先重新生成永久笔记候选/);
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
             }, 4000);
 	        });
   
