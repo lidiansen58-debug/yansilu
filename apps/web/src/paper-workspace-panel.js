@@ -92,6 +92,7 @@ function renderTranslationHint(draft = null, options = {}) {
   const hasAlignedPermanentCandidate = Boolean(options.hasAlignedPermanentCandidate);
   const hasSavedPermanentNote = Boolean(options.hasSavedPermanentNote);
   const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
+  const supportsNextStep = Boolean(draft && String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim());
   if (!draft?.candidate) {
     return `<div class="paper-muted-box">\u5148\u4ece\u5de6\u4fa7\u9009\u4e00\u6761\u5019\u9009\uff0c\u518d\u7528\u4f60\u81ea\u5df1\u7684\u8bdd\u5b8c\u6210\u8f6c\u8ff0\u3002</div>`;
   }
@@ -99,6 +100,9 @@ function renderTranslationHint(draft = null, options = {}) {
     return `<div class="paper-muted-box">\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\u3002\u5f53\u524d\u8868\u5355\u5185\u5bb9\u8fd8\u6ca1\u6709\u5199\u56de\u5df2\u4fdd\u5b58\u8f6c\u8ff0\uff0c\u4fdd\u5b58\u540e\u4f1a\u66f4\u65b0\u8fd9\u6761\u5019\u9009\u7684\u6b63\u5f0f\u8f6c\u8ff0\u3002</div>`;
   }
   if (draft.hasSavedTranslation) {
+    if (!supportsNextStep) {
+      return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u4fdd\u5b58\uff0c\u4f46 relation \u548c boundary \u8fd8\u4e0d\u8db3\u4ee5\u652f\u6491\u4e0b\u4e00\u6b65\u3002\u5148\u8865\u5168\u5b83\u4eec\uff0c\u518d\u8fdb\u5165\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u6216\u7ee7\u7eed\u5199 draft\u3002</div>`;
+    }
     if (hasStaleAlignedPermanentCandidate) {
       return `<div class="paper-muted-box">\u8fd9\u6761\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u66f4\u65b0\u8fc7\uff0c\u4f46\u5f53\u524d Step 4 \u91cc\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u4ecd\u7136\u5bf9\u5e94\u65e7\u7248\u8f6c\u8ff0\u3002\u4e0b\u4e00\u6b65\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\uff0c\u518d\u51b3\u5b9a\u662f\u5426\u7ee7\u7eed\u5199 draft \u6216\u4fdd\u5b58\u3002</div>`;
     }

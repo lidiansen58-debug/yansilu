@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -36,6 +36,7 @@ import {
   translationContinuitySignature,
   translationDraftHasLocalChanges,
   translationDraftForCandidate,
+  translationDraftSupportsNextStep,
   workspaceStageLabel
 } from "../../apps/web/src/paper-workspace-model.js";
 
@@ -151,11 +152,37 @@ test("canCreatePermanentCandidate waits for a saved translation for the selected
       { id: "pwc_1", title: "First" },
       { id: "pwc_2", title: "Second", paraphraseText: "Saved on candidate." }
     ],
-    translations: [{ id: "ptr_1", candidateId: "pwc_2", paraphraseText: "Saved on candidate." }]
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_2",
+        paraphraseText: "Saved on candidate.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
   };
 
   assert.equal(canCreatePermanentCandidate(workspace, "pwc_1"), false);
   assert.equal(canCreatePermanentCandidate(workspace, "pwc_2"), true);
+});
+
+test("canCreatePermanentCandidate waits for relation and boundary before the next step is ready", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  assert.equal(translationDraftSupportsNextStep(workspace, "pwc_1"), false);
+  assert.equal(canCreatePermanentCandidate(workspace, "pwc_1"), false);
 });
 
 test("canCreatePermanentCandidate stays blocked while saved translation has unsaved local edits", () => {
@@ -568,7 +595,8 @@ test("resolveSelectedPaperCandidateState restores candidate selection and candid
       relationToQuestion: "Unsaved relation two.",
       boundaryOrCondition: "Unsaved boundary two.",
       hasSavedTranslation: false,
-      hasLocalChanges: true
+      hasLocalChanges: true,
+      supportsNextStep: true
     }
   );
 });
@@ -598,7 +626,8 @@ test("resolveSelectedPaperCandidateState keeps saved translation when no local d
       relationToQuestion: "Saved relation one.",
       boundaryOrCondition: "Saved boundary one.",
       hasSavedTranslation: true,
-      hasLocalChanges: false
+      hasLocalChanges: false,
+      supportsNextStep: true
     }
   );
 });
@@ -986,6 +1015,21 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
     paperWorkspaceResumeStatusKey(
       {
         selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "savedTranslationNeedsDraftSupport"
+  );
+
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
         hasSavedTranslation: false,
         hasLocalChanges: false
       },
@@ -1070,6 +1114,21 @@ test("paperWorkspaceLiveStatusKey prefers the next required action while editing
       }
     ),
     "restoredSavedPermanentNoteForSelectedPaper"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "pwc_1",
+        hasSavedTranslation: true,
+        hasLocalChanges: false,
+        supportsNextStep: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "savedTranslationNeedsDraftSupport"
   );
 });
 

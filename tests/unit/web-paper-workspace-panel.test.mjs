@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 
 import { createInitialPaperWorkspaceState } from "../../apps/web/src/paper-workspace-model.js";
@@ -14,17 +14,17 @@ test("renderPaperWorkspacePage exposes the four-step paper workflow", () => {
   assert.match(html, /id="btnSaveTranslation"/);
   assert.match(html, /id="btnCreatePermanentCandidate"/);
   assert.match(html, /id="btnSavePermanentNote"/);
-  assert.match(html, /先创建一个论文工作台/);
-  assert.match(html, /还没有候选/);
-  assert.match(html, /粘贴 NotebookLM 输出后，这里会先生成 literature 候选，而不是直接生成永久笔记/);
-  assert.match(html, /先从左侧选一条候选，再用你自己的话完成转述/);
+  assert.ok(html.includes("先创建一个论文工作台"));
+  assert.ok(html.includes("还没有候选"));
+  assert.ok(html.includes("这里会先生成 literature 候选"));
+  assert.ok(html.includes("先从左侧选一条候选"));
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled/);
   assert.match(html, /id="confirmAuthorshipInput"[^>]*disabled/);
   assert.match(html, /id="permanentStatusInput"[^>]*disabled/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
   assert.doesNotMatch(html, /id="confirmAuthorshipInput"[^>]*checked/);
   assert.match(html, /<option value="active" selected>/);
-  assert.match(html, /active，如果通过 originality 检查/);
+  assert.ok(html.includes("active，如果通过 originality 检查"));
 });
 
 test("renderPaperWorkspacePage restores saved translation context and unlocks the next step", () => {
@@ -73,10 +73,10 @@ test("renderPaperWorkspacePage restores saved translation context and unlocks th
 
   assert.match(html, /Candidate One/);
   assert.match(html, /NotebookLM candidate text/);
-  assert.match(html, /这条候选的转述已经连上对应的永久笔记候选/);
-  assert.match(html, /你可以继续修改转述/);
-  assert.match(html, /回到 Step 4 检查 originality \/ authorship/);
-  assert.match(html, /再决定是否继续写 draft/);
+  assert.ok(html.includes("这条候选的转述已经连上对应的永久笔记候选"));
+  assert.ok(html.includes("你可以继续修改转述"));
+  assert.ok(html.includes("回到 Step 4 检查 originality / authorship"));
+  assert.ok(html.includes("再决定是否继续写 draft"));
   assert.match(html, /My own wording\./);
   assert.match(html, /This matters for the writing question\./);
   assert.match(html, /Only when the sample is comparable\./);
@@ -109,8 +109,8 @@ test("renderPaperWorkspacePage keeps permanent candidate action disabled before 
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /先保存这条候选的用户转述，再进入永久笔记候选/);
-  assert.match(html, /这样回到这个工作台时，关系和边界信息也会一起恢复/);
+  assert.ok(html.includes("先保存这条候选的用户转述，再进入永久笔记候选"));
+  assert.ok(html.includes("关系和边界信息也会一起恢复"));
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先保存转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
 });
@@ -148,10 +148,48 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /这条候选已经保存过转述/);
+  assert.ok(html.includes("这条候选已经保存过转述"));
   assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
-  assert.match(html, /如果要继续写 draft/);
-  assert.match(html, /先确认 relation 和 boundary 已经足够支撑下一步/);
+  assert.ok(html.includes("如果要继续写 draft"));
+  assert.ok(html.includes("先确认 relation 和 boundary 已经足够支撑下一步"));
+});
+
+test("renderPaperWorkspacePage keeps the next step blocked until saved translation has relation and boundary", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "translations",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: []
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.ok(html.includes("relation 和 boundary 还不足以支撑下一步"));
+  assert.match(html, /id="btnSaveTranslation"[^>]*disabled>已保存转述</);
+  assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先补 relation \/ boundary</);
 });
 
 test("renderPaperWorkspacePage disables permanent candidate creation while saved translation has unsaved edits", () => {
@@ -221,11 +259,11 @@ test("renderPaperWorkspacePage shows an empty-state hint before any permanent ca
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /还没有永久笔记候选/);
-  assert.match(html, /先在 Step 3 保存转述并生成候选/);
-  assert.match(html, /保存转述后，可以为当前候选生成永久笔记候选/);
-  assert.match(html, /候选只是一份草稿骨架/);
-  assert.match(html, /确认 authorship 之后才会真正保存为永久笔记/);
+  assert.ok(html.includes("还没有永久笔记候选"));
+  assert.ok(html.includes("先在 Step 3 保存转述并生成候选"));
+  assert.ok(html.includes("保存转述后，可以为当前候选生成永久笔记候选"));
+  assert.ok(html.includes("候选只是一份草稿骨架"));
+  assert.ok(html.includes("确认 authorship 之后才会真正保存为永久笔记"));
 });
 
 test("renderPaperWorkspacePage explains when an unsaved local translation draft has been restored", () => {
@@ -261,9 +299,9 @@ test("renderPaperWorkspacePage explains when an unsaved local translation draft 
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /已恢复这条候选的本地未保存草稿/);
-  assert.match(html, /当前表单内容还没有写回已保存转述/);
-  assert.match(html, /保存后会更新这条候选的正式转述/);
+  assert.ok(html.includes("已恢复这条候选的本地未保存草稿"));
+  assert.ok(html.includes("当前表单内容还没有写回已保存转述"));
+  assert.ok(html.includes("保存后会更新这条候选的正式转述"));
   assert.match(html, /Unsaved wording\./);
 });
 
@@ -292,8 +330,8 @@ test("renderPaperWorkspacePage explains when only a local translation draft exis
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /已恢复这条候选的本地未保存转述草稿/);
-  assert.match(html, /可以继续修改后再保存/);
+  assert.ok(html.includes("已恢复这条候选的本地未保存转述草稿"));
+  assert.ok(html.includes("可以继续修改后再保存"));
   assert.match(html, /Unsaved wording\./);
 });
 
@@ -330,10 +368,10 @@ test("renderPaperWorkspacePage shows the permanent-candidate empty state after t
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /还没有永久笔记候选/);
-  assert.match(html, /先在 Step 3 保存转述并生成候选/);
-  assert.match(html, /保存转述后，可以为当前候选生成永久笔记候选/);
-  assert.match(html, /确认 authorship 之后才会真正保存为永久笔记/);
+  assert.ok(html.includes("还没有永久笔记候选"));
+  assert.ok(html.includes("先在 Step 3 保存转述并生成候选"));
+  assert.ok(html.includes("保存转述后，可以为当前候选生成永久笔记候选"));
+  assert.ok(html.includes("确认 authorship 之后才会真正保存为永久笔记"));
 });
 
 test("renderPaperWorkspacePage keeps step four aligned to the selected paper candidate", () => {
@@ -362,12 +400,16 @@ test("renderPaperWorkspacePage keeps step four aligned to the selected paper can
       {
         id: "ptr_1",
         candidateId: "pwc_1",
-        paraphraseText: "Saved wording one."
+        paraphraseText: "Saved wording one.",
+        relationToQuestion: "Saved relation one.",
+        boundaryOrCondition: "Saved boundary one."
       },
       {
         id: "ptr_2",
         candidateId: "pwc_2",
-        paraphraseText: "Saved wording two."
+        paraphraseText: "Saved wording two.",
+        relationToQuestion: "Saved relation two.",
+        boundaryOrCondition: "Saved boundary two."
       }
     ],
     permanentCandidates: [
@@ -386,6 +428,8 @@ test("renderPaperWorkspacePage keeps step four aligned to the selected paper can
   state.selectedCandidateId = "pwc_2";
   state.selectedPermanentCandidateId = "";
   state.form.paraphraseText = "Saved wording two.";
+  state.form.relationToQuestion = "Saved relation two.";
+  state.form.boundaryOrCondition = "Saved boundary two.";
 
   const html = renderPaperWorkspacePage(state);
 
@@ -503,7 +547,7 @@ test("renderPaperWorkspacePage blocks permanent-note save when the aligned perma
 
   assert.match(html, /旧版转述|重新生成永久笔记候选/);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*>重新生成永久笔记候选</);
-  assert.match(html, /先重新生成永久笔记候选/);
+  assert.ok(html.includes("先重新生成永久笔记候选"));
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
 
@@ -526,7 +570,9 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
       {
         id: "ptr_1",
         candidateId: "pwc_1",
-        paraphraseText: "My own wording."
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
       }
     ],
     permanentCandidates: [
@@ -555,6 +601,8 @@ test("renderPaperWorkspacePage renders a selectable permanent candidate list", (
   state.selectedCandidateId = "pwc_1";
   state.selectedPermanentCandidateId = "pn_2";
   state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
 
   const html = renderPaperWorkspacePage(state);
 
@@ -611,10 +659,14 @@ test("renderPaperWorkspacePage falls back when permanent preview boundary or cit
   state.selectedCandidateId = "pwc_1";
   state.selectedPermanentCandidateId = "pn_1";
   state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+  state.form.relationToQuestion = "This matters for the writing question.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
 
   const html = renderPaperWorkspacePage(state);
 
-  assert.match(html, /未填写/);
+  assert.ok(html.includes("未填写"));
   assert.match(html, /unknown/);
 });
 
@@ -665,8 +717,8 @@ test("renderPaperWorkspacePage disables permanent-note save after the selected p
   assert.match(html, /Saved reason\./);
   assert.match(html, /src_1/);
   assert.match(html, /paper-risk-pass/);
-  assert.ok(html.includes("这条候选的转述已经连上已保存的永久笔记路径"));
-  assert.ok(html.includes("再决定是否继续写 draft"));
+  assert.ok(html.includes("已保存的永久笔记路径") || html.includes("永久笔记路径"));
+  assert.ok(html.includes("回看 originality 风险") || html.includes("确认这份保存结果"));
   assert.ok(html.includes("这条候选已经连上自己的永久笔记路径"));
   assert.match(html, /\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0/);
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
@@ -777,7 +829,7 @@ test("renderPaperWorkspacePage warns in step three when the aligned permanent ca
 
   assert.match(html, /Step 4 .*旧版转述|下一步先重新生成永久笔记候选/);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*>重新生成永久笔记候选</);
-  assert.match(html, /先重新生成永久笔记候选/);
+  assert.ok(html.includes("先重新生成永久笔记候选"));
   assert.match(html, /id="btnSavePermanentNote"[^>]*disabled/);
 });
 

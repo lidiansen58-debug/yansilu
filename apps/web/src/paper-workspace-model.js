@@ -181,6 +181,11 @@ export function translationDraftHasLocalChanges(workspace = null, candidateId = 
   );
 }
 
+export function translationDraftSupportsNextStep(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  return Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition));
+}
+
 export function translationSaveActionState(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   if (!cleanText(draft.candidate?.id)) {
@@ -203,6 +208,7 @@ export function permanentCandidateActionState(
   draftInput = null
 ) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  const supportsNextStep = translationDraftSupportsNextStep(workspace, candidateId, draftInput);
   const continuity = permanentNoteContinuityState(
     workspace,
     storedSelection,
@@ -225,6 +231,9 @@ export function permanentCandidateActionState(
   }
   if (draft.hasLocalChanges) {
     return { enabled: false, label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
+  }
+  if (!supportsNextStep) {
+    return { enabled: false, label: "\u5148\u8865 relation / boundary" };
   }
   if (hasAlignedPermanentCandidate && continuity.reason === "stale_translation_signature") {
     return { enabled: true, label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
@@ -282,7 +291,8 @@ export function resolveSelectedPaperCandidateState(workspace = null, options = {
     relationToQuestion: draft.relationToQuestion,
     boundaryOrCondition: draft.boundaryOrCondition,
     hasSavedTranslation: draft.hasSavedTranslation,
-    hasLocalChanges: draft.hasLocalChanges
+    hasLocalChanges: draft.hasLocalChanges,
+    supportsNextStep: translationDraftSupportsNextStep(workspace, selectedCandidateId, storedDraft ? resolvedStoredTranslationDraft(storedDraft) : null)
   };
 }
 
@@ -350,6 +360,7 @@ export function canCreatePermanentCandidate(workspace = null, candidateId = "", 
     cleanText(draft.candidate?.id) &&
       cleanText(draft.translation?.id) &&
       cleanText(draft.translation?.paraphraseText) &&
+      translationDraftSupportsNextStep(workspace, candidateId, draftInput) &&
       !draft.hasLocalChanges
   );
 }
@@ -538,6 +549,9 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
     return "restoredPermanentCandidateForSelectedPaper";
   }
   if (candidateState?.hasSavedTranslation) {
+    if (candidateState?.supportsNextStep === false) {
+      return "savedTranslationNeedsDraftSupport";
+    }
     return "savedTranslationReadyForPermanentCandidate";
   }
   if (cleanText(candidateState?.selectedCandidateId)) {
@@ -566,6 +580,9 @@ export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceStat
     return "restoredPermanentCandidateForSelectedPaper";
   }
   if (candidateState?.hasSavedTranslation) {
+    if (candidateState?.supportsNextStep === false) {
+      return "savedTranslationNeedsDraftSupport";
+    }
     return "savedTranslationReadyForPermanentCandidate";
   }
   if (cleanText(candidateState?.selectedCandidateId)) {
