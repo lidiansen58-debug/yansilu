@@ -25,6 +25,7 @@ import {
   paperWorkspaceLiveStatusKey,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
+  resolveDraftKickoffState,
   resolveRecentDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -839,11 +840,6 @@ function currentDraftKickoffState() {
     relationToQuestion: state.form.relationToQuestion,
     boundaryOrCondition: state.form.boundaryOrCondition
   });
-  const content = String(state.form.draftKickoffText || "").trim();
-  const storedSignature = String(state.form.draftKickoffSignature || "").trim();
-  const previousContent = String(state.form.draftKickoffPreviousText || "").trim();
-  const previousSignature = String(state.form.draftKickoffPreviousSignature || "").trim();
-  const replacementSignature = String(state.form.draftKickoffReplacementSignature || "").trim();
   const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
     paraphraseText: state.form.paraphraseText,
     relationToQuestion: state.form.relationToQuestion,
@@ -860,27 +856,9 @@ function currentDraftKickoffState() {
       boundaryOrCondition: state.form.boundaryOrCondition
     }
   ).reason;
-  const isStale = Boolean(content && storedSignature && currentTranslationSignature && storedSignature !== currentTranslationSignature);
-  const showPreviousSnapshot = Boolean(
-    previousContent &&
-      previousSignature &&
-      replacementSignature &&
-      storedSignature &&
-      replacementSignature === storedSignature
-  );
+  const kickoffState = resolveDraftKickoffState(state.form, currentTranslationSignature);
   return {
-    content,
-    translationSignature: storedSignature,
-    currentTranslationSignature,
-    hasContent: Boolean(content),
-    isStale,
-    previousSnapshot: showPreviousSnapshot
-      ? {
-          content: previousContent,
-          previousSignature,
-          replacementSignature
-        }
-      : null,
+    ...kickoffState,
     action: draftKickoffActionState(
       {
         selectedCandidateId: state.selectedCandidateId,
@@ -893,8 +871,8 @@ function currentDraftKickoffState() {
         permanentNoteContinuityReason: continuityReason
       },
       {
-        hasContent: Boolean(content),
-        isStale
+        hasContent: kickoffState.hasContent,
+        isStale: kickoffState.isStale
       }
     )
   };

@@ -768,6 +768,40 @@ export function draftKickoffActionState(candidateState = null, workspaceState = 
   };
 }
 
+export function resolveDraftKickoffState(form = null, currentTranslationSignature = "") {
+  const content = cleanText(form?.draftKickoffText);
+  const translationSignature = cleanText(form?.draftKickoffSignature);
+  const previousContent = cleanText(form?.draftKickoffPreviousText);
+  const previousSignature = cleanText(form?.draftKickoffPreviousSignature);
+  const replacementSignature = cleanText(form?.draftKickoffReplacementSignature);
+  const cleanCurrentTranslationSignature = cleanText(currentTranslationSignature);
+  const isStale = Boolean(
+    content && translationSignature && cleanCurrentTranslationSignature && translationSignature !== cleanCurrentTranslationSignature
+  );
+  const showPreviousSnapshot = Boolean(
+    previousContent &&
+      previousSignature &&
+      replacementSignature &&
+      translationSignature &&
+      replacementSignature === translationSignature
+  );
+
+  return {
+    content,
+    translationSignature,
+    currentTranslationSignature: cleanCurrentTranslationSignature,
+    hasContent: Boolean(content),
+    isStale,
+    previousSnapshot: showPreviousSnapshot
+      ? {
+          content: previousContent,
+          previousSignature,
+          replacementSignature
+        }
+      : null
+  };
+}
+
 export function draftContinuationBrief(
   workspace = null,
   storedSelection = null,
