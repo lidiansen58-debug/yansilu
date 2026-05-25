@@ -6371,6 +6371,13 @@ function renderWritingThemeDetail(indexCard) {
   `;
 }
 
+function writingThemeDetailHintText(indexCard) {
+  if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。";
+  const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
+  const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
+  return `${themeLabel}：当前主题入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前项目还是创建项目。"}`;
+}
+
 function populateWritingFormFromProject(project) {
   if (!project) return;
   if ($("writingTitle")) $("writingTitle").value = project.title || "";
@@ -7062,8 +7069,8 @@ function renderWritingPanel() {
   }
   if (themeDetailHint) {
     themeDetailHint.textContent = selectedTheme
-      ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成项目。`
-      : "查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。";
+      ? writingThemeDetailHintText(selectedTheme)
+      : writingThemeDetailHintText(null);
   }
   if (themeDetail) {
     themeDetail.innerHTML = renderWritingThemeDetail(selectedTheme);

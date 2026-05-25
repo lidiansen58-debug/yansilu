@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import {
-  describeWritingContinuationAction,
-  describeWritingThemeProjectEntryState
-} from "../../apps/web/src/writing-center-flow.js";
+import { describeWritingThemeProjectEntryState } from "../../apps/web/src/writing-center-flow.js";
 
 test("writing theme project entry stays loading when theme note details are not loaded yet", () => {
   const entry = describeWritingThemeProjectEntryState({
@@ -18,7 +18,7 @@ test("writing theme project entry stays loading when theme note details are not 
 
   assert.equal(entry.level, "loading");
   assert.equal(entry.canCreateProject, false);
-  assert.match(entry.hint, /永久笔记|涓婚/);
+  assert.match(entry.hint, /永久笔记|主题/);
 });
 
 test("writing theme project entry stays loading while theme note hydration is in flight", () => {
@@ -65,4 +65,15 @@ test("writing theme project entry prefers continuing the current project when on
   assert.equal(entry.canCreateProject, true);
   assert.match(entry.hint, /wp_existing/);
   assert.match(entry.hint, /草稿骨架/);
+});
+
+test("theme detail hint follows the computed project entry instead of always saying create-project", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  assert.match(source, /function writingThemeDetailHintText\(indexCard\) \{/);
+  assert.match(source, /const \{ readiness, projectEntry \} = writingThemeProjectEntry\(indexCard\);/);
+  assert.match(source, /当前主题入口：\$\{projectEntry\.status\}/);
+  assert.match(source, /继续当前项目还是创建项目/);
 });
