@@ -5520,7 +5520,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
   await waitFor(async () => {
     assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
     const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
-    assert.match(String(translationStepText || ""), /先保存这条候选的用户转述/);
+    assert.match(String(translationStepText || ""), /已恢复这条候选的本地未保存转述草稿/);
+    assert.match(String(translationStepText || ""), /可以继续修改后再保存/);
   }, 4000);
 
     await page.click("#btnSaveTranslation");
@@ -5738,6 +5739,9 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             assert.match(String((await page.locator("#btnSaveTranslation").textContent()) || ""), /更新转述/);
             assert.match(String((await permanentCandidateButton.textContent()) || ""), /先更新转述/);
             assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
+            const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
+            assert.match(String(permanentStepText || ""), /当前 Step 3 还有未保存改动/);
+            assert.match(String(permanentStepText || ""), /先更新这条转述，再生成对应的永久笔记候选/);
           }, 4000);
           await page.fill("#translationRelationInput", savedRelation);
           await waitFor(async () => {

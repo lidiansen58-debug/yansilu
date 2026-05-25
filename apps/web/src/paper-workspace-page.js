@@ -516,6 +516,28 @@ function render() {
   updateDynamicControls();
 }
 
+function rerenderPreservingContinuityFocus(target = null) {
+  const activeId = String(target?.id || "").trim();
+  const selectionStart =
+    typeof target?.selectionStart === "number" ? target.selectionStart : null;
+  const selectionEnd =
+    typeof target?.selectionEnd === "number" ? target.selectionEnd : null;
+  render();
+  if (!activeId) return;
+  const nextTarget = document.getElementById(activeId);
+  if (!nextTarget) return;
+  if (typeof nextTarget.focus === "function") {
+    nextTarget.focus();
+  }
+  if (
+    selectionStart !== null &&
+    selectionEnd !== null &&
+    typeof nextTarget.setSelectionRange === "function"
+  ) {
+    nextTarget.setSelectionRange(selectionStart, selectionEnd);
+  }
+}
+
 function updateDynamicControls() {
   const translationSaveAction = translationSaveActionState(state.workspace, state.selectedCandidateId, {
     paraphraseText: state.form.paraphraseText,
@@ -781,6 +803,7 @@ root?.addEventListener("input", (event) => {
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
     setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    rerenderPreservingContinuityFocus(event.target);
   }
 });
 
@@ -797,6 +820,7 @@ root?.addEventListener("change", (event) => {
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
     setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
+    rerenderPreservingContinuityFocus(event.target);
   }
 });
 
