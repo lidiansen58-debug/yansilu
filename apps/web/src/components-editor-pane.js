@@ -5704,14 +5704,8 @@ export class EditorPane {
     }
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
-        status:
-          wikilinkCount > 0 && tagRelatedCount > 0
-            ? `混合线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`
-            : `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-        hint:
-          wikilinkCount > 0 && tagRelatedCount > 0
-            ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。"
-            : "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        status: `混合线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
+        hint: "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
       };
