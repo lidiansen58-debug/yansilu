@@ -6141,6 +6141,9 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), new RegExp(`已保存为：${savedPermanentNoteId}`));
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              const draftBriefText = await page.locator("[data-paper-draft-brief]").textContent();
+              assert.match(String(draftBriefText || ""), /Step 4: 已保存永久笔记路径/);
+              assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.match(
                 String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
                 /继续写 draft 前，先回看 originality \/ authorship/
@@ -6161,6 +6164,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String(previewText || ""), new RegExp(`已保存为：${savedPermanentNoteId}`));
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
+              const draftBriefText = await page.locator("[data-paper-draft-brief]").textContent();
+              assert.match(String(draftBriefText || ""), /Step 4: 已保存永久笔记路径/);
             }, 4000);
 
             await page.fill("#translationRelationInput", "Saved relation after the permanent note was already confirmed.");
@@ -6204,6 +6209,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
                 /先重新生成永久笔记候选，再继续写 draft/
               );
+              const draftBriefText = await page.locator("[data-paper-draft-brief]").textContent();
+              assert.match(String(draftBriefText || ""), /Step 4: 已生成永久笔记候选/);
               assert.notEqual(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);
