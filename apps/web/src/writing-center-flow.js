@@ -342,8 +342,16 @@ export function describeWritingScaffoldStepState({
 
 export function describeWritingDraftStepState({
   hasDraft = false,
-  hasScaffold = false
+  hasScaffold = false,
+  projectEntryProjectId = "",
+  projectEntryAction = ""
 } = {}) {
+  if (String(projectEntryProjectId || "").trim() && String(projectEntryAction || "").trim() === "open-draft") {
+    return {
+      title: "打开当前草稿",
+      note: "先打开当前草稿，再继续当前写作。"
+    };
+  }
   if (hasDraft) {
     return {
       title: "打开当前草稿",

@@ -6747,6 +6747,17 @@ function renderWritingStatusStrip() {
     : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
       ? `先${projectEntry.actionLabel}，再生成草稿骨架`
       : "创建项目后生成";
+  const draftStatus = hasDraft
+    ? "已绑定"
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? projectEntry.status
+      : "未保存";
+  const draftNote = hasDraft
+    ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? projectEntry.hint
+      : "检查骨架后再保存";
+  const draftTone = hasDraft || (!hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft") ? "good" : "";
   const strongModelReady = isWritingStrongModelReady({
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
@@ -6767,7 +6778,7 @@ function renderWritingStatusStrip() {
     renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
     renderWritingStatusCard("草稿骨架", hasScaffold ? "可预览" : "待生成", scaffoldNote, hasScaffold ? "good" : ""),
     renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
-    renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
+    renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
   ].join("");
 }
 
@@ -6806,7 +6817,9 @@ function renderWritingFlowSteps({
   });
   const draftStep = describeWritingDraftStepState({
     hasDraft,
-    hasScaffold
+    hasScaffold,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryAction: hasProject ? "" : String(projectEntry?.action || "").trim()
   });
   const scaffoldReadyForDraft = isWritingScaffoldReadyForDraft({
     hasScaffold,
