@@ -5780,7 +5780,7 @@ export class EditorPane {
                 : wikilinkCount
                   ? Number(overview.tagRelatedCount || 0) > 0
                     ? `混合线索 ${themeInfo.badgeLabel || String(themeInfo.badge ?? wikilinkCount + Number(overview.tagRelatedCount || 0))}`
-                    : `wikilink ${wikilinkCount}`
+                    : `链接线索 ${wikilinkCount}`
                   : "待建立",
         hint:
           relationState === "loading"

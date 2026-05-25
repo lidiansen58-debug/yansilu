@@ -142,5 +142,5 @@ test("main-path card relation badge counts only explicit relations", () => {
   );
 
   assert.match(html, /关系 0/);
-  assert.match(html, /wikilink 1/);
+  assert.match(html, /链接线索 1/);
 });
