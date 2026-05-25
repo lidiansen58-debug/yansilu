@@ -205,6 +205,10 @@ export function selectedAlignedPermanentCandidate(workspace = null, candidateId 
   return candidates.find((item) => item.id === id || item.paper_candidate_id === id) || null;
 }
 
+export function selectedPaperCandidateIdForPermanentCandidate(workspace = null, candidateId = "") {
+  return cleanText(selectedAlignedPermanentCandidate(workspace, candidateId)?.paper_candidate_id);
+}
+
 export function permanentCandidatePersistenceDefaults(candidate = null, fallback = {}) {
   const fallbackSaveStatus = cleanText(fallback.saveStatus);
   const candidateStatus = cleanText(candidate?.status);

@@ -22,6 +22,7 @@ import {
   normalizeTranslationDraftInput,
   resolvedStoredTranslationDraft,
   selectedAlignedPermanentCandidate,
+  selectedPaperCandidateIdForPermanentCandidate,
   selectedPermanentCandidate,
   translationDraftHasLocalChanges,
   translationDraftForCandidate
@@ -458,8 +459,17 @@ root?.addEventListener("click", (event) => {
   const permanentCandidateButton = event.target?.closest?.("[data-paper-permanent-candidate-id]");
   if (permanentCandidateButton) {
     syncFormFromDom();
+    persistTranslationDraft();
     const storedSelection = readStoredWorkspaceSelection(currentPaperId());
     state.selectedPermanentCandidateId = permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || "";
+    const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
+      state.workspace,
+      state.selectedPermanentCandidateId
+    );
+    if (alignedPaperCandidateId) {
+      state.selectedCandidateId = alignedPaperCandidateId;
+      hydrateTranslationForm(state.selectedCandidateId);
+    }
     hydratePermanentCandidateForm(storedSelection);
     persistWorkspaceSelection();
     setStatus(STATUS.restoredPermanentCandidate, "ok");

@@ -21,6 +21,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   selectedAlignedPermanentCandidate,
+  selectedPaperCandidateIdForPermanentCandidate,
   selectedPaperCandidate,
   selectedPermanentCandidate,
   selectedPaperTranslation,
@@ -119,6 +120,7 @@ test("paper workspace selection helpers resolve alias ids", () => {
   assert.equal(selectedPaperCandidate(workspace, "ext_1").id, "pwc_1");
   assert.equal(selectedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
   assert.equal(selectedAlignedPermanentCandidate(workspace, "pwc_1").id, "pn_1");
+  assert.equal(selectedPaperCandidateIdForPermanentCandidate(workspace, "pn_1"), "pwc_1");
 });
 
 test("paper workspace labels expose user-facing workflow states", () => {
