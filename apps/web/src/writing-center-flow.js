@@ -337,7 +337,7 @@ export function describeWritingScaffoldStepState({
     const continuationActionLabel = String(projectEntryActionLabel || "").trim();
     if (!hasProject && String(projectEntryProjectId || "").trim() && continuationActionLabel) {
       return {
-        title: "生成草稿骨架",
+        title: continuationActionLabel,
         note: `先${continuationActionLabel}，再检查证据、缺口和反方`
       };
     }

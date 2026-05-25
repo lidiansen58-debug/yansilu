@@ -12,7 +12,7 @@ function readPrototypeAppSource() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
 }
 
-test("writing scaffold step reuses continuity guidance before any project is reopened", () => {
+test("writing scaffold step uses the projected continuity action as its next-step title before any project is reopened", () => {
   const step = describeWritingScaffoldStepState({
     hasScaffold: false,
     hasProject: false,
@@ -22,7 +22,7 @@ test("writing scaffold step reuses continuity guidance before any project is reo
     warningCount: 0
   });
 
-  assert.equal(step.title, "生成草稿骨架");
+  assert.equal(step.title, "继续当前项目");
   assert.equal(step.note, "先继续当前项目，再检查证据、缺口和反方");
 });
 
