@@ -6808,7 +6808,7 @@ function renderWritingStatusStrip() {
     projectPreflightLevel: projectPreflightSummary.level
   });
   const canContinueProjectedStrongModel =
-    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
+    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && readiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
     hasProject,
     relationCountsReady,
@@ -6841,6 +6841,9 @@ function renderWritingFlowSteps({
   if (!el) return;
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const projectPreflight = writingState.project?.preflight || null;
+  const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
+  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
   const preflightGroups = groupWritingPreflightChecks(writingState.scaffold?.preflight || null);
   const materialStep = describeWritingMaterialStepState({ basketCount });
   const projectStep = describeWritingProjectStepState({
