@@ -25,7 +25,7 @@ import {
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
   resolveDraftBriefState,
-  resolveDraftKickoffState,
+  resolveDraftKickoffRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
@@ -793,47 +793,18 @@ function currentDraftBriefState() {
 }
 
 function currentDraftKickoffState() {
-  const currentTranslationSignature = translationContinuitySignature(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const draft = translationDraftForCandidate(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
-  const continuityReason = permanentNoteContinuityState(
+  return resolveDraftKickoffRuntimeState(
     state.workspace,
     state.workspaceSelection,
-    state.selectedPermanentCandidateId,
     state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
+    state.form,
     {
       paraphraseText: state.form.paraphraseText,
       relationToQuestion: state.form.relationToQuestion,
       boundaryOrCondition: state.form.boundaryOrCondition
     }
-  ).reason;
-  const kickoffState = resolveDraftKickoffState(state.form, currentTranslationSignature);
-  return {
-    ...kickoffState,
-    action: draftKickoffActionState(
-      {
-        selectedCandidateId: state.selectedCandidateId,
-        hasSavedTranslation: draft.hasSavedTranslation,
-        hasLocalChanges: draft.hasLocalChanges,
-        supportsNextStep: Boolean(String(draft.relationToQuestion || "").trim() && String(draft.boundaryOrCondition || "").trim())
-      },
-      {
-        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
-        permanentNoteContinuityReason: continuityReason
-      },
-      {
-        hasContent: kickoffState.hasContent,
-        isStale: kickoffState.isStale
-      }
-    )
-  };
+  );
 }
 
 function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
