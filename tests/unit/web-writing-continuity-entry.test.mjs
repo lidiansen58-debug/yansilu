@@ -43,8 +43,10 @@ test("currentWritingEntryProject no longer returns the open project unconditiona
 
   const fnBody = match[1];
   assert.doesNotMatch(fnBody, /if \(writingState\.project\?\.id\) return writingState\.project;/);
-  assert.match(fnBody, /if \(\s*writingProjectMatchesContext\(writingState\.project,/);
-  assert.match(fnBody, /return findExistingWritingProjectForTheme\(sourceTheme, basketNoteIds\);/);
+  assert.match(fnBody, /return writingEntryProjectForContext\(\{/);
+  assert.match(source, /function writingEntryProjectForContext\(\{ basketNoteIds = \[\], sourceIndexIds = \[\] \} = \{\}\) \{/);
+  assert.match(source, /if \(\s*writingProjectMatchesContext\(writingState\.project,/);
+  assert.match(source, /return findExistingWritingProjectForTheme\(sourceTheme, normalizedBasketNoteIds\);/);
 });
 
 test("writing continuation action prefers resuming scaffold when draft is not ready yet", () => {
@@ -108,6 +110,16 @@ test("note main-path writing entry resumes an existing continuity target before 
   assert.match(fnBody, /const continuation = currentWritingContinuationEntry\("当前笔记"\);/);
   assert.match(fnBody, /if \(continuation\?\.projectId\) \{\s*await continueWritingProjectEntry\(continuation\.projectId,/);
   assert.match(fnBody, /await openWritingModule\(\{ statusMessage \}\);/);
+});
+
+test("note main-path continuity preview reuses the same basket-entry planning before wiring labels into the editor pane", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  assert.match(source, /function noteMainPathWritingContinuationEntry\(noteId, scopeLabel = "当前笔记"\) \{/);
+  assert.match(source, /const plan = planWritingBasketEntry\(\{\s*existingNoteIds: parseWritingBasketIds\(\),\s*incomingNoteIds: \[cleanNoteId\]\s*\}\);/);
+  assert.match(source, /resolveNoteWritingContinuation: \(note\) => noteMainPathWritingContinuationEntry\(note\?\.id \|\| "", "当前笔记"\)/);
 });
 
 test("createWritingProjectFromCurrentBasket resumes an existing project before creating a new one", () => {

@@ -6051,21 +6051,53 @@ function writingProjectMatchesContext(project, { themeId = "", noteIds = [] } = 
   return normalizedNoteIds.length > 0 && sameUniqueStringSet(basketNoteIds, normalizedNoteIds);
 }
 
-function currentWritingEntryProject() {
-  const basketNoteIds = parseWritingBasketIds();
-  if (!basketNoteIds.length) return null;
-  const sourceIndexIds = uniqueStrings([writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]);
-  const sourceThemeId = sourceIndexIds[0] || "";
-  const sourceTheme = sourceThemeId ? writingThemeIndexById(sourceThemeId) : null;
+function writingEntryProjectForContext({ basketNoteIds = [], sourceIndexIds = [] } = {}) {
+  const normalizedBasketNoteIds = uniqueStrings(basketNoteIds);
+  if (!normalizedBasketNoteIds.length) return null;
+  const normalizedSourceIndexIds = uniqueStrings(sourceIndexIds);
+  const activeSourceIndexIds = normalizedSourceIndexIds.length
+    ? normalizedSourceIndexIds
+    : uniqueStrings([writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]);
+  const sourceIndexId = activeSourceIndexIds[0] || "";
+  const sourceTheme = sourceIndexId ? writingThemeIndexById(sourceIndexId) : null;
   if (
     writingProjectMatchesContext(writingState.project, {
-      themeId: sourceThemeId,
-      noteIds: basketNoteIds
+      themeId: sourceIndexId,
+      noteIds: normalizedBasketNoteIds
     })
   ) {
     return writingState.project;
   }
-  return findExistingWritingProjectForTheme(sourceTheme, basketNoteIds);
+  return findExistingWritingProjectForTheme(sourceTheme, normalizedBasketNoteIds);
+}
+
+function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记") {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) return null;
+  const plan = planWritingBasketEntry({
+    existingNoteIds: parseWritingBasketIds(),
+    incomingNoteIds: [cleanNoteId]
+  });
+  const existingProject = writingEntryProjectForContext({
+    basketNoteIds: plan.basketNoteIds,
+    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds]
+  });
+  return describeWritingContinuationAction({
+    existingProjectId: existingProject?.id || "",
+    existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
+    existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
+    scopeLabel
+  });
+}
+
+function currentWritingEntryProject() {
+  const basketNoteIds = parseWritingBasketIds();
+  if (!basketNoteIds.length) return null;
+  const sourceIndexIds = [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds];
+  return writingEntryProjectForContext({
+    basketNoteIds,
+    sourceIndexIds
+  });
 }
 
 function currentWritingContinuationEntry(scopeLabel = "当前材料") {
@@ -9385,6 +9417,7 @@ const editor = new EditorPane({
   onStatus: setStatus,
   onStateChange: handleStateChange,
   onOpenNote: openNoteById,
+  resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
