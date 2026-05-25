@@ -5291,7 +5291,7 @@ export class EditorPane {
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
         status: `链接线索 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        hint: "已经有正文链接线索，下一步是把这条连接的理由写出来。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
@@ -5689,7 +5689,7 @@ export class EditorPane {
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
         status: `链接线索 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
+        hint: "已经有正文链接线索，下一步是把这条连接的理由写出来。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
@@ -5794,7 +5794,7 @@ export class EditorPane {
                 : wikilinkCount
                   ? Number(overview.tagRelatedCount || 0) > 0
                     ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的关系写出来。"
-                    : "有基础链接，下一步把关系为什么成立写清楚。"
+                    : "已经有正文链接线索，下一步把关系为什么成立写清楚。"
                   : Number(overview.tagRelatedCount || 0) > 0
                     ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
                     : "先连出第一条关系。",
