@@ -5511,6 +5511,9 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
       assert.match(String(translationStepText || ""), /先保存这条候选的用户转述，再进入永久笔记候选/);
       assert.match(String(translationStepText || ""), /关系和边界信息也会一起恢复/);
+      const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
+      assert.match(String(permanentStepText || ""), /当前这条候选只有本地未保存的转述草稿/);
+      assert.match(String(permanentStepText || ""), /先保存这条转述，再进入永久笔记候选或继续写 draft/);
   }, 4000);
 
   await page.fill("#translationParaphraseInput", savedParaphrase);
@@ -5771,7 +5774,8 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
           const statusText = await currentPaperWorkspaceStatusText(page);
           assert.match(String(statusText || ""), /已恢复这条候选的本地未保存转述草稿/);
           const permanentStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(1).textContent();
-          assert.match(String(permanentStepText || ""), /保存转述后，可以为当前候选生成永久笔记候选/);
+          assert.match(String(permanentStepText || ""), /当前这条候选只有本地未保存的转述草稿/);
+          assert.match(String(permanentStepText || ""), /先保存这条转述，再进入永久笔记候选或继续写 draft/);
         }, 4000);
         await page.click("#btnSaveTranslation");
         await waitFor(async () => {

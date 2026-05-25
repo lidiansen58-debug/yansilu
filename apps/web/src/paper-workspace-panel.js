@@ -153,6 +153,9 @@ function renderPermanentCandidate(candidate = null, options = {}) {
   const hasUnsavedAlignedTranslationChanges = Boolean(options.hasUnsavedAlignedTranslationChanges);
   const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
   if (!candidate) {
+    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先保存转述") {
+      return `<div class="paper-muted-box">当前这条候选只有本地未保存的转述草稿。先保存这条转述，再进入永久笔记候选或继续写 draft。</div>`;
+    }
     if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先补 relation / boundary") {
       return `<div class="paper-muted-box">这条候选的转述已经保存，但 relation 和 boundary 还不足以支撑 Step 4。先补全它们，再生成永久笔记候选或继续写 draft。</div>`;
     }

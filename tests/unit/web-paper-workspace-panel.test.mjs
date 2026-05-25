@@ -113,6 +113,8 @@ test("renderPaperWorkspacePage keeps permanent candidate action disabled before 
   assert.ok(html.includes("关系和边界信息也会一起恢复"));
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled>先保存转述</);
   assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
+  assert.ok(html.includes("当前这条候选只有本地未保存的转述草稿"));
+  assert.ok(html.includes("先保存这条转述，再进入永久笔记候选或继续写 draft"));
 });
 
 test("renderPaperWorkspacePage clarifies the next action from saved translation before a permanent candidate exists", () => {
