@@ -9,12 +9,15 @@ import {
 } from "./paper-workspace-api.js";
 import {
   buildNotebookLmPayload,
+  blockedDraftContinuationStatusMessage,
   canCreatePermanentCandidate,
   canSavePermanentNote,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
+  draftBriefCopyStatusMessage,
   draftKickoffActionState,
+  draftKickoffStatusMessage,
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
@@ -1067,7 +1070,7 @@ async function handleCopyDraftBrief() {
   syncFormFromDom();
   const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
-    setStatus(String(draftContinuationAction?.label || "当前还不能继续写 draft。"), "warn");
+    setStatus(blockedDraftContinuationStatusMessage(draftContinuationAction), "warn");
     render();
     return;
   }
@@ -1088,9 +1091,9 @@ async function handleCopyDraftBrief() {
       }
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(nextAction ? `已复制 draft brief：${draftBrief.title}。下一步：${nextAction}` : `已复制 draft brief：${draftBrief.title}`, "ok");
+    setStatus(draftBriefCopyStatusMessage(draftBrief.title, nextAction), "ok");
   } catch (error) {
-    setStatus(`复制 draft brief 失败：${String(error?.message || error)}`, "bad");
+    setStatus(draftBriefCopyStatusMessage("", "", error), "bad");
   }
   render();
 }
@@ -1114,7 +1117,7 @@ async function handleStartDraftKickoff() {
   const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
   const kickoffState = currentDraftKickoffState();
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
-    setStatus(String(draftContinuationAction?.label || "当前还不能继续写 draft。"), "warn");
+    setStatus(blockedDraftContinuationStatusMessage(draftContinuationAction), "warn");
     render();
     return;
   }
@@ -1143,18 +1146,10 @@ async function handleStartDraftKickoff() {
       translationSignature: state.form.draftKickoffSignature
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(
-      nextAction
-        ? `已载入本地 draft kickoff：${draftBrief.title}。下一步：${nextAction}`
-        : `已载入本地 draft kickoff：${draftBrief.title}`,
-      "ok"
-    );
+    setStatus(draftKickoffStatusMessage("loaded", draftBrief.title, nextAction), "ok");
   } else {
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(
-      nextAction ? `继续本地 draft：${draftBrief.title}。下一步：${nextAction}` : `继续本地 draft：${draftBrief.title}`,
-      "ok"
-    );
+    setStatus(draftKickoffStatusMessage("resumed", draftBrief.title, nextAction), "ok");
   }
   render();
   focusDraftKickoffTextarea();
@@ -1186,7 +1181,7 @@ async function handleAdoptPreviousKickoff() {
     previousSignature: state.form.draftKickoffPreviousSignature,
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
-  setStatus("已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。", "ok");
+  setStatus(draftKickoffStatusMessage("adopted"), "ok");
   render();
   focusDraftKickoffTextarea();
 }

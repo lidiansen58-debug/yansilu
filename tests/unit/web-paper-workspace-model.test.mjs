@@ -3,12 +3,15 @@ import assert from "node:assert/strict";
 
 import {
   buildNotebookLmPayload,
+  blockedDraftContinuationStatusMessage,
   canCreatePermanentCandidate,
   canSavePermanentNote,
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
   draftBriefButtonLabel,
+  draftBriefCopyStatusMessage,
+  draftKickoffStatusMessage,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
@@ -881,6 +884,34 @@ test("resolveRecentDraftBriefCopy rejects a corrupted copied brief that claims a
   };
 
   assert.equal(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current"), null);
+});
+
+test("draft continuity status helpers return the expected runtime messages", () => {
+  assert.equal(blockedDraftContinuationStatusMessage({ label: "先刷新 Step 4" }), "先刷新 Step 4");
+  assert.equal(blockedDraftContinuationStatusMessage(null), "当前还不能继续写 draft。");
+
+  assert.equal(
+    draftBriefCopyStatusMessage("Draft brief: Candidate One", "继续本地 draft"),
+    "已复制 draft brief：Draft brief: Candidate One。下一步：继续本地 draft"
+  );
+  assert.equal(
+    draftBriefCopyStatusMessage("Draft brief: Candidate One"),
+    "已复制 draft brief：Draft brief: Candidate One"
+  );
+  assert.equal(draftBriefCopyStatusMessage("", "", new Error("boom")), "复制 draft brief 失败：boom");
+
+  assert.equal(
+    draftKickoffStatusMessage("loaded", "Draft brief: Candidate One", "继续本地 draft"),
+    "已载入本地 draft kickoff：Draft brief: Candidate One。下一步：继续本地 draft"
+  );
+  assert.equal(
+    draftKickoffStatusMessage("resumed", "Draft brief: Candidate One", "继续本地 draft"),
+    "继续本地 draft：Draft brief: Candidate One。下一步：继续本地 draft"
+  );
+  assert.equal(
+    draftKickoffStatusMessage("adopted"),
+    "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。"
+  );
 });
 
 test("canSavePermanentNote stays blocked while aligned translation has unsaved local edits", () => {
