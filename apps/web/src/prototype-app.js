@@ -8724,9 +8724,11 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
           await continueWritingProjectEntry(continuation.projectId, {
             openDraft: continuation.action === "open-draft",
             statusMessage:
-              continuation.action === "resume-scaffold"
-                ? `已从图谱回到草稿骨架：${continuation.projectId}`
-                : continuation.action === "resume-project"
+              continuation.action === "open-draft"
+                ? `已从图谱打开当前草稿：${continuation.projectId}`
+                : continuation.action === "resume-scaffold"
+                  ? `已从图谱回到草稿骨架：${continuation.projectId}`
+                  : continuation.action === "resume-project"
                   ? `已从图谱继续当前项目：${continuation.projectId}`
                   : ""
           });
