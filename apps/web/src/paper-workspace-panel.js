@@ -8,6 +8,7 @@ import {
   candidateStatusLabel,
   permanentNoteContinuityState,
   paperWorkspaceProgress,
+  permanentNoteActionState,
   selectedPermanentCandidate,
   translationSaveActionState,
   translationDraftForCandidate,
@@ -250,13 +251,17 @@ export function renderPaperWorkspacePage(state = {}) {
       boundaryOrCondition: form.boundaryOrCondition
     }
   );
-  const permanentNoteSaveDisabled = !permanentNoteContinuity.allowed;
-  const permanentNoteActionLabel =
-    permanentNoteContinuity.reason === "stale_translation_signature"
-      ? "\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009"
-      : permanentNoteAlreadySaved
-      ? "\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0"
-      : "\u786e\u8ba4\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0";
+  const permanentNoteAction = permanentNoteActionState(
+    workspace,
+    state.workspaceSelection || null,
+    selectedPermanent?.id || "",
+    selectedCandidate?.id || "",
+    {
+      paraphraseText: form.paraphraseText,
+      relationToQuestion: form.relationToQuestion,
+      boundaryOrCondition: form.boundaryOrCondition
+    }
+  );
 
   return `
     <div class="paper-shell">
@@ -347,7 +352,7 @@ export function renderPaperWorkspacePage(state = {}) {
                 <option value="draft" ${form.saveStatus === "draft" ? "selected" : ""}>draft</option>
               </select>
             </label>
-            <button id="btnSavePermanentNote" type="button" ${permanentNoteSaveDisabled ? "disabled" : ""}>${permanentNoteActionLabel}</button>
+            <button id="btnSavePermanentNote" type="button" ${permanentNoteAction.enabled ? "" : "disabled"}>${permanentNoteAction.label}</button>
           </div>
         </section>
 

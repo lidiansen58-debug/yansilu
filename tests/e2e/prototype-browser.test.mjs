@@ -5971,6 +5971,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await page.fill("#translationRelationInput", "Step 4 is now stale because Step 3 changed.");
             await waitFor(async () => {
               assert.notEqual(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
             }, 4000);
 
             await openPaperWorkspace(page, webBase);
@@ -5991,6 +5992,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             await page.fill("#translationRelationInput", savedRelation);
             await waitFor(async () => {
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
+              assert.match(String((await page.locator("#btnSavePermanentNote").textContent()) || ""), /确认保存为永久笔记/);
             }, 4000);
 
             await page.locator("#confirmAuthorshipInput").check();

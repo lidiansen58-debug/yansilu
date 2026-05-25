@@ -232,6 +232,32 @@ export function permanentCandidateActionState(
   return { enabled: true, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
 }
 
+export function permanentNoteActionState(
+  workspace = null,
+  storedSelection = null,
+  permanentCandidateId = "",
+  candidateId = "",
+  draftInput = null
+) {
+  const continuity = permanentNoteContinuityState(
+    workspace,
+    storedSelection,
+    permanentCandidateId,
+    candidateId,
+    draftInput
+  );
+  if (continuity.reason === "stale_translation_signature") {
+    return { enabled: false, label: "\u5148\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  }
+  if (continuity.reason === "saved_permanent_note") {
+    return { enabled: false, label: "\u5df2\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0" };
+  }
+  return {
+    enabled: continuity.allowed,
+    label: "\u786e\u8ba4\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0"
+  };
+}
+
 export function resolveSelectedPaperCandidateState(workspace = null, options = {}) {
   const selectedCandidateId = nextSelectedCandidateId(
     workspace,

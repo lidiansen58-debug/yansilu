@@ -16,6 +16,7 @@ import {
   nextSelectedCandidateId,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
+  permanentNoteActionState,
   permanentNoteContinuityState,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
@@ -460,7 +461,7 @@ function updateDynamicControls() {
   }
   const savePermanentNoteButton = document.getElementById("btnSavePermanentNote");
   if (savePermanentNoteButton) {
-    savePermanentNoteButton.disabled = !canSavePermanentNote(
+    const permanentNoteAction = permanentNoteActionState(
       state.workspace,
       state.workspaceSelection,
       state.selectedPermanentCandidateId,
@@ -471,6 +472,8 @@ function updateDynamicControls() {
         boundaryOrCondition: state.form.boundaryOrCondition
       }
     );
+    savePermanentNoteButton.disabled = !permanentNoteAction.enabled;
+    savePermanentNoteButton.textContent = permanentNoteAction.label;
   }
 }
 

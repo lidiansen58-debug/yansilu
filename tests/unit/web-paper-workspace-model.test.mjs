@@ -17,6 +17,7 @@ import {
   paperWorkspaceResumeStatusKey,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
+  permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveSelectedPaperCandidateState,
@@ -466,6 +467,53 @@ test("permanentCandidateActionState reflects the current translation prerequisit
       label: "先更新转述"
     }
   );
+});
+
+test("permanentNoteActionState reflects default, stale, and saved paths", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording v2.",
+        relationToQuestion: "Saved relation v2.",
+        boundaryOrCondition: "Saved boundary v2."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const staleSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording v1.",
+        relationToQuestion: "Saved relation v1.",
+        boundaryOrCondition: "Saved boundary v1."
+      })
+    }
+  };
+
+  assert.deepEqual(permanentNoteActionState(workspace, null, "", ""), {
+    enabled: false,
+    label: "确认保存为永久笔记"
+  });
+  assert.deepEqual(permanentNoteActionState(workspace, staleSelection, "pn_1", "pwc_1"), {
+    enabled: false,
+    label: "先重新生成永久笔记候选"
+  });
+  assert.deepEqual(permanentNoteActionState(workspace, null, "pn_1", "pwc_1"), {
+    enabled: false,
+    label: "已保存为永久笔记"
+  });
 });
 
 test("resolvedStoredTranslationDraft normalizes recovered translation draft input", () => {
