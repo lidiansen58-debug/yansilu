@@ -10007,7 +10007,10 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
               : ""
       });
     } catch (error) {
-      setStatus(`${action === "open-draft" ? "打开当前草稿" : "打开当前项目"}失败：${String(error?.message || error)}`, "bad");
+      setStatus(
+        `${action === "open-draft" ? "打开当前草稿" : action === "resume-scaffold" ? "回到草稿骨架" : "继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
     }
     return;
   }
