@@ -745,6 +745,37 @@ export function draftBriefButtonLabel(draftBriefAction = null, draftContinuation
   }
 }
 
+export function blockedDraftContinuationStatusMessage(draftContinuationAction = null) {
+  return cleanText(draftContinuationAction?.label) || "当前还不能继续写 draft。";
+}
+
+export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null) {
+  if (error) {
+    return `复制 draft brief 失败：${String(error?.message || error)}`;
+  }
+  const cleanTitle = cleanText(title);
+  const cleanNextAction = cleanText(nextAction);
+  return cleanNextAction
+    ? `已复制 draft brief：${cleanTitle}。下一步：${cleanNextAction}`
+    : `已复制 draft brief：${cleanTitle}`;
+}
+
+export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "") {
+  const cleanTitle = cleanText(title);
+  const cleanNextAction = cleanText(nextAction);
+  if (mode === "adopted") {
+    return "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。";
+  }
+  if (mode === "resumed") {
+    return cleanNextAction
+      ? `继续本地 draft：${cleanTitle}。下一步：${cleanNextAction}`
+      : `继续本地 draft：${cleanTitle}`;
+  }
+  return cleanNextAction
+    ? `已载入本地 draft kickoff：${cleanTitle}。下一步：${cleanNextAction}`
+    : `已载入本地 draft kickoff：${cleanTitle}`;
+}
+
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
   const continuation = draftContinuationActionState(candidateState, workspaceState);
   const blockedLabels = {
