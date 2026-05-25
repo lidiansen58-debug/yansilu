@@ -123,14 +123,30 @@ function renderPermanentCandidateList(workspace = null, selectedPermanentCandida
   `;
 }
 
-function renderPermanentCandidate(candidate = null) {
+function renderPermanentCandidate(candidate = null, options = {}) {
+  const hasOtherPermanentCandidates = Boolean(options.hasOtherPermanentCandidates);
+  const hasCurrentCandidate = Boolean(options.hasCurrentCandidate);
+  const canCreateCurrentPermanentCandidate = Boolean(options.canCreateCurrentPermanentCandidate);
+  const isAlignedToSelectedCandidate = Boolean(options.isAlignedToSelectedCandidate);
   if (!candidate) {
+    if (hasCurrentCandidate && hasOtherPermanentCandidates && canCreateCurrentPermanentCandidate) {
+      return `<div class="paper-muted-box">\u5f53\u524d\u5019\u9009\u7684\u8f6c\u8ff0\u5df2\u7ecf\u5c31\u7eea\uff0c\u4f46\u8fd8\u6ca1\u6709\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u65b9\u5217\u8868\u91cc\u7684\u6761\u76ee\u5c5e\u4e8e\u5176\u4ed6\u5019\u9009\uff0c\u9700\u8981\u7684\u8bdd\u53ef\u4ee5\u5148\u56de\u770b\uff0c\u4f46\u5f53\u524d\u8def\u5f84\u7684\u4e0b\u4e00\u6b65\u662f\u70b9\u51fb\u201c\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u201d\u3002</div>`;
+    }
     return `<div class="paper-muted-box">\u4fdd\u5b58\u8f6c\u8ff0\u540e\uff0c\u53ef\u4ee5\u4e3a\u5f53\u524d\u5019\u9009\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u5019\u9009\u53ea\u662f\u4e00\u4efd\u8349\u7a3f\u9aa8\u67b6\uff0c\u786e\u8ba4 authorship \u4e4b\u540e\u624d\u4f1a\u771f\u6b63\u4fdd\u5b58\u4e3a\u6c38\u4e45\u7b14\u8bb0\u3002</div>`;
   }
 
   const citation = Array.isArray(candidate.citations) ? candidate.citations[0] || {} : {};
   return `
     <div class="paper-permanent-preview">
+      ${
+        hasCurrentCandidate && isAlignedToSelectedCandidate
+          ? `<div class="paper-muted-box">${
+              candidate.savedPermanentNoteId
+                ? "\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u8fde\u4e0a\u81ea\u5df1\u7684\u6c38\u4e45\u7b14\u8bb0\u8def\u5f84\u3002\u4f60\u53ef\u4ee5\u56de\u770b originality \u98ce\u9669\u3001\u5f15\u7528\u8fb9\u754c\uff0c\u6216\u76f4\u63a5\u786e\u8ba4\u8fd9\u4efd\u4fdd\u5b58\u7ed3\u679c\u3002"
+                : "\u8fd9\u6761\u5019\u9009\u5df2\u7ecf\u751f\u6210\u5bf9\u5e94\u7684\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u3002\u4e0b\u4e00\u6b65\u5c31\u662f\u68c0\u67e5 originality \u98ce\u9669\u3001\u5f15\u7528\u4e0e authorship \u786e\u8ba4\uff0c\u7136\u540e\u518d\u51b3\u5b9a\u662f\u5426\u4fdd\u5b58\u3002"
+            }</div>`
+          : ""
+      }
       <div class="paper-preview-head">
         <strong>${escapeHtml(candidate.title || candidate.id)}</strong>
         <span class="paper-risk paper-risk-${escapeHtml(candidate.originality_status || "warning")}">${escapeHtml(candidate.originality_status || "warning")}</span>
@@ -170,7 +186,9 @@ export function renderPaperWorkspacePage(state = {}) {
     boundaryOrCondition: form.boundaryOrCondition
   });
   const selectedCandidate = selectedDraft.candidate;
-  const selectedPermanent = selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId);
+  const selectedPermanent = state.selectedPermanentCandidateId
+    ? selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId)
+    : null;
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
   const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
   const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
@@ -242,7 +260,16 @@ export function renderPaperWorkspacePage(state = {}) {
           <div class="paper-card-kicker">Step 4</div>
           <h2>\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u4e0e\u786e\u8ba4\u4fdd\u5b58</h2>
           ${renderPermanentCandidateList(workspace, selectedPermanent?.id || "")}
-          ${renderPermanentCandidate(selectedPermanent)}
+          ${renderPermanentCandidate(selectedPermanent, {
+            hasOtherPermanentCandidates: Array.isArray(workspace?.permanentCandidates) && workspace.permanentCandidates.length > 0,
+            hasCurrentCandidate: Boolean(selectedCandidate?.id),
+            canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
+            isAlignedToSelectedCandidate: Boolean(
+              selectedCandidate?.id &&
+                selectedPermanent?.paper_candidate_id &&
+                selectedPermanent.paper_candidate_id === selectedCandidate.id
+            )
+          })}
           <div class="paper-save-row">
             <label class="paper-checkbox"><input id="confirmAuthorshipInput" type="checkbox" ${form.confirmAuthorship ? "checked" : ""} /> \u6211\u786e\u8ba4\u8fd9\u5df2\u7ecf\u662f\u6211\u81ea\u5df1\u7684\u5224\u65ad\uff0c\u800c\u4e0d\u662f NotebookLM \u539f\u6587\u6216\u8bba\u6587\u539f\u53e5\u3002</label>
             <label>\u4fdd\u5b58\u72b6\u6001
