@@ -6808,8 +6808,11 @@ function renderWritingStatusStrip() {
           ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
       : "检查骨架后再保存";
   const draftTone =
-    hasDraft ||
-    (!hasProject &&
+    hasDraft
+      ? "good"
+      : hasProject && hasScaffold && projectPreflightSummary.level !== "ready"
+        ? "warn"
+        : (!hasProject &&
       projectEntry?.projectId &&
       (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
       ? "good"
