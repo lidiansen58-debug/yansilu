@@ -7328,7 +7328,7 @@ function renderWritingPanel() {
     else if (writingState.projects.length) projectsHint.textContent = `${filterSummary ? `${filterSummary}，` : ""}共找到 ${writingState.projects.length} 个项目。`;
     else if (filterSummary) projectsHint.textContent = `${filterSummary}，但暂时没有匹配项目。`;
     else if (!hasProject && projectEntry.projectId) projectsHint.textContent = `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
-    else projectsHint.textContent = "还没有项目，创建后会出现在这里。";
+    else projectsHint.textContent = `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
   }
   if (projectsList) {
     if (writingState.loadingProjects) {
@@ -7340,7 +7340,7 @@ function renderWritingPanel() {
     } else {
       projectsList.innerHTML = !hasProject && projectEntry.projectId
         ? `<div class="writing-empty">当前写作篮已经对应 ${escapeHtml(projectEntry.status)}。直接用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，会比重新创建项目更连续。</div>`
-        : `<div class="writing-empty">还没有项目。先从永久笔记创建一个项目，这里就会出现可恢复入口。</div>`;
+        : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     }
   }
 
