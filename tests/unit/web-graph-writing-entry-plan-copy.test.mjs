@@ -48,6 +48,24 @@ test("graph next action previews auto-prefill when the visible slice is small", 
   assert.match(nextAction.note, /一起带入写作篮/);
 });
 
+test("graph next action keeps basket-scoped wording when visible notes are appended into an existing basket", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    writingEntryPlan: {
+      mode: "prefill-visible",
+      candidateCount: 2,
+      addedCount: 2,
+      hasBasket: true
+    }
+  });
+
+  assert.equal(nextAction.action, "writing");
+  assert.equal(nextAction.title, "下一步：带入 2 条永久笔记");
+  assert.equal(nextAction.actionLabel, "带入写作篮");
+  assert.match(nextAction.note, /继续当前写作篮时会一起加入/);
+});
+
 test("graph next action keeps the user in the current basket when there are no new candidates", () => {
   const nextAction = graphNextActionForSummary({
     hasNodes: true,
