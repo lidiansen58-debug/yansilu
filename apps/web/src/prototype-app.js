@@ -8370,7 +8370,7 @@ function renderGraphPanel() {
         <div class="graph-section-head">
           <div>
             <div class="graph-section-title">关系边</div>
-            <div class="graph-section-note">每条边说明两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
+            <div class="graph-section-note">每条边都要写清两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
           </div>
         </div>
         ${
@@ -8383,7 +8383,7 @@ function renderGraphPanel() {
                 )}</small>
                 <small>类型：${escapeHtml(graphRelationTypeLabel(highlightedEdge.relationType))}；状态：${escapeHtml(
                   graphRelationStatusLabel(highlightedEdge.status)
-                )}；说明：${escapeHtml(
+                )}；理由：${escapeHtml(
                   highlightedEdge.rationale || "尚未写明，当前来自 Markdown wikilink。"
                 )}</small>
               </div>
