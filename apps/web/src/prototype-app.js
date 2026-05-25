@@ -9945,11 +9945,13 @@ $("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
       await continueWritingProjectEntry(continuation.projectId, {
         openDraft: continuation.action === "open-draft",
         statusMessage:
-          continuation.action === "resume-scaffold"
-            ? `已回到草稿骨架：${continuation.projectId}`
-            : continuation.action === "resume-project"
-              ? `已继续当前项目：${continuation.projectId}`
-              : ""
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
       });
     } catch (error) {
       setStatus(
@@ -10373,11 +10375,13 @@ $("btnWritingCreateProject")?.addEventListener("click", async () => {
       await continueWritingProjectEntry(continuation.projectId, {
         openDraft: continuation.action === "open-draft",
         statusMessage:
-          continuation.action === "resume-scaffold"
-            ? `已回到草稿骨架：${continuation.projectId}`
-            : continuation.action === "resume-project"
-              ? `已继续当前项目：${continuation.projectId}`
-              : ""
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
       });
       return;
     }
@@ -10402,11 +10406,13 @@ $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
       await continueWritingProjectEntry(continuation.projectId, {
         openDraft: continuation.action === "open-draft",
         statusMessage:
-          continuation.action === "resume-scaffold"
-            ? `已回到草稿骨架：${continuation.projectId}`
-            : continuation.action === "resume-project"
-              ? `已继续当前项目：${continuation.projectId}`
-              : ""
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
       });
     } catch (error) {
       setStatus(
