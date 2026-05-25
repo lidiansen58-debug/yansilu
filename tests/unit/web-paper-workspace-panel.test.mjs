@@ -313,6 +313,7 @@ test("renderPaperWorkspacePage keeps the previous kickoff snapshot visible after
   const html = renderPaperWorkspacePage(state);
 
   assert.match(html, /id="draftKickoffPreviousTextarea"/);
+  assert.match(html, /id="btnAdoptPreviousKickoff"/);
   assert.ok(html.includes("Old kickoff that should not be lost."));
   assert.ok(html.includes("刷新后保留了上一版 kickoff"));
 });
@@ -388,6 +389,7 @@ test("renderPaperWorkspacePage keeps kickoff snapshot visible when step four is 
   assert.match(html, /id="btnStartDraftKickoff"[^>]*disabled>先刷新 Step 4</);
   assert.match(html, /id="draftKickoffTextarea"/);
   assert.match(html, /id="draftKickoffPreviousTextarea"/);
+  assert.match(html, /id="btnAdoptPreviousKickoff"/);
   assert.ok(html.includes("Kickoff written before refreshing stale Step 4."));
 });
 

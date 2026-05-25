@@ -1225,6 +1225,13 @@ function focusDraftKickoffTextarea() {
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
+function currentDraftKickoffSignature() {
+  return (
+    String(state.form.draftKickoffSignature || "").trim() ||
+    String(currentDraftKickoffState().currentTranslationSignature || "").trim()
+  );
+}
+
 async function handleStartDraftKickoff() {
   syncFormFromDom();
   const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
@@ -1271,6 +1278,39 @@ async function handleStartDraftKickoff() {
       "ok"
     );
   }
+  render();
+  focusDraftKickoffTextarea();
+}
+
+async function handleAdoptPreviousKickoff() {
+  syncFormFromDom();
+  const kickoffState = currentDraftKickoffState();
+  if (!kickoffState.previousSnapshot?.content) {
+    render();
+    return;
+  }
+  const currentContent = String(state.form.draftKickoffText || "").trim();
+  const currentSignature = currentDraftKickoffSignature();
+  const adoptedContent = String(kickoffState.previousSnapshot.content || "").trim();
+  if (!adoptedContent || !currentSignature) {
+    render();
+    return;
+  }
+  state.form.draftKickoffText = adoptedContent;
+  state.form.draftKickoffSignature = currentSignature;
+  state.form.draftKickoffPreviousText = currentContent;
+  state.form.draftKickoffPreviousSignature = currentSignature;
+  state.form.draftKickoffReplacementSignature = currentSignature;
+  persistDraftKickoff(state.selectedCandidateId, {
+    content: state.form.draftKickoffText,
+    translationSignature: state.form.draftKickoffSignature
+  });
+  persistDraftKickoffSnapshot(state.selectedCandidateId, {
+    content: state.form.draftKickoffPreviousText,
+    previousSignature: state.form.draftKickoffPreviousSignature,
+    replacementSignature: state.form.draftKickoffReplacementSignature
+  });
+  setStatus("已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。", "ok");
   render();
   focusDraftKickoffTextarea();
 }
@@ -1350,6 +1390,7 @@ root?.addEventListener("click", (event) => {
   if (id === "btnSavePermanentNote") void handleSavePermanentNote();
   if (id === "btnCopyDraftBrief") void handleCopyDraftBrief();
   if (id === "btnStartDraftKickoff") void handleStartDraftKickoff();
+  if (id === "btnAdoptPreviousKickoff") void handleAdoptPreviousKickoff();
 });
 
 setStatus(`${STATUS.connectedApiPrefix}${getPaperWorkspaceApiBase()}`, "ok");
