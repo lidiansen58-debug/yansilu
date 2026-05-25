@@ -5648,6 +5648,19 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
         /保留了上一版 kickoff/
       );
     }, 4000);
+    await page.click("#btnAdoptPreviousKickoff");
+    await waitFor(async () => {
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+      assert.match(
+        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+        /Local draft kickoff wording that should survive refresh\./
+      );
+      assert.match(
+        String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
+        new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      );
+    }, 4000);
 
     await page.locator(".paper-candidate").nth(1).click();
     await waitFor(async () => {
@@ -5758,9 +5771,12 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
       assert.match(
         String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+        /Local draft kickoff wording that should survive refresh\./
+      );
+      assert.match(
+        String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
         new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       );
-      assert.match(String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""), /Local draft kickoff wording that should survive refresh\./);
       assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
     }, 4000);
 
@@ -6277,11 +6293,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
               assert.match(
                 String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
-                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+                /Local draft kickoff wording that should survive refresh\./
               );
               assert.match(
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
-                /Kickoff written before refreshing stale Step 4\.|Local draft kickoff wording that should survive refresh\./
+                new RegExp(`Kickoff written before refreshing stale Step 4\\.|${refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)
               );
             }, 4000);
 
@@ -6312,11 +6328,11 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /先刷新 Step 4/);
               assert.match(
                 String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
-                new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+                /Local draft kickoff wording that should survive refresh\./
               );
               assert.match(
                 String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
-                /Kickoff written before refreshing stale Step 4\.|Local draft kickoff wording that should survive refresh\./
+                new RegExp(`Kickoff written before refreshing stale Step 4\\.|${refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`)
               );
               assert.equal(await page.locator("#btnCreatePermanentCandidate").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCreatePermanentCandidate").textContent()) || ""), /重新生成永久笔记候选/);

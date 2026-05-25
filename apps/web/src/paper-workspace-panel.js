@@ -267,6 +267,9 @@ function renderDraftBriefCard(actionState = null, brief = null, recentCopy = nul
           ? `<label>Previous local kickoff<textarea id="draftKickoffPreviousTextarea" readonly>${escapeHtml(
               kickoffState.previousSnapshot.content || ""
             )}</textarea></label>
+      <div class="paper-actions">
+        <button id="btnAdoptPreviousKickoff" type="button">采用上一版 kickoff 写法</button>
+      </div>
       <div class="paper-result-empty" data-paper-draft-kickoff-previous-note>刷新后保留了上一版 kickoff，方便你回看并手动迁移仍然想保留的写法。</div>`
           : ""
       }
