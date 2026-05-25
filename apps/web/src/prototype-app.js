@@ -8313,10 +8313,10 @@ function renderGraphPanel() {
             }。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>缺口与说明</strong>
+            <strong>缺口与理由</strong>
             <small>${bridgeGaps.length ? `桥接缺口 ${bridgeGaps.length} 处` : "当前没有明显桥接缺口"}；${
               untypedRelations.length
-            } 条连接还缺明确关系说明。</small>
+            } 条连接还缺明确关系理由。</small>
           </div>
           <div class="graph-overview-card">
             <strong>关系分布</strong>
