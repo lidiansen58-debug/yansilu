@@ -150,6 +150,42 @@ test("renderPaperWorkspacePage clarifies the next action from saved translation 
   assert.match(html, /先确认 relation 和 boundary 已经足够支撑下一步/);
 });
 
+test("renderPaperWorkspacePage disables permanent candidate creation while saved translation has unsaved edits", () => {
+  const state = createInitialPaperWorkspaceState();
+  state.workspace = {
+    paperId: "paper_test",
+    title: "Paper Test",
+    stage: "translations",
+    candidates: [
+      {
+        id: "pwc_1",
+        title: "Candidate One",
+        quoteText: "NotebookLM candidate text",
+        candidateKind: "claim",
+        status: "translated"
+      }
+    ],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "My own wording.",
+        relationToQuestion: "This matters for the writing question.",
+        boundaryOrCondition: "Only when the sample is comparable."
+      }
+    ],
+    permanentCandidates: []
+  };
+  state.selectedCandidateId = "pwc_1";
+  state.form.paraphraseText = "My own wording.";
+  state.form.relationToQuestion = "Updated relation before saving again.";
+  state.form.boundaryOrCondition = "Only when the sample is comparable.";
+
+  const html = renderPaperWorkspacePage(state);
+
+  assert.match(html, /id="btnCreatePermanentCandidate"[^>]*disabled/);
+});
+
 test("renderPaperWorkspacePage shows an empty-state hint before any permanent candidate exists", () => {
   const state = createInitialPaperWorkspaceState();
   state.workspace = {

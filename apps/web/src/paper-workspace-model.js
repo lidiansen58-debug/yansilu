@@ -250,9 +250,14 @@ export function canSubmitNotebookDraft(form = {}, workspace = null) {
   return Boolean(payload.summary || payload.qa || payload.studyGuide || payload.notes);
 }
 
-export function canCreatePermanentCandidate(workspace = null, candidateId = "") {
-  const draft = translationDraftForCandidate(workspace, candidateId);
-  return Boolean(cleanText(draft.candidate?.id) && cleanText(draft.translation?.id) && cleanText(draft.translation?.paraphraseText));
+export function canCreatePermanentCandidate(workspace = null, candidateId = "", draftInput = null) {
+  const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
+  return Boolean(
+    cleanText(draft.candidate?.id) &&
+      cleanText(draft.translation?.id) &&
+      cleanText(draft.translation?.paraphraseText) &&
+      !draft.hasLocalChanges
+  );
 }
 
 export function nextSelectedCandidateId(workspace = null, preferredId = "", options = {}) {

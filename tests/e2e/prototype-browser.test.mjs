@@ -5697,6 +5697,16 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             assert.match(String(translationStepText || ""), /如果要继续写 draft/);
           }, 4000);
 
+          await page.fill("#translationRelationInput", "Updated relation that has not been saved yet.");
+          await waitFor(async () => {
+            assert.equal(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
+            assert.notEqual(await permanentCandidateButton.getAttribute("disabled"), null);
+          }, 4000);
+          await page.fill("#translationRelationInput", savedRelation);
+          await waitFor(async () => {
+            assert.equal(await permanentCandidateButton.getAttribute("disabled"), null);
+          }, 4000);
+
           await page.click("#btnCreatePermanentCandidate");
           await waitFor(async () => {
             const text = await page.locator(".paper-result-json").textContent();

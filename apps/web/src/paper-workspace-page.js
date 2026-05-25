@@ -41,6 +41,8 @@ const STATUS = {
   addedNotebookDraft: "NotebookLM \u5185\u5bb9\u5df2\u8f6c\u6210 literature \u5019\u9009",
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
   createdPermanentCandidate: "\u6c38\u4e45\u7b14\u8bb0\u5019\u9009\u5df2\u751f\u6210",
+  translationNeedsResaveBeforePermanentCandidate:
+    "\u5148\u4fdd\u5b58\u5f53\u524d\u8fd9\u6761\u8f6c\u8ff0\u6539\u52a8\uff0c\u518d\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009",
   savedPermanentNote: "\u6c38\u4e45\u7b14\u8bb0\u5df2\u4fdd\u5b58",
   restoredLocalTranslationDraftOverSavedTranslation:
     "\u5df2\u6062\u590d\u8fd9\u6761\u5019\u9009\u7684\u672c\u5730\u672a\u4fdd\u5b58\u8349\u7a3f\uff0c\u4f60\u53ef\u4ee5\u7ee7\u7eed\u4fee\u6539\u540e\u518d\u4fdd\u5b58\uff0c\u4e5f\u53ef\u4ee5\u56de\u770b\u5df2\u4fdd\u5b58\u7684\u8f6c\u8ff0\u8def\u5f84\u3002",
@@ -319,6 +321,14 @@ function updateDynamicControls() {
   if (notebookDraftButton) {
     notebookDraftButton.disabled = !canSubmitNotebookDraft(state.form, state.workspace);
   }
+  const permanentCandidateButton = document.getElementById("btnCreatePermanentCandidate");
+  if (permanentCandidateButton) {
+    permanentCandidateButton.disabled = !canCreatePermanentCandidate(state.workspace, state.selectedCandidateId, {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    });
+  }
 }
 
 async function runAction(action, successMessage) {
@@ -396,6 +406,17 @@ async function handleSaveTranslation() {
 }
 
 async function handleCreatePermanentCandidate() {
+  if (
+    !canCreatePermanentCandidate(state.workspace, state.selectedCandidateId, {
+      paraphraseText: state.form.paraphraseText,
+      relationToQuestion: state.form.relationToQuestion,
+      boundaryOrCondition: state.form.boundaryOrCondition
+    })
+  ) {
+    setStatus(STATUS.translationNeedsResaveBeforePermanentCandidate, "warn");
+    render();
+    return;
+  }
   await runAction(async () => {
     const result = await createPaperPermanentCandidate(state.workspace?.paperId || state.form.paperId, {
       candidateId: state.selectedCandidateId

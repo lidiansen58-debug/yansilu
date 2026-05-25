@@ -198,7 +198,11 @@ export function renderPaperWorkspacePage(state = {}) {
     ? selectedPermanentCandidate(workspace, state.selectedPermanentCandidateId)
     : null;
   const notebookDisabled = !canSubmitNotebookDraft(form, workspace);
-  const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "");
+  const permanentCandidateDisabled = !canCreatePermanentCandidate(workspace, selectedCandidate?.id || "", {
+    paraphraseText: form.paraphraseText,
+    relationToQuestion: form.relationToQuestion,
+    boundaryOrCondition: form.boundaryOrCondition
+  });
   const permanentNoteAlreadySaved = Boolean(String(selectedPermanent?.savedPermanentNoteId || "").trim());
   const hasAlignedPermanentCandidate = Boolean(
     selectedCandidate?.id &&

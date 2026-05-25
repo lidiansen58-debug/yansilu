@@ -150,6 +150,38 @@ test("canCreatePermanentCandidate waits for a saved translation for the selected
   assert.equal(canCreatePermanentCandidate(workspace, "pwc_2"), true);
 });
 
+test("canCreatePermanentCandidate stays blocked while saved translation has unsaved local edits", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  assert.equal(
+    canCreatePermanentCandidate(workspace, "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Updated relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    false
+  );
+  assert.equal(
+    canCreatePermanentCandidate(workspace, "pwc_1", {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    }),
+    true
+  );
+});
+
 test("canCreatePermanentCandidate stays blocked when only legacy candidate paraphrase exists", () => {
   const workspace = {
     candidates: [{ id: "pwc_1", title: "Legacy", paraphraseText: "Legacy text without saved translation." }],
