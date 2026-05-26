@@ -2457,6 +2457,55 @@ test("resolvePersistedWorkspaceSelection updates candidate-scoped maps and norma
     ).draftBriefByCandidate,
     {}
   );
+
+  assert.deepEqual(
+    resolvePersistedWorkspaceSelection(
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft",
+        saveStatusByPermanentCandidate: {
+          pn_1: "draft"
+        },
+        confirmAuthorshipByPermanentCandidate: {
+          pn_1: true
+        },
+        translationSignatureByPermanentCandidate: {
+          pn_1: "sig_current"
+        },
+        draftBriefByCandidate: {}
+      },
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft"
+      },
+      {
+        selectedPermanentCandidateId: "pn_2",
+        saveStatus: "active",
+        confirmAuthorship: false,
+        translationSignature: "sig_new"
+      }
+    ),
+    {
+      selectedCandidateId: "pwc_1",
+      selectedPermanentCandidateId: "pn_2",
+      saveStatus: "active",
+      saveStatusByPermanentCandidate: {
+        pn_1: "draft",
+        pn_2: "active"
+      },
+      confirmAuthorshipByPermanentCandidate: {
+        pn_1: true,
+        pn_2: false
+      },
+      translationSignatureByPermanentCandidate: {
+        pn_1: "sig_current",
+        pn_2: "sig_new"
+      },
+      draftBriefByCandidate: {}
+    }
+  );
 });
 
 test("resolvePersistedWorkspaceSelectionRecord adds paper identity and updatedAt to the normalized selection payload", () => {
