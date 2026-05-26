@@ -375,11 +375,6 @@ function setLiveStatusFromCurrentSelection(storedSelection = currentStoredWorksp
   setStatus(liveStatus.text, liveStatus.tone);
 }
 
-function syncAndPersistDraftContext() {
-  syncFormFromDom();
-  persistTranslationDraft();
-}
-
 function refreshLiveContinuityUi(target = null, storedSelection = currentStoredWorkspaceSelection()) {
   setLiveStatusFromCurrentSelection(storedSelection);
   if (target) {
@@ -390,7 +385,8 @@ function refreshLiveContinuityUi(target = null, storedSelection = currentStoredW
 }
 
 function handleSelectPaperCandidate(candidateId = "") {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const storedSelection = currentStoredWorkspaceSelection();
   state.selectedCandidateId = workspaceSelectionIds(candidateId, "").selectedCandidateId;
   hydrateSelectedPaperCandidateState(storedSelection);
@@ -399,7 +395,8 @@ function handleSelectPaperCandidate(candidateId = "") {
 }
 
 function handleSelectPermanentCandidate(permanentCandidateId = "") {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const storedSelection = currentStoredWorkspaceSelection();
   state.selectedPermanentCandidateId = workspaceSelectionIds("", permanentCandidateId).selectedPermanentCandidateId;
   const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
@@ -900,7 +897,8 @@ async function handleAdoptPreviousKickoff() {
 }
 
 root?.addEventListener("input", (event) => {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const runtimeState = currentWorkspaceRuntimeState();
   if (event.target?.id === "draftKickoffTextarea") {
     persistDraftKickoff();
@@ -913,7 +911,8 @@ root?.addEventListener("input", (event) => {
 });
 
 root?.addEventListener("change", (event) => {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const runtimeState = currentWorkspaceRuntimeState();
   const selectionOverrides = workspaceSelectionInputOverrides(event.target);
   if (selectionOverrides) {
