@@ -10093,7 +10093,9 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
           openDraft: Boolean(existingProject.draft_note_id),
           statusMessage: existingProject.draft_note_id
             ? `已从主题打开当前草稿：${existingProject.id}`
-            : `已从主题继续当前项目：${existingProject.id}`
+            : existingProject.scaffold_id
+              ? `已从主题回到草稿骨架：${existingProject.id}`
+              : `已从主题继续当前项目：${existingProject.id}`
         });
         return;
       }

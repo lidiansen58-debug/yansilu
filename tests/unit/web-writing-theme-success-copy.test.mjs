@@ -29,5 +29,6 @@ test("theme detail continuity keeps success copy theme-scoped for every continui
   assert.match(match[1], /已从主题回到草稿骨架：\$\{projectId\}/);
   assert.match(match[1], /已从主题继续当前项目：\$\{projectId\}/);
   assert.match(match[1], /已从主题打开当前草稿：\$\{existingProject\.id\}/);
+  assert.match(match[1], /已从主题回到草稿骨架：\$\{existingProject\.id\}/);
   assert.match(match[1], /已从主题继续当前项目：\$\{existingProject\.id\}/);
 });
