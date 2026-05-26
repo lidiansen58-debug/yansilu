@@ -27,6 +27,7 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolveRefreshedDraftKickoff,
+  resolveStoredWorkspaceSelection,
   resolveStoredDraftBriefCopy,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
@@ -188,53 +189,7 @@ function readStoredWorkspaceSelection(paperId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const saveStatusByPermanentCandidate =
-      parsed.saveStatusByPermanentCandidate && typeof parsed.saveStatusByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.saveStatusByPermanentCandidate)
-              .map(([candidateId, saveStatus]) => [String(candidateId || "").trim(), String(saveStatus || "").trim()])
-              .filter(([candidateId, saveStatus]) => candidateId && saveStatus)
-          )
-        : {};
-    const confirmAuthorshipByPermanentCandidate =
-      parsed.confirmAuthorshipByPermanentCandidate && typeof parsed.confirmAuthorshipByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.confirmAuthorshipByPermanentCandidate)
-              .map(([candidateId, confirmAuthorship]) => [String(candidateId || "").trim(), confirmAuthorship === true])
-              .filter(([candidateId]) => candidateId)
-          )
-        : {};
-    const translationSignatureByPermanentCandidate =
-      parsed.translationSignatureByPermanentCandidate &&
-      typeof parsed.translationSignatureByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.translationSignatureByPermanentCandidate)
-              .map(([candidateId, signature]) => [String(candidateId || "").trim(), String(signature || "").trim()])
-              .filter(([candidateId, signature]) => candidateId && signature)
-          )
-        : {};
-    const draftBriefByCandidate =
-      parsed.draftBriefByCandidate && typeof parsed.draftBriefByCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.draftBriefByCandidate)
-              .map(([candidateId, value]) => {
-                const cleanCandidateId = String(candidateId || "").trim();
-                return [cleanCandidateId, resolveStoredDraftBriefCopy(value, cleanCandidateId)];
-              })
-              .filter(([, value]) => Boolean(value))
-          )
-        : {};
-    return {
-      selectedCandidateId: String(parsed.selectedCandidateId || "").trim(),
-      selectedPermanentCandidateId: String(parsed.selectedPermanentCandidateId || "").trim(),
-      saveStatus: String(parsed.saveStatus || "").trim(),
-      saveStatusByPermanentCandidate,
-      confirmAuthorshipByPermanentCandidate,
-      translationSignatureByPermanentCandidate,
-      draftBriefByCandidate
-    };
+    return resolveStoredWorkspaceSelection(JSON.parse(raw));
   } catch {
     return null;
   }
