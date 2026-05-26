@@ -864,7 +864,7 @@ async function handleCopyDraftBrief() {
     const persistedDraftBriefCopy = resolvePersistedDraftBriefCopyFromState(
       draftBriefState,
       state.selectedCandidateId,
-      currentSelectedTranslationRuntimeContext().translationSignature,
+      draftBriefState.currentTranslationSignature,
       new Date().toISOString()
     );
     persistWorkspaceSelection({
@@ -907,8 +907,12 @@ async function handleStartDraftKickoff() {
   }
   const shouldLoadFreshBrief = !kickoffState.hasContent || kickoffState.isStale;
   if (shouldLoadFreshBrief) {
-    const { translationSignature } = currentSelectedTranslationRuntimeContext();
-    const refreshedKickoff = resolveRefreshedDraftKickoff(state.form, kickoffState, draftBrief.markdown, translationSignature);
+    const refreshedKickoff = resolveRefreshedDraftKickoff(
+      state.form,
+      kickoffState,
+      draftBrief.markdown,
+      kickoffState.currentTranslationSignature
+    );
     if (!refreshedKickoff) {
       render();
       return;

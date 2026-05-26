@@ -371,12 +371,14 @@ export function resolvePersistedDraftBriefCopyFromState(
   translationSignature = "",
   copiedAt = ""
 ) {
+  const cleanTranslationSignature =
+    cleanText(translationSignature) || cleanText(draftBriefState?.currentTranslationSignature);
   return resolvePersistedDraftBriefCopy(null, candidateId, {
     stepFourPathKey: draftBriefState?.draftBrief?.stepFourPathKey,
     title: draftBriefState?.draftBrief?.title,
     nextActionKey: draftBriefState?.draftContinuationAction?.key,
     nextAction: draftBriefState?.draftContinuationAction?.label,
-    translationSignature,
+    translationSignature: cleanTranslationSignature,
     copiedAt
   });
 }

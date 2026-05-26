@@ -2100,13 +2100,14 @@ test("resolvePersistedDraftBriefCopyFromState derives a persisted payload direct
           stepFourPathKey: "pn_1",
           title: "Draft brief: Candidate One"
         },
+        currentTranslationSignature: "sig_current",
         draftContinuationAction: {
           key: "review_saved_permanent_note",
           label: "回看 originality / authorship"
         }
       },
       "pwc_1",
-      "sig_current",
+      "",
       "2026-05-26T00:00:00.000Z"
     ),
     {
