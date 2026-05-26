@@ -141,6 +141,45 @@ test("graph next action points to writing center once structure is already clear
   assert.match(nextAction.note, /带进写作中心/);
 });
 
+test("graph next action keeps no-candidate slices in graph cleanup mode before writing", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    firstNodeId: "pn_graph_1",
+    writingEntryPlan: {
+      mode: "no-candidates",
+      candidateCount: 0,
+      addedCount: 0,
+      hasBasket: false
+    }
+  });
+
+  assert.equal(nextAction.action, "relations");
+  assert.equal(nextAction.noteId, "pn_graph_1");
+  assert.equal(nextAction.actionLabel, "先补关系/边界");
+  assert.match(nextAction.note, /还没有可直接推进写作的永久笔记/);
+  assert.match(nextAction.note, /关系、边界|原创性检查/);
+  assert.doesNotMatch(nextAction.note, /进入写作中心/);
+});
+
+test("graph next action reuses continuity wording when the current slice already maps to an existing draft", () => {
+  const nextAction = graphNextActionForSummary({
+    hasNodes: true,
+    hasEdges: true,
+    writingContinuation: {
+      projectId: "wp_existing",
+      status: "打开当前草稿",
+      hint: "当前图谱切片已经对应项目 wp_existing，而且当前草稿也已存在。直接打开当前草稿继续写，会比重新进入写作中心更连续。",
+      actionLabel: "打开当前草稿"
+    }
+  });
+
+  assert.equal(nextAction.action, "writing");
+  assert.equal(nextAction.title, "下一步：打开当前草稿");
+  assert.equal(nextAction.actionLabel, "打开当前草稿");
+  assert.match(nextAction.note, /wp_existing|当前草稿/);
+});
+
 test("graph writing followup preloads current scope notes when basket is empty and scope is small", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: [],
@@ -149,7 +188,8 @@ test("graph writing followup preloads current scope notes when basket is empty a
   });
 
   assert.deepEqual(plan.prefillNoteIds, ["n1", "n2"]);
-  assert.match(plan.statusMessage, /带入当前可见图谱里的 2 条永久笔记/);
+  assert.match(plan.statusMessage, /2 条永久笔记带入写作篮/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
 test("graph writing followup appends newly visible notes into an existing basket", () => {
@@ -161,6 +201,8 @@ test("graph writing followup appends newly visible notes into an existing basket
 
   assert.deepEqual(plan.prefillNoteIds, ["n2"]);
   assert.match(plan.statusMessage, /1 条永久笔记加入写作篮/);
+  assert.match(plan.statusMessage, /继续当前写作篮推进/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
 test("graph writing followup avoids auto-prefill when current scope is too large", () => {
@@ -173,6 +215,7 @@ test("graph writing followup avoids auto-prefill when current scope is too large
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /当前可见图谱里有 6 条可用永久笔记/);
   assert.match(plan.statusMessage, /2-5 条加入写作篮/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
 test("graph writing followup keeps current basket untouched when the whole visible slice is already present", () => {
@@ -183,7 +226,9 @@ test("graph writing followup keeps current basket untouched when the whole visib
   });
 
   assert.deepEqual(plan.prefillNoteIds, []);
-  assert.match(plan.statusMessage, /已经都在写作篮中|继续推进/);
+  assert.match(plan.statusMessage, /已经都在写作篮中/);
+  assert.match(plan.statusMessage, /继续当前写作篮推进/);
+  assert.doesNotMatch(plan.statusMessage, /已打开写作中心/);
 });
 
 test("graph writing followup stays inside the current graph slice when no note is ready for writing", () => {
@@ -195,7 +240,36 @@ test("graph writing followup stays inside the current graph slice when no note i
 
   assert.deepEqual(plan.prefillNoteIds, []);
   assert.match(plan.statusMessage, /当前图谱切片里还没有可直接推进写作的永久笔记/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
   assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
+});
+
+test("graph writing followup keeps no-candidate no-basket feedback in graph cleanup mode", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: [],
+    candidateNoteIds: [],
+    scopeNoteIds: []
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /还没有可直接推进写作的永久笔记/);
+  assert.match(plan.statusMessage, /先补关系、边界或完成原创性检查/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
+  assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
+});
+
+test("graph writing followup keeps basket-first wording when no new visible note is ready", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: ["n1"],
+    candidateNoteIds: [],
+    scopeNoteIds: ["n1", "n2"]
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /还没有适合新增到写作篮的永久笔记/);
+  assert.match(plan.statusMessage, /继续当前写作篮/);
+  assert.match(plan.statusMessage, /回到图谱补关系\/边界/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
 });
 
 test("graph writing candidate note ids keep only visible eligible notes in visible order", () => {
