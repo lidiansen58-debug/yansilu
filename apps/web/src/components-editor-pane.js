@@ -5293,7 +5293,7 @@ export class EditorPane {
     if (wikilinkCount > 0 && tagRelatedCount === 0) {
       return {
         status: `链接线索 ${themeSignalCount || wikilinkCount}`,
-        hint: "已经有正文链接线索，下一步是把这条连接的理由写出来。",
+        hint: "已经有正文里的关联线索，下一步是把这条连接的理由写出来。",
         badge: themeSignalCount || wikilinkCount,
         badgeLabel: String(themeSignalCount || wikilinkCount)
       };
@@ -5309,7 +5309,10 @@ export class EditorPane {
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-        hint: "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        hint:
+          wikilinkCount > 0 && tagRelatedCount > 0
+            ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。"
+            : "已经有基础线索，但还需要把“为什么相关”说清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
       };
@@ -5513,17 +5516,17 @@ export class EditorPane {
         summary: `已经有 ${explicitRelationCount} 条显式关系，但其中还有 ${thinExplicitRelationCount} 条理由偏薄。先把“为什么成立”写具体，再继续推进主题或写作。`
       };
     }
-      if (connectedCount === 0) {
-        if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
-          return {
-            nextStep: "把线索收成显式关系",
-            summary: "已经同时出现正文链接和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
-          };
-        }
-        if (wikilinkCount > 0) {
-          return {
-            nextStep: "补关系理由",
-          summary: "已经有正文链接线索，下一步把“为什么相关”写成显式关系。"
+    if (connectedCount === 0) {
+      if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
+        return {
+          nextStep: "把线索收成显式关系",
+          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
+        };
+      }
+      if (wikilinkCount > 0) {
+        return {
+          nextStep: "补关系理由",
+          summary: "已经有正文里的 wikilink 线索，下一步把“为什么相关”写成显式关系。"
         };
       }
       if (Number(overview.tagRelatedCount || 0) > 0) {
