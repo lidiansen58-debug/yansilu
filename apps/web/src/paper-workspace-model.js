@@ -192,6 +192,17 @@ export function translationFormState(candidateState = null) {
   };
 }
 
+export function workspaceResumeFormState(workspace = null, candidateState = null, workspaceState = null) {
+  return {
+    paperId: cleanText(workspace?.paperId),
+    sourceId: cleanText(workspace?.sourceId),
+    title: cleanText(workspace?.title),
+    saveStatus: cleanText(workspaceState?.saveStatus) || "active",
+    confirmAuthorship: workspaceState?.confirmAuthorship === true,
+    ...translationFormState(candidateState)
+  };
+}
+
 export function translationDraftInputFromForm(form = null) {
   return {
     paraphraseText: cleanText(form?.paraphraseText),

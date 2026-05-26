@@ -53,6 +53,7 @@ import {
   workspaceSelectionTranslationSignatureOverrides,
   translationDraftInputFromForm,
   translationFormState,
+  workspaceResumeFormState,
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
@@ -394,9 +395,6 @@ function hydrateFormFromWorkspace(workspace) {
     preferredPermanentCandidateId,
     state.selectedCandidateId || storedSelection?.selectedCandidateId || ""
   );
-  state.form.paperId = workspace.paperId || state.form.paperId;
-  state.form.sourceId = workspace.sourceId || state.form.sourceId;
-  state.form.title = workspace.title || state.form.title;
   const resolvedCandidateState = resolveSelectedPaperCandidateState(workspace, {
     preferredCandidateId,
     candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId),
@@ -411,13 +409,9 @@ function hydrateFormFromWorkspace(workspace) {
       candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId)
     }
   );
+  Object.assign(state.form, workspaceResumeFormState(workspace, resolvedCandidateState, resolvedState));
   state.selectedCandidateId = resolvedCandidateState.selectedCandidateId;
   state.selectedPermanentCandidateId = resolvedState.selectedPermanentCandidateId;
-  state.form.saveStatus = resolvedState.saveStatus;
-  state.form.confirmAuthorship = resolvedState.confirmAuthorship;
-  state.form.paraphraseText = resolvedCandidateState.paraphraseText;
-  state.form.relationToQuestion = resolvedCandidateState.relationToQuestion;
-  state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   hydrateDraftKickoff(resolvedCandidateState.selectedCandidateId);
   persistWorkspaceSelection();
   return resolvePaperWorkspaceContinuityStatusFeedback(

@@ -88,6 +88,7 @@ import {
   workspaceSelectionIds,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
+  workspaceResumeFormState,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
   selectedAlignedPermanentCandidate,
@@ -1808,6 +1809,48 @@ test("translationFormState maps candidate translation state back into form field
   );
 
   assert.deepEqual(translationFormState(null), {
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: ""
+  });
+});
+
+test("workspaceResumeFormState restores workspace, translation, and permanent-note form fields together", () => {
+  assert.deepEqual(
+    workspaceResumeFormState(
+      {
+        paperId: " paper_1 ",
+        sourceId: " source_1 ",
+        title: " A Paper Title "
+      },
+      {
+        paraphraseText: " Restored paraphrase ",
+        relationToQuestion: " Restored relation ",
+        boundaryOrCondition: " Restored boundary "
+      },
+      {
+        saveStatus: " archived ",
+        confirmAuthorship: true
+      }
+    ),
+    {
+      paperId: "paper_1",
+      sourceId: "source_1",
+      title: "A Paper Title",
+      saveStatus: "archived",
+      confirmAuthorship: true,
+      paraphraseText: "Restored paraphrase",
+      relationToQuestion: "Restored relation",
+      boundaryOrCondition: "Restored boundary"
+    }
+  );
+
+  assert.deepEqual(workspaceResumeFormState(null, null, null), {
+    paperId: "",
+    sourceId: "",
+    title: "",
+    saveStatus: "active",
+    confirmAuthorship: false,
     paraphraseText: "",
     relationToQuestion: "",
     boundaryOrCondition: ""
