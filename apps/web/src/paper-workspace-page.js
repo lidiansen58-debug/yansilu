@@ -369,17 +369,9 @@ function currentSelectionContinuityStatus(
   );
 }
 
-function currentSelectionResumeStatus(storedSelection = currentStoredWorkspaceSelection()) {
-  return currentSelectionContinuityStatus("resume", storedSelection);
-}
-
-function currentSelectionLiveStatus(storedSelection = currentStoredWorkspaceSelection()) {
-  return currentSelectionContinuityStatus("live", storedSelection);
-}
-
 function setLiveStatusFromCurrentSelection(storedSelection = currentStoredWorkspaceSelection()) {
   if (!currentLoadedWorkspacePaperId()) return;
-  const liveStatus = currentSelectionLiveStatus(storedSelection);
+  const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
   setStatus(liveStatus.text, liveStatus.tone);
 }
 
@@ -768,7 +760,7 @@ async function handleCreatePermanentCandidate() {
       persistWorkspaceSelection(signatureOverrides);
     }
     persistWorkspaceSelection();
-    const resumeStatus = currentSelectionResumeStatus(state.workspaceSelection);
+    const resumeStatus = currentSelectionContinuityStatus("resume", state.workspaceSelection);
     return { stage: "permanent_candidate", resumeStatus, ...result };
   }, (result) => permanentCandidateStatusFeedback(null, result?.resumeStatus));
 }
