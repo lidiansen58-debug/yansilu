@@ -19,7 +19,9 @@ import {
   nextSelectedCandidateId,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceStatusFeedback,
+  permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
+  permanentNoteStatusFeedback,
   paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
@@ -926,14 +928,8 @@ async function handleSaveTranslation() {
 async function handleCreatePermanentCandidate() {
   const permanentCandidateState = currentPermanentCandidateState();
   if (!permanentCandidateState.action.enabled) {
-    if (permanentCandidateState.blockedStatusKey) {
-      const blockedStatus = paperWorkspaceStatusFeedback(
-        permanentCandidateState.blockedStatusKey,
-        "translationNeedsResaveBeforePermanentCandidate",
-        permanentCandidateState.blockedStatusTone || "warn"
-      );
-      setStatus(blockedStatus.text, blockedStatus.tone);
-    }
+    const blockedStatus = permanentCandidateStatusFeedback(permanentCandidateState);
+    setStatus(blockedStatus.text, blockedStatus.tone);
     render();
     return;
   }
@@ -948,7 +944,7 @@ async function handleCreatePermanentCandidate() {
     persistWorkspaceSelection();
     const resumeStatus = currentSelectionResumeStatus(state.workspaceSelection);
     return { stage: "permanent_candidate", resumeStatus, ...result };
-  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.createdPermanentCandidate, result?.resumeStatus));
+  }, (result) => permanentCandidateStatusFeedback(null, result?.resumeStatus));
 }
 
 async function handleSavePermanentNote() {
@@ -956,14 +952,8 @@ async function handleSavePermanentNote() {
   persistWorkspaceSelection();
   const permanentNoteState = currentPermanentNoteState();
   if (!permanentNoteState.action.enabled) {
-    if (permanentNoteState.blockedStatusKey) {
-      const blockedStatus = paperWorkspaceStatusFeedback(
-        permanentNoteState.blockedStatusKey,
-        "translationNeedsResaveBeforePermanentNote",
-        permanentNoteState.blockedStatusTone || "warn"
-      );
-      setStatus(blockedStatus.text, blockedStatus.tone);
-    }
+    const blockedStatus = permanentNoteStatusFeedback(permanentNoteState);
+    setStatus(blockedStatus.text, blockedStatus.tone);
     render();
     return;
   }
@@ -976,7 +966,7 @@ async function handleSavePermanentNote() {
     state.workspace = result.item;
     const resumeStatus = hydrateFormFromWorkspace(state.workspace);
     return { stage: "save_permanent_note", resumeStatus, ...result };
-  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.savedPermanentNote, result?.resumeStatus));
+  }, (result) => permanentNoteStatusFeedback(null, result?.resumeStatus));
 }
 
 async function handleCopyDraftBrief() {

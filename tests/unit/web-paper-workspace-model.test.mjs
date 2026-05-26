@@ -30,8 +30,10 @@ import {
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
   paperWorkspaceStatusFeedback,
+  permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
+  permanentNoteStatusFeedback,
   permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
@@ -2274,6 +2276,58 @@ test("translationSaveStatusFeedback keeps save confirmation while carrying the n
     text: "用户转述已保存。这条转述已经更新过，当前 Step 4 候选已过期。先重新生成永久笔记候选",
     tone: "warn"
   });
+});
+
+test("step-four status feedback helpers reuse blocked and success continuity feedback", () => {
+  assert.deepEqual(
+    permanentCandidateStatusFeedback(
+      {
+        blockedStatusKey: "savedTranslationNeedsDraftSupport",
+        blockedStatusTone: "warn"
+      },
+      null
+    ),
+    {
+      text: "这条候选的转述已保存，但 relation 和 boundary 还不足以支撑下一步。先补全它们，再进入永久笔记候选或继续写 draft。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(
+    permanentCandidateStatusFeedback(null, {
+      text: "已对齐到这条候选的永久笔记候选",
+      tone: "ok"
+    }),
+    {
+      text: "永久笔记候选已生成。已对齐到这条候选的永久笔记候选",
+      tone: "ok"
+    }
+  );
+
+  assert.deepEqual(
+    permanentNoteStatusFeedback(
+      {
+        blockedStatusKey: "savedPermanentNote",
+        blockedStatusTone: "ok"
+      },
+      null
+    ),
+    {
+      text: "永久笔记已保存",
+      tone: "ok"
+    }
+  );
+
+  assert.deepEqual(
+    permanentNoteStatusFeedback(null, {
+      text: "已对齐到这条候选已保存的永久笔记路径",
+      tone: "ok"
+    }),
+    {
+      text: "永久笔记已保存。已对齐到这条候选已保存的永久笔记路径",
+      tone: "ok"
+    }
+  );
 });
 
 test("draft continuity status feedback helpers return stable tones", () => {

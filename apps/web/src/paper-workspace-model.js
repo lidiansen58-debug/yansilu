@@ -755,6 +755,33 @@ export function translationSaveStatusFeedback(successStatusKey = "savedTranslati
   );
 }
 
+export function permanentCandidateStatusFeedback(runtimeState = null, resumeStatus = null) {
+  const blockedStatusKey = cleanText(runtimeState?.blockedStatusKey);
+  if (blockedStatusKey) {
+    return paperWorkspaceStatusFeedback(
+      blockedStatusKey,
+      "translationNeedsResaveBeforePermanentCandidate",
+      cleanText(runtimeState?.blockedStatusTone) || "warn"
+    );
+  }
+  return chainedPaperWorkspaceStatusFeedback(
+    PAPER_WORKSPACE_STATUS.createdPermanentCandidate,
+    resumeStatus
+  );
+}
+
+export function permanentNoteStatusFeedback(runtimeState = null, resumeStatus = null) {
+  const blockedStatusKey = cleanText(runtimeState?.blockedStatusKey);
+  if (blockedStatusKey) {
+    return paperWorkspaceStatusFeedback(
+      blockedStatusKey,
+      "translationNeedsResaveBeforePermanentNote",
+      cleanText(runtimeState?.blockedStatusTone) || "warn"
+    );
+  }
+  return chainedPaperWorkspaceStatusFeedback(PAPER_WORKSPACE_STATUS.savedPermanentNote, resumeStatus);
+}
+
 export function resolvePaperWorkspaceContinuityStatus(
   workspace = null,
   storedSelection = null,
