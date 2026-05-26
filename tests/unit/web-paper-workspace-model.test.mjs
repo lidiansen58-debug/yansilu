@@ -97,6 +97,7 @@ import {
   translationSaveStatusFeedback,
   translationSaveActionState,
   translationContinuitySignature,
+  translationDraftInputFromForm,
   translationDraftHasLocalChanges,
   translationDraftForCandidate,
   translationFormState,
@@ -1805,6 +1806,27 @@ test("translationFormState maps candidate translation state back into form field
   );
 
   assert.deepEqual(translationFormState(null), {
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: ""
+  });
+});
+
+test("translationDraftInputFromForm maps current form fields into runtime translation input", () => {
+  assert.deepEqual(
+    translationDraftInputFromForm({
+      paraphraseText: " Draft paraphrase. ",
+      relationToQuestion: " Draft relation. ",
+      boundaryOrCondition: " Draft boundary. "
+    }),
+    {
+      paraphraseText: "Draft paraphrase.",
+      relationToQuestion: "Draft relation.",
+      boundaryOrCondition: "Draft boundary."
+    }
+  );
+
+  assert.deepEqual(translationDraftInputFromForm(null), {
     paraphraseText: "",
     relationToQuestion: "",
     boundaryOrCondition: ""

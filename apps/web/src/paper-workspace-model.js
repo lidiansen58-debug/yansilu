@@ -192,6 +192,14 @@ export function translationFormState(candidateState = null) {
   };
 }
 
+export function translationDraftInputFromForm(form = null) {
+  return {
+    paraphraseText: cleanText(form?.paraphraseText),
+    relationToQuestion: cleanText(form?.relationToQuestion),
+    boundaryOrCondition: cleanText(form?.boundaryOrCondition)
+  };
+}
+
 export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", candidateId = "") {
   const draft = storedDraft && typeof storedDraft === "object" ? storedDraft : {};
   const cleanPaperId = cleanText(paperId);
