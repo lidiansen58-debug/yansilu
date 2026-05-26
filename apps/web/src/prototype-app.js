@@ -7045,7 +7045,7 @@ function renderWritingPanel() {
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map(renderWritingThemeIndexCard).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接进入写作中心。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里继续一条可续接的写作入口。</div>`;
     }
   }
 

@@ -124,3 +124,10 @@ test("theme index save prompt seed also uses resumable-entry wording", () => {
   assert.match(source, /把这一组成熟永久笔记保留为后续可续接的写作入口。/);
   assert.doesNotMatch(source, /把这一组成熟永久笔记保留为后续写作中心入口。/);
 });
+
+test("theme index empty state also uses resumable-entry wording", () => {
+  const source = repoSource();
+
+  assert.match(source, /还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里继续一条可续接的写作入口。/);
+  assert.doesNotMatch(source, /还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接进入写作中心。/);
+});
