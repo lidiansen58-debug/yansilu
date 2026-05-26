@@ -11,6 +11,7 @@ import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
+  chainedPaperWorkspaceStatusFeedback,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
@@ -852,14 +853,7 @@ async function handleAddNotebookDraft() {
     state.workspace = result.item;
     const resumeStatus = hydrateFormFromWorkspace(state.workspace);
     return { stage: "notebooklm_draft", resumeStatus, ...result };
-  }, (result) => {
-    const baseText = STATUS.addedNotebookDraft;
-    const continuationText = String(result?.resumeStatus?.text || "").trim();
-    return {
-      text: continuationText ? `${baseText}。${continuationText}` : baseText,
-      tone: String(result?.resumeStatus?.tone || "").trim() || "ok"
-    };
-  });
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.addedNotebookDraft, result?.resumeStatus));
 }
 
 async function handleSaveTranslation() {
@@ -972,14 +966,7 @@ async function handleSavePermanentNote() {
     state.workspace = result.item;
     const resumeStatus = hydrateFormFromWorkspace(state.workspace);
     return { stage: "save_permanent_note", resumeStatus, ...result };
-  }, (result) => {
-    const baseText = STATUS.savedPermanentNote;
-    const continuationText = String(result?.resumeStatus?.text || "").trim();
-    return {
-      text: continuationText ? `${baseText}。${continuationText}` : baseText,
-      tone: String(result?.resumeStatus?.tone || "").trim() || "ok"
-    };
-  });
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.savedPermanentNote, result?.resumeStatus));
 }
 
 async function handleCopyDraftBrief() {

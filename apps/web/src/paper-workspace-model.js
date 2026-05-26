@@ -728,6 +728,15 @@ export function paperWorkspaceStatusFeedback(
   };
 }
 
+export function chainedPaperWorkspaceStatusFeedback(baseText = "", continuationStatus = null, defaultTone = "ok") {
+  const cleanBaseText = cleanText(baseText);
+  const continuationText = cleanText(continuationStatus?.text);
+  return {
+    text: continuationText ? `${cleanBaseText}。${continuationText}` : cleanBaseText,
+    tone: cleanText(continuationStatus?.tone) || cleanText(defaultTone) || "ok"
+  };
+}
+
 export function resolvePaperWorkspaceContinuityStatus(
   workspace = null,
   storedSelection = null,

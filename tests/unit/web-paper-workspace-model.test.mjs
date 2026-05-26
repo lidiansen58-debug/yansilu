@@ -10,6 +10,7 @@ import {
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
+  chainedPaperWorkspaceStatusFeedback,
   continuityStatusTone,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
@@ -2188,6 +2189,23 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   const fallbackFeedback = paperWorkspaceStatusFeedback("", "savedTranslation", "warn");
   assert.match(fallbackFeedback.text, /用户转述已保存/);
   assert.equal(fallbackFeedback.tone, "warn");
+});
+
+test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its tone", () => {
+  assert.deepEqual(
+    chainedPaperWorkspaceStatusFeedback("永久笔记已保存", {
+      text: "已对齐到这条候选已保存的永久笔记路径。",
+      tone: "warn"
+    }),
+    {
+      text: "永久笔记已保存。已对齐到这条候选已保存的永久笔记路径。",
+      tone: "warn"
+    }
+  );
+  assert.deepEqual(chainedPaperWorkspaceStatusFeedback("NotebookLM 内容已转成 literature 候选", null), {
+    text: "NotebookLM 内容已转成 literature 候选",
+    tone: "ok"
+  });
 });
 
 test("draft continuity status feedback helpers return stable tones", () => {
