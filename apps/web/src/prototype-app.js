@@ -8809,7 +8809,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
   editor?.setInspectorVisible?.(true);
   editor?.renderRelated?.("图谱下一步");
 
-  const focusRelationCreate = () => {
+  const focusRelationCreate = (focusSelector = '[data-create-relation-form] [data-relation-target-search]') => {
     editor?.openCreateRelationForm?.();
     window.setTimeout(() => {
       const form = document.querySelector("[data-create-relation-form]");
@@ -8819,7 +8819,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
       editor?.jumpToInspectorSection?.("[data-create-relation-form]", {
         focus: true,
-        focusSelector: '[data-create-relation-form] [data-relation-target-search]'
+        focusSelector
       });
     }, 40);
   };
@@ -8869,6 +8869,12 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
     }, 20);
     focusRelationCreate();
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
+    focusRelationCreate(
+      cleanAction === "bridge"
+        ? '[data-create-relation-form] textarea[name="rationale"]'
+        : '[data-create-relation-form] [data-relation-target-search]'
+    );
     setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
     return true;
   }
