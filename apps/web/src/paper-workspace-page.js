@@ -571,26 +571,6 @@ async function copyTextToClipboard(text) {
   if (Array.isArray(window.__copiedTexts)) window.__copiedTexts.push(value);
 }
 
-function currentDraftBriefState() {
-  return currentWorkspaceRuntimeState().draftBriefState;
-}
-
-function currentTranslationSaveState() {
-  return currentWorkspaceRuntimeState().translationSaveState;
-}
-
-function currentDraftKickoffState() {
-  return currentWorkspaceRuntimeState().draftKickoffState;
-}
-
-function currentPermanentCandidateState() {
-  return currentWorkspaceRuntimeState().permanentCandidateState;
-}
-
-function currentPermanentNoteState() {
-  return currentWorkspaceRuntimeState().permanentNoteState;
-}
-
 function currentWorkspaceRuntimeState() {
   const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceRuntimeState(
@@ -711,7 +691,7 @@ async function handleAddNotebookDraft() {
 }
 
 async function handleSaveTranslation() {
-  const translationSaveState = currentTranslationSaveState();
+  const translationSaveState = currentWorkspaceRuntimeState().translationSaveState;
   if (!translationSaveState.action.enabled) {
     render();
     return;
@@ -764,7 +744,7 @@ async function handleSaveTranslation() {
 }
 
 async function handleCreatePermanentCandidate() {
-  const permanentCandidateState = currentPermanentCandidateState();
+  const permanentCandidateState = currentWorkspaceRuntimeState().permanentCandidateState;
   if (!permanentCandidateState.action.enabled) {
     const blockedStatus = permanentCandidateStatusFeedback(permanentCandidateState);
     setStatus(blockedStatus.text, blockedStatus.tone);
@@ -796,7 +776,7 @@ async function handleCreatePermanentCandidate() {
 async function handleSavePermanentNote() {
   syncFormFromDom();
   persistWorkspaceSelection();
-  const permanentNoteState = currentPermanentNoteState();
+  const permanentNoteState = currentWorkspaceRuntimeState().permanentNoteState;
   if (!permanentNoteState.action.enabled) {
     const blockedStatus = permanentNoteStatusFeedback(permanentNoteState);
     setStatus(blockedStatus.text, blockedStatus.tone);
