@@ -1309,7 +1309,12 @@ export function draftContinuationBrief(
   };
 }
 
-export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidateId = "", translationSignature = "") {
+export function resolveRecentDraftBriefCopy(
+  workspaceSelection = null,
+  candidateId = "",
+  translationSignature = "",
+  draftContinuationAction = null
+) {
   const cleanCandidateId = cleanText(candidateId);
   const cleanTranslationSignature = cleanText(translationSignature);
   if (!cleanCandidateId || !cleanTranslationSignature) return null;
@@ -1317,7 +1322,20 @@ export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidate
   if (!storedCopy || cleanText(storedCopy.translationSignature) !== cleanTranslationSignature) return null;
   const storedCandidateId = cleanText(storedCopy.candidateId);
   if (storedCandidateId && storedCandidateId !== cleanCandidateId) return null;
-  return storedCopy;
+  const storedNextActionKey = cleanText(storedCopy.nextActionKey);
+  const currentNextActionKey = cleanText(draftContinuationAction?.key);
+  if (storedNextActionKey && currentNextActionKey && storedNextActionKey !== currentNextActionKey) return null;
+  const resolvedNextAction =
+    storedNextActionKey && currentNextActionKey === storedNextActionKey
+      ? cleanText(draftContinuationAction?.label) || cleanText(storedCopy.nextAction)
+      : cleanText(storedCopy.nextAction);
+  if (!resolvedNextAction) return null;
+  return {
+    ...storedCopy,
+    candidateId: storedCandidateId || cleanCandidateId,
+    nextActionKey: storedNextActionKey,
+    nextAction: resolvedNextAction
+  };
 }
 
 export function resolveDraftBriefState(
@@ -1345,24 +1363,21 @@ export function resolveDraftBriefState(
     selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
     permanentNoteContinuityReason: continuityReason
   };
-  const draftBrief = draftContinuationBrief(
-    workspace,
-    workspaceSelection,
-    candidateId,
-    selectedPermanentCandidateId,
-    draftInput
-  );
+  const draftBriefAction = draftBriefActionState(candidateState, workspaceState);
+  const draftContinuationAction = draftContinuationActionState(candidateState, workspaceState);
+  const draftBrief = draftContinuationBrief(workspace, workspaceSelection, candidateId, selectedPermanentCandidateId, draftInput);
   const currentTranslationSignature = translationContinuitySignature(workspace, candidateId, draftInput);
   const recentDraftBriefCopy = resolveRecentDraftBriefCopy(
     workspaceSelection,
     candidateId,
-    currentTranslationSignature
+    currentTranslationSignature,
+    draftContinuationAction
   );
 
   return {
     draft,
-    draftBriefAction: draftBriefActionState(candidateState, workspaceState),
-    draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
+    draftBriefAction,
+    draftContinuationAction,
     draftBrief,
     recentDraftBriefCopy,
     currentTranslationSignature,

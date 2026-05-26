@@ -239,10 +239,13 @@ function readStoredWorkspaceSelection(paperId) {
               .map(([candidateId, value]) => {
                 const cleanCandidateId = String(candidateId || "").trim();
                 const entry = value && typeof value === "object" ? value : {};
+                const storedCandidateId = String(entry.candidateId || cleanCandidateId).trim();
                 return [
                   cleanCandidateId,
                   {
+                    candidateId: storedCandidateId,
                     title: String(entry.title || "").trim(),
+                    nextActionKey: String(entry.nextActionKey || "").trim(),
                     nextAction: String(entry.nextAction || "").trim(),
                     translationSignature: String(entry.translationSignature || "").trim(),
                     copiedAt: String(entry.copiedAt || "").trim()
@@ -251,7 +254,10 @@ function readStoredWorkspaceSelection(paperId) {
               })
               .filter(
                 ([candidateId, value]) =>
-                  candidateId && value.title && value.nextAction && value.translationSignature
+                  candidateId &&
+                  value.title &&
+                  value.translationSignature &&
+                  (value.nextAction || value.nextActionKey)
               )
           )
         : {};
@@ -306,12 +312,15 @@ function persistWorkspaceSelection(overrides = {}) {
         if (draftBriefCopy.clear === true) {
           delete draftBriefByCandidate[draftBriefCandidateId];
         } else {
+          const nextActionKey = String(draftBriefCopy.nextActionKey || "").trim();
           const title = String(draftBriefCopy.title || "").trim();
           const nextAction = String(draftBriefCopy.nextAction || "").trim();
           const translationSignature = String(draftBriefCopy.translationSignature || "").trim();
-          if (title && nextAction && translationSignature) {
+          if (title && translationSignature && (nextAction || nextActionKey)) {
             draftBriefByCandidate[draftBriefCandidateId] = {
+              candidateId: draftBriefCandidateId,
               title,
+              nextActionKey,
               nextAction,
               translationSignature,
               copiedAt: String(draftBriefCopy.copiedAt || new Date().toISOString()).trim()
@@ -982,6 +991,7 @@ async function handleCopyDraftBrief() {
       draftBriefCopy: {
         candidateId: state.selectedCandidateId,
         title: draftBrief.title,
+        nextActionKey: draftContinuationAction?.key,
         nextAction: draftContinuationAction?.label,
         translationSignature: currentSelectedTranslationRuntimeContext().translationSignature,
         copiedAt: new Date().toISOString()
