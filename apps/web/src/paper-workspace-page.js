@@ -146,6 +146,16 @@ function clearStoredRecord(key) {
   } catch {}
 }
 
+function writeStoredRecord(key, value) {
+  if (!key || !value) return false;
+  try {
+    window.localStorage?.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
   const key = translationDraftStorageKey(paperId, candidateId);
   return readStoredRecord(key, (parsed) => resolveStoredTranslationDraft(parsed, paperId, candidateId));
@@ -206,10 +216,7 @@ function persistWorkspaceSelection(overrides = {}) {
       }
     );
     if (!nextSelection) return;
-    window.localStorage?.setItem(
-      key,
-      JSON.stringify(nextSelection)
-    );
+    if (!writeStoredRecord(key, nextSelection)) return;
     state.workspaceSelection = nextSelection;
   } catch {}
 }
@@ -261,10 +268,7 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
       clearStoredTranslationDraft(paperId, cleanCandidateId);
       return;
     }
-    window.localStorage?.setItem(
-      key,
-      JSON.stringify(persistedDraft)
-    );
+    writeStoredRecord(key, persistedDraft);
   } catch {}
 }
 
@@ -598,10 +602,7 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
       clearStoredDraftKickoff(paperId, cleanCandidateId);
       return;
     }
-    window.localStorage?.setItem(
-      key,
-      JSON.stringify(persistedKickoff)
-    );
+    writeStoredRecord(key, persistedKickoff);
   } catch {}
 }
 
@@ -625,10 +626,7 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
       clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
       return;
     }
-    window.localStorage?.setItem(
-      key,
-      JSON.stringify(persistedSnapshot)
-    );
+    writeStoredRecord(key, persistedSnapshot);
   } catch {}
 }
 
