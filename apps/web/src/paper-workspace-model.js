@@ -215,6 +215,15 @@ export function resolvePersistedTranslationDraft(draftInput = null, paperId = ""
   };
 }
 
+export function resolvePersistedTranslationDraftRecord(draftInput = null, paperId = "", candidateId = "", updatedAt = "") {
+  const persistedDraft = resolvePersistedTranslationDraft(draftInput, paperId, candidateId);
+  if (!persistedDraft) return null;
+  return {
+    ...persistedDraft,
+    updatedAt: cleanText(updatedAt) || new Date().toISOString()
+  };
+}
+
 export function resolveStoredDraftKickoff(storedKickoff = null, paperId = "", candidateId = "") {
   const kickoff = storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {};
   const cleanPaperId = cleanText(paperId);
