@@ -2189,6 +2189,13 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   const fallbackFeedback = paperWorkspaceStatusFeedback("", "savedTranslation", "warn");
   assert.match(fallbackFeedback.text, /用户转述已保存/);
   assert.equal(fallbackFeedback.tone, "warn");
+
+  const notebookReadyFeedback = paperWorkspaceStatusFeedback(
+    "workspaceReadyForNotebookDraft",
+    "createdWorkspace"
+  );
+  assert.match(notebookReadyFeedback.text, /粘贴 NotebookLM 输出/);
+  assert.equal(notebookReadyFeedback.tone, "ok");
 });
 
 test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its tone", () => {

@@ -835,7 +835,11 @@ async function handleCreateWorkspace() {
     state.workspace = workspace;
     hydrateFormFromWorkspace(workspace);
     return { stage: "create_workspace", item: workspace };
-  }, STATUS.createdWorkspace);
+  }, () =>
+    chainedPaperWorkspaceStatusFeedback(
+      STATUS.createdWorkspace,
+      paperWorkspaceStatusFeedback("workspaceReadyForNotebookDraft", "createdWorkspace")
+    ));
 }
 
 async function handleLoadWorkspace() {

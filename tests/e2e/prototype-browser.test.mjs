@@ -5491,6 +5491,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(text || "", /"stage": "create_workspace"/);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /论文工作台已创建/);
+      assert.match(String(statusText || ""), /粘贴 NotebookLM 输出/);
     }, 6000);
     await waitFor(async () => {
       assert.notEqual(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);

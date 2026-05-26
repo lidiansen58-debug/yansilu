@@ -51,6 +51,7 @@ export const PAPER_WORKSPACE_STATUS = {
   loading: "\u5904\u7406\u4e2d...",
   errorPrefix: "\u64cd\u4f5c\u5931\u8d25\uff1a",
   createdWorkspace: "\u8bba\u6587\u5de5\u4f5c\u53f0\u5df2\u521b\u5efa",
+  workspaceReadyForNotebookDraft: "\u4e0b\u4e00\u6b65\uff1a\u7c98\u8d34 NotebookLM \u8f93\u51fa\uff0c\u5148\u751f\u6210 literature \u5019\u9009\u3002",
   loadedWorkspace: "\u8bba\u6587\u5de5\u4f5c\u53f0\u5df2\u8bfb\u53d6",
   addedNotebookDraft: "NotebookLM \u5185\u5bb9\u5df2\u8f6c\u6210 literature \u5019\u9009",
   savedTranslation: "\u7528\u6237\u8f6c\u8ff0\u5df2\u4fdd\u5b58",
