@@ -200,6 +200,21 @@ export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", 
   return normalizedDraft;
 }
 
+export function paperWorkspacePaperStorageKey(prefix = "", paperId = "") {
+  const cleanPrefix = cleanText(prefix);
+  const cleanPaperId = cleanText(paperId);
+  if (!cleanPrefix || !cleanPaperId) return "";
+  return `${cleanPrefix}:${cleanPaperId}`;
+}
+
+export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", candidateId = "") {
+  const cleanPrefix = cleanText(prefix);
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPrefix || !cleanPaperId || !cleanCandidateId) return "";
+  return `${cleanPrefix}:${cleanPaperId}:${cleanCandidateId}`;
+}
+
 export function resolvePersistedTranslationDraft(draftInput = null, paperId = "", candidateId = "") {
   const cleanPaperId = cleanText(paperId);
   const cleanCandidateId = cleanText(candidateId);
@@ -313,6 +328,17 @@ export function resolvePersistedDraftKickoffFromForm(form = null, paperId = "", 
   });
 }
 
+export function resolvePersistedDraftKickoffRecordForCandidate(
+  form = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanCandidateId) return null;
+  return resolvePersistedDraftKickoffFromForm(form, paperId, cleanCandidateId, overrides);
+}
+
 export function resolvePersistedDraftKickoffSnapshot(
   storedSnapshot = null,
   paperId = "",
@@ -360,6 +386,18 @@ export function resolvePersistedDraftKickoffSnapshotFromForm(
       form?.draftKickoffReplacementSignature,
     updatedAt: overrides.updatedAt
   });
+}
+
+export function resolvePersistedDraftKickoffSnapshotRecordForCandidate(
+  form = null,
+  paperId = "",
+  candidateId = "",
+  snapshot = null,
+  overrides = {}
+) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanCandidateId) return null;
+  return resolvePersistedDraftKickoffSnapshotFromForm(form, paperId, cleanCandidateId, snapshot, overrides);
 }
 
 export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {
@@ -561,6 +599,21 @@ export function workspaceSelectionPersistenceState(
     selectedCandidateId: cleanText(selectedCandidateId),
     selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
     saveStatus: cleanText(saveStatus)
+  };
+}
+
+export function workspaceSelectionPersistenceOverrides(
+  overrides = {},
+  confirmAuthorship = false,
+  updatedAt = ""
+) {
+  return {
+    ...(overrides && typeof overrides === "object" ? overrides : {}),
+    confirmAuthorship:
+      overrides && Object.prototype.hasOwnProperty.call(overrides, "confirmAuthorship")
+        ? overrides.confirmAuthorship === true
+        : confirmAuthorship === true,
+    updatedAt: cleanText(updatedAt) || new Date().toISOString()
   };
 }
 

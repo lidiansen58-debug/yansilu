@@ -18,6 +18,8 @@ import {
   draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
+  paperWorkspaceCandidateStorageKey,
+  paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
   permanentCandidateStatusFeedback,
@@ -27,10 +29,8 @@ import {
   resolveAdoptedDraftKickoff,
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
-  resolvePersistedDraftKickoff,
-  resolvePersistedDraftKickoffFromForm,
-  resolvePersistedDraftKickoffSnapshot,
-  resolvePersistedDraftKickoffSnapshotFromForm,
+  resolvePersistedDraftKickoffRecordForCandidate,
+  resolvePersistedDraftKickoffSnapshotRecordForCandidate,
   resolveRefreshedDraftKickoff,
   resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
@@ -49,6 +49,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   workspaceSelectionPersistenceState,
+  workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   translationSaveStatusFeedback,
   translationContinuitySignature,
@@ -102,30 +103,19 @@ function currentLoadedWorkspacePaperId() {
 }
 
 function translationDraftStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${TRANSLATION_DRAFT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(TRANSLATION_DRAFT_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function workspaceSelectionStorageKey(paperId) {
-  const cleanPaperId = String(paperId || "").trim();
-  if (!cleanPaperId) return "";
-  return `${WORKSPACE_SELECTION_STORAGE_PREFIX}:${cleanPaperId}`;
+  return paperWorkspacePaperStorageKey(WORKSPACE_SELECTION_STORAGE_PREFIX, paperId);
 }
 
 function draftKickoffStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${DRAFT_KICKOFF_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function draftKickoffSnapshotStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function readStoredRecord(key, resolver) {
@@ -210,11 +200,11 @@ function persistWorkspaceSelection(overrides = {}) {
         state.selectedPermanentCandidateId,
         state.form.saveStatus
       ),
-      {
-        ...overrides,
-        confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true,
-        updatedAt: new Date().toISOString()
-      }
+      workspaceSelectionPersistenceOverrides(
+        overrides,
+        state.form.confirmAuthorship === true,
+        new Date().toISOString()
+      )
     );
     if (!nextSelection) return;
     if (!writeStoredRecord(key, nextSelection)) return;
@@ -594,7 +584,7 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedKickoff = resolvePersistedDraftKickoffFromForm(state.form, paperId, cleanCandidateId, {
+    const persistedKickoff = resolvePersistedDraftKickoffRecordForCandidate(state.form, paperId, cleanCandidateId, {
       content: overrides.content,
       translationSignature: overrides.translationSignature,
       updatedAt: new Date().toISOString()
@@ -614,7 +604,7 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
   const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedSnapshot = resolvePersistedDraftKickoffSnapshotFromForm(
+    const persistedSnapshot = resolvePersistedDraftKickoffSnapshotRecordForCandidate(
       state.form,
       paperId,
       cleanCandidateId,

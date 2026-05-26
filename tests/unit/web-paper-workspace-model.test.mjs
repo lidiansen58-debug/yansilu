@@ -32,7 +32,9 @@ import {
   nextSelectedPermanentCandidateId,
   normalizePaperWorkspaceStatusFeedback,
   paperWorkspaceActionStatusFeedback,
+  paperWorkspaceCandidateStorageKey,
   paperWorkspaceErrorStatusFeedback,
+  paperWorkspacePaperStorageKey,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -64,8 +66,10 @@ import {
   resolveStoredTranslationDraft,
   resolvePersistedDraftKickoff,
   resolvePersistedDraftKickoffFromForm,
+  resolvePersistedDraftKickoffRecordForCandidate,
   resolvePersistedDraftKickoffSnapshot,
   resolvePersistedDraftKickoffSnapshotFromForm,
+  resolvePersistedDraftKickoffSnapshotRecordForCandidate,
   resolvePersistedDraftBriefCopy,
   resolvePersistedDraftBriefCopyFromState,
   resolveStoredDraftKickoff,
@@ -79,6 +83,7 @@ import {
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionPersistenceState,
+  workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
@@ -1923,6 +1928,19 @@ test("resolvePersistedTranslationDraftRecordForCandidate only persists when the 
   );
 });
 
+test("paper workspace storage key helpers normalize paper- and candidate-scoped keys", () => {
+  assert.equal(
+    paperWorkspacePaperStorageKey(" yansilu:paper-workspace:selection ", " paper_test "),
+    "yansilu:paper-workspace:selection:paper_test"
+  );
+  assert.equal(
+    paperWorkspaceCandidateStorageKey(" yansilu:paper-workspace:translation-draft ", " paper_test ", " pwc_1 "),
+    "yansilu:paper-workspace:translation-draft:paper_test:pwc_1"
+  );
+  assert.equal(paperWorkspacePaperStorageKey("", "paper_test"), "");
+  assert.equal(paperWorkspaceCandidateStorageKey("prefix", "paper_test", " "), "");
+});
+
 test("resolveStoredDraftKickoff normalizes a matching stored kickoff and rejects mismatched identity payloads", () => {
   assert.deepEqual(
     resolveStoredDraftKickoff(
@@ -2016,6 +2034,31 @@ test("resolvePersistedDraftKickoffFromForm derives a persisted kickoff directly 
   );
 
   assert.equal(resolvePersistedDraftKickoffFromForm(null, "paper_test", "pwc_1", {}), null);
+});
+
+test("resolvePersistedDraftKickoffRecordForCandidate normalizes candidate identity before persisting", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoffRecordForCandidate(
+      {
+        draftKickoffText: " Local kickoff wording. ",
+        draftKickoffSignature: " sig_current "
+      },
+      "paper_test",
+      " pwc_1 ",
+      {
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Local kickoff wording.",
+      translationSignature: "sig_current",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(resolvePersistedDraftKickoffRecordForCandidate(null, "paper_test", " ", {}), null);
 });
 
 test("resolveStoredDraftKickoffSnapshot normalizes a matching stored snapshot and rejects mismatched identity payloads", () => {
@@ -2144,6 +2187,37 @@ test("resolvePersistedDraftKickoffSnapshotFromForm derives a persisted snapshot 
   );
 
   assert.equal(resolvePersistedDraftKickoffSnapshotFromForm(null, "paper_test", "pwc_1", null, {}), null);
+});
+
+test("resolvePersistedDraftKickoffSnapshotRecordForCandidate normalizes candidate identity before persisting", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoffSnapshotRecordForCandidate(
+      {
+        draftKickoffPreviousText: " Previous kickoff wording. ",
+        draftKickoffPreviousSignature: " sig_before ",
+        draftKickoffReplacementSignature: " sig_after "
+      },
+      "paper_test",
+      " pwc_1 ",
+      null,
+      {
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Previous kickoff wording.",
+      previousSignature: "sig_before",
+      replacementSignature: "sig_after",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedDraftKickoffSnapshotRecordForCandidate(null, "paper_test", " ", null, {}),
+    null
+  );
 });
 
 test("resolveStoredDraftBriefCopy normalizes a matching stored brief copy and rejects mismatched identity payloads", () => {
@@ -2587,6 +2661,34 @@ test("workspaceSelectionPersistenceState normalizes the selected candidate, perm
       selectedPermanentCandidateId: "pn_1",
       saveStatus: "draft"
     }
+  );
+});
+
+test("workspaceSelectionPersistenceOverrides applies confirmAuthorship fallback and updatedAt normalization", () => {
+  assert.deepEqual(
+    workspaceSelectionPersistenceOverrides(
+      {
+        translationSignature: "sig_current"
+      },
+      true,
+      " 2026-05-26T00:00:00.000Z "
+    ),
+    {
+      translationSignature: "sig_current",
+      confirmAuthorship: true,
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.deepEqual(
+    workspaceSelectionPersistenceOverrides(
+      {
+        confirmAuthorship: false
+      },
+      true,
+      ""
+    ).confirmAuthorship,
+    false
   );
 });
 
