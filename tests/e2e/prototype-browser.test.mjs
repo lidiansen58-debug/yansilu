@@ -6663,6 +6663,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("[data-paper-draft-continuity]").textContent()) || ""),
                 /先重新生成永久笔记候选，再继续写 draft/
               );
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
               assert.match(
                 String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
                 new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -6716,6 +6717,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
                 String((await page.locator("[data-paper-draft-brief-saved-note]").textContent()) || ""),
                 new RegExp(`Saved note: ${secondSavedPermanentNoteId}`)
               );
+              assert.equal(await page.locator("[data-paper-draft-brief-copy]").count(), 0);
               assert.equal(await page.locator("#btnCopyDraftBrief").getAttribute("disabled"), null);
               assert.match(String((await page.locator("#btnCopyDraftBrief").textContent()) || ""), /复制 brief，回看已保存路径/);
               assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
