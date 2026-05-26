@@ -409,10 +409,6 @@ function handleSelectPermanentCandidate(permanentCandidateId = "") {
   refreshLiveContinuityUi();
 }
 
-function shouldRefreshContinuityStatus(target) {
-  return CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(target));
-}
-
 function hydrateFormFromWorkspace(workspace) {
   if (!workspace) return;
   const storedSelection = readStoredWorkspaceSelection(workspace.paperId);
@@ -903,7 +899,7 @@ root?.addEventListener("input", (event) => {
   }
   persistWorkspaceSelection();
   updateDynamicControls(runtimeState);
-  if (shouldRefreshContinuityStatus(event.target)) {
+  if (CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(event.target))) {
     refreshLiveContinuityUi(event.target);
   }
 });
@@ -919,7 +915,7 @@ root?.addEventListener("change", (event) => {
     persistWorkspaceSelection();
   }
   updateDynamicControls(runtimeState);
-  if (shouldRefreshContinuityStatus(event.target)) {
+  if (CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(event.target))) {
     refreshLiveContinuityUi(event.target);
   }
 });
