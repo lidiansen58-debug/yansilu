@@ -369,14 +369,11 @@ function currentSelectionContinuityStatus(
   );
 }
 
-function setLiveStatusFromCurrentSelection(storedSelection = currentStoredWorkspaceSelection()) {
-  if (!currentLoadedWorkspacePaperId()) return;
-  const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
-  setStatus(liveStatus.text, liveStatus.tone);
-}
-
 function refreshLiveContinuityUi(target = null, storedSelection = currentStoredWorkspaceSelection()) {
-  setLiveStatusFromCurrentSelection(storedSelection);
+  if (currentLoadedWorkspacePaperId()) {
+    const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
+    setStatus(liveStatus.text, liveStatus.tone);
+  }
   if (target) {
     rerenderPreservingContinuityFocus(target);
     return;
