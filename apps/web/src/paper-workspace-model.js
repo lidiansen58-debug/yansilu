@@ -291,6 +291,72 @@ export function resolveStoredWorkspaceSelection(storedSelection = null) {
   };
 }
 
+export function resolvePersistedWorkspaceSelection(
+  currentSelection = null,
+  stateSelection = null,
+  overrides = {}
+) {
+  const current = resolveStoredWorkspaceSelection(currentSelection);
+  const selectedPermanentCandidateId = cleanText(stateSelection?.selectedPermanentCandidateId);
+  const selectedCandidateId = cleanText(stateSelection?.selectedCandidateId);
+  const nextSaveStatus = cleanText(overrides.saveStatus ?? stateSelection?.saveStatus);
+  const saveStatusByPermanentCandidate = {
+    ...(current?.saveStatusByPermanentCandidate || {})
+  };
+  const confirmAuthorshipByPermanentCandidate = {
+    ...(current?.confirmAuthorshipByPermanentCandidate || {})
+  };
+  const translationSignatureByPermanentCandidate = {
+    ...(current?.translationSignatureByPermanentCandidate || {})
+  };
+  const draftBriefByCandidate = {
+    ...(current?.draftBriefByCandidate || {})
+  };
+
+  if (selectedPermanentCandidateId && nextSaveStatus) {
+    saveStatusByPermanentCandidate[selectedPermanentCandidateId] = nextSaveStatus;
+  }
+  if (selectedPermanentCandidateId) {
+    confirmAuthorshipByPermanentCandidate[selectedPermanentCandidateId] = overrides.confirmAuthorship === true;
+  }
+  const translationSignature = cleanText(overrides.translationSignature);
+  if (selectedPermanentCandidateId && translationSignature) {
+    translationSignatureByPermanentCandidate[selectedPermanentCandidateId] = translationSignature;
+  }
+
+  const draftBriefCopy = overrides.draftBriefCopy && typeof overrides.draftBriefCopy === "object" ? overrides.draftBriefCopy : null;
+  if (draftBriefCopy) {
+    const draftBriefCandidateId = cleanText(draftBriefCopy.candidateId || selectedCandidateId);
+    if (draftBriefCandidateId) {
+      if (draftBriefCopy.clear === true) {
+        delete draftBriefByCandidate[draftBriefCandidateId];
+      } else {
+        const normalizedDraftBriefCopy = resolveStoredDraftBriefCopy(
+          {
+            ...draftBriefCopy,
+            candidateId: draftBriefCandidateId,
+            copiedAt: cleanText(draftBriefCopy.copiedAt) || new Date().toISOString()
+          },
+          draftBriefCandidateId
+        );
+        if (normalizedDraftBriefCopy) {
+          draftBriefByCandidate[draftBriefCandidateId] = normalizedDraftBriefCopy;
+        }
+      }
+    }
+  }
+
+  return {
+    selectedCandidateId,
+    selectedPermanentCandidateId,
+    saveStatus: selectedPermanentCandidateId ? nextSaveStatus : "",
+    saveStatusByPermanentCandidate,
+    confirmAuthorshipByPermanentCandidate,
+    translationSignatureByPermanentCandidate,
+    draftBriefByCandidate
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);

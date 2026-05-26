@@ -52,6 +52,7 @@ import {
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
+  resolvePersistedWorkspaceSelection,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
   resolveStoredDraftBriefCopy,
@@ -1909,6 +1910,114 @@ test("resolveStoredWorkspaceSelection normalizes candidate-scoped maps and drops
         }
       }
     }
+  );
+});
+
+test("resolvePersistedWorkspaceSelection updates candidate-scoped maps and normalizes stored draft-brief payloads", () => {
+  assert.deepEqual(
+    resolvePersistedWorkspaceSelection(
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "active",
+        saveStatusByPermanentCandidate: {
+          pn_1: "active"
+        },
+        confirmAuthorshipByPermanentCandidate: {
+          pn_1: false
+        },
+        translationSignatureByPermanentCandidate: {
+          pn_1: "sig_old"
+        },
+        draftBriefByCandidate: {}
+      },
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft"
+      },
+      {
+        confirmAuthorship: true,
+        translationSignature: "sig_current",
+        draftBriefCopy: {
+          candidateId: "pwc_1",
+          stepFourPathKey: "pn_1",
+          title: " Draft brief: Candidate One ",
+          nextActionKey: "review_saved_permanent_note",
+          nextAction: " 回看 originality / authorship ",
+          translationSignature: " sig_current ",
+          copiedAt: "2026-05-26T00:00:00.000Z"
+        }
+      }
+    ),
+    {
+      selectedCandidateId: "pwc_1",
+      selectedPermanentCandidateId: "pn_1",
+      saveStatus: "draft",
+      saveStatusByPermanentCandidate: {
+        pn_1: "draft"
+      },
+      confirmAuthorshipByPermanentCandidate: {
+        pn_1: true
+      },
+      translationSignatureByPermanentCandidate: {
+        pn_1: "sig_current"
+      },
+      draftBriefByCandidate: {
+        pwc_1: {
+          candidateId: "pwc_1",
+          stepFourPathKey: "pn_1",
+          title: "Draft brief: Candidate One",
+          nextActionKey: "review_saved_permanent_note",
+          nextAction: "回看 originality / authorship",
+          translationSignature: "sig_current",
+          copiedAt: "2026-05-26T00:00:00.000Z"
+        }
+      }
+    }
+  );
+
+  assert.deepEqual(
+    resolvePersistedWorkspaceSelection(
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft",
+        saveStatusByPermanentCandidate: {
+          pn_1: "draft"
+        },
+        confirmAuthorshipByPermanentCandidate: {
+          pn_1: true
+        },
+        translationSignatureByPermanentCandidate: {
+          pn_1: "sig_current"
+        },
+        draftBriefByCandidate: {
+          pwc_1: {
+            candidateId: "pwc_1",
+            stepFourPathKey: "pn_1",
+            title: "Draft brief: Candidate One",
+            nextActionKey: "review_saved_permanent_note",
+            nextAction: "回看 originality / authorship",
+            translationSignature: "sig_current",
+            copiedAt: "2026-05-26T00:00:00.000Z"
+          }
+        }
+      },
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft"
+      },
+      {
+        confirmAuthorship: true,
+        draftBriefCopy: {
+          candidateId: "pwc_1",
+          clear: true
+        }
+      }
+    ).draftBriefByCandidate,
+    {}
   );
 });
 
