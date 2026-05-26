@@ -735,6 +735,29 @@ export function paperWorkspaceStatusFeedback(
   };
 }
 
+export function normalizePaperWorkspaceStatusFeedback(
+  feedback = null,
+  fallbackText = PAPER_WORKSPACE_STATUS.loadedWorkspace,
+  fallbackTone = "ok"
+) {
+  return feedback && typeof feedback === "object"
+    ? {
+        text: cleanText(feedback.text) || cleanText(fallbackText) || PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        tone: cleanText(feedback.tone) || cleanText(fallbackTone) || "ok"
+      }
+    : {
+        text: cleanText(feedback) || cleanText(fallbackText) || PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        tone: cleanText(fallbackTone) || "ok"
+      };
+}
+
+export function paperWorkspaceErrorStatusFeedback(error = null) {
+  return {
+    text: `${PAPER_WORKSPACE_STATUS.errorPrefix}${String(error?.message || error || "unknown error")}`,
+    tone: "bad"
+  };
+}
+
 export function chainedPaperWorkspaceStatusFeedback(baseText = "", continuationStatus = null, defaultTone = "ok") {
   const cleanBaseText = cleanText(baseText);
   const continuationText = cleanText(continuationStatus?.text);

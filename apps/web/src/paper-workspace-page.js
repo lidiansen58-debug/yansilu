@@ -18,8 +18,10 @@ import {
   draftKickoffStatusFeedback,
   draftKickoffStateStatusFeedback,
   nextSelectedCandidateId,
+  normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceActionStatusFeedback,
+  paperWorkspaceErrorStatusFeedback,
   permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentNoteStatusFeedback,
@@ -802,16 +804,11 @@ async function runAction(action, successMessage) {
     setResult(result);
     const resolvedSuccessMessage =
       typeof successMessage === "function" ? successMessage(result) : successMessage;
-    const successStatus =
-      resolvedSuccessMessage && typeof resolvedSuccessMessage === "object"
-        ? {
-            text: String(resolvedSuccessMessage.text || STATUS.loadedWorkspace),
-            tone: String(resolvedSuccessMessage.tone || "").trim() || "ok"
-          }
-        : {
-            text: String(resolvedSuccessMessage || STATUS.loadedWorkspace),
-            tone: "ok"
-          };
+    const successStatus = normalizePaperWorkspaceStatusFeedback(
+      resolvedSuccessMessage,
+      STATUS.loadedWorkspace,
+      "ok"
+    );
     setStatus(successStatus.text, successStatus.tone);
     return result;
   } catch (error) {
@@ -821,7 +818,8 @@ async function runAction(action, successMessage) {
       message: String(error?.message || error),
       details: error?.details || null
     });
-    setStatus(`${STATUS.errorPrefix}${String(error?.message || error)}`, "bad");
+    const errorStatus = paperWorkspaceErrorStatusFeedback(error);
+    setStatus(errorStatus.text, errorStatus.tone);
     return null;
   } finally {
     state.loading = false;

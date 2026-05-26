@@ -28,7 +28,9 @@ import {
   normalizeTranslationDraftInput,
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
+  normalizePaperWorkspaceStatusFeedback,
   paperWorkspaceActionStatusFeedback,
+  paperWorkspaceErrorStatusFeedback,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -2247,6 +2249,38 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   );
   assert.match(notebookReadyFeedback.text, /粘贴 NotebookLM 输出/);
   assert.equal(notebookReadyFeedback.tone, "ok");
+});
+
+test("paper workspace status helpers normalize action feedback and error feedback", () => {
+  assert.deepEqual(
+    normalizePaperWorkspaceStatusFeedback(
+      {
+        text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。",
+        tone: "warn"
+      },
+      "论文工作台已读取",
+      "ok"
+    ),
+    {
+      text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(normalizePaperWorkspaceStatusFeedback("", "论文工作台已读取", "ok"), {
+    text: "论文工作台已读取",
+    tone: "ok"
+  });
+
+  assert.deepEqual(normalizePaperWorkspaceStatusFeedback(null, "论文工作台已读取", "warn"), {
+    text: "论文工作台已读取",
+    tone: "warn"
+  });
+
+  assert.deepEqual(paperWorkspaceErrorStatusFeedback(new Error("network down")), {
+    text: "操作失败：network down",
+    tone: "bad"
+  });
 });
 
 test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its tone", () => {
