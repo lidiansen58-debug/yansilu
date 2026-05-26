@@ -16,6 +16,8 @@ import {
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
+  draftKickoffAdoptedStatusFeedback,
+  draftKickoffStartStatusFeedback,
   draftKickoffStatusFeedback,
   draftKickoffStatusMessage,
   draftKickoffStateStatusFeedback,
@@ -3347,6 +3349,21 @@ test("draft handoff state feedback helpers derive status text directly from draf
   });
 
   assert.deepEqual(draftKickoffStateStatusFeedback("adopted", draftBriefState), {
+    text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStartStatusFeedback({ hasContent: false, isStale: false }, draftBriefState), {
+    text: "已载入本地 draft kickoff：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStartStatusFeedback({ hasContent: true, isStale: false }, draftBriefState), {
+    text: "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffAdoptedStatusFeedback(draftBriefState), {
     text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
     tone: "ok"
   });

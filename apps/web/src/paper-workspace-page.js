@@ -14,7 +14,8 @@ import {
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
-  draftKickoffStateStatusFeedback,
+  draftKickoffAdoptedStatusFeedback,
+  draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceActionStatusFeedback,
@@ -924,12 +925,9 @@ async function handleStartDraftKickoff() {
       content: state.form.draftKickoffText,
       translationSignature: state.form.draftKickoffSignature
     });
-    const kickoffStatus = draftKickoffStateStatusFeedback("loaded", draftBriefState);
-    setStatus(kickoffStatus.text, kickoffStatus.tone);
-  } else {
-    const kickoffStatus = draftKickoffStateStatusFeedback("resumed", draftBriefState);
-    setStatus(kickoffStatus.text, kickoffStatus.tone);
   }
+  const kickoffStatus = draftKickoffStartStatusFeedback(kickoffState, draftBriefState);
+  setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();
 }
@@ -962,7 +960,7 @@ async function handleAdoptPreviousKickoff() {
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
   const draftBriefState = currentWorkspaceRuntimeState().draftBriefState;
-  const kickoffStatus = draftKickoffStateStatusFeedback("adopted", draftBriefState);
+  const kickoffStatus = draftKickoffAdoptedStatusFeedback(draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();

@@ -1429,6 +1429,15 @@ export function draftKickoffStateStatusFeedback(mode = "loaded", draftBriefState
   return draftKickoffStatusFeedback(mode, draftBrief?.title, nextAction, draftBrief?.stepFourLabel);
 }
 
+export function draftKickoffStartStatusFeedback(kickoffState = null, draftBriefState = null) {
+  const mode = !kickoffState?.hasContent || kickoffState?.isStale ? "loaded" : "resumed";
+  return draftKickoffStateStatusFeedback(mode, draftBriefState);
+}
+
+export function draftKickoffAdoptedStatusFeedback(draftBriefState = null) {
+  return draftKickoffStateStatusFeedback("adopted", draftBriefState);
+}
+
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
   const continuation = draftContinuationActionState(candidateState, workspaceState);
   const blockedLabels = {
