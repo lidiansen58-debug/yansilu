@@ -58,7 +58,7 @@ test("editor toolbar does not render the file attachment button", () => {
   const html = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
-  assert.doesNotMatch(html, /插入文件附件/);
+  assert.doesNotMatch(html, /鎻掑叆鏂囦欢闄勪欢/);
 });
 
 test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
@@ -141,7 +141,7 @@ test("theme index selection preserves hydrated theme context when switching betw
   assert.match(fnBody, /if \(!preservingExistingThemeContext\) clearWritingThemeRelationCounts\(noteIds\)/);
 });
 
-test("theme index cards expose a direct resume-project action when a matching project already exists", () => {
+test("theme index cards reuse continuity actions when a matching project already exists", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
@@ -151,7 +151,23 @@ test("theme index cards expose a direct resume-project action when a matching pr
   const fnBody = match[1];
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
-  assert.match(fnBody, /当前项目：/);
-  assert.match(fnBody, /data-writing-index-action="resume-project"/);
-  assert.match(fnBody, /继续当前项目/);
+  assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
+});
+
+test("theme index list click handler routes continuity actions through continueWritingProjectEntry", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/\$\("writingThemeIndexList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
+
+  assert.ok(match, "expected writingThemeIndexList click handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\)/);
+  assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
+  assert.match(fnBody, /openDraft: action === "open-draft"/);
+  assert.match(fnBody, /action === "resume-scaffold"/);
+  assert.match(fnBody, /action === "resume-project"/);
 });
