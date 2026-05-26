@@ -365,6 +365,22 @@ export function resolvePersistedDraftBriefCopy(storedCopy = null, candidateId = 
   return persistedCopy;
 }
 
+export function resolvePersistedDraftBriefCopyFromState(
+  draftBriefState = null,
+  candidateId = "",
+  translationSignature = "",
+  copiedAt = ""
+) {
+  return resolvePersistedDraftBriefCopy(null, candidateId, {
+    stepFourPathKey: draftBriefState?.draftBrief?.stepFourPathKey,
+    title: draftBriefState?.draftBrief?.title,
+    nextActionKey: draftBriefState?.draftContinuationAction?.key,
+    nextAction: draftBriefState?.draftContinuationAction?.label,
+    translationSignature,
+    copiedAt
+  });
+}
+
 export function resolveStoredWorkspaceSelection(storedSelection = null, paperId = "") {
   const parsed = storedSelection && typeof storedSelection === "object" ? storedSelection : {};
   const cleanPaperId = cleanText(paperId);

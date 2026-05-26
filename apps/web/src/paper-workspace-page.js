@@ -39,7 +39,7 @@ import {
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
   resolvePersistedTranslationDraftRecord,
-  resolvePersistedDraftBriefCopy,
+  resolvePersistedDraftBriefCopyFromState,
   baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
@@ -860,14 +860,12 @@ async function handleCopyDraftBrief() {
   try {
     await copyTextToClipboard(draftBrief.markdown);
     window.__paperWorkspaceLastDraftBrief = draftBrief.markdown;
-    const persistedDraftBriefCopy = resolvePersistedDraftBriefCopy(null, state.selectedCandidateId, {
-      stepFourPathKey: draftBrief.stepFourPathKey,
-      title: draftBrief.title,
-      nextActionKey: draftContinuationAction?.key,
-      nextAction: draftContinuationAction?.label,
-      translationSignature: currentSelectedTranslationRuntimeContext().translationSignature,
-      copiedAt: new Date().toISOString()
-    });
+    const persistedDraftBriefCopy = resolvePersistedDraftBriefCopyFromState(
+      draftBriefState,
+      state.selectedCandidateId,
+      currentSelectedTranslationRuntimeContext().translationSignature,
+      new Date().toISOString()
+    );
     persistWorkspaceSelection({
       draftBriefCopy: persistedDraftBriefCopy
     });
