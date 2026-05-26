@@ -6278,11 +6278,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
-<<<<<<< HEAD
   const continuation = describeWritingContinuationAction({
-=======
-  const themeContinuation = describeWritingContinuationAction({
->>>>>>> feat-product-writing-project-list-continuity-batch
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
@@ -6308,13 +6304,8 @@ function renderWritingThemeIndexCard(indexCard) {
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
         ${
-<<<<<<< HEAD
           continuation?.projectId
             ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
-=======
-          existingProject?.id
-            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(existingProject.id)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
->>>>>>> feat-product-writing-project-list-continuity-batch
             : ""
         }
       </div>
