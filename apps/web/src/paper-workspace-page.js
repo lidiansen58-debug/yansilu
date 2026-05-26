@@ -850,9 +850,16 @@ async function handleAddNotebookDraft() {
   await runAction(async () => {
     const result = await addNotebookLmDraft(state.workspace?.paperId || state.form.paperId, buildNotebookLmPayload(state.form));
     state.workspace = result.item;
-    hydrateFormFromWorkspace(state.workspace);
-    return { stage: "notebooklm_draft", ...result };
-  }, STATUS.addedNotebookDraft);
+    const resumeStatus = hydrateFormFromWorkspace(state.workspace);
+    return { stage: "notebooklm_draft", resumeStatus, ...result };
+  }, (result) => {
+    const baseText = STATUS.addedNotebookDraft;
+    const continuationText = String(result?.resumeStatus?.text || "").trim();
+    return {
+      text: continuationText ? `${baseText}。${continuationText}` : baseText,
+      tone: String(result?.resumeStatus?.tone || "").trim() || "ok"
+    };
+  });
 }
 
 async function handleSaveTranslation() {

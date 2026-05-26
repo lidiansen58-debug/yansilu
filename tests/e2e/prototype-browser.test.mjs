@@ -5510,6 +5510,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.equal(await page.locator(".paper-candidate").count(), 2);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /NotebookLM 内容已转成 literature 候选/);
+      assert.match(String(statusText || ""), /已选择候选|先用自己的话完成转述并保存/);
     }, 6000);
 
   const permanentCandidateButton = page.locator("#btnCreatePermanentCandidate");
