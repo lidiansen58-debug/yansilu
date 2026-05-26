@@ -606,14 +606,20 @@ export function resolvePersistedWorkspaceSelectionRecord(
   };
 }
 
+export function workspaceSelectionIds(selectedCandidateId = "", selectedPermanentCandidateId = "") {
+  return {
+    selectedCandidateId: cleanText(selectedCandidateId),
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId)
+  };
+}
+
 export function workspaceSelectionPersistenceState(
   selectedCandidateId = "",
   selectedPermanentCandidateId = "",
   saveStatus = ""
 ) {
   return {
-    selectedCandidateId: cleanText(selectedCandidateId),
-    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    ...workspaceSelectionIds(selectedCandidateId, selectedPermanentCandidateId),
     saveStatus: cleanText(saveStatus)
   };
 }

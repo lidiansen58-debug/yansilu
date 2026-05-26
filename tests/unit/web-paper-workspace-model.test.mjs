@@ -84,6 +84,7 @@ import {
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionPersistenceState,
+  workspaceSelectionIds,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   baselinePermanentCandidateSignatureToPersist,
@@ -2727,6 +2728,18 @@ test("workspaceSelectionTranslationSignatureOverrides only returns a persistence
 
   assert.equal(workspaceSelectionTranslationSignatureOverrides("", "sig_current", true), null);
   assert.equal(workspaceSelectionTranslationSignatureOverrides("pn_1", "", false), null);
+});
+
+test("workspaceSelectionIds normalizes selected candidate and permanent ids", () => {
+  assert.deepEqual(workspaceSelectionIds(" pwc_1 ", " pn_2 "), {
+    selectedCandidateId: "pwc_1",
+    selectedPermanentCandidateId: "pn_2"
+  });
+
+  assert.deepEqual(workspaceSelectionIds("", null), {
+    selectedCandidateId: "",
+    selectedPermanentCandidateId: ""
+  });
 });
 
 test("workspaceSelectionPersistenceState normalizes the selected candidate, permanent candidate, and save status", () => {

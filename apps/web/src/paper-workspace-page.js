@@ -49,6 +49,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  workspaceSelectionIds,
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
@@ -358,7 +359,7 @@ function refreshLiveContinuityUi(target = null, storedSelection = readStoredWork
 function handleSelectPaperCandidate(candidateId = "") {
   syncAndPersistDraftContext();
   const storedSelection = readStoredWorkspaceSelection(currentPaperId());
-  state.selectedCandidateId = String(candidateId || "").trim();
+  state.selectedCandidateId = workspaceSelectionIds(candidateId, "").selectedCandidateId;
   hydrateSelectedPaperCandidateState(storedSelection);
   persistWorkspaceSelection();
   refreshLiveContinuityUi();
@@ -367,7 +368,7 @@ function handleSelectPaperCandidate(candidateId = "") {
 function handleSelectPermanentCandidate(permanentCandidateId = "") {
   syncAndPersistDraftContext();
   const storedSelection = readStoredWorkspaceSelection(currentPaperId());
-  state.selectedPermanentCandidateId = String(permanentCandidateId || "").trim();
+  state.selectedPermanentCandidateId = workspaceSelectionIds("", permanentCandidateId).selectedPermanentCandidateId;
   const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
     state.workspace,
     state.selectedPermanentCandidateId
