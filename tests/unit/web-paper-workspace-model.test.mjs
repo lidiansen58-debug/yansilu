@@ -15,6 +15,7 @@ import {
   draftBriefButtonLabel,
   draftKickoffFormState,
   resolvedDraftKickoffFormState,
+  draftKickoffSignatureValue,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
@@ -713,6 +714,24 @@ test("resolvedDraftKickoffFormState maps resolved kickoff state back into form f
     draftKickoffPreviousSignature: "",
     draftKickoffReplacementSignature: ""
   });
+});
+
+test("draftKickoffSignatureValue prefers form state before runtime fallback", () => {
+  assert.equal(
+    draftKickoffSignatureValue(
+      { draftKickoffSignature: " sig_form " },
+      { draftKickoffState: { currentTranslationSignature: "sig_runtime" } }
+    ),
+    "sig_form"
+  );
+  assert.equal(
+    draftKickoffSignatureValue(
+      { draftKickoffSignature: "" },
+      { draftKickoffState: { currentTranslationSignature: " sig_runtime " } }
+    ),
+    "sig_runtime"
+  );
+  assert.equal(draftKickoffSignatureValue(null, null), "");
 });
 
 test("resolveAdoptedDraftKickoff swaps the current and previous kickoff wording onto the latest translation chain", () => {

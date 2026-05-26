@@ -16,6 +16,7 @@ import {
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
   draftKickoffAdoptedStatusFeedback,
+  draftKickoffSignatureValue,
   draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
@@ -830,10 +831,7 @@ function focusDraftKickoffTextarea() {
 }
 
 function currentDraftKickoffSignature(runtimeState = null) {
-  return (
-    String(state.form.draftKickoffSignature || "").trim() ||
-    String((runtimeState || currentWorkspaceRuntimeState()).draftKickoffState.currentTranslationSignature || "").trim()
-  );
+  return draftKickoffSignatureValue(state.form, runtimeState || currentWorkspaceRuntimeState());
 }
 
 async function handleStartDraftKickoff() {
