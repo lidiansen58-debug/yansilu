@@ -782,6 +782,28 @@ export function permanentNoteStatusFeedback(runtimeState = null, resumeStatus = 
   return chainedPaperWorkspaceStatusFeedback(PAPER_WORKSPACE_STATUS.savedPermanentNote, resumeStatus);
 }
 
+export function paperWorkspaceActionStatusFeedback(action = "loadedWorkspace", resumeStatus = null) {
+  const cleanAction = cleanText(action) || "loadedWorkspace";
+  switch (cleanAction) {
+    case "createdWorkspace":
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.createdWorkspace,
+        paperWorkspaceStatusFeedback("workspaceReadyForNotebookDraft", "createdWorkspace")
+      );
+    case "addedNotebookDraft":
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.addedNotebookDraft,
+        resumeStatus
+      );
+    case "loadedWorkspace":
+    default:
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace")
+      );
+  }
+}
+
 export function resolvePaperWorkspaceContinuityStatus(
   workspace = null,
   storedSelection = null,

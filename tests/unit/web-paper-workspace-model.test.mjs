@@ -26,6 +26,7 @@ import {
   normalizeTranslationDraftInput,
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
+  paperWorkspaceActionStatusFeedback,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -2325,6 +2326,35 @@ test("step-four status feedback helpers reuse blocked and success continuity fee
     }),
     {
       text: "永久笔记已保存。已对齐到这条候选已保存的永久笔记路径",
+      tone: "ok"
+    }
+  );
+});
+
+test("workspace action status feedback keeps creation, load, and notebook handoff continuity together", () => {
+  assert.deepEqual(paperWorkspaceActionStatusFeedback("createdWorkspace"), {
+    text: "论文工作台已创建。下一步：粘贴 NotebookLM 输出，先生成 literature 候选。",
+    tone: "ok"
+  });
+
+  assert.deepEqual(
+    paperWorkspaceActionStatusFeedback("loadedWorkspace", {
+      text: "已恢复这条候选的本地未保存转述草稿。先保存这条转述，再进入永久笔记候选。",
+      tone: "warn"
+    }),
+    {
+      text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。先保存这条转述，再进入永久笔记候选。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(
+    paperWorkspaceActionStatusFeedback("addedNotebookDraft", {
+      text: "已选中这条候选。先完成转述并保存，再进入永久笔记候选。",
+      tone: "ok"
+    }),
+    {
+      text: "NotebookLM 内容已转成 literature 候选。已选中这条候选。先完成转述并保存，再进入永久笔记候选。",
       tone: "ok"
     }
   );

@@ -11,14 +11,13 @@ import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
-  chainedPaperWorkspaceStatusFeedback,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
   draftKickoffStatusFeedback,
   nextSelectedCandidateId,
   PAPER_WORKSPACE_STATUS,
-  paperWorkspaceStatusFeedback,
+  paperWorkspaceActionStatusFeedback,
   permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentNoteStatusFeedback,
@@ -838,11 +837,7 @@ async function handleCreateWorkspace() {
     state.workspace = workspace;
     hydrateFormFromWorkspace(workspace);
     return { stage: "create_workspace", item: workspace };
-  }, () =>
-    chainedPaperWorkspaceStatusFeedback(
-      STATUS.createdWorkspace,
-      paperWorkspaceStatusFeedback("workspaceReadyForNotebookDraft", "createdWorkspace")
-    ));
+  }, () => paperWorkspaceActionStatusFeedback("createdWorkspace"));
 }
 
 async function handleLoadWorkspace() {
@@ -851,11 +846,7 @@ async function handleLoadWorkspace() {
     state.workspace = workspace;
     const resumeStatus = hydrateFormFromWorkspace(workspace);
     return { stage: "load_workspace", item: workspace, resumeStatus };
-  }, (result) =>
-    chainedPaperWorkspaceStatusFeedback(
-      STATUS.loadedWorkspace,
-      result?.resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace")
-    ));
+  }, (result) => paperWorkspaceActionStatusFeedback("loadedWorkspace", result?.resumeStatus));
 }
 
 async function handleAddNotebookDraft() {
@@ -864,7 +855,7 @@ async function handleAddNotebookDraft() {
     state.workspace = result.item;
     const resumeStatus = hydrateFormFromWorkspace(state.workspace);
     return { stage: "notebooklm_draft", resumeStatus, ...result };
-  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.addedNotebookDraft, result?.resumeStatus));
+  }, (result) => paperWorkspaceActionStatusFeedback("addedNotebookDraft", result?.resumeStatus));
 }
 
 async function handleSaveTranslation() {
