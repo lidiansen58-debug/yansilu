@@ -184,6 +184,37 @@ export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
 
+export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", candidateId = "") {
+  const draft = storedDraft && typeof storedDraft === "object" ? storedDraft : {};
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  const storedPaperId = cleanText(draft.paperId);
+  const storedCandidateId = cleanText(draft.candidateId);
+  if ((storedPaperId && storedPaperId !== cleanPaperId) || (storedCandidateId && storedCandidateId !== cleanCandidateId)) {
+    return null;
+  }
+  const normalizedDraft = resolvedStoredTranslationDraft(draft);
+  if (!cleanText(normalizedDraft.paraphraseText) && !cleanText(normalizedDraft.relationToQuestion) && !cleanText(normalizedDraft.boundaryOrCondition)) {
+    return null;
+  }
+  return normalizedDraft;
+}
+
+export function resolvePersistedTranslationDraft(draftInput = null, paperId = "", candidateId = "") {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  const normalizedDraft = normalizeTranslationDraftInput(draftInput || {});
+  if (!cleanText(normalizedDraft.paraphraseText) && !cleanText(normalizedDraft.relationToQuestion) && !cleanText(normalizedDraft.boundaryOrCondition)) {
+    return null;
+  }
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId,
+    ...normalizedDraft
+  };
+}
+
 export function resolveStoredDraftKickoff(storedKickoff = null, paperId = "", candidateId = "") {
   const kickoff = storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {};
   const cleanPaperId = cleanText(paperId);
@@ -221,6 +252,65 @@ export function resolveStoredDraftKickoffSnapshot(storedSnapshot = null, paperId
     previousSignature,
     replacementSignature,
     updatedAt: cleanText(snapshot.updatedAt)
+  };
+}
+
+export function resolvePersistedDraftKickoff(
+  storedKickoff = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  const persistedKickoff = resolveStoredDraftKickoff(
+    {
+      ...(storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {}),
+      paperId: cleanPaperId,
+      candidateId: cleanCandidateId,
+      content: overrides.content,
+      translationSignature: overrides.translationSignature,
+      updatedAt: cleanText(overrides.updatedAt)
+    },
+    cleanPaperId,
+    cleanCandidateId
+  );
+  if (!persistedKickoff) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId,
+    ...persistedKickoff
+  };
+}
+
+export function resolvePersistedDraftKickoffSnapshot(
+  storedSnapshot = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  const persistedSnapshot = resolveStoredDraftKickoffSnapshot(
+    {
+      ...(storedSnapshot && typeof storedSnapshot === "object" ? storedSnapshot : {}),
+      paperId: cleanPaperId,
+      candidateId: cleanCandidateId,
+      content: overrides.content,
+      previousSignature: overrides.previousSignature,
+      replacementSignature: overrides.replacementSignature,
+      updatedAt: cleanText(overrides.updatedAt)
+    },
+    cleanPaperId,
+    cleanCandidateId
+  );
+  if (!persistedSnapshot) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId,
+    ...persistedSnapshot
   };
 }
 
