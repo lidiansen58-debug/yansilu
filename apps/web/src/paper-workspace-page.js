@@ -371,11 +371,7 @@ function persistPermanentCandidateTranslationSignature(
 ) {
   const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
   if (!cleanPermanentCandidateId) return;
-  const { translationSignature } = resolveTranslationRuntimeContext(state.workspace, candidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { translationSignature } = currentSelectedTranslationRuntimeContext(candidateId);
   if (!translationSignature) return;
   persistWorkspaceSelection({ translationSignature });
 }
@@ -412,11 +408,7 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   const cleanCandidateId = String(candidateId || "").trim();
   if (!paperId || !cleanCandidateId) return;
 
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, cleanCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
   if (!translationDraftHasLocalChanges(state.workspace, cleanCandidateId, draftInput)) {
     clearStoredTranslationDraft(paperId, cleanCandidateId);
     return;
@@ -476,33 +468,45 @@ function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
   state.form.draftKickoffReplacementSignature = String(storedSnapshot?.replacementSignature || "");
 }
 
+function currentSelectedTranslationRuntimeContext(
+  candidateId = state.selectedCandidateId,
+  options = {}
+) {
+  const useForm = options?.useForm !== false;
+  return resolveTranslationRuntimeContext(
+    state.workspace,
+    candidateId,
+    useForm
+      ? {
+          paraphraseText: state.form.paraphraseText,
+          relationToQuestion: state.form.relationToQuestion,
+          boundaryOrCondition: state.form.boundaryOrCondition
+        }
+      : null
+  );
+}
+
 function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
     storedSelection,
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
-    {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    },
+    draftInput,
     "resume",
     "loadedWorkspace"
   );
 }
 
 function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
     storedSelection,
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
-    {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    },
+    draftInput,
     "live",
     "loadedWorkspace"
   );
@@ -674,11 +678,7 @@ async function copyTextToClipboard(text) {
 }
 
 function currentDraftBriefState() {
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolveDraftBriefState(
     state.workspace,
     state.workspaceSelection,
@@ -689,11 +689,7 @@ function currentDraftBriefState() {
 }
 
 function currentTranslationSaveState() {
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolveTranslationSaveRuntimeState(
     state.workspace,
     state.workspaceSelection,
@@ -704,11 +700,7 @@ function currentTranslationSaveState() {
 }
 
 function currentDraftKickoffState() {
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolveDraftKickoffRuntimeState(
     state.workspace,
     state.workspaceSelection,
@@ -720,11 +712,7 @@ function currentDraftKickoffState() {
 }
 
 function currentPermanentCandidateState() {
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePermanentCandidateRuntimeState(
     state.workspace,
     state.workspaceSelection,
@@ -735,11 +723,7 @@ function currentPermanentCandidateState() {
 }
 
 function currentPermanentNoteState() {
-  const { draftInput } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-    paraphraseText: state.form.paraphraseText,
-    relationToQuestion: state.form.relationToQuestion,
-    boundaryOrCondition: state.form.boundaryOrCondition
-  });
+  const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePermanentNoteRuntimeState(
     state.workspace,
     state.workspaceSelection,
@@ -895,10 +879,8 @@ async function handleSaveTranslation() {
     state.workspaceSelection,
     selectedPermanentCandidateIdBeforeSave
   );
-  const { translationSignature: baselineTranslationSignatureBeforeSave } = resolveTranslationRuntimeContext(
-    state.workspace,
-    state.selectedCandidateId
-  );
+  const { translationSignature: baselineTranslationSignatureBeforeSave } =
+    currentSelectedTranslationRuntimeContext(state.selectedCandidateId, { useForm: false });
   await runAction(async () => {
     const result = await savePaperTranslation(state.workspace?.paperId || state.form.paperId, {
       candidateId: state.selectedCandidateId,
@@ -1009,11 +991,7 @@ async function handleCopyDraftBrief() {
         candidateId: state.selectedCandidateId,
         title: draftBrief.title,
         nextAction: draftContinuationAction?.label,
-        translationSignature: resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-          paraphraseText: state.form.paraphraseText,
-          relationToQuestion: state.form.relationToQuestion,
-          boundaryOrCondition: state.form.boundaryOrCondition
-        }).translationSignature,
+        translationSignature: currentSelectedTranslationRuntimeContext().translationSignature,
         copiedAt: new Date().toISOString()
       }
     });
@@ -1053,11 +1031,7 @@ async function handleStartDraftKickoff() {
   }
   const shouldLoadFreshBrief = !kickoffState.hasContent || kickoffState.isStale;
   if (shouldLoadFreshBrief) {
-    const { translationSignature } = resolveTranslationRuntimeContext(state.workspace, state.selectedCandidateId, {
-      paraphraseText: state.form.paraphraseText,
-      relationToQuestion: state.form.relationToQuestion,
-      boundaryOrCondition: state.form.boundaryOrCondition
-    });
+    const { translationSignature } = currentSelectedTranslationRuntimeContext();
     const refreshedKickoff = resolveRefreshedDraftKickoff(state.form, kickoffState, draftBrief.markdown, translationSignature);
     if (!refreshedKickoff) {
       render();
