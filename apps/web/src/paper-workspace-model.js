@@ -682,6 +682,17 @@ export function workspaceSelectionPersistenceOverrides(
   };
 }
 
+export function workspaceSelectionInputOverrides(target = null) {
+  const targetId = cleanText(target?.id);
+  if (targetId === "permanentStatusInput") {
+    return { saveStatus: target?.value || "active" };
+  }
+  if (targetId === "confirmAuthorshipInput") {
+    return { confirmAuthorship: target?.checked === true };
+  }
+  return null;
+}
+
 export function workspaceSelectionTranslationSignatureOverrides(
   permanentCandidateId = "",
   translationSignature = "",

@@ -50,6 +50,7 @@ import {
   baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionIds,
+  workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
@@ -916,10 +917,9 @@ root?.addEventListener("input", (event) => {
 root?.addEventListener("change", (event) => {
   syncAndPersistDraftContext();
   const runtimeState = currentWorkspaceRuntimeState();
-  if (event.target?.id === "permanentStatusInput") {
-    persistWorkspaceSelection({ saveStatus: event.target.value || "active" });
-  } else if (event.target?.id === "confirmAuthorshipInput") {
-    persistWorkspaceSelection({ confirmAuthorship: event.target.checked === true });
+  const selectionOverrides = workspaceSelectionInputOverrides(event.target);
+  if (selectionOverrides) {
+    persistWorkspaceSelection(selectionOverrides);
   } else {
     persistWorkspaceSelection();
   }

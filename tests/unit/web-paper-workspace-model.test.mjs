@@ -88,6 +88,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionPersistenceState,
   workspaceSelectionIds,
+  workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   workspaceResumeFormState,
@@ -2912,6 +2913,23 @@ test("workspaceSelectionPersistenceOverrides applies confirmAuthorship fallback 
     ).confirmAuthorship,
     false
   );
+});
+
+test("workspaceSelectionInputOverrides translates change targets into selection overrides", () => {
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "permanentStatusInput", value: "" }), {
+    saveStatus: "active"
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "permanentStatusInput", value: "draft" }), {
+    saveStatus: "draft"
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "confirmAuthorshipInput", checked: true }), {
+    confirmAuthorship: true
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "confirmAuthorshipInput", checked: false }), {
+    confirmAuthorship: false
+  });
+  assert.equal(workspaceSelectionInputOverrides({ id: "translationParaphraseInput", value: "ignored" }), null);
+  assert.equal(workspaceSelectionInputOverrides(null), null);
 });
 
 test("resolveSelectedPaperCandidateState restores candidate selection and candidate-scoped draft together", () => {
