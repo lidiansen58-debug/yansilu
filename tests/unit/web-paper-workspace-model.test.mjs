@@ -36,6 +36,7 @@ import {
   normalizePaperWorkspaceStatusFeedback,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceCandidateStorageKey,
+  paperWorkspaceCandidateStorageState,
   paperWorkspaceErrorStatusFeedback,
   paperWorkspacePaperStorageKey,
   paperWorkspaceProgress,
@@ -197,6 +198,15 @@ test("paperWorkspaceFormState maps raw inputs with the same fallback rules used 
     confirmAuthorship: false,
     saveStatus: "active"
   });
+});
+
+test("paperWorkspaceCandidateStorageState normalizes candidate-scoped storage identity", () => {
+  assert.deepEqual(paperWorkspaceCandidateStorageState(" paper_1 ", " pwc_1 "), {
+    paperId: "paper_1",
+    candidateId: "pwc_1"
+  });
+  assert.equal(paperWorkspaceCandidateStorageState("", "pwc_1"), null);
+  assert.equal(paperWorkspaceCandidateStorageState("paper_1", ""), null);
 });
 
 test("buildNotebookLmPayload keeps only provided NotebookLM fields", () => {

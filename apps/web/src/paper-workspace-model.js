@@ -274,6 +274,16 @@ export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", can
   return `${cleanPrefix}:${cleanPaperId}:${cleanCandidateId}`;
 }
 
+export function paperWorkspaceCandidateStorageState(paperId = "", candidateId = "") {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId
+  };
+}
+
 export function resolvePersistedTranslationDraft(draftInput = null, paperId = "", candidateId = "") {
   const cleanPaperId = cleanText(paperId);
   const cleanCandidateId = cleanText(candidateId);

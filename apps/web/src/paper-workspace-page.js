@@ -20,6 +20,7 @@ import {
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceFormState,
+  paperWorkspaceCandidateStorageState,
   paperWorkspaceCandidateStorageKey,
   paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
@@ -246,9 +247,9 @@ function hydrateSelectedPaperCandidateState(storedSelection = readStoredWorkspac
 }
 
 function persistTranslationDraft(candidateId = state.selectedCandidateId) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
 
   const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
   const key = translationDraftStorageKey(paperId, cleanCandidateId);
@@ -304,9 +305,11 @@ function hydrateTranslationForm(candidateId = "") {
 }
 
 function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
-  const cleanCandidateId = String(candidateId || "").trim();
-  const storedKickoff = cleanCandidateId ? readStoredDraftKickoff(currentPaperId(), cleanCandidateId) : null;
-  const storedSnapshot = cleanCandidateId ? readStoredDraftKickoffSnapshot(currentPaperId(), cleanCandidateId) : null;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storedKickoff = storageState ? readStoredDraftKickoff(storageState.paperId, storageState.candidateId) : null;
+  const storedSnapshot = storageState
+    ? readStoredDraftKickoffSnapshot(storageState.paperId, storageState.candidateId)
+    : null;
   Object.assign(state.form, draftKickoffFormState(storedKickoff, storedSnapshot));
 }
 
@@ -573,9 +576,9 @@ function currentWorkspaceRuntimeState() {
 }
 
 function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
@@ -593,9 +596,9 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
 }
 
 function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, snapshot = null) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
   const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
