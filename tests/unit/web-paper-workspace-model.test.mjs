@@ -2071,6 +2071,21 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
     "selectedCandidate"
   );
 
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "",
+        hasAnyCandidates: false,
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "workspaceReadyForNotebookDraft"
+  );
+
   assert.equal(paperWorkspaceResumeStatusKey(null, null), "loadedWorkspace");
 });
 
@@ -2145,6 +2160,21 @@ test("paperWorkspaceLiveStatusKey prefers the next required action while editing
       }
     ),
     "restoredSavedPermanentNoteForSelectedPaper"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
+        selectedCandidateId: "",
+        hasAnyCandidates: false,
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "workspaceReadyForNotebookDraft"
   );
 
   assert.equal(
@@ -2245,6 +2275,24 @@ test("draft continuity status feedback helpers return stable tones", () => {
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
+  const emptyWorkspace = {
+    candidates: [],
+    translations: [],
+    permanentCandidates: []
+  };
+
+  const emptyResumeStatus = resolvePaperWorkspaceContinuityStatus(
+    emptyWorkspace,
+    null,
+    "",
+    "",
+    null,
+    "resume"
+  );
+  assert.equal(emptyResumeStatus.key, "workspaceReadyForNotebookDraft");
+  assert.equal(emptyResumeStatus.tone, "");
+  assert.equal(emptyResumeStatus.candidateState.hasAnyCandidates, false);
+
   const workspace = {
     candidates: [{ id: "pwc_1", title: "First" }],
     translations: [
@@ -2298,6 +2346,23 @@ test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both res
 });
 
 test("resolvePaperWorkspaceContinuityStatusFeedback adds user-facing text to continuity status", () => {
+  const emptyFeedback = resolvePaperWorkspaceContinuityStatusFeedback(
+    {
+      candidates: [],
+      translations: [],
+      permanentCandidates: []
+    },
+    null,
+    "",
+    "",
+    null,
+    "resume",
+    "loadedWorkspace"
+  );
+  assert.equal(emptyFeedback.key, "workspaceReadyForNotebookDraft");
+  assert.equal(emptyFeedback.tone, "ok");
+  assert.match(emptyFeedback.text, /粘贴 NotebookLM 输出/);
+
   const workspace = {
     candidates: [{ id: "pwc_1", title: "First" }],
     translations: [

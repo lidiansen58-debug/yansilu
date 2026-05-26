@@ -5502,6 +5502,23 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(translationStepText || ""), /先从左侧选一条候选/);
     }, 4000);
 
+    await openPaperWorkspace(page, webBase);
+    await page.fill("#paperIdInput", paperId);
+    await page.click("#btnLoadPaperWorkspace");
+    await waitFor(async () => {
+      const text = await page.locator(".paper-result-json").textContent();
+      assert.match(text || "", /"stage": "load_workspace"/);
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /论文工作台已读取/);
+      assert.match(String(statusText || ""), /粘贴 NotebookLM 输出/);
+    }, 6000);
+    await waitFor(async () => {
+      assert.equal(await page.locator(".paper-candidate").count(), 0);
+      const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+      assert.match(String(translationStepText || ""), /还没有候选/);
+      assert.match(String(translationStepText || ""), /这里会先生成 literature 候选/);
+    }, 4000);
+
   await page.fill(
     "#notebookSummaryInput",
     "Claim: retrieval practice improves retention.\n\nLimitation: sample size was small."

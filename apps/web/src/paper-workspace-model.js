@@ -624,6 +624,9 @@ export function resolveSelectedPaperWorkspaceState(
 }
 
 export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceState = null) {
+  if (candidateState?.hasAnyCandidates === false && !cleanText(candidateState?.selectedCandidateId)) {
+    return "workspaceReadyForNotebookDraft";
+  }
   if (
     candidateState?.hasLocalChanges &&
     cleanText(workspaceState?.selectedPermanentCandidateId) &&
@@ -662,6 +665,9 @@ export function paperWorkspaceResumeStatusKey(candidateState = null, workspaceSt
 }
 
 export function paperWorkspaceLiveStatusKey(candidateState = null, workspaceState = null) {
+  if (candidateState?.hasAnyCandidates === false && !cleanText(candidateState?.selectedCandidateId)) {
+    return "workspaceReadyForNotebookDraft";
+  }
   if (workspaceState?.permanentNoteContinuityReason === "stale_translation_signature") {
     return "translationNeedsFreshPermanentCandidate";
   }
@@ -749,6 +755,7 @@ export function resolvePaperWorkspaceContinuityStatus(
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const candidateState = {
     selectedCandidateId: cleanText(candidateId),
+    hasAnyCandidates: Array.isArray(workspace?.candidates) ? workspace.candidates.length > 0 : false,
     hasSavedTranslation: draft.hasSavedTranslation,
     hasLocalChanges: draft.hasLocalChanges,
     supportsNextStep: Boolean(cleanText(draft.relationToQuestion) && cleanText(draft.boundaryOrCondition))
