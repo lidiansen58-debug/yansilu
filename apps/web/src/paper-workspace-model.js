@@ -973,27 +973,31 @@ export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error 
   };
 }
 
-export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "") {
+export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "", pathLabel = "") {
   const cleanTitle = cleanText(title);
   const cleanNextAction = cleanText(nextAction);
+  const cleanPathLabel = cleanText(pathLabel);
   if (mode === "adopted") {
-    return cleanNextAction
-      ? `已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。下一步：${cleanNextAction}`
-      : "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。";
+    const parts = ["已采用上一版 kickoff 写法", "当前本地 draft 仍指向最新转述链路"];
+    if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+    if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+    return parts.join("。");
   }
   if (mode === "resumed") {
-    return cleanNextAction
-      ? `继续本地 draft：${cleanTitle}。下一步：${cleanNextAction}`
-      : `继续本地 draft：${cleanTitle}`;
+    const parts = [`继续本地 draft：${cleanTitle}`];
+    if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+    if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+    return parts.join("。");
   }
-  return cleanNextAction
-    ? `已载入本地 draft kickoff：${cleanTitle}。下一步：${cleanNextAction}`
-    : `已载入本地 draft kickoff：${cleanTitle}`;
+  const parts = [`已载入本地 draft kickoff：${cleanTitle}`];
+  if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+  if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+  return parts.join("。");
 }
 
-export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextAction = "") {
+export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextAction = "", pathLabel = "") {
   return {
-    text: draftKickoffStatusMessage(mode, title, nextAction),
+    text: draftKickoffStatusMessage(mode, title, nextAction, pathLabel),
     tone: "ok"
   };
 }

@@ -1055,8 +1055,13 @@ test("draft continuity status helpers return the expected runtime messages", () 
   assert.equal(blockedDraftContinuationStatusMessage(null), "当前还不能继续写 draft。");
 
   assert.equal(
-    draftBriefCopyStatusMessage("Draft brief: Candidate One", "继续本地 draft"),
-    "已复制 draft brief：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftBriefCopyStatusMessage(
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      null,
+      "Step 4: 尚未生成永久笔记候选"
+    ),
+    "已复制 draft brief：Draft brief: Candidate One。当前链路：Step 4: 尚未生成永久笔记候选。下一步：继续本地 draft"
   );
   assert.equal(
     draftBriefCopyStatusMessage("Draft brief: Candidate One"),
@@ -1065,16 +1070,26 @@ test("draft continuity status helpers return the expected runtime messages", () 
   assert.equal(draftBriefCopyStatusMessage("", "", new Error("boom")), "复制 draft brief 失败：boom");
 
   assert.equal(
-    draftKickoffStatusMessage("loaded", "Draft brief: Candidate One", "继续本地 draft"),
-    "已载入本地 draft kickoff：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftKickoffStatusMessage(
+      "loaded",
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      "Step 4: 尚未生成永久笔记候选"
+    ),
+    "已载入本地 draft kickoff：Draft brief: Candidate One。当前链路：Step 4: 尚未生成永久笔记候选。下一步：继续本地 draft"
   );
   assert.equal(
-    draftKickoffStatusMessage("resumed", "Draft brief: Candidate One", "继续本地 draft"),
-    "继续本地 draft：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftKickoffStatusMessage(
+      "resumed",
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    ),
+    "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft"
   );
   assert.equal(
     draftKickoffStatusMessage("adopted"),
-    "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。"
+    "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路"
   );
 });
 
@@ -2295,13 +2310,24 @@ test("draft continuity status feedback helpers return stable tones", () => {
   assert.match(copyErrorFeedback.text, /clipboard unavailable/);
   assert.equal(copyErrorFeedback.tone, "bad");
 
-  const kickoffFeedback = draftKickoffStatusFeedback("adopted", "", "这条转述已经具备继续写 draft 的最小条件。");
+  const kickoffFeedback = draftKickoffStatusFeedback(
+    "adopted",
+    "",
+    "这条转述已经具备继续写 draft 的最小条件。",
+    "Step 4: 已保存永久笔记路径 (note_1)"
+  );
   assert.match(kickoffFeedback.text, /kickoff/);
+  assert.match(kickoffFeedback.text, /当前链路：Step 4: 已保存永久笔记路径/);
   assert.match(kickoffFeedback.text, /下一步/);
   assert.equal(kickoffFeedback.tone, "ok");
   assert.equal(
     kickoffFeedback.text,
-    draftKickoffStatusMessage("adopted", "", "这条转述已经具备继续写 draft 的最小条件。")
+    draftKickoffStatusMessage(
+      "adopted",
+      "",
+      "这条转述已经具备继续写 draft 的最小条件。",
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    )
   );
 });
 

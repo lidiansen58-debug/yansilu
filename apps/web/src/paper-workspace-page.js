@@ -1055,11 +1055,11 @@ async function handleStartDraftKickoff() {
       translationSignature: state.form.draftKickoffSignature
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    const kickoffStatus = draftKickoffStatusFeedback("loaded", draftBrief.title, nextAction);
+    const kickoffStatus = draftKickoffStatusFeedback("loaded", draftBrief.title, nextAction, draftBrief.stepFourLabel);
     setStatus(kickoffStatus.text, kickoffStatus.tone);
   } else {
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    const kickoffStatus = draftKickoffStatusFeedback("resumed", draftBrief.title, nextAction);
+    const kickoffStatus = draftKickoffStatusFeedback("resumed", draftBrief.title, nextAction, draftBrief.stepFourLabel);
     setStatus(kickoffStatus.text, kickoffStatus.tone);
   }
   render();
@@ -1093,7 +1093,7 @@ async function handleAdoptPreviousKickoff() {
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
   const nextAction = String(currentDraftBriefState().draftContinuationAction?.label || "").trim();
-  const kickoffStatus = draftKickoffStatusFeedback("adopted", "", nextAction);
+  const kickoffStatus = draftKickoffStatusFeedback("adopted", "", nextAction, currentDraftBriefState().draftBrief?.stepFourLabel);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();
