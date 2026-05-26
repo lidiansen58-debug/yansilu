@@ -127,64 +127,53 @@ function draftKickoffSnapshotStorageKey(paperId, candidateId) {
   return `${DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
 }
 
-function readStoredTranslationDraft(paperId, candidateId) {
-  const key = translationDraftStorageKey(paperId, candidateId);
+function readStoredRecord(key, resolver) {
   if (!key) return null;
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    return resolveStoredTranslationDraft(JSON.parse(raw), paperId, candidateId);
+    const parsed = JSON.parse(raw);
+    return typeof resolver === "function" ? resolver(parsed) : parsed;
   } catch {
     return null;
   }
+}
+
+function clearStoredRecord(key) {
+  if (!key) return;
+  try {
+    window.localStorage?.removeItem(key);
+  } catch {}
+}
+
+function readStoredTranslationDraft(paperId, candidateId) {
+  const key = translationDraftStorageKey(paperId, candidateId);
+  return readStoredRecord(key, (parsed) => resolveStoredTranslationDraft(parsed, paperId, candidateId));
 }
 
 function clearStoredTranslationDraft(paperId, candidateId) {
   const key = translationDraftStorageKey(paperId, candidateId);
-  if (!key) return;
-  try {
-    window.localStorage?.removeItem(key);
-  } catch {}
+  clearStoredRecord(key);
 }
 
 function readStoredDraftKickoff(paperId, candidateId) {
   const key = draftKickoffStorageKey(paperId, candidateId);
-  if (!key) return null;
-  try {
-    const raw = window.localStorage?.getItem(key);
-    if (!raw) return null;
-    return resolveStoredDraftKickoff(JSON.parse(raw), paperId, candidateId);
-  } catch {
-    return null;
-  }
+  return readStoredRecord(key, (parsed) => resolveStoredDraftKickoff(parsed, paperId, candidateId));
 }
 
 function clearStoredDraftKickoff(paperId, candidateId) {
   const key = draftKickoffStorageKey(paperId, candidateId);
-  if (!key) return;
-  try {
-    window.localStorage?.removeItem(key);
-  } catch {}
+  clearStoredRecord(key);
 }
 
 function readStoredDraftKickoffSnapshot(paperId, candidateId) {
   const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
-  if (!key) return null;
-  try {
-    const raw = window.localStorage?.getItem(key);
-    if (!raw) return null;
-    return resolveStoredDraftKickoffSnapshot(JSON.parse(raw), paperId, candidateId);
-  } catch {
-    return null;
-  }
+  return readStoredRecord(key, (parsed) => resolveStoredDraftKickoffSnapshot(parsed, paperId, candidateId));
 }
 
 function clearStoredDraftKickoffSnapshot(paperId, candidateId) {
   const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
-  if (!key) return;
-  try {
-    window.localStorage?.removeItem(key);
-  } catch {}
+  clearStoredRecord(key);
 }
 
 function candidateHasStoredTranslationDraft(paperId, candidateId) {
@@ -193,14 +182,7 @@ function candidateHasStoredTranslationDraft(paperId, candidateId) {
 
 function readStoredWorkspaceSelection(paperId) {
   const key = workspaceSelectionStorageKey(paperId);
-  if (!key) return null;
-  try {
-    const raw = window.localStorage?.getItem(key);
-    if (!raw) return null;
-    return resolveStoredWorkspaceSelection(JSON.parse(raw), paperId);
-  } catch {
-    return null;
-  }
+  return readStoredRecord(key, (parsed) => resolveStoredWorkspaceSelection(parsed, paperId));
 }
 
 function persistWorkspaceSelection(overrides = {}) {
