@@ -72,6 +72,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
+  baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
@@ -2708,6 +2709,62 @@ test("resolveSelectedPaperWorkspaceState marks an aligned permanent candidate as
       preferredPermanentCandidateId: "pn_1"
     }).permanentNoteContinuityReason,
     "stale_translation_signature"
+  );
+});
+
+test("baselinePermanentCandidateSignatureToPersist only backfills an aligned permanent candidate that still lacks a stored signature", () => {
+  const workspace = {
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1"
+      },
+      {
+        id: "pn_2",
+        paper_candidate_id: "pwc_2"
+      }
+    ]
+  };
+
+  assert.equal(
+    baselinePermanentCandidateSignatureToPersist(
+      workspace,
+      {
+        translationSignatureByPermanentCandidate: {}
+      },
+      "pwc_1",
+      "pn_1",
+      "sig_current"
+    ),
+    "pn_1"
+  );
+
+  assert.equal(
+    baselinePermanentCandidateSignatureToPersist(
+      workspace,
+      {
+        translationSignatureByPermanentCandidate: {
+          pn_1: "sig_old"
+        }
+      },
+      "pwc_1",
+      "pn_1",
+      "sig_current"
+    ),
+    ""
+  );
+
+  assert.equal(
+    baselinePermanentCandidateSignatureToPersist(
+      workspace,
+      {
+        translationSignatureByPermanentCandidate: {}
+      },
+      "pwc_1",
+      "pn_2",
+      "sig_current"
+    ),
+    ""
   );
 });
 
