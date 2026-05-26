@@ -5671,6 +5671,15 @@ export class EditorPane {
       };
     }
 
+    if (routeMode === "basket" && writingContinuation?.projectId) {
+      return {
+        status: writingContinuation.status,
+        hint: writingContinuation.hint,
+        actionLabel: writingContinuation.actionLabel,
+        routeMode
+      };
+    }
+
     return {
       status: routeMode === "basket" ? "可进入写作中心" : readiness.status,
       hint: readiness.hint,
