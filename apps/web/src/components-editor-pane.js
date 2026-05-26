@@ -1438,7 +1438,7 @@ function thinkingStatusTone(thinkingStatus = null) {
 }
 
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange }) {
+  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
@@ -1446,6 +1446,8 @@ export class EditorPane {
     this.onOpenNote = onOpenNote;
     this.onOpenExternalUrl = typeof elements?.openExternalUrl === "function" ? elements.openExternalUrl : null;
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
+    this.resolveNoteWritingContinuation =
+      typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentLinkContext = null;
@@ -5468,6 +5470,7 @@ export class EditorPane {
     const summary = Array.isArray(note?.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
     const confirmed = String(note?.distillationStatus || "").trim().toLowerCase() === "confirmed";
     const writingInfo = this.noteWritingReadinessV2(note, overview);
+    const writingContinuation = this.noteWritingContinuationV2(note, overview);
     const relationState = String(overview.relationState || "loaded").trim();
     const explicitRelationCount = Number(overview.explicitRelationCount || 0);
     const thinExplicitRelationCount = Number(overview.thinExplicitRelationCount || 0);
@@ -5535,12 +5538,24 @@ export class EditorPane {
       };
     }
     if (writingInfo.level === "project_ready") {
+      if (writingContinuation?.projectId) {
+        return {
+          nextStep: writingContinuation.status,
+          summary: writingContinuation.hint
+        };
+      }
       return {
         nextStep: "先创建项目",
         summary: "这条笔记已经到创建项目阶段；先创建项目，再继续推进后续结构和分析。"
       };
     }
     if (writingInfo.level === "strong_model_ready") {
+      if (writingContinuation?.projectId) {
+        return {
+          nextStep: writingContinuation.status,
+          summary: writingContinuation.hint
+        };
+      }
       return {
         nextStep: "先创建项目",
         summary: "这条笔记已经具备强模型分析前的材料质量；先创建项目，项目就绪后再做强模型分析。"
@@ -5608,6 +5623,7 @@ export class EditorPane {
 
   permanentNoteWritingStepV2(note, overview = {}, writingInfo = null) {
     const readiness = writingInfo || this.noteWritingReadinessV2(note, overview);
+    const writingContinuation = this.noteWritingContinuationV2(note, overview);
     const routeMode =
       readiness.level === "project_ready" || readiness.level === "strong_model_ready"
         ? "project"
@@ -5618,6 +5634,14 @@ export class EditorPane {
             : "basket";
 
     if (routeMode === "project") {
+      if (writingContinuation?.projectId) {
+        return {
+          status: writingContinuation.status,
+          hint: writingContinuation.hint,
+          actionLabel: writingContinuation.actionLabel,
+          routeMode
+        };
+      }
       return {
         status: "先创建项目",
         hint:
@@ -5723,6 +5747,11 @@ export class EditorPane {
 
   noteWritingReadinessV2(note, overview = {}) {
     return deriveNoteWritingReadiness(note, overview);
+  }
+
+  noteWritingContinuationV2(note, overview = {}) {
+    if (overview?.writingContinuation?.projectId) return overview.writingContinuation;
+    return this.resolveNoteWritingContinuation?.(note, overview) || null;
   }
 
   renderPermanentNoteMainPathSectionV2(note, overview = {}) {

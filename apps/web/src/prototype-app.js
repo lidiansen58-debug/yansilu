@@ -6081,6 +6081,20 @@ function writingContinuationEntryForContext({ basketNoteIds = [], sourceIndexIds
   });
 }
 
+function noteMainPathWritingContinuationEntry(noteId, scopeLabel = "当前笔记") {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) return null;
+  const plan = planWritingBasketEntry({
+    existingNoteIds: parseWritingBasketIds(),
+    incomingNoteIds: [cleanNoteId]
+  });
+  return writingContinuationEntryForContext({
+    basketNoteIds: plan.basketNoteIds,
+    sourceIndexIds: [writingState.selectedThemeIndexId, ...writingState.sourceIndexIds],
+    scopeLabel
+  });
+}
+
 function graphWritingContinuationEntry(candidateNoteIds = [], scopeLabel = "当前图谱切片") {
   const projectedEntry = planWritingBasketEntry({
     existingNoteIds: parseWritingBasketIds(),
@@ -9064,10 +9078,25 @@ async function handleStateChange(reason, payload = {}) {
         addedCount > 0
           ? `已把“${note.title || noteId}”加入写作篮，并打开写作中心`
           : `“${note.title || noteId}”已在写作篮中，已打开写作中心`;
-      await openWritingModule({ statusMessage: mode === "project" ? "" : statusMessage });
       if (mode === "project") {
+        await openWritingModule({ statusMessage: "" });
         await createWritingProjectFromCurrentBasket();
+        return true;
       }
+      const continuation = currentWritingContinuationEntry("当前笔记");
+      if (continuation?.projectId) {
+        await continueWritingProjectEntry(continuation.projectId, {
+          openDraft: continuation.action === "open-draft",
+          statusMessage:
+            continuation.action === "resume-scaffold"
+              ? `已回到当前项目的草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已继续当前项目：${continuation.projectId}`
+                : ""
+        });
+        return true;
+      }
+      await openWritingModule({ statusMessage });
       return true;
     }
 
@@ -9445,6 +9474,7 @@ const editor = new EditorPane({
   onStatus: setStatus,
   onStateChange: handleStateChange,
   onOpenNote: openNoteById,
+  resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
