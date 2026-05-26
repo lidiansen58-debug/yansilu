@@ -313,6 +313,17 @@ export function resolvePersistedDraftKickoffFromForm(form = null, paperId = "", 
   });
 }
 
+export function resolvePersistedDraftKickoffRecordForCandidate(
+  form = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanCandidateId) return null;
+  return resolvePersistedDraftKickoffFromForm(form, paperId, cleanCandidateId, overrides);
+}
+
 export function resolvePersistedDraftKickoffSnapshot(
   storedSnapshot = null,
   paperId = "",
@@ -360,6 +371,18 @@ export function resolvePersistedDraftKickoffSnapshotFromForm(
       form?.draftKickoffReplacementSignature,
     updatedAt: overrides.updatedAt
   });
+}
+
+export function resolvePersistedDraftKickoffSnapshotRecordForCandidate(
+  form = null,
+  paperId = "",
+  candidateId = "",
+  snapshot = null,
+  overrides = {}
+) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanCandidateId) return null;
+  return resolvePersistedDraftKickoffSnapshotFromForm(form, paperId, cleanCandidateId, snapshot, overrides);
 }
 
 export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {

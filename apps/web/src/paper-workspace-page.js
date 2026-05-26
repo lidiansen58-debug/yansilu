@@ -27,10 +27,8 @@ import {
   resolveAdoptedDraftKickoff,
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
-  resolvePersistedDraftKickoff,
-  resolvePersistedDraftKickoffFromForm,
-  resolvePersistedDraftKickoffSnapshot,
-  resolvePersistedDraftKickoffSnapshotFromForm,
+  resolvePersistedDraftKickoffRecordForCandidate,
+  resolvePersistedDraftKickoffSnapshotRecordForCandidate,
   resolveRefreshedDraftKickoff,
   resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
@@ -595,7 +593,7 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedKickoff = resolvePersistedDraftKickoffFromForm(state.form, paperId, cleanCandidateId, {
+    const persistedKickoff = resolvePersistedDraftKickoffRecordForCandidate(state.form, paperId, cleanCandidateId, {
       content: overrides.content,
       translationSignature: overrides.translationSignature,
       updatedAt: new Date().toISOString()
@@ -615,7 +613,7 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
   const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedSnapshot = resolvePersistedDraftKickoffSnapshotFromForm(
+    const persistedSnapshot = resolvePersistedDraftKickoffSnapshotRecordForCandidate(
       state.form,
       paperId,
       cleanCandidateId,
