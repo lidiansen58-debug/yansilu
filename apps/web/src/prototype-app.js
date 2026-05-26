@@ -6278,7 +6278,11 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
+<<<<<<< HEAD
   const continuation = describeWritingContinuationAction({
+=======
+  const themeContinuation = describeWritingContinuationAction({
+>>>>>>> feat-product-writing-project-list-continuity-batch
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
@@ -6304,8 +6308,13 @@ function renderWritingThemeIndexCard(indexCard) {
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
         ${
+<<<<<<< HEAD
           continuation?.projectId
             ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
+=======
+          existingProject?.id
+            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(existingProject.id)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
+>>>>>>> feat-product-writing-project-list-continuity-batch
             : ""
         }
       </div>
@@ -6442,6 +6451,15 @@ function renderWritingProjectCard(project) {
   const scaffoldLabel = project?.scaffold_id || "未生成";
   const hasScaffold = Boolean(project?.scaffold_id);
   const sourceCount = Array.isArray(project?.related_index_ids) ? project.related_index_ids.length : 0;
+  const continuation = describeWritingContinuationAction({
+    existingProjectId: project?.id || "",
+    existingProjectHasScaffold: hasScaffold,
+    existingProjectHasDraft: Boolean(project?.draft_note_id),
+    scopeLabel: "当前项目"
+  });
+  const primaryProjectAction = String(continuation?.action || "open").trim() || "open";
+  const primaryProjectActionLabel = String(continuation?.actionLabel || "打开项目").trim() || "打开项目";
+  const primaryProjectStatus = String(continuation?.status || "打开项目").trim() || "打开项目";
   const thinkingBadge = renderThinkingStatusBadge(project?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card" data-writing-project-id="${escapeHtml(project.id)}">
@@ -6452,10 +6470,10 @@ function renderWritingProjectCard(project) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
+      <div class="writing-note-meta">草稿骨架：${escapeHtml(scaffoldLabel)}；草稿：${escapeHtml(draftLabel)}；当前入口：${escapeHtml(primaryProjectStatus)}；写作中心入口 ${escapeHtml(sourceCount)}</div>
       <div class="writing-note-meta">${escapeHtml(project.goal || "暂无写作目标说明。")}</div>
       <div class="writing-note-actions">
-        <button class="mini-btn" type="button" data-writing-project-action="open" data-writing-project-id="${escapeHtml(project.id)}">打开项目</button>
+        <button class="mini-btn" type="button" data-writing-project-action="${escapeHtml(primaryProjectAction)}" data-writing-project-id="${escapeHtml(project.id)}">${escapeHtml(primaryProjectActionLabel)}</button>
         <button class="mini-btn" type="button" data-writing-project-action="copy-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>复制草稿骨架</button>
         <button class="mini-btn" type="button" data-writing-project-action="export-scaffold" data-writing-project-id="${escapeHtml(project.id)}" ${hasScaffold ? "" : "disabled"}>导出草稿骨架 .md</button>
       </div>
@@ -10098,14 +10116,17 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
       await continueWritingProjectEntry(projectId, {
         openDraft: action === "open-draft",
         statusMessage:
-          action === "resume-scaffold"
-            ? `已回到草稿骨架：${projectId}`
-            : action === "resume-project"
-              ? `已继续当前项目：${projectId}`
-              : ""
+          action === "open-draft"
+            ? `已从主题索引打开当前草稿：${projectId}`
+            : action === "resume-scaffold"
+              ? `已从主题索引回到草稿骨架：${projectId}`
+              : `已从主题索引继续当前项目：${projectId}`
       });
     } catch (error) {
-      setStatus(`${action === "open-draft" ? "打开当前草稿" : "打开当前项目"}失败：${String(error?.message || error)}`, "bad");
+      setStatus(
+        `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
     }
     return;
   }
@@ -10225,6 +10246,27 @@ $("writingProjectsList")?.addEventListener("click", async (event) => {
   const action = String(button.getAttribute("data-writing-project-action") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
   if (!projectId) return;
+  if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
+    try {
+      await continueWritingProjectEntry(projectId, {
+        openDraft: action === "open-draft",
+        statusMessage:
+          action === "open-draft"
+            ? `已从项目列表打开当前草稿：${projectId}`
+            : action === "resume-scaffold"
+              ? `已从项目列表回到草稿骨架：${projectId}`
+              : action === "resume-project"
+                ? `已从项目列表继续当前项目：${projectId}`
+                : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${action === "open-draft" ? "从项目列表打开当前草稿" : action === "resume-scaffold" ? "从项目列表回到草稿骨架" : "从项目列表继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
   if (action === "open") {
     try {
       await openWritingProject(projectId);

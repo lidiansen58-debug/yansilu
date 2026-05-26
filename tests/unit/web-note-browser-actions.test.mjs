@@ -58,7 +58,7 @@ test("editor toolbar does not render the file attachment button", () => {
   const html = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
-  assert.doesNotMatch(html, /鎻掑叆鏂囦欢闄勪欢/);
+  assert.doesNotMatch(html, /插入文件附件/);
 });
 
 test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
@@ -151,6 +151,7 @@ test("theme index cards reuse continuity actions when a matching project already
   const fnBody = match[1];
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
+  assert.match(fnBody, /当前项目：/);
   assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
   assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
   assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
@@ -168,6 +169,8 @@ test("theme index list click handler routes continuity actions through continueW
   assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\)/);
   assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
   assert.match(fnBody, /openDraft: action === "open-draft"/);
-  assert.match(fnBody, /action === "resume-scaffold"/);
-  assert.match(fnBody, /action === "resume-project"/);
+  assert.match(fnBody, /已从主题索引打开当前草稿：\$\{projectId\}/);
+  assert.match(fnBody, /已从主题索引回到草稿骨架：\$\{projectId\}/);
+  assert.match(fnBody, /已从主题索引继续当前项目：\$\{projectId\}/);
+  assert.match(fnBody, /action === "open-draft" \? "从主题索引打开当前草稿" : action === "resume-scaffold" \? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"/);
 });
