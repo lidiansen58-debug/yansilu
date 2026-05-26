@@ -14,7 +14,9 @@ import {
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
+  draftBriefStateStatusFeedback,
   draftKickoffStatusFeedback,
+  draftKickoffStateStatusFeedback,
   nextSelectedCandidateId,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceActionStatusFeedback,
@@ -962,7 +964,8 @@ async function handleSavePermanentNote() {
 
 async function handleCopyDraftBrief() {
   syncFormFromDom();
-  const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
+  const draftBriefState = currentDraftBriefState();
+  const { draftBriefAction, draftContinuationAction, draftBrief } = draftBriefState;
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
     const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
     setStatus(blockedStatus.text, blockedStatus.tone);
@@ -981,11 +984,10 @@ async function handleCopyDraftBrief() {
         copiedAt: new Date().toISOString()
       }
     });
-    const nextAction = String(draftContinuationAction?.label || "").trim();
-    const copyStatus = draftBriefCopyStatusFeedback(draftBrief.title, nextAction, null, draftBrief.stepFourLabel);
+    const copyStatus = draftBriefStateStatusFeedback(draftBriefState);
     setStatus(copyStatus.text, copyStatus.tone);
   } catch (error) {
-    const copyStatus = draftBriefCopyStatusFeedback("", "", error);
+    const copyStatus = draftBriefStateStatusFeedback(draftBriefState, error);
     setStatus(copyStatus.text, copyStatus.tone);
   }
   render();
@@ -1007,7 +1009,8 @@ function currentDraftKickoffSignature() {
 
 async function handleStartDraftKickoff() {
   syncFormFromDom();
-  const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
+  const draftBriefState = currentDraftBriefState();
+  const { draftBriefAction, draftContinuationAction, draftBrief } = draftBriefState;
   const kickoffState = currentDraftKickoffState();
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
     const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
@@ -1035,12 +1038,10 @@ async function handleStartDraftKickoff() {
       content: state.form.draftKickoffText,
       translationSignature: state.form.draftKickoffSignature
     });
-    const nextAction = String(draftContinuationAction?.label || "").trim();
-    const kickoffStatus = draftKickoffStatusFeedback("loaded", draftBrief.title, nextAction, draftBrief.stepFourLabel);
+    const kickoffStatus = draftKickoffStateStatusFeedback("loaded", draftBriefState);
     setStatus(kickoffStatus.text, kickoffStatus.tone);
   } else {
-    const nextAction = String(draftContinuationAction?.label || "").trim();
-    const kickoffStatus = draftKickoffStatusFeedback("resumed", draftBrief.title, nextAction, draftBrief.stepFourLabel);
+    const kickoffStatus = draftKickoffStateStatusFeedback("resumed", draftBriefState);
     setStatus(kickoffStatus.text, kickoffStatus.tone);
   }
   render();
@@ -1074,13 +1075,7 @@ async function handleAdoptPreviousKickoff() {
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
   const draftBriefState = currentDraftBriefState();
-  const nextAction = String(draftBriefState.draftContinuationAction?.label || "").trim();
-  const kickoffStatus = draftKickoffStatusFeedback(
-    "adopted",
-    draftBriefState.draftBrief?.title,
-    nextAction,
-    draftBriefState.draftBrief?.stepFourLabel
-  );
+  const kickoffStatus = draftKickoffStateStatusFeedback("adopted", draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();

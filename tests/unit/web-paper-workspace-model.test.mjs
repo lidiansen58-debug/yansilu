@@ -15,8 +15,10 @@ import {
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
+  draftBriefStateStatusFeedback,
   draftKickoffStatusFeedback,
   draftKickoffStatusMessage,
+  draftKickoffStateStatusFeedback,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
@@ -2414,6 +2416,38 @@ test("draft continuity status feedback helpers return stable tones", () => {
       "Step 4: 已保存永久笔记路径 (note_1)"
     )
   );
+});
+
+test("draft handoff state feedback helpers derive status text directly from draft brief state", () => {
+  const draftBriefState = {
+    draftBrief: {
+      title: "Draft brief: Candidate One",
+      stepFourLabel: "Step 4: 已保存永久笔记路径 (note_1)"
+    },
+    draftContinuationAction: {
+      label: "继续本地 draft"
+    }
+  };
+
+  assert.deepEqual(draftBriefStateStatusFeedback(draftBriefState), {
+    text: "已复制 draft brief：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftBriefStateStatusFeedback(draftBriefState, new Error("clipboard unavailable")), {
+    text: "复制 draft brief 失败：clipboard unavailable",
+    tone: "bad"
+  });
+
+  assert.deepEqual(draftKickoffStateStatusFeedback("resumed", draftBriefState), {
+    text: "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStateStatusFeedback("adopted", draftBriefState), {
+    text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {

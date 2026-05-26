@@ -1022,6 +1022,12 @@ export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error 
   };
 }
 
+export function draftBriefStateStatusFeedback(draftBriefState = null, error = null) {
+  const draftBrief = draftBriefState?.draftBrief || null;
+  const nextAction = cleanText(draftBriefState?.draftContinuationAction?.label);
+  return draftBriefCopyStatusFeedback(draftBrief?.title, nextAction, error, draftBrief?.stepFourLabel);
+}
+
 export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "", pathLabel = "") {
   const cleanTitle = cleanText(title);
   const cleanNextAction = cleanText(nextAction);
@@ -1049,6 +1055,12 @@ export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextActi
     text: draftKickoffStatusMessage(mode, title, nextAction, pathLabel),
     tone: "ok"
   };
+}
+
+export function draftKickoffStateStatusFeedback(mode = "loaded", draftBriefState = null) {
+  const draftBrief = draftBriefState?.draftBrief || null;
+  const nextAction = cleanText(draftBriefState?.draftContinuationAction?.label);
+  return draftKickoffStatusFeedback(mode, draftBrief?.title, nextAction, draftBrief?.stepFourLabel);
 }
 
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
