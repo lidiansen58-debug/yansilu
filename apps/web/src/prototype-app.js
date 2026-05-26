@@ -8402,10 +8402,10 @@ function renderGraphPanel() {
               untypedRelations.length
             } 条连接还缺明确关系理由。</small>
           </div>
-          <div class="graph-overview-card">
-            <strong>关系分布</strong>
-            <small>${relationSummary || "目前还没有关系类型可统计，先在笔记中建立 [[关联笔记]]。"} </small>
-          </div>
+            <div class="graph-overview-card">
+              <strong>关系分布</strong>
+              <small>${relationSummary || "目前还没有关系类型可统计，先在笔记中建立 [[关联笔记]]。"} </small>
+            </div>
         </div>
       </section>
       <section class="graph-section">
@@ -8462,16 +8462,16 @@ function renderGraphPanel() {
             ? `
               <div class="graph-detail-card">
                 <strong>当前示例边</strong>
-                <small>${escapeHtml(highlightedEdge.fromTitle || highlightedEdge.fromNoteId)} → ${escapeHtml(
-                  highlightedEdge.toTitle || highlightedEdge.toNoteId
-                )}</small>
-                <small>类型：${escapeHtml(graphRelationTypeLabel(highlightedEdge.relationType))}；状态：${escapeHtml(
-                  graphRelationStatusLabel(highlightedEdge.status)
-                )}；理由：${escapeHtml(
-                  highlightedEdge.rationale || "尚未写明，当前来自 Markdown 链接。"
-                )}</small>
-              </div>
-            `
+                  <small>${escapeHtml(highlightedEdge.fromTitle || highlightedEdge.fromNoteId)} → ${escapeHtml(
+                    highlightedEdge.toTitle || highlightedEdge.toNoteId
+                  )}</small>
+                  <small>类型：${escapeHtml(graphRelationTypeLabel(highlightedEdge.relationType))}；状态：${escapeHtml(
+                    graphRelationStatusLabel(highlightedEdge.status)
+                  )}；理由：${escapeHtml(
+                    highlightedEdge.rationale || "尚未写明，当前来自 Markdown 链接。"
+                  )}</small>
+                </div>
+              `
             : `
               <div class="graph-detail-card">
                 <strong>当前还没有关系边</strong>
@@ -8860,24 +8860,22 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
     return true;
   }
 
-  if (cleanAction === "relations" || cleanAction === "bridge") {
-    window.setTimeout(() => {
-      const form = document.querySelector("[data-create-relation-form]");
-      const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
-      const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
+    if (cleanAction === "relations" || cleanAction === "bridge") {
+      window.setTimeout(() => {
+        const form = document.querySelector("[data-create-relation-form]");
+        const targetSelect = form?.querySelector?.('select[name="toNoteId"]');
+        const relationTypeSelect = form?.querySelector?.('select[name="relationType"]');
       if (targetSelect && cleanTargetNoteId) targetSelect.value = cleanTargetNoteId;
-      if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
-    }, 20);
-    focusRelationCreate();
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
-    focusRelationCreate(
-      cleanAction === "bridge"
-        ? '[data-create-relation-form] textarea[name="rationale"]'
-        : '[data-create-relation-form] [data-relation-target-search]'
-    );
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
-    return true;
-  }
+        if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
+      }, 20);
+      focusRelationCreate(
+        cleanAction === "bridge"
+          ? '[data-create-relation-form] textarea[name="rationale"]'
+          : '[data-create-relation-form] [data-relation-target-search]'
+      );
+      setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
+      return true;
+    }
   if (cleanAction === "boundary" || cleanAction === "tension") {
     focusBoundaryField();
     setStatus("已从图谱打开笔记，继续补反例、边界或例外条件", "ok");
