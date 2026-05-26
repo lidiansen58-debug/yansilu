@@ -333,7 +333,7 @@ function hydrateTranslationForm(candidateId = "") {
 }
 
 function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
-  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storageState = currentCandidateStorageState(candidateId);
   const storedKickoff = storageState ? readStoredDraftKickoff(storageState.paperId, storageState.candidateId) : null;
   const storedSnapshot = storageState
     ? readStoredDraftKickoffSnapshot(storageState.paperId, storageState.candidateId)
