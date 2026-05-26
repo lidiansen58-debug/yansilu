@@ -552,6 +552,21 @@ export function resolvePersistedWorkspaceSelectionRecord(
   };
 }
 
+export function workspaceSelectionTranslationSignatureOverrides(
+  permanentCandidateId = "",
+  translationSignature = "",
+  confirmAuthorship = false
+) {
+  const cleanPermanentCandidateId = cleanText(permanentCandidateId);
+  const cleanTranslationSignature = cleanText(translationSignature);
+  if (!cleanPermanentCandidateId || !cleanTranslationSignature) return null;
+  return {
+    selectedPermanentCandidateId: cleanPermanentCandidateId,
+    translationSignature: cleanTranslationSignature,
+    confirmAuthorship: confirmAuthorship === true
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
