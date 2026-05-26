@@ -295,24 +295,25 @@ export function permanentCandidateActionState(
     cleanText(selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId)?.paper_candidate_id) ===
       cleanText(draft.candidate?.id);
   if (!cleanText(draft.candidate?.id)) {
-    return { enabled: false, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+    return { enabled: false, key: "create_permanent_candidate", label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
   }
   if (!draft.hasSavedTranslation) {
     return {
       enabled: false,
+      key: "save_translation",
       label: draft.hasLocalChanges ? "\u5148\u4fdd\u5b58\u8f6c\u8ff0" : "\u5148\u4fdd\u5b58\u8f6c\u8ff0"
     };
   }
   if (draft.hasLocalChanges) {
-    return { enabled: false, label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
+    return { enabled: false, key: "update_translation", label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
   }
   if (!supportsNextStep) {
-    return { enabled: false, label: "\u5148\u8865 relation / boundary" };
+    return { enabled: false, key: "fill_support", label: "\u5148\u8865 relation / boundary" };
   }
   if (hasAlignedPermanentCandidate && continuity.reason === "stale_translation_signature") {
-    return { enabled: true, label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+    return { enabled: true, key: "refresh_permanent_candidate", label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
   }
-  return { enabled: true, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  return { enabled: true, key: "create_permanent_candidate", label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
 }
 
 export function permanentNoteActionState(
@@ -1261,6 +1262,7 @@ export function draftContinuationBrief(
       : "";
   const savedPermanentNoteId =
     continuity.reason === "saved_permanent_note" ? cleanText(selectedPermanent?.savedPermanentNoteId) : "";
+  const stepFourPathKey = cleanText(selectedPermanent?.id) || "step4:none";
   const draftContinuationAction = draftContinuationActionState(
     {
       selectedCandidateId: cleanText(candidate?.id),
@@ -1295,6 +1297,7 @@ export function draftContinuationBrief(
     title,
     markdown: lines.join("\n"),
     stepFourLabel: `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+    stepFourPathKey,
     savedPermanentNoteId,
     nextAction: cleanText(draftContinuationAction?.label),
     preview: [
@@ -1308,15 +1311,38 @@ export function draftContinuationBrief(
   };
 }
 
-export function resolveRecentDraftBriefCopy(workspaceSelection = null, candidateId = "", translationSignature = "") {
+export function resolveRecentDraftBriefCopy(
+  workspaceSelection = null,
+  candidateId = "",
+  translationSignature = "",
+  draftContinuationAction = null,
+  stepFourPathKey = ""
+) {
   const cleanCandidateId = cleanText(candidateId);
   const cleanTranslationSignature = cleanText(translationSignature);
+  const cleanStepFourPathKey = cleanText(stepFourPathKey);
   if (!cleanCandidateId || !cleanTranslationSignature) return null;
   const storedCopy = workspaceSelection?.draftBriefByCandidate?.[cleanCandidateId];
   if (!storedCopy || cleanText(storedCopy.translationSignature) !== cleanTranslationSignature) return null;
   const storedCandidateId = cleanText(storedCopy.candidateId);
   if (storedCandidateId && storedCandidateId !== cleanCandidateId) return null;
-  return storedCopy;
+  const storedStepFourPathKey = cleanText(storedCopy.stepFourPathKey);
+  if (storedStepFourPathKey && cleanStepFourPathKey && storedStepFourPathKey !== cleanStepFourPathKey) return null;
+  const storedNextActionKey = cleanText(storedCopy.nextActionKey);
+  const currentNextActionKey = cleanText(draftContinuationAction?.key);
+  if (storedNextActionKey && currentNextActionKey && storedNextActionKey !== currentNextActionKey) return null;
+  const resolvedNextAction =
+    storedNextActionKey && currentNextActionKey === storedNextActionKey
+      ? cleanText(draftContinuationAction?.label) || cleanText(storedCopy.nextAction)
+      : cleanText(storedCopy.nextAction);
+  if (!resolvedNextAction) return null;
+  return {
+    ...storedCopy,
+    candidateId: storedCandidateId || cleanCandidateId,
+    stepFourPathKey: storedStepFourPathKey,
+    nextActionKey: storedNextActionKey,
+    nextAction: resolvedNextAction
+  };
 }
 
 export function resolveDraftBriefState(
@@ -1344,24 +1370,22 @@ export function resolveDraftBriefState(
     selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
     permanentNoteContinuityReason: continuityReason
   };
-  const draftBrief = draftContinuationBrief(
-    workspace,
-    workspaceSelection,
-    candidateId,
-    selectedPermanentCandidateId,
-    draftInput
-  );
+  const draftBriefAction = draftBriefActionState(candidateState, workspaceState);
+  const draftContinuationAction = draftContinuationActionState(candidateState, workspaceState);
+  const draftBrief = draftContinuationBrief(workspace, workspaceSelection, candidateId, selectedPermanentCandidateId, draftInput);
   const currentTranslationSignature = translationContinuitySignature(workspace, candidateId, draftInput);
   const recentDraftBriefCopy = resolveRecentDraftBriefCopy(
     workspaceSelection,
     candidateId,
-    currentTranslationSignature
+    currentTranslationSignature,
+    draftContinuationAction,
+    draftBrief?.stepFourPathKey
   );
 
   return {
     draft,
-    draftBriefAction: draftBriefActionState(candidateState, workspaceState),
-    draftContinuationAction: draftContinuationActionState(candidateState, workspaceState),
+    draftBriefAction,
+    draftContinuationAction,
     draftBrief,
     recentDraftBriefCopy,
     currentTranslationSignature,
