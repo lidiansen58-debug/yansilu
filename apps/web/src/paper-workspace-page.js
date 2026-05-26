@@ -35,12 +35,13 @@ import {
   resolveTranslationSaveRuntimeState,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
+  resolveStoredTranslationDraft,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  resolvePersistedTranslationDraft,
   translationSaveStatusFeedback,
   translationContinuitySignature,
-  resolvedStoredTranslationDraft,
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
   translationDraftHasLocalChanges
@@ -124,8 +125,7 @@ function readStoredTranslationDraft(paperId, candidateId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return resolvedStoredTranslationDraft(parsed || {});
+    return resolveStoredTranslationDraft(JSON.parse(raw), paperId, candidateId);
   } catch {
     return null;
   }
@@ -303,12 +303,15 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   const key = translationDraftStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
+    const persistedDraft = resolvePersistedTranslationDraft(draftInput, paperId, cleanCandidateId);
+    if (!persistedDraft) {
+      clearStoredTranslationDraft(paperId, cleanCandidateId);
+      return;
+    }
     window.localStorage?.setItem(
       key,
       JSON.stringify({
-        ...draftInput,
-        paperId,
-        candidateId: cleanCandidateId,
+        ...persistedDraft,
         updatedAt: new Date().toISOString()
       })
     );

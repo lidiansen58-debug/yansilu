@@ -58,9 +58,11 @@ import {
   resolveStoredDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
+  resolveStoredTranslationDraft,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveStoredWorkspaceSelection,
+  resolvePersistedTranslationDraft,
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -1733,6 +1735,89 @@ test("resolvedStoredTranslationDraft normalizes recovered translation draft inpu
       relationToQuestion: "Relation",
       boundaryOrCondition: "Boundary"
     }
+  );
+});
+
+test("resolveStoredTranslationDraft normalizes a matching stored draft and rejects mismatched identity payloads", () => {
+  assert.deepEqual(
+    resolveStoredTranslationDraft(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_1",
+        paraphraseText: " Draft wording ",
+        relationToQuestion: " Relation ",
+        boundaryOrCondition: " Boundary "
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    {
+      paraphraseText: "Draft wording",
+      relationToQuestion: "Relation",
+      boundaryOrCondition: "Boundary"
+    }
+  );
+
+  assert.equal(
+    resolveStoredTranslationDraft(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_2",
+        paraphraseText: "Wrong candidate wording."
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    null
+  );
+
+  assert.equal(
+    resolveStoredTranslationDraft(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_1",
+        paraphraseText: "   ",
+        relationToQuestion: "",
+        boundaryOrCondition: ""
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolvePersistedTranslationDraft keeps candidate-scoped identity and rejects empty payloads", () => {
+  assert.deepEqual(
+    resolvePersistedTranslationDraft(
+      {
+        paraphraseText: " Draft wording ",
+        relationToQuestion: " Relation ",
+        boundaryOrCondition: " Boundary "
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      paraphraseText: "Draft wording",
+      relationToQuestion: "Relation",
+      boundaryOrCondition: "Boundary"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedTranslationDraft(
+      {
+        paraphraseText: " ",
+        relationToQuestion: "",
+        boundaryOrCondition: ""
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    null
   );
 });
 
