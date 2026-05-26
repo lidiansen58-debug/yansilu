@@ -6306,8 +6306,6 @@ function renderWritingThemeIndexCard(indexCard) {
         ${
           continuation?.projectId
             ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
-          continuation?.projectId
-            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
             : ""
         }
       </div>
