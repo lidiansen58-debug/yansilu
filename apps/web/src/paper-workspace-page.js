@@ -11,6 +11,7 @@ import {
   buildNotebookLmPayload,
   blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
+  chainedPaperWorkspaceStatusFeedback,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
@@ -486,7 +487,10 @@ function currentSelectedTranslationRuntimeContext(
   );
 }
 
-function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function currentSelectionContinuityStatus(
+  mode = "live",
+  storedSelection = readStoredWorkspaceSelection(currentPaperId())
+) {
   const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
@@ -494,22 +498,17 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
     draftInput,
-    "resume",
+    mode,
     "loadedWorkspace"
   );
 }
 
+function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  return currentSelectionContinuityStatus("resume", storedSelection);
+}
+
 function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolvePaperWorkspaceContinuityStatusFeedback(
-    state.workspace,
-    storedSelection,
-    state.selectedCandidateId,
-    state.selectedPermanentCandidateId,
-    draftInput,
-    "live",
-    "loadedWorkspace"
-  );
+  return currentSelectionContinuityStatus("live", storedSelection);
 }
 
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
@@ -575,7 +574,7 @@ function hydrateFormFromWorkspace(workspace) {
     },
     "resume",
     "loadedWorkspace"
-  ).key;
+  );
 }
 
 function render() {
@@ -836,29 +835,33 @@ async function handleCreateWorkspace() {
     state.workspace = workspace;
     hydrateFormFromWorkspace(workspace);
     return { stage: "create_workspace", item: workspace };
-  }, STATUS.createdWorkspace);
+  }, () =>
+    chainedPaperWorkspaceStatusFeedback(
+      STATUS.createdWorkspace,
+      paperWorkspaceStatusFeedback("workspaceReadyForNotebookDraft", "createdWorkspace")
+    ));
 }
 
 async function handleLoadWorkspace() {
   await runAction(async () => {
     const workspace = await fetchPaperWorkspace(state.form.paperId);
     state.workspace = workspace;
-    const resumeStatusKey = hydrateFormFromWorkspace(workspace);
-    return { stage: "load_workspace", item: workspace, resumeStatusKey };
-  }, (result) => paperWorkspaceStatusFeedback(result?.resumeStatusKey, "loadedWorkspace"));
-  if (state.workspace) {
-    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    render();
-  }
+    const resumeStatus = hydrateFormFromWorkspace(workspace);
+    return { stage: "load_workspace", item: workspace, resumeStatus };
+  }, (result) =>
+    chainedPaperWorkspaceStatusFeedback(
+      STATUS.loadedWorkspace,
+      result?.resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace")
+    ));
 }
 
 async function handleAddNotebookDraft() {
   await runAction(async () => {
     const result = await addNotebookLmDraft(state.workspace?.paperId || state.form.paperId, buildNotebookLmPayload(state.form));
     state.workspace = result.item;
-    hydrateFormFromWorkspace(state.workspace);
-    return { stage: "notebooklm_draft", ...result };
-  }, STATUS.addedNotebookDraft);
+    const resumeStatus = hydrateFormFromWorkspace(state.workspace);
+    return { stage: "notebooklm_draft", resumeStatus, ...result };
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.addedNotebookDraft, result?.resumeStatus));
 }
 
 async function handleSaveTranslation() {
@@ -942,8 +945,9 @@ async function handleCreatePermanentCandidate() {
     hydratePermanentCandidateForm();
     persistPermanentCandidateTranslationSignature(state.selectedPermanentCandidateId, state.selectedCandidateId);
     persistWorkspaceSelection();
-    return { stage: "permanent_candidate", ...result };
-  }, STATUS.createdPermanentCandidate);
+    const resumeStatus = currentSelectionResumeStatus(state.workspaceSelection);
+    return { stage: "permanent_candidate", resumeStatus, ...result };
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.createdPermanentCandidate, result?.resumeStatus));
 }
 
 async function handleSavePermanentNote() {
@@ -969,9 +973,9 @@ async function handleSavePermanentNote() {
       status: state.form.saveStatus
     });
     state.workspace = result.item;
-    hydrateFormFromWorkspace(state.workspace);
-    return { stage: "save_permanent_note", ...result };
-  }, STATUS.savedPermanentNote);
+    const resumeStatus = hydrateFormFromWorkspace(state.workspace);
+    return { stage: "save_permanent_note", resumeStatus, ...result };
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.savedPermanentNote, result?.resumeStatus));
 }
 
 async function handleCopyDraftBrief() {

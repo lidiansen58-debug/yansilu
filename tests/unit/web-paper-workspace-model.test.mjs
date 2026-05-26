@@ -10,6 +10,7 @@ import {
   canSubmitNotebookDraft,
   candidateKindLabel,
   candidateStatusLabel,
+  chainedPaperWorkspaceStatusFeedback,
   continuityStatusTone,
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
@@ -2070,6 +2071,21 @@ test("paperWorkspaceResumeStatusKey prefers the most actionable continuity state
     "selectedCandidate"
   );
 
+  assert.equal(
+    paperWorkspaceResumeStatusKey(
+      {
+        selectedCandidateId: "",
+        hasAnyCandidates: false,
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "workspaceReadyForNotebookDraft"
+  );
+
   assert.equal(paperWorkspaceResumeStatusKey(null, null), "loadedWorkspace");
 });
 
@@ -2149,6 +2165,21 @@ test("paperWorkspaceLiveStatusKey prefers the next required action while editing
   assert.equal(
     paperWorkspaceLiveStatusKey(
       {
+        selectedCandidateId: "",
+        hasAnyCandidates: false,
+        hasSavedTranslation: false,
+        hasLocalChanges: false
+      },
+      {
+        selectedPermanentCandidateId: ""
+      }
+    ),
+    "workspaceReadyForNotebookDraft"
+  );
+
+  assert.equal(
+    paperWorkspaceLiveStatusKey(
+      {
         selectedCandidateId: "pwc_1",
         hasSavedTranslation: true,
         hasLocalChanges: false,
@@ -2188,6 +2219,30 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   const fallbackFeedback = paperWorkspaceStatusFeedback("", "savedTranslation", "warn");
   assert.match(fallbackFeedback.text, /用户转述已保存/);
   assert.equal(fallbackFeedback.tone, "warn");
+
+  const notebookReadyFeedback = paperWorkspaceStatusFeedback(
+    "workspaceReadyForNotebookDraft",
+    "createdWorkspace"
+  );
+  assert.match(notebookReadyFeedback.text, /粘贴 NotebookLM 输出/);
+  assert.equal(notebookReadyFeedback.tone, "ok");
+});
+
+test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its tone", () => {
+  assert.deepEqual(
+    chainedPaperWorkspaceStatusFeedback("永久笔记已保存", {
+      text: "已对齐到这条候选已保存的永久笔记路径。",
+      tone: "warn"
+    }),
+    {
+      text: "永久笔记已保存。已对齐到这条候选已保存的永久笔记路径。",
+      tone: "warn"
+    }
+  );
+  assert.deepEqual(chainedPaperWorkspaceStatusFeedback("NotebookLM 内容已转成 literature 候选", null), {
+    text: "NotebookLM 内容已转成 literature 候选",
+    tone: "ok"
+  });
 });
 
 test("draft continuity status feedback helpers return stable tones", () => {
@@ -2220,6 +2275,24 @@ test("draft continuity status feedback helpers return stable tones", () => {
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
+  const emptyWorkspace = {
+    candidates: [],
+    translations: [],
+    permanentCandidates: []
+  };
+
+  const emptyResumeStatus = resolvePaperWorkspaceContinuityStatus(
+    emptyWorkspace,
+    null,
+    "",
+    "",
+    null,
+    "resume"
+  );
+  assert.equal(emptyResumeStatus.key, "workspaceReadyForNotebookDraft");
+  assert.equal(emptyResumeStatus.tone, "");
+  assert.equal(emptyResumeStatus.candidateState.hasAnyCandidates, false);
+
   const workspace = {
     candidates: [{ id: "pwc_1", title: "First" }],
     translations: [
@@ -2273,6 +2346,23 @@ test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both res
 });
 
 test("resolvePaperWorkspaceContinuityStatusFeedback adds user-facing text to continuity status", () => {
+  const emptyFeedback = resolvePaperWorkspaceContinuityStatusFeedback(
+    {
+      candidates: [],
+      translations: [],
+      permanentCandidates: []
+    },
+    null,
+    "",
+    "",
+    null,
+    "resume",
+    "loadedWorkspace"
+  );
+  assert.equal(emptyFeedback.key, "workspaceReadyForNotebookDraft");
+  assert.equal(emptyFeedback.tone, "ok");
+  assert.match(emptyFeedback.text, /粘贴 NotebookLM 输出/);
+
   const workspace = {
     candidates: [{ id: "pwc_1", title: "First" }],
     translations: [

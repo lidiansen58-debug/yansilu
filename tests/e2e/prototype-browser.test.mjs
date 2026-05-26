@@ -5491,6 +5491,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(text || "", /"stage": "create_workspace"/);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /论文工作台已创建/);
+      assert.match(String(statusText || ""), /粘贴 NotebookLM 输出/);
     }, 6000);
     await waitFor(async () => {
       assert.notEqual(await page.locator("#btnSaveTranslation").getAttribute("disabled"), null);
@@ -5499,6 +5500,23 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.match(String(translationStepText || ""), /这里会先生成 literature 候选/);
       assert.match(String(translationStepText || ""), /尚未选择候选/);
       assert.match(String(translationStepText || ""), /先从左侧选一条候选/);
+    }, 4000);
+
+    await openPaperWorkspace(page, webBase);
+    await page.fill("#paperIdInput", paperId);
+    await page.click("#btnLoadPaperWorkspace");
+    await waitFor(async () => {
+      const text = await page.locator(".paper-result-json").textContent();
+      assert.match(text || "", /"stage": "load_workspace"/);
+      const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /论文工作台已读取/);
+      assert.match(String(statusText || ""), /粘贴 NotebookLM 输出/);
+    }, 6000);
+    await waitFor(async () => {
+      assert.equal(await page.locator(".paper-candidate").count(), 0);
+      const translationStepText = await page.locator(".paper-grid .paper-card.paper-span-2").nth(0).textContent();
+      assert.match(String(translationStepText || ""), /还没有候选/);
+      assert.match(String(translationStepText || ""), /这里会先生成 literature 候选/);
     }, 4000);
 
   await page.fill(
@@ -5510,6 +5528,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       assert.equal(await page.locator(".paper-candidate").count(), 2);
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /NotebookLM 内容已转成 literature 候选/);
+      assert.match(String(statusText || ""), /已选择候选|先用自己的话完成转述并保存/);
     }, 6000);
 
   const permanentCandidateButton = page.locator("#btnCreatePermanentCandidate");
@@ -5870,6 +5889,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             assert.doesNotMatch(String(previewText || ""), /已保存为：/);
             const statusText = await currentPaperWorkspaceStatusText(page);
             assert.match(String(statusText || ""), /永久笔记候选已生成/);
+            assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
             assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
             assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
             assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
@@ -6162,6 +6182,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.ok(savedPermanentNoteId);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记已保存/);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
             }, 6000);
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();
@@ -6352,6 +6373,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "(create_permanent_candidate|permanent_candidate)"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记候选已生成/);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.equal(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
               assert.equal(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);
