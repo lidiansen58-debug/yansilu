@@ -141,7 +141,7 @@ test("theme index selection preserves hydrated theme context when switching betw
   assert.match(fnBody, /if \(!preservingExistingThemeContext\) clearWritingThemeRelationCounts\(noteIds\)/);
 });
 
-test("theme index cards expose a direct resume-project action when a matching project already exists", () => {
+test("theme index cards reuse continuity actions when a matching project already exists", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
@@ -152,6 +152,7 @@ test("theme index cards expose a direct resume-project action when a matching pr
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
   assert.match(fnBody, /当前项目：/);
-  assert.match(fnBody, /data-writing-index-action="resume-project"/);
-  assert.match(fnBody, /继续当前项目/);
+  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
 });
