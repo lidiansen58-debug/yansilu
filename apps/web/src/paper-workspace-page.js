@@ -28,7 +28,9 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolvePersistedDraftKickoff,
+  resolvePersistedDraftKickoffFromForm,
   resolvePersistedDraftKickoffSnapshot,
+  resolvePersistedDraftKickoffSnapshotFromForm,
   resolveRefreshedDraftKickoff,
   resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
@@ -632,18 +634,12 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const paperId = currentPaperId();
   const cleanCandidateId = String(candidateId || "").trim();
   if (!paperId || !cleanCandidateId) return;
-  const content = String(overrides.content ?? state.form.draftKickoffText ?? "").trim();
-  const translationSignature = String(overrides.translationSignature ?? state.form.draftKickoffSignature ?? "").trim();
-  if (!content || !translationSignature) {
-    clearStoredDraftKickoff(paperId, cleanCandidateId);
-    return;
-  }
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedKickoff = resolvePersistedDraftKickoff(null, paperId, cleanCandidateId, {
-      content,
-      translationSignature,
+    const persistedKickoff = resolvePersistedDraftKickoffFromForm(state.form, paperId, cleanCandidateId, {
+      content: overrides.content,
+      translationSignature: overrides.translationSignature,
       updatedAt: new Date().toISOString()
     });
     if (!persistedKickoff) {
@@ -663,21 +659,16 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
   if (!paperId || !cleanCandidateId) return;
   const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
   if (!key) return;
-  const normalizedSnapshot = snapshot && typeof snapshot === "object" ? snapshot : null;
-  const content = String(normalizedSnapshot?.content || "").trim();
-  const previousSignature = String(normalizedSnapshot?.previousSignature || "").trim();
-  const replacementSignature = String(normalizedSnapshot?.replacementSignature || "").trim();
-  if (!content || !previousSignature || !replacementSignature) {
-    clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
-    return;
-  }
   try {
-    const persistedSnapshot = resolvePersistedDraftKickoffSnapshot(null, paperId, cleanCandidateId, {
-      content,
-      previousSignature,
-      replacementSignature,
-      updatedAt: new Date().toISOString()
-    });
+    const persistedSnapshot = resolvePersistedDraftKickoffSnapshotFromForm(
+      state.form,
+      paperId,
+      cleanCandidateId,
+      snapshot,
+      {
+        updatedAt: new Date().toISOString()
+      }
+    );
     if (!persistedSnapshot) {
       clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
       return;
