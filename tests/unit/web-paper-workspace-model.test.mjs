@@ -99,6 +99,7 @@ import {
   translationContinuitySignature,
   translationDraftHasLocalChanges,
   translationDraftForCandidate,
+  translationFormState,
   translationDraftSupportsNextStep,
   workspaceStageLabel
 } from "../../apps/web/src/paper-workspace-model.js";
@@ -1787,6 +1788,27 @@ test("resolvedStoredTranslationDraft normalizes recovered translation draft inpu
       boundaryOrCondition: "Boundary"
     }
   );
+});
+
+test("translationFormState maps candidate translation state back into form fields", () => {
+  assert.deepEqual(
+    translationFormState({
+      paraphraseText: " Saved paraphrase. ",
+      relationToQuestion: " Saved relation. ",
+      boundaryOrCondition: " Saved boundary. "
+    }),
+    {
+      paraphraseText: "Saved paraphrase.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    }
+  );
+
+  assert.deepEqual(translationFormState(null), {
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: ""
+  });
 });
 
 test("resolveStoredTranslationDraft normalizes a matching stored draft and rejects mismatched identity payloads", () => {

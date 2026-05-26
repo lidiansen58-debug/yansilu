@@ -184,6 +184,14 @@ export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
 
+export function translationFormState(candidateState = null) {
+  return {
+    paraphraseText: cleanText(candidateState?.paraphraseText),
+    relationToQuestion: cleanText(candidateState?.relationToQuestion),
+    boundaryOrCondition: cleanText(candidateState?.boundaryOrCondition)
+  };
+}
+
 export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", candidateId = "") {
   const draft = storedDraft && typeof storedDraft === "object" ? storedDraft : {};
   const cleanPaperId = cleanText(paperId);
