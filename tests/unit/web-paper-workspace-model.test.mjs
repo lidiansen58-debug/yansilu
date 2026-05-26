@@ -54,8 +54,11 @@ import {
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
+  resolveStoredDraftBriefCopy,
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
+  resolveStoredDraftKickoff,
+  resolveStoredDraftKickoffSnapshot,
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -1728,6 +1731,118 @@ test("resolvedStoredTranslationDraft normalizes recovered translation draft inpu
       relationToQuestion: "Relation",
       boundaryOrCondition: "Boundary"
     }
+  );
+});
+
+test("resolveStoredDraftKickoff normalizes a matching stored kickoff and rejects mismatched identity payloads", () => {
+  assert.deepEqual(
+    resolveStoredDraftKickoff(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_1",
+        content: " Local kickoff wording. ",
+        translationSignature: " sig_current ",
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    {
+      content: "Local kickoff wording.",
+      translationSignature: "sig_current",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolveStoredDraftKickoff(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_2",
+        content: "Wrong candidate kickoff.",
+        translationSignature: "sig_current"
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolveStoredDraftKickoffSnapshot normalizes a matching stored snapshot and rejects mismatched identity payloads", () => {
+  assert.deepEqual(
+    resolveStoredDraftKickoffSnapshot(
+      {
+        paperId: "paper_test",
+        candidateId: "pwc_1",
+        content: " Previous kickoff wording. ",
+        previousSignature: " sig_previous ",
+        replacementSignature: " sig_current ",
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    {
+      content: "Previous kickoff wording.",
+      previousSignature: "sig_previous",
+      replacementSignature: "sig_current",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolveStoredDraftKickoffSnapshot(
+      {
+        paperId: "paper_other",
+        candidateId: "pwc_1",
+        content: "Wrong paper snapshot.",
+        previousSignature: "sig_previous",
+        replacementSignature: "sig_current"
+      },
+      "paper_test",
+      "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolveStoredDraftBriefCopy normalizes a matching stored brief copy and rejects mismatched identity payloads", () => {
+  assert.deepEqual(
+    resolveStoredDraftBriefCopy(
+      {
+        candidateId: "pwc_1",
+        stepFourPathKey: "pn_1",
+        title: " Draft brief: Candidate One ",
+        nextActionKey: "review_saved_permanent_note",
+        nextAction: " 回看 originality / authorship ",
+        translationSignature: " sig_current ",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      },
+      "pwc_1"
+    ),
+    {
+      candidateId: "pwc_1",
+      stepFourPathKey: "pn_1",
+      title: "Draft brief: Candidate One",
+      nextActionKey: "review_saved_permanent_note",
+      nextAction: "回看 originality / authorship",
+      translationSignature: "sig_current",
+      copiedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolveStoredDraftBriefCopy(
+      {
+        candidateId: "pwc_2",
+        title: "Draft brief: Candidate One",
+        nextActionKey: "review_saved_permanent_note",
+        translationSignature: "sig_current"
+      },
+      "pwc_1"
+    ),
+    null
   );
 });
 

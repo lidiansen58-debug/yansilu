@@ -27,6 +27,9 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolveRefreshedDraftKickoff,
+  resolveStoredDraftBriefCopy,
+  resolveStoredDraftKickoff,
+  resolveStoredDraftKickoffSnapshot,
   resolveTranslationRuntimeContext,
   resolveTranslationSaveRuntimeState,
   resolveSelectedPaperCandidateState,
@@ -141,16 +144,7 @@ function readStoredDraftKickoff(paperId, candidateId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const content = String(parsed.content || "").trim();
-    const translationSignature = String(parsed.translationSignature || "").trim();
-    if (!content || !translationSignature) return null;
-    return {
-      content,
-      translationSignature,
-      updatedAt: String(parsed.updatedAt || "").trim()
-    };
+    return resolveStoredDraftKickoff(JSON.parse(raw), paperId, candidateId);
   } catch {
     return null;
   }
@@ -170,18 +164,7 @@ function readStoredDraftKickoffSnapshot(paperId, candidateId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const content = String(parsed.content || "").trim();
-    const previousSignature = String(parsed.previousSignature || "").trim();
-    const replacementSignature = String(parsed.replacementSignature || "").trim();
-    if (!content || !previousSignature || !replacementSignature) return null;
-    return {
-      content,
-      previousSignature,
-      replacementSignature,
-      updatedAt: String(parsed.updatedAt || "").trim()
-    };
+    return resolveStoredDraftKickoffSnapshot(JSON.parse(raw), paperId, candidateId);
   } catch {
     return null;
   }
@@ -238,28 +221,9 @@ function readStoredWorkspaceSelection(paperId) {
             Object.entries(parsed.draftBriefByCandidate)
               .map(([candidateId, value]) => {
                 const cleanCandidateId = String(candidateId || "").trim();
-                const entry = value && typeof value === "object" ? value : {};
-                const storedCandidateId = String(entry.candidateId || cleanCandidateId).trim();
-                return [
-                  cleanCandidateId,
-                  {
-                    candidateId: storedCandidateId,
-                    stepFourPathKey: String(entry.stepFourPathKey || "").trim(),
-                    title: String(entry.title || "").trim(),
-                    nextActionKey: String(entry.nextActionKey || "").trim(),
-                    nextAction: String(entry.nextAction || "").trim(),
-                    translationSignature: String(entry.translationSignature || "").trim(),
-                    copiedAt: String(entry.copiedAt || "").trim()
-                  }
-                ];
+                return [cleanCandidateId, resolveStoredDraftBriefCopy(value, cleanCandidateId)];
               })
-              .filter(
-                ([candidateId, value]) =>
-                  candidateId &&
-                  value.title &&
-                  value.translationSignature &&
-                  (value.nextAction || value.nextActionKey)
-              )
+              .filter(([, value]) => Boolean(value))
           )
         : {};
     return {

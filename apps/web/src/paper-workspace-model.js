@@ -184,6 +184,68 @@ export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
 
+export function resolveStoredDraftKickoff(storedKickoff = null, paperId = "", candidateId = "") {
+  const kickoff = storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {};
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  const storedPaperId = cleanText(kickoff.paperId);
+  const storedCandidateId = cleanText(kickoff.candidateId);
+  if ((storedPaperId && storedPaperId !== cleanPaperId) || (storedCandidateId && storedCandidateId !== cleanCandidateId)) {
+    return null;
+  }
+  const content = cleanText(kickoff.content);
+  const translationSignature = cleanText(kickoff.translationSignature);
+  if (!content || !translationSignature) return null;
+  return {
+    content,
+    translationSignature,
+    updatedAt: cleanText(kickoff.updatedAt)
+  };
+}
+
+export function resolveStoredDraftKickoffSnapshot(storedSnapshot = null, paperId = "", candidateId = "") {
+  const snapshot = storedSnapshot && typeof storedSnapshot === "object" ? storedSnapshot : {};
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  const storedPaperId = cleanText(snapshot.paperId);
+  const storedCandidateId = cleanText(snapshot.candidateId);
+  if ((storedPaperId && storedPaperId !== cleanPaperId) || (storedCandidateId && storedCandidateId !== cleanCandidateId)) {
+    return null;
+  }
+  const content = cleanText(snapshot.content);
+  const previousSignature = cleanText(snapshot.previousSignature);
+  const replacementSignature = cleanText(snapshot.replacementSignature);
+  if (!content || !previousSignature || !replacementSignature) return null;
+  return {
+    content,
+    previousSignature,
+    replacementSignature,
+    updatedAt: cleanText(snapshot.updatedAt)
+  };
+}
+
+export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {
+  const entry = storedCopy && typeof storedCopy === "object" ? storedCopy : {};
+  const cleanCandidateId = cleanText(candidateId);
+  const storedCandidateId = cleanText(entry.candidateId || cleanCandidateId);
+  if (!cleanCandidateId || !storedCandidateId || storedCandidateId !== cleanCandidateId) return null;
+  const title = cleanText(entry.title);
+  const stepFourPathKey = cleanText(entry.stepFourPathKey);
+  const nextActionKey = cleanText(entry.nextActionKey);
+  const nextAction = cleanText(entry.nextAction);
+  const translationSignature = cleanText(entry.translationSignature);
+  if (!title || !translationSignature || !(nextAction || nextActionKey)) return null;
+  return {
+    candidateId: storedCandidateId,
+    stepFourPathKey,
+    title,
+    nextActionKey,
+    nextAction,
+    translationSignature,
+    copiedAt: cleanText(entry.copiedAt)
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
