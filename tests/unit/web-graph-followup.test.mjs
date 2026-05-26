@@ -243,6 +243,20 @@ test("graph writing followup stays inside the current graph slice when no note i
   assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
 });
 
+test("graph writing followup keeps no-candidate no-basket feedback in graph cleanup mode", () => {
+  const plan = graphWritingFollowupEntryPlan({
+    basketNoteIds: [],
+    candidateNoteIds: [],
+    scopeNoteIds: []
+  });
+
+  assert.deepEqual(plan.prefillNoteIds, []);
+  assert.match(plan.statusMessage, /还没有可直接推进写作的永久笔记/);
+  assert.match(plan.statusMessage, /先补关系、边界或完成原创性检查/);
+  assert.doesNotMatch(plan.statusMessage, /已从图谱进入写作中心/);
+  assert.doesNotMatch(plan.statusMessage, /挑选可推进的永久笔记/);
+});
+
 test("graph writing followup keeps basket-first wording when no new visible note is ready", () => {
   const plan = graphWritingFollowupEntryPlan({
     basketNoteIds: ["n1"],
