@@ -102,20 +102,15 @@ function setResult(result) {
   state.lastResult = result;
 }
 
-function currentPaperId() {
-  return paperWorkspaceCurrentPaperId(state.workspace, state.form);
-}
-
-function currentLoadedWorkspacePaperId() {
-  return paperWorkspaceLoadedPaperId(state.workspace);
-}
-
 function currentStoredWorkspaceSelection() {
-  return readStoredWorkspaceSelection(currentPaperId());
+  return readStoredWorkspaceSelection(paperWorkspaceCurrentPaperId(state.workspace, state.form));
 }
 
 function currentCandidateStorageState(candidateId = state.selectedCandidateId) {
-  return paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  return paperWorkspaceCandidateStorageState(
+    paperWorkspaceCurrentPaperId(state.workspace, state.form),
+    candidateId
+  );
 }
 
 function readStoredRecord(key, resolver) {
@@ -172,6 +167,16 @@ function clearCandidateStoredRecord(storageKeyResolver, paperId, candidateId) {
   clearStoredRecord(key);
 }
 
+function persistCandidateStoredRecord(storageKeyResolver, storageState, value, clearRecord) {
+  if (!storageState) return false;
+  const { paperId, candidateId } = storageState;
+  if (!value) {
+    clearRecord(paperId, candidateId);
+    return false;
+  }
+  return writeCandidateStoredRecord(storageKeyResolver, paperId, candidateId, value);
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
   return readCandidateStoredRecord(
     translationDraftStorageKey,
@@ -224,7 +229,7 @@ function readStoredWorkspaceSelection(paperId) {
 }
 
 function persistWorkspaceSelection(overrides = {}) {
-  const paperId = currentLoadedWorkspacePaperId();
+  const paperId = paperWorkspaceLoadedPaperId(state.workspace);
   if (!workspaceSelectionStorageKey(paperId)) return;
   try {
     const currentSelection = readStoredWorkspaceSelection(paperId);
@@ -264,7 +269,7 @@ function alignPermanentCandidateToSelectedPaper(preferredPermanentCandidateId = 
     {
       preferredCandidateId: state.selectedCandidateId,
       preferredPermanentCandidateId,
-      candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(currentLoadedWorkspacePaperId(), candidateId)
+      candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(paperWorkspaceLoadedPaperId(state.workspace), candidateId)
     }
   ).selectedPermanentCandidateId;
 }
@@ -281,7 +286,6 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   const { paperId, candidateId: cleanCandidateId } = storageState;
 
   const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
-  if (!translationDraftStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedDraft = resolvePersistedTranslationDraftRecordForCandidate(
       state.workspace,
@@ -290,11 +294,12 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
       paperId,
       new Date().toISOString()
     );
-    if (!persistedDraft) {
-      clearStoredTranslationDraft(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(translationDraftStorageKey, paperId, cleanCandidateId, persistedDraft);
+    persistCandidateStoredRecord(
+      translationDraftStorageKey,
+      storageState,
+      persistedDraft,
+      clearStoredTranslationDraft
+    );
   } catch {}
 }
 
@@ -326,14 +331,15 @@ function syncFormFromDom() {
 function hydrateTranslationForm(candidateId = "") {
   const resolvedState = resolveSelectedPaperCandidateState(state.workspace, {
     preferredCandidateId: candidateId,
-    readStoredTranslationDraft: (selectedId) => readStoredTranslationDraft(currentPaperId(), selectedId)
+    readStoredTranslationDraft: (selectedId) =>
+      readStoredTranslationDraft(paperWorkspaceCurrentPaperId(state.workspace, state.form), selectedId)
   });
   Object.assign(state.form, translationFormState(resolvedState));
   hydrateDraftKickoff(candidateId || resolvedState.selectedCandidateId || state.selectedCandidateId);
 }
 
 function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
-  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storageState = currentCandidateStorageState(candidateId);
   const storedKickoff = storageState ? readStoredDraftKickoff(storageState.paperId, storageState.candidateId) : null;
   const storedSnapshot = storageState
     ? readStoredDraftKickoffSnapshot(storageState.paperId, storageState.candidateId)
@@ -369,19 +375,11 @@ function currentSelectionContinuityStatus(
   );
 }
 
-function setLiveStatusFromCurrentSelection(storedSelection = currentStoredWorkspaceSelection()) {
-  if (!currentLoadedWorkspacePaperId()) return;
-  const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
-  setStatus(liveStatus.text, liveStatus.tone);
-}
-
-function syncAndPersistDraftContext() {
-  syncFormFromDom();
-  persistTranslationDraft();
-}
-
 function refreshLiveContinuityUi(target = null, storedSelection = currentStoredWorkspaceSelection()) {
-  setLiveStatusFromCurrentSelection(storedSelection);
+  if (paperWorkspaceLoadedPaperId(state.workspace)) {
+    const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
+    setStatus(liveStatus.text, liveStatus.tone);
+  }
   if (target) {
     rerenderPreservingContinuityFocus(target);
     return;
@@ -390,7 +388,8 @@ function refreshLiveContinuityUi(target = null, storedSelection = currentStoredW
 }
 
 function handleSelectPaperCandidate(candidateId = "") {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const storedSelection = currentStoredWorkspaceSelection();
   state.selectedCandidateId = workspaceSelectionIds(candidateId, "").selectedCandidateId;
   hydrateSelectedPaperCandidateState(storedSelection);
@@ -399,7 +398,8 @@ function handleSelectPaperCandidate(candidateId = "") {
 }
 
 function handleSelectPermanentCandidate(permanentCandidateId = "") {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const storedSelection = currentStoredWorkspaceSelection();
   state.selectedPermanentCandidateId = workspaceSelectionIds("", permanentCandidateId).selectedPermanentCandidateId;
   const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
@@ -413,10 +413,6 @@ function handleSelectPermanentCandidate(permanentCandidateId = "") {
   hydratePermanentCandidateForm(storedSelection);
   persistWorkspaceSelection();
   refreshLiveContinuityUi();
-}
-
-function shouldRefreshContinuityStatus(target) {
-  return CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(target));
 }
 
 function hydrateFormFromWorkspace(workspace) {
@@ -579,18 +575,18 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
-  if (!draftKickoffStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedKickoff = resolvePersistedDraftKickoffRecordForCandidate(state.form, paperId, cleanCandidateId, {
       content: overrides.content,
       translationSignature: overrides.translationSignature,
       updatedAt: new Date().toISOString()
     });
-    if (!persistedKickoff) {
-      clearStoredDraftKickoff(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(draftKickoffStorageKey, paperId, cleanCandidateId, persistedKickoff);
+    persistCandidateStoredRecord(
+      draftKickoffStorageKey,
+      storageState,
+      persistedKickoff,
+      clearStoredDraftKickoff
+    );
   } catch {}
 }
 
@@ -598,7 +594,6 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
   const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
-  if (!draftKickoffSnapshotStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedSnapshot = resolvePersistedDraftKickoffSnapshotRecordForCandidate(
       state.form,
@@ -609,11 +604,12 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
         updatedAt: new Date().toISOString()
       }
     );
-    if (!persistedSnapshot) {
-      clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(draftKickoffSnapshotStorageKey, paperId, cleanCandidateId, persistedSnapshot);
+    persistCandidateStoredRecord(
+      draftKickoffSnapshotStorageKey,
+      storageState,
+      persistedSnapshot,
+      clearStoredDraftKickoffSnapshot
+    );
   } catch {}
 }
 
@@ -705,7 +701,7 @@ async function handleSaveTranslation() {
       boundaryOrCondition: state.form.boundaryOrCondition
     });
     state.workspace = result.item;
-    clearStoredTranslationDraft(currentPaperId(), state.selectedCandidateId);
+    clearStoredTranslationDraft(paperWorkspaceCurrentPaperId(state.workspace, state.form), state.selectedCandidateId);
     hydrateFormFromWorkspace(state.workspace);
     if (selectedPermanentCandidateIdBeforeSave) {
       const signatureOverrides = workspaceSelectionTranslationSignatureOverrides(
@@ -819,17 +815,6 @@ async function handleCopyDraftBrief() {
   render();
 }
 
-function focusDraftKickoffTextarea() {
-  const textarea = document.getElementById("draftKickoffTextarea");
-  if (!textarea) return;
-  textarea.focus();
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-}
-
-function currentDraftKickoffSignature(runtimeState = null) {
-  return draftKickoffSignatureValue(state.form, runtimeState || currentWorkspaceRuntimeState());
-}
-
 async function handleStartDraftKickoff() {
   syncFormFromDom();
   const runtimeState = currentWorkspaceRuntimeState();
@@ -866,7 +851,11 @@ async function handleStartDraftKickoff() {
   const kickoffStatus = draftKickoffStartStatusFeedback(kickoffState, draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
-  focusDraftKickoffTextarea();
+  const kickoffTextarea = document.getElementById("draftKickoffTextarea");
+  if (kickoffTextarea) {
+    kickoffTextarea.focus();
+    kickoffTextarea.setSelectionRange(kickoffTextarea.value.length, kickoffTextarea.value.length);
+  }
 }
 
 async function handleAdoptPreviousKickoff() {
@@ -877,7 +866,11 @@ async function handleAdoptPreviousKickoff() {
     render();
     return;
   }
-  const adoptedKickoff = resolveAdoptedDraftKickoff(state.form, kickoffState, currentDraftKickoffSignature(runtimeState));
+  const adoptedKickoff = resolveAdoptedDraftKickoff(
+    state.form,
+    kickoffState,
+    draftKickoffSignatureValue(state.form, runtimeState)
+  );
   if (!adoptedKickoff) {
     render();
     return;
@@ -896,24 +889,30 @@ async function handleAdoptPreviousKickoff() {
   const kickoffStatus = draftKickoffAdoptedStatusFeedback(draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
-  focusDraftKickoffTextarea();
+  const kickoffTextarea = document.getElementById("draftKickoffTextarea");
+  if (kickoffTextarea) {
+    kickoffTextarea.focus();
+    kickoffTextarea.setSelectionRange(kickoffTextarea.value.length, kickoffTextarea.value.length);
+  }
 }
 
 root?.addEventListener("input", (event) => {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const runtimeState = currentWorkspaceRuntimeState();
   if (event.target?.id === "draftKickoffTextarea") {
     persistDraftKickoff();
   }
   persistWorkspaceSelection();
   updateDynamicControls(runtimeState);
-  if (shouldRefreshContinuityStatus(event.target)) {
+  if (CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(event.target))) {
     refreshLiveContinuityUi(event.target);
   }
 });
 
 root?.addEventListener("change", (event) => {
-  syncAndPersistDraftContext();
+  syncFormFromDom();
+  persistTranslationDraft();
   const runtimeState = currentWorkspaceRuntimeState();
   const selectionOverrides = workspaceSelectionInputOverrides(event.target);
   if (selectionOverrides) {
@@ -922,7 +921,7 @@ root?.addEventListener("change", (event) => {
     persistWorkspaceSelection();
   }
   updateDynamicControls(runtimeState);
-  if (shouldRefreshContinuityStatus(event.target)) {
+  if (CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(event.target))) {
     refreshLiveContinuityUi(event.target);
   }
 });
