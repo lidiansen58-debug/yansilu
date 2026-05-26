@@ -102,16 +102,15 @@ function setResult(result) {
   state.lastResult = result;
 }
 
-function currentPaperId() {
-  return paperWorkspaceCurrentPaperId(state.workspace, state.form);
-}
-
 function currentStoredWorkspaceSelection() {
-  return readStoredWorkspaceSelection(currentPaperId());
+  return readStoredWorkspaceSelection(paperWorkspaceCurrentPaperId(state.workspace, state.form));
 }
 
 function currentCandidateStorageState(candidateId = state.selectedCandidateId) {
-  return paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  return paperWorkspaceCandidateStorageState(
+    paperWorkspaceCurrentPaperId(state.workspace, state.form),
+    candidateId
+  );
 }
 
 function readStoredRecord(key, resolver) {
@@ -322,7 +321,8 @@ function syncFormFromDom() {
 function hydrateTranslationForm(candidateId = "") {
   const resolvedState = resolveSelectedPaperCandidateState(state.workspace, {
     preferredCandidateId: candidateId,
-    readStoredTranslationDraft: (selectedId) => readStoredTranslationDraft(currentPaperId(), selectedId)
+    readStoredTranslationDraft: (selectedId) =>
+      readStoredTranslationDraft(paperWorkspaceCurrentPaperId(state.workspace, state.form), selectedId)
   });
   Object.assign(state.form, translationFormState(resolvedState));
   hydrateDraftKickoff(candidateId || resolvedState.selectedCandidateId || state.selectedCandidateId);
@@ -691,7 +691,7 @@ async function handleSaveTranslation() {
       boundaryOrCondition: state.form.boundaryOrCondition
     });
     state.workspace = result.item;
-    clearStoredTranslationDraft(currentPaperId(), state.selectedCandidateId);
+    clearStoredTranslationDraft(paperWorkspaceCurrentPaperId(state.workspace, state.form), state.selectedCandidateId);
     hydrateFormFromWorkspace(state.workspace);
     if (selectedPermanentCandidateIdBeforeSave) {
       const signatureOverrides = workspaceSelectionTranslationSignatureOverrides(
