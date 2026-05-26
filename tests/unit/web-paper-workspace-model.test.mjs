@@ -78,6 +78,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
+  workspaceSelectionTranslationSignatureOverrides,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
   selectedAlignedPermanentCandidate,
@@ -2561,6 +2562,20 @@ test("resolvePersistedWorkspaceSelectionRecord adds paper identity and updatedAt
     resolvePersistedWorkspaceSelectionRecord(null, "", null, {}),
     null
   );
+});
+
+test("workspaceSelectionTranslationSignatureOverrides only returns a persistence payload when both ids and signature exist", () => {
+  assert.deepEqual(
+    workspaceSelectionTranslationSignatureOverrides(" pn_1 ", " sig_current ", true),
+    {
+      selectedPermanentCandidateId: "pn_1",
+      translationSignature: "sig_current",
+      confirmAuthorship: true
+    }
+  );
+
+  assert.equal(workspaceSelectionTranslationSignatureOverrides("", "sig_current", true), null);
+  assert.equal(workspaceSelectionTranslationSignatureOverrides("pn_1", "", false), null);
 });
 
 test("resolveSelectedPaperCandidateState restores candidate selection and candidate-scoped draft together", () => {

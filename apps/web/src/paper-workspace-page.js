@@ -48,6 +48,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  workspaceSelectionTranslationSignatureOverrides,
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
@@ -232,14 +233,13 @@ function persistWorkspaceSelection(overrides = {}) {
 }
 
 function persistTranslationSignatureForPermanentCandidate(permanentCandidateId = "", translationSignature = "") {
-  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
-  const cleanTranslationSignature = String(translationSignature || "").trim();
-  if (!cleanPermanentCandidateId || !cleanTranslationSignature) return;
-  persistWorkspaceSelection({
-    selectedPermanentCandidateId: cleanPermanentCandidateId,
-    translationSignature: cleanTranslationSignature,
-    confirmAuthorship: state.form.confirmAuthorship === true
-  });
+  const overrides = workspaceSelectionTranslationSignatureOverrides(
+    permanentCandidateId,
+    translationSignature,
+    state.form.confirmAuthorship === true
+  );
+  if (!overrides) return;
+  persistWorkspaceSelection(overrides);
 }
 
 function persistPermanentCandidateTranslationSignature(
@@ -249,8 +249,13 @@ function persistPermanentCandidateTranslationSignature(
   const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
   if (!cleanPermanentCandidateId) return;
   const { translationSignature } = currentSelectedTranslationRuntimeContext(candidateId);
-  if (!translationSignature) return;
-  persistWorkspaceSelection({ translationSignature });
+  const overrides = workspaceSelectionTranslationSignatureOverrides(
+    cleanPermanentCandidateId,
+    translationSignature,
+    state.form.confirmAuthorship === true
+  );
+  if (!overrides) return;
+  persistWorkspaceSelection(overrides);
 }
 
 function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
