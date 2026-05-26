@@ -16,10 +16,16 @@ import {
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
   draftKickoffAdoptedStatusFeedback,
+  draftKickoffSignatureValue,
   draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
+  paperWorkspaceFormState,
+  paperWorkspaceCurrentPaperId,
+  paperWorkspaceCandidateStorageState,
+  paperWorkspaceTargetId,
   paperWorkspaceCandidateStorageKey,
+  paperWorkspaceLoadedPaperId,
   paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
@@ -32,6 +38,7 @@ import {
   resolvePaperWorkspaceRuntimeState,
   resolvePersistedDraftKickoffRecordForCandidate,
   resolvePersistedDraftKickoffSnapshotRecordForCandidate,
+  resolvedDraftKickoffFormState,
   resolveRefreshedDraftKickoff,
   resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
@@ -48,11 +55,13 @@ import {
   baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionIds,
+  workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   translationDraftInputFromForm,
   translationFormState,
+  workspaceResumeFormState,
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
@@ -97,11 +106,11 @@ function setResult(result) {
 }
 
 function currentPaperId() {
-  return String(state.workspace?.paperId || state.form.paperId || "").trim();
+  return paperWorkspaceCurrentPaperId(state.workspace, state.form);
 }
 
 function currentLoadedWorkspacePaperId() {
-  return String(state.workspace?.paperId || "").trim();
+  return paperWorkspaceLoadedPaperId(state.workspace);
 }
 
 function translationDraftStorageKey(paperId, candidateId) {
@@ -242,9 +251,9 @@ function hydrateSelectedPaperCandidateState(storedSelection = readStoredWorkspac
 }
 
 function persistTranslationDraft(candidateId = state.selectedCandidateId) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
 
   const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
   const key = translationDraftStorageKey(paperId, cleanCandidateId);
@@ -266,20 +275,28 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
 }
 
 function syncFormFromDom() {
-  state.form.paperId = document.getElementById("paperIdInput")?.value || state.form.paperId;
-  state.form.sourceId = document.getElementById("paperSourceIdInput")?.value || "";
-  state.form.title = document.getElementById("paperTitleInput")?.value || "";
-  state.form.notebookName = document.getElementById("notebookNameInput")?.value || "NotebookLM";
-  state.form.summary = document.getElementById("notebookSummaryInput")?.value || "";
-  state.form.qa = document.getElementById("notebookQaInput")?.value || "";
-  state.form.studyGuide = document.getElementById("notebookStudyGuideInput")?.value || "";
-  state.form.notes = document.getElementById("notebookNotesInput")?.value || "";
-  state.form.paraphraseText = document.getElementById("translationParaphraseInput")?.value || "";
-  state.form.relationToQuestion = document.getElementById("translationRelationInput")?.value || "";
-  state.form.boundaryOrCondition = document.getElementById("translationBoundaryInput")?.value || "";
-  state.form.draftKickoffText = document.getElementById("draftKickoffTextarea")?.value || state.form.draftKickoffText || "";
-  state.form.confirmAuthorship = document.getElementById("confirmAuthorshipInput")?.checked === true;
-  state.form.saveStatus = document.getElementById("permanentStatusInput")?.value || "active";
+  Object.assign(
+    state.form,
+    paperWorkspaceFormState(
+      {
+        paperId: document.getElementById("paperIdInput")?.value,
+        sourceId: document.getElementById("paperSourceIdInput")?.value,
+        title: document.getElementById("paperTitleInput")?.value,
+        notebookName: document.getElementById("notebookNameInput")?.value,
+        summary: document.getElementById("notebookSummaryInput")?.value,
+        qa: document.getElementById("notebookQaInput")?.value,
+        studyGuide: document.getElementById("notebookStudyGuideInput")?.value,
+        notes: document.getElementById("notebookNotesInput")?.value,
+        paraphraseText: document.getElementById("translationParaphraseInput")?.value,
+        relationToQuestion: document.getElementById("translationRelationInput")?.value,
+        boundaryOrCondition: document.getElementById("translationBoundaryInput")?.value,
+        draftKickoffText: document.getElementById("draftKickoffTextarea")?.value,
+        confirmAuthorship: document.getElementById("confirmAuthorshipInput")?.checked === true,
+        saveStatus: document.getElementById("permanentStatusInput")?.value
+      },
+      state.form
+    )
+  );
 }
 
 function hydrateTranslationForm(candidateId = "") {
@@ -292,9 +309,11 @@ function hydrateTranslationForm(candidateId = "") {
 }
 
 function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
-  const cleanCandidateId = String(candidateId || "").trim();
-  const storedKickoff = cleanCandidateId ? readStoredDraftKickoff(currentPaperId(), cleanCandidateId) : null;
-  const storedSnapshot = cleanCandidateId ? readStoredDraftKickoffSnapshot(currentPaperId(), cleanCandidateId) : null;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storedKickoff = storageState ? readStoredDraftKickoff(storageState.paperId, storageState.candidateId) : null;
+  const storedSnapshot = storageState
+    ? readStoredDraftKickoffSnapshot(storageState.paperId, storageState.candidateId)
+    : null;
   Object.assign(state.form, draftKickoffFormState(storedKickoff, storedSnapshot));
 }
 
@@ -381,7 +400,7 @@ function handleSelectPermanentCandidate(permanentCandidateId = "") {
 }
 
 function shouldRefreshContinuityStatus(target) {
-  return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
+  return CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(target));
 }
 
 function hydrateFormFromWorkspace(workspace) {
@@ -394,9 +413,6 @@ function hydrateFormFromWorkspace(workspace) {
     preferredPermanentCandidateId,
     state.selectedCandidateId || storedSelection?.selectedCandidateId || ""
   );
-  state.form.paperId = workspace.paperId || state.form.paperId;
-  state.form.sourceId = workspace.sourceId || state.form.sourceId;
-  state.form.title = workspace.title || state.form.title;
   const resolvedCandidateState = resolveSelectedPaperCandidateState(workspace, {
     preferredCandidateId,
     candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId),
@@ -411,13 +427,9 @@ function hydrateFormFromWorkspace(workspace) {
       candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(workspace.paperId, candidateId)
     }
   );
+  Object.assign(state.form, workspaceResumeFormState(workspace, resolvedCandidateState, resolvedState));
   state.selectedCandidateId = resolvedCandidateState.selectedCandidateId;
   state.selectedPermanentCandidateId = resolvedState.selectedPermanentCandidateId;
-  state.form.saveStatus = resolvedState.saveStatus;
-  state.form.confirmAuthorship = resolvedState.confirmAuthorship;
-  state.form.paraphraseText = resolvedCandidateState.paraphraseText;
-  state.form.relationToQuestion = resolvedCandidateState.relationToQuestion;
-  state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   hydrateDraftKickoff(resolvedCandidateState.selectedCandidateId);
   persistWorkspaceSelection();
   return resolvePaperWorkspaceContinuityStatusFeedback(
@@ -445,7 +457,7 @@ function render() {
 }
 
 function rerenderPreservingContinuityFocus(target = null) {
-  const activeId = String(target?.id || "").trim();
+  const activeId = paperWorkspaceTargetId(target);
   const selectionStart =
     typeof target?.selectionStart === "number" ? target.selectionStart : null;
   const selectionEnd =
@@ -568,9 +580,9 @@ function currentWorkspaceRuntimeState() {
 }
 
 function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
@@ -588,9 +600,9 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
 }
 
 function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, snapshot = null) {
-  const paperId = currentPaperId();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!paperId || !cleanCandidateId) return;
+  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  if (!storageState) return;
+  const { paperId, candidateId: cleanCandidateId } = storageState;
   const key = draftKickoffSnapshotStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
@@ -821,10 +833,7 @@ function focusDraftKickoffTextarea() {
 }
 
 function currentDraftKickoffSignature(runtimeState = null) {
-  return (
-    String(state.form.draftKickoffSignature || "").trim() ||
-    String((runtimeState || currentWorkspaceRuntimeState()).draftKickoffState.currentTranslationSignature || "").trim()
-  );
+  return draftKickoffSignatureValue(state.form, runtimeState || currentWorkspaceRuntimeState());
 }
 
 async function handleStartDraftKickoff() {
@@ -851,11 +860,7 @@ async function handleStartDraftKickoff() {
       render();
       return;
     }
-    state.form.draftKickoffText = refreshedKickoff.draftKickoffText;
-    state.form.draftKickoffSignature = refreshedKickoff.draftKickoffSignature;
-    state.form.draftKickoffPreviousText = refreshedKickoff.draftKickoffPreviousText;
-    state.form.draftKickoffPreviousSignature = refreshedKickoff.draftKickoffPreviousSignature;
-    state.form.draftKickoffReplacementSignature = refreshedKickoff.draftKickoffReplacementSignature;
+    Object.assign(state.form, resolvedDraftKickoffFormState(refreshedKickoff));
     if (refreshedKickoff.snapshotToPersist) {
       persistDraftKickoffSnapshot(state.selectedCandidateId, refreshedKickoff.snapshotToPersist);
     }
@@ -883,11 +888,7 @@ async function handleAdoptPreviousKickoff() {
     render();
     return;
   }
-  state.form.draftKickoffText = adoptedKickoff.draftKickoffText;
-  state.form.draftKickoffSignature = adoptedKickoff.draftKickoffSignature;
-  state.form.draftKickoffPreviousText = adoptedKickoff.draftKickoffPreviousText;
-  state.form.draftKickoffPreviousSignature = adoptedKickoff.draftKickoffPreviousSignature;
-  state.form.draftKickoffReplacementSignature = adoptedKickoff.draftKickoffReplacementSignature;
+  Object.assign(state.form, resolvedDraftKickoffFormState(adoptedKickoff));
   persistDraftKickoff(state.selectedCandidateId, {
     content: state.form.draftKickoffText,
     translationSignature: state.form.draftKickoffSignature
@@ -920,10 +921,9 @@ root?.addEventListener("input", (event) => {
 root?.addEventListener("change", (event) => {
   syncAndPersistDraftContext();
   const runtimeState = currentWorkspaceRuntimeState();
-  if (event.target?.id === "permanentStatusInput") {
-    persistWorkspaceSelection({ saveStatus: event.target.value || "active" });
-  } else if (event.target?.id === "confirmAuthorshipInput") {
-    persistWorkspaceSelection({ confirmAuthorship: event.target.checked === true });
+  const selectionOverrides = workspaceSelectionInputOverrides(event.target);
+  if (selectionOverrides) {
+    persistWorkspaceSelection(selectionOverrides);
   } else {
     persistWorkspaceSelection();
   }

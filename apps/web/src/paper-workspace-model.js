@@ -34,6 +34,25 @@ export function emptyPaperWorkspaceForm() {
   };
 }
 
+export function paperWorkspaceFormState(rawInput = {}, fallbackForm = null) {
+  return {
+    paperId: rawInput?.paperId || fallbackForm?.paperId || "",
+    sourceId: rawInput?.sourceId || "",
+    title: rawInput?.title || "",
+    notebookName: rawInput?.notebookName || "NotebookLM",
+    summary: rawInput?.summary || "",
+    qa: rawInput?.qa || "",
+    studyGuide: rawInput?.studyGuide || "",
+    notes: rawInput?.notes || "",
+    paraphraseText: rawInput?.paraphraseText || "",
+    relationToQuestion: rawInput?.relationToQuestion || "",
+    boundaryOrCondition: rawInput?.boundaryOrCondition || "",
+    draftKickoffText: rawInput?.draftKickoffText || fallbackForm?.draftKickoffText || "",
+    confirmAuthorship: rawInput?.confirmAuthorship === true,
+    saveStatus: rawInput?.saveStatus || "active"
+  };
+}
+
 export function createInitialPaperWorkspaceState() {
   return {
     form: emptyPaperWorkspaceForm(),
@@ -192,6 +211,17 @@ export function translationFormState(candidateState = null) {
   };
 }
 
+export function workspaceResumeFormState(workspace = null, candidateState = null, workspaceState = null) {
+  return {
+    paperId: cleanText(workspace?.paperId),
+    sourceId: cleanText(workspace?.sourceId),
+    title: cleanText(workspace?.title),
+    saveStatus: cleanText(workspaceState?.saveStatus) || "active",
+    confirmAuthorship: workspaceState?.confirmAuthorship === true,
+    ...translationFormState(candidateState)
+  };
+}
+
 export function translationDraftInputFromForm(form = null) {
   return {
     paraphraseText: cleanText(form?.paraphraseText),
@@ -236,12 +266,30 @@ export function paperWorkspacePaperStorageKey(prefix = "", paperId = "") {
   return `${cleanPrefix}:${cleanPaperId}`;
 }
 
+export function paperWorkspaceCurrentPaperId(workspace = null, form = null) {
+  return cleanText(workspace?.paperId || form?.paperId);
+}
+
+export function paperWorkspaceLoadedPaperId(workspace = null) {
+  return cleanText(workspace?.paperId);
+}
+
 export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", candidateId = "") {
   const cleanPrefix = cleanText(prefix);
   const cleanPaperId = cleanText(paperId);
   const cleanCandidateId = cleanText(candidateId);
   if (!cleanPrefix || !cleanPaperId || !cleanCandidateId) return "";
   return `${cleanPrefix}:${cleanPaperId}:${cleanCandidateId}`;
+}
+
+export function paperWorkspaceCandidateStorageState(paperId = "", candidateId = "") {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId
+  };
 }
 
 export function resolvePersistedTranslationDraft(draftInput = null, paperId = "", candidateId = "") {
@@ -650,6 +698,21 @@ export function workspaceSelectionPersistenceOverrides(
         : confirmAuthorship === true,
     updatedAt: cleanText(updatedAt) || new Date().toISOString()
   };
+}
+
+export function paperWorkspaceTargetId(target = null) {
+  return cleanText(target?.id);
+}
+
+export function workspaceSelectionInputOverrides(target = null) {
+  const targetId = paperWorkspaceTargetId(target);
+  if (targetId === "permanentStatusInput") {
+    return { saveStatus: target?.value || "active" };
+  }
+  if (targetId === "confirmAuthorshipInput") {
+    return { confirmAuthorship: target?.checked === true };
+  }
+  return null;
 }
 
 export function workspaceSelectionTranslationSignatureOverrides(
@@ -1690,6 +1753,23 @@ export function draftKickoffFormState(storedKickoff = null, storedSnapshot = nul
     draftKickoffPreviousSignature: cleanText(storedSnapshot?.previousSignature),
     draftKickoffReplacementSignature: cleanText(storedSnapshot?.replacementSignature)
   };
+}
+
+export function resolvedDraftKickoffFormState(nextKickoff = null) {
+  return {
+    draftKickoffText: cleanText(nextKickoff?.draftKickoffText),
+    draftKickoffSignature: cleanText(nextKickoff?.draftKickoffSignature),
+    draftKickoffPreviousText: cleanText(nextKickoff?.draftKickoffPreviousText),
+    draftKickoffPreviousSignature: cleanText(nextKickoff?.draftKickoffPreviousSignature),
+    draftKickoffReplacementSignature: cleanText(nextKickoff?.draftKickoffReplacementSignature)
+  };
+}
+
+export function draftKickoffSignatureValue(form = null, runtimeState = null) {
+  return (
+    cleanText(form?.draftKickoffSignature) ||
+    cleanText(runtimeState?.draftKickoffState?.currentTranslationSignature)
+  );
 }
 
 export function resolveAdoptedDraftKickoff(form = null, kickoffState = null, fallbackTranslationSignature = "") {

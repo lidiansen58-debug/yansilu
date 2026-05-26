@@ -14,6 +14,8 @@ import {
   continuityStatusTone,
   draftBriefButtonLabel,
   draftKickoffFormState,
+  resolvedDraftKickoffFormState,
+  draftKickoffSignatureValue,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
@@ -23,6 +25,7 @@ import {
   draftKickoffStatusMessage,
   draftKickoffStateStatusFeedback,
   emptyPaperWorkspaceForm,
+  paperWorkspaceFormState,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
   draftKickoffActionState,
@@ -34,8 +37,12 @@ import {
   normalizePaperWorkspaceStatusFeedback,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceCandidateStorageKey,
+  paperWorkspaceCandidateStorageState,
+  paperWorkspaceCurrentPaperId,
   paperWorkspaceErrorStatusFeedback,
+  paperWorkspaceLoadedPaperId,
   paperWorkspacePaperStorageKey,
+  paperWorkspaceTargetId,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -86,8 +93,10 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionPersistenceState,
   workspaceSelectionIds,
+  workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
+  workspaceResumeFormState,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
   selectedAlignedPermanentCandidate,
@@ -133,6 +142,89 @@ test("emptyPaperWorkspaceForm provides the expected workflow defaults", () => {
     confirmAuthorship: false,
     saveStatus: "active"
   });
+});
+
+test("paperWorkspaceFormState maps raw inputs with the same fallback rules used by page sync", () => {
+  assert.deepEqual(
+    paperWorkspaceFormState(
+      {
+        paperId: "",
+        sourceId: "source_1",
+        title: "A title",
+        notebookName: "",
+        summary: "summary",
+        qa: "",
+        studyGuide: "guide",
+        notes: "notes",
+        paraphraseText: "paraphrase",
+        relationToQuestion: "relation",
+        boundaryOrCondition: "",
+        draftKickoffText: "",
+        confirmAuthorship: true,
+        saveStatus: ""
+      },
+      {
+        paperId: "paper_1",
+        draftKickoffText: "existing kickoff"
+      }
+    ),
+    {
+      paperId: "paper_1",
+      sourceId: "source_1",
+      title: "A title",
+      notebookName: "NotebookLM",
+      summary: "summary",
+      qa: "",
+      studyGuide: "guide",
+      notes: "notes",
+      paraphraseText: "paraphrase",
+      relationToQuestion: "relation",
+      boundaryOrCondition: "",
+      draftKickoffText: "existing kickoff",
+      confirmAuthorship: true,
+      saveStatus: "active"
+    }
+  );
+
+  assert.deepEqual(paperWorkspaceFormState(null, null), {
+    paperId: "",
+    sourceId: "",
+    title: "",
+    notebookName: "NotebookLM",
+    summary: "",
+    qa: "",
+    studyGuide: "",
+    notes: "",
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: "",
+    draftKickoffText: "",
+    confirmAuthorship: false,
+    saveStatus: "active"
+  });
+});
+
+test("paperWorkspaceCandidateStorageState normalizes candidate-scoped storage identity", () => {
+  assert.deepEqual(paperWorkspaceCandidateStorageState(" paper_1 ", " pwc_1 "), {
+    paperId: "paper_1",
+    candidateId: "pwc_1"
+  });
+  assert.equal(paperWorkspaceCandidateStorageState("", "pwc_1"), null);
+  assert.equal(paperWorkspaceCandidateStorageState("paper_1", ""), null);
+});
+
+test("paper workspace paper-id helpers normalize current and loaded workspace ids", () => {
+  assert.equal(
+    paperWorkspaceCurrentPaperId({ paperId: " paper_1 " }, { paperId: "paper_2" }),
+    "paper_1"
+  );
+  assert.equal(
+    paperWorkspaceCurrentPaperId(null, { paperId: " paper_2 " }),
+    "paper_2"
+  );
+  assert.equal(paperWorkspaceCurrentPaperId(null, null), "");
+  assert.equal(paperWorkspaceLoadedPaperId({ paperId: " paper_1 " }), "paper_1");
+  assert.equal(paperWorkspaceLoadedPaperId(null), "");
 });
 
 test("buildNotebookLmPayload keeps only provided NotebookLM fields", () => {
@@ -611,6 +703,51 @@ test("draftKickoffFormState maps stored kickoff payloads back into form fields",
     draftKickoffPreviousSignature: "",
     draftKickoffReplacementSignature: ""
   });
+});
+
+test("resolvedDraftKickoffFormState maps resolved kickoff state back into form fields", () => {
+  assert.deepEqual(
+    resolvedDraftKickoffFormState({
+      draftKickoffText: " New kickoff ",
+      draftKickoffSignature: " sig_current ",
+      draftKickoffPreviousText: " Previous kickoff ",
+      draftKickoffPreviousSignature: " sig_previous ",
+      draftKickoffReplacementSignature: " sig_replacement "
+    }),
+    {
+      draftKickoffText: "New kickoff",
+      draftKickoffSignature: "sig_current",
+      draftKickoffPreviousText: "Previous kickoff",
+      draftKickoffPreviousSignature: "sig_previous",
+      draftKickoffReplacementSignature: "sig_replacement"
+    }
+  );
+
+  assert.deepEqual(resolvedDraftKickoffFormState(null), {
+    draftKickoffText: "",
+    draftKickoffSignature: "",
+    draftKickoffPreviousText: "",
+    draftKickoffPreviousSignature: "",
+    draftKickoffReplacementSignature: ""
+  });
+});
+
+test("draftKickoffSignatureValue prefers form state before runtime fallback", () => {
+  assert.equal(
+    draftKickoffSignatureValue(
+      { draftKickoffSignature: " sig_form " },
+      { draftKickoffState: { currentTranslationSignature: "sig_runtime" } }
+    ),
+    "sig_form"
+  );
+  assert.equal(
+    draftKickoffSignatureValue(
+      { draftKickoffSignature: "" },
+      { draftKickoffState: { currentTranslationSignature: " sig_runtime " } }
+    ),
+    "sig_runtime"
+  );
+  assert.equal(draftKickoffSignatureValue(null, null), "");
 });
 
 test("resolveAdoptedDraftKickoff swaps the current and previous kickoff wording onto the latest translation chain", () => {
@@ -1814,6 +1951,48 @@ test("translationFormState maps candidate translation state back into form field
   });
 });
 
+test("workspaceResumeFormState restores workspace, translation, and permanent-note form fields together", () => {
+  assert.deepEqual(
+    workspaceResumeFormState(
+      {
+        paperId: " paper_1 ",
+        sourceId: " source_1 ",
+        title: " A Paper Title "
+      },
+      {
+        paraphraseText: " Restored paraphrase ",
+        relationToQuestion: " Restored relation ",
+        boundaryOrCondition: " Restored boundary "
+      },
+      {
+        saveStatus: " archived ",
+        confirmAuthorship: true
+      }
+    ),
+    {
+      paperId: "paper_1",
+      sourceId: "source_1",
+      title: "A Paper Title",
+      saveStatus: "archived",
+      confirmAuthorship: true,
+      paraphraseText: "Restored paraphrase",
+      relationToQuestion: "Restored relation",
+      boundaryOrCondition: "Restored boundary"
+    }
+  );
+
+  assert.deepEqual(workspaceResumeFormState(null, null, null), {
+    paperId: "",
+    sourceId: "",
+    title: "",
+    saveStatus: "active",
+    confirmAuthorship: false,
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: ""
+  });
+});
+
 test("translationDraftInputFromForm maps current form fields into runtime translation input", () => {
   assert.deepEqual(
     translationDraftInputFromForm({
@@ -2780,6 +2959,29 @@ test("workspaceSelectionPersistenceOverrides applies confirmAuthorship fallback 
     ).confirmAuthorship,
     false
   );
+});
+
+test("paperWorkspaceTargetId normalizes target ids for page-local continuity helpers", () => {
+  assert.equal(paperWorkspaceTargetId({ id: " draftKickoffTextarea " }), "draftKickoffTextarea");
+  assert.equal(paperWorkspaceTargetId({ id: "" }), "");
+  assert.equal(paperWorkspaceTargetId(null), "");
+});
+
+test("workspaceSelectionInputOverrides translates change targets into selection overrides", () => {
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "permanentStatusInput", value: "" }), {
+    saveStatus: "active"
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "permanentStatusInput", value: "draft" }), {
+    saveStatus: "draft"
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "confirmAuthorshipInput", checked: true }), {
+    confirmAuthorship: true
+  });
+  assert.deepEqual(workspaceSelectionInputOverrides({ id: "confirmAuthorshipInput", checked: false }), {
+    confirmAuthorship: false
+  });
+  assert.equal(workspaceSelectionInputOverrides({ id: "translationParaphraseInput", value: "ignored" }), null);
+  assert.equal(workspaceSelectionInputOverrides(null), null);
 });
 
 test("resolveSelectedPaperCandidateState restores candidate selection and candidate-scoped draft together", () => {
