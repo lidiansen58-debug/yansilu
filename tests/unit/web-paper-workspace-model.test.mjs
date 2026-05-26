@@ -32,7 +32,9 @@ import {
   nextSelectedPermanentCandidateId,
   normalizePaperWorkspaceStatusFeedback,
   paperWorkspaceActionStatusFeedback,
+  paperWorkspaceCandidateStorageKey,
   paperWorkspaceErrorStatusFeedback,
+  paperWorkspacePaperStorageKey,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -1924,6 +1926,19 @@ test("resolvePersistedTranslationDraftRecordForCandidate only persists when the 
     ),
     null
   );
+});
+
+test("paper workspace storage key helpers normalize paper- and candidate-scoped keys", () => {
+  assert.equal(
+    paperWorkspacePaperStorageKey(" yansilu:paper-workspace:selection ", " paper_test "),
+    "yansilu:paper-workspace:selection:paper_test"
+  );
+  assert.equal(
+    paperWorkspaceCandidateStorageKey(" yansilu:paper-workspace:translation-draft ", " paper_test ", " pwc_1 "),
+    "yansilu:paper-workspace:translation-draft:paper_test:pwc_1"
+  );
+  assert.equal(paperWorkspacePaperStorageKey("", "paper_test"), "");
+  assert.equal(paperWorkspaceCandidateStorageKey("prefix", "paper_test", " "), "");
 });
 
 test("resolveStoredDraftKickoff normalizes a matching stored kickoff and rejects mismatched identity payloads", () => {

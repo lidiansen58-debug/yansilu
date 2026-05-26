@@ -18,6 +18,8 @@ import {
   draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
+  paperWorkspaceCandidateStorageKey,
+  paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
   permanentCandidateStatusFeedback,
@@ -101,30 +103,19 @@ function currentLoadedWorkspacePaperId() {
 }
 
 function translationDraftStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${TRANSLATION_DRAFT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(TRANSLATION_DRAFT_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function workspaceSelectionStorageKey(paperId) {
-  const cleanPaperId = String(paperId || "").trim();
-  if (!cleanPaperId) return "";
-  return `${WORKSPACE_SELECTION_STORAGE_PREFIX}:${cleanPaperId}`;
+  return paperWorkspacePaperStorageKey(WORKSPACE_SELECTION_STORAGE_PREFIX, paperId);
 }
 
 function draftKickoffStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${DRAFT_KICKOFF_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function draftKickoffSnapshotStorageKey(paperId, candidateId) {
-  const cleanPaperId = String(paperId || "").trim();
-  const cleanCandidateId = String(candidateId || "").trim();
-  if (!cleanPaperId || !cleanCandidateId) return "";
-  return `${DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX}:${cleanPaperId}:${cleanCandidateId}`;
+  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function readStoredRecord(key, resolver) {

@@ -200,6 +200,21 @@ export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", 
   return normalizedDraft;
 }
 
+export function paperWorkspacePaperStorageKey(prefix = "", paperId = "") {
+  const cleanPrefix = cleanText(prefix);
+  const cleanPaperId = cleanText(paperId);
+  if (!cleanPrefix || !cleanPaperId) return "";
+  return `${cleanPrefix}:${cleanPaperId}`;
+}
+
+export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", candidateId = "") {
+  const cleanPrefix = cleanText(prefix);
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPrefix || !cleanPaperId || !cleanCandidateId) return "";
+  return `${cleanPrefix}:${cleanPaperId}:${cleanCandidateId}`;
+}
+
 export function resolvePersistedTranslationDraft(draftInput = null, paperId = "", candidateId = "") {
   const cleanPaperId = cleanText(paperId);
   const cleanCandidateId = cleanText(candidateId);
