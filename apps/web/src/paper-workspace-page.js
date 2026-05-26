@@ -27,6 +27,8 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolveRefreshedDraftKickoff,
+  resolveStoredDraftKickoff,
+  resolveStoredDraftKickoffSnapshot,
   resolveTranslationRuntimeContext,
   resolveTranslationSaveRuntimeState,
   resolveSelectedPaperCandidateState,
@@ -141,16 +143,7 @@ function readStoredDraftKickoff(paperId, candidateId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const content = String(parsed.content || "").trim();
-    const translationSignature = String(parsed.translationSignature || "").trim();
-    if (!content || !translationSignature) return null;
-    return {
-      content,
-      translationSignature,
-      updatedAt: String(parsed.updatedAt || "").trim()
-    };
+    return resolveStoredDraftKickoff(JSON.parse(raw), paperId, candidateId);
   } catch {
     return null;
   }
@@ -170,18 +163,7 @@ function readStoredDraftKickoffSnapshot(paperId, candidateId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const content = String(parsed.content || "").trim();
-    const previousSignature = String(parsed.previousSignature || "").trim();
-    const replacementSignature = String(parsed.replacementSignature || "").trim();
-    if (!content || !previousSignature || !replacementSignature) return null;
-    return {
-      content,
-      previousSignature,
-      replacementSignature,
-      updatedAt: String(parsed.updatedAt || "").trim()
-    };
+    return resolveStoredDraftKickoffSnapshot(JSON.parse(raw), paperId, candidateId);
   } catch {
     return null;
   }
