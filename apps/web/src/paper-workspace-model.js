@@ -255,6 +255,65 @@ export function resolveStoredDraftKickoffSnapshot(storedSnapshot = null, paperId
   };
 }
 
+export function resolvePersistedDraftKickoff(
+  storedKickoff = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  const persistedKickoff = resolveStoredDraftKickoff(
+    {
+      ...(storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {}),
+      paperId: cleanPaperId,
+      candidateId: cleanCandidateId,
+      content: overrides.content,
+      translationSignature: overrides.translationSignature,
+      updatedAt: cleanText(overrides.updatedAt)
+    },
+    cleanPaperId,
+    cleanCandidateId
+  );
+  if (!persistedKickoff) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId,
+    ...persistedKickoff
+  };
+}
+
+export function resolvePersistedDraftKickoffSnapshot(
+  storedSnapshot = null,
+  paperId = "",
+  candidateId = "",
+  overrides = {}
+) {
+  const cleanPaperId = cleanText(paperId);
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanPaperId || !cleanCandidateId) return null;
+  const persistedSnapshot = resolveStoredDraftKickoffSnapshot(
+    {
+      ...(storedSnapshot && typeof storedSnapshot === "object" ? storedSnapshot : {}),
+      paperId: cleanPaperId,
+      candidateId: cleanCandidateId,
+      content: overrides.content,
+      previousSignature: overrides.previousSignature,
+      replacementSignature: overrides.replacementSignature,
+      updatedAt: cleanText(overrides.updatedAt)
+    },
+    cleanPaperId,
+    cleanCandidateId
+  );
+  if (!persistedSnapshot) return null;
+  return {
+    paperId: cleanPaperId,
+    candidateId: cleanCandidateId,
+    ...persistedSnapshot
+  };
+}
+
 export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {
   const entry = storedCopy && typeof storedCopy === "object" ? storedCopy : {};
   const cleanCandidateId = cleanText(candidateId);

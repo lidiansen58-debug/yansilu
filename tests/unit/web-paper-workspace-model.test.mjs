@@ -59,6 +59,8 @@ import {
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
+  resolvePersistedDraftKickoff,
+  resolvePersistedDraftKickoffSnapshot,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveStoredWorkspaceSelection,
@@ -1856,6 +1858,41 @@ test("resolveStoredDraftKickoff normalizes a matching stored kickoff and rejects
   );
 });
 
+test("resolvePersistedDraftKickoff keeps candidate-scoped identity and rejects empty payloads", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoff(
+      null,
+      "paper_test",
+      "pwc_1",
+      {
+        content: " Local kickoff wording. ",
+        translationSignature: " sig_current ",
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Local kickoff wording.",
+      translationSignature: "sig_current",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedDraftKickoff(
+      null,
+      "paper_test",
+      "pwc_1",
+      {
+        content: " ",
+        translationSignature: ""
+      }
+    ),
+    null
+  );
+});
+
 test("resolveStoredDraftKickoffSnapshot normalizes a matching stored snapshot and rejects mismatched identity payloads", () => {
   assert.deepEqual(
     resolveStoredDraftKickoffSnapshot(
@@ -1889,6 +1926,44 @@ test("resolveStoredDraftKickoffSnapshot normalizes a matching stored snapshot an
       },
       "paper_test",
       "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolvePersistedDraftKickoffSnapshot keeps candidate-scoped identity and rejects empty payloads", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoffSnapshot(
+      null,
+      "paper_test",
+      "pwc_1",
+      {
+        content: " Previous kickoff wording. ",
+        previousSignature: " sig_before ",
+        replacementSignature: " sig_after ",
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Previous kickoff wording.",
+      previousSignature: "sig_before",
+      replacementSignature: "sig_after",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedDraftKickoffSnapshot(
+      null,
+      "paper_test",
+      "pwc_1",
+      {
+        content: "",
+        previousSignature: "",
+        replacementSignature: ""
+      }
     ),
     null
   );

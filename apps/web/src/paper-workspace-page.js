@@ -27,6 +27,8 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolvePersistedWorkspaceSelection,
+  resolvePersistedDraftKickoff,
+  resolvePersistedDraftKickoffSnapshot,
   resolveRefreshedDraftKickoff,
   resolveStoredWorkspaceSelection,
   resolveStoredDraftKickoff,
@@ -235,15 +237,23 @@ function persistTranslationSignatureForPermanentCandidate(permanentCandidateId =
   if (!key) return;
   try {
     const currentSelection = readStoredWorkspaceSelection(paperId);
+    const nextSelectionPayload = resolvePersistedWorkspaceSelection(
+      currentSelection,
+      {
+        selectedCandidateId: state.selectedCandidateId,
+        selectedPermanentCandidateId: cleanPermanentCandidateId,
+        saveStatus: state.form.saveStatus
+      },
+      {
+        confirmAuthorship: state.form.confirmAuthorship === true,
+        translationSignature: cleanTranslationSignature
+      }
+    );
     const nextSelection = {
       paperId,
-      ...(currentSelection || {}),
+      ...nextSelectionPayload,
       selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-      selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-      translationSignatureByPermanentCandidate: {
-        ...(currentSelection?.translationSignatureByPermanentCandidate || {}),
-        [cleanPermanentCandidateId]: cleanTranslationSignature
-      },
+      selectedPermanentCandidateId: cleanPermanentCandidateId,
       updatedAt: new Date().toISOString()
     };
     window.localStorage?.setItem(key, JSON.stringify(nextSelection));
@@ -645,15 +655,18 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const key = draftKickoffStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
+    const persistedKickoff = resolvePersistedDraftKickoff(null, paperId, cleanCandidateId, {
+      content,
+      translationSignature,
+      updatedAt: new Date().toISOString()
+    });
+    if (!persistedKickoff) {
+      clearStoredDraftKickoff(paperId, cleanCandidateId);
+      return;
+    }
     window.localStorage?.setItem(
       key,
-      JSON.stringify({
-        paperId,
-        candidateId: cleanCandidateId,
-        content,
-        translationSignature,
-        updatedAt: new Date().toISOString()
-      })
+      JSON.stringify(persistedKickoff)
     );
   } catch {}
 }
@@ -673,16 +686,19 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
     return;
   }
   try {
+    const persistedSnapshot = resolvePersistedDraftKickoffSnapshot(null, paperId, cleanCandidateId, {
+      content,
+      previousSignature,
+      replacementSignature,
+      updatedAt: new Date().toISOString()
+    });
+    if (!persistedSnapshot) {
+      clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
+      return;
+    }
     window.localStorage?.setItem(
       key,
-      JSON.stringify({
-        paperId,
-        candidateId: cleanCandidateId,
-        content,
-        previousSignature,
-        replacementSignature,
-        updatedAt: new Date().toISOString()
-      })
+      JSON.stringify(persistedSnapshot)
     );
   } catch {}
 }
