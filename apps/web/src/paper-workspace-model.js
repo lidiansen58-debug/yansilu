@@ -744,6 +744,17 @@ export function chainedPaperWorkspaceStatusFeedback(baseText = "", continuationS
   };
 }
 
+export function translationSaveStatusFeedback(successStatusKey = "savedTranslation") {
+  const cleanSuccessStatusKey = cleanText(successStatusKey) || "savedTranslation";
+  if (cleanSuccessStatusKey === "savedTranslation") {
+    return paperWorkspaceStatusFeedback("savedTranslation", "savedTranslation");
+  }
+  return chainedPaperWorkspaceStatusFeedback(
+    PAPER_WORKSPACE_STATUS.savedTranslation,
+    paperWorkspaceStatusFeedback(cleanSuccessStatusKey, "savedTranslation")
+  );
+}
+
 export function resolvePaperWorkspaceContinuityStatus(
   workspace = null,
   storedSelection = null,

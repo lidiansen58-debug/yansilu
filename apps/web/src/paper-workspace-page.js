@@ -36,6 +36,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  translationSaveStatusFeedback,
   translationContinuitySignature,
   resolvedStoredTranslationDraft,
   selectedAlignedPermanentCandidate,
@@ -919,7 +920,7 @@ async function handleSaveTranslation() {
       ),
       ...result
     };
-  }, (result) => paperWorkspaceStatusFeedback(result?.successStatusKey, "savedTranslation"));
+  }, (result) => translationSaveStatusFeedback(result?.successStatusKey));
 }
 
 async function handleCreatePermanentCandidate() {

@@ -5562,6 +5562,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       const text = await page.locator(".paper-result-json").textContent();
       assert.match(text || "", /"stage": "save_translation"/);
       const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /用户转述已保存/);
       assert.match(String(statusText || ""), /relation 和 boundary|支撑下一步/);
       assert.match(String((await page.locator(".paper-status").getAttribute("class")) || ""), /paper-status-warn/);
     }, 6000);
@@ -6299,6 +6300,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               const text = await page.locator(".paper-result-json").textContent();
               assert.match(text || "", /"stage": "save_translation"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /用户转述已保存/);
               assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
             }, 6000);
             await waitFor(async () => {

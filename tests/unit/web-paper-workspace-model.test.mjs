@@ -59,6 +59,7 @@ import {
   selectedPermanentCandidate,
   selectedPaperTranslation,
   resolveTranslationSaveRuntimeState,
+  translationSaveStatusFeedback,
   translationSaveActionState,
   translationContinuitySignature,
   translationDraftHasLocalChanges,
@@ -2242,6 +2243,21 @@ test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its 
   assert.deepEqual(chainedPaperWorkspaceStatusFeedback("NotebookLM 内容已转成 literature 候选", null), {
     text: "NotebookLM 内容已转成 literature 候选",
     tone: "ok"
+  });
+});
+
+test("translationSaveStatusFeedback keeps save confirmation while carrying the next continuity step", () => {
+  assert.deepEqual(translationSaveStatusFeedback("savedTranslation"), {
+    text: "用户转述已保存",
+    tone: "ok"
+  });
+  assert.deepEqual(translationSaveStatusFeedback("savedTranslationNeedsDraftSupport"), {
+    text: "用户转述已保存。这条候选的转述已保存，但 relation 和 boundary 还不足以支撑下一步。先补全它们，再进入永久笔记候选或继续写 draft。",
+    tone: "warn"
+  });
+  assert.deepEqual(translationSaveStatusFeedback("translationNeedsFreshPermanentCandidate"), {
+    text: "用户转述已保存。这条转述已经更新过，当前 Step 4 候选已过期。先重新生成永久笔记候选",
+    tone: "warn"
   });
 });
 
