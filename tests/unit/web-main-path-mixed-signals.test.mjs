@@ -28,12 +28,12 @@ test("main-path summary distinguishes mixed wikilink and tag signals from explic
   );
 
   assert.equal(result.nextStep, "把线索收成显式关系");
-  assert.match(result.summary, /\u6b63\u6587\u94fe\u63a5/);
+  assert.match(result.summary, /wikilink/);
   assert.match(result.summary, /标签/);
   assert.match(result.summary, /显式关系/);
 });
 
-test("main-path card labels mixed weak signals differently from wikilink-only notes", () => {
+test("main-path card keeps mixed weak signals in relation-building mode", () => {
   const pane = createPane();
   pane.state = { notes: [] };
   const html = pane.renderPermanentNoteMainPathSectionV2(
