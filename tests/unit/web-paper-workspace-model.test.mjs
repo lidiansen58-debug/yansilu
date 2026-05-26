@@ -2051,40 +2051,44 @@ test("resolvePersistedDraftBriefCopy keeps candidate-scoped identity and rejects
 
 test("resolveStoredWorkspaceSelection normalizes candidate-scoped maps and drops invalid draft-brief payloads", () => {
   assert.deepEqual(
-    resolveStoredWorkspaceSelection({
-      selectedCandidateId: " pwc_1 ",
-      selectedPermanentCandidateId: " pn_1 ",
-      saveStatus: " active ",
-      saveStatusByPermanentCandidate: {
-        " pn_1 ": " draft ",
-        "": "ignored"
-      },
-      confirmAuthorshipByPermanentCandidate: {
-        " pn_1 ": true,
-        " pn_2 ": false,
-        "": true
-      },
-      translationSignatureByPermanentCandidate: {
-        " pn_1 ": " sig_current ",
-        "": "ignored"
-      },
-      draftBriefByCandidate: {
-        " pwc_1 ": {
-          candidateId: "pwc_1",
-          stepFourPathKey: "pn_1",
-          title: " Draft brief: Candidate One ",
-          nextActionKey: "review_saved_permanent_note",
-          nextAction: " 回看 originality / authorship ",
-          translationSignature: " sig_current ",
-          copiedAt: "2026-05-26T00:00:00.000Z"
+    resolveStoredWorkspaceSelection(
+      {
+        paperId: "paper_test",
+        selectedCandidateId: " pwc_1 ",
+        selectedPermanentCandidateId: " pn_1 ",
+        saveStatus: " active ",
+        saveStatusByPermanentCandidate: {
+          " pn_1 ": " draft ",
+          "": "ignored"
         },
-        " pwc_2 ": {
-          candidateId: "pwc_other",
-          title: "Broken payload",
-          translationSignature: "sig_other"
+        confirmAuthorshipByPermanentCandidate: {
+          " pn_1 ": true,
+          " pn_2 ": false,
+          "": true
+        },
+        translationSignatureByPermanentCandidate: {
+          " pn_1 ": " sig_current ",
+          "": "ignored"
+        },
+        draftBriefByCandidate: {
+          " pwc_1 ": {
+            candidateId: "pwc_1",
+            stepFourPathKey: "pn_1",
+            title: " Draft brief: Candidate One ",
+            nextActionKey: "review_saved_permanent_note",
+            nextAction: " 回看 originality / authorship ",
+            translationSignature: " sig_current ",
+            copiedAt: "2026-05-26T00:00:00.000Z"
+          },
+          " pwc_2 ": {
+            candidateId: "pwc_other",
+            title: "Broken payload",
+            translationSignature: "sig_other"
+          }
         }
-      }
-    }),
+      },
+      "paper_test"
+    ),
     {
       selectedCandidateId: "pwc_1",
       selectedPermanentCandidateId: "pn_1",
@@ -2111,6 +2115,17 @@ test("resolveStoredWorkspaceSelection normalizes candidate-scoped maps and drops
         }
       }
     }
+  );
+
+  assert.equal(
+    resolveStoredWorkspaceSelection(
+      {
+        paperId: "paper_other",
+        selectedCandidateId: "pwc_1"
+      },
+      "paper_test"
+    ),
+    null
   );
 });
 

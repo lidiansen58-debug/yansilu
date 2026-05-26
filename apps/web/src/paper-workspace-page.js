@@ -192,7 +192,7 @@ function readStoredWorkspaceSelection(paperId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    return resolveStoredWorkspaceSelection(JSON.parse(raw));
+    return resolveStoredWorkspaceSelection(JSON.parse(raw), paperId);
   } catch {
     return null;
   }

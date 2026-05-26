@@ -356,8 +356,13 @@ export function resolvePersistedDraftBriefCopy(storedCopy = null, candidateId = 
   return persistedCopy;
 }
 
-export function resolveStoredWorkspaceSelection(storedSelection = null) {
+export function resolveStoredWorkspaceSelection(storedSelection = null, paperId = "") {
   const parsed = storedSelection && typeof storedSelection === "object" ? storedSelection : {};
+  const cleanPaperId = cleanText(paperId);
+  const storedPaperId = cleanText(parsed.paperId);
+  if (cleanPaperId && storedPaperId && storedPaperId !== cleanPaperId) {
+    return null;
+  }
   const saveStatusByPermanentCandidate =
     parsed.saveStatusByPermanentCandidate && typeof parsed.saveStatusByPermanentCandidate === "object"
       ? Object.fromEntries(
