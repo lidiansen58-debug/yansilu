@@ -78,6 +78,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
+  workspaceSelectionPersistenceState,
   workspaceSelectionTranslationSignatureOverrides,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
@@ -2576,6 +2577,17 @@ test("workspaceSelectionTranslationSignatureOverrides only returns a persistence
 
   assert.equal(workspaceSelectionTranslationSignatureOverrides("", "sig_current", true), null);
   assert.equal(workspaceSelectionTranslationSignatureOverrides("pn_1", "", false), null);
+});
+
+test("workspaceSelectionPersistenceState normalizes the selected candidate, permanent candidate, and save status", () => {
+  assert.deepEqual(
+    workspaceSelectionPersistenceState(" pwc_1 ", " pn_1 ", " draft "),
+    {
+      selectedCandidateId: "pwc_1",
+      selectedPermanentCandidateId: "pn_1",
+      saveStatus: "draft"
+    }
+  );
 });
 
 test("resolveSelectedPaperCandidateState restores candidate selection and candidate-scoped draft together", () => {
