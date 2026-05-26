@@ -14,6 +14,7 @@ import {
   continuityStatusTone,
   draftBriefButtonLabel,
   draftKickoffFormState,
+  resolvedDraftKickoffFormState,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
@@ -606,6 +607,33 @@ test("draftKickoffFormState maps stored kickoff payloads back into form fields",
   );
 
   assert.deepEqual(draftKickoffFormState(null, null), {
+    draftKickoffText: "",
+    draftKickoffSignature: "",
+    draftKickoffPreviousText: "",
+    draftKickoffPreviousSignature: "",
+    draftKickoffReplacementSignature: ""
+  });
+});
+
+test("resolvedDraftKickoffFormState maps resolved kickoff state back into form fields", () => {
+  assert.deepEqual(
+    resolvedDraftKickoffFormState({
+      draftKickoffText: " New kickoff ",
+      draftKickoffSignature: " sig_current ",
+      draftKickoffPreviousText: " Previous kickoff ",
+      draftKickoffPreviousSignature: " sig_previous ",
+      draftKickoffReplacementSignature: " sig_replacement "
+    }),
+    {
+      draftKickoffText: "New kickoff",
+      draftKickoffSignature: "sig_current",
+      draftKickoffPreviousText: "Previous kickoff",
+      draftKickoffPreviousSignature: "sig_previous",
+      draftKickoffReplacementSignature: "sig_replacement"
+    }
+  );
+
+  assert.deepEqual(resolvedDraftKickoffFormState(null), {
     draftKickoffText: "",
     draftKickoffSignature: "",
     draftKickoffPreviousText: "",

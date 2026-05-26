@@ -32,6 +32,7 @@ import {
   resolvePaperWorkspaceRuntimeState,
   resolvePersistedDraftKickoffRecordForCandidate,
   resolvePersistedDraftKickoffSnapshotRecordForCandidate,
+  resolvedDraftKickoffFormState,
   resolveRefreshedDraftKickoff,
   resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
@@ -845,11 +846,7 @@ async function handleStartDraftKickoff() {
       render();
       return;
     }
-    state.form.draftKickoffText = refreshedKickoff.draftKickoffText;
-    state.form.draftKickoffSignature = refreshedKickoff.draftKickoffSignature;
-    state.form.draftKickoffPreviousText = refreshedKickoff.draftKickoffPreviousText;
-    state.form.draftKickoffPreviousSignature = refreshedKickoff.draftKickoffPreviousSignature;
-    state.form.draftKickoffReplacementSignature = refreshedKickoff.draftKickoffReplacementSignature;
+    Object.assign(state.form, resolvedDraftKickoffFormState(refreshedKickoff));
     if (refreshedKickoff.snapshotToPersist) {
       persistDraftKickoffSnapshot(state.selectedCandidateId, refreshedKickoff.snapshotToPersist);
     }
@@ -877,11 +874,7 @@ async function handleAdoptPreviousKickoff() {
     render();
     return;
   }
-  state.form.draftKickoffText = adoptedKickoff.draftKickoffText;
-  state.form.draftKickoffSignature = adoptedKickoff.draftKickoffSignature;
-  state.form.draftKickoffPreviousText = adoptedKickoff.draftKickoffPreviousText;
-  state.form.draftKickoffPreviousSignature = adoptedKickoff.draftKickoffPreviousSignature;
-  state.form.draftKickoffReplacementSignature = adoptedKickoff.draftKickoffReplacementSignature;
+  Object.assign(state.form, resolvedDraftKickoffFormState(adoptedKickoff));
   persistDraftKickoff(state.selectedCandidateId, {
     content: state.form.draftKickoffText,
     translationSignature: state.form.draftKickoffSignature

@@ -1703,6 +1703,16 @@ export function draftKickoffFormState(storedKickoff = null, storedSnapshot = nul
   };
 }
 
+export function resolvedDraftKickoffFormState(nextKickoff = null) {
+  return {
+    draftKickoffText: cleanText(nextKickoff?.draftKickoffText),
+    draftKickoffSignature: cleanText(nextKickoff?.draftKickoffSignature),
+    draftKickoffPreviousText: cleanText(nextKickoff?.draftKickoffPreviousText),
+    draftKickoffPreviousSignature: cleanText(nextKickoff?.draftKickoffPreviousSignature),
+    draftKickoffReplacementSignature: cleanText(nextKickoff?.draftKickoffReplacementSignature)
+  };
+}
+
 export function resolveAdoptedDraftKickoff(form = null, kickoffState = null, fallbackTranslationSignature = "") {
   const adoptedContent = cleanText(kickoffState?.previousSnapshot?.content);
   const currentContent = cleanText(form?.draftKickoffText);
