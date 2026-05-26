@@ -52,6 +52,7 @@ import {
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
+  translationDraftInputFromForm,
   translationFormState,
   translationSaveStatusFeedback,
   translationContinuitySignature,
@@ -306,13 +307,7 @@ function currentSelectedTranslationRuntimeContext(
   return resolveTranslationRuntimeContext(
     state.workspace,
     candidateId,
-    useForm
-      ? {
-          paraphraseText: state.form.paraphraseText,
-          relationToQuestion: state.form.relationToQuestion,
-          boundaryOrCondition: state.form.boundaryOrCondition
-        }
-      : null
+    useForm ? translationDraftInputFromForm(state.form) : null
   );
 }
 
