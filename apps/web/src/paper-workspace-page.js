@@ -24,7 +24,7 @@ import {
   resolveAdoptedDraftKickoff,
   resolveDraftBriefState,
   resolveDraftKickoffRuntimeState,
-  resolvePaperWorkspaceContinuityStatus,
+  resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
@@ -477,7 +477,7 @@ function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
 }
 
 function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  return resolvePaperWorkspaceContinuityStatus(
+  return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
     storedSelection,
     state.selectedCandidateId,
@@ -487,12 +487,13 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
       relationToQuestion: state.form.relationToQuestion,
       boundaryOrCondition: state.form.boundaryOrCondition
     },
-    "resume"
+    "resume",
+    "loadedWorkspace"
   );
 }
 
 function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  return resolvePaperWorkspaceContinuityStatus(
+  return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
     storedSelection,
     state.selectedCandidateId,
@@ -502,19 +503,20 @@ function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelecti
       relationToQuestion: state.form.relationToQuestion,
       boundaryOrCondition: state.form.boundaryOrCondition
     },
-    "live"
+    "live",
+    "loadedWorkspace"
   );
 }
 
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   const resumeStatus = currentSelectionResumeStatus(storedSelection);
-  setStatus(STATUS[resumeStatus.key] || STATUS.loadedWorkspace, resumeStatus.tone);
+  setStatus(resumeStatus.text, resumeStatus.tone);
 }
 
 function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   if (!currentLoadedWorkspacePaperId()) return;
   const liveStatus = currentSelectionLiveStatus(storedSelection);
-  setStatus(STATUS[liveStatus.key] || STATUS.loadedWorkspace, liveStatus.tone);
+  setStatus(liveStatus.text, liveStatus.tone);
 }
 
 function shouldRefreshContinuityStatus(target) {
@@ -557,7 +559,7 @@ function hydrateFormFromWorkspace(workspace) {
   state.form.boundaryOrCondition = resolvedCandidateState.boundaryOrCondition;
   hydrateDraftKickoff(resolvedCandidateState.selectedCandidateId);
   persistWorkspaceSelection();
-  return resolvePaperWorkspaceContinuityStatus(
+  return resolvePaperWorkspaceContinuityStatusFeedback(
     workspace,
     storedSelection,
     resolvedCandidateState.selectedCandidateId,
@@ -567,7 +569,8 @@ function hydrateFormFromWorkspace(workspace) {
       relationToQuestion: resolvedCandidateState.relationToQuestion,
       boundaryOrCondition: resolvedCandidateState.boundaryOrCondition
     },
-    "resume"
+    "resume",
+    "loadedWorkspace"
   ).key;
 }
 
