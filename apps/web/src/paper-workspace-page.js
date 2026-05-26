@@ -26,8 +26,9 @@ import {
   resolveAdoptedDraftKickoff,
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
+  resolvePersistedWorkspaceSelection,
   resolveRefreshedDraftKickoff,
-  resolveStoredDraftBriefCopy,
+  resolveStoredWorkspaceSelection,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveTranslationRuntimeContext,
@@ -188,53 +189,7 @@ function readStoredWorkspaceSelection(paperId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    const saveStatusByPermanentCandidate =
-      parsed.saveStatusByPermanentCandidate && typeof parsed.saveStatusByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.saveStatusByPermanentCandidate)
-              .map(([candidateId, saveStatus]) => [String(candidateId || "").trim(), String(saveStatus || "").trim()])
-              .filter(([candidateId, saveStatus]) => candidateId && saveStatus)
-          )
-        : {};
-    const confirmAuthorshipByPermanentCandidate =
-      parsed.confirmAuthorshipByPermanentCandidate && typeof parsed.confirmAuthorshipByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.confirmAuthorshipByPermanentCandidate)
-              .map(([candidateId, confirmAuthorship]) => [String(candidateId || "").trim(), confirmAuthorship === true])
-              .filter(([candidateId]) => candidateId)
-          )
-        : {};
-    const translationSignatureByPermanentCandidate =
-      parsed.translationSignatureByPermanentCandidate &&
-      typeof parsed.translationSignatureByPermanentCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.translationSignatureByPermanentCandidate)
-              .map(([candidateId, signature]) => [String(candidateId || "").trim(), String(signature || "").trim()])
-              .filter(([candidateId, signature]) => candidateId && signature)
-          )
-        : {};
-    const draftBriefByCandidate =
-      parsed.draftBriefByCandidate && typeof parsed.draftBriefByCandidate === "object"
-        ? Object.fromEntries(
-            Object.entries(parsed.draftBriefByCandidate)
-              .map(([candidateId, value]) => {
-                const cleanCandidateId = String(candidateId || "").trim();
-                return [cleanCandidateId, resolveStoredDraftBriefCopy(value, cleanCandidateId)];
-              })
-              .filter(([, value]) => Boolean(value))
-          )
-        : {};
-    return {
-      selectedCandidateId: String(parsed.selectedCandidateId || "").trim(),
-      selectedPermanentCandidateId: String(parsed.selectedPermanentCandidateId || "").trim(),
-      saveStatus: String(parsed.saveStatus || "").trim(),
-      saveStatusByPermanentCandidate,
-      confirmAuthorshipByPermanentCandidate,
-      translationSignatureByPermanentCandidate,
-      draftBriefByCandidate
-    };
+    return resolveStoredWorkspaceSelection(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -246,64 +201,21 @@ function persistWorkspaceSelection(overrides = {}) {
   if (!key) return;
   try {
     const currentSelection = readStoredWorkspaceSelection(paperId);
-    const currentPermanentCandidateId = String(state.selectedPermanentCandidateId || "").trim();
-    const saveStatusByPermanentCandidate = {
-      ...(currentSelection?.saveStatusByPermanentCandidate || {})
-    };
-    const confirmAuthorshipByPermanentCandidate = {
-      ...(currentSelection?.confirmAuthorshipByPermanentCandidate || {})
-    };
-    const translationSignatureByPermanentCandidate = {
-      ...(currentSelection?.translationSignatureByPermanentCandidate || {})
-    };
-    const draftBriefByCandidate = {
-      ...(currentSelection?.draftBriefByCandidate || {})
-    };
-    const nextSaveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
-    if (currentPermanentCandidateId && nextSaveStatus) {
-      saveStatusByPermanentCandidate[currentPermanentCandidateId] = nextSaveStatus;
-    }
-    if (currentPermanentCandidateId) {
-      confirmAuthorshipByPermanentCandidate[currentPermanentCandidateId] =
-        overrides.confirmAuthorship ?? state.form.confirmAuthorship === true;
-    }
-    if (currentPermanentCandidateId && overrides.translationSignature) {
-      translationSignatureByPermanentCandidate[currentPermanentCandidateId] = String(overrides.translationSignature || "").trim();
-    }
-    if (overrides.draftBriefCopy) {
-      const draftBriefCopy = overrides.draftBriefCopy && typeof overrides.draftBriefCopy === "object" ? overrides.draftBriefCopy : {};
-      const draftBriefCandidateId = String(draftBriefCopy.candidateId ?? state.selectedCandidateId ?? "").trim();
-      if (draftBriefCandidateId) {
-        if (draftBriefCopy.clear === true) {
-          delete draftBriefByCandidate[draftBriefCandidateId];
-        } else {
-          const nextActionKey = String(draftBriefCopy.nextActionKey || "").trim();
-          const title = String(draftBriefCopy.title || "").trim();
-          const nextAction = String(draftBriefCopy.nextAction || "").trim();
-          const translationSignature = String(draftBriefCopy.translationSignature || "").trim();
-          if (title && translationSignature && (nextAction || nextActionKey)) {
-            draftBriefByCandidate[draftBriefCandidateId] = {
-              candidateId: draftBriefCandidateId,
-              stepFourPathKey: String(draftBriefCopy.stepFourPathKey || "").trim(),
-              title,
-              nextActionKey,
-              nextAction,
-              translationSignature,
-              copiedAt: String(draftBriefCopy.copiedAt || new Date().toISOString()).trim()
-            };
-          }
-        }
+    const nextSelectionPayload = resolvePersistedWorkspaceSelection(
+      currentSelection,
+      {
+        selectedCandidateId: state.selectedCandidateId,
+        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
+        saveStatus: state.form.saveStatus
+      },
+      {
+        ...overrides,
+        confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true
       }
-    }
+    );
     const nextSelection = {
       paperId,
-      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-      selectedPermanentCandidateId: String(state.selectedPermanentCandidateId || "").trim(),
-      saveStatus: currentPermanentCandidateId ? nextSaveStatus : "",
-      saveStatusByPermanentCandidate,
-      confirmAuthorshipByPermanentCandidate,
-      translationSignatureByPermanentCandidate,
-      draftBriefByCandidate,
+      ...nextSelectionPayload,
       updatedAt: new Date().toISOString()
     };
     window.localStorage?.setItem(

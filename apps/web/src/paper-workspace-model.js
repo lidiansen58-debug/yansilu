@@ -246,6 +246,117 @@ export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "")
   };
 }
 
+export function resolveStoredWorkspaceSelection(storedSelection = null) {
+  const parsed = storedSelection && typeof storedSelection === "object" ? storedSelection : {};
+  const saveStatusByPermanentCandidate =
+    parsed.saveStatusByPermanentCandidate && typeof parsed.saveStatusByPermanentCandidate === "object"
+      ? Object.fromEntries(
+          Object.entries(parsed.saveStatusByPermanentCandidate)
+            .map(([candidateId, saveStatus]) => [cleanText(candidateId), cleanText(saveStatus)])
+            .filter(([candidateId, saveStatus]) => candidateId && saveStatus)
+        )
+      : {};
+  const confirmAuthorshipByPermanentCandidate =
+    parsed.confirmAuthorshipByPermanentCandidate && typeof parsed.confirmAuthorshipByPermanentCandidate === "object"
+      ? Object.fromEntries(
+          Object.entries(parsed.confirmAuthorshipByPermanentCandidate)
+            .map(([candidateId, confirmAuthorship]) => [cleanText(candidateId), confirmAuthorship === true])
+            .filter(([candidateId]) => candidateId)
+        )
+      : {};
+  const translationSignatureByPermanentCandidate =
+    parsed.translationSignatureByPermanentCandidate && typeof parsed.translationSignatureByPermanentCandidate === "object"
+      ? Object.fromEntries(
+          Object.entries(parsed.translationSignatureByPermanentCandidate)
+            .map(([candidateId, signature]) => [cleanText(candidateId), cleanText(signature)])
+            .filter(([candidateId, signature]) => candidateId && signature)
+        )
+      : {};
+  const draftBriefByCandidate =
+    parsed.draftBriefByCandidate && typeof parsed.draftBriefByCandidate === "object"
+      ? Object.fromEntries(
+          Object.entries(parsed.draftBriefByCandidate)
+            .map(([candidateId, value]) => [cleanText(candidateId), resolveStoredDraftBriefCopy(value, candidateId)])
+            .filter(([, value]) => Boolean(value))
+        )
+      : {};
+  return {
+    selectedCandidateId: cleanText(parsed.selectedCandidateId),
+    selectedPermanentCandidateId: cleanText(parsed.selectedPermanentCandidateId),
+    saveStatus: cleanText(parsed.saveStatus),
+    saveStatusByPermanentCandidate,
+    confirmAuthorshipByPermanentCandidate,
+    translationSignatureByPermanentCandidate,
+    draftBriefByCandidate
+  };
+}
+
+export function resolvePersistedWorkspaceSelection(
+  currentSelection = null,
+  stateSelection = null,
+  overrides = {}
+) {
+  const current = resolveStoredWorkspaceSelection(currentSelection);
+  const selectedPermanentCandidateId = cleanText(stateSelection?.selectedPermanentCandidateId);
+  const selectedCandidateId = cleanText(stateSelection?.selectedCandidateId);
+  const nextSaveStatus = cleanText(overrides.saveStatus ?? stateSelection?.saveStatus);
+  const saveStatusByPermanentCandidate = {
+    ...(current?.saveStatusByPermanentCandidate || {})
+  };
+  const confirmAuthorshipByPermanentCandidate = {
+    ...(current?.confirmAuthorshipByPermanentCandidate || {})
+  };
+  const translationSignatureByPermanentCandidate = {
+    ...(current?.translationSignatureByPermanentCandidate || {})
+  };
+  const draftBriefByCandidate = {
+    ...(current?.draftBriefByCandidate || {})
+  };
+
+  if (selectedPermanentCandidateId && nextSaveStatus) {
+    saveStatusByPermanentCandidate[selectedPermanentCandidateId] = nextSaveStatus;
+  }
+  if (selectedPermanentCandidateId) {
+    confirmAuthorshipByPermanentCandidate[selectedPermanentCandidateId] = overrides.confirmAuthorship === true;
+  }
+  const translationSignature = cleanText(overrides.translationSignature);
+  if (selectedPermanentCandidateId && translationSignature) {
+    translationSignatureByPermanentCandidate[selectedPermanentCandidateId] = translationSignature;
+  }
+
+  const draftBriefCopy = overrides.draftBriefCopy && typeof overrides.draftBriefCopy === "object" ? overrides.draftBriefCopy : null;
+  if (draftBriefCopy) {
+    const draftBriefCandidateId = cleanText(draftBriefCopy.candidateId || selectedCandidateId);
+    if (draftBriefCandidateId) {
+      if (draftBriefCopy.clear === true) {
+        delete draftBriefByCandidate[draftBriefCandidateId];
+      } else {
+        const normalizedDraftBriefCopy = resolveStoredDraftBriefCopy(
+          {
+            ...draftBriefCopy,
+            candidateId: draftBriefCandidateId,
+            copiedAt: cleanText(draftBriefCopy.copiedAt) || new Date().toISOString()
+          },
+          draftBriefCandidateId
+        );
+        if (normalizedDraftBriefCopy) {
+          draftBriefByCandidate[draftBriefCandidateId] = normalizedDraftBriefCopy;
+        }
+      }
+    }
+  }
+
+  return {
+    selectedCandidateId,
+    selectedPermanentCandidateId,
+    saveStatus: selectedPermanentCandidateId ? nextSaveStatus : "",
+    saveStatusByPermanentCandidate,
+    confirmAuthorshipByPermanentCandidate,
+    translationSignatureByPermanentCandidate,
+    draftBriefByCandidate
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
