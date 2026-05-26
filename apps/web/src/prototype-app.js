@@ -9996,13 +9996,23 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
-  if (action === "resume-project") {
+  if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
     if (!projectId) return;
     try {
-      await openWritingProject(projectId);
-      setStatus(`已继续当前项目：${projectId}`, "ok");
+      await continueWritingProjectEntry(projectId, {
+        openDraft: action === "open-draft",
+        statusMessage:
+          action === "open-draft"
+            ? `已从主题索引打开当前草稿：${projectId}`
+            : action === "resume-scaffold"
+              ? `已从主题索引回到草稿骨架：${projectId}`
+              : `已从主题索引继续当前项目：${projectId}`
+      });
     } catch (error) {
-      setStatus(`打开当前项目失败：${String(error?.message || error)}`, "bad");
+      setStatus(
+        `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
     }
     return;
   }

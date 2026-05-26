@@ -40,6 +40,22 @@ test("theme index cards reuse continuity actions based on draft and scaffold sta
   assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
 });
 
+test("theme index list actions keep scoped continuity success and failure copy", () => {
+  const source = repoSource();
+  const match = source.match(/\$\("writingThemeIndexList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
+
+  assert.ok(match, "expected writingThemeIndexList click handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /if \(action === "open-draft" \|\| action === "resume-project" \|\| action === "resume-scaffold"\) \{/);
+  assert.match(fnBody, /await continueWritingProjectEntry\(projectId, \{/);
+  assert.match(fnBody, /openDraft: action === "open-draft"/);
+  assert.match(fnBody, /已从主题索引打开当前草稿：\$\{projectId\}/);
+  assert.match(fnBody, /已从主题索引回到草稿骨架：\$\{projectId\}/);
+  assert.match(fnBody, /已从主题索引继续当前项目：\$\{projectId\}/);
+  assert.match(fnBody, /action === "open-draft" \? "从主题索引打开当前草稿" : action === "resume-scaffold" \? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"/);
+});
+
 test("writing project list actions keep scoped continuity success and failure copy", () => {
   const source = repoSource();
   const match = source.match(/\$\("writingProjectsList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
