@@ -282,6 +282,22 @@ export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", can
   return `${cleanPrefix}:${cleanPaperId}:${cleanCandidateId}`;
 }
 
+export function translationDraftStorageKey(paperId = "", candidateId = "") {
+  return paperWorkspaceCandidateStorageKey("yansilu:paper-workspace:translation-draft", paperId, candidateId);
+}
+
+export function workspaceSelectionStorageKey(paperId = "") {
+  return paperWorkspacePaperStorageKey("yansilu:paper-workspace:selection", paperId);
+}
+
+export function draftKickoffStorageKey(paperId = "", candidateId = "") {
+  return paperWorkspaceCandidateStorageKey("yansilu:paper-workspace:draft-kickoff", paperId, candidateId);
+}
+
+export function draftKickoffSnapshotStorageKey(paperId = "", candidateId = "") {
+  return paperWorkspaceCandidateStorageKey("yansilu:paper-workspace:draft-kickoff-snapshot", paperId, candidateId);
+}
+
 export function paperWorkspaceCandidateStorageState(paperId = "", candidateId = "") {
   const cleanPaperId = cleanText(paperId);
   const cleanCandidateId = cleanText(candidateId);
