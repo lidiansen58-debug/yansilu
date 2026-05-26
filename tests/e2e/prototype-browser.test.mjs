@@ -5562,6 +5562,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       const text = await page.locator(".paper-result-json").textContent();
       assert.match(text || "", /"stage": "save_translation"/);
       const statusText = await currentPaperWorkspaceStatusText(page);
+      assert.match(String(statusText || ""), /用户转述已保存/);
       assert.match(String(statusText || ""), /relation 和 boundary|支撑下一步/);
       assert.match(String((await page.locator(".paper-status").getAttribute("class")) || ""), /paper-status-warn/);
     }, 6000);
@@ -5668,13 +5669,14 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
         /保留了上一版 kickoff/
       );
     }, 4000);
-    await page.click("#btnAdoptPreviousKickoff");
-    await waitFor(async () => {
-      const statusText = await currentPaperWorkspaceStatusText(page);
-      assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
-      assert.match(
-        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
-        /Local draft kickoff wording that should survive refresh\./
+	    await page.click("#btnAdoptPreviousKickoff");
+	    await waitFor(async () => {
+	      const statusText = await currentPaperWorkspaceStatusText(page);
+	      assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	      assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
+	      assert.match(
+	        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+	        /Local draft kickoff wording that should survive refresh\./
       );
       assert.match(
         String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""),
@@ -6299,6 +6301,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               const text = await page.locator(".paper-result-json").textContent();
               assert.match(text || "", /"stage": "save_translation"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
+              assert.match(String(statusText || ""), /用户转述已保存/);
               assert.match(String(statusText || ""), /这条转述已经更新过|重新生成永久笔记候选/);
             }, 6000);
             await waitFor(async () => {
@@ -6435,14 +6438,15 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               );
             }, 4000);
 
-            await page.click("#btnAdoptPreviousKickoff");
-            await waitFor(async () => {
-              const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
-              assert.match(String(statusText || ""), /当前本地 draft 仍指向最新转述链路/);
-              assert.match(
-                String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""),
-                /Step 4: 已保存永久笔记路径/
+	            await page.click("#btnAdoptPreviousKickoff");
+	            await waitFor(async () => {
+	              const statusText = await currentPaperWorkspaceStatusText(page);
+	              assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	              assert.match(String(statusText || ""), /当前本地 draft 仍指向最新转述链路/);
+	              assert.match(String(statusText || ""), /下一步：/);
+	              assert.match(
+	                String((await page.locator("[data-paper-draft-brief-step-four]").textContent()) || ""),
+	                /Step 4: 已保存永久笔记路径/
               );
               assert.match(
                 String((await page.locator("[data-paper-draft-brief-saved-note]").textContent()) || ""),

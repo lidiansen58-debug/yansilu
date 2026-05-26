@@ -744,6 +744,17 @@ export function chainedPaperWorkspaceStatusFeedback(baseText = "", continuationS
   };
 }
 
+export function translationSaveStatusFeedback(successStatusKey = "savedTranslation") {
+  const cleanSuccessStatusKey = cleanText(successStatusKey) || "savedTranslation";
+  if (cleanSuccessStatusKey === "savedTranslation") {
+    return paperWorkspaceStatusFeedback("savedTranslation", "savedTranslation");
+  }
+  return chainedPaperWorkspaceStatusFeedback(
+    PAPER_WORKSPACE_STATUS.savedTranslation,
+    paperWorkspaceStatusFeedback(cleanSuccessStatusKey, "savedTranslation")
+  );
+}
+
 export function resolvePaperWorkspaceContinuityStatus(
   workspace = null,
   storedSelection = null,
@@ -960,7 +971,9 @@ export function draftKickoffStatusMessage(mode = "loaded", title = "", nextActio
   const cleanTitle = cleanText(title);
   const cleanNextAction = cleanText(nextAction);
   if (mode === "adopted") {
-    return "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。";
+    return cleanNextAction
+      ? `已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。下一步：${cleanNextAction}`
+      : "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。";
   }
   if (mode === "resumed") {
     return cleanNextAction
