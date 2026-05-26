@@ -846,10 +846,6 @@ async function handleLoadWorkspace() {
     const resumeStatus = hydrateFormFromWorkspace(workspace);
     return { stage: "load_workspace", item: workspace, resumeStatus };
   }, (result) => result?.resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace"));
-  if (state.workspace) {
-    setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    render();
-  }
 }
 
 async function handleAddNotebookDraft() {
