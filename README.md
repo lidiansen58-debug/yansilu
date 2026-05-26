@@ -93,6 +93,11 @@ Direct script usage (PowerShell):
 - writes a local `WORKTREE.md` manifest with theme, lifecycle, sync rules, and suggested checks
 - supports `-Theme` and `-Lifecycle` to make scope explicit at creation time
 
+Long-lived stream worktrees:
+- use them only as temporary mother lines for one stream
+- merge clean `feat/*-batch` branches, not the whole mother line
+- see `docs/WORKTREE_WORKFLOW_2026-05-20.md` for the long-lived worktree SOP
+
 If browser e2e is required in a worktree:
 - run `npm run wt:deps` first when the worktree does not have its own `node_modules`
 - then run `npx.cmd playwright --version` to confirm Playwright resolves from the linked dependency tree
