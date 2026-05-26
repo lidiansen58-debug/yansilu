@@ -110,6 +110,14 @@ function currentLoadedWorkspacePaperId() {
   return paperWorkspaceLoadedPaperId(state.workspace);
 }
 
+function currentStoredWorkspaceSelection() {
+  return readStoredWorkspaceSelection(currentPaperId());
+}
+
+function currentCandidateStorageState(candidateId = state.selectedCandidateId) {
+  return paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+}
+
 function readStoredRecord(key, resolver) {
   if (!key) return null;
   try {
@@ -240,7 +248,7 @@ function persistWorkspaceSelection(overrides = {}) {
   } catch {}
 }
 
-function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function hydratePermanentCandidateForm(storedSelection = currentStoredWorkspaceSelection()) {
   state.workspaceSelection = storedSelection;
   const selectedPermanent = selectedAlignedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
   Object.assign(
@@ -252,7 +260,7 @@ function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSele
 function alignPermanentCandidateToSelectedPaper(preferredPermanentCandidateId = state.selectedPermanentCandidateId) {
   state.selectedPermanentCandidateId = resolveSelectedPaperWorkspaceState(
     state.workspace,
-    readStoredWorkspaceSelection(currentPaperId()),
+    currentStoredWorkspaceSelection(),
     {
       preferredCandidateId: state.selectedCandidateId,
       preferredPermanentCandidateId,
@@ -261,14 +269,14 @@ function alignPermanentCandidateToSelectedPaper(preferredPermanentCandidateId = 
   ).selectedPermanentCandidateId;
 }
 
-function hydrateSelectedPaperCandidateState(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function hydrateSelectedPaperCandidateState(storedSelection = currentStoredWorkspaceSelection()) {
   alignPermanentCandidateToSelectedPaper();
   hydrateTranslationForm(state.selectedCandidateId);
   hydratePermanentCandidateForm(storedSelection);
 }
 
 function persistTranslationDraft(candidateId = state.selectedCandidateId) {
-  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
 
@@ -347,7 +355,7 @@ function currentSelectedTranslationRuntimeContext(
 
 function currentSelectionContinuityStatus(
   mode = "live",
-  storedSelection = readStoredWorkspaceSelection(currentPaperId())
+  storedSelection = currentStoredWorkspaceSelection()
 ) {
   const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceContinuityStatusFeedback(
@@ -361,15 +369,15 @@ function currentSelectionContinuityStatus(
   );
 }
 
-function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function currentSelectionResumeStatus(storedSelection = currentStoredWorkspaceSelection()) {
   return currentSelectionContinuityStatus("resume", storedSelection);
 }
 
-function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function currentSelectionLiveStatus(storedSelection = currentStoredWorkspaceSelection()) {
   return currentSelectionContinuityStatus("live", storedSelection);
 }
 
-function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function setLiveStatusFromCurrentSelection(storedSelection = currentStoredWorkspaceSelection()) {
   if (!currentLoadedWorkspacePaperId()) return;
   const liveStatus = currentSelectionLiveStatus(storedSelection);
   setStatus(liveStatus.text, liveStatus.tone);
@@ -380,7 +388,7 @@ function syncAndPersistDraftContext() {
   persistTranslationDraft();
 }
 
-function refreshLiveContinuityUi(target = null, storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function refreshLiveContinuityUi(target = null, storedSelection = currentStoredWorkspaceSelection()) {
   setLiveStatusFromCurrentSelection(storedSelection);
   if (target) {
     rerenderPreservingContinuityFocus(target);
@@ -391,7 +399,7 @@ function refreshLiveContinuityUi(target = null, storedSelection = readStoredWork
 
 function handleSelectPaperCandidate(candidateId = "") {
   syncAndPersistDraftContext();
-  const storedSelection = readStoredWorkspaceSelection(currentPaperId());
+  const storedSelection = currentStoredWorkspaceSelection();
   state.selectedCandidateId = workspaceSelectionIds(candidateId, "").selectedCandidateId;
   hydrateSelectedPaperCandidateState(storedSelection);
   persistWorkspaceSelection();
@@ -400,7 +408,7 @@ function handleSelectPaperCandidate(candidateId = "") {
 
 function handleSelectPermanentCandidate(permanentCandidateId = "") {
   syncAndPersistDraftContext();
-  const storedSelection = readStoredWorkspaceSelection(currentPaperId());
+  const storedSelection = currentStoredWorkspaceSelection();
   state.selectedPermanentCandidateId = workspaceSelectionIds("", permanentCandidateId).selectedPermanentCandidateId;
   const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
     state.workspace,
@@ -596,7 +604,7 @@ function currentWorkspaceRuntimeState() {
 }
 
 function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides = {}) {
-  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
   if (!draftKickoffStorageKey(paperId, cleanCandidateId)) return;
@@ -615,7 +623,7 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
 }
 
 function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, snapshot = null) {
-  const storageState = paperWorkspaceCandidateStorageState(currentPaperId(), candidateId);
+  const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
   if (!draftKickoffSnapshotStorageKey(paperId, cleanCandidateId)) return;
