@@ -63,6 +63,7 @@ import {
   resolvePersistedDraftKickoff,
   resolvePersistedDraftKickoffSnapshot,
   resolvePersistedDraftBriefCopy,
+  resolvePersistedDraftBriefCopyFromState,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveStoredWorkspaceSelection,
@@ -2084,6 +2085,53 @@ test("resolvePersistedDraftBriefCopy keeps candidate-scoped identity and rejects
         nextAction: "",
         translationSignature: ""
       }
+    ),
+    null
+  );
+});
+
+test("resolvePersistedDraftBriefCopyFromState derives a persisted payload directly from draft brief runtime state", () => {
+  assert.deepEqual(
+    resolvePersistedDraftBriefCopyFromState(
+      {
+        draftBrief: {
+          stepFourPathKey: "pn_1",
+          title: "Draft brief: Candidate One"
+        },
+        draftContinuationAction: {
+          key: "review_saved_permanent_note",
+          label: "回看 originality / authorship"
+        }
+      },
+      "pwc_1",
+      "sig_current",
+      "2026-05-26T00:00:00.000Z"
+    ),
+    {
+      candidateId: "pwc_1",
+      stepFourPathKey: "pn_1",
+      title: "Draft brief: Candidate One",
+      nextActionKey: "review_saved_permanent_note",
+      nextAction: "回看 originality / authorship",
+      translationSignature: "sig_current",
+      copiedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedDraftBriefCopyFromState(
+      {
+        draftBrief: {
+          title: ""
+        },
+        draftContinuationAction: {
+          key: "",
+          label: ""
+        }
+      },
+      "pwc_1",
+      "",
+      "2026-05-26T00:00:00.000Z"
     ),
     null
   );
