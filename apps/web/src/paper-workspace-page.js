@@ -232,32 +232,6 @@ function persistWorkspaceSelection(overrides = {}) {
   } catch {}
 }
 
-function persistTranslationSignatureForPermanentCandidate(permanentCandidateId = "", translationSignature = "") {
-  const overrides = workspaceSelectionTranslationSignatureOverrides(
-    permanentCandidateId,
-    translationSignature,
-    state.form.confirmAuthorship === true
-  );
-  if (!overrides) return;
-  persistWorkspaceSelection(overrides);
-}
-
-function persistPermanentCandidateTranslationSignature(
-  permanentCandidateId = state.selectedPermanentCandidateId,
-  candidateId = state.selectedCandidateId
-) {
-  const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
-  if (!cleanPermanentCandidateId) return;
-  const { translationSignature } = currentSelectedTranslationRuntimeContext(candidateId);
-  const overrides = workspaceSelectionTranslationSignatureOverrides(
-    cleanPermanentCandidateId,
-    translationSignature,
-    state.form.confirmAuthorship === true
-  );
-  if (!overrides) return;
-  persistWorkspaceSelection(overrides);
-}
-
 function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   state.workspaceSelection = storedSelection;
   const selectedPermanent = selectedAlignedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
@@ -767,10 +741,14 @@ async function handleSaveTranslation() {
     clearStoredTranslationDraft(currentPaperId(), state.selectedCandidateId);
     hydrateFormFromWorkspace(state.workspace);
     if (selectedPermanentCandidateIdBeforeSave) {
-      persistTranslationSignatureForPermanentCandidate(
+      const signatureOverrides = workspaceSelectionTranslationSignatureOverrides(
         selectedPermanentCandidateIdBeforeSave,
-        baselineTranslationSignatureBeforeSave
+        baselineTranslationSignatureBeforeSave,
+        state.form.confirmAuthorship === true
       );
+      if (signatureOverrides) {
+        persistWorkspaceSelection(signatureOverrides);
+      }
     }
     return {
       stage: "save_translation",
@@ -805,7 +783,15 @@ async function handleCreatePermanentCandidate() {
     state.workspace = result.item;
     state.selectedPermanentCandidateId = result.permanentCandidate?.id || "";
     hydratePermanentCandidateForm();
-    persistPermanentCandidateTranslationSignature(state.selectedPermanentCandidateId, state.selectedCandidateId);
+    const { translationSignature } = currentSelectedTranslationRuntimeContext(state.selectedCandidateId);
+    const signatureOverrides = workspaceSelectionTranslationSignatureOverrides(
+      state.selectedPermanentCandidateId,
+      translationSignature,
+      state.form.confirmAuthorship === true
+    );
+    if (signatureOverrides) {
+      persistWorkspaceSelection(signatureOverrides);
+    }
     persistWorkspaceSelection();
     const resumeStatus = currentSelectionResumeStatus(state.workspaceSelection);
     return { stage: "permanent_candidate", resumeStatus, ...result };
