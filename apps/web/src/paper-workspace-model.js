@@ -166,6 +166,19 @@ export function normalizeTranslationDraftInput(input = {}) {
   };
 }
 
+export function resolveTranslationRuntimeContext(workspace = null, candidateId = "", input = null) {
+  const hasExplicitInput = input !== null && input !== undefined;
+  const draftInput = normalizeTranslationDraftInput(input || {});
+  return {
+    draftInput,
+    translationSignature: translationContinuitySignature(
+      workspace,
+      candidateId,
+      hasExplicitInput ? draftInput : null
+    )
+  };
+}
+
 export function resolvedStoredTranslationDraft(storedDraft = null) {
   return normalizeTranslationDraftInput(storedDraft || {});
 }
