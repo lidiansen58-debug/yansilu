@@ -27,6 +27,7 @@ import {
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
   resolveRefreshedDraftKickoff,
+  resolveStoredDraftBriefCopy,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveTranslationRuntimeContext,
@@ -220,28 +221,9 @@ function readStoredWorkspaceSelection(paperId) {
             Object.entries(parsed.draftBriefByCandidate)
               .map(([candidateId, value]) => {
                 const cleanCandidateId = String(candidateId || "").trim();
-                const entry = value && typeof value === "object" ? value : {};
-                const storedCandidateId = String(entry.candidateId || cleanCandidateId).trim();
-                return [
-                  cleanCandidateId,
-                  {
-                    candidateId: storedCandidateId,
-                    stepFourPathKey: String(entry.stepFourPathKey || "").trim(),
-                    title: String(entry.title || "").trim(),
-                    nextActionKey: String(entry.nextActionKey || "").trim(),
-                    nextAction: String(entry.nextAction || "").trim(),
-                    translationSignature: String(entry.translationSignature || "").trim(),
-                    copiedAt: String(entry.copiedAt || "").trim()
-                  }
-                ];
+                return [cleanCandidateId, resolveStoredDraftBriefCopy(value, cleanCandidateId)];
               })
-              .filter(
-                ([candidateId, value]) =>
-                  candidateId &&
-                  value.title &&
-                  value.translationSignature &&
-                  (value.nextAction || value.nextActionKey)
-              )
+              .filter(([, value]) => Boolean(value))
           )
         : {};
     return {

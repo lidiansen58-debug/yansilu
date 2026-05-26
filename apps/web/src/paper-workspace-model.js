@@ -224,6 +224,28 @@ export function resolveStoredDraftKickoffSnapshot(storedSnapshot = null, paperId
   };
 }
 
+export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {
+  const entry = storedCopy && typeof storedCopy === "object" ? storedCopy : {};
+  const cleanCandidateId = cleanText(candidateId);
+  const storedCandidateId = cleanText(entry.candidateId || cleanCandidateId);
+  if (!cleanCandidateId || !storedCandidateId || storedCandidateId !== cleanCandidateId) return null;
+  const title = cleanText(entry.title);
+  const stepFourPathKey = cleanText(entry.stepFourPathKey);
+  const nextActionKey = cleanText(entry.nextActionKey);
+  const nextAction = cleanText(entry.nextAction);
+  const translationSignature = cleanText(entry.translationSignature);
+  if (!title || !translationSignature || !(nextAction || nextActionKey)) return null;
+  return {
+    candidateId: storedCandidateId,
+    stepFourPathKey,
+    title,
+    nextActionKey,
+    nextAction,
+    translationSignature,
+    copiedAt: cleanText(entry.copiedAt)
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
