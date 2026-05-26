@@ -38,6 +38,7 @@ import {
   resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
+  resolveTranslationRuntimeContext,
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
@@ -1264,6 +1265,60 @@ test("translationDraftHasLocalChanges only stores unsaved translation deltas", (
       boundaryOrCondition: ""
     }),
     true
+  );
+});
+
+test("resolveTranslationRuntimeContext shares one normalized draft input and signature source", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ]
+  };
+
+  const runtime = resolveTranslationRuntimeContext(workspace, "pwc_1", {
+    paraphraseText: " Draft wording. ",
+    relationToQuestion: " Draft relation. ",
+    boundaryOrCondition: " Draft boundary. "
+  });
+
+  assert.deepEqual(runtime.draftInput, {
+    paraphraseText: "Draft wording.",
+    relationToQuestion: "Draft relation.",
+    boundaryOrCondition: "Draft boundary."
+  });
+  assert.equal(
+    runtime.translationSignature,
+    JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Draft wording.",
+      relationToQuestion: "Draft relation.",
+      boundaryOrCondition: "Draft boundary."
+    })
+  );
+
+  const savedRuntime = resolveTranslationRuntimeContext(workspace, "pwc_1");
+  assert.deepEqual(savedRuntime.draftInput, {
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: ""
+  });
+  assert.equal(
+    savedRuntime.translationSignature,
+    JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    })
   );
 });
 
