@@ -12,6 +12,7 @@ import {
   blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
+  draftKickoffFormState,
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
   draftKickoffAdoptedStatusFeedback,
@@ -295,11 +296,7 @@ function hydrateDraftKickoff(candidateId = state.selectedCandidateId) {
   const cleanCandidateId = String(candidateId || "").trim();
   const storedKickoff = cleanCandidateId ? readStoredDraftKickoff(currentPaperId(), cleanCandidateId) : null;
   const storedSnapshot = cleanCandidateId ? readStoredDraftKickoffSnapshot(currentPaperId(), cleanCandidateId) : null;
-  state.form.draftKickoffText = String(storedKickoff?.content || "");
-  state.form.draftKickoffSignature = String(storedKickoff?.translationSignature || "");
-  state.form.draftKickoffPreviousText = String(storedSnapshot?.content || "");
-  state.form.draftKickoffPreviousSignature = String(storedSnapshot?.previousSignature || "");
-  state.form.draftKickoffReplacementSignature = String(storedSnapshot?.replacementSignature || "");
+  Object.assign(state.form, draftKickoffFormState(storedKickoff, storedSnapshot));
 }
 
 function currentSelectedTranslationRuntimeContext(
