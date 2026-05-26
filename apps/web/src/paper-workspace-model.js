@@ -765,6 +765,29 @@ export function resolvePaperWorkspaceContinuityStatus(
   };
 }
 
+export function resolvePaperWorkspaceContinuityStatusFeedback(
+  workspace = null,
+  storedSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  draftInput = null,
+  mode = "live",
+  fallbackKey = "loadedWorkspace"
+) {
+  const status = resolvePaperWorkspaceContinuityStatus(
+    workspace,
+    storedSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    draftInput,
+    mode
+  );
+  return {
+    ...status,
+    ...paperWorkspaceStatusFeedback(status.key, fallbackKey, status.tone)
+  };
+}
+
 export function draftContinuationActionState(candidateState = null, workspaceState = null) {
   if (!cleanText(candidateState?.selectedCandidateId)) {
     return {

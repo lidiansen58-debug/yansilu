@@ -38,6 +38,7 @@ import {
   resolveDraftBriefState,
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
+  resolvePaperWorkspaceContinuityStatusFeedback,
   resolveTranslationRuntimeContext,
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
@@ -2269,6 +2270,61 @@ test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both res
   assert.equal(liveStatus.key, "savedTranslationReadyForPermanentCandidate");
   assert.equal(liveStatus.tone, "ok");
   assert.equal(liveStatus.candidateState.supportsNextStep, true);
+});
+
+test("resolvePaperWorkspaceContinuityStatusFeedback adds user-facing text to continuity status", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "First" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [{ id: "pn_1", paper_candidate_id: "pwc_1", title: "Permanent One" }]
+  };
+  const staleSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: "sig_old"
+    }
+  };
+
+  const liveFeedback = resolvePaperWorkspaceContinuityStatusFeedback(
+    workspace,
+    staleSelection,
+    "pwc_1",
+    "pn_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation changed.",
+      boundaryOrCondition: "Saved boundary."
+    },
+    "live",
+    "loadedWorkspace"
+  );
+  assert.equal(liveFeedback.key, "translationNeedsResaveBeforePermanentNote");
+  assert.equal(liveFeedback.tone, "warn");
+  assert.match(liveFeedback.text, /重新保存这条转述|更新或确认永久笔记/);
+
+  const resumeFeedback = resolvePaperWorkspaceContinuityStatusFeedback(
+    workspace,
+    staleSelection,
+    "pwc_1",
+    "pn_1",
+    {
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    },
+    "resume",
+    "loadedWorkspace"
+  );
+  assert.equal(resumeFeedback.key, "translationNeedsFreshPermanentCandidate");
+  assert.equal(resumeFeedback.tone, "warn");
+  assert.match(resumeFeedback.text, /重新生成永久笔记候选/);
 });
 
 test("workspaceStageLabel falls back to a not-started label", () => {
