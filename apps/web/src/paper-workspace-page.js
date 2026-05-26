@@ -12,6 +12,8 @@ import {
   blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
+  draftKickoffSnapshotStorageKey,
+  draftKickoffStorageKey,
   draftKickoffFormState,
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
@@ -24,9 +26,7 @@ import {
   paperWorkspaceCurrentPaperId,
   paperWorkspaceCandidateStorageState,
   paperWorkspaceTargetId,
-  paperWorkspaceCandidateStorageKey,
   paperWorkspaceLoadedPaperId,
-  paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
   permanentCandidateStatusFeedback,
@@ -58,7 +58,9 @@ import {
   workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
+  workspaceSelectionStorageKey,
   workspaceSelectionTranslationSignatureOverrides,
+  translationDraftStorageKey,
   translationDraftInputFromForm,
   translationFormState,
   workspaceResumeFormState,
@@ -68,11 +70,6 @@ import {
   selectedPaperCandidateIdForPermanentCandidate
 } from "./paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
-
-const TRANSLATION_DRAFT_STORAGE_PREFIX = "yansilu:paper-workspace:translation-draft";
-const DRAFT_KICKOFF_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff";
-const DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX = "yansilu:paper-workspace:draft-kickoff-snapshot";
-const WORKSPACE_SELECTION_STORAGE_PREFIX = "yansilu:paper-workspace:selection";
 
 const STATUS = PAPER_WORKSPACE_STATUS;
 
@@ -111,22 +108,6 @@ function currentPaperId() {
 
 function currentLoadedWorkspacePaperId() {
   return paperWorkspaceLoadedPaperId(state.workspace);
-}
-
-function translationDraftStorageKey(paperId, candidateId) {
-  return paperWorkspaceCandidateStorageKey(TRANSLATION_DRAFT_STORAGE_PREFIX, paperId, candidateId);
-}
-
-function workspaceSelectionStorageKey(paperId) {
-  return paperWorkspacePaperStorageKey(WORKSPACE_SELECTION_STORAGE_PREFIX, paperId);
-}
-
-function draftKickoffStorageKey(paperId, candidateId) {
-  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_STORAGE_PREFIX, paperId, candidateId);
-}
-
-function draftKickoffSnapshotStorageKey(paperId, candidateId) {
-  return paperWorkspaceCandidateStorageKey(DRAFT_KICKOFF_SNAPSHOT_STORAGE_PREFIX, paperId, candidateId);
 }
 
 function readStoredRecord(key, resolver) {

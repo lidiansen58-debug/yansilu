@@ -16,6 +16,8 @@ import {
   draftKickoffFormState,
   resolvedDraftKickoffFormState,
   draftKickoffSignatureValue,
+  draftKickoffSnapshotStorageKey,
+  draftKickoffStorageKey,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
@@ -91,10 +93,12 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
+  translationDraftStorageKey,
   workspaceSelectionPersistenceState,
   workspaceSelectionIds,
   workspaceSelectionInputOverrides,
   workspaceSelectionPersistenceOverrides,
+  workspaceSelectionStorageKey,
   workspaceSelectionTranslationSignatureOverrides,
   workspaceResumeFormState,
   baselinePermanentCandidateSignatureToPersist,
@@ -2193,6 +2197,22 @@ test("paper workspace storage key helpers normalize paper- and candidate-scoped 
   assert.equal(
     paperWorkspaceCandidateStorageKey(" yansilu:paper-workspace:translation-draft ", " paper_test ", " pwc_1 "),
     "yansilu:paper-workspace:translation-draft:paper_test:pwc_1"
+  );
+  assert.equal(
+    translationDraftStorageKey(" paper_test ", " pwc_1 "),
+    "yansilu:paper-workspace:translation-draft:paper_test:pwc_1"
+  );
+  assert.equal(
+    workspaceSelectionStorageKey(" paper_test "),
+    "yansilu:paper-workspace:selection:paper_test"
+  );
+  assert.equal(
+    draftKickoffStorageKey(" paper_test ", " pwc_1 "),
+    "yansilu:paper-workspace:draft-kickoff:paper_test:pwc_1"
+  );
+  assert.equal(
+    draftKickoffSnapshotStorageKey(" paper_test ", " pwc_1 "),
+    "yansilu:paper-workspace:draft-kickoff-snapshot:paper_test:pwc_1"
   );
   assert.equal(paperWorkspacePaperStorageKey("", "paper_test"), "");
   assert.equal(paperWorkspaceCandidateStorageKey("prefix", "paper_test", " "), "");
