@@ -3275,7 +3275,7 @@ async function saveWritingBasketAsThemeIndex() {
   if (title === null) return null;
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) throw new Error("title is required");
-  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作中心入口。";
+  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续可续接的写作入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);
@@ -6278,11 +6278,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
-<<<<<<< HEAD
   const continuation = describeWritingContinuationAction({
-=======
-  const themeContinuation = describeWritingContinuationAction({
->>>>>>> feat-product-writing-project-list-continuity-batch
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
@@ -6298,7 +6294,7 @@ function renderWritingThemeIndexCard(indexCard) {
         </div>
         ${thinkingBadge}
       </div>
-      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续写作中心入口。")}</div>
+      <div class="writing-note-meta">${escapeHtml(indexCard.summary || "把一组成熟永久笔记当成后续可续接的写作入口。")}</div>
       <div class="writing-note-meta">${escapeHtml(directoryLabel)}${preview ? ` · 例如：${escapeHtml(preview)}${noteCount > itemTitles.length ? " 等" : ""}` : ""}</div>
       ${
         existingProject?.id
@@ -6308,13 +6304,10 @@ function renderWritingThemeIndexCard(indexCard) {
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
         ${
-<<<<<<< HEAD
           continuation?.projectId
             ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
-=======
-          existingProject?.id
-            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(existingProject.id)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
->>>>>>> feat-product-writing-project-list-continuity-batch
+          continuation?.projectId
+            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
             : ""
         }
       </div>
@@ -6364,7 +6357,7 @@ function renderWritingThemeDetail(indexCard) {
         <button class="mini-btn primary" type="button" data-writing-theme-action="${escapeHtml(primaryThemeAction)}" data-writing-theme-id="${themeId}" data-writing-project-id="${escapeHtml(primaryThemeProjectId)}" ${projectEntry.canCreateProject ? "" : "disabled"}>${escapeHtml(projectEntry.actionLabel)}</button>
       </div>
       <div class="writing-summary" style="margin-top:12px;">
-        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和写作中心入口。
+        这张主题索引应该把一组永久笔记压缩成可复用的中心问题、主题判断和可续接的写作入口。
       </div>
       <div class="writing-summary" style="margin-top:12px;" data-writing-theme-project-summary="${themeId}">
         当前主题入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint || readiness.hint || "先补齐条件，再从主题创建项目。")}
@@ -6424,6 +6417,13 @@ function renderWritingThemeDetail(indexCard) {
       </div>
     </section>
   `;
+}
+
+function writingThemeDetailHintText(indexCard) {
+  if (!indexCard?.id) return "查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作入口。";
+  const { readiness, projectEntry } = writingThemeProjectEntry(indexCard);
+  const themeLabel = String(indexCard.title || indexCard.id || "当前主题").trim() || "当前主题";
+  return `${themeLabel}：当前主题入口：${projectEntry.status}。${projectEntry.hint || readiness?.hint || "先补齐条件，再决定是继续当前项目还是创建项目。"}`;
 }
 
 function populateWritingFormFromProject(project) {
@@ -7089,7 +7089,7 @@ function renderWritingPanel() {
     } else if (writingState.loadingThemeIndexes) {
       themeIndexesHint.textContent = "正在读取主题索引...";
     } else if (writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作中心入口。`;
+      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为可续接的写作入口。`;
     } else {
       themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织进写作篮，再保存为主题索引。";
     }
@@ -7102,7 +7102,7 @@ function renderWritingPanel() {
     } else if (writingState.themeIndexes.length) {
       themeIndexList.innerHTML = writingState.themeIndexes.map(renderWritingThemeIndexCard).join("");
     } else {
-      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接进入写作中心。</div>`;
+      themeIndexList.innerHTML = `<div class="writing-empty">还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里继续一条可续接的写作入口。</div>`;
     }
   }
 
@@ -7126,8 +7126,8 @@ function renderWritingPanel() {
   }
   if (themeDetailHint) {
     themeDetailHint.textContent = selectedTheme
-      ? `${selectedTheme.title || selectedTheme.id}：在这里补中心问题、主题一句话和三句话，再把主题推进成项目。`
-      : "查看中心问题、主题压缩、相关永久笔记，并从主题直接创建项目。";
+      ? writingThemeDetailHintText(selectedTheme)
+      : writingThemeDetailHintText(null);
   }
   if (themeDetail) {
     themeDetail.innerHTML = renderWritingThemeDetail(selectedTheme);
@@ -7165,7 +7165,7 @@ function renderWritingPanel() {
     strongModelReady
   });
   if (basketSummary) {
-    const sourcePart = sourceIndexSummary ? `写作中心入口：${sourceIndexSummary}。` : "写作中心入口：尚未记录。";
+    const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
       ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "显式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等显式关系读取完成后，再判断是否能建项目。"} ${sourcePart}`
       : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
@@ -10150,22 +10150,22 @@ $("writingThemeIndexList")?.addEventListener("click", async (event) => {
   const action = String(button.getAttribute("data-writing-index-action") || "");
   const indexId = String(button.getAttribute("data-writing-index-id") || "");
   const projectId = String(button.getAttribute("data-writing-project-id") || "");
-  if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
-    if (!projectId) return;
-    try {
-      await continueWritingProjectEntry(projectId, {
-        openDraft: action === "open-draft",
-        statusMessage:
-          action === "open-draft"
-            ? `已从主题索引打开当前草稿：${projectId}`
-            : action === "resume-scaffold"
-              ? `已从主题索引回到草稿骨架：${projectId}`
-              : `已从主题索引继续当前项目：${projectId}`
-      });
-    } catch (error) {
-      setStatus(
-        `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
-        "bad"
+    if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
+      if (!projectId) return;
+      try {
+        await continueWritingProjectEntry(projectId, {
+          openDraft: action === "open-draft",
+          statusMessage:
+            action === "open-draft"
+              ? `已从主题索引打开当前草稿：${projectId}`
+              : action === "resume-scaffold"
+                ? `已从主题索引回到草稿骨架：${projectId}`
+                : `已从主题索引继续当前项目：${projectId}`
+        });
+      } catch (error) {
+        setStatus(
+          `${action === "open-draft" ? "从主题索引打开当前草稿" : action === "resume-scaffold" ? "从主题索引回到草稿骨架" : "从主题索引继续当前项目"}失败：${String(error?.message || error)}`,
+          "bad"
       );
     }
     return;
@@ -10227,29 +10227,32 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
     if (action === "open-draft" && projectId) {
-      await continueWritingProjectEntry(projectId, { openDraft: true });
+      await continueWritingProjectEntry(projectId, {
+        openDraft: true,
+        statusMessage: `已从主题打开当前草稿：${projectId}`
+      });
       return;
     }
     if ((action === "resume-project" || action === "resume-scaffold") && projectId) {
       await continueWritingProjectEntry(projectId, {
-        statusMessage: action === "resume-scaffold" ? `已回到草稿骨架：${projectId}` : `已继续当前项目：${projectId}`
+        statusMessage: action === "resume-scaffold" ? `已从主题回到草稿骨架：${projectId}` : `已从主题继续当前项目：${projectId}`
       });
       return;
     }
-    if (action === "create-project") {
-      const selectedTheme = writingThemeIndexById(indexId) || (await fetchIndexCard(indexId));
-      const existingProject = findExistingWritingProjectForTheme(selectedTheme, writingThemeIndexNoteIds(selectedTheme));
-      if (existingProject?.id) {
-        await continueWritingProjectEntry(existingProject.id, {
-          openDraft: Boolean(existingProject.draft_note_id),
-          statusMessage: existingProject.draft_note_id
-            ? ""
-            : existingProject.scaffold_id
-              ? `已回到草稿骨架：${existingProject.id}`
-              : `已继续当前项目：${existingProject.id}`
-        });
-        return;
-      }
+      if (action === "create-project") {
+        const selectedTheme = writingThemeIndexById(indexId) || (await fetchIndexCard(indexId));
+        const existingProject = findExistingWritingProjectForTheme(selectedTheme, writingThemeIndexNoteIds(selectedTheme));
+        if (existingProject?.id) {
+          await continueWritingProjectEntry(existingProject.id, {
+            openDraft: Boolean(existingProject.draft_note_id),
+            statusMessage: existingProject.draft_note_id
+              ? `已从主题打开当前草稿：${existingProject.id}`
+              : existingProject.scaffold_id
+                ? `已从主题回到草稿骨架：${existingProject.id}`
+                : `已从主题继续当前项目：${existingProject.id}`
+          });
+          return;
+        }
       const project = await createWritingProjectFromThemeIndex(indexId);
       setStatus(`已从主题创建项目：${project?.id}`, "ok");
       return;
@@ -10276,6 +10279,13 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       return;
     }
   } catch (error) {
+    if (action === "open-draft" || action === "resume-project" || action === "resume-scaffold") {
+      setStatus(
+        `${action === "open-draft" ? "从主题打开当前草稿" : action === "resume-scaffold" ? "从主题回到草稿骨架" : "从主题继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+      return;
+    }
     setStatus(`主题操作失败：${String(error?.message || error)}`, "bad");
   }
 });

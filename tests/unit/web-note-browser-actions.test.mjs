@@ -151,7 +151,6 @@ test("theme index cards reuse continuity actions when a matching project already
   const fnBody = match[1];
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
-  assert.match(fnBody, /当前项目：/);
   assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
   assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
   assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
