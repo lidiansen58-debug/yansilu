@@ -7108,7 +7108,7 @@ function renderWritingPanel() {
     strongModelReady
   });
   if (basketSummary) {
-    const sourcePart = sourceIndexSummary ? `写作中心入口：${sourceIndexSummary}。` : "写作中心入口：尚未记录。";
+    const sourcePart = sourceIndexSummary ? `可续接的写作入口：${sourceIndexSummary}。` : "可续接的写作入口：尚未记录。";
     basketSummary.textContent = basketEntries.length
       ? `写作篮已有 ${basketEntries.length} 条永久笔记。当前阶段：${relationCountsErrored ? "关系读取失败" : relationCountsReady ? basketReadiness.status : "正在读取关系"}。${relationCountsErrored ? "显式关系暂时读取失败，先稍后重试或回到笔记里确认关系。" : relationCountsReady ? basketReadiness.hint : "等显式关系读取完成后，再判断是否能建项目。"} ${sourcePart}`
       : `写作篮还没有笔记。先确认一个值得推进的主题，再挑选 2-5 条能支撑论证的永久笔记。${sourcePart}`;
