@@ -5614,6 +5614,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     await waitFor(async () => {
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /已复制 draft brief/);
+      assert.match(String(statusText || ""), /当前链路：Step 4: 尚未生成永久笔记候选/);
       assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
       assert.match(
         String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
@@ -5631,6 +5632,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     await waitFor(async () => {
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
+      assert.match(String(statusText || ""), /当前链路：Step 4: 尚未生成永久笔记候选/);
       assert.match(String((await page.locator("#btnStartDraftKickoff").textContent()) || ""), /继续本地 draft/);
       assert.match(String((await page.locator("#draftKickoffTextarea").inputValue()) || ""), /# Draft brief:/);
       assert.match(
@@ -5656,12 +5658,13 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
       );
     }, 6000);
     await page.click("#btnStartDraftKickoff");
-    await waitFor(async () => {
-      const statusText = await currentPaperWorkspaceStatusText(page);
-      assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
-      assert.match(
-        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
-        new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+	    await waitFor(async () => {
+	      const statusText = await currentPaperWorkspaceStatusText(page);
+	      assert.match(String(statusText || ""), /已载入本地 draft kickoff/);
+	      assert.match(String(statusText || ""), /当前链路：Step 4: 尚未生成永久笔记候选/);
+	      assert.match(
+	        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+	        new RegExp(refreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       );
       assert.match(String((await page.locator("#draftKickoffPreviousTextarea").inputValue()) || ""), /Local draft kickoff wording that should survive refresh\./);
       assert.match(
@@ -5673,6 +5676,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	    await waitFor(async () => {
 	      const statusText = await currentPaperWorkspaceStatusText(page);
 	      assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	      assert.match(String(statusText || ""), /Summary 1/);
 	      assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
 	      assert.match(
 	        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
@@ -6442,6 +6446,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	            await waitFor(async () => {
 	              const statusText = await currentPaperWorkspaceStatusText(page);
 	              assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	              assert.match(String(statusText || ""), /Summary 1/);
 	              assert.match(String(statusText || ""), /当前本地 draft 仍指向最新转述链路/);
 	              assert.match(String(statusText || ""), /下一步：/);
 	              assert.match(
@@ -6721,13 +6726,14 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 4000);
 
-            await page.click("#btnCopyDraftBrief");
-            await waitFor(async () => {
-              const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /已复制 draft brief/);
-              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
-              const copiedText = await page.evaluate(
-                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+	            await page.click("#btnCopyDraftBrief");
+	            await waitFor(async () => {
+	              const statusText = await currentPaperWorkspaceStatusText(page);
+	              assert.match(String(statusText || ""), /已复制 draft brief/);
+	              assert.match(String(statusText || ""), /当前链路：Step 4: 已保存永久笔记路径/);
+	              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+	              const copiedText = await page.evaluate(
+	                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
               );
               assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
               assert.match(String(copiedText || ""), /Step 4: 已保存永久笔记路径 \(.+\)/);
@@ -6777,12 +6783,13 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             }, 4000);
 
             await page.click("#btnStartDraftKickoff");
-            await waitFor(async () => {
-              const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /继续本地 draft|已载入本地 draft kickoff/);
-              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
-              assert.match(
-                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
+	            await waitFor(async () => {
+	              const statusText = await currentPaperWorkspaceStatusText(page);
+	              assert.match(String(statusText || ""), /继续本地 draft|已载入本地 draft kickoff/);
+	              assert.match(String(statusText || ""), /当前链路：Step 4: 已保存永久笔记路径/);
+	              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+	              assert.match(
+	                String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
                 new RegExp(secondRefreshedKickoffRelation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
               );
               assert.match(

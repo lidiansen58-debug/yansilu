@@ -735,6 +735,29 @@ export function paperWorkspaceStatusFeedback(
   };
 }
 
+export function normalizePaperWorkspaceStatusFeedback(
+  feedback = null,
+  fallbackText = PAPER_WORKSPACE_STATUS.loadedWorkspace,
+  fallbackTone = "ok"
+) {
+  return feedback && typeof feedback === "object"
+    ? {
+        text: cleanText(feedback.text) || cleanText(fallbackText) || PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        tone: cleanText(feedback.tone) || cleanText(fallbackTone) || "ok"
+      }
+    : {
+        text: cleanText(feedback) || cleanText(fallbackText) || PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        tone: cleanText(fallbackTone) || "ok"
+      };
+}
+
+export function paperWorkspaceErrorStatusFeedback(error = null) {
+  return {
+    text: `${PAPER_WORKSPACE_STATUS.errorPrefix}${String(error?.message || error || "unknown error")}`,
+    tone: "bad"
+  };
+}
+
 export function chainedPaperWorkspaceStatusFeedback(baseText = "", continuationStatus = null, defaultTone = "ok") {
   const cleanBaseText = cleanText(baseText);
   const continuationText = cleanText(continuationStatus?.text);
@@ -753,6 +776,55 @@ export function translationSaveStatusFeedback(successStatusKey = "savedTranslati
     PAPER_WORKSPACE_STATUS.savedTranslation,
     paperWorkspaceStatusFeedback(cleanSuccessStatusKey, "savedTranslation")
   );
+}
+
+export function permanentCandidateStatusFeedback(runtimeState = null, resumeStatus = null) {
+  const blockedStatusKey = cleanText(runtimeState?.blockedStatusKey);
+  if (blockedStatusKey) {
+    return paperWorkspaceStatusFeedback(
+      blockedStatusKey,
+      "translationNeedsResaveBeforePermanentCandidate",
+      cleanText(runtimeState?.blockedStatusTone) || "warn"
+    );
+  }
+  return chainedPaperWorkspaceStatusFeedback(
+    PAPER_WORKSPACE_STATUS.createdPermanentCandidate,
+    resumeStatus
+  );
+}
+
+export function permanentNoteStatusFeedback(runtimeState = null, resumeStatus = null) {
+  const blockedStatusKey = cleanText(runtimeState?.blockedStatusKey);
+  if (blockedStatusKey) {
+    return paperWorkspaceStatusFeedback(
+      blockedStatusKey,
+      "translationNeedsResaveBeforePermanentNote",
+      cleanText(runtimeState?.blockedStatusTone) || "warn"
+    );
+  }
+  return chainedPaperWorkspaceStatusFeedback(PAPER_WORKSPACE_STATUS.savedPermanentNote, resumeStatus);
+}
+
+export function paperWorkspaceActionStatusFeedback(action = "loadedWorkspace", resumeStatus = null) {
+  const cleanAction = cleanText(action) || "loadedWorkspace";
+  switch (cleanAction) {
+    case "createdWorkspace":
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.createdWorkspace,
+        paperWorkspaceStatusFeedback("workspaceReadyForNotebookDraft", "createdWorkspace")
+      );
+    case "addedNotebookDraft":
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.addedNotebookDraft,
+        resumeStatus
+      );
+    case "loadedWorkspace":
+    default:
+      return chainedPaperWorkspaceStatusFeedback(
+        PAPER_WORKSPACE_STATUS.loadedWorkspace,
+        resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace")
+      );
+  }
 }
 
 export function resolvePaperWorkspaceContinuityStatus(
@@ -949,47 +1021,69 @@ export function blockedDraftContinuationStatusFeedback(draftContinuationAction =
   };
 }
 
-export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null) {
+export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null, pathLabel = "") {
   if (error) {
     return `复制 draft brief 失败：${String(error?.message || error)}`;
   }
   const cleanTitle = cleanText(title);
   const cleanNextAction = cleanText(nextAction);
-  return cleanNextAction
-    ? `已复制 draft brief：${cleanTitle}。下一步：${cleanNextAction}`
-    : `已复制 draft brief：${cleanTitle}`;
+  const cleanPathLabel = cleanText(pathLabel);
+  const parts = [`已复制 draft brief：${cleanTitle}`];
+  if (cleanPathLabel) {
+    parts.push(`当前链路：${cleanPathLabel}`);
+  }
+  if (cleanNextAction) {
+    parts.push(`下一步：${cleanNextAction}`);
+  }
+  return parts.join("。");
 }
 
-export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error = null) {
+export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error = null, pathLabel = "") {
   return {
-    text: draftBriefCopyStatusMessage(title, nextAction, error),
+    text: draftBriefCopyStatusMessage(title, nextAction, error, pathLabel),
     tone: error ? "bad" : "ok"
   };
 }
 
-export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "") {
-  const cleanTitle = cleanText(title);
-  const cleanNextAction = cleanText(nextAction);
-  if (mode === "adopted") {
-    return cleanNextAction
-      ? `已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。下一步：${cleanNextAction}`
-      : "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。";
-  }
-  if (mode === "resumed") {
-    return cleanNextAction
-      ? `继续本地 draft：${cleanTitle}。下一步：${cleanNextAction}`
-      : `继续本地 draft：${cleanTitle}`;
-  }
-  return cleanNextAction
-    ? `已载入本地 draft kickoff：${cleanTitle}。下一步：${cleanNextAction}`
-    : `已载入本地 draft kickoff：${cleanTitle}`;
+export function draftBriefStateStatusFeedback(draftBriefState = null, error = null) {
+  const draftBrief = draftBriefState?.draftBrief || null;
+  const nextAction = cleanText(draftBriefState?.draftContinuationAction?.label);
+  return draftBriefCopyStatusFeedback(draftBrief?.title, nextAction, error, draftBrief?.stepFourLabel);
 }
 
-export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextAction = "") {
+export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "", pathLabel = "") {
+  const cleanTitle = cleanText(title);
+  const cleanNextAction = cleanText(nextAction);
+  const cleanPathLabel = cleanText(pathLabel);
+  if (mode === "adopted") {
+    const parts = [cleanTitle ? `已采用上一版 kickoff 写法：${cleanTitle}` : "已采用上一版 kickoff 写法", "当前本地 draft 仍指向最新转述链路"];
+    if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+    if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+    return parts.join("。");
+  }
+  if (mode === "resumed") {
+    const parts = [`继续本地 draft：${cleanTitle}`];
+    if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+    if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+    return parts.join("。");
+  }
+  const parts = [`已载入本地 draft kickoff：${cleanTitle}`];
+  if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
+  if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
+  return parts.join("。");
+}
+
+export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextAction = "", pathLabel = "") {
   return {
-    text: draftKickoffStatusMessage(mode, title, nextAction),
+    text: draftKickoffStatusMessage(mode, title, nextAction, pathLabel),
     tone: "ok"
   };
+}
+
+export function draftKickoffStateStatusFeedback(mode = "loaded", draftBriefState = null) {
+  const draftBrief = draftBriefState?.draftBrief || null;
+  const nextAction = cleanText(draftBriefState?.draftContinuationAction?.label);
+  return draftKickoffStatusFeedback(mode, draftBrief?.title, nextAction, draftBrief?.stepFourLabel);
 }
 
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
@@ -1380,6 +1474,63 @@ export function resolveDraftKickoffRuntimeState(
       hasContent: kickoffState.hasContent,
       isStale: kickoffState.isStale
     })
+  };
+}
+
+export function resolvePaperWorkspaceRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  form = null,
+  draftInput = null
+) {
+  const translationRuntime = resolveTranslationRuntimeContext(workspace, candidateId, draftInput);
+  const normalizedDraftInput = translationRuntime.draftInput;
+  const translationSaveState = resolveTranslationSaveRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const draftBriefState = resolveDraftBriefState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const draftKickoffState = resolveDraftKickoffRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    form,
+    normalizedDraftInput
+  );
+  const permanentCandidateState = resolvePermanentCandidateRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const permanentNoteState = resolvePermanentNoteRuntimeState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    normalizedDraftInput
+  );
+
+  return {
+    ...translationRuntime,
+    translationSaveState,
+    draftBriefState,
+    draftKickoffState,
+    permanentCandidateState,
+    permanentNoteState
   };
 }
 

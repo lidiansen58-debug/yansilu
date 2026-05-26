@@ -15,8 +15,10 @@ import {
   draftBriefButtonLabel,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
+  draftBriefStateStatusFeedback,
   draftKickoffStatusFeedback,
   draftKickoffStatusMessage,
+  draftKickoffStateStatusFeedback,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
@@ -26,12 +28,17 @@ import {
   normalizeTranslationDraftInput,
   nextSelectedCandidateId,
   nextSelectedPermanentCandidateId,
+  normalizePaperWorkspaceStatusFeedback,
+  paperWorkspaceActionStatusFeedback,
+  paperWorkspaceErrorStatusFeedback,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
   paperWorkspaceStatusFeedback,
+  permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
+  permanentNoteStatusFeedback,
   permanentNoteActionState,
   permanentNoteContinuityState,
   preferredPaperCandidateIdForWorkspaceResume,
@@ -40,6 +47,7 @@ import {
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
   resolvePaperWorkspaceContinuityStatusFeedback,
+  resolvePaperWorkspaceRuntimeState,
   resolveTranslationRuntimeContext,
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
@@ -830,6 +838,93 @@ test("resolveDraftKickoffRuntimeState combines kickoff continuity, saved-path ac
   });
 });
 
+test("resolvePaperWorkspaceRuntimeState reuses one normalized draft context across translation, draft, kickoff, and step four", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const workspaceSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      })
+    }
+  };
+  const form = {
+    draftKickoffText: "Current kickoff wording.",
+    draftKickoffSignature: JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    }),
+    draftKickoffPreviousText: "Previous kickoff wording.",
+    draftKickoffPreviousSignature: "sig_previous",
+    draftKickoffReplacementSignature: JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    })
+  };
+
+  const state = resolvePaperWorkspaceRuntimeState(
+    workspace,
+    workspaceSelection,
+    "pwc_1",
+    "pn_1",
+    form,
+    {
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    }
+  );
+
+  assert.deepEqual(state.draftInput, {
+    paraphraseText: "Local wording.",
+    relationToQuestion: "Local relation.",
+    boundaryOrCondition: "Local boundary."
+  });
+  assert.equal(
+    state.translationSignature,
+    JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    })
+  );
+  assert.equal(state.translationSaveState.action.label, "更新转述");
+  assert.equal(state.draftBriefState.draftContinuationAction.key, "update_translation_affects_step_four");
+  assert.equal(state.draftKickoffState.currentTranslationSignature, state.translationSignature);
+  assert.equal(state.permanentCandidateState.draft.paraphraseText, "Local wording.");
+  assert.equal(state.permanentNoteState.draft.relationToQuestion, "Local relation.");
+});
+
 test("resolvePermanentCandidateRuntimeState reports the real blocked next step for step four entry", () => {
   const workspace = {
     candidates: [{ id: "pwc_1", title: "Candidate One", candidateKind: "claim" }],
@@ -1055,8 +1150,13 @@ test("draft continuity status helpers return the expected runtime messages", () 
   assert.equal(blockedDraftContinuationStatusMessage(null), "当前还不能继续写 draft。");
 
   assert.equal(
-    draftBriefCopyStatusMessage("Draft brief: Candidate One", "继续本地 draft"),
-    "已复制 draft brief：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftBriefCopyStatusMessage(
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      null,
+      "Step 4: 尚未生成永久笔记候选"
+    ),
+    "已复制 draft brief：Draft brief: Candidate One。当前链路：Step 4: 尚未生成永久笔记候选。下一步：继续本地 draft"
   );
   assert.equal(
     draftBriefCopyStatusMessage("Draft brief: Candidate One"),
@@ -1065,16 +1165,26 @@ test("draft continuity status helpers return the expected runtime messages", () 
   assert.equal(draftBriefCopyStatusMessage("", "", new Error("boom")), "复制 draft brief 失败：boom");
 
   assert.equal(
-    draftKickoffStatusMessage("loaded", "Draft brief: Candidate One", "继续本地 draft"),
-    "已载入本地 draft kickoff：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftKickoffStatusMessage(
+      "loaded",
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      "Step 4: 尚未生成永久笔记候选"
+    ),
+    "已载入本地 draft kickoff：Draft brief: Candidate One。当前链路：Step 4: 尚未生成永久笔记候选。下一步：继续本地 draft"
   );
   assert.equal(
-    draftKickoffStatusMessage("resumed", "Draft brief: Candidate One", "继续本地 draft"),
-    "继续本地 draft：Draft brief: Candidate One。下一步：继续本地 draft"
+    draftKickoffStatusMessage(
+      "resumed",
+      "Draft brief: Candidate One",
+      "继续本地 draft",
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    ),
+    "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft"
   );
   assert.equal(
-    draftKickoffStatusMessage("adopted"),
-    "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路。"
+    draftKickoffStatusMessage("adopted", "Draft brief: Candidate One"),
+    "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路"
   );
 });
 
@@ -2229,6 +2339,38 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   assert.equal(notebookReadyFeedback.tone, "ok");
 });
 
+test("paper workspace status helpers normalize action feedback and error feedback", () => {
+  assert.deepEqual(
+    normalizePaperWorkspaceStatusFeedback(
+      {
+        text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。",
+        tone: "warn"
+      },
+      "论文工作台已读取",
+      "ok"
+    ),
+    {
+      text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(normalizePaperWorkspaceStatusFeedback("", "论文工作台已读取", "ok"), {
+    text: "论文工作台已读取",
+    tone: "ok"
+  });
+
+  assert.deepEqual(normalizePaperWorkspaceStatusFeedback(null, "论文工作台已读取", "warn"), {
+    text: "论文工作台已读取",
+    tone: "warn"
+  });
+
+  assert.deepEqual(paperWorkspaceErrorStatusFeedback(new Error("network down")), {
+    text: "操作失败：network down",
+    tone: "bad"
+  });
+});
+
 test("chainedPaperWorkspaceStatusFeedback appends continuity text and keeps its tone", () => {
   assert.deepEqual(
     chainedPaperWorkspaceStatusFeedback("永久笔记已保存", {
@@ -2261,6 +2403,87 @@ test("translationSaveStatusFeedback keeps save confirmation while carrying the n
   });
 });
 
+test("step-four status feedback helpers reuse blocked and success continuity feedback", () => {
+  assert.deepEqual(
+    permanentCandidateStatusFeedback(
+      {
+        blockedStatusKey: "savedTranslationNeedsDraftSupport",
+        blockedStatusTone: "warn"
+      },
+      null
+    ),
+    {
+      text: "这条候选的转述已保存，但 relation 和 boundary 还不足以支撑下一步。先补全它们，再进入永久笔记候选或继续写 draft。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(
+    permanentCandidateStatusFeedback(null, {
+      text: "已对齐到这条候选的永久笔记候选",
+      tone: "ok"
+    }),
+    {
+      text: "永久笔记候选已生成。已对齐到这条候选的永久笔记候选",
+      tone: "ok"
+    }
+  );
+
+  assert.deepEqual(
+    permanentNoteStatusFeedback(
+      {
+        blockedStatusKey: "savedPermanentNote",
+        blockedStatusTone: "ok"
+      },
+      null
+    ),
+    {
+      text: "永久笔记已保存",
+      tone: "ok"
+    }
+  );
+
+  assert.deepEqual(
+    permanentNoteStatusFeedback(null, {
+      text: "已对齐到这条候选已保存的永久笔记路径",
+      tone: "ok"
+    }),
+    {
+      text: "永久笔记已保存。已对齐到这条候选已保存的永久笔记路径",
+      tone: "ok"
+    }
+  );
+});
+
+test("workspace action status feedback keeps creation, load, and notebook handoff continuity together", () => {
+  assert.deepEqual(paperWorkspaceActionStatusFeedback("createdWorkspace"), {
+    text: "论文工作台已创建。下一步：粘贴 NotebookLM 输出，先生成 literature 候选。",
+    tone: "ok"
+  });
+
+  assert.deepEqual(
+    paperWorkspaceActionStatusFeedback("loadedWorkspace", {
+      text: "已恢复这条候选的本地未保存转述草稿。先保存这条转述，再进入永久笔记候选。",
+      tone: "warn"
+    }),
+    {
+      text: "论文工作台已读取。已恢复这条候选的本地未保存转述草稿。先保存这条转述，再进入永久笔记候选。",
+      tone: "warn"
+    }
+  );
+
+  assert.deepEqual(
+    paperWorkspaceActionStatusFeedback("addedNotebookDraft", {
+      text: "已选中这条候选。先完成转述并保存，再进入永久笔记候选。",
+      tone: "ok"
+    }),
+    {
+      text: "NotebookLM 内容已转成 literature 候选。已选中这条候选。先完成转述并保存，再进入永久笔记候选。",
+      tone: "ok"
+    }
+  );
+});
+
 test("draft continuity status feedback helpers return stable tones", () => {
   const blockedFeedback = blockedDraftContinuationStatusFeedback({
     label: "先保存这条转述，再继续写 draft。"
@@ -2272,26 +2495,81 @@ test("draft continuity status feedback helpers return stable tones", () => {
     blockedDraftContinuationStatusMessage({ label: "先保存这条转述，再继续写 draft。" })
   );
 
-  const copyFeedback = draftBriefCopyStatusFeedback("Draft handoff", "继续本地 draft");
+  const copyFeedback = draftBriefCopyStatusFeedback(
+    "Draft handoff",
+    "继续本地 draft",
+    null,
+    "Step 4: 已保存永久笔记路径 (note_1)"
+  );
   assert.match(copyFeedback.text, /Draft handoff/);
+  assert.match(copyFeedback.text, /当前链路：Step 4: 已保存永久笔记路径/);
   assert.equal(copyFeedback.tone, "ok");
   assert.equal(
     copyFeedback.text,
-    draftBriefCopyStatusMessage("Draft handoff", "继续本地 draft")
+    draftBriefCopyStatusMessage(
+      "Draft handoff",
+      "继续本地 draft",
+      null,
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    )
   );
 
   const copyErrorFeedback = draftBriefCopyStatusFeedback("", "", new Error("clipboard unavailable"));
   assert.match(copyErrorFeedback.text, /clipboard unavailable/);
   assert.equal(copyErrorFeedback.tone, "bad");
 
-  const kickoffFeedback = draftKickoffStatusFeedback("adopted", "", "这条转述已经具备继续写 draft 的最小条件。");
+  const kickoffFeedback = draftKickoffStatusFeedback(
+    "adopted",
+    "Draft brief: Candidate One",
+    "这条转述已经具备继续写 draft 的最小条件。",
+    "Step 4: 已保存永久笔记路径 (note_1)"
+  );
   assert.match(kickoffFeedback.text, /kickoff/);
+  assert.match(kickoffFeedback.text, /Draft brief: Candidate One/);
+  assert.match(kickoffFeedback.text, /当前链路：Step 4: 已保存永久笔记路径/);
   assert.match(kickoffFeedback.text, /下一步/);
   assert.equal(kickoffFeedback.tone, "ok");
   assert.equal(
     kickoffFeedback.text,
-    draftKickoffStatusMessage("adopted", "", "这条转述已经具备继续写 draft 的最小条件。")
+    draftKickoffStatusMessage(
+      "adopted",
+      "Draft brief: Candidate One",
+      "这条转述已经具备继续写 draft 的最小条件。",
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    )
   );
+});
+
+test("draft handoff state feedback helpers derive status text directly from draft brief state", () => {
+  const draftBriefState = {
+    draftBrief: {
+      title: "Draft brief: Candidate One",
+      stepFourLabel: "Step 4: 已保存永久笔记路径 (note_1)"
+    },
+    draftContinuationAction: {
+      label: "继续本地 draft"
+    }
+  };
+
+  assert.deepEqual(draftBriefStateStatusFeedback(draftBriefState), {
+    text: "已复制 draft brief：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftBriefStateStatusFeedback(draftBriefState, new Error("clipboard unavailable")), {
+    text: "复制 draft brief 失败：clipboard unavailable",
+    tone: "bad"
+  });
+
+  assert.deepEqual(draftKickoffStateStatusFeedback("resumed", draftBriefState), {
+    text: "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStateStatusFeedback("adopted", draftBriefState), {
+    text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
