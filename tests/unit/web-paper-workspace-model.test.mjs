@@ -16,6 +16,8 @@ import {
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
+  draftKickoffAdoptedStatusFeedback,
+  draftKickoffStartStatusFeedback,
   draftKickoffStatusFeedback,
   draftKickoffStatusMessage,
   draftKickoffStateStatusFeedback,
@@ -61,7 +63,9 @@ import {
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
   resolvePersistedDraftKickoff,
+  resolvePersistedDraftKickoffFromForm,
   resolvePersistedDraftKickoffSnapshot,
+  resolvePersistedDraftKickoffSnapshotFromForm,
   resolvePersistedDraftBriefCopy,
   resolvePersistedDraftBriefCopyFromState,
   resolveStoredDraftKickoff,
@@ -1935,6 +1939,31 @@ test("resolvePersistedDraftKickoff keeps candidate-scoped identity and rejects e
   );
 });
 
+test("resolvePersistedDraftKickoffFromForm derives a persisted kickoff directly from form state", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoffFromForm(
+      {
+        draftKickoffText: " Local kickoff wording. ",
+        draftKickoffSignature: " sig_current "
+      },
+      "paper_test",
+      "pwc_1",
+      {
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Local kickoff wording.",
+      translationSignature: "sig_current",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(resolvePersistedDraftKickoffFromForm(null, "paper_test", "pwc_1", {}), null);
+});
+
 test("resolveStoredDraftKickoffSnapshot normalizes a matching stored snapshot and rejects mismatched identity payloads", () => {
   assert.deepEqual(
     resolveStoredDraftKickoffSnapshot(
@@ -2009,6 +2038,58 @@ test("resolvePersistedDraftKickoffSnapshot keeps candidate-scoped identity and r
     ),
     null
   );
+});
+
+test("resolvePersistedDraftKickoffSnapshotFromForm derives a persisted snapshot from snapshot payload or form fallback", () => {
+  assert.deepEqual(
+    resolvePersistedDraftKickoffSnapshotFromForm(
+      {
+        draftKickoffPreviousText: " Previous kickoff wording. ",
+        draftKickoffPreviousSignature: " sig_before ",
+        draftKickoffReplacementSignature: " sig_after "
+      },
+      "paper_test",
+      "pwc_1",
+      null,
+      {
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Previous kickoff wording.",
+      previousSignature: "sig_before",
+      replacementSignature: "sig_after",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.deepEqual(
+    resolvePersistedDraftKickoffSnapshotFromForm(
+      null,
+      "paper_test",
+      "pwc_1",
+      {
+        content: " Snapshot content. ",
+        previousSignature: " sig_prev ",
+        replacementSignature: " sig_repl "
+      },
+      {
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      content: "Snapshot content.",
+      previousSignature: "sig_prev",
+      replacementSignature: "sig_repl",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(resolvePersistedDraftKickoffSnapshotFromForm(null, "paper_test", "pwc_1", null, {}), null);
 });
 
 test("resolveStoredDraftBriefCopy normalizes a matching stored brief copy and rejects mismatched identity payloads", () => {
@@ -2098,13 +2179,14 @@ test("resolvePersistedDraftBriefCopyFromState derives a persisted payload direct
           stepFourPathKey: "pn_1",
           title: "Draft brief: Candidate One"
         },
+        currentTranslationSignature: "sig_current",
         draftContinuationAction: {
           key: "review_saved_permanent_note",
           label: "回看 originality / authorship"
         }
       },
       "pwc_1",
-      "sig_current",
+      "",
       "2026-05-26T00:00:00.000Z"
     ),
     {
@@ -3347,6 +3429,21 @@ test("draft handoff state feedback helpers derive status text directly from draf
   });
 
   assert.deepEqual(draftKickoffStateStatusFeedback("adopted", draftBriefState), {
+    text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStartStatusFeedback({ hasContent: false, isStale: false }, draftBriefState), {
+    text: "已载入本地 draft kickoff：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffStartStatusFeedback({ hasContent: true, isStale: false }, draftBriefState), {
+    text: "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
+    tone: "ok"
+  });
+
+  assert.deepEqual(draftKickoffAdoptedStatusFeedback(draftBriefState), {
     text: "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft",
     tone: "ok"
   });

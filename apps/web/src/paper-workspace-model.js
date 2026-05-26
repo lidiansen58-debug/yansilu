@@ -293,6 +293,14 @@ export function resolvePersistedDraftKickoff(
   };
 }
 
+export function resolvePersistedDraftKickoffFromForm(form = null, paperId = "", candidateId = "", overrides = {}) {
+  return resolvePersistedDraftKickoff(null, paperId, candidateId, {
+    content: overrides.content ?? form?.draftKickoffText,
+    translationSignature: overrides.translationSignature ?? form?.draftKickoffSignature,
+    updatedAt: overrides.updatedAt
+  });
+}
+
 export function resolvePersistedDraftKickoffSnapshot(
   storedSnapshot = null,
   paperId = "",
@@ -321,6 +329,25 @@ export function resolvePersistedDraftKickoffSnapshot(
     candidateId: cleanCandidateId,
     ...persistedSnapshot
   };
+}
+
+export function resolvePersistedDraftKickoffSnapshotFromForm(
+  form = null,
+  paperId = "",
+  candidateId = "",
+  snapshot = null,
+  overrides = {}
+) {
+  const normalizedSnapshot = snapshot && typeof snapshot === "object" ? snapshot : null;
+  return resolvePersistedDraftKickoffSnapshot(null, paperId, candidateId, {
+    content: overrides.content ?? normalizedSnapshot?.content ?? form?.draftKickoffPreviousText,
+    previousSignature: overrides.previousSignature ?? normalizedSnapshot?.previousSignature ?? form?.draftKickoffPreviousSignature,
+    replacementSignature:
+      overrides.replacementSignature ??
+      normalizedSnapshot?.replacementSignature ??
+      form?.draftKickoffReplacementSignature,
+    updatedAt: overrides.updatedAt
+  });
 }
 
 export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "") {
@@ -371,12 +398,14 @@ export function resolvePersistedDraftBriefCopyFromState(
   translationSignature = "",
   copiedAt = ""
 ) {
+  const cleanTranslationSignature =
+    cleanText(translationSignature) || cleanText(draftBriefState?.currentTranslationSignature);
   return resolvePersistedDraftBriefCopy(null, candidateId, {
     stepFourPathKey: draftBriefState?.draftBrief?.stepFourPathKey,
     title: draftBriefState?.draftBrief?.title,
     nextActionKey: draftBriefState?.draftContinuationAction?.key,
     nextAction: draftBriefState?.draftContinuationAction?.label,
-    translationSignature,
+    translationSignature: cleanTranslationSignature,
     copiedAt
   });
 }
@@ -1427,6 +1456,15 @@ export function draftKickoffStateStatusFeedback(mode = "loaded", draftBriefState
   const draftBrief = draftBriefState?.draftBrief || null;
   const nextAction = cleanText(draftBriefState?.draftContinuationAction?.label);
   return draftKickoffStatusFeedback(mode, draftBrief?.title, nextAction, draftBrief?.stepFourLabel);
+}
+
+export function draftKickoffStartStatusFeedback(kickoffState = null, draftBriefState = null) {
+  const mode = !kickoffState?.hasContent || kickoffState?.isStale ? "loaded" : "resumed";
+  return draftKickoffStateStatusFeedback(mode, draftBriefState);
+}
+
+export function draftKickoffAdoptedStatusFeedback(draftBriefState = null) {
+  return draftKickoffStateStatusFeedback("adopted", draftBriefState);
 }
 
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
