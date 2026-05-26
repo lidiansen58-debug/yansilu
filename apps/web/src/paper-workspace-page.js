@@ -139,34 +139,58 @@ function writeStoredRecord(key, value) {
   }
 }
 
+function readPaperStoredRecord(storageKeyResolver, paperId, resolver) {
+  const key = storageKeyResolver(paperId);
+  return readStoredRecord(key, resolver);
+}
+
+function readCandidateStoredRecord(storageKeyResolver, paperId, candidateId, resolver) {
+  const key = storageKeyResolver(paperId, candidateId);
+  return readStoredRecord(key, resolver);
+}
+
+function clearCandidateStoredRecord(storageKeyResolver, paperId, candidateId) {
+  const key = storageKeyResolver(paperId, candidateId);
+  clearStoredRecord(key);
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
-  const key = translationDraftStorageKey(paperId, candidateId);
-  return readStoredRecord(key, (parsed) => resolveStoredTranslationDraft(parsed, paperId, candidateId));
+  return readCandidateStoredRecord(
+    translationDraftStorageKey,
+    paperId,
+    candidateId,
+    (parsed) => resolveStoredTranslationDraft(parsed, paperId, candidateId)
+  );
 }
 
 function clearStoredTranslationDraft(paperId, candidateId) {
-  const key = translationDraftStorageKey(paperId, candidateId);
-  clearStoredRecord(key);
+  clearCandidateStoredRecord(translationDraftStorageKey, paperId, candidateId);
 }
 
 function readStoredDraftKickoff(paperId, candidateId) {
-  const key = draftKickoffStorageKey(paperId, candidateId);
-  return readStoredRecord(key, (parsed) => resolveStoredDraftKickoff(parsed, paperId, candidateId));
+  return readCandidateStoredRecord(
+    draftKickoffStorageKey,
+    paperId,
+    candidateId,
+    (parsed) => resolveStoredDraftKickoff(parsed, paperId, candidateId)
+  );
 }
 
 function clearStoredDraftKickoff(paperId, candidateId) {
-  const key = draftKickoffStorageKey(paperId, candidateId);
-  clearStoredRecord(key);
+  clearCandidateStoredRecord(draftKickoffStorageKey, paperId, candidateId);
 }
 
 function readStoredDraftKickoffSnapshot(paperId, candidateId) {
-  const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
-  return readStoredRecord(key, (parsed) => resolveStoredDraftKickoffSnapshot(parsed, paperId, candidateId));
+  return readCandidateStoredRecord(
+    draftKickoffSnapshotStorageKey,
+    paperId,
+    candidateId,
+    (parsed) => resolveStoredDraftKickoffSnapshot(parsed, paperId, candidateId)
+  );
 }
 
 function clearStoredDraftKickoffSnapshot(paperId, candidateId) {
-  const key = draftKickoffSnapshotStorageKey(paperId, candidateId);
-  clearStoredRecord(key);
+  clearCandidateStoredRecord(draftKickoffSnapshotStorageKey, paperId, candidateId);
 }
 
 function candidateHasStoredTranslationDraft(paperId, candidateId) {
@@ -174,8 +198,11 @@ function candidateHasStoredTranslationDraft(paperId, candidateId) {
 }
 
 function readStoredWorkspaceSelection(paperId) {
-  const key = workspaceSelectionStorageKey(paperId);
-  return readStoredRecord(key, (parsed) => resolveStoredWorkspaceSelection(parsed, paperId));
+  return readPaperStoredRecord(
+    workspaceSelectionStorageKey,
+    paperId,
+    (parsed) => resolveStoredWorkspaceSelection(parsed, paperId)
+  );
 }
 
 function persistWorkspaceSelection(overrides = {}) {
