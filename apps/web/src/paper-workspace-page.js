@@ -244,6 +244,7 @@ function readStoredWorkspaceSelection(paperId) {
                   cleanCandidateId,
                   {
                     candidateId: storedCandidateId,
+                    stepFourPathKey: String(entry.stepFourPathKey || "").trim(),
                     title: String(entry.title || "").trim(),
                     nextActionKey: String(entry.nextActionKey || "").trim(),
                     nextAction: String(entry.nextAction || "").trim(),
@@ -319,6 +320,7 @@ function persistWorkspaceSelection(overrides = {}) {
           if (title && translationSignature && (nextAction || nextActionKey)) {
             draftBriefByCandidate[draftBriefCandidateId] = {
               candidateId: draftBriefCandidateId,
+              stepFourPathKey: String(draftBriefCopy.stepFourPathKey || "").trim(),
               title,
               nextActionKey,
               nextAction,
@@ -990,6 +992,7 @@ async function handleCopyDraftBrief() {
     persistWorkspaceSelection({
       draftBriefCopy: {
         candidateId: state.selectedCandidateId,
+        stepFourPathKey: draftBrief.stepFourPathKey,
         title: draftBrief.title,
         nextActionKey: draftContinuationAction?.key,
         nextAction: draftContinuationAction?.label,

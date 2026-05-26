@@ -743,6 +743,7 @@ test("resolveDraftBriefState combines brief, action state, and candidate-scoped 
     draftBriefByCandidate: {
       pwc_1: {
         candidateId: "pwc_1",
+        stepFourPathKey: "pn_1",
         title: "Draft brief: Candidate One",
         nextActionKey: "review_saved_permanent_note",
         nextAction: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。",
@@ -770,6 +771,7 @@ test("resolveDraftBriefState combines brief, action state, and candidate-scoped 
   });
   assert.equal(state.currentTranslationSignature, translationSignature);
   assert.equal(state.recentDraftBriefCopy?.candidateId, "pwc_1");
+  assert.equal(state.recentDraftBriefCopy?.stepFourPathKey, "pn_1");
   assert.equal(state.recentDraftBriefCopy?.nextActionKey, "review_saved_permanent_note");
   assert.equal(
     state.recentDraftBriefCopy?.nextAction,
@@ -1092,6 +1094,7 @@ test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its tra
     draftBriefByCandidate: {
       pwc_1: {
         candidateId: "pwc_1",
+        stepFourPathKey: "pn_1",
         title: "Draft brief: Candidate One",
         nextActionKey: "review_saved_permanent_note",
         nextAction: "旧文案：回看 originality / authorship",
@@ -1101,8 +1104,9 @@ test("resolveRecentDraftBriefCopy returns the candidate-scoped copy when its tra
     }
   };
 
-  assert.deepEqual(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current", action), {
+  assert.deepEqual(resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current", action, "pn_1"), {
     candidateId: "pwc_1",
+    stepFourPathKey: "pn_1",
     title: "Draft brief: Candidate One",
     nextActionKey: "review_saved_permanent_note",
     nextAction: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。",
@@ -1164,6 +1168,7 @@ test("resolveRecentDraftBriefCopy clears a stored brief when its next-action key
     draftBriefByCandidate: {
       pwc_1: {
         candidateId: "pwc_1",
+        stepFourPathKey: "pn_1",
         title: "Draft brief: Candidate One",
         nextActionKey: "review_saved_permanent_note",
         nextAction: "旧文案：回看 originality / authorship",
@@ -1177,7 +1182,37 @@ test("resolveRecentDraftBriefCopy clears a stored brief when its next-action key
     resolveRecentDraftBriefCopy(workspaceSelection, "pwc_1", "sig_current", {
       key: "refresh_step_four",
       label: "先刷新 Step 4"
-    }),
+    }, "pn_1"),
+    null
+  );
+});
+
+test("resolveRecentDraftBriefCopy clears a stored brief when the selected step-four path changes within the same candidate", () => {
+  const workspaceSelection = {
+    draftBriefByCandidate: {
+      pwc_1: {
+        candidateId: "pwc_1",
+        stepFourPathKey: "pn_1",
+        title: "Draft brief: Candidate One",
+        nextActionKey: "review_saved_permanent_note",
+        nextAction: "旧文案：回看 originality / authorship",
+        translationSignature: "sig_current",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    }
+  };
+
+  assert.equal(
+    resolveRecentDraftBriefCopy(
+      workspaceSelection,
+      "pwc_1",
+      "sig_current",
+      {
+        key: "review_saved_permanent_note",
+        label: "这条路径已连到已保存的永久笔记。继续写 draft 前，先回看 originality / authorship。"
+      },
+      "pn_2"
+    ),
     null
   );
 });

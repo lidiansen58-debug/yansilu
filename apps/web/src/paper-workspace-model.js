@@ -1262,6 +1262,7 @@ export function draftContinuationBrief(
       : "";
   const savedPermanentNoteId =
     continuity.reason === "saved_permanent_note" ? cleanText(selectedPermanent?.savedPermanentNoteId) : "";
+  const stepFourPathKey = cleanText(selectedPermanent?.id) || "step4:none";
   const draftContinuationAction = draftContinuationActionState(
     {
       selectedCandidateId: cleanText(candidate?.id),
@@ -1296,6 +1297,7 @@ export function draftContinuationBrief(
     title,
     markdown: lines.join("\n"),
     stepFourLabel: `Step 4: ${stepFourLabel}${permanentTitle ? ` (${permanentTitle})` : ""}`,
+    stepFourPathKey,
     savedPermanentNoteId,
     nextAction: cleanText(draftContinuationAction?.label),
     preview: [
@@ -1313,15 +1315,19 @@ export function resolveRecentDraftBriefCopy(
   workspaceSelection = null,
   candidateId = "",
   translationSignature = "",
-  draftContinuationAction = null
+  draftContinuationAction = null,
+  stepFourPathKey = ""
 ) {
   const cleanCandidateId = cleanText(candidateId);
   const cleanTranslationSignature = cleanText(translationSignature);
+  const cleanStepFourPathKey = cleanText(stepFourPathKey);
   if (!cleanCandidateId || !cleanTranslationSignature) return null;
   const storedCopy = workspaceSelection?.draftBriefByCandidate?.[cleanCandidateId];
   if (!storedCopy || cleanText(storedCopy.translationSignature) !== cleanTranslationSignature) return null;
   const storedCandidateId = cleanText(storedCopy.candidateId);
   if (storedCandidateId && storedCandidateId !== cleanCandidateId) return null;
+  const storedStepFourPathKey = cleanText(storedCopy.stepFourPathKey);
+  if (storedStepFourPathKey && cleanStepFourPathKey && storedStepFourPathKey !== cleanStepFourPathKey) return null;
   const storedNextActionKey = cleanText(storedCopy.nextActionKey);
   const currentNextActionKey = cleanText(draftContinuationAction?.key);
   if (storedNextActionKey && currentNextActionKey && storedNextActionKey !== currentNextActionKey) return null;
@@ -1333,6 +1339,7 @@ export function resolveRecentDraftBriefCopy(
   return {
     ...storedCopy,
     candidateId: storedCandidateId || cleanCandidateId,
+    stepFourPathKey: storedStepFourPathKey,
     nextActionKey: storedNextActionKey,
     nextAction: resolvedNextAction
   };
@@ -1371,7 +1378,8 @@ export function resolveDraftBriefState(
     workspaceSelection,
     candidateId,
     currentTranslationSignature,
-    draftContinuationAction
+    draftContinuationAction,
+    draftBrief?.stepFourPathKey
   );
 
   return {
