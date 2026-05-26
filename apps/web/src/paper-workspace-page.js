@@ -26,10 +26,10 @@ import {
   resolveAdoptedDraftKickoff,
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
-  resolvePersistedWorkspaceSelection,
   resolvePersistedDraftKickoff,
   resolvePersistedDraftKickoffSnapshot,
   resolveRefreshedDraftKickoff,
+  resolvePersistedWorkspaceSelectionRecord,
   resolveStoredWorkspaceSelection,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
@@ -192,7 +192,7 @@ function readStoredWorkspaceSelection(paperId) {
   try {
     const raw = window.localStorage?.getItem(key);
     if (!raw) return null;
-    return resolveStoredWorkspaceSelection(JSON.parse(raw));
+    return resolveStoredWorkspaceSelection(JSON.parse(raw), paperId);
   } catch {
     return null;
   }
@@ -209,8 +209,9 @@ function persistWorkspaceSelection(overrides = {}) {
     ).trim();
     const saveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
     const currentSelection = readStoredWorkspaceSelection(paperId);
-    const nextSelectionPayload = resolvePersistedWorkspaceSelection(
+    const nextSelection = resolvePersistedWorkspaceSelectionRecord(
       currentSelection,
+      paperId,
       {
         selectedCandidateId,
         selectedPermanentCandidateId,
@@ -218,14 +219,11 @@ function persistWorkspaceSelection(overrides = {}) {
       },
       {
         ...overrides,
-        confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true
+        confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true,
+        updatedAt: new Date().toISOString()
       }
     );
-    const nextSelection = {
-      paperId,
-      ...nextSelectionPayload,
-      updatedAt: new Date().toISOString()
-    };
+    if (!nextSelection) return;
     window.localStorage?.setItem(
       key,
       JSON.stringify(nextSelection)
