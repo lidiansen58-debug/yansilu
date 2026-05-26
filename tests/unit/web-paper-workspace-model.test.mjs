@@ -952,6 +952,7 @@ test("resolvePermanentCandidateRuntimeState reports the real blocked next step f
   );
   assert.deepEqual(supportMissingState.action, {
     enabled: false,
+    key: "fill_support",
     label: "先补 relation / boundary"
   });
   assert.equal(supportMissingState.blockedStatusKey, "savedTranslationNeedsDraftSupport");
@@ -973,6 +974,7 @@ test("resolvePermanentCandidateRuntimeState reports the real blocked next step f
   );
   assert.deepEqual(unsavedDraftState.action, {
     enabled: false,
+    key: "save_translation",
     label: "先保存转述"
   });
   assert.equal(unsavedDraftState.blockedStatusKey, "translationNeedsSaveBeforePermanentCandidate");
@@ -1559,6 +1561,7 @@ test("permanentCandidateActionState reflects the current translation prerequisit
 
   assert.deepEqual(permanentCandidateActionState(workspace, null, "missing"), {
     enabled: true,
+    key: "create_permanent_candidate",
     label: "生成永久笔记候选"
   });
   assert.deepEqual(
@@ -1578,6 +1581,7 @@ test("permanentCandidateActionState reflects the current translation prerequisit
     ),
     {
       enabled: false,
+      key: "save_translation",
       label: "先保存转述"
     }
   );
@@ -1589,6 +1593,7 @@ test("permanentCandidateActionState reflects the current translation prerequisit
     }),
     {
       enabled: false,
+      key: "update_translation",
       label: "先更新转述"
     }
   );

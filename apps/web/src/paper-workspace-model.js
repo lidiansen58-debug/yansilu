@@ -295,24 +295,25 @@ export function permanentCandidateActionState(
     cleanText(selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId)?.paper_candidate_id) ===
       cleanText(draft.candidate?.id);
   if (!cleanText(draft.candidate?.id)) {
-    return { enabled: false, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+    return { enabled: false, key: "create_permanent_candidate", label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
   }
   if (!draft.hasSavedTranslation) {
     return {
       enabled: false,
+      key: "save_translation",
       label: draft.hasLocalChanges ? "\u5148\u4fdd\u5b58\u8f6c\u8ff0" : "\u5148\u4fdd\u5b58\u8f6c\u8ff0"
     };
   }
   if (draft.hasLocalChanges) {
-    return { enabled: false, label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
+    return { enabled: false, key: "update_translation", label: "\u5148\u66f4\u65b0\u8f6c\u8ff0" };
   }
   if (!supportsNextStep) {
-    return { enabled: false, label: "\u5148\u8865 relation / boundary" };
+    return { enabled: false, key: "fill_support", label: "\u5148\u8865 relation / boundary" };
   }
   if (hasAlignedPermanentCandidate && continuity.reason === "stale_translation_signature") {
-    return { enabled: true, label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+    return { enabled: true, key: "refresh_permanent_candidate", label: "\u91cd\u65b0\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
   }
-  return { enabled: true, label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
+  return { enabled: true, key: "create_permanent_candidate", label: "\u751f\u6210\u6c38\u4e45\u7b14\u8bb0\u5019\u9009" };
 }
 
 export function permanentNoteActionState(

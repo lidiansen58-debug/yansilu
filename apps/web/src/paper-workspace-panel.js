@@ -154,18 +154,18 @@ function renderPermanentCandidate(candidate = null, options = {}) {
   const hasOtherPermanentCandidates = Boolean(options.hasOtherPermanentCandidates);
   const hasCurrentCandidate = Boolean(options.hasCurrentCandidate);
   const canCreateCurrentPermanentCandidate = Boolean(options.canCreateCurrentPermanentCandidate);
-  const currentPermanentCandidateActionLabel = String(options.currentPermanentCandidateActionLabel || "").trim();
+  const currentPermanentCandidateActionKey = String(options.currentPermanentCandidateActionKey || "").trim();
   const isAlignedToSelectedCandidate = Boolean(options.isAlignedToSelectedCandidate);
   const hasUnsavedAlignedTranslationChanges = Boolean(options.hasUnsavedAlignedTranslationChanges);
   const hasStaleAlignedPermanentCandidate = Boolean(options.hasStaleAlignedPermanentCandidate);
   if (!candidate) {
-    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先保存转述") {
+    if (hasCurrentCandidate && currentPermanentCandidateActionKey === "save_translation") {
       return `<div class="paper-muted-box">当前这条候选只有本地未保存的转述草稿。先保存这条转述，再进入永久笔记候选或继续写 draft。</div>`;
     }
-    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先补 relation / boundary") {
+    if (hasCurrentCandidate && currentPermanentCandidateActionKey === "fill_support") {
       return `<div class="paper-muted-box">这条候选的转述已经保存，但 relation 和 boundary 还不足以支撑 Step 4。先补全它们，再生成永久笔记候选或继续写 draft。</div>`;
     }
-    if (hasCurrentCandidate && currentPermanentCandidateActionLabel === "先更新转述") {
+    if (hasCurrentCandidate && currentPermanentCandidateActionKey === "update_translation") {
       return `<div class="paper-muted-box">当前 Step 3 还有未保存改动。先更新这条转述，再生成对应的永久笔记候选。</div>`;
     }
     if (hasCurrentCandidate && hasOtherPermanentCandidates && canCreateCurrentPermanentCandidate) {
@@ -490,7 +490,7 @@ export function renderPaperWorkspacePage(state = {}) {
             hasOtherPermanentCandidates: Array.isArray(workspace?.permanentCandidates) && workspace.permanentCandidates.length > 0,
             hasCurrentCandidate: Boolean(selectedCandidate?.id),
             canCreateCurrentPermanentCandidate: !permanentCandidateDisabled,
-            currentPermanentCandidateActionLabel: permanentCandidateAction.label,
+            currentPermanentCandidateActionKey: permanentCandidateAction.key,
             isAlignedToSelectedCandidate: hasAlignedPermanentCandidate,
             hasUnsavedAlignedTranslationChanges: hasAlignedPermanentCandidate && selectedDraft.hasLocalChanges,
             hasStaleAlignedPermanentCandidate:
