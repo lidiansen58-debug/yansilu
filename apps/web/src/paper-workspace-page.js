@@ -15,7 +15,6 @@ import {
   draftBriefButtonLabel,
   draftBriefStateStatusFeedback,
   draftKickoffStateStatusFeedback,
-  nextSelectedCandidateId,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceActionStatusFeedback,
@@ -40,7 +39,6 @@ import {
   resolvedStoredTranslationDraft,
   selectedAlignedPermanentCandidate,
   selectedPaperCandidateIdForPermanentCandidate,
-  selectedPermanentCandidate,
   translationDraftHasLocalChanges
 } from "./paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
@@ -529,6 +527,32 @@ function refreshLiveContinuityUi(target = null, storedSelection = readStoredWork
     return;
   }
   render();
+}
+
+function handleSelectPaperCandidate(candidateId = "") {
+  syncAndPersistDraftContext();
+  const storedSelection = readStoredWorkspaceSelection(currentPaperId());
+  state.selectedCandidateId = String(candidateId || "").trim();
+  hydrateSelectedPaperCandidateState(storedSelection);
+  persistWorkspaceSelection();
+  refreshLiveContinuityUi();
+}
+
+function handleSelectPermanentCandidate(permanentCandidateId = "") {
+  syncAndPersistDraftContext();
+  const storedSelection = readStoredWorkspaceSelection(currentPaperId());
+  state.selectedPermanentCandidateId = String(permanentCandidateId || "").trim();
+  const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
+    state.workspace,
+    state.selectedPermanentCandidateId
+  );
+  if (alignedPaperCandidateId) {
+    state.selectedCandidateId = alignedPaperCandidateId;
+    hydrateTranslationForm(state.selectedCandidateId);
+  }
+  hydratePermanentCandidateForm(storedSelection);
+  persistWorkspaceSelection();
+  refreshLiveContinuityUi();
 }
 
 function shouldRefreshContinuityStatus(target) {
@@ -1088,31 +1112,15 @@ root?.addEventListener("change", (event) => {
 root?.addEventListener("click", (event) => {
   const candidateButton = event.target?.closest?.("[data-paper-candidate-id]");
   if (candidateButton) {
-    syncAndPersistDraftContext();
-    const storedSelection = readStoredWorkspaceSelection(currentPaperId());
-    state.selectedCandidateId = candidateButton.getAttribute("data-paper-candidate-id") || "";
-    hydrateSelectedPaperCandidateState(storedSelection);
-    persistWorkspaceSelection();
-    refreshLiveContinuityUi();
+    handleSelectPaperCandidate(candidateButton.getAttribute("data-paper-candidate-id") || "");
     return;
   }
 
   const permanentCandidateButton = event.target?.closest?.("[data-paper-permanent-candidate-id]");
   if (permanentCandidateButton) {
-    syncAndPersistDraftContext();
-    const storedSelection = readStoredWorkspaceSelection(currentPaperId());
-    state.selectedPermanentCandidateId = permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || "";
-    const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
-      state.workspace,
-      state.selectedPermanentCandidateId
+    handleSelectPermanentCandidate(
+      permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || ""
     );
-    if (alignedPaperCandidateId) {
-      state.selectedCandidateId = alignedPaperCandidateId;
-      hydrateTranslationForm(state.selectedCandidateId);
-    }
-    hydratePermanentCandidateForm(storedSelection);
-    persistWorkspaceSelection();
-    refreshLiveContinuityUi();
     return;
   }
 
