@@ -852,6 +852,23 @@ export function resolvedTranslationSignatureForPermanentCandidate(storedSelectio
     : "";
 }
 
+export function baselinePermanentCandidateSignatureToPersist(
+  workspace = null,
+  storedSelection = null,
+  selectedCandidateId = "",
+  selectedPermanentCandidateId = "",
+  baselineTranslationSignature = ""
+) {
+  const cleanSelectedCandidateId = cleanText(selectedCandidateId);
+  const cleanBaselineTranslationSignature = cleanText(baselineTranslationSignature);
+  const permanentCandidate = selectedAlignedPermanentCandidate(workspace, selectedPermanentCandidateId);
+  if (!cleanSelectedCandidateId || !cleanBaselineTranslationSignature || !permanentCandidate) return "";
+  if (cleanText(permanentCandidate.paper_candidate_id) !== cleanSelectedCandidateId) return "";
+  const storedSignature = resolvedTranslationSignatureForPermanentCandidate(storedSelection, permanentCandidate.id);
+  if (storedSignature) return "";
+  return cleanText(permanentCandidate.id);
+}
+
 export function permanentNoteContinuityState(
   workspace = null,
   storedSelection = null,

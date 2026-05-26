@@ -40,6 +40,7 @@ import {
   resolveStoredTranslationDraft,
   resolvePersistedTranslationDraftRecord,
   resolvePersistedDraftBriefCopy,
+  baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -758,20 +759,15 @@ async function handleSaveTranslation() {
     render();
     return;
   }
-  const alignedPermanentCandidateBeforeSave = selectedAlignedPermanentCandidate(
-    state.workspace,
-    state.selectedPermanentCandidateId
-  );
-  const selectedPermanentCandidateIdBeforeSave =
-    String(alignedPermanentCandidateBeforeSave?.paper_candidate_id || "").trim() === String(state.selectedCandidateId || "").trim()
-      ? String(alignedPermanentCandidateBeforeSave?.id || "").trim()
-      : "";
-  const storedSignatureBeforeSave = resolvedTranslationSignatureForPermanentCandidate(
-    state.workspaceSelection,
-    selectedPermanentCandidateIdBeforeSave
-  );
   const { translationSignature: baselineTranslationSignatureBeforeSave } =
     currentSelectedTranslationRuntimeContext(state.selectedCandidateId, { useForm: false });
+  const selectedPermanentCandidateIdBeforeSave = baselinePermanentCandidateSignatureToPersist(
+    state.workspace,
+    state.workspaceSelection,
+    state.selectedCandidateId,
+    state.selectedPermanentCandidateId,
+    baselineTranslationSignatureBeforeSave
+  );
   await runAction(async () => {
     const result = await savePaperTranslation(state.workspace?.paperId || state.form.paperId, {
       candidateId: state.selectedCandidateId,
@@ -782,11 +778,7 @@ async function handleSaveTranslation() {
     state.workspace = result.item;
     clearStoredTranslationDraft(currentPaperId(), state.selectedCandidateId);
     hydrateFormFromWorkspace(state.workspace);
-    if (
-      selectedPermanentCandidateIdBeforeSave &&
-      !storedSignatureBeforeSave &&
-      baselineTranslationSignatureBeforeSave
-    ) {
+    if (selectedPermanentCandidateIdBeforeSave) {
       persistTranslationSignatureForPermanentCandidate(
         selectedPermanentCandidateIdBeforeSave,
         baselineTranslationSignatureBeforeSave
