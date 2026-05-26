@@ -13,9 +13,7 @@ import {
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
-  draftBriefCopyStatusFeedback,
   draftBriefStateStatusFeedback,
-  draftKickoffStatusFeedback,
   draftKickoffStateStatusFeedback,
   nextSelectedCandidateId,
   normalizePaperWorkspaceStatusFeedback,
@@ -25,15 +23,10 @@ import {
   permanentCandidateStatusFeedback,
   permanentCandidatePersistenceDefaults,
   permanentNoteStatusFeedback,
-  paperWorkspaceResumeStatusKey,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
-  resolveDraftBriefState,
-  resolveDraftKickoffRuntimeState,
   resolvePaperWorkspaceContinuityStatusFeedback,
   resolvePaperWorkspaceRuntimeState,
-  resolvePermanentCandidateRuntimeState,
-  resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
   resolveTranslationRuntimeContext,
   resolveTranslationSaveRuntimeState,
@@ -518,15 +511,24 @@ function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelecti
   return currentSelectionContinuityStatus("live", storedSelection);
 }
 
-function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const resumeStatus = currentSelectionResumeStatus(storedSelection);
-  setStatus(resumeStatus.text, resumeStatus.tone);
-}
-
 function setLiveStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   if (!currentLoadedWorkspacePaperId()) return;
   const liveStatus = currentSelectionLiveStatus(storedSelection);
   setStatus(liveStatus.text, liveStatus.tone);
+}
+
+function syncAndPersistDraftContext() {
+  syncFormFromDom();
+  persistTranslationDraft();
+}
+
+function refreshLiveContinuityUi(target = null, storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  setLiveStatusFromCurrentSelection(storedSelection);
+  if (target) {
+    rerenderPreservingContinuityFocus(target);
+    return;
+  }
+  render();
 }
 
 function shouldRefreshContinuityStatus(target) {
@@ -1057,22 +1059,19 @@ async function handleAdoptPreviousKickoff() {
 }
 
 root?.addEventListener("input", (event) => {
-  syncFormFromDom();
-  persistTranslationDraft();
+  syncAndPersistDraftContext();
   if (event.target?.id === "draftKickoffTextarea") {
     persistDraftKickoff();
   }
   persistWorkspaceSelection();
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
-    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    rerenderPreservingContinuityFocus(event.target);
+    refreshLiveContinuityUi(event.target);
   }
 });
 
 root?.addEventListener("change", (event) => {
-  syncFormFromDom();
-  persistTranslationDraft();
+  syncAndPersistDraftContext();
   if (event.target?.id === "permanentStatusInput") {
     persistWorkspaceSelection({ saveStatus: event.target.value || "active" });
   } else if (event.target?.id === "confirmAuthorshipInput") {
@@ -1082,29 +1081,25 @@ root?.addEventListener("change", (event) => {
   }
   updateDynamicControls();
   if (shouldRefreshContinuityStatus(event.target)) {
-    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    rerenderPreservingContinuityFocus(event.target);
+    refreshLiveContinuityUi(event.target);
   }
 });
 
 root?.addEventListener("click", (event) => {
   const candidateButton = event.target?.closest?.("[data-paper-candidate-id]");
   if (candidateButton) {
-    syncFormFromDom();
-    persistTranslationDraft();
+    syncAndPersistDraftContext();
     const storedSelection = readStoredWorkspaceSelection(currentPaperId());
     state.selectedCandidateId = candidateButton.getAttribute("data-paper-candidate-id") || "";
     hydrateSelectedPaperCandidateState(storedSelection);
     persistWorkspaceSelection();
-    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    render();
+    refreshLiveContinuityUi();
     return;
   }
 
   const permanentCandidateButton = event.target?.closest?.("[data-paper-permanent-candidate-id]");
   if (permanentCandidateButton) {
-    syncFormFromDom();
-    persistTranslationDraft();
+    syncAndPersistDraftContext();
     const storedSelection = readStoredWorkspaceSelection(currentPaperId());
     state.selectedPermanentCandidateId = permanentCandidateButton.getAttribute("data-paper-permanent-candidate-id") || "";
     const alignedPaperCandidateId = selectedPaperCandidateIdForPermanentCandidate(
@@ -1117,8 +1112,7 @@ root?.addEventListener("click", (event) => {
     }
     hydratePermanentCandidateForm(storedSelection);
     persistWorkspaceSelection();
-    setLiveStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
-    render();
+    refreshLiveContinuityUi();
     return;
   }
 
