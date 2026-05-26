@@ -1001,7 +1001,7 @@ async function handleCopyDraftBrief() {
       }
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    const copyStatus = draftBriefCopyStatusFeedback(draftBrief.title, nextAction);
+    const copyStatus = draftBriefCopyStatusFeedback(draftBrief.title, nextAction, null, draftBrief.stepFourLabel);
     setStatus(copyStatus.text, copyStatus.tone);
   } catch (error) {
     const copyStatus = draftBriefCopyStatusFeedback("", "", error);

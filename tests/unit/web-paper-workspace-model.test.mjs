@@ -2272,12 +2272,23 @@ test("draft continuity status feedback helpers return stable tones", () => {
     blockedDraftContinuationStatusMessage({ label: "先保存这条转述，再继续写 draft。" })
   );
 
-  const copyFeedback = draftBriefCopyStatusFeedback("Draft handoff", "继续本地 draft");
+  const copyFeedback = draftBriefCopyStatusFeedback(
+    "Draft handoff",
+    "继续本地 draft",
+    null,
+    "Step 4: 已保存永久笔记路径 (note_1)"
+  );
   assert.match(copyFeedback.text, /Draft handoff/);
+  assert.match(copyFeedback.text, /当前链路：Step 4: 已保存永久笔记路径/);
   assert.equal(copyFeedback.tone, "ok");
   assert.equal(
     copyFeedback.text,
-    draftBriefCopyStatusMessage("Draft handoff", "继续本地 draft")
+    draftBriefCopyStatusMessage(
+      "Draft handoff",
+      "继续本地 draft",
+      null,
+      "Step 4: 已保存永久笔记路径 (note_1)"
+    )
   );
 
   const copyErrorFeedback = draftBriefCopyStatusFeedback("", "", new Error("clipboard unavailable"));

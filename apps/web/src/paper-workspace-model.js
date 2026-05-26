@@ -949,20 +949,26 @@ export function blockedDraftContinuationStatusFeedback(draftContinuationAction =
   };
 }
 
-export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null) {
+export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null, pathLabel = "") {
   if (error) {
     return `复制 draft brief 失败：${String(error?.message || error)}`;
   }
   const cleanTitle = cleanText(title);
   const cleanNextAction = cleanText(nextAction);
-  return cleanNextAction
-    ? `已复制 draft brief：${cleanTitle}。下一步：${cleanNextAction}`
-    : `已复制 draft brief：${cleanTitle}`;
+  const cleanPathLabel = cleanText(pathLabel);
+  const parts = [`已复制 draft brief：${cleanTitle}`];
+  if (cleanPathLabel) {
+    parts.push(`当前链路：${cleanPathLabel}`);
+  }
+  if (cleanNextAction) {
+    parts.push(`下一步：${cleanNextAction}`);
+  }
+  return parts.join("。");
 }
 
-export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error = null) {
+export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error = null, pathLabel = "") {
   return {
-    text: draftBriefCopyStatusMessage(title, nextAction, error),
+    text: draftBriefCopyStatusMessage(title, nextAction, error, pathLabel),
     tone: error ? "bad" : "ok"
   };
 }

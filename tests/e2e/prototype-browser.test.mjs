@@ -5614,6 +5614,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
     await waitFor(async () => {
       const statusText = await currentPaperWorkspaceStatusText(page);
       assert.match(String(statusText || ""), /已复制 draft brief/);
+      assert.match(String(statusText || ""), /当前链路：Step 4: 尚未生成永久笔记候选/);
       assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
       assert.match(
         String((await page.locator("[data-paper-draft-brief-copy]").textContent()) || ""),
@@ -6721,13 +6722,14 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.equal(await page.locator("#btnAdoptPreviousKickoff").getAttribute("disabled"), null);
             }, 4000);
 
-            await page.click("#btnCopyDraftBrief");
-            await waitFor(async () => {
-              const statusText = await currentPaperWorkspaceStatusText(page);
-              assert.match(String(statusText || ""), /已复制 draft brief/);
-              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
-              const copiedText = await page.evaluate(
-                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
+	            await page.click("#btnCopyDraftBrief");
+	            await waitFor(async () => {
+	              const statusText = await currentPaperWorkspaceStatusText(page);
+	              assert.match(String(statusText || ""), /已复制 draft brief/);
+	              assert.match(String(statusText || ""), /当前链路：Step 4: 已保存永久笔记路径/);
+	              assert.match(String(statusText || ""), /下一步：.*originality \/ authorship/);
+	              const copiedText = await page.evaluate(
+	                () => window.__paperWorkspaceLastDraftBrief || (Array.isArray(window.__copiedTexts) ? window.__copiedTexts.at(-1) : "")
               );
               assert.match(String(copiedText || ""), new RegExp(`Saved permanent note: ${secondSavedPermanentNoteId}`));
               assert.match(String(copiedText || ""), /Step 4: 已保存永久笔记路径 \(.+\)/);
