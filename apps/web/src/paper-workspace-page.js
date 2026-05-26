@@ -575,7 +575,7 @@ function hydrateFormFromWorkspace(workspace) {
     },
     "resume",
     "loadedWorkspace"
-  ).key;
+  );
 }
 
 function render() {
@@ -843,9 +843,9 @@ async function handleLoadWorkspace() {
   await runAction(async () => {
     const workspace = await fetchPaperWorkspace(state.form.paperId);
     state.workspace = workspace;
-    const resumeStatusKey = hydrateFormFromWorkspace(workspace);
-    return { stage: "load_workspace", item: workspace, resumeStatusKey };
-  }, (result) => paperWorkspaceStatusFeedback(result?.resumeStatusKey, "loadedWorkspace"));
+    const resumeStatus = hydrateFormFromWorkspace(workspace);
+    return { stage: "load_workspace", item: workspace, resumeStatus };
+  }, (result) => result?.resumeStatus || paperWorkspaceStatusFeedback("", "loadedWorkspace"));
   if (state.workspace) {
     setStatusFromCurrentSelection(readStoredWorkspaceSelection(currentPaperId()));
     render();
