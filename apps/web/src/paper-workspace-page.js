@@ -31,6 +31,7 @@ import {
   resolveDraftBriefState,
   resolveDraftKickoffRuntimeState,
   resolvePaperWorkspaceContinuityStatusFeedback,
+  resolvePaperWorkspaceRuntimeState,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
   resolveRefreshedDraftKickoff,
@@ -683,57 +684,33 @@ async function copyTextToClipboard(text) {
 }
 
 function currentDraftBriefState() {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolveDraftBriefState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedCandidateId,
-    state.selectedPermanentCandidateId,
-    draftInput
-  );
+  return currentWorkspaceRuntimeState().draftBriefState;
 }
 
 function currentTranslationSaveState() {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolveTranslationSaveRuntimeState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedCandidateId,
-    state.selectedPermanentCandidateId,
-    draftInput
-  );
+  return currentWorkspaceRuntimeState().translationSaveState;
 }
 
 function currentDraftKickoffState() {
+  return currentWorkspaceRuntimeState().draftKickoffState;
+}
+
+function currentPermanentCandidateState() {
+  return currentWorkspaceRuntimeState().permanentCandidateState;
+}
+
+function currentPermanentNoteState() {
+  return currentWorkspaceRuntimeState().permanentNoteState;
+}
+
+function currentWorkspaceRuntimeState() {
   const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolveDraftKickoffRuntimeState(
+  return resolvePaperWorkspaceRuntimeState(
     state.workspace,
     state.workspaceSelection,
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
     state.form,
-    draftInput
-  );
-}
-
-function currentPermanentCandidateState() {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolvePermanentCandidateRuntimeState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedCandidateId,
-    state.selectedPermanentCandidateId,
-    draftInput
-  );
-}
-
-function currentPermanentNoteState() {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolvePermanentNoteRuntimeState(
-    state.workspace,
-    state.workspaceSelection,
-    state.selectedPermanentCandidateId,
-    state.selectedCandidateId,
     draftInput
   );
 }

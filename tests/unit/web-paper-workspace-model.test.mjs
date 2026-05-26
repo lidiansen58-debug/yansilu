@@ -47,6 +47,7 @@ import {
   resolveDraftKickoffState,
   resolveDraftKickoffRuntimeState,
   resolvePaperWorkspaceContinuityStatusFeedback,
+  resolvePaperWorkspaceRuntimeState,
   resolveTranslationRuntimeContext,
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
@@ -835,6 +836,93 @@ test("resolveDraftKickoffRuntimeState combines kickoff continuity, saved-path ac
     key: "resume_local_draft",
     label: "继续本地 draft"
   });
+});
+
+test("resolvePaperWorkspaceRuntimeState reuses one normalized draft context across translation, draft, kickoff, and step four", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1", title: "Candidate One" }],
+    translations: [
+      {
+        id: "ptr_1",
+        candidateId: "pwc_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      }
+    ],
+    permanentCandidates: [
+      {
+        id: "pn_1",
+        paper_candidate_id: "pwc_1",
+        title: "Permanent One",
+        savedPermanentNoteId: "note_1"
+      }
+    ]
+  };
+  const workspaceSelection = {
+    translationSignatureByPermanentCandidate: {
+      pn_1: JSON.stringify({
+        candidateId: "pwc_1",
+        translationId: "ptr_1",
+        paraphraseText: "Saved wording.",
+        relationToQuestion: "Saved relation.",
+        boundaryOrCondition: "Saved boundary."
+      })
+    }
+  };
+  const form = {
+    draftKickoffText: "Current kickoff wording.",
+    draftKickoffSignature: JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    }),
+    draftKickoffPreviousText: "Previous kickoff wording.",
+    draftKickoffPreviousSignature: "sig_previous",
+    draftKickoffReplacementSignature: JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Saved wording.",
+      relationToQuestion: "Saved relation.",
+      boundaryOrCondition: "Saved boundary."
+    })
+  };
+
+  const state = resolvePaperWorkspaceRuntimeState(
+    workspace,
+    workspaceSelection,
+    "pwc_1",
+    "pn_1",
+    form,
+    {
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    }
+  );
+
+  assert.deepEqual(state.draftInput, {
+    paraphraseText: "Local wording.",
+    relationToQuestion: "Local relation.",
+    boundaryOrCondition: "Local boundary."
+  });
+  assert.equal(
+    state.translationSignature,
+    JSON.stringify({
+      candidateId: "pwc_1",
+      translationId: "ptr_1",
+      paraphraseText: "Local wording.",
+      relationToQuestion: "Local relation.",
+      boundaryOrCondition: "Local boundary."
+    })
+  );
+  assert.equal(state.translationSaveState.action.label, "更新转述");
+  assert.equal(state.draftBriefState.draftContinuationAction.key, "update_translation_affects_step_four");
+  assert.equal(state.draftKickoffState.currentTranslationSignature, state.translationSignature);
+  assert.equal(state.permanentCandidateState.draft.paraphraseText, "Local wording.");
+  assert.equal(state.permanentNoteState.draft.relationToQuestion, "Local relation.");
 });
 
 test("resolvePermanentCandidateRuntimeState reports the real blocked next step for step four entry", () => {

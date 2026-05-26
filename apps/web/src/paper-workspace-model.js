@@ -1477,6 +1477,63 @@ export function resolveDraftKickoffRuntimeState(
   };
 }
 
+export function resolvePaperWorkspaceRuntimeState(
+  workspace = null,
+  workspaceSelection = null,
+  candidateId = "",
+  selectedPermanentCandidateId = "",
+  form = null,
+  draftInput = null
+) {
+  const translationRuntime = resolveTranslationRuntimeContext(workspace, candidateId, draftInput);
+  const normalizedDraftInput = translationRuntime.draftInput;
+  const translationSaveState = resolveTranslationSaveRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const draftBriefState = resolveDraftBriefState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const draftKickoffState = resolveDraftKickoffRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    form,
+    normalizedDraftInput
+  );
+  const permanentCandidateState = resolvePermanentCandidateRuntimeState(
+    workspace,
+    workspaceSelection,
+    candidateId,
+    selectedPermanentCandidateId,
+    normalizedDraftInput
+  );
+  const permanentNoteState = resolvePermanentNoteRuntimeState(
+    workspace,
+    workspaceSelection,
+    selectedPermanentCandidateId,
+    candidateId,
+    normalizedDraftInput
+  );
+
+  return {
+    ...translationRuntime,
+    translationSaveState,
+    draftBriefState,
+    draftKickoffState,
+    permanentCandidateState,
+    permanentNoteState
+  };
+}
+
 export function resolvePermanentNoteRuntimeState(
   workspace = null,
   workspaceSelection = null,
