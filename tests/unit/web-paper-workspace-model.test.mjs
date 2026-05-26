@@ -67,6 +67,7 @@ import {
   resolveStoredDraftKickoffSnapshot,
   resolveStoredWorkspaceSelection,
   resolvePersistedTranslationDraft,
+  resolvePersistedTranslationDraftRecord,
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -1820,6 +1821,43 @@ test("resolvePersistedTranslationDraft keeps candidate-scoped identity and rejec
       },
       "paper_test",
       "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolvePersistedTranslationDraftRecord adds updatedAt to the normalized candidate-scoped draft payload", () => {
+  assert.deepEqual(
+    resolvePersistedTranslationDraftRecord(
+      {
+        paraphraseText: " Draft wording ",
+        relationToQuestion: " Relation ",
+        boundaryOrCondition: " Boundary "
+      },
+      "paper_test",
+      "pwc_1",
+      "2026-05-26T00:00:00.000Z"
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      paraphraseText: "Draft wording",
+      relationToQuestion: "Relation",
+      boundaryOrCondition: "Boundary",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedTranslationDraftRecord(
+      {
+        paraphraseText: "",
+        relationToQuestion: "",
+        boundaryOrCondition: ""
+      },
+      "paper_test",
+      "pwc_1",
+      "2026-05-26T00:00:00.000Z"
     ),
     null
   );

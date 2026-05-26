@@ -38,11 +38,11 @@ import {
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
+  resolvePersistedTranslationDraftRecord,
   resolvePersistedDraftBriefCopy,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
-  resolvePersistedTranslationDraft,
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
@@ -295,17 +295,19 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   const key = translationDraftStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedDraft = resolvePersistedTranslationDraft(draftInput, paperId, cleanCandidateId);
+    const persistedDraft = resolvePersistedTranslationDraftRecord(
+      draftInput,
+      paperId,
+      cleanCandidateId,
+      new Date().toISOString()
+    );
     if (!persistedDraft) {
       clearStoredTranslationDraft(paperId, cleanCandidateId);
       return;
     }
     window.localStorage?.setItem(
       key,
-      JSON.stringify({
-        ...persistedDraft,
-        updatedAt: new Date().toISOString()
-      })
+      JSON.stringify(persistedDraft)
     );
   } catch {}
 }
