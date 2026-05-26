@@ -2284,10 +2284,14 @@ test("draft continuity status feedback helpers return stable tones", () => {
   assert.match(copyErrorFeedback.text, /clipboard unavailable/);
   assert.equal(copyErrorFeedback.tone, "bad");
 
-  const kickoffFeedback = draftKickoffStatusFeedback("adopted");
+  const kickoffFeedback = draftKickoffStatusFeedback("adopted", "", "这条转述已经具备继续写 draft 的最小条件。");
   assert.match(kickoffFeedback.text, /kickoff/);
+  assert.match(kickoffFeedback.text, /下一步/);
   assert.equal(kickoffFeedback.tone, "ok");
-  assert.equal(kickoffFeedback.text, draftKickoffStatusMessage("adopted"));
+  assert.equal(
+    kickoffFeedback.text,
+    draftKickoffStatusMessage("adopted", "", "这条转述已经具备继续写 draft 的最小条件。")
+  );
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {
