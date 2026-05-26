@@ -7408,14 +7408,14 @@ function graphRelationStatusLabel(status) {
 }
 
 const GRAPH_RELATION_QUALITY_LABELS = {
-  empty: "缺说明",
+  empty: "缺理由",
   basic: "待补强",
   good: "较清楚",
   strong: "清楚"
 };
 
 const GRAPH_RELATION_REVIEW_REASON_LABELS = {
-  missing_rationale: "补关系说明",
+  missing_rationale: "补关系理由",
   thin_rationale: "补证据或边界",
   needs_review: "复查关系"
 };
@@ -7560,7 +7560,7 @@ function buildGraphInsightCoach({ nodes = [], edges = [], conflictItems = [], br
   const prompts = [
     central?.degree ? `为什么「${centralTitle}」会成为连接最多的节点？它是主题，还是只是材料中转站？` : "哪一条笔记最像这组材料的中心判断？",
     nearestTension ? `「${graphEdgeTitle(nearestTension, nodeMap)}」这条张力能不能变成文章里的反方段落？` : "有没有一条笔记能反驳或限定当前中心观点？",
-    untypedRelations.length ? `${untypedRelations.length} 条关系还缺说明，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作中心。"
+    untypedRelations.length ? `${untypedRelations.length} 条关系还缺理由，优先补“为什么相连”，洞见会更容易浮出来。` : "关系理由已经较清楚，可以开始挑一条阅读路径进入写作中心。"
   ];
 
   return {
@@ -7949,7 +7949,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
       <section class="graph-section graph-review-section">
         <div class="graph-section-head">
           <div>
-            <div class="graph-section-title">待补关系说明</div>
+            <div class="graph-section-title">待补关系理由</div>
             <div class="graph-section-note">这里列出“线已经连上，但为什么连还没说清楚”的关系。优先补这些，图谱才有解释力。</div>
           </div>
         </div>
@@ -7960,7 +7960,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
               ? `
                 <div class="graph-review-summary">
                   <strong>${total} 条待整理关系</strong>
-                  <small>缺说明 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系类型、关联理由或追问。</small>
+                  <small>缺理由 ${emptyCount} 条；待补强 ${basicCount} 条。点击卡片会回到源笔记，再补关系理由或追问。</small>
                 </div>
                 <div class="graph-list">
                   ${items
@@ -7980,7 +7980,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
                           </span>
                           <span class="graph-review-actions">
-                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系</span>
+                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系理由</span>
                           </span>
                         </button>
                       `;
@@ -7988,7 +7988,7 @@ function renderRelationReviewQueueSection(reviewQueue) {
                     .join("")}
                 </div>
               `
-              : `<div class="graph-empty">永久笔记范围内没有缺说明或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
+              : `<div class="graph-empty">永久笔记范围内没有缺理由或理由偏薄的关系。可以切换关系类型，查看完整结构是否合理。</div>`
         }
       </section>
   `;
@@ -8139,7 +8139,7 @@ function renderGraphPanel() {
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   if (graphState.loading) {
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
-    canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补说明。</div>`;
+    canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补理由。</div>`;
     return;
   }
 
@@ -8281,7 +8281,7 @@ function renderGraphPanel() {
     tensionCards.push(`
       <div class="graph-detail-card">
         <strong>待补链接理由</strong>
-        <small>${untypedRelations.length} 条连接仍主要依赖 wikilink，没有写清是支持、反驳、延展还是对照。</small>
+        <small>${untypedRelations.length} 条连接仍主要依赖正文链接，没有写清是支持、反驳、延展还是对照。</small>
         <small>${escapeHtml(
           untypedRelations
             .slice(0, 3)
@@ -8352,7 +8352,7 @@ function renderGraphPanel() {
     <div class="graph-metrics" aria-label="图谱摘要">
       ${renderGraphMetricCard("节点", `${visibleNodes.length}/${nodes.length}`, densityLabel, nodes.length ? "good" : "warn")}
       ${renderGraphMetricCard("显式关系", edges.length, relationSummary || "等待建立关系", edges.length ? "good" : "warn")}
-      ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补说明" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
+      ${renderGraphMetricCard("待整理", reviewQueueTotal, reviewQueueTotal ? "优先补理由" : "关系理由清爽", reviewQueueTotal ? "warn" : "good")}
       ${renderGraphMetricCard("孤立观点", isolatedCount, isolatedCount ? "需要连接或归档" : "都进入结构", isolatedCount ? "warn" : "good")}
     </div>
     ${renderGraphInsightCoach({
@@ -8396,10 +8396,10 @@ function renderGraphPanel() {
             }。</small>
           </div>
           <div class="graph-overview-card">
-            <strong>缺口与说明</strong>
+            <strong>缺口与理由</strong>
             <small>${bridgeGaps.length ? `桥接缺口 ${bridgeGaps.length} 处` : "当前没有明显桥接缺口"}；${
               untypedRelations.length
-            } 条连接还缺明确关系说明。</small>
+            } 条连接还缺明确关系理由。</small>
           </div>
           <div class="graph-overview-card">
             <strong>关系分布</strong>
@@ -8453,7 +8453,7 @@ function renderGraphPanel() {
         <div class="graph-section-head">
           <div>
             <div class="graph-section-title">关系边</div>
-            <div class="graph-section-note">每条边说明两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
+            <div class="graph-section-note">每条边都要写清两条笔记为什么相连：支持、反驳、限定、桥接、补充或推进。</div>
           </div>
         </div>
         ${
@@ -8466,8 +8466,8 @@ function renderGraphPanel() {
                 )}</small>
                 <small>类型：${escapeHtml(graphRelationTypeLabel(highlightedEdge.relationType))}；状态：${escapeHtml(
                   graphRelationStatusLabel(highlightedEdge.status)
-                )}；说明：${escapeHtml(
-                  highlightedEdge.rationale || "尚未写明，当前来自 Markdown wikilink。"
+                )}；理由：${escapeHtml(
+                  highlightedEdge.rationale || "尚未写明，当前来自 Markdown 链接。"
                 )}</small>
               </div>
             `
@@ -8855,7 +8855,7 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
 
   if (cleanAction === "relations-edit" && cleanRelationId) {
     focusExistingRelationEdit();
-    setStatus("已从图谱打开笔记，继续补当前关系的理由或类型", "ok");
+    setStatus("已从图谱打开笔记，继续补当前关系理由", "ok");
     return true;
   }
 
@@ -8868,12 +8868,12 @@ function openGraphFollowupNote(noteId = "", action = "", options = {}) {
       if (relationTypeSelect && cleanRelationType) relationTypeSelect.value = cleanRelationType;
     }, 20);
     focusRelationCreate();
-    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系说明", "ok");
+    setStatus(cleanAction === "bridge" ? "已从图谱打开笔记，继续补桥接关系" : "已从图谱打开笔记，继续补关系理由", "ok");
     return true;
   }
   if (cleanAction === "boundary" || cleanAction === "tension") {
     focusBoundaryField();
-    setStatus("已从图谱打开笔记，继续补反例、边界或张力说明", "ok");
+    setStatus("已从图谱打开笔记，继续补反例、边界或例外条件", "ok");
     return true;
   }
   setStatus("已从图谱打开笔记", "ok");
