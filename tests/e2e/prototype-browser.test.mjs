@@ -6163,6 +6163,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.ok(savedPermanentNoteId);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记已保存/);
+              assert.match(String(statusText || ""), /已对齐到这条候选已保存的永久笔记路径/);
             }, 6000);
             await waitFor(async () => {
               const previewText = await page.locator(".paper-permanent-preview").textContent();

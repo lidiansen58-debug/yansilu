@@ -970,9 +970,16 @@ async function handleSavePermanentNote() {
       status: state.form.saveStatus
     });
     state.workspace = result.item;
-    hydrateFormFromWorkspace(state.workspace);
-    return { stage: "save_permanent_note", ...result };
-  }, STATUS.savedPermanentNote);
+    const resumeStatus = hydrateFormFromWorkspace(state.workspace);
+    return { stage: "save_permanent_note", resumeStatus, ...result };
+  }, (result) => {
+    const baseText = STATUS.savedPermanentNote;
+    const continuationText = String(result?.resumeStatus?.text || "").trim();
+    return {
+      text: continuationText ? `${baseText}。${continuationText}` : baseText,
+      tone: String(result?.resumeStatus?.tone || "").trim() || "ok"
+    };
+  });
 }
 
 async function handleCopyDraftBrief() {
