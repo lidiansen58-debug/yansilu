@@ -10181,7 +10181,11 @@ $("writingThemeDetail")?.addEventListener("click", async (event) => {
       if (existingProject?.id) {
         await continueWritingProjectEntry(existingProject.id, {
           openDraft: Boolean(existingProject.draft_note_id),
-          statusMessage: existingProject.draft_note_id ? "" : `已继续当前项目：${existingProject.id}`
+          statusMessage: existingProject.draft_note_id
+            ? ""
+            : existingProject.scaffold_id
+              ? `已回到草稿骨架：${existingProject.id}`
+              : `已继续当前项目：${existingProject.id}`
         });
         return;
       }
