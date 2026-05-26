@@ -42,6 +42,7 @@ import {
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
   resolvePersistedTranslationDraftRecord,
+  resolvePersistedTranslationDraftRecordForCandidate,
   resolvePersistedDraftBriefCopyFromState,
   baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
@@ -50,8 +51,7 @@ import {
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
-  selectedPaperCandidateIdForPermanentCandidate,
-  translationDraftHasLocalChanges
+  selectedPaperCandidateIdForPermanentCandidate
 } from "./paper-workspace-model.js";
 import { renderPaperWorkspacePage } from "./paper-workspace-panel.js";
 
@@ -291,18 +291,14 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   if (!paperId || !cleanCandidateId) return;
 
   const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
-  if (!translationDraftHasLocalChanges(state.workspace, cleanCandidateId, draftInput)) {
-    clearStoredTranslationDraft(paperId, cleanCandidateId);
-    return;
-  }
-
   const key = translationDraftStorageKey(paperId, cleanCandidateId);
   if (!key) return;
   try {
-    const persistedDraft = resolvePersistedTranslationDraftRecord(
+    const persistedDraft = resolvePersistedTranslationDraftRecordForCandidate(
+      state.workspace,
+      cleanCandidateId,
       draftInput,
       paperId,
-      cleanCandidateId,
       new Date().toISOString()
     );
     if (!persistedDraft) {

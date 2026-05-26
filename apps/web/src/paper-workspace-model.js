@@ -224,6 +224,18 @@ export function resolvePersistedTranslationDraftRecord(draftInput = null, paperI
   };
 }
 
+export function resolvePersistedTranslationDraftRecordForCandidate(
+  workspace = null,
+  candidateId = "",
+  draftInput = null,
+  paperId = "",
+  updatedAt = ""
+) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!translationDraftHasLocalChanges(workspace, cleanCandidateId, draftInput)) return null;
+  return resolvePersistedTranslationDraftRecord(draftInput, paperId, cleanCandidateId, updatedAt);
+}
+
 export function resolveStoredDraftKickoff(storedKickoff = null, paperId = "", candidateId = "") {
   const kickoff = storedKickoff && typeof storedKickoff === "object" ? storedKickoff : {};
   const cleanPaperId = cleanText(paperId);
