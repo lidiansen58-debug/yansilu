@@ -188,7 +188,7 @@ export function graphNextActionForSummary({
   if (writingEntryPlan?.mode === "no-candidates") {
     return {
       title: "下一步：先补关系和边界",
-      note: "当前图谱切片里还没有可直接推进写作的永久笔记。先补关系、边界或完成原创性检查，再进入写作中心会更顺。",
+      note: "当前图谱切片里还没有可直接推进写作的永久笔记。先补关系、边界或完成原创性检查，再决定下一步写作会更顺。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关系/边界"

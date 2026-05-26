@@ -159,6 +159,7 @@ test("graph next action keeps no-candidate slices in graph cleanup mode before w
   assert.equal(nextAction.actionLabel, "先补关系/边界");
   assert.match(nextAction.note, /还没有可直接推进写作的永久笔记/);
   assert.match(nextAction.note, /关系、边界|原创性检查/);
+  assert.doesNotMatch(nextAction.note, /进入写作中心/);
 });
 
 test("graph next action reuses continuity wording when the current slice already maps to an existing draft", () => {
