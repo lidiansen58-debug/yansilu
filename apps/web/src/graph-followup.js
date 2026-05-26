@@ -47,18 +47,18 @@ export function graphNextActionForSummary({
 
   if (!hasEdges) {
     return {
-      title: "下一步：建立第一条关系",
-      note: "在两条相关笔记之间加上一条 [[关联笔记]]，再刷新图谱查看局部结构。",
+      title: "下一步：补第一条关系",
+      note: "先把两条最相关的永久笔记补成第一条显式关系，再刷新图谱查看局部结构。",
       noteId: String(firstNodeId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系"
+      actionLabel: "去补第一条关系"
     };
   }
 
   if (isolatedNoteId) {
     return {
       title: "先处理孤立观点",
-      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再进入写作中心会更稳。`,
+      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再决定下一步写作会更稳。`,
       noteId: String(isolatedNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补孤立观点"
@@ -68,7 +68,7 @@ export function graphNextActionForSummary({
   if (thinRationaleFromNoteId) {
     return {
       title: "先补关系理由",
-      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再进入写作中心会更稳。`,
+      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再决定下一步写作会更稳。`,
       noteId: String(thinRationaleFromNoteId || "").trim(),
       action: GRAPH_FOLLOWUP_ACTIONS.relations,
       actionLabel: "先补关系理由"
@@ -81,48 +81,7 @@ export function graphNextActionForSummary({
       note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
       noteId: String(untypedFromNoteId || "").trim(),
       action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系",
-      relationId: String(untypedRelationId || "").trim()
-    };
-  }
-
-  if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
-    return {
-      title: "下一步：先补关键关系",
-      note: "当前切片里已经不止两条永久笔记，但显式关系还太少。先补出 1-2 条最关键的关系，再进入写作中心会更稳。",
-      noteId: String(firstNodeId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补关键关系"
-    };
-  }
-
-  if (isolatedNoteId) {
-    return {
-      title: "下一步：处理孤立观点",
-      note: `当前还有 ${Number(isolatedCount || 1)} 条永久笔记没有进入关系网络。先补起最关键的一条连接，或明确它为什么暂时不进网络，再进入写作中心会更稳。`,
-      noteId: String(isolatedNoteId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补孤立观点"
-    };
-  }
-
-  if (thinRationaleFromNoteId) {
-    return {
-      title: "下一步：先补关系理由",
-      note: `当前已经有 ${Number(thinRationaleCount || 1)} 条显式关系，但理由和问题还不够清楚。先把最关键的关系补得更牢靠，再进入写作中心会更稳。`,
-      noteId: String(thinRationaleFromNoteId || "").trim(),
-      action: GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "先补关系理由"
-    };
-  }
-
-  if (untypedFromNoteId) {
-    return {
-      title: "下一步：补关系理由",
-      note: "优先打开关系整理队列里的源笔记，把“为什么相关”写清楚。",
-      noteId: String(untypedFromNoteId || "").trim(),
-      action: untypedRelationId ? "relations-edit" : GRAPH_FOLLOWUP_ACTIONS.relations,
-      actionLabel: "去补关系",
+      actionLabel: "去补关系理由",
       relationId: String(untypedRelationId || "").trim()
     };
   }
@@ -212,6 +171,16 @@ export function graphNextActionForSummary({
       note: `当前可见图谱里有 ${Number(writingEntryPlan.candidateCount || 0)} 条可用永久笔记。先挑 2-5 条加入写作篮，再推进成主题或项目会更稳。`,
       action: GRAPH_FOLLOWUP_ACTIONS.writing,
       actionLabel: "先挑 2-5 条"
+    };
+  }
+
+  if (Number(visibleNodeCount || 0) >= 3 && Number(visibleEdgeCount || 0) <= 1) {
+    return {
+      title: "下一步：先补关键关系",
+      note: "当前切片里已经不止两条永久笔记，但显式关系还太少。先补出 1-2 条最关键的关系，再决定下一步写作会更稳。",
+      noteId: String(firstNodeId || "").trim(),
+      action: GRAPH_FOLLOWUP_ACTIONS.relations,
+      actionLabel: "先补关键关系"
     };
   }
 
