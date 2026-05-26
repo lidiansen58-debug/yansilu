@@ -9,12 +9,12 @@ import {
 } from "./paper-workspace-api.js";
 import {
   buildNotebookLmPayload,
-  blockedDraftContinuationStatusMessage,
+  blockedDraftContinuationStatusFeedback,
   canSubmitNotebookDraft,
   createInitialPaperWorkspaceState,
   draftBriefButtonLabel,
-  draftBriefCopyStatusMessage,
-  draftKickoffStatusMessage,
+  draftBriefCopyStatusFeedback,
+  draftKickoffStatusFeedback,
   nextSelectedCandidateId,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceStatusFeedback,
@@ -988,7 +988,8 @@ async function handleCopyDraftBrief() {
   syncFormFromDom();
   const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
-    setStatus(blockedDraftContinuationStatusMessage(draftContinuationAction), "warn");
+    const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
+    setStatus(blockedStatus.text, blockedStatus.tone);
     render();
     return;
   }
@@ -1009,9 +1010,11 @@ async function handleCopyDraftBrief() {
       }
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(draftBriefCopyStatusMessage(draftBrief.title, nextAction), "ok");
+    const copyStatus = draftBriefCopyStatusFeedback(draftBrief.title, nextAction);
+    setStatus(copyStatus.text, copyStatus.tone);
   } catch (error) {
-    setStatus(draftBriefCopyStatusMessage("", "", error), "bad");
+    const copyStatus = draftBriefCopyStatusFeedback("", "", error);
+    setStatus(copyStatus.text, copyStatus.tone);
   }
   render();
 }
@@ -1035,7 +1038,8 @@ async function handleStartDraftKickoff() {
   const { draftBriefAction, draftContinuationAction, draftBrief } = currentDraftBriefState();
   const kickoffState = currentDraftKickoffState();
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
-    setStatus(blockedDraftContinuationStatusMessage(draftContinuationAction), "warn");
+    const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
+    setStatus(blockedStatus.text, blockedStatus.tone);
     render();
     return;
   }
@@ -1064,10 +1068,12 @@ async function handleStartDraftKickoff() {
       translationSignature: state.form.draftKickoffSignature
     });
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(draftKickoffStatusMessage("loaded", draftBrief.title, nextAction), "ok");
+    const kickoffStatus = draftKickoffStatusFeedback("loaded", draftBrief.title, nextAction);
+    setStatus(kickoffStatus.text, kickoffStatus.tone);
   } else {
     const nextAction = String(draftContinuationAction?.label || "").trim();
-    setStatus(draftKickoffStatusMessage("resumed", draftBrief.title, nextAction), "ok");
+    const kickoffStatus = draftKickoffStatusFeedback("resumed", draftBrief.title, nextAction);
+    setStatus(kickoffStatus.text, kickoffStatus.tone);
   }
   render();
   focusDraftKickoffTextarea();
@@ -1099,7 +1105,8 @@ async function handleAdoptPreviousKickoff() {
     previousSignature: state.form.draftKickoffPreviousSignature,
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
-  setStatus(draftKickoffStatusMessage("adopted"), "ok");
+  const kickoffStatus = draftKickoffStatusFeedback("adopted");
+  setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();
 }
