@@ -5511,6 +5511,12 @@ export class EditorPane {
       };
     }
     if (connectedCount === 0) {
+      if (wikilinkCount > 0 && Number(overview.tagRelatedCount || 0) > 0) {
+        return {
+          nextStep: "把线索收成显式关系",
+          summary: "已经同时出现正文里的 wikilink 和标签接近，但它们还只是线索，不是可复用的关系。先挑一条最关键的连接，把“为什么相关”写成显式关系。"
+        };
+      }
       if (wikilinkCount > 0) {
         return {
           nextStep: "补关系理由",
@@ -5699,7 +5705,10 @@ export class EditorPane {
     if (wikilinkCount > 0 || tagRelatedCount > 0) {
       return {
         status: `主题线索 ${themeSignalCount || wikilinkCount + tagRelatedCount}`,
-        hint: "已经有基础线索，但还需要把“为什么相关”说清楚。",
+        hint:
+          wikilinkCount > 0 && tagRelatedCount > 0
+            ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的一条关系写清楚。"
+            : "已经有基础线索，但还需要把“为什么相关”说清楚。",
         badge: themeSignalCount || wikilinkCount + tagRelatedCount,
         badgeLabel: String(themeSignalCount || wikilinkCount + tagRelatedCount)
       };
@@ -5778,7 +5787,9 @@ export class EditorPane {
                   ? "已经连上关系，但还有理由偏薄的连接，先把它写具体。"
                   : "已经有带理由的关系。"
                 : wikilinkCount
-                  ? "有基础链接，下一步把关系为什么成立写清楚。"
+                  ? Number(overview.tagRelatedCount || 0) > 0
+                    ? "已经同时有链接线索和标签接近，但还没形成显式关系。先把最关键的关系写出来。"
+                    : "有基础链接，下一步把关系为什么成立写清楚。"
                   : Number(overview.tagRelatedCount || 0) > 0
                     ? "现在只有标签上的接近，先挑一条最关键的关系写出来。"
                     : "先连出第一条关系。",
@@ -5787,7 +5798,9 @@ export class EditorPane {
           thinExplicitRelationCount > 0
             ? "补关系理由"
             : wikilinkCount > 0
-              ? "补关系理由"
+              ? Number(overview.tagRelatedCount || 0) > 0
+                ? "把线索收成关系"
+                : "补关系理由"
               : Number(overview.tagRelatedCount || 0) > 0
                 ? "从标签里补关系"
                 : "补第一条关系"
