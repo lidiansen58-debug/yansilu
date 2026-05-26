@@ -5871,6 +5871,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
             assert.doesNotMatch(String(previewText || ""), /已保存为：/);
             const statusText = await currentPaperWorkspaceStatusText(page);
             assert.match(String(statusText || ""), /永久笔记候选已生成/);
+            assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
             assert.equal(await page.locator("#confirmAuthorshipInput").isChecked(), false);
             assert.equal(await page.locator("#permanentStatusInput").inputValue(), "draft");
             assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
@@ -6354,6 +6355,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
               assert.match(text || "", /"stage": "(create_permanent_candidate|permanent_candidate)"/);
               const statusText = await currentPaperWorkspaceStatusText(page);
               assert.match(String(statusText || ""), /永久笔记候选已生成/);
+              assert.match(String(statusText || ""), /已对齐到这条候选的永久笔记候选/);
               assert.equal(await page.locator("#btnSavePermanentNote").getAttribute("disabled"), null);
               assert.equal(await page.locator("#confirmAuthorshipInput").getAttribute("disabled"), null);
               assert.equal(await page.locator("#permanentStatusInput").getAttribute("disabled"), null);

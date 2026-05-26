@@ -937,8 +937,9 @@ async function handleCreatePermanentCandidate() {
     hydratePermanentCandidateForm();
     persistPermanentCandidateTranslationSignature(state.selectedPermanentCandidateId, state.selectedCandidateId);
     persistWorkspaceSelection();
-    return { stage: "permanent_candidate", ...result };
-  }, STATUS.createdPermanentCandidate);
+    const resumeStatus = currentSelectionResumeStatus(state.workspaceSelection);
+    return { stage: "permanent_candidate", resumeStatus, ...result };
+  }, (result) => chainedPaperWorkspaceStatusFeedback(STATUS.createdPermanentCandidate, result?.resumeStatus));
 }
 
 async function handleSavePermanentNote() {
