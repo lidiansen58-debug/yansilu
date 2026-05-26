@@ -49,6 +49,7 @@ import {
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
   workspaceSelectionPersistenceState,
+  workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   translationSaveStatusFeedback,
   translationContinuitySignature,
@@ -210,11 +211,11 @@ function persistWorkspaceSelection(overrides = {}) {
         state.selectedPermanentCandidateId,
         state.form.saveStatus
       ),
-      {
-        ...overrides,
-        confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true,
-        updatedAt: new Date().toISOString()
-      }
+      workspaceSelectionPersistenceOverrides(
+        overrides,
+        state.form.confirmAuthorship === true,
+        new Date().toISOString()
+      )
     );
     if (!nextSelection) return;
     if (!writeStoredRecord(key, nextSelection)) return;

@@ -79,6 +79,7 @@ import {
   resolvedSaveStatusForPermanentCandidate,
   resolvedTranslationSignatureForPermanentCandidate,
   workspaceSelectionPersistenceState,
+  workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
   baselinePermanentCandidateSignatureToPersist,
   savedTranslationStatusKey,
@@ -2587,6 +2588,34 @@ test("workspaceSelectionPersistenceState normalizes the selected candidate, perm
       selectedPermanentCandidateId: "pn_1",
       saveStatus: "draft"
     }
+  );
+});
+
+test("workspaceSelectionPersistenceOverrides applies confirmAuthorship fallback and updatedAt normalization", () => {
+  assert.deepEqual(
+    workspaceSelectionPersistenceOverrides(
+      {
+        translationSignature: "sig_current"
+      },
+      true,
+      " 2026-05-26T00:00:00.000Z "
+    ),
+    {
+      translationSignature: "sig_current",
+      confirmAuthorship: true,
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.deepEqual(
+    workspaceSelectionPersistenceOverrides(
+      {
+        confirmAuthorship: false
+      },
+      true,
+      ""
+    ).confirmAuthorship,
+    false
   );
 });
 

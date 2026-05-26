@@ -564,6 +564,21 @@ export function workspaceSelectionPersistenceState(
   };
 }
 
+export function workspaceSelectionPersistenceOverrides(
+  overrides = {},
+  confirmAuthorship = false,
+  updatedAt = ""
+) {
+  return {
+    ...(overrides && typeof overrides === "object" ? overrides : {}),
+    confirmAuthorship:
+      overrides && Object.prototype.hasOwnProperty.call(overrides, "confirmAuthorship")
+        ? overrides.confirmAuthorship === true
+        : confirmAuthorship === true,
+    updatedAt: cleanText(updatedAt) || new Date().toISOString()
+  };
+}
+
 export function workspaceSelectionTranslationSignatureOverrides(
   permanentCandidateId = "",
   translationSignature = "",
