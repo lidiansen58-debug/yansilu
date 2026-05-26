@@ -612,10 +612,11 @@ function hydrateFormFromWorkspace(workspace) {
 
 function render() {
   if (!root) return;
-  state.lastCopiedDraftBrief = currentDraftBriefState().recentDraftBriefCopy;
-  state.draftKickoffState = currentDraftKickoffState();
+  const runtimeState = currentWorkspaceRuntimeState();
+  state.lastCopiedDraftBrief = runtimeState.draftBriefState.recentDraftBriefCopy;
+  state.draftKickoffState = runtimeState.draftKickoffState;
   root.innerHTML = renderPaperWorkspacePage(state);
-  updateDynamicControls();
+  updateDynamicControls(runtimeState);
 }
 
 function rerenderPreservingContinuityFocus(target = null) {
@@ -640,8 +641,8 @@ function rerenderPreservingContinuityFocus(target = null) {
   }
 }
 
-function updateDynamicControls() {
-  const translationSaveState = currentTranslationSaveState();
+function updateDynamicControls(runtimeState = currentWorkspaceRuntimeState()) {
+  const translationSaveState = runtimeState.translationSaveState;
   const saveTranslationButton = document.getElementById("btnSaveTranslation");
   if (saveTranslationButton) {
     saveTranslationButton.disabled = !translationSaveState.action.enabled;
@@ -653,7 +654,7 @@ function updateDynamicControls() {
   }
   const permanentCandidateButton = document.getElementById("btnCreatePermanentCandidate");
   if (permanentCandidateButton) {
-    const permanentCandidateState = currentPermanentCandidateState();
+    const permanentCandidateState = runtimeState.permanentCandidateState;
     permanentCandidateButton.disabled = !permanentCandidateState.action.enabled;
     permanentCandidateButton.textContent = permanentCandidateState.action.label;
   }
@@ -661,7 +662,7 @@ function updateDynamicControls() {
   const confirmAuthorshipInput = document.getElementById("confirmAuthorshipInput");
   const permanentStatusInput = document.getElementById("permanentStatusInput");
   if (savePermanentNoteButton) {
-    const permanentNoteState = currentPermanentNoteState();
+    const permanentNoteState = runtimeState.permanentNoteState;
     savePermanentNoteButton.disabled = !permanentNoteState.action.enabled;
     savePermanentNoteButton.textContent = permanentNoteState.action.label;
     if (confirmAuthorshipInput) {
@@ -673,13 +674,13 @@ function updateDynamicControls() {
   }
   const copyDraftBriefButton = document.getElementById("btnCopyDraftBrief");
   if (copyDraftBriefButton) {
-    const { draftBriefAction, draftContinuationAction } = currentDraftBriefState();
+    const { draftBriefAction, draftContinuationAction } = runtimeState.draftBriefState;
     copyDraftBriefButton.disabled = !draftBriefAction.enabled;
     copyDraftBriefButton.textContent = draftBriefButtonLabel(draftBriefAction, draftContinuationAction);
   }
   const startDraftKickoffButton = document.getElementById("btnStartDraftKickoff");
   if (startDraftKickoffButton) {
-    const kickoffState = currentDraftKickoffState();
+    const kickoffState = runtimeState.draftKickoffState;
     startDraftKickoffButton.disabled = !kickoffState.action?.enabled;
     startDraftKickoffButton.textContent = String(kickoffState.action?.label || "载入 brief，开始本地 draft");
   }
@@ -965,7 +966,8 @@ async function handleSavePermanentNote() {
 
 async function handleCopyDraftBrief() {
   syncFormFromDom();
-  const draftBriefState = currentDraftBriefState();
+  const runtimeState = currentWorkspaceRuntimeState();
+  const draftBriefState = runtimeState.draftBriefState;
   const { draftBriefAction, draftContinuationAction, draftBrief } = draftBriefState;
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
     const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
@@ -1001,18 +1003,19 @@ function focusDraftKickoffTextarea() {
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
-function currentDraftKickoffSignature() {
+function currentDraftKickoffSignature(runtimeState = null) {
   return (
     String(state.form.draftKickoffSignature || "").trim() ||
-    String(currentDraftKickoffState().currentTranslationSignature || "").trim()
+    String((runtimeState || currentWorkspaceRuntimeState()).draftKickoffState.currentTranslationSignature || "").trim()
   );
 }
 
 async function handleStartDraftKickoff() {
   syncFormFromDom();
-  const draftBriefState = currentDraftBriefState();
+  const runtimeState = currentWorkspaceRuntimeState();
+  const draftBriefState = runtimeState.draftBriefState;
   const { draftBriefAction, draftContinuationAction, draftBrief } = draftBriefState;
-  const kickoffState = currentDraftKickoffState();
+  const kickoffState = runtimeState.draftKickoffState;
   if (!draftBriefAction.enabled || !String(draftBrief?.markdown || "").trim()) {
     const blockedStatus = blockedDraftContinuationStatusFeedback(draftContinuationAction);
     setStatus(blockedStatus.text, blockedStatus.tone);
@@ -1051,12 +1054,13 @@ async function handleStartDraftKickoff() {
 
 async function handleAdoptPreviousKickoff() {
   syncFormFromDom();
-  const kickoffState = currentDraftKickoffState();
+  const runtimeState = currentWorkspaceRuntimeState();
+  const kickoffState = runtimeState.draftKickoffState;
   if (!kickoffState.previousSnapshot?.content) {
     render();
     return;
   }
-  const adoptedKickoff = resolveAdoptedDraftKickoff(state.form, kickoffState, currentDraftKickoffSignature());
+  const adoptedKickoff = resolveAdoptedDraftKickoff(state.form, kickoffState, currentDraftKickoffSignature(runtimeState));
   if (!adoptedKickoff) {
     render();
     return;
@@ -1075,7 +1079,7 @@ async function handleAdoptPreviousKickoff() {
     previousSignature: state.form.draftKickoffPreviousSignature,
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
-  const draftBriefState = currentDraftBriefState();
+  const draftBriefState = currentWorkspaceRuntimeState().draftBriefState;
   const kickoffStatus = draftKickoffStateStatusFeedback("adopted", draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
@@ -1084,11 +1088,12 @@ async function handleAdoptPreviousKickoff() {
 
 root?.addEventListener("input", (event) => {
   syncAndPersistDraftContext();
+  const runtimeState = currentWorkspaceRuntimeState();
   if (event.target?.id === "draftKickoffTextarea") {
     persistDraftKickoff();
   }
   persistWorkspaceSelection();
-  updateDynamicControls();
+  updateDynamicControls(runtimeState);
   if (shouldRefreshContinuityStatus(event.target)) {
     refreshLiveContinuityUi(event.target);
   }
@@ -1096,6 +1101,7 @@ root?.addEventListener("input", (event) => {
 
 root?.addEventListener("change", (event) => {
   syncAndPersistDraftContext();
+  const runtimeState = currentWorkspaceRuntimeState();
   if (event.target?.id === "permanentStatusInput") {
     persistWorkspaceSelection({ saveStatus: event.target.value || "active" });
   } else if (event.target?.id === "confirmAuthorshipInput") {
@@ -1103,7 +1109,7 @@ root?.addEventListener("change", (event) => {
   } else {
     persistWorkspaceSelection();
   }
-  updateDynamicControls();
+  updateDynamicControls(runtimeState);
   if (shouldRefreshContinuityStatus(event.target)) {
     refreshLiveContinuityUi(event.target);
   }
