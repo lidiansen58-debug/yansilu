@@ -167,6 +167,16 @@ function clearCandidateStoredRecord(storageKeyResolver, paperId, candidateId) {
   clearStoredRecord(key);
 }
 
+function persistCandidateStoredRecord(storageKeyResolver, storageState, value, clearRecord) {
+  if (!storageState) return false;
+  const { paperId, candidateId } = storageState;
+  if (!value) {
+    clearRecord(paperId, candidateId);
+    return false;
+  }
+  return writeCandidateStoredRecord(storageKeyResolver, paperId, candidateId, value);
+}
+
 function readStoredTranslationDraft(paperId, candidateId) {
   return readCandidateStoredRecord(
     translationDraftStorageKey,
@@ -276,7 +286,6 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
   const { paperId, candidateId: cleanCandidateId } = storageState;
 
   const { draftInput } = currentSelectedTranslationRuntimeContext(cleanCandidateId);
-  if (!translationDraftStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedDraft = resolvePersistedTranslationDraftRecordForCandidate(
       state.workspace,
@@ -285,11 +294,12 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
       paperId,
       new Date().toISOString()
     );
-    if (!persistedDraft) {
-      clearStoredTranslationDraft(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(translationDraftStorageKey, paperId, cleanCandidateId, persistedDraft);
+    persistCandidateStoredRecord(
+      translationDraftStorageKey,
+      storageState,
+      persistedDraft,
+      clearStoredTranslationDraft
+    );
   } catch {}
 }
 
@@ -565,18 +575,18 @@ function persistDraftKickoff(candidateId = state.selectedCandidateId, overrides 
   const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
-  if (!draftKickoffStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedKickoff = resolvePersistedDraftKickoffRecordForCandidate(state.form, paperId, cleanCandidateId, {
       content: overrides.content,
       translationSignature: overrides.translationSignature,
       updatedAt: new Date().toISOString()
     });
-    if (!persistedKickoff) {
-      clearStoredDraftKickoff(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(draftKickoffStorageKey, paperId, cleanCandidateId, persistedKickoff);
+    persistCandidateStoredRecord(
+      draftKickoffStorageKey,
+      storageState,
+      persistedKickoff,
+      clearStoredDraftKickoff
+    );
   } catch {}
 }
 
@@ -584,7 +594,6 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
   const storageState = currentCandidateStorageState(candidateId);
   if (!storageState) return;
   const { paperId, candidateId: cleanCandidateId } = storageState;
-  if (!draftKickoffSnapshotStorageKey(paperId, cleanCandidateId)) return;
   try {
     const persistedSnapshot = resolvePersistedDraftKickoffSnapshotRecordForCandidate(
       state.form,
@@ -595,11 +604,12 @@ function persistDraftKickoffSnapshot(candidateId = state.selectedCandidateId, sn
         updatedAt: new Date().toISOString()
       }
     );
-    if (!persistedSnapshot) {
-      clearStoredDraftKickoffSnapshot(paperId, cleanCandidateId);
-      return;
-    }
-    writeCandidateStoredRecord(draftKickoffSnapshotStorageKey, paperId, cleanCandidateId, persistedSnapshot);
+    persistCandidateStoredRecord(
+      draftKickoffSnapshotStorageKey,
+      storageState,
+      persistedSnapshot,
+      clearStoredDraftKickoffSnapshot
+    );
   } catch {}
 }
 
