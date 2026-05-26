@@ -24,7 +24,7 @@ import {
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
   permanentCandidateStatusFeedback,
-  permanentCandidatePersistenceDefaults,
+  permanentCandidateFormState,
   permanentNoteStatusFeedback,
   preferredPaperCandidateIdForWorkspaceResume,
   resolveAdoptedDraftKickoff,
@@ -47,8 +47,6 @@ import {
   resolvePersistedDraftBriefCopyFromState,
   baselinePermanentCandidateSignatureToPersist,
   resolvedTranslationSignatureForPermanentCandidate,
-  resolvedConfirmAuthorshipForPermanentCandidate,
-  resolvedSaveStatusForPermanentCandidate,
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
@@ -217,10 +215,10 @@ function persistWorkspaceSelection(overrides = {}) {
 function hydratePermanentCandidateForm(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
   state.workspaceSelection = storedSelection;
   const selectedPermanent = selectedAlignedPermanentCandidate(state.workspace, state.selectedPermanentCandidateId);
-  state.form.saveStatus = permanentCandidatePersistenceDefaults(selectedPermanent, {
-    saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, state.selectedPermanentCandidateId)
-  }).saveStatus;
-  state.form.confirmAuthorship = resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, selectedPermanent);
+  Object.assign(
+    state.form,
+    permanentCandidateFormState(selectedPermanent, storedSelection, state.selectedPermanentCandidateId)
+  );
 }
 
 function alignPermanentCandidateToSelectedPaper(preferredPermanentCandidateId = state.selectedPermanentCandidateId) {

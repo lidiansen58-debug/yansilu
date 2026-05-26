@@ -41,6 +41,7 @@ import {
   paperWorkspaceLiveStatusKey,
   paperWorkspaceStatusFeedback,
   permanentCandidateStatusFeedback,
+  permanentCandidateFormState,
   permanentCandidatePersistenceDefaults,
   permanentCandidateActionState,
   permanentNoteStatusFeedback,
@@ -3016,6 +3017,38 @@ test("resolved permanent candidate persistence prefers candidate-specific stored
     }),
     true
   );
+});
+
+test("permanentCandidateFormState maps stored permanent-candidate selection back into form fields", () => {
+  const storedSelection = {
+    saveStatus: "active",
+    saveStatusByPermanentCandidate: {
+      pn_2: "draft"
+    },
+    confirmAuthorshipByPermanentCandidate: {
+      pn_2: true
+    }
+  };
+
+  assert.deepEqual(
+    permanentCandidateFormState(
+      {
+        id: "pn_2",
+        authorship: { user_confirmed: false }
+      },
+      storedSelection,
+      "pn_2"
+    ),
+    {
+      saveStatus: "draft",
+      confirmAuthorship: true
+    }
+  );
+
+  assert.deepEqual(permanentCandidateFormState(null, null, ""), {
+    saveStatus: "active",
+    confirmAuthorship: false
+  });
 });
 
 test("resolveSelectedPaperWorkspaceState restores aligned paper and permanent selections together", () => {
