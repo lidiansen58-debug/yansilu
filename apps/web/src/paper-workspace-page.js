@@ -52,6 +52,7 @@ import {
   workspaceSelectionPersistenceState,
   workspaceSelectionPersistenceOverrides,
   workspaceSelectionTranslationSignatureOverrides,
+  translationFormState,
   translationSaveStatusFeedback,
   translationContinuitySignature,
   selectedAlignedPermanentCandidate,
@@ -286,9 +287,7 @@ function hydrateTranslationForm(candidateId = "") {
     preferredCandidateId: candidateId,
     readStoredTranslationDraft: (selectedId) => readStoredTranslationDraft(currentPaperId(), selectedId)
   });
-  state.form.paraphraseText = resolvedState.paraphraseText;
-  state.form.relationToQuestion = resolvedState.relationToQuestion;
-  state.form.boundaryOrCondition = resolvedState.boundaryOrCondition;
+  Object.assign(state.form, translationFormState(resolvedState));
   hydrateDraftKickoff(candidateId || resolvedState.selectedCandidateId || state.selectedCandidateId);
 }
 
