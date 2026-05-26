@@ -171,6 +171,17 @@ test("writing draft step says 可继续保存草稿 after scaffold exists but be
   assert.equal(step.note, "可继续保存草稿");
 });
 
+test("writing draft step reflects project gaps before draft saving", () => {
+  const step = describeWritingDraftStepState({
+    hasDraft: false,
+    hasScaffold: true,
+    projectPreflightLevel: "has_gaps"
+  });
+
+  assert.equal(step.title, "\u5148\u8865\u9879\u76ee\u7f3a\u53e3");
+  assert.equal(step.note, "\u5148\u8865\u9879\u76ee\u7f3a\u53e3\uff0c\u518d\u4fdd\u5b58\u8349\u7a3f\u3002");
+});
+
 test("writing draft step says 生成草稿骨架后再保存 before any scaffold exists", () => {
   const step = describeWritingDraftStepState({
     hasDraft: false,
@@ -324,6 +335,57 @@ test("writing strong-model status asks to create a project first when material i
   assert.match(strongModel.hint, /强模型分析前|先创建项目/);
 });
 
+test("writing strong-model status also creates a project first once material reaches project-ready", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "project_ready",
+    readinessHint: "判断、边界、关系和主题线索已经够用，可以先创建项目。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先创建项目");
+  assert.equal(strongModel.buttonLabel, "先创建项目");
+  assert.match(strongModel.hint, /创建项目阶段|先创建项目/);
+});
+
+test("writing strong-model status spells out distillation before project creation", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "needs_distillation",
+    readinessHint: "先把 thesis 和三句话确认下来。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先确认判断");
+  assert.equal(strongModel.buttonLabel, "先确认判断/三句话");
+  assert.match(strongModel.hint, /thesis|三句话/);
+});
+
+test("writing strong-model status blocks on authorship confirmation before project creation", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: false,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "blocked_authorship",
+    readinessHint: "先完成作者/原创确认。",
+    projectPreflightLevel: "unknown",
+    projectPreflightChecksLength: 0,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先完成作者/原创确认");
+  assert.equal(strongModel.buttonLabel, "先完成作者/原创确认");
+  assert.match(strongModel.hint, /作者\/原创确认/);
+});
+
 test("writing strong-model status falls back to project-preflight gaps after a project exists", () => {
   const strongModel = describeWritingStrongModelStatus({
     hasProject: true,
@@ -336,8 +398,25 @@ test("writing strong-model status falls back to project-preflight gaps after a p
     strongModelReady: false
   });
 
-  assert.equal(strongModel.status, "先补条件");
-  assert.equal(strongModel.buttonLabel, "先补条件");
+  assert.equal(strongModel.status, "先澄清项目问题");
+  assert.equal(strongModel.buttonLabel, "先澄清项目问题");
+  assert.match(strongModel.hint, /先澄清项目关键问题/);
+});
+
+test("writing strong-model status distinguishes project gaps after a project exists", () => {
+  const strongModel = describeWritingStrongModelStatus({
+    hasProject: true,
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "strong_model_ready",
+    readinessHint: "判断、边界、关系和主题线索都比较完整，可以继续做项目和强模型分析。",
+    projectPreflightLevel: "has_gaps",
+    projectPreflightChecksLength: 2,
+    strongModelReady: false
+  });
+
+  assert.equal(strongModel.status, "先补项目缺口");
+  assert.equal(strongModel.buttonLabel, "先补项目缺口");
   assert.match(strongModel.hint, /2 项缺口/);
 });
 
@@ -377,6 +456,16 @@ test("writing strong-model button label reuses state label once basket exists", 
   });
 
   assert.equal(label, "先创建项目");
+});
+
+test("writing strong-model button label falls back to material guidance instead of generic conditions", () => {
+  const label = describeWritingStrongModelButtonLabel({
+    basketCount: 2,
+    loading: false,
+    stateButtonLabel: ""
+  });
+
+  assert.equal(label, "先补写作材料");
 });
 
 test("writing center preflight grouping separates blocking warning and pass checks", () => {
@@ -474,8 +563,35 @@ test("writing center project entry only opens creation once basket readiness rea
   assert.equal(ready.actionLabel, "创建项目");
   assert.match(ready.hint, /创建项目阶段/);
   assert.equal(blocked.canCreateProject, false);
-  assert.equal(blocked.actionLabel, "先补条件再建项目");
+  assert.equal(blocked.status, "先补关系/边界");
+  assert.equal(blocked.actionLabel, "先补关系/边界");
   assert.match(blocked.hint, /边界|关系/);
+});
+
+test("writing center project entry spells out distillation before project creation", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "needs_distillation"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "先确认判断");
+  assert.equal(entry.actionLabel, "先确认判断/三句话");
+  assert.match(entry.hint, /thesis|三句话/);
+});
+
+test("writing center project entry blocks on authorship confirmation before project creation", () => {
+  const entry = describeWritingProjectEntryState({
+    relationCountsReady: true,
+    relationCountsErrored: false,
+    readinessLevel: "blocked_authorship"
+  });
+
+  assert.equal(entry.canCreateProject, false);
+  assert.equal(entry.status, "先完成作者/原创确认");
+  assert.equal(entry.actionLabel, "先完成作者/原创确认");
+  assert.match(entry.hint, /作者\/原创确认/);
 });
 test("writing candidate focus prefers the current graph slice when focused ids are present", () => {
   const plan = planWritingCandidateFocus({

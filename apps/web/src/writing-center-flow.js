@@ -55,6 +55,9 @@ export function describeWritingNextActionFromState({
   hasProject = false,
   hasScaffold = false,
   hasDraft = false,
+  projectEntryProjectId = "",
+  projectEntryAction = "",
+  projectEntryActionLabel = "",
   projectPreflightLevel = "",
   projectPreflightHint = "",
   projectPreflightChecksLength = 0,
@@ -65,6 +68,27 @@ export function describeWritingNextActionFromState({
     return {
       title: "先选材料",
       note: "先把 2-5 条能支撑论证的永久笔记放进写作篮。"
+    };
+  }
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationAction = String(projectEntryAction || "").trim();
+  const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+  if (!hasProject && continuationProjectId && continuationActionLabel) {
+    if (continuationAction === "open-draft") {
+      return {
+        title: "打开当前草稿",
+        note: `当前写作篮已经对应项目 ${continuationProjectId}，先打开当前草稿继续写作。`
+      };
+    }
+    if (continuationAction === "resume-scaffold") {
+      return {
+        title: "继续草稿骨架",
+        note: `当前写作篮已经对应项目 ${continuationProjectId}，先回到草稿骨架，再继续检查证据、缺口和开放问题。`
+      };
+    }
+    return {
+      title: "继续当前项目",
+      note: `当前写作篮已经对应项目 ${continuationProjectId}，先继续当前项目，再决定是否生成草稿骨架或保存草稿。`
     };
   }
   if (!hasProject) {
@@ -203,35 +227,35 @@ export function describeWritingProjectEntryState({
   if (cleanLevel === "basket_ready") {
     return {
       level: "needs_structure",
-      status: "待创建",
+      status: "先补关系/边界",
       hint: "还没到建项目时机；先补边界或关系。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先补关系/边界",
       canCreateProject: false
     };
   }
   if (cleanLevel === "needs_distillation") {
     return {
       level: "needs_distillation",
-      status: "待创建",
+      status: "先确认判断",
       hint: "先把 thesis 和三句话确认下来。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先确认判断/三句话",
       canCreateProject: false
     };
   }
   if (cleanLevel === "blocked_authorship" || cleanLevel === "blocked_draft") {
     return {
       level: cleanLevel,
-      status: "待创建",
+      status: "先完成作者/原创确认",
       hint: "先让材料完成作者/原创确认，再进入写作中心。",
-      actionLabel: "先补条件再建项目",
+      actionLabel: "先完成作者/原创确认",
       canCreateProject: false
     };
   }
   return {
     level: cleanLevel || "needs_basket",
-    status: "待创建",
+    status: "先补写作材料",
     hint: String(readinessHint || "").trim() || "先补齐写作材料，再创建项目。",
-    actionLabel: "先补条件再建项目",
+    actionLabel: "先补写作材料",
     canCreateProject: false
   };
 }
@@ -242,6 +266,8 @@ export function describeWritingProjectStepState({
   projectId = "",
   projectEntryStatus = "",
   projectEntryHint = "",
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   canCreateProject = false,
   projectPreflightLevel = "",
   projectPreflightHint = "",
@@ -272,6 +298,14 @@ export function describeWritingProjectStepState({
       note: "先选出能支撑论证的永久笔记，再创建项目。"
     };
   }
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+  if (continuationProjectId && continuationActionLabel) {
+    return {
+      title: "创建项目",
+      note: String(projectEntryHint || "").trim() || `当前写作篮已经对应 ${continuationProjectId}。先${continuationActionLabel}，再继续项目准备。`
+    };
+  }
   if (!canCreateProject) {
     return {
       title: "创建项目",
@@ -293,10 +327,20 @@ export function isWritingScaffoldReadyForDraft({
 
 export function describeWritingScaffoldStepState({
   hasScaffold = false,
+  hasProject = false,
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   blockingCount = 0,
   warningCount = 0
 } = {}) {
   if (!hasScaffold) {
+    const continuationActionLabel = String(projectEntryActionLabel || "").trim();
+    if (!hasProject && String(projectEntryProjectId || "").trim() && continuationActionLabel) {
+      return {
+        title: continuationActionLabel,
+        note: `先${continuationActionLabel}，再检查证据、缺口和反方`
+      };
+    }
     return {
       title: "生成草稿骨架",
       note: "检查证据、缺口和反方"
@@ -322,12 +366,50 @@ export function describeWritingScaffoldStepState({
 
 export function describeWritingDraftStepState({
   hasDraft = false,
-  hasScaffold = false
+  hasScaffold = false,
+  projectEntryProjectId = "",
+  projectEntryAction = "",
+  projectPreflightLevel = "",
+  projectPreflightHint = ""
 } = {}) {
+  const continuationProjectId = String(projectEntryProjectId || "").trim();
+  const continuationAction = String(projectEntryAction || "").trim();
+  const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+  const cleanProjectPreflightHint = String(projectPreflightHint || "").trim();
+  if (continuationProjectId && continuationAction === "open-draft") {
+    return {
+      title: "打开当前草稿",
+      note: "先打开当前草稿，再继续当前写作。"
+    };
+  }
+  if (continuationProjectId && continuationAction === "resume-scaffold") {
+    return {
+      title: "继续草稿骨架",
+      note: "先回到草稿骨架，再继续保存草稿。"
+    };
+  }
+  if (continuationProjectId && continuationAction === "resume-project") {
+    return {
+      title: "继续当前项目",
+      note: "先继续当前项目，再生成草稿骨架并保存草稿。"
+    };
+  }
   if (hasDraft) {
     return {
       title: "打开当前草稿",
       note: "草稿已保存，下一步打开当前草稿继续写作。"
+    };
+  }
+  if (hasScaffold && cleanProjectPreflightLevel === "needs_clarification") {
+    return {
+      title: "先澄清项目问题",
+      note: cleanProjectPreflightHint || "先澄清项目关键问题，再保存草稿。"
+    };
+  }
+  if (hasScaffold && cleanProjectPreflightLevel === "has_gaps") {
+    return {
+      title: "先补项目缺口",
+      note: cleanProjectPreflightHint || "先补项目缺口，再保存草稿。"
     };
   }
   if (hasDraft) {
@@ -453,12 +535,20 @@ export function describeWritingMaterialStatus({
   readinessLevel = "",
   readinessStatus = "",
   readinessHint = "",
-  hasProject = false
+  hasProject = false,
+  projectEntryProjectId = "",
+  projectEntryActionLabel = ""
 } = {}) {
   const cleanLevel = String(readinessLevel || "").trim();
   const cleanStatus = String(readinessStatus || "").trim();
   const cleanHint = String(readinessHint || "").trim();
 
+  if (!hasProject && cleanLevel === "strong_model_ready" && String(projectEntryProjectId || "").trim() && String(projectEntryActionLabel || "").trim()) {
+    return {
+      status: `先${String(projectEntryActionLabel || "").trim()}`,
+      hint: `当前材料已经到强模型分析前的就绪阶段；先${String(projectEntryActionLabel || "").trim()}，再继续后续分析。`
+    };
+  }
   if (!hasProject && cleanLevel === "strong_model_ready") {
     return {
       status: "先创建项目",
@@ -478,10 +568,17 @@ export function describeWritingStrongModelStatus({
   relationCountsErrored = false,
   readinessLevel = "",
   readinessHint = "",
+  projectEntryProjectId = "",
+  projectEntryActionLabel = "",
   projectPreflightLevel = "",
   projectPreflightChecksLength = 0,
   strongModelReady = false
 } = {}) {
+  const cleanReadinessLevel = String(readinessLevel || "").trim();
+  const cleanProjectEntryActionLabel = String(projectEntryActionLabel || "").trim();
+  const cleanProjectEntryProjectId = String(projectEntryProjectId || "").trim();
+  const cleanProjectPreflightLevel = String(projectPreflightLevel || "").trim();
+  const cleanReadinessHint = String(readinessHint || "").trim();
   if (relationCountsErrored) {
     return {
       status: "读取失败",
@@ -496,18 +593,63 @@ export function describeWritingStrongModelStatus({
       buttonLabel: "正在读取关系"
     };
   }
-  if (!hasProject && String(readinessLevel || "").trim() === "strong_model_ready") {
+  if (!hasProject && cleanProjectEntryProjectId && cleanProjectEntryActionLabel && cleanReadinessLevel === "strong_model_ready") {
+    return {
+      status: `先${cleanProjectEntryActionLabel}`,
+      hint: `当前材料已经到强模型分析前的就绪阶段；先${cleanProjectEntryActionLabel}，再继续后续分析。`,
+      buttonLabel: `先${cleanProjectEntryActionLabel}`
+    };
+  }
+  if (!hasProject && (cleanReadinessLevel === "project_ready" || cleanReadinessLevel === "strong_model_ready")) {
     return {
       status: "先创建项目",
-      hint: "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。",
+      hint:
+        cleanReadinessLevel === "strong_model_ready"
+          ? "当前材料已经到强模型分析前的就绪阶段；先创建项目，再继续后续分析。"
+          : "当前材料已经到创建项目阶段；先创建项目，再继续准备强模型分析。",
       buttonLabel: "先创建项目"
     };
   }
-  if (hasProject && String(projectPreflightLevel || "").trim() !== "ready") {
+  if (!hasProject && cleanReadinessLevel === "basket_ready") {
     return {
-      status: "先补条件",
-      hint: `先处理项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
-      buttonLabel: "先补条件"
+      status: "先补关系/边界",
+      hint: "还没到强模型分析时机；先补边界或关系，再继续准备项目和强模型分析。",
+      buttonLabel: "先补关系/边界"
+    };
+  }
+  if (!hasProject && cleanReadinessLevel === "needs_distillation") {
+    return {
+      status: "先确认判断",
+      hint: "先把 thesis 和三句话确认下来，再继续准备项目和强模型分析。",
+      buttonLabel: "先确认判断/三句话"
+    };
+  }
+  if (!hasProject && (cleanReadinessLevel === "blocked_authorship" || cleanReadinessLevel === "blocked_draft")) {
+    return {
+      status: "先完成作者/原创确认",
+      hint: "先让材料完成作者/原创确认，再继续准备项目和强模型分析。",
+      buttonLabel: "先完成作者/原创确认"
+    };
+  }
+  if (hasProject && cleanProjectPreflightLevel !== "ready") {
+    if (cleanProjectPreflightLevel === "needs_clarification") {
+      return {
+        status: "先澄清项目问题",
+        hint: "先澄清项目关键问题，再做强模型分析。",
+        buttonLabel: "先澄清项目问题"
+      };
+    }
+    if (cleanProjectPreflightLevel === "has_gaps") {
+      return {
+        status: "先补项目缺口",
+        hint: `先补齐项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项缺口，再做强模型分析。`,
+        buttonLabel: "先补项目缺口"
+      };
+    }
+    return {
+      status: "先检查项目条件",
+      hint: `先确认项目预检里的 ${Number(projectPreflightChecksLength || 0)} 项条件，再做强模型分析。`,
+      buttonLabel: "先检查项目条件"
     };
   }
   if (strongModelReady) {
@@ -517,17 +659,10 @@ export function describeWritingStrongModelStatus({
       buttonLabel: "准备强模型分析"
     };
   }
-  if (String(readinessLevel || "").trim() === "project_ready") {
-    return {
-      status: "先补条件",
-      hint: "先补更多主题线索，再做强模型分析。",
-      buttonLabel: "先补条件"
-    };
-  }
   return {
-    status: "先补条件",
-    hint: String(readinessHint || "").trim(),
-    buttonLabel: "先补条件"
+    status: "先补写作材料",
+    hint: cleanReadinessHint || "先补齐写作材料，再继续准备项目和强模型分析。",
+    buttonLabel: "先补写作材料"
   };
 }
 
@@ -546,7 +681,7 @@ export function describeWritingStrongModelButtonLabel({
 } = {}) {
   if (loading) return "准备中...";
   if (!basketCount) return "先加入写作篮";
-  return String(stateButtonLabel || "").trim() || "先补条件";
+  return String(stateButtonLabel || "").trim() || "先补写作材料";
 }
 
 export function describeWritingThemeProjectEntryState({

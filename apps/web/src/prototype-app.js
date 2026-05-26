@@ -6784,13 +6784,6 @@ function renderWritingStatusStrip() {
         : readiness.level === "needs_basket"
           ? "warn"
           : "warn";
-  const materialStatus = describeWritingMaterialStatus({
-    readinessLevel: readiness.level,
-    readinessStatus: readiness.status,
-    readinessHint: readiness.hint,
-    hasProject
-  });
-  const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
   const projectEntry =
     (!hasProject && currentWritingContinuationEntry("当前写作篮")) ||
     describeWritingProjectEntryState({
@@ -6799,38 +6792,131 @@ function renderWritingStatusStrip() {
       readinessLevel: readiness.level,
       readinessHint: readiness.hint
     });
+  const materialStatus = describeWritingMaterialStatus({
+    readinessLevel: readiness.level,
+    readinessStatus: readiness.status,
+    readinessHint: readiness.hint,
+    hasProject,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim()
+  });
+  const basketNote = materialStatus.hint || (eligibility.ineligible.length ? writingIneligibleSummary(eligibility.ineligible) : "从永久笔记开始");
+  const canContinueProjectedProjectStatus = !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
   const projectTone =
     hasProject && projectPreflightSummary.level !== "ready"
       ? "warn"
-      : readiness.level === "project_ready" || readiness.level === "strong_model_ready" || hasProject
+      : hasProject || canContinueProjectedProjectStatus || readiness.level === "project_ready" || readiness.level === "strong_model_ready"
         ? "good"
         : "warn";
+  const projectStatus = hasProject
+    ? projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
+        : "已创建"
+    : projectEntry.status;
   const projectNote = hasProject
     ? projectPreflightSummary.level !== "ready"
       ? `${writingState.project.id}；${projectPreflightSummary.hint}`
       : writingState.project.id
     : projectEntry.hint;
+  const scaffoldNote = hasScaffold
+    ? "章节、证据、缺口已返回"
+    : hasProject && projectPreflightSummary.level === "needs_clarification"
+      ? projectPreflightSummary.hint || "先澄清项目关键问题，再生成草稿骨架。"
+      : hasProject && projectPreflightSummary.level === "has_gaps"
+        ? projectPreflightSummary.hint || "先补项目缺口，再生成草稿骨架。"
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? "当前草稿已经存在。先打开当前草稿继续写作。"
+      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
+        ? "先回到草稿骨架，再检查证据、缺口和开放问题。"
+        : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
+          ? `先${projectEntry.actionLabel}，再生成草稿骨架`
+          : projectEntry.hint;
+  const scaffoldStatus = hasScaffold
+    ? "可预览"
+    : hasProject && projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : hasProject && projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? "先打开当前草稿"
+      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
+        ? "先回到草稿骨架"
+        : !hasProject && projectEntry?.projectId && projectEntry?.actionLabel
+          ? `先${projectEntry.actionLabel}`
+          : projectEntry.status;
+  const scaffoldTone =
+    hasScaffold
+      ? "good"
+      : hasProject && projectPreflightSummary.level !== "ready"
+        ? "warn"
+        : (!hasProject &&
+      projectEntry?.projectId &&
+      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
+      ? "good"
+      : "";
+  const draftStatus = hasDraft
+    ? "已绑定"
+    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
+      ? "先澄清项目问题"
+      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
+        ? "先补项目缺口"
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? projectEntry.status
+      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
+        ? projectEntry.status
+        : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
+          ? projectEntry.status
+          : projectEntry.status;
+  const draftNote = hasDraft
+    ? writingState.project?.draft_note?.title || writingState.project.draft_note_id
+    : hasProject && hasScaffold && projectPreflightSummary.level === "needs_clarification"
+      ? projectPreflightSummary.hint || "先澄清项目关键问题，再保存草稿。"
+      : hasProject && hasScaffold && projectPreflightSummary.level === "has_gaps"
+        ? projectPreflightSummary.hint || "先补项目缺口，再保存草稿。"
+    : !hasProject && projectEntry?.projectId && projectEntry?.action === "open-draft"
+      ? projectEntry.hint
+      : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-scaffold"
+        ? "当前草稿骨架已经存在。先回到草稿骨架，再继续保存草稿。"
+        : !hasProject && projectEntry?.projectId && projectEntry?.action === "resume-project"
+          ? "当前项目已经存在。先继续当前项目，再生成草稿骨架并保存草稿。"
+          : projectEntry.hint;
+  const draftTone =
+    hasDraft
+      ? "good"
+      : hasProject && hasScaffold && projectPreflightSummary.level !== "ready"
+        ? "warn"
+        : (!hasProject &&
+      projectEntry?.projectId &&
+      (projectEntry?.action === "open-draft" || projectEntry?.action === "resume-scaffold" || projectEntry?.action === "resume-project"))
+      ? "good"
+      : "";
   const strongModelReady = isWritingStrongModelReady({
     readinessLevel: readiness.level,
     projectPreflightLevel: projectPreflightSummary.level
   });
+  const canContinueProjectedStrongModel =
+    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && readiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
     hasProject,
     relationCountsReady,
     relationCountsErrored,
     readinessLevel: readiness.level,
     readinessHint: readiness.hint,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: projectPreflightSummary.level,
     projectPreflightChecksLength: projectPreflightChecks.length,
     strongModelReady
   });
-  const strongModelTone = strongModelReady ? "good" : "warn";
+  const strongModelTone = strongModelReady || canContinueProjectedStrongModel ? "good" : "warn";
   el.innerHTML = [
     renderWritingStatusCard("材料", materialStatus.status, basketNote, basketTone),
-    renderWritingStatusCard("项目", hasProject ? "已创建" : projectEntry.status, projectNote, projectTone),
-    renderWritingStatusCard("草稿骨架", hasScaffold ? "可预览" : "待生成", hasScaffold ? "章节、证据、缺口已返回" : "创建项目后生成", hasScaffold ? "good" : ""),
+    renderWritingStatusCard("项目", projectStatus, projectNote, projectTone),
+    renderWritingStatusCard("草稿骨架", scaffoldStatus, scaffoldNote, scaffoldTone),
     renderWritingStatusCard("强模型", strongModelState.status, strongModelState.hint, strongModelTone),
-    renderWritingStatusCard("草稿", hasDraft ? "已绑定" : "未保存", hasDraft ? writingState.project?.draft_note?.title || writingState.project.draft_note_id : "检查骨架后再保存", hasDraft ? "good" : "")
+    renderWritingStatusCard("草稿", draftStatus, draftNote, draftTone)
   ].join("");
 }
 
@@ -6844,6 +6930,9 @@ function renderWritingFlowSteps({
   if (!el) return;
   const hasScaffold = Boolean(writingState.scaffold?.id || writingState.project?.scaffold_id);
   const hasDraft = Boolean(writingState.project?.draft_note_id);
+  const projectPreflight = writingState.project?.preflight || null;
+  const projectPreflightSummary = describeWritingProjectPreflight(projectPreflight);
+  const projectPreflightChecks = Array.isArray(projectPreflight?.checks) ? projectPreflight.checks : [];
   const preflightGroups = groupWritingPreflightChecks(writingState.scaffold?.preflight || null);
   const materialStep = describeWritingMaterialStepState({ basketCount });
   const projectStep = describeWritingProjectStepState({
@@ -6852,6 +6941,8 @@ function renderWritingFlowSteps({
     projectId,
     projectEntryStatus: projectEntry?.status || "",
     projectEntryHint: projectEntry?.hint || "",
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     canCreateProject: Boolean(projectEntry?.canCreateProject),
     projectPreflightLevel: hasProject ? projectPreflightSummary.level : "",
     projectPreflightHint: hasProject ? projectPreflightSummary.hint : "",
@@ -6859,12 +6950,19 @@ function renderWritingFlowSteps({
   });
   const scaffoldStep = describeWritingScaffoldStepState({
     hasScaffold,
+    hasProject,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     blockingCount: preflightGroups.blocking.length,
     warningCount: preflightGroups.warnings.length
   });
   const draftStep = describeWritingDraftStepState({
     hasDraft,
-    hasScaffold
+    hasScaffold,
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryAction: hasProject ? "" : String(projectEntry?.action || "").trim(),
+    projectPreflightLevel: hasProject ? projectPreflightSummary.level : "",
+    projectPreflightHint: hasProject ? projectPreflightSummary.hint : ""
   });
   const scaffoldReadyForDraft = isWritingScaffoldReadyForDraft({
     hasScaffold,
@@ -6911,10 +7009,15 @@ function renderWritingFlowSteps({
 function renderWritingScaffoldPreview() {
   const el = $("writingScaffoldPreview");
   if (!el) return;
+  const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前写作篮")) || null;
   if (!writingState.scaffold) {
     el.innerHTML = `
       <h4>草稿骨架预览</h4>
-      <div class="writing-empty">先选材料并创建项目，再生成草稿骨架；这里会显示章节、证据和开放问题。</div>
+      <div class="writing-empty">${
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，再回来查看草稿骨架预览。`
+          : `当前写作篮入口：${escapeHtml(projectEntry?.status || "先补写作材料")}。${escapeHtml(projectEntry?.hint || "先补齐写作材料，再回来查看草稿骨架预览。")}`
+      }</div>
     `;
     return;
   }
@@ -6932,6 +7035,9 @@ function renderWritingScaffoldPreview() {
     hasProject: Boolean(writingState.project?.id),
     hasScaffold: Boolean(writingState.scaffold?.id),
     hasDraft: Boolean(writingState.project?.draft_note_id),
+    projectEntryProjectId: Boolean(writingState.project?.id) ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryAction: Boolean(writingState.project?.id) ? "" : String(projectEntry?.action || "").trim(),
+    projectEntryActionLabel: Boolean(writingState.project?.id) ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: Boolean(writingState.project?.id) ? projectPreflightSummary.level : "",
     projectPreflightHint: Boolean(writingState.project?.id) ? projectPreflightSummary.hint : "",
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
@@ -7158,6 +7264,8 @@ function renderWritingPanel() {
     relationCountsErrored,
     readinessLevel: basketReadiness.level,
     readinessHint: basketReadiness.hint,
+    projectEntryProjectId: writingState.project?.id ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: writingState.project?.id ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: projectPreflightSummary.level,
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
     strongModelReady
@@ -7203,23 +7311,63 @@ function renderWritingPanel() {
 
   if (openDraftButton) {
     const hasDraft = Boolean(writingState.project?.draft_note_id);
-    openDraftButton.disabled = !hasDraft;
-    openDraftButton.textContent = hasDraft ? "打开当前草稿" : "暂无草稿";
+    const draftContinuation = !hasDraft ? currentWritingContinuationEntry("当前写作篮") : null;
+    const canContinueProjectedDraft = Boolean(draftContinuation?.projectId) && Boolean(draftContinuation?.actionLabel);
+    openDraftButton.disabled = !(hasDraft || canContinueProjectedDraft);
+    openDraftButton.textContent = hasDraft
+      ? "打开当前草稿"
+      : draftContinuation?.projectId && draftContinuation?.action === "open-draft"
+        ? "打开当前草稿"
+        : draftContinuation?.projectId && draftContinuation?.actionLabel
+          ? `先${draftContinuation.actionLabel}`
+          : "暂无草稿";
   }
   if (createProjectButton) {
     createProjectButton.disabled = !projectEntry.canCreateProject;
     createProjectButton.textContent = projectEntry.actionLabel;
   }
   if (createScaffoldButton) {
-    createScaffoldButton.disabled = !writingState.project?.id;
-    createScaffoldButton.textContent = writingState.project?.id ? "生成草稿骨架" : "先创建项目";
+    const canContinueProjectedProject = Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel);
+    const canGenerateScaffold = Boolean(writingState.project?.id) && projectPreflightSummary.level === "ready";
+    createScaffoldButton.disabled = !(canGenerateScaffold || canContinueProjectedProject);
+    createScaffoldButton.textContent = writingState.project?.id
+      ? projectPreflightSummary.level === "needs_clarification"
+        ? "先澄清项目问题"
+        : projectPreflightSummary.level === "has_gaps"
+          ? "先补项目缺口"
+          : "生成草稿骨架"
+      : projectEntry?.projectId && projectEntry?.actionLabel
+        ? `先${projectEntry.actionLabel}`
+        : projectEntry?.actionLabel === "创建项目"
+          ? "先创建项目"
+          : projectEntry?.actionLabel || "先补写作材料";
   }
   if (copyScaffoldButton) copyScaffoldButton.disabled = !writingState.project?.scaffold_id;
   if (exportScaffoldButton) exportScaffoldButton.disabled = !writingState.project?.scaffold_id;
-  if (saveDraftButton) saveDraftButton.disabled = !writingState.scaffold?.id;
+  if (saveDraftButton) {
+    const canSaveDraft = Boolean(writingState.scaffold?.id) && projectPreflightSummary.level === "ready";
+    saveDraftButton.disabled = !canSaveDraft;
+    saveDraftButton.textContent = !writingState.scaffold?.id
+      ? !writingState.project?.id
+        ? projectEntry?.projectId && projectEntry?.actionLabel
+          ? `先${projectEntry.actionLabel}`
+          : projectEntry?.actionLabel === "创建项目"
+            ? "先创建项目"
+            : projectEntry?.actionLabel || "先补写作材料"
+        : projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目问题"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口"
+            : "先生成草稿骨架"
+      : projectPreflightSummary.level === "needs_clarification"
+        ? "先澄清项目问题"
+        : projectPreflightSummary.level === "has_gaps"
+          ? "先补项目缺口"
+          : "保存为草稿笔记";
+  }
   const strongModelBasketIds = basketIds;
   if (strongModelButton) {
-    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !strongModelReady;
+    strongModelButton.disabled = writingState.strongModelLoading || strongModelBasketIds.length === 0 || !(strongModelReady || canContinueProjectedStrongModel);
     strongModelButton.textContent = describeWritingStrongModelButtonLabel({
       basketCount: strongModelBasketIds.length,
       loading: writingState.strongModelLoading,
@@ -7259,7 +7407,8 @@ function renderWritingPanel() {
     else if (writingState.loadingProjects) projectsHint.textContent = "正在读取最近项目...";
     else if (writingState.projects.length) projectsHint.textContent = `${filterSummary ? `${filterSummary}，` : ""}共找到 ${writingState.projects.length} 个项目。`;
     else if (filterSummary) projectsHint.textContent = `${filterSummary}，但暂时没有匹配项目。`;
-    else projectsHint.textContent = "还没有项目，创建后会出现在这里。";
+    else if (!hasProject && projectEntry.projectId) projectsHint.textContent = `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
+    else projectsHint.textContent = `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
   }
   if (projectsList) {
     if (writingState.loadingProjects) {
@@ -7269,12 +7418,19 @@ function renderWritingPanel() {
     } else if (writingState.projects.length) {
       projectsList.innerHTML = writingState.projects.map(renderWritingProjectCard).join("");
     } else {
-      projectsList.innerHTML = `<div class="writing-empty">还没有项目。先从永久笔记创建一个项目，这里就会出现可恢复入口。</div>`;
+      projectsList.innerHTML = !hasProject && projectEntry.projectId
+        ? `<div class="writing-empty">当前写作篮已经对应 ${escapeHtml(projectEntry.status)}。直接用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，会比重新创建项目更连续。</div>`
+        : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     }
   }
 
   if (scaffoldVersionsHint) {
-    if (!writingState.project?.id) scaffoldVersionsHint.textContent = "先创建或打开一个项目，这里才会显示版本。";
+    if (!writingState.project?.id) {
+      scaffoldVersionsHint.textContent =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿骨架版本。`
+          : `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
+    }
     else if (writingState.loadingScaffoldVersions && writingState.scaffoldVersions.length) {
       scaffoldVersionsHint.textContent = `正在刷新草稿骨架版本... 当前显示 ${writingState.scaffoldVersions.length} 个版本。`;
     } else if (writingState.loadingScaffoldVersions) scaffoldVersionsHint.textContent = "正在读取草稿骨架版本...";
@@ -7283,7 +7439,10 @@ function renderWritingPanel() {
   }
   if (scaffoldVersionsList) {
     if (!writingState.project?.id) {
-      scaffoldVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示历史草稿骨架版本。</div>`;
+      scaffoldVersionsList.innerHTML =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的历史草稿骨架版本。</div>`
+          : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     } else if (writingState.loadingScaffoldVersions) {
       scaffoldVersionsList.innerHTML = writingState.scaffoldVersions.length
         ? writingState.scaffoldVersions.map(renderScaffoldVersionCard).join("")
@@ -7296,7 +7455,12 @@ function renderWritingPanel() {
   }
 
   if (draftVersionsHint) {
-    if (!writingState.project?.id) draftVersionsHint.textContent = "先创建或打开一个项目，这里才会显示草稿版本。";
+    if (!writingState.project?.id) {
+      draftVersionsHint.textContent =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `当前写作篮已经对应${projectEntry.status}。先用上面的“${projectEntry.actionLabel}”继续，这里就会显示当前项目的草稿版本。`
+          : `当前写作篮入口：${projectEntry.status}。${projectEntry.hint}`;
+    }
     else if (writingState.loadingDraftVersions && writingState.draftVersions.length) {
       draftVersionsHint.textContent = `正在刷新草稿版本... 当前显示 ${writingState.draftVersions.length} 个版本。`;
     } else if (writingState.loadingDraftVersions) draftVersionsHint.textContent = "正在读取草稿版本...";
@@ -7305,7 +7469,10 @@ function renderWritingPanel() {
   }
   if (draftVersionsList) {
     if (!writingState.project?.id) {
-      draftVersionsList.innerHTML = `<div class="writing-empty">创建或打开项目后，这里会显示草稿版本。</div>`;
+      draftVersionsList.innerHTML =
+        projectEntry?.projectId && projectEntry?.actionLabel
+          ? `<div class="writing-empty">当前写作篮已经对应${escapeHtml(projectEntry.status)}。先用上面的“${escapeHtml(projectEntry.actionLabel)}”继续，这里就会显示当前项目的草稿版本。</div>`
+          : `<div class="writing-empty">当前写作篮入口：${escapeHtml(projectEntry.status)}。${escapeHtml(projectEntry.hint)}</div>`;
     } else if (writingState.loadingDraftVersions) {
       draftVersionsList.innerHTML = writingState.draftVersions.length
         ? writingState.draftVersions.map(renderDraftVersionCard).join("")
@@ -10056,6 +10223,29 @@ $("btnWritingClearBasket")?.addEventListener("click", () => {
 });
 
 $("btnWritingStrongModelAnalysis")?.addEventListener("click", async () => {
+  const continuation = !writingState.project?.id ? currentWritingContinuationEntry("当前写作篮") : null;
+  const basketReadiness = currentWritingBasketReadiness();
+  if (continuation?.projectId && basketReadiness.level === "strong_model_ready") {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
   await prepareWritingStrongModelAnalysis();
 });
 
@@ -10510,24 +10700,72 @@ $("btnWritingRefreshDraftVersions")?.addEventListener("click", async () => {
 
 $("btnWritingCreateProject")?.addEventListener("click", async () => {
   const continuation = currentWritingContinuationEntry("当前写作篮");
-  if (continuation?.projectId) {
-    await continueWritingProjectEntry(continuation.projectId, {
-      openDraft: continuation.action === "open-draft",
-      statusMessage:
-        continuation.action === "resume-scaffold"
-          ? `已回到草稿骨架：${continuation.projectId}`
-          : continuation.action === "resume-project"
-            ? `已继续当前项目：${continuation.projectId}`
-            : ""
-    });
-    return;
+  try {
+    if (continuation?.projectId) {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
+      });
+      return;
+    }
+    await createWritingProjectFromCurrentBasket();
+  } catch (error) {
+    if (continuation?.projectId) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+      return;
+    }
+    setStatus(`从写作中心创建项目失败：${String(error?.message || error)}`, "bad");
   }
-  await createWritingProjectFromCurrentBasket();
 });
 
 $("btnWritingCreateScaffold")?.addEventListener("click", async () => {
   const writingProjectId = writingState.project?.id;
-  if (!writingProjectId) return setStatus("请先创建项目", "warn");
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
+  const continuation = !writingProjectId ? currentWritingContinuationEntry("当前写作篮") : null;
+  const missingProjectLabel = String($("btnWritingCreateScaffold")?.textContent || "").trim();
+  if (!writingProjectId && continuation?.projectId) {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
+  if (!writingProjectId) return setStatus(missingProjectLabel || "先补写作材料", "warn");
+  if (projectPreflightSummary.level !== "ready") {
+    return setStatus(
+      projectPreflightSummary.hint ||
+        (projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目关键问题，再生成草稿骨架。"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口，再生成草稿骨架。"
+            : "先检查项目条件，再生成草稿骨架。"),
+      "warn"
+    );
+  }
   try {
     const result = await createDraftScaffold(writingProjectId, currentWritingVersionNote());
     writingState.scaffold = result.item || null;
@@ -10598,13 +10836,26 @@ $("btnWritingExportScaffold")?.addEventListener("click", async () => {
 });
 
 $("btnWritingSaveDraft")?.addEventListener("click", async () => {
+  const missingScaffoldLabel = String($("btnWritingSaveDraft")?.textContent || "").trim();
   if (!writingState.scaffold || !String(writingState.scaffoldMarkdown || "").trim()) {
     showWritingResult({
       stage: "writing_draft_note_error",
       message: "scaffold is required before creating a draft note",
       code: "WRITING_DRAFT_INVALID"
     });
-    return setStatus("请先生成草稿骨架", "warn");
+    return setStatus(missingScaffoldLabel || "先生成草稿骨架", "warn");
+  }
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
+  if (writingState.project?.id && projectPreflightSummary.level !== "ready") {
+    return setStatus(
+      projectPreflightSummary.hint ||
+        (projectPreflightSummary.level === "needs_clarification"
+          ? "先澄清项目关键问题，再保存草稿。"
+          : projectPreflightSummary.level === "has_gaps"
+            ? "先补项目缺口，再保存草稿。"
+            : "先检查项目条件，再保存草稿。"),
+      "warn"
+    );
   }
 
   const directoryId = writingDraftDirectoryId();
@@ -10655,6 +10906,28 @@ $("btnWritingSaveDraft")?.addEventListener("click", async () => {
 
 $("btnWritingOpenDraft")?.addEventListener("click", async () => {
   const draftNoteId = String(writingState.project?.draft_note_id || "").trim();
+  const continuation = !draftNoteId ? currentWritingContinuationEntry("当前写作篮") : null;
+  if (!draftNoteId && continuation?.projectId) {
+    try {
+      await continueWritingProjectEntry(continuation.projectId, {
+        openDraft: continuation.action === "open-draft",
+        statusMessage:
+          continuation.action === "open-draft"
+            ? `已从写作中心打开当前草稿：${continuation.projectId}`
+            : continuation.action === "resume-scaffold"
+              ? `已从写作中心回到草稿骨架：${continuation.projectId}`
+              : continuation.action === "resume-project"
+                ? `已从写作中心继续当前项目：${continuation.projectId}`
+                : ""
+      });
+    } catch (error) {
+      setStatus(
+        `${continuation.action === "open-draft" ? "从写作中心打开当前草稿" : continuation.action === "resume-scaffold" ? "从写作中心回到草稿骨架" : "从写作中心继续当前项目"}失败：${String(error?.message || error)}`,
+        "bad"
+      );
+    }
+    return;
+  }
   if (!draftNoteId) return setStatus("当前项目还没有绑定草稿笔记", "warn");
   try {
     await openWritingDraftNoteById(draftNoteId);
