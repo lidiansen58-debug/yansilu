@@ -820,10 +820,6 @@ function focusDraftKickoffTextarea() {
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
 
-function currentDraftKickoffSignature(runtimeState = null) {
-  return draftKickoffSignatureValue(state.form, runtimeState || currentWorkspaceRuntimeState());
-}
-
 async function handleStartDraftKickoff() {
   syncFormFromDom();
   const runtimeState = currentWorkspaceRuntimeState();
@@ -871,7 +867,11 @@ async function handleAdoptPreviousKickoff() {
     render();
     return;
   }
-  const adoptedKickoff = resolveAdoptedDraftKickoff(state.form, kickoffState, currentDraftKickoffSignature(runtimeState));
+  const adoptedKickoff = resolveAdoptedDraftKickoff(
+    state.form,
+    kickoffState,
+    draftKickoffSignatureValue(state.form, runtimeState)
+  );
   if (!adoptedKickoff) {
     render();
     return;
