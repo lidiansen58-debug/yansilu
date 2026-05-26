@@ -26,6 +26,20 @@ test("writing project cards reuse continuity actions based on draft and scaffold
   assert.match(fnBody, /\$\{escapeHtml\(primaryProjectActionLabel\)\}/);
 });
 
+test("theme index cards reuse continuity actions based on draft and scaffold state", () => {
+  const source = repoSource();
+  const match = source.match(/function renderWritingThemeIndexCard\(indexCard\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected renderWritingThemeIndexCard() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /existingProjectHasScaffold: Boolean\(existingProject\?\.scaffold_id\)/);
+  assert.match(fnBody, /existingProjectHasDraft: Boolean\(existingProject\?\.draft_note_id\)/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
+});
+
 test("writing project list actions keep scoped continuity success and failure copy", () => {
   const source = repoSource();
   const match = source.match(/\$\("writingProjectsList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);

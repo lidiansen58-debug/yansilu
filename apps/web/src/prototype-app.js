@@ -6232,6 +6232,12 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
+  const themeContinuation = describeWritingContinuationAction({
+    existingProjectId: existingProject?.id || "",
+    existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
+    existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
+    scopeLabel: "当前主题"
+  });
   const thinkingBadge = renderThinkingStatusBadge(indexCard?.thinkingStatus, "thinking-status-badge writing-thinking-status");
   return `
     <article class="writing-note-card ${writingState.sourceIndexIds.includes(indexCard.id) || writingState.selectedThemeIndexId === indexCard.id ? "selected" : ""}" data-writing-index-card-id="${escapeHtml(indexCard.id)}">
@@ -6253,7 +6259,7 @@ function renderWritingThemeIndexCard(indexCard) {
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
         ${
           existingProject?.id
-            ? `<button class="mini-btn" type="button" data-writing-index-action="resume-project" data-writing-project-id="${escapeHtml(existingProject.id)}">继续当前项目</button>`
+            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(existingProject.id)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
             : ""
         }
       </div>
