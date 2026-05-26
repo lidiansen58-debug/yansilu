@@ -38,6 +38,7 @@ import {
   resolveSelectedPaperCandidateState,
   resolveSelectedPaperWorkspaceState,
   resolveStoredTranslationDraft,
+  resolvePersistedDraftBriefCopy,
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -867,16 +868,16 @@ async function handleCopyDraftBrief() {
   try {
     await copyTextToClipboard(draftBrief.markdown);
     window.__paperWorkspaceLastDraftBrief = draftBrief.markdown;
+    const persistedDraftBriefCopy = resolvePersistedDraftBriefCopy(null, state.selectedCandidateId, {
+      stepFourPathKey: draftBrief.stepFourPathKey,
+      title: draftBrief.title,
+      nextActionKey: draftContinuationAction?.key,
+      nextAction: draftContinuationAction?.label,
+      translationSignature: currentSelectedTranslationRuntimeContext().translationSignature,
+      copiedAt: new Date().toISOString()
+    });
     persistWorkspaceSelection({
-      draftBriefCopy: {
-        candidateId: state.selectedCandidateId,
-        stepFourPathKey: draftBrief.stepFourPathKey,
-        title: draftBrief.title,
-        nextActionKey: draftContinuationAction?.key,
-        nextAction: draftContinuationAction?.label,
-        translationSignature: currentSelectedTranslationRuntimeContext().translationSignature,
-        copiedAt: new Date().toISOString()
-      }
+      draftBriefCopy: persistedDraftBriefCopy
     });
     const copyStatus = draftBriefStateStatusFeedback(draftBriefState);
     setStatus(copyStatus.text, copyStatus.tone);

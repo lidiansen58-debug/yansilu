@@ -61,6 +61,7 @@ import {
   resolveStoredTranslationDraft,
   resolvePersistedDraftKickoff,
   resolvePersistedDraftKickoffSnapshot,
+  resolvePersistedDraftBriefCopy,
   resolveStoredDraftKickoff,
   resolveStoredDraftKickoffSnapshot,
   resolveStoredWorkspaceSelection,
@@ -2003,6 +2004,46 @@ test("resolveStoredDraftBriefCopy normalizes a matching stored brief copy and re
         translationSignature: "sig_current"
       },
       "pwc_1"
+    ),
+    null
+  );
+});
+
+test("resolvePersistedDraftBriefCopy keeps candidate-scoped identity and rejects empty payloads", () => {
+  assert.deepEqual(
+    resolvePersistedDraftBriefCopy(
+      null,
+      "pwc_1",
+      {
+        stepFourPathKey: "pn_1",
+        title: " Draft brief: Candidate One ",
+        nextActionKey: "review_saved_permanent_note",
+        nextAction: " 回看 originality / authorship ",
+        translationSignature: " sig_current ",
+        copiedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      candidateId: "pwc_1",
+      stepFourPathKey: "pn_1",
+      title: "Draft brief: Candidate One",
+      nextActionKey: "review_saved_permanent_note",
+      nextAction: "回看 originality / authorship",
+      translationSignature: "sig_current",
+      copiedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedDraftBriefCopy(
+      null,
+      "pwc_1",
+      {
+        title: "",
+        nextActionKey: "",
+        nextAction: "",
+        translationSignature: ""
+      }
     ),
     null
   );
