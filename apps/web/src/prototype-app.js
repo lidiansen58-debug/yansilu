@@ -3275,7 +3275,7 @@ async function saveWritingBasketAsThemeIndex() {
   if (title === null) return null;
   const cleanTitle = String(title || "").trim();
   if (!cleanTitle) throw new Error("title is required");
-  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续写作中心入口。";
+  const summarySeed = String($("writingGoal")?.value || "").trim() || "把这一组成熟永久笔记保留为后续可续接的写作入口。";
   const summary = window.prompt("主题索引说明", summarySeed);
   if (summary === null) return null;
   const notes = basketNoteIds.map((id) => writingNoteById(id)).filter(Boolean);

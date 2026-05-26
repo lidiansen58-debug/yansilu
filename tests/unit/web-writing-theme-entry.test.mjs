@@ -117,3 +117,10 @@ test("theme index card fallback summary also uses resumable-entry wording", () =
 
   assert.match(source, /把一组成熟永久笔记当成后续可续接的写作入口。/);
 });
+
+test("theme index save prompt seed also uses resumable-entry wording", () => {
+  const source = repoSource();
+
+  assert.match(source, /把这一组成熟永久笔记保留为后续可续接的写作入口。/);
+  assert.doesNotMatch(source, /把这一组成熟永久笔记保留为后续写作中心入口。/);
+});
