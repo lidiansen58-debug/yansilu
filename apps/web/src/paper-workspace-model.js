@@ -336,6 +336,26 @@ export function resolveStoredDraftBriefCopy(storedCopy = null, candidateId = "")
   };
 }
 
+export function resolvePersistedDraftBriefCopy(storedCopy = null, candidateId = "", overrides = {}) {
+  const cleanCandidateId = cleanText(candidateId);
+  if (!cleanCandidateId) return null;
+  const persistedCopy = resolveStoredDraftBriefCopy(
+    {
+      ...(storedCopy && typeof storedCopy === "object" ? storedCopy : {}),
+      candidateId: cleanCandidateId,
+      stepFourPathKey: overrides.stepFourPathKey,
+      title: overrides.title,
+      nextActionKey: overrides.nextActionKey,
+      nextAction: overrides.nextAction,
+      translationSignature: overrides.translationSignature,
+      copiedAt: cleanText(overrides.copiedAt)
+    },
+    cleanCandidateId
+  );
+  if (!persistedCopy) return null;
+  return persistedCopy;
+}
+
 export function resolveStoredWorkspaceSelection(storedSelection = null) {
   const parsed = storedSelection && typeof storedSelection === "object" ? storedSelection : {};
   const saveStatusByPermanentCandidate =
@@ -421,14 +441,10 @@ export function resolvePersistedWorkspaceSelection(
       if (draftBriefCopy.clear === true) {
         delete draftBriefByCandidate[draftBriefCandidateId];
       } else {
-        const normalizedDraftBriefCopy = resolveStoredDraftBriefCopy(
-          {
-            ...draftBriefCopy,
-            candidateId: draftBriefCandidateId,
-            copiedAt: cleanText(draftBriefCopy.copiedAt) || new Date().toISOString()
-          },
-          draftBriefCandidateId
-        );
+        const normalizedDraftBriefCopy = resolvePersistedDraftBriefCopy(null, draftBriefCandidateId, {
+          ...draftBriefCopy,
+          copiedAt: cleanText(draftBriefCopy.copiedAt) || new Date().toISOString()
+        });
         if (normalizedDraftBriefCopy) {
           draftBriefByCandidate[draftBriefCandidateId] = normalizedDraftBriefCopy;
         }
