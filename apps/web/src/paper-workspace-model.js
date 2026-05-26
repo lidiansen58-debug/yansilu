@@ -34,6 +34,25 @@ export function emptyPaperWorkspaceForm() {
   };
 }
 
+export function paperWorkspaceFormState(rawInput = {}, fallbackForm = null) {
+  return {
+    paperId: rawInput?.paperId || fallbackForm?.paperId || "",
+    sourceId: rawInput?.sourceId || "",
+    title: rawInput?.title || "",
+    notebookName: rawInput?.notebookName || "NotebookLM",
+    summary: rawInput?.summary || "",
+    qa: rawInput?.qa || "",
+    studyGuide: rawInput?.studyGuide || "",
+    notes: rawInput?.notes || "",
+    paraphraseText: rawInput?.paraphraseText || "",
+    relationToQuestion: rawInput?.relationToQuestion || "",
+    boundaryOrCondition: rawInput?.boundaryOrCondition || "",
+    draftKickoffText: rawInput?.draftKickoffText || fallbackForm?.draftKickoffText || "",
+    confirmAuthorship: rawInput?.confirmAuthorship === true,
+    saveStatus: rawInput?.saveStatus || "active"
+  };
+}
+
 export function createInitialPaperWorkspaceState() {
   return {
     form: emptyPaperWorkspaceForm(),

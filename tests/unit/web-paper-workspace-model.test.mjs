@@ -24,6 +24,7 @@ import {
   draftKickoffStatusMessage,
   draftKickoffStateStatusFeedback,
   emptyPaperWorkspaceForm,
+  paperWorkspaceFormState,
   createInitialPaperWorkspaceState,
   draftBriefActionState,
   draftKickoffActionState,
@@ -132,6 +133,66 @@ test("emptyPaperWorkspaceForm provides the expected workflow defaults", () => {
     draftKickoffPreviousText: "",
     draftKickoffPreviousSignature: "",
     draftKickoffReplacementSignature: "",
+    confirmAuthorship: false,
+    saveStatus: "active"
+  });
+});
+
+test("paperWorkspaceFormState maps raw inputs with the same fallback rules used by page sync", () => {
+  assert.deepEqual(
+    paperWorkspaceFormState(
+      {
+        paperId: "",
+        sourceId: "source_1",
+        title: "A title",
+        notebookName: "",
+        summary: "summary",
+        qa: "",
+        studyGuide: "guide",
+        notes: "notes",
+        paraphraseText: "paraphrase",
+        relationToQuestion: "relation",
+        boundaryOrCondition: "",
+        draftKickoffText: "",
+        confirmAuthorship: true,
+        saveStatus: ""
+      },
+      {
+        paperId: "paper_1",
+        draftKickoffText: "existing kickoff"
+      }
+    ),
+    {
+      paperId: "paper_1",
+      sourceId: "source_1",
+      title: "A title",
+      notebookName: "NotebookLM",
+      summary: "summary",
+      qa: "",
+      studyGuide: "guide",
+      notes: "notes",
+      paraphraseText: "paraphrase",
+      relationToQuestion: "relation",
+      boundaryOrCondition: "",
+      draftKickoffText: "existing kickoff",
+      confirmAuthorship: true,
+      saveStatus: "active"
+    }
+  );
+
+  assert.deepEqual(paperWorkspaceFormState(null, null), {
+    paperId: "",
+    sourceId: "",
+    title: "",
+    notebookName: "NotebookLM",
+    summary: "",
+    qa: "",
+    studyGuide: "",
+    notes: "",
+    paraphraseText: "",
+    relationToQuestion: "",
+    boundaryOrCondition: "",
+    draftKickoffText: "",
     confirmAuthorship: false,
     saveStatus: "active"
   });

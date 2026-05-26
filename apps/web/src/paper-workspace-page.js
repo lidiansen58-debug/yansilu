@@ -19,6 +19,7 @@ import {
   draftKickoffStartStatusFeedback,
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
+  paperWorkspaceFormState,
   paperWorkspaceCandidateStorageKey,
   paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
@@ -268,20 +269,28 @@ function persistTranslationDraft(candidateId = state.selectedCandidateId) {
 }
 
 function syncFormFromDom() {
-  state.form.paperId = document.getElementById("paperIdInput")?.value || state.form.paperId;
-  state.form.sourceId = document.getElementById("paperSourceIdInput")?.value || "";
-  state.form.title = document.getElementById("paperTitleInput")?.value || "";
-  state.form.notebookName = document.getElementById("notebookNameInput")?.value || "NotebookLM";
-  state.form.summary = document.getElementById("notebookSummaryInput")?.value || "";
-  state.form.qa = document.getElementById("notebookQaInput")?.value || "";
-  state.form.studyGuide = document.getElementById("notebookStudyGuideInput")?.value || "";
-  state.form.notes = document.getElementById("notebookNotesInput")?.value || "";
-  state.form.paraphraseText = document.getElementById("translationParaphraseInput")?.value || "";
-  state.form.relationToQuestion = document.getElementById("translationRelationInput")?.value || "";
-  state.form.boundaryOrCondition = document.getElementById("translationBoundaryInput")?.value || "";
-  state.form.draftKickoffText = document.getElementById("draftKickoffTextarea")?.value || state.form.draftKickoffText || "";
-  state.form.confirmAuthorship = document.getElementById("confirmAuthorshipInput")?.checked === true;
-  state.form.saveStatus = document.getElementById("permanentStatusInput")?.value || "active";
+  Object.assign(
+    state.form,
+    paperWorkspaceFormState(
+      {
+        paperId: document.getElementById("paperIdInput")?.value,
+        sourceId: document.getElementById("paperSourceIdInput")?.value,
+        title: document.getElementById("paperTitleInput")?.value,
+        notebookName: document.getElementById("notebookNameInput")?.value,
+        summary: document.getElementById("notebookSummaryInput")?.value,
+        qa: document.getElementById("notebookQaInput")?.value,
+        studyGuide: document.getElementById("notebookStudyGuideInput")?.value,
+        notes: document.getElementById("notebookNotesInput")?.value,
+        paraphraseText: document.getElementById("translationParaphraseInput")?.value,
+        relationToQuestion: document.getElementById("translationRelationInput")?.value,
+        boundaryOrCondition: document.getElementById("translationBoundaryInput")?.value,
+        draftKickoffText: document.getElementById("draftKickoffTextarea")?.value,
+        confirmAuthorship: document.getElementById("confirmAuthorshipInput")?.checked === true,
+        saveStatus: document.getElementById("permanentStatusInput")?.value
+      },
+      state.form
+    )
+  );
 }
 
 function hydrateTranslationForm(candidateId = "") {
