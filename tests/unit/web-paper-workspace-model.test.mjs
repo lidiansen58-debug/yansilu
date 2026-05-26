@@ -52,6 +52,7 @@ import {
   resolvePaperWorkspaceContinuityStatus,
   resolvePermanentCandidateRuntimeState,
   resolvePermanentNoteRuntimeState,
+  resolvePersistedWorkspaceSelectionRecord,
   resolvePersistedWorkspaceSelection,
   resolveRefreshedDraftKickoff,
   resolveRecentDraftBriefCopy,
@@ -2234,6 +2235,61 @@ test("resolvePersistedWorkspaceSelection updates candidate-scoped maps and norma
       }
     ).draftBriefByCandidate,
     {}
+  );
+});
+
+test("resolvePersistedWorkspaceSelectionRecord adds paper identity and updatedAt to the normalized selection payload", () => {
+  assert.deepEqual(
+    resolvePersistedWorkspaceSelectionRecord(
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "active",
+        saveStatusByPermanentCandidate: {
+          pn_1: "active"
+        },
+        confirmAuthorshipByPermanentCandidate: {
+          pn_1: false
+        },
+        translationSignatureByPermanentCandidate: {
+          pn_1: "sig_old"
+        },
+        draftBriefByCandidate: {}
+      },
+      "paper_test",
+      {
+        selectedCandidateId: "pwc_1",
+        selectedPermanentCandidateId: "pn_1",
+        saveStatus: "draft"
+      },
+      {
+        confirmAuthorship: true,
+        translationSignature: "sig_current",
+        updatedAt: "2026-05-26T00:00:00.000Z"
+      }
+    ),
+    {
+      paperId: "paper_test",
+      selectedCandidateId: "pwc_1",
+      selectedPermanentCandidateId: "pn_1",
+      saveStatus: "draft",
+      saveStatusByPermanentCandidate: {
+        pn_1: "draft"
+      },
+      confirmAuthorshipByPermanentCandidate: {
+        pn_1: true
+      },
+      translationSignatureByPermanentCandidate: {
+        pn_1: "sig_current"
+      },
+      draftBriefByCandidate: {},
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedWorkspaceSelectionRecord(null, "", null, {}),
+    null
   );
 });
 

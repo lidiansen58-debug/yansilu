@@ -468,6 +468,22 @@ export function resolvePersistedWorkspaceSelection(
   };
 }
 
+export function resolvePersistedWorkspaceSelectionRecord(
+  currentSelection = null,
+  paperId = "",
+  stateSelection = null,
+  overrides = {}
+) {
+  const cleanPaperId = cleanText(paperId);
+  if (!cleanPaperId) return null;
+  const selection = resolvePersistedWorkspaceSelection(currentSelection, stateSelection, overrides);
+  return {
+    paperId: cleanPaperId,
+    ...selection,
+    updatedAt: cleanText(overrides.updatedAt) || new Date().toISOString()
+  };
+}
+
 export function translationContinuitySignature(workspace = null, candidateId = "", draftInput = null) {
   const draft = translationDraftForCandidate(workspace, candidateId, draftInput);
   const cleanCandidateId = cleanText(draft.candidate?.id || candidateId);
