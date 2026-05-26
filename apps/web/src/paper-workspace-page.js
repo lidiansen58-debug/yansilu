@@ -486,7 +486,10 @@ function currentSelectedTranslationRuntimeContext(
   );
 }
 
-function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+function currentSelectionContinuityStatus(
+  mode = "live",
+  storedSelection = readStoredWorkspaceSelection(currentPaperId())
+) {
   const { draftInput } = currentSelectedTranslationRuntimeContext();
   return resolvePaperWorkspaceContinuityStatusFeedback(
     state.workspace,
@@ -494,22 +497,17 @@ function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelec
     state.selectedCandidateId,
     state.selectedPermanentCandidateId,
     draftInput,
-    "resume",
+    mode,
     "loadedWorkspace"
   );
 }
 
+function currentSelectionResumeStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
+  return currentSelectionContinuityStatus("resume", storedSelection);
+}
+
 function currentSelectionLiveStatus(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
-  const { draftInput } = currentSelectedTranslationRuntimeContext();
-  return resolvePaperWorkspaceContinuityStatusFeedback(
-    state.workspace,
-    storedSelection,
-    state.selectedCandidateId,
-    state.selectedPermanentCandidateId,
-    draftInput,
-    "live",
-    "loadedWorkspace"
-  );
+  return currentSelectionContinuityStatus("live", storedSelection);
 }
 
 function setStatusFromCurrentSelection(storedSelection = readStoredWorkspaceSelection(currentPaperId())) {
