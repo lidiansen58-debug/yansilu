@@ -39,6 +39,7 @@ import {
   paperWorkspaceCandidateStorageState,
   paperWorkspaceErrorStatusFeedback,
   paperWorkspacePaperStorageKey,
+  paperWorkspaceTargetId,
   paperWorkspaceProgress,
   paperWorkspaceResumeStatusKey,
   paperWorkspaceLiveStatusKey,
@@ -2923,6 +2924,12 @@ test("workspaceSelectionPersistenceOverrides applies confirmAuthorship fallback 
     ).confirmAuthorship,
     false
   );
+});
+
+test("paperWorkspaceTargetId normalizes target ids for page-local continuity helpers", () => {
+  assert.equal(paperWorkspaceTargetId({ id: " draftKickoffTextarea " }), "draftKickoffTextarea");
+  assert.equal(paperWorkspaceTargetId({ id: "" }), "");
+  assert.equal(paperWorkspaceTargetId(null), "");
 });
 
 test("workspaceSelectionInputOverrides translates change targets into selection overrides", () => {

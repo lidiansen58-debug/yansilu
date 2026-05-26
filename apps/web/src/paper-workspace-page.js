@@ -21,6 +21,7 @@ import {
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceFormState,
   paperWorkspaceCandidateStorageState,
+  paperWorkspaceTargetId,
   paperWorkspaceCandidateStorageKey,
   paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
@@ -396,7 +397,7 @@ function handleSelectPermanentCandidate(permanentCandidateId = "") {
 }
 
 function shouldRefreshContinuityStatus(target) {
-  return CONTINUITY_STATUS_FIELD_IDS.has(String(target?.id || "").trim());
+  return CONTINUITY_STATUS_FIELD_IDS.has(paperWorkspaceTargetId(target));
 }
 
 function hydrateFormFromWorkspace(workspace) {
@@ -453,7 +454,7 @@ function render() {
 }
 
 function rerenderPreservingContinuityFocus(target = null) {
-  const activeId = String(target?.id || "").trim();
+  const activeId = paperWorkspaceTargetId(target);
   const selectionStart =
     typeof target?.selectionStart === "number" ? target.selectionStart : null;
   const selectionEnd =

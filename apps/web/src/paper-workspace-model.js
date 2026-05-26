@@ -692,8 +692,12 @@ export function workspaceSelectionPersistenceOverrides(
   };
 }
 
+export function paperWorkspaceTargetId(target = null) {
+  return cleanText(target?.id);
+}
+
 export function workspaceSelectionInputOverrides(target = null) {
-  const targetId = cleanText(target?.id);
+  const targetId = paperWorkspaceTargetId(target);
   if (targetId === "permanentStatusInput") {
     return { saveStatus: target?.value || "active" };
   }
