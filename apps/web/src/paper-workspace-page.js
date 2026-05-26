@@ -48,6 +48,7 @@ import {
   resolvedTranslationSignatureForPermanentCandidate,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
+  workspaceSelectionPersistenceState,
   workspaceSelectionTranslationSignatureOverrides,
   translationSaveStatusFeedback,
   translationContinuitySignature,
@@ -204,11 +205,11 @@ function persistWorkspaceSelection(overrides = {}) {
     const nextSelection = resolvePersistedWorkspaceSelectionRecord(
       currentSelection,
       paperId,
-      {
-        selectedCandidateId: state.selectedCandidateId,
-        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
-        saveStatus: state.form.saveStatus
-      },
+      workspaceSelectionPersistenceState(
+        state.selectedCandidateId,
+        state.selectedPermanentCandidateId,
+        state.form.saveStatus
+      ),
       {
         ...overrides,
         confirmAuthorship: overrides.confirmAuthorship ?? state.form.confirmAuthorship === true,

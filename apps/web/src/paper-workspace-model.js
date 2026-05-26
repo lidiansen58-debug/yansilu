@@ -552,6 +552,18 @@ export function resolvePersistedWorkspaceSelectionRecord(
   };
 }
 
+export function workspaceSelectionPersistenceState(
+  selectedCandidateId = "",
+  selectedPermanentCandidateId = "",
+  saveStatus = ""
+) {
+  return {
+    selectedCandidateId: cleanText(selectedCandidateId),
+    selectedPermanentCandidateId: cleanText(selectedPermanentCandidateId),
+    saveStatus: cleanText(saveStatus)
+  };
+}
+
 export function workspaceSelectionTranslationSignatureOverrides(
   permanentCandidateId = "",
   translationSignature = "",
