@@ -131,3 +131,10 @@ test("theme index empty state also uses resumable-entry wording", () => {
   assert.match(source, /还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里继续一条可续接的写作入口。/);
   assert.doesNotMatch(source, /还没有主题索引。用当前写作篮里的成熟永久笔记保存一个，后续就能从这里直接进入写作中心。/);
 });
+
+test("theme index hint also describes existing indexes as resumable writing entries", () => {
+  const source = repoSource();
+
+  assert.match(source, /当前范围内有 \$\{writingState\.themeIndexes\.length\} 个主题索引可作为可续接的写作入口。/);
+  assert.doesNotMatch(source, /当前范围内有 \$\{writingState\.themeIndexes\.length\} 个主题索引可作为写作中心入口。/);
+});

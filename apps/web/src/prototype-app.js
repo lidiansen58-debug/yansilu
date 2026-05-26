@@ -7032,7 +7032,7 @@ function renderWritingPanel() {
     } else if (writingState.loadingThemeIndexes) {
       themeIndexesHint.textContent = "正在读取主题索引...";
     } else if (writingState.themeIndexes.length) {
-      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为写作中心入口。`;
+      themeIndexesHint.textContent = `${sourceIndexSummary ? `${sourceIndexSummary}；` : ""}当前范围内有 ${writingState.themeIndexes.length} 个主题索引可作为可续接的写作入口。`;
     } else {
       themeIndexesHint.textContent = "当前范围还没有主题索引。先把一组成熟永久笔记组织进写作篮，再保存为主题索引。";
     }
