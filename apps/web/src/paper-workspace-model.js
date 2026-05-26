@@ -478,8 +478,10 @@ export function resolvePersistedWorkspaceSelection(
   overrides = {}
 ) {
   const current = resolveStoredWorkspaceSelection(currentSelection);
-  const selectedPermanentCandidateId = cleanText(stateSelection?.selectedPermanentCandidateId);
-  const selectedCandidateId = cleanText(stateSelection?.selectedCandidateId);
+  const selectedPermanentCandidateId = cleanText(
+    overrides.selectedPermanentCandidateId ?? stateSelection?.selectedPermanentCandidateId
+  );
+  const selectedCandidateId = cleanText(overrides.selectedCandidateId ?? stateSelection?.selectedCandidateId);
   const nextSaveStatus = cleanText(overrides.saveStatus ?? stateSelection?.saveStatus);
   const saveStatusByPermanentCandidate = {
     ...(current?.saveStatusByPermanentCandidate || {})

@@ -207,19 +207,14 @@ function persistWorkspaceSelection(overrides = {}) {
   const key = workspaceSelectionStorageKey(paperId);
   if (!key) return;
   try {
-    const selectedCandidateId = String(overrides.selectedCandidateId ?? state.selectedCandidateId ?? "").trim();
-    const selectedPermanentCandidateId = String(
-      overrides.selectedPermanentCandidateId ?? state.selectedPermanentCandidateId ?? ""
-    ).trim();
-    const saveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
     const currentSelection = readStoredWorkspaceSelection(paperId);
     const nextSelection = resolvePersistedWorkspaceSelectionRecord(
       currentSelection,
       paperId,
       {
-        selectedCandidateId,
-        selectedPermanentCandidateId,
-        saveStatus
+        selectedCandidateId: state.selectedCandidateId,
+        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
+        saveStatus: state.form.saveStatus
       },
       {
         ...overrides,
