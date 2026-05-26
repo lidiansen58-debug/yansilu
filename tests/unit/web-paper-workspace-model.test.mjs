@@ -1088,8 +1088,8 @@ test("draft continuity status helpers return the expected runtime messages", () 
     "继续本地 draft：Draft brief: Candidate One。当前链路：Step 4: 已保存永久笔记路径 (note_1)。下一步：继续本地 draft"
   );
   assert.equal(
-    draftKickoffStatusMessage("adopted"),
-    "已采用上一版 kickoff 写法。当前本地 draft 仍指向最新转述链路"
+    draftKickoffStatusMessage("adopted", "Draft brief: Candidate One"),
+    "已采用上一版 kickoff 写法：Draft brief: Candidate One。当前本地 draft 仍指向最新转述链路"
   );
 });
 
@@ -2312,11 +2312,12 @@ test("draft continuity status feedback helpers return stable tones", () => {
 
   const kickoffFeedback = draftKickoffStatusFeedback(
     "adopted",
-    "",
+    "Draft brief: Candidate One",
     "这条转述已经具备继续写 draft 的最小条件。",
     "Step 4: 已保存永久笔记路径 (note_1)"
   );
   assert.match(kickoffFeedback.text, /kickoff/);
+  assert.match(kickoffFeedback.text, /Draft brief: Candidate One/);
   assert.match(kickoffFeedback.text, /当前链路：Step 4: 已保存永久笔记路径/);
   assert.match(kickoffFeedback.text, /下一步/);
   assert.equal(kickoffFeedback.tone, "ok");
@@ -2324,7 +2325,7 @@ test("draft continuity status feedback helpers return stable tones", () => {
     kickoffFeedback.text,
     draftKickoffStatusMessage(
       "adopted",
-      "",
+      "Draft brief: Candidate One",
       "这条转述已经具备继续写 draft 的最小条件。",
       "Step 4: 已保存永久笔记路径 (note_1)"
     )

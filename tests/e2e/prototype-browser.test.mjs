@@ -5676,6 +5676,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	    await waitFor(async () => {
 	      const statusText = await currentPaperWorkspaceStatusText(page);
 	      assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	      assert.match(String(statusText || ""), /Summary 1/);
 	      assert.match(String(statusText || ""), /下一步：.*具备继续写 draft 的最小条件/);
 	      assert.match(
 	        String((await page.locator("#draftKickoffTextarea").inputValue()) || ""),
@@ -6445,6 +6446,7 @@ test("paper workspace browser flow preserves draft, selection, failure, and perm
 	            await waitFor(async () => {
 	              const statusText = await currentPaperWorkspaceStatusText(page);
 	              assert.match(String(statusText || ""), /已采用上一版 kickoff 写法/);
+	              assert.match(String(statusText || ""), /Summary 1/);
 	              assert.match(String(statusText || ""), /当前本地 draft 仍指向最新转述链路/);
 	              assert.match(String(statusText || ""), /下一步：/);
 	              assert.match(

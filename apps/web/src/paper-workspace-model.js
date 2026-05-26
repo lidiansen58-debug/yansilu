@@ -978,7 +978,7 @@ export function draftKickoffStatusMessage(mode = "loaded", title = "", nextActio
   const cleanNextAction = cleanText(nextAction);
   const cleanPathLabel = cleanText(pathLabel);
   if (mode === "adopted") {
-    const parts = ["已采用上一版 kickoff 写法", "当前本地 draft 仍指向最新转述链路"];
+    const parts = [cleanTitle ? `已采用上一版 kickoff 写法：${cleanTitle}` : "已采用上一版 kickoff 写法", "当前本地 draft 仍指向最新转述链路"];
     if (cleanPathLabel) parts.push(`当前链路：${cleanPathLabel}`);
     if (cleanNextAction) parts.push(`下一步：${cleanNextAction}`);
     return parts.join("。");

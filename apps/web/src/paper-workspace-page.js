@@ -1092,8 +1092,14 @@ async function handleAdoptPreviousKickoff() {
     previousSignature: state.form.draftKickoffPreviousSignature,
     replacementSignature: state.form.draftKickoffReplacementSignature
   });
-  const nextAction = String(currentDraftBriefState().draftContinuationAction?.label || "").trim();
-  const kickoffStatus = draftKickoffStatusFeedback("adopted", "", nextAction, currentDraftBriefState().draftBrief?.stepFourLabel);
+  const draftBriefState = currentDraftBriefState();
+  const nextAction = String(draftBriefState.draftContinuationAction?.label || "").trim();
+  const kickoffStatus = draftKickoffStatusFeedback(
+    "adopted",
+    draftBriefState.draftBrief?.title,
+    nextAction,
+    draftBriefState.draftBrief?.stepFourLabel
+  );
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
   focusDraftKickoffTextarea();
