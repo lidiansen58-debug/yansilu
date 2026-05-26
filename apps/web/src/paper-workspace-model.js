@@ -200,6 +200,19 @@ export function translationDraftInputFromForm(form = null) {
   };
 }
 
+export function permanentCandidateFormState(
+  selectedPermanent = null,
+  storedSelection = null,
+  selectedPermanentCandidateId = ""
+) {
+  return {
+    saveStatus: permanentCandidatePersistenceDefaults(selectedPermanent, {
+      saveStatus: resolvedSaveStatusForPermanentCandidate(storedSelection, selectedPermanentCandidateId)
+    }).saveStatus,
+    confirmAuthorship: resolvedConfirmAuthorshipForPermanentCandidate(storedSelection, selectedPermanent)
+  };
+}
+
 export function resolveStoredTranslationDraft(storedDraft = null, paperId = "", candidateId = "") {
   const draft = storedDraft && typeof storedDraft === "object" ? storedDraft : {};
   const cleanPaperId = cleanText(paperId);
