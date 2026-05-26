@@ -813,13 +813,6 @@ async function handleCopyDraftBrief() {
   render();
 }
 
-function focusDraftKickoffTextarea() {
-  const textarea = document.getElementById("draftKickoffTextarea");
-  if (!textarea) return;
-  textarea.focus();
-  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-}
-
 async function handleStartDraftKickoff() {
   syncFormFromDom();
   const runtimeState = currentWorkspaceRuntimeState();
@@ -856,7 +849,11 @@ async function handleStartDraftKickoff() {
   const kickoffStatus = draftKickoffStartStatusFeedback(kickoffState, draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
-  focusDraftKickoffTextarea();
+  const kickoffTextarea = document.getElementById("draftKickoffTextarea");
+  if (kickoffTextarea) {
+    kickoffTextarea.focus();
+    kickoffTextarea.setSelectionRange(kickoffTextarea.value.length, kickoffTextarea.value.length);
+  }
 }
 
 async function handleAdoptPreviousKickoff() {
@@ -890,7 +887,11 @@ async function handleAdoptPreviousKickoff() {
   const kickoffStatus = draftKickoffAdoptedStatusFeedback(draftBriefState);
   setStatus(kickoffStatus.text, kickoffStatus.tone);
   render();
-  focusDraftKickoffTextarea();
+  const kickoffTextarea = document.getElementById("draftKickoffTextarea");
+  if (kickoffTextarea) {
+    kickoffTextarea.focus();
+    kickoffTextarea.setSelectionRange(kickoffTextarea.value.length, kickoffTextarea.value.length);
+  }
 }
 
 root?.addEventListener("input", (event) => {
