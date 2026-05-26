@@ -1647,6 +1647,16 @@ export function resolveDraftKickoffState(form = null, currentTranslationSignatur
   };
 }
 
+export function draftKickoffFormState(storedKickoff = null, storedSnapshot = null) {
+  return {
+    draftKickoffText: cleanText(storedKickoff?.content),
+    draftKickoffSignature: cleanText(storedKickoff?.translationSignature),
+    draftKickoffPreviousText: cleanText(storedSnapshot?.content),
+    draftKickoffPreviousSignature: cleanText(storedSnapshot?.previousSignature),
+    draftKickoffReplacementSignature: cleanText(storedSnapshot?.replacementSignature)
+  };
+}
+
 export function resolveAdoptedDraftKickoff(form = null, kickoffState = null, fallbackTranslationSignature = "") {
   const adoptedContent = cleanText(kickoffState?.previousSnapshot?.content);
   const currentContent = cleanText(form?.draftKickoffText);

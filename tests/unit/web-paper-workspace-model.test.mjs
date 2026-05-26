@@ -13,6 +13,7 @@ import {
   chainedPaperWorkspaceStatusFeedback,
   continuityStatusTone,
   draftBriefButtonLabel,
+  draftKickoffFormState,
   draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
   draftBriefStateStatusFeedback,
@@ -575,6 +576,37 @@ test("resolveDraftKickoffState only restores the previous kickoff snapshot when 
       previousSnapshot: null
     }
   );
+});
+
+test("draftKickoffFormState maps stored kickoff payloads back into form fields", () => {
+  assert.deepEqual(
+    draftKickoffFormState(
+      {
+        content: " Current kickoff wording. ",
+        translationSignature: " sig_current "
+      },
+      {
+        content: " Previous kickoff wording. ",
+        previousSignature: " sig_previous ",
+        replacementSignature: " sig_current "
+      }
+    ),
+    {
+      draftKickoffText: "Current kickoff wording.",
+      draftKickoffSignature: "sig_current",
+      draftKickoffPreviousText: "Previous kickoff wording.",
+      draftKickoffPreviousSignature: "sig_previous",
+      draftKickoffReplacementSignature: "sig_current"
+    }
+  );
+
+  assert.deepEqual(draftKickoffFormState(null, null), {
+    draftKickoffText: "",
+    draftKickoffSignature: "",
+    draftKickoffPreviousText: "",
+    draftKickoffPreviousSignature: "",
+    draftKickoffReplacementSignature: ""
+  });
 });
 
 test("resolveAdoptedDraftKickoff swaps the current and previous kickoff wording onto the latest translation chain", () => {
