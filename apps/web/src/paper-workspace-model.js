@@ -266,6 +266,14 @@ export function paperWorkspacePaperStorageKey(prefix = "", paperId = "") {
   return `${cleanPrefix}:${cleanPaperId}`;
 }
 
+export function paperWorkspaceCurrentPaperId(workspace = null, form = null) {
+  return cleanText(workspace?.paperId || form?.paperId);
+}
+
+export function paperWorkspaceLoadedPaperId(workspace = null) {
+  return cleanText(workspace?.paperId);
+}
+
 export function paperWorkspaceCandidateStorageKey(prefix = "", paperId = "", candidateId = "") {
   const cleanPrefix = cleanText(prefix);
   const cleanPaperId = cleanText(paperId);

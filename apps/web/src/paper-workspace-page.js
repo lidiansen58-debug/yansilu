@@ -21,9 +21,11 @@ import {
   normalizePaperWorkspaceStatusFeedback,
   PAPER_WORKSPACE_STATUS,
   paperWorkspaceFormState,
+  paperWorkspaceCurrentPaperId,
   paperWorkspaceCandidateStorageState,
   paperWorkspaceTargetId,
   paperWorkspaceCandidateStorageKey,
+  paperWorkspaceLoadedPaperId,
   paperWorkspacePaperStorageKey,
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceErrorStatusFeedback,
@@ -104,11 +106,11 @@ function setResult(result) {
 }
 
 function currentPaperId() {
-  return String(state.workspace?.paperId || state.form.paperId || "").trim();
+  return paperWorkspaceCurrentPaperId(state.workspace, state.form);
 }
 
 function currentLoadedWorkspacePaperId() {
-  return String(state.workspace?.paperId || "").trim();
+  return paperWorkspaceLoadedPaperId(state.workspace);
 }
 
 function translationDraftStorageKey(paperId, candidateId) {

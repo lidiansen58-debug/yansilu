@@ -38,7 +38,9 @@ import {
   paperWorkspaceActionStatusFeedback,
   paperWorkspaceCandidateStorageKey,
   paperWorkspaceCandidateStorageState,
+  paperWorkspaceCurrentPaperId,
   paperWorkspaceErrorStatusFeedback,
+  paperWorkspaceLoadedPaperId,
   paperWorkspacePaperStorageKey,
   paperWorkspaceTargetId,
   paperWorkspaceProgress,
@@ -209,6 +211,20 @@ test("paperWorkspaceCandidateStorageState normalizes candidate-scoped storage id
   });
   assert.equal(paperWorkspaceCandidateStorageState("", "pwc_1"), null);
   assert.equal(paperWorkspaceCandidateStorageState("paper_1", ""), null);
+});
+
+test("paper workspace paper-id helpers normalize current and loaded workspace ids", () => {
+  assert.equal(
+    paperWorkspaceCurrentPaperId({ paperId: " paper_1 " }, { paperId: "paper_2" }),
+    "paper_1"
+  );
+  assert.equal(
+    paperWorkspaceCurrentPaperId(null, { paperId: " paper_2 " }),
+    "paper_2"
+  );
+  assert.equal(paperWorkspaceCurrentPaperId(null, null), "");
+  assert.equal(paperWorkspaceLoadedPaperId({ paperId: " paper_1 " }), "paper_1");
+  assert.equal(paperWorkspaceLoadedPaperId(null), "");
 });
 
 test("buildNotebookLmPayload keeps only provided NotebookLM fields", () => {
