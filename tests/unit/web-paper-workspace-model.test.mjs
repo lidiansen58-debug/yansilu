@@ -73,6 +73,7 @@ import {
   resolveStoredWorkspaceSelection,
   resolvePersistedTranslationDraft,
   resolvePersistedTranslationDraftRecord,
+  resolvePersistedTranslationDraftRecordForCandidate,
   resolvedStoredTranslationDraft,
   resolvedConfirmAuthorshipForPermanentCandidate,
   resolvedSaveStatusForPermanentCandidate,
@@ -1863,6 +1864,57 @@ test("resolvePersistedTranslationDraftRecord adds updatedAt to the normalized ca
       },
       "paper_test",
       "pwc_1",
+      "2026-05-26T00:00:00.000Z"
+    ),
+    null
+  );
+});
+
+test("resolvePersistedTranslationDraftRecordForCandidate only persists when the candidate still has local translation changes", () => {
+  const workspace = {
+    candidates: [{ id: "pwc_1" }],
+    translations: [
+      {
+        candidateId: "pwc_1",
+        paraphraseText: "Saved paraphrase",
+        relationToQuestion: "Saved relation",
+        boundaryOrCondition: "Saved boundary"
+      }
+    ]
+  };
+
+  assert.deepEqual(
+    resolvePersistedTranslationDraftRecordForCandidate(
+      workspace,
+      "pwc_1",
+      {
+        paraphraseText: "Edited paraphrase",
+        relationToQuestion: "Saved relation",
+        boundaryOrCondition: "Saved boundary"
+      },
+      "paper_test",
+      "2026-05-26T00:00:00.000Z"
+    ),
+    {
+      paperId: "paper_test",
+      candidateId: "pwc_1",
+      paraphraseText: "Edited paraphrase",
+      relationToQuestion: "Saved relation",
+      boundaryOrCondition: "Saved boundary",
+      updatedAt: "2026-05-26T00:00:00.000Z"
+    }
+  );
+
+  assert.equal(
+    resolvePersistedTranslationDraftRecordForCandidate(
+      workspace,
+      "pwc_1",
+      {
+        paraphraseText: "Saved paraphrase",
+        relationToQuestion: "Saved relation",
+        boundaryOrCondition: "Saved boundary"
+      },
+      "paper_test",
       "2026-05-26T00:00:00.000Z"
     ),
     null
