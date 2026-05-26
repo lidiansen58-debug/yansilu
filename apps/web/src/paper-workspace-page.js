@@ -106,10 +106,6 @@ function currentPaperId() {
   return paperWorkspaceCurrentPaperId(state.workspace, state.form);
 }
 
-function currentLoadedWorkspacePaperId() {
-  return paperWorkspaceLoadedPaperId(state.workspace);
-}
-
 function currentStoredWorkspaceSelection() {
   return readStoredWorkspaceSelection(currentPaperId());
 }
@@ -224,7 +220,7 @@ function readStoredWorkspaceSelection(paperId) {
 }
 
 function persistWorkspaceSelection(overrides = {}) {
-  const paperId = currentLoadedWorkspacePaperId();
+  const paperId = paperWorkspaceLoadedPaperId(state.workspace);
   if (!workspaceSelectionStorageKey(paperId)) return;
   try {
     const currentSelection = readStoredWorkspaceSelection(paperId);
@@ -264,7 +260,7 @@ function alignPermanentCandidateToSelectedPaper(preferredPermanentCandidateId = 
     {
       preferredCandidateId: state.selectedCandidateId,
       preferredPermanentCandidateId,
-      candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(currentLoadedWorkspacePaperId(), candidateId)
+      candidateIdHasLocalDraft: (candidateId) => candidateHasStoredTranslationDraft(paperWorkspaceLoadedPaperId(state.workspace), candidateId)
     }
   ).selectedPermanentCandidateId;
 }
@@ -370,7 +366,7 @@ function currentSelectionContinuityStatus(
 }
 
 function refreshLiveContinuityUi(target = null, storedSelection = currentStoredWorkspaceSelection()) {
-  if (currentLoadedWorkspacePaperId()) {
+  if (paperWorkspaceLoadedPaperId(state.workspace)) {
     const liveStatus = currentSelectionContinuityStatus("live", storedSelection);
     setStatus(liveStatus.text, liveStatus.tone);
   }
