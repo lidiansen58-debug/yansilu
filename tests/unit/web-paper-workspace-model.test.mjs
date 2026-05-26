@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 
 import {
+  blockedDraftContinuationStatusFeedback,
   buildNotebookLmPayload,
   blockedDraftContinuationStatusMessage,
   canCreatePermanentCandidate,
@@ -11,7 +12,9 @@ import {
   candidateStatusLabel,
   continuityStatusTone,
   draftBriefButtonLabel,
+  draftBriefCopyStatusFeedback,
   draftBriefCopyStatusMessage,
+  draftKickoffStatusFeedback,
   draftKickoffStatusMessage,
   emptyPaperWorkspaceForm,
   createInitialPaperWorkspaceState,
@@ -2129,6 +2132,35 @@ test("paperWorkspaceStatusFeedback resolves continuity text and tone from status
   const fallbackFeedback = paperWorkspaceStatusFeedback("", "savedTranslation", "warn");
   assert.match(fallbackFeedback.text, /用户转述已保存/);
   assert.equal(fallbackFeedback.tone, "warn");
+});
+
+test("draft continuity status feedback helpers return stable tones", () => {
+  const blockedFeedback = blockedDraftContinuationStatusFeedback({
+    label: "先保存这条转述，再继续写 draft。"
+  });
+  assert.match(blockedFeedback.text, /继续写 draft/);
+  assert.equal(blockedFeedback.tone, "warn");
+  assert.equal(
+    blockedFeedback.text,
+    blockedDraftContinuationStatusMessage({ label: "先保存这条转述，再继续写 draft。" })
+  );
+
+  const copyFeedback = draftBriefCopyStatusFeedback("Draft handoff", "继续本地 draft");
+  assert.match(copyFeedback.text, /Draft handoff/);
+  assert.equal(copyFeedback.tone, "ok");
+  assert.equal(
+    copyFeedback.text,
+    draftBriefCopyStatusMessage("Draft handoff", "继续本地 draft")
+  );
+
+  const copyErrorFeedback = draftBriefCopyStatusFeedback("", "", new Error("clipboard unavailable"));
+  assert.match(copyErrorFeedback.text, /clipboard unavailable/);
+  assert.equal(copyErrorFeedback.tone, "bad");
+
+  const kickoffFeedback = draftKickoffStatusFeedback("adopted");
+  assert.match(kickoffFeedback.text, /kickoff/);
+  assert.equal(kickoffFeedback.tone, "ok");
+  assert.equal(kickoffFeedback.text, draftKickoffStatusMessage("adopted"));
 });
 
 test("resolvePaperWorkspaceContinuityStatus reuses continuity rules for both resume and live modes", () => {

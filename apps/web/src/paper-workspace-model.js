@@ -878,6 +878,13 @@ export function blockedDraftContinuationStatusMessage(draftContinuationAction = 
   return cleanText(draftContinuationAction?.label) || "当前还不能继续写 draft。";
 }
 
+export function blockedDraftContinuationStatusFeedback(draftContinuationAction = null) {
+  return {
+    text: blockedDraftContinuationStatusMessage(draftContinuationAction),
+    tone: "warn"
+  };
+}
+
 export function draftBriefCopyStatusMessage(title = "", nextAction = "", error = null) {
   if (error) {
     return `复制 draft brief 失败：${String(error?.message || error)}`;
@@ -887,6 +894,13 @@ export function draftBriefCopyStatusMessage(title = "", nextAction = "", error =
   return cleanNextAction
     ? `已复制 draft brief：${cleanTitle}。下一步：${cleanNextAction}`
     : `已复制 draft brief：${cleanTitle}`;
+}
+
+export function draftBriefCopyStatusFeedback(title = "", nextAction = "", error = null) {
+  return {
+    text: draftBriefCopyStatusMessage(title, nextAction, error),
+    tone: error ? "bad" : "ok"
+  };
 }
 
 export function draftKickoffStatusMessage(mode = "loaded", title = "", nextAction = "") {
@@ -903,6 +917,13 @@ export function draftKickoffStatusMessage(mode = "loaded", title = "", nextActio
   return cleanNextAction
     ? `已载入本地 draft kickoff：${cleanTitle}。下一步：${cleanNextAction}`
     : `已载入本地 draft kickoff：${cleanTitle}`;
+}
+
+export function draftKickoffStatusFeedback(mode = "loaded", title = "", nextAction = "") {
+  return {
+    text: draftKickoffStatusMessage(mode, title, nextAction),
+    tone: "ok"
+  };
 }
 
 export function draftKickoffActionState(candidateState = null, workspaceState = null, kickoffState = null) {
