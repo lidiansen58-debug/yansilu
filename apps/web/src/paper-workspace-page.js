@@ -202,13 +202,18 @@ function persistWorkspaceSelection(overrides = {}) {
   const key = workspaceSelectionStorageKey(paperId);
   if (!key) return;
   try {
+    const selectedCandidateId = String(overrides.selectedCandidateId ?? state.selectedCandidateId ?? "").trim();
+    const selectedPermanentCandidateId = String(
+      overrides.selectedPermanentCandidateId ?? state.selectedPermanentCandidateId ?? ""
+    ).trim();
+    const saveStatus = String(overrides.saveStatus ?? state.form.saveStatus ?? "").trim();
     const currentSelection = readStoredWorkspaceSelection(paperId);
     const nextSelectionPayload = resolvePersistedWorkspaceSelection(
       currentSelection,
       {
-        selectedCandidateId: state.selectedCandidateId,
-        selectedPermanentCandidateId: state.selectedPermanentCandidateId,
-        saveStatus: state.form.saveStatus
+        selectedCandidateId,
+        selectedPermanentCandidateId,
+        saveStatus
       },
       {
         ...overrides,
@@ -232,33 +237,11 @@ function persistTranslationSignatureForPermanentCandidate(permanentCandidateId =
   const cleanPermanentCandidateId = String(permanentCandidateId || "").trim();
   const cleanTranslationSignature = String(translationSignature || "").trim();
   if (!cleanPermanentCandidateId || !cleanTranslationSignature) return;
-  const paperId = currentLoadedWorkspacePaperId();
-  const key = workspaceSelectionStorageKey(paperId);
-  if (!key) return;
-  try {
-    const currentSelection = readStoredWorkspaceSelection(paperId);
-    const nextSelectionPayload = resolvePersistedWorkspaceSelection(
-      currentSelection,
-      {
-        selectedCandidateId: state.selectedCandidateId,
-        selectedPermanentCandidateId: cleanPermanentCandidateId,
-        saveStatus: state.form.saveStatus
-      },
-      {
-        confirmAuthorship: state.form.confirmAuthorship === true,
-        translationSignature: cleanTranslationSignature
-      }
-    );
-    const nextSelection = {
-      paperId,
-      ...nextSelectionPayload,
-      selectedCandidateId: String(state.selectedCandidateId || "").trim(),
-      selectedPermanentCandidateId: cleanPermanentCandidateId,
-      updatedAt: new Date().toISOString()
-    };
-    window.localStorage?.setItem(key, JSON.stringify(nextSelection));
-    state.workspaceSelection = nextSelection;
-  } catch {}
+  persistWorkspaceSelection({
+    selectedPermanentCandidateId: cleanPermanentCandidateId,
+    translationSignature: cleanTranslationSignature,
+    confirmAuthorship: state.form.confirmAuthorship === true
+  });
 }
 
 function persistPermanentCandidateTranslationSignature(
