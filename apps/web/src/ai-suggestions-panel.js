@@ -163,14 +163,14 @@ function suggestionDetailRecord(detail = null) {
   };
 }
 
-function renderContentEditor(item = {}) {
+function renderContentEditor(item = {}, actionLoading = false) {
   const status = String(item.status || "").trim();
   if (status !== "adopted_as_draft" && status !== "edited") return "";
   const content = typeof item.content === "string" ? item.content : JSON.stringify(item.content || {}, null, 2);
   return `
     <section class="ai-inbox-detail-section">
       <h3>Reviewed content</h3>
-      <textarea id="aiSuggestionContentEditor" rows="8" placeholder="Update the reviewed draft content before marking it edited or confirmed.">${escapeHtml(content)}</textarea>
+      <textarea id="aiSuggestionContentEditor" rows="8" placeholder="Update the reviewed draft content before marking it edited or confirmed." ${actionLoading ? "disabled" : ""}>${escapeHtml(content)}</textarea>
     </section>
   `;
 }
@@ -316,18 +316,72 @@ function renderActionError(message = "") {
   return `<div class="scheduled-task-empty is-bad">AI suggestion review failed: ${escapeHtml(text)}</div>`;
 }
 
+function renderActionNotice(message = "", tone = "") {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  const cleanTone = String(tone || "").trim();
+  return `<div class="scheduled-task-empty ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}" data-ai-suggestion-action-notice="true">${escapeHtml(text)}</div>`;
+}
+
+function renderLatestDetailState(detailLoading = false, detailError = "") {
+  if (detailLoading) {
+    return `<div class="ai-inbox-detail-muted">Loading latest detail...</div>`;
+  }
+  const text = String(detailError || "").trim();
+  if (!text) return "";
+  return `<div class="scheduled-task-empty is-bad">AI suggestion detail failed to load: ${escapeHtml(text)}</div>`;
+}
+
+function renderReviewSafety(item = {}, detailLoading = false, detailError = "", actionLoading = false, actionError = "", actionNotice = "", actionNoticeTone = "") {
+  return `
+    <article class="ai-inbox-detail ${actionLoading || detailLoading ? "is-busy" : ""}">
+      <header class="ai-inbox-detail-head">
+        <div>
+          <div class="ai-inbox-detail-kicker">AI Suggestion</div>
+          <h2>${escapeHtml(aiSuggestionTargetLabel(item))}</h2>
+          <p>${escapeHtml(item.scope || "scope")}</p>
+        </div>
+        ${badge(aiSuggestionStatusLabel(item.status), aiSuggestionStatusTone(item.status))}
+      </header>
+      <section class="ai-inbox-detail-section">
+        <h3>Review safety</h3>
+        <div class="ai-inbox-detail-muted">Load the latest detail before running review actions so the decision stays aligned with the current canonical suggestion.</div>
+      </section>
+      ${renderLatestDetailState(detailLoading, detailError)}
+      ${renderActionError(actionError)}
+      ${renderActionNotice(actionNotice, actionNoticeTone)}
+    </article>
+  `;
+}
+
 function renderDetail(state = {}) {
-  if (state.detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
-  if (state.detailError) return `<div class="scheduled-task-empty is-bad">AI suggestion detail failed to load: ${escapeHtml(state.detailError)}</div>`;
   const selectedSuggestionId = String(state.selectedSuggestionId || "").trim();
+  const detailSuggestionId = String(state.detailSuggestionId || "").trim();
+  const detailLoading = state.detailLoading && detailSuggestionId === selectedSuggestionId;
+  const detailError = detailSuggestionId === selectedSuggestionId ? state.detailError : "";
+  const actionSuggestionId = String(state.actionSuggestionId || "").trim();
   const selectedListItem = state.items?.find((entry) => String(entry.id || "") === selectedSuggestionId) || null;
   const detail = suggestionDetailRecord(state.detail);
   const detailMatchesSelection = String(detail.item?.id || "").trim() && String(detail.item?.id || "").trim() === selectedSuggestionId;
   const item = (detailMatchesSelection ? detail.item : null) || selectedListItem || null;
-  if (!item) return `<div class="scheduled-task-empty">Pick a suggestion to inspect its target, content, and review history.</div>`;
+  if (!item) {
+    if (detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
+    if (detailError) return `<div class="scheduled-task-empty is-bad">AI suggestion detail failed to load: ${escapeHtml(detailError)}</div>`;
+    return `<div class="scheduled-task-empty">Pick a suggestion to inspect its target, content, and review history.</div>`;
+  }
+  const actionLoading = state.actionLoading && actionSuggestionId === String(item.id || "").trim();
+  const actionError = actionSuggestionId === String(item.id || "").trim() ? state.actionError : "";
+  const actionNoticeSuggestionId = String(state.actionNoticeSuggestionId || "").trim();
+  const actionNotice = actionNoticeSuggestionId === String(item.id || "").trim() ? state.actionNotice : "";
+  const actionNoticeTone = actionNotice ? state.actionNoticeTone : "";
+  if (selectedListItem && !detailMatchesSelection) {
+    return renderReviewSafety(selectedListItem, detailLoading, detailError, actionLoading, actionError, actionNotice, actionNoticeTone);
+  }
+  if (detailLoading) return `<div class="scheduled-task-empty">Loading suggestion detail...</div>`;
+  if (detailError) return `<div class="scheduled-task-empty is-bad">AI suggestion detail failed to load: ${escapeHtml(detailError)}</div>`;
   const activeDetail = detailMatchesSelection ? { ...detail, item } : { item };
   return `
-    <article class="ai-inbox-detail">
+    <article class="ai-inbox-detail ${actionLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">AI Suggestion</div>
@@ -343,21 +397,22 @@ function renderDetail(state = {}) {
       ${renderTrace(activeDetail)}
       ${renderLinkedArtifact(activeDetail)}
       ${renderDraftEditingGuide(item)}
-      ${renderContentEditor(item)}
+      ${renderContentEditor(item, actionLoading)}
       ${renderProvenance(activeDetail)}
       ${renderHistory(activeDetail)}
-      ${renderActionError(state.actionError)}
+      ${renderActionError(actionError)}
+      ${renderActionNotice(actionNotice, actionNoticeTone)}
       <div class="scheduled-task-actions">
         <button
           class="mini-btn"
           type="button"
           data-ai-suggestion-open-note="${attr(item.target?.id || "")}"
-          ${item.target?.id ? "" : "disabled"}
+          ${item.target?.id && !actionLoading ? "" : "disabled"}
         >
           Open target note
         </button>
       </div>
-      ${renderActions(item, state.actionLoading)}
+      ${renderActions(item, actionLoading)}
     </article>
   `;
 }
