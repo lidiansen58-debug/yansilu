@@ -159,6 +159,12 @@ export function toAiInboxItem(artifact = {}) {
   const sourceNoteIds = artifact.sources?.noteIds || [];
   const sourceDocIds = artifact.sources?.sourceDocIds || [];
   const decision = latestDecision(artifact);
+  const suggestionId = cleanText(
+    artifact.payload?.fieldSuggestionId ||
+      artifact.payload?.field_suggestion_id ||
+      artifact.payload?.fieldSuggestion?.id ||
+      artifact.payload?.field_suggestion?.id
+  );
   return {
     artifactId: artifact.id,
     type: artifact.type,
@@ -175,6 +181,7 @@ export function toAiInboxItem(artifact = {}) {
     primarySourceNoteId: sourceNoteIds[0] || "",
     sourceNoteIds,
     sourceDocIds,
+    suggestionId,
     decisionCount: Array.isArray(artifact.userDecisions) ? artifact.userDecisions.length : 0,
     latestDecision: decision ? { ...decision } : null,
     confidence: artifact.confidence || null

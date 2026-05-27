@@ -21,6 +21,11 @@ import {
   aiSuggestionStatusLabel,
   aiSuggestionStatusTone
 } from "./ai-suggestions-model.js";
+import {
+  traceDisplayState,
+  traceMissingTargetCopy,
+  tracePlaceholderCopy
+} from "./ai-trace-display.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -229,7 +234,7 @@ function renderEvaluationSummary(state = {}) {
   `;
 }
 
-function renderSourceNotes(noteIds = []) {
+function renderSourceNotes(noteIds = [], actionLoading = false) {
   const ids = Array.isArray(noteIds) ? noteIds.filter(Boolean) : [];
   if (!ids.length) return `<div class="ai-inbox-detail-muted">这条建议没有记录来源笔记，处理前需要谨慎。</div>`;
   return `
@@ -237,7 +242,7 @@ function renderSourceNotes(noteIds = []) {
       ${ids
         .map(
           (noteId) => `
-            <button class="mini-btn is-ghost" type="button" data-ai-inbox-open-note="${attr(noteId)}">${escapeHtml(noteId)}</button>
+            <button class="mini-btn is-ghost" type="button" data-ai-inbox-open-note="${attr(noteId)}" ${actionLoading ? "disabled" : ""}>${escapeHtml(noteId)}</button>
           `
         )
         .join("")}
@@ -263,37 +268,45 @@ function renderPayloadPreview(payload = {}) {
   `;
 }
 
-function renderSuggestionTrace(detail = {}) {
+function renderSuggestionTrace(detail = {}, actionLoading = false) {
   const suggestion = detail.suggestion || null;
-  const trace = detail.trace || {};
   const artifact = detail.artifact || null;
   const payload = artifact?.payload && typeof artifact.payload === "object" ? artifact.payload : {};
-  const suggestionId = suggestion?.id || trace.suggestionId || "";
-  const sourceArtifactId = suggestion?.sourceArtifactId || trace.sourceArtifactId || "";
-  const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
-  const targetNoteId = suggestion?.target?.id || trace.targetNoteId || "";
-  const targetField = suggestion?.target?.field || trace.targetField || "";
-  const status = suggestion?.status || trace.suggestionStatus || "";
+  const display = traceDisplayState({
+    trace: detail.trace,
+    target: suggestion?.target,
+    sourceArtifactId: suggestion?.sourceArtifactId,
+    sourceNoteIds: artifact?.sources?.noteIds,
+    status: suggestion?.status
+  });
+  const suggestionId = suggestion?.id || detail.trace?.suggestionId || "";
+  const targetNoteId = display.targetNoteId;
+  const targetField = display.targetField;
+  const status = display.status;
   const hasLinkedSuggestionContext =
     Boolean(suggestion) ||
-    Boolean(trace && Object.keys(trace).length) ||
+    Boolean(detail.trace && Object.keys(detail.trace).length) ||
     Boolean(payload.fieldSuggestionId || payload.field_suggestion_id || payload.fieldSuggestion || payload.field_suggestion);
   if (!hasLinkedSuggestionContext) return "";
-  const tracePlaceholder =
-    !suggestionId && !sourceArtifactId && !targetNoteId
-      ? `<div class="ai-inbox-detail-muted">Trace placeholder: this artifact can participate in suggestion review, but the linked trace record is not available yet.</div>`
-      : "";
+  const placeholderText = tracePlaceholderCopy({
+    suggestionId,
+    sourceArtifactId: display.sourceArtifactId,
+    targetNoteId
+  });
+  const tracePlaceholder = placeholderText
+    ? `<div class="ai-inbox-detail-muted">${escapeHtml(placeholderText)}</div>`
+    : "";
   const targetHint = targetNoteId
     ? ""
-    : `<div class="ai-inbox-detail-muted">This suggestion is not linked to a target note yet, so there is nothing to open or confirm in-note.</div>`;
-  const sourceText = sourceNoteIds.join(", ") || trace.primarySourceNoteId || "not recorded";
+    : `<div class="ai-inbox-detail-muted">${escapeHtml(traceMissingTargetCopy())}</div>`;
+  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "not recorded";
   return `
     <section class="ai-inbox-detail-section">
       <h3>Suggestion trace</h3>
       ${tracePlaceholder}
       <dl class="ai-inbox-kv">
         <dt>Suggestion</dt><dd>${escapeHtml(suggestionId || "not linked")}</dd>
-        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(display.sourceArtifactId || "not recorded")}</dd>
         <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
         <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
         <dt>Status</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "not recorded")}</dd>
@@ -301,7 +314,7 @@ function renderSuggestionTrace(detail = {}) {
       </dl>
       ${targetHint}
       <div class="ai-inbox-actions">
-        <button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(targetNoteId)}" ${targetNoteId ? "" : "disabled"}>
+        <button class="mini-btn" type="button" data-ai-inbox-open-note="${attr(targetNoteId)}" ${targetNoteId && !actionLoading ? "" : "disabled"}>
           Open target note
         </button>
       </div>
@@ -309,7 +322,29 @@ function renderSuggestionTrace(detail = {}) {
   `;
 }
 
-function renderReviewedSuggestionContent(detail = {}) {
+function renderSuggestionDraftEditingGuide(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  const status = String(suggestion?.status || "").trim();
+  if (status === "adopted_as_draft") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Next step</h3>
+        <p>Open the target note, edit the adopted draft in the note itself, then return here and mark the suggestion as edited.</p>
+      </section>
+    `;
+  }
+  if (status === "edited") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Ready to confirm</h3>
+        <p>This suggestion has been marked as edited by a person. Confirm it only after the target note wording reflects the final user-owned judgment.</p>
+      </section>
+    `;
+  }
+  return "";
+}
+
+function renderReviewedSuggestionContent(detail = {}, actionLoading = false) {
   const suggestion = detail.suggestion || null;
   const status = String(suggestion?.status || "").trim();
   if (!suggestion || !["adopted_as_draft", "edited", "confirmed"].includes(status)) return "";
@@ -318,7 +353,7 @@ function renderReviewedSuggestionContent(detail = {}) {
     return `
       <section class="ai-inbox-detail-section">
         <h3>Reviewed content</h3>
-        <textarea id="aiInboxSuggestionContentEditor" rows="8" placeholder="Update the reviewed content before marking it edited or confirmed.">${escapeHtml(content)}</textarea>
+        <textarea id="aiInboxSuggestionContentEditor" rows="8" placeholder="Update the reviewed content before marking it edited or confirmed." ${actionLoading ? "disabled" : ""}>${escapeHtml(content)}</textarea>
       </section>
     `;
   }
@@ -384,6 +419,7 @@ function renderSuggestionHistory(detail = {}) {
 function renderSuggestionReviewActions(detail = {}, actionLoading = false) {
   const suggestion = detail.suggestion || null;
   if (!suggestion) return "";
+  const suggestionId = String(suggestion.id || "").trim();
   const artifact = detail.artifact || null;
   const adoptableFieldSuggestion = fieldSuggestionSummary(artifact);
   const actions = aiSuggestionActionSet(suggestion).filter((action) => {
@@ -411,6 +447,7 @@ function renderSuggestionReviewActions(detail = {}, actionLoading = false) {
                 class="mini-btn ${action === "confirmed" ? "primary" : ""}"
                 type="button"
                 data-ai-inbox-suggestion-status="${attr(action)}"
+                data-ai-inbox-suggestion-id="${attr(suggestionId)}"
                 ${actionLoading ? "disabled" : ""}
               >
                 ${escapeHtml(labels[action] || action)}
@@ -435,19 +472,27 @@ function renderActionNotice(message = "", tone = "") {
   const cleanTone = String(tone || "").trim();
   return `<div class="ai-inbox-detail-muted ${cleanTone ? `tone-${escapeHtml(cleanTone)}` : ""}" data-ai-inbox-action-notice="true">${escapeHtml(text)}</div>`;
 }
-function renderFeedbackControls() {
+function renderLatestDetailState(detailLoading = false, detailError = "") {
+  if (detailLoading) {
+    return `<div class="ai-inbox-detail-muted">Loading latest detail...</div>`;
+  }
+  const text = String(detailError || "").trim();
+  if (!text) return "";
+  return `<div class="ai-inbox-empty is-bad">AI inbox detail failed to load: ${escapeHtml(text)}</div>`;
+}
+function renderFeedbackControls(actionLoading = false) {
   return `
     <div class="ai-inbox-feedback-controls">
-      <label><input type="checkbox" data-ai-inbox-feedback="useful" /> 有用</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="noisy" /> 噪音</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="wrong" /> 错误</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="alreadyKnown" /> 已知</label>
-      <label><input type="checkbox" data-ai-inbox-feedback="privacyConcern" /> 隐私风险</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="useful" ${actionLoading ? "disabled" : ""} /> 有用</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="noisy" ${actionLoading ? "disabled" : ""} /> 噪音</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="wrong" ${actionLoading ? "disabled" : ""} /> 错误</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="alreadyKnown" ${actionLoading ? "disabled" : ""} /> 已知</label>
+      <label><input type="checkbox" data-ai-inbox-feedback="privacyConcern" ${actionLoading ? "disabled" : ""} /> 隐私风险</label>
     </div>
   `;
 }
 
-function renderReviewActions(item = {}) {
+function renderReviewActions(item = {}, actionLoading = false) {
   if (!item.artifactId) return "";
   return `
     <div class="ai-inbox-action-card">
@@ -455,13 +500,13 @@ function renderReviewActions(item = {}) {
         <h3>处理这条建议</h3>
         <p>这里先记录判断；只有下面的“建立关系”或“生成草稿”按钮会真正改动笔记数据。</p>
       </div>
-      ${renderFeedbackControls()}
-      <textarea id="aiInboxDecisionComment" placeholder="可选：写下为什么采纳、忽略或归档"></textarea>
+      ${renderFeedbackControls(actionLoading)}
+      <textarea id="aiInboxDecisionComment" placeholder="可选：写下为什么采纳、忽略或归档" ${actionLoading ? "disabled" : ""}></textarea>
       <div class="ai-inbox-actions">
         ${["accepted", "ignored", "archived"]
           .map(
             (decision) => `
-              <button class="mini-btn ${decision === "accepted" ? "primary" : ""}" type="button" data-ai-inbox-decision="${attr(decision)}">
+              <button class="mini-btn ${decision === "accepted" ? "primary" : ""}" type="button" data-ai-inbox-decision="${attr(decision)}" ${actionLoading ? "disabled" : ""}>
                 ${escapeHtml(aiInboxActionLabel(decision))}
               </button>
             `
@@ -472,20 +517,33 @@ function renderReviewActions(item = {}) {
   `;
 }
 
-function renderAiSummary(state = {}, item = {}) {
+function aiInboxSummaryMatchesCurrentDetail(state = {}, item = {}) {
+  const summaryArtifactId = String(state.aiSummaryArtifactId || "").trim();
+  const itemArtifactId = String(item.artifactId || "").trim();
+  if (!itemArtifactId || summaryArtifactId !== itemArtifactId) return false;
+  const summarySuggestionId = String(state.aiSummarySuggestionId || "").trim();
+  if (!summarySuggestionId) return true;
+  const detailArtifactId = String(state.detail?.item?.artifactId || state.detail?.artifact?.id || "").trim();
+  if (detailArtifactId !== itemArtifactId) return false;
+  const detailSuggestionId = String(state.detail?.suggestion?.id || "").trim();
+  return Boolean(detailSuggestionId) && detailSuggestionId === summarySuggestionId;
+}
+
+function renderAiSummary(state = {}, item = {}, actionLoading = false) {
   if (!item.artifactId) return "";
-  const loading = state.aiSummaryLoading === true;
-  const meta = String(state.aiSummaryMeta || "").trim();
-  const error = String(state.aiSummaryError || "").trim();
-  const summary = String(state.aiSummary || "").trim();
+  const summaryMatchesItem = aiInboxSummaryMatchesCurrentDetail(state, item);
+  const loading = state.aiSummaryLoading === true && summaryMatchesItem;
+  const meta = summaryMatchesItem ? String(state.aiSummaryMeta || "").trim() : "";
+  const error = summaryMatchesItem ? String(state.aiSummaryError || "").trim() : "";
+  const summary = summaryMatchesItem ? String(state.aiSummary || "").trim() : "";
   return `
-    <div class="ai-inbox-action-card ${loading ? "is-busy" : ""}">
+    <div class="ai-inbox-action-card ${loading || actionLoading ? "is-busy" : ""}">
       <div>
         <h3>AI 摘要（本地优先）</h3>
         <p>用当前模型路由快速总结这条建议，帮助你更快决策。</p>
       </div>
       <div class="ai-inbox-actions">
-        <button class="mini-btn primary" id="btnAiInboxSummarize" type="button" ${loading ? "disabled" : ""}>
+        <button class="mini-btn primary" id="btnAiInboxSummarize" type="button" ${loading || actionLoading ? "disabled" : ""}>
           ${loading ? "运行中..." : "生成摘要"}
         </button>
         <span class="ai-inbox-detail-muted">${escapeHtml(meta || (error ? "失败" : "未生成"))}</span>
@@ -496,7 +554,9 @@ function renderAiSummary(state = {}, item = {}) {
   `;
 }
 
-function renderRecommendedSummaryAction(state = {}) {
+function renderRecommendedSummaryAction(state = {}, item = {}, actionLoading = false) {
+  const summaryMatchesItem = aiInboxSummaryMatchesCurrentDetail(state, item);
+  if (!summaryMatchesItem) return "";
   const action = String(state.aiSummaryRecommendedAction || "").trim();
   const labels = {
     accept_link: "Apply: create relation",
@@ -512,14 +572,14 @@ function renderRecommendedSummaryAction(state = {}) {
         <h3>Recommended action</h3>
         <p>${escapeHtml(action)}</p>
       </div>
-      <button class="mini-btn primary" type="button" data-ai-inbox-recommended-action="${attr(action)}">
+      <button class="mini-btn primary" type="button" data-ai-inbox-recommended-action="${attr(action)}" ${actionLoading ? "disabled" : ""}>
         ${escapeHtml(labels[action])}
       </button>
     </div>
   `;
 }
 
-function renderLinkSuggestionAction(artifact = {}) {
+function renderLinkSuggestionAction(artifact = {}, actionLoading = false) {
   if (!artifact || artifact.type !== "LinkSuggestion") return "";
   const link = linkSuggestionSummary(artifact);
   return `
@@ -533,7 +593,7 @@ function renderLinkSuggestionAction(artifact = {}) {
         class="mini-btn primary"
         type="button"
         data-ai-inbox-accept-link="${attr(artifact.id)}"
-        ${link.canAccept ? "" : "disabled"}
+        ${link.canAccept && !actionLoading ? "" : "disabled"}
       >
         建立为笔记关系
       </button>
@@ -542,7 +602,7 @@ function renderLinkSuggestionAction(artifact = {}) {
   `;
 }
 
-function renderNotePromotionAction(artifact = {}) {
+function renderNotePromotionAction(artifact = {}, actionLoading = false) {
   const promotion = notePromotionSummary(artifact);
   if (!promotion.artifactType || !["QuestionCard", "ReflectionPrompt"].includes(promotion.artifactType)) return "";
   return `
@@ -560,7 +620,7 @@ function renderNotePromotionAction(artifact = {}) {
         class="mini-btn primary"
         type="button"
         data-ai-inbox-promote-note="${attr(artifact.id)}"
-        ${promotion.canPromote ? "" : "disabled"}
+        ${promotion.canPromote && !actionLoading ? "" : "disabled"}
       >
         生成草稿笔记
       </button>
@@ -568,7 +628,7 @@ function renderNotePromotionAction(artifact = {}) {
   `;
 }
 
-function renderFieldSuggestionAction(artifact = {}) {
+function renderFieldSuggestionAction(artifact = {}, actionLoading = false) {
   const suggestion = fieldSuggestionSummary(artifact);
   if (!suggestion.field) return "";
   return `
@@ -586,7 +646,8 @@ function renderFieldSuggestionAction(artifact = {}) {
         class="mini-btn primary"
         type="button"
         data-ai-inbox-adopt-field="${attr(artifact.id)}"
-        ${suggestion.canAdopt ? "" : "disabled"}
+        data-ai-inbox-suggestion-id="${attr(String(suggestion.id || "").trim())}"
+        ${suggestion.canAdopt && !actionLoading ? "" : "disabled"}
       >
         采纳为草稿字段
       </button>
@@ -627,10 +688,10 @@ function renderDecisions(decisions = []) {
   `;
 }
 
-function renderDetailRefreshGate(item = {}) {
+function renderDetailRefreshGate(item = {}, detailLoading = false, detailError = "", actionLoading = false, actionError = "", actionNotice = "", actionNoticeTone = "") {
   if (!item?.artifactId) return "";
   return `
-    <article class="ai-inbox-detail">
+    <article class="ai-inbox-detail ${actionLoading || detailLoading ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(item.type))}</div>
@@ -641,8 +702,11 @@ function renderDetailRefreshGate(item = {}) {
       </header>
       <section class="ai-inbox-detail-section">
         <h3>Review safety</h3>
-        <div class="ai-inbox-detail-muted">The selected inbox item changed. Refresh the latest detail before running review actions so the decision stays aligned with the current canonical artifact.</div>
+        <div class="ai-inbox-detail-muted">Load the latest detail before running review actions so the decision stays aligned with the current canonical artifact.</div>
       </section>
+      ${renderLatestDetailState(detailLoading, detailError)}
+      ${renderActionError(actionError)}
+      ${renderActionNotice(actionNotice, actionNoticeTone)}
     </article>
   `;
 }
@@ -651,23 +715,52 @@ function renderDetail(state = {}) {
   const detail = state.detail || {};
   const selectedArtifactId = String(state.selectedArtifactId || "").trim();
   const selectedListItem = selectedAiInboxItem(state.items, state.selectedArtifactId) || {};
-  const detailArtifactId = String(detail.item?.artifactId || detail.artifact?.id || "").trim();
-  const detailMatchesSelection = Boolean(detailArtifactId) && detailArtifactId === selectedArtifactId;
+  const loadedDetailArtifactId = String(detail.item?.artifactId || detail.artifact?.id || "").trim();
+  const detailArtifactId = String(state.detailArtifactId || loadedDetailArtifactId).trim();
+  const detailLoading = state.detailLoading && detailArtifactId === selectedArtifactId;
+  const detailError = detailArtifactId === selectedArtifactId ? state.detailError : "";
+  const detailMatchesSelection = Boolean(loadedDetailArtifactId) && loadedDetailArtifactId === selectedArtifactId;
   const activeDetail = detailMatchesSelection ? detail : {};
   const item = activeDetail.item || selectedListItem || {};
   const artifact = activeDetail.artifact || null;
+  const currentSuggestionId = String(activeDetail.suggestion?.id || "").trim();
+  const actionArtifactId = String(state.actionArtifactId || "").trim();
+  const actionSuggestionId = String(state.actionSuggestionId || "").trim();
+  const actionError =
+    actionArtifactId &&
+    actionArtifactId === String(item.artifactId || artifact?.id || "").trim() &&
+    (!actionSuggestionId || actionSuggestionId === currentSuggestionId)
+      ? state.actionError
+      : "";
+  const actionNoticeArtifactId = String(state.actionNoticeArtifactId || "").trim();
+  const actionNoticeSuggestionId = String(state.actionNoticeSuggestionId || "").trim();
+  const actionNotice =
+    actionNoticeArtifactId &&
+    actionNoticeArtifactId === String(item.artifactId || artifact?.id || "").trim() &&
+    (!actionNoticeSuggestionId || actionNoticeSuggestionId === currentSuggestionId)
+      ? state.actionNotice
+      : "";
+  const actionNoticeTone = actionNotice ? state.actionNoticeTone : "";
+  const currentOrSelectedSuggestionId = String(currentSuggestionId || item.suggestionId || "").trim();
+  const actionLoading =
+    state.actionLoading === true &&
+    actionArtifactId === String(item.artifactId || artifact?.id || "").trim() &&
+    (!actionSuggestionId || !currentOrSelectedSuggestionId || actionSuggestionId === currentOrSelectedSuggestionId);
+  if ((item.artifactId || artifact) && !detailMatchesSelection) {
+    return renderDetailRefreshGate(item, detailLoading, detailError, actionLoading, actionError, actionNotice, actionNoticeTone);
+  }
 
-  if (state.detailLoading) {
+  if (detailLoading) {
     return `<div class="ai-inbox-empty">正在读取建议详情...</div>`;
   }
-  if (state.detailError) {
-    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(state.detailError)}</div>`;
+  if (detailError) {
+    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(detailError)}</div>`;
   }
   if (!item.artifactId && !artifact) {
     return `<div class="ai-inbox-empty">从左侧选择一条建议，右侧会显示来源、理由、可执行动作和处理记录。</div>`;
   }
   if (!detailMatchesSelection) {
-    return renderDetailRefreshGate(item);
+    return renderDetailRefreshGate(item, detailLoading, detailError, actionLoading, actionError, actionNotice, actionNoticeTone);
   }
 
   const activeArtifact = artifact || item;
@@ -676,10 +769,15 @@ function renderDetail(state = {}) {
   const confidence = activeArtifact.confidence || item.confidence || {};
   const model = activeArtifact.model || {};
   const provenance = activeArtifact.provenance || {};
-  const actionDisabled = Boolean(state.actionLoading);
+  const artifactActionBusy =
+    state.actionLoading === true &&
+    actionArtifactId === String(item.artifactId || activeArtifact?.id || "").trim();
+  const suggestionActionBusy =
+    artifactActionBusy &&
+    (!actionSuggestionId || actionSuggestionId === currentSuggestionId);
 
   return `
-    <article class="ai-inbox-detail ${actionDisabled ? "is-busy" : ""}">
+    <article class="ai-inbox-detail ${suggestionActionBusy ? "is-busy" : ""}">
       <header class="ai-inbox-detail-head">
         <div>
           <div class="ai-inbox-detail-kicker">${escapeHtml(aiInboxTypeLabel(activeArtifact.type || item.type))}</div>
@@ -692,7 +790,7 @@ function renderDetail(state = {}) {
       <div class="ai-inbox-detail-grid">
         <section>
           <h3>来源笔记</h3>
-          ${renderSourceNotes(sourceNoteIds)}
+          ${renderSourceNotes(sourceNoteIds, artifactActionBusy)}
         </section>
         <section>
           <h3>运行来源</h3>
@@ -706,19 +804,20 @@ function renderDetail(state = {}) {
         </section>
       </div>
 
-      ${renderLinkSuggestionAction(activeArtifact)}
-      ${renderNotePromotionAction(activeArtifact)}
-      ${renderFieldSuggestionAction(activeArtifact)}
-      ${renderSuggestionTrace(activeDetail)}
-      ${renderReviewedSuggestionContent(activeDetail)}
+      ${renderLinkSuggestionAction(activeArtifact, artifactActionBusy)}
+      ${renderNotePromotionAction(activeArtifact, artifactActionBusy)}
+      ${renderFieldSuggestionAction(activeArtifact, suggestionActionBusy)}
+      ${renderSuggestionTrace(activeDetail, suggestionActionBusy)}
+      ${renderSuggestionDraftEditingGuide(activeDetail)}
+      ${renderReviewedSuggestionContent(activeDetail, suggestionActionBusy)}
       ${renderSuggestionProvenance(activeDetail)}
       ${renderSuggestionHistory(activeDetail)}
-      ${renderSuggestionReviewActions(activeDetail, actionDisabled)}
-      ${renderActionError(state.actionError)}
-      ${renderActionNotice(state.actionNotice, state.actionNoticeTone)}
-      ${renderAiSummary(state, item)}
-      ${renderRecommendedSummaryAction(state)}
-      ${renderReviewActions(item)}
+      ${renderSuggestionReviewActions(activeDetail, suggestionActionBusy)}
+      ${renderActionError(actionError)}
+      ${renderActionNotice(actionNotice, actionNoticeTone)}
+      ${renderAiSummary(state, item, artifactActionBusy)}
+      ${renderRecommendedSummaryAction(state, item, artifactActionBusy)}
+      ${renderReviewActions(item, artifactActionBusy)}
 
       <section class="ai-inbox-detail-section">
         <h3>建议正文</h3>

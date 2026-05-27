@@ -101,6 +101,9 @@ test("canonical inbox adapter projects artifact review fields into stable payloa
           createdAt: "2026-05-18T12:07:00.000Z"
         }
       ],
+      payload: {
+        fieldSuggestionId: "suggestion_question_1"
+      },
       status: "ignored"
     },
     { now: "2026-05-18T12:00:00.000Z" }
@@ -112,6 +115,7 @@ test("canonical inbox adapter projects artifact review fields into stable payloa
   assert.equal(canonical.artifact_id, "artifact_question_1");
   assert.equal(canonical.action_state, "reviewed");
   assert.equal(canonical.primary_source_note_id, "pn_2");
+  assert.equal(canonical.suggestion_id, "suggestion_question_1");
   assert.equal(canonical.latest_decision.decision, "ignored");
   assert.equal(canonical.latest_decision.feedback.noisy, true);
 }
@@ -165,6 +169,27 @@ test("canonical suggestion and adoption-event adapters preserve user-mediated re
   assert.equal(canonicalEvent.event_type, "confirmed");
   assert.equal(canonicalEvent.target.field, "thesis");
   assert.equal(canonicalEvent.metadata.from_status, "edited");
+}
+);
+
+test("canonical suggestion adapter preserves degraded read-time targets instead of throwing", () => {
+  const canonical = suggestionToCanonical({
+    id: "suggestion_degraded_target",
+    target: { type: "permanent_note", id: "", field: "" },
+    scope: "note_field",
+    content: { thesis: "Fallback trace should stay readable." },
+    status: "suggested",
+    sourceArtifactId: "artifact_trace_1",
+    provenance: { contentOrigin: "ai_generated" },
+    history: []
+  });
+
+  assert.equal(canonical.id, "suggestion_degraded_target");
+  assert.equal(canonical.target.type, "permanent_note");
+  assert.equal(canonical.target.id, "");
+  assert.equal(Object.prototype.hasOwnProperty.call(canonical.target, "field"), false);
+  assert.equal(canonical.source_artifact_id, "artifact_trace_1");
+  assert.equal(canonical.status, "suggested");
 }
 );
 

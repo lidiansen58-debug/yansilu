@@ -1622,26 +1622,41 @@ function fieldSuggestionInputFromArtifact(artifact = {}, body = {}) {
   };
 }
 
-function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, updatedNote = null) {
+function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, updatedNote = null, suggestion = null) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
   if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
 
+  const nextSource = suggestion && typeof suggestion === "object" && !Array.isArray(suggestion) ? suggestion : originalSuggestion;
   const target = originalSuggestion.target && typeof originalSuggestion.target === "object" ? originalSuggestion.target : {};
+  const nextTarget = nextSource.target && typeof nextSource.target === "object" ? nextSource.target : {};
+  const nextProvenance = nextSource.provenance && typeof nextSource.provenance === "object" ? nextSource.provenance : {};
+  const nextHistory = Array.isArray(nextSource.history)
+    ? cloneJson(nextSource.history)
+    : Array.isArray(originalSuggestion.history)
+      ? cloneJson(originalSuggestion.history)
+      : undefined;
   const nextSuggestion = {
     ...originalSuggestion,
-    status: "adopted_as_draft",
+    id: cleanText(nextSource.id || originalSuggestion.id),
+    content: Object.prototype.hasOwnProperty.call(nextSource, "content") ? nextSource.content : originalSuggestion.content,
+    status: cleanText(nextSource.status || "adopted_as_draft"),
     target: {
       ...target,
-      type: target.type || target.kind || "permanent_note",
-      id: fieldSuggestion.noteId || target.id || "",
-      field: fieldSuggestion.field || target.field || ""
+      type: nextTarget.type || nextTarget.kind || target.type || target.kind || "permanent_note",
+      id: fieldSuggestion.noteId || nextTarget.id || target.id || "",
+      field: fieldSuggestion.field || nextTarget.field || target.field || ""
     },
     provenance: {
       ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
-      humanEdited: true,
-      humanConfirmed: false
-    }
+      humanEdited:
+        nextProvenance.humanEdited === true ||
+        nextProvenance.human_edited === true,
+      humanConfirmed:
+        nextProvenance.humanConfirmed === true ||
+        nextProvenance.human_confirmed === true
+    },
+    ...(Array.isArray(nextHistory) ? { history: nextHistory } : {})
   };
 
   return {
@@ -1655,18 +1670,31 @@ function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, 
   };
 }
 
-function payloadWithRejectedFieldSuggestion(artifact = {}) {
+function payloadWithRejectedFieldSuggestion(artifact = {}, suggestion = null) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
   if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
+  const nextSource = suggestion && typeof suggestion === "object" && !Array.isArray(suggestion) ? suggestion : originalSuggestion;
+  const nextProvenance = nextSource.provenance && typeof nextSource.provenance === "object" ? nextSource.provenance : {};
+  const nextHistory = Array.isArray(nextSource.history)
+    ? cloneJson(nextSource.history)
+    : Array.isArray(originalSuggestion.history)
+      ? cloneJson(originalSuggestion.history)
+      : undefined;
 
   const nextSuggestion = {
     ...originalSuggestion,
-    status: "rejected",
+    id: cleanText(nextSource.id || originalSuggestion.id),
+    content: Object.prototype.hasOwnProperty.call(nextSource, "content") ? nextSource.content : originalSuggestion.content,
+    status: cleanText(nextSource.status || "rejected"),
     provenance: {
       ...(originalSuggestion.provenance && typeof originalSuggestion.provenance === "object" ? originalSuggestion.provenance : {}),
+      humanEdited:
+        nextProvenance.humanEdited === true ||
+        nextProvenance.human_edited === true,
       humanConfirmed: false
-    }
+    },
+    ...(Array.isArray(nextHistory) ? { history: nextHistory } : {})
   };
 
   return {
@@ -1688,6 +1716,11 @@ function artifactWithProjectedSuggestionState(artifact = null, suggestion = null
   const existingTarget = originalSuggestion.target && typeof originalSuggestion.target === "object" ? originalSuggestion.target : {};
   const suggestionProvenance = suggestion.provenance && typeof suggestion.provenance === "object" ? suggestion.provenance : {};
   const suggestionStatus = cleanText(suggestion.status);
+  const suggestionHistory = Array.isArray(suggestion.history)
+    ? cloneJson(suggestion.history)
+    : Array.isArray(originalSuggestion.history)
+      ? cloneJson(originalSuggestion.history)
+      : undefined;
   const adoptedStatus = suggestionStatus === "adopted_as_draft" || suggestionStatus === "edited" || suggestionStatus === "confirmed";
   const rewrittenStatus = suggestionStatus === "edited" || suggestionStatus === "confirmed";
 
@@ -1712,7 +1745,8 @@ function artifactWithProjectedSuggestionState(artifact = null, suggestion = null
         suggestionProvenance.humanConfirmed === true ||
         suggestionProvenance.human_confirmed === true ||
         suggestionStatus === "confirmed"
-    }
+    },
+    ...(Array.isArray(suggestionHistory) ? { history: suggestionHistory } : {})
   };
 
   return {
@@ -1833,6 +1867,79 @@ function suggestionReviewEventsToCanonical(suggestion = {}) {
   return history.map((entry) => suggestionTransitionToCanonicalAdoptionEvent(entry, suggestion));
 }
 
+function latestSuggestionReviewEventFromSuggestion(suggestion = {}) {
+  const reviewEvents = suggestionReviewEventsFromSuggestion(suggestion);
+  return reviewEvents[reviewEvents.length - 1] || null;
+}
+
+function latestSuggestionReviewEventToCanonical(suggestion = {}) {
+  const reviewEvents = suggestionReviewEventsToCanonical(suggestion);
+  return reviewEvents[reviewEvents.length - 1] || null;
+}
+
+function embeddedSuggestionFromArtifact(artifact = {}) {
+  const payload = artifact?.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const embeddedSuggestion =
+    payload.fieldSuggestion && typeof payload.fieldSuggestion === "object"
+      ? payload.fieldSuggestion
+      : payload.field_suggestion && typeof payload.field_suggestion === "object"
+        ? payload.field_suggestion
+        : null;
+  return embeddedSuggestion && !Array.isArray(embeddedSuggestion) ? embeddedSuggestion : null;
+}
+
+function reviewedEmbeddedSuggestionFromArtifact(artifact = {}) {
+  const embeddedSuggestion = embeddedSuggestionFromArtifact(artifact);
+  if (!embeddedSuggestion) return null;
+  const history = Array.isArray(embeddedSuggestion.history) ? embeddedSuggestion.history : [];
+  const status = cleanText(embeddedSuggestion.status);
+  const provenance = embeddedSuggestion.provenance && typeof embeddedSuggestion.provenance === "object"
+    ? embeddedSuggestion.provenance
+    : {};
+  const hasReviewedSnapshot =
+    history.length > 0 ||
+    status === "adopted_as_draft" ||
+    status === "edited" ||
+    status === "confirmed" ||
+    status === "rejected" ||
+    provenance.humanEdited === true ||
+    provenance.human_edited === true ||
+    provenance.humanConfirmed === true ||
+    provenance.human_confirmed === true;
+  if (!hasReviewedSnapshot) return null;
+  return {
+    ...embeddedSuggestion,
+    sourceArtifactId:
+      cleanText(embeddedSuggestion.sourceArtifactId || embeddedSuggestion.source_artifact_id || artifact.id) || cleanText(artifact.id)
+  };
+}
+
+function canonicalEmbeddedSuggestionFromArtifact(artifact = {}) {
+  const embeddedSuggestion = reviewedEmbeddedSuggestionFromArtifact(artifact);
+  if (!embeddedSuggestion) return null;
+  return suggestionToCanonical(embeddedSuggestion, { sourceArtifactId: artifact.id });
+}
+
+function degradedSuggestionReviewEventsFromArtifact(artifact = {}) {
+  const embeddedSuggestion = embeddedSuggestionFromArtifact(artifact);
+  return embeddedSuggestion ? suggestionReviewEventsFromSuggestion(embeddedSuggestion) : [];
+}
+
+function degradedSuggestionReviewEventsToCanonical(artifact = {}) {
+  const embeddedSuggestion = embeddedSuggestionFromArtifact(artifact);
+  return embeddedSuggestion ? suggestionReviewEventsToCanonical(embeddedSuggestion) : [];
+}
+
+function degradedLatestSuggestionReviewEventFromArtifact(artifact = {}) {
+  const reviewEvents = degradedSuggestionReviewEventsFromArtifact(artifact);
+  return reviewEvents[reviewEvents.length - 1] || null;
+}
+
+function degradedLatestSuggestionReviewEventToCanonical(artifact = {}) {
+  const reviewEvents = degradedSuggestionReviewEventsToCanonical(artifact);
+  return reviewEvents[reviewEvents.length - 1] || null;
+}
+
 function artifactDecisionEventContext(artifact = {}, decision = {}) {
   const artifactType = cleanText(artifact.type);
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
@@ -1913,16 +2020,59 @@ function latestArtifactReviewEventCanonical(artifact = {}) {
   return events[events.length - 1] || null;
 }
 
+function suggestionTraceContext(suggestion = {}, artifact = {}) {
+  const payload = artifact?.payload && typeof artifact.payload === "object" ? artifact.payload : {};
+  const payloadSuggestion =
+    payload.fieldSuggestion && typeof payload.fieldSuggestion === "object"
+      ? payload.fieldSuggestion
+      : payload.field_suggestion && typeof payload.field_suggestion === "object"
+        ? payload.field_suggestion
+        : {};
+  const suggestionTarget = suggestion?.target && typeof suggestion.target === "object" ? suggestion.target : {};
+  const payloadTarget = payloadSuggestion.target && typeof payloadSuggestion.target === "object" ? payloadSuggestion.target : {};
+  const sourceNoteIds = Array.isArray(artifact.sources?.noteIds)
+    ? artifact.sources.noteIds.filter(Boolean)
+    : Array.isArray(payload.sourceNoteIds)
+      ? payload.sourceNoteIds.filter(Boolean)
+      : Array.isArray(payload.source_note_ids)
+        ? payload.source_note_ids.filter(Boolean)
+        : [];
+  const targetNoteId = cleanText(
+    suggestionTarget.id ||
+      payloadTarget.id ||
+      payload.adoptedNoteId ||
+      payload.adopted_note_id ||
+      payload.targetNoteId ||
+      payload.target_note_id
+  );
+  const targetField = cleanText(
+    suggestionTarget.field ||
+      payloadTarget.field ||
+      payload.targetField ||
+      payload.target_field
+  );
+  const suggestionStatus = cleanText(
+    suggestion.status ||
+      payloadSuggestion.status
+  );
+  return {
+    sourceNoteIds,
+    targetNoteId,
+    targetField,
+    suggestionStatus
+  };
+}
+
 function suggestionTraceFromRecord(suggestion = {}, artifact = {}) {
-  const sourceNoteIds = Array.isArray(artifact.sources?.noteIds) ? artifact.sources.noteIds.filter(Boolean) : [];
+  const traceContext = suggestionTraceContext(suggestion, artifact);
   return {
     suggestionId: cleanText(suggestion.id),
     sourceArtifactId: cleanText(suggestion.sourceArtifactId || suggestion.source_artifact_id || artifact.id),
-    primarySourceNoteId: cleanText(sourceNoteIds[0]),
-    sourceNoteIds,
-    targetNoteId: cleanText(suggestion.target?.id),
-    targetField: cleanText(suggestion.target?.field),
-    suggestionStatus: cleanText(suggestion.status)
+    primarySourceNoteId: cleanText(traceContext.sourceNoteIds[0]),
+    sourceNoteIds: traceContext.sourceNoteIds,
+    targetNoteId: traceContext.targetNoteId,
+    targetField: traceContext.targetField,
+    suggestionStatus: traceContext.suggestionStatus
   };
 }
 
@@ -1967,7 +2117,7 @@ async function rejectSuggestionAndLinkedArtifactAtomically({
     const storedSuggestion = suggestionStore.replace(nextSuggestion, { allowReviewedCreate: true });
     try {
       let syncedArtifact = artifactStore.updateArtifact(sourceArtifact.id, {
-        payload: payloadWithRejectedFieldSuggestion(sourceArtifact)
+        payload: payloadWithRejectedFieldSuggestion(sourceArtifact, nextSuggestion)
       });
       syncedArtifact = artifactStore.recordDecision(sourceArtifact.id, {
         decision: "ignored",
@@ -2001,7 +2151,7 @@ async function rejectSuggestionAndLinkedArtifactAtomically({
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   const now = new Date().toISOString();
-  const nextArtifactPayload = payloadWithRejectedFieldSuggestion(sourceArtifact);
+  const nextArtifactPayload = payloadWithRejectedFieldSuggestion(sourceArtifact, nextSuggestion);
   const nextArtifactProvenance = {
     ...(sourceArtifact.provenance || {}),
     humanAccepted: sourceArtifact.provenance?.humanAccepted === true,
@@ -2975,7 +3125,7 @@ const server = http.createServer(async (req, res) => {
         const sourceArtifact = await sourceArtifactForSuggestion(item);
         const projectedArtifact = artifactWithProjectedSuggestionState(sourceArtifact, item);
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
-        const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
+        const latestReviewEvent = latestSuggestionReviewEventFromSuggestion(item);
         const trace = suggestionTraceFromRecord(item, sourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
@@ -2989,9 +3139,7 @@ const server = http.createServer(async (req, res) => {
           item: suggestionToCanonical(item),
           ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
-          latest_review_event: latestReviewEvent
-            ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)
-            : null,
+          latest_review_event: latestSuggestionReviewEventToCanonical(item),
           trace: suggestionTraceToCanonical(trace)
         } : null));
       } catch (error) {
@@ -3028,8 +3176,17 @@ const server = http.createServer(async (req, res) => {
         }
         const finalSourceArtifact = syncedArtifact || (await sourceArtifactForSuggestion(item));
         const projectedArtifact = artifactWithProjectedSuggestionState(finalSourceArtifact, item);
+        if (!syncedArtifact && finalSourceArtifact?.id && projectedArtifact) {
+          const artifactStore = await aiArtifactStore();
+          artifactStore.updateArtifact(finalSourceArtifact.id, {
+            status: projectedArtifact.status,
+            payload: projectedArtifact.payload,
+            provenance: projectedArtifact.provenance,
+            updatedAt: item.updatedAt || new Date().toISOString()
+          });
+        }
         const reviewEvents = suggestionReviewEventsFromSuggestion(item);
-        const latestReviewEvent = reviewEvents[reviewEvents.length - 1] || null;
+        const latestReviewEvent = latestSuggestionReviewEventFromSuggestion(item);
         const trace = suggestionTraceFromRecord(item, finalSourceArtifact || {});
         return sendJson(res, 200, withCanonical({
           item,
@@ -3043,9 +3200,7 @@ const server = http.createServer(async (req, res) => {
           item: suggestionToCanonical(item),
           ...(projectedArtifact ? { artifact: artifactToCanonical(projectedArtifact) } : {}),
           review_events: suggestionReviewEventsToCanonical(item),
-          latest_review_event: latestReviewEvent
-            ? suggestionTransitionToCanonicalAdoptionEvent(item.history[item.history.length - 1], item)
-            : null,
+          latest_review_event: latestSuggestionReviewEventToCanonical(item),
           trace: suggestionTraceToCanonical(trace)
         } : null));
       } catch (error) {
@@ -3429,13 +3584,18 @@ const server = http.createServer(async (req, res) => {
         const suggestionId = fieldSuggestionIdFromArtifactPayload(artifact);
         const suggestionStore = suggestionId ? await aiSuggestionStore() : null;
         const suggestion = suggestionId ? suggestionStore.get(suggestionId) : null;
-        const suggestionReviewEvents = suggestion ? suggestionReviewEventsFromSuggestion(suggestion) : [];
-        const latestSuggestionReviewEvent = suggestionReviewEvents[suggestionReviewEvents.length - 1] || null;
-        const trace = suggestion ? suggestionTraceFromRecord(suggestion, artifact) : degradedSuggestionTraceFromArtifact(artifact);
+        const projectedArtifact = suggestion ? artifactWithProjectedSuggestionState(artifact, suggestion) : artifact;
+        const suggestionReviewEvents = suggestion
+          ? suggestionReviewEventsFromSuggestion(suggestion)
+          : degradedSuggestionReviewEventsFromArtifact(projectedArtifact);
+        const latestSuggestionReviewEvent = suggestion
+          ? latestSuggestionReviewEventFromSuggestion(suggestion)
+          : degradedLatestSuggestionReviewEventFromArtifact(projectedArtifact);
+        const trace = suggestion ? suggestionTraceFromRecord(suggestion, projectedArtifact || artifact) : degradedSuggestionTraceFromArtifact(artifact);
         return sendJson(res, 200, withCanonical({
           item,
-          artifact,
-          suggestion,
+          artifact: projectedArtifact,
+          suggestion: suggestion || reviewedEmbeddedSuggestionFromArtifact(projectedArtifact),
           suggestionReviewEvents,
           latestSuggestionReviewEvent,
           trace,
@@ -3443,13 +3603,14 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         }, wantsCanonical(url) ? {
           item: item ? aiInboxItemToCanonical(item) : null,
-          artifact: artifact ? artifactToCanonical(artifact) : null,
-          suggestion: suggestion ? suggestionToCanonical(suggestion) : null,
-          suggestion_review_events: suggestion ? suggestionReviewEventsToCanonical(suggestion) : [],
-          latest_suggestion_review_event:
-            latestSuggestionReviewEvent && suggestion
-              ? suggestionTransitionToCanonicalAdoptionEvent(suggestion.history[suggestion.history.length - 1], suggestion)
-              : null,
+          artifact: projectedArtifact ? artifactToCanonical(projectedArtifact) : null,
+          suggestion: suggestion ? suggestionToCanonical(suggestion) : canonicalEmbeddedSuggestionFromArtifact(projectedArtifact),
+          suggestion_review_events: suggestion
+            ? suggestionReviewEventsToCanonical(suggestion)
+            : degradedSuggestionReviewEventsToCanonical(projectedArtifact),
+          latest_suggestion_review_event: suggestion
+            ? latestSuggestionReviewEventToCanonical(suggestion)
+            : degradedLatestSuggestionReviewEventToCanonical(projectedArtifact),
           trace: trace ? suggestionTraceToCanonical(trace) : null
         } : null));
       } catch (error) {

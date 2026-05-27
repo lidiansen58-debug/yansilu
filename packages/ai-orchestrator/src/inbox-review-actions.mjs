@@ -250,7 +250,7 @@ export async function adoptSuggestionAndLinkedArtifactAtomically({
       });
     }
 
-    const nextArtifactPayload = buildAdoptedArtifactPayload(sourceArtifact, fieldSuggestion, updatedNote);
+    const nextArtifactPayload = buildAdoptedArtifactPayload(sourceArtifact, fieldSuggestion, updatedNote, nextSuggestion);
     const nextArtifactProvenance = {
       ...(sourceArtifact.provenance || {}),
       humanAccepted: true,
