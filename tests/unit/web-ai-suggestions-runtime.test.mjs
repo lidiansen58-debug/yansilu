@@ -470,14 +470,14 @@ test("applyAiSuggestionStatus preserves a newer settings suggestion selection wh
     ai: {
       suggestions: [
         { id: "suggestion_1", status: "edited", content: { thesis: "Original." } },
-        { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+        { id: "suggestion_2", status: "suggested", content: { thesis: "Stay selected." } }
       ],
       suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Original." } } },
       selectedSuggestionId: "suggestion_1",
       suggestionActionLoading: false,
       suggestionActionSuggestionId: "",
-      suggestionsError: "old list error",
-      suggestionDetailError: "old detail error",
+      suggestionsError: "",
+      suggestionDetailError: "",
       suggestionActionError: ""
     }
   };
@@ -503,7 +503,7 @@ test("applyAiSuggestionStatus preserves a newer settings suggestion selection wh
     async (suggestionId, payload) => {
       settingsState.ai.selectedSuggestionId = "suggestion_2";
       settingsState.ai.suggestionDetail = {
-        item: { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+        item: { id: "suggestion_2", status: "suggested", content: { thesis: "Stay selected." } }
       };
       return { id: suggestionId, status: payload.status, content: payload.content };
     },
@@ -1175,7 +1175,7 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
     ai: {
       suggestions: [
         { id: "suggestion_1", status: "edited", content: { thesis: "Original." } },
-        { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+        { id: "suggestion_2", status: "suggested", content: { thesis: "Stay selected." } }
       ],
       suggestionDetail: { item: { id: "suggestion_1", status: "edited", content: { thesis: "Original." } } },
       selectedSuggestionId: "suggestion_1",
@@ -1208,7 +1208,7 @@ test("applyAiSuggestionStatus keeps a failed review action bound to the original
     async () => {
       settingsState.ai.selectedSuggestionId = "suggestion_2";
       settingsState.ai.suggestionDetail = {
-        item: { id: "suggestion_2", status: "suggested", content: { thesis: "Keep me selected." } }
+        item: { id: "suggestion_2", status: "suggested", content: { thesis: "Stay selected." } }
       };
       throw new Error("failed after selection moved");
     },
