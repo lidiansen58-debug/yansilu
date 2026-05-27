@@ -485,12 +485,21 @@ function renderReviewActions(item = {}) {
   `;
 }
 
+function aiInboxSummaryMatchesCurrentItem(state = {}, item = {}) {
+  const itemArtifactId = String(item.artifactId || "").trim();
+  if (!itemArtifactId) return false;
+  const summaryArtifactId = String(state.aiSummaryArtifactId || "").trim();
+  if (!summaryArtifactId) return true;
+  return summaryArtifactId === itemArtifactId;
+}
+
 function renderAiSummary(state = {}, item = {}) {
   if (!item.artifactId) return "";
-  const loading = state.aiSummaryLoading === true;
-  const meta = String(state.aiSummaryMeta || "").trim();
-  const error = String(state.aiSummaryError || "").trim();
-  const summary = String(state.aiSummary || "").trim();
+  const summaryMatchesItem = aiInboxSummaryMatchesCurrentItem(state, item);
+  const loading = state.aiSummaryLoading === true && summaryMatchesItem;
+  const meta = summaryMatchesItem ? String(state.aiSummaryMeta || "").trim() : "";
+  const error = summaryMatchesItem ? String(state.aiSummaryError || "").trim() : "";
+  const summary = summaryMatchesItem ? String(state.aiSummary || "").trim() : "";
   return `
     <div class="ai-inbox-action-card ${loading ? "is-busy" : ""}">
       <div>
@@ -509,7 +518,8 @@ function renderAiSummary(state = {}, item = {}) {
   `;
 }
 
-function renderRecommendedSummaryAction(state = {}) {
+function renderRecommendedSummaryAction(state = {}, item = {}) {
+  if (!aiInboxSummaryMatchesCurrentItem(state, item)) return "";
   const action = String(state.aiSummaryRecommendedAction || "").trim();
   const labels = {
     accept_link: "Apply: create relation",
@@ -654,7 +664,7 @@ function renderDetailRefreshGate(item = {}) {
       </header>
       <section class="ai-inbox-detail-section">
         <h3>Review safety</h3>
-        <div class="ai-inbox-detail-muted">The selected inbox item changed. Refresh the latest detail before running review actions so the decision stays aligned with the current canonical artifact.</div>
+        <div class="ai-inbox-detail-muted">Load the latest detail before running review actions so the decision stays aligned with the current canonical artifact.</div>
       </section>
     </article>
   `;
@@ -664,17 +674,25 @@ function renderDetail(state = {}) {
   const detail = state.detail || {};
   const selectedArtifactId = String(state.selectedArtifactId || "").trim();
   const selectedListItem = selectedAiInboxItem(state.items, state.selectedArtifactId) || {};
-  const detailArtifactId = String(detail.item?.artifactId || detail.artifact?.id || "").trim();
+  const detailArtifactId = String(state.detailArtifactId || detail.item?.artifactId || detail.artifact?.id || "").trim();
+  const detailLoading = state.detailLoading && detailArtifactId === selectedArtifactId;
+  const detailError = detailArtifactId === selectedArtifactId ? state.detailError : "";
   const detailMatchesSelection = Boolean(detailArtifactId) && detailArtifactId === selectedArtifactId;
   const activeDetail = detailMatchesSelection ? detail : {};
   const item = activeDetail.item || selectedListItem || {};
   const artifact = activeDetail.artifact || null;
+  const actionArtifactId = String(state.actionArtifactId || "").trim();
+  const actionError =
+    actionArtifactId &&
+    actionArtifactId === String(item.artifactId || artifact?.id || "").trim()
+      ? state.actionError
+      : "";
 
-  if (state.detailLoading) {
+  if (detailLoading) {
     return `<div class="ai-inbox-empty">正在读取建议详情...</div>`;
   }
-  if (state.detailError) {
-    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(state.detailError)}</div>`;
+  if (detailError) {
+    return `<div class="ai-inbox-empty is-bad">建议详情加载失败：${escapeHtml(detailError)}</div>`;
   }
   if (!item.artifactId && !artifact) {
     return `<div class="ai-inbox-empty">从左侧选择一条建议，右侧会显示来源、理由、可执行动作和处理记录。</div>`;
@@ -727,10 +745,10 @@ function renderDetail(state = {}) {
       ${renderSuggestionProvenance(activeDetail)}
       ${renderSuggestionHistory(activeDetail)}
       ${renderSuggestionReviewActions(activeDetail, actionDisabled)}
-      ${renderActionError(state.actionError)}
+      ${renderActionError(actionError)}
       ${renderActionNotice(state.actionNotice, state.actionNoticeTone)}
       ${renderAiSummary(state, item)}
-      ${renderRecommendedSummaryAction(state)}
+      ${renderRecommendedSummaryAction(state, item)}
       ${renderReviewActions(item)}
 
       <section class="ai-inbox-detail-section">

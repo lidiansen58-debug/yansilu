@@ -322,6 +322,7 @@ test("AI inbox panel surfaces review action errors inside the detail pane", () =
     items: [{ ...item, artifactId: "artifact_action_error", type: "InsightCard", title: "Field suggestion error" }],
     counts: { reviewed: 1 },
     selectedArtifactId: "artifact_action_error",
+    actionArtifactId: "artifact_action_error",
     actionError: "action boom",
     detail: {
       item: { ...item, artifactId: "artifact_action_error", type: "InsightCard", title: "Field suggestion error", status: "adopted_as_draft" },
@@ -345,6 +346,63 @@ test("AI inbox panel surfaces review action errors inside the detail pane", () =
 
   assert.match(html, /AI inbox review failed: action boom/);
   assert.match(html, /data-ai-inbox-suggestion-status="confirmed"/);
+});
+
+test("AI inbox panel does not keep rendering stale detail loading after selection has moved", () => {
+  const html = renderAiInboxPanel({
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { pending: 2 },
+    selectedArtifactId: "artifact_b",
+    detail: { item: { ...item, artifactId: "artifact_b", title: "Selected artifact B" } },
+    detailArtifactId: "artifact_a",
+    detailLoading: true
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /姝ｅ湪璇诲彇寤鸿璇︽儏/);
+  assert.match(detailPane, /Selected artifact B/);
+});
+
+test("AI inbox panel does not keep rendering stale detail errors after selection has moved", () => {
+  const html = renderAiInboxPanel({
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { pending: 2 },
+    selectedArtifactId: "artifact_b",
+    detail: { item: { ...item, artifactId: "artifact_b", title: "Selected artifact B" } },
+    detailArtifactId: "artifact_a",
+    detailError: "detail boom"
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /detail boom/);
+  assert.match(detailPane, /Selected artifact B/);
+});
+
+test("AI inbox panel does not mutate scoped detail or action errors back onto the input state", () => {
+  const state = {
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { pending: 2 },
+    selectedArtifactId: "artifact_b",
+    detail: { item: { ...item, artifactId: "artifact_b", title: "Selected artifact B" } },
+    detailArtifactId: "artifact_a",
+    detailError: "detail boom",
+    actionArtifactId: "artifact_a",
+    actionError: "action boom"
+  };
+
+  renderAiInboxPanel(state);
+
+  assert.equal(state.detailError, "detail boom");
+  assert.equal(state.actionError, "action boom");
 });
 
 test("AI inbox panel surfaces inline no-op review notices inside the detail pane", () => {
@@ -404,9 +462,30 @@ test("AI inbox panel does not keep rendering stale detail when selection has mov
   assert.match(detailPane, /Selected artifact B/);
   assert.doesNotMatch(detailPane, /Should not leak from stale detail/);
   assert.match(detailPane, /Review safety/);
-  assert.match(detailPane, /Refresh the latest detail before running review actions/);
+  assert.match(detailPane, /Load the latest detail before running review actions/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-decision=/);
   assert.doesNotMatch(detailPane, /data-ai-inbox-suggestion-status=/);
+});
+
+test("AI inbox panel does not surface stale review action errors after selection has moved", () => {
+  const html = renderAiInboxPanel({
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { reviewed: 2 },
+    selectedArtifactId: "artifact_b",
+    actionArtifactId: "artifact_a",
+    actionError: "action boom",
+    detail: {
+      item: { ...item, artifactId: "artifact_b", title: "Selected artifact B" },
+      artifact: { ...artifact, id: "artifact_b", title: "Selected artifact B" }
+    }
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /AI inbox review failed: action boom/);
+  assert.match(detailPane, /Selected artifact B/);
 });
 
 test("AI inbox panel renders an actionable AI summary recommendation", () => {
@@ -415,6 +494,7 @@ test("AI inbox panel renders an actionable AI summary recommendation", () => {
     counts: { pending: 1 },
     selectedArtifactId: "artifact_link_1",
     detail: { item, artifact },
+    aiSummaryArtifactId: "artifact_link_1",
     aiSummary: "Recommended action: accept_link",
     aiSummaryMeta: "local_private_gateway / qwen2.5:3b",
     aiSummaryRecommendedAction: "accept_link"
@@ -423,6 +503,30 @@ test("AI inbox panel renders an actionable AI summary recommendation", () => {
   assert.match(html, /Recommended action/);
   assert.match(html, /data-ai-inbox-recommended-action="accept_link"/);
   assert.match(html, /Apply: create relation/);
+});
+
+test("AI inbox panel does not keep rendering stale AI summary when selection has moved", () => {
+  const html = renderAiInboxPanel({
+    items: [
+      { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      { ...item, artifactId: "artifact_b", title: "Selected artifact B" }
+    ],
+    counts: { pending: 2 },
+    selectedArtifactId: "artifact_b",
+    detail: {
+      item: { ...item, artifactId: "artifact_a", title: "Selected artifact A" },
+      artifact: { ...artifact, id: "artifact_a", title: "Selected artifact A" }
+    },
+    aiSummaryArtifactId: "artifact_a",
+    aiSummary: "Old summary should not leak.",
+    aiSummaryMeta: "provider_a / model_a",
+    aiSummaryRecommendedAction: "accept_link"
+  });
+  const detailPane = html.split('<section class="ai-inbox-detail-pane">')[1] || "";
+
+  assert.doesNotMatch(detailPane, /Old summary should not leak/);
+  assert.doesNotMatch(detailPane, /Recommended action/);
+  assert.doesNotMatch(detailPane, /data-ai-inbox-recommended-action=/);
 });
 
 test("AI inbox panel disables draft note promotion after an artifact is promoted", () => {
