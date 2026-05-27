@@ -654,7 +654,11 @@ export class ExplorerPane {
   }
 
   renderFolderNode(folder, depth, q, memo) {
-    const allChildren = this.getFolderChildren(folder.id).filter((c) => this.folderHasVisibleContent(c.id, q, memo));
+    const selectedFolderId = String(this.state.selectedFolderId || "").trim();
+    const allChildren = this.getFolderChildren(folder.id).filter((c) => {
+      if (!q && c.id === selectedFolderId) return true;
+      return this.folderHasVisibleContent(c.id, q, memo);
+    });
     const allFiles = this.getFolderFiles(folder.id)
       .filter((n) => this.fileMatches(n, q))
       .sort((a, b) => {
