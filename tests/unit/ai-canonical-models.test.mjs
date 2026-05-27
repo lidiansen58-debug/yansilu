@@ -172,6 +172,27 @@ test("canonical suggestion and adoption-event adapters preserve user-mediated re
 }
 );
 
+test("canonical suggestion adapter preserves degraded read-time targets instead of throwing", () => {
+  const canonical = suggestionToCanonical({
+    id: "suggestion_degraded_target",
+    target: { type: "permanent_note", id: "", field: "" },
+    scope: "note_field",
+    content: { thesis: "Fallback trace should stay readable." },
+    status: "suggested",
+    sourceArtifactId: "artifact_trace_1",
+    provenance: { contentOrigin: "ai_generated" },
+    history: []
+  });
+
+  assert.equal(canonical.id, "suggestion_degraded_target");
+  assert.equal(canonical.target.type, "permanent_note");
+  assert.equal(canonical.target.id, "");
+  assert.equal(Object.prototype.hasOwnProperty.call(canonical.target, "field"), false);
+  assert.equal(canonical.source_artifact_id, "artifact_trace_1");
+  assert.equal(canonical.status, "suggested");
+}
+);
+
 test("canonical scheduled-task and artifact-decision adapters stabilize persistence and analytics payloads", () => {
   const task = normalizeScheduledAgentTask(
     {
