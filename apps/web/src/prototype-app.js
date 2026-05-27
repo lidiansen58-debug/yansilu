@@ -5374,14 +5374,14 @@ function renderAll() {
   renderDistillationPanel();
   renderGraphPanel();
   renderSettingsPanel();
+  if (state.module === "explorer") {
+    explorer.render();
+  }
   renderWritingPanel();
   editor.renderTabs();
   applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
-  if (state.module === "explorer") {
-    explorer.render();
-  }
 }
 
 function currentVaultPath() {
@@ -6498,6 +6498,16 @@ function writingIneligibleSummary(items = []) {
 
 function currentWritingBasketEligibility() {
   return partitionWritingEligibleNoteIds(parseWritingBasketIds());
+}
+
+function currentWritingBasketReadiness() {
+  const noteIds = parseWritingBasketIds();
+  const relationCounts = writingState.relationCounts || {};
+  const relationCountErrors = writingState.relationCountErrors || {};
+  const relationCountsReady = writingRelationCountsReady(noteIds, relationCounts) && !writingState.loadingRelationCounts;
+  const relationCountsErrored = writingRelationCountsErrored(noteIds, relationCountErrors);
+  const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
+  return deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, { relationState });
 }
 
 function countExplicitRelationsForWriting(relations = null) {
@@ -7643,6 +7653,7 @@ function renderWritingScaffoldPreview() {
   const el = $("writingScaffoldPreview");
   if (!el) return;
   const projectEntry = (!writingState.project?.id && currentWritingContinuationEntry("当前写作篮")) || null;
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   if (!writingState.scaffold) {
     el.innerHTML = `
       <h4>草稿骨架预览</h4>
@@ -7883,6 +7894,7 @@ function renderWritingPanel() {
     readinessLevel: basketReadiness.level,
     readinessHint: basketReadiness.hint
   });
+  const hasProject = Boolean(writingState.project?.id);
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const strongModelReady =
     !relationCountsErrored &&
@@ -7891,8 +7903,10 @@ function renderWritingPanel() {
       readinessLevel: basketReadiness.level,
       projectPreflightLevel: projectPreflightSummary.level
     });
+  const canContinueProjectedStrongModel =
+    !hasProject && Boolean(projectEntry?.projectId) && Boolean(projectEntry?.actionLabel) && basketReadiness.level === "strong_model_ready";
   const strongModelState = describeWritingStrongModelStatus({
-    hasProject: Boolean(writingState.project?.id),
+    hasProject,
     relationCountsReady,
     relationCountsErrored,
     readinessLevel: basketReadiness.level,
@@ -10031,6 +10045,7 @@ async function handleStateChange(reason, payload = {}) {
   if (reason === "save-note") {
     const noteId = payload.noteId || state.tabs.find((t) => t.id === state.activeTabId)?.noteId || null;
     let savedNote = null;
+    let noteForExplorerSync = null;
     if (noteId) {
       const note = state.notes.find((n) => n.id === noteId);
       if (note && payload.title) {
@@ -10044,6 +10059,7 @@ async function handleStateChange(reason, payload = {}) {
         }
       }
       if (note) {
+        noteForExplorerSync = note;
         try {
           note.generatedOriginalNoteId = noteGeneratedOriginalNoteId(note) || generatedOriginalNoteIdFromBody(note.body);
           const resolvedStatus =
@@ -10076,6 +10092,7 @@ async function handleStateChange(reason, payload = {}) {
             note.bodyLoaded = true;
             savedNote = updated;
           }
+          syncExplorerContextToNote(note);
           if (isPermanentLikeNote(note)) {
             setStatus(
               resolvedStatus === "active"
@@ -10095,6 +10112,7 @@ async function handleStateChange(reason, payload = {}) {
 	        }
 	      }
 	    }
+    if (noteForExplorerSync) syncExplorerContextToNote(noteForExplorerSync);
 	    renderAll();
 	    return savedNote || true;
 	  }
@@ -10230,7 +10248,9 @@ createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
     const folder = mapDirectoryItem(created);
     state.folders.push(folder);
     state.selectedFolderId = folder.id;
+    state.selectedFileId = null;
     state.browserRootId = rootBoxIdFromFolder(state, folder.id);
+    explorer.expandFolderPath(folder.id);
     createBoxDialog.hide();
     setStatus(`目录“${name}”已创建并落盘，路径：${resolvedPath}`, "ok");
     renderAll();

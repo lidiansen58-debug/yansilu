@@ -72,6 +72,100 @@ test("prototype fallback state keeps local permanent note seeds for reviewable m
   assert.equal(state.notes[1].folderId, "dir_original_method");
 });
 
+test("save-note re-syncs explorer context before repainting the note tree", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/if \(reason === "save-note"\) \{([\s\S]*?)\n\s*if \(reason === "note-move"\)/);
+
+  assert.ok(match, "expected save-note handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /syncExplorerContextToNote\(note\);/);
+  assert.match(fnBody, /if \(noteForExplorerSync\) syncExplorerContextToNote\(noteForExplorerSync\);[\s\S]*renderAll\(\);/);
+});
+
+test("new directory creation expands and selects the created folder in the explorer", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/createBoxDialog\.onCreate = async \(\{ name, parentId, fsPath, maxCards \}\) => \{([\s\S]*?)\n\};/);
+
+  assert.ok(match, "expected createBoxDialog.onCreate handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /state\.selectedFolderId = folder\.id;/);
+  assert.match(fnBody, /state\.selectedFileId = null;/);
+  assert.match(fnBody, /explorer\.expandFolderPath\(folder\.id\);/);
+});
+
+test("explorer keeps the currently selected empty folder visible after directory creation", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+  const match = source.match(/renderFolderNode\(folder, depth, q, memo\) \{([\s\S]*?)\n\s*const allFiles = this\.getFolderFiles/);
+
+  assert.ok(match, "expected renderFolderNode() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /const selectedFolderId = String\(this\.state\.selectedFolderId \|\| ""\)\.trim\(\);/);
+  assert.match(fnBody, /if \(!q && c\.id === selectedFolderId\) return true;/);
+});
+
+test("writing workspace defines hasProject before project list hints use it", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/const projectEntry = describeWritingProjectEntryState\(\{[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
+
+  assert.ok(match, "expected writing workspace project-entry block to exist");
+  assert.match(match[0], /const hasProject = Boolean\(writingState\.project\?\.id\);/);
+});
+
+test("writing panel defines canContinueProjectedStrongModel before strong-model button wiring uses it", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/const strongModelReady =[\s\S]*?const strongModelState = describeWritingStrongModelStatus/);
+
+  assert.ok(match, "expected writing panel strong-model block to exist");
+  assert.match(
+    match[0],
+    /const canContinueProjectedStrongModel =\s*!hasProject && Boolean\(projectEntry\?\.projectId\) && Boolean\(projectEntry\?\.actionLabel\) && (?:basketReadiness|readiness)\.level === "strong_model_ready";/
+  );
+});
+
+test("renderAll repaints explorer before writing panel side-effects can interrupt the tree", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/function renderAll\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected renderAll() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /if \(state\.module === "explorer"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
+});
+
+test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const match = source.match(/function renderWritingScaffoldPreview\(\) \{([\s\S]*?)\n\s*if \(!writingState\.scaffold\)/);
+
+  assert.ok(match, "expected renderWritingScaffoldPreview() to exist");
+  assert.match(match[1], /const projectPreflightSummary = describeWritingProjectPreflight\(writingState\.project\?\.preflight \|\| null\);/);
+});
+
+test("writing strong-model action uses a defined basket readiness helper", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+
+  assert.match(source, /function currentWritingBasketReadiness\(\) \{/);
+  assert.match(source, /\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{[\s\S]*const basketReadiness = currentWritingBasketReadiness\(\);/);
+});
+
 test("import-result create-writing-project path reuses unified writing entry reset", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
