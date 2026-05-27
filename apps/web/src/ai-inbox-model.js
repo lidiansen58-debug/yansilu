@@ -170,6 +170,7 @@ export function aiInboxItemFromCanonical(item = {}) {
     primarySourceNoteId: cleanText(item.primary_source_note_id),
     sourceNoteIds: Array.isArray(item.source_note_ids) ? [...item.source_note_ids] : [],
     sourceDocIds: Array.isArray(item.source_doc_ids) ? [...item.source_doc_ids] : [],
+    suggestionId: cleanText(item.suggestion_id),
     decisionCount: normalizeCount(item.decision_count),
     latestDecision,
     confidence: item.confidence

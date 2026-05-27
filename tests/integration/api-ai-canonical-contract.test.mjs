@@ -104,6 +104,12 @@ test("AI canonical contracts keep inbox detail, suggestion detail, and review ac
   );
   assert.ok(artifact, "expected a persisted field suggestion artifact");
 
+  const inboxList = await getJson(baseUrl, "/api/v1/ai/inbox?canonical=true");
+  assert.equal(inboxList.status, 200, JSON.stringify(inboxList.json));
+  const listedArtifact = inboxList.json.canonical.items.find((item) => item.artifact_id === artifact.id);
+  assert.ok(listedArtifact, "expected the linked artifact in the canonical inbox list");
+  assert.equal(listedArtifact.suggestion_id, suggestionId);
+
   const inboxDetail = await getJson(
     baseUrl,
     `/api/v1/ai/inbox/${encodeURIComponent(artifact.id)}?canonical=true`

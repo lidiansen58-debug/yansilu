@@ -8,7 +8,20 @@ function extractAsyncFunctionSource(source, name) {
   const signature = `async function ${name}(`;
   const start = source.indexOf(signature);
   assert.ok(start >= 0, `expected ${name}() to exist`);
-  const bodyStart = source.indexOf("{", start);
+  let parenDepth = 0;
+  let bodyStart = -1;
+  for (let index = source.indexOf("(", start); index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "(") parenDepth += 1;
+    if (char === ")") {
+      parenDepth -= 1;
+      if (parenDepth === 0) {
+        bodyStart = source.indexOf("{", index);
+        break;
+      }
+    }
+  }
+  assert.ok(bodyStart >= 0, `expected ${name}() body to exist`);
   let depth = 0;
   for (let index = bodyStart; index < source.length; index += 1) {
     const char = source[index];
@@ -28,6 +41,7 @@ test("AI inbox suggestion edited action submits current reviewed content and com
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const fnSource = extractAsyncFunctionSource(source, "applyAiInboxSuggestionStatus");
+  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
 
   const domState = {
     aiInboxDecisionComment: { value: "Keep the edited draft." },
@@ -49,7 +63,7 @@ test("AI inbox suggestion edited action submits current reviewed content and com
     "clearAiInboxActionNotice",
     "setAiInboxActionNotice",
     "renderAiInboxWorkspace",
-    `${fnSource}; return applyAiInboxSuggestionStatus;`
+    `${finalizeSource}; ${fnSource}; return applyAiInboxSuggestionStatus;`
   );
 
   const applyAiInboxSuggestionStatus = factory(
