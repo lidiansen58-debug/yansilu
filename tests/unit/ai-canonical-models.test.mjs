@@ -101,6 +101,9 @@ test("canonical inbox adapter projects artifact review fields into stable payloa
           createdAt: "2026-05-18T12:07:00.000Z"
         }
       ],
+      payload: {
+        fieldSuggestionId: "suggestion_question_1"
+      },
       status: "ignored"
     },
     { now: "2026-05-18T12:00:00.000Z" }
@@ -112,6 +115,7 @@ test("canonical inbox adapter projects artifact review fields into stable payloa
   assert.equal(canonical.artifact_id, "artifact_question_1");
   assert.equal(canonical.action_state, "reviewed");
   assert.equal(canonical.primary_source_note_id, "pn_2");
+  assert.equal(canonical.suggestion_id, "suggestion_question_1");
   assert.equal(canonical.latest_decision.decision, "ignored");
   assert.equal(canonical.latest_decision.feedback.noisy, true);
 }

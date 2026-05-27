@@ -104,6 +104,7 @@ export function aiInboxItemToCanonical(input = {}) {
     primary_source_note_id: cleanText(item.primarySourceNoteId || item.primary_source_note_id),
     source_note_ids: Array.isArray(item.sourceNoteIds || item.source_note_ids) ? [...(item.sourceNoteIds || item.source_note_ids)] : [],
     source_doc_ids: Array.isArray(item.sourceDocIds || item.source_doc_ids) ? [...(item.sourceDocIds || item.source_doc_ids)] : [],
+    suggestion_id: cleanText(item.suggestionId || item.suggestion_id),
     decision_count: Number(item.decisionCount || item.decision_count || 0) || 0,
     latest_decision: item.latestDecision ? canonicalDecision(item.latestDecision, item.artifactId || item.artifact_id) : null,
     confidence: item.confidence ? canonicalConfidence(item.confidence) : null
