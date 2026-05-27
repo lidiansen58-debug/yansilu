@@ -307,6 +307,65 @@ Do not keep more than these active at once unless there is a very strong reason:
 
 Beyond that point, coordination overhead usually grows faster than delivery speed.
 
+## Goal Prompt Templates
+
+Use short phase-scoped `/goal` prompts. The prompt should define one current result, one active subtopic, and one stopping point.
+
+### Long-Lived Stream Goal
+
+```text
+/goal
+工作目录：<path>
+分支：<branch>
+本轮目标：<一句话结果>
+
+只做：<当前子主题>
+不做：<其他主题>
+停止条件：达到可 review 状态就停，不继续扩展
+验证：<最小测试命令>
+```
+
+### Short Fix Goal
+
+```text
+/goal
+工作目录：<path>
+分支：<branch>
+本轮目标：修复 <问题>
+
+只改：<文件/模块>
+停止条件：修复完成且最小测试通过就停
+验证：<最小测试命令>
+```
+
+### Review Goal
+
+```text
+/goal
+工作目录：<path>
+分支：<branch>
+本轮目标：判断这一轮是否可合并
+
+只看：bug、越界修改、测试缺口
+停止条件：给出可合并 / 需修复结论就停
+```
+
+## Anti-Batch Rules
+
+Use these rules to avoid turning one long-lived stream into a pile of parallel batch trees:
+
+1. One `/goal` owns one current subtopic only.
+2. One long-lived stream may have at most one active temporary batch at a time.
+3. If the work needs a second batch, stop and re-plan before creating it.
+4. If the work grows past about 3-5 closely related files, re-check whether the current goal is still one phase.
+5. When the stopping condition is reached, do not continue looking for "one more cleanup" in the same goal.
+
+Recommended guard line for long-lived goals:
+
+```text
+如果本轮需要再拆第二个 batch，请停止并汇报，不继续扩展。
+```
+
 ## Current Recommendation
 
 For the next phase of this project, use:
