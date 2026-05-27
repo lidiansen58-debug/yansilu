@@ -501,6 +501,12 @@ test("POST /api/v1/demo/product-thinking/smart-notes seeds the smart notes produ
   assert.equal(projects.status, 200, JSON.stringify(projects.json));
   assert.equal(projects.json.total, fixture.counts.writing_projects);
 
+  const seededPermanent = await getJson(baseUrl, "/api/v1/notes/PN-SN-001");
+  assert.equal(seededPermanent.status, 200, JSON.stringify(seededPermanent.json));
+  assert.equal(seededPermanent.json.item.status, "active");
+  assert.equal(seededPermanent.json.item.distillationStatus, "confirmed");
+  assert.deepEqual(seededPermanent.json.item.authorship, { user_confirmed: true, ai_assisted: false });
+
   const secondSeed = await postJson(baseUrl, "/api/v1/demo/product-thinking/smart-notes", {});
   assert.equal(secondSeed.status, 200, JSON.stringify(secondSeed.json));
   assert.equal(secondSeed.json.item.kind, "smart_notes_product_thinking_seed");

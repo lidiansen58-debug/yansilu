@@ -108,7 +108,10 @@ test("smart notes product demo fixture permanent notes are PM-restated judgments
 
   for (const note of fixture.permanent_notes) {
     assert.equal(note.note_type, "permanent");
+    assert.equal(note.status, "active");
     assert.equal(note.distillation_status, "confirmed");
+    assert.deepEqual(note.authorship, { user_confirmed: true, ai_assisted: false });
+    assert.equal(note.originality_status, "pass");
     assert.ok(note.thesis, `${note.id} needs a thesis`);
     assert.equal(note.threeLineSummary.length, 3, `${note.id} needs a three-line summary`);
     assert.equal(note.core_claim, note.thesis, `${note.id} core claim should mirror its confirmed thesis`);

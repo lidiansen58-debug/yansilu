@@ -1678,7 +1678,7 @@
       "title": "写作不是最后一步，而是笔记系统的组织原则",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "写作不是最后一步，而是笔记系统的组织原则",
       "threeLineSummary": [
@@ -1754,7 +1754,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-002",
@@ -1762,7 +1767,7 @@
       "title": "未来写作用途会改变一条笔记的质量判断",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "未来写作用途会改变一条笔记的质量判断",
       "threeLineSummary": [
@@ -1834,7 +1839,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-003",
@@ -1842,7 +1852,7 @@
       "title": "空白页焦虑常常来自前期判断没有成形",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "空白页焦虑常常来自前期判断没有成形",
       "threeLineSummary": [
@@ -1914,7 +1924,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-004",
@@ -1922,7 +1937,7 @@
       "title": "写作篮应该收集已确认判断，而不是原始材料",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "写作篮应该收集已确认判断，而不是原始材料",
       "threeLineSummary": [
@@ -1994,7 +2009,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-005",
@@ -2002,7 +2022,7 @@
       "title": "写作脚手架应该暴露缺口，而不是掩盖缺口",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "写作脚手架应该暴露缺口，而不是掩盖缺口",
       "threeLineSummary": [
@@ -2076,7 +2096,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-006",
@@ -2084,7 +2109,7 @@
       "title": "阅读动作如果不面向写作，容易退化为收藏",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "阅读动作如果不面向写作，容易退化为收藏",
       "threeLineSummary": [
@@ -2156,7 +2181,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-007",
@@ -2164,7 +2194,7 @@
       "title": "一条可复用判断可以服务多篇文章",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "一条可复用判断可以服务多篇文章",
       "threeLineSummary": [
@@ -2236,7 +2266,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-008",
@@ -2244,7 +2279,7 @@
       "title": "写作项目应该从已有笔记重组，而不是从 prompt 开始",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "写作项目应该从已有笔记重组，而不是从 prompt 开始",
       "threeLineSummary": [
@@ -2316,7 +2351,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-009",
@@ -2324,7 +2364,7 @@
       "title": "段落强度取决于背后的永久笔记强度",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "段落强度取决于背后的永久笔记强度",
       "threeLineSummary": [
@@ -2398,7 +2438,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-010",
@@ -2406,7 +2451,7 @@
       "title": "修订文章时，回到笔记比回到灵感更可靠",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "修订文章时，回到笔记比回到灵感更可靠",
       "threeLineSummary": [
@@ -2478,7 +2523,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-011",
@@ -2486,7 +2536,7 @@
       "title": "好的写作流程允许不确定性暂时存在",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "好的写作流程允许不确定性暂时存在",
       "threeLineSummary": [
@@ -2554,7 +2604,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-012",
@@ -2562,7 +2617,7 @@
       "title": "写作准备是一种持续的日常工作",
       "cluster": "writing_first",
       "cluster_label": "写作前置",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "写作准备是一种持续的日常工作",
       "threeLineSummary": [
@@ -2630,7 +2685,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-013",
@@ -2638,7 +2698,7 @@
       "title": "随笔是捕捉点，不是知识点",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "随笔是捕捉点，不是知识点",
       "threeLineSummary": [
@@ -2714,7 +2774,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-014",
@@ -2722,7 +2787,7 @@
       "title": "快速记录必须在之后被处理",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "快速记录必须在之后被处理",
       "threeLineSummary": [
@@ -2796,7 +2861,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-015",
@@ -2804,7 +2874,7 @@
       "title": "未清理随笔会变成隐藏债务",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "未清理随笔会变成隐藏债务",
       "threeLineSummary": [
@@ -2876,7 +2946,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-016",
@@ -2884,7 +2959,7 @@
       "title": "删除弱随笔也是清理进展",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "删除弱随笔也是清理进展",
       "threeLineSummary": [
@@ -2956,7 +3031,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-017",
@@ -2964,7 +3044,7 @@
       "title": "随笔应该指向下一步思考动作",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "随笔应该指向下一步思考动作",
       "threeLineSummary": [
@@ -3036,7 +3116,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-018",
@@ -3044,7 +3129,7 @@
       "title": "捕捉状态和理解状态必须分开",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "捕捉状态和理解状态必须分开",
       "threeLineSummary": [
@@ -3118,7 +3203,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-019",
@@ -3126,7 +3216,7 @@
       "title": "随笔转永久笔记时必须形成判断",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "随笔转永久笔记时必须形成判断",
       "threeLineSummary": [
@@ -3198,7 +3288,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-020",
@@ -3206,7 +3301,7 @@
       "title": "捕捉越容易，清理机制越重要",
       "cluster": "fleeting_capture",
       "cluster_label": "随笔与捕捉",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "捕捉越容易，清理机制越重要",
       "threeLineSummary": [
@@ -3278,7 +3373,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-021",
@@ -3286,7 +3386,7 @@
       "title": "摘录不等于理解",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "摘录不等于理解",
       "threeLineSummary": [
@@ -3362,7 +3462,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-022",
@@ -3370,7 +3475,7 @@
       "title": "转述是理解的第一道检验",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "转述是理解的第一道检验",
       "threeLineSummary": [
@@ -3444,7 +3549,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-023",
@@ -3452,7 +3562,7 @@
       "title": "文献笔记是从材料到判断的过渡层",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "文献笔记是从材料到判断的过渡层",
       "threeLineSummary": [
@@ -3524,7 +3634,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-024",
@@ -3532,7 +3647,7 @@
       "title": "文献笔记应该说明材料为什么重要",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "文献笔记应该说明材料为什么重要",
       "threeLineSummary": [
@@ -3604,7 +3719,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-025",
@@ -3612,7 +3732,7 @@
       "title": "只换词的转述仍然没有形成所有权",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "只换词的转述仍然没有形成所有权",
       "threeLineSummary": [
@@ -3684,7 +3804,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-026",
@@ -3692,7 +3817,7 @@
       "title": "文献笔记可以先提出问题，再形成判断",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "文献笔记可以先提出问题，再形成判断",
       "threeLineSummary": [
@@ -3766,7 +3891,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-027",
@@ -3774,7 +3904,7 @@
       "title": "来源痕迹保护思想诚实",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "来源痕迹保护思想诚实",
       "threeLineSummary": [
@@ -3846,7 +3976,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-028",
@@ -3854,7 +3989,7 @@
       "title": "文献笔记不应该无限堆积",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "文献笔记不应该无限堆积",
       "threeLineSummary": [
@@ -3926,7 +4061,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-029",
@@ -3934,7 +4074,7 @@
       "title": "材料必须被放回用户自己的项目中理解",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "材料必须被放回用户自己的项目中理解",
       "threeLineSummary": [
@@ -4006,7 +4146,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-030",
@@ -4014,7 +4159,7 @@
       "title": "接近原文的内容需要保持可见",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "接近原文的内容需要保持可见",
       "threeLineSummary": [
@@ -4086,7 +4231,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-031",
@@ -4094,7 +4244,7 @@
       "title": "文献笔记的完成感不应来自保存动作",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "文献笔记的完成感不应来自保存动作",
       "threeLineSummary": [
@@ -4162,7 +4312,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-032",
@@ -4170,7 +4325,7 @@
       "title": "从文献笔记到永久笔记需要一次立场转移",
       "cluster": "literature_understanding",
       "cluster_label": "文献笔记与理解",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "从文献笔记到永久笔记需要一次立场转移",
       "threeLineSummary": [
@@ -4238,7 +4393,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-033",
@@ -4246,7 +4406,7 @@
       "title": "永久笔记是一条用户愿意承担的判断",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记是一条用户愿意承担的判断",
       "threeLineSummary": [
@@ -4322,7 +4482,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-034",
@@ -4330,7 +4495,7 @@
       "title": "永久笔记最好只承载一个核心论点",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记最好只承载一个核心论点",
       "threeLineSummary": [
@@ -4402,7 +4567,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-035",
@@ -4410,7 +4580,7 @@
       "title": "永久笔记需要脱离现场也能被理解",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记需要脱离现场也能被理解",
       "threeLineSummary": [
@@ -4482,7 +4652,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-036",
@@ -4490,7 +4665,7 @@
       "title": "永久笔记标题应该携带观点",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记标题应该携带观点",
       "threeLineSummary": [
@@ -4564,7 +4739,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-037",
@@ -4572,7 +4752,7 @@
       "title": "三句话压缩让判断、理由和用途同时出现",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "三句话压缩让判断、理由和用途同时出现",
       "threeLineSummary": [
@@ -4644,7 +4824,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-038",
@@ -4652,7 +4837,7 @@
       "title": "边界和反例是永久笔记质量的一部分",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "边界和反例是永久笔记质量的一部分",
       "threeLineSummary": [
@@ -4724,7 +4909,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-039",
@@ -4732,7 +4922,7 @@
       "title": "永久笔记要区分证据和解释",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记要区分证据和解释",
       "threeLineSummary": [
@@ -4804,7 +4994,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-040",
@@ -4812,7 +5007,7 @@
       "title": "成熟笔记更容易被挑战",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "成熟笔记更容易被挑战",
       "threeLineSummary": [
@@ -4884,7 +5079,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-041",
@@ -4892,7 +5092,7 @@
       "title": "临时立场也可以写成清楚的永久笔记",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "临时立场也可以写成清楚的永久笔记",
       "threeLineSummary": [
@@ -4966,7 +5166,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-042",
@@ -4974,7 +5179,7 @@
       "title": "永久笔记应说明自己为什么值得保留",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记应说明自己为什么值得保留",
       "threeLineSummary": [
@@ -5048,7 +5253,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-043",
@@ -5056,7 +5266,7 @@
       "title": "永久笔记越可移动，越容易进入写作",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记越可移动，越容易进入写作",
       "threeLineSummary": [
@@ -5124,7 +5334,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-044",
@@ -5132,7 +5347,7 @@
       "title": "一条笔记的弱假设应该被显式记录",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "一条笔记的弱假设应该被显式记录",
       "threeLineSummary": [
@@ -5200,7 +5415,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-045",
@@ -5208,7 +5428,7 @@
       "title": "永久笔记的价值来自可复用性",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记的价值来自可复用性",
       "threeLineSummary": [
@@ -5276,7 +5496,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-046",
@@ -5284,7 +5509,7 @@
       "title": "永久笔记应能连接多个未来问题",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记应能连接多个未来问题",
       "threeLineSummary": [
@@ -5352,7 +5577,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-047",
@@ -5360,7 +5590,7 @@
       "title": "确认状态代表用户承担，而不是系统生成",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "确认状态代表用户承担，而不是系统生成",
       "threeLineSummary": [
@@ -5428,7 +5658,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-048",
@@ -5436,7 +5671,7 @@
       "title": "永久笔记不是漂亮摘要，而是思想单位",
       "cluster": "permanent_quality",
       "cluster_label": "永久笔记质量",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "永久笔记不是漂亮摘要，而是思想单位",
       "threeLineSummary": [
@@ -5504,7 +5739,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-049",
@@ -5512,7 +5752,7 @@
       "title": "关系理由比关系数量更重要",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "关系理由比关系数量更重要",
       "threeLineSummary": [
@@ -5588,7 +5828,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-050",
@@ -5596,7 +5841,7 @@
       "title": "链接是思考动作，不是整理动作",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "链接是思考动作，不是整理动作",
       "threeLineSummary": [
@@ -5668,7 +5913,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-051",
@@ -5676,7 +5926,7 @@
       "title": "支持关系需要说明支持的方式",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "支持关系需要说明支持的方式",
       "threeLineSummary": [
@@ -5748,7 +5998,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-052",
@@ -5756,7 +6011,7 @@
       "title": "对照关系防止档案变成单一立场",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "对照关系防止档案变成单一立场",
       "threeLineSummary": [
@@ -5828,7 +6083,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-053",
@@ -5836,7 +6096,7 @@
       "title": "张力关系是未来思考入口",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "张力关系是未来思考入口",
       "threeLineSummary": [
@@ -5908,7 +6168,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-054",
@@ -5916,7 +6181,7 @@
       "title": "桥接关系可以生成文章段落",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "桥接关系可以生成文章段落",
       "threeLineSummary": [
@@ -5988,7 +6253,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-055",
@@ -5996,7 +6266,7 @@
       "title": "重复关系应该触发合并或重写",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "重复关系应该触发合并或重写",
       "threeLineSummary": [
@@ -6068,7 +6338,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-056",
@@ -6076,7 +6351,7 @@
       "title": "来源缺口关系保护论点不悬浮",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "来源缺口关系保护论点不悬浮",
       "threeLineSummary": [
@@ -6148,7 +6423,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-057",
@@ -6156,7 +6436,7 @@
       "title": "顺序关系帮助笔记变成论证",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "顺序关系帮助笔记变成论证",
       "threeLineSummary": [
@@ -6228,7 +6508,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-058",
@@ -6236,7 +6521,7 @@
       "title": "没有理由的关系只能是候选",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "没有理由的关系只能是候选",
       "threeLineSummary": [
@@ -6310,7 +6595,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-059",
@@ -6318,7 +6608,7 @@
       "title": "密集图谱需要按问题过滤",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "密集图谱需要按问题过滤",
       "threeLineSummary": [
@@ -6386,7 +6676,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-060",
@@ -6394,7 +6689,7 @@
       "title": "图谱应该帮助用户选择下一条要处理的笔记",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "图谱应该帮助用户选择下一条要处理的笔记",
       "threeLineSummary": [
@@ -6462,7 +6757,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-061",
@@ -6470,7 +6770,7 @@
       "title": "意外连接说明系统开始反馈",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "意外连接说明系统开始反馈",
       "threeLineSummary": [
@@ -6538,7 +6838,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-062",
@@ -6546,7 +6851,7 @@
       "title": "关系网络应该保留冲突而不是抹平冲突",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "关系网络应该保留冲突而不是抹平冲突",
       "threeLineSummary": [
@@ -6614,7 +6919,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-063",
@@ -6622,7 +6932,7 @@
       "title": "图谱的价值在于看见支撑、冲突和缺口",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "图谱的价值在于看见支撑、冲突和缺口",
       "threeLineSummary": [
@@ -6690,7 +7000,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-064",
@@ -6698,7 +7013,7 @@
       "title": "关系类型应该服务写作准备",
       "cluster": "relation_graph",
       "cluster_label": "关系与图谱",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "关系类型应该服务写作准备",
       "threeLineSummary": [
@@ -6766,7 +7081,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-065",
@@ -6774,7 +7094,7 @@
       "title": "索引卡是进入思考场的入口",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡是进入思考场的入口",
       "threeLineSummary": [
@@ -6850,7 +7170,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-066",
@@ -6858,7 +7183,7 @@
       "title": "主题应该围绕中心问题组织",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "主题应该围绕中心问题组织",
       "threeLineSummary": [
@@ -6930,7 +7255,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-067",
@@ -6938,7 +7268,7 @@
       "title": "索引卡不是文件夹",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡不是文件夹",
       "threeLineSummary": [
@@ -7010,7 +7340,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-068",
@@ -7018,7 +7353,7 @@
       "title": "索引卡压缩一组判断的方向",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡压缩一组判断的方向",
       "threeLineSummary": [
@@ -7090,7 +7425,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-069",
@@ -7098,7 +7438,7 @@
       "title": "成熟主题同时包含支持和张力",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "成熟主题同时包含支持和张力",
       "threeLineSummary": [
@@ -7170,7 +7510,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-070",
@@ -7178,7 +7523,7 @@
       "title": "索引卡可以成为文章种子",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡可以成为文章种子",
       "threeLineSummary": [
@@ -7250,7 +7595,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-071",
@@ -7258,7 +7608,7 @@
       "title": "索引卡应标出尚未解决的问题",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡应标出尚未解决的问题",
       "threeLineSummary": [
@@ -7330,7 +7680,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-072",
@@ -7338,7 +7693,7 @@
       "title": "按论证角色组织笔记比按主题堆放更有用",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "按论证角色组织笔记比按主题堆放更有用",
       "threeLineSummary": [
@@ -7410,7 +7765,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-073",
@@ -7418,7 +7778,7 @@
       "title": "涌现结构比预设分类更适合思想工作",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "涌现结构比预设分类更适合思想工作",
       "threeLineSummary": [
@@ -7490,7 +7850,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-074",
@@ -7498,7 +7863,7 @@
       "title": "索引卡让用户不必从头重读档案",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "索引卡让用户不必从头重读档案",
       "threeLineSummary": [
@@ -7570,7 +7935,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-075",
@@ -7578,7 +7948,7 @@
       "title": "主题成熟度应该能被系统看见",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "主题成熟度应该能被系统看见",
       "threeLineSummary": [
@@ -7646,7 +8016,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-076",
@@ -7654,7 +8029,7 @@
       "title": "定期处理比热情捕捉更重要",
       "cluster": "index_structure",
       "cluster_label": "索引卡与涌现结构",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "定期处理比热情捕捉更重要",
       "threeLineSummary": [
@@ -7722,7 +8097,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-077",
@@ -7730,7 +8110,7 @@
       "title": "笔记系统靠小决策持续运转",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "笔记系统靠小决策持续运转",
       "threeLineSummary": [
@@ -7806,7 +8186,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-078",
@@ -7814,7 +8199,7 @@
       "title": "反馈循环让旧笔记遇到新问题",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "反馈循环让旧笔记遇到新问题",
       "threeLineSummary": [
@@ -7886,7 +8271,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-079",
@@ -7894,7 +8284,7 @@
       "title": "惊讶是系统有效的信号",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "惊讶是系统有效的信号",
       "threeLineSummary": [
@@ -7966,7 +8356,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-080",
@@ -7974,7 +8369,7 @@
       "title": "处理队列应该被解释为思考连续性",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "处理队列应该被解释为思考连续性",
       "threeLineSummary": [
@@ -8046,7 +8441,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-081",
@@ -8054,7 +8454,7 @@
       "title": "例行复盘防止档案沉睡",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "例行复盘防止档案沉睡",
       "threeLineSummary": [
@@ -8126,7 +8526,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-082",
@@ -8134,7 +8539,7 @@
       "title": "好系统让下一步动作变得清楚",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "好系统让下一步动作变得清楚",
       "threeLineSummary": [
@@ -8206,7 +8611,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-083",
@@ -8214,7 +8624,7 @@
       "title": "实践比分类方案更重要",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "实践比分类方案更重要",
       "threeLineSummary": [
@@ -8286,7 +8696,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-084",
@@ -8294,7 +8709,7 @@
       "title": "笔记数量是容易误导的指标",
       "cluster": "habits_feedback",
       "cluster_label": "习惯与反馈循环",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "笔记数量是容易误导的指标",
       "threeLineSummary": [
@@ -8366,7 +8781,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-085",
@@ -8374,7 +8794,7 @@
       "title": "收藏癖会制造虚假进展",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "收藏癖会制造虚假进展",
       "threeLineSummary": [
@@ -8448,7 +8868,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-086",
@@ -8456,7 +8881,7 @@
       "title": "完美分类会阻碍问题涌现",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "完美分类会阻碍问题涌现",
       "threeLineSummary": [
@@ -8528,7 +8953,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-087",
@@ -8536,7 +8966,7 @@
       "title": "漂亮总结可能掩盖没有立场",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "漂亮总结可能掩盖没有立场",
       "threeLineSummary": [
@@ -8610,7 +9040,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-088",
@@ -8618,7 +9053,7 @@
       "title": "产品不应该奖励浅层活动",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "产品不应该奖励浅层活动",
       "threeLineSummary": [
@@ -8690,7 +9125,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-089",
@@ -8698,7 +9138,7 @@
       "title": "导入成功不是学习成功",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "导入成功不是学习成功",
       "threeLineSummary": [
@@ -8770,7 +9210,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-090",
@@ -8778,7 +9223,7 @@
       "title": "高亮数量不应成为核心成就感",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "高亮数量不应成为核心成就感",
       "threeLineSummary": [
@@ -8850,7 +9295,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-091",
@@ -8858,7 +9308,7 @@
       "title": "用户拥有的判断比资料规模更重要",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "用户拥有的判断比资料规模更重要",
       "threeLineSummary": [
@@ -8930,7 +9380,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-092",
@@ -8938,7 +9393,7 @@
       "title": "进度指标应该显示转化和连接",
       "cluster": "anti_patterns_metrics",
       "cluster_label": "反模式与指标",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "进度指标应该显示转化和连接",
       "threeLineSummary": [
@@ -9010,7 +9465,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-093",
@@ -9018,7 +9478,7 @@
       "title": "AI 建议必须停留在候选状态",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "AI 建议必须停留在候选状态",
       "threeLineSummary": [
@@ -9094,7 +9554,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-094",
@@ -9102,7 +9567,7 @@
       "title": "AI 可以帮助发现关系，但不能替用户确认",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "AI 可以帮助发现关系，但不能替用户确认",
       "threeLineSummary": [
@@ -9174,7 +9639,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-095",
@@ -9182,7 +9652,7 @@
       "title": "AI 的流畅表达可能伪装成理解",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "AI 的流畅表达可能伪装成理解",
       "threeLineSummary": [
@@ -9254,7 +9724,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-096",
@@ -9262,7 +9737,7 @@
       "title": "AI 摘要应该先成为草稿，而不是最终笔记",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "AI 摘要应该先成为草稿，而不是最终笔记",
       "threeLineSummary": [
@@ -9334,7 +9809,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-097",
@@ -9342,7 +9822,7 @@
       "title": "作者性变化处必须请求用户确认",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "作者性变化处必须请求用户确认",
       "threeLineSummary": [
@@ -9414,7 +9894,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-098",
@@ -9422,7 +9907,7 @@
       "title": "AI 更适合追问、对照和暴露缺口",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "AI 更适合追问、对照和暴露缺口",
       "threeLineSummary": [
@@ -9494,7 +9979,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-099",
@@ -9502,7 +9992,7 @@
       "title": "产品经理要为认知责任设计边界",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "产品经理要为认知责任设计边界",
       "threeLineSummary": [
@@ -9576,7 +10066,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     },
     {
       "id": "PN-SN-100",
@@ -9584,7 +10079,7 @@
       "title": "最终文章应该保留从来源到判断的路径",
       "cluster": "ai_authorship",
       "cluster_label": "AI 与作者性边界",
-      "status": "confirmed",
+      "status": "active",
       "distillation_status": "confirmed",
       "thesis": "最终文章应该保留从来源到判断的路径",
       "threeLineSummary": [
@@ -9660,7 +10155,12 @@
         "has_source_trace": true,
         "has_boundary": true,
         "has_relation_context": true
-      }
+      },
+      "authorship": {
+        "user_confirmed": true,
+        "ai_assisted": false
+      },
+      "originality_status": "pass"
     }
   ],
   "index_cards": [
