@@ -1463,6 +1463,7 @@ test("recordAiInboxReviewDecision clears stale detail when refresh removes the a
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
+  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
 
   const refreshCalls = [];
   const loadCalls = [];
@@ -1489,7 +1490,7 @@ test("recordAiInboxReviewDecision clears stale detail when refresh removes the a
     "setStatus",
     "clearAiInboxActionNotice",
     "renderAiInboxWorkspace",
-    `${fnSource}; return recordAiInboxReviewDecision;`
+    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
   )(
     () => ({ value: "" }),
     aiInboxState,
@@ -2114,6 +2115,7 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
   const fnSource = extractAsyncFunctionSource(source, "recordAiInboxReviewDecision");
+  const finalizeSource = extractAsyncFunctionSource(source, "finalizeAiInboxActionRefresh");
 
   const refreshCalls = [];
   const aiInboxState = {
@@ -2138,7 +2140,7 @@ test("recordAiInboxReviewDecision does not restore the old artifact when selecti
     "setStatus",
     "clearAiInboxActionNotice",
     "renderAiInboxWorkspace",
-    `${fnSource}; return recordAiInboxReviewDecision;`
+    `${finalizeSource}; ${fnSource}; return recordAiInboxReviewDecision;`
   )(
     () => ({ value: "" }),
     aiInboxState,
