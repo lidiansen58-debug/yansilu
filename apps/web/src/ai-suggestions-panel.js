@@ -7,6 +7,11 @@ import {
   aiSuggestionTargetLabel,
   normalizeAiSuggestionFilters
 } from "./ai-suggestions-model.js";
+import {
+  traceDisplayState,
+  traceMissingTargetCopy,
+  tracePlaceholderCopy
+} from "./ai-trace-display.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -172,26 +177,32 @@ function renderContentEditor(item = {}) {
 
 function renderTrace(detail = {}) {
   const item = detail.item || {};
-  const trace = detail.trace || {};
-  const sourceArtifactId = String(trace.sourceArtifactId || item.sourceArtifactId || item.source_artifact_id || detail.linkedArtifact?.id || "").trim();
-  const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
-  const targetNoteId = String(item.target?.id || trace.targetNoteId || "").trim();
-  const targetField = String(item.target?.field || trace.targetField || "").trim();
-  const status = String(trace.suggestionStatus || item.status || "").trim();
-  const placeholder =
-    !sourceArtifactId && !targetNoteId
-      ? `<div class="scheduled-task-empty">Trace placeholder: this suggestion exists, but its source/target trace is incomplete.</div>`
-      : "";
+  const display = traceDisplayState({
+    trace: detail.trace,
+    target: item.target,
+    sourceArtifactId: item.sourceArtifactId || item.source_artifact_id,
+    linkedArtifactId: detail.linkedArtifact?.id,
+    status: item.status
+  });
+  const placeholderText = tracePlaceholderCopy({
+    suggestionId: item.id,
+    sourceArtifactId: display.sourceArtifactId,
+    targetNoteId: display.targetNoteId
+  });
+  const placeholder = placeholderText ? `<div class="scheduled-task-empty">${escapeHtml(placeholderText)}</div>` : "";
+  const targetNoteId = display.targetNoteId;
+  const targetField = display.targetField;
+  const status = display.status || String(item.status || "").trim();
   const targetHint = targetNoteId
     ? ""
-      : `<div class="scheduled-task-empty">This suggestion does not point to a target note yet.</div>`;
-  const sourceText = sourceNoteIds.join(", ") || trace.primarySourceNoteId || "not recorded";
+      : `<div class="scheduled-task-empty">${escapeHtml(traceMissingTargetCopy())}</div>`;
+  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "not recorded";
   return `
     <section class="ai-inbox-detail-section">
       <h3>Trace</h3>
       ${placeholder}
       <dl class="ai-inbox-kv">
-        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(display.sourceArtifactId || "not recorded")}</dd>
         <dt>Source notes</dt><dd>${escapeHtml(sourceText)}</dd>
         <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
         <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
