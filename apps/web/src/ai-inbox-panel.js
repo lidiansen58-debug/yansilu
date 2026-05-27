@@ -322,6 +322,28 @@ function renderSuggestionTrace(detail = {}, actionLoading = false) {
   `;
 }
 
+function renderSuggestionDraftEditingGuide(detail = {}) {
+  const suggestion = detail.suggestion || null;
+  const status = String(suggestion?.status || "").trim();
+  if (status === "adopted_as_draft") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Next step</h3>
+        <p>Open the target note, edit the adopted draft in the note itself, then return here and mark the suggestion as edited.</p>
+      </section>
+    `;
+  }
+  if (status === "edited") {
+    return `
+      <section class="ai-inbox-detail-section">
+        <h3>Ready to confirm</h3>
+        <p>This suggestion has been marked as edited by a person. Confirm it only after the target note wording reflects the final user-owned judgment.</p>
+      </section>
+    `;
+  }
+  return "";
+}
+
 function renderReviewedSuggestionContent(detail = {}, actionLoading = false) {
   const suggestion = detail.suggestion || null;
   const status = String(suggestion?.status || "").trim();
@@ -496,10 +518,9 @@ function renderReviewActions(item = {}, actionLoading = false) {
 }
 
 function aiInboxSummaryMatchesCurrentDetail(state = {}, item = {}) {
-  const itemArtifactId = String(item.artifactId || "").trim();
-  if (!itemArtifactId) return false;
   const summaryArtifactId = String(state.aiSummaryArtifactId || "").trim();
-  if (summaryArtifactId && summaryArtifactId !== itemArtifactId) return false;
+  const itemArtifactId = String(item.artifactId || "").trim();
+  if (!itemArtifactId || summaryArtifactId !== itemArtifactId) return false;
   const summarySuggestionId = String(state.aiSummarySuggestionId || "").trim();
   if (!summarySuggestionId) return true;
   const detailArtifactId = String(state.detail?.item?.artifactId || state.detail?.artifact?.id || "").trim();
@@ -534,7 +555,8 @@ function renderAiSummary(state = {}, item = {}, actionLoading = false) {
 }
 
 function renderRecommendedSummaryAction(state = {}, item = {}, actionLoading = false) {
-  if (!aiInboxSummaryMatchesCurrentDetail(state, item)) return "";
+  const summaryMatchesItem = aiInboxSummaryMatchesCurrentDetail(state, item);
+  if (!summaryMatchesItem) return "";
   const action = String(state.aiSummaryRecommendedAction || "").trim();
   const labels = {
     accept_link: "Apply: create relation",
@@ -701,8 +723,8 @@ function renderDetail(state = {}) {
   const activeDetail = detailMatchesSelection ? detail : {};
   const item = activeDetail.item || selectedListItem || {};
   const artifact = activeDetail.artifact || null;
-  const actionArtifactId = String(state.actionArtifactId || "").trim();
   const currentSuggestionId = String(activeDetail.suggestion?.id || "").trim();
+  const actionArtifactId = String(state.actionArtifactId || "").trim();
   const actionSuggestionId = String(state.actionSuggestionId || "").trim();
   const actionError =
     actionArtifactId &&
@@ -786,6 +808,7 @@ function renderDetail(state = {}) {
       ${renderNotePromotionAction(activeArtifact, artifactActionBusy)}
       ${renderFieldSuggestionAction(activeArtifact, suggestionActionBusy)}
       ${renderSuggestionTrace(activeDetail, suggestionActionBusy)}
+      ${renderSuggestionDraftEditingGuide(activeDetail)}
       ${renderReviewedSuggestionContent(activeDetail, suggestionActionBusy)}
       ${renderSuggestionProvenance(activeDetail)}
       ${renderSuggestionHistory(activeDetail)}
