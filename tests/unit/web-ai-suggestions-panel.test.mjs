@@ -125,7 +125,14 @@ test("AI suggestions panel renders trace placeholders and target-missing guidanc
 
 test("AI suggestions panel prefers canonical trace fields over incomplete item targets", () => {
   const html = renderAiSuggestionsPanel({
-    items: [{ ...suggestion, id: "suggestion_trace_priority", status: "edited" }],
+    items: [
+      {
+        ...suggestion,
+        id: "suggestion_trace_priority",
+        status: "edited",
+        target: { type: "permanent_note", id: "", field: "" }
+      }
+    ],
     total: 1,
     selectedSuggestionId: "suggestion_trace_priority",
     detail: {
