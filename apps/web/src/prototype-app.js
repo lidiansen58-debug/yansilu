@@ -2322,20 +2322,7 @@ async function recordAiInboxReviewDecision(decision) {
       aiInboxState.selectedArtifactId = artifactId;
     }
     rememberAiDebugSnapshot("inboxDecision", result);
-    await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-      ]);
-      if (aiInboxState.selectedArtifactId) {
-        if (!aiInboxState.detail) await loadAiInboxDetail(aiInboxState.selectedArtifactId);
-      } else {
-        aiInboxState.detail = null;
-        aiInboxState.detailLoading = false;
-        aiInboxState.detailArtifactId = "";
-        aiInboxState.detailError = "";
-        aiInboxState.actionArtifactId = "";
-        aiInboxState.actionSuggestionId = "";
-    }
+    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
     aiInboxState.actionArtifactId = "";
     aiInboxState.actionSuggestionId = "";
     aiInboxState.actionError = "";
@@ -2482,25 +2469,22 @@ async function acceptAiInboxLinkSuggestion(artifactId) {
       aiInboxState.selectedArtifactId = cleanArtifactId;
     }
     rememberAiDebugSnapshot("inboxDecision", result);
-    await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-      ]);
-      if (state.module === "graph") await refreshDirectoryGraph();
-      aiInboxState.actionArtifactId = "";
-      aiInboxState.actionSuggestionId = "";
-      aiInboxState.actionError = "";
-      clearAiInboxActionNotice();
-      setStatus(
-        typeof aiInboxLinkAcceptedStatusMessage === "function"
-          ? aiInboxLinkAcceptedStatusMessage(result.relation)
-          : result.relation?.created === false
-            ? "关系已存在，建议已标记为已建立关系"
-            : "已把关联建议建立为笔记关系",
-        "ok"
-      );
-      return result;
-    } catch (error) {
+    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
+    if (state.module === "graph") await refreshDirectoryGraph();
+    aiInboxState.actionArtifactId = "";
+    aiInboxState.actionSuggestionId = "";
+    aiInboxState.actionError = "";
+    clearAiInboxActionNotice();
+    setStatus(
+      typeof aiInboxLinkAcceptedStatusMessage === "function"
+        ? aiInboxLinkAcceptedStatusMessage(result.relation)
+        : result.relation?.created === false
+          ? "关系已存在，建议已标记为已建立关系"
+          : "已把关联建议建立为笔记关系",
+      "ok"
+    );
+    return result;
+  } catch (error) {
       aiInboxState.actionError = String(error?.message || error);
       setStatus(
         typeof aiInboxLinkAcceptFailedStatusMessage === "function"
@@ -2592,28 +2576,25 @@ async function promoteAiInboxArtifactToNote(artifactId) {
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
     }
-    await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-    ]);
-      if (result.note?.id && !selectionChangedDuringAction) {
-        activateModule("explorer");
-        openNoteById(result.note.id);
-      }
-      aiInboxState.actionArtifactId = "";
-      aiInboxState.actionSuggestionId = "";
-      aiInboxState.actionError = "";
-      clearAiInboxActionNotice();
-      setStatus(
-        typeof aiInboxNotePromotionSucceededStatusMessage === "function"
-          ? aiInboxNotePromotionSucceededStatusMessage(result.note)
-          : result.note?.id
-            ? `已从 AI 建议生成草稿笔记：${result.note.id}`
-            : "AI 建议已生成草稿",
-        "ok"
-      );
-      return result;
-    } catch (error) {
+    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
+    if (result.note?.id && !selectionChangedDuringAction) {
+      activateModule("explorer");
+      openNoteById(result.note.id);
+    }
+    aiInboxState.actionArtifactId = "";
+    aiInboxState.actionSuggestionId = "";
+    aiInboxState.actionError = "";
+    clearAiInboxActionNotice();
+    setStatus(
+      typeof aiInboxNotePromotionSucceededStatusMessage === "function"
+        ? aiInboxNotePromotionSucceededStatusMessage(result.note)
+        : result.note?.id
+          ? `已从 AI 建议生成草稿笔记：${result.note.id}`
+          : "AI 建议已生成草稿",
+      "ok"
+    );
+    return result;
+  } catch (error) {
       aiInboxState.actionError = String(error?.message || error);
       setStatus(
         typeof aiInboxNotePromotionFailedStatusMessage === "function"
@@ -2738,28 +2719,25 @@ async function adoptAiInboxFieldSuggestionDraft(artifactId, expectedSuggestionId
     if (result.note?.id) {
       state.notes = [mapNoteItem(result.note), ...state.notes.filter((item) => item.id !== result.note.id)];
     }
-    await Promise.all([
-      refreshAiInbox({ silent: true, preserveDetail: !selectionChangedDuringAction }),
-      refreshAiInboxEvaluationSummary({ silent: true })
-    ]);
-      if (result.note?.id && !selectionChangedDuringAction) {
-        activateModule("explorer");
-        openNoteById(result.note.id, { focusDistillation: true });
-      }
-      aiInboxState.actionArtifactId = "";
-      aiInboxState.actionSuggestionId = "";
-      aiInboxState.actionError = "";
-      clearAiInboxActionNotice();
-      setStatus(
-        typeof aiInboxFieldSuggestionDraftSucceededStatusMessage === "function"
-          ? aiInboxFieldSuggestionDraftSucceededStatusMessage(result.note)
-          : result.note?.id
-            ? `已采纳 AI 字段建议为草稿：${result.note.id}`
-            : "AI 字段建议已采纳为草稿",
-        "ok"
-      );
-      return result;
-    } catch (error) {
+    await finalizeAiInboxActionRefresh({ preserveDetail: !selectionChangedDuringAction });
+    if (result.note?.id && !selectionChangedDuringAction) {
+      activateModule("explorer");
+      openNoteById(result.note.id, { focusDistillation: true });
+    }
+    aiInboxState.actionArtifactId = "";
+    aiInboxState.actionSuggestionId = "";
+    aiInboxState.actionError = "";
+    clearAiInboxActionNotice();
+    setStatus(
+      typeof aiInboxFieldSuggestionDraftSucceededStatusMessage === "function"
+        ? aiInboxFieldSuggestionDraftSucceededStatusMessage(result.note)
+        : result.note?.id
+          ? `已采纳 AI 字段建议为草稿：${result.note.id}`
+          : "AI 字段建议已采纳为草稿",
+      "ok"
+    );
+    return result;
+  } catch (error) {
       aiInboxState.actionError = String(error?.message || error);
       setStatus(
         typeof aiInboxFieldSuggestionDraftFailedStatusMessage === "function"
