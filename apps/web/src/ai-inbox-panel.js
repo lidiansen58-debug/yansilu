@@ -21,6 +21,11 @@ import {
   aiSuggestionStatusLabel,
   aiSuggestionStatusTone
 } from "./ai-suggestions-model.js";
+import {
+  traceDisplayState,
+  traceMissingTargetCopy,
+  tracePlaceholderCopy
+} from "./ai-trace-display.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -265,35 +270,43 @@ function renderPayloadPreview(payload = {}) {
 
 function renderSuggestionTrace(detail = {}) {
   const suggestion = detail.suggestion || null;
-  const trace = detail.trace || {};
   const artifact = detail.artifact || null;
   const payload = artifact?.payload && typeof artifact.payload === "object" ? artifact.payload : {};
-  const suggestionId = suggestion?.id || trace.suggestionId || "";
-  const sourceArtifactId = suggestion?.sourceArtifactId || trace.sourceArtifactId || "";
-  const sourceNoteIds = Array.isArray(trace.sourceNoteIds) ? trace.sourceNoteIds.filter(Boolean) : [];
-  const targetNoteId = suggestion?.target?.id || trace.targetNoteId || "";
-  const targetField = suggestion?.target?.field || trace.targetField || "";
-  const status = suggestion?.status || trace.suggestionStatus || "";
+  const display = traceDisplayState({
+    trace: detail.trace,
+    target: suggestion?.target,
+    sourceArtifactId: suggestion?.sourceArtifactId,
+    sourceNoteIds: artifact?.sources?.noteIds,
+    status: suggestion?.status
+  });
+  const suggestionId = suggestion?.id || detail.trace?.suggestionId || "";
+  const targetNoteId = display.targetNoteId;
+  const targetField = display.targetField;
+  const status = display.status;
   const hasLinkedSuggestionContext =
     Boolean(suggestion) ||
-    Boolean(trace && Object.keys(trace).length) ||
+    Boolean(detail.trace && Object.keys(detail.trace).length) ||
     Boolean(payload.fieldSuggestionId || payload.field_suggestion_id || payload.fieldSuggestion || payload.field_suggestion);
   if (!hasLinkedSuggestionContext) return "";
-  const tracePlaceholder =
-    !suggestionId && !sourceArtifactId && !targetNoteId
-      ? `<div class="ai-inbox-detail-muted">Trace placeholder: this artifact can participate in suggestion review, but the linked trace record is not available yet.</div>`
-      : "";
+  const placeholderText = tracePlaceholderCopy({
+    suggestionId,
+    sourceArtifactId: display.sourceArtifactId,
+    targetNoteId
+  });
+  const tracePlaceholder = placeholderText
+    ? `<div class="ai-inbox-detail-muted">${escapeHtml(placeholderText)}</div>`
+    : "";
   const targetHint = targetNoteId
     ? ""
-    : `<div class="ai-inbox-detail-muted">This suggestion is not linked to a target note yet, so there is nothing to open or confirm in-note.</div>`;
-  const sourceText = sourceNoteIds.join(", ") || trace.primarySourceNoteId || "not recorded";
+    : `<div class="ai-inbox-detail-muted">${escapeHtml(traceMissingTargetCopy())}</div>`;
+  const sourceText = display.sourceNoteIds.join(", ") || display.primarySourceNoteId || "not recorded";
   return `
     <section class="ai-inbox-detail-section">
       <h3>Suggestion trace</h3>
       ${tracePlaceholder}
       <dl class="ai-inbox-kv">
         <dt>Suggestion</dt><dd>${escapeHtml(suggestionId || "not linked")}</dd>
-        <dt>Source artifact</dt><dd>${escapeHtml(sourceArtifactId || "not recorded")}</dd>
+        <dt>Source artifact</dt><dd>${escapeHtml(display.sourceArtifactId || "not recorded")}</dd>
         <dt>Target note</dt><dd>${escapeHtml(targetNoteId || "missing target note")}</dd>
         <dt>Target field</dt><dd>${escapeHtml(targetField || "not recorded")}</dd>
         <dt>Status</dt><dd>${escapeHtml(status ? aiSuggestionStatusLabel(status) : "not recorded")}</dd>

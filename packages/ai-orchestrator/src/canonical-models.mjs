@@ -110,42 +110,54 @@ export function aiInboxItemToCanonical(input = {}) {
   };
 }
 
-export function suggestionToCanonical(input = {}, context = {}) {
-  const suggestion = normalizeSuggestion(input, context);
+function canonicalSuggestionFallback(input = {}, context = {}) {
+  const target = input.target && typeof input.target === "object" ? input.target : {};
+  const provenance = input.provenance && typeof input.provenance === "object" ? input.provenance : {};
+  const history = Array.isArray(input.history) ? input.history : Array.isArray(input.transitions) ? input.transitions : [];
   return {
-    id: suggestion.id,
+    id: cleanText(input.id),
     target: {
-      type: cleanText(suggestion.target?.type),
-      id: cleanText(suggestion.target?.id),
-      ...(cleanText(suggestion.target?.field) ? { field: cleanText(suggestion.target.field) } : {})
+      type: cleanText(target.type || target.kind || input.targetType || input.target_type || input.targetKind || input.target_kind),
+      id: cleanText(target.id || input.targetId || input.target_id),
+      ...(cleanText(target.field || input.targetField || input.target_field)
+        ? { field: cleanText(target.field || input.targetField || input.target_field) }
+        : {})
     },
-    scope: cleanText(suggestion.scope),
-    content: clone(suggestion.content),
-    status: cleanText(suggestion.status),
-    origin: cleanText(suggestion.origin),
-    created_at: cleanText(suggestion.createdAt || suggestion.created_at),
-    updated_at: cleanText(suggestion.updatedAt || suggestion.updated_at),
-    model: clone(suggestion.model),
-    ...(cleanText(suggestion.sourceArtifactId || suggestion.source_artifact_id)
-      ? { source_artifact_id: cleanText(suggestion.sourceArtifactId || suggestion.source_artifact_id) }
+    scope: cleanText(input.scope || context.scope),
+    content: clone(input.content),
+    status: cleanText(input.status || context.status || "suggested"),
+    origin: cleanText(input.origin || context.origin) || "ai_generated",
+    created_at: cleanText(input.createdAt || input.created_at || context.now),
+    updated_at: cleanText(input.updatedAt || input.updated_at || context.now),
+    model: clone(input.model || context.model || null),
+    ...(cleanText(input.sourceArtifactId || input.source_artifact_id || context.sourceArtifactId || context.source_artifact_id)
+      ? { source_artifact_id: cleanText(input.sourceArtifactId || input.source_artifact_id || context.sourceArtifactId || context.source_artifact_id) }
       : {}),
     provenance: {
-      content_origin: cleanText(suggestion.provenance?.contentOrigin || suggestion.provenance?.content_origin) || "ai_generated",
-      human_confirmed: suggestion.provenance?.humanConfirmed === true || suggestion.provenance?.human_confirmed === true,
-      human_edited: suggestion.provenance?.humanEdited === true || suggestion.provenance?.human_edited === true
+      content_origin: cleanText(provenance.contentOrigin || provenance.content_origin) || "ai_generated",
+      human_confirmed: provenance.humanConfirmed === true || provenance.human_confirmed === true,
+      human_edited: provenance.humanEdited === true || provenance.human_edited === true
     },
-    history: Array.isArray(suggestion.history)
-      ? suggestion.history.map((item) => ({
-          from_status: cleanText(item.fromStatus || item.from_status),
-          to_status: cleanText(item.toStatus || item.to_status),
-          action: cleanText(item.action),
-          actor: cleanText(item.actor),
-          user_id: cleanText(item.userId || item.user_id),
-          comment: cleanText(item.comment),
-          created_at: cleanText(item.createdAt || item.created_at)
-        }))
-      : []
+    history: history.map((item) => ({
+      from_status: cleanText(item.fromStatus || item.from_status),
+      to_status: cleanText(item.toStatus || item.to_status),
+      action: cleanText(item.action),
+      actor: cleanText(item.actor),
+      user_id: cleanText(item.userId || item.user_id),
+      comment: cleanText(item.comment),
+      created_at: cleanText(item.createdAt || item.created_at)
+    }))
   };
+}
+
+export function suggestionToCanonical(input = {}, context = {}) {
+  try {
+    const suggestion = normalizeSuggestion(input, context);
+    return canonicalSuggestionFallback(suggestion, context);
+  } catch (error) {
+    if (error?.code !== "AI_SUGGESTION_TARGET_REQUIRED") throw error;
+    return canonicalSuggestionFallback(input, context);
+  }
 }
 
 export function scheduledTaskToCanonical(input = {}, existing = {}) {

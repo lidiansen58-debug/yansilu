@@ -117,10 +117,39 @@ test("AI suggestions panel renders trace placeholders and target-missing guidanc
   });
 
   assert.match(html, /Trace/);
-  assert.match(html, /Trace placeholder:/);
+  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\./);
   assert.match(html, /missing target note/);
-  assert.match(html, /does not point to a target note yet/i);
+  assert.match(html, /is not connected to a target note yet/i);
   assert.match(html, /data-ai-suggestion-open-note=""[\s\S]*disabled/);
+});
+
+test("AI suggestions panel prefers canonical trace fields over incomplete item targets", () => {
+  const html = renderAiSuggestionsPanel({
+    items: [{ ...suggestion, id: "suggestion_trace_priority", target: { type: "permanent_note", id: "", field: "" } }],
+    total: 1,
+    selectedSuggestionId: "suggestion_trace_priority",
+    detail: {
+      item: {
+        ...suggestion,
+        id: "suggestion_trace_priority",
+        target: { type: "permanent_note", id: "", field: "" },
+        sourceArtifactId: ""
+      },
+      trace: {
+        suggestionId: "suggestion_trace_priority",
+        sourceArtifactId: "artifact_trace_priority",
+        sourceNoteIds: ["pn_trace"],
+        targetNoteId: "pn_trace",
+        targetField: "thesis",
+        suggestionStatus: "edited"
+      }
+    }
+  });
+
+  assert.match(html, /artifact_trace_priority/);
+  assert.match(html, /Target note<\/dt><dd>pn_trace/);
+  assert.match(html, /Target field<\/dt><dd>thesis/);
+  assert.doesNotMatch(html, /Trace placeholder:/);
 });
 
 test("AI suggestions panel renders confirm action only after a suggestion is edited", () => {

@@ -252,6 +252,39 @@ test("AI canonical contracts keep inbox detail, suggestion detail, and review ac
     "to_status"
   ]);
   assert.equal(rejectedInboxDetail.json.canonical.suggestion_review_events.length, 1);
+
+  const db = await import("node:sqlite");
+  const localDb = new db.DatabaseSync(path.join(vaultPath, ".yansilu", "ai-agent.db"));
+  try {
+    localDb.prepare("DELETE FROM ai_suggestions WHERE id = ?").run(suggestionId);
+  } finally {
+    localDb.close();
+  }
+
+  const degradedRejectedInboxDetail = await getJson(
+    baseUrl,
+    `/api/v1/ai/inbox/${encodeURIComponent(artifact.id)}?canonical=true`
+  );
+  assert.equal(degradedRejectedInboxDetail.status, 200, JSON.stringify(degradedRejectedInboxDetail.json));
+  assert.equal(degradedRejectedInboxDetail.json.suggestion.status, "rejected");
+  assert.equal(degradedRejectedInboxDetail.json.suggestion.sourceArtifactId, artifact.id);
+  assert.equal(degradedRejectedInboxDetail.json.canonical.suggestion.status, "rejected");
+  assert.equal(degradedRejectedInboxDetail.json.canonical.suggestion.source_artifact_id, artifact.id);
+  assert.equal(degradedRejectedInboxDetail.json.artifact.payload.fieldSuggestion.status, "rejected");
+  assert.equal(degradedRejectedInboxDetail.json.artifact.payload.fieldSuggestion.history.length, 1);
+  assert.equal(degradedRejectedInboxDetail.json.artifact.payload.fieldSuggestion.history[0].toStatus, "rejected");
+  assert.equal(degradedRejectedInboxDetail.json.suggestionReviewEvents.length, 1);
+  assert.equal(degradedRejectedInboxDetail.json.suggestionReviewEvents[0].eventType, "rejected");
+  assert.deepEqual(
+    degradedRejectedInboxDetail.json.latestSuggestionReviewEvent,
+    degradedRejectedInboxDetail.json.suggestionReviewEvents[0]
+  );
+  assert.equal(degradedRejectedInboxDetail.json.canonical.suggestion_review_events.length, 1);
+  assert.equal(degradedRejectedInboxDetail.json.canonical.suggestion_review_events[0].event_type, "rejected");
+  assert.deepEqual(
+    degradedRejectedInboxDetail.json.canonical.latest_suggestion_review_event,
+    degradedRejectedInboxDetail.json.canonical.suggestion_review_events[0]
+  );
 });
 
 test("AI canonical inbox detail keeps degraded suggestion trace stable when the linked suggestion record is missing", async (t) => {
@@ -311,6 +344,7 @@ test("AI canonical inbox detail keeps degraded suggestion trace stable when the 
     "suggestion_review_events",
     "trace"
   ]);
+  assert.equal(degradedDetail.json.suggestion, null);
   assert.equal(degradedDetail.json.canonical.suggestion, null);
   assert.deepEqual(degradedDetail.json.canonical.suggestion_review_events, []);
   assert.equal(degradedDetail.json.canonical.latest_suggestion_review_event, null);

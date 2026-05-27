@@ -220,10 +220,53 @@ test("AI inbox panel renders trace placeholders and target-missing guidance when
     }
   });
 
-  assert.match(html, /Trace placeholder:/);
+  assert.match(html, /Trace placeholder: this linked review item exists, but its source\/target trace is incomplete\./);
   assert.match(html, /missing target note/);
-  assert.match(html, /This suggestion is not linked to a target note yet/);
+  assert.match(html, /This linked review item is not connected to a target note yet\./);
   assert.match(html, /data-ai-inbox-open-note=""[\s\S]*disabled/);
+});
+
+test("AI inbox panel prefers canonical trace fields over incomplete suggestion targets", () => {
+  const html = renderAiInboxPanel({
+    items: [{ ...item, artifactId: "artifact_field_trace_priority", type: "InsightCard", title: "Field suggestion trace priority" }],
+    counts: { pending: 1 },
+    selectedArtifactId: "artifact_field_trace_priority",
+    detail: {
+      item: { ...item, artifactId: "artifact_field_trace_priority", type: "InsightCard", title: "Field suggestion trace priority" },
+      artifact: {
+        ...artifact,
+        id: "artifact_field_trace_priority",
+        type: "InsightCard",
+        payload: {
+          fieldSuggestionId: "suggestion_trace_priority",
+          fieldSuggestion: {
+            status: "edited"
+          }
+        }
+      },
+      suggestion: {
+        id: "suggestion_trace_priority",
+        target: { type: "permanent_note", id: "", field: "" },
+        scope: "note_field",
+        content: { thesis: "Trace should prefer canonical fields." },
+        status: "edited",
+        sourceArtifactId: ""
+      },
+      trace: {
+        suggestionId: "suggestion_trace_priority",
+        sourceArtifactId: "artifact_trace_priority",
+        sourceNoteIds: ["pn_trace"],
+        targetNoteId: "pn_trace",
+        targetField: "thesis",
+        suggestionStatus: "edited"
+      }
+    }
+  });
+
+  assert.match(html, /artifact_trace_priority/);
+  assert.match(html, /Target note<\/dt><dd>pn_trace/);
+  assert.match(html, /Target field<\/dt><dd>thesis/);
+  assert.doesNotMatch(html, /Trace placeholder:/);
 });
 
 test("AI inbox panel advances suggestion review actions from edited to confirmed", () => {
