@@ -311,14 +311,19 @@ const settingsState = {
     },
     selectedSuggestionId: "",
     suggestionDetail: null,
-      suggestionDetailRequestToken: 0,
-      suggestionDetailLoading: false,
-      suggestionsLoading: false,
-      suggestionActionLoading: false,
-      suggestionsError: "",
-      suggestionDetailError: "",
-      suggestionActionError: "",
-      scheduledTasks: [],
+    suggestionDetailSuggestionId: "",
+    suggestionDetailRequestToken: 0,
+    suggestionDetailLoading: false,
+    suggestionsLoading: false,
+    suggestionActionLoading: false,
+    suggestionActionSuggestionId: "",
+    suggestionActionNoticeSuggestionId: "",
+    suggestionActionNotice: "",
+    suggestionActionNoticeTone: "",
+    suggestionsError: "",
+    suggestionDetailError: "",
+    suggestionActionError: "",
+    scheduledTasks: [],
     scheduledTasksTotal: 0,
     scheduledTaskTemplates: [],
     scheduledTaskTemplatesLoading: false,
@@ -1307,10 +1312,15 @@ function renderAiSuggestionsWorkspace() {
     filters: settingsState.ai.suggestionFilters,
     selectedSuggestionId: settingsState.ai.selectedSuggestionId,
     detail: settingsState.ai.suggestionDetail,
+    detailSuggestionId: settingsState.ai.suggestionDetailSuggestionId,
     detailLoading: settingsState.ai.suggestionDetailLoading,
     detailError: settingsState.ai.suggestionDetailError,
     loading: settingsState.ai.suggestionsLoading,
     actionLoading: settingsState.ai.suggestionActionLoading,
+    actionSuggestionId: settingsState.ai.suggestionActionSuggestionId,
+    actionNoticeSuggestionId: settingsState.ai.suggestionActionNoticeSuggestionId,
+    actionNotice: settingsState.ai.suggestionActionNotice,
+    actionNoticeTone: settingsState.ai.suggestionActionNoticeTone,
     actionError: settingsState.ai.suggestionActionError,
     error: settingsState.ai.suggestionsError
   });
@@ -1332,8 +1342,13 @@ async function loadAiSuggestionDetail(suggestionId) {
     settingsState.ai.suggestionDetailRequestToken += 1;
     settingsState.ai.selectedSuggestionId = "";
     settingsState.ai.suggestionDetail = null;
+    settingsState.ai.suggestionDetailSuggestionId = "";
     settingsState.ai.suggestionDetailLoading = false;
     settingsState.ai.suggestionDetailError = "";
+    settingsState.ai.suggestionActionSuggestionId = "";
+    settingsState.ai.suggestionActionNoticeSuggestionId = "";
+    settingsState.ai.suggestionActionNotice = "";
+    settingsState.ai.suggestionActionNoticeTone = "";
     settingsState.ai.suggestionActionError = "";
     renderAiSuggestionsWorkspace();
     return null;
@@ -1342,8 +1357,13 @@ async function loadAiSuggestionDetail(suggestionId) {
   settingsState.ai.suggestionDetailRequestToken = requestToken;
   settingsState.ai.selectedSuggestionId = cleanSuggestionId;
   settingsState.ai.suggestionDetail = null;
+  settingsState.ai.suggestionDetailSuggestionId = cleanSuggestionId;
   settingsState.ai.suggestionDetailLoading = true;
   settingsState.ai.suggestionDetailError = "";
+  settingsState.ai.suggestionActionSuggestionId = "";
+  settingsState.ai.suggestionActionNoticeSuggestionId = "";
+  settingsState.ai.suggestionActionNotice = "";
+  settingsState.ai.suggestionActionNoticeTone = "";
   settingsState.ai.suggestionActionError = "";
   renderAiSuggestionsWorkspace();
   try {
@@ -1382,30 +1402,49 @@ async function refreshAiSuggestions(options = {}) {
     settingsState.ai.suggestionsError = "";
     const selectedListItem = result.items.find((item) => String(item.id || "").trim() === previousSelectedId) || null;
     const selectedStillVisible = Boolean(selectedListItem);
-    if (!options.preserveDetail) {
-      const nextSelectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
-      const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
-      const detailItem = settingsState.ai.suggestionDetail?.item || settingsState.ai.suggestionDetail || null;
-      const detailMatchesSelection = String(detailItem?.id || "").trim() === previousSelectedId;
-      const staleDetailWhileSelectedStillVisible =
-        !selectionChanged &&
-        selectedStillVisible &&
-        detailMatchesSelection &&
-        Boolean(selectedListItem) &&
-        (
-          String(selectedListItem.status || "").trim() !== String(detailItem?.status || "").trim() ||
-          String(selectedListItem.updatedAt || "").trim() !== String(detailItem?.updatedAt || "").trim() ||
-          String(selectedListItem.sourceArtifactId || "").trim() !== String(detailItem?.sourceArtifactId || "").trim()
-        );
+    const nextSelectedSuggestionId = selectedStillVisible ? previousSelectedId : result.items[0]?.id || "";
+    const selectionChanged = nextSelectedSuggestionId !== previousSelectedId;
+    const detailItem = settingsState.ai.suggestionDetail?.item || settingsState.ai.suggestionDetail || null;
+    const detailMatchesSelection = String(detailItem?.id || "").trim() === previousSelectedId;
+    const staleDetailWhileSelectedStillVisible =
+      selectedStillVisible &&
+      detailMatchesSelection &&
+      Boolean(selectedListItem) &&
+      (
+        String(selectedListItem.status || "").trim() !== String(detailItem?.status || "").trim() ||
+        String(selectedListItem.updatedAt || "").trim() !== String(detailItem?.updatedAt || "").trim() ||
+        String(selectedListItem.sourceArtifactId || "").trim() !== String(detailItem?.sourceArtifactId || "").trim()
+      );
+    const shouldRealignSelection = !options.preserveDetail || !selectedStillVisible;
+    if (shouldRealignSelection) {
       settingsState.ai.selectedSuggestionId = nextSelectedSuggestionId;
-      if (selectionChanged || staleDetailWhileSelectedStillVisible) {
-        settingsState.ai.suggestionDetailRequestToken += 1;
-        settingsState.ai.suggestionDetail = null;
-        settingsState.ai.suggestionDetailLoading = false;
-        settingsState.ai.suggestionDetailError = "";
-        settingsState.ai.suggestionActionError = "";
-      }
-      if (!settingsState.ai.selectedSuggestionId) settingsState.ai.suggestionDetail = null;
+    }
+    if (
+      selectionChanged ||
+      staleDetailWhileSelectedStillVisible ||
+      (!selectedStillVisible && !shouldRealignSelection)
+    ) {
+      settingsState.ai.suggestionDetailRequestToken += 1;
+      settingsState.ai.suggestionDetail = null;
+      settingsState.ai.suggestionDetailSuggestionId = "";
+      settingsState.ai.suggestionDetailLoading = false;
+      settingsState.ai.suggestionDetailError = "";
+      settingsState.ai.suggestionActionSuggestionId = "";
+      settingsState.ai.suggestionActionNoticeSuggestionId = "";
+      settingsState.ai.suggestionActionNotice = "";
+      settingsState.ai.suggestionActionNoticeTone = "";
+      settingsState.ai.suggestionActionError = "";
+    }
+    if (!settingsState.ai.selectedSuggestionId && shouldRealignSelection) {
+      settingsState.ai.suggestionDetail = null;
+      settingsState.ai.suggestionDetailSuggestionId = "";
+    }
+    const shouldHydrateSelectedDetail =
+      Boolean(settingsState.ai.selectedSuggestionId) &&
+      !settingsState.ai.suggestionDetail &&
+      !settingsState.ai.suggestionDetailLoading;
+    if (shouldHydrateSelectedDetail) {
+      await loadAiSuggestionDetail(settingsState.ai.selectedSuggestionId);
     }
     return result;
   } catch (error) {
@@ -1464,17 +1503,136 @@ function aiInboxSuggestionReviewedContentFromUi(current = {}) {
   }
 }
 
+function aiSuggestionReviewRetryNotice() {
+  return "Detail changed while you were reviewing. Retry from the latest reviewed item.";
+}
+
+function aiSuggestionReviewRetryStatusMessage() {
+  return "AI suggestion detail changed before the review action could run. Retry on the latest detail.";
+}
+
+function aiSuggestionAlreadyAppliedNotice(status = "") {
+  return `This reviewed suggestion is already ${String(status || "").trim() || "updated"}.`;
+}
+
+function aiSuggestionReviewSafetyNotice() {
+  return "Load the latest suggestion detail before running review actions.";
+}
+
+function aiSuggestionReviewSafetyStatusMessage() {
+  return "AI suggestion detail is not ready yet. Retry after the latest detail loads.";
+}
+
+function aiSuggestionInFlightReviewNotice() {
+  return "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.";
+}
+
+function aiSuggestionInFlightReviewStatusMessage() {
+  return "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.";
+}
+
+function aiSuggestionAlreadyAppliedStatusMessage(status = "", suggestionId = "") {
+  return `AI suggestion already ${String(status || "").trim() || "updated"}: ${String(suggestionId || "").trim()}`;
+}
+
+function aiSuggestionUpdateFailedStatusMessage(error) {
+  return `AI suggestion update failed: ${String(error?.message || error)}`;
+}
+
+function aiSuggestionUpdatedStatusMessage(status = "", suggestionId = "") {
+  return `AI suggestion ${String(status || "").trim() || "updated"}: ${String(suggestionId || "").trim()}`;
+}
+
 async function applyAiSuggestionStatus(suggestionId, status) {
   const cleanSuggestionId = String(suggestionId || settingsState.ai.selectedSuggestionId || "").trim();
   const cleanStatus = String(status || "").trim();
   if (!cleanSuggestionId || !cleanStatus) return null;
-  if (settingsState.ai.suggestionActionLoading) return null;
+  const inFlightSuggestionId = String(settingsState.ai.suggestionActionSuggestionId || "").trim();
+  if (settingsState.ai.suggestionActionLoading) {
+    if (!inFlightSuggestionId || inFlightSuggestionId === cleanSuggestionId) return null;
+    const inFlightReviewNotice =
+      typeof aiSuggestionInFlightReviewNotice === "function"
+        ? aiSuggestionInFlightReviewNotice()
+        : "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.";
+    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+    settingsState.ai.suggestionActionNotice = inFlightReviewNotice;
+    settingsState.ai.suggestionActionNoticeTone = "warn";
+    renderAiSuggestionsWorkspace();
+    setStatus(
+      typeof aiSuggestionInFlightReviewStatusMessage === "function"
+        ? aiSuggestionInFlightReviewStatusMessage()
+        : "Another AI suggestion review is still running. Wait for it to finish before reviewing a different suggestion.",
+      "warn"
+    );
+    return null;
+  }
+  const retryNotice =
+    typeof aiSuggestionReviewRetryNotice === "function"
+      ? aiSuggestionReviewRetryNotice()
+      : "Detail changed while you were reviewing. Retry from the latest reviewed item.";
+  const retryStatusMessage =
+    typeof aiSuggestionReviewRetryStatusMessage === "function"
+      ? aiSuggestionReviewRetryStatusMessage()
+      : "AI suggestion detail changed before the review action could run. Retry on the latest detail.";
+  const reviewSafetyNotice =
+    typeof aiSuggestionReviewSafetyNotice === "function"
+      ? aiSuggestionReviewSafetyNotice()
+      : "Load the latest suggestion detail before running review actions.";
+  const reviewSafetyStatusMessage =
+    typeof aiSuggestionReviewSafetyStatusMessage === "function"
+      ? aiSuggestionReviewSafetyStatusMessage()
+      : "AI suggestion detail is not ready yet. Retry after the latest detail loads.";
+  const alreadyAppliedNotice = (value) =>
+    typeof aiSuggestionAlreadyAppliedNotice === "function"
+      ? aiSuggestionAlreadyAppliedNotice(value)
+      : `This reviewed suggestion is already ${String(value || "").trim() || "updated"}.`;
+  const statusMessageValue =
+    typeof aiSuggestionStatusLabel === "function"
+      ? String(aiSuggestionStatusLabel(cleanStatus) || "").trim().toLowerCase() || cleanStatus
+      : cleanStatus;
   const detail =
     String(settingsState.ai.suggestionDetail?.item?.id || settingsState.ai.suggestionDetail?.id || "").trim() === cleanSuggestionId
-        ? settingsState.ai.suggestionDetail
-        : null;
+      ? settingsState.ai.suggestionDetail
+      : null;
   const listed = settingsState.ai.suggestions.find((item) => String(item.id || "").trim() === cleanSuggestionId) || null;
   const current = detail?.item || detail || listed || {};
+  const selectedSuggestionId = String(settingsState.ai.selectedSuggestionId || "").trim();
+  const detailSuggestionId = String(settingsState.ai.suggestionDetail?.item?.id || settingsState.ai.suggestionDetail?.id || "").trim();
+  if (selectedSuggestionId && detailSuggestionId && detailSuggestionId !== selectedSuggestionId) {
+    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+    if (!settingsState.ai.suggestionDetailLoading) await loadAiSuggestionDetail(selectedSuggestionId);
+    settingsState.ai.suggestionActionNotice = retryNotice;
+    settingsState.ai.suggestionActionNoticeTone = "warn";
+    renderAiSuggestionsWorkspace();
+    setStatus(retryStatusMessage, "warn");
+    return null;
+  }
+  if (selectedSuggestionId && selectedSuggestionId === cleanSuggestionId && !detail) {
+    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+    if (!settingsState.ai.suggestionDetailLoading) await loadAiSuggestionDetail(cleanSuggestionId);
+    settingsState.ai.suggestionActionNotice = reviewSafetyNotice;
+    settingsState.ai.suggestionActionNoticeTone = "warn";
+    renderAiSuggestionsWorkspace();
+    setStatus(reviewSafetyStatusMessage, "warn");
+    return null;
+  }
+  if (String(current.status || "").trim() === cleanStatus) {
+    settingsState.ai.suggestionActionNoticeSuggestionId = cleanSuggestionId;
+    settingsState.ai.suggestionActionNotice = alreadyAppliedNotice(statusMessageValue);
+    settingsState.ai.suggestionActionNoticeTone = "ok";
+    renderAiSuggestionsWorkspace();
+    setStatus(
+      typeof aiSuggestionAlreadyAppliedStatusMessage === "function"
+        ? aiSuggestionAlreadyAppliedStatusMessage(statusMessageValue, cleanSuggestionId)
+        : `AI suggestion already ${statusMessageValue}: ${cleanSuggestionId}`,
+      "ok"
+    );
+    return null;
+  }
+  settingsState.ai.suggestionActionSuggestionId = cleanSuggestionId;
+  settingsState.ai.suggestionActionNoticeSuggestionId = "";
+  settingsState.ai.suggestionActionNotice = "";
+  settingsState.ai.suggestionActionNoticeTone = "";
   settingsState.ai.suggestionActionError = "";
   let reviewedContent;
   try {
@@ -1484,7 +1642,12 @@ async function applyAiSuggestionStatus(suggestionId, status) {
         : undefined;
   } catch (error) {
     settingsState.ai.suggestionActionError = String(error?.message || error);
-    setStatus(`AI suggestion update failed: ${String(error?.message || error)}`, "bad");
+    setStatus(
+      typeof aiSuggestionUpdateFailedStatusMessage === "function"
+        ? aiSuggestionUpdateFailedStatusMessage(error)
+        : `AI suggestion update failed: ${String(error?.message || error)}`,
+      "bad"
+    );
     renderAiSuggestionsWorkspace();
     return null;
   }
@@ -1528,13 +1691,27 @@ async function applyAiSuggestionStatus(suggestionId, status) {
     if (nextSelectedSuggestionId && !settingsState.ai.suggestionDetail) {
       await loadAiSuggestionDetail(nextSelectedSuggestionId);
     }
+    settingsState.ai.suggestionActionSuggestionId = "";
     rememberAiDebugSnapshot("suggestionDecision", response);
     settingsState.ai.suggestionActionError = "";
-    setStatus(`AI suggestion ${cleanStatus}: ${cleanSuggestionId}`, "ok");
+    settingsState.ai.suggestionActionNoticeSuggestionId = "";
+    settingsState.ai.suggestionActionNotice = "";
+    settingsState.ai.suggestionActionNoticeTone = "";
+    setStatus(
+      typeof aiSuggestionUpdatedStatusMessage === "function"
+        ? aiSuggestionUpdatedStatusMessage(statusMessageValue, cleanSuggestionId)
+        : `AI suggestion ${statusMessageValue}: ${cleanSuggestionId}`,
+      "ok"
+    );
     return item;
   } catch (error) {
     settingsState.ai.suggestionActionError = String(error?.message || error);
-    setStatus(`AI suggestion update failed: ${String(error?.message || error)}`, "bad");
+    setStatus(
+      typeof aiSuggestionUpdateFailedStatusMessage === "function"
+        ? aiSuggestionUpdateFailedStatusMessage(error)
+        : `AI suggestion update failed: ${String(error?.message || error)}`,
+      "bad"
+    );
     return null;
   } finally {
     settingsState.ai.suggestionActionLoading = false;
