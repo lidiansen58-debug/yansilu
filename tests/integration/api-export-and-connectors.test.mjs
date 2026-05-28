@@ -82,7 +82,7 @@ async function stopApi(child) {
   await new Promise((resolve) => child.once("exit", resolve));
 }
 
-test("POST /api/v1/exports/markdown copies notes and persists export record", async () => {
+test("POST /api/v1/exports/markdown exports a permanent-note directory and persists export record", async () => {
   const vaultPath = await makeTempDir("yansilu-api-export-vault-");
   const targetPath = await makeTempDir("yansilu-api-export-target-");
   const port = await findFreePort();
@@ -92,23 +92,26 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
   try {
     await waitForHealth(baseUrl);
 
-    await fs.mkdir(path.join(vaultPath, "notes", "literature"), { recursive: true });
-    await fs.mkdir(path.join(vaultPath, "notes", "sources"), { recursive: true });
     await fs.mkdir(path.join(vaultPath, "assets"), { recursive: true });
-    await fs.writeFile(
-      path.join(vaultPath, "notes", "literature", "ln_api_export.md"),
-      "---\ntype: literature\n---\n\n# Literature API export\n",
-      "utf8"
-    );
-    await fs.writeFile(
-      path.join(vaultPath, "notes", "sources", "src_api_export.md"),
-      "---\ntype: source\n---\n\n# Source API export\n",
-      "utf8"
-    );
     await fs.writeFile(path.join(vaultPath, "assets", "export-asset.txt"), "asset", "utf8");
 
+    const firstNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_original_default",
+      title: "Permanent API export A",
+      body: "Permanent API export body A.\n\n![asset](../../assets/export-asset.txt)"
+    });
+    const secondNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_original_default",
+      title: "Permanent API export B",
+      body: "Permanent API export body B."
+    });
+
+    assert.equal(firstNote.response.status, 201, JSON.stringify(firstNote.payload));
+    assert.equal(secondNote.response.status, 201, JSON.stringify(secondNote.payload));
+
     const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
-      targetPath
+      targetPath,
+      directoryId: "dir_original_default"
     });
 
     assert.equal(response.status, 202);
@@ -121,14 +124,17 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
       totalFiles: 3
     });
 
-    const literatureCopy = await fs.readFile(
-      path.join(targetPath, "literature", "ln_api_export.md"),
+    const firstCopy = await fs.readFile(
+      path.join(targetPath, path.posix.relative("notes", firstNote.payload.item.markdownPath).replaceAll("/", path.sep)),
       "utf8"
     );
-    const sourceCopy = await fs.readFile(path.join(targetPath, "sources", "src_api_export.md"), "utf8");
+    const secondCopy = await fs.readFile(
+      path.join(targetPath, path.posix.relative("notes", secondNote.payload.item.markdownPath).replaceAll("/", path.sep)),
+      "utf8"
+    );
     const assetCopy = await fs.readFile(path.join(targetPath, "assets", "export-asset.txt"), "utf8");
-    assert.match(literatureCopy, /Literature API export/);
-    assert.match(sourceCopy, /Source API export/);
+    assert.match(firstCopy, /Permanent API export body A/);
+    assert.match(secondCopy, /Permanent API export body B/);
     assert.equal(assetCopy, "asset");
 
     const record = JSON.parse(
@@ -139,23 +145,15 @@ test("POST /api/v1/exports/markdown copies notes and persists export record", as
     assert.equal(record.targetPath, targetPath);
     assert.equal(record.copied, 3);
     assert.deepEqual(record.copiedBreakdown, payload.copiedBreakdown);
-    assert.deepEqual(record.exportedFiles, [
-      {
-        kind: "markdown",
-        sourcePath: "notes/literature/ln_api_export.md",
-        targetPath: "literature/ln_api_export.md"
-      },
-      {
-        kind: "markdown",
-        sourcePath: "notes/sources/src_api_export.md",
-        targetPath: "sources/src_api_export.md"
-      },
-      {
-        kind: "asset",
-        sourcePath: "assets/export-asset.txt",
-        targetPath: "assets/export-asset.txt"
-      }
-    ]);
+    assert.deepEqual(record.scope, {
+      type: "directory",
+      directoryId: "dir_original_default",
+      includeDescendants: true
+    });
+    assert.deepEqual(
+      record.exportedFiles.map((item) => item.sourcePath).sort(),
+      [firstNote.payload.item.markdownPath, secondNote.payload.item.markdownPath, "assets/export-asset.txt"].sort()
+    );
   } finally {
     await stopApi(api);
   }
@@ -172,7 +170,8 @@ test("POST /api/v1/exports/markdown rejects targets inside the active vault", as
 
     const targetPath = path.join(vaultPath, "notes", "export-copy");
     const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
-      targetPath
+      targetPath,
+      directoryId: "dir_original_default"
     });
 
     assert.equal(response.status, 400);

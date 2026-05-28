@@ -30,6 +30,12 @@ function normalizeRelativeFileTarget(value) {
   return normalized;
 }
 
+function isPermanentDirectoryId(value) {
+  const directoryId = String(value || "").trim();
+  if (!directoryId) return false;
+  return !["dir_fleeting_default", "dir_literature_default"].includes(directoryId);
+}
+
 function bucketFromCandidateId(candidates = {}) {
   const buckets = new Map();
   for (const item of Array.isArray(candidates.sources) ? candidates.sources : []) {
@@ -215,8 +221,15 @@ export function createImportExportService({
       throw error;
     }
     if (body.confirm === false) {
+      const finishedAt = new Date().toISOString();
       record.state = "cancelled";
+      record.updatedAt = finishedAt;
       importRecords.set(record.importRecordId, record);
+      await initVault(vaultPath());
+      await appendImportRecord(vaultPath(), record.connector, record.importRecordId, "cancel", {
+        requestId,
+        finishedAt
+      });
       return { importRecordId: record.importRecordId, status: "cancelled", message: "Import cancelled." };
     }
     if (body.confirm !== true) {
@@ -431,6 +444,18 @@ export function createImportExportService({
       error.code = "EXPORT_SCOPE_INVALID";
       throw error;
     }
+    const noteIds = Array.isArray(body.noteIds) ? body.noteIds : null;
+    const directoryId = String(body.directoryId || "").trim();
+    if (!directoryId && !(noteIds && noteIds.length > 0)) {
+      const error = new Error("directoryId required");
+      error.code = "EXPORT_SCOPE_INVALID";
+      throw error;
+    }
+    if (directoryId && !isPermanentDirectoryId(directoryId)) {
+      const error = new Error("directoryId must be a permanent-note directory");
+      error.code = "EXPORT_SCOPE_INVALID";
+      throw error;
+    }
 
     const targetPath = path.isAbsolute(targetPathRaw) ? targetPathRaw : path.resolve(cwd(), targetPathRaw);
     const includeDescendants =
@@ -438,14 +463,19 @@ export function createImportExportService({
         ? true
         : body.includeDescendants !== false && String(body.includeDescendants).trim().toLowerCase() !== "false";
 
-    return exportMarkdown({
+    const exportInput = {
       vaultPath: vaultPath(),
       targetPath,
-      noteIds: body.noteIds,
-      directoryId: body.directoryId,
+      directoryId,
       includeDescendants,
       requestId
-    });
+    };
+    if (noteIds && noteIds.length > 0) {
+      exportInput.noteIds = noteIds;
+      delete exportInput.directoryId;
+    }
+
+    return exportMarkdown(exportInput);
   }
 
   return {
