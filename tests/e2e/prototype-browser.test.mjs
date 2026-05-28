@@ -8158,6 +8158,176 @@ test("prototype AI inbox field suggestion flow adopts a suggestion as draft and 
   }, 8000);
 });
 
+test("prototype editor embedded AI suggestion flow keeps review inside the permanent note context", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Editor embedded review target",
+    body: "The permanent note editor should host adopt, edit, and confirm actions for this field suggestion."
+  });
+
+  await reloadPrototype(page, webBase);
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "explorer");
+  }, 5000);
+
+  await page.locator(".explorer-item[data-kind='file']", { hasText: fixture.noteTitle }).click();
+  await ensureSourceMode(page);
+  await page.locator("#btnShowRelated").click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(detailText || ""), /关联 AI 建议/);
+    assert.match(String(detailText || ""), /采纳为草稿/);
+  }, 10000);
+
+  assert.equal(await page.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
+
+  await page.locator("[data-note-ai-suggestion-action='adopted_as_draft']").first().click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "adopted_as_draft");
+  }, 10000);
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(detailText || ""), /标记已编辑/);
+  }, 10000);
+
+  const editedThesis = "编辑器内先采纳为草稿，再由用户亲自改写并确认。";
+  await page.locator("textarea[name='thesis']").fill(editedThesis);
+  await page.locator("[data-note-distillation-form] button[type='submit']").click();
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
+    assert.equal(note.status, 200);
+    assert.equal(note.json.item.thesis, editedThesis);
+  }, 10000);
+
+  await page.locator("[data-note-ai-suggestion-action='edited']").first().click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "edited");
+  }, 10000);
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("[data-note-ai-suggestion-action='confirmed']").first().isVisible(), true);
+  }, 10000);
+
+  await page.locator("[data-note-ai-suggestion-action='confirmed']").first().click();
+
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "confirmed");
+  }, 10000);
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
+    assert.equal(note.status, 200);
+    assert.equal(note.json.item.thesis, editedThesis);
+  }, 10000);
+});
+
+test("prototype AI inbox returns review to the editor context for final processing", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fixture = await createAiFieldSuggestionFixture(apiBase, {
+    title: "Inbox return-to-editor target",
+    body: "The inbox should route the final review back into the permanent note editor context."
+  });
+  await adoptSuggestionAsDraftViaApi(apiBase, fixture);
+
+  await reloadPrototype(page, webBase);
+  await openAiInboxModule(page);
+  await filterAiInboxBySourceNote(page, fixture.noteId);
+
+  await waitFor(async () => {
+    const reviewedCount = String(await page.locator('#aiInboxPanel [data-ai-inbox-view="reviewed"] strong').textContent() || "").trim();
+    assert.notEqual(reviewedCount, "0");
+  }, 8000);
+
+  await page.evaluate(() => {
+    const button = document.querySelector('#aiInboxPanel [data-ai-inbox-view="reviewed"]');
+    if (!button) throw new Error("missing reviewed tab");
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
+
+  const item = page.locator(`#aiInboxPanel .ai-inbox-list-pane [data-ai-inbox-artifact-id="${fixture.artifactId}"]`);
+  await item.waitFor();
+  await item.click();
+
+  await waitFor(async () => {
+    const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
+    assert.match(String(detailText || ""), new RegExp(escapeRegExp(fixture.noteId)));
+    assert.match(String(detailText || ""), /Open target note|打开目标笔记/);
+  }, 8000);
+
+  await page.locator("#aiInboxPanel .ai-inbox-detail-pane button", { hasText: /Open target note|打开目标笔记/ }).click();
+
+  await waitFor(async () => {
+    assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "explorer");
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /已回到笔记/);
+  }, 8000);
+
+  await waitFor(async () => {
+    const bodyValue = await page.locator("#editorBody").inputValue();
+    assert.match(String(bodyValue || ""), /Inbox return-to-editor target/);
+    const relatedText = await page.locator("#relatedPanel").textContent();
+    assert.match(String(relatedText || ""), /关联 AI 建议/);
+    assert.match(String(relatedText || ""), /标记已编辑/);
+  }, 10000);
+
+  const editedThesis = "从 AI Inbox 回到编辑器后，由用户在笔记上下文里完成最终改写。";
+  await page.locator("textarea[name='thesis']").fill(editedThesis);
+  await page.locator("[data-note-distillation-form] button[type='submit']").click();
+
+  await waitFor(async () => {
+    const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(fixture.noteId)}`);
+    assert.equal(note.status, 200);
+    assert.equal(note.json.item.thesis, editedThesis);
+  }, 10000);
+
+  await page.locator("[data-note-ai-suggestion-action='edited']").first().click();
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "edited");
+  }, 10000);
+
+  await page.locator("[data-note-ai-suggestion-action='confirmed']").first().click();
+  await waitFor(async () => {
+    const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.json.item.status, "confirmed");
+  }, 10000);
+});
+
 test("prototype AI inbox reviewed detail can mark an adopted draft edited and then confirmed", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

@@ -6094,6 +6094,23 @@ export class EditorPane {
     return pendingCount ? `${pendingCount} 条待审` : `${state.items.length} 条`;
   }
 
+  currentNoteSuggestionReviewContent(note = this.activeNote(), suggestion = {}) {
+    const form = this.els.result?.querySelector?.("[data-note-distillation-form]");
+    if (form && note?.id) {
+      const draft = distillationDraftFromForm(form, note);
+      return noteSuggestionReviewContent(
+        {
+          ...note,
+          thesis: draft.thesis,
+          threeLineSummary: draft.threeLineSummary,
+          boundaryOrCounterpoint: draft.boundaryOrCounterpoint
+        },
+        suggestion
+      );
+    }
+    return noteSuggestionReviewContent(note, suggestion);
+  }
+
   renderEmbeddedAiWorkspaceMount(noteId = "") {
     const mount = this.els.result?.querySelector?.("[data-note-embedded-ai-workspace]");
     if (!mount) return;
@@ -6146,7 +6163,7 @@ export class EditorPane {
     const note = this.activeNote();
     const cleanAction = String(action || "").trim();
     const cleanSuggestionId = String(suggestionId || "").trim();
-    const cleanArtifactId = String(artifactId || "").trim();
+    let cleanArtifactId = String(artifactId || "").trim();
     if (!note?.id || !cleanAction || !cleanSuggestionId) return;
     const currentState = this.noteAiSuggestionsStateForNote(note.id);
     const currentSuggestion = currentState.items.find((item) => String(item?.id || "").trim() === cleanSuggestionId);
@@ -6164,13 +6181,17 @@ export class EditorPane {
     };
     this.renderEmbeddedAiWorkspaceMount(note.id);
     try {
+      let latest = null;
+      if (!cleanArtifactId || cleanAction === "edited" || cleanAction === "confirmed") {
+        latest = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
+      }
+      if (!cleanArtifactId) cleanArtifactId = String(latest?.sourceArtifactId || currentSuggestion?.sourceArtifactId || "").trim();
       if (cleanAction === "adopted_as_draft") {
         if (!cleanArtifactId) throw new Error("这条建议缺少 source artifact，暂时不能采纳为草稿。");
         await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true });
         const refreshed = await fetchNote(note.id);
         if (refreshed) Object.assign(note, refreshed);
       } else {
-        const latest = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
         const payload = {
           canonical: true,
           status: cleanAction,
@@ -6179,7 +6200,7 @@ export class EditorPane {
           action: cleanAction === "edited" ? "edit" : cleanAction === "confirmed" ? "confirm" : cleanAction === "rejected" ? "reject" : cleanAction
         };
         if (cleanAction === "edited" || cleanAction === "confirmed") {
-          payload.content = noteSuggestionReviewContent(note, latest || currentSuggestion);
+          payload.content = this.currentNoteSuggestionReviewContent(note, latest || currentSuggestion);
         }
         if (cleanAction === "confirmed") payload.userConfirmed = true;
         await updateAiSuggestion(cleanSuggestionId, payload);
