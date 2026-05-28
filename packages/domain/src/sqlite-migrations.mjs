@@ -23,6 +23,19 @@ const MIGRATION_PLAN = {
   vectors: [{ id: "001_vectors_v1_2", file: "001_vectors_v1_2.sql" }]
 };
 
+const LEGACY_MIGRATION_CHECKSUMS = {
+  // 001_catalog_v1_2 shipped before draft_scaffolds moved into later schema revisions.
+  // Existing vaults may already record the original checksum, so we accept both.
+  "001_catalog_v1_2": new Set(["7b7f6ae49be8ecd9bf681d3e97f7a2572f795a3f5f4b1868a6b0e83ee13c3e4b"]),
+  "002_catalog_v1_3": new Set(["7699fd52c2ea0f0214be2fdb61ba04210d7153b0262f547b363e382851a6f266"]),
+  "003_catalog_v1_4": new Set(["aa90f262cc5c896e88727a1cd14f1f86449106a92f90ae47510c7a77dc073566"]),
+  "004_catalog_v1_5": new Set(["f7ae1d1ceebe3a3d6f04218bab60df3552e0656f840165ad17db83e2dc825295"]),
+  "005_catalog_v1_6": new Set(["937a23655070b8b00ee93af19a74df08beeea90b21c8038caab5dd6959d4a5c1"]),
+  "006_catalog_v1_7": new Set(["74d599f3f576c44ad258a09114c893b97fccd603eaa77c4f43b2a74d148699ab"]),
+  "001_graph_cache_v1_2": new Set(["9f5c1811883b7917e529cfa895d3c3640c5bc8c7c64027a007c5586721d53ddb"]),
+  "001_vectors_v1_2": new Set(["a4e8a99048c075caba3dfbcc3fcbdffb1b6fb37c846375563a97113a5df5429f"])
+};
+
 function hashSql(sql) {
   return createHash("sha256").update(sql).digest("hex");
 }
@@ -64,7 +77,9 @@ function applySingleMigration(db, migrationId, sql) {
   const checksum = hashSql(sql);
   const existing = hasMigration(db, migrationId);
   if (existing) {
-    if (existing.checksum !== checksum) {
+    const legacyChecksums = LEGACY_MIGRATION_CHECKSUMS[migrationId];
+    const matchesLegacyChecksum = legacyChecksums?.has(existing.checksum) === true;
+    if (existing.checksum !== checksum && !matchesLegacyChecksum) {
       throw new Error(`Migration checksum mismatch for ${migrationId}`);
     }
     return { id: migrationId, applied: false, skipped: true };
