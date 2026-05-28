@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportHistoryMount } from "../../apps/web/src/import-history-mount.js";
 
-test("import history mount renders recent summary, controls, and panel together", () => {
+test("import history mount renders recent summary and panel together", () => {
   const html = renderImportHistoryMount({
     items: [
       {
@@ -17,11 +17,8 @@ test("import history mount renders recent summary, controls, and panel together"
   });
 
   assert.match(html, /import-history-summary/);
-  assert.match(html, /Markdown · 预览中/);
+  assert.match(html, /Markdown/);
+  assert.match(html, /预览中/);
   assert.match(html, /data-import-history-action="load"/);
-  assert.match(html, /id="importHistoryStatus"/);
-  assert.match(html, /id="importHistoryConnector"/);
-  assert.match(html, /id="importHistoryRisk"/);
-  assert.match(html, /id="btnImportHistoryRefresh"/);
   assert.match(html, /id="importHistory"/);
 });

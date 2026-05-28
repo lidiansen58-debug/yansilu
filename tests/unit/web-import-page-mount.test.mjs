@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
-test("import page mount renders toolbar, history, summary, and result placeholders", () => {
+test("import page mount renders simplified toolbar, history, and result placeholders", () => {
   const html = renderImportPageMount({
     toolbar: {
       connector: "markdown",
@@ -23,14 +23,12 @@ test("import page mount renders toolbar, history, summary, and result placeholde
   assert.match(html, /id="importToolbarMount"/);
   assert.match(html, /id="importHistoryMount"/);
   assert.match(html, /id="importResult"/);
-  assert.match(html, /导入笔记/);
-  assert.match(html, /选择来源/);
-  assert.match(html, /预览确认/);
-  assert.match(html, /导入历史/);
-  assert.match(html, /最近 12 条/);
+  assert.match(html, /导入/);
+  assert.match(html, /路径/);
+  assert.match(html, /高级选项/);
   assert.match(html, /最近导入/);
   assert.match(html, /暂无记录/);
-  assert.match(html, /先选择来源，再点击预览/);
+  assert.match(html, /还没有导入结果/);
 });
 
 test("import page mount can render a composed result card", () => {

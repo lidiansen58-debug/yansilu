@@ -674,23 +674,6 @@ async function openImportsModule(page) {
   });
 }
 
-async function openImportHistoryFilters(page) {
-  await page.locator("#importHistoryFilter").evaluate((el) => {
-    el.open = true;
-  });
-  await page.locator("#importHistoryStatus").waitFor({ state: "attached", timeout: 1000 });
-}
-
-async function setImportHistoryFilter(page, selector, value) {
-  await page.locator(selector).evaluate(
-    (el, nextValue) => {
-      el.value = nextValue;
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    },
-    value
-  );
-}
-
 async function selectRichTextInBlock(page, selector, searchText) {
   await page.evaluate(
     ({ searchText: targetText }) => {
@@ -4059,9 +4042,6 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
   assert.match(chineseMarkdown, /来源\/访谈/);
   assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英文材料\]\]/);
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
-  await setImportHistoryFilter(page, "#importHistoryConnector", "obsidian");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
   await page.waitForFunction(() => {
@@ -4115,9 +4095,6 @@ test("prototype import history filters records and supports inline actions", asy
     assert.match(text || "", /预览中/);
   }, 7000);
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "preview");
-  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.waitForFunction(
     (recordId) => {
@@ -4148,8 +4125,6 @@ test("prototype import history filters records and supports inline actions", asy
     return text.trim().length > 0;
   });
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.waitForFunction(
     (recordId) => {
@@ -4181,9 +4156,6 @@ test("prototype import history filters records and supports inline actions", asy
     return text.trim().length > 0;
   });
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "rolled_back");
-  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
   await page.click("#btnImportHistoryRefresh");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importHistory")?.textContent || "";
@@ -4244,17 +4216,12 @@ test("prototype import history highlights modified files skipped during rollback
   const markdownPath = path.join(vaultPath, literatureNotes.json.items[0].markdownPath.replaceAll("/", path.sep));
   await fs.appendFile(markdownPath, "\n\nUser edit after import.", "utf8");
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
     return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"') && text.includes('"reason": "modified"');
   });
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "rolled_back");
-  await setImportHistoryFilter(page, "#importHistoryRisk", "modified");
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
@@ -4310,8 +4277,6 @@ test("prototype import history recent summary can open literature queue for a co
     return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
   });
 
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   const summary = page.locator(`.import-history-summary[data-import-history-id="${importRecordId}"]`);
   await summary.waitFor();
   await summary.locator('[data-import-history-action="resume-literature-queue"]').waitFor();
@@ -4929,10 +4894,6 @@ test("prototype import panel can focus blocked and excluded candidates", async (
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
-  await openImportHistoryFilters(page);
-  await setImportHistoryFilter(page, "#importHistoryStatus", "preview");
-  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
-  await setImportHistoryFilter(page, "#importHistoryRisk", "blocked");
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
