@@ -2,17 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
-test("import result panel renders metrics warnings actions and raw json", () => {
+test("import result panel renders simplified metrics warnings actions and raw json", () => {
   const html = renderImportResultPanel({
     data: { stage: "preview" },
-    title: "导入预览完成",
+    title: "导入预览已生成",
     subtitle: "imp_1",
-    brief: "检查候选项后再确认写入。",
+    brief: "检查候选内容，确认后再导入。",
     tone: "warn",
-    statusLabel: "需注意",
-    metrics: [{ label: "导入记录", value: "imp_1" }],
+    statusLabel: "注意",
+    metrics: [{ label: "来源", value: "Markdown" }],
     warnings: [{ code: "IMPORT_EMPTY_PAYLOAD", message: "payload missing" }],
-    actions: ["补充 Payload JSON"],
+    actions: ["补充导入路径或 Payload。"],
     writingActionsHtml: '<div class="writing-actions">x</div>',
     skipBreakdownHtml: '<div class="skip-breakdown">y</div>',
     candidatePreviewHtml: '<div class="result-candidates">z</div>',
@@ -21,19 +21,19 @@ test("import result panel renders metrics warnings actions and raw json", () => 
   });
 
   assert.match(html, /result-card/);
-  assert.match(html, /导入预览完成/);
-  assert.match(html, /需注意/);
-  assert.match(html, /检查候选项后再确认写入/);
+  assert.match(html, /导入预览已生成/);
+  assert.match(html, /注意/);
+  assert.match(html, /检查候选内容，确认后再导入/);
   assert.match(html, /result-brief warn/);
-  assert.match(html, /需要注意/);
-  assert.match(html, /IMPORT_EMPTY_PAYLOAD/);
-  assert.match(html, /补充 Payload JSON/);
+  assert.match(html, /需要处理/);
+  assert.match(html, /payload missing/);
+  assert.match(html, /补充导入路径或 Payload/);
   assert.match(html, /result-candidates/);
-  assert.match(html, /原始 JSON/);
+  assert.match(html, /查看原始数据/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
 });
 
-test("import result panel renders created files inventory with assets", () => {
+test("import result panel renders created files summary with assets", () => {
   const html = renderImportResultPanel({
     data: {
       stage: "confirm",
@@ -44,14 +44,13 @@ test("import result panel renders created files inventory with assets", () => {
         ]
       }
     },
-    title: "导入写入完成",
+    title: "导入完成",
     statusLabel: "完成",
     raw: "{}"
   });
 
   assert.match(html, /result-file-inventory/);
-  assert.match(html, /写入文件/);
+  assert.match(html, /写入内容/);
   assert.match(html, /来源 1/);
   assert.match(html, /资源 1/);
-  assert.match(html, /assets\/imports\/imp_1\/chart\.png/);
 });

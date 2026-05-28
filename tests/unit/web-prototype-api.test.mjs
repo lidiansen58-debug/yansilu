@@ -885,6 +885,37 @@ test("prototype API manages scheduled tasks", async () => {
   }
 });
 
+test("prototype API exportMarkdown can include directory scope", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("export-markdown-directory", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return {
+      ok: true,
+      async json() {
+        return { exportJobId: "exp_1", status: "queued", copied: 3 };
+      }
+    };
+  };
+
+  try {
+    const result = await api.exportMarkdown({
+      targetPath: "E:\\exports",
+      directoryId: "dir_original_default"
+    });
+    assert.equal(result.exportJobId, "exp_1");
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/exports/markdown");
+    assert.deepEqual(JSON.parse(calls[0].options.body), {
+      targetPath: "E:\\exports",
+      directoryId: "dir_original_default"
+    });
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API can request canonical AI inbox and scheduled-task payloads", async () => {
   const previousFetch = globalThis.fetch;
   const api = await importPrototypeApi("canonical-ai-api", { __API_BASE__: "http://127.0.0.1:3999" });

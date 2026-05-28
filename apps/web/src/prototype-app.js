@@ -5069,6 +5069,33 @@ function directoryPathLabel(directoryId) {
   return names.join(" / ");
 }
 
+function permanentExportDirectories() {
+  return state.folders
+    .filter((folder) => folder?.id && isDirectoryUnderOriginalRoot(folder.id))
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+}
+
+function syncExportDirectoryOptions() {
+  const select = $("exportDirectoryId");
+  if (!select) return;
+  const options = permanentExportDirectories();
+  const currentValue = String(select.value || "").trim();
+  const preferredValue =
+    options.some((folder) => folder.id === currentValue)
+      ? currentValue
+      : options.some((folder) => folder.id === String(state.selectedFolderId || "").trim())
+        ? String(state.selectedFolderId || "").trim()
+        : options[0]?.id || "dir_original_default";
+
+  select.innerHTML = options
+    .map((folder) => `<option value="${escapeHtml(folder.id)}">${escapeHtml(directoryPathLabel(folder.id))}</option>`)
+    .join("");
+  if (!options.length) {
+    select.innerHTML = `<option value="dir_original_default">永久笔记盒</option>`;
+  }
+  select.value = preferredValue;
+}
+
 function activeEditorNote() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   if (!activeTab) return null;
@@ -5406,6 +5433,7 @@ function renderAll() {
   ensureSelection();
   renderSidebarTitle();
   renderModulePanels();
+  syncExportDirectoryOptions();
   renderAiInboxWorkspace();
   renderDistillationPanel();
   renderGraphPanel();
@@ -12212,28 +12240,35 @@ async function bootstrap() {
   });
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
+    const directoryId = String($("exportDirectoryId")?.value || "").trim();
     const targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) return setStatus("请先选择 Markdown 导出目标目录", "warn");
+    if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+    if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
     try {
-      const result = await exportMarkdown(targetPath);
+      const result = await exportMarkdown({
+        targetPath,
+        directoryId
+      });
       showExportResult({
         stage: "export_markdown",
         targetPath,
+        directoryId,
         exportJobId: result.exportJobId,
         status: result.status,
         copied: result.copied,
         copiedBreakdown: result.copiedBreakdown || null
       });
-      setStatus(`Markdown 导出已提交：${result.exportJobId}，复制 ${result.copied} 个文件`, "ok");
+      setStatus(`已导出 ${result.copied} 个文件`, "ok");
     } catch (error) {
       showExportResult({
         stage: "export_error",
         targetPath,
+        directoryId,
         message: String(error?.message || error),
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus(`Markdown 导出失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出失败：${String(error?.message || error)}`, "bad");
     }
   });
 
@@ -12244,7 +12279,7 @@ async function bootstrap() {
     });
     if (!picked.path) return;
     $("exportTargetPath").value = picked.path;
-    setStatus(`已选择导出目录（${picked.source}）`, "ok");
+    setStatus("已选择导出目录", "ok");
   });
 
   try {

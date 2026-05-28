@@ -1,4 +1,3 @@
-import { renderImportHistoryControls } from "./import-history-controls.js";
 import { renderImportHistoryPanel } from "./import-history-panel.js";
 import { renderImportHistoryRecentSummary } from "./import-history-summary.js";
 
@@ -11,7 +10,6 @@ export function renderImportHistoryMount({
 } = {}) {
   return `
     ${renderImportHistoryRecentSummary({ items, loading })}
-    ${renderImportHistoryControls({ filters })}
     <div class="import-history" id="importHistory">
       ${renderImportHistoryPanel({
         items,

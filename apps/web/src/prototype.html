@@ -1664,10 +1664,10 @@
     }
     .import-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
-      border-radius: 12px;
+      border-radius: 16px;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 249, 0.96) 100%);
-      padding: 18px;
-      box-shadow: 0 12px 26px rgba(23, 34, 33, 0.05);
+      padding: 20px;
+      box-shadow: 0 16px 36px rgba(23, 34, 33, 0.06);
       min-width: 0;
     }
     .import-card + .import-card {
@@ -1675,10 +1675,10 @@
     }
     .import-card-head {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 14px;
+      margin-bottom: 14px;
     }
     .import-card-kicker {
       font-size: 11px;
@@ -1689,17 +1689,18 @@
       margin-bottom: 2px;
     }
     .import-card-head strong {
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 800;
       letter-spacing: 0;
       color: #0f172a;
+      line-height: 1.3;
     }
     .import-card-badge {
       border: 1px solid #d8e2dd;
       border-radius: 999px;
       background: #f6faf7;
       color: #416458;
-      padding: 3px 8px;
+      padding: 4px 10px;
       font-size: 11px;
       font-weight: 800;
       white-space: nowrap;
@@ -1767,16 +1768,16 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 14px;
     }
     .import-actions.secondary {
       margin-top: 12px;
     }
     .import-advanced {
-      margin-top: 14px;
+      margin-top: 12px;
       border: 1px solid #dce5ef;
       border-radius: 12px;
-      background: #fbfcfe;
+      background: #f9fbfc;
       overflow: hidden;
     }
     .import-advanced summary {
@@ -1813,11 +1814,11 @@
     .import-history-summary {
       margin-top: 10px;
       border: 1px solid #dbe3ec;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #fff;
-      padding: 12px;
+      padding: 14px;
       display: grid;
-      gap: 7px;
+      gap: 8px;
     }
     .import-history-summary.tone-warn {
       border-color: #ead28a;
@@ -1841,7 +1842,7 @@
     .import-history-summary-main strong {
       display: block;
       color: #172033;
-      font-size: 14px;
+      font-size: 15px;
       margin-top: 1px;
     }
     .import-history-summary-subtitle,
@@ -1907,11 +1908,11 @@
     .import-history {
       margin-top: 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #f8fafc;
-      padding: 10px;
+      padding: 12px;
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
     .import-history-list {
       display: grid;
@@ -1920,9 +1921,9 @@
     .import-history-item {
       width: 100%;
       border: 1px solid #dbe3ec;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #fff;
-      padding: 9px 10px;
+      padding: 10px 11px;
       text-align: left;
       cursor: pointer;
       display: grid;
@@ -2403,7 +2404,7 @@
 	    }
 	    .result-card {
 	      display: grid;
-	      gap: 10px;
+	      gap: 12px;
 	    }
 	    .result-card-head {
 	      display: flex;
@@ -2414,11 +2415,14 @@
 	    .result-title {
 	      font-weight: 800;
 	      color: #172033;
+	      font-size: 16px;
+	      line-height: 1.35;
 	    }
 	    .result-subtitle {
 	      margin-top: 2px;
 	      color: #64748b;
 	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	      font-size: 12px;
 	    }
 	    .result-status {
 	      border: 1px solid #bfd9c9;
@@ -2584,15 +2588,19 @@
 	    }
 	    .result-candidates {
 	      border: 1px solid #dbe5ef;
-	      border-radius: 8px;
+	      border-radius: 12px;
 	      background: #ffffff;
-	      padding: 8px;
+	      padding: 10px;
 	      display: grid;
-	      gap: 8px;
+	      gap: 10px;
+	    }
+	    .result-candidates.simple {
+	      background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
 	    }
 	    .result-candidates-title {
 	      font-weight: 800;
 	      color: #172033;
+	      font-size: 14px;
 	    }
 	    .result-candidates-toolbar {
 	      display: flex;
@@ -2721,13 +2729,14 @@
 	    }
 	    .candidate-group {
 	      display: grid;
-	      gap: 5px;
+	      gap: 7px;
 	    }
 	    .candidate-group-title {
 	      color: #64748b;
 	      font-weight: 700;
-	      font-size: 11px;
+	      font-size: 12px;
 	      text-transform: uppercase;
+	      letter-spacing: 0.04em;
 	    }
 	    .candidate-list {
 	      display: grid;
@@ -2735,11 +2744,11 @@
 	    }
 	    .candidate-item {
 	      border: 1px solid #edf2f7;
-	      border-radius: 7px;
+	      border-radius: 10px;
 	      background: #fbfdff;
-	      padding: 7px 8px;
+	      padding: 9px 10px;
 	      display: grid;
-	      gap: 3px;
+	      gap: 4px;
 	    }
 	    .candidate-item.selected {
 	      border-color: #b9ddc9;
@@ -9277,17 +9286,12 @@
                     <div class="import-card-head">
                       <div>
                         <div class="import-card-kicker">Import</div>
-                        <strong>导入笔记</strong>
+                        <strong>导入</strong>
                       </div>
-                      <span class="import-card-badge">先预览，不直接写入</span>
+                      <span class="import-card-badge">预览后导入</span>
                     </div>
-                    <div class="import-flow-steps" aria-label="导入流程">
-                      <div><span>1</span><strong>选择来源</strong><small>文件夹或连接器</small></div>
-                      <div><span>2</span><strong>预览确认</strong><small>勾选后再写入</small></div>
-                    </div>
-                    <p class="import-card-note">默认只需要选择来源类型和路径。预览通过后再确认写入；记录查询、回滚和 JSON 参数都收在高级区。</p>
                     <div class="import-grid import-form-grid" style="margin-top:10px;">
-                      <label for="importConnector">来源类型</label>
+                      <label for="importConnector">来源</label>
                       <select id="importConnector">
                         <option value="markdown">Markdown</option>
                         <option value="obsidian">Obsidian</option>
@@ -9296,13 +9300,12 @@
                         <option value="notebooklm">NotebookLM</option>
                       </select>
 
-                      <label for="importPath">来源路径</label>
+                      <label for="importPath">路径</label>
                       <div class="import-field-stack">
                         <div class="path-picker">
-                          <input id="importPath" placeholder="选择包含 .md 的文件夹" />
-                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
+                          <input id="importPath" placeholder="选择要导入的目录" />
+                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择</button>
                         </div>
-                        <div class="import-field-help">Markdown 和 Obsidian 直接选目录；Zotero、Readwise、NotebookLM 可在高级区粘贴 Payload JSON。</div>
                       </div>
                     </div>
                     <div class="import-actions">
@@ -9310,21 +9313,21 @@
                       <button class="mini-btn" id="btnImportConfirm">确认写入</button>
                     </div>
                     <details class="import-advanced" id="importAdvanced">
-                      <summary>高级选项、记录查询与回滚</summary>
+                      <summary>高级选项</summary>
                       <div class="import-advanced-body">
                         <div class="import-grid">
                           <label for="importPayload">Payload JSON</label>
-                          <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"来源路径"}'></textarea>
+                          <textarea id="importPayload" style="min-height:90px;" placeholder='留空时自动使用 {"path":"当前路径"}'></textarea>
 
                           <label for="importOptions">Options JSON</label>
-                          <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'></textarea>
+                          <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true}'></textarea>
 
                           <label for="importRecordId">ImportRecord ID</label>
-                          <input id="importRecordId" placeholder="预览后自动填充，可手动粘贴" />
+                          <input id="importRecordId" placeholder="预览后自动填充" />
                         </div>
                         <div class="import-actions secondary">
                           <button class="mini-btn" id="btnImportCancel">取消</button>
-                          <button class="mini-btn" id="btnImportRefresh">查询记录</button>
+                          <button class="mini-btn" id="btnImportRefresh">刷新记录</button>
                           <button class="mini-btn" id="btnImportRollback">回滚</button>
                         </div>
                       </div>
@@ -9334,54 +9337,24 @@
                 <section class="import-card import-history-card">
                   <div class="import-history-head">
                     <div>
-                      <div class="import-card-kicker">History</div>
-                      <div class="import-history-title">导入历史</div>
+                      <div class="import-card-kicker">Recent</div>
+                      <div class="import-history-title">最近导入</div>
                     </div>
-                    <span class="import-card-badge">最近 12 条</span>
                   </div>
                   <div id="importHistoryMount">
-                    <details class="import-history-filter" id="importHistoryFilter">
-                      <summary>
-                        <span>筛选历史</span>
-                        <small>全部状态 / 全部连接器 / 全部风险</small>
-                      </summary>
-                      <div class="import-history-controls">
-                        <label>
-                          <span>状态</span>
-                          <select id="importHistoryStatus">
-                            <option value="all">全部状态</option>
-                            <option value="preview">预览中</option>
-                            <option value="completed">已完成</option>
-                            <option value="rolled_back">已回滚</option>
-                            <option value="cancelled">已取消</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>连接器</span>
-                          <select id="importHistoryConnector">
-                            <option value="all">全部连接器</option>
-                            <option value="markdown">Markdown</option>
-                            <option value="obsidian">Obsidian</option>
-                            <option value="zotero">Zotero</option>
-                            <option value="readwise">Readwise</option>
-                            <option value="notebooklm">NotebookLM</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>风险</span>
-                          <select id="importHistoryRisk">
-                            <option value="all">全部风险</option>
-                            <option value="warning">有警告</option>
-                            <option value="blocked">有阻断</option>
-                            <option value="modified">回滚保留</option>
-                          </select>
-                        </label>
-                        <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
+                    <div class="import-history-summary tone-neutral">
+                      <div class="import-history-summary-main">
+                        <div>
+                          <div class="import-history-summary-kicker">最近导入</div>
+                          <strong>最近导入</strong>
+                          <div class="import-history-summary-subtitle">暂无记录</div>
+                        </div>
                       </div>
-                    </details>
-                    <div class="import-history" id="importHistory">正在读取导入历史…</div>
+                      <div class="import-history-summary-detail">先导入一次，这里会显示最近状态。</div>
+                    </div>
+                    <div class="import-history" id="importHistory">还没有导入记录。</div>
                   </div>
-                  <div class="import-result" id="importResult">还没有导入结果。先选择来源，再点击预览。</div>
+                  <div class="import-result" id="importResult">还没有导入结果。</div>
                 </section>
               </div>
             </div>
@@ -9389,29 +9362,27 @@
               <div class="import-card-head">
                 <div>
                   <div class="import-card-kicker">Export</div>
-                  <strong>导出笔记</strong>
+                  <strong>导出永久笔记</strong>
                 </div>
-                <span class="import-card-badge">Markdown + assets</span>
+                <span class="import-card-badge">目录导出</span>
               </div>
-              <div class="import-flow-steps" aria-label="导出流程">
-                <div><span>1</span><strong>选择目标</strong><small>空目录更清楚</small></div>
-                <div><span>2</span><strong>导出文件</strong><small>保留 Markdown 与资源</small></div>
-              </div>
-              <p class="import-card-note">导出只复制文件，不会改动当前 Vault。选择一个目标目录后即可导出 Markdown 和关联资源。</p>
               <div class="import-grid import-form-grid" style="margin-top:10px;">
+                <label for="exportDirectoryId">永久笔记目录</label>
+                <select id="exportDirectoryId">
+                  <option value="dir_original_default">永久笔记盒</option>
+                </select>
                 <label for="exportTargetPath">目标目录</label>
                 <div class="import-field-stack">
                   <div class="path-picker">
-                    <input id="exportTargetPath" placeholder="选择导出目标文件夹" />
-                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择目录</button>
+                    <input id="exportTargetPath" placeholder="选择导出目标目录" />
+                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择</button>
                   </div>
-                  <div class="import-field-help">系统会阻止导出到当前 Vault 内部，避免把备份文件混回笔记库。</div>
                 </div>
               </div>
               <div class="import-actions">
                 <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown</button>
               </div>
-              <div class="import-result" id="exportResult">还没有导出结果。选一个目标目录后点击导出。</div>
+              <div class="import-result" id="exportResult">选择目录后即可导出。</div>
             </div>
           </div>
           <div class="panel hidden" id="distillationPanel"></div>
