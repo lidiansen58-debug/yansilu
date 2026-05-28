@@ -34,33 +34,43 @@ function splitList(value) {
 
 export function scheduledTaskStatusOptions() {
   return [
-    { value: "all", label: "All statuses" },
-    { value: "active", label: "Active" },
-    { value: "paused", label: "Paused" },
-    { value: "disabled", label: "Disabled" },
-    { value: "failed", label: "Failed" }
+    { value: "all", label: "全部状态" },
+    { value: "active", label: "启用" },
+    { value: "paused", label: "暂停" },
+    { value: "disabled", label: "停用" },
+    { value: "failed", label: "失败" }
   ];
 }
 
 export function scheduledTaskTypeOptions() {
   return [
-    { value: "all", label: "All task types" },
-    { value: "relation_scan", label: "Relation scans" },
-    { value: "reflection_prompt", label: "Reflection prompts" },
-    { value: "research_scan", label: "Research scans" },
-    { value: "source_monitor", label: "Source monitors" },
-    { value: "project_digest", label: "Project digests" },
-    { value: "originality_check", label: "Originality checks" }
+    { value: "all", label: "全部任务类型" },
+    { value: "relation_scan", label: "关系扫描" },
+    { value: "reflection_prompt", label: "反思提醒" },
+    { value: "research_scan", label: "研究扫描" },
+    { value: "source_monitor", label: "来源监测" },
+    { value: "project_digest", label: "项目摘要" },
+    { value: "originality_check", label: "原创性检查" }
   ];
 }
 
 export function scheduledTaskTemplateOptions(templates = []) {
+  const templateLabelMap = {
+    weekly_link_suggestions: "每周关系建议",
+    reflection_reminder: "反思提醒",
+    "Weekly link suggestions": "每周关系建议",
+    "Reflection reminder": "反思提醒"
+  };
   const list = Array.isArray(templates) ? templates : [];
   return list
     .filter((template) => template?.implementationReady === true)
     .map((template) => ({
       value: cleanText(template.templateId),
-      label: cleanText(template.name) || cleanText(template.templateId),
+      label:
+        templateLabelMap[cleanText(template.templateId)] ||
+        templateLabelMap[cleanText(template.name)] ||
+        cleanText(template.name) ||
+        cleanText(template.templateId),
       taskType: cleanText(template.task?.taskType || template.task_type),
       agentId: cleanText(template.task?.agentId || template.agent_id),
       description: cleanText(template.description)
@@ -79,12 +89,12 @@ export function normalizeScheduledTaskFilters(filters = {}) {
 
 export function scheduledTaskStatusLabel(status = "") {
   const labels = {
-    active: "Active",
-    paused: "Paused",
-    disabled: "Disabled",
-    failed: "Failed"
+    active: "启用",
+    paused: "暂停",
+    disabled: "停用",
+    failed: "失败"
   };
-  return labels[cleanText(status)] || cleanText(status) || "Unknown";
+  return labels[cleanText(status)] || cleanText(status) || "未知";
 }
 
 export function scheduledTaskStatusTone(status = "") {
@@ -98,27 +108,27 @@ export function scheduledTaskStatusTone(status = "") {
 
 export function scheduledTaskTypeLabel(taskType = "") {
   const option = scheduledTaskTypeOptions().find((item) => item.value === cleanText(taskType));
-  return option && option.value !== "all" ? option.label : cleanText(taskType) || "Task";
+  return option && option.value !== "all" ? option.label : cleanText(taskType) || "任务";
 }
 
 export function scheduledTaskAction(task = {}) {
   const status = cleanText(task.status);
-  if (status === "active") return { nextStatus: "paused", label: "Pause" };
-  if (["paused", "disabled", "failed"].includes(status)) return { nextStatus: "active", label: "Resume" };
+  if (status === "active") return { nextStatus: "paused", label: "暂停" };
+  if (["paused", "disabled", "failed"].includes(status)) return { nextStatus: "active", label: "恢复启用" };
   return { nextStatus: "", label: "" };
 }
 
 export function scheduledTaskScheduleLabel(schedule = {}) {
   const type = cleanText(schedule.type) || "manual_only";
-  if (schedule.intervalMinutes) return `Every ${normalizeCount(schedule.intervalMinutes)} min`;
-  if (schedule.intervalHours) return `Every ${normalizeCount(schedule.intervalHours)} hr`;
-  if (schedule.intervalDays) return `Every ${normalizeCount(schedule.intervalDays)} day`;
+  if (schedule.intervalMinutes) return `每 ${normalizeCount(schedule.intervalMinutes)} 分钟`;
+  if (schedule.intervalHours) return `每 ${normalizeCount(schedule.intervalHours)} 小时`;
+  if (schedule.intervalDays) return `每 ${normalizeCount(schedule.intervalDays)} 天`;
   if (type === "weekly") {
     const day = cleanText(schedule.dayOfWeek || schedule.day_of_week) || "weekly";
     const time = cleanText(schedule.time);
     return `${day}${time ? ` ${time}` : ""}`;
   }
-  if (type === "daily") return cleanText(schedule.time) ? `Daily ${schedule.time}` : "Daily";
+  if (type === "daily") return cleanText(schedule.time) ? `每天 ${schedule.time}` : "每天";
   return type.replaceAll("_", " ");
 }
 
@@ -129,22 +139,22 @@ export function scheduledTaskScopeSummary(scope = {}) {
   const tags = Array.isArray(scope.tags) ? scope.tags : [];
   const projectIds = Array.isArray(scope.projectIds || scope.project_ids) ? (scope.projectIds || scope.project_ids) : [];
   const keywords = Array.isArray(scope.keywords) ? scope.keywords : [];
-  if (noteIds.length) parts.push(`${noteIds.length} notes`);
-  if (directoryIds.length) parts.push(`${directoryIds.length} directories`);
-  if (tags.length) parts.push(`${tags.length} tags`);
-  if (projectIds.length) parts.push(`${projectIds.length} projects`);
-  if (keywords.length) parts.push(`${keywords.length} keywords`);
-  if (scope.includePrivateNotes || scope.include_private_notes) parts.push("private included");
-  return parts.join(" / ") || "No scope";
+  if (noteIds.length) parts.push(`${noteIds.length} 条笔记`);
+  if (directoryIds.length) parts.push(`${directoryIds.length} 个目录`);
+  if (tags.length) parts.push(`${tags.length} 个标签`);
+  if (projectIds.length) parts.push(`${projectIds.length} 个项目`);
+  if (keywords.length) parts.push(`${keywords.length} 个关键词`);
+  if (scope.includePrivateNotes || scope.include_private_notes) parts.push("包含私密内容");
+  return parts.join(" / ") || "未设置范围";
 }
 
 export function scheduledTaskBudgetSummary(budget = {}) {
   const maxRuns = normalizeCount(budget.maxRunsPerPeriod ?? budget.max_runs_per_period);
   const runs = normalizeCount(budget.runsThisPeriod ?? budget.runs_this_period);
-  const period = cleanText(budget.period) || "period";
+  const period = cleanText(budget.period) || "周期";
   const cost = budget.maxEstimatedCostPerPeriod ?? budget.max_estimated_cost_per_period;
-  const runPart = maxRuns ? `${runs}/${maxRuns} runs per ${period}` : `${runs} runs this ${period}`;
-  return cost === null || cost === undefined || cost === "" ? runPart : `${runPart}, cap ${cost}`;
+  const runPart = maxRuns ? `${runs}/${maxRuns} 次 / ${period}` : `${period}内已运行 ${runs} 次`;
+  return cost === null || cost === undefined || cost === "" ? runPart : `${runPart}，上限 ${cost}`;
 }
 
 export function scheduledTasksSummary({ items = [], total = 0 } = {}) {
@@ -243,7 +253,7 @@ export function scheduledTaskFormDefaults({ templates = [], currentNoteId = "", 
   return {
     scheduledTaskId: "",
     templateId,
-    name: templateOptions[0]?.label || "Reflection reminder",
+    name: templateOptions[0]?.label || "反思提醒",
     status: "paused",
     scheduleType: "weekly",
     dayOfWeek: "friday",
@@ -293,7 +303,7 @@ export function scheduledTaskPayloadFromForm(form = {}) {
   return {
     ...(cleanText(form.scheduledTaskId) ? { scheduledTaskId: cleanText(form.scheduledTaskId) } : {}),
     templateId: cleanText(form.templateId) || "reflection_reminder",
-    name: cleanText(form.name) || "Scheduled agent task",
+    name: cleanText(form.name) || "计划代理任务",
     status: cleanText(form.status) || "paused",
     schedule,
     scope: {

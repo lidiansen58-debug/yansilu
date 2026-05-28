@@ -4816,9 +4816,11 @@ export class EditorPane {
   }
 
   renderCreateRelationFormSection(noteId) {
+    const activeNote = this.activeNote();
     const candidates = this.scopedLinkCandidates();
-    const defaultType = this.relationCreateDefaultType(this.activeNote());
+    const defaultType = this.relationCreateDefaultType(activeNote);
     const defaultGuidance = relationTypeGuidance(defaultType);
+    const scopeFolderLabel = activeNote?.folderId ? this.folderLabel(activeNote.folderId) : "当前目录";
     const typeOptions = RELATION_CREATE_TYPES.map(
       (type) => `<option value="${escapeHtml(type)}"${type === defaultType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
@@ -4830,10 +4832,14 @@ export class EditorPane {
           <div class="inspector-section-title">建立语义关系</div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-create">取消</button>
         </div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">范围 ${escapeHtml(scopeFolderLabel)}</span>
+          <span class="inspector-chip">默认 ${escapeHtml(relationTypeLabel(defaultType))}</span>
+        </div>
         <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
           <label>
             <span>目标笔记</span>
-            <input class="semantic-relation-target-search" name="targetQuery" data-relation-target-search autocomplete="off" placeholder="搜索标题、ID 或路径" />
+            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="搜索标题、ID 或路径" autofocus />
             <select name="toNoteId" data-relation-target-select required ${candidates.length ? "" : "disabled"}>${noteOptions}</select>
             <small class="semantic-relation-target-status" data-relation-target-status>${
               candidates.length ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"

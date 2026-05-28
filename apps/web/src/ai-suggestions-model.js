@@ -121,24 +121,24 @@ export function aiSuggestionDetailFromResponse(response = {}) {
 
 export function aiSuggestionStatusOptions() {
   return [
-    { value: "all", label: "All statuses" },
-    { value: "suggested", label: "Suggested" },
-    { value: "adopted_as_draft", label: "Adopted as draft" },
-    { value: "edited", label: "Edited" },
-    { value: "confirmed", label: "Confirmed" },
-    { value: "rejected", label: "Rejected" }
+    { value: "all", label: "全部状态" },
+    { value: "suggested", label: "待建议" },
+    { value: "adopted_as_draft", label: "已采纳为草稿" },
+    { value: "edited", label: "已编辑" },
+    { value: "confirmed", label: "已确认" },
+    { value: "rejected", label: "已拒绝" }
   ];
 }
 
 export function aiSuggestionStatusLabel(status = "") {
   const labels = {
-    suggested: "Suggested",
-    adopted_as_draft: "Adopted as draft",
-    edited: "Edited",
-    confirmed: "Confirmed",
-    rejected: "Rejected"
+    suggested: "待建议",
+    adopted_as_draft: "已采纳为草稿",
+    edited: "已编辑",
+    confirmed: "已确认",
+    rejected: "已拒绝"
   };
-  return labels[cleanText(status)] || cleanText(status) || "Unknown";
+  return labels[cleanText(status)] || cleanText(status) || "未知";
 }
 
 export function aiSuggestionStatusTone(status = "") {
@@ -178,10 +178,10 @@ export function aiSuggestionSummary({ items = [], total = 0 } = {}) {
 
 export function aiSuggestionTargetLabel(suggestion = {}) {
   const target = suggestion.target || {};
-  const type = cleanText(target.type) || "target";
+  const type = cleanText(target.type) || "目标";
   const id = cleanText(target.id);
   const field = cleanText(target.field);
-  return [type, id, field].filter(Boolean).join(" / ") || "Unknown target";
+  return [type, id, field].filter(Boolean).join(" / ") || "未知目标";
 }
 
 export function aiSuggestionActionSet(suggestion = {}) {
