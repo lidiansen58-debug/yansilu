@@ -8191,9 +8191,11 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     assert.match(String(detailText || ""), /采纳为草稿/);
   }, 10000);
 
-  assert.equal(await page.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
+  const embeddedSuggestionCard = page.locator(`#relatedPanel [data-note-ai-suggestion-id="${fixture.suggestionId}"]`);
 
-  await page.locator("#relatedPanel [data-note-ai-suggestion-action='adopted_as_draft']").first().click();
+  assert.equal(await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
+
+  await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='adopted_as_draft']").click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -8216,7 +8218,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     assert.equal(note.json.item.thesis, editedThesis);
   }, 10000);
 
-  await page.locator("#relatedPanel [data-note-ai-suggestion-action='edited']").first().click();
+  await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='edited']").click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -8225,10 +8227,10 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   }, 10000);
 
   await waitFor(async () => {
-    assert.equal(await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().isVisible(), true);
+    assert.equal(await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='confirmed']").isVisible(), true);
   }, 10000);
 
-  await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().click();
+  await embeddedSuggestionCard.locator("[data-note-ai-suggestion-action='confirmed']").click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
