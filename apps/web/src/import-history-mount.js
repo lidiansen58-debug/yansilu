@@ -5,8 +5,7 @@ export function renderImportHistoryMount({
   items = [],
   total = 0,
   loading = false,
-  activeImportRecordId = "",
-  filters = {}
+  activeImportRecordId = ""
 } = {}) {
   return `
     ${renderImportHistoryRecentSummary({ items, loading })}
@@ -15,8 +14,7 @@ export function renderImportHistoryMount({
         items,
         total,
         loading,
-        activeImportRecordId,
-        filters
+        activeImportRecordId
       })}
     </div>
   `;

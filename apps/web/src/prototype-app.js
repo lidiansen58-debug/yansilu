@@ -206,12 +206,8 @@ const importState = {
   historyItems: [],
   historyTotal: 0,
   historyLoading: false,
-  historyStatusFilter: "all",
-  historyConnectorFilter: "all",
-  historyRiskFilter: "all",
   selectionImportRecordId: "",
   selectedCandidateIds: new Set(),
-  previewFilter: "all",
   resultFocusReason: ""
 };
 const graphState = {
@@ -1118,12 +1114,7 @@ function renderImportPageShell() {
       items: importState.historyItems,
       total: importState.historyTotal,
       loading: importState.historyLoading,
-      activeImportRecordId: String(importState.importRecordId || "").trim(),
-      filters: {
-        status: importState.historyStatusFilter,
-        connector: importState.historyConnectorFilter,
-        risk: importState.historyRiskFilter
-      }
+      activeImportRecordId: String(importState.importRecordId || "").trim()
     },
     result: importState.lastResultPayload
       ? {
@@ -3125,12 +3116,7 @@ function renderImportHistory() {
     items: importState.historyItems,
     total: importState.historyTotal,
     loading: importState.historyLoading,
-    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim(),
-    filters: {
-      status: importState.historyStatusFilter,
-      connector: importState.historyConnectorFilter,
-      risk: importState.historyRiskFilter
-    }
+    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim()
   });
 }
 
@@ -3165,7 +3151,6 @@ async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读�
           originalityGuard: importRecord.originalityGuard || null
         }
       : null;
-  importState.previewFilter = "all";
   syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, { preserve: true });
   setImportRecordId(cleanImportRecordId);
   showImportResult({
@@ -3192,12 +3177,6 @@ async function rollbackImportIntoUi(importRecordId, { statusPrefix = "回滚完�
   await refreshImportedNotesView();
   setStatus(`${statusPrefix}：${cleanImportRecordId}`, "ok");
   return result;
-}
-
-function syncImportHistoryFiltersFromUi() {
-  importState.historyStatusFilter = String($("importHistoryStatus")?.value || "all").trim();
-  importState.historyConnectorFilter = String($("importHistoryConnector")?.value || "all").trim();
-  importState.historyRiskFilter = String($("importHistoryRisk")?.value || "all").trim();
 }
 
 function uniqueStrings(items = []) {
@@ -3442,7 +3421,6 @@ function renderResult(el, payload) {
     candidatePreviewHtml: renderCandidatePreview(candidatePreview, {
       interactive: interactivePreview,
       summary: previewSummary,
-      previewFilter: importState.previewFilter,
       showExcludedSummary,
       originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard || null,
       focusReason: importState.resultFocusReason,
@@ -4101,14 +4079,6 @@ function applyCandidateSelection(action) {
   }
   importState.selectionImportRecordId = importRecordId;
   importState.selectedCandidateIds = next;
-  rerenderImportResult();
-}
-
-function setCandidateFilter(filter) {
-  const normalized = ["all", "confirmable", "safe", "risky", "excluded", "warning", "blocked"].includes(String(filter || ""))
-    ? String(filter)
-    : "all";
-  importState.previewFilter = normalized;
   rerenderImportResult();
 }
 
@@ -12043,7 +12013,6 @@ async function bootstrap() {
     rollbackImportIntoUi,
     onPreviewSuccess: async (preview) => {
       importState.lastPreview = preview;
-      importState.previewFilter = "all";
       syncImportSelection(preview.importRecordId, preview.candidatePreview);
       setImportRecordId(preview.importRecordId);
       showImportResult({
@@ -12131,19 +12100,9 @@ async function bootstrap() {
       applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
       return;
     }
-    const filterButton = event.target?.closest?.("[data-candidate-filter]");
-    if (!filterButton) return;
-    setCandidateFilter(String(filterButton.getAttribute("data-candidate-filter") || ""));
   });
 
   $("importHistoryMount")?.addEventListener("click", async (event) => {
-    const refreshButton = event.target?.closest?.("#btnImportHistoryRefresh");
-    if (refreshButton) {
-      await refreshImportHistory();
-      setStatus("导入历史已刷新", "ok");
-      return;
-    }
-
     const actionButton = event.target?.closest?.("[data-import-history-action]");
     const item = event.target?.closest?.("[data-import-history-id]");
     const importRecordId = String(
@@ -12181,25 +12140,6 @@ async function bootstrap() {
         `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开文献队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去永久笔记整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
         "bad"
       );
-    }
-  });
-
-  $("importHistoryMount")?.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
-    if (target.id === "importHistoryStatus") {
-      importState.historyStatusFilter = String(target.value || "all").trim();
-      renderImportHistory();
-      return;
-    }
-    if (target.id === "importHistoryConnector") {
-      importState.historyConnectorFilter = String(target.value || "all").trim();
-      renderImportHistory();
-      return;
-    }
-    if (target.id === "importHistoryRisk") {
-      importState.historyRiskFilter = String(target.value || "all").trim();
-      renderImportHistory();
     }
   });
 
@@ -12318,7 +12258,6 @@ async function bootstrap() {
   }
 
   try {
-    syncImportHistoryFiltersFromUi();
     await refreshImportHistory({ silent: true });
   } catch {}
 

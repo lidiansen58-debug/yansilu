@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  candidateFilterCounts,
   candidatePreviewItems,
   confirmCreatedLiteratureNoteIds,
   confirmCreatedPermanentNoteIds,
@@ -10,7 +9,7 @@ import {
   selectionSummary
 } from "../../apps/web/src/import-candidate-preview-model.js";
 
-test("candidate preview model derives grouped items and filter counts", () => {
+test("candidate preview model derives grouped items and selection summary", () => {
   const preview = {
     sources: [{ id: "src_1", title: "Source A" }],
     literatureNotes: [{ id: "ln_1", title: "Lit A" }],
@@ -26,15 +25,7 @@ test("candidate preview model derives grouped items and filter counts", () => {
   assert.equal(items.length, 4);
   assert.equal(summary.selectedCount, 2);
   assert.equal(summary.excludedCount, 2);
-  assert.deepEqual(candidateFilterCounts(preview, selectedIds, { plan: { allowDraftOnWarning: false, blockOnBlocked: true } }), {
-    all: 4,
-    confirmable: 2,
-    safe: 3,
-    risky: 2,
-    excluded: 2,
-    warning: 1,
-    blocked: 1
-  });
+  assert.equal(summary.totalCount, 4);
 });
 
 test("candidate preview model derives confirm skipped ids and reason map", () => {
