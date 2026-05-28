@@ -9422,6 +9422,14 @@ function openNoteById(id, options = {}) {
   if (note) syncExplorerContextToNote(note);
   editor.openNoteTab(id, options);
   renderAll();
+  if (options.focusDistillation) {
+    state.inspectorVisible = true;
+    editor?.setInspectorVisible?.(true);
+    editor?.renderRelated?.("已回到这条永久笔记，请在编辑器内继续处理绑定建议。");
+    window.setTimeout(() => {
+      editor?.jumpToInspectorSection?.("[data-note-distillation-section]");
+    }, 80);
+  }
   ensureNoteBodyLoaded(id);
   return true;
 }
@@ -11606,8 +11614,8 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
         if (fetched) state.notes = [mapNoteItem(fetched), ...state.notes.filter((item) => item.id !== noteId)];
       }
       activateModule("explorer");
-      openNoteById(noteId);
-      setStatus(`已打开来源笔记 ${noteId}`, "ok");
+      openNoteById(noteId, { focusDistillation: true, preferTitleSelection: false });
+      setStatus(`已回到笔记 ${noteId}，请在编辑器内继续处理这条建议`, "ok");
     } catch (error) {
       setStatus(`打开来源笔记失败：${String(error?.message || error)}`, "warn");
     }

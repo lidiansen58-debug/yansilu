@@ -10,14 +10,23 @@ import {
   checkOriginality,
   createNoteRelation,
   deleteNoteRelation,
+  adoptAiInboxFieldSuggestion,
   fetchNote,
+  fetchAiSuggestion,
+  fetchAiSuggestions,
   fetchNoteRelations,
   fetchNotesByTag,
   listTags,
   searchNotes,
+  updateAiSuggestion,
   updateNoteRelation,
   uploadNoteAsset
 } from "./prototype-api.js";
+import {
+  noteSuggestionReviewContent,
+  renderNoteEmbeddedAiWorkspace
+} from "./note-embedded-ai-workspace.js";
+import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
@@ -1477,6 +1486,18 @@ export class EditorPane {
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
     this.noteAiAnalysisByNoteId = new Map();
+    this.noteAiSuggestionsState = {
+      noteId: "",
+      loading: false,
+      error: "",
+      items: [],
+      actionLoading: false,
+      actionSuggestionId: "",
+      actionError: "",
+      actionNotice: "",
+      actionNoticeTone: "muted"
+    };
+    this.noteAiSuggestionsRequestSerial = 0;
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
@@ -5975,6 +5996,8 @@ export class EditorPane {
     const filledCount = (thesis ? 1 : 0) + summaryLines.filter(Boolean).length;
     const statusLabel = String(note.distillationStatus || "").trim() || (filledCount ? "draft" : "missing");
     const statusValue = ["missing", "draft", "confirmed"].includes(statusLabel) ? statusLabel : filledCount ? "draft" : "missing";
+    const directEvidenceCount = parseLinks(note.body || "").length;
+    const writingReady = statusValue === "confirmed" && !qualityWarnings.length;
     return `
       <section class="inspector-section semantic-relations-section" data-note-distillation-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
@@ -5985,6 +6008,17 @@ export class EditorPane {
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
         </div>
         <form class="semantic-relation-form" data-note-distillation-form>
+          <div class="semantic-relation-group">
+            <div class="semantic-relation-group-head"><strong>提纯工作区</strong><span>${escapeHtml(statusValue === "confirmed" ? "稳定" : "进行中")}</span></div>
+            <div class="semantic-relation-grid">
+              <div class="semantic-relation-card"><strong>一句话判断</strong><span>${escapeHtml(thesis ? "已有" : "缺失")}</span></div>
+              <div class="semantic-relation-card"><strong>三句话压缩</strong><span>${escapeHtml(summaryLines.filter(Boolean).length === 3 ? "完整" : `${summaryLines.filter(Boolean).length}/3`)}</span></div>
+              <div class="semantic-relation-card"><strong>证据 / 来源</strong><span>${escapeHtml(directEvidenceCount ? `${directEvidenceCount} 条正文链接` : "待补证据")}</span></div>
+              <div class="semantic-relation-card"><strong>反证 / 边界</strong><span>${escapeHtml(boundaryOrCounterpoint ? "已有" : "缺失")}</span></div>
+              <div class="semantic-relation-card"><strong>关联建议</strong><span data-note-ai-suggestions-count>${escapeHtml(this.noteAiSuggestionsSummaryLabel(note.id))}</span></div>
+              <div class="semantic-relation-card"><strong>写作可用性</strong><span>${escapeHtml(writingReady ? "可进入稳定写作" : "仍需审阅确认")}</span></div>
+            </div>
+          </div>
           <label>
             一句话判断
             <textarea name="thesis" rows="3" placeholder="这条永久笔记到底主张什么？">${escapeHtml(thesis)}</textarea>
@@ -6027,9 +6061,159 @@ export class EditorPane {
               boundaryOrCounterpoint
             })}
           </div>
+          <div data-note-embedded-ai-workspace>
+            ${renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(note.id))}
+          </div>
         </form>
       </section>
     `;
+  }
+
+  noteAiSuggestionsStateForNote(noteId = "") {
+    const cleanNoteId = String(noteId || "").trim();
+    if (cleanNoteId && this.noteAiSuggestionsState.noteId === cleanNoteId) return this.noteAiSuggestionsState;
+    return {
+      noteId: cleanNoteId,
+      loading: false,
+      error: "",
+      items: [],
+      actionLoading: false,
+      actionSuggestionId: "",
+      actionError: "",
+      actionNotice: "",
+      actionNoticeTone: "muted"
+    };
+  }
+
+  noteAiSuggestionsSummaryLabel(noteId = "") {
+    const state = this.noteAiSuggestionsStateForNote(noteId);
+    if (state.loading) return "读取中";
+    if (state.error) return "加载失败";
+    if (!state.items.length) return "0 条";
+    const pendingCount = state.items.filter((item) => String(item?.status || "").trim() === "suggested").length;
+    return pendingCount ? `${pendingCount} 条待审` : `${state.items.length} 条`;
+  }
+
+  renderEmbeddedAiWorkspaceMount(noteId = "") {
+    const mount = this.els.result?.querySelector?.("[data-note-embedded-ai-workspace]");
+    if (!mount) return;
+    mount.innerHTML = renderNoteEmbeddedAiWorkspace(this.noteAiSuggestionsStateForNote(noteId));
+    const count = this.els.result?.querySelector?.("[data-note-ai-suggestions-count]");
+    if (count) count.textContent = this.noteAiSuggestionsSummaryLabel(noteId);
+  }
+
+  async refreshNoteAiSuggestions(noteId = "") {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!cleanNoteId) return;
+    const requestSerial = ++this.noteAiSuggestionsRequestSerial;
+    this.noteAiSuggestionsState = {
+      noteId: cleanNoteId,
+      loading: true,
+      error: "",
+      items: [],
+      actionLoading: false,
+      actionSuggestionId: "",
+      actionError: "",
+      actionNotice: "",
+      actionNoticeTone: "muted"
+    };
+    this.renderEmbeddedAiWorkspaceMount(cleanNoteId);
+    try {
+      const result = await fetchAiSuggestions({
+        canonical: true,
+        targetType: "permanent_note",
+        targetId: cleanNoteId,
+        limit: 20
+      });
+      if (requestSerial !== this.noteAiSuggestionsRequestSerial) return;
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsState,
+        loading: false,
+        items: Array.isArray(result?.items) ? result.items : []
+      };
+    } catch (error) {
+      if (requestSerial !== this.noteAiSuggestionsRequestSerial) return;
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsState,
+        loading: false,
+        error: String(error?.message || error)
+      };
+    }
+    this.renderEmbeddedAiWorkspaceMount(cleanNoteId);
+  }
+
+  async applyNoteAiSuggestionAction(action = "", suggestionId = "", artifactId = "") {
+    const note = this.activeNote();
+    const cleanAction = String(action || "").trim();
+    const cleanSuggestionId = String(suggestionId || "").trim();
+    const cleanArtifactId = String(artifactId || "").trim();
+    if (!note?.id || !cleanAction || !cleanSuggestionId) return;
+    const currentState = this.noteAiSuggestionsStateForNote(note.id);
+    const currentSuggestion = currentState.items.find((item) => String(item?.id || "").trim() === cleanSuggestionId);
+    if (!currentSuggestion) {
+      this.onStatus("没有找到这条 AI 建议，请先刷新。", "warn");
+      return;
+    }
+    this.noteAiSuggestionsState = {
+      ...currentState,
+      actionLoading: true,
+      actionSuggestionId: cleanSuggestionId,
+      actionError: "",
+      actionNotice: "",
+      actionNoticeTone: "muted"
+    };
+    this.renderEmbeddedAiWorkspaceMount(note.id);
+    try {
+      if (cleanAction === "adopted_as_draft") {
+        if (!cleanArtifactId) throw new Error("这条建议缺少 source artifact，暂时不能采纳为草稿。");
+        await adoptAiInboxFieldSuggestion(cleanArtifactId, { confirm: true, canonical: true });
+        const refreshed = await fetchNote(note.id);
+        if (refreshed) Object.assign(note, refreshed);
+      } else {
+        const latest = await fetchAiSuggestion(cleanSuggestionId, { canonical: true });
+        const payload = {
+          canonical: true,
+          status: cleanAction,
+          actor: "user",
+          userId: "local_user",
+          action: cleanAction === "edited" ? "edit" : cleanAction === "confirmed" ? "confirm" : cleanAction === "rejected" ? "reject" : cleanAction
+        };
+        if (cleanAction === "edited" || cleanAction === "confirmed") {
+          payload.content = noteSuggestionReviewContent(note, latest || currentSuggestion);
+        }
+        if (cleanAction === "confirmed") payload.userConfirmed = true;
+        await updateAiSuggestion(cleanSuggestionId, payload);
+      }
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(note.id),
+        actionLoading: false,
+        actionSuggestionId: cleanSuggestionId,
+        actionError: "",
+        actionNotice: cleanAction === "rejected" ? "这条建议已忽略。" : `这条建议已${cleanAction === "adopted_as_draft" ? "采纳为草稿" : aiSuggestionStatusLabel(cleanAction)}。`,
+        actionNoticeTone: "ok"
+      };
+      await this.refreshNoteAiSuggestions(note.id);
+      this.renderRelated();
+      this.onStatus(
+        cleanAction === "confirmed"
+          ? "AI 建议已完成人工确认"
+          : cleanAction === "edited"
+            ? "AI 建议已标记为人工编辑"
+            : cleanAction === "rejected"
+              ? "AI 建议已忽略"
+              : "AI 建议已采纳为草稿",
+        "ok"
+      );
+    } catch (error) {
+      this.noteAiSuggestionsState = {
+        ...this.noteAiSuggestionsStateForNote(note.id),
+        actionLoading: false,
+        actionSuggestionId: cleanSuggestionId,
+        actionError: String(error?.message || error)
+      };
+      this.renderEmbeddedAiWorkspaceMount(note.id);
+      this.onStatus(`处理 AI 建议失败：${String(error?.message || error)}`, "warn");
+    }
   }
 
   jumpToInspectorSection(sectionSelector, { focusSelector = "", focus = false } = {}) {
@@ -6394,6 +6578,7 @@ export class EditorPane {
       </div>
     `;
     void this.refreshSemanticRelations(note.id, relationRequestSerial);
+    void this.refreshNoteAiSuggestions(note.id);
   }
 
   async handleTokenAction(token) {
@@ -6790,6 +6975,23 @@ export class EditorPane {
       const distillationConfirmButton = e.target.closest("[data-note-distillation-confirm]");
       if (distillationConfirmButton) {
         void this.confirmDistillation();
+        return;
+      }
+      const noteAiSuggestionAction = e.target.closest("[data-note-ai-suggestion-action]");
+      if (noteAiSuggestionAction) {
+        void this.applyNoteAiSuggestionAction(
+          noteAiSuggestionAction.getAttribute("data-note-ai-suggestion-action"),
+          noteAiSuggestionAction.getAttribute("data-note-ai-suggestion-id"),
+          noteAiSuggestionAction.getAttribute("data-note-ai-suggestion-artifact-id")
+        );
+        return;
+      }
+      const noteAiOpenInbox = e.target.closest("[data-note-ai-open-inbox]");
+      if (noteAiOpenInbox) {
+        void this.onStateChange("open-note-ai-inbox", {
+          noteId: this.activeNote()?.id || "",
+          artifactId: noteAiOpenInbox.getAttribute("data-note-ai-open-inbox") || ""
+        });
         return;
       }
 
