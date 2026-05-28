@@ -45,8 +45,8 @@ export function isConfirmableCandidate(item = {}, originalityGuard = null) {
 export function candidateBadge(item = {}) {
   const value = item.originalityStatus || item.status || item.sourceType || item.type || "candidate";
   const labels = {
-    warning: "Warning",
-    blocked: "Blocked",
+    warning: "警告",
+    blocked: "阻断",
     pass: "通过",
     draft: "草稿",
     candidate: "候选"

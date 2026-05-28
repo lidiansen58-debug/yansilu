@@ -159,9 +159,10 @@ export function warningItems(payload = {}) {
   if (Array.isArray(evaluations)) {
     for (const item of evaluations) {
       if (item?.status && item.status !== "pass") {
+        const joinedReasons = (item.reasons || []).map(reasonText).join("、") || statusValue(item.status);
         warnings.push({
           code: `ORIGINALITY_${String(item.status).toUpperCase()}`,
-          message: `${item.id || "note"}：${(item.reasons || []).map(reasonText).join("、") || statusValue(item.status)}`
+          message: `${item.id || "note"}：${joinedReasons}`
         });
       }
     }
