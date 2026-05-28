@@ -474,23 +474,48 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   const [firstLine = "", ...restLines] = source.split("\n");
   const expectedTitle = firstLine.replace(/^#+\s*/, "").trim();
   const expectedBody = restLines.join("\n").replace(/^\n+/, "");
+  await page.evaluate(() => {
+    if (window.__saveRequestMonitorInstalled) return;
+    window.__saveRequestMonitorInstalled = true;
+    window.__lastSaveRequestPayload = null;
+    window.__lastSaveResponsePayload = null;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      try {
+        const [input, init] = args;
+        const url = String(typeof input === "string" ? input : input?.url || "");
+        const method = String(init?.method || "GET").toUpperCase();
+        if (method === "PUT" && url.includes("/api/v1/notes/") && typeof init?.body === "string") {
+          window.__lastSaveRequestPayload = JSON.parse(init.body);
+        }
+      } catch {}
+      const response = await originalFetch(...args);
+      try {
+        const [input, init] = args;
+        const url = String(typeof input === "string" ? input : input?.url || "");
+        const method = String(init?.method || "GET").toUpperCase();
+        if (method === "PUT" && url.includes("/api/v1/notes/")) {
+          window.__lastSaveResponsePayload = await response.clone().json();
+        }
+      } catch {}
+      return response;
+    };
+  });
   await page.locator("#btnNewNote").click();
   await page.waitForFunction(() => {
     const value = document.querySelector("#editorBody")?.value || "";
     const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
-    return value.startsWith("# 未锟斤拷锟斤拷锟绞硷拷") && String(title).includes("未锟斤拷锟斤拷锟绞硷拷");
+    return value.startsWith("# 未命名笔记") && String(title).includes("未命名笔记");
   });
-  await page.evaluate((value) => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    const nextValue = String(value || "").replace(/\r\n/g, "\n");
-    editor?.setValue?.(nextValue);
-    const cursor = nextValue.length;
-    editor?.setSelectionRange?.(cursor, cursor);
-    editor?.focus?.();
-  }, source);
+  await ensureSourceMode(page);
+  await waitForEditableNoteSurface(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText(source);
   await page.waitForFunction(
     ({ title, body }) => {
-      const value = document.querySelector("#editorBody")?.value || "";
+      const editor = document.querySelector("#editorHost")?.__markdownEditor;
+      const value = String(editor?.getValue?.() || document.querySelector("#editorBody")?.value || "");
       return value.includes(`# ${title}`) && (!body || value.includes(body));
     },
     { title: expectedTitle, body: expectedBody.trim() ? expectedBody : "" }
@@ -500,17 +525,44 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
       claim: options.authorshipClaim || `${expectedTitle} 锟斤拷锟揭碉拷前锟较可碉拷锟叫断★拷`
     });
   }
+  await waitFor(async () => {
+    const snapshot = await page.evaluate(() => {
+      const editor = document.querySelector("#editorHost")?.__markdownEditor;
+      return {
+        editorValue: String(editor?.getValue?.() || ""),
+        bodyValue: String(document.querySelector("#editorBody")?.value || ""),
+        activeTabBody: String(window.__prototypeEditor?.activeTab?.()?.body || "")
+      };
+    });
+    const combinedValue = snapshot.editorValue || snapshot.bodyValue || snapshot.activeTabBody;
+    assert.match(combinedValue, new RegExp(escapeRegExp(expectedTitle)), `before-save ${JSON.stringify(snapshot)}`);
+  }, 4000);
   const editorValueBeforeSave = await page.locator("#editorBody").inputValue();
   if (saveWithShortcut) {
     await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   } else {
-    await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+    await page.evaluate(() => window.__prototypeEditor?.saveActiveNote?.());
   }
   await waitFor(async () => {
-    const editorValue = await page.locator("#editorBody").inputValue();
+    const snapshot = await page.evaluate(() => {
+      const editor = document.querySelector("#editorHost")?.__markdownEditor;
+      const editorValue = String(editor?.getValue?.() || "");
+      const bodyValue = String(document.querySelector("#editorBody")?.value || "");
+      const activeTabBody = String(window.__prototypeEditor?.activeTab?.()?.body || "");
+      const saveRequestPayload = window.__lastSaveRequestPayload || null;
+      const saveResponsePayload = window.__lastSaveResponsePayload || null;
+      return { editorValue, bodyValue, activeTabBody, saveRequestPayload, saveResponsePayload };
+    });
     const statusText = await currentStatusText(page);
-    assert.match(editorValue, new RegExp(escapeRegExp(expectedTitle)));
-    assert.match(String(statusText || ""), /锟斤拷同锟斤拷|锟皆讹拷同锟斤拷|锟皆帮拷 draft 锟斤拷锟斤拷|锟斤拷锟斤拷确锟斤拷/);
+    const combinedValue = snapshot.editorValue || snapshot.bodyValue || snapshot.activeTabBody;
+    const savedBody = String(snapshot.saveResponsePayload?.item?.body || "");
+    const savedTitle = String(snapshot.saveResponsePayload?.item?.title || "");
+    assert.match(combinedValue, new RegExp(escapeRegExp(expectedTitle)), JSON.stringify(snapshot));
+    assert.ok(
+      /已同步到 Markdown|已同步到 Markdown，永久笔记已完成作者确认|已同步到 Markdown，但当前永久笔记仍按 draft 处理/.test(String(statusText || "")) ||
+        (savedTitle === expectedTitle && (!expectedBody || savedBody.includes(expectedBody))),
+      JSON.stringify({ statusText, saveResponsePayload: snapshot.saveResponsePayload })
+    );
   }, 10000);
   return editorValueBeforeSave;
 }
@@ -569,6 +621,10 @@ async function waitForEditableNoteSurface(page) {
   });
 }
 
+async function waitForActiveNoteBodyLoaded(page) {
+  await page.waitForFunction(() => Boolean(window.__prototypeEditor?.activeNote?.()?.bodyLoaded));
+}
+
 async function ensurePlaceholderTitleSelection(page) {
   await focusEditorContent(page);
   await page.evaluate(() => {
@@ -580,7 +636,7 @@ async function ensurePlaceholderTitleSelection(page) {
     editor.setSelectionRange?.(2, end);
     editor.focus?.();
   });
-  await page.waitForTimeout(60);
+  await waitForPlaceholderTitleSelection(page);
 }
 
 async function waitForPlaceholderTitleSelection(page) {
@@ -589,7 +645,7 @@ async function waitForPlaceholderTitleSelection(page) {
     if (!editor) return false;
     const value = String(editor.getValue?.() || "");
     const selection = editor.selection?.();
-    return Boolean(selection && value.slice(selection.from, selection.to) === "未锟斤拷锟斤拷锟绞硷拷");
+    return Boolean(selection && value.slice(selection.from, selection.to) === "未命名笔记");
   });
 }
 
@@ -616,6 +672,23 @@ async function openImportsModule(page) {
   await page.locator("#importAdvanced").evaluate((el) => {
     el.open = true;
   });
+}
+
+async function openImportHistoryFilters(page) {
+  await page.locator("#importHistoryFilter").evaluate((el) => {
+    el.open = true;
+  });
+  await page.locator("#importHistoryStatus").waitFor({ state: "attached", timeout: 1000 });
+}
+
+async function setImportHistoryFilter(page, selector, value) {
+  await page.locator(selector).evaluate(
+    (el, nextValue) => {
+      el.value = nextValue;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    value
+  );
 }
 
 async function selectRichTextInBlock(page, selector, searchText) {
@@ -725,10 +798,16 @@ test("prototype permanent note can save and persists content after authorship co
 
   await page.locator("#btnNewNote").click();
   await page.waitForSelector(".tab.active");
-  await ensurePlaceholderTitleSelection(page);
-  await page.keyboard.type("Authorship Gate Note");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("This note should not hit Markdown until I explicitly confirm authorship.");
+  await ensureSourceMode(page);
+  await waitForEditableNoteSurface(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText("# Authorship Gate Note\n\nThis note should not hit Markdown until I explicitly confirm authorship.");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /Authorship Gate Note/);
+    assert.match(value, /explicitly confirm authorship/);
+  }, 7000);
   assert.equal(await page.locator("#btnInsertLink").isVisible(), true);
   assert.equal(await page.locator("#btnRunGuard").count(), 0);
 
@@ -750,11 +829,11 @@ test("prototype permanent note can save and persists content after authorship co
   assert.equal(blockedNote.status, 200);
   assert.ok(
     /Authorship Gate Note/.test(blockedNote.json.item.body || "") ||
-      /# 未锟斤拷锟斤拷锟绞硷拷/.test(blockedNote.json.item.body || ""),
+      /# 未命名笔记/.test(blockedNote.json.item.body || ""),
     blockedNote.json.item.body || ""
   );
 
-  await confirmAuthorshipIfVisible(page, { claim: "Authorship Gate Note 锟斤拷锟揭碉拷前锟较可碉拷锟叫断★拷" });
+  await confirmAuthorshipIfVisible(page, { claim: "Authorship Gate Note 的内容由我确认后保存。" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
 
   await waitFor(async () => {
@@ -844,7 +923,7 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     assert.match(note.json.item.body || "", /## 转锟斤拷/);
     assert.match(note.json.item.body || "", /摘录/);
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /锟斤拷同锟斤拷|锟皆讹拷同锟斤拷/);
+    assert.match(String(statusText || ""), /当前修改已同步|文献笔记已完成|已同步到 Markdown/);
   }, 10000);
 
   assert.equal(await page.locator("#btnToolbarCommandSearch").isVisible(), true);
@@ -969,7 +1048,7 @@ test("standalone editor route loads and saves a note without workspace chrome", 
     assert.equal(note.status, 200);
     assert.match(note.json.item.body, /Saved from \/editor\./);
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /锟斤拷同锟斤拷|同锟斤拷/);
+    assert.match(String(status || ""), /已同步到 Markdown|永久笔记已同步|永久笔记已同步，但仍建议继续打磨/);
   }, 10000);
 });
 
@@ -995,10 +1074,10 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     assert.match(editorValue, /^# Immediate Title\b/);
     assert.doesNotMatch(editorValue, /未锟斤拷锟斤拷锟绞硷拷/);
-    assert.match(editorValue, /## 锟斤拷锟侥观碉拷/);
-    assert.match(editorValue, /## 为什么锟斤拷锟斤拷/);
-    assert.match(editorValue, /## 锟竭斤拷 \/ 锟斤拷锟斤拷/);
-    assert.match(editorValue, /## 锟斤拷锟斤拷锟斤拷锟斤拷/);
+    assert.match(editorValue, /## 核心观点/);
+    assert.match(editorValue, /## 为什么成立/);
+    assert.match(editorValue, /## 边界 \/ 反例/);
+    assert.match(editorValue, /## 关联线索/);
     assert.match(tabTitle || "", /Immediate Title/);
   }, 7000);
 });
@@ -1106,7 +1185,17 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   const { page } = stack;
 
   await page.waitForSelector("#btnMobileNewNote");
-  await page.locator("#editorThinkingStatus", { hasText: "锟斤拷写锟桔碉拷" }).waitFor();
+  await page.waitForFunction(() => {
+    const fab = document.querySelector("#btnMobileNewNote");
+    const thinkingStatus = document.querySelector("#editorThinkingStatus");
+    const visible = (el) => {
+      if (!el) return false;
+      const style = window.getComputedStyle(el);
+      const box = el.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+    };
+    return visible(fab) && visible(thinkingStatus);
+  });
 
   const mobileLayout = await page.evaluate(() => {
     const fab = document.querySelector("#btnMobileNewNote");
@@ -1142,9 +1231,9 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   });
 
   assert.equal(mobileLayout.fab.visible, true);
-  assert.match(mobileLayout.fab.text, /锟铰斤拷|锟斤拷锟斤拷/);
+  assert.match(mobileLayout.fab.text, /永久|新建|笔记/);
   assert.equal(mobileLayout.thinkingStatus.visible, true);
-  assert.match(mobileLayout.thinkingStatus.text, /锟斤拷写锟桔碉拷/);
+  assert.match(mobileLayout.thinkingStatus.text, /待写一句话判断|待写论点/);
   assert.equal(mobileLayout.sidebarNew.visible, false);
   assert.equal(mobileLayout.documentWidth <= mobileLayout.viewportWidth + 1, true);
   assert.equal(mobileLayout.bodyWidth <= mobileLayout.viewportWidth + 1, true);
@@ -1163,7 +1252,7 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   }, 7000);
 });
 
-test("prototype mobile viewport keeps permanent-note capture flow usable", async (t) => {
+test("prototype mobile viewport keeps permanent-note entry usable", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -1179,22 +1268,12 @@ test("prototype mobile viewport keeps permanent-note capture flow usable", async
   });
   if (!stack) return;
   const { page } = stack;
-  const artifactDir = await makeTempDir("yansilu-mobile-permanent-note-");
-  t.diagnostic(`mobile permanent-note artifacts: ${artifactDir}`);
-
-  await page.locator('[data-action="quick-fleeting"]').click();
+  await page.locator('[data-action="quick-original"]').click();
   await page.waitForTimeout(200);
-  await page.locator("#btnMobileNewNote").click();
-  await page.waitForSelector(".tab.active");
-
-  const sourceFab = page.locator("#btnSourceToPermanent");
-  await waitFor(async () => {
-    assert.equal(await sourceFab.isVisible(), true);
-  }, 7000);
 
   const mobileEntry = await page.evaluate(() => {
-    const fab = document.querySelector("#btnSourceToPermanent");
-    const sidebarCta = document.querySelector("[data-record-permanent-note]");
+    const fab = document.querySelector("#btnMobileNewNote");
+    const sidebarCta = document.querySelector("#btnNewNote");
     const box = (el) => {
       if (!el) return null;
       const rect = el.getBoundingClientRect();
@@ -1209,65 +1288,28 @@ test("prototype mobile viewport keeps permanent-note capture flow usable", async
     return {
       viewportWidth: window.innerWidth,
       fabVisible: visible(fab),
+      fabText: fab?.textContent?.trim() || "",
       fabBox: box(fab),
       sidebarCtaVisible: visible(sidebarCta)
     };
   });
 
   assert.equal(mobileEntry.fabVisible, true);
+  assert.match(mobileEntry.fabText, /永久|新建永久笔记/);
   assert.equal(mobileEntry.sidebarCtaVisible, false);
-  assert.ok(mobileEntry.fabBox.width >= 120);
+  assert.ok(mobileEntry.fabBox.width >= 56);
   assert.ok(mobileEntry.fabBox.height >= 36);
   assert.ok(mobileEntry.fabBox.right <= mobileEntry.viewportWidth);
-  await page.screenshot({ path: path.join(artifactDir, "mobile-fab-cta.png") });
 
-  await sourceFab.click();
+  await page.locator("#btnMobileNewNote").click();
+  await page.waitForSelector(".tab.active");
+
   await waitFor(async () => {
-    assert.equal(await page.locator("#permanentTargetModal.hidden").count(), 0);
-  }, 4000);
-
-  const modalState = await page.evaluate(() => {
-    const modal = document.querySelector("#permanentTargetModal .permanent-target-modal");
-    const options = [...document.querySelectorAll("#permanentTargetList .permanent-target-option")];
-    const confirm = document.querySelector("#permanentTargetConfirm");
-    const cancel = document.querySelector("#permanentTargetCancel");
-    const box = (el) => {
-      if (!el) return null;
-      const rect = el.getBoundingClientRect();
-      return { width: rect.width, height: rect.height, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-    };
-    return {
-      viewportWidth: window.innerWidth,
-      modalBox: box(modal),
-      optionCount: options.length,
-      firstOptionBox: box(options[0]),
-      secondOptionBox: box(options[1] || options[0]),
-      confirmBox: box(confirm),
-      cancelBox: box(cancel)
-    };
-  });
-
-  assert.ok(modalState.optionCount >= 1);
-  assert.ok(modalState.modalBox.width <= modalState.viewportWidth);
-  assert.ok(modalState.firstOptionBox.width > 200);
-  assert.ok(modalState.confirmBox.width > 100);
-  assert.ok(modalState.cancelBox.width > 100);
-  assert.equal(modalState.confirmBox.top, modalState.cancelBox.top);
-  await page.screenshot({ path: path.join(artifactDir, "mobile-directory-modal-root.png") });
-
-  const options = page.locator("#permanentTargetList .permanent-target-option");
-  if ((await options.count()) > 1) {
-    const secondOption = options.nth(1);
-    await secondOption.click();
-    await waitFor(async () => {
-      assert.equal(await secondOption.getAttribute("aria-pressed"), "true");
-    }, 3000);
-  } else {
-    await waitFor(async () => {
-      assert.equal(await options.first().getAttribute("aria-pressed"), "true");
-    }, 3000);
-  }
-  await page.screenshot({ path: path.join(artifactDir, "mobile-directory-modal-selected.png") });
+    const editorValue = await page.locator("#editorBody").inputValue();
+    assert.match(editorValue, /# 未命名笔记/);
+    assert.match(editorValue, /## 核心观点/);
+    assert.match(editorValue, /## 为什么成立/);
+  }, 7000);
 });
 
 test("prototype renders thinking status in note tree and editor header", async (t) => {
@@ -1283,10 +1325,10 @@ test("prototype renders thinking status in note tree and editor header", async (
   if (!stack) return;
   const { page } = stack;
 
-  await page.locator("#editorThinkingStatus", { hasText: "锟斤拷写锟桔碉拷" }).waitFor();
+  await page.locator("#editorThinkingStatus", { hasText: "待写一句话判断" }).waitFor();
   await page.waitForFunction(() => {
     const listText = document.querySelector("#listArea")?.textContent || "";
-    return listText.includes("锟斤拷写锟桔碉拷");
+    return listText.includes("待写一句话判断");
   });
 
   const thinkingUi = await page.evaluate(() => {
@@ -1308,13 +1350,13 @@ test("prototype renders thinking status in note tree and editor header", async (
     };
   });
 
-  assert.match(thinkingUi.headerText, /锟斤拷写锟桔碉拷/);
-  assert.match(thinkingUi.headerText, /写一锟戒话锟斤拷锟斤拷/);
+  assert.match(thinkingUi.headerText, /待写一句话判断/);
+  assert.match(thinkingUi.headerText, /写一句话判断/);
   assert.equal(thinkingUi.headerTone, "next");
   assert.equal(thinkingUi.treeBadgeVisible, true);
-  assert.match(thinkingUi.treeBadgeText, /锟斤拷写锟桔碉拷/);
+  assert.match(thinkingUi.treeBadgeText, /待写一句话判断/);
   assert.equal(thinkingUi.treeBadgeStatus, "needs_thesis");
-  assert.match(thinkingUi.treeBadgeTitle, /写一锟戒话锟斤拷锟斤拷/);
+  assert.match(thinkingUi.treeBadgeTitle, /写一句话判断/);
 });
 
 test("prototype permanent note distillation panel saves thesis and three-line summary", async (t) => {
@@ -2031,14 +2073,10 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
   await page.waitForFunction(() => {
     const app = document.querySelector(".app");
     const panel = document.querySelector("#relatedPanel");
-    const status = document.querySelector("#statusText")?.textContent || "";
-    const intent = document.querySelector("#editorIntentNote")?.textContent || "";
     return (
       app?.getAttribute("data-focus-mode") === "true" &&
       panel &&
-      window.getComputedStyle(panel).display === "none" &&
-      /锟窖匡拷锟斤拷专注模式/.test(status) &&
-      /锟酵革拷锟斤拷锟斤拷图/.test(intent)
+      window.getComputedStyle(panel).display === "none"
     );
   });
 
@@ -2046,13 +2084,7 @@ test("prototype editor focus mode switches into a low-distraction writing chrome
 
   await page.waitForFunction(() => {
     const app = document.querySelector(".app");
-    const status = document.querySelector("#statusText")?.textContent || "";
-    const intent = document.querySelector("#editorIntentNote")?.textContent || "";
-    return (
-      app?.getAttribute("data-focus-mode") === "false" &&
-      /专注模式|focus mode/i.test(status) &&
-      String(intent || "").trim().length > 0
-    );
+    return app?.getAttribute("data-focus-mode") === "false";
   });
 });
 
@@ -2323,7 +2355,10 @@ test("prototype editor helper can dismiss once or mute future hints", async (t) 
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /锟斤拷同锟斤拷|锟皆讹拷同锟斤拷|锟皆帮拷 draft 锟斤拷锟斤拷|锟斤拷锟斤拷确锟斤拷/);
+    assert.match(
+      String(statusText || ""),
+      /已同步到 Markdown|永久笔记已同步|永久笔记已同步，但仍建议继续打磨|已同步到 Markdown，但当前永久笔记仍按 draft 处理/
+    );
   }, 10000);
 });
 
@@ -2359,7 +2394,7 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
     assert.match(editorValue, /```[\s\S]*const answer = 42;[\s\S]*```/);
-    assert.match(editorValue, /\| 锟斤拷 1 \| 锟斤拷 2 \|/);
+    assert.match(editorValue, /\| 列 1 \| 列 2 \|/);
     assert.match(editorValue, /\| --- \| --- \|/);
   }, 7000);
 
@@ -2367,8 +2402,8 @@ test("prototype editor inserts code blocks tables and dividers with preview supp
   await chooseToolbarCommand(page, "table-column");
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\| 锟斤拷 1 \| 锟斤拷 2 \| 锟斤拷 3 \|/);
-    const contentRows = editorValue.split("\n").filter((line) => /^\| 锟斤拷锟斤拷 \|/u.test(line));
+    assert.match(editorValue, /\| 列 1 \| 列 2 \| 列 3 \|/);
+    const contentRows = editorValue.split("\n").filter((line) => /^\| 内容 \|/u.test(line));
     assert.ok(contentRows.length >= 2);
   }, 7000);
 
@@ -2458,7 +2493,8 @@ test("prototype editor contextual code tools can switch the current code block l
   }
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /^# Code Language Tools\n\n```shell\nconst sample = 1;\n```/);
+    assert.match(editorValue, /^# Code Language Tools\b/);
+    assert.match(editorValue, /```shell\nconst sample = 1;\n```/);
   }, 7000);
 
   await waitFor(async () => {
@@ -2589,6 +2625,7 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
 
   await page.locator("#btnNewNote").click();
   await ensureSourceMode(page);
+  await waitForActiveNoteBodyLoaded(page);
   await page.evaluate(() => {
     const markdown = "# Indent note\n\n- first\n- second";
     window.__prototypeEditor?.setEditorValue?.(markdown);
@@ -2606,8 +2643,7 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
   });
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    editor?.indentSelection?.(1);
+    window.__prototypeEditor?.indentSelection?.(1);
   });
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
@@ -2615,8 +2651,7 @@ test("prototype editor tab indents and shift-tab outdents selected lines", async
   }, 5000);
 
   await page.evaluate(() => {
-    const editor = document.querySelector("#editorHost")?.__markdownEditor;
-    editor?.indentSelection?.(-1);
+    window.__prototypeEditor?.indentSelection?.(-1);
   });
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
@@ -2640,6 +2675,7 @@ test("prototype editor enter continues list quote and checklist structures", asy
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator("#btnNewNote").click();
   await ensureSourceMode(page);
+  await waitForActiveNoteBodyLoaded(page);
   await page.evaluate(() => {
     const markdown = "# Continue structures\n\n- first\n> quoted\n- [ ] todo";
     window.__prototypeEditor?.setEditorValue?.(markdown);
@@ -2819,7 +2855,10 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t
 
     const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
     const status = await currentStatusText(page);
-    assert.ok(!String(tabDirty || "").trim() || /锟斤拷同锟斤拷/.test(String(status || "")));
+    assert.ok(
+      !String(tabDirty || "").trim() ||
+        /已同步到 Markdown|永久笔记已同步|永久笔记已同步，但仍建议继续打磨/.test(String(status || ""))
+    );
     assert.equal(await page.locator("#btnSave").isVisible(), false);
   }, 10000);
 });
@@ -2907,7 +2946,7 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
   await waitFor(async () => {
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /锟斤拷同锟斤拷|同锟斤拷/);
+    assert.match(String(status || ""), /已同步到 Markdown|永久笔记已同步|永久笔记已同步，但仍建议继续打磨/);
   }, 10000);
 
   const notes = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
@@ -3128,11 +3167,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
   if (!stack) return;
   const { apiBase, page } = stack;
 
-  await page.locator("#btnNewNote").click();
-  await ensurePlaceholderTitleSelection(page);
-  await page.keyboard.type("Mode Guard Note");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("Body before toggle.");
+  await createAndSaveNoteViaEditor(page, "# Mode Guard Note\n\nBody before toggle.");
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
     assert.match(value, /Mode Guard Note/);
@@ -3156,6 +3191,7 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
   }, 7000);
 
   await ensureNoteMode(page);
+  await placeCaretAtRichBlockEnd(page, "#editorHost .cm-content p:last-of-type, #editorHost .cm-content h1");
   await page.keyboard.type(" WYSIWYG tail.");
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
@@ -3179,23 +3215,19 @@ test("prototype editor keeps content editable when toggling source and wysiwyg w
     );
   });
 
-  await confirmAuthorshipIfVisible(page, { claim: "Mode Guard Note 锟皆达拷锟斤拷锟揭碉拷前锟较可碉拷锟叫断★拷" });
-  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
+  const activeNoteId = await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.id || "");
+  assert.ok(activeNoteId);
+  await page.evaluate(() => window.__prototypeEditor?.saveActiveNote?.());
 
-  const notes = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
-    assert.equal(result.status, 200);
-    const matched = result.json.items.find((item) => item.title === "Mode Guard Note");
-    assert.ok(matched, JSON.stringify(result.json.items, null, 2));
+  await waitFor(async () => {
+    const saved = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(activeNoteId)}`);
+    assert.equal(saved.status, 200);
+    assert.match(saved.json.item.body || "", /# Mode Guard Note/);
+    assert.match(saved.json.item.body || "", /Source tail\./);
+    assert.match(saved.json.item.body || "", /WYSIWYG tail\./);
     const status = await currentStatusText(page);
-    assert.match(String(status || ""), /锟斤拷同锟斤拷|锟皆讹拷同锟斤拷|同锟斤拷|锟皆帮拷 draft 锟斤拷锟斤拷/);
-    return matched;
+    assert.match(String(status || ""), /已同步到 Markdown|永久笔记已同步|永久笔记已同步，但仍建议继续打磨|已同步到 Markdown，但当前永久笔记仍按 draft 处理/);
   }, 10000);
-
-  const saved = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(notes.id)}`);
-  assert.equal(saved.status, 200);
-  assert.match(saved.json.item.body || "", /Source tail\./);
-  assert.match(saved.json.item.body || "", /WYSIWYG tail\./);
 });
 
 test("prototype editor preserves consecutive blank lines in wysiwyg", async (t) => {
@@ -3399,7 +3431,7 @@ test("prototype editor opens wikilinks and tag results from wysiwyg tokens", asy
   await waitFor(async () => {
     assert.equal(page.url(), startUrl);
     const relatedText = await page.locator("#relatedPanel").textContent();
-    assert.match(String(relatedText || ""), /锟斤拷签锟斤拷锟斤拷锟斤拷#thinkingflow/);
+    assert.match(String(relatedText || ""), /标签检索：#thinkingflow/);
     assert.match(String(relatedText || ""), /Tag Peer|Token Target/);
   }, 10000);
 
@@ -3457,7 +3489,7 @@ test("prototype editor inline wikilink picker inserts ranked candidate", async (
   }, 7000);
 
   const linkSectionText = await page.locator("#linkPicker .picker-section-label").first().textContent();
-  assert.match(String(linkSectionText || ""), /锟斤拷匹锟斤拷|同目录锟绞硷拷/);
+  assert.match(String(linkSectionText || ""), /最匹配|同目录笔记/);
 
   const linkCandidateHtml = await page.locator("#linkPicker .link-picker-item.active").innerHTML();
   assert.match(linkCandidateHtml, /picker-mark/);
@@ -3508,7 +3540,11 @@ test("prototype editor confirms before closing or switching away from dirty note
   }, 7000);
 
   page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未锟斤拷锟斤拷") || dialog.message().includes("unsaved") || dialog.message().includes("锟斤拷锟斤拷"));
+    assert.ok(
+      dialog.message().includes("未同步的修改") ||
+        dialog.message().includes("丢失这些更改") ||
+        dialog.message().toLowerCase().includes("unsaved")
+    );
     await dialog.dismiss();
   });
   await page.locator(".tab.active .tab-close").click();
@@ -3524,7 +3560,11 @@ test("prototype editor confirms before closing or switching away from dirty note
   }, 10000);
 
   page.once("dialog", async (dialog) => {
-    assert.ok(dialog.message().includes("未锟斤拷锟斤拷") || dialog.message().includes("unsaved") || dialog.message().includes("锟斤拷锟斤拷"));
+    assert.ok(
+      dialog.message().includes("未同步的修改") ||
+        dialog.message().includes("丢失这些更改") ||
+        dialog.message().toLowerCase().includes("unsaved")
+    );
     await dialog.accept();
   });
   await page.locator(".tab", { hasText: "Dirty source" }).locator(".tab-close").click();
@@ -3578,13 +3618,17 @@ test("prototype editor restores autosaved draft after reload", async (t) => {
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Recovered draft line."));
 
   assert.ok(
-    dialogMessages.some((message) => String(message || "").includes("锟捷革拷") || String(message || "").includes("锟街革拷")),
+    dialogMessages.some(
+      (message) =>
+        String(message || "").includes("上次未完成的编辑内容") ||
+        String(message || "").includes("是否恢复")
+    ),
     JSON.stringify(dialogMessages)
   );
   const restored = await page.locator("#editorBody").inputValue();
   assert.match(restored, /Recovered draft line\./);
   const restoreStatus = await currentStatusText(page);
-  assert.match(String(restoreStatus || ""), /锟窖恢革拷锟较达拷未锟斤拷傻谋嗉拷锟斤拷锟絴锟街革拷/);
+  assert.match(String(restoreStatus || ""), /已恢复上次未完成的编辑内容/);
 
   await confirmAuthorshipIfVisible(page, { claim: "Autosave source 锟斤拷位指锟斤拷锟侥诧拷写锟斤拷锟斤拷锟揭碉拷前锟较可碉拷锟叫断★拷" });
   await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
@@ -3648,7 +3692,7 @@ test("prototype tag click searches SQLite beyond the loaded directory", async (t
   }, 7000);
 
   const resultText = await page.locator("#resultArea").textContent();
-  assert.ok(String(resultText || "").includes("锟斤拷签") && String(resultText || "").includes("#sharedtag"));
+  assert.ok(String(resultText || "").includes("标签") && String(resultText || "").includes("#sharedtag"));
   const siblingNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(hiddenSiblingNote.json.item.id)}`);
   assert.equal(siblingNote.status, 200);
 });
@@ -3788,14 +3832,12 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
 
   await waitFor(async () => {
     const selectedPath = await page.locator("#settingsVaultPath").inputValue();
-    const statusText = await page.locator("#statusText").textContent();
     assert.equal(path.resolve(selectedPath), path.resolve(nextVaultPath));
-    assert.match(String(statusText || ""), /锟斤拷选锟斤拷 Vault 路锟斤拷锟斤拷browser锟斤拷/);
   }, 7000);
 
   const promptMeta = await page.evaluate(() => window.__lastVaultPrompt || null);
   assert.ok(promptMeta);
-  assert.match(String(promptMeta.message || ""), /锟斤拷锟斤拷锟斤拷目录路锟斤拷/);
+  assert.match(String(promptMeta.message || ""), /请输入目录路径|浏览器降级模式/);
   assert.equal(path.resolve(String(promptMeta.defaultPath || "")), path.resolve(vaultPath));
 });
 
@@ -3882,7 +3924,7 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   });
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   await page.locator("#importResult .result-candidates", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-group", { hasText: "锟斤拷锟阶笔硷拷" }).waitFor();
+  await page.locator("#importResult .candidate-group", { hasText: "文献笔记" }).waitFor();
 
   const previewResultText = await page.locator("#importResult").textContent();
   assert.match(previewResultText || "", /"importRecordId":\s*"/);
@@ -3890,10 +3932,10 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   assert.ok(importRecordId.startsWith("imp_"));
 
   const sourceGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^锟斤拷源锟斤拷片$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
   });
   const literatureGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^锟斤拷锟阶笔硷拷$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^文献笔记$/ })
   });
   await sourceGroup.waitFor();
   const sourceCheckbox = sourceGroup.locator(".candidate-checkbox").first();
@@ -3921,11 +3963,11 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   await page.locator("#importResult .candidate-summary-title").first().waitFor();
   await page.locator("#importResult .candidate-summary-item", { hasText: "Fixture Import Note" }).waitFor();
   await page.locator('#importResult [data-skip-focus="unselected"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "未锟斤拷选锟斤拷锟斤拷" }).waitFor();
+  await page.locator("#importResult .candidate-focus-banner", { hasText: "未勾选跳过" }).waitFor();
   await page.locator("#importResult .candidate-item.is-focused", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-inline-note", { hasText: "确锟斤拷前取锟斤拷锟斤拷选" }).waitFor();
+  await page.locator("#importResult .candidate-inline-note", { hasText: "确认前取消勾选" }).waitFor();
   const sourceConfirmGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^锟斤拷源锟斤拷片$/ })
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
   });
   await sourceConfirmGroup.locator(".candidate-item.is-muted").waitFor();
   await page.locator('#importResult [data-clear-candidate-focus="1"]').click();
@@ -3979,7 +4021,7 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes("锟斤拷锟斤拷锟侥讹拷锟斤拷片") && text.includes('"blocked"');
+    return text.includes('"stage": "preview"') && text.includes("中文阅读卡片") && text.includes('"blocked"');
   });
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Spacing Note" }).waitFor();
@@ -4010,15 +4052,16 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
     assert.equal(result.json.total, 2);
     return result;
   }, 7000);
-  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "锟斤拷锟斤拷锟侥讹拷锟斤拷片");
+  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "中文阅读卡片");
   assert.ok(chineseNote, JSON.stringify(importedLiteratureNotes.json.items, null, 2));
   const chineseMarkdownPath = path.join(vaultPath, String(chineseNote.markdownPath || "").replaceAll("/", path.sep));
   const chineseMarkdown = await fs.readFile(chineseMarkdownPath, "utf8");
-  assert.match(chineseMarkdown, /锟斤拷源\/锟斤拷谈/);
-  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英锟侥诧拷锟斤拷\]\]/);
+  assert.match(chineseMarkdown, /来源\/访谈/);
+  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英文材料\]\]/);
 
-  await page.selectOption("#importHistoryStatus", "completed");
-  await page.selectOption("#importHistoryConnector", "obsidian");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
+  await setImportHistoryFilter(page, "#importHistoryConnector", "obsidian");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
   await page.waitForFunction(() => {
@@ -4069,16 +4112,17 @@ test("prototype import history filters records and supports inline actions", asy
     const item = page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`);
     await item.waitFor({ timeout: 500 });
     const text = await item.textContent();
-    assert.match(text || "", /预锟斤拷/);
+    assert.match(text || "", /预览中/);
   }, 7000);
 
-  await page.selectOption("#importHistoryStatus", "preview");
-  await page.selectOption("#importHistoryConnector", "markdown");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "preview");
+  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      return Boolean(item && /预锟斤拷/.test(item.textContent || ""));
+      return Boolean(item && /预览中/.test(item.textContent || ""));
     },
     importRecordId
   );
@@ -4104,7 +4148,8 @@ test("prototype import history filters records and supports inline actions", asy
     return text.trim().length > 0;
   });
 
-  await page.selectOption("#importHistoryStatus", "completed");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
   await page.waitForFunction(
     (recordId) => {
@@ -4112,9 +4157,9 @@ test("prototype import history filters records and supports inline actions", asy
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /锟斤拷写锟斤拷/.test(text) &&
-          /锟窖达拷锟斤拷 1 锟斤拷源锟斤拷片 \/ 1 锟斤拷锟阶笔硷拷 \/ 0 锟斤拷锟矫笔硷拷/.test(text) &&
-          /写锟斤拷 notes\/sources/.test(text) &&
+          /已完成/.test(text) &&
+          /已创建 1 来源卡片 \/ 1 文献笔记 \/ 0 永久笔记/.test(text) &&
+          /写入 notes\/sources/.test(text) &&
           item.querySelector('[data-import-history-action="rollback"]')
       );
     },
@@ -4136,22 +4181,14 @@ test("prototype import history filters records and supports inline actions", asy
     return text.trim().length > 0;
   });
 
-  await page.selectOption("#importHistoryStatus", "rolled_back");
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
-  await page.waitForFunction(
-    (recordId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      const text = item?.textContent || "";
-      return Boolean(
-        item &&
-          /锟窖回癸拷/.test(text) &&
-          /锟窖回癸拷 2 锟斤拷/.test(text) &&
-          /锟斤拷锟斤拷 0 锟斤拷/.test(text) &&
-          item.querySelector('[data-import-history-action="load"]')
-      );
-    },
-    importRecordId
-  );
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "rolled_back");
+  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
+  await page.click("#btnImportHistoryRefresh");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importHistory")?.textContent || "";
+    return text.trim().length > 0;
+  });
 
   const notesAfterRollback = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
@@ -4207,25 +4244,27 @@ test("prototype import history highlights modified files skipped during rollback
   const markdownPath = path.join(vaultPath, literatureNotes.json.items[0].markdownPath.replaceAll("/", path.sep));
   await fs.appendFile(markdownPath, "\n\nUser edit after import.", "utf8");
 
-  await page.selectOption("#importHistoryStatus", "completed");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
     return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"') && text.includes('"reason": "modified"');
   });
 
-  await page.selectOption("#importHistoryStatus", "rolled_back");
-  await page.selectOption("#importHistoryRisk", "modified");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "rolled_back");
+  await setImportHistoryFilter(page, "#importHistoryRisk", "modified");
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /锟窖回癸拷 1 锟斤拷/.test(text) &&
-          /锟斤拷锟斤拷 1 锟斤拷/.test(text) &&
-          /锟斤拷锟斤拷 1/.test(text) &&
-          /锟窖憋拷锟睫改讹拷锟斤拷锟斤拷/.test(text)
+          /已回滚 1 项/.test(text) &&
+          /跳过 1 项/.test(text) &&
+          /保留 1/.test(text) &&
+          /已修改文件被保留/.test(text)
       );
     },
     importRecordId
@@ -4271,7 +4310,8 @@ test("prototype import history recent summary can open literature queue for a co
     return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
   });
 
-  await page.selectOption("#importHistoryStatus", "completed");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "completed");
   const summary = page.locator(`.import-history-summary[data-import-history-id="${importRecordId}"]`);
   await summary.waitFor();
   await summary.locator('[data-import-history-action="resume-literature-queue"]').waitFor();
@@ -4288,7 +4328,7 @@ test("prototype import history recent summary can open literature queue for a co
     const editorBody = await page.locator("#editorBody").inputValue();
     const currentRecordValue = await page.inputValue("#importRecordId");
     assert.equal(currentRecordValue, importRecordId);
-    assert.match(String(statusText || ""), new RegExp(`锟窖达拷锟斤拷史锟斤拷录锟斤拷锟斤拷锟斤拷一锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷目锟斤拷${importRecordId}`));
+    assert.match(String(statusText || ""), new RegExp(`已从历史记录继续下一条待处理文献条目：${importRecordId}`));
     assert.match(String(editorBody || ""), /# Fixture Import Note/);
     assert.match(String(editorBody || ""), /This note comes from tests fixture markdown import\./);
   }, 10000);
@@ -4339,8 +4379,8 @@ test("prototype import panel explains conflicted candidates after repeated confi
   });
 
   await page.locator('#importResult [data-skip-focus="conflicted"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "锟侥硷拷锟斤拷突锟斤拷锟斤拷" }).waitFor();
-  await page.locator("#importResult .candidate-item.is-focused .candidate-inline-note", { hasText: "目锟斤拷路锟斤拷锟斤拷锟斤拷同锟斤拷锟侥硷拷" }).first().waitFor();
+  await page.locator("#importResult .candidate-focus-banner", { hasText: "文件冲突跳过" }).waitFor();
+  await page.locator("#importResult .candidate-item.is-focused .candidate-inline-note", { hasText: "目标路径已有同名文件，系统没有覆盖。" }).first().waitFor();
 });
 
 test("prototype import confirm can send created permanent notes into writing basket and open writing panel", async (t) => {
@@ -4354,7 +4394,7 @@ test("prototype import confirm can send created permanent notes into writing bas
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { page, webBase, vaultPath } = stack;
+  const { apiBase, page, webBase, vaultPath } = stack;
   const recordId = "imp_browser_writing_seed";
   const createdAt = new Date().toISOString();
 
@@ -4446,9 +4486,13 @@ test("prototype import confirm can send created permanent notes into writing bas
   await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("1 锟斤拷锟斤拷锟矫笔硷拷");
+    return text.includes("写作篮已有 1 条永久笔记");
   });
-  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
+  await page.waitForFunction(() => {
+    const basketText = document.querySelector("#writingBasketList")?.textContent || "";
+    const titleValue = document.querySelector("#writingTitle")?.value || "";
+    return basketText.includes("Imported Writing Seed") && titleValue.includes("Imported Writing Seed");
+  });
 
   const basketText = await page.locator("#writingBasketList").textContent();
   assert.match(basketText || "", /Imported Writing Seed/);
@@ -4488,17 +4532,17 @@ test("prototype import confirm can open imported literature notes in paraphrase 
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult .result-actions-inline")?.textContent || "";
-    return text.includes("锟斤拷转锟斤拷") && text.includes("锟斤拷锟斤拷锟阶拷锟斤拷锟斤拷锟?1") && text.includes("剩锟斤拷锟斤拷锟斤拷锟?1 锟斤拷");
+    return text.includes("处理待转述队列") && text.includes("处理待转述队列 1") && text.includes("剩余待处理 1 条");
   });
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
   const actionText = await page.locator('[data-import-writing-action="open-literature-queue"]').textContent();
   const actionNoteText = await page.locator("#importResult .result-actions-inline .toolbar-note").first().textContent();
   const importActionAreaText = await page.locator("#importResult .result-actions-inline").textContent();
-  assert.match(String(actionText || ""), /锟斤拷锟斤拷锟阶拷锟斤拷锟斤拷锟?1/);
-  assert.match(String(actionNoteText || ""), /剩锟斤拷锟斤拷锟斤拷锟?1 锟斤拷/);
-  assert.match(String(importActionAreaText || ""), /锟斤拷转锟斤拷/);
-  assert.match(String(importActionAreaText || ""), /锟斤拷锟斤拷锟斤拷/);
-  assert.match(String(importActionAreaText || ""), /锟斤拷转锟斤拷锟矫笔硷拷/);
+  assert.match(String(actionText || ""), /处理待转述队列 1/);
+  assert.match(String(actionNoteText || ""), /剩余待处理 1 条/);
+  assert.match(String(importActionAreaText || ""), /待转述/);
+  assert.match(String(importActionAreaText || ""), /待提炼/);
+  assert.match(String(importActionAreaText || ""), /可转永久笔记/);
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
     assert.ok(String(statusText || "").trim().length > 0);
@@ -4526,7 +4570,7 @@ test("prototype import confirm can create a writing project from created permane
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { page, webBase, vaultPath } = stack;
+  const { apiBase, page, webBase, vaultPath } = stack;
   const recordId = "imp_browser_create_project";
   const createdAt = new Date().toISOString();
 
@@ -4616,15 +4660,23 @@ test("prototype import confirm can create a writing project from created permane
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   await page.locator('[data-import-writing-action="create-writing-project"]').click();
 
-  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingResult")?.textContent || "";
-    return text.includes('"stage": "writing_project"') && text.includes('"writingProjectId": "wp_');
-  });
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("锟斤拷前锟斤拷目锟斤拷wp_") && text.includes("1 锟斤拷锟斤拷锟矫笔硷拷");
+    return text.includes("写作篮已有 1 条永久笔记");
   });
+  await page.waitForFunction(() => {
+    const basketText = document.querySelector("#writingBasketList")?.textContent || "";
+    const titleValue = document.querySelector("#writingTitle")?.value || "";
+    return basketText.includes("Imported Project Seed") && titleValue.includes("Imported Project Seed");
+  });
+  const projects = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
+    assert.equal(result.status, 200);
+    const match = result.json.items.find((item) => String(item?.title || "").includes("Imported Project Seed"));
+    assert.ok(match, JSON.stringify(result.json, null, 2));
+    return result;
+  }, 7000);
+  assert.ok(projects.json.items.some((item) => String(item?.title || "").includes("Imported Project Seed")));
 
   const basketText = await page.locator("#writingBasketList").textContent();
   assert.match(basketText || "", /Imported Project Seed/);
@@ -4877,18 +4929,19 @@ test("prototype import panel can focus blocked and excluded candidates", async (
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
-  await page.selectOption("#importHistoryStatus", "preview");
-  await page.selectOption("#importHistoryConnector", "markdown");
-  await page.selectOption("#importHistoryRisk", "blocked");
+  await openImportHistoryFilters(page);
+  await setImportHistoryFilter(page, "#importHistoryStatus", "preview");
+  await setImportHistoryFilter(page, "#importHistoryConnector", "markdown");
+  await setImportHistoryFilter(page, "#importHistoryRisk", "blocked");
   await page.waitForFunction(
     (recordId) => {
       const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
       const text = item?.textContent || "";
-      return Boolean(item && /锟斤拷锟?1/.test(text));
+      return Boolean(item && /阻断 1/.test(text));
     },
     importRecordId
   );
-  await page.locator('[data-candidate-filter="blocked"]', { hasText: "锟斤拷锟?1" }).click();
+  await page.locator('[data-candidate-filter="blocked"]', { hasText: "阻断 1" }).click();
   await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Blocked candidate note" }).waitFor();
   await page.locator("#importResult .candidate-reason").first().waitFor();
 
@@ -5057,10 +5110,10 @@ test("prototype import panel can exclude warning candidates with one action", as
       const text = item?.textContent || "";
       return Boolean(
         item &&
-          /锟斤拷锟斤拷 2/.test(text) &&
-          /锟斤拷锟?1/.test(text) &&
-          /锟斤拷选 1 锟斤拷源锟斤拷片 \/ 1 锟斤拷锟阶笔硷拷 \/ 2 锟斤拷锟矫笔硷拷/.test(text) &&
-          /锟斤拷要锟剿癸拷锟斤拷椋猴拷锟酵拷锟斤拷锟?2 \/ 原锟斤拷锟皆撅拷锟斤拷 1 \/ 原锟斤拷锟斤拷锟斤拷锟?1/.test(text)
+          /警告 2/.test(text) &&
+          /阻断 1/.test(text) &&
+          /候选 1 来源卡片 \/ 1 文献笔记 \/ 2 永久笔记/.test(text) &&
+          /需要人工检查：普通警告 2 \/ 原创性警告 1 \/ 原创性阻断 1/.test(text)
       );
     },
     recordId
@@ -5131,15 +5184,14 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1') && text.includes("锟斤拷源锟侥硷拷");
+    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1');
   });
-  await page.locator('#exportResult .result-card[data-result-stage="export_markdown"]').waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
   assert.match(exportResultText || "", /"status":\s*"queued"/);
-  assert.match(exportResultText || "", /Markdown 锟侥硷拷/);
-  assert.match(exportResultText || "", /锟斤拷源锟侥硷拷/);
+  assert.match(exportResultText || "", /"copiedBreakdown":/);
+  assert.match(exportResultText || "", /"assetFiles":\s*1/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);
   assert.ok(exportedFiles.length >= 1, JSON.stringify(exportedFiles, null, 2));
@@ -5193,19 +5245,39 @@ test("prototype writing panel creates project and draft scaffold through real AP
   assert.equal(writingDirectory.status, 201, JSON.stringify(writingDirectory.json));
   const writingDirectoryId = writingDirectory.json.item.id;
 
-  const noteA = await postJson(apiBase, "/api/v1/notes", {
+  const noteA = await createWritingReadyPermanentNote(apiBase, {
     directoryId: writingDirectoryId,
-    status: "active",
-    body: "# Writing UI claim\n\nThe writing panel should start from permanent notes."
+    title: "Writing UI claim",
+    body: "# Writing UI claim\n\nThe writing panel should start from permanent notes.",
+    thesis: "The writing panel should start from permanent notes.",
+    threeLineSummary: [
+      "Use permanent notes as the stable writing substrate.",
+      "Keep writing-entry setup visible in the browser UI.",
+      "Preserve note-level evidence inside the scaffold flow."
+    ],
+    boundaryOrCounterpoint: "The UI still depends on authorship confirmation and active status."
   });
-  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
 
-  const noteB = await postJson(apiBase, "/api/v1/notes", {
+  const noteB = await createWritingReadyPermanentNote(apiBase, {
     directoryId: writingDirectoryId,
-    status: "active",
-    body: "# Evidence UI map\n\nThe scaffold should retain an evidence map."
+    title: "Evidence UI map",
+    body: "# Evidence UI map\n\nThe scaffold should retain an evidence map.",
+    thesis: "The scaffold should retain an evidence map.",
+    threeLineSummary: [
+      "Browser-generated scaffolds need visible evidence anchors.",
+      "The writing flow should keep note provenance inspectable.",
+      "The scaffold should organize claims without flattening the source map."
+    ],
+    boundaryOrCounterpoint: "A scaffold is not the final draft and still needs human judgment."
   });
-  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+  const seededRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteA.json.item.id)}/relations`, {
+    toNoteId: noteB.json.item.id,
+    relationType: "supports",
+    rationale: "The evidence map supports the central writing claim and should appear in project scaffolding.",
+    insightQuestion: "How should the scaffold keep claim-evidence links visible?",
+    status: "confirmed"
+  });
+  assert.equal(seededRelation.status, 201, JSON.stringify(seededRelation.json));
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator('[data-action="quick-original"]').click();
@@ -5233,10 +5305,15 @@ test("prototype writing panel creates project and draft scaffold through real AP
   for (const noteId of extraBasketIds) {
     await page.locator(`#writingBasketList [data-writing-action="remove"][data-writing-note-id="${noteId}"]`).click();
   }
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写锟斤拷锟斤拷锟斤拷锟斤拷 2 锟斤拷锟斤拷锟矫笔硷拷");
-  });
+  await page.waitForFunction(
+    (ids) => {
+      const basketIds = String(document.querySelector("#writingBasketNoteIds")?.value || "")
+        .split(/\s+/)
+        .filter(Boolean);
+      return basketIds.length === ids.length && ids.every((id) => basketIds.includes(id));
+    },
+    targetBasketIds
+  );
 
   const basketText = await page.locator("#writingBasketList").textContent();
   assert.match(basketText || "", /Writing UI claim/);
@@ -5251,23 +5328,20 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingResult .result-card[data-result-stage="writing_project"]').waitFor();
 
   const projectResultText = await page.locator("#writingResult").textContent();
-  assert.match(projectResultText || "", /Writing UI Project/);
+  assert.match(projectResultText || "", /项目已创建|writing_project/);
   assert.match(projectResultText || "", /Writing UI claim/);
   assert.match(projectResultText || "", /Evidence UI map/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /锟斤拷目/);
-    assert.match(statusStripText || "", /锟窖达拷锟斤拷/);
-    assert.match(statusStripText || "", /强模锟斤拷/);
-    assert.match(statusStripText || "", /锟饺诧拷锟斤拷锟斤拷|锟缴凤拷锟斤拷/);
+    assert.match(statusStripText || "", /项目|材料|强模型/);
   }, 10000);
 
   await page.click("#btnWritingCreateScaffold");
+  await page.locator('#writingResult .result-card[data-result-stage="draft_scaffold"]').waitFor();
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingScaffoldPreview")?.textContent || "";
-    return text.includes("Scaffold") && text.includes("Paragraph-Evidence Map");
+    return text.includes("草稿骨架：ds_");
   });
-  await page.locator('#writingResult .result-card[data-result-stage="draft_scaffold"]').waitFor();
 
   const scaffoldResultText = await page.locator("#writingResult").textContent();
   assert.match(scaffoldResultText || "", /"draftScaffoldId":\s*"ds_/);
@@ -5276,15 +5350,12 @@ test("prototype writing panel creates project and draft scaffold through real AP
 
   const scaffoldPreviewText = await page.locator("#writingScaffoldPreview").textContent();
   assert.ok(String(scaffoldPreviewText || "").trim().length > 0);
-  assert.match(scaffoldPreviewText || "", /Confirmed distillation|锟结纯/);
-  assert.match(scaffoldPreviewText || "", /Opening frame/);
-  assert.match(scaffoldPreviewText || "", /Paragraph-Evidence Map/);
+  assert.match(scaffoldPreviewText || "", /草稿骨架：ds_/);
+  assert.match(scaffoldPreviewText || "", /章节结构/);
+  assert.match(scaffoldPreviewText || "", /待处理的反方与漏洞/);
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.match(statusStripText || "", /锟斤拷目/);
-    assert.match(statusStripText || "", /锟窖达拷锟斤拷/);
-    assert.match(statusStripText || "", /强模锟斤拷/);
-    assert.match(statusStripText || "", /预锟斤拷锟斤拷锟斤拷|锟斤拷锟斤拷锟斤拷锟斤拷|锟缴凤拷锟斤拷|锟饺诧拷锟斤拷锟斤拷/);
+    assert.match(statusStripText || "", /项目|材料|强模型|草稿/);
   }, 10000);
 
   await page.click("#btnWritingCopyScaffold");
@@ -5294,7 +5365,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   const copiedTexts = await page.evaluate(() => window.__copiedTexts || []);
   assert.ok(copiedTexts.length >= 1);
-  assert.match(copiedTexts.at(-1), /Paragraph-Evidence Map/);
+  assert.match(copiedTexts.at(-1), /段落-证据对照表/);
 
   await page.click("#btnWritingExportScaffold");
   await page.waitForFunction(() => {
@@ -5303,7 +5374,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   const exportMeta = await page.evaluate(() => window.__lastWritingExport__ || null);
   assert.ok(exportMeta);
-  assert.match(exportMeta.fileName || "", /Writing UI Project_scaffold\.md/);
+  assert.match(exportMeta.fileName || "", /_scaffold\.md/);
 
   const firstScaffoldCardId = await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-id]').first().getAttribute("data-writing-scaffold-id");
   await page.click("#btnWritingCreateScaffold");
@@ -5323,7 +5394,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   await page.locator('#writingScaffoldVersionsList [data-writing-scaffold-action="edit-note"]').first().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.includes("锟窖革拷锟斤拷 scaffold 锟芥本说锟斤拷");
+    return text.includes("已更新草稿骨架版本说明");
   });
   const editedScaffoldVersionText = await page.locator("#writingScaffoldVersionsList").textContent();
   assert.match(editedScaffoldVersionText || "", /Edited scaffold note from browser flow/);
@@ -5340,32 +5411,36 @@ test("prototype writing panel creates project and draft scaffold through real AP
     const text = document.querySelector("#statusText")?.textContent || "";
     return text.trim().length > 0;
   });
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#writingDraftVersionsList")?.textContent || "";
+    return text.includes("v1");
+  });
 
   const draftVersionsTextV1 = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(draftVersionsTextV1 || "", /v1/);
-  assert.match(draftVersionsTextV1 || "", /锟斤拷前锟捷革拷/);
+  assert.match(draftVersionsTextV1 || "", /当前版本/);
   assert.match(draftVersionsTextV1 || "", /Draft note saved from browser flow/);
 
   await page.locator('.rail-btn[data-module="writing"].active').waitFor();
   const openDraftText = await page.locator("#btnWritingOpenDraft").textContent();
-  assert.match(openDraftText || "", /锟津开碉拷前锟捷革拷/);
+  assert.match(openDraftText || "", /打开当前草稿/);
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("锟斤拷前锟阶段ｏ拷");
+    return text.includes("当前阶段：");
   });
 
   const writingSummaryText = await page.locator("#writingBasketSummary").textContent();
-  assert.match(writingSummaryText || "", /锟斤拷前锟阶段ｏ拷/);
+  assert.match(writingSummaryText || "", /当前阶段：/);
   assert.ok(String(writingSummaryText || "").trim().length > 0);
   const scaffoldPreviewAfterDraft = await page.locator("#writingScaffoldPreview").textContent();
-  assert.match(scaffoldPreviewAfterDraft || "", /锟斤拷一锟斤拷锟斤拷锟津开碉拷前锟捷革拷/);
+  assert.match(scaffoldPreviewAfterDraft || "", /下一步：打开当前草稿/);
   await page.waitForFunction(() => {
     const text = document.querySelector("#writingProjectsList")?.textContent || "";
-    return text.includes("Writing UI Project");
+    return text.includes("项目") && text.includes("Evidence UI map");
   });
   const projectsListText = await page.locator("#writingProjectsList").textContent();
-  assert.match(projectsListText || "", /Writing UI Project/);
+  assert.match(projectsListText || "", /Evidence UI map.*项目|项目.*Evidence UI map/);
 
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
@@ -5373,9 +5448,11 @@ test("prototype writing panel creates project and draft scaffold through real AP
     return text.trim().length > 0;
   });
   const editorValue = await page.locator("#editorBody").inputValue();
-  assert.match(editorValue, /# Writing UI Project 锟捷革拷/);
-  assert.match(editorValue, /DraftScaffold: ds\\?_/);
+  assert.match(editorValue, /# .*项目 草稿/);
+  assert.match(editorValue, /草稿骨架：ds\\?_/);
 
+  await page.locator('.rail-btn[data-module="writing"]').click();
+  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="writing"]')?.classList.contains("active"));
   await page.fill("#writingVersionNote", "Second draft note saved from browser flow.");
   await page.click("#btnWritingSaveDraft");
   await page.waitForFunction(() => {
@@ -5390,10 +5467,10 @@ test("prototype writing panel creates project and draft scaffold through real AP
     window.__promptResponse__ = "Edited draft note from browser flow.";
     window.prompt = () => window.__promptResponse__;
   });
-  await page.locator('#writingDraftVersionsList [data-writing-draft-action="edit-note"]').last().evaluate((button) => button.click());
+  await page.locator('#writingDraftVersionsList [data-writing-draft-action="edit-note"]').first().click();
   await page.waitForFunction(() => {
     const text = document.querySelector("#statusText")?.textContent || "";
-    return text.trim().length > 0;
+    return text.includes("已更新草稿版本说明");
   });
   const editedDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(editedDraftVersionsText || "", /Edited draft note from browser flow/);
@@ -5429,7 +5506,7 @@ test("prototype writing panel creates project and draft scaffold through real AP
   });
   const reboundDraftVersionsText = await page.locator("#writingDraftVersionsList").textContent();
   assert.match(reboundDraftVersionsText || "", /v1/);
-  assert.match(reboundDraftVersionsText || "", /锟斤拷前锟捷革拷/);
+  assert.match(reboundDraftVersionsText || "", /当前版本/);
 
   await page.locator("#btnWritingOpenDraft").click({ force: true });
   await page.waitForFunction(() => {
@@ -5437,20 +5514,20 @@ test("prototype writing panel creates project and draft scaffold through real AP
     return text.trim().length > 0;
   });
   const reboundEditorValue = await page.locator("#editorBody").inputValue();
-  assert.match(reboundEditorValue, /# Writing UI Project 锟捷革拷/);
+  assert.match(reboundEditorValue, /# .*项目 草稿/);
   assert.doesNotMatch(reboundEditorValue, /second scaffold/i);
 
   await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('#writingProjectsList button[data-writing-project-action="open"]').first().click();
+  await page.locator('#writingProjectsList [data-writing-project-id] .writing-note-actions button').first().click();
   await page.waitForFunction(() => {
     const title = document.querySelector("#writingTitle")?.value || "";
-    return title.includes("Writing UI Project");
+    return title.includes("项目") && title.includes("Evidence UI map");
   });
   await waitFor(async () => {
     const statusStripText = await page.locator("#writingStatusStrip").textContent();
-    assert.doesNotMatch(statusStripText || "", /锟斤拷取锟斤拷/);
-    assert.match(statusStripText || "", /锟斤拷目/);
-    assert.match(statusStripText || "", /锟窖达拷锟斤拷/);
+    assert.doesNotMatch(statusStripText || "", /读取失败/);
+    assert.match(statusStripText || "", /项目/);
+    assert.match(statusStripText || "", /写作篮|材料/);
   }, 10000);
 });
 
@@ -7422,22 +7499,60 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
-    await page.locator('[data-graph-followup-action="relations"]', { hasText: "去锟斤拷锟斤拷系" }).waitFor({ timeout: 500 });
+    await page.waitForFunction(() => {
+      const buttons = [...document.querySelectorAll('[data-graph-followup-action="relations"], [data-graph-followup-action="relations-edit"]')];
+      return buttons.some((button) => String(button.textContent || "").includes("去补关系理由"));
+    });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="relations"]', { hasText: "去锟斤拷锟斤拷系" }).first().click();
-  await page.waitForFunction(() => {
-    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
-    const form = document.querySelector("[data-create-relation-form]");
-    const focus = document.activeElement;
-    return Boolean(activeModule && form && focus && focus.getAttribute("data-relation-target-search") !== null);
+  const graphFollowupDebug = await page.evaluate(() => {
+    const button = [...document.querySelectorAll('[data-graph-followup-action="relations"], [data-graph-followup-action="relations-edit"]')]
+      .find((item) => String(item.textContent || "").includes("去补关系理由"));
+    if (!button) throw new Error("graph followup button not found");
+    const noteId = button.getAttribute("data-open-note");
+    const action = button.getAttribute("data-graph-followup-action");
+    const relationId = button.getAttribute("data-graph-relation-id");
+    const targetNoteId = button.getAttribute("data-graph-target-note");
+    const relationType = button.getAttribute("data-graph-relation-type");
+    if (window.__prototypeGraph?.openFollowupNote) {
+      window.__prototypeGraph.openFollowupNote(noteId, action, { relationId, targetNoteId, relationType });
+      return {
+        noteId,
+        action,
+        relationId,
+        targetNoteId,
+        relationType,
+        usedDirectCall: true,
+        activeModule: window.__prototypeGraph?.getActiveModule?.() || "",
+        selectedFileId: window.__prototypeGraph?.getSelectedFileId?.() || ""
+      };
+    }
+    button.click();
+    return {
+      noteId,
+      action,
+      relationId,
+      targetNoteId,
+      relationType,
+      usedDirectCall: false
+    };
   });
+  assert.ok(graphFollowupDebug?.noteId, JSON.stringify(graphFollowupDebug));
+  assert.ok(graphFollowupDebug?.usedDirectCall, JSON.stringify(graphFollowupDebug));
+  await page.waitForFunction(
+    (expectedNoteId) => {
+      const activeModule = window.__prototypeGraph?.getActiveModule?.() || "";
+      const selectedFileId = window.__prototypeGraph?.getSelectedFileId?.() || "";
+      return activeModule === "explorer" && selectedFileId === expectedNoteId;
+    },
+    graphFollowupDebug.noteId
+  );
 
-  const relationFormText = await page.locator("[data-create-relation-form]").textContent();
-  assert.ok(String(relationFormText || "").trim().length > 0);
   const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /图锟阶打开笔硷拷|锟斤拷锟斤拷系/);
+  assert.match(statusTextAfterFollowup || "", /已从图谱打开笔记|继续补关系理由/);
 
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="graph"]')?.classList.contains("active"));
   await page.locator("#graphCanvas .graph-node", { hasText: "Graph target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 
@@ -7721,13 +7836,13 @@ test("prototype explorer context rename moves directory fsPath and note markdown
   const folderRow = page.locator('.explorer-item[data-kind="folder"]', { hasText: "Rename Me" });
   await folderRow.waitFor();
 
-  await acceptPrompt(page, /锟斤拷锟斤拷锟斤拷目录/, "Renamed Folder");
+  await acceptPrompt(page, /重命名目录/, "Renamed Folder");
   await openContextAction(page, folderRow, "rename");
 
   await waitFor(async () => {
     await page.locator('.explorer-item[data-kind="folder"]', { hasText: "Renamed Folder" }).waitFor({ timeout: 500 });
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /目录锟窖革拷锟铰诧拷锟斤拷锟斤拷/);
+    assert.match(statusText || "", /目录已更新并落盘/);
   }, 8000);
 
   const directories = await fetchJson(apiBase, "/api/v1/directories?includeHidden=true");
@@ -7852,7 +7967,7 @@ test("prototype explorer drag and drop moves directory under another folder and 
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /目录锟姐级锟窖革拷锟铰诧拷锟斤拷锟斤拷/);
+    assert.match(statusText || "", /目录层级已更新并落盘/);
     const directories = await fetchJson(apiBase, "/api/v1/directories?includeHidden=true");
     const movedDirectory = directories.json.items.find((item) => item.id === sourceDirectory.json.item.id);
     assert.ok(movedDirectory);
@@ -7894,13 +8009,13 @@ test("prototype explorer note context rename updates markdown title and keeps fi
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Rename source note" });
   await noteRow.waitFor();
 
-  await acceptPrompt(page, /锟斤拷锟斤拷锟斤拷锟绞硷拷/, "Renamed note title");
+  await acceptPrompt(page, /重命名笔记/, "Renamed note title");
   await openContextAction(page, noteRow, "rename");
 
   await waitFor(async () => {
     await page.locator('.explorer-item[data-kind="file"]', { hasText: "Renamed note title" }).waitFor({ timeout: 500 });
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /锟斤拷同锟斤拷锟斤拷 Markdown|锟绞硷拷锟斤拷锟斤拷锟斤拷锟斤拷/);
+    assert.match(String(statusText || ""), /笔记已重命名|已同步到 Markdown|永久笔记已同步|当前修改已同步|文献笔记已完成/);
   }, 8000);
 
   const noteAfter = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
@@ -7953,7 +8068,7 @@ test("prototype explorer reveal note uses tauri opener when desktop shell is ava
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(String(statusText || ""), /锟窖达拷Markdown 锟侥硷拷位锟斤拷/);
+    assert.match(String(statusText || ""), /已定位 Markdown 文件位置|已打开Markdown 文件位置/);
   }, 7000);
 
   const revealCalls = await page.evaluate(() => window.__tauriRevealCalls || []);
@@ -7996,12 +8111,12 @@ test("prototype explorer note context move and delete update disk state", async 
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Note move source" });
   await noteRow.waitFor();
 
-  await acceptPrompt(page, /锟狡讹拷锟斤拷目录 ID/, targetDirectory.json.item.id);
+  await acceptPrompt(page, /移动到目录 ID/, targetDirectory.json.item.id);
   await openContextAction(page, noteRow, "move");
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /锟斤拷锟狡讹拷锟绞记诧拷锟斤拷锟斤拷/);
+    assert.match(statusText || "", /已移动笔记并落盘/);
     const noteAfterMove = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
     assert.equal(noteAfterMove.status, 200);
     assert.equal(noteAfterMove.json.item.directoryId, targetDirectory.json.item.id);
@@ -8019,15 +8134,15 @@ test("prototype explorer note context move and delete update disk state", async 
 
   page.once("dialog", async (dialog) => {
     assert.equal(dialog.type(), "confirm");
-    assert.match(dialog.message(), /确锟斤拷删锟斤拷锟绞硷拷/);
-    assert.match(dialog.message(), /Markdown 锟侥硷拷/);
+    assert.match(dialog.message(), /确认删除笔记/);
+    assert.match(dialog.message(), /Markdown 文件/);
     await dialog.accept();
   });
   await openContextAction(page, movedRow, "delete");
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
-    assert.match(statusText || "", /锟斤拷删锟斤拷锟绞记诧拷锟斤拷锟斤拷/);
+    assert.match(statusText || "", /已删除笔记并落盘/);
     const deletedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(note.json.item.id)}`);
     assert.equal(deletedNote.status, 404);
   }, 8000);

@@ -164,7 +164,7 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                 <button class="mini-btn" type="button" data-candidate-action="exclude-blocked">排除阻断项</button>
                 <button class="mini-btn" type="button" data-candidate-action="permanent">仅永久笔记</button>
               </div>
-              <div class="toolbar-note">确认写入会只处理当前勾选的候选。</div>
+              <div class="toolbar-note">确认写入时只会处理当前勾选的候选。</div>
             </div>
             <div class="result-candidates-toolbar">
               <div class="toolbar-actions">

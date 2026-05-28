@@ -38,7 +38,7 @@ export function importHistoryConnectorLabel(connector) {
 export function importStatusLabel(status) {
   const labels = {
     preview: "预览中",
-    completed: "已写入",
+    completed: "已完成",
     rolled_back: "已回滚",
     cancelled: "已取消"
   };
@@ -75,33 +75,20 @@ export function importHistoryAlertBadges(record = {}) {
   const originality = importHistoryOriginalityCounts(record);
   const progress = record.literatureBatchProgress;
   const warningCount = Math.max(summaryWarnings, originality.warning);
+
   if (warningCount > 0) {
-    badges.push({
-      tone: "warn",
-      text: `警告 ${warningCount}`
-    });
+    badges.push({ tone: "warn", text: `警告 ${warningCount}` });
   }
   if (originality.blocked > 0) {
-    badges.push({
-      tone: "bad",
-      text: `阻断 ${originality.blocked}`
-    });
+    badges.push({ tone: "bad", text: `阻断 ${originality.blocked}` });
   }
   if (status === "rolled_back") {
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
-    if (modifiedCount > 0) {
-      badges.push({
-        tone: "warn",
-        text: `保留 ${modifiedCount}`
-      });
-    }
+    if (modifiedCount > 0) badges.push({ tone: "warn", text: `保留 ${modifiedCount}` });
   }
   if (status === "completed" && progress && Number(progress.total || 0) > 0 && Number(progress.remaining || 0) === 0) {
-    badges.push({
-      tone: "ok",
-      text: "文献队列已清空"
-    });
+    badges.push({ tone: "ok", text: "文献队列已清空" });
   }
   return badges;
 }
@@ -115,15 +102,9 @@ export function importHistoryMatchesRisk(record = {}, riskFilter = "all") {
   const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
   const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
 
-  if (normalized === "warning") {
-    return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0;
-  }
-  if (normalized === "blocked") {
-    return originality.blocked > 0;
-  }
-  if (normalized === "modified") {
-    return modifiedCount > 0;
-  }
+  if (normalized === "warning") return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0;
+  if (normalized === "blocked") return originality.blocked > 0;
+  if (normalized === "modified") return modifiedCount > 0;
   return true;
 }
 
@@ -131,6 +112,7 @@ export function importHistoryRiskHint(record = {}) {
   const status = String(record.status || record.state || "").trim();
   const summaryWarnings = Number(record.summary?.warnings || 0);
   const originality = importHistoryOriginalityCounts(record);
+
   if (originality.blocked > 0) {
     return "阻断项默认不会写入；先改写高相似度内容，或在确认时显式覆盖原创性保护。";
   }
@@ -155,6 +137,7 @@ export function importHistoryQueueProgressText(progress = null) {
 
 export function importHistoryDetailSummary(record = {}) {
   const status = String(record.status || record.state || "").trim();
+
   if (status === "preview") {
     const summary = record.summary || {};
     const originality = importHistoryOriginalityCounts(record);
@@ -168,6 +151,7 @@ export function importHistoryDetailSummary(record = {}) {
     if (hint) detail.push(hint);
     return detail;
   }
+
   if (status === "completed") {
     const created = record.confirmResult?.created || {};
     const skipped = record.confirmResult?.skipped || {};
@@ -179,6 +163,7 @@ export function importHistoryDetailSummary(record = {}) {
       writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径"
     ];
     if (files.assets > 0) detail.push(`随导入写入资源 ${files.assets} 个 / 文件总数 ${files.total}`);
+
     const queueText = importHistoryQueueProgressText(record.literatureBatchProgress);
     if (queueText) {
       detail.push(queueText);
@@ -190,6 +175,7 @@ export function importHistoryDetailSummary(record = {}) {
     }
     return detail;
   }
+
   if (status === "rolled_back") {
     const rolledBack = Array.isArray(record.rollbackResult?.rolledBack) ? record.rollbackResult.rolledBack : [];
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
@@ -203,11 +189,13 @@ export function importHistoryDetailSummary(record = {}) {
     if (hint) detail.push(hint);
     return detail;
   }
+
   return [];
 }
 
 export function importHistoryActions(record = {}) {
   const status = String(record.status || record.state || "").trim();
+
   if (status === "completed") {
     const actions = [{ action: "load", label: "查看结果" }];
     if (Number(record.literatureBatchProgress?.remaining || 0) > 0) {
@@ -222,12 +210,9 @@ export function importHistoryActions(record = {}) {
     actions.push({ action: "rollback", label: "回滚" });
     return actions;
   }
-  if (status === "preview") {
-    return [{ action: "load", label: "读取记录" }];
-  }
-  if (status === "rolled_back" || status === "cancelled") {
-    return [{ action: "load", label: "查看结果" }];
-  }
+
+  if (status === "preview") return [{ action: "load", label: "读取记录" }];
+  if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }
 

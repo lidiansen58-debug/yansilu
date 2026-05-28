@@ -141,13 +141,14 @@ async function loadBasketNotes(vaultPath, noteIds) {
   const notes = [];
   for (const noteId of noteIds) {
     const note = await getNoteById(vaultPath, noteId);
-    if (note.noteType !== "permanent") {
+    const noteType = cleanText(note.noteType);
+    if (noteType !== "permanent" && noteType !== "original") {
       throw new Error(`writing basket only accepts permanent notes: ${noteId}`);
     }
     notes.push({
       id: note.id,
       title: note.title,
-      note_type: note.noteType,
+      note_type: noteType,
       status: note.status,
       markdown_path: note.markdownPath,
       excerpt: noteExcerpt(note),

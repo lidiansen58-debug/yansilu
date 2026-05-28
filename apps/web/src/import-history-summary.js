@@ -36,6 +36,7 @@ function summaryActions(record = {}) {
   const remaining = Number(record.literatureBatchProgress?.remaining || 0);
   const ready = Number(record.literatureBatchProgress?.ready || 0);
   const total = Number(record.literatureBatchProgress?.total || 0);
+
   if (status === "preview") return [{ action: "load", label: "继续查看候选" }];
   if (status === "completed" && remaining > 0) {
     return [

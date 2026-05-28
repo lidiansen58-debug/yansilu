@@ -396,6 +396,7 @@ let statusRevision = 0;
 let editorHelperDismissed = false;
 const EDITOR_HELPER_MUTE_KEY = "yansilu:editor-helper-muted";
 let editorHelperMuted = readStoredBoolean(EDITOR_HELPER_MUTE_KEY);
+let startupAutoOpenSuppressed = false;
 const GENERATED_ORIGINAL_MARKER_PATTERN = /<!--\s*yansilu:generated-original=([^\s>]+)\s*-->/i;
 const FEEDBACK_REPOSITORY = "lidiansen58-debug/yansilu-feedback";
 const FEEDBACK_REPOSITORY_READY =
@@ -416,6 +417,14 @@ const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
+
+if (typeof document !== "undefined") {
+  const suppressStartupAutoOpen = () => {
+    startupAutoOpenSuppressed = true;
+  };
+  document.addEventListener("pointerdown", suppressStartupAutoOpen, true);
+  document.addEventListener("keydown", suppressStartupAutoOpen, true);
+}
 
 function tauriGlobal() {
   return typeof window !== "undefined" ? window.__TAURI__ : null;
@@ -3747,6 +3756,22 @@ async function openWritingModule({
   if (statusMessage) setStatus(statusMessage, "ok", { skipIfStaleSince: statusRevisionAtStart, requireModule: "writing" });
 }
 
+function deriveWritingProjectIntent({ title = "", goal = "", indexCard = null } = {}) {
+  const cleanGoal = String(goal || "").trim();
+  if (cleanGoal) return cleanGoal;
+  const centralQuestion = String(indexCard?.central_question || indexCard?.centralQuestion || indexCard?.summary || "").trim();
+  if (centralQuestion) return centralQuestion;
+  const cleanTitle = String(title || "").trim();
+  return cleanTitle ? `说明「${cleanTitle}」这组材料到底想表达什么判断。` : "";
+}
+
+function deriveWritingProjectTakeaway({ title = "", goal = "", audience = "", indexCard = null } = {}) {
+  const cleanAudience = String(audience || "").trim();
+  const base = deriveWritingProjectIntent({ title, goal, indexCard });
+  if (!base) return "";
+  return cleanAudience ? `${cleanAudience} 读完后应带走这个判断：${base}` : `读者读完后应带走这个判断：${base}`;
+}
+
 async function createWritingProjectFromCurrentBasket() {
   const title = String($("writingTitle")?.value || "").trim();
   const basketNoteIds = parseWritingBasketIds();
@@ -3772,11 +3797,16 @@ async function createWritingProjectFromCurrentBasket() {
     });
   }
   try {
+    const goal = String($("writingGoal")?.value || "").trim();
+    const audience = String($("writingAudience")?.value || "").trim();
+    const tone = String($("writingTone")?.value || "").trim();
     const project = await createWritingProject({
       title,
-      goal: String($("writingGoal")?.value || "").trim(),
-      audience: String($("writingAudience")?.value || "").trim(),
-      tone: String($("writingTone")?.value || "").trim(),
+      goal,
+      audience,
+      tone,
+      intent: deriveWritingProjectIntent({ title, goal }),
+      desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience }),
       basketNoteIds,
       relatedIndexIds
     });
@@ -3821,6 +3851,7 @@ async function addImportedPermanentNotesToWritingBasket({ openWriting = false } 
       title: suggestedWritingProjectTitle(noteIds),
       source: "import_permanent_notes"
     });
+    activateModule("writing");
     await openWritingModule({ statusMessage: `已把 ${noteIds.length} 条导入永久笔记加入写作篮，并打开写作中心` });
   } else {
     clearWritingSourceIndexIds();
@@ -3943,11 +3974,16 @@ async function createWritingProjectFromImportedPermanentNotes() {
     source: "import_create_project"
   });
   try {
+    const goal = String($("writingGoal")?.value || "").trim();
+    const audience = String($("writingAudience")?.value || "").trim();
+    const tone = String($("writingTone")?.value || "").trim();
     const project = await createWritingProject({
       title,
-      goal: String($("writingGoal")?.value || "").trim(),
-      audience: String($("writingAudience")?.value || "").trim(),
-      tone: String($("writingTone")?.value || "").trim(),
+      goal,
+      audience,
+      tone,
+      intent: deriveWritingProjectIntent({ title, goal }),
+      desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience }),
       basketNoteIds: noteIds
     });
     writingState.project = project;
@@ -6312,11 +6348,16 @@ async function createWritingProjectFromThemeIndex(indexCardId) {
     source: "writing_theme_create_project"
   });
   const title = String($("writingTitle")?.value || "").trim() || normalizeWritingProjectTitleSeed(indexCard.title || indexCard.id);
+  const goal = String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim();
+  const audience = String($("writingAudience")?.value || "").trim();
+  const tone = String($("writingTone")?.value || "").trim();
   const project = await createWritingProject({
     title,
-    goal: String($("writingGoal")?.value || "").trim() || String(indexCard.central_question || indexCard.summary || "").trim(),
-    audience: String($("writingAudience")?.value || "").trim(),
-    tone: String($("writingTone")?.value || "").trim(),
+    goal,
+    audience,
+    tone,
+    intent: deriveWritingProjectIntent({ title, goal, indexCard }),
+    desiredReaderTakeaway: deriveWritingProjectTakeaway({ title, goal, audience, indexCard }),
     basketNoteIds: noteIds,
     relatedIndexIds: [indexCard.id]
   });
@@ -7670,6 +7711,7 @@ function renderWritingScaffoldPreview() {
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
   const preflightSummary = describeProjectPreflight(preflight);
+  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const { checks: preflightChecks, blocking: blockingChecks, warnings: warningChecks, passes: passingChecks } = groupWritingPreflightChecks(preflight);
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
@@ -7888,6 +7930,7 @@ function renderWritingPanel() {
   const basketReadiness = deriveBasketWritingReadiness(basketIds, writingKnownNoteById, writingState.relationCounts || {}, {
     relationState: relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading"
   });
+  const hasProject = Boolean(writingState.project?.id);
   const projectEntry = describeWritingProjectEntryState({
     relationCountsReady,
     relationCountsErrored,
@@ -7911,8 +7954,8 @@ function renderWritingPanel() {
     relationCountsErrored,
     readinessLevel: basketReadiness.level,
     readinessHint: basketReadiness.hint,
-    projectEntryProjectId: writingState.project?.id ? "" : String(projectEntry?.projectId || "").trim(),
-    projectEntryActionLabel: writingState.project?.id ? "" : String(projectEntry?.actionLabel || "").trim(),
+    projectEntryProjectId: hasProject ? "" : String(projectEntry?.projectId || "").trim(),
+    projectEntryActionLabel: hasProject ? "" : String(projectEntry?.actionLabel || "").trim(),
     projectPreflightLevel: projectPreflightSummary.level,
     projectPreflightChecksLength: Array.isArray(writingState.project?.preflight?.checks) ? writingState.project.preflight.checks.length : 0,
     strongModelReady
@@ -10364,6 +10407,12 @@ const editor = new EditorPane({
 });
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
+window.__prototypeGraph = {
+  openFollowupNote: openGraphFollowupNote,
+  openNoteById,
+  getSelectedFileId: () => state.selectedFileId,
+  getActiveModule: () => state.module
+};
 
 $("btnFocusMode")?.addEventListener("click", () => {
   state.focusMode = !state.focusMode;
@@ -12245,6 +12294,7 @@ async function bootstrap() {
   const startupDemo = String(startupParams.get("demo") || "").trim().toLowerCase();
   const explicitNoteId = startupParams.get("note") || "";
   const initialNote = explicitNoteId ? state.notes.find((n) => n.id === explicitNoteId) : null;
+  const shouldSkipAutoOpen = () => startupAutoOpenSuppressed || Boolean(state.activeTabId || state.selectedFileId);
   const openedDemo =
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
       ? await importSmartNotesProductThinkingDemo({ startup: true })
@@ -12264,10 +12314,10 @@ async function bootstrap() {
       state.selectedFolderId = fallbackNote.folderId;
       openNoteById(fallbackNote.id, { preferTitleSelection: false });
       setStatus(`API 连接失败，已打开本地示例笔记：${fallbackNote.title || fallbackNote.id}`, "warn");
-    } else {
+    } else if (!shouldSkipAutoOpen()) {
       await openStartupUntitledNote();
     }
-  } else {
+  } else if (!shouldSkipAutoOpen()) {
     await openStartupUntitledNote();
   }
 
