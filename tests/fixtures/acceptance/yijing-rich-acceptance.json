@@ -7,7 +7,7 @@
     "fleeting_notes": 2,
     "literature_notes": 3,
     "original_notes": 55,
-    "relations": 85,
+    "relations": 93,
     "index_cards": 5,
     "writing_projects": 2
   },
@@ -2634,6 +2634,94 @@
       "relationType": "supports",
       "rationale": "占筮仪式的停顿机制支持复杂决策前先暂停和框定问题。",
       "insightQuestion": "仪式性停顿能否被现代工作流吸收？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-B04_YJ-D06_supports",
+      "from": "YJ-B04",
+      "to": "YJ-D06",
+      "relationType": "supports",
+      "rationale": "把“小人”理解为不承担关系后果的行动模式，能直接支撑“冲突处理先辨互补条件”：否则冲突会退化成贴标签。",
+      "insightQuestion": "一旦把冲突双方先标签化，会错过哪些本来可以互补的条件？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-B08_YJ-B09_supports",
+      "from": "YJ-B08",
+      "to": "YJ-B09",
+      "relationType": "supports",
+      "rationale": "谦不是自我贬低，支撑“履险需要礼的距离感”：真正的谦会帮助行动者在危险处境里守住分寸。",
+      "insightQuestion": "如果把谦误解成退缩，为什么反而更难在危险处境里保持礼的距离？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-C03_YJ-C09_supports",
+      "from": "YJ-C03",
+      "to": "YJ-C09",
+      "relationType": "supports",
+      "rationale": "去神秘化不等于去意义，正好支撑“解释必须保留不确定性”：拒绝外包判断，不等于把意义压平为唯一答案。",
+      "insightQuestion": "为什么去除神秘化之后，解释反而更需要保留不确定性？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-D04_YJ-D07_complements",
+      "from": "YJ-D04",
+      "to": "YJ-D07",
+      "relationType": "complements",
+      "rationale": "如果个人成长不是线性加法，那么复盘时就必须追问“位置是否变了”，而不是只统计做了多少。",
+      "insightQuestion": "哪些复盘习惯会把“位置变化”误记成单纯累积？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E11_YJ-E01_supports",
+      "from": "YJ-E11",
+      "to": "YJ-E01",
+      "relationType": "supports",
+      "rationale": "“同主题不是关系完成”支撑“笔记网络应该保留张力”：只有继续区分支持、限定和反驳，主题网络才不会塌成同义词堆。",
+      "insightQuestion": "如果同主题关系迟迟不升级，图谱会怎样误导后续写作？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E12_YJ-E07_supports",
+      "from": "YJ-E12",
+      "to": "YJ-E07",
+      "relationType": "supports",
+      "rationale": "意外相关之所以值得保留，是因为它经常把理解从单一路径推向多条路径。",
+      "insightQuestion": "什么样的意外相关会扩展理解路径，什么样的只会制造噪音？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E13_YJ-E09_supports",
+      "from": "YJ-E13",
+      "to": "YJ-E09",
+      "relationType": "supports",
+      "rationale": "反例让边界可见，也正好支撑“反对意见是网络的一部分”：没有反例，反对意见只会停留在口头姿态。",
+      "insightQuestion": "为什么一张没有反例的知识网络，很难真正容纳反对意见？",
+      "confidence": 0.9,
+      "status": "confirmed",
+      "createdBy": "user"
+    },
+    {
+      "id": "lnk_YJ-E15_YJ-E05_supports",
+      "from": "YJ-E15",
+      "to": "YJ-E05",
+      "relationType": "supports",
+      "rationale": "后续问题必须声明承接关系，这会直接支撑“写作方案要显示来源追溯”：段落推进需要看得见上一条判断从哪里来。",
+      "insightQuestion": "如果承接关系不明，写作方案里的来源追溯会在哪些地方断掉？",
       "confidence": 0.9,
       "status": "confirmed",
       "createdBy": "user"

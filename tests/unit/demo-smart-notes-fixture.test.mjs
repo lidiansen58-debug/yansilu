@@ -31,7 +31,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   assert.equal(fixture.literature_notes.length, 24);
   assert.equal(fixture.permanent_notes.length, 100);
   assert.equal(fixture.index_cards.length, 12);
-  assert.equal(fixture.relations.length, 306);
+  assert.equal(fixture.relations.length, 308);
   assert.equal(fixture.writing_projects.length, 1);
   assert.equal(fixture.draft_scaffolds.length, 1);
   assert.equal(fixture.final_essays.length, 1);
@@ -42,7 +42,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
     literature_notes: 24,
     permanent_notes: 100,
     index_cards: 12,
-    relations: 306,
+    relations: 308,
     writing_projects: 1,
     draft_scaffolds: 1,
     final_essays: 1,
@@ -188,7 +188,8 @@ test("smart notes product demo fixture relations are typed and complete enough",
   const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
   const projectIds = new Set(fixture.writing_projects.map((project) => project.id));
   const finalEssayIds = new Set(fixture.final_essays.map((note) => note.id));
-  const validTargets = new Set([...permanentIds, ...fleetingIds, ...literatureIds, ...projectIds, ...finalEssayIds]);
+  const guideIds = new Set(fixture.guide_notes.map((note) => note.id));
+  const validTargets = new Set([...permanentIds, ...fleetingIds, ...literatureIds, ...projectIds, ...finalEssayIds, ...guideIds]);
   const relationTypes = new Set();
   const permanentTouchCount = new Map([...permanentIds].map((id) => [id, 0]));
   const seenKeys = new Set();

@@ -7711,7 +7711,6 @@ function renderWritingScaffoldPreview() {
   const questions = Array.isArray(writingState.scaffold.open_questions) ? writingState.scaffold.open_questions : [];
   const preflight = writingState.scaffold.preflight || null;
   const preflightSummary = describeProjectPreflight(preflight);
-  const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const { checks: preflightChecks, blocking: blockingChecks, warnings: warningChecks, passes: passingChecks } = groupWritingPreflightChecks(preflight);
   const markdown = String(writingState.scaffoldMarkdown || "").trim();
   const targetDirectoryId = writingDraftDirectoryId();
@@ -7937,7 +7936,6 @@ function renderWritingPanel() {
     readinessLevel: basketReadiness.level,
     readinessHint: basketReadiness.hint
   });
-  const hasProject = Boolean(writingState.project?.id);
   const projectPreflightSummary = describeWritingProjectPreflight(writingState.project?.preflight || null);
   const strongModelReady =
     !relationCountsErrored &&

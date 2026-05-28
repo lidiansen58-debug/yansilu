@@ -9,7 +9,7 @@
     "literature_notes": 24,
     "permanent_notes": 100,
     "index_cards": 12,
-    "relations": 306,
+    "relations": 308,
     "writing_projects": 1,
     "draft_scaffolds": 1,
     "final_essays": 1,
@@ -14479,6 +14479,26 @@
       "rationale": "关键笔记“收藏癖会制造虚假进展”桥接到“AI 建议必须停留在候选状态”：前一个知识点处理材料转化，后一个知识点说明下一步组织或写作动作。",
       "insight_question": "从“收藏癖会制造虚假进展”走向“AI 建议必须停留在候选状态”时，论证是否跳过了必要中间环节？",
       "confidence": 0.86
+    },
+    {
+      "id": "REL-SN-307",
+      "from": "GUIDE-SN-001",
+      "to": "PN-SN-001",
+      "relationType": "precedes",
+      "status": "confirmed",
+      "rationale": "导读笔记先搭起从阅读到判断的总路径，后面才进入“写作不是最后一步，而是笔记系统的组织原则”这条核心永久笔记。",
+      "insight_question": "如果没有这条导读路径，用户会在哪一步误把系统当成资料仓库？",
+      "confidence": 0.9
+    },
+    {
+      "id": "REL-SN-308",
+      "from": "GUIDE-SN-001",
+      "to": "ESSAY-SN-PM-001",
+      "relationType": "bridges",
+      "status": "confirmed",
+      "rationale": "导读笔记先说明这套 demo 为什么要从阅读走向判断，再桥接到最终文章“为什么研思录不是普通笔记软件”，让用户看到整条演示主线。",
+      "insight_question": "如果导读不能桥接到最终文章，用户会在哪一步失去对整套 demo 主线的把握？",
+      "confidence": 0.9
     }
   ],
   "writing_projects": [
