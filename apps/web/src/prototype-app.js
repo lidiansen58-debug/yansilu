@@ -206,12 +206,8 @@ const importState = {
   historyItems: [],
   historyTotal: 0,
   historyLoading: false,
-  historyStatusFilter: "all",
-  historyConnectorFilter: "all",
-  historyRiskFilter: "all",
   selectionImportRecordId: "",
   selectedCandidateIds: new Set(),
-  previewFilter: "all",
   resultFocusReason: ""
 };
 const graphState = {
@@ -1118,12 +1114,7 @@ function renderImportPageShell() {
       items: importState.historyItems,
       total: importState.historyTotal,
       loading: importState.historyLoading,
-      activeImportRecordId: String(importState.importRecordId || "").trim(),
-      filters: {
-        status: importState.historyStatusFilter,
-        connector: importState.historyConnectorFilter,
-        risk: importState.historyRiskFilter
-      }
+      activeImportRecordId: String(importState.importRecordId || "").trim()
     },
     result: importState.lastResultPayload
       ? {
@@ -3125,12 +3116,7 @@ function renderImportHistory() {
     items: importState.historyItems,
     total: importState.historyTotal,
     loading: importState.historyLoading,
-    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim(),
-    filters: {
-      status: importState.historyStatusFilter,
-      connector: importState.historyConnectorFilter,
-      risk: importState.historyRiskFilter
-    }
+    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim()
   });
 }
 
@@ -3165,7 +3151,6 @@ async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读�
           originalityGuard: importRecord.originalityGuard || null
         }
       : null;
-  importState.previewFilter = "all";
   syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, { preserve: true });
   setImportRecordId(cleanImportRecordId);
   showImportResult({
@@ -3192,12 +3177,6 @@ async function rollbackImportIntoUi(importRecordId, { statusPrefix = "回滚完�
   await refreshImportedNotesView();
   setStatus(`${statusPrefix}：${cleanImportRecordId}`, "ok");
   return result;
-}
-
-function syncImportHistoryFiltersFromUi() {
-  importState.historyStatusFilter = String($("importHistoryStatus")?.value || "all").trim();
-  importState.historyConnectorFilter = String($("importHistoryConnector")?.value || "all").trim();
-  importState.historyRiskFilter = String($("importHistoryRisk")?.value || "all").trim();
 }
 
 function uniqueStrings(items = []) {
@@ -3442,7 +3421,6 @@ function renderResult(el, payload) {
     candidatePreviewHtml: renderCandidatePreview(candidatePreview, {
       interactive: interactivePreview,
       summary: previewSummary,
-      previewFilter: importState.previewFilter,
       showExcludedSummary,
       originalityGuard: data.originalityGuard || data.importRecord?.originalityGuard || null,
       focusReason: importState.resultFocusReason,
@@ -4101,14 +4079,6 @@ function applyCandidateSelection(action) {
   }
   importState.selectionImportRecordId = importRecordId;
   importState.selectedCandidateIds = next;
-  rerenderImportResult();
-}
-
-function setCandidateFilter(filter) {
-  const normalized = ["all", "confirmable", "safe", "risky", "excluded", "warning", "blocked"].includes(String(filter || ""))
-    ? String(filter)
-    : "all";
-  importState.previewFilter = normalized;
   rerenderImportResult();
 }
 
@@ -5069,6 +5039,33 @@ function directoryPathLabel(directoryId) {
   return names.join(" / ");
 }
 
+function permanentExportDirectories() {
+  return state.folders
+    .filter((folder) => folder?.id && isDirectoryUnderOriginalRoot(folder.id))
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+}
+
+function syncExportDirectoryOptions() {
+  const select = $("exportDirectoryId");
+  if (!select) return;
+  const options = permanentExportDirectories();
+  const currentValue = String(select.value || "").trim();
+  const preferredValue =
+    options.some((folder) => folder.id === currentValue)
+      ? currentValue
+      : options.some((folder) => folder.id === String(state.selectedFolderId || "").trim())
+        ? String(state.selectedFolderId || "").trim()
+        : options[0]?.id || "dir_original_default";
+
+  select.innerHTML = options
+    .map((folder) => `<option value="${escapeHtml(folder.id)}">${escapeHtml(directoryPathLabel(folder.id))}</option>`)
+    .join("");
+  if (!options.length) {
+    select.innerHTML = `<option value="dir_original_default">永久笔记盒</option>`;
+  }
+  select.value = preferredValue;
+}
+
 function activeEditorNote() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
   if (!activeTab) return null;
@@ -5406,6 +5403,7 @@ function renderAll() {
   ensureSelection();
   renderSidebarTitle();
   renderModulePanels();
+  syncExportDirectoryOptions();
   renderAiInboxWorkspace();
   renderDistillationPanel();
   renderGraphPanel();
@@ -12015,7 +12013,6 @@ async function bootstrap() {
     rollbackImportIntoUi,
     onPreviewSuccess: async (preview) => {
       importState.lastPreview = preview;
-      importState.previewFilter = "all";
       syncImportSelection(preview.importRecordId, preview.candidatePreview);
       setImportRecordId(preview.importRecordId);
       showImportResult({
@@ -12103,19 +12100,9 @@ async function bootstrap() {
       applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
       return;
     }
-    const filterButton = event.target?.closest?.("[data-candidate-filter]");
-    if (!filterButton) return;
-    setCandidateFilter(String(filterButton.getAttribute("data-candidate-filter") || ""));
   });
 
   $("importHistoryMount")?.addEventListener("click", async (event) => {
-    const refreshButton = event.target?.closest?.("#btnImportHistoryRefresh");
-    if (refreshButton) {
-      await refreshImportHistory();
-      setStatus("导入历史已刷新", "ok");
-      return;
-    }
-
     const actionButton = event.target?.closest?.("[data-import-history-action]");
     const item = event.target?.closest?.("[data-import-history-id]");
     const importRecordId = String(
@@ -12156,25 +12143,6 @@ async function bootstrap() {
     }
   });
 
-  $("importHistoryMount")?.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
-    if (target.id === "importHistoryStatus") {
-      importState.historyStatusFilter = String(target.value || "all").trim();
-      renderImportHistory();
-      return;
-    }
-    if (target.id === "importHistoryConnector") {
-      importState.historyConnectorFilter = String(target.value || "all").trim();
-      renderImportHistory();
-      return;
-    }
-    if (target.id === "importHistoryRisk") {
-      importState.historyRiskFilter = String(target.value || "all").trim();
-      renderImportHistory();
-    }
-  });
-
   $("importRecordId")?.addEventListener("input", (event) => {
     importState.importRecordId = String(event.target?.value || "").trim();
     updateImportConfirmButton();
@@ -12212,28 +12180,35 @@ async function bootstrap() {
   });
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
+    const directoryId = String($("exportDirectoryId")?.value || "").trim();
     const targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) return setStatus("请先选择 Markdown 导出目标目录", "warn");
+    if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+    if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
     try {
-      const result = await exportMarkdown(targetPath);
+      const result = await exportMarkdown({
+        targetPath,
+        directoryId
+      });
       showExportResult({
         stage: "export_markdown",
         targetPath,
+        directoryId,
         exportJobId: result.exportJobId,
         status: result.status,
         copied: result.copied,
         copiedBreakdown: result.copiedBreakdown || null
       });
-      setStatus(`Markdown 导出已提交：${result.exportJobId}，复制 ${result.copied} 个文件`, "ok");
+      setStatus(`已导出 ${result.copied} 个文件`, "ok");
     } catch (error) {
       showExportResult({
         stage: "export_error",
         targetPath,
+        directoryId,
         message: String(error?.message || error),
         code: error?.code || null,
         details: error?.details || null
       });
-      setStatus(`Markdown 导出失败：${String(error?.message || error)}`, "bad");
+      setStatus(`导出失败：${String(error?.message || error)}`, "bad");
     }
   });
 
@@ -12244,7 +12219,7 @@ async function bootstrap() {
     });
     if (!picked.path) return;
     $("exportTargetPath").value = picked.path;
-    setStatus(`已选择导出目录（${picked.source}）`, "ok");
+    setStatus("已选择导出目录", "ok");
   });
 
   try {
@@ -12283,7 +12258,6 @@ async function bootstrap() {
   }
 
   try {
-    syncImportHistoryFiltersFromUi();
     await refreshImportHistory({ silent: true });
   } catch {}
 

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportToolbarPanel } from "../../apps/web/src/import-toolbar-panel.js";
 
@@ -29,4 +29,9 @@ test("import toolbar panel renders ids and selected connector", () => {
   assert.match(html, /id="btnImportCancel"/);
   assert.match(html, /id="btnImportRefresh"/);
   assert.match(html, /id="btnImportRollback"/);
+  assert.match(html, /导入/);
+  assert.match(html, /预览后导入/);
+  assert.match(html, /来源/);
+  assert.match(html, /路径/);
+  assert.match(html, /高级选项/);
 });
