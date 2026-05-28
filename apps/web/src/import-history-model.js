@@ -146,7 +146,7 @@ export function importHistoryDetailSummary(record = {}) {
     if (Number(summary.warnings || 0) > 0) signals.push(`普通警告 ${Number(summary.warnings || 0)}`);
     if (originality.warning > 0) signals.push(`原创性警告 ${originality.warning}`);
     if (originality.blocked > 0) signals.push(`原创性阻断 ${originality.blocked}`);
-    detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项");
+    detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项。");
     const hint = importHistoryRiskHint(record);
     if (hint) detail.push(hint);
     return detail;

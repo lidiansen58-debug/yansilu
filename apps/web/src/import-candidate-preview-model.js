@@ -172,11 +172,11 @@ export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
   for (const candidateId of skippedIds.invalid) {
     const evaluation = evaluationById.get(candidateId);
     const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.map(candidateReasonText).filter(Boolean) : [];
-    const reasonText = reasons.length ? ` ${reasons.join("、")}。` : "";
+    const reasonSuffix = reasons.length ? ` ${reasons.join("、")}。` : "";
     map[candidateId] = {
       reason: "invalid",
       tone: "warning",
-      message: `未写入原因：原创性为警告，当前未允许按草稿写入。${reasonText}`.trim()
+      message: `未写入原因：原创性为警告，当前未允许按草稿写入。${reasonSuffix}`.trim()
     };
   }
   for (const candidateId of skippedIds.conflicted) {
