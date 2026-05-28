@@ -8193,7 +8193,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
 
   assert.equal(await page.locator("[data-note-ai-suggestion-action='confirmed']").count(), 0);
 
-  await page.locator("[data-note-ai-suggestion-action='adopted_as_draft']").first().click();
+  await page.locator("#relatedPanel [data-note-ai-suggestion-action='adopted_as_draft']").first().click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -8216,7 +8216,7 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
     assert.equal(note.json.item.thesis, editedThesis);
   }, 10000);
 
-  await page.locator("[data-note-ai-suggestion-action='edited']").first().click();
+  await page.locator("#relatedPanel [data-note-ai-suggestion-action='edited']").first().click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -8225,10 +8225,10 @@ test("prototype editor embedded AI suggestion flow keeps review inside the perma
   }, 10000);
 
   await waitFor(async () => {
-    assert.equal(await page.locator("[data-note-ai-suggestion-action='confirmed']").first().isVisible(), true);
+    assert.equal(await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().isVisible(), true);
   }, 10000);
 
-  await page.locator("[data-note-ai-suggestion-action='confirmed']").first().click();
+  await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().click();
 
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
@@ -8313,14 +8313,14 @@ test("prototype AI inbox returns review to the editor context for final processi
     assert.equal(note.json.item.thesis, editedThesis);
   }, 10000);
 
-  await page.locator("[data-note-ai-suggestion-action='edited']").first().click();
+  await page.locator("#relatedPanel [data-note-ai-suggestion-action='edited']").first().click();
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
     assert.equal(suggestion.status, 200);
     assert.equal(suggestion.json.item.status, "edited");
   }, 10000);
 
-  await page.locator("[data-note-ai-suggestion-action='confirmed']").first().click();
+  await page.locator("#relatedPanel [data-note-ai-suggestion-action='confirmed']").first().click();
   await waitFor(async () => {
     const suggestion = await fetchJson(apiBase, `/api/v1/ai-suggestions/${encodeURIComponent(fixture.suggestionId)}?canonical=true`);
     assert.equal(suggestion.status, 200);
@@ -8373,7 +8373,7 @@ test("prototype AI inbox reviewed detail can mark an adopted draft edited and th
   await waitFor(async () => {
     assert.equal(await page.locator("#aiInboxSuggestionContentEditor").isVisible(), true);
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Adopted as draft/);
+    assert.match(String(detailText || ""), /Adopted as draft|已采纳为草稿/);
   }, 8000);
 
   await page.locator("#aiInboxSuggestionContentEditor").fill(JSON.stringify({ thesis: editedThesis }, null, 2));
@@ -8399,7 +8399,7 @@ test("prototype AI inbox reviewed detail can mark an adopted draft edited and th
 
   await waitFor(async () => {
     const detailText = await page.locator("#aiInboxPanel .ai-inbox-detail-pane").textContent();
-    assert.match(String(detailText || ""), /Confirmed/);
+    assert.match(String(detailText || ""), /Confirmed|已确认/);
     assert.match(String(detailText || ""), new RegExp(escapeRegExp(editedThesis)));
   }, 8000);
 });
