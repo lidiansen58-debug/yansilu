@@ -250,6 +250,7 @@ test("POST /api/v1/exports/markdown can export a directory tree", async () => {
 
     const parentDir = await postJson(baseUrl, "/api/v1/directories", {
       title: "API export parent",
+      parentDirectoryId: "dir_original_default",
       fsPath: path.join(vaultPath, "notes", "original", "api-export-parent")
     });
     assert.equal(parentDir.response.status, 201, JSON.stringify(parentDir.payload));
@@ -316,6 +317,36 @@ test("POST /api/v1/exports/markdown can export a directory tree", async () => {
         ),
       /ENOENT/
     );
+  } finally {
+    await stopApi(api);
+  }
+});
+
+test("POST /api/v1/exports/markdown rejects literature subdirectories", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-export-literature-scope-vault-");
+  const targetPath = await makeTempDir("yansilu-api-export-literature-scope-target-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const literatureChild = await postJson(baseUrl, "/api/v1/directories", {
+      title: "API export literature child",
+      parentDirectoryId: "dir_literature_default",
+      fsPath: path.join(vaultPath, "notes", "literature", "api-export-literature-child")
+    });
+    assert.equal(literatureChild.response.status, 201, JSON.stringify(literatureChild.payload));
+
+    const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
+      targetPath,
+      directoryId: literatureChild.payload.item.id
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(payload.error.code, "EXPORT_SCOPE_INVALID");
+    assert.equal(payload.error.message, "directoryId must be a permanent-note directory");
   } finally {
     await stopApi(api);
   }

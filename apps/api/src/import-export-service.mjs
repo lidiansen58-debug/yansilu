@@ -12,6 +12,7 @@ import {
   rollbackCreatedFiles,
   summarizeImportCandidates
 } from "../../../packages/connectors/src/index.mjs";
+import { listDirectories } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
@@ -33,7 +34,18 @@ function normalizeRelativeFileTarget(value) {
 function isPermanentDirectoryId(value) {
   const directoryId = String(value || "").trim();
   if (!directoryId) return false;
-  return !["dir_fleeting_default", "dir_literature_default"].includes(directoryId);
+  return directoryId === "dir_original_default";
+}
+
+async function isPermanentDirectoryScope(vaultPath, directoryId) {
+  const cleanDirectoryId = String(directoryId || "").trim();
+  if (!cleanDirectoryId) return false;
+  const directories = await listDirectories(vaultPath, { includeHidden: true });
+  const originalRoot = directories.find((item) => isPermanentDirectoryId(item.id));
+  const directory = directories.find((item) => item.id === cleanDirectoryId);
+  if (!originalRoot || !directory) return false;
+  const relativePath = path.relative(originalRoot.fsPath, directory.fsPath);
+  return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
 function bucketFromCandidateId(candidates = {}) {
@@ -438,6 +450,7 @@ export function createImportExportService({
   }
 
   async function runMarkdownExport(body, requestId) {
+    await initVault(vaultPath());
     const targetPathRaw = String(body.targetPath || "").trim();
     if (!targetPathRaw) {
       const error = new Error("targetPath required");
@@ -451,7 +464,7 @@ export function createImportExportService({
       error.code = "EXPORT_SCOPE_INVALID";
       throw error;
     }
-    if (directoryId && !isPermanentDirectoryId(directoryId)) {
+    if (directoryId && !(await isPermanentDirectoryScope(vaultPath(), directoryId))) {
       const error = new Error("directoryId must be a permanent-note directory");
       error.code = "EXPORT_SCOPE_INVALID";
       throw error;

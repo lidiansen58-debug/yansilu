@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { appendImportRecord } from "../../packages/connectors/src/import-record-store.mjs";
-import { createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
+import { createDirectory, createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
 import {
   buildSelectedImportCandidates,
   createImportExportService
@@ -136,8 +136,15 @@ test("confirmImport persists cancelled records so history survives reload", asyn
 });
 
 test("runMarkdownExport requires a permanent-note directory id", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-export-scope-");
+  await initVault(vaultPath);
+  const literatureChild = await createDirectory(vaultPath, {
+    title: "Literature child",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "literature-child")
+  });
   const service = createService({
-    getVaultPath: () => "",
+    getVaultPath: () => vaultPath,
     getCwd: () => process.cwd()
   });
 
@@ -148,6 +155,14 @@ test("runMarkdownExport requires a permanent-note directory id", async () => {
 
   await assert.rejects(
     () => service.runMarkdownExport({ targetPath: "E:\\exports", directoryId: "dir_literature_default" }, "req_bad_dir"),
+    {
+      code: "EXPORT_SCOPE_INVALID",
+      message: "directoryId must be a permanent-note directory"
+    }
+  );
+
+  await assert.rejects(
+    () => service.runMarkdownExport({ targetPath: "E:\\exports", directoryId: literatureChild.id }, "req_lit_child"),
     {
       code: "EXPORT_SCOPE_INVALID",
       message: "directoryId must be a permanent-note directory"
