@@ -199,7 +199,7 @@ export function importHistoryActions(record = {}) {
   if (status === "completed") {
     const actions = [{ action: "load", label: "查看结果" }];
     if (Number(record.literatureBatchProgress?.remaining || 0) > 0) {
-      actions.push({ action: "resume-literature-queue", label: "继续下一条待转述" });
+      actions.push({ action: "resume-literature-queue", label: "继续处理" });
     }
     if (Number(record.literatureBatchProgress?.remaining || 0) === 0 && Number(record.literatureBatchProgress?.ready || 0) > 0) {
       actions.push({ action: "promote-literature-batch", label: "转去永久笔记整理" });
@@ -211,7 +211,7 @@ export function importHistoryActions(record = {}) {
     return actions;
   }
 
-  if (status === "preview") return [{ action: "load", label: "读取记录" }];
+  if (status === "preview") return [{ action: "load", label: "继续处理" }];
   if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }

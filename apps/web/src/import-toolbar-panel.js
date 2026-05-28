@@ -55,7 +55,7 @@ export function renderImportToolbarPanel(input = {}) {
             <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true}'>${escapeHtml(model.options)}</textarea>
 
             <label for="importRecordId">ImportRecord ID</label>
-            <input id="importRecordId" placeholder="预览后自动填充" value="${escapeHtml(model.importRecordId)}" />
+            <input id="importRecordId" placeholder="预览后自动填入" value="${escapeHtml(model.importRecordId)}" />
           </div>
           <div class="import-actions secondary">
             <button class="mini-btn" id="btnImportCancel">取消</button>

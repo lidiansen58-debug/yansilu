@@ -24,8 +24,8 @@ test("candidate preview panel renders simplified selection summary", () => {
   assert.match(html, /data-candidate-action="all"/);
   assert.match(html, /data-candidate-action="none"/);
   assert.match(html, /data-candidate-action="permanent"/);
-  assert.match(html, /来源/);
-  assert.match(html, /永久/);
+  assert.match(html, /来源卡片/);
+  assert.match(html, /永久笔记/);
   assert.match(html, /缺少引用定位/);
 });
 
