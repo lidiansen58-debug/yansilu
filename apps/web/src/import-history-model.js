@@ -76,12 +76,8 @@ export function importHistoryAlertBadges(record = {}) {
   const progress = record.literatureBatchProgress;
   const warningCount = Math.max(summaryWarnings, originality.warning);
 
-  if (warningCount > 0) {
-    badges.push({ tone: "warn", text: `警告 ${warningCount}` });
-  }
-  if (originality.blocked > 0) {
-    badges.push({ tone: "bad", text: `阻断 ${originality.blocked}` });
-  }
+  if (warningCount > 0) badges.push({ tone: "warn", text: `警告 ${warningCount}` });
+  if (originality.blocked > 0) badges.push({ tone: "bad", text: `阻断 ${originality.blocked}` });
   if (status === "rolled_back") {
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
@@ -114,7 +110,7 @@ export function importHistoryRiskHint(record = {}) {
   const originality = importHistoryOriginalityCounts(record);
 
   if (originality.blocked > 0) {
-    return "阻断项默认不会写入；先改写高相似度内容，或在确认时显式覆盖原创性保护。";
+    return "阻断项默认不会写入；请先改写高相似度内容，或在确认时显式覆盖原创性保护。";
   }
   if (summaryWarnings > 0 || originality.warning > 0) {
     return "警告项建议先补充引用定位或增强转述，再确认写入。";
@@ -183,7 +179,7 @@ export function importHistoryDetailSummary(record = {}) {
     const detail = [
       `已回滚 ${rolledBack.length} 项`,
       `跳过 ${skipped.length} 项`,
-      modifiedCount ? `其中 ${modifiedCount} 项因已被修改而保留` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
+      modifiedCount ? `保留 ${modifiedCount}` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
     ];
     const hint = importHistoryRiskHint(record);
     if (hint) detail.push(hint);

@@ -8845,7 +8845,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, fo
       const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor) && zoom.key !== "fit";
       const revealOnly = denseDirectoryMode && !node.isFocused && !node.isHub && !node.isAnchor && !showLabel;
       return `
-        <g class="graph-map-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" role="button" tabindex="0" aria-label="打开笔记 ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" role="button" tabindex="0" aria-label="打开笔记 ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(noteTypeLabel(node.noteType))}；连接 ${Number(node.degree || 0)} 条</title>
           <circle cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
           ${(showLabel || revealOnly) ? `<text class="graph-map-node-label${revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>` : ""}
@@ -8861,7 +8861,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, fo
       const relationLabel = graphRelationTypeLabel(edge.relationType);
       const rationale = String(edge.rationale || "").trim();
       return `
-        <g class="graph-map-edge-group ${connectsFocus ? "is-focused-path" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" aria-label="${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" aria-label="${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}" marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"></path>
           ${
@@ -12055,6 +12055,12 @@ async function bootstrap() {
     const skipFocusButton = event.target?.closest?.("[data-skip-focus]");
     if (skipFocusButton) {
       const nextReason = String(skipFocusButton.getAttribute("data-skip-focus") || "").trim();
+      setImportResultFocus(importState.resultFocusReason === nextReason ? "" : nextReason);
+      return;
+    }
+    const filterButton = event.target?.closest?.("[data-candidate-filter]");
+    if (filterButton) {
+      const nextReason = String(filterButton.getAttribute("data-candidate-filter") || "").trim();
       setImportResultFocus(importState.resultFocusReason === nextReason ? "" : nextReason);
       return;
     }

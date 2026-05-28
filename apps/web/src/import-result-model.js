@@ -202,6 +202,9 @@ function actionableTextForReason(reason) {
 export function actionItems(payload = {}, warnings = []) {
   const actions = [];
   for (const warning of warnings) {
+    if (String(warning?.code || "").trim() === "IMPORT_EMPTY_PAYLOAD") {
+      actions.push("补充 Payload JSON。");
+    }
     const text = actionableTextForCode(warning?.code);
     if (text) actions.push(text);
   }

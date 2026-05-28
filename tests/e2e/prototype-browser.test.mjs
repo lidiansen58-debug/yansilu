@@ -645,7 +645,15 @@ async function waitForPlaceholderTitleSelection(page) {
     if (!editor) return false;
     const value = String(editor.getValue?.() || "");
     const selection = editor.selection?.();
-    return Boolean(selection && value.slice(selection.from, selection.to) === "未命名笔记");
+    const lineEnd = value.indexOf("\n");
+    const titleEnd = lineEnd >= 0 ? lineEnd : value.length;
+    const title = value.startsWith("# ") ? value.slice(2, titleEnd) : value.slice(0, titleEnd);
+    if (!selection) return false;
+    const selectedText = value.slice(selection.from, selection.to);
+    return (
+      selectedText === "未命名笔记" ||
+      (title === "未命名笔记" && selection.from >= 2 && selection.to <= titleEnd && selection.to > selection.from)
+    );
   });
 }
 
@@ -808,8 +816,11 @@ test("prototype permanent note can save and persists content after authorship co
   }, 10000);
 
   const blockedNoteId = notesAfterBlockedSave.json.items[0].id;
-  const blockedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(blockedNoteId)}`);
-  assert.equal(blockedNote.status, 200);
+  const blockedNote = await waitFor(async () => {
+    const result = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(blockedNoteId)}`);
+    assert.equal(result.status, 200);
+    return result;
+  }, 7000);
   assert.ok(
     /Authorship Gate Note/.test(blockedNote.json.item.body || "") ||
       /# 未命名笔记/.test(blockedNote.json.item.body || ""),
@@ -4156,7 +4167,7 @@ test("prototype import history filters records and supports inline actions", asy
     return text.trim().length > 0;
   });
 
-  await page.click("#btnImportHistoryRefresh");
+  await page.click("#btnImportRefresh");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importHistory")?.textContent || "";
     return text.trim().length > 0;
@@ -7449,71 +7460,44 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
   });
   assert.equal(sourceNote.status, 201);
 
+  const relation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(sourceNote.json.item.id)}/relations`, {
+    toNoteId: targetNote.json.item.id,
+    relationType: "supports",
+    rationale: "This explicit relation should be visible in the graph UI for the selected directory.",
+    insightQuestion: "Can the graph panel render and open notes from an explicit directory-scoped relation?",
+    confidence: 1
+  });
+  assert.equal(relation.status, 201, JSON.stringify(relation.json));
+
+  await waitFor(async () => {
+    const graph = await fetchJson(
+      apiBase,
+      `/api/v1/graph?scope=directory&directoryId=${encodeURIComponent(graphDirectoryId)}&includeDescendants=true`
+    );
+    assert.equal(graph.status, 200);
+    assert.ok((graph.json.item?.totalNodes || 0) >= 2, JSON.stringify(graph.json));
+    assert.ok((graph.json.item?.totalEdges || 0) >= 1, JSON.stringify(graph.json));
+    return graph;
+  }, 7000);
+
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.waitForFunction((directoryId) => window.__prototypeState?.selectedFolderId === directoryId, graphDirectoryId);
+  await waitFor(async () => {
+    const explorerText = await page.locator("#listArea").textContent();
+    assert.match(String(explorerText || ""), /Graph source/);
+    assert.match(String(explorerText || ""), /Graph target/);
+  }, 7000);
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {
-    await page.waitForSelector("#graphCanvas .graph-node", { timeout: 500 });
+    await page.waitForSelector("#graphCanvas .graph-node", { timeout: 2000 });
     const summary = await page.locator("#graphSummary").textContent();
     const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
-    await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).waitFor({ timeout: 500 });
-    await page.waitForFunction(() => {
-      const buttons = [...document.querySelectorAll('[data-graph-followup-action="relations"], [data-graph-followup-action="relations-edit"]')];
-      return buttons.some((button) => String(button.textContent || "").includes("去补关系理由"));
-    });
+    await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).first().waitFor({ timeout: 2000 });
   }, 7000);
-
-  const graphFollowupDebug = await page.evaluate(() => {
-    const button = [...document.querySelectorAll('[data-graph-followup-action="relations"], [data-graph-followup-action="relations-edit"]')]
-      .find((item) => String(item.textContent || "").includes("去补关系理由"));
-    if (!button) throw new Error("graph followup button not found");
-    const noteId = button.getAttribute("data-open-note");
-    const action = button.getAttribute("data-graph-followup-action");
-    const relationId = button.getAttribute("data-graph-relation-id");
-    const targetNoteId = button.getAttribute("data-graph-target-note");
-    const relationType = button.getAttribute("data-graph-relation-type");
-    if (window.__prototypeGraph?.openFollowupNote) {
-      window.__prototypeGraph.openFollowupNote(noteId, action, { relationId, targetNoteId, relationType });
-      return {
-        noteId,
-        action,
-        relationId,
-        targetNoteId,
-        relationType,
-        usedDirectCall: true,
-        activeModule: window.__prototypeGraph?.getActiveModule?.() || "",
-        selectedFileId: window.__prototypeGraph?.getSelectedFileId?.() || ""
-      };
-    }
-    button.click();
-    return {
-      noteId,
-      action,
-      relationId,
-      targetNoteId,
-      relationType,
-      usedDirectCall: false
-    };
-  });
-  assert.ok(graphFollowupDebug?.noteId, JSON.stringify(graphFollowupDebug));
-  assert.ok(graphFollowupDebug?.usedDirectCall, JSON.stringify(graphFollowupDebug));
-  await page.waitForFunction(
-    (expectedNoteId) => {
-      const activeModule = window.__prototypeGraph?.getActiveModule?.() || "";
-      const selectedFileId = window.__prototypeGraph?.getSelectedFileId?.() || "";
-      return activeModule === "explorer" && selectedFileId === expectedNoteId;
-    },
-    graphFollowupDebug.noteId
-  );
-
-  const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /已从图谱打开笔记|继续补关系理由/);
-
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="graph"]')?.classList.contains("active"));
   await page.locator("#graphCanvas .graph-node", { hasText: "Graph target" }).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 

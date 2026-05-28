@@ -44,6 +44,13 @@ function renderFileInventory(data = {}) {
   `;
 }
 
+function warningText(item = {}) {
+  const code = String(item.code || "").trim();
+  const message = String(item.message || "").trim();
+  if (code && message) return `${code}: ${message}`;
+  return message || code || JSON.stringify(item);
+}
+
 export function renderImportResultPanel({
   data = {},
   title = "操作结果",
@@ -83,7 +90,7 @@ export function renderImportResultPanel({
         warnings.length
           ? `<div class="result-warnings simple"><div class="result-warnings-title">需要处理</div><ul>${warnings
               .slice(0, 3)
-              .map((item) => `<li>${escapeHtml(item.message || item.code || JSON.stringify(item))}</li>`)
+              .map((item) => `<li>${escapeHtml(warningText(item))}</li>`)
               .join("")}</ul></div>`
           : ""
       }

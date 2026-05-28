@@ -3,6 +3,7 @@ import {
   formatImportTimestamp,
   importHistoryActions,
   importHistoryConnectorLabel,
+  importHistoryDetailSummary,
   importHistorySummary,
   importStatusLabel,
   importStatusTone
@@ -20,7 +21,8 @@ function escapeHtml(value) {
 function renderImportHistoryItem(record, activeImportRecordId) {
   const recordId = String(record.importRecordId || "").trim();
   const status = String(record.status || record.state || "").trim();
-  const actions = importHistoryActions(record).slice(0, 2);
+  const actions = importHistoryActions(record);
+  const details = importHistoryDetailSummary(record);
 
   return `
     <div class="import-history-item ${recordId && recordId === activeImportRecordId ? "is-active" : ""}" data-import-history-id="${escapeHtml(recordId)}">
@@ -32,6 +34,13 @@ function renderImportHistoryItem(record, activeImportRecordId) {
         <span>${escapeHtml(importHistorySummary(record))}</span>
         <span>${escapeHtml(formatImportTimestamp(record.updatedAt || record.createdAt))}</span>
       </div>
+      ${
+        details.length
+          ? `<div class="import-history-item-meta">
+              ${details.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+            </div>`
+          : ""
+      }
       <div class="import-history-actions">
         ${actions
           .map(
