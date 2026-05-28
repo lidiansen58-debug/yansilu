@@ -49,7 +49,7 @@ function renderControls(state = {}) {
   return `
     <div class="scheduled-task-toolbar">
       <label>
-        <span>Status</span>
+        <span>状态</span>
         <select id="scheduledTaskStatusFilter">
           ${scheduledTaskStatusOptions()
             .map((option) => `<option value="${attr(option.value)}" ${option.value === filters.status ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
@@ -57,16 +57,16 @@ function renderControls(state = {}) {
         </select>
       </label>
       <label>
-        <span>Type</span>
+        <span>类型</span>
         <select id="scheduledTaskTypeFilter">
           ${scheduledTaskTypeOptions()
             .map((option) => `<option value="${attr(option.value)}" ${option.value === filters.taskType ? "selected" : ""}>${escapeHtml(option.label)}</option>`)
             .join("")}
         </select>
       </label>
-      <button class="mini-btn" id="btnScheduledTasksApplyFilters" type="button">Apply</button>
-      <button class="mini-btn" id="btnScheduledTasksRefresh" type="button">Refresh</button>
-      <button class="mini-btn primary" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>Run due now</button>
+      <button class="mini-btn" id="btnScheduledTasksApplyFilters" type="button">应用筛选</button>
+      <button class="mini-btn" id="btnScheduledTasksRefresh" type="button">刷新</button>
+      <button class="mini-btn primary" id="btnScheduledTasksRunDue" type="button" ${state.actionLoading ? "disabled" : ""}>立即运行到期任务</button>
     </div>
   `;
 }
@@ -84,18 +84,18 @@ function renderTaskForm(state = {}) {
     <form class="scheduled-task-form" id="scheduledTaskForm">
       <div class="scheduled-task-form-head">
         <div>
-          <div class="settings-card-title">${editing ? "Edit scheduled task" : "Create scheduled task"}</div>
+          <div class="settings-card-title">${editing ? "编辑计划任务" : "创建计划任务"}</div>
           <div class="settings-card-note">只使用安全模板。新的输出会先进入 AI 建议待办，等待人工确认。</div>
         </div>
         <div class="settings-stat-row">
-          ${editing ? badge(`Editing ${form.scheduledTaskId}`, "warn") : badge("Draft", "muted")}
-          ${state.templatesLoading ? badge("Loading templates", "warn") : ""}
-          ${state.templatesError ? badge("Template load failed", "bad") : ""}
+          ${editing ? badge(`编辑中 ${form.scheduledTaskId}`, "warn") : badge("草稿", "muted")}
+          ${state.templatesLoading ? badge("模板加载中", "warn") : ""}
+          ${state.templatesError ? badge("模板加载失败", "bad") : ""}
         </div>
       </div>
       <div class="scheduled-task-form-grid">
         <label>
-          <span>Template</span>
+          <span>模板</span>
           <select id="scheduledTaskTemplateSelect" ${editing ? "disabled" : ""}>
             ${templates
               .map((template) => `<option value="${attr(template.value)}" ${template.value === form.templateId ? "selected" : ""}>${escapeHtml(template.label)}</option>`)
@@ -103,67 +103,75 @@ function renderTaskForm(state = {}) {
           </select>
         </label>
         <label>
-          <span>Name</span>
-          <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="Weekly link suggestions" />
+          <span>名称</span>
+          <input id="scheduledTaskNameInput" value="${attr(form.name)}" placeholder="每周关系建议" />
         </label>
         <label>
-          <span>Status</span>
+          <span>状态</span>
           <select id="scheduledTaskStatusSelect">
-            <option value="paused" ${form.status === "paused" ? "selected" : ""}>Paused</option>
-            <option value="active" ${form.status === "active" ? "selected" : ""}>Active</option>
+            <option value="paused" ${form.status === "paused" ? "selected" : ""}>暂停</option>
+            <option value="active" ${form.status === "active" ? "selected" : ""}>启用</option>
           </select>
         </label>
         <label>
-          <span>Schedule</span>
+          <span>调度方式</span>
           <select id="scheduledTaskScheduleTypeSelect">
-            <option value="weekly" ${form.scheduleType === "weekly" ? "selected" : ""}>Weekly</option>
-            <option value="interval" ${form.scheduleType === "interval" ? "selected" : ""}>Interval</option>
-            <option value="manual_only" ${form.scheduleType === "manual_only" ? "selected" : ""}>Manual only</option>
+            <option value="weekly" ${form.scheduleType === "weekly" ? "selected" : ""}>每周</option>
+            <option value="interval" ${form.scheduleType === "interval" ? "selected" : ""}>间隔</option>
+            <option value="manual_only" ${form.scheduleType === "manual_only" ? "selected" : ""}>仅手动</option>
           </select>
         </label>
         <label>
-          <span>Day</span>
+          <span>星期</span>
           <select id="scheduledTaskDaySelect">
-            ${["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-              .map((day) => `<option value="${day}" ${day === form.dayOfWeek ? "selected" : ""}>${day}</option>`)
+            ${[
+              ["monday", "周一"],
+              ["tuesday", "周二"],
+              ["wednesday", "周三"],
+              ["thursday", "周四"],
+              ["friday", "周五"],
+              ["saturday", "周六"],
+              ["sunday", "周日"]
+            ]
+              .map(([day, label]) => `<option value="${day}" ${day === form.dayOfWeek ? "selected" : ""}>${label}</option>`)
               .join("")}
           </select>
         </label>
         <label>
-          <span>Time</span>
+          <span>时间</span>
           <input id="scheduledTaskTimeInput" type="time" value="${attr(form.time)}" />
         </label>
         <label>
-          <span>Interval minutes</span>
+          <span>间隔分钟</span>
           <input id="scheduledTaskIntervalInput" type="number" min="5" step="5" value="${attr(form.intervalMinutes)}" />
         </label>
         <label>
-          <span>Note IDs</span>
+          <span>笔记 ID</span>
           <input id="scheduledTaskNoteIdsInput" value="${attr(form.noteIdsText)}" placeholder="note_1, note_2" />
         </label>
         <label>
-          <span>Directory IDs</span>
+          <span>目录 ID</span>
           <input id="scheduledTaskDirectoryIdsInput" value="${attr(form.directoryIdsText)}" placeholder="dir_original_default" />
         </label>
         <label>
-          <span>Tags</span>
+          <span>标签</span>
           <input id="scheduledTaskTagsInput" value="${attr(form.tagsText)}" placeholder="writing, source-gap" />
         </label>
         <label>
-          <span>Keywords</span>
+          <span>关键词</span>
           <input id="scheduledTaskKeywordsInput" value="${attr(form.keywordsText)}" placeholder="bridge concept" />
         </label>
         <label class="scheduled-task-checkbox">
           <input id="scheduledTaskIncludePrivateInput" type="checkbox" ${form.includePrivateNotes ? "checked" : ""} />
-          <span>Include private notes</span>
+          <span>包含私密笔记</span>
         </label>
       </div>
       <div class="scheduled-task-form-actions">
-        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentNote" type="button" ${state.currentNoteId ? "" : "disabled"}>Use current note</button>
-        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentDirectory" type="button" ${state.currentDirectoryId ? "" : "disabled"}>Use current directory</button>
-        <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">New</button>
+        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentNote" type="button" ${state.currentNoteId ? "" : "disabled"}>使用当前笔记</button>
+        <button class="mini-btn is-ghost" id="btnScheduledTaskUseCurrentDirectory" type="button" ${state.currentDirectoryId ? "" : "disabled"}>使用当前目录</button>
+        <button class="mini-btn" id="btnScheduledTaskClearForm" type="button">新建</button>
         <button class="mini-btn primary" id="btnScheduledTaskSave" type="button" ${state.actionLoading || !templates.length ? "disabled" : ""}>
-          ${editing ? "Save task" : "Create task"}
+          ${editing ? "保存任务" : "创建任务"}
         </button>
       </div>
     </form>
@@ -175,10 +183,10 @@ function renderRunSummary(runSummary = null) {
   const summary = scheduledRunSummary(runSummary);
   return `
     <div class="scheduled-task-run-summary">
-      ${badge(`${summary.total} due`, "warn")}
-      ${badge(`${summary.succeeded} succeeded`, "ok")}
-      ${badge(`${summary.skipped} skipped`, "muted")}
-      ${badge(`${summary.failed} failed`, summary.failed ? "bad" : "muted")}
+      ${badge(`${summary.total} 条到期`, "warn")}
+      ${badge(`${summary.succeeded} 条成功`, "ok")}
+      ${badge(`${summary.skipped} 条跳过`, "muted")}
+      ${badge(`${summary.failed} 条失败`, summary.failed ? "bad" : "muted")}
     </div>
   `;
 }
@@ -193,19 +201,19 @@ function renderTask(task = {}, actionLoading = false) {
     <article class="scheduled-task-row" data-scheduled-task-id="${attr(id)}">
       <div class="scheduled-task-main">
         <div>
-          <strong>${escapeHtml(task.name || id || "Scheduled task")}</strong>
-          <p>${escapeHtml(scheduledTaskTypeLabel(task.taskType))} / ${escapeHtml(task.agentId || "agent")}</p>
+          <strong>${escapeHtml(task.name || id || "计划任务")}</strong>
+          <p>${escapeHtml(scheduledTaskTypeLabel(task.taskType))} / ${escapeHtml(task.agentId || "任务代理")}</p>
         </div>
         ${badge(scheduledTaskStatusLabel(task.status), tone)}
       </div>
       <div class="scheduled-task-meta">
-        <span>Schedule: ${escapeHtml(scheduledTaskScheduleLabel(task.schedule || {}))}</span>
-        <span>Scope: ${escapeHtml(scheduledTaskScopeSummary(task.scope || {}))}</span>
-        <span>Budget: ${escapeHtml(scheduledTaskBudgetSummary(task.budget || {}))}</span>
-        <span>Next: ${escapeHtml(nextRun || task.nextRunAt || "not scheduled")}</span>
-        <span>Last: ${escapeHtml(lastRun || task.lastRunAt || "never")}${task.lastRunStatus ? ` / ${escapeHtml(task.lastRunStatus)}` : ""}</span>
-        ${task.lastRunReason ? `<span>Reason: ${escapeHtml(task.lastRunReason)}</span>` : ""}
-        ${task.lastAgentRunId ? `<span>Run: ${escapeHtml(task.lastAgentRunId)}</span>` : ""}
+        <span>调度：${escapeHtml(scheduledTaskScheduleLabel(task.schedule || {}))}</span>
+        <span>范围：${escapeHtml(scheduledTaskScopeSummary(task.scope || {}))}</span>
+        <span>预算：${escapeHtml(scheduledTaskBudgetSummary(task.budget || {}))}</span>
+        <span>下次：${escapeHtml(nextRun || task.nextRunAt || "未安排")}</span>
+        <span>上次：${escapeHtml(lastRun || task.lastRunAt || "从未运行")}${task.lastRunStatus ? ` / ${escapeHtml(task.lastRunStatus)}` : ""}</span>
+        ${task.lastRunReason ? `<span>原因：${escapeHtml(task.lastRunReason)}</span>` : ""}
+        ${task.lastAgentRunId ? `<span>运行：${escapeHtml(task.lastAgentRunId)}</span>` : ""}
       </div>
       ${
         action.nextStatus
@@ -217,7 +225,7 @@ function renderTask(task = {}, actionLoading = false) {
                 data-scheduled-task-edit="${attr(id)}"
                 ${actionLoading ? "disabled" : ""}
               >
-                Edit
+                编辑
               </button>
               <button
                 class="mini-btn"
@@ -238,9 +246,9 @@ function renderTask(task = {}, actionLoading = false) {
 
 function renderList(state = {}) {
   const items = Array.isArray(state.items) ? state.items : [];
-  if (state.loading) return `<div class="scheduled-task-empty">Loading scheduled tasks...</div>`;
-  if (state.error) return `<div class="scheduled-task-empty is-bad">Scheduled tasks failed to load: ${escapeHtml(state.error)}</div>`;
-  if (!items.length) return `<div class="scheduled-task-empty">No scheduled tasks match these filters.</div>`;
+  if (state.loading) return `<div class="scheduled-task-empty">正在加载计划任务...</div>`;
+  if (state.error) return `<div class="scheduled-task-empty is-bad">计划任务加载失败：${escapeHtml(state.error)}</div>`;
+  if (!items.length) return `<div class="scheduled-task-empty">没有符合这些筛选条件的计划任务。</div>`;
   return `<div class="scheduled-task-list">${items.map((item) => renderTask(item, state.actionLoading)).join("")}</div>`;
 }
 
@@ -250,14 +258,14 @@ export function renderScheduledTasksPanel(state = {}) {
     <div class="scheduled-task-panel">
       <div class="scheduled-task-head">
         <div>
-          <div class="settings-card-title">Scheduled agent tasks</div>
+          <div class="settings-card-title">计划代理任务</div>
           <div class="settings-card-note">手动运行到期的 AI 任务。输出会停留在 AI 建议待办，确认后才进入笔记或图谱。</div>
         </div>
         <div class="settings-stat-row">
-          ${badge(`${summary.visible}/${summary.total} visible`, "muted")}
-          ${badge(`${summary.counts.active || 0} active`, "ok")}
-          ${badge(`${summary.counts.paused || 0} paused`, "warn")}
-          ${summary.counts.failed ? badge(`${summary.counts.failed} failed`, "bad") : ""}
+          ${badge(`${summary.visible}/${summary.total} 可见`, "muted")}
+          ${badge(`${summary.counts.active || 0} 启用`, "ok")}
+          ${badge(`${summary.counts.paused || 0} 暂停`, "warn")}
+          ${summary.counts.failed ? badge(`${summary.counts.failed} 失败`, "bad") : ""}
         </div>
       </div>
       ${renderControls(state)}

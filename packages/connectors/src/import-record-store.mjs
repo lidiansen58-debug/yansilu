@@ -185,6 +185,7 @@ export async function loadImportRecord(vaultPath, recordId) {
   if (!previewEnvelope?.preview) return null;
 
   const confirmEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.confirm.json`));
+  const cancelEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.cancel.json`));
   const rollbackEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.rollback.json`));
   const preview = previewEnvelope.preview;
   const confirmResult = confirmEnvelope
@@ -204,7 +205,7 @@ export async function loadImportRecord(vaultPath, recordId) {
       }
     : null;
 
-  const state = rollbackResult ? "rolled_back" : confirmResult ? "completed" : preview.status || "preview";
+  const state = rollbackResult ? "rolled_back" : confirmResult ? "completed" : cancelEnvelope ? "cancelled" : preview.status || "preview";
   return {
     ...preview,
     state,
@@ -214,7 +215,7 @@ export async function loadImportRecord(vaultPath, recordId) {
     originalityGuard: confirmEnvelope?.originalityGuard || preview.originalityGuard || null,
     confirmResult,
     rollbackResult,
-    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || preview.createdAt
+    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || preview.createdAt
   };
 }
 

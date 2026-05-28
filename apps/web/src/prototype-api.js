@@ -5,7 +5,7 @@ const API_BASE =
     typeof window.__API_BASE__ === "string" &&
     window.__API_BASE__.trim() &&
     window.__API_BASE__ !== "__API_BASE__" &&
-    window.__API_BASE__) ||
+    window.__API_BASE__.trim()) ||
   "http://localhost:3000";
 
 async function request(pathname, options = {}) {
@@ -800,13 +800,21 @@ export async function rollbackImport(importRecordId) {
   });
 }
 
-export async function exportMarkdown(targetPath) {
-  const cleanTargetPath = String(targetPath || "").trim();
+export async function exportMarkdown(targetPathOrOptions, maybeOptions = {}) {
+  const options =
+    typeof targetPathOrOptions === "object" && targetPathOrOptions !== null
+      ? targetPathOrOptions
+      : { ...(maybeOptions || {}), targetPath: targetPathOrOptions };
+  const cleanTargetPath = String(options.targetPath || "").trim();
+  const cleanDirectoryId = String(options.directoryId || "").trim();
   if (!cleanTargetPath) throw new Error("targetPath is required");
+  const payload = { targetPath: cleanTargetPath };
+  if (cleanDirectoryId) payload.directoryId = cleanDirectoryId;
+  if (options.includeDescendants === false) payload.includeDescendants = false;
   return request("/api/v1/exports/markdown", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ targetPath: cleanTargetPath })
+    body: JSON.stringify(payload)
   });
 }
 

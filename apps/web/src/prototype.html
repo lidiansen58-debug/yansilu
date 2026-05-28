@@ -451,6 +451,38 @@
     .tree-root { display: grid; gap: 2px; }
     .tree-row { margin-bottom: 0; }
     .tree-row .left { width: 100%; }
+    .tree-group-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 22px;
+      margin: 6px 0 2px;
+      color: #6b7280;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .tree-group-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px dashed rgba(191, 202, 214, 0.94);
+      background: rgba(249, 250, 251, 0.98);
+    }
+    .tree-group-toggle {
+      cursor: pointer;
+      font: inherit;
+      letter-spacing: inherit;
+      text-transform: inherit;
+    }
+    .tree-group-label.is-warning .tree-group-pill {
+      border-color: rgba(198, 95, 32, 0.36);
+      background: rgba(255, 244, 236, 0.98);
+      color: #a54816;
+    }
     .item-trail {
       display: inline-flex;
       align-items: center;
@@ -486,6 +518,12 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .item-badge-warning {
+      border-color: rgba(198, 95, 32, 0.32);
+      background: rgba(255, 241, 232, 0.96);
+      color: #a54816;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.78);
+    }
     .item-badge-root { display: none; }
     .item-badge-note { display: none; }
     .tree-indent {
@@ -511,6 +549,75 @@
     .tree-toggle:disabled { cursor: default; color: #9aa7b8; }
     .tree-toggle.ghost { visibility: hidden; }
     .file-row .icon { color: #7b8794; }
+    .file-row.is-disconnected {
+      border-color: rgba(214, 120, 56, 0.28);
+      background: linear-gradient(180deg, rgba(255, 247, 239, 0.92), rgba(252, 238, 227, 0.88));
+    }
+    .file-row.is-disconnected-start {
+      margin-top: 12px;
+    }
+    .file-row.is-disconnected-start::before {
+      content: "鏈叆缃?" attr(data-disconnected-group-count);
+      position: absolute;
+      left: calc(12px + (var(--depth, 0) * 14px));
+      top: -18px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 0 8px;
+      border-radius: 999px;
+      border: 1px dashed rgba(198, 95, 32, 0.36);
+      background: rgba(255, 244, 236, 0.98);
+      color: #a54816;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .file-row.is-disconnected .name,
+    .file-row.is-disconnected .icon {
+      color: #8f3f16;
+    }
+    .file-row.is-disconnected.active {
+      border-color: rgba(205, 110, 46, 0.62);
+      box-shadow:
+        inset 3px 0 0 rgba(198, 95, 32, 0.72),
+        0 14px 28px rgba(138, 76, 32, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.78);
+    }
+    .item-inline-action {
+      border: 1px solid rgba(193, 206, 201, 0.9);
+      background: rgba(255, 255, 255, 0.96);
+      color: #4b5563;
+      border-radius: 999px;
+      min-height: 22px;
+      padding: 0 8px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      cursor: pointer;
+      transition: background-color .12s ease, border-color .12s ease, color .12s ease, box-shadow .12s ease;
+    }
+    .item-inline-action:hover,
+    .item-inline-action:focus-visible {
+      background: #ffffff;
+      border-color: rgba(172, 188, 183, 0.96);
+      color: #1f2937;
+      box-shadow: 0 6px 14px rgba(23, 34, 33, 0.08);
+      outline: none;
+    }
+    .item-inline-action.warn {
+      border-color: rgba(198, 95, 32, 0.34);
+      background: rgba(255, 245, 238, 0.98);
+      color: #a54816;
+    }
+    .item-inline-action.warn:hover,
+    .item-inline-action.warn:focus-visible {
+      border-color: rgba(186, 82, 19, 0.52);
+      background: #fff2e8;
+      color: #8c360f;
+    }
     .folder-row-root .name {
       font-weight: 700;
       color: #111827;
@@ -539,7 +646,7 @@
       background: #6f8dab;
     }
     .explorer-item.drop-target::after {
-      content: "移动到此目录";
+      content: "绉诲姩鍒版鐩綍";
       position: absolute;
       right: 8px;
       top: 50%;
@@ -1664,10 +1771,10 @@
     }
     .import-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
-      border-radius: 12px;
+      border-radius: 16px;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 249, 0.96) 100%);
-      padding: 18px;
-      box-shadow: 0 12px 26px rgba(23, 34, 33, 0.05);
+      padding: 20px;
+      box-shadow: 0 16px 36px rgba(23, 34, 33, 0.06);
       min-width: 0;
     }
     .import-card + .import-card {
@@ -1675,10 +1782,10 @@
     }
     .import-card-head {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 14px;
+      margin-bottom: 14px;
     }
     .import-card-kicker {
       font-size: 11px;
@@ -1689,17 +1796,18 @@
       margin-bottom: 2px;
     }
     .import-card-head strong {
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 800;
       letter-spacing: 0;
       color: #0f172a;
+      line-height: 1.3;
     }
     .import-card-badge {
       border: 1px solid #d8e2dd;
       border-radius: 999px;
       background: #f6faf7;
       color: #416458;
-      padding: 3px 8px;
+      padding: 4px 10px;
       font-size: 11px;
       font-weight: 800;
       white-space: nowrap;
@@ -1767,16 +1875,16 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 14px;
     }
     .import-actions.secondary {
       margin-top: 12px;
     }
     .import-advanced {
-      margin-top: 14px;
+      margin-top: 12px;
       border: 1px solid #dce5ef;
       border-radius: 12px;
-      background: #fbfcfe;
+      background: #f9fbfc;
       overflow: hidden;
     }
     .import-advanced summary {
@@ -1813,11 +1921,11 @@
     .import-history-summary {
       margin-top: 10px;
       border: 1px solid #dbe3ec;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #fff;
-      padding: 12px;
+      padding: 14px;
       display: grid;
-      gap: 7px;
+      gap: 8px;
     }
     .import-history-summary.tone-warn {
       border-color: #ead28a;
@@ -1841,7 +1949,7 @@
     .import-history-summary-main strong {
       display: block;
       color: #172033;
-      font-size: 14px;
+      font-size: 15px;
       margin-top: 1px;
     }
     .import-history-summary-subtitle,
@@ -1856,62 +1964,14 @@
       gap: 6px;
       justify-content: flex-end;
     }
-    .import-history-filter {
-      margin-top: 10px;
-      border: 1px solid #dce5ef;
-      border-radius: 10px;
-      background: #fbfcfe;
-      overflow: hidden;
-    }
-    .import-history-filter summary {
-      cursor: pointer;
-      list-style: none;
-      padding: 10px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      color: #334155;
-      user-select: none;
-    }
-    .import-history-filter summary::-webkit-details-marker {
-      display: none;
-    }
-    .import-history-filter summary span {
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .import-history-filter summary small {
-      color: #64748b;
-      font-size: 11px;
-      line-height: 1.3;
-      text-align: right;
-    }
-    .import-history-filter[open] summary {
-      border-bottom: 1px solid #e5ebf2;
-      background: #f8fbff;
-    }
-    .import-history-controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-      gap: 8px;
-      align-items: end;
-      padding: 10px 12px 12px;
-    }
-    .import-history-controls label {
-      display: grid;
-      gap: 4px;
-      font-size: 12px;
-      color: #64748b;
-    }
     .import-history {
       margin-top: 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 10px;
+      border-radius: 12px;
       background: #f8fafc;
-      padding: 10px;
+      padding: 12px;
       display: grid;
-      gap: 8px;
+      gap: 10px;
     }
     .import-history-list {
       display: grid;
@@ -1920,9 +1980,9 @@
     .import-history-item {
       width: 100%;
       border: 1px solid #dbe3ec;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #fff;
-      padding: 9px 10px;
+      padding: 10px 11px;
       text-align: left;
       cursor: pointer;
       display: grid;
@@ -2403,7 +2463,7 @@
 	    }
 	    .result-card {
 	      display: grid;
-	      gap: 10px;
+	      gap: 12px;
 	    }
 	    .result-card-head {
 	      display: flex;
@@ -2414,11 +2474,14 @@
 	    .result-title {
 	      font-weight: 800;
 	      color: #172033;
+	      font-size: 16px;
+	      line-height: 1.35;
 	    }
 	    .result-subtitle {
 	      margin-top: 2px;
 	      color: #64748b;
 	      font-family: "Consolas", "JetBrains Mono", "SFMono-Regular", monospace;
+	      font-size: 12px;
 	    }
 	    .result-status {
 	      border: 1px solid #bfd9c9;
@@ -2584,15 +2647,19 @@
 	    }
 	    .result-candidates {
 	      border: 1px solid #dbe5ef;
-	      border-radius: 8px;
+	      border-radius: 12px;
 	      background: #ffffff;
-	      padding: 8px;
+	      padding: 10px;
 	      display: grid;
-	      gap: 8px;
+	      gap: 10px;
+	    }
+	    .result-candidates.simple {
+	      background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
 	    }
 	    .result-candidates-title {
 	      font-weight: 800;
 	      color: #172033;
+	      font-size: 14px;
 	    }
 	    .result-candidates-toolbar {
 	      display: flex;
@@ -2721,13 +2788,14 @@
 	    }
 	    .candidate-group {
 	      display: grid;
-	      gap: 5px;
+	      gap: 7px;
 	    }
 	    .candidate-group-title {
 	      color: #64748b;
 	      font-weight: 700;
-	      font-size: 11px;
+	      font-size: 12px;
 	      text-transform: uppercase;
+	      letter-spacing: 0.04em;
 	    }
 	    .candidate-list {
 	      display: grid;
@@ -2735,11 +2803,11 @@
 	    }
 	    .candidate-item {
 	      border: 1px solid #edf2f7;
-	      border-radius: 7px;
+	      border-radius: 10px;
 	      background: #fbfdff;
-	      padding: 7px 8px;
+	      padding: 9px 10px;
 	      display: grid;
-	      gap: 3px;
+	      gap: 4px;
 	    }
 	    .candidate-item.selected {
 	      border-color: #b9ddc9;
@@ -3201,7 +3269,7 @@
       display: grid;
       justify-items: end;
       gap: 9px;
-      min-width: 260px;
+      min-width: 160px;
     }
     .graph-map-badges {
       display: flex;
@@ -3221,28 +3289,57 @@
     }
     .graph-zoom-controls {
       display: inline-flex;
-      gap: 4px;
-      min-height: 44px;
+      gap: 3px;
+      min-height: 36px;
       align-items: center;
       border: 1px solid #dce6ee;
-      border-radius: 9px;
-      background: #f8fafc;
-      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.94);
+      padding: 3px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+    .graph-expand-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid #cfe3d8;
+      border-radius: 999px;
+      background: rgba(243, 251, 246, 0.96);
+      color: #0f6f48;
+      cursor: pointer;
+      font: inherit;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
+    }
+    .graph-expand-btn:hover {
+      background: #e9f7ef;
+    }
+    .graph-expand-btn:focus-visible {
+      outline: 3px solid rgba(19, 118, 79, 0.22);
+      outline-offset: 2px;
     }
     .graph-zoom-btn {
-      min-width: 56px;
-      min-height: 34px;
+      width: 36px;
+      height: 36px;
       border: 0;
-      border-radius: 7px;
+      border-radius: 999px;
       background: transparent;
       color: #475569;
       cursor: pointer;
       font: inherit;
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 800;
       line-height: 1;
-      padding: 0 11px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
       transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+    }
+    .graph-zoom-btn span {
+      transform: translateY(-0.5px);
     }
     .graph-zoom-btn:hover {
       background: #eef4f1;
@@ -3257,22 +3354,6 @@
       outline: 3px solid rgba(19, 118, 79, 0.22);
       outline-offset: 2px;
     }
-    .graph-map-interpretation {
-      display: flex;
-      gap: 8px;
-      align-items: baseline;
-      padding: 10px 14px;
-      border-bottom: 1px solid #e7edf3;
-      background: #fbfdfb;
-      color: #425466;
-      font-size: 12px;
-      line-height: 1.55;
-    }
-    .graph-map-interpretation strong {
-      color: #172033;
-      flex: 0 0 auto;
-      font-size: 12px;
-    }
     .graph-map-stage {
       min-height: 460px;
       background: #f8fafc;
@@ -3280,7 +3361,7 @@
     }
     .graph-map-body {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      grid-template-columns: minmax(0, 1fr);
       min-height: 460px;
     }
     .graph-map-canvas {
@@ -3293,6 +3374,7 @@
       min-height: 0;
       height: 460px;
       overflow: auto;
+      position: relative;
       overscroll-behavior: contain;
       touch-action: pan-x pan-y;
       background:
@@ -3313,70 +3395,55 @@
       width: max(100%, var(--graph-zoom-width));
       height: max(460px, var(--graph-zoom-height));
     }
-    .graph-map-roster {
-      border-left: 1px solid #e1e9f1;
-      background: #ffffff;
-      color: #172033;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      min-height: 0;
-    }
-    .graph-map-roster-head {
+    .graph-map-floater {
+      position: sticky;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px;
-      border-bottom: 1px solid #e7edf3;
+      justify-content: flex-end;
+      gap: 8px;
+      margin: 12px 12px 0 auto;
+      pointer-events: none;
     }
-    .graph-map-roster-head strong {
-      font-size: 13px;
-      color: #172033;
+    .graph-map-floater .graph-expand-btn,
+    .graph-map-floater .graph-zoom-controls {
+      pointer-events: auto;
     }
-    .graph-map-roster-head span {
-      border: 1px solid #dce6ee;
-      border-radius: 999px;
-      color: #64748b;
-      font-size: 11px;
-      padding: 3px 7px;
+    .graph-map-panel.is-expanded {
+      position: fixed;
+      inset: 18px;
+      z-index: 80;
+      border-radius: 18px;
+      box-shadow: 0 28px 60px rgba(17, 24, 39, 0.24);
     }
-    .graph-map-roster-list {
-      display: grid;
-      align-content: start;
-      gap: 6px;
-      max-height: 460px;
-      overflow: auto;
-      padding: 10px;
+    .graph-map-panel.is-expanded::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.36);
+      backdrop-filter: blur(6px);
+      z-index: -1;
     }
-    .graph-map-roster-item {
-      width: 100%;
-      min-height: 44px;
-      border: 1px solid #dce6ee;
-      border-radius: 8px;
-      background: #fff;
-      color: inherit;
-      cursor: pointer;
-      display: grid;
-      gap: 3px;
-      padding: 8px;
-      text-align: left;
+    .graph-map-panel.is-expanded .graph-map-stage,
+    .graph-map-panel.is-expanded .graph-map-body,
+    .graph-map-panel.is-expanded .graph-map-canvas,
+    .graph-map-panel.is-expanded .graph-map-viewport {
+      min-height: calc(100vh - 180px);
+      height: calc(100vh - 180px);
     }
-    .graph-map-roster-item:hover,
-    .graph-map-roster-item:focus-visible {
-      border-color: #b9ddc9;
-      background: #eef6f1;
-      outline: none;
+    .graph-map-panel.is-expanded .graph-map-svg {
+      min-height: calc(100vh - 180px);
     }
-    .graph-map-roster-title {
-      color: #172033;
-      font-size: 12px;
-      font-weight: 800;
-      line-height: 1.35;
+    .module-workspace.graph-mode .module-header {
+      display: none;
     }
-    .graph-map-roster-meta {
-      color: #64748b;
-      font-size: 11px;
-      line-height: 1.35;
+    .graph-filters-single {
+      grid-template-columns: minmax(220px, 320px);
+      padding-bottom: 8px;
+    }
+    .graph-filters-single label {
+      max-width: 320px;
     }
     .graph-map-backdrop {
       fill: transparent;
@@ -3409,6 +3476,11 @@
     .graph-map-edge-group:hover .graph-map-edge {
       opacity: 1;
       stroke-width: 3.6;
+    }
+    .graph-map-edge-group.is-focused-path .graph-map-edge {
+      opacity: 0.96;
+      stroke-width: 3.6;
+      filter: drop-shadow(0 0 8px rgba(15, 23, 42, 0.14));
     }
     .graph-map-edge-label {
       fill: #334155;
@@ -3482,11 +3554,30 @@
       stroke-width: 3.6;
       filter: drop-shadow(0 10px 18px rgba(30, 140, 98, 0.22));
     }
+    .graph-map-node.is-anchor circle {
+      fill: #fbfff8;
+      stroke: #2f9c68;
+      stroke-width: 3.8;
+      filter: drop-shadow(0 12px 20px rgba(47, 156, 104, 0.18));
+    }
+    .graph-map-node.is-context circle {
+      opacity: 0.84;
+    }
+    .graph-map-node.is-focused circle {
+      fill: #f7fffb;
+      stroke: #0f6f48;
+      stroke-width: 5.2;
+      filter: drop-shadow(0 16px 26px rgba(15, 111, 72, 0.24));
+    }
     .graph-map-node:hover circle,
     .graph-map-node:focus circle {
       stroke: #0f6f48;
       stroke-width: 4.2;
       filter: drop-shadow(0 10px 18px rgba(30, 140, 98, 0.22));
+    }
+    .graph-map-node.is-focused:hover circle,
+    .graph-map-node.is-focused:focus circle {
+      stroke-width: 5.6;
     }
     .graph-map-node-label {
       fill: #172033;
@@ -3498,6 +3589,11 @@
       stroke-linejoin: round;
       pointer-events: none;
     }
+    .graph-map-node-label.is-hover-reveal {
+      opacity: 0;
+      transform-origin: center;
+      transition: opacity 0.16s ease;
+    }
     .graph-map-node-meta {
       fill: #64748b;
       font-size: 10.5px;
@@ -3507,6 +3603,29 @@
       stroke-width: 4px;
       stroke-linejoin: round;
       pointer-events: none;
+    }
+    .graph-map-node.is-context .graph-map-node-label,
+    .graph-map-node.is-context .graph-map-node-meta {
+      fill: #415166;
+    }
+    .graph-map-node.is-label-on-hover:hover .graph-map-node-label.is-hover-reveal,
+    .graph-map-node.is-label-on-hover:focus .graph-map-node-label.is-hover-reveal,
+    .graph-map-node.is-label-on-hover:focus-visible .graph-map-node-label.is-hover-reveal {
+      opacity: 1;
+    }
+    .graph-map-node.is-focused .graph-map-node-label {
+      fill: #0f172a;
+      font-size: 14px;
+    }
+    .graph-map-node.is-focused .graph-map-node-meta {
+      fill: #0f6f48;
+    }
+    .graph-map-node.is-anchor .graph-map-node-label {
+      fill: #183426;
+      font-size: 13.5px;
+    }
+    .graph-map-node.is-anchor .graph-map-node-meta {
+      fill: #2f6e50;
     }
     .graph-map-legend {
       display: flex;
@@ -3873,15 +3992,6 @@
         justify-content: flex-start;
         min-width: 0;
       }
-      .graph-zoom-controls {
-        width: 100%;
-      }
-      .graph-zoom-btn {
-        flex: 1;
-      }
-      .graph-map-interpretation {
-        display: grid;
-      }
       .graph-map-stage,
       .graph-map-canvas,
       .graph-map-svg {
@@ -3894,12 +4004,21 @@
       .graph-map-body {
         grid-template-columns: 1fr;
       }
-      .graph-map-roster {
-        border-left: 0;
-        border-top: 1px solid #e1e9f1;
+      .graph-map-floater {
+        top: 10px;
+        right: 10px;
+        margin: 10px 10px 0 auto;
       }
-      .graph-map-roster-list {
-        max-height: 220px;
+      .graph-map-panel.is-expanded {
+        inset: 8px;
+      }
+      .graph-map-panel.is-expanded .graph-map-stage,
+      .graph-map-panel.is-expanded .graph-map-body,
+      .graph-map-panel.is-expanded .graph-map-canvas,
+      .graph-map-panel.is-expanded .graph-map-viewport,
+      .graph-map-panel.is-expanded .graph-map-svg {
+        min-height: calc(100vh - 150px);
+        height: calc(100vh - 150px);
       }
     }
     .graph-empty,
@@ -6169,7 +6288,7 @@
       backdrop-filter: blur(12px);
     }
     .status-pill::before {
-      content: "•";
+      content: "鈥?;
       font-size: 12px;
       line-height: 1;
     }
@@ -6548,12 +6667,6 @@
       .settings-canonical-grid {
         grid-template-columns: minmax(0, 1fr);
       }
-      .import-history-controls {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .import-history-controls .mini-btn {
-        min-height: 38px;
-      }
       .toolbar-group {
         padding-inline: 6px;
       }
@@ -6665,9 +6778,6 @@
         grid-template-columns: 1fr;
       }
       .import-flow-steps {
-        grid-template-columns: 1fr;
-      }
-      .import-history-controls {
         grid-template-columns: 1fr;
       }
       .import-history-item-head,
@@ -9058,8 +9168,8 @@
                   <button type="button" class="toolbar-command-item" data-toolbar-command="code" role="menuitem"><span class="toolbar-command-icon">&lt;/&gt;</span><strong>代码</strong><span>插入 fenced code block</span></button>
                   <button type="button" class="toolbar-command-item" data-toolbar-command="table" role="menuitem"><span class="toolbar-command-icon">▦</span><strong>表格</strong><span>插入基础 Markdown 表格</span></button>
                   <button type="button" class="toolbar-command-item" data-toolbar-command="hr" role="menuitem"><span class="toolbar-command-icon">—</span><strong>分割</strong><span>插入章节分隔</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" role="menuitem"><span class="toolbar-command-icon">↧</span><strong>加行</strong><span>在当前表格末尾补一行</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" role="menuitem"><span class="toolbar-command-icon">↦</span><strong>加列</strong><span>在当前表格右侧补一列</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" role="menuitem"><span class="toolbar-command-icon">→</span><strong>加行</strong><span>在当前表格末尾补一行</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" role="menuitem"><span class="toolbar-command-icon">→</span><strong>加列</strong><span>在当前表格右侧补一列</span></button>
                 </div>
               </div>
             </div>
@@ -9136,7 +9246,7 @@
               <strong id="originalityNoticeTitle">原创性提醒</strong>
               <button class="tb" id="btnCloseOriginalityNotice" type="button">关闭</button>
             </div>
-            <div class="floating-notice-body" id="originalityNoticeBody">这里只对永久笔记提示原创性风险和下一步建议。</div>
+            <div class="floating-notice-body" id="originalityNoticeBody">这里会对永久笔记提示原创性风险和下一步建议。</div>
           </div>
           <div class="panel md-panel" id="markdownPanel">
             <div class="panel-head compact editor-intent">
@@ -9152,7 +9262,7 @@
             <div class="literature-workspace hidden" id="literatureWorkspace">
               <div class="literature-head">
                 <h3>文献笔记工作台</h3>
-                <p>左边保留原文，右边只写你真正理解后的转述。摘录不是完成，转述才是进入理解的开始。</p>
+                <p>左边保留原文，右边只写你真正理解后的转述。摘录不算完成，转述才是进入理解的开始。</p>
               </div>
               <section class="literature-queue-panel">
                 <div class="literature-queue-head">
@@ -9182,7 +9292,7 @@
                   <div class="literature-card-head">
                     <div>
                       <div class="literature-card-title">左侧原文</div>
-                      <div class="literature-card-note">这里保留证据、页码和关键措辞，但不要把它误当成你已经理解。</div>
+                      <div class="literature-card-note">这里保留证据、页码和关键摘句，但不要把它误当成你已经理解。</div>
                     </div>
                     <span class="literature-status-badge" id="literatureCompletionBadge" data-tone="draft">待完成</span>
                   </div>
@@ -9195,7 +9305,7 @@
                   <div class="literature-card-head">
                     <div>
                       <div class="literature-card-title">右侧转述</div>
-                      <div class="literature-card-note" id="literatureCompletionHint">先写出自己的转述，再标记完成。</div>
+                      <div class="literature-card-note" id="literatureCompletionHint">先写出你自己的转述，再标记完成。</div>
                     </div>
                   </div>
                   <div class="literature-field">
@@ -9219,8 +9329,7 @@
                     <textarea id="literatureWhyKeepInput" placeholder="说明它为什么值得留下，而不只是“看起来重要”"></textarea>
                   </div>
                   <div class="literature-reflection-note">
-                    没有转述时，这条文献笔记只能停留在草稿状态；有判断种子或追问后，才适合继续记录永久笔记。
-                  </div>
+                    没有转述时，这条文献笔记只能停留在草稿状态；有判断种子或追问后，才适合继续记录永久笔记。                  </div>
                 </section>
               </div>
             </div>
@@ -9276,33 +9385,27 @@
                   <div class="import-card import-toolbar-card">
                     <div class="import-card-head">
                       <div>
-                        <div class="import-card-kicker">Import</div>
-                        <strong>导入笔记</strong>
+                        <div class="import-card-kicker">导入</div>
+                        <strong>导入</strong>
                       </div>
-                      <span class="import-card-badge">先预览，不直接写入</span>
+                      <span class="import-card-badge">预览后导入</span>
                     </div>
-                    <div class="import-flow-steps" aria-label="导入流程">
-                      <div><span>1</span><strong>选择来源</strong><small>文件夹或连接器</small></div>
-                      <div><span>2</span><strong>预览确认</strong><small>勾选后再写入</small></div>
-                    </div>
-                    <p class="import-card-note">默认只需要选择来源类型和路径。预览通过后再确认写入；记录查询、回滚和 JSON 参数都收在高级区。</p>
                     <div class="import-grid import-form-grid" style="margin-top:10px;">
-                      <label for="importConnector">来源类型</label>
+                      <label for="importConnector">来源</label>
                       <select id="importConnector">
-                        <option value="markdown">Markdown</option>
-                        <option value="obsidian">Obsidian</option>
-                        <option value="zotero">Zotero</option>
-                        <option value="readwise">Readwise</option>
-                        <option value="notebooklm">NotebookLM</option>
+                        <option value="markdown">Markdown 文档</option>
+                        <option value="obsidian">Obsidian 库</option>
+                        <option value="zotero">Zotero 文献库</option>
+                        <option value="readwise">Readwise 高亮</option>
+                        <option value="notebooklm">NotebookLM 项目</option>
                       </select>
 
-                      <label for="importPath">来源路径</label>
+                      <label for="importPath">路径</label>
                       <div class="import-field-stack">
                         <div class="path-picker">
-                          <input id="importPath" placeholder="选择包含 .md 的文件夹" />
-                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
+                          <input id="importPath" placeholder="选择要导入的目录" />
+                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择</button>
                         </div>
-                        <div class="import-field-help">Markdown 和 Obsidian 直接选目录；Zotero、Readwise、NotebookLM 可在高级区粘贴 Payload JSON。</div>
                       </div>
                     </div>
                     <div class="import-actions">
@@ -9310,21 +9413,21 @@
                       <button class="mini-btn" id="btnImportConfirm">确认写入</button>
                     </div>
                     <details class="import-advanced" id="importAdvanced">
-                      <summary>高级选项、记录查询与回滚</summary>
+                      <summary>高级选项</summary>
                       <div class="import-advanced-body">
                         <div class="import-grid">
-                          <label for="importPayload">Payload JSON</label>
-                          <textarea id="importPayload" style="min-height:90px;" placeholder='为空时自动使用 {"path":"来源路径"}'></textarea>
+                          <label for="importPayload">请求体 JSON</label>
+                          <textarea id="importPayload" style="min-height:90px;" placeholder='留空时自动使用 {"path":"当前路径"}'></textarea>
 
-                          <label for="importOptions">Options JSON</label>
-                          <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true,"detectAliases":true}'></textarea>
+                          <label for="importOptions">选项 JSON</label>
+                          <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true}'></textarea>
 
-                          <label for="importRecordId">ImportRecord ID</label>
-                          <input id="importRecordId" placeholder="预览后自动填充，可手动粘贴" />
+                          <label for="importRecordId">导入记录 ID</label>
+                          <input id="importRecordId" placeholder="预览后自动填入" />
                         </div>
                         <div class="import-actions secondary">
                           <button class="mini-btn" id="btnImportCancel">取消</button>
-                          <button class="mini-btn" id="btnImportRefresh">查询记录</button>
+                          <button class="mini-btn" id="btnImportRefresh">刷新记录</button>
                           <button class="mini-btn" id="btnImportRollback">回滚</button>
                         </div>
                       </div>
@@ -9334,84 +9437,52 @@
                 <section class="import-card import-history-card">
                   <div class="import-history-head">
                     <div>
-                      <div class="import-card-kicker">History</div>
-                      <div class="import-history-title">导入历史</div>
+                      <div class="import-card-kicker">最近</div>
+                      <div class="import-history-title">最近导入</div>
                     </div>
-                    <span class="import-card-badge">最近 12 条</span>
                   </div>
                   <div id="importHistoryMount">
-                    <details class="import-history-filter" id="importHistoryFilter">
-                      <summary>
-                        <span>筛选历史</span>
-                        <small>全部状态 / 全部连接器 / 全部风险</small>
-                      </summary>
-                      <div class="import-history-controls">
-                        <label>
-                          <span>状态</span>
-                          <select id="importHistoryStatus">
-                            <option value="all">全部状态</option>
-                            <option value="preview">预览中</option>
-                            <option value="completed">已完成</option>
-                            <option value="rolled_back">已回滚</option>
-                            <option value="cancelled">已取消</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>连接器</span>
-                          <select id="importHistoryConnector">
-                            <option value="all">全部连接器</option>
-                            <option value="markdown">Markdown</option>
-                            <option value="obsidian">Obsidian</option>
-                            <option value="zotero">Zotero</option>
-                            <option value="readwise">Readwise</option>
-                            <option value="notebooklm">NotebookLM</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>风险</span>
-                          <select id="importHistoryRisk">
-                            <option value="all">全部风险</option>
-                            <option value="warning">有警告</option>
-                            <option value="blocked">有阻断</option>
-                            <option value="modified">回滚保留</option>
-                          </select>
-                        </label>
-                        <button class="mini-btn" id="btnImportHistoryRefresh" type="button">刷新历史</button>
+                    <div class="import-history-summary tone-neutral">
+                      <div class="import-history-summary-main">
+                        <div>
+                          <div class="import-history-summary-kicker">最近导入</div>
+                          <strong>最近导入</strong>
+                          <div class="import-history-summary-subtitle">暂无记录</div>
+                        </div>
                       </div>
-                    </details>
-                    <div class="import-history" id="importHistory">正在读取导入历史…</div>
+                      <div class="import-history-summary-detail">先导入一次，这里会显示最近状态。</div>
+                    </div>
+                    <div class="import-history" id="importHistory">还没有导入记录。</div>
                   </div>
-                  <div class="import-result" id="importResult">还没有导入结果。先选择来源，再点击预览。</div>
+                  <div class="import-result" id="importResult">还没有导入结果。</div>
                 </section>
               </div>
             </div>
             <div class="import-card export-card">
               <div class="import-card-head">
                 <div>
-                  <div class="import-card-kicker">Export</div>
-                  <strong>导出笔记</strong>
+                  <div class="import-card-kicker">导出</div>
+                  <strong>导出永久笔记</strong>
                 </div>
-                <span class="import-card-badge">Markdown + assets</span>
+                <span class="import-card-badge">目录导出</span>
               </div>
-              <div class="import-flow-steps" aria-label="导出流程">
-                <div><span>1</span><strong>选择目标</strong><small>空目录更清楚</small></div>
-                <div><span>2</span><strong>导出文件</strong><small>保留 Markdown 与资源</small></div>
-              </div>
-              <p class="import-card-note">导出只复制文件，不会改动当前 Vault。选择一个目标目录后即可导出 Markdown 和关联资源。</p>
               <div class="import-grid import-form-grid" style="margin-top:10px;">
+                <label for="exportDirectoryId">永久笔记目录</label>
+                <select id="exportDirectoryId">
+                  <option value="dir_original_default">永久笔记目录</option>
+                </select>
                 <label for="exportTargetPath">目标目录</label>
                 <div class="import-field-stack">
                   <div class="path-picker">
-                    <input id="exportTargetPath" placeholder="选择导出目标文件夹" />
-                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择目录</button>
+                    <input id="exportTargetPath" placeholder="选择导出目标目录" />
+                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择</button>
                   </div>
-                  <div class="import-field-help">系统会阻止导出到当前 Vault 内部，避免把备份文件混回笔记库。</div>
                 </div>
               </div>
               <div class="import-actions">
-                <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown</button>
+                <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown 文档</button>
               </div>
-              <div class="import-result" id="exportResult">还没有导出结果。选一个目标目录后点击导出。</div>
+              <div class="import-result" id="exportResult">选择目录后即可导出。</div>
             </div>
           </div>
           <div class="panel hidden" id="distillationPanel"></div>
@@ -9422,18 +9493,12 @@
           <div class="graph-head">
             <div>
               <div class="graph-title">永久笔记关系图谱</div>
-              <div class="graph-summary" id="graphSummary">点击“刷新图谱”，查看永久笔记盒及其子目录中的节点、关系、冲突和缺口；也可以导入演示案例快速体验。</div>
+              <div class="graph-summary" id="graphSummary">正在读取关系图谱...</div>
             </div>
-            <div class="graph-actions">
-              <button class="mini-btn is-ghost" id="graphSeedYijing" type="button">导入易经案例</button>
-              <button class="mini-btn is-ghost" id="graphSeedYijingRich" type="button">导入官网演示</button>
+          <div class="graph-actions">
+              <button class="mini-btn is-ghost hidden" id="graphBackToDirectory" type="button">返回目录关系</button>
               <button class="mini-btn primary" id="graphRefresh" type="button">刷新图谱</button>
             </div>
-          </div>
-          <div class="graph-flow-strip" aria-label="图谱操作步骤">
-            <div><span>1</span><strong>看结构</strong><small>中心、支撑、张力</small></div>
-            <div><span>2</span><strong>放大读</strong><small>节点多时看标题和关系</small></div>
-            <div><span>3</span><strong>回笔记补</strong><small>补理由、边界和桥接</small></div>
           </div>
           <div id="graphCanvas">
             <div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是“支持、反驳、限定、桥接”等关系。</div>
@@ -9443,16 +9508,16 @@
           <div class="writing-shell">
             <header class="writing-topline">
               <div>
-                <div class="import-card-kicker">Writing Center</div>
+                <div class="import-card-kicker">写作中心</div>
                 <strong>写作中心：把永久笔记组织成可推进的项目与草稿骨架</strong>
-                <p>它不是代写终稿，而是帮你把观点、证据、缺口和反方先摆到一张工作台上。</p>
+                <p>它不是代写终稿，而是帮你把观点、证据、缺口和反方先摆到一张工作台中。</p>
               </div>
               <div class="writing-topline-actions">
                 <button class="mini-btn" id="btnWritingRefreshProjects" type="button">刷新项目</button>
               </div>
             </header>
             <div class="writing-flow-strip" id="writingFlowSteps" aria-label="写作中心操作步骤">
-                  <div class="writing-flow-step is-active"><span>1</span><strong>选材料</strong><small>把 2-5 条永久笔记加入写作篮</small></div>
+                  <div class="writing-flow-step is-active"><span>1</span><strong>选材料</strong><small>挑 2-5 条永久笔记加入写作篮</small></div>
               <div class="writing-flow-step"><span>2</span><strong>创建项目</strong><small>先明确题目和读者，再创建项目</small></div>
               <div class="writing-flow-step"><span>3</span><strong>生成草稿骨架</strong><small>检查证据和缺口</small></div>
               <div class="writing-flow-step"><span>4</span><strong>保存草稿</strong><small>生成草稿骨架后再保存</small></div>
@@ -9476,7 +9541,7 @@
                   <label for="writingAudience">读者</label>
                   <input id="writingAudience" placeholder="例如：知识工作者" />
                     <label for="writingTone">语气</label>
-                    <input id="writingTone" placeholder="例如：清晰、克制、有证据感" />
+                    <input id="writingTone" placeholder="例如：冷静、克制、有证据感" />
                     <label for="writingVersionNote">本次版本说明</label>
                     <textarea id="writingVersionNote" style="min-height:58px;" placeholder="例如：调整段落顺序，先铺背景再落论点"></textarea>
                   </div>
@@ -9495,11 +9560,11 @@
                     <div class="writing-section-note">看项目是否已创建、草稿骨架是否已生成，以及下一步能否导出或保存草稿。</div>
                   </div>
                 </div>
-                <label for="writingBasketNoteIds" class="writing-section-note">材料清单（可编辑 Note IDs）</label>
+                <label for="writingBasketNoteIds" class="writing-section-note">材料清单（可编辑笔记 ID）</label>
                 <textarea id="writingBasketNoteIds" style="min-height:96px;" placeholder="每行一个 note id，或用逗号分隔"></textarea>
                 <div class="import-result" id="writingResult">尚未开始项目。</div>
                 <div class="writing-actions-secondary">
-                  <button class="mini-btn" id="btnWritingCopyScaffold">复制草稿骨架 Markdown</button>
+                  <button class="mini-btn" id="btnWritingCopyScaffold">复制草稿骨架 Markdown 文档</button>
                   <button class="mini-btn" id="btnWritingExportScaffold">导出草稿骨架 .md</button>
                   <button class="mini-btn" id="btnWritingSaveDraft">保存为草稿笔记</button>
                   <button class="mini-btn" id="btnWritingOpenDraft">打开当前草稿</button>
@@ -9535,7 +9600,7 @@
                     <div class="writing-section-head">
                       <div>
                         <div class="writing-section-title">主题详情</div>
-                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、主题压缩、相关永久笔记，并确认一条可续接的写作入口。</div>
+                        <div class="writing-section-note" id="writingThemeDetailHint">查看中心问题、主题压缩、相关永久笔记，并确认一条可继续接的写作入口。</div>
                       </div>
                     </div>
                     <div id="writingThemeDetail"></div>
@@ -9571,7 +9636,7 @@
                 </div>
                 <div class="writing-preview" id="writingScaffoldPreview">
                   <h4>草稿骨架预览</h4>
-                  <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 预览。</div>
+                  <div class="writing-empty">生成后这里会显示章节结构、证据映射和 Markdown 文档预览。</div>
                 </div>
               </section>
 
@@ -9589,8 +9654,8 @@
                       <label for="writingProjectsStatusFilter">状态</label>
                       <select id="writingProjectsStatusFilter">
                         <option value="all">全部</option>
-                        <option value="draft">draft</option>
-                        <option value="active">active</option>
+                        <option value="draft">草稿中</option>
+                        <option value="active">进行中</option>
                       </select>
                       <label for="writingProjectsDraftFilter">草稿</label>
                       <select id="writingProjectsDraftFilter">
@@ -9661,8 +9726,7 @@
                     </div>
                   </div>
                   <div class="settings-footnote">
-                    切换后会重新加载目录树，并清空当前打开的编辑标签页；主内容仍以本地 Markdown 为准，SQLite 缓存可重建。
-                  </div>
+                    切换后会重新加载目录树，并清空当前打开的编辑标签页；主内容仍以本地 Markdown 为准，SQLite 缓存可重建。                  </div>
                 </section>
 
                 <section class="settings-card">
@@ -9670,8 +9734,7 @@
                     <div>
                       <div class="settings-card-title">AI 模式</div>
                       <div class="settings-card-note">
-                        这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。高级用户可以填模型 ID 直接覆盖，但默认不需要。
-                      </div>
+                        这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。高级用户可以填模型 ID 直接覆盖，但默认不需要。                      </div>
                     </div>
                   </div>
                   <div class="import-grid">
@@ -9685,13 +9748,13 @@
 
                     <label for="settingsAiModelPack">模型包</label>
                     <select id="settingsAiModelPack">
-                      <option value="Starter Auto">默认自动</option>
-                      <option value="Low Cost Research">低成本研究</option>
-                      <option value="Deep Work">深度工作</option>
-                      <option value="China Optimized">国内优化</option>
-                      <option value="Global Optimized">全球网关</option>
-                      <option value="Privacy First">本地私密</option>
-                      <option value="Ollama Local">Ollama Local</option>
+                      <option value="Starter Auto">默认自动（Starter Auto）</option>
+                      <option value="Low Cost Research">低成本研究（Low Cost Research）</option>
+                      <option value="Deep Work">深度工作（Deep Work）</option>
+                      <option value="China Optimized">国内优化（China Optimized）</option>
+                      <option value="Global Optimized">全球网关（Global Optimized）</option>
+                      <option value="Privacy First">本地私密（Privacy First）</option>
+                      <option value="Ollama Local">Ollama 本地（Ollama Local）</option>
                     </select>
 
                     <label for="settingsAiUserMode">使用模式</label>
@@ -9714,14 +9777,14 @@
                     <label for="settingsAiSecretRef">密钥引用（高级）</label>
                     <input id="settingsAiSecretRef" placeholder="只填引用名，不填真实 Key（例如：secret_china_gateway）" />
 
-                    <label for="settingsAiProviderEndpointUrl">Provider endpoint（高级）</label>
+                    <label for="settingsAiProviderEndpointUrl">服务端点（高级）</label>
                     <input id="settingsAiProviderEndpointUrl" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
 
-                    <label for="settingsAiProviderHealthEndpointUrl">健康检查 endpoint（可选）</label>
-                    <input id="settingsAiProviderHealthEndpointUrl" placeholder="留空=使用 Provider endpoint；例如：http://localhost:11434/api/tags" />
+                    <label for="settingsAiProviderHealthEndpointUrl">健康检查端点（可选）</label>
+                    <input id="settingsAiProviderHealthEndpointUrl" placeholder="留空=使用服务端点；例如：http://localhost:11434/api/tags" />
                   </div>
                   <div class="settings-stat-row">
-                    <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前 Provider 配置</button>
+                    <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>
                     <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
                     <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
                     <a class="mini-btn hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
@@ -9733,15 +9796,15 @@
                   </div>
                   <div class="settings-route-preview" id="settingsAiRoutePreview">刷新当前 Vault 后会显示这套模式实际使用的模型路由。</div>
                   <div class="settings-kv" style="margin-top: 12px;">
-                    <div class="settings-kv-title">AI Test Run</div>
+                    <div class="settings-kv-title">AI 测试运行</div>
                     <div class="settings-kv-body">
                       <div class="import-grid">
-                        <label for="settingsAiTestPrompt">Test Prompt</label>
+                        <label for="settingsAiTestPrompt">测试提示词</label>
                         <textarea id="settingsAiTestPrompt" rows="3" placeholder="输入一句话，跑一次当前路由（本地/远程）并返回输出"></textarea>
                         <div></div>
                         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                          <button class="mini-btn primary" id="btnAiTestChatRun" type="button">Run</button>
-                          <button class="mini-btn" id="btnAiTestChatCopy" type="button">Copy</button>
+                          <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
+                          <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
                           <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
                         </div>
                       </div>
@@ -9749,25 +9812,24 @@
                     </div>
                   </div>
                   <div class="settings-footnote">
-                    说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。
-                  </div>
+                    说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。                  </div>
                 </section>
 
                 <section class="settings-card">
                   <div id="settingsScheduledTasksPanel">
-                    <div class="scheduled-task-empty">Scheduled tasks are ready to load.</div>
+                    <div class="scheduled-task-empty">计划任务已就绪，等待加载。</div>
                   </div>
                 </section>
 
                 <section class="settings-card">
                   <div id="settingsAiSuggestionsPanel">
-                    <div class="scheduled-task-empty">AI suggestions are ready to load.</div>
+                    <div class="scheduled-task-empty">AI 建议已就绪，等待加载。</div>
                   </div>
                 </section>
 
                 <section class="settings-card">
                   <div id="settingsAiCanonicalDebug">
-                    <div class="settings-canonical-empty">No AI canonical payloads captured yet.</div>
+                    <div class="settings-canonical-empty">还没有捕获到 AI 标准载荷。</div>
                   </div>
                 </section>
               </div>
@@ -9867,11 +9929,11 @@
             <button class="mini-btn" id="modalBrowsePath" type="button">浏览...</button>
           </div>
           <div class="modal-field-note">
-            桌面端（Tauri）会调用系统目录选择器；浏览器环境自动降级为手动输入。
+            桌面端（Tauri）会调用系统目录选择器，浏览器环境自动降级为手动输入。
           </div>
         </div>
         <div>
-          <label>最大卡片数（默认500）</label>
+          <label>最大卡片数（默认 500）</label>
           <input id="modalMaxCards" type="number" min="50" step="50" value="500" />
         </div>
       </div>

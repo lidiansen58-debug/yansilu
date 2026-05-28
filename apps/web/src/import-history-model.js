@@ -146,7 +146,7 @@ export function importHistoryDetailSummary(record = {}) {
     if (Number(summary.warnings || 0) > 0) signals.push(`普通警告 ${Number(summary.warnings || 0)}`);
     if (originality.warning > 0) signals.push(`原创性警告 ${originality.warning}`);
     if (originality.blocked > 0) signals.push(`原创性阻断 ${originality.blocked}`);
-    detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项");
+    detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项。");
     const hint = importHistoryRiskHint(record);
     if (hint) detail.push(hint);
     return detail;
@@ -199,7 +199,7 @@ export function importHistoryActions(record = {}) {
   if (status === "completed") {
     const actions = [{ action: "load", label: "查看结果" }];
     if (Number(record.literatureBatchProgress?.remaining || 0) > 0) {
-      actions.push({ action: "resume-literature-queue", label: "继续下一条待转述" });
+      actions.push({ action: "resume-literature-queue", label: "继续处理" });
     }
     if (Number(record.literatureBatchProgress?.remaining || 0) === 0 && Number(record.literatureBatchProgress?.ready || 0) > 0) {
       actions.push({ action: "promote-literature-batch", label: "转去永久笔记整理" });
@@ -211,7 +211,7 @@ export function importHistoryActions(record = {}) {
     return actions;
   }
 
-  if (status === "preview") return [{ action: "load", label: "读取记录" }];
+  if (status === "preview") return [{ action: "load", label: "继续处理" }];
   if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }

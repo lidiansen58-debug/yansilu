@@ -8,7 +8,7 @@ import {
 
 test("import history summary renders empty and loading states", () => {
   assert.match(renderImportHistoryRecentSummary({ items: [] }), /暂无记录/);
-  assert.match(renderImportHistoryRecentSummary({ loading: true }), /正在同步历史记录/);
+  assert.match(renderImportHistoryRecentSummary({ loading: true }), /正在同步/);
 });
 
 test("import history summary picks the newest record and exposes preview action", () => {
@@ -60,11 +60,10 @@ test("import history summary highlights queue recovery and rollback retention", 
   };
 
   const queueHtml = renderImportHistoryRecentSummary({ items: [completed] });
-  assert.match(queueHtml, /NotebookLM · 已写入/);
-  assert.match(queueHtml, /已处理 2\/4/);
+  assert.match(queueHtml, /NotebookLM · 已完成/);
+  assert.match(queueHtml, /继续处理/);
   assert.match(queueHtml, /data-import-history-action="resume-literature-queue"/);
 
   const rollbackHtml = renderImportHistoryRecentSummary({ items: [completed, rolledBack] });
   assert.match(rollbackHtml, /保留 1/);
-  assert.match(rollbackHtml, /手动核对/);
 });

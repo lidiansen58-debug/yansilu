@@ -110,68 +110,17 @@ export function selectionSummary(candidatePreview, selectedIds) {
   };
 }
 
-export function candidateFilterCounts(candidatePreview, selectedIds, originalityGuard = null) {
-  const items = candidatePreviewItems(candidatePreview);
-  const normalizedSelectedIds = selectedIds instanceof Set ? selectedIds : new Set();
-  const safeIds = new Set(safeCandidateIds(candidatePreview));
-  const confirmableIds = new Set(confirmableCandidateIds(candidatePreview, originalityGuard));
-  return {
-    all: items.length,
-    confirmable: items.filter((item) => confirmableIds.has(String(item.id))).length,
-    safe: items.filter((item) => safeIds.has(String(item.id))).length,
-    risky: items.filter((item) => item.originalityStatus === "warning" || item.originalityStatus === "blocked").length,
-    excluded: items.filter((item) => !normalizedSelectedIds.has(String(item.id))).length,
-    warning: items.filter((item) => item.originalityStatus === "warning").length,
-    blocked: items.filter((item) => item.originalityStatus === "blocked").length
-  };
-}
-
-export function matchesCandidateFilter(item, filter, selectedIds, originalityGuard = null) {
-  const candidateId = String(item?.id || "");
-  const normalizedSelectedIds = selectedIds instanceof Set ? selectedIds : new Set();
-  if (filter === "confirmable") return isConfirmableCandidate(item, originalityGuard);
-  if (filter === "safe") return item?.originalityStatus !== "blocked";
-  if (filter === "risky") return item?.originalityStatus === "warning" || item?.originalityStatus === "blocked";
-  if (filter === "excluded") return !normalizedSelectedIds.has(candidateId);
-  if (filter === "warning") return item?.originalityStatus === "warning";
-  if (filter === "blocked") return item?.originalityStatus === "blocked";
-  return true;
-}
-
-export function filterLabel(filter) {
-  const labels = {
-    all: "全部",
-    confirmable: "可确认项",
-    safe: "安全项",
-    risky: "风险项",
-    excluded: "已排除",
-    warning: "警告项",
-    blocked: "阻断项"
-  };
-  return labels[filter] || "全部";
-}
-
-export function resultFocusLabel(reason) {
-  const labels = {
-    unselected: "未勾选跳过",
-    invalid: "原创性跳过",
-    conflicted: "文件冲突跳过"
-  };
-  return labels[String(reason || "").trim()] || "候选项";
-}
-
-export function excludedCandidateItems(candidatePreview, selectedIds) {
-  const normalizedSelectedIds = selectedIds instanceof Set ? selectedIds : new Set();
-  return candidatePreviewItems(candidatePreview).filter((item) => !normalizedSelectedIds.has(String(item.id)));
-}
-
 export function confirmSkippedCandidateIds(payload = {}, candidatePreview = null) {
   const empty = { unselected: [], invalid: [], conflicted: [] };
   if (String(payload.stage || "") !== "confirm" || !candidatePreview) return empty;
 
   const items = candidatePreviewItems(candidatePreview);
   const itemIds = items.map((item) => String(item.id || ""));
-  const selectedIds = new Set((Array.isArray(payload.result?.selection?.candidateIds) ? payload.result.selection.candidateIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  const selectedIds = new Set(
+    (Array.isArray(payload.result?.selection?.candidateIds) ? payload.result.selection.candidateIds : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  );
   const unselected = itemIds.filter((id) => !selectedIds.has(id));
 
   const evaluationById = new Map(
@@ -191,14 +140,14 @@ export function confirmSkippedCandidateIds(payload = {}, candidatePreview = null
     .map((item) => String(item.id || ""));
 
   const invalidSet = new Set(invalid);
-  const createdIds = new Set((Array.isArray(payload.result?.createdFiles) ? payload.result.createdFiles : []).map((item) => String(item?.noteId || "")).filter(Boolean));
+  const createdIds = new Set(
+    (Array.isArray(payload.result?.createdFiles) ? payload.result.createdFiles : [])
+      .map((item) => String(item?.noteId || ""))
+      .filter(Boolean)
+  );
   const conflicted = itemIds.filter((id) => selectedIds.has(id) && !invalidSet.has(id) && !createdIds.has(id));
 
-  return {
-    unselected,
-    invalid,
-    conflicted
-  };
+  return { unselected, invalid, conflicted };
 }
 
 export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
@@ -223,11 +172,11 @@ export function confirmSkipReasonMap(payload = {}, candidatePreview = null) {
   for (const candidateId of skippedIds.invalid) {
     const evaluation = evaluationById.get(candidateId);
     const reasons = Array.isArray(evaluation?.reasons) ? evaluation.reasons.map(candidateReasonText).filter(Boolean) : [];
-    const reasonText = reasons.length ? ` ${reasons.join("、")}。` : "";
+    const reasonSuffix = reasons.length ? ` ${reasons.join("、")}。` : "";
     map[candidateId] = {
       reason: "invalid",
       tone: "warning",
-      message: `未写入原因：原创性为警告，当前未允许按草稿写入。${reasonText}`.trim()
+      message: `未写入原因：原创性为警告，当前未允许按草稿写入。${reasonSuffix}`.trim()
     };
   }
   for (const candidateId of skippedIds.conflicted) {
