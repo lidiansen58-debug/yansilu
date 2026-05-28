@@ -76,9 +76,9 @@ test("AI canonical debug panel renders suggestion snapshots alongside inbox snap
 
   renderAiCanonicalDebugPanel();
 
-  assert.match(panel.innerHTML, /AI Suggestions List/);
-  assert.match(panel.innerHTML, /AI Suggestion Detail/);
-  assert.match(panel.innerHTML, /AI Suggestion Decision/);
+assert.match(panel.innerHTML, /AI 建议列表/);
+assert.match(panel.innerHTML, /AI 建议详情/);
+assert.match(panel.innerHTML, /AI 建议决策/);
   assert.match(panel.innerHTML, /suggestion_1/);
   assert.match(panel.innerHTML, /confirmed/);
 });

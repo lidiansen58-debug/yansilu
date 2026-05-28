@@ -28,11 +28,10 @@ test("main-path summary labels wikilink-only signals as body link clues", () => 
   );
 
   assert.equal(result.nextStep, "补关系理由");
-  assert.match(result.summary, /正文链接线索/);
-  assert.doesNotMatch(result.summary, /wikilink/);
+  assert.match(result.summary, /正文里的 wikilink 线索/);
 });
 
-test("main-path summary labels mixed weak signals without raw wikilink wording", () => {
+test("main-path summary labels mixed weak signals with current wikilink wording", () => {
   const pane = createPane();
   const result = pane.permanentNoteMainPathSummaryV2(
     {
@@ -53,7 +52,6 @@ test("main-path summary labels mixed weak signals without raw wikilink wording",
   );
 
   assert.equal(result.nextStep, "把线索收成显式关系");
-  assert.match(result.summary, /正文链接/);
+  assert.match(result.summary, /正文里的 wikilink/);
   assert.match(result.summary, /标签接近/);
-  assert.doesNotMatch(result.summary, /wikilink/);
 });

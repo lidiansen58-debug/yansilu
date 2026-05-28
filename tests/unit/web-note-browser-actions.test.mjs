@@ -116,7 +116,7 @@ test("writing workspace defines hasProject before project list hints use it", ()
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const match = source.match(/const projectEntry = describeWritingProjectEntryState\(\{[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
+  const match = source.match(/const hasProject = Boolean\(writingState\.project\?\.id\);[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
 
   assert.ok(match, "expected writing workspace project-entry block to exist");
   assert.match(match[0], /const hasProject = Boolean\(writingState\.project\?\.id\);/);
@@ -144,7 +144,7 @@ test("renderAll repaints explorer before writing panel side-effects can interrup
   assert.ok(match, "expected renderAll() to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /if \(state\.module === "explorer"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
+  assert.match(fnBody, /if \(state\.module === "explorer" \|\| state\.module === "graph"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {

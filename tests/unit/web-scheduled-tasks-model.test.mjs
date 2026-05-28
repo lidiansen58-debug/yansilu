@@ -29,7 +29,7 @@ test("scheduled tasks model normalizes filters and labels", () => {
     taskType: "relation_scan",
     limit: 12
   });
-  assert.equal(scheduledTaskTypeLabel("reflection_prompt"), "Reflection prompts");
+  assert.equal(scheduledTaskTypeLabel("reflection_prompt"), "反思提醒");
   assert.equal(scheduledTaskStatusTone("active"), "ok");
   assert.equal(scheduledTaskStatusTone("failed"), "bad");
   assert.deepEqual(
@@ -42,15 +42,15 @@ test("scheduled tasks model normalizes filters and labels", () => {
 });
 
 test("scheduled tasks model summarizes schedule scope budget and runs", () => {
-  assert.equal(scheduledTaskScheduleLabel({ type: "interval", intervalMinutes: 30 }), "Every 30 min");
+  assert.equal(scheduledTaskScheduleLabel({ type: "interval", intervalMinutes: 30 }), "每 30 分钟");
   assert.equal(scheduledTaskScheduleLabel({ type: "weekly", dayOfWeek: "monday", time: "09:00" }), "monday 09:00");
   assert.equal(
     scheduledTaskScopeSummary({ noteIds: ["n1", "n2"], directoryIds: ["dir_1"], tags: ["writing"], keywords: ["spacing"], includePrivateNotes: true }),
-    "2 notes / 1 directories / 1 tags / 1 keywords / private included"
+    "2 条笔记 / 1 个目录 / 1 个标签 / 1 个关键词 / 包含私密内容"
   );
   assert.equal(
     scheduledTaskBudgetSummary({ maxRunsPerPeriod: 3, runsThisPeriod: 1, maxEstimatedCostPerPeriod: 2, period: "week" }),
-    "1/3 runs per week, cap 2"
+    "1/3 次 / week，上限 2"
   );
   assert.deepEqual(scheduledRunSummary({ total: 2, succeeded: 1, skipped: "1", failed: -1 }), {
     total: 2,
@@ -132,8 +132,8 @@ test("scheduled tasks model can hydrate runtime task objects from canonical payl
 });
 
 test("scheduled tasks model derives actions and list summary", () => {
-  assert.deepEqual(scheduledTaskAction({ status: "active" }), { nextStatus: "paused", label: "Pause" });
-  assert.deepEqual(scheduledTaskAction({ status: "paused" }), { nextStatus: "active", label: "Resume" });
+  assert.deepEqual(scheduledTaskAction({ status: "active" }), { nextStatus: "paused", label: "暂停" });
+  assert.deepEqual(scheduledTaskAction({ status: "paused" }), { nextStatus: "active", label: "恢复启用" });
   assert.deepEqual(
     scheduledTasksSummary({
       items: [{ status: "active" }, { status: "paused" }, { status: "active" }],

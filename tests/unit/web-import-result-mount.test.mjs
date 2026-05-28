@@ -18,7 +18,8 @@ test("import result mount renders preview content through model and panel", () =
 
   assert.match(html, /result-card/);
   assert.match(html, /result-candidates/);
-  assert.match(html, /IMPORT_MALFORMED_FRONTMATTER/);
+  assert.match(html, /bad frontmatter/);
+  assert.match(html, /建议先修正 frontmatter 再导入。/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
 });
 

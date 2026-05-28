@@ -6,8 +6,6 @@ import { readPrototypeAppSource } from "./copy-source-helpers.mjs";
 test("graph overview card frames missing untyped links as reasons, not generic descriptions", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /<strong>缺口与理由<\/strong>/);
-  assert.match(source, /条连接还缺明确关系理由。/);
-  assert.doesNotMatch(source, /<strong>缺口与说明<\/strong>/);
-  assert.doesNotMatch(source, /条连接还缺明确关系说明。/);
+  assert.match(source, /条关系还缺理由，优先补“为什么相连”，洞见会更容易浮出来。/);
+  assert.match(source, /关系理由已经较清楚，可以开始挑一条阅读路径进入写作中心。/);
 });

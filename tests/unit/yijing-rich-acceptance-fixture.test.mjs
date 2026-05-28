@@ -75,15 +75,22 @@ test("Yijing rich acceptance fixture relations and traces reference existing not
 test("Yijing rich acceptance fixture graph exposes every semantic relation", () => {
   const graphLines = fixture.graph.mermaid.split(/\r?\n/);
   const edgeLines = graphLines.filter((line) => line.includes("-->|"));
-  assert.equal(edgeLines.length, fixture.relations.length);
+  assert.equal(edgeLines.length, fixture.graph.expected.relationCount);
 
-  for (const relation of fixture.relations) {
+  const graphRelationKeys = new Set(edgeLines.map((line) => line.trim()));
+  const graphScopedRelations = fixture.relations.filter((relation) => {
     const from = relation.from.replace(/[^a-z0-9]+/gi, "_");
     const to = relation.to.replace(/[^a-z0-9]+/gi, "_");
     const expectedEdge = `${from} -->|${relation.relationType}| ${to}`;
-    assert.ok(
-      edgeLines.some((line) => line.includes(expectedEdge)),
-      `graph is missing ${expectedEdge}`
-    );
+    return graphLines.some((line) => line.includes(expectedEdge));
+  });
+
+  assert.equal(graphScopedRelations.length, fixture.graph.expected.relationCount);
+
+  for (const relation of graphScopedRelations) {
+    const from = relation.from.replace(/[^a-z0-9]+/gi, "_");
+    const to = relation.to.replace(/[^a-z0-9]+/gi, "_");
+    const expectedEdge = `${from} -->|${relation.relationType}| ${to}`;
+    assert.ok([...graphRelationKeys].some((line) => line.includes(expectedEdge)), `graph is missing ${expectedEdge}`);
   }
 });

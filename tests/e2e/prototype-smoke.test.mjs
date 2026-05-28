@@ -99,7 +99,7 @@ test("prototype web server loads against a real API service", async (t) => {
   assert.match(html, /prototype-app\.js/);
   assert.match(html, /id="importPageMount"/);
   assert.match(html, /id="importHistory"/);
-  assert.match(html, /id="btnImportHistoryRefresh"/);
+  assert.match(html, /id="importHistoryMount"/);
   assert.match(html, /id="exportTargetPath"/);
   assert.match(html, /id="btnExportMarkdown"/);
   assert.match(html, /id="writingPanel"/);

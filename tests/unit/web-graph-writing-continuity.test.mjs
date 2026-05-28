@@ -29,7 +29,10 @@ test("graph writing followup keeps action-specific failure copy for continuity a
   const fnBody = match[1];
 
   assert.match(fnBody, /catch \(error\) \{/);
-  assert.match(fnBody, /continuation\.action === "open-draft" \? "从图谱打开当前草稿" : continuation\.action === "resume-scaffold" \? "从图谱回到草稿骨架" : "从图谱继续当前项目"/);
+  assert.match(fnBody, /已从图谱打开当前草稿：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /已从图谱回到草稿骨架：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /已从图谱继续当前项目：\$\{continuation\.projectId\}/);
+  assert.match(fnBody, /continuation\.action === "open-draft" \? "从图谱打开当前草稿"/);
   assert.match(fnBody, /从图谱进入写作中心失败：\$\{String\(error\?\.message \|\| error\)\}/);
 });
 
@@ -52,7 +55,8 @@ test("graph next-action card computes projected continuity from the visible writ
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
 
   assert.match(source, /function graphWritingContinuationEntry\(candidateNoteIds = \[\], scopeLabel = "当前图谱切片"\) \{/);
+  assert.match(source, /function currentGraphWritingCandidateNoteIds\(\) \{/);
+  assert.match(source, /return graphWritingCandidateNoteIds\(currentGraphVisibleNodeIds\(\), \{/);
   assert.match(source, /const projectedEntry = planWritingBasketEntry\(\{\s*existingNoteIds: parseWritingBasketIds\(\),\s*incomingNoteIds: candidateNoteIds\s*\}\);/);
-  assert.match(source, /const graphWritingContinuation = graphWritingContinuationEntry\(graphBasketNoteIds, "当前图谱切片"\);/);
-  assert.match(source, /writingContinuation: graphWritingContinuation/);
+  assert.match(source, /const continuation = graphWritingContinuationEntry\(graphBasketNoteIds, "当前图谱切片"\);/);
 });

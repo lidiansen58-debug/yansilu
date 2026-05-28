@@ -109,6 +109,7 @@ test("graph next action previews manual picking when the visible slice is too la
 test("graph panel passes the current writing entry plan into graph next-action planning", () => {
   const source = appSource();
 
-  assert.match(source, /const graphWritingPlan = graphWritingFollowupEntryPlan\(\{/);
-  assert.match(source, /writingEntryPlan: graphWritingPlan/);
+  assert.match(source, /const plan = graphWritingFollowupEntryPlan\(\{/);
+  assert.match(source, /if \(plan\.prefillNoteIds\.length\) \{/);
+  assert.match(source, /continueWritingEntry\(plan\.prefillNoteIds, \{/);
 });

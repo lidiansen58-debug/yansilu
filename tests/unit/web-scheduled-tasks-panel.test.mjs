@@ -30,8 +30,8 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
     runSummary: { total: 1, succeeded: 1, skipped: 0, failed: 0 }
   });
 
-  assert.match(html, /Scheduled agent tasks/);
-  assert.match(html, /输出会停留在 AI 建议待办/);
+  assert.match(html, /计划代理任务/);
+  assert.match(html, /输出会停留在 AI 建议待办，确认后才进入笔记或图谱。/);
   assert.match(html, /id="scheduledTaskStatusFilter"/);
   assert.match(html, /id="scheduledTaskTypeFilter"/);
   assert.match(html, /id="btnScheduledTasksRunDue"/);
@@ -40,13 +40,13 @@ test("scheduled tasks panel renders filters, summaries, and pause action", () =>
   assert.match(html, /id="btnScheduledTaskSave"/);
   assert.match(html, /id="btnScheduledTaskUseCurrentNote"/);
   assert.match(html, /Reflection reminder/);
-  assert.match(html, /Every 30 min/);
-  assert.match(html, /1 notes/);
-  assert.match(html, /1\/3 runs per week, cap 2/);
+  assert.match(html, /每 30 分钟/);
+  assert.match(html, /1 条笔记/);
+  assert.match(html, /1\/3 次 \/ week，上限 2/);
   assert.match(html, /data-scheduled-task-id="sched_reflection"/);
   assert.match(html, /data-scheduled-task-edit="sched_reflection"/);
   assert.match(html, /data-scheduled-task-status="paused"/);
-  assert.match(html, /1 succeeded/);
+  assert.match(html, /1 条成功/);
 });
 
 test("scheduled tasks panel renders resume action and empty states", () => {
@@ -55,9 +55,9 @@ test("scheduled tasks panel renders resume action and empty states", () => {
     total: 1
   });
   assert.match(pausedHtml, /data-scheduled-task-status="active"/);
-  assert.match(pausedHtml, /Resume/);
+  assert.match(pausedHtml, /恢复启用/);
 
-  assert.match(renderScheduledTasksPanel({ loading: true }), /Loading scheduled tasks/);
-  assert.match(renderScheduledTasksPanel({ error: "boom" }), /Scheduled tasks failed to load: boom/);
-  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /No scheduled tasks match these filters/);
+  assert.match(renderScheduledTasksPanel({ loading: true }), /正在加载计划任务/);
+  assert.match(renderScheduledTasksPanel({ error: "boom" }), /计划任务加载失败：boom/);
+  assert.match(renderScheduledTasksPanel({ items: [], total: 0 }), /没有符合这些筛选条件的计划任务。/);
 });
