@@ -6,9 +6,44 @@ import { fileURLToPath } from "node:url";
 
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
 import {
+  ExplorerPane,
   explorerNewNoteButtonCopy,
   resolveExplorerNewNoteFolderId
 } from "../../apps/web/src/components-explorer-pane.js";
+
+function createStubButton() {
+  return {
+    dataset: {},
+    title: "",
+    addEventListener() {},
+    setAttribute() {},
+    querySelector() {
+      return null;
+    }
+  };
+}
+
+function createStubElements() {
+  return {
+    searchInput: { value: "", addEventListener() {}, focus() {} },
+    toggleSearchBtn: { addEventListener() {} },
+    openNewBoxBtn: { addEventListener() {} },
+    newNoteBtn: createStubButton(),
+    listArea: { addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; } }
+  };
+}
+
+function createExplorerForTest(state) {
+  return new ExplorerPane({
+    state,
+    elements: createStubElements(),
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    onOpenNote() {},
+    onStatus() {},
+    onStateChange() {}
+  });
+}
 
 test("note browser new action follows the current material root", () => {
   const state = createInitialState();
@@ -112,14 +147,49 @@ test("explorer keeps the currently selected empty folder visible after directory
   assert.match(fnBody, /if \(!q && c\.id === selectedFolderId\) return true;/);
 });
 
+test("note browser only marks permanent notes as disconnected", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+
+  const permanent = { id: "pn_lonely", noteType: "permanent" };
+  const fleeting = { id: "fn_001", noteType: "fleeting" };
+  const literature = { id: "ln_001", noteType: "literature" };
+
+  assert.equal(explorer.noteIsDisconnected(permanent), true);
+  assert.equal(explorer.noteIsDisconnected(fleeting), false);
+  assert.equal(explorer.noteIsDisconnected(literature), false);
+});
+
+test("note browser counts disconnected permanent notes across child directories for folder alerts", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.folders.push(
+    { id: "dir_parent", name: "Parent", parentId: "dir_original_default", hidden: false },
+    { id: "dir_child", name: "Child", parentId: "dir_parent", hidden: false }
+  );
+  state.notes.push(
+    { id: "perm_connected", title: "Connected", folderId: "dir_parent", noteType: "permanent" },
+    { id: "perm_disconnected_child", title: "Disconnected child", folderId: "dir_child", noteType: "permanent" },
+    { id: "lit_child", title: "Literature child", folderId: "dir_child", noteType: "literature" }
+  );
+  state.graphConnectedNoteIds = new Set(["perm_connected"]);
+
+  assert.equal(explorer.countDisconnectedNotesInFolder("dir_parent"), 1);
+  assert.equal(explorer.countDisconnectedNotesInFolder("dir_child"), 1);
+});
+
 test("writing workspace defines hasProject before project list hints use it", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
-  const match = source.match(/const projectEntry = describeWritingProjectEntryState\(\{[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
+  const match = source.match(/const hasProject = Boolean\(writingState\.project\?\.id\);[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
 
   assert.ok(match, "expected writing workspace project-entry block to exist");
   assert.match(match[0], /const hasProject = Boolean\(writingState\.project\?\.id\);/);
+  assert.match(match[0], /const projectPreflightSummary = describeWritingProjectPreflight/);
 });
 
 test("writing panel defines canContinueProjectedStrongModel before strong-model button wiring uses it", () => {
@@ -144,7 +214,7 @@ test("renderAll repaints explorer before writing panel side-effects can interrup
   assert.ok(match, "expected renderAll() to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /if \(state\.module === "explorer"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
+  assert.match(fnBody, /if \(state\.module === "explorer" \|\| state\.module === "graph"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
