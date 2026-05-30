@@ -5019,8 +5019,8 @@ export class EditorPane {
       section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
 
       if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = this.renderSemanticRelationsSection(relations, noteId);
-        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
       }
     } catch (error) {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
@@ -5047,8 +5047,8 @@ export class EditorPane {
       section.outerHTML = errorHtml;
 
       if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = errorHtml;
-        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
       }
     }
   }
@@ -6505,15 +6505,15 @@ export class EditorPane {
   renderRelated(extraTitle = "") {
     const note = this.activeNote();
     const tab = this.activeTab();
+    if (this.els.editorRelationsBelow) {
+      this.els.editorRelationsBelow.innerHTML = "";
+      this.els.editorRelationsBelow.classList.add("hidden");
+    }
     if (!note || !tab) {
       this.relationsRequestSerial += 1;
       this.currentSemanticRelations = null;
       this.semanticRelationsState = "idle";
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
-      if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = "";
-        this.els.editorRelationsBelow.classList.add("hidden");
-      }
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
@@ -6562,21 +6562,12 @@ export class EditorPane {
           <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
           <div class="inspector-overview-meta">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
         </div>
-        <div class="inspector-overview-grid">
-          <div class="inspector-overview-row">
-            <span class="inspector-overview-label">标签</span>
-            <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
-          </div>
-          <div class="inspector-overview-row">
-            <span class="inspector-overview-label">出链 / 回链</span>
-            <span class="inspector-overview-value">${forward.length} / ${backward.length}</span>
-          </div>
+      <div class="inspector-overview-grid">
+        <div class="inspector-overview-row">
+          <span class="inspector-overview-label">标签</span>
+          <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
         </div>
       </div>
-      <div class="inspector-summary">
-        <span class="inspector-chip">正向链接 ${forward.length}</span>
-        <span class="inspector-chip">反向链接 ${backward.length}</span>
-        <span class="inspector-chip">标签 ${tags.length}</span>
       </div>
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
@@ -6589,13 +6580,7 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${this.renderPermanentNoteMainPathSectionV2(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: this.semanticRelationsState }))}
-        ${this.renderPermanentNoteDistillationSection(note)}
-        ${this.renderPermanentNoteAiAnalysisSection(note)}
         ${this.renderSemanticRelationsLoadingSection(note.id)}
-        ${block("引用", "", forward, "还没有引用。", "出链")}
-        ${block("回链", "", backward, "还没有回链。", "回链")}
-        ${block("同标签", "", tagRelated, tags.length ? "没有更多结果。" : "还没有标签。", "同标签")}
       </div>
     `;
     void this.refreshSemanticRelations(note.id, relationRequestSerial);

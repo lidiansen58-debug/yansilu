@@ -181,6 +181,34 @@ test("note browser counts disconnected permanent notes across child directories 
   assert.equal(explorer.countDisconnectedNotesInFolder("dir_child"), 1);
 });
 
+test("note browsers show isolated counts only for the simplified root scopes", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+
+  assert.match(
+    source,
+    /return rootId === "dir_original_default"\s*\|\|\s*rootId === "dir_fleeting_default"\s*\|\|\s*rootId === "dir_literature_default";/
+  );
+  assert.match(source, /const folderDisconnectedCount = this\.isSimplifiedNoteBrowserScope\(folder\.id\) \? disconnectedCount : 0;/);
+  assert.match(source, /disconnectedFolderBadge\(folderDisconnectedCount\)/);
+});
+
+test("note browsers render isolated-note badges without extra relation actions", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+  const match = source.match(/renderFileNode\(note, depth\) \{([\s\S]*?)\n\s*\}/);
+
+  assert.ok(match, "expected renderFileNode() to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /const disconnectedBadge = disconnected \? disconnectedNoteBadge\(\) : "";/);
+  assert.match(fnBody, /<div class="item-trail">\$\{disconnectedBadge\}<\/div>/);
+  assert.doesNotMatch(fnBody, /data-associate-note=/);
+  assert.doesNotMatch(fnBody, /item-inline-action warn/);
+});
+
 test("writing workspace defines hasProject before project list hints use it", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

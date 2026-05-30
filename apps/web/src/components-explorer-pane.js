@@ -1,4 +1,4 @@
-import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
+﻿import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
 
 function folderIconSvg(isRoot = false) {
   return `
@@ -309,7 +309,7 @@ export class ExplorerPane {
           target: { kind: "list", id: this.state.selectedFolderId },
           actions: [
             { key: "new-note-here", label: "新建笔记", shortcut: "Ctrl+N", icon: "+" },
-            { key: "new-child", label: "新建目录...", icon: "▣" },
+            { key: "new-child", label: "新建目录...", icon: "▸" },
             { type: "separator" },
             { key: "refresh", label: "刷新", shortcut: "F5", icon: "↻" },
             { key: "properties", label: "属性", icon: "ⓘ" }
@@ -332,10 +332,10 @@ export class ExplorerPane {
           actions: [
             { key: "open", label: "打开目录", icon: "↗" },
             { key: "new-note-here", label: "在此新建笔记", shortcut: "Ctrl+N", icon: "+" },
-            { key: "new-child", label: "新建子目录...", icon: "▣" },
+            { key: "new-child", label: "新建子目录...", icon: "▸" },
             { type: "separator" },
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-            { key: "copy-folder-id", label: "复制目录ID", icon: "⧉" },
+            { key: "copy-folder-id", label: "复制目录 ID", icon: "⧉" },
             { key: "set-folder-path", label: "设置保存位置...", icon: "⌂" },
             { key: "reveal-folder", label: "在系统文件管理器中显示", disabled: !folder?.fsPath, icon: "⌂" },
             { key: "toggle-hidden", label: folder?.hidden ? "显示目录" : "隐藏目录", disabled: isDefault, icon: "◌" },
@@ -358,7 +358,7 @@ export class ExplorerPane {
             ...(canRecordPermanentFromNote(note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
             { key: "move", label: "移动到...", icon: "⇄" },
-            { key: "copy-note-id", label: "复制笔记ID", icon: "⧉" },
+            { key: "copy-note-id", label: "复制笔记 ID", icon: "⧉" },
             { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
             { type: "separator" },
             { key: "properties", label: "属性", icon: "ⓘ" },
@@ -486,7 +486,7 @@ export class ExplorerPane {
       }
       if (action === "copy-folder-id") {
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(f.id).catch(() => {});
-        this.onStatus(`已复制目录ID：${f.id}`, "ok");
+        this.onStatus(`已复制目录 ID：${f.id}`, "ok");
       }
       if (action === "set-folder-path") {
         if (!this.pickDirectory) {
@@ -514,7 +514,7 @@ export class ExplorerPane {
       }
       if (action === "delete") {
         if (f.isDefault) return this.onStatus("默认根目录不可删除", "bad");
-        const ok = confirm(`确认删除目录「${f.name}」及其直属笔记吗？`);
+        const ok = confirm(`确认删除目录“${f.name}”及其直属笔记吗？`);
         if (!ok) return;
         await this.onStateChange("directory-delete", { directoryId: f.id });
       }
@@ -545,7 +545,7 @@ export class ExplorerPane {
       }
       if (action === "copy-note-id") {
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n.id).catch(() => {});
-        this.onStatus(`已复制笔记ID：${n.id}`, "ok");
+        this.onStatus(`已复制笔记 ID：${n.id}`, "ok");
       }
       if (action === "record-permanent") {
         const directoryId = permanentDirectoryPrompt(this.state);
@@ -570,7 +570,7 @@ export class ExplorerPane {
         this.onStatus(`${n.title}：类型 ${typeLabel(n.noteType || "original")}，更新于 ${new Date(n.updatedAt).toLocaleString()}`, "ok");
       }
       if (action === "delete") {
-        const ok = confirm(`确认删除笔记「${n.title}」吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
+        const ok = confirm(`确认删除笔记“${n.title}”吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
         if (!ok) return;
         await this.onStateChange("note-delete", { noteId: n.id });
       }
@@ -631,6 +631,13 @@ export class ExplorerPane {
     const total = ownCount + childCount;
     memo.set(key, total);
     return total;
+  }
+
+  isSimplifiedNoteBrowserScope(folderId = "") {
+    const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
+    return rootId === "dir_original_default"
+      || rootId === "dir_fleeting_default"
+      || rootId === "dir_literature_default";
   }
 
   fileMatches(note, q) {
@@ -716,17 +723,17 @@ export class ExplorerPane {
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
     const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
-
     const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
+    const folderDisconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedCount : 0;
     const folderRow = `
-      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${disconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderDisconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
           <span class="icon">${folderIconSvg(isRoot)}</span>
           <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
-        <div class="item-trail">${disconnectedFolderBadge(disconnectedCount)}</div>
+        <div class="item-trail">${disconnectedFolderBadge(folderDisconnectedCount)}</div>
       </div>
     `;
 
@@ -758,7 +765,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <span class="tree-group-pill">未入网 ${count}</span>
+        <span class="tree-group-pill">孤立 ${count}</span>
       </div>
     `;
   }
@@ -767,7 +774,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 未入网 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
       </div>
     `;
   }
@@ -776,7 +783,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 未入网 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
       </div>
     `;
   }
