@@ -49,13 +49,13 @@ function permanentDirectoryPrompt(state = {}) {
 }
 
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有关联到其他永久笔记。">未关联</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有关联到其他永久笔记。">孤立</span>`;
 }
 
 function disconnectedFolderBadge(count = 0) {
   const safeCount = Number(count) || 0;
   if (safeCount <= 0) return "";
-  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">未关联 ${safeCount}</span>`;
+  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立 ${safeCount}</span>`;
 }
 
 function displayFolderName(folder) {
