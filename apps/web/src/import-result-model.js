@@ -56,6 +56,14 @@ function reasonText(reason) {
   return labels[String(reason || "").trim()] || compactValue(reason);
 }
 
+function targetDirectorySummary(payload = {}) {
+  const targetDirectories =
+    Array.isArray(payload.result?.targetDirectories) ? payload.result.targetDirectories :
+    Array.isArray(payload.importRecord?.confirmResult?.targetDirectories) ? payload.importRecord.confirmResult.targetDirectories :
+    [];
+  return targetDirectories.map((item) => String(item?.label || item?.directoryId || "").trim()).filter(Boolean).join(" + ");
+}
+
 export function resultTitle(stage) {
   const titles = {
     preview: "导入预览已生成",
@@ -117,6 +125,8 @@ export function resultMetrics(payload = {}) {
       push("已选", `${compactValue(selection.selectedCandidates)}/${compactValue(selection.totalCandidates)}`);
       push("范围", selectionModeValue(selection.mode));
     }
+    const targets = targetDirectorySummary(payload);
+    if (targets) push("写入到", targets);
     const createdFiles = createdFilesFromPayload(payload);
     if (createdFiles.length) {
       push("写入", createdFiles.length);
@@ -135,13 +145,15 @@ export function resultMetrics(payload = {}) {
     if (summary && Object.keys(summary).length) {
       push("摘要", `${Number(summary.sources || 0)} 来源 / ${Number(summary.literatureNotes || 0)} 文献 / ${Number(summary.permanentNotes || 0)} 永久`);
     }
+    const targets = targetDirectorySummary(payload);
+    if (targets) push("写入到", targets);
     return metrics;
   }
 
   if (stage === "export_markdown") {
     push("状态", statusValue(payload.status));
     push("文件", payload.copied);
-    if (payload.directoryId) push("目录", payload.directoryId);
+    if (payload.directoryLabel || payload.directoryId) push("导出自", payload.directoryLabel || payload.directoryId);
     push("目标", payload.targetPath);
     return metrics;
   }
@@ -239,7 +251,7 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
   if (tone === "warn") return "可以继续，但建议先处理警告。";
   const briefs = {
     preview: "检查候选内容，确认后再导入。",
-    confirm: "内容已经写入，可以继续整理或写作。",
+    confirm: "内容已经写入，可继续整理或写作。",
     cancel: "这次导入没有写入任何新内容。",
     record: "你可以继续确认、回滚，或仅查看这次记录。",
     rollback: "系统已完成可安全回滚的部分。",

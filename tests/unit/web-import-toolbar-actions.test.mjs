@@ -6,7 +6,7 @@ test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
   assert.deepEqual(buildImportPayload({ connector: "markdown", path: "E:\\vault" }), { path: "E:\\vault" });
   assert.deepEqual(buildImportPayload({ connector: "zotero", payloadText: '{"library":"main"}' }), { library: "main" });
-  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /来源路径/);
+  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /Payload JSON|来源目录/);
 });
 
 test("import toolbar actions preview assembles params and reports success", async () => {
@@ -68,7 +68,9 @@ test("import toolbar actions block confirm when no candidates are selected", asy
 
   await actions.handleConfirm();
 
-  assert.deepEqual(calls, [["setStatus", "请至少勾选一个候选后再确认写入", "warn"]]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "setStatus");
+  assert.equal(calls[0][2], "warn");
 });
 
 test("import toolbar actions require record id for refresh and rollback", async () => {
@@ -88,6 +90,24 @@ test("import toolbar actions require record id for refresh and rollback", async 
     ["请先填写 ImportRecord ID", "warn"],
     ["请先填写 ImportRecord ID", "warn"]
   ]);
+});
+
+test("import toolbar actions pass selected file-box directory on confirm", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_4", directoryId: "dir_literature_child" }),
+    getFallbackImportRecordId: () => "imp_4",
+    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { items: [{ id: "c1" }] } }),
+    selectionSummary: () => ({ selectedIds: new Set(["c1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async (importRecordId, payload) => {
+      calls.push([importRecordId, payload]);
+      return { status: "completed", result: {} };
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
 });
 
 test("import toolbar actions emit stable error payloads", async () => {

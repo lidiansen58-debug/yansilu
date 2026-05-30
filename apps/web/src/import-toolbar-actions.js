@@ -84,7 +84,10 @@ export function createImportToolbarActions({
         setStatus?.("请至少勾选一个候选后再确认写入", "warn");
         return null;
       }
-      const result = await confirmImport(importRecordId, selectedIds ? { selectedCandidateIds: selectedIds } : {});
+      const confirmPayload = selectedIds ? { selectedCandidateIds: selectedIds } : {};
+      const directoryId = String(values.directoryId || "").trim();
+      if (directoryId) confirmPayload.directoryId = directoryId;
+      const result = await confirmImport(importRecordId, confirmPayload);
       setStatus?.(`导入确认完成：${importRecordId}`, "ok");
       await onConfirmSuccess?.({ importRecordId, result, preview });
       await refreshImportHistory?.({ silent: true });

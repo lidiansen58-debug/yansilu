@@ -2133,7 +2133,7 @@ function titleForCatalogNote(candidate) {
   return firstLine || String(candidate?.id || "imported-note");
 }
 
-async function registerImportCatalogNote(candidate, noteType, writeResult) {
+async function registerImportCatalogNote(candidate, noteType, writeResult, directoryId = "") {
   if (!writeResult?.written) return null;
   return registerMarkdownNoteInCatalog(VAULT_PATH, {
     noteId: candidate.id,
@@ -2141,7 +2141,7 @@ async function registerImportCatalogNote(candidate, noteType, writeResult) {
     title: titleForCatalogNote(candidate),
     status: candidate.status || "draft",
     markdownPath: path.relative(path.resolve(VAULT_PATH), writeResult.path).replaceAll("\\", "/"),
-    directoryId: defaultDirectoryIdForImportNoteType(noteType)
+    directoryId: String(directoryId || "").trim() || defaultDirectoryIdForImportNoteType(noteType)
   });
 }
 const importExportService = createImportExportService({

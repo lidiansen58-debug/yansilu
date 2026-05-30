@@ -192,6 +192,8 @@ export async function loadImportRecord(vaultPath, recordId) {
     ? {
         created: confirmEnvelope.created || {},
         skipped: confirmEnvelope.skipped || {},
+        selection: confirmEnvelope.selection || null,
+        targetDirectories: confirmEnvelope.targetDirectories || [],
         writtenPaths: confirmEnvelope.writtenPaths || [],
         createdFiles: confirmEnvelope.createdFiles || [],
         finishedAt: confirmEnvelope.finishedAt || null

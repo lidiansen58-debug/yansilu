@@ -35,6 +35,12 @@ function noteRelativePath(type, id) {
   return path.join(NOTE_TYPES[type].dir, `${filename}.md`);
 }
 
+function noteFilename(id) {
+  const filename = normalizeFilename(id);
+  if (!filename) throw new Error("note.id is required");
+  return `${filename}.md`;
+}
+
 function noteBody(type, note) {
   const field = NOTE_TYPES[type].bodyField;
   return String(note.body ?? note[field] ?? "");
@@ -85,6 +91,14 @@ export function getNotePath(vaultPath, type, id) {
   return resolveVaultPath(vaultPath, noteRelativePath(type, id));
 }
 
+function resolveNoteWritePath(vaultPath, type, id, options = {}) {
+  const directoryFsPath = String(options.directoryFsPath || "").trim();
+  if (directoryFsPath) {
+    return path.join(path.resolve(directoryFsPath), noteFilename(id));
+  }
+  return getNotePath(vaultPath, type, id);
+}
+
 export function serializeNote(type, note) {
   assertKnownType(type);
   const rendered = renderBodyWithTitle(type, note);
@@ -103,10 +117,10 @@ export function parseNoteMarkdown(markdown) {
   };
 }
 
-export async function writeNoteIfAbsent(vaultPath, type, note) {
+export async function writeNoteIfAbsent(vaultPath, type, note, options = {}) {
   assertKnownType(type);
   await initVault(vaultPath);
-  const filePath = getNotePath(vaultPath, type, note?.id);
+  const filePath = resolveNoteWritePath(vaultPath, type, note?.id, options);
   const content = serializeNote(type, note);
   const result = await writeMarkdownIfAbsent(filePath, content);
   return { ...result, noteId: note.id, noteType: type };
@@ -118,14 +132,14 @@ export async function readNote(vaultPath, type, id) {
   return { path: filePath, note: parseNoteMarkdown(markdown), markdown };
 }
 
-export async function writeSourceIfAbsent(vaultPath, source) {
-  return writeNoteIfAbsent(vaultPath, "source", source);
+export async function writeSourceIfAbsent(vaultPath, source, options = {}) {
+  return writeNoteIfAbsent(vaultPath, "source", source, options);
 }
 
-export async function writeLiteratureNoteIfAbsent(vaultPath, note) {
-  return writeNoteIfAbsent(vaultPath, "literature", note);
+export async function writeLiteratureNoteIfAbsent(vaultPath, note, options = {}) {
+  return writeNoteIfAbsent(vaultPath, "literature", note, options);
 }
 
-export async function writePermanentNoteIfAbsent(vaultPath, note) {
-  return writeNoteIfAbsent(vaultPath, "permanent", note);
+export async function writePermanentNoteIfAbsent(vaultPath, note, options = {}) {
+  return writeNoteIfAbsent(vaultPath, "permanent", note, options);
 }

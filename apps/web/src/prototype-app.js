@@ -200,6 +200,7 @@ state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 const importState = {
   importRecordId: "",
+  directoryId: "",
   lastPreview: null,
   lastResultPayload: null,
   literatureBatchSummary: null,
@@ -1080,6 +1081,7 @@ function compactValue(value) {
 function currentImportToolbarValues() {
   return {
     connector: String($("importConnector")?.value || "markdown").trim(),
+    directoryId: String($("importDirectoryId")?.value || importState.directoryId || "").trim(),
     path: String($("importPath")?.value || "").trim(),
     payload: String($("importPayload")?.value || ""),
     options: String($("importOptions")?.value || ""),
@@ -1091,6 +1093,7 @@ function renderImportToolbar() {
   const el = $("importToolbarMount");
   if (!el) return;
   const values = currentImportToolbarValues();
+  importState.directoryId = preferredImportDirectoryId(values.directoryId);
   const preview = activeImportPreviewContext();
   const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
   const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, values.importRecordId) : { selectedCount: 0, totalCount: 0 };
@@ -1102,6 +1105,11 @@ function renderImportToolbar() {
 
   el.innerHTML = renderImportToolbarMount({
     ...values,
+    directoryId: importState.directoryId,
+    directoryOptions: importTargetDirectories().map((folder) => ({
+      value: folder.id,
+      label: directoryPathLabel(folder.id)
+    })),
     confirmButton
   });
 }
@@ -1124,6 +1132,14 @@ function renderImportPageShell() {
         }
       : null
   });
+  mountExportCardIntoImportShell();
+}
+
+function mountExportCardIntoImportShell() {
+  const exportCard = $("importPanel")?.querySelector(".export-card");
+  const exportMount = $("exportCardMount");
+  if (!exportCard || !exportMount) return;
+  exportMount.replaceChildren(exportCard);
 }
 
 function renderAiInboxWorkspace() {
@@ -3443,7 +3459,10 @@ function showImportResult(payload) {
 }
 
 function showExportResult(payload) {
+  const directoryId = String(payload?.directoryId || "").trim();
+  if (directoryId && !payload.directoryLabel) payload.directoryLabel = directoryPathLabel(directoryId);
   renderResult($("exportResult"), payload);
+  updateExportTargetHint();
 }
 
 function normalizeWritingProjectTitleSeed(title = "") {
@@ -4708,10 +4727,11 @@ function renderSidebarTitle() {
   }
 
   const moduleUi = currentModuleUi();
+  const compactImportSidebar = state.module === "imports" && typeof window !== "undefined" && window.innerWidth <= 700;
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
   if (sidebarSubtitle) {
     sidebarSubtitle.classList.remove("hidden");
-    sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+    sidebarSubtitle.textContent = compactImportSidebar ? "先预览，再写入。" : (moduleUi.sidebarSubtitle || "当前功能页。");
   }
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
@@ -4720,11 +4740,16 @@ function renderSidebarTitle() {
   sidebarFlow?.classList.add("hidden");
   if (sidebarFlow) sidebarFlow.innerHTML = "";
   listArea?.classList.add("hidden");
-  moduleSidebar?.classList.add("visible");
-  if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
+  moduleSidebar?.classList.toggle("visible", !compactImportSidebar);
+  if (moduleSidebar) moduleSidebar.innerHTML = compactImportSidebar ? "" : moduleUi.sidebarHtml;
   if (sidebarFoot) {
-    sidebarFoot.classList.remove("hidden");
-    sidebarFoot.textContent = moduleUi.sidebarFoot;
+    if (compactImportSidebar) {
+      sidebarFoot.textContent = "";
+      sidebarFoot.classList.add("hidden");
+    } else {
+      sidebarFoot.classList.remove("hidden");
+      sidebarFoot.textContent = moduleUi.sidebarFoot;
+    }
   }
 }
 
@@ -4903,6 +4928,14 @@ function renderModuleWorkspaceHeader() {
     : modelRef
       ? modelRef
       : "AI 路由暂不可用";
+  if (state.module === "imports") {
+    moduleHeaderActions.innerHTML = `
+      <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
+      <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "未检测")}</span>
+    `;
+    $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
+    return;
+  }
   moduleHeaderActions.innerHTML = `
     <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
     <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
@@ -5079,6 +5112,21 @@ function permanentExportDirectories() {
     .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
 }
 
+function importTargetDirectories() {
+  return state.folders
+    .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(rootBoxIdFromFolder(state, folder.id)))
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+}
+
+function preferredImportDirectoryId(currentValue = "") {
+  const options = importTargetDirectories();
+  const cleanCurrentValue = String(currentValue || "").trim();
+  if (options.some((folder) => folder.id === cleanCurrentValue)) return cleanCurrentValue;
+  const selectedFolderId = String(state.selectedFolderId || "").trim();
+  if (options.some((folder) => folder.id === selectedFolderId)) return selectedFolderId;
+  return options.some((folder) => folder.id === "dir_literature_default") ? "dir_literature_default" : options[0]?.id || "";
+}
+
 function syncExportDirectoryOptions() {
   const select = $("exportDirectoryId");
   if (!select) return;
@@ -5098,6 +5146,23 @@ function syncExportDirectoryOptions() {
     select.innerHTML = `<option value="dir_original_default">永久笔记盒</option>`;
   }
   select.value = preferredValue;
+  updateExportTargetHint();
+}
+
+function selectedExportDirectoryLabel() {
+  const directoryId = String($("exportDirectoryId")?.value || "").trim();
+  if (!directoryId) return "";
+  return directoryPathLabel(directoryId);
+}
+
+function updateExportTargetHint() {
+  const hint = $("exportTargetHint");
+  if (!hint) return;
+  const targetPath = String($("exportTargetPath")?.value || "").trim();
+  const directoryLabel = selectedExportDirectoryLabel() || "永久笔记盒";
+  hint.textContent = targetPath
+    ? `将从 ${directoryLabel} 导出，写入 ${targetPath}。`
+    : `将从 ${directoryLabel} 导出。首次导出时再选择保存位置。`;
 }
 
 function activeEditorNote() {
@@ -11988,6 +12053,13 @@ async function bootstrap() {
     },
     onConfirmSuccess: async ({ importRecordId, result, preview }) => {
       setImportRecordId(importRecordId);
+      const targetDirectoryId = preferredImportDirectoryId(importState.directoryId);
+      if (targetDirectoryId && folderById(state, targetDirectoryId)) {
+        importState.directoryId = targetDirectoryId;
+        state.selectedFolderId = targetDirectoryId;
+        state.browserRootId = rootBoxIdFromFolder(state, targetDirectoryId);
+        await syncNotesForDirectory(targetDirectoryId);
+      }
       showImportResult({
         stage: "confirm",
         importRecordId,
@@ -12115,6 +12187,19 @@ async function bootstrap() {
     renderImportHistory();
   });
 
+  $("importDirectoryId")?.addEventListener("change", (event) => {
+    importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
+    setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
+  });
+
+  $("exportDirectoryId")?.addEventListener("change", () => {
+    updateExportTargetHint();
+  });
+
+  $("exportTargetPath")?.addEventListener("change", () => {
+    updateExportTargetHint();
+  });
+
   $("btnImportPreview")?.addEventListener("click", async () => {
     await importToolbarActions.handlePreview();
   });
@@ -12147,8 +12232,20 @@ async function bootstrap() {
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
     const directoryId = String($("exportDirectoryId")?.value || "").trim();
-    const targetPath = String($("exportTargetPath")?.value || "").trim();
     if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+    let targetPath = String($("exportTargetPath")?.value || "").trim();
+    if (!targetPath) {
+      const picked = await desktopCommands.browseDirectory({
+        defaultPath: "",
+        purpose: "导出目录"
+      });
+      targetPath = String(picked?.path || "").trim();
+      if (targetPath) {
+        $("exportTargetPath").value = targetPath;
+        $("exportAdvanced")?.setAttribute("open", "open");
+        updateExportTargetHint();
+      }
+    }
     if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
     try {
       const result = await exportMarkdown({
@@ -12159,6 +12256,7 @@ async function bootstrap() {
         stage: "export_markdown",
         targetPath,
         directoryId,
+        directoryLabel: directoryPathLabel(directoryId),
         exportJobId: result.exportJobId,
         status: result.status,
         copied: result.copied,
@@ -12170,6 +12268,7 @@ async function bootstrap() {
         stage: "export_error",
         targetPath,
         directoryId,
+        directoryLabel: directoryPathLabel(directoryId),
         message: String(error?.message || error),
         code: error?.code || null,
         details: error?.details || null
@@ -12185,6 +12284,8 @@ async function bootstrap() {
     });
     if (!picked.path) return;
     $("exportTargetPath").value = picked.path;
+    $("exportAdvanced")?.setAttribute("open", "open");
+    updateExportTargetHint();
     setStatus("已选择导出目录", "ok");
   });
 

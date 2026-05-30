@@ -37,6 +37,42 @@ function isPermanentDirectoryId(value) {
   return directoryId === "dir_original_default";
 }
 
+function rootDirectoryIdFor(directories = [], directoryId = "") {
+  const byId = new Map((Array.isArray(directories) ? directories : []).map((item) => [String(item?.id || "").trim(), item]));
+  let cursor = byId.get(String(directoryId || "").trim());
+  while (cursor?.parentDirectoryId) {
+    cursor = byId.get(String(cursor.parentDirectoryId || "").trim());
+  }
+  return String(cursor?.id || "").trim();
+}
+
+function importedNoteTargetDirectory(directories = [], selectedDirectoryId = "", noteType = "") {
+  const cleanSelectedDirectoryId = String(selectedDirectoryId || "").trim();
+  const rootDirectoryId = rootDirectoryIdFor(directories, cleanSelectedDirectoryId);
+  const cleanNoteType = String(noteType || "").trim();
+  if (cleanNoteType === "literature" && rootDirectoryId === "dir_literature_default") return cleanSelectedDirectoryId;
+  if (cleanNoteType === "permanent" && rootDirectoryId === "dir_original_default") return cleanSelectedDirectoryId;
+  if (cleanNoteType === "literature") return "dir_literature_default";
+  if (cleanNoteType === "permanent") return "dir_original_default";
+  return "";
+}
+
+function directoryById(directories = [], directoryId = "") {
+  const cleanDirectoryId = String(directoryId || "").trim();
+  return (Array.isArray(directories) ? directories : []).find((item) => String(item?.id || "").trim() === cleanDirectoryId) || null;
+}
+
+function directoryPathLabel(directories = [], directoryId = "") {
+  const byId = new Map((Array.isArray(directories) ? directories : []).map((item) => [String(item?.id || "").trim(), item]));
+  const names = [];
+  let cursor = byId.get(String(directoryId || "").trim());
+  while (cursor) {
+    names.unshift(String(cursor.title || cursor.name || cursor.id || "").trim());
+    cursor = cursor.parentDirectoryId ? byId.get(String(cursor.parentDirectoryId || "").trim()) : null;
+  }
+  return names.filter(Boolean).join(" / ");
+}
+
 async function isPermanentDirectoryScope(vaultPath, directoryId) {
   const cleanDirectoryId = String(directoryId || "").trim();
   if (!cleanDirectoryId) return false;
@@ -271,6 +307,27 @@ export function createImportExportService({
     const skipped = { conflicted: 0, invalid: 0 };
     const writtenPaths = new Set();
     const createdFiles = [];
+    const directories = await listDirectories(vaultPath(), { includeHidden: true });
+    const selectedDirectoryId = String(body.directoryId || "").trim();
+    const literatureTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "literature");
+    const permanentTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "permanent");
+    const literatureTargetDirectory = directoryById(directories, literatureTargetDirectoryId);
+    const permanentTargetDirectory = directoryById(directories, permanentTargetDirectoryId);
+    const targetDirectories = [];
+    if (literatureTargetDirectoryId) {
+      targetDirectories.push({
+        noteType: "literature",
+        directoryId: literatureTargetDirectoryId,
+        label: directoryPathLabel(directories, literatureTargetDirectoryId)
+      });
+    }
+    if (permanentTargetDirectoryId) {
+      targetDirectories.push({
+        noteType: "permanent",
+        directoryId: permanentTargetDirectoryId,
+        label: directoryPathLabel(directories, permanentTargetDirectoryId)
+      });
+    }
 
     for (const source of selected.candidates.sources) {
       const result = await writeSourceIfAbsent(vaultPath(), source);
@@ -284,12 +341,14 @@ export function createImportExportService({
     }
 
     for (const note of selected.candidates.literature) {
-      const result = await writeLiteratureNoteIfAbsent(vaultPath(), note);
+      const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
+        directoryFsPath: literatureTargetDirectory?.fsPath || ""
+      });
       if (result.written) {
         created.literatureNotes += 1;
         writtenPaths.add(path.dirname(result.path));
         createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-        await registerImportCatalogNote(note, "literature", result);
+        await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
       } else {
         skipped.conflicted += 1;
       }
@@ -347,12 +406,14 @@ export function createImportExportService({
         ...note,
         originality_status: evalItem?.status || note.originality_status || "warning"
       };
-      const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite);
+      const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite, {
+        directoryFsPath: permanentTargetDirectory?.fsPath || ""
+      });
       if (result.written) {
         created.permanentNotes += 1;
         writtenPaths.add(path.dirname(result.path));
         createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-        await registerImportCatalogNote(noteToWrite, "permanent", result);
+        await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
       } else {
         skipped.conflicted += 1;
       }
@@ -364,6 +425,7 @@ export function createImportExportService({
       created,
       skipped,
       selection: selected.selection,
+      targetDirectories,
       writtenPaths: [...writtenPaths].map((item) => path.relative(vaultPath(), item).replaceAll("\\", "/")),
       createdFiles,
       finishedAt: new Date().toISOString()
@@ -375,6 +437,7 @@ export function createImportExportService({
       created,
       skipped,
       selection: record.confirmResult.selection,
+      targetDirectories,
       writtenPaths: record.confirmResult.writtenPaths,
       createdFiles,
       originalityGuard: {
@@ -391,6 +454,7 @@ export function createImportExportService({
         created,
         skipped,
         selection: record.confirmResult.selection,
+        targetDirectories,
         writtenPaths: record.confirmResult.writtenPaths,
         createdFiles
       },
@@ -459,11 +523,6 @@ export function createImportExportService({
     }
     const noteIds = Array.isArray(body.noteIds) ? body.noteIds : null;
     const directoryId = String(body.directoryId || "").trim();
-    if (!directoryId && !(noteIds && noteIds.length > 0)) {
-      const error = new Error("directoryId required");
-      error.code = "EXPORT_SCOPE_INVALID";
-      throw error;
-    }
     if (directoryId && !(await isPermanentDirectoryScope(vaultPath(), directoryId))) {
       const error = new Error("directoryId must be a permanent-note directory");
       error.code = "EXPORT_SCOPE_INVALID";

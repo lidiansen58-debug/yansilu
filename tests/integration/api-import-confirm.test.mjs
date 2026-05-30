@@ -317,7 +317,7 @@ test("API import confirm blocks flagged notes by default and allows explicit ori
 
   await fs.access(path.join(vaultPath, "notes", "sources", `${sourceId}.md`));
   await fs.access(path.join(vaultPath, "notes", "literature", `${literatureId}.md`));
-  await fs.access(path.join(vaultPath, "notes", "permanent", `${permanentId}.md`));
+  await fs.access(path.join(vaultPath, "notes", "original", `${permanentId}.md`));
 
   const secondPreview = await postJson(baseUrl, "/api/v1/imports/preview", {
     connector: "markdown",
@@ -406,6 +406,120 @@ test("API import confirm can write only selected candidates", async (t) => {
   assert.equal(completedRecord.status, 200);
   assert.equal(completedRecord.json.importRecord.confirmResult.selection.mode, "subset");
   assert.deepEqual(completedRecord.json.importRecord.confirmResult.selection.candidateIds, [selectedSourceId]);
+});
+
+test("API import confirm writes literature notes into selected literature directory", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-targeted-literature-");
+  const sourceDir = await makeTempDir("yansilu-api-md-targeted-literature-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Targeted literature import",
+      "type: literature",
+      'tags: ["literature"]',
+      "---",
+      "",
+      "Imported literature should land in the selected literature directory."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    selectedCandidateIds: [...preview.json.samples.sourceIds, ...preview.json.samples.literatureNoteIds],
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  const literatureFile = confirm.json.result.createdFiles.find((item) => item.noteType === "literature");
+  assert.ok(literatureFile);
+  assert.match(literatureFile.path, /notes\/literature\/imported-reading-batch\//);
+
+  const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
+  assert.equal(targetNotes.status, 200);
+  assert.equal(targetNotes.json.total, 1);
+  assert.equal(targetNotes.json.items[0].id, preview.json.samples.literatureNoteIds[0]);
+});
+
+test("API import confirm writes permanent notes into selected permanent directory", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-targeted-permanent-");
+  const sourceDir = await makeTempDir("yansilu-api-md-targeted-permanent-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Targeted permanent import",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A copied claim that should be flagged."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported arguments",
+    parentDirectoryId: "dir_original_default",
+    fsPath: path.join(vaultPath, "notes", "original", "imported-arguments")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    overrideOriginality: true,
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  const permanentFile = confirm.json.result.createdFiles.find((item) => item.noteType === "permanent");
+  assert.ok(permanentFile);
+  assert.match(permanentFile.path, /notes\/original\/imported-arguments\//);
+
+  const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
+  assert.equal(targetNotes.status, 200);
+  assert.equal(targetNotes.json.total, 1);
+  assert.equal(targetNotes.json.items[0].id, preview.json.samples.permanentNoteIds[0]);
 });
 
 test("API selective Obsidian confirm writes realistic Chinese vault notes and rolls them back", async (t) => {

@@ -148,11 +148,6 @@ test("runMarkdownExport requires a permanent-note directory id", async () => {
     getCwd: () => process.cwd()
   });
 
-  await assert.rejects(() => service.runMarkdownExport({ targetPath: "E:\\exports" }, "req_missing_dir"), {
-    code: "EXPORT_SCOPE_INVALID",
-    message: "directoryId required"
-  });
-
   await assert.rejects(
     () => service.runMarkdownExport({ targetPath: "E:\\exports", directoryId: "dir_literature_default" }, "req_bad_dir"),
     {
@@ -168,4 +163,38 @@ test("runMarkdownExport requires a permanent-note directory id", async () => {
       message: "directoryId must be a permanent-note directory"
     }
   );
+});
+
+test("runMarkdownExport allows exporting the entire vault when no scope is provided", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-export-all-");
+  const targetPath = await makeTempDir("yansilu-service-export-all-target-");
+  await initVault(vaultPath);
+
+  await createNoteInDirectory(vaultPath, {
+    directoryId: "dir_literature_default",
+    title: "All export literature",
+    body: "Literature note for full export."
+  });
+  await createNoteInDirectory(vaultPath, {
+    directoryId: "dir_original_default",
+    title: "All export permanent",
+    body: "Permanent note for full export."
+  });
+  await fs.mkdir(path.join(vaultPath, "assets", "images"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "assets", "images", "full-export.txt"), "asset", "utf8");
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    getCwd: () => process.cwd(),
+    initVault
+  });
+
+  const result = await service.runMarkdownExport({ targetPath }, "req_export_all");
+
+  assert.deepEqual(result.scope, { type: "all" });
+  assert.equal(result.copiedBreakdown.markdownFiles, 2);
+  assert.equal(result.copiedBreakdown.assetFiles, 1);
+  await fs.access(path.join(targetPath, "literature"));
+  await fs.access(path.join(targetPath, "original"));
+  await fs.access(path.join(targetPath, "assets", "images", "full-export.txt"));
 });

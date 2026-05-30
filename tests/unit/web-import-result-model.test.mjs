@@ -115,13 +115,14 @@ test("import result model derives export simplified metrics", () => {
     status: "queued",
     copied: 3,
     directoryId: "dir_original_default",
+    directoryLabel: "永久笔记盒 / 写作方法",
     targetPath: "E:\\exports"
   };
 
   assert.deepEqual(resultMetrics(payload), [
     { label: "状态", value: "已提交" },
     { label: "文件", value: "3" },
-    { label: "目录", value: "dir_original_default" },
+    { label: "导出自", value: "永久笔记盒 / 写作方法" },
     { label: "目标", value: "E:\\exports" }
   ]);
 });

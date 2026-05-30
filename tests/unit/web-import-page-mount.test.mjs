@@ -23,12 +23,12 @@ test("import page mount renders simplified toolbar, history, and result placehol
   assert.match(html, /id="importToolbarMount"/);
   assert.match(html, /id="importHistoryMount"/);
   assert.match(html, /id="importResult"/);
-  assert.match(html, /导入/);
-  assert.match(html, /路径/);
+  assert.match(html, /导入资料/);
+  assert.match(html, /来源目录/);
   assert.match(html, /高级选项/);
-  assert.match(html, /最近导入/);
+  assert.match(html, /最近记录/);
   assert.match(html, /暂无记录/);
-  assert.match(html, /还没有导入结果/);
+  assert.match(html, /还没有操作结果。/);
 });
 
 test("import page mount can render a composed result card", () => {

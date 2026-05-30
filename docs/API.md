@@ -2485,12 +2485,12 @@ Directory-scoped request:
 ```json
 {
   "targetPath": "E:/exports/yansilu-markdown",
-  "directoryId": "dir_literature_default",
+  "directoryId": "dir_original_default",
   "includeDescendants": true
 }
 ```
 
-`noteIds` and `directoryId` are optional and mutually exclusive. When omitted, the API exports all Markdown notes and assets. When `noteIds` or `directoryId` is provided, it exports only the matching notes and the Vault assets linked from those notes. `includeDescendants` applies only to `directoryId` and defaults to `true`.
+`noteIds` and `directoryId` are optional and mutually exclusive. When omitted, the API exports all Markdown notes and assets. When `noteIds` or `directoryId` is provided, it exports only the matching notes and the Vault assets linked from those notes. `directoryId` must point to the permanent-note root or one of its descendants. `includeDescendants` applies only to `directoryId` and defaults to `true`.
 
 Response status: `202`
 

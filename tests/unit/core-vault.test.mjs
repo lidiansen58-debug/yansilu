@@ -161,6 +161,35 @@ test("writeNoteIfAbsent skips existing files", async () => {
   assert.equal(source.note.body, "First body");
 });
 
+test("writeLiteratureNoteIfAbsent can target a specific directory fs path", async () => {
+  const vaultPath = await makeTempVault();
+  const now = new Date().toISOString();
+  const targetDir = path.join(vaultPath, "notes", "literature", "custom-import-box");
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const result = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_targeted",
+      source_id: "src_targeted",
+      title: "Targeted literature",
+      quote_text: "Quote in targeted directory",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    {
+      directoryFsPath: targetDir
+    }
+  );
+
+  assert.equal(result.written, true);
+  assert.equal(result.path, path.join(targetDir, "ln_targeted.md"));
+  const markdown = await fs.readFile(result.path, "utf8");
+  assert.match(markdown, /# Targeted literature/);
+});
+
 test("title is derived from first markdown line when title field is absent", async () => {
   const vaultPath = await makeTempVault();
   const now = new Date().toISOString();
