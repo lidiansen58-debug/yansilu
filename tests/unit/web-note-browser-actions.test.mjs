@@ -112,6 +112,37 @@ test("explorer keeps the currently selected empty folder visible after directory
   assert.match(fnBody, /if \(!q && c\.id === selectedFolderId\) return true;/);
 });
 
+test("note browsers show isolated-note counts in simplified directory rows", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+
+  assert.match(source, /isSimplifiedNoteBrowserScope\(folder\.id\) \? disconnectedFiles\.length : 0/);
+  assert.match(source, /这个目录里有 \$\{escapeHtml\(String\(disconnectedCount\)\)\} 条孤立笔记。/);
+  assert.match(source, /孤立 \$\{escapeHtml\(String\(disconnectedCount\)\)\}/);
+});
+
+test("note browsers mark isolated notes without per-note relation warning clutter", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+
+  assert.match(source, /const simplifiedNoteBrowser = this\.isSimplifiedNoteBrowserScope\(note\.folderId\);/);
+  assert.match(source, /const trail = simplifiedNoteBrowser\s*\?\s*disconnectedBadge/);
+  assert.match(source, /disconnected && !simplifiedNoteBrowser/);
+});
+
+test("fleeting and literature boxes use the same simplified note-browser scope", () => {
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+
+  assert.match(
+    source,
+    /return rootId === "dir_original_default"\s*\|\|\s*rootId === "dir_fleeting_default"\s*\|\|\s*rootId === "dir_literature_default";/
+  );
+});
+
 test("writing workspace defines hasProject before project list hints use it", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");

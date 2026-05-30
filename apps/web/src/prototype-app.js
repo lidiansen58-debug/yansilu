@@ -5411,9 +5411,8 @@ async function openDistillationQueueNote(noteId = "") {
   });
   const opened = openNoteById(id, { preferTitleSelection: false });
   if (opened) {
-    state.inspectorVisible = true;
-    editor?.setInspectorVisible?.(true);
-    editor?.renderRelated?.("观点提纯队列");
+    state.inspectorVisible = false;
+    editor?.setInspectorVisible?.(false);
     setStatus("已从观点提纯队列打开笔记", "ok");
   }
   renderAll();
@@ -9423,9 +9422,8 @@ function openNoteById(id, options = {}) {
   editor.openNoteTab(id, options);
   renderAll();
   if (options.focusDistillation) {
-    state.inspectorVisible = true;
-    editor?.setInspectorVisible?.(true);
-    editor?.renderRelated?.("已回到这条永久笔记，请在编辑器内继续处理绑定建议。");
+    state.inspectorVisible = false;
+    editor?.setInspectorVisible?.(false);
     window.setTimeout(() => {
       editor?.jumpToInspectorSection?.("[data-note-distillation-section]");
     }, 80);
@@ -9850,9 +9848,8 @@ async function handleStateChange(reason, payload = {}) {
           state.selectedFileId = noteId;
           activateModule("explorer");
           openNoteById(noteId, { preferTitleSelection: false });
-          state.inspectorVisible = true;
-          editor?.setInspectorVisible?.(true);
-          editor?.renderRelated?.("主路径下一步");
+          state.inspectorVisible = false;
+          editor?.setInspectorVisible?.(false);
           window.setTimeout(() => {
             editor?.jumpToInspectorSection?.("[data-note-distillation-section]", {
               focus: true,
