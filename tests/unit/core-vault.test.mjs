@@ -188,6 +188,11 @@ test("writeLiteratureNoteIfAbsent can target a specific directory fs path", asyn
   assert.equal(result.path, path.join(targetDir, "ln_targeted.md"));
   const markdown = await fs.readFile(result.path, "utf8");
   assert.match(markdown, /# Targeted literature/);
+
+  const targeted = await readNote(vaultPath, "literature", "ln_targeted");
+  assert.equal(targeted.path, path.join(targetDir, "ln_targeted.md"));
+  assert.equal(targeted.note.title, "Targeted literature");
+  assert.equal(targeted.note.body, "Quote in targeted directory");
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {

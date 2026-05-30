@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import path from "node:path";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { initVault, readMarkdown, resolveVaultPath, writeMarkdownIfAbsent } from "./vault.mjs";
@@ -99,6 +100,36 @@ function resolveNoteWritePath(vaultPath, type, id, options = {}) {
   return getNotePath(vaultPath, type, id);
 }
 
+async function findNotePathInDirectory(rootDir, filename) {
+  let entries = [];
+  try {
+    entries = await fs.readdir(rootDir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  for (const entry of entries) {
+    const fullPath = path.join(rootDir, entry.name);
+    if (entry.isFile() && entry.name === filename) return fullPath;
+    if (entry.isDirectory()) {
+      const nested = await findNotePathInDirectory(fullPath, filename);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+async function resolveNoteReadPath(vaultPath, type, id) {
+  const canonicalPath = getNotePath(vaultPath, type, id);
+  try {
+    await fs.access(canonicalPath);
+    return canonicalPath;
+  } catch {
+    const typeRoot = resolveVaultPath(vaultPath, NOTE_TYPES[type].dir);
+    return (await findNotePathInDirectory(typeRoot, noteFilename(id))) || canonicalPath;
+  }
+}
+
 export function serializeNote(type, note) {
   assertKnownType(type);
   const rendered = renderBodyWithTitle(type, note);
@@ -127,7 +158,8 @@ export async function writeNoteIfAbsent(vaultPath, type, note, options = {}) {
 }
 
 export async function readNote(vaultPath, type, id) {
-  const filePath = getNotePath(vaultPath, type, id);
+  assertKnownType(type);
+  const filePath = await resolveNoteReadPath(vaultPath, type, id);
   const markdown = await readMarkdown(filePath);
   return { path: filePath, note: parseNoteMarkdown(markdown), markdown };
 }

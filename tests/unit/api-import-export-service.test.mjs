@@ -5,7 +5,13 @@ import os from "node:os";
 import path from "node:path";
 
 import { appendImportRecord } from "../../packages/connectors/src/import-record-store.mjs";
-import { createDirectory, createNoteInDirectory, initVault } from "../../packages/domain/src/index.mjs";
+import {
+  createDirectory,
+  createNoteInDirectory,
+  initVault,
+  writeLiteratureNoteIfAbsent,
+  writeSourceIfAbsent
+} from "../../packages/domain/src/index.mjs";
 import {
   buildSelectedImportCandidates,
   createImportExportService
@@ -197,4 +203,78 @@ test("runMarkdownExport allows exporting the entire vault when no scope is provi
   await fs.access(path.join(targetPath, "literature"));
   await fs.access(path.join(targetPath, "original"));
   await fs.access(path.join(targetPath, "assets", "images", "full-export.txt"));
+});
+
+test("confirmImport reports only directories that received imported notes", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-targets-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const literatureChild = await createDirectory(vaultPath, {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+
+  const record = {
+    importRecordId: "imp_targets_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-05-30T00:00:00.000Z",
+    updatedAt: "2026-05-30T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_target",
+          source_type: "markdown",
+          title: "Source",
+          imported_from: "local",
+          created_at: "2026-05-30T00:00:00.000Z",
+          updated_at: "2026-05-30T00:00:00.000Z",
+          description: "Source body"
+        }
+      ],
+      literature: [
+        {
+          id: "ln_target",
+          source_id: "src_target",
+          title: "Literature",
+          quote_text: "Literature body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-05-30T00:00:00.000Z",
+          updated_at: "2026-05-30T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    writeLiteratureNoteIfAbsent
+  });
+
+  const result = await service.confirmImport(
+    record,
+    {
+      confirm: true,
+      selectedCandidateIds: ["src_target", "ln_target"],
+      directoryId: literatureChild.id
+    },
+    "req_targets"
+  );
+
+  assert.equal(result.result.targetDirectories.length, 1);
+  assert.equal(result.result.targetDirectories[0].noteType, "literature");
+  assert.equal(result.result.targetDirectories[0].directoryId, literatureChild.id);
+  assert.match(result.result.targetDirectories[0].label, /Imported reading batch/);
 });

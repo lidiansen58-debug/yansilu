@@ -458,6 +458,10 @@ test("API import confirm writes literature notes into selected literature direct
   const literatureFile = confirm.json.result.createdFiles.find((item) => item.noteType === "literature");
   assert.ok(literatureFile);
   assert.match(literatureFile.path, /notes\/literature\/imported-reading-batch\//);
+  assert.equal(confirm.json.result.targetDirectories.length, 1);
+  assert.equal(confirm.json.result.targetDirectories[0].noteType, "literature");
+  assert.equal(confirm.json.result.targetDirectories[0].directoryId, targetDirectory.json.item.id);
+  assert.match(confirm.json.result.targetDirectories[0].label, /Imported reading batch/);
 
   const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
   assert.equal(targetNotes.status, 200);
@@ -515,6 +519,13 @@ test("API import confirm writes permanent notes into selected permanent director
   const permanentFile = confirm.json.result.createdFiles.find((item) => item.noteType === "permanent");
   assert.ok(permanentFile);
   assert.match(permanentFile.path, /notes\/original\/imported-arguments\//);
+  const targetDirectories = confirm.json.result.targetDirectories;
+  assert.ok(targetDirectories.some((item) => item.noteType === "permanent" && item.directoryId === targetDirectory.json.item.id));
+  assert.ok(
+    targetDirectories.every((item) =>
+      ["literature", "permanent"].includes(item.noteType) && typeof item.label === "string" && item.label.length > 0
+    )
+  );
 
   const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
   assert.equal(targetNotes.status, 200);

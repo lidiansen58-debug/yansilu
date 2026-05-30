@@ -5127,6 +5127,17 @@ function preferredImportDirectoryId(currentValue = "") {
   return options.some((folder) => folder.id === "dir_literature_default") ? "dir_literature_default" : options[0]?.id || "";
 }
 
+function confirmedImportTargetDirectoryId(result = {}, fallbackDirectoryId = "") {
+  const targetDirectories = Array.isArray(result?.result?.targetDirectories) ? result.result.targetDirectories : [];
+  if (targetDirectories.length === 1) return String(targetDirectories[0]?.directoryId || "").trim();
+  if (targetDirectories.length > 1) {
+    const fallback = String(fallbackDirectoryId || "").trim();
+    if (targetDirectories.some((item) => String(item?.directoryId || "").trim() === fallback)) return fallback;
+    return "";
+  }
+  return "";
+}
+
 function syncExportDirectoryOptions() {
   const select = $("exportDirectoryId");
   if (!select) return;
@@ -12053,7 +12064,7 @@ async function bootstrap() {
     },
     onConfirmSuccess: async ({ importRecordId, result, preview }) => {
       setImportRecordId(importRecordId);
-      const targetDirectoryId = preferredImportDirectoryId(importState.directoryId);
+      const targetDirectoryId = confirmedImportTargetDirectoryId(result, preferredImportDirectoryId(importState.directoryId));
       if (targetDirectoryId && folderById(state, targetDirectoryId)) {
         importState.directoryId = targetDirectoryId;
         state.selectedFolderId = targetDirectoryId;

@@ -313,22 +313,6 @@ export function createImportExportService({
     const permanentTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "permanent");
     const literatureTargetDirectory = directoryById(directories, literatureTargetDirectoryId);
     const permanentTargetDirectory = directoryById(directories, permanentTargetDirectoryId);
-    const targetDirectories = [];
-    if (literatureTargetDirectoryId) {
-      targetDirectories.push({
-        noteType: "literature",
-        directoryId: literatureTargetDirectoryId,
-        label: directoryPathLabel(directories, literatureTargetDirectoryId)
-      });
-    }
-    if (permanentTargetDirectoryId) {
-      targetDirectories.push({
-        noteType: "permanent",
-        directoryId: permanentTargetDirectoryId,
-        label: directoryPathLabel(directories, permanentTargetDirectoryId)
-      });
-    }
-
     for (const source of selected.candidates.sources) {
       const result = await writeSourceIfAbsent(vaultPath(), source);
       if (result.written) {
@@ -417,6 +401,22 @@ export function createImportExportService({
       } else {
         skipped.conflicted += 1;
       }
+    }
+
+    const targetDirectories = [];
+    if (created.literatureNotes > 0 && literatureTargetDirectoryId) {
+      targetDirectories.push({
+        noteType: "literature",
+        directoryId: literatureTargetDirectoryId,
+        label: directoryPathLabel(directories, literatureTargetDirectoryId)
+      });
+    }
+    if (created.permanentNotes > 0 && permanentTargetDirectoryId) {
+      targetDirectories.push({
+        noteType: "permanent",
+        directoryId: permanentTargetDirectoryId,
+        label: directoryPathLabel(directories, permanentTargetDirectoryId)
+      });
     }
 
     record.state = "completed";
