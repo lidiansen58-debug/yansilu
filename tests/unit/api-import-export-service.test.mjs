@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { appendImportRecord } from "../../packages/connectors/src/import-record-store.mjs";
 import {
+  readNote,
   createDirectory,
   createNoteInDirectory,
   initVault,
@@ -277,4 +278,126 @@ test("confirmImport reports only directories that received imported notes", asyn
   assert.equal(result.result.targetDirectories[0].noteType, "literature");
   assert.equal(result.result.targetDirectories[0].directoryId, literatureChild.id);
   assert.match(result.result.targetDirectories[0].label, /Imported reading batch/);
+});
+
+test("confirmImport cleans up already written files when catalog registration fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-cleanup-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_cleanup_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_cleanup",
+          source_type: "markdown",
+          title: "Cleanup source",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Cleanup body"
+        }
+      ],
+      literature: [
+        {
+          id: "ln_cleanup",
+          source_id: "src_cleanup",
+          title: "Cleanup literature",
+          quote_text: "Cleanup quote",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    writeLiteratureNoteIfAbsent,
+    registerImportCatalogNote: async () => {
+      throw new Error("catalog unavailable");
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_cleanup"),
+    /catalog unavailable/
+  );
+
+  await assert.rejects(() => readNote(vaultPath, "source", "src_cleanup"), { code: "ENOENT" });
+  await assert.rejects(() => readNote(vaultPath, "literature", "ln_cleanup"), { code: "ENOENT" });
+});
+
+test("confirmImport does not register catalog entries when write result cannot be materialized", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-created-entry-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  const calls = [];
+
+  const record = {
+    importRecordId: "imp_created_entry_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_missing_file",
+          source_id: "src_missing_file",
+          title: "Broken literature",
+          quote_text: "Broken quote",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent: async () => ({
+      written: true,
+      skipped: false,
+      noteId: "ln_missing_file",
+      noteType: "literature",
+      path: path.join(vaultPath, "notes", "literature", "missing-file.md")
+    }),
+    registerImportCatalogNote: async () => {
+      calls.push("register");
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_created_entry"),
+    { code: "ENOENT" }
+  );
+  assert.deepEqual(calls, []);
 });

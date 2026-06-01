@@ -12,7 +12,7 @@ import {
   rollbackCreatedFiles,
   summarizeImportCandidates
 } from "../../../packages/connectors/src/index.mjs";
-import { listDirectories } from "../../../packages/domain/src/index.mjs";
+import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
@@ -71,6 +71,10 @@ function directoryPathLabel(directories = [], directoryId = "") {
     cursor = cursor.parentDirectoryId ? byId.get(String(cursor.parentDirectoryId || "").trim()) : null;
   }
   return names.filter(Boolean).join(" / ");
+}
+
+function catalogEntryMap(entries = []) {
+  return new Map((Array.isArray(entries) ? entries : []).map((item) => [String(item?.id || "").trim(), item]));
 }
 
 async function isPermanentDirectoryScope(vaultPath, directoryId) {
@@ -181,6 +185,30 @@ export function createImportExportService({
 }) {
   const vaultPath = () => getVaultPath();
   const cwd = () => getCwd();
+
+  async function cleanupCreatedArtifacts(createdFiles = []) {
+    const { rolledBack } = await rollbackCreatedFiles(vaultPath(), createdFiles);
+    for (const item of rolledBack) {
+      if (item.noteType === "literature" || item.noteType === "permanent") {
+        try {
+          await deleteNoteById(vaultPath(), item.noteId);
+        } catch {}
+      }
+    }
+  }
+
+  async function registerWrittenImportNote(candidate, noteType, result, directoryId) {
+    const createdEntry = await createdEntryFromWriteResult(vaultPath(), result);
+    try {
+      await registerImportCatalogNote(candidate, noteType, result, directoryId);
+    } catch (error) {
+      try {
+        await fs.unlink(result.path);
+      } catch {}
+      throw error;
+    }
+    return createdEntry;
+  }
 
   async function createPreview(connector, payload, options, requestId) {
     const originalityPlan = normalizeOriginalityPlan(options?.originalityPlan || {});
@@ -313,32 +341,52 @@ export function createImportExportService({
     const permanentTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "permanent");
     const literatureTargetDirectory = directoryById(directories, literatureTargetDirectoryId);
     const permanentTargetDirectory = directoryById(directories, permanentTargetDirectoryId);
-    for (const source of selected.candidates.sources) {
-      const result = await writeSourceIfAbsent(vaultPath(), source);
-      if (result.written) {
-        created.sources += 1;
-        writtenPaths.add(path.dirname(result.path));
-        createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-      } else {
-        skipped.conflicted += 1;
-      }
-    }
+    const [sourcePathIndex, literaturePathIndex, permanentPathIndex, sourceCatalogEntries, literatureCatalogEntries, permanentCatalogEntries] =
+      await Promise.all([
+        selected.candidates.sources.length ? buildNotePathIndex(vaultPath(), "source") : null,
+        selected.candidates.literature.length ? buildNotePathIndex(vaultPath(), "literature") : null,
+        selected.candidates.permanent.length ? buildNotePathIndex(vaultPath(), "permanent") : null,
+        selected.candidates.sources.length ? listNoteCatalogEntriesByType(vaultPath(), "source") : [],
+        selected.candidates.literature.length ? listNoteCatalogEntriesByType(vaultPath(), "literature") : [],
+        selected.candidates.permanent.length ? listNoteCatalogEntriesByType(vaultPath(), "permanent") : []
+      ]);
+    const sourceCatalogById = catalogEntryMap(sourceCatalogEntries);
+    const literatureCatalogById = catalogEntryMap(literatureCatalogEntries);
+    const permanentCatalogById = catalogEntryMap(permanentCatalogEntries);
 
-    for (const note of selected.candidates.literature) {
-      const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
-        directoryFsPath: literatureTargetDirectory?.fsPath || ""
-      });
-      if (result.written) {
-        created.literatureNotes += 1;
-        writtenPaths.add(path.dirname(result.path));
-        createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-        await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
-      } else {
-        skipped.conflicted += 1;
+    try {
+      for (const source of selected.candidates.sources) {
+        const result = await writeSourceIfAbsent(vaultPath(), source, {
+          notePathIndex: sourcePathIndex,
+          catalogEntriesById: sourceCatalogById,
+          skipInit: true
+        });
+        if (result.written) {
+          created.sources += 1;
+          writtenPaths.add(path.dirname(result.path));
+          createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
+        } else {
+          skipped.conflicted += 1;
+        }
       }
-    }
 
-    if (record.connector === "obsidian") {
+      for (const note of selected.candidates.literature) {
+        const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
+          directoryFsPath: literatureTargetDirectory?.fsPath || "",
+          notePathIndex: literaturePathIndex,
+          catalogEntriesById: literatureCatalogById,
+          skipInit: true
+        });
+        if (result.written) {
+          created.literatureNotes += 1;
+          writtenPaths.add(path.dirname(result.path));
+          createdFiles.push(await registerWrittenImportNote(note, "literature", result, literatureTargetDirectoryId));
+        } else {
+          skipped.conflicted += 1;
+        }
+      }
+
+      if (record.connector === "obsidian") {
       const importRootRaw = String(record.payload?.path || "").trim();
       const importRoot = importRootRaw ? (path.isAbsolute(importRootRaw) ? importRootRaw : path.resolve(cwd(), importRootRaw)) : null;
       const assetTargets = new Set();
@@ -352,55 +400,61 @@ export function createImportExportService({
         }
       }
 
-      if (importRoot && assetTargets.size) {
-        for (const normalizedTarget of assetTargets) {
-          const sourcePath = path.resolve(importRoot, normalizedTarget);
-          const relToImportRoot = path.relative(importRoot, sourcePath);
-          if (relToImportRoot.startsWith("..") || path.isAbsolute(relToImportRoot)) continue;
+        if (importRoot && assetTargets.size) {
+          for (const normalizedTarget of assetTargets) {
+            const sourcePath = path.resolve(importRoot, normalizedTarget);
+            const relToImportRoot = path.relative(importRoot, sourcePath);
+            if (relToImportRoot.startsWith("..") || path.isAbsolute(relToImportRoot)) continue;
 
-          try {
-            await fs.access(sourcePath);
-          } catch {
-            continue;
+            try {
+              await fs.access(sourcePath);
+            } catch {
+              continue;
+            }
+
+            const destRel = path.posix.join("assets", "imports", record.importRecordId, normalizedTarget);
+            const destFull = path.join(vaultPath(), destRel);
+            await fs.mkdir(path.dirname(destFull), { recursive: true });
+            await fs.copyFile(sourcePath, destFull);
+            writtenPaths.add(path.dirname(destFull));
+            createdFiles.push(
+              await createdEntryFromVaultPath(vaultPath(), {
+                noteId: stableAssetId(record.importRecordId, destRel),
+                noteType: "asset",
+                filePath: destFull
+              })
+            );
           }
-
-          const destRel = path.posix.join("assets", "imports", record.importRecordId, normalizedTarget);
-          const destFull = path.join(vaultPath(), destRel);
-          await fs.mkdir(path.dirname(destFull), { recursive: true });
-          await fs.copyFile(sourcePath, destFull);
-          writtenPaths.add(path.dirname(destFull));
-          createdFiles.push(
-            await createdEntryFromVaultPath(vaultPath(), {
-              noteId: stableAssetId(record.importRecordId, destRel),
-              noteType: "asset",
-              filePath: destFull
-            })
-          );
         }
       }
-    }
 
-    for (const note of selected.candidates.permanent) {
-      const evalItem = evaluationById.get(note.id);
-      if (evalItem?.status === "warning" && !confirmPlan.allowDraftOnWarning) {
-        skipped.invalid += 1;
-        continue;
+      for (const note of selected.candidates.permanent) {
+        const evalItem = evaluationById.get(note.id);
+        if (evalItem?.status === "warning" && !confirmPlan.allowDraftOnWarning) {
+          skipped.invalid += 1;
+          continue;
+        }
+        const noteToWrite = {
+          ...note,
+          originality_status: evalItem?.status || note.originality_status || "warning"
+        };
+        const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite, {
+          directoryFsPath: permanentTargetDirectory?.fsPath || "",
+          notePathIndex: permanentPathIndex,
+          catalogEntriesById: permanentCatalogById,
+          skipInit: true
+        });
+        if (result.written) {
+          created.permanentNotes += 1;
+          writtenPaths.add(path.dirname(result.path));
+          createdFiles.push(await registerWrittenImportNote(noteToWrite, "permanent", result, permanentTargetDirectoryId));
+        } else {
+          skipped.conflicted += 1;
+        }
       }
-      const noteToWrite = {
-        ...note,
-        originality_status: evalItem?.status || note.originality_status || "warning"
-      };
-      const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite, {
-        directoryFsPath: permanentTargetDirectory?.fsPath || ""
-      });
-      if (result.written) {
-        created.permanentNotes += 1;
-        writtenPaths.add(path.dirname(result.path));
-        createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-        await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
-      } else {
-        skipped.conflicted += 1;
-      }
+    } catch (error) {
+      await cleanupCreatedArtifacts(createdFiles);
+      throw error;
     }
 
     const targetDirectories = [];

@@ -1955,6 +1955,61 @@ export async function getNoteById(vaultPath, noteId) {
   }
 }
 
+export async function getNoteCatalogEntryById(vaultPath, noteId) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(noteId || "").trim();
+  if (!id) throw new Error("noteId is required");
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const row = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.id = ? AND n.deleted_at IS NULL
+         LIMIT 1`
+      )
+      .get(id);
+    if (!row) throw new Error(`noteId not found: ${id}`);
+    return {
+      ...mapNoteRow(row),
+      directoryFsPath: row.directory_fs_path || null
+    };
+  } finally {
+    db.close();
+  }
+}
+
+export async function listNoteCatalogEntriesByType(vaultPath, noteType) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const normalizedType = String(noteType || "").trim();
+  if (!normalizedType) throw new Error("noteType is required");
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const rows = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.note_type = ? AND n.deleted_at IS NULL
+         ORDER BY n.updated_at DESC`
+      )
+      .all(normalizedType);
+    return rows.map((row) => ({
+      ...mapNoteRow(row),
+      directoryFsPath: row.directory_fs_path || null
+    }));
+  } finally {
+    db.close();
+  }
+}
+
 export async function updatePermanentNoteDistillation(vaultPath, noteId, input = {}) {
   const note = await getNoteById(vaultPath, noteId);
   if (note.noteType !== "permanent") {

@@ -4,10 +4,10 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 import {
+  buildNotePathIndex,
   initVault,
   parseMarkdownWithFrontmatter,
   readNote,
-  registerMarkdownNoteInCatalog,
   serializeMarkdownWithFrontmatter,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
@@ -190,22 +190,13 @@ test("writeLiteratureNoteIfAbsent can target a specific directory fs path", asyn
   const markdown = await fs.readFile(result.path, "utf8");
   assert.match(markdown, /# Targeted literature/);
 
-  await registerMarkdownNoteInCatalog(vaultPath, {
-    noteId: "ln_targeted",
-    noteType: "literature",
-    title: "Targeted literature",
-    status: "draft",
-    markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
-    directoryId: "dir_literature_default"
-  });
-
   const targeted = await readNote(vaultPath, "literature", "ln_targeted");
   assert.equal(targeted.path, path.join(targetDir, "ln_targeted.md"));
   assert.equal(targeted.note.title, "Targeted literature");
   assert.equal(targeted.note.body, "Quote in targeted directory");
 });
 
-test("readNote follows catalog markdown path when duplicate ids exist in different directories", async () => {
+test("writeLiteratureNoteIfAbsent blocks duplicate ids across different directories", async () => {
   const vaultPath = await makeTempVault();
   const now = new Date().toISOString();
   const firstDir = path.join(vaultPath, "notes", "literature", "batch-a");
@@ -241,22 +232,97 @@ test("readNote follows catalog markdown path when duplicate ids exist in differe
     },
     { directoryFsPath: secondDir }
   );
-
-  await registerMarkdownNoteInCatalog(vaultPath, {
-    noteId: "ln_duplicate",
-    noteType: "literature",
-    title: "Second duplicate",
-    status: "draft",
-    markdownPath: path.relative(vaultPath, second.path).replaceAll("\\", "/"),
-    directoryId: "dir_literature_default"
-  });
-
   const note = await readNote(vaultPath, "literature", "ln_duplicate");
   assert.equal(first.written, true);
-  assert.equal(second.written, true);
-  assert.equal(note.path, second.path);
-  assert.equal(note.note.title, "Second duplicate");
-  assert.equal(note.note.body, "Second body");
+  assert.equal(second.written, false);
+  assert.equal(second.reason, "exists");
+  assert.equal(second.path, first.path);
+  assert.equal(note.path, first.path);
+  assert.equal(note.note.title, "First duplicate");
+  assert.equal(note.note.body, "First body");
+});
+
+test("writeLiteratureNoteIfAbsent with a prebuilt path index does not rescan unmatched files", async () => {
+  const vaultPath = await makeTempVault();
+  const now = new Date().toISOString();
+  const targetDir = path.join(vaultPath, "notes", "literature", "batch-indexed");
+  await fs.mkdir(targetDir, { recursive: true });
+  const notePathIndex = await buildNotePathIndex(vaultPath, "literature");
+
+  const result = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_indexed",
+      source_id: "src_indexed",
+      title: "Indexed literature",
+      quote_text: "Indexed body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    {
+      directoryFsPath: targetDir,
+      notePathIndex,
+      skipInit: true
+    }
+  );
+
+  assert.equal(result.written, true);
+  assert.equal(result.path, path.join(targetDir, "ln_indexed.md"));
+  assert.deepEqual(notePathIndex.get("ln_indexed.md"), [path.join(targetDir, "ln_indexed.md")]);
+});
+
+test("readNote reports ambiguous paths when legacy duplicate files exist without catalog metadata", async () => {
+  const vaultPath = await makeTempVault();
+  const firstDir = path.join(vaultPath, "notes", "literature", "legacy-a");
+  const secondDir = path.join(vaultPath, "notes", "literature", "legacy-b");
+  await fs.mkdir(firstDir, { recursive: true });
+  await fs.mkdir(secondDir, { recursive: true });
+  const filename = "ln_legacy_dup.md";
+  const markdown = [
+    "---",
+    "id: ln_legacy_dup",
+    "title: Legacy duplicate",
+    "note_type: literature",
+    "---",
+    "",
+    "# Legacy duplicate",
+    "",
+    "Duplicate body"
+  ].join("\n");
+  await fs.writeFile(path.join(firstDir, filename), markdown, "utf8");
+  await fs.writeFile(path.join(secondDir, filename), markdown, "utf8");
+
+  await assert.rejects(() => readNote(vaultPath, "literature", "ln_legacy_dup"), {
+    code: "NOTE_PATH_AMBIGUOUS"
+  });
+});
+
+test("readNote ignores stale catalog paths when the markdown file is missing", async () => {
+  const vaultPath = await makeTempVault();
+  const liveDir = path.join(vaultPath, "notes", "literature", "live");
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale");
+  await fs.mkdir(liveDir, { recursive: true });
+  await fs.mkdir(staleDir, { recursive: true });
+  const filename = "ln_stale_catalog.md";
+  const markdown = [
+    "---",
+    "id: ln_stale_catalog",
+    "title: Live copy",
+    "note_type: literature",
+    "---",
+    "",
+    "# Live copy",
+    "",
+    "Live body"
+  ].join("\n");
+  const livePath = path.join(liveDir, filename);
+  await fs.writeFile(livePath, markdown, "utf8");
+
+  const note = await readNote(vaultPath, "literature", "ln_stale_catalog");
+  assert.equal(note.path, livePath);
+  assert.equal(note.note.title, "Live copy");
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {
