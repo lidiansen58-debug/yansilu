@@ -107,7 +107,7 @@
     "confirmResult": {
       "type": ["object", "null"],
       "additionalProperties": false,
-      "required": ["created", "skipped", "selection", "writtenPaths", "createdFiles", "finishedAt"],
+      "required": ["created", "skipped", "selection", "targetDirectories", "writtenPaths", "createdFiles", "finishedAt"],
       "properties": {
         "created": {
           "type": "object",
@@ -146,6 +146,19 @@
                 "literatureNotes": { "type": "number" },
                 "permanentNotes": { "type": "number" }
               }
+            }
+          }
+        },
+        "targetDirectories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["noteType", "directoryId", "label"],
+            "properties": {
+              "noteType": { "type": "string", "enum": ["literature", "permanent"] },
+              "directoryId": { "type": "string" },
+              "label": { "type": "string" }
             }
           }
         },

@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import path from "node:path";
+import { getNoteById } from "./note-catalog-store.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { initVault, readMarkdown, resolveVaultPath, writeMarkdownIfAbsent } from "./vault.mjs";
 
@@ -100,34 +100,18 @@ function resolveNoteWritePath(vaultPath, type, id, options = {}) {
   return getNotePath(vaultPath, type, id);
 }
 
-async function findNotePathInDirectory(rootDir, filename) {
-  let entries = [];
-  try {
-    entries = await fs.readdir(rootDir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-
-  for (const entry of entries) {
-    const fullPath = path.join(rootDir, entry.name);
-    if (entry.isFile() && entry.name === filename) return fullPath;
-    if (entry.isDirectory()) {
-      const nested = await findNotePathInDirectory(fullPath, filename);
-      if (nested) return nested;
-    }
-  }
-  return null;
-}
-
 async function resolveNoteReadPath(vaultPath, type, id) {
-  const canonicalPath = getNotePath(vaultPath, type, id);
   try {
-    await fs.access(canonicalPath);
-    return canonicalPath;
+    const note = await getNoteById(vaultPath, id);
+    const noteType = String(note?.noteType || "").trim();
+    const markdownPath = String(note?.markdownPath || "").trim();
+    if (noteType === type && markdownPath) {
+      return resolveVaultPath(vaultPath, markdownPath);
+    }
   } catch {
-    const typeRoot = resolveVaultPath(vaultPath, NOTE_TYPES[type].dir);
-    return (await findNotePathInDirectory(typeRoot, noteFilename(id))) || canonicalPath;
+    // Fall back to the canonical path when the note is not yet registered in catalog metadata.
   }
+  return getNotePath(vaultPath, type, id);
 }
 
 export function serializeNote(type, note) {

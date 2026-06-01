@@ -110,6 +110,7 @@ function assertConfirmResultContract(record) {
     "permanentNotes",
     "sources"
   ]);
+  assert.ok(Array.isArray(record.confirmResult.targetDirectories));
   assert.ok(Array.isArray(record.confirmResult.writtenPaths));
   assert.ok(Array.isArray(record.confirmResult.createdFiles));
   for (const item of record.confirmResult.createdFiles) assertCreatedFileContract(item);
@@ -120,6 +121,7 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "created",
     "skipped",
     "selection",
+    "targetDirectories",
     "writtenPaths",
     "createdFiles",
     "finishedAt"
@@ -142,6 +144,7 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "literatureNotes",
     "permanentNotes"
   ]);
+  assertRequiredFields(schema.properties.confirmResult.properties.targetDirectories.items, ["noteType", "directoryId", "label"]);
   assertRequiredFields(schema.properties.confirmResult.properties.createdFiles.items, ["noteId", "noteType", "path", "hash"]);
   assertRequiredFields(schema.properties.rollbackResult, ["rolledBack", "skipped", "finishedAt"]);
   assertRequiredFields(schema.properties.rollbackResult.properties.rolledBack.items, ["noteId", "noteType", "path", "hash"]);
@@ -162,6 +165,54 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "status",
     "originalityStatus"
   ]);
+}
+
+function validateSchema(schema, value, location = "$") {
+  if (!schema || typeof schema !== "object") return;
+  if (Array.isArray(schema.type)) {
+    const allowed = schema.type;
+    assert.equal(allowed.some((item) => matchesSchemaType(item, value)), true, `${location} expected one of ${allowed.join(", ")}`);
+  } else if (schema.type) {
+    assert.equal(matchesSchemaType(schema.type, value), true, `${location} expected type ${schema.type}`);
+  }
+
+  if (schema.enum) {
+    assert.equal(schema.enum.includes(value), true, `${location} expected enum value`);
+  }
+
+  const isObjectSchema =
+    (schema.type === "object" || (Array.isArray(schema.type) && value && typeof value === "object" && !Array.isArray(value))) &&
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value);
+  if (isObjectSchema) {
+    const required = Array.isArray(schema.required) ? schema.required : [];
+    for (const key of required) {
+      assert.equal(Object.prototype.hasOwnProperty.call(value, key), true, `${location}.${key} is required`);
+    }
+    if (schema.additionalProperties === false && schema.properties) {
+      for (const key of Object.keys(value)) {
+        assert.equal(Object.prototype.hasOwnProperty.call(schema.properties, key), true, `${location}.${key} is not allowed`);
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties || {})) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) validateSchema(childSchema, value[key], `${location}.${key}`);
+    }
+  }
+
+  if (schema.type === "array" && Array.isArray(value) && schema.items) {
+    value.forEach((item, index) => validateSchema(schema.items, item, `${location}[${index}]`));
+  }
+}
+
+function matchesSchemaType(type, value) {
+  if (type === "null") return value === null;
+  if (type === "array") return Array.isArray(value);
+  if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
+  if (type === "string") return typeof value === "string";
+  if (type === "number") return typeof value === "number";
+  if (type === "boolean") return typeof value === "boolean";
+  return true;
 }
 
 function startApi(port, vaultPath) {
@@ -866,6 +917,7 @@ test("API import records match schema contract across preview, completed, and ro
   assert.equal(completedRecord.status, 200);
   assertImportRecordBase(completedRecord.json.importRecord, "completed");
   assertConfirmResultContract(completedRecord.json.importRecord);
+  validateSchema(schema, completedRecord.json.importRecord);
   assert.equal(completedRecord.json.importRecord.rollbackResult, null);
 
   const rollback = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/rollback`, {});
@@ -875,6 +927,7 @@ test("API import records match schema contract across preview, completed, and ro
   assert.equal(rolledBackRecord.status, 200);
   assertImportRecordBase(rolledBackRecord.json.importRecord, "rolled_back");
   assertConfirmResultContract(rolledBackRecord.json.importRecord);
+  validateSchema(schema, rolledBackRecord.json.importRecord);
   assert.equal(typeof rolledBackRecord.json.importRecord.rollbackResult.finishedAt, "string");
   assert.ok(Array.isArray(rolledBackRecord.json.importRecord.rollbackResult.rolledBack));
   assert.ok(Array.isArray(rolledBackRecord.json.importRecord.rollbackResult.skipped));

@@ -7,6 +7,7 @@ import {
   initVault,
   parseMarkdownWithFrontmatter,
   readNote,
+  registerMarkdownNoteInCatalog,
   serializeMarkdownWithFrontmatter,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
@@ -189,10 +190,73 @@ test("writeLiteratureNoteIfAbsent can target a specific directory fs path", asyn
   const markdown = await fs.readFile(result.path, "utf8");
   assert.match(markdown, /# Targeted literature/);
 
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_targeted",
+    noteType: "literature",
+    title: "Targeted literature",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
   const targeted = await readNote(vaultPath, "literature", "ln_targeted");
   assert.equal(targeted.path, path.join(targetDir, "ln_targeted.md"));
   assert.equal(targeted.note.title, "Targeted literature");
   assert.equal(targeted.note.body, "Quote in targeted directory");
+});
+
+test("readNote follows catalog markdown path when duplicate ids exist in different directories", async () => {
+  const vaultPath = await makeTempVault();
+  const now = new Date().toISOString();
+  const firstDir = path.join(vaultPath, "notes", "literature", "batch-a");
+  const secondDir = path.join(vaultPath, "notes", "literature", "batch-b");
+  await fs.mkdir(firstDir, { recursive: true });
+  await fs.mkdir(secondDir, { recursive: true });
+
+  const first = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_duplicate",
+      source_id: "src_duplicate",
+      title: "First duplicate",
+      quote_text: "First body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: firstDir }
+  );
+  const second = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_duplicate",
+      source_id: "src_duplicate",
+      title: "Second duplicate",
+      quote_text: "Second body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: secondDir }
+  );
+
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_duplicate",
+    noteType: "literature",
+    title: "Second duplicate",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, second.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const note = await readNote(vaultPath, "literature", "ln_duplicate");
+  assert.equal(first.written, true);
+  assert.equal(second.written, true);
+  assert.equal(note.path, second.path);
+  assert.equal(note.note.title, "Second duplicate");
+  assert.equal(note.note.body, "Second body");
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {
