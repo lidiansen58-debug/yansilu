@@ -501,6 +501,15 @@ function bestDirectoryForMarkdownPath(db, noteType, fallbackDirectoryId, markdow
   };
 }
 
+function healedCatalogTitle(parsed, row) {
+  const title = toTitleLine(parsed?.frontmatter?.title);
+  return title || String(row?.title || row?.id || "Untitled").trim();
+}
+
+function healedCatalogStatus(parsed, row) {
+  return String(parsed?.frontmatter?.status || row?.status || "draft").trim() || "draft";
+}
+
 async function recoverCatalogMarkdownPath(vaultPath, db, row) {
   const fullPath = await locateUniqueMarkdownPathForNote(vaultPath, row.note_type, row.id);
   if (!fullPath) return null;
@@ -508,10 +517,18 @@ async function recoverCatalogMarkdownPath(vaultPath, db, row) {
   const markdown = await fs.readFile(fullPath, "utf8");
   const parsed = parseMarkdownWithFrontmatter(markdown);
   const directory = bestDirectoryForMarkdownPath(db, row.note_type, row.directory_id, fullPath);
+  const title = healedCatalogTitle(parsed, row);
+  const status = healedCatalogStatus(parsed, row);
   const now = new Date().toISOString();
   db.exec("BEGIN IMMEDIATE;");
   try {
-    db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(markdownPath, now, row.id);
+    db.prepare("UPDATE notes SET title = ?, status = ?, markdown_path = ?, updated_at = ? WHERE id = ?").run(
+      title,
+      status,
+      markdownPath,
+      now,
+      row.id
+    );
     ensureSingleDirectoryMembership(db, row.id, directory.id);
     syncMarkdownRelations(db, row.id, parsed.body);
     db.exec("COMMIT;");
@@ -524,6 +541,8 @@ async function recoverCatalogMarkdownPath(vaultPath, db, row) {
     markdownPath,
     directoryId: directory.id,
     directoryFsPath: directory.fsPath,
+    title,
+    status,
     markdown,
     parsed
   };
@@ -566,6 +585,8 @@ async function resolveCatalogRowState(vaultPath, db, row, options = {}) {
     return {
       row: {
         ...row,
+        title: recovered.title,
+        status: recovered.status,
         markdown_path: recovered.markdownPath,
         directory_id: recovered.directoryId,
         directory_fs_path: recovered.directoryFsPath
@@ -586,6 +607,34 @@ async function normalizeCatalogRows(vaultPath, db, rows = [], options = {}) {
 async function normalizeCatalogRowsForMetadata(vaultPath, db, rows = []) {
   const resolved = await normalizeCatalogRows(vaultPath, db, rows, { tolerateMissing: true });
   return resolved.map((item) => item.row);
+}
+
+async function healCatalogScope(vaultPath, db, options = {}) {
+  const rootDirectoryId = String(options.rootDirectoryId || "").trim();
+  const rows = rootDirectoryId
+    ? db
+        .prepare(
+          `${directoryScopeClause("heal_scope")}
+           SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                  ndm.directory_id, d.fs_path AS directory_fs_path
+           FROM note_directory_membership ndm
+           JOIN heal_scope ON heal_scope.id = ndm.directory_id
+           JOIN notes n ON n.id = ndm.note_id
+           LEFT JOIN directories d ON d.id = ndm.directory_id
+           WHERE n.deleted_at IS NULL`
+        )
+        .all(rootDirectoryId)
+    : db
+        .prepare(
+          `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                  ndm.directory_id, d.fs_path AS directory_fs_path
+           FROM notes n
+           LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+           LEFT JOIN directories d ON d.id = ndm.directory_id
+           WHERE n.deleted_at IS NULL`
+        )
+        .all();
+  await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
 }
 
 function attachNoteThinkingStatus(note) {
@@ -1447,6 +1496,7 @@ export async function searchNotes(vaultPath, options = {}) {
       const directory = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(rootDirectoryId);
       if (!directory) throw new Error(`rootDirectoryId not found: ${rootDirectoryId}`);
     }
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
 
     const matchClause =
       "(? = '' OR LOWER(n.title) LIKE '%' || ? || '%' OR LOWER(n.id) LIKE '%' || ? || '%' OR LOWER(n.markdown_path) LIKE '%' || ? || '%')";
@@ -1935,6 +1985,7 @@ export async function listNotesByTag(vaultPath, tagName, options = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
     const tag = db.prepare("SELECT id, name FROM tags WHERE name = ? LIMIT 1").get(name);
     if (!tag) {
       return {
@@ -1999,6 +2050,7 @@ export async function listTags(vaultPath, options = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
     const scopedRows = rootDirectoryId
       ? db
           .prepare(
@@ -2148,7 +2200,8 @@ export async function listNoteCatalogEntriesByType(vaultPath, noteType) {
          ORDER BY n.updated_at DESC`
       )
       .all(normalizedType);
-    return rows.map((row) => ({
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    return normalizedRows.map((row) => ({
       ...mapNoteRow(row),
       directoryFsPath: row.directory_fs_path || null
     }));

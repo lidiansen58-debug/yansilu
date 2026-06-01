@@ -9,6 +9,7 @@ import {
   initVault,
   listNotesByTag,
   listNotesInDirectory,
+  listTags,
   parseMarkdownWithFrontmatter,
   readNote,
   registerMarkdownNoteInCatalog,
@@ -357,8 +358,8 @@ test("searchNotes heals stale catalog paths for metadata-only queries", async ()
     {
       id: "ln_search_heal",
       source_id: "src_search_heal",
-      title: "Search live",
-      quote_text: "Fresh body #freshtag",
+      title: "Search stale",
+      quote_text: "Old body #oldtag",
       paraphrase_text: "",
       status: "draft",
       created_at: now,
@@ -369,7 +370,7 @@ test("searchNotes heals stale catalog paths for metadata-only queries", async ()
   await registerMarkdownNoteInCatalog(vaultPath, {
     noteId: "ln_search_heal",
     noteType: "literature",
-    title: "Search live",
+    title: "Search stale",
     status: "draft",
     markdownPath: path.relative(vaultPath, staleWrite.path).replaceAll("\\", "/"),
     directoryId: "dir_literature_default"
@@ -383,16 +384,18 @@ test("searchNotes heals stale catalog paths for metadata-only queries", async ()
       title: "Search live",
       quote_text: "Fresh body #freshtag",
       paraphrase_text: "",
-      status: "draft",
+      status: "active",
       created_at: now,
       updated_at: now
     },
     { directoryFsPath: liveDir }
   );
 
-  const result = await searchNotes(vaultPath, { query: "search" });
+  const result = await searchNotes(vaultPath, { query: "search live" });
   const item = result.items.find((entry) => entry.id === "ln_search_heal");
   assert.ok(item);
+  assert.equal(item.title, "Search live");
+  assert.equal(item.status, "active");
   assert.equal(item.markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
 });
 
@@ -441,7 +444,7 @@ test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a miss
   assert.equal(catalogNote.markdownPath, path.relative(vaultPath, result.path).replaceAll("\\", "/"));
 });
 
-test("listNotesInDirectory heals stale notes and refreshes markdown-body tag relations", async () => {
+test("tag queries heal stale notes and refresh markdown-body tag relations", async () => {
   const vaultPath = await makeTempVault();
   await initVault(vaultPath);
   const staleDir = path.join(vaultPath, "notes", "literature", "stale-list");
@@ -487,17 +490,22 @@ test("listNotesInDirectory heals stale notes and refreshes markdown-body tag rel
     { directoryFsPath: liveDir }
   );
 
+  const freshTag = await listNotesByTag(vaultPath, "freshtag");
+  assert.equal(freshTag.total, 1);
+  assert.equal(freshTag.items[0].id, "ln_list_heal");
+  assert.equal(freshTag.items[0].markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
+
+  const oldTag = await listNotesByTag(vaultPath, "oldtag");
+  assert.equal(oldTag.total, 0);
+
+  const tags = await listTags(vaultPath);
+  assert.ok(tags.items.find((item) => item.name === "freshtag"));
+  assert.ok(!tags.items.find((item) => item.name === "oldtag"));
+
   const notes = await listNotesInDirectory(vaultPath, "dir_literature_default");
   const healed = notes.find((note) => note.id === "ln_list_heal");
   assert.ok(healed);
   assert.equal(healed.markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
-
-  const freshTag = await listNotesByTag(vaultPath, "freshtag");
-  assert.equal(freshTag.total, 1);
-  assert.equal(freshTag.items[0].id, "ln_list_heal");
-
-  const oldTag = await listNotesByTag(vaultPath, "oldtag");
-  assert.equal(oldTag.total, 0);
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {
