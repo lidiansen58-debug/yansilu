@@ -1,7 +1,7 @@
 import { importConnectorLabel } from "./import-connector-labels.js";
 
 function compactValue(value) {
-  if (value === null || value === undefined || value === "") return "未提供";
+  if (value === null || value === undefined || value === "") return "未知";
   if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
 }
@@ -19,7 +19,7 @@ function statusValue(status) {
     blocked: "已阻止",
     failed: "失败",
     ok: "完成",
-    queued: "已提交"
+    queued: "已排队"
   };
   return labels[String(status || "").trim()] || compactValue(status);
 }
@@ -95,6 +95,8 @@ export function resultTitle(stage) {
 export function resultTone(payload = {}) {
   const stage = String(payload.stage || "");
   if (stage.includes("error")) return "bad";
+  const importRecordStatus = String(payload.importRecord?.status || payload.importRecord?.state || "").trim();
+  if (importRecordStatus === "failed") return "bad";
   if (Array.isArray(payload.warnings) && payload.warnings.length) return "warn";
   if (payload.status === "blocked" || payload.status === "failed") return "bad";
   if (Number(payload.result?.skipped || 0) > 0) return "warn";
@@ -147,6 +149,7 @@ export function resultMetrics(payload = {}) {
     }
     const targets = targetDirectorySummary(payload);
     if (targets) push("写入到", targets);
+    if (payload.importRecord?.failureResult?.code) push("失败代码", payload.importRecord.failureResult.code);
     return metrics;
   }
 
@@ -167,6 +170,12 @@ export function warningItems(payload = {}) {
   const warnings = [];
   if (Array.isArray(payload.warnings)) warnings.push(...payload.warnings);
   if (payload.code) warnings.push({ code: payload.code, message: payload.message || "" });
+  if (payload.importRecord?.failureResult?.code || payload.importRecord?.failureResult?.message) {
+    warnings.push({
+      code: payload.importRecord.failureResult.code || "IMPORT_FAILED",
+      message: payload.importRecord.failureResult.message || ""
+    });
+  }
   const evaluations = payload.originalityGuard?.evaluations;
   if (Array.isArray(evaluations)) {
     for (const item of evaluations) {
@@ -193,6 +202,7 @@ function actionableTextForCode(code) {
     IMPORT_RECORD_NOT_FOUND: "确认这条记录属于当前 Vault。",
     IMPORT_STATUS_INVALID: "这条记录当前不能执行这个操作。",
     IMPORT_CONFIRM_REQUIRED: "请先预览，再确认导入。",
+    IMPORT_CLEANUP_PRESERVE_FAILED: "失败导入的已修改文件未能自动迁移，请先手动处理后再重试。",
     IMPORT_ORIGINALITY_BLOCKED: "先改写被阻止的永久笔记，再重新确认。",
     ORIGINALITY_GUARD_WARNING: "先处理原创性警告再继续。",
     ORIGINALITY_GUARD_BLOCKED: "先降低与原文的重复度。",

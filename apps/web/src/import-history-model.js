@@ -45,7 +45,8 @@ export function importStatusLabel(status) {
     preview: "预览中",
     completed: "已完成",
     rolled_back: "已回滚",
-    cancelled: "已取消"
+    cancelled: "已取消",
+    failed: "已失败"
   };
   return labels[String(status || "").trim()] || compactValue(status);
 }
@@ -55,7 +56,8 @@ export function importStatusTone(status) {
     preview: "neutral",
     completed: "ok",
     rolled_back: "warn",
-    cancelled: "muted"
+    cancelled: "muted",
+    failed: "bad"
   };
   return tones[String(status || "").trim()] || "neutral";
 }
@@ -88,6 +90,7 @@ export function importHistoryAlertBadges(record = {}) {
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
     if (modifiedCount > 0) badges.push({ tone: "warn", text: `保留 ${modifiedCount}` });
   }
+  if (status === "failed") badges.push({ tone: "bad", text: "失败" });
   if (status === "completed" && progress && Number(progress.total || 0) > 0 && Number(progress.remaining || 0) === 0) {
     badges.push({ tone: "ok", text: "文献队列已清空" });
   }
@@ -103,9 +106,9 @@ export function importHistoryMatchesRisk(record = {}, riskFilter = "all") {
   const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
   const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
 
-  if (normalized === "warning") return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0;
+  if (normalized === "warning") return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0 || String(record.status || record.state || "").trim() === "failed";
   if (normalized === "blocked") return originality.blocked > 0;
-  if (normalized === "modified") return modifiedCount > 0;
+  if (normalized === "modified") return modifiedCount > 0 || String(record.failureResult?.code || "").trim() === "IMPORT_CLEANUP_PRESERVE_FAILED";
   return true;
 }
 
@@ -124,6 +127,12 @@ export function importHistoryRiskHint(record = {}) {
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
     if (modifiedCount > 0) return "已修改文件被保留，请手动核对后再决定合并或删除。";
+  }
+  if (status === "failed") {
+    if (String(record.failureResult?.code || "").trim() === "IMPORT_CLEANUP_PRESERVE_FAILED") {
+      return "导入失败，已修改文件未能安全移入恢复区，请先手动处理这些文件后再重试。";
+    }
+    return "这次导入没有完成，请先查看失败原因后再决定是否重试。";
   }
   return "";
 }
@@ -193,6 +202,17 @@ export function importHistoryDetailSummary(record = {}) {
     return detail;
   }
 
+  if (status === "failed") {
+    const detail = [
+      `候选：${candidateCountText(record.summary || {})}`,
+      `失败代码 ${compactValue(record.failureResult?.code || "FAILED")}`,
+      compactValue(record.failureResult?.message || "导入未完成")
+    ];
+    const hint = importHistoryRiskHint(record);
+    if (hint) detail.push(hint);
+    return detail;
+  }
+
   return [];
 }
 
@@ -215,6 +235,7 @@ export function importHistoryActions(record = {}) {
   }
 
   if (status === "preview") return [{ action: "load", label: "继续处理" }];
+  if (status === "failed") return [{ action: "load", label: "查看失败" }];
   if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }

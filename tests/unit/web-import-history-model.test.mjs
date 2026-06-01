@@ -38,9 +38,9 @@ test("import history model derives preview badges details and risk hints", () =>
   assert.deepEqual(importHistoryOriginalityCounts(record), { blocked: 1, warning: 1 });
   assert.deepEqual(importHistoryAlertBadges(record), [
     { tone: "warn", text: "警告 2" },
-    { tone: "bad", text: "阻断 1" }
+    { tone: "bad", text: "阻止 1" }
   ]);
-  assert.match(importHistoryRiskHint(record), /阻断项默认不会写入/);
+  assert.match(importHistoryRiskHint(record), /阻止项默认不会写入/);
 
   const detail = importHistoryDetailSummary(record);
   assert.equal(detail.length, 3);
@@ -49,7 +49,7 @@ test("import history model derives preview badges details and risk hints", () =>
   assert.match(detail[0], /2 永久笔记/);
   assert.match(detail[1], /普通警告 2/);
   assert.match(detail[1], /原创性警告 1/);
-  assert.match(detail[1], /原创性阻断 1/);
+  assert.match(detail[1], /原创性阻止 1/);
   assert.match(detail[2], /显式覆盖原创性保护/);
 });
 
@@ -98,7 +98,7 @@ test("import history model derives completed detail summary and literature queue
 
   const detail = importHistoryDetailSummary(record);
   assert.equal(detail.length, 5);
-  assert.equal(detail[0], "已创建 1 来源卡片 / 2 文献笔记 / 3 永久笔记");
+  assert.equal(detail[0], "已创建：1 来源卡片 / 2 文献笔记 / 3 永久笔记");
   assert.equal(detail[1], "跳过 冲突 1 / 无效 0");
   assert.equal(detail[2], "写入 notes/sources、notes/literature");
   assert.match(detail[3], /已处理 6\/10/);
@@ -229,4 +229,32 @@ test("import history model marks cleared batches and exposes queue action", () =
   assert.deepEqual(importHistoryAlertBadges(clearedRecord), [{ tone: "ok", text: "文献队列已清空" }]);
   assert.deepEqual(importHistoryActions(activeRecord).map((item) => item.action), ["load", "resume-literature-queue", "open-literature-queue", "rollback"]);
   assert.deepEqual(importHistoryActions(readyRecord).map((item) => item.action), ["load", "promote-literature-batch", "open-literature-queue", "rollback"]);
+});
+
+test("import history model surfaces failed lifecycle records", () => {
+  const record = {
+    importRecordId: "imp_failed_1",
+    status: "failed",
+    connector: "markdown",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    failureResult: {
+      code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+      message: "preserve move failed"
+    }
+  };
+
+  assert.equal(importStatusLabel("failed"), "已失败");
+  assert.equal(importStatusTone("failed"), "bad");
+  assert.deepEqual(importHistoryAlertBadges(record), [{ tone: "bad", text: "失败" }]);
+  assert.match(importHistoryRiskHint(record), /未能安全移入恢复区/);
+  assert.deepEqual(importHistoryActions(record), [{ action: "load", label: "查看失败" }]);
+  assert.deepEqual(filterImportHistoryItems([record], { risk: "modified" }).map((item) => item.importRecordId), ["imp_failed_1"]);
+
+  const detail = importHistoryDetailSummary(record);
+  assert.deepEqual(detail, [
+    "候选：1 来源卡片 / 1 文献笔记 / 0 永久笔记",
+    "失败代码 IMPORT_CLEANUP_PRESERVE_FAILED",
+    "preserve move failed",
+    "导入失败，已修改文件未能安全移入恢复区，请先手动处理这些文件后再重试。"
+  ]);
 });

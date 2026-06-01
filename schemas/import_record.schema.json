@@ -5,8 +5,8 @@
   "properties": {
     "importRecordId": { "type": "string" },
     "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
-    "status": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
-    "state": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
+    "status": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back", "failed"] },
+    "state": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back", "failed"] },
     "summary": {
       "type": "object",
       "additionalProperties": false,
@@ -124,6 +124,17 @@
     "payload": { "type": "object", "additionalProperties": true },
     "options": { "type": "object", "additionalProperties": true },
     "originalityGuard": { "type": ["object", "null"], "additionalProperties": true },
+    "failureResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message", "details", "finishedAt"],
+      "properties": {
+        "code": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "details": { "type": ["object", "array", "string", "number", "boolean", "null"], "additionalProperties": true },
+        "finishedAt": { "type": ["string", "null"] }
+      }
+    },
     "confirmResult": {
       "type": ["object", "null"],
       "additionalProperties": false,

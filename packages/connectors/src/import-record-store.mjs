@@ -151,6 +151,7 @@ export function publicImportRecord(record) {
     updatedAt: record.updatedAt || record.createdAt,
     payload: record.payload || {},
     options: record.options || {},
+    failureResult: record.failureResult || null,
     confirmResult: record.confirmResult || null,
     rollbackResult: record.rollbackResult || null
   };
@@ -207,8 +208,17 @@ export async function loadImportRecord(vaultPath, recordId) {
 
   const confirmEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.confirm.json`));
   const cancelEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.cancel.json`));
+  const failedEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.failed.json`));
   const rollbackEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.rollback.json`));
   const preview = previewEnvelope.preview;
+  const failureResult = failedEnvelope
+    ? {
+        code: String(failedEnvelope.code || "").trim() || null,
+        message: String(failedEnvelope.message || "").trim() || null,
+        details: failedEnvelope.details || null,
+        finishedAt: failedEnvelope.finishedAt || null
+      }
+    : null;
   const confirmResult = confirmEnvelope
     ? {
         created: confirmEnvelope.created || {},
@@ -228,7 +238,7 @@ export async function loadImportRecord(vaultPath, recordId) {
       }
     : null;
 
-  const state = rollbackResult ? "rolled_back" : confirmResult ? "completed" : cancelEnvelope ? "cancelled" : preview.status || "preview";
+  const state = rollbackResult ? "rolled_back" : confirmResult ? "completed" : cancelEnvelope ? "cancelled" : failureResult ? "failed" : preview.status || "preview";
   return {
     ...preview,
     state,
@@ -236,9 +246,10 @@ export async function loadImportRecord(vaultPath, recordId) {
     options: previewEnvelope.options || {},
     candidates: previewEnvelope.candidates || { sources: [], literature: [], permanent: [], warnings: [] },
     originalityGuard: confirmEnvelope?.originalityGuard || preview.originalityGuard || null,
+    failureResult,
     confirmResult,
     rollbackResult,
-    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || preview.createdAt
+    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || failureResult?.finishedAt || preview.createdAt
   };
 }
 

@@ -381,6 +381,41 @@ export function createImportExportService({
     return createdEntry;
   }
 
+  function failureDetailsFor(error) {
+    const details = error?.details;
+    if (details !== undefined) return details;
+    if (error?.cause) {
+      return {
+        cause: {
+          code: error.cause.code || null,
+          message: String(error.cause.message || error.cause),
+          details: error.cause.details || null
+        }
+      };
+    }
+    return null;
+  }
+
+  async function persistFailedImportRecord(record, connector, requestId, error) {
+    const finishedAt = new Date().toISOString();
+    record.state = "failed";
+    record.updatedAt = finishedAt;
+    record.failureResult = {
+      code: error?.code || null,
+      message: String(error?.message || error),
+      details: failureDetailsFor(error),
+      finishedAt
+    };
+    importRecords.set(record.importRecordId, record);
+    await appendImportRecord(vaultPath(), connector, record.importRecordId, "failed", {
+      requestId,
+      code: record.failureResult.code,
+      message: record.failureResult.message,
+      details: record.failureResult.details,
+      finishedAt
+    });
+  }
+
   async function createPreview(connector, payload, options, requestId) {
     const originalityPlan = normalizeOriginalityPlan(options?.originalityPlan || {});
     const built =
@@ -642,8 +677,15 @@ export function createImportExportService({
         }
       }
     } catch (error) {
-      await cleanupCreatedArtifacts(createdFiles);
-      throw error;
+      let failedError = error;
+      try {
+        await cleanupCreatedArtifacts(createdFiles);
+      } catch (cleanupError) {
+        if (!cleanupError.cause) cleanupError.cause = error;
+        failedError = cleanupError;
+      }
+      await persistFailedImportRecord(record, record.connector, requestId, failedError);
+      throw failedError;
     }
 
     const targetDirectories = [];

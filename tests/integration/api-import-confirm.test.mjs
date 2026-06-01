@@ -121,6 +121,8 @@ function assertConfirmResultContract(record) {
 }
 
 function assertSchemaDeclaresImportRecordLifecycle(schema) {
+  assert.equal(schema.properties.status.enum.includes("failed"), true);
+  assert.equal(schema.properties.state.enum.includes("failed"), true);
   assertRequiredFields(schema.properties.confirmResult, [
     "created",
     "skipped",
@@ -171,6 +173,7 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
   ]);
   assertRequiredFields(schema.properties.candidateSelection, ["sources", "literatureNotes", "permanentNotes", "total"]);
   assertRequiredFields(schema.properties.candidateSelection.properties.total, ["sources", "literatureNotes", "permanentNotes"]);
+  assertRequiredFields(schema.properties.failureResult, ["code", "message", "details", "finishedAt"]);
 }
 
 function validateSchema(schema, value, location = "$") {

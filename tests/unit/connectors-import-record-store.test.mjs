@@ -7,6 +7,7 @@ import {
   appendImportRecord,
   contentHash,
   createdEntryFromWriteResult,
+  loadImportRecord,
   listImportRecords,
   publicImportRecord,
   summarizeCandidateSelection,
@@ -175,4 +176,39 @@ test("rollbackCreatedFiles removes unchanged files and skips modified files", as
   assert.equal(result.skipped[0].reason, "modified");
   await assert.rejects(() => fs.access(unchangedPath));
   await fs.access(modifiedPath);
+});
+
+test("loadImportRecord restores failed lifecycle records from disk", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_failed",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_1"], literatureNoteIds: ["ln_1"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_failed", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_failed", "failed", {
+    code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+    message: "preserve move failed",
+    details: { preserved: 1 },
+    finishedAt: "2026-06-01T00:05:00.000Z"
+  });
+
+  const record = await loadImportRecord(vaultPath, "imp_failed");
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.status, "preview");
+  assert.equal(record?.failureResult?.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
+  assert.equal(record?.failureResult?.message, "preserve move failed");
+  assert.equal(record?.updatedAt, "2026-06-01T00:05:00.000Z");
 });

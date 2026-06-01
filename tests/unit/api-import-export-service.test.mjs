@@ -258,6 +258,34 @@ test("confirmImport reports only directories that received imported notes", asyn
     }
   };
   importRecords.set(record.importRecordId, record);
+  await appendImportRecord(vaultPath, "markdown", record.importRecordId, "preview", {
+    preview: {
+      importRecordId: record.importRecordId,
+      status: "preview",
+      connector: "markdown",
+      summary: { sources: 1, literatureNotes: 0, permanentNotes: 0, warnings: 0 },
+      samples: { sourceIds: ["src_preserve_failed_record"], literatureNoteIds: [], permanentNoteIds: [] },
+      candidatePreview: {
+        sources: [{ id: "src_preserve_failed_record", type: "Source", title: "Preserve failed record", status: "candidate" }],
+        literatureNotes: [],
+        permanentNotes: [],
+        total: { sources: 1, literatureNotes: 0, permanentNotes: 0 },
+        truncated: false
+      },
+      candidateSelection: {
+        sources: ["src_preserve_failed_record"],
+        literatureNotes: [],
+        permanentNotes: [],
+        total: { sources: 1, literatureNotes: 0, permanentNotes: 0 }
+      },
+      warnings: [],
+      originalityGuard: null,
+      createdAt: record.createdAt
+    },
+    payload: record.payload,
+    options: record.options,
+    candidates: record.candidates
+  });
 
   const service = createService({
     getVaultPath: () => vaultPath,
@@ -740,6 +768,65 @@ test("confirmImport surfaces cleanup failures when modified files cannot be move
   const note = await readNote(vaultPath, "source", "src_preserve_fail");
   assert.equal(note.note.title, "Modified before preserve");
   assert.equal(note.note.body, "Changed body");
+});
+
+test("confirmImport persists failed lifecycle records when preserve cleanup fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-preserve-failed-record-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(vaultPath, "imports"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "imports", "recovered-failed-imports"), "blocked", "utf8");
+
+  const record = {
+    importRecordId: "imp_preserve_failed_record_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_preserve_failed_record",
+          source_type: "markdown",
+          title: "Preserve failed record",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Original content"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    createdEntryFromWriteResult: async (_vaultPath, result) => {
+      await fs.writeFile(result.path, "# Modified before preserve\n\nChanged body", "utf8");
+      throw Object.assign(new Error("entry build failed after modification"), { code: "ENTRY_BUILD_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_preserve_failed_record"),
+    {
+      code: "IMPORT_CLEANUP_PRESERVE_FAILED"
+    }
+  );
+
+  const failedStagePath = path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.failed.json`);
+  const failedStage = JSON.parse(await fs.readFile(failedStagePath, "utf8"));
+  assert.equal(failedStage.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
+
 });
 
 test("confirmImport logically removes written notes when rollback skips modified files", async () => {

@@ -34,20 +34,19 @@ import {
   renderImportResultMount
 } from "./import-result-mount.js";
 import {
-  candidateIdsByOriginalityStatus,
   candidatePreviewItemIds,
   candidatePreviewItems,
   confirmSkipReasonMap,
   confirmSkippedCandidateIds,
-  confirmableCandidateIds,
-  riskyCandidateIds,
-  safeCandidateIds,
   selectionSummary as summarizeCandidateSelection
 } from "./import-candidate-preview-model.js";
 import {
   renderCandidatePreview,
   renderConfirmSkipBreakdown
 } from "./import-candidate-preview-panel.js";
+import {
+  selectedCandidateIdsForImportAction
+} from "./import-selection-actions.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   renderAiInboxPanel
@@ -4112,37 +4111,12 @@ function applyCandidateSelection(action) {
   const preview = activeImportPreviewContext();
   if (!preview?.candidatePreview) return;
   const importRecordId = String(preview.importRecordId || "").trim();
-  const items = candidatePreviewItems(preview.candidatePreview);
-  const next = new Set();
-  if (action === "all") {
-    for (const id of candidateIdsForSelection(preview.candidatePreview, preview.candidateSelection || null)) next.add(id);
-  } else if (action === "confirmable") {
-    for (const id of confirmableCandidateIds(preview.candidatePreview, preview.originalityGuard || null)) next.add(id);
-  } else if (action === "safe") {
-    for (const id of safeCandidateIds(preview.candidatePreview)) next.add(id);
-  } else if (action === "exclude-risky") {
-    const riskyIds = new Set(riskyCandidateIds(preview.candidatePreview));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!riskyIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "exclude-warning") {
-    const warningIds = new Set(candidateIdsByOriginalityStatus(preview.candidatePreview, "warning"));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!warningIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "exclude-blocked") {
-    const blockedIds = new Set(candidateIdsByOriginalityStatus(preview.candidatePreview, "blocked"));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!blockedIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "permanent") {
-    for (const item of items) {
-      if (item.candidateGroup === "PermanentNote") next.add(String(item.id));
-    }
-  }
+  const next = selectedCandidateIdsForImportAction({
+    action,
+    candidatePreview: preview.candidatePreview,
+    candidateSelection: preview.candidateSelection || null,
+    originalityGuard: preview.originalityGuard || null
+  });
   importState.selectionImportRecordId = importRecordId;
   importState.selectedCandidateIds = next;
   rerenderImportResult();
