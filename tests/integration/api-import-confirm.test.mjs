@@ -80,9 +80,13 @@ function assertImportRecordBase(record, status) {
   assert.equal(typeof record.summary.permanentNotes, "number");
   assert.equal(typeof record.summary.warnings, "number");
   assert.ok(record.candidatePreview);
+  assert.ok(record.candidateSelection);
   assert.ok(Array.isArray(record.candidatePreview.sources));
   assert.ok(Array.isArray(record.candidatePreview.literatureNotes));
   assert.ok(Array.isArray(record.candidatePreview.permanentNotes));
+  assert.ok(Array.isArray(record.candidateSelection.sources));
+  assert.ok(Array.isArray(record.candidateSelection.literatureNotes));
+  assert.ok(Array.isArray(record.candidateSelection.permanentNotes));
   assert.ok(Array.isArray(record.warnings));
 }
 
@@ -165,6 +169,8 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "status",
     "originalityStatus"
   ]);
+  assertRequiredFields(schema.properties.candidateSelection, ["sources", "literatureNotes", "permanentNotes", "total"]);
+  assertRequiredFields(schema.properties.candidateSelection.properties.total, ["sources", "literatureNotes", "permanentNotes"]);
 }
 
 function validateSchema(schema, value, location = "$") {
@@ -1299,4 +1305,42 @@ test("API import preview returns warnings instead of 500 for unreadable markdown
   assert.equal(preview.json.summary.sources, 0);
   assert.equal(preview.json.summary.literatureNotes, 0);
   assert.equal(preview.json.warnings[0].code, "IMPORT_SOURCE_UNREADABLE");
+});
+
+test("API import preview returns full candidateSelection ids even when candidatePreview is truncated", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-preview-selection-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const highlights = Array.from({ length: 13 }, (_, index) => ({
+    id: `hl_${index + 1}`,
+    title: `Highlight ${index + 1}`,
+    text: `Readwise highlight body ${index + 1}`
+  }));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "readwise",
+    payload: { highlights },
+    options: {}
+  });
+
+  assert.equal(preview.status, 200);
+  assert.equal(preview.json.candidatePreview.sources.length, 12);
+  assert.equal(preview.json.candidatePreview.literatureNotes.length, 12);
+  assert.equal(preview.json.candidatePreview.truncated, true);
+  assert.equal(preview.json.candidateSelection.sources.length, 13);
+  assert.equal(preview.json.candidateSelection.literatureNotes.length, 13);
+  assert.equal(preview.json.candidateSelection.permanentNotes.length, 0);
+  assert.deepEqual(preview.json.candidateSelection.total, {
+    sources: 13,
+    literatureNotes: 13,
+    permanentNotes: 0
+  });
 });

@@ -1096,7 +1096,9 @@ function renderImportToolbar() {
   importState.directoryId = preferredImportDirectoryId(values.directoryId);
   const preview = activeImportPreviewContext();
   const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
-  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, values.importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const summary = hasMatchingPreview
+    ? selectionSummary(preview.candidatePreview, values.importRecordId, null, preview.candidateSelection || null)
+    : { selectedCount: 0, totalCount: 0 };
   const confirmButton = importConfirmButtonState({
     hasMatchingPreview,
     selectedCount: summary.selectedCount,
@@ -3165,10 +3167,11 @@ async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读�
       ? {
           importRecordId: cleanImportRecordId,
           candidatePreview: importRecord.candidatePreview || null,
+          candidateSelection: importRecord.candidateSelection || null,
           originalityGuard: importRecord.originalityGuard || null
         }
       : null;
-  syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, { preserve: true });
+  syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, importRecord?.candidateSelection || null, { preserve: true });
   setImportRecordId(cleanImportRecordId);
   showImportResult({
     stage: "record",
@@ -3204,9 +3207,27 @@ function candidatePreviewFromPayload(payload = {}) {
   return payload.candidatePreview || payload.importRecord?.candidatePreview || null;
 }
 
-function syncImportSelection(importRecordId, candidatePreview, { preserve = false } = {}) {
+function candidateSelectionFromPayload(payload = {}) {
+  return payload.candidateSelection || payload.importRecord?.candidateSelection || null;
+}
+
+function candidateSelectionIds(candidateSelection = null) {
+  if (!candidateSelection || typeof candidateSelection !== "object") return [];
+  return [
+    ...(Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []),
+    ...(Array.isArray(candidateSelection.literatureNotes) ? candidateSelection.literatureNotes : []),
+    ...(Array.isArray(candidateSelection.permanentNotes) ? candidateSelection.permanentNotes : [])
+  ].map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function candidateIdsForSelection(candidatePreview, candidateSelection = null) {
+  const ids = candidateSelectionIds(candidateSelection);
+  return ids.length ? [...new Set(ids)] : candidatePreviewItemIds(candidatePreview);
+}
+
+function syncImportSelection(importRecordId, candidatePreview, candidateSelection = null, { preserve = false } = {}) {
   const cleanRecordId = String(importRecordId || "").trim();
-  const candidateIds = candidatePreviewItemIds(candidatePreview);
+  const candidateIds = candidateIdsForSelection(candidatePreview, candidateSelection);
   const selected = new Set();
   if (preserve && importState.selectionImportRecordId === cleanRecordId) {
     for (const id of candidateIds) {
@@ -3219,19 +3240,41 @@ function syncImportSelection(importRecordId, candidatePreview, { preserve = fals
   importState.selectedCandidateIds = selected;
 }
 
-function selectedCandidateIdsFor(candidatePreview, importRecordId, selection = null) {
+function selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection = null) {
   if (selection && Array.isArray(selection.candidateIds)) {
     return new Set(selection.candidateIds.map((item) => String(item || "").trim()).filter(Boolean));
   }
   if (importState.selectionImportRecordId === String(importRecordId || "").trim()) {
     return new Set(importState.selectedCandidateIds);
   }
-  return new Set(candidatePreviewItemIds(candidatePreview));
+  return new Set(candidateIdsForSelection(candidatePreview, candidateSelection));
 }
 
-function selectionSummary(candidatePreview, importRecordId, selection = null) {
-  const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  return summarizeCandidateSelection(candidatePreview, selectedIds);
+function selectionSummary(candidatePreview, importRecordId, selection = null, candidateSelection = null) {
+  const selectedIds = selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection);
+  const visibleSummary = summarizeCandidateSelection(candidatePreview, new Set(
+    candidatePreviewItemIds(candidatePreview).filter((id) => selectedIds.has(id))
+  ));
+  if (selection && Number.isFinite(Number(selection.totalCandidates))) {
+    const selectedCount = Number.isFinite(Number(selection.selectedCandidates)) ? Number(selection.selectedCandidates) : selectedIds.size;
+    const totalCount = Number(selection.totalCandidates);
+    return {
+      ...visibleSummary,
+      selectedIds,
+      selectedCount,
+      totalCount,
+      excludedCount: Math.max(0, totalCount - selectedCount)
+    };
+  }
+  const totalIds = candidateIdsForSelection(candidatePreview, candidateSelection);
+  const selectedCount = totalIds.filter((id) => selectedIds.has(id)).length;
+  return {
+    ...visibleSummary,
+    selectedIds,
+    selectedCount,
+    totalCount: totalIds.length,
+    excludedCount: Math.max(0, totalIds.length - selectedCount)
+  };
 }
 
 function renderImportWritingActions(payload = {}) {
@@ -3427,7 +3470,7 @@ function renderResult(el, payload) {
   const importRecordId = data.importRecordId || data.importRecord?.importRecordId || "";
   const interactivePreview = stage === "preview" || (stage === "record" && data.importRecord?.status === "preview");
   const selection = data.result?.selection || data.importRecord?.confirmResult?.selection || null;
-  const previewSummary = selectionSummary(candidatePreview, importRecordId, selection);
+  const previewSummary = selectionSummary(candidatePreview, importRecordId, selection, candidateSelectionFromPayload(data));
   const showExcludedSummary = stage === "confirm" && Boolean(selection?.selectedCandidates < selection?.totalCandidates);
   const raw = JSON.stringify(data, null, 2);
 
@@ -4029,6 +4072,7 @@ function activeImportPreviewContext() {
     return {
       importRecordId: recordPreview.importRecordId,
       candidatePreview: recordPreview.candidatePreview || null,
+      candidateSelection: recordPreview.candidateSelection || null,
       originalityGuard: recordPreview.originalityGuard || null
     };
   }
@@ -4041,7 +4085,9 @@ function updateImportConfirmButton() {
   const preview = activeImportPreviewContext();
   const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
   const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === importRecordId);
-  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const summary = hasMatchingPreview
+    ? selectionSummary(preview.candidatePreview, importRecordId, null, preview.candidateSelection || null)
+    : { selectedCount: 0, totalCount: 0 };
   const state = importConfirmButtonState({
     hasMatchingPreview,
     selectedCount: summary.selectedCount,
@@ -4069,7 +4115,7 @@ function applyCandidateSelection(action) {
   const items = candidatePreviewItems(preview.candidatePreview);
   const next = new Set();
   if (action === "all") {
-    for (const item of items) next.add(String(item.id));
+    for (const id of candidateIdsForSelection(preview.candidatePreview, preview.candidateSelection || null)) next.add(id);
   } else if (action === "confirmable") {
     for (const id of confirmableCandidateIds(preview.candidatePreview, preview.originalityGuard || null)) next.add(id);
   } else if (action === "safe") {
@@ -12050,7 +12096,7 @@ async function bootstrap() {
     rollbackImportIntoUi,
     onPreviewSuccess: async (preview) => {
       importState.lastPreview = preview;
-      syncImportSelection(preview.importRecordId, preview.candidatePreview);
+      syncImportSelection(preview.importRecordId, preview.candidatePreview, preview.candidateSelection || null);
       setImportRecordId(preview.importRecordId);
       showImportResult({
         stage: "preview",
@@ -12059,6 +12105,7 @@ async function bootstrap() {
         status: preview.status,
         summary: preview.summary,
         candidatePreview: preview.candidatePreview,
+        candidateSelection: preview.candidateSelection || null,
         warnings: preview.warnings,
         originalityGuard: preview.originalityGuard
       });
@@ -12108,7 +12155,9 @@ async function bootstrap() {
     if (!candidateId || !importRecordId) return;
     if (importState.selectionImportRecordId !== importRecordId) {
       importState.selectionImportRecordId = importRecordId;
-      importState.selectedCandidateIds = new Set(candidatePreviewItemIds(importState.lastPreview?.candidatePreview));
+      importState.selectedCandidateIds = new Set(
+        candidateIdsForSelection(importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null)
+      );
     }
     if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
     else importState.selectedCandidateIds.delete(candidateId);

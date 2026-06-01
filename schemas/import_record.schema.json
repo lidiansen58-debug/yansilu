@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["importRecordId", "connector", "status", "state", "summary", "createdAt", "updatedAt"],
+  "required": ["importRecordId", "connector", "status", "state", "summary", "candidateSelection", "createdAt", "updatedAt"],
   "properties": {
     "importRecordId": { "type": "string" },
     "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
@@ -86,6 +86,26 @@
           }
         },
         "truncated": { "type": "boolean" }
+      }
+    },
+    "candidateSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "literatureNotes", "permanentNotes", "total"],
+      "properties": {
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "literatureNotes": { "type": "array", "items": { "type": "string" } },
+        "permanentNotes": { "type": "array", "items": { "type": "string" } },
+        "total": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources", "literatureNotes", "permanentNotes"],
+          "properties": {
+            "sources": { "type": "number" },
+            "literatureNotes": { "type": "number" },
+            "permanentNotes": { "type": "number" }
+          }
+        }
       }
     },
     "warnings": {

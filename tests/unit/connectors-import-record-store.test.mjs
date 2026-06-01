@@ -9,6 +9,7 @@ import {
   createdEntryFromWriteResult,
   listImportRecords,
   publicImportRecord,
+  summarizeCandidateSelection,
   rollbackCreatedFiles
 } from "../../packages/connectors/src/index.mjs";
 
@@ -101,7 +102,28 @@ test("publicImportRecord returns the safe API-facing record shape", () => {
   assert.equal(publicRecord.summary.sources, 1);
   assert.equal(publicRecord.candidatePreview.sources[0].title, "Source One");
   assert.equal(publicRecord.candidatePreview.literatureNotes[0].title, "Literature One");
+  assert.deepEqual(publicRecord.candidateSelection, {
+    sources: ["src_1"],
+    literatureNotes: ["ln_1"],
+    permanentNotes: [],
+    total: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+  });
   assert.equal(publicRecord.confirmResult.created.sources, 1);
+});
+
+test("summarizeCandidateSelection returns full candidate ids by group", () => {
+  const selection = summarizeCandidateSelection({
+    sources: [{ id: "src_1" }, { id: "src_2" }, { id: "src_1" }],
+    literature: [{ id: "ln_1" }],
+    permanent: [{ id: "pn_1" }, { id: "pn_2" }]
+  });
+
+  assert.deepEqual(selection, {
+    sources: ["src_1", "src_2"],
+    literatureNotes: ["ln_1"],
+    permanentNotes: ["pn_1", "pn_2"],
+    total: { sources: 2, literatureNotes: 1, permanentNotes: 2 }
+  });
 });
 
 test("createdEntryFromWriteResult records vault-relative path and content hash", async () => {

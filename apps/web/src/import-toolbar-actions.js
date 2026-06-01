@@ -37,15 +37,35 @@ export function selectedCandidateGroups(candidatePreview = null, selectedIds = [
   ];
 }
 
+function selectedCandidateGroupsFromSelection(candidateSelection = null, selectedIds = []) {
+  const selectedIdSet = selectedIds instanceof Set ? selectedIds : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  if (!selectedIdSet.size || !candidateSelection || typeof candidateSelection !== "object") return [];
+  const groups = [];
+  if ((Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("Source");
+  }
+  if ((Array.isArray(candidateSelection.literatureNotes) ? candidateSelection.literatureNotes : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("LiteratureNote");
+  }
+  if ((Array.isArray(candidateSelection.permanentNotes) ? candidateSelection.permanentNotes : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("PermanentNote");
+  }
+  return groups;
+}
+
 export function validateImportDirectorySelection({
   candidatePreview = null,
+  candidateSelection = null,
   selectedIds = [],
   directoryId = "",
   resolveDirectoryRootId
 } = {}) {
   const cleanDirectoryId = String(directoryId || "").trim();
   if (!cleanDirectoryId) return null;
-  const groups = selectedCandidateGroups(candidatePreview, selectedIds).filter((group) => group !== "Source");
+  const groups = (selectedCandidateGroupsFromSelection(candidateSelection, selectedIds).length
+    ? selectedCandidateGroupsFromSelection(candidateSelection, selectedIds)
+    : selectedCandidateGroups(candidatePreview, selectedIds)
+  ).filter((group) => group !== "Source");
   if (!groups.length) return null;
   if (groups.includes("LiteratureNote") && groups.includes("PermanentNote")) {
     return {
@@ -136,6 +156,7 @@ export function createImportToolbarActions({
       const directoryId = String(values.directoryId || "").trim();
       const directoryValidationError = validateImportDirectorySelection({
         candidatePreview: preview?.candidatePreview || null,
+        candidateSelection: preview?.candidateSelection || null,
         selectedIds,
         directoryId,
         resolveDirectoryRootId

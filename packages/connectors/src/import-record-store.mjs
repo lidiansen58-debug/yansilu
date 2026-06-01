@@ -93,6 +93,26 @@ function summarizePermanent(candidate, evaluationById) {
   };
 }
 
+function uniqueCandidateIds(items = []) {
+  return [...new Set((Array.isArray(items) ? items : []).map((item) => String(item?.id || "").trim()).filter(Boolean))];
+}
+
+export function summarizeCandidateSelection(candidates = {}) {
+  const sources = uniqueCandidateIds(candidates.sources);
+  const literatureNotes = uniqueCandidateIds(candidates.literature);
+  const permanentNotes = uniqueCandidateIds(candidates.permanent);
+  return {
+    sources,
+    literatureNotes,
+    permanentNotes,
+    total: {
+      sources: sources.length,
+      literatureNotes: literatureNotes.length,
+      permanentNotes: permanentNotes.length
+    }
+  };
+}
+
 export function summarizeImportCandidates(candidates = {}, originalityGuard = null, limit = 12) {
   const sources = Array.isArray(candidates.sources) ? candidates.sources : [];
   const literature = Array.isArray(candidates.literature) ? candidates.literature : [];
@@ -124,6 +144,7 @@ export function publicImportRecord(record) {
     summary: record.summary,
     samples: record.samples,
     candidatePreview: record.candidatePreview || summarizeImportCandidates(record.candidates, record.originalityGuard),
+    candidateSelection: record.candidateSelection || summarizeCandidateSelection(record.candidates),
     warnings: record.warnings || [],
     originalityGuard: record.originalityGuard || null,
     createdAt: record.createdAt,

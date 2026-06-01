@@ -685,11 +685,71 @@ test("confirmImport moves modified failed literature notes aside so retries are 
   assert.equal(retried.written, true);
 });
 
+test("confirmImport surfaces cleanup failures when modified files cannot be moved into recovery storage", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-preserve-failure-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(vaultPath, "imports"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "imports", "recovered-failed-imports"), "blocked", "utf8");
+
+  const record = {
+    importRecordId: "imp_preserve_fail_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_preserve_fail",
+          source_type: "markdown",
+          title: "Preserve fail source",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Original content"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    createdEntryFromWriteResult: async (_vaultPath, result) => {
+      await fs.writeFile(result.path, "# Modified before preserve\n\nChanged body", "utf8");
+      throw Object.assign(new Error("entry build failed after modification"), { code: "ENTRY_BUILD_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_preserve_fail"),
+    {
+      code: "IMPORT_CLEANUP_PRESERVE_FAILED"
+    }
+  );
+  const note = await readNote(vaultPath, "source", "src_preserve_fail");
+  assert.equal(note.note.title, "Modified before preserve");
+  assert.equal(note.note.body, "Changed body");
+});
+
 test("confirmImport logically removes written notes when rollback skips modified files", async () => {
   const vaultPath = await makeTempDir("yansilu-service-modified-cleanup-");
   await initVault(vaultPath);
   const importRecords = new Map();
   const deletedCalls = [];
+  const notePath = path.join(vaultPath, "notes", "literature", "ln_modified_cleanup.md");
+  await fs.mkdir(path.dirname(notePath), { recursive: true });
+  await fs.writeFile(notePath, "# Modified cleanup\n\nChanged body", "utf8");
   const record = {
     importRecordId: "imp_modified_cleanup_1",
     connector: "markdown",
@@ -727,7 +787,7 @@ test("confirmImport logically removes written notes when rollback skips modified
       skipped: false,
       noteId: "ln_modified_cleanup",
       noteType: "literature",
-      path: path.join(vaultPath, "notes", "literature", "ln_modified_cleanup.md"),
+      path: notePath,
       contentHash: "abc123"
     }),
     createdEntryFromWriteResult: async () => ({
@@ -766,6 +826,7 @@ test("confirmImport logically removes written notes when rollback skips modified
     /confirm downstream failed/
   );
   assert.deepEqual(deletedCalls, [{ noteId: "ln_modified_cleanup", options: { deleteFile: false } }]);
+  await assert.rejects(() => fs.access(notePath), { code: "ENOENT" });
 });
 
 test("confirmImport cleans up copied obsidian assets when staged entry creation fails", async () => {

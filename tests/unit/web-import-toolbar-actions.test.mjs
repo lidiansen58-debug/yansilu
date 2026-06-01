@@ -133,6 +133,28 @@ test("validateImportDirectorySelection blocks mixed literature and permanent sel
   });
 });
 
+test("validateImportDirectorySelection uses candidateSelection when truncated preview omits hidden groups", () => {
+  const result = validateImportDirectorySelection({
+    candidatePreview: {
+      literatureNotes: [{ id: "ln_1" }]
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_1"],
+      permanentNotes: ["pn_hidden"],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 1 }
+    },
+    selectedIds: ["ln_1", "pn_hidden"],
+    directoryId: "dir_literature_child",
+    resolveDirectoryRootId: () => "dir_literature_default"
+  });
+
+  assert.deepEqual(result, {
+    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
+  });
+});
+
 test("import toolbar actions block mismatched directory roots before confirm", async () => {
   const calls = [];
   const actions = createImportToolbarActions({

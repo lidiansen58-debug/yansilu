@@ -11,6 +11,7 @@ import {
   listImportRecords,
   loadImportRecord,
   rollbackCreatedFiles,
+  summarizeCandidateSelection,
   summarizeImportCandidates,
   vaultRelativePath
 } from "../../../packages/connectors/src/index.mjs";
@@ -221,6 +222,8 @@ export function createImportExportService({
   }
 
   async function preserveSkippedCreatedArtifacts(skipped = []) {
+    const preserved = [];
+    const failed = [];
     for (const item of Array.isArray(skipped) ? skipped : []) {
       if (String(item?.reason || "").trim() !== "modified") continue;
       const sourcePath = createdFileAbsolutePath(item);
@@ -236,16 +239,49 @@ export function createImportExportService({
         .replace(/[^a-zA-Z0-9_-]/g, "_") || "file";
       const recoveryDir = path.join(vaultPath(), "imports", "recovered-failed-imports", typeSegment);
       const recoveredName = `${parsed.name}.preserved-${randomUUID().slice(0, 8)}${parsed.ext || ""}`;
-      await fs.mkdir(recoveryDir, { recursive: true });
       try {
-        await fs.rename(sourcePath, path.join(recoveryDir, recoveredName));
-      } catch {}
+        await fs.mkdir(recoveryDir, { recursive: true });
+        const recoveredPath = path.join(recoveryDir, recoveredName);
+        try {
+          await fs.rename(sourcePath, recoveredPath);
+        } catch (renameError) {
+          await fs.copyFile(sourcePath, recoveredPath);
+          await fs.unlink(sourcePath);
+        }
+        preserved.push({
+          ...item,
+          preservedPath: path.relative(vaultPath(), recoveredPath).replaceAll("\\", "/")
+        });
+      } catch (error) {
+        failed.push({
+          ...item,
+          preserveError: String(error?.code || error?.message || error),
+          reason: "modified_preserve_failed"
+        });
+      }
     }
+    return { preserved, failed };
+  }
+
+  function buildCleanupFailure(failed = []) {
+    if (!failed.length) return null;
+    const error = new Error("failed to preserve modified files during import cleanup");
+    error.code = "IMPORT_CLEANUP_PRESERVE_FAILED";
+    error.details = {
+      failedFiles: failed.map((item) => ({
+        noteId: item.noteId || null,
+        noteType: item.noteType || null,
+        path: item.path || "",
+        reason: item.reason || "",
+        preserveError: item.preserveError || ""
+      }))
+    };
+    return error;
   }
 
   async function cleanupCreatedArtifacts(createdFiles = []) {
     const { rolledBack, skipped } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
-    await preserveSkippedCreatedArtifacts(skipped);
+    const { preserved, failed } = await preserveSkippedCreatedArtifacts(skipped);
     const cleanedNotes = new Set();
     for (const item of rolledBack) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
@@ -257,8 +293,12 @@ export function createImportExportService({
         } catch {}
       }
     }
+    const preservedKeys = new Set(preserved.map((item) => `${item.noteType}:${item.noteId}:${item.path}`));
     for (const item of skipped) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
+        if (String(item.reason || "").trim() === "modified" && !preservedKeys.has(`${item.noteType}:${item.noteId}:${item.path}`)) {
+          continue;
+        }
         const key = `${item.noteType}:${item.noteId}`;
         if (cleanedNotes.has(key)) continue;
         cleanedNotes.add(key);
@@ -267,6 +307,8 @@ export function createImportExportService({
         } catch {}
       }
     }
+    const cleanupFailure = buildCleanupFailure(failed);
+    if (cleanupFailure) throw cleanupFailure;
   }
 
   function fallbackCreatedEntryFromWriteResult(result) {
@@ -293,10 +335,10 @@ export function createImportExportService({
 
   async function rollbackStagedEntry(entry) {
     if (!entry) return;
-    try {
-      const { skipped } = await rollbackCreatedFilesImpl(vaultPath(), [entry]);
-      await preserveSkippedCreatedArtifacts(skipped);
-    } catch {}
+    const { skipped } = await rollbackCreatedFilesImpl(vaultPath(), [entry]);
+    const { failed } = await preserveSkippedCreatedArtifacts(skipped);
+    const cleanupFailure = buildCleanupFailure(failed);
+    if (cleanupFailure) throw cleanupFailure;
   }
 
   async function stageCreatedEntryFromWriteResult(result) {
@@ -304,7 +346,12 @@ export function createImportExportService({
     try {
       return await materializeCreatedEntryFromWriteResult(vaultPath(), result);
     } catch (error) {
-      await rollbackStagedEntry(fallbackEntry);
+      try {
+        await rollbackStagedEntry(fallbackEntry);
+      } catch (cleanupError) {
+        cleanupError.cause = error;
+        throw cleanupError;
+      }
       throw error;
     }
   }
@@ -313,7 +360,12 @@ export function createImportExportService({
     try {
       return await materializeCreatedEntryFromVaultPath(vaultPath(), input);
     } catch (error) {
-      await rollbackStagedEntry(fallbackEntry);
+      try {
+        await rollbackStagedEntry(fallbackEntry);
+      } catch (cleanupError) {
+        cleanupError.cause = error;
+        throw cleanupError;
+      }
       throw error;
     }
   }
@@ -339,6 +391,7 @@ export function createImportExportService({
     const warnings = [...built.warnings, ...guard.warnings];
     const importRecordId = `imp_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const candidatePreview = summarizeImportCandidates(built, guard);
+    const candidateSelection = summarizeCandidateSelection(built);
     const preview = {
       importRecordId,
       status: "preview",
@@ -355,6 +408,7 @@ export function createImportExportService({
         permanentNoteIds: built.permanent.slice(0, 3).map((x) => x.id)
       },
       candidatePreview,
+      candidateSelection,
       warnings,
       originalityGuard: {
         plan: guard.plan,
