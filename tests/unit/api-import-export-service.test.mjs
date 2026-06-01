@@ -1357,4 +1357,78 @@ test("rollbackImport restores files and completed state when rollback stage pers
   assert.equal(record.rollbackResult, undefined);
   const restored = await readNote(vaultPath, "literature", "ln_rollback_stage_fail");
   assert.equal(restored.note.title, "Rollback stage fail");
+  const rollbackStagingDir = path.join(vaultPath, "imports", "rollback-staging");
+  try {
+    const stagedEntries = await fs.readdir(rollbackStagingDir);
+    assert.deepEqual(stagedEntries, []);
+  } catch (error) {
+    assert.equal(error?.code, "ENOENT");
+  }
+});
+
+test("rollbackImport removes staged rollback backups after a successful rollback", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-stage-cleanup-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_stage_cleanup_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_rollback_stage_cleanup",
+          source_id: "src_rollback_stage_cleanup",
+          title: "Rollback stage cleanup",
+          quote_text: "Rollback cleanup body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await service.confirmImport(record, { confirm: true }, "req_rollback_stage_cleanup_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  const rollbackResult = await service.rollbackImport(record, "req_rollback_stage_cleanup");
+  assert.equal(rollbackResult.status, "rolled_back");
+  const rollbackStagingDir = path.join(vaultPath, "imports", "rollback-staging");
+  try {
+    const stagedEntries = await fs.readdir(rollbackStagingDir);
+    assert.deepEqual(stagedEntries, []);
+  } catch (error) {
+    assert.equal(error?.code, "ENOENT");
+  }
 });

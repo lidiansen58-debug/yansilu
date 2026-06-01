@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export function contentHash(content) {
   // Prefer hashing raw bytes (Buffer) when available so both text + binary files are supported.
@@ -161,7 +161,22 @@ export async function appendImportRecord(vaultPath, connector, recordId, stage, 
   const dir = path.join(vaultPath, "imports", connector);
   await fs.mkdir(dir, { recursive: true });
   const recordPath = path.join(dir, `${recordId}.${stage}.json`);
-  await fs.writeFile(recordPath, JSON.stringify(body, null, 2), "utf8");
+  const tempPath = path.join(dir, `${recordId}.${stage}.${randomUUID().slice(0, 8)}.tmp`);
+  const handle = await fs.open(tempPath, "w");
+  try {
+    await handle.writeFile(JSON.stringify(body, null, 2), "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    await fs.rename(tempPath, recordPath);
+  } catch (error) {
+    try {
+      await fs.unlink(tempPath);
+    } catch {}
+    throw error;
+  }
   return recordPath;
 }
 

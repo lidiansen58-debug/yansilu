@@ -312,19 +312,25 @@ export function createImportExportService({
     if (cleanupFailure) throw cleanupFailure;
   }
 
-  async function rollbackCreatedFilesWithRecovery(createdFiles = []) {
+  function rollbackBackupPath(stageRoot, relativePath = "") {
+    return path.join(stageRoot, ...String(relativePath || "").split("/").filter(Boolean));
+  }
+
+  async function rollbackCreatedFilesWithRecovery(createdFiles = [], rollbackId = "") {
     if (rollbackCreatedFilesImpl !== rollbackCreatedFiles) {
       const result = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
       return {
         rolledBack: Array.isArray(result?.rolledBack) ? result.rolledBack : [],
         skipped: Array.isArray(result?.skipped) ? result.skipped : [],
-        backups: []
+        backups: [],
+        stageRoot: ""
       };
     }
 
     const rolledBack = [];
     const skipped = [];
     const backups = [];
+    const stageRoot = path.join(vaultPath(), "imports", "rollback-staging", `${String(rollbackId || "rollback").trim() || "rollback"}-${randomUUID().slice(0, 8)}`);
 
     for (const item of Array.isArray(createdFiles) ? createdFiles : []) {
       const fullPath = createdFileAbsolutePath(item);
@@ -339,27 +345,42 @@ export function createImportExportService({
           skipped.push({ ...item, reason: "modified" });
           continue;
         }
+        const stagedPath = rollbackBackupPath(stageRoot, item.path);
+        await fs.mkdir(path.dirname(stagedPath), { recursive: true });
+        await fs.rename(fullPath, stagedPath);
         backups.push({
           ...item,
           fullPath,
-          content: current
+          stagedPath
         });
-        await fs.unlink(fullPath);
         rolledBack.push(item);
       } catch (error) {
         skipped.push({ ...item, reason: String(error?.code || error?.message || error) });
       }
     }
 
-    return { rolledBack, skipped, backups };
+    return { rolledBack, skipped, backups, stageRoot };
   }
 
   async function restoreRolledBackFiles(backups = []) {
     for (const item of Array.isArray(backups) ? backups : []) {
-      if (!item?.fullPath) continue;
+      if (!item?.fullPath || !item?.stagedPath) continue;
       await fs.mkdir(path.dirname(item.fullPath), { recursive: true });
-      await fs.writeFile(item.fullPath, item.content);
+      try {
+        await fs.rename(item.stagedPath, item.fullPath);
+      } catch {
+        await fs.copyFile(item.stagedPath, item.fullPath);
+        await fs.unlink(item.stagedPath);
+      }
     }
+  }
+
+  async function discardRolledBackFileBackups(stageRoot = "") {
+    const cleanStageRoot = String(stageRoot || "").trim();
+    if (!cleanStageRoot) return;
+    try {
+      await fs.rm(cleanStageRoot, { recursive: true, force: true });
+    } catch {}
   }
 
   function targetDirectoryMapForConfirmResult(confirmResult = null) {
@@ -393,9 +414,7 @@ export function createImportExportService({
   }
 
   async function restoreRolledBackCatalogEntries(record, deletedEntries = [], backups = []) {
-    const backupByKey = new Map(
-      (Array.isArray(backups) ? backups : []).map((item) => [`${item.noteType}:${item.noteId}`, item])
-    );
+    const backupByKey = new Map((Array.isArray(backups) ? backups : []).map((item) => [`${item.noteType}:${item.noteId}`, item]));
     const directoryIds = targetDirectoryMapForConfirmResult(record?.confirmResult || null);
     for (const item of Array.isArray(deletedEntries) ? deletedEntries : []) {
       if (item.noteType !== "literature" && item.noteType !== "permanent") continue;
@@ -910,7 +929,7 @@ export function createImportExportService({
     }
 
     const createdFiles = Array.isArray(record.confirmResult?.createdFiles) ? record.confirmResult.createdFiles : [];
-    const { rolledBack, skipped, backups } = await rollbackCreatedFilesWithRecovery(createdFiles);
+    const { rolledBack, skipped, backups, stageRoot } = await rollbackCreatedFilesWithRecovery(createdFiles, record.importRecordId);
     let deletedCatalogEntries = [];
     try {
       deletedCatalogEntries = await deleteRolledBackCatalogEntries(rolledBack);
@@ -918,6 +937,7 @@ export function createImportExportService({
       try {
         await restoreRolledBackFiles(backups);
         await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
+        await discardRolledBackFileBackups(stageRoot);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;
@@ -942,6 +962,7 @@ export function createImportExportService({
       try {
         await restoreRolledBackFiles(backups);
         await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
+        await discardRolledBackFileBackups(stageRoot);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;
@@ -953,6 +974,7 @@ export function createImportExportService({
     record.rollbackResult = rollbackResult;
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
+    await discardRolledBackFileBackups(stageRoot);
 
     return {
       importRecordId: record.importRecordId,

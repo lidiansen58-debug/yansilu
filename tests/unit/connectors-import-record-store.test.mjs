@@ -27,6 +27,8 @@ test("appendImportRecord writes stage logs under imports connector directory", a
   const raw = await fs.readFile(filePath, "utf8");
   assert.equal(path.basename(filePath), "imp_test.preview.json");
   assert.deepEqual(JSON.parse(raw), { ok: true });
+  const siblingFiles = await fs.readdir(path.dirname(filePath));
+  assert.equal(siblingFiles.some((name) => name.endsWith(".tmp")), false);
 });
 
 test("listImportRecords restores records from disk in updated order with limit", async () => {
