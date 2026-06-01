@@ -8,6 +8,7 @@ import {
   contentHash,
   createdEntryFromVaultPath,
   createdEntryFromWriteResult,
+  deleteImportRecordStage,
   listImportRecords,
   loadImportRecord,
   rollbackCreatedFiles,
@@ -72,6 +73,14 @@ function rootDirectoryIdFor(directories = [], directoryId = "") {
     cursor = byId.get(String(cursor.parentDirectoryId || "").trim());
   }
   return String(cursor?.id || "").trim();
+}
+
+function candidateSelectionFromSelection(candidates = {}, selection = null) {
+  const requestedIds = Array.isArray(selection?.candidateIds)
+    ? [...new Set(selection.candidateIds.map((item) => String(item || "").trim()).filter(Boolean))]
+    : null;
+  if (!requestedIds || !requestedIds.length) return summarizeCandidateSelection(candidates);
+  return summarizeCandidateSelection(buildSelectedImportCandidates(candidates, requestedIds).candidates);
 }
 
 function importedNoteTargetDirectory(directories = [], selectedDirectoryId = "", noteType = "") {
@@ -551,7 +560,7 @@ export function createImportExportService({
       if (causeError && !conflictError.cause) conflictError.cause = causeError;
       await persistFailedImportRecord(record, record.connector, requestId, conflictError, {
         selection: record.confirmResult?.selection || null,
-        candidateSelection: record.candidateSelection || summarizeCandidateSelection(record.candidates),
+        candidateSelection: candidateSelectionFromSelection(record.candidates, record.confirmResult?.selection || null),
         originalityGuard: record.originalityGuard || null
       });
       throw conflictError;
@@ -1021,6 +1030,7 @@ export function createImportExportService({
     record.state = "completed";
     record.originalityGuard = confirmGuard;
     record.confirmResult = confirmResult;
+    record.candidateSelection = candidateSelectionFromSelection(record.candidates, confirmResult.selection);
     record.updatedAt = confirmResult.finishedAt;
     importRecords.set(record.importRecordId, record);
 
@@ -1093,8 +1103,12 @@ export function createImportExportService({
     record.state = "rolled_back";
     record.rollbackResult = rollbackResult;
     record.failureResult = undefined;
+    record.candidateSelection = candidateSelectionFromSelection(record.candidates, record.confirmResult?.selection || null);
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
+    try {
+      await deleteImportRecordStage(vaultPath(), record.connector, record.importRecordId, "failed");
+    } catch {}
     await discardRolledBackFileBackups(stageRoot);
 
     return {

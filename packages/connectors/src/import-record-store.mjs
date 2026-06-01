@@ -180,6 +180,16 @@ export async function appendImportRecord(vaultPath, connector, recordId, stage, 
   return recordPath;
 }
 
+export async function deleteImportRecordStage(vaultPath, connector, recordId, stage) {
+  const dir = path.join(vaultPath, "imports", connector);
+  const recordPath = path.join(dir, `${recordId}.${stage}.json`);
+  try {
+    await fs.unlink(recordPath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
 async function readJsonIfExists(filePath) {
   try {
     return JSON.parse(await fs.readFile(filePath, "utf8"));
@@ -276,6 +286,22 @@ function emptyImportSamples() {
     literatureNoteIds: [],
     permanentNoteIds: []
   };
+}
+
+function selectionCandidateSelection(candidates = {}, selection = null) {
+  const sourceItems = Array.isArray(candidates?.sources) ? candidates.sources : [];
+  const literatureItems = Array.isArray(candidates?.literature) ? candidates.literature : [];
+  const permanentItems = Array.isArray(candidates?.permanent) ? candidates.permanent : [];
+  const requestedIds = Array.isArray(selection?.candidateIds)
+    ? [...new Set(selection.candidateIds.map((item) => String(item || "").trim()).filter(Boolean))]
+    : [];
+  if (!requestedIds.length) return null;
+  const requested = new Set(requestedIds);
+  return summarizeCandidateSelection({
+    sources: sourceItems.filter((item) => requested.has(String(item?.id || "").trim())),
+    literature: literatureItems.filter((item) => requested.has(String(item?.id || "").trim())),
+    permanent: permanentItems.filter((item) => requested.has(String(item?.id || "").trim()))
+  });
 }
 
 function corruptionWarning(corruption) {
@@ -453,12 +479,25 @@ export async function loadImportRecord(vaultPath, recordId) {
     ...(Array.isArray(preview.warnings) ? preview.warnings : []),
     ...optionalCorruptStages.map(corruptionWarning)
   ];
-  const effectiveFailureResult = failureResult || syntheticFailureResult;
+  const effectiveFailureResult = rollbackResult ? null : failureResult || syntheticFailureResult;
+  const previewCandidateSelection = preview.candidateSelection || summarizeCandidateSelection(previewEnvelope.candidates || {});
+  const confirmedCandidateSelection = confirmResult ? selectionCandidateSelection(previewEnvelope.candidates || {}, confirmResult.selection) : null;
+  const failedCandidateSelection =
+    failedEnvelope?.candidateSelection ||
+    (failureResult ? selectionCandidateSelection(previewEnvelope.candidates || {}, failureResult.selection) : null);
+  const effectiveCandidateSelection =
+    rollbackResult
+      ? confirmedCandidateSelection || previewCandidateSelection
+      : effectiveFailureResult
+        ? failedCandidateSelection || previewCandidateSelection
+        : confirmResult
+          ? confirmedCandidateSelection || previewCandidateSelection
+          : previewCandidateSelection;
   return {
     ...preview,
     state,
     warnings,
-    candidateSelection: failedEnvelope?.candidateSelection || preview.candidateSelection || summarizeCandidateSelection(previewEnvelope.candidates || {}),
+    candidateSelection: effectiveCandidateSelection,
     payload: previewEnvelope.payload || {},
     options: previewEnvelope.options || {},
     candidates: previewEnvelope.candidates || emptyImportCandidates(),

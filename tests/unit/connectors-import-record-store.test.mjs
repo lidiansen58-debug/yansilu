@@ -376,3 +376,81 @@ test("loadImportRecord prioritizes failed lifecycle over completed confirm recor
   assert.equal(record?.failureResult?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
   assert.equal(record?.updatedAt, "2026-06-01T00:04:00.000Z");
 });
+
+test("loadImportRecord ignores stale failed lifecycle once rollback completes", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_rolled_back_after_failed",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_1"], literatureNoteIds: ["ln_1"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_rolled_back_after_failed", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [{ id: "src_1" }],
+      literature: [{ id: "ln_1" }],
+      permanent: [],
+      warnings: []
+    }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_rolled_back_after_failed", "confirm", {
+    created: { sources: 0, literatureNotes: 1, permanentNotes: 0 },
+    skipped: { conflicted: 0, invalid: 0 },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    targetDirectories: [],
+    writtenPaths: ["notes/literature"],
+    createdFiles: [],
+    finishedAt: "2026-06-01T00:03:00.000Z"
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_rolled_back_after_failed", "failed", {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: { conflicts: [] },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_1"],
+      permanentNotes: [],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: null,
+    finishedAt: "2026-06-01T00:04:00.000Z"
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_rolled_back_after_failed", "rollback", {
+    rolledBack: [],
+    skipped: [],
+    finishedAt: "2026-06-01T00:05:00.000Z"
+  });
+
+  const record = await loadImportRecord(vaultPath, "imp_rolled_back_after_failed");
+
+  assert.equal(record?.state, "rolled_back");
+  assert.equal(record?.failureResult, null);
+  assert.deepEqual(record?.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_1"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
+  assert.equal(record?.updatedAt, "2026-06-01T00:05:00.000Z");
+});

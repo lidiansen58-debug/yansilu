@@ -1381,7 +1381,17 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
     payload: {},
     options: {},
     candidates: {
-      sources: [],
+      sources: [
+        {
+          id: "src_not_selected_for_conflict",
+          source_type: "markdown",
+          title: "Extra source",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Should remain outside the selected subset"
+        }
+      ],
       literature: [
         {
           id: "ln_rollback_restore_conflict",
@@ -1419,7 +1429,11 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
     registerImportCatalogNote
   });
 
-  const confirmResult = await confirmService.confirmImport(record, { confirm: true }, "req_rollback_restore_conflict_confirm");
+  const confirmResult = await confirmService.confirmImport(
+    record,
+    { confirm: true, selectedCandidateIds: ["ln_rollback_restore_conflict"] },
+    "req_rollback_restore_conflict_confirm"
+  );
   assert.equal(confirmResult.status, "completed");
 
   const recreatedPath = path.join(vaultPath, "notes", "literature", "ln_rollback_restore_conflict.md");
@@ -1454,6 +1468,12 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
   assert.equal(Array.isArray(record.failureResult?.details?.conflicts), true);
   assert.equal(record.failureResult.details.conflicts.length, 1);
   assert.match(String(record.failureResult.details.conflicts[0].preservedPath || ""), /imports\/rollback-recovery-conflicts\//);
+  assert.deepEqual(record.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_rollback_restore_conflict"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
   const currentFile = await fs.readFile(recreatedPath, "utf8");
   assert.equal(currentFile, recreatedContent);
   const restored = await readNote(vaultPath, "literature", "ln_rollback_restore_conflict");
@@ -1470,7 +1490,13 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
   );
   assert.equal(failedStage.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
   assert.equal(Array.isArray(failedStage.details?.conflicts), true);
-  assert.equal(failedStage.selection.mode, "all");
+  assert.equal(failedStage.selection.mode, "subset");
+  assert.deepEqual(failedStage.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_rollback_restore_conflict"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
 });
 
 test("rollbackImport removes staged rollback backups after a successful rollback", async () => {
@@ -1538,4 +1564,92 @@ test("rollbackImport removes staged rollback backups after a successful rollback
   } catch (error) {
     assert.equal(error?.code, "ENOENT");
   }
+});
+
+test("rollbackImport removes stale failed stage after successful recovery rollback", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-clear-failed-stage-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_clear_failed_stage_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_rollback_clear_failed_stage",
+          source_id: "src_rollback_clear_failed_stage",
+          title: "Rollback clear failed stage",
+          quote_text: "Rollback clear failed stage body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await service.confirmImport(record, { confirm: true }, "req_rollback_clear_failed_stage_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  await appendImportRecord(vaultPath, "markdown", record.importRecordId, "failed", {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: { conflicts: [] },
+    selection: confirmResult.result.selection,
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_rollback_clear_failed_stage"],
+      permanentNotes: [],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: null,
+    finishedAt: "2026-06-01T00:10:00.000Z"
+  });
+  record.state = "failed";
+  record.failureResult = {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: { conflicts: [] },
+    selection: confirmResult.result.selection,
+    finishedAt: "2026-06-01T00:10:00.000Z"
+  };
+
+  const rollbackResult = await service.rollbackImport(record, "req_rollback_clear_failed_stage");
+
+  assert.equal(rollbackResult.status, "rolled_back");
+  await assert.rejects(
+    () => fs.access(path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.failed.json`)),
+    { code: "ENOENT" }
+  );
 });
