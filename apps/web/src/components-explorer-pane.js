@@ -1,4 +1,4 @@
-﻿import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
+import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
 
 function folderIconSvg(isRoot = false) {
   return `
@@ -8,6 +8,7 @@ function folderIconSvg(isRoot = false) {
     </svg>
   `;
 }
+
 function fileIconSvg() {
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -72,6 +73,12 @@ function thinkingStatusBadge(note = null) {
 
 function disconnectedNoteBadge() {
   return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
+}
+
+function disconnectedFolderBadge(count = 0) {
+  const safeCount = Number(count) || 0;
+  if (safeCount <= 0) return "";
+  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立 ${safeCount}</span>`;
 }
 
 function displayFolderName(folder) {
@@ -636,6 +643,19 @@ export class ExplorerPane {
     return !connectedIds.has(note.id);
   }
 
+  countDisconnectedNotesInFolder(folderId, memo = new Map()) {
+    const key = String(folderId || "").trim();
+    if (!key) return 0;
+    if (memo.has(key)) return memo.get(key);
+
+    const ownCount = this.getFolderFiles(key).filter((note) => this.noteIsDisconnected(note)).length;
+    const childCount = this.getFolderChildren(key)
+      .reduce((sum, child) => sum + this.countDisconnectedNotesInFolder(child.id, memo), 0);
+    const total = ownCount + childCount;
+    memo.set(key, total);
+    return total;
+  }
+
   isSimplifiedNoteBrowserScope(folderId = "") {
     const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
     return rootId === "dir_original_default"
@@ -726,18 +746,19 @@ export class ExplorerPane {
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
     const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
+    const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
     const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
     const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
-    const disconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedFiles.length : 0;
+    const folderDisconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedCount : 0;
     const folderTrail = [
       folder.hidden ? `<span class="item-badge">已隐藏</span>` : "",
-      disconnectedCount ? `<span class="item-badge item-badge-warning" title="这个目录里有 ${escapeHtml(String(disconnectedCount))} 条孤立笔记。">孤立 ${escapeHtml(String(disconnectedCount))}</span>` : ""
+      disconnectedFolderBadge(folderDisconnectedCount)
     ].join("");
     const folderRow = `
-      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderDisconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
-          <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="\u5c55\u5f00/\u6298\u53e0">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
+          <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
           <span class="icon">${folderIconSvg(isRoot)}</span>
           <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
@@ -751,7 +772,6 @@ export class ExplorerPane {
       connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
       disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
     ].join("");
-
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
 
     return `${folderRow}${childFolderRows}${fileRows}`;
@@ -855,4 +875,3 @@ export class ExplorerPane {
     this.els.listArea.innerHTML = `<div class="tree-root">${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
   }
 }
-
