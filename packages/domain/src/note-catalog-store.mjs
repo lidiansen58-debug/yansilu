@@ -1202,9 +1202,12 @@ async function evaluatePermanentOriginality(db, vaultPath, noteId, markdownBody)
 
   const literature = [];
   for (const note of linkedLiterature) {
-    const absMarkdownPath = path.join(path.resolve(vaultPath), String(note.markdown_path || "").replaceAll("/", path.sep));
-    const markdown = await fs.readFile(absMarkdownPath, "utf8");
-    const parsed = parseMarkdownWithFrontmatter(markdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, note, {
+      hydrateMarkdown: true,
+      tolerateMissing: true
+    });
+    if (!resolved.markdown || !resolved.parsed) continue;
+    const parsed = resolved.parsed;
     literature.push({
       id: note.id,
       source_id: `src_from_${note.id}`,
@@ -2700,23 +2703,24 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
-
-    const currentMarkdownPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const currentMarkdown = await fs.readFile(currentMarkdownPath, "utf8");
-    const currentParsed = parseMarkdownWithFrontmatter(currentMarkdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { hydrateMarkdown: true });
+    const effectiveRow = resolved.row;
+    const currentMarkdownPath = resolved.fullPath;
+    const currentMarkdown = resolved.markdown;
+    const currentParsed = resolved.parsed || parseMarkdownWithFrontmatter(currentMarkdown);
     const preservedFrontmatter = currentParsed.frontmatter && typeof currentParsed.frontmatter === "object" ? { ...currentParsed.frontmatter } : {};
-    const requestedStatus = String(input.status || row.status || "draft");
+    const requestedStatus = String(input.status || effectiveRow.status || "draft");
     const normalized = normalizeMarkdown(
-      input.title === undefined ? row.title : input.title,
+      input.title === undefined ? effectiveRow.title : input.title,
       input.body === undefined ? currentParsed.body : input.body
     );
-    assertLiteratureCompletionAllowed(row.note_type, requestedStatus, normalized.markdownBody);
+    assertLiteratureCompletionAllowed(effectiveRow.note_type, requestedStatus, normalized.markdownBody);
     const now = new Date().toISOString();
-    const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromInput(input, preservedFrontmatter) : null;
-    assertConfirmedDistillationAllowed(row.note_type, input, permanentMeta);
+    const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromInput(input, preservedFrontmatter) : null;
+    assertConfirmedDistillationAllowed(effectiveRow.note_type, input, permanentMeta);
     let status = requestedStatus;
-    if (row.note_type === "permanent") {
-      const originality = await evaluatePermanentOriginality(db, vaultPath, row.id, normalized.markdownBody);
+    if (effectiveRow.note_type === "permanent") {
+      const originality = await evaluatePermanentOriginality(db, vaultPath, effectiveRow.id, normalized.markdownBody);
       if (originality) {
         permanentMeta.originalityStatus = originality.status;
         permanentMeta.originalitySimilarity = originality.similarity;
@@ -2725,7 +2729,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
             "PERMANENT_ORIGINALITY_BLOCKED",
             "Permanent note save blocked: rewrite this note in your own words before saving.",
             {
-              noteType: row.note_type,
+              noteType: effectiveRow.note_type,
               requestedStatus,
               originality
             }
@@ -2740,17 +2744,17 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
     }
     const nextFrontmatter = {
       ...preservedFrontmatter,
-      id: row.id,
-      note_type: row.note_type,
+      id: effectiveRow.id,
+      note_type: effectiveRow.note_type,
       title: normalized.title,
       status,
-      created_at: row.created_at,
+      created_at: effectiveRow.created_at,
       updated_at: now
     };
     delete nextFrontmatter.boundaryOrCounterpoint;
     delete nextFrontmatter.threeLineSummary;
     delete nextFrontmatter.distillationStatus;
-    if (row.note_type === "permanent") {
+    if (effectiveRow.note_type === "permanent") {
       const boundaryOrCounterpoint = boundaryValueFromInput(input, preservedFrontmatter.boundary_or_counterpoint || preservedFrontmatter.boundaryOrCounterpoint);
       if (boundaryOrCounterpoint) nextFrontmatter.boundary_or_counterpoint = boundaryOrCounterpoint;
       else delete nextFrontmatter.boundary_or_counterpoint;
@@ -2771,8 +2775,8 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       delete nextFrontmatter.boundary_or_counterpoint;
     }
     const markdown = serializeMarkdownWithFrontmatter(nextFrontmatter, normalized.markdownBody);
-    const nextMarkdownPath = await resolveUniqueMarkdownPath(row.directory_fs_path, normalized.title, {
-      fallbackStem: row.id,
+    const nextMarkdownPath = await resolveUniqueMarkdownPath(effectiveRow.directory_fs_path, normalized.title, {
+      fallbackStem: effectiveRow.id,
       excludePath: currentMarkdownPath
     });
     const hasRenamedFile = path.resolve(nextMarkdownPath) !== path.resolve(currentMarkdownPath);
@@ -2804,10 +2808,10 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
         status,
         nextRelPath,
         now,
-        row.id
+        effectiveRow.id
       );
-      ensureSingleDirectoryMembership(db, row.id, row.directory_id);
-      syncMarkdownRelations(db, row.id, normalized.markdownBody);
+      ensureSingleDirectoryMembership(db, effectiveRow.id, effectiveRow.directory_id);
+      syncMarkdownRelations(db, effectiveRow.id, normalized.markdownBody);
       db.exec("COMMIT;");
     } catch (error) {
       db.exec("ROLLBACK;");
@@ -2830,12 +2834,12 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
          WHERE n.id = ?
          LIMIT 1`
       )
-      .get(row.id);
+      .get(effectiveRow.id);
     return attachNoteThinkingStatus({
       ...mapNoteRow(refreshed),
       body: normalized.markdownBody,
       markdown,
-      ...(row.note_type === "permanent"
+      ...(effectiveRow.note_type === "permanent"
         ? {
             thesis: permanentMeta.thesis,
             threeLineSummary: permanentMeta.threeLineSummary,
@@ -2866,27 +2870,31 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
   try {
     const row = db
       .prepare(
-        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
          FROM notes n
          LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
          WHERE n.id = ? AND n.deleted_at IS NULL
          LIMIT 1`
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: false });
+    const effectiveRow = resolved.row;
 
     const targetDir = db
       .prepare("SELECT id, fs_path FROM directories WHERE id = ? LIMIT 1")
       .get(targetDirectoryId);
     if (!targetDir) throw new Error(`directoryId not found: ${targetDirectoryId}`);
 
-    if (row.directory_id === targetDirectoryId) {
-      return mapNoteRow({ ...row, directory_id: targetDirectoryId });
+    if (effectiveRow.directory_id === targetDirectoryId) {
+      return mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId });
     }
 
-    const oldAbsPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const newAbsPath = await resolveUniqueMarkdownPath(targetDir.fs_path, row.title, {
-      fallbackStem: row.id
+    const oldAbsPath = resolved.fullPath;
+    const newAbsPath = await resolveUniqueMarkdownPath(targetDir.fs_path, effectiveRow.title, {
+      fallbackStem: effectiveRow.id
     });
     await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
     await fs.rename(oldAbsPath, newAbsPath);
@@ -2895,7 +2903,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
 
     db.exec("BEGIN IMMEDIATE;");
     try {
-      await rewriteAssetLinksInMarkdownFile(newAbsPath, row.markdown_path, relPath, now);
+      await rewriteAssetLinksInMarkdownFile(newAbsPath, effectiveRow.markdown_path, relPath, now);
       db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(relPath, now, id);
       ensureSingleDirectoryMembership(db, id, targetDirectoryId);
       db.exec("COMMIT;");
@@ -2931,15 +2939,25 @@ export async function deleteNoteById(vaultPath, noteId) {
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
     const row = db
-      .prepare("SELECT id, markdown_path, deleted_at FROM notes WHERE id = ? LIMIT 1")
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path, n.deleted_at
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.id = ?
+         LIMIT 1`
+      )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
     if (row.deleted_at) return { id, deleted: true };
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
 
-    const absPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    try {
-      await fs.unlink(absPath);
-    } catch {}
+    if (resolved.fullPath) {
+      try {
+        await fs.unlink(resolved.fullPath);
+      } catch {}
+    }
     const now = new Date().toISOString();
     db.prepare("UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?").run(now, now, id);
     db.prepare("DELETE FROM note_directory_membership WHERE note_id = ?").run(id);
