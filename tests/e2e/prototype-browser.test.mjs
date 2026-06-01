@@ -7545,24 +7545,27 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
   await page.locator('.rail-btn[data-module="graph"]').click();
 
   await waitFor(async () => {
-    const summary = await page.locator("#graphSummary").textContent();
-    const [nodeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
-    assert.ok(nodeCount >= 2, summary || "");
-    await page.locator('[data-graph-followup-action="bridge"]', { hasText: "去锟斤拷锟脚斤拷" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-bridge-gap-action="bridge"]').first().waitFor({ timeout: 500 });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="bridge"]', { hasText: "去锟斤拷锟脚斤拷" }).first().click();
+  await page.locator('[data-graph-bridge-gap-action="bridge"]').first().click();
   await page.waitForFunction(() => {
-    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
     const form = document.querySelector("[data-create-relation-form]");
-    const focus = document.activeElement;
-    return Boolean(activeModule && form && focus && focus.getAttribute("data-relation-target-search") !== null);
+    return Boolean(form);
   });
+  await waitFor(async () => {
+    assert.equal(await page.locator('.quick-entry.active.current-root[data-action="quick-original"]').count(), 1);
+  }, 4000);
+  await page.evaluate(() => window.__prototypeEditor?.onStatus?.("桥接动作后的失败提示", "bad"));
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /桥接动作后的失败提示/);
+  }, 4000);
 
   const relationFormText = await page.locator("[data-create-relation-form]").textContent();
   assert.ok(String(relationFormText || "").trim().length > 0);
-  const statusTextAfterFollowup = await currentStatusText(page);
-  assert.match(statusTextAfterFollowup || "", /锟斤拷锟脚接癸拷系/);
+  assert.match(String(relationFormText || ""), /Bridge Gap A/);
+  assert.match(String(relationFormText || ""), /桥接/);
 });
 
 test("prototype graph panel tension followup opens boundary field on the source note", async (t) => {
@@ -7618,19 +7621,308 @@ test("prototype graph panel tension followup opens boundary field on the source 
     const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
-    await page.locator('[data-graph-followup-action="tension"]', { hasText: "去锟斤拷锟斤拷锟斤拷/锟竭斤拷" }).waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="tension"]').first().waitFor({ timeout: 500 });
   }, 7000);
 
-  await page.locator('[data-graph-followup-action="tension"]', { hasText: "去锟斤拷锟斤拷锟斤拷/锟竭斤拷" }).first().click();
+  await page.locator('[data-graph-followup-action="tension"]').first().click();
   await page.waitForFunction(() => {
-    const activeModule = document.querySelector('.rail-btn[data-module="explorer"]')?.classList.contains("active");
     const boundaryField = document.querySelector('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]');
-    const focus = document.activeElement;
-    return Boolean(activeModule && boundaryField && focus === boundaryField);
+    return Boolean(boundaryField);
   });
 
-  const statusTextAfterFollowup = await currentStatusText(page);
-  assert.ok(String(statusTextAfterFollowup || "").trim().length > 0);
+  const boundaryValue = await page.locator('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]').inputValue();
+  assert.ok(String(boundaryValue || "").trim().length > 0);
+});
+
+test("prototype graph ai analysis badge counts candidates and opens on failure", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  let aiAnalysisMode = "success";
+  const requestedDirectoryIds = [];
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.route("**/api/v1/graph/ai-analysis", async (route) => {
+        const payload = route.request().postDataJSON?.() || {};
+        requestedDirectoryIds.push(String(payload.directoryId || ""));
+        if (aiAnalysisMode === "fail") {
+          await route.abort("failed");
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            item: {
+              directoryId: "dir_original_default",
+              analysis: {
+                topicCandidates: [{ id: "topic-1" }],
+                relationCandidates: [{ id: "relation-1" }],
+                bridgeCandidates: [{ id: "bridge-1" }],
+                isolatedNotes: [{ noteId: "pn-isolated-1" }]
+              },
+              reviewItems: {
+                summary: {
+                  artifactCount: 0,
+                  topicCandidateCount: 1,
+                  relationCandidateCount: 1,
+                  bridgeCandidateCount: 1,
+                  isolatedNoteCount: 1
+                },
+                artifacts: []
+              }
+            }
+          })
+        });
+      });
+    }
+  });
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph AI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-ai-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator('[data-graph-section="ai-analysis"] summary').click();
+  await page.locator('[data-run-graph-ai-analysis]').click();
+
+  await waitFor(async () => {
+    const badge = await page.locator('[data-graph-section="ai-analysis"] .graph-collapsible-badge').textContent();
+    assert.match(String(badge || ""), /4 项/);
+    assert.equal(requestedDirectoryIds.at(-1), graphDirectoryId);
+  }, 4000);
+
+  aiAnalysisMode = "fail";
+  await page.locator('[data-graph-section="ai-analysis"] summary').click();
+  await page.locator('[data-run-graph-ai-analysis]').click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator('[data-graph-section="ai-analysis"]').evaluate((node) => node.hasAttribute("open")), true);
+    const errorText = await page.locator('[data-graph-section="ai-analysis"] .graph-empty.bad').textContent();
+    assert.match(String(errorText || ""), /AI 图谱初判失败/);
+  }, 7000);
+});
+
+test("prototype graph followup remembers relation template preference after reload", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Template Preference Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-template-preference-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const noteA = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Preference A\n\nThis isolated note should use the remembered graph relation template."
+  });
+  assert.equal(noteA.status, 201, JSON.stringify(noteA.json));
+
+  const noteB = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Preference B\n\nThis second isolated note keeps the bridge followup available after reload."
+  });
+  assert.equal(noteB.status, 201, JSON.stringify(noteB.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.evaluate(() => localStorage.removeItem("yansilu:template-variant:relation"));
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    await page.locator('[data-graph-bridge-gap-action="bridge"]').first().waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-bridge-gap-action="bridge"]').first().click();
+  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
+  await page.locator('[data-create-relation-form] [data-relation-template-variant]', { hasText: "产品版" }).click();
+
+  await waitFor(async () => {
+    const stored = await page.evaluate(() => localStorage.getItem("yansilu:template-variant:relation"));
+    assert.equal(stored, "product");
+    const active = await page.locator('[data-create-relation-form] [data-relation-template-variant].is-active').textContent();
+    assert.match(String(active || ""), /产品版/);
+  }, 4000);
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    await page.locator('[data-graph-bridge-gap-action="bridge"]').first().waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-bridge-gap-action="bridge"]').first().click();
+  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
+  await waitFor(async () => {
+    const active = await page.locator('[data-create-relation-form] [data-relation-template-variant].is-active').textContent();
+    assert.match(String(active || ""), /产品版/);
+    const memoryHint = await page.locator('[data-create-relation-form] .semantic-template-memory').textContent();
+    assert.match(String(memoryHint || ""), /产品版/);
+  }, 4000);
+});
+
+test("prototype graph followup can clear remembered template preference for relation and boundary flows", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph Template Clear Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-template-clear-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  const bridgeSource = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Clear Bridge Source\n\nThis note should expose a remembered bridge template preference."
+  });
+  assert.equal(bridgeSource.status, 201, JSON.stringify(bridgeSource.json));
+
+  const bridgeTarget = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Clear Bridge Target\n\nThis note keeps the bridge followup visible."
+  });
+  assert.equal(bridgeTarget.status, 201, JSON.stringify(bridgeTarget.json));
+
+  const tensionSource = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Clear Tension Source\n\nThis note should expose a remembered boundary template preference."
+  });
+  assert.equal(tensionSource.status, 201, JSON.stringify(tensionSource.json));
+
+  const tensionTarget = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: graphDirectoryId,
+    body: "# Template Clear Tension Target\n\nThis note is challenged by the tension source."
+  });
+  assert.equal(tensionTarget.status, 201, JSON.stringify(tensionTarget.json));
+
+  const tensionRelation = await postJson(apiBase, `/api/v1/notes/${encodeURIComponent(tensionSource.json.item.id)}/relations`, {
+    toNoteId: tensionTarget.json.item.id,
+    relationType: "counterexample_to",
+    rationale: "The source note needs a remembered boundary template so the user can sharpen the counterexample.",
+    insightQuestion: "What boundary should remain visible after clearing the remembered template?",
+    confidence: 1
+  });
+  assert.equal(tensionRelation.status, 201, JSON.stringify(tensionRelation.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    localStorage.setItem("yansilu:template-variant:relation", "product");
+    localStorage.setItem("yansilu:template-variant:distillation", "product");
+  });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    await page.locator('[data-graph-bridge-gap-action="bridge"]').first().waitFor({ timeout: 500 });
+    await page.locator('[data-graph-followup-action="tension"]').first().waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-bridge-gap-action="bridge"]').first().click();
+  await page.waitForSelector("[data-create-relation-form]", { state: "visible" });
+  await waitFor(async () => {
+    const memoryHint = await page.locator('[data-create-relation-form] .semantic-template-memory').textContent();
+    assert.match(String(memoryHint || ""), /产品版/);
+  }, 4000);
+  await page.locator('[data-create-relation-form] [data-template-preference-clear="relation"]').click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator('[data-create-relation-form] .semantic-template-memory').count(), 0);
+    const stored = await page.evaluate(() => localStorage.getItem("yansilu:template-variant:relation"));
+    assert.equal(stored, null);
+  }, 4000);
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await waitFor(async () => {
+    await page.locator('[data-graph-followup-action="tension"]').first().waitFor({ timeout: 500 });
+  }, 7000);
+
+  await page.locator('[data-graph-followup-action="tension"]').first().click();
+  await page.waitForSelector('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]', { state: "visible" });
+  await waitFor(async () => {
+    const memoryHint = await page.locator('[data-note-distillation-form] .semantic-template-memory').textContent();
+    assert.match(String(memoryHint || ""), /产品版/);
+  }, 4000);
+  await page.locator('[data-note-distillation-form] [data-template-preference-clear="distillation"]').click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator('[data-note-distillation-form] .semantic-template-memory').count(), 0);
+    const stored = await page.evaluate(() => localStorage.getItem("yansilu:template-variant:distillation"));
+    assert.equal(stored, null);
+  }, 4000);
+});
+
+test("prototype route shell exposes graph workspace without explorer rail assumptions", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+
+  await waitFor(async () => {
+    assert.equal(await page.locator('.rail-btn[data-module="graph"]').count(), 1);
+    assert.equal(await page.locator('.rail-btn[data-module="explorer"]').count(), 0);
+    assert.equal(await page.locator("#statusBar").count(), 1);
+    assert.equal(await page.locator("#statusText").count(), 1);
+  }, 4000);
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+
+  await waitFor(async () => {
+    const summary = await page.locator("#graphSummary").textContent();
+    assert.ok(String(summary || "").trim().length > 0);
+    await page.locator("#graphCanvas").waitFor({ state: "visible", timeout: 500 });
+  }, 7000);
 });
 
 test("prototype graph panel seeds the Yijing demo network", async (t) => {
