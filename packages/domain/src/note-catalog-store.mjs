@@ -2930,10 +2930,11 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
   }
 }
 
-export async function deleteNoteById(vaultPath, noteId) {
+export async function deleteNoteById(vaultPath, noteId, options = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
   if (!id) throw new Error("noteId is required");
+  const deleteFile = options.deleteFile !== false;
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
@@ -2953,7 +2954,7 @@ export async function deleteNoteById(vaultPath, noteId) {
     if (row.deleted_at) return { id, deleted: true };
     const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
 
-    if (resolved.fullPath) {
+    if (deleteFile && resolved.fullPath) {
       try {
         await fs.unlink(resolved.fullPath);
       } catch {}

@@ -333,6 +333,64 @@ test("confirmImport rejects an unknown selected directory id instead of silently
   );
 });
 
+test("confirmImport rejects a literature directory when the selected candidates include permanent notes", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-scope-dir-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  const literatureChild = await createDirectory(vaultPath, {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+
+  const record = {
+    importRecordId: "imp_scope_dir_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [],
+      permanent: [
+        {
+          id: "pn_scope_dir",
+          title: "Permanent target",
+          core_claim: "A permanent claim",
+          rationale: "Rationale",
+          authorship: { user_confirmed: true, ai_assisted: false },
+          originality_status: "pass",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writePermanentNoteIfAbsent: async () => {
+      throw new Error("should not write");
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true, directoryId: literatureChild.id }, "req_scope_dir"),
+    {
+      code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+      message: "directoryId must be a permanent-note directory for the selected permanent notes"
+    }
+  );
+});
+
 test("confirmImport cleans up already written files when catalog registration fails", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-cleanup-");
   const importRecords = new Map();
@@ -562,7 +620,7 @@ test("confirmImport logically removes written notes when rollback skips modified
   const vaultPath = await makeTempDir("yansilu-service-modified-cleanup-");
   await initVault(vaultPath);
   const importRecords = new Map();
-  const deletedNoteIds = [];
+  const deletedCalls = [];
   const record = {
     importRecordId: "imp_modified_cleanup_1",
     connector: "markdown",
@@ -629,8 +687,8 @@ test("confirmImport logically removes written notes when rollback skips modified
           : []
       };
     },
-    deleteNoteById: async (_vaultPath, noteId) => {
-      deletedNoteIds.push(noteId);
+    deleteNoteById: async (_vaultPath, noteId, options = {}) => {
+      deletedCalls.push({ noteId, options });
     }
   });
 
@@ -638,7 +696,7 @@ test("confirmImport logically removes written notes when rollback skips modified
     () => service.confirmImport(record, { confirm: true }, "req_modified_cleanup"),
     /confirm downstream failed/
   );
-  assert.deepEqual(deletedNoteIds, ["ln_modified_cleanup"]);
+  assert.deepEqual(deletedCalls, [{ noteId: "ln_modified_cleanup", options: { deleteFile: false } }]);
 });
 
 test("confirmImport cleans up copied obsidian assets when staged entry creation fails", async () => {

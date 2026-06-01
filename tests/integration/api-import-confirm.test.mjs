@@ -563,6 +563,7 @@ test("API import confirm writes permanent notes into selected permanent director
   const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
     confirm: true,
     overrideOriginality: true,
+    selectedCandidateIds: [...preview.json.samples.sourceIds, ...preview.json.samples.permanentNoteIds],
     directoryId: targetDirectory.json.item.id
   });
 
@@ -582,6 +583,56 @@ test("API import confirm writes permanent notes into selected permanent director
   assert.equal(targetNotes.status, 200);
   assert.equal(targetNotes.json.total, 1);
   assert.equal(targetNotes.json.items[0].id, preview.json.samples.permanentNoteIds[0]);
+});
+
+test("API import confirm rejects a mismatched file-box directory for permanent notes", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-mismatched-permanent-dir-");
+  const sourceDir = await makeTempDir("yansilu-api-md-mismatched-permanent-dir-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Mismatched permanent import",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A permanent note should not be silently routed into the literature box."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    overrideOriginality: true,
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 400, JSON.stringify(confirm.json));
+  assert.equal(confirm.json.error.code, "IMPORT_DIRECTORY_SCOPE_INVALID");
 });
 
 test("API selective Obsidian confirm writes realistic Chinese vault notes and rolls them back", async (t) => {

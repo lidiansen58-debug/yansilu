@@ -59,6 +59,26 @@ function importedNoteTargetDirectory(directories = [], selectedDirectoryId = "",
   return "";
 }
 
+function validateSelectedImportDirectoryScope(directories = [], selectedDirectoryId = "", selectedCandidates = {}) {
+  const cleanSelectedDirectoryId = String(selectedDirectoryId || "").trim();
+  if (!cleanSelectedDirectoryId) return;
+  const rootDirectoryId = rootDirectoryIdFor(directories, cleanSelectedDirectoryId);
+  const hasLiterature = Array.isArray(selectedCandidates.literature) && selectedCandidates.literature.length > 0;
+  const hasPermanent = Array.isArray(selectedCandidates.permanent) && selectedCandidates.permanent.length > 0;
+
+  if (hasLiterature && rootDirectoryId !== "dir_literature_default") {
+    const error = new Error("directoryId must be a literature-note directory for the selected literature notes");
+    error.code = "IMPORT_DIRECTORY_SCOPE_INVALID";
+    throw error;
+  }
+
+  if (hasPermanent && rootDirectoryId !== "dir_original_default") {
+    const error = new Error("directoryId must be a permanent-note directory for the selected permanent notes");
+    error.code = "IMPORT_DIRECTORY_SCOPE_INVALID";
+    throw error;
+  }
+}
+
 function directoryById(directories = [], directoryId = "") {
   const cleanDirectoryId = String(directoryId || "").trim();
   return (Array.isArray(directories) ? directories : []).find((item) => String(item?.id || "").trim() === cleanDirectoryId) || null;
@@ -194,13 +214,23 @@ export function createImportExportService({
   async function cleanupCreatedArtifacts(createdFiles = []) {
     const { rolledBack, skipped } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
     const cleanedNotes = new Set();
-    for (const item of [...rolledBack, ...skipped]) {
+    for (const item of rolledBack) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
         const key = `${item.noteType}:${item.noteId}`;
         if (cleanedNotes.has(key)) continue;
         cleanedNotes.add(key);
         try {
           await deleteNoteById(vaultPath(), item.noteId);
+        } catch {}
+      }
+    }
+    for (const item of skipped) {
+      if (item.noteType === "literature" || item.noteType === "permanent") {
+        const key = `${item.noteType}:${item.noteId}`;
+        if (cleanedNotes.has(key)) continue;
+        cleanedNotes.add(key);
+        try {
+          await deleteNoteById(vaultPath(), item.noteId, { deleteFile: false });
         } catch {}
       }
     }
@@ -398,6 +428,7 @@ export function createImportExportService({
       error.code = "IMPORT_DIRECTORY_INVALID";
       throw error;
     }
+    validateSelectedImportDirectoryScope(directories, selectedDirectoryId, selected.candidates);
     const literatureTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "literature");
     const permanentTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "permanent");
     const literatureTargetDirectory = directoryById(directories, literatureTargetDirectoryId);
