@@ -7553,6 +7553,9 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
     const form = document.querySelector("[data-create-relation-form]");
     return Boolean(form);
   });
+  await waitFor(async () => {
+    assert.equal(await page.locator('.quick-entry.active.current-root[data-action="quick-original"]').count(), 1);
+  }, 4000);
 
   const relationFormText = await page.locator("[data-create-relation-form]").textContent();
   assert.ok(String(relationFormText || "").trim().length > 0);
@@ -7624,6 +7627,74 @@ test("prototype graph panel tension followup opens boundary field on the source 
 
   const boundaryValue = await page.locator('[data-note-distillation-form] textarea[name="boundaryOrCounterpoint"]').inputValue();
   assert.ok(String(boundaryValue || "").trim().length > 0);
+});
+
+test("prototype graph ai analysis badge counts candidates and opens on failure", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  let aiAnalysisMode = "success";
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.route("**/api/v1/graph/ai-analysis", async (route) => {
+        if (aiAnalysisMode === "fail") {
+          await route.abort("failed");
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            item: {
+              directoryId: "dir_original_default",
+              analysis: {
+                topicCandidates: [{ id: "topic-1" }],
+                relationCandidates: [{ id: "relation-1" }],
+                bridgeCandidates: [{ id: "bridge-1" }],
+                isolatedNotes: [{ noteId: "pn-isolated-1" }]
+              },
+              reviewItems: {
+                summary: {
+                  artifactCount: 0,
+                  topicCandidateCount: 1,
+                  relationCandidateCount: 1,
+                  bridgeCandidateCount: 1,
+                  isolatedNoteCount: 1
+                },
+                artifacts: []
+              }
+            }
+          })
+        });
+      });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator('[data-graph-section="ai-analysis"] summary').click();
+  await page.locator('[data-run-graph-ai-analysis]').click();
+
+  await waitFor(async () => {
+    const badge = await page.locator('[data-graph-section="ai-analysis"] .graph-collapsible-badge').textContent();
+    assert.match(String(badge || ""), /4 项/);
+  }, 4000);
+
+  aiAnalysisMode = "fail";
+  await page.locator('[data-graph-section="ai-analysis"] summary').click();
+  await page.locator('[data-run-graph-ai-analysis]').click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator('[data-graph-section="ai-analysis"]').evaluate((node) => node.hasAttribute("open")), true);
+    const errorText = await page.locator('[data-graph-section="ai-analysis"] .graph-empty.bad').textContent();
+    assert.match(String(errorText || ""), /AI 图谱初判失败/);
+  }, 7000);
 });
 
 test("prototype graph followup remembers relation template preference after reload", async (t) => {

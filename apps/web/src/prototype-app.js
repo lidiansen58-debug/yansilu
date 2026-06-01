@@ -5474,6 +5474,7 @@ async function openDistillationQueueNote(noteId = "") {
 
 function renderAll() {
   ensureSelection();
+  syncRailSelectionState();
   renderSidebarTitle();
   renderModulePanels();
   syncExportDirectoryOptions();
@@ -5489,6 +5490,25 @@ function renderAll() {
   applyFocusModeChrome();
   renderStatusMeta();
   renderWorkspaceStatusHint();
+}
+
+function explorerQuickAction(rootId = state.browserRootId) {
+  if (rootId === "dir_fleeting_default") return "quick-fleeting";
+  if (rootId === "dir_literature_default") return "quick-literature";
+  return "quick-original";
+}
+
+function syncRailSelectionState() {
+  const currentQuickAction = explorerQuickAction();
+  const explorerActive = state.module === "explorer";
+  document.querySelectorAll(".quick-entry").forEach((entry) => {
+    const isCurrentRoot = entry.dataset.action === currentQuickAction;
+    entry.classList.toggle("current-root", isCurrentRoot);
+    entry.classList.toggle("active", explorerActive && isCurrentRoot);
+  });
+  document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.module === state.module);
+  });
 }
 
 function currentVaultPath() {
@@ -6079,9 +6099,7 @@ function activateModule(moduleName) {
   }
   state.module = normalizedModule;
   if (normalizedModule === "graph") expandGraphBrowserTree();
-  document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.module === normalizedModule);
-  });
+  syncRailSelectionState();
   renderAll();
 }
 
@@ -9765,9 +9783,10 @@ function renderGraphAiAnalysisCard() {
   const relationCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
   const bridgeCount = Number(summary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
   const isolatedCount = Number(summary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
-  const totalCandidates = pendingCount || topicCount || relationCount || bridgeCount || isolatedCount;
+  const totalCandidates = pendingCount || topicCount + relationCount + bridgeCount + isolatedCount;
+  const shouldOpen = loading || Boolean(error);
   return `
-    <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${loading ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
+    <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
       <summary class="graph-collapsible-summary">
         <div>
           <div class="graph-section-title">AI 图谱初判</div>
@@ -12922,10 +12941,9 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
     }
     state.module = "explorer";
     state.selectedFileId = null;
-    document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === action));
-    document.querySelectorAll(".rail-btn[data-module]").forEach((b) => b.classList.toggle("active", b.dataset.module === "explorer"));
-      setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
-      renderAll();
+    syncRailSelectionState();
+    setStatus(`已切换到 ${displayFolderName(folderById(state, state.browserRootId))} 入口`, "ok");
+    renderAll();
     });
   });
 
