@@ -10,7 +10,36 @@ const API_BASE =
 
 async function request(pathname, options = {}) {
   const url = `${API_BASE}${pathname}`;
-  const response = await fetch(url, options);
+  const timeoutMs = Math.max(0, Number(options?.timeoutMs || 0) || 0);
+  const externalSignal = options?.signal;
+  const controller = timeoutMs > 0 ? new AbortController() : null;
+  let timeoutId = null;
+  const fetchOptions = { ...options };
+  delete fetchOptions.timeoutMs;
+  if (controller) {
+    if (externalSignal?.aborted) controller.abort(externalSignal.reason);
+    else if (externalSignal && typeof externalSignal.addEventListener === "function") {
+      externalSignal.addEventListener("abort", () => controller.abort(externalSignal.reason), { once: true });
+    }
+    timeoutId = globalThis.setTimeout(() => {
+      controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+    fetchOptions.signal = controller.signal;
+  }
+  let response;
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (error) {
+    if (timeoutId) globalThis.clearTimeout(timeoutId);
+    if ((controller?.signal?.aborted || externalSignal?.aborted) && String(error?.name || "") === "AbortError") {
+      const timeoutError = new Error(`Request timed out after ${timeoutMs}ms`);
+      timeoutError.code = "request_timeout";
+      timeoutError.timeoutMs = timeoutMs;
+      throw timeoutError;
+    }
+    throw error;
+  }
+  if (timeoutId) globalThis.clearTimeout(timeoutId);
   const json = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = json?.error?.message || json?.message || `HTTP ${response.status}`;
@@ -497,7 +526,9 @@ export async function fetchDirectoryGraph(directoryId, options = {}) {
     directoryId,
     includeDescendants: options.includeDescendants ? "true" : "false"
   });
-  const json = await request(`/api/v1/graph?${params.toString()}`);
+  const json = await request(`/api/v1/graph?${params.toString()}`, {
+    timeoutMs: options.timeoutMs
+  });
   return json.item || null;
 }
 
@@ -535,7 +566,9 @@ export async function fetchGraphConflicts({ directoryId, includeDescendants = tr
     directoryId,
     includeDescendants: includeDescendants ? "true" : "false"
   });
-  const json = await request(`/api/v1/graph/conflicts?${params.toString()}`);
+  const json = await request(`/api/v1/graph/conflicts?${params.toString()}`, {
+    timeoutMs: 12000
+  });
   return json.item || null;
 }
 
@@ -557,7 +590,9 @@ export async function fetchRelationReviewQueue({
     status: status || "all",
     limit: String(Math.max(1, Math.min(100, Number(limit || 20) || 20)))
   });
-  const json = await request(`/api/v1/relations/review-queue?${params.toString()}`);
+  const json = await request(`/api/v1/relations/review-queue?${params.toString()}`, {
+    timeoutMs: 12000
+  });
   return {
     directoryId: json.directoryId || directoryId,
     directoryTitle: json.directoryTitle || "",

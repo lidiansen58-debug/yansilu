@@ -97,6 +97,17 @@ const groups = [
     ]
   },
   {
+    name: "relations-graph-closeout",
+    description: "Related-note and graph followup closeout flows, including followup entry, remembered templates, and preference clearing.",
+    tests: [
+      "prototype graph panel bridge gap followup opens relation creation on an isolated note",
+      "prototype graph panel tension followup opens boundary field on the source note",
+      "prototype graph followup remembers relation template preference after reload",
+      "prototype graph followup can clear remembered template preference for relation and boundary flows",
+      "prototype route shell exposes graph workspace without explorer rail assumptions"
+    ]
+  },
+  {
     name: "mobile-responsive",
     description: "Mobile viewport entry points and responsive capture flows.",
     tests: [
