@@ -1366,6 +1366,103 @@ test("rollbackImport restores files and completed state when rollback stage pers
   }
 });
 
+test("rollbackImport preserves newly recreated files instead of overwriting them during restore conflicts", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-restore-conflict-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_restore_conflict_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_rollback_restore_conflict",
+          source_id: "src_rollback_restore_conflict",
+          title: "Rollback restore conflict",
+          quote_text: "Original rollback body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const confirmService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await confirmService.confirmImport(record, { confirm: true }, "req_rollback_restore_conflict_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  const recreatedPath = path.join(vaultPath, "notes", "literature", "ln_rollback_restore_conflict.md");
+  const recreatedContent = "---\nstatus: draft\nsource_id: src_recreated\n---\n# Recreated after rollback\n\nUser kept newer content.";
+  const failingRollbackService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+      if (stage === "rollback") {
+        await fs.mkdir(path.dirname(recreatedPath), { recursive: true });
+        await fs.writeFile(recreatedPath, recreatedContent, "utf8");
+        throw Object.assign(new Error("rollback stage write failed"), { code: "IMPORT_ROLLBACK_STAGE_WRITE_FAILED" });
+      }
+      return "";
+    }
+  });
+
+  await assert.rejects(
+    () => failingRollbackService.rollbackImport(record, "req_rollback_restore_conflict"),
+    {
+      code: "IMPORT_ROLLBACK_RESTORE_CONFLICT"
+    }
+  );
+
+  assert.equal(record.state, "completed");
+  assert.equal(record.rollbackResult, undefined);
+  const currentFile = await fs.readFile(recreatedPath, "utf8");
+  assert.equal(currentFile, recreatedContent);
+  const restored = await readNote(vaultPath, "literature", "ln_rollback_restore_conflict");
+  assert.equal(restored.note.title, "Recreated after rollback");
+  assert.equal(restored.note.body, "User kept newer content.");
+  const preservedFiles = (await listFiles(path.join(vaultPath, "imports", "rollback-recovery-conflicts"))).filter((filePath) =>
+    filePath.endsWith("ln_rollback_restore_conflict.md")
+  );
+  assert.equal(preservedFiles.length, 1);
+  const preserved = await fs.readFile(preservedFiles[0], "utf8");
+  assert.match(preserved, /Rollback restore conflict/);
+});
+
 test("rollbackImport removes staged rollback backups after a successful rollback", async () => {
   const vaultPath = await makeTempDir("yansilu-service-rollback-stage-cleanup-");
   const importRecords = new Map();

@@ -316,6 +316,34 @@ export function createImportExportService({
     return path.join(stageRoot, ...String(relativePath || "").split("/").filter(Boolean));
   }
 
+  async function moveRollbackConflictBackup(item, rollbackId = "") {
+    const conflictRoot = path.join(
+      vaultPath(),
+      "imports",
+      "rollback-recovery-conflicts",
+      `${String(rollbackId || "rollback").trim() || "rollback"}-${randomUUID().slice(0, 8)}`
+    );
+    const conflictPath = rollbackBackupPath(conflictRoot, item.path);
+    await fs.mkdir(path.dirname(conflictPath), { recursive: true });
+    await fs.rename(item.stagedPath, conflictPath);
+    return path.relative(vaultPath(), conflictPath).replaceAll("\\", "/");
+  }
+
+  function buildRollbackRestoreConflict(conflicts = []) {
+    const error = new Error("rollback restore preserved newer files without overwriting them");
+    error.code = "IMPORT_ROLLBACK_RESTORE_CONFLICT";
+    error.details = {
+      conflicts: conflicts.map((item) => ({
+        noteId: item.noteId || null,
+        noteType: item.noteType || null,
+        path: item.path || "",
+        preservedPath: item.preservedPath || "",
+        reason: item.reason || ""
+      }))
+    };
+    return error;
+  }
+
   async function rollbackCreatedFilesWithRecovery(createdFiles = [], rollbackId = "") {
     if (rollbackCreatedFilesImpl !== rollbackCreatedFiles) {
       const result = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
@@ -362,17 +390,65 @@ export function createImportExportService({
     return { rolledBack, skipped, backups, stageRoot };
   }
 
-  async function restoreRolledBackFiles(backups = []) {
+  async function restoreRolledBackFiles(backups = [], rollbackId = "") {
+    const restored = [];
+    const conflicts = [];
     for (const item of Array.isArray(backups) ? backups : []) {
       if (!item?.fullPath || !item?.stagedPath) continue;
       await fs.mkdir(path.dirname(item.fullPath), { recursive: true });
+      let current = null;
+      try {
+        current = await fs.readFile(item.fullPath);
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      if (current) {
+        const currentHash = contentHash(current);
+        if (currentHash === item.hash) {
+          await fs.unlink(item.stagedPath);
+          restored.push({ ...item, restoredPath: item.path || "", restoreState: "already_present" });
+          continue;
+        }
+        const preservedPath = await moveRollbackConflictBackup(item, rollbackId);
+        conflicts.push({
+          ...item,
+          reason: "destination_modified",
+          preservedPath
+        });
+        continue;
+      }
       try {
         await fs.rename(item.stagedPath, item.fullPath);
-      } catch {
-        await fs.copyFile(item.stagedPath, item.fullPath);
-        await fs.unlink(item.stagedPath);
+        restored.push({ ...item, restoredPath: item.path || "" });
+        continue;
+      } catch {}
+
+      try {
+        current = await fs.readFile(item.fullPath);
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        current = null;
       }
+      if (current) {
+        const currentHash = contentHash(current);
+        if (currentHash === item.hash) {
+          await fs.unlink(item.stagedPath);
+          restored.push({ ...item, restoredPath: item.path || "", restoreState: "already_present" });
+          continue;
+        }
+        const preservedPath = await moveRollbackConflictBackup(item, rollbackId);
+        conflicts.push({
+          ...item,
+          reason: "destination_modified",
+          preservedPath
+        });
+        continue;
+      }
+      await fs.copyFile(item.stagedPath, item.fullPath);
+      await fs.unlink(item.stagedPath);
+      restored.push({ ...item, restoredPath: item.path || "", restoreState: "copied" });
     }
+    return { restored, conflicts };
   }
 
   async function discardRolledBackFileBackups(stageRoot = "") {
@@ -432,6 +508,17 @@ export function createImportExportService({
         noteType: item.noteType,
         path: backup.fullPath
       }, directoryIds.get(item.noteType) || "");
+    }
+  }
+
+  async function restoreRolledBackArtifacts(record, deletedEntries = [], backups = [], stageRoot = "", causeError = null) {
+    const restoreResult = await restoreRolledBackFiles(backups, record?.importRecordId || "");
+    await restoreRolledBackCatalogEntries(record, deletedEntries, backups);
+    await discardRolledBackFileBackups(stageRoot);
+    if (restoreResult.conflicts.length) {
+      const conflictError = buildRollbackRestoreConflict(restoreResult.conflicts);
+      if (causeError && !conflictError.cause) conflictError.cause = causeError;
+      throw conflictError;
     }
   }
 
@@ -935,9 +1022,7 @@ export function createImportExportService({
       deletedCatalogEntries = await deleteRolledBackCatalogEntries(rolledBack);
     } catch (error) {
       try {
-        await restoreRolledBackFiles(backups);
-        await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
-        await discardRolledBackFileBackups(stageRoot);
+        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, error);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;
@@ -960,9 +1045,7 @@ export function createImportExportService({
       });
     } catch (error) {
       try {
-        await restoreRolledBackFiles(backups);
-        await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
-        await discardRolledBackFileBackups(stageRoot);
+        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, error);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;

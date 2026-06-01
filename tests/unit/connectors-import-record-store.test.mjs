@@ -82,6 +82,71 @@ test("listImportRecords restores records from disk in updated order with limit",
   assert.equal(records[0].updatedAt, "2026-04-22T00:02:00.000Z");
 });
 
+test("loadImportRecord returns a recoverable failed record when preview stage json is corrupt", async () => {
+  const vaultPath = await makeTempVault();
+  const connectorDir = path.join(vaultPath, "imports", "markdown");
+  await fs.mkdir(connectorDir, { recursive: true });
+  await fs.writeFile(path.join(connectorDir, "imp_corrupt_preview.preview.json"), '{"preview": ', "utf8");
+
+  const record = await loadImportRecord(vaultPath, "imp_corrupt_preview");
+
+  assert.equal(record?.importRecordId, "imp_corrupt_preview");
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "IMPORT_RECORD_STAGE_CORRUPTED");
+  assert.equal(record?.failureResult?.details?.stages?.[0]?.stage, "preview");
+  assert.deepEqual(record?.candidateSelection, {
+    sources: [],
+    literatureNotes: [],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 0, permanentNotes: 0 }
+  });
+});
+
+test("listImportRecords tolerates corrupt optional stage json without dropping healthy records", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_confirm_corrupt",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 0, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_corrupt"], literatureNoteIds: [], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_confirm_corrupt", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [{ id: "src_corrupt" }], literature: [], permanent: [], warnings: [] }
+  });
+  await fs.writeFile(
+    path.join(vaultPath, "imports", "markdown", "imp_confirm_corrupt.confirm.json"),
+    '{"created": ',
+    "utf8"
+  );
+  await appendImportRecord(vaultPath, "markdown", "imp_healthy", "preview", {
+    preview: {
+      ...preview,
+      importRecordId: "imp_healthy",
+      createdAt: "2026-06-01T00:01:00.000Z"
+    },
+    payload: {},
+    options: {},
+    candidates: { sources: [{ id: "src_healthy" }], literature: [], permanent: [], warnings: [] }
+  });
+
+  const records = await listImportRecords(vaultPath, { limit: 10 });
+  const byId = new Map(records.map((record) => [record.importRecordId, record]));
+
+  assert.equal(records.length, 2);
+  assert.equal(byId.get("imp_healthy")?.state, "preview");
+  assert.equal(byId.get("imp_confirm_corrupt")?.state, "failed");
+  assert.equal(byId.get("imp_confirm_corrupt")?.failureResult?.code, "IMPORT_RECORD_STAGE_CORRUPTED");
+  assert.equal(byId.get("imp_confirm_corrupt")?.warnings?.some((item) => item.code === "IMPORT_RECORD_STAGE_CORRUPTED"), true);
+});
+
 test("publicImportRecord returns the safe API-facing record shape", () => {
   const publicRecord = publicImportRecord({
     importRecordId: "imp_1",
