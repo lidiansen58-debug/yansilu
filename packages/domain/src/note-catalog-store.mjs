@@ -482,25 +482,110 @@ function isPathInside(basePath, candidatePath) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
-function bestDirectoryIdForMarkdownPath(db, noteType, fallbackDirectoryId, markdownFullPath) {
+function bestDirectoryForMarkdownPath(db, noteType, fallbackDirectoryId, markdownFullPath) {
   const rows = db.prepare("SELECT id, fs_path FROM directories").all();
   const matches = rows
     .filter((row) => row?.fs_path && isPathInside(row.fs_path, markdownFullPath))
     .sort((a, b) => String(b.fs_path || "").length - String(a.fs_path || "").length);
-  if (matches.length > 0) return String(matches[0].id || "").trim();
-  const fallback = String(fallbackDirectoryId || "").trim() || defaultDirectoryIdForNoteType(noteType);
-  return fallback;
+  if (matches.length > 0) {
+    return {
+      id: String(matches[0].id || "").trim(),
+      fsPath: String(matches[0].fs_path || "").trim() || null
+    };
+  }
+  const fallbackId = String(fallbackDirectoryId || "").trim() || defaultDirectoryIdForNoteType(noteType);
+  const fallbackRow = rows.find((row) => String(row?.id || "").trim() === fallbackId);
+  return {
+    id: fallbackId,
+    fsPath: String(fallbackRow?.fs_path || "").trim() || null
+  };
 }
 
 async function recoverCatalogMarkdownPath(vaultPath, db, row) {
   const fullPath = await locateUniqueMarkdownPathForNote(vaultPath, row.note_type, row.id);
   if (!fullPath) return null;
   const markdownPath = path.relative(path.resolve(vaultPath), fullPath).replaceAll("\\", "/");
-  const directoryId = bestDirectoryIdForMarkdownPath(db, row.note_type, row.directory_id, fullPath);
+  const markdown = await fs.readFile(fullPath, "utf8");
+  const parsed = parseMarkdownWithFrontmatter(markdown);
+  const directory = bestDirectoryForMarkdownPath(db, row.note_type, row.directory_id, fullPath);
   const now = new Date().toISOString();
-  db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(markdownPath, now, row.id);
-  ensureSingleDirectoryMembership(db, row.id, directoryId);
-  return { fullPath, markdownPath, directoryId };
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(markdownPath, now, row.id);
+    ensureSingleDirectoryMembership(db, row.id, directory.id);
+    syncMarkdownRelations(db, row.id, parsed.body);
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+  return {
+    fullPath,
+    markdownPath,
+    directoryId: directory.id,
+    directoryFsPath: directory.fsPath,
+    markdown,
+    parsed
+  };
+}
+
+async function resolveCatalogRowState(vaultPath, db, row, options = {}) {
+  const root = path.resolve(vaultPath);
+  const hydrateMarkdown = options.hydrateMarkdown === true;
+  const tolerateMissing = options.tolerateMissing === true;
+
+  async function loadFromRow(targetRow) {
+    const markdownPath = String(targetRow?.markdown_path || "").trim();
+    if (!markdownPath) {
+      const error = new Error(`markdownPath missing for noteId: ${targetRow?.id || "unknown"}`);
+      error.code = "MARKDOWN_PATH_MISSING";
+      throw error;
+    }
+    const fullPath = path.join(root, markdownPath);
+    if (!hydrateMarkdown) {
+      await fs.access(fullPath);
+      return { fullPath, markdown: null, parsed: null };
+    }
+    const markdown = await fs.readFile(fullPath, "utf8");
+    return { fullPath, markdown, parsed: parseMarkdownWithFrontmatter(markdown) };
+  }
+
+  try {
+    const loaded = await loadFromRow(row);
+    return { row, ...loaded, recovered: false, missing: false };
+  } catch (error) {
+    if (String(error?.code || "").trim() !== "ENOENT") {
+      if (tolerateMissing) return { row, fullPath: null, markdown: null, parsed: null, recovered: false, missing: true };
+      throw error;
+    }
+    const recovered = await recoverCatalogMarkdownPath(vaultPath, db, row);
+    if (!recovered) {
+      if (tolerateMissing) return { row, fullPath: null, markdown: null, parsed: null, recovered: false, missing: true };
+      throw error;
+    }
+    return {
+      row: {
+        ...row,
+        markdown_path: recovered.markdownPath,
+        directory_id: recovered.directoryId,
+        directory_fs_path: recovered.directoryFsPath
+      },
+      fullPath: recovered.fullPath,
+      markdown: hydrateMarkdown ? recovered.markdown : null,
+      parsed: hydrateMarkdown ? recovered.parsed : null,
+      recovered: true,
+      missing: false
+    };
+  }
+}
+
+async function normalizeCatalogRows(vaultPath, db, rows = [], options = {}) {
+  return Promise.all((Array.isArray(rows) ? rows : []).map((row) => resolveCatalogRowState(vaultPath, db, row, options)));
+}
+
+async function normalizeCatalogRowsForMetadata(vaultPath, db, rows = []) {
+  const resolved = await normalizeCatalogRows(vaultPath, db, rows, { tolerateMissing: true });
+  return resolved.map((item) => item.row);
 }
 
 function attachNoteThinkingStatus(note) {
@@ -510,35 +595,32 @@ function attachNoteThinkingStatus(note) {
   };
 }
 
-async function mapNoteRowsWithThinkingStatus(vaultPath, rows = []) {
-  const root = path.resolve(vaultPath);
-  return Promise.all(
-    rows.map(async (row) => {
-      const note = mapNoteRow(row);
-      if (!["permanent", "literature"].includes(note.noteType)) return attachNoteThinkingStatus(note);
-      try {
-        const markdown = await fs.readFile(path.join(root, row.markdown_path), "utf8");
-        const parsed = parseMarkdownWithFrontmatter(markdown);
-        const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
-        const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
-        return attachNoteThinkingStatus({
-          ...note,
-          body: parsed.body,
-          ...(permanentMeta
-            ? {
-                thesis: permanentMeta.thesis,
-                threeLineSummary: permanentMeta.threeLineSummary,
-                distillationStatus: permanentMeta.distillationStatus,
-                authorship: permanentMeta.authorship
-              }
-            : {}),
-          ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
-        });
-      } catch {
-        return attachNoteThinkingStatus(note);
-      }
-    })
-  );
+async function mapNoteRowsWithThinkingStatus(vaultPath, db, rows = []) {
+  const resolvedRows = await normalizeCatalogRows(vaultPath, db, rows, {
+    hydrateMarkdown: true,
+    tolerateMissing: true
+  });
+  return resolvedRows.map((item) => {
+    const note = mapNoteRow(item.row);
+    if (!["permanent", "literature"].includes(note.noteType) || !item.parsed) {
+      return attachNoteThinkingStatus(note);
+    }
+    const boundaryOrCounterpoint = boundaryValueFromInput(item.parsed.frontmatter || {});
+    const permanentMeta = item.row.note_type === "permanent" ? permanentMetadataFromFrontmatter(item.parsed.frontmatter || {}) : null;
+    return attachNoteThinkingStatus({
+      ...note,
+      body: item.parsed.body,
+      ...(permanentMeta
+        ? {
+            thesis: permanentMeta.thesis,
+            threeLineSummary: permanentMeta.threeLineSummary,
+            distillationStatus: permanentMeta.distillationStatus,
+            authorship: permanentMeta.authorship
+          }
+        : {}),
+      ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
+    });
+  });
 }
 
 const NOTE_SEARCH_RANKING_PRIORITY = [
@@ -1231,7 +1313,7 @@ export async function listNotesInDirectory(vaultPath, directoryId) {
          ORDER BY n.updated_at DESC`
       )
       .all(id);
-    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
+    return await mapNoteRowsWithThinkingStatus(vaultPath, db, rows);
   } finally {
     db.close();
   }
@@ -1269,7 +1351,7 @@ export async function listNotesInDirectoryScope(vaultPath, directoryId, options 
              ORDER BY lower(n.title), n.updated_at DESC`
           )
           .all(id);
-    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
+    return await mapNoteRowsWithThinkingStatus(vaultPath, db, rows);
   } finally {
     db.close();
   }
@@ -1414,7 +1496,8 @@ export async function searchNotes(vaultPath, options = {}) {
           )
           .all(excludeNoteId, excludeNoteId, ...queryArgs, limit);
 
-    const items = rows.map((row) => mapNoteSearchRow(row, query));
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    const items = normalizedRows.map((row) => mapNoteSearchRow(row, query));
     return {
       rootDirectoryId: rootDirectoryId || null,
       query,
@@ -1442,7 +1525,7 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
     const directory = db.prepare("SELECT id, title FROM directories WHERE id = ? LIMIT 1").get(id);
     if (!directory) throw new Error(`directoryId not found: ${id}`);
 
-    const nodes = includeDescendants
+    const nodeRows = includeDescendants
       ? db
           .prepare(
             `${directoryScopeClause("graph_scope")}
@@ -1454,7 +1537,6 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              ORDER BY n.title ASC, n.updated_at DESC`
           )
           .all(id)
-          .map(mapNoteRow)
       : db
           .prepare(
             `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
@@ -1463,8 +1545,8 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              WHERE ndm.directory_id = ? AND n.deleted_at IS NULL
              ORDER BY n.title ASC, n.updated_at DESC`
           )
-          .all(id)
-          .map(mapNoteRow);
+          .all(id);
+    const nodes = (await normalizeCatalogRowsForMetadata(vaultPath, db, nodeRows)).map(mapNoteRow);
 
     const edges = includeDescendants
       ? db
@@ -1668,14 +1750,14 @@ export async function findNotePath(vaultPath, input = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
-    const endpoints = db
+    const endpointRows = db
       .prepare(
         `SELECT id, note_type, title, status, markdown_path, created_at, updated_at, NULL AS directory_id
          FROM notes
          WHERE id IN (?, ?) AND deleted_at IS NULL`
       )
-      .all(fromNoteId, toNoteId)
-      .map(mapNoteRow);
+      .all(fromNoteId, toNoteId);
+    const endpoints = (await normalizeCatalogRowsForMetadata(vaultPath, db, endpointRows)).map(mapNoteRow);
     if (!endpoints.find((note) => note.id === fromNoteId)) throw new Error(`fromNoteId not found: ${fromNoteId}`);
     if (!endpoints.find((note) => note.id === toNoteId)) throw new Error(`toNoteId not found: ${toNoteId}`);
 
@@ -1745,7 +1827,7 @@ export async function findNotePath(vaultPath, input = {}) {
     const pathNoteIds = foundEdges
       ? [fromNoteId, ...foundEdges.map((edge) => edge.toNoteId)]
       : [];
-    const pathNodes = pathNoteIds.length
+    const pathNodeRows = pathNoteIds.length
       ? db
           .prepare(
             `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
@@ -1754,8 +1836,8 @@ export async function findNotePath(vaultPath, input = {}) {
              WHERE n.id IN (${pathNoteIds.map(() => "?").join(",")}) AND n.deleted_at IS NULL`
           )
           .all(...pathNoteIds)
-          .map(mapNoteRow)
       : [];
+    const pathNodes = (await normalizeCatalogRowsForMetadata(vaultPath, db, pathNodeRows)).map(mapNoteRow);
     const nodeById = new Map(pathNodes.map((node) => [node.id, node]));
 
     return {
@@ -1811,8 +1893,9 @@ export async function detectGraphConflicts(vaultPath, input = {}) {
           )
           .all(directoryId);
 
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
     const groups = new Map();
-    for (const row of rows) {
+    for (const row of normalizedRows) {
       const key = String(row.title || "").trim().toLowerCase();
       if (!key) continue;
       if (!groups.has(key)) groups.set(key, []);
@@ -1894,7 +1977,8 @@ export async function listNotesByTag(vaultPath, tagName, options = {}) {
           )
           .all(tag.id);
 
-    const items = rows.map(mapNoteRow);
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    const items = normalizedRows.map(mapNoteRow);
     return {
       tag: tag.name,
       rootDirectoryId: rootDirectoryId || null,
@@ -1989,31 +2073,15 @@ export async function getNoteById(vaultPath, noteId) {
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
-
-    let effectiveRow = row;
-    let markdownFullPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    let markdown = "";
-    try {
-      markdown = await fs.readFile(markdownFullPath, "utf8");
-    } catch (error) {
-      if (String(error?.code || "").trim() !== "ENOENT") throw error;
-      const recovered = await recoverCatalogMarkdownPath(vaultPath, db, row);
-      if (!recovered) throw error;
-      markdownFullPath = recovered.fullPath;
-      markdown = await fs.readFile(markdownFullPath, "utf8");
-      effectiveRow = {
-        ...row,
-        markdown_path: recovered.markdownPath,
-        directory_id: recovered.directoryId
-      };
-    }
-    const parsed = parseMarkdownWithFrontmatter(markdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { hydrateMarkdown: true });
+    const effectiveRow = resolved.row;
+    const parsed = resolved.parsed || parseMarkdownWithFrontmatter(String(resolved.markdown || ""));
     const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
     const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
     return attachNoteThinkingStatus({
       ...mapNoteRow(effectiveRow),
       body: parsed.body,
-      markdown,
+      markdown: resolved.markdown,
       ...(permanentMeta
         ? {
             thesis: permanentMeta.thesis,
@@ -2052,9 +2120,10 @@ export async function getNoteCatalogEntryById(vaultPath, noteId) {
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
     return {
-      ...mapNoteRow(row),
-      directoryFsPath: row.directory_fs_path || null
+      ...mapNoteRow(resolved.row),
+      directoryFsPath: resolved.row.directory_fs_path || null
     };
   } finally {
     db.close();

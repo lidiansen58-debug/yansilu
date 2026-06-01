@@ -7,9 +7,12 @@ import {
   buildNotePathIndex,
   getNoteById,
   initVault,
+  listNotesByTag,
+  listNotesInDirectory,
   parseMarkdownWithFrontmatter,
   readNote,
   registerMarkdownNoteInCatalog,
+  searchNotes,
   serializeMarkdownWithFrontmatter,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
@@ -341,6 +344,58 @@ test("readNote ignores stale catalog paths when the markdown file is missing", a
   assert.equal(catalogNote.markdownPath, path.relative(vaultPath, livePath).replaceAll("\\", "/"));
 });
 
+test("searchNotes heals stale catalog paths for metadata-only queries", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale-search");
+  const liveDir = path.join(vaultPath, "notes", "literature", "live-search");
+  await fs.mkdir(staleDir, { recursive: true });
+  await fs.mkdir(liveDir, { recursive: true });
+  const now = new Date().toISOString();
+  const staleWrite = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_search_heal",
+      source_id: "src_search_heal",
+      title: "Search live",
+      quote_text: "Fresh body #freshtag",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_search_heal",
+    noteType: "literature",
+    title: "Search live",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleWrite.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await fs.unlink(staleWrite.path);
+  const liveWrite = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_search_heal",
+      source_id: "src_search_heal",
+      title: "Search live",
+      quote_text: "Fresh body #freshtag",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+
+  const result = await searchNotes(vaultPath, { query: "search" });
+  const item = result.items.find((entry) => entry.id === "ln_search_heal");
+  assert.ok(item);
+  assert.equal(item.markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
+});
+
 test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a missing file", async () => {
   const vaultPath = await makeTempVault();
   await initVault(vaultPath);
@@ -384,6 +439,65 @@ test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a miss
   assert.equal(note.note.title, "Restored copy");
   const catalogNote = await getNoteById(vaultPath, "ln_restore");
   assert.equal(catalogNote.markdownPath, path.relative(vaultPath, result.path).replaceAll("\\", "/"));
+});
+
+test("listNotesInDirectory heals stale notes and refreshes markdown-body tag relations", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale-list");
+  const liveDir = path.join(vaultPath, "notes", "literature", "live-list");
+  await fs.mkdir(staleDir, { recursive: true });
+  await fs.mkdir(liveDir, { recursive: true });
+  const now = new Date().toISOString();
+  const staleWrite = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_list_heal",
+      source_id: "src_list_heal",
+      title: "List heal",
+      quote_text: "Old body #oldtag",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_list_heal",
+    noteType: "literature",
+    title: "List heal",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleWrite.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await fs.unlink(staleWrite.path);
+  const liveWrite = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_list_heal",
+      source_id: "src_list_heal",
+      title: "List heal",
+      quote_text: "Fresh body #freshtag",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+
+  const notes = await listNotesInDirectory(vaultPath, "dir_literature_default");
+  const healed = notes.find((note) => note.id === "ln_list_heal");
+  assert.ok(healed);
+  assert.equal(healed.markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
+
+  const freshTag = await listNotesByTag(vaultPath, "freshtag");
+  assert.equal(freshTag.total, 1);
+  assert.equal(freshTag.items[0].id, "ln_list_heal");
+
+  const oldTag = await listNotesByTag(vaultPath, "oldtag");
+  assert.equal(oldTag.total, 0);
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {
