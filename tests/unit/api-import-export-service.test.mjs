@@ -1500,6 +1500,107 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
   });
 });
 
+test("rollbackImport keeps conflict failure visible in memory when failed lifecycle persistence also fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-conflict-persist-fail-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_conflict_persist_fail_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_rollback_conflict_persist_fail",
+          source_id: "src_rollback_conflict_persist_fail",
+          title: "Rollback conflict persist fail",
+          quote_text: "Rollback conflict persist body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const confirmService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await confirmService.confirmImport(record, { confirm: true }, "req_rollback_conflict_persist_fail_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  const recreatedPath = path.join(vaultPath, "notes", "literature", "ln_rollback_conflict_persist_fail.md");
+  const recreatedContent = "---\nstatus: draft\nsource_id: src_recreated\n---\n# Recreated with failed persistence\n\nUser kept newer content.";
+  const failingRollbackService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote,
+    appendImportRecord: async (currentVaultPath, connector, recordId, stage, body) => {
+      if (stage === "rollback") {
+        await fs.mkdir(path.dirname(recreatedPath), { recursive: true });
+        await fs.writeFile(recreatedPath, recreatedContent, "utf8");
+        throw Object.assign(new Error("rollback stage write failed"), { code: "IMPORT_ROLLBACK_STAGE_WRITE_FAILED" });
+      }
+      if (stage === "failed") {
+        throw Object.assign(new Error("failed stage write failed"), { code: "IMPORT_FAILED_STAGE_WRITE_FAILED" });
+      }
+      return appendImportRecord(currentVaultPath, connector, recordId, stage, body);
+    }
+  });
+
+  await assert.rejects(
+    () => failingRollbackService.rollbackImport(record, "req_rollback_conflict_persist_fail"),
+    (error) => {
+      assert.equal(error?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+      assert.equal(error?.details?.persistFailure?.code, "IMPORT_FAILED_STAGE_WRITE_FAILED");
+      return true;
+    }
+  );
+
+  assert.equal(record.state, "failed");
+  assert.equal(record.failureResult?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+  assert.deepEqual(record.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_rollback_conflict_persist_fail"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
+  await assert.rejects(
+    () => fs.access(path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.failed.json`)),
+    { code: "ENOENT" }
+  );
+});
+
 test("rollbackImport removes staged rollback backups after a successful rollback", async () => {
   const vaultPath = await makeTempDir("yansilu-service-rollback-stage-cleanup-");
   const importRecords = new Map();

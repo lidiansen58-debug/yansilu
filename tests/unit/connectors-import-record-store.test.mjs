@@ -193,6 +193,12 @@ test("loadImportRecord treats a corrupt rollback stage as a failed terminal life
   assert.equal(record?.failureResult?.code, "IMPORT_RECORD_STAGE_CORRUPTED");
   assert.equal(record?.failureResult?.details?.stages?.some((item) => item.stage === "rollback"), true);
   assert.equal(record?.confirmResult?.finishedAt, "2026-06-01T00:03:00.000Z");
+  assert.deepEqual(record?.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_corrupt_rollback"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
 });
 
 test("loadImportRecord treats a corrupt cancel stage as a failed terminal lifecycle instead of regressing to preview", async () => {
@@ -534,4 +540,76 @@ test("loadImportRecord ignores stale failed lifecycle once rollback completes", 
     total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
   });
   assert.equal(record?.updatedAt, "2026-06-01T00:05:00.000Z");
+});
+
+test("loadImportRecord reconstructs rollback restore conflicts from preserved backups when failed stage is missing", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_rollback_conflict_reload",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_1"], literatureNoteIds: ["ln_1"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_rollback_conflict_reload", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [{ id: "src_1" }],
+      literature: [{ id: "ln_1" }],
+      permanent: [],
+      warnings: []
+    }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_rollback_conflict_reload", "confirm", {
+    created: { sources: 0, literatureNotes: 1, permanentNotes: 0 },
+    skipped: { conflicted: 0, invalid: 0 },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    targetDirectories: [],
+    writtenPaths: ["notes/literature"],
+    createdFiles: [
+      {
+        noteId: "ln_1",
+        noteType: "literature",
+        path: "notes/literature/ln_1.md",
+        hash: "abc123"
+      }
+    ],
+    finishedAt: "2026-06-01T00:03:00.000Z"
+  });
+
+  const conflictPath = path.join(
+    vaultPath,
+    "imports",
+    "rollback-recovery-conflicts",
+    "imp_rollback_conflict_reload-abcd1234",
+    "notes",
+    "literature",
+    "ln_1.md"
+  );
+  await fs.mkdir(path.dirname(conflictPath), { recursive: true });
+  await fs.writeFile(conflictPath, "preserved rollback conflict", "utf8");
+
+  const record = await loadImportRecord(vaultPath, "imp_rollback_conflict_reload");
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+  assert.equal(record?.failureResult?.details?.conflicts?.[0]?.preservedPath.includes("imports/rollback-recovery-conflicts/imp_rollback_conflict_reload-abcd1234"), true);
+  assert.deepEqual(record?.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_1"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
 });

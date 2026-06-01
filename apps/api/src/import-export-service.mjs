@@ -563,11 +563,33 @@ export function createImportExportService({
     if (restoreResult.conflicts.length) {
       const conflictError = buildRollbackRestoreConflict(restoreResult.conflicts);
       if (causeError && !conflictError.cause) conflictError.cause = causeError;
-      await persistFailedImportRecord(record, record.connector, requestId, conflictError, {
-        selection: record.confirmResult?.selection || null,
-        candidateSelection: candidateSelectionFromSelection(record.candidates, record.confirmResult?.selection || null),
-        originalityGuard: record.originalityGuard || null
-      });
+      try {
+        await persistFailedImportRecord(record, record.connector, requestId, conflictError, {
+          selection: record.confirmResult?.selection || null,
+          candidateSelection: candidateSelectionFromSelection(record.candidates, record.confirmResult?.selection || null),
+          originalityGuard: record.originalityGuard || null
+        });
+      } catch (persistError) {
+        const finishedAt = new Date().toISOString();
+        record.state = "failed";
+        record.updatedAt = finishedAt;
+        record.failureResult = {
+          code: conflictError.code,
+          message: conflictError.message,
+          details: conflictError.details,
+          selection: record.confirmResult?.selection || null,
+          finishedAt
+        };
+        record.candidateSelection = candidateSelectionFromSelection(record.candidates, record.confirmResult?.selection || null);
+        importRecords.set(record.importRecordId, record);
+        conflictError.details = {
+          ...(conflictError.details || {}),
+          persistFailure: {
+            code: persistError?.code || null,
+            message: String(persistError?.message || persistError)
+          }
+        };
+      }
       throw conflictError;
     }
   }

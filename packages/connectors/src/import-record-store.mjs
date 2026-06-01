@@ -258,6 +258,27 @@ async function fileModifiedTimestamp(filePath) {
   return isoTimestamp(stat?.mtime);
 }
 
+async function listFilesRecursive(rootPath) {
+  let entries = [];
+  try {
+    entries = await fs.readdir(rootPath, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+
+  const files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(fullPath)));
+      continue;
+    }
+    if (entry.isFile()) files.push(fullPath);
+  }
+  return files;
+}
+
 function latestTimestamp(values = []) {
   const timestamps = values.map((value) => String(value || "").trim()).filter(Boolean);
   if (!timestamps.length) return null;
@@ -338,6 +359,56 @@ function corruptionFailureResult(corruptStages = [], finishedAt = null) {
     },
     selection: null,
     finishedAt
+  };
+}
+
+async function rollbackConflictFailureResult(vaultPath, recordId, confirmResult = null) {
+  const conflictRoot = path.join(vaultPath, "imports", "rollback-recovery-conflicts");
+  let entries = [];
+  try {
+    entries = await fs.readdir(conflictRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+
+  const matchingDirs = entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith(`${recordId}-`))
+    .map((entry) => path.join(conflictRoot, entry.name));
+  if (!matchingDirs.length) return null;
+
+  const createdFileByPath = new Map(
+    (Array.isArray(confirmResult?.createdFiles) ? confirmResult.createdFiles : []).map((item) => [String(item?.path || "").trim(), item])
+  );
+  const conflicts = [];
+  const timestamps = [];
+
+  for (const dirPath of matchingDirs) {
+    const files = await listFilesRecursive(dirPath);
+    for (const filePath of files) {
+      const originalPath = path.relative(dirPath, filePath).replaceAll("\\", "/");
+      const preservedPath = vaultRelativePath(vaultPath, filePath);
+      const stat = await statIfExists(filePath);
+      const finishedAt = isoTimestamp(stat?.mtime);
+      if (finishedAt) timestamps.push(finishedAt);
+      const createdEntry = createdFileByPath.get(originalPath) || null;
+      conflicts.push({
+        noteId: createdEntry?.noteId || null,
+        noteType: createdEntry?.noteType || null,
+        path: originalPath,
+        preservedPath,
+        reason: "destination_modified"
+      });
+    }
+  }
+
+  if (!conflicts.length) return null;
+  return {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: { conflicts },
+    selection: confirmResult?.selection || null,
+    finishedAt: latestTimestamp(timestamps)
   };
 }
 
@@ -490,10 +561,13 @@ export async function loadImportRecord(vaultPath, recordId) {
     terminalStageCorrupted || (!rollbackResult && !confirmResult && !cancelEnvelope && !failureResult && optionalCorruptStages.length)
       ? corruptionFailureResult(optionalCorruptStages, optionalCorruptUpdatedAt || preview.createdAt)
       : null;
+  const syntheticRollbackConflict = !failureResult && !rollbackResult && confirmResult
+    ? await rollbackConflictFailureResult(vaultPath, recordId, confirmResult)
+    : null;
   const state =
     rollbackResult
       ? "rolled_back"
-      : failureResult || syntheticFailureResult
+      : failureResult || syntheticRollbackConflict || syntheticFailureResult
         ? "failed"
         : confirmResult
           ? "completed"
@@ -504,7 +578,7 @@ export async function loadImportRecord(vaultPath, recordId) {
     ...(Array.isArray(preview.warnings) ? preview.warnings : []),
     ...optionalCorruptStages.map(corruptionWarning)
   ];
-  const effectiveFailureResult = rollbackResult ? null : failureResult || syntheticFailureResult;
+  const effectiveFailureResult = rollbackResult ? null : failureResult || syntheticRollbackConflict || syntheticFailureResult;
   const previewCandidateSelection = preview.candidateSelection || summarizeCandidateSelection(previewEnvelope.candidates || {});
   const confirmedCandidateSelection = confirmResult ? selectionCandidateSelection(previewEnvelope.candidates || {}, confirmResult.selection) : null;
   const failedCandidateSelection =
@@ -514,7 +588,7 @@ export async function loadImportRecord(vaultPath, recordId) {
     rollbackResult
       ? confirmedCandidateSelection || previewCandidateSelection
       : effectiveFailureResult
-        ? failedCandidateSelection || previewCandidateSelection
+        ? failedCandidateSelection || confirmedCandidateSelection || previewCandidateSelection
         : confirmResult
           ? confirmedCandidateSelection || previewCandidateSelection
           : previewCandidateSelection;
