@@ -9,7 +9,9 @@ import {
   readNote,
   createDirectory,
   createNoteInDirectory,
+  deleteNoteById,
   initVault,
+  registerMarkdownNoteInCatalog,
   writeLiteratureNoteIfAbsent,
   writeSourceIfAbsent
 } from "../../packages/domain/src/index.mjs";
@@ -100,6 +102,32 @@ test("runMarkdownExport resolves the active vault path at call time", async () =
   assert.match(exported, /From second vault/);
 });
 
+test("createPreview does not cache records when preview stage persistence fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-preview-stage-fail-");
+  const importRecords = new Map();
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+      if (stage === "preview") {
+        throw Object.assign(new Error("preview stage write failed"), { code: "IMPORT_PREVIEW_STAGE_WRITE_FAILED" });
+      }
+      return "";
+    }
+  });
+
+  await assert.rejects(
+    () => service.createPreview("readwise", {
+      highlights: [{ id: "hl_stage_fail_1", title: "Preview fail", text: "Body" }]
+    }, {}, "req_preview_stage_fail"),
+    {
+      code: "IMPORT_PREVIEW_STAGE_WRITE_FAILED"
+    }
+  );
+  assert.equal(importRecords.size, 0);
+});
+
 test("confirmImport persists cancelled records so history survives reload", async () => {
   const vaultPath = await makeTempDir("yansilu-service-cancel-");
   const importRecords = new Map();
@@ -144,6 +172,44 @@ test("confirmImport persists cancelled records so history survives reload", asyn
   const reloaded = await service.getImportRecord(record.importRecordId);
   assert.equal(reloaded?.state, "cancelled");
   assert.match(String(reloaded?.updatedAt || ""), /T/);
+});
+
+test("confirmImport does not switch memory state to cancelled when cancel stage persistence fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-cancel-stage-fail-");
+  const importRecords = new Map();
+  const record = {
+    importRecordId: "imp_cancel_fail_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+      if (stage === "cancel") {
+        throw Object.assign(new Error("cancel stage write failed"), { code: "IMPORT_CANCEL_STAGE_WRITE_FAILED" });
+      }
+      return "";
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: false }, "req_cancel_stage_fail"),
+    {
+      code: "IMPORT_CANCEL_STAGE_WRITE_FAILED"
+    }
+  );
+  assert.equal(record.state, "preview");
+  assert.equal(importRecords.get(record.importRecordId)?.state, "preview");
 });
 
 test("runMarkdownExport requires a permanent-note directory id", async () => {
@@ -392,6 +458,70 @@ test("confirmImport persists finishedAt so completed records reload with complet
   assert.equal(reloaded?.state, "completed");
   assert.equal(reloaded?.updatedAt, result.finishedAt);
   assert.equal(reloaded?.confirmResult?.finishedAt, result.finishedAt);
+});
+
+test("confirmImport rolls back created files when confirm stage persistence fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-stage-fail-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_confirm_stage_fail_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_confirm_stage_fail",
+          source_type: "markdown",
+          title: "Confirm stage fail",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Body"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage, body) => {
+      if (stage === "confirm") {
+        throw Object.assign(new Error("confirm stage write failed"), {
+          code: "IMPORT_CONFIRM_STAGE_WRITE_FAILED",
+          body
+        });
+      }
+      return "";
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_confirm_stage_fail"),
+    {
+      code: "IMPORT_CONFIRM_STAGE_WRITE_FAILED"
+    }
+  );
+
+  assert.equal(record.state, "preview");
+  assert.equal(record.confirmResult, undefined);
+  await assert.rejects(() => readNote(vaultPath, "source", "src_confirm_stage_fail"), { code: "ENOENT" });
+  await assert.rejects(() => fs.access(path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.confirm.json`)), {
+    code: "ENOENT"
+  });
 });
 
 test("confirmImport rejects an unknown selected directory id instead of silently falling back", async () => {
@@ -1143,4 +1273,88 @@ test("confirmImport cleans up copied obsidian assets when staged entry creation 
   await fs.access(path.join(vaultPath, "assets", "imports"));
   const copiedAsset = path.join(vaultPath, "assets", "imports", record.importRecordId, "images", "figure.png");
   await assert.rejects(() => fs.access(copiedAsset), { code: "ENOENT" });
+});
+
+test("rollbackImport restores files and completed state when rollback stage persistence fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-stage-fail-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_stage_fail_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_rollback_stage_fail",
+          source_id: "src_rollback_stage_fail",
+          title: "Rollback stage fail",
+          quote_text: "Rollback body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const confirmService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await confirmService.confirmImport(record, { confirm: true }, "req_rollback_stage_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  const failingRollbackService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+      if (stage === "rollback") {
+        throw Object.assign(new Error("rollback stage write failed"), { code: "IMPORT_ROLLBACK_STAGE_WRITE_FAILED" });
+      }
+      return "";
+    }
+  });
+
+  await assert.rejects(
+    () => failingRollbackService.rollbackImport(record, "req_rollback_stage_fail"),
+    {
+      code: "IMPORT_ROLLBACK_STAGE_WRITE_FAILED"
+    }
+  );
+
+  assert.equal(record.state, "completed");
+  assert.equal(record.rollbackResult, undefined);
+  const restored = await readNote(vaultPath, "literature", "ln_rollback_stage_fail");
+  assert.equal(restored.note.title, "Rollback stage fail");
 });

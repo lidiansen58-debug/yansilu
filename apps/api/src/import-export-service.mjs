@@ -312,6 +312,110 @@ export function createImportExportService({
     if (cleanupFailure) throw cleanupFailure;
   }
 
+  async function rollbackCreatedFilesWithRecovery(createdFiles = []) {
+    if (rollbackCreatedFilesImpl !== rollbackCreatedFiles) {
+      const result = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
+      return {
+        rolledBack: Array.isArray(result?.rolledBack) ? result.rolledBack : [],
+        skipped: Array.isArray(result?.skipped) ? result.skipped : [],
+        backups: []
+      };
+    }
+
+    const rolledBack = [];
+    const skipped = [];
+    const backups = [];
+
+    for (const item of Array.isArray(createdFiles) ? createdFiles : []) {
+      const fullPath = createdFileAbsolutePath(item);
+      if (!fullPath) {
+        skipped.push({ ...item, reason: "PATH_INVALID" });
+        continue;
+      }
+      try {
+        const current = await fs.readFile(fullPath);
+        const currentHash = contentHash(current);
+        if (currentHash !== item.hash) {
+          skipped.push({ ...item, reason: "modified" });
+          continue;
+        }
+        backups.push({
+          ...item,
+          fullPath,
+          content: current
+        });
+        await fs.unlink(fullPath);
+        rolledBack.push(item);
+      } catch (error) {
+        skipped.push({ ...item, reason: String(error?.code || error?.message || error) });
+      }
+    }
+
+    return { rolledBack, skipped, backups };
+  }
+
+  async function restoreRolledBackFiles(backups = []) {
+    for (const item of Array.isArray(backups) ? backups : []) {
+      if (!item?.fullPath) continue;
+      await fs.mkdir(path.dirname(item.fullPath), { recursive: true });
+      await fs.writeFile(item.fullPath, item.content);
+    }
+  }
+
+  function targetDirectoryMapForConfirmResult(confirmResult = null) {
+    return new Map(
+      (Array.isArray(confirmResult?.targetDirectories) ? confirmResult.targetDirectories : []).map((item) => [
+        String(item?.noteType || "").trim(),
+        String(item?.directoryId || "").trim()
+      ])
+    );
+  }
+
+  function importCandidateForRollback(candidates = {}, noteType = "", noteId = "") {
+    const cleanNoteId = String(noteId || "").trim();
+    const bucket =
+      noteType === "literature"
+        ? candidates?.literature
+        : noteType === "permanent"
+          ? candidates?.permanent
+          : [];
+    return (Array.isArray(bucket) ? bucket : []).find((item) => String(item?.id || "").trim() === cleanNoteId) || null;
+  }
+
+  async function deleteRolledBackCatalogEntries(rolledBack = []) {
+    const deleted = [];
+    for (const item of Array.isArray(rolledBack) ? rolledBack : []) {
+      if (item.noteType !== "literature" && item.noteType !== "permanent") continue;
+      await deleteNoteById(vaultPath(), item.noteId, { deleteFile: false });
+      deleted.push(item);
+    }
+    return deleted;
+  }
+
+  async function restoreRolledBackCatalogEntries(record, deletedEntries = [], backups = []) {
+    const backupByKey = new Map(
+      (Array.isArray(backups) ? backups : []).map((item) => [`${item.noteType}:${item.noteId}`, item])
+    );
+    const directoryIds = targetDirectoryMapForConfirmResult(record?.confirmResult || null);
+    for (const item of Array.isArray(deletedEntries) ? deletedEntries : []) {
+      if (item.noteType !== "literature" && item.noteType !== "permanent") continue;
+      const backup = backupByKey.get(`${item.noteType}:${item.noteId}`);
+      if (!backup?.fullPath) continue;
+      const candidate = importCandidateForRollback(record?.candidates || {}, item.noteType, item.noteId);
+      if (!candidate) {
+        const error = new Error(`rollback restore candidate missing: ${item.noteType}:${item.noteId}`);
+        error.code = "IMPORT_ROLLBACK_RESTORE_CANDIDATE_MISSING";
+        throw error;
+      }
+      await registerImportCatalogNote(candidate, item.noteType, {
+        written: true,
+        noteId: item.noteId,
+        noteType: item.noteType,
+        path: backup.fullPath
+      }, directoryIds.get(item.noteType) || "");
+    }
+  }
+
   function fallbackCreatedEntryFromWriteResult(result) {
     const hash = String(result?.contentHash || "").trim();
     if (!result?.path || !hash) return null;
@@ -466,14 +570,6 @@ export function createImportExportService({
       createdAt: new Date().toISOString()
     };
 
-    importRecords.set(importRecordId, {
-      ...preview,
-      state: "preview",
-      payload,
-      options,
-      candidates: built,
-      updatedAt: preview.createdAt
-    });
     await initVault(vaultPath());
     await appendImportRecordImpl(vaultPath(), connector, importRecordId, "preview", {
       requestId,
@@ -481,6 +577,14 @@ export function createImportExportService({
       payload,
       options,
       candidates: built
+    });
+    importRecords.set(importRecordId, {
+      ...preview,
+      state: "preview",
+      payload,
+      options,
+      candidates: built,
+      updatedAt: preview.createdAt
     });
     return preview;
   }
@@ -519,14 +623,14 @@ export function createImportExportService({
     }
     if (body.confirm === false) {
       const finishedAt = new Date().toISOString();
-      record.state = "cancelled";
-      record.updatedAt = finishedAt;
-      importRecords.set(record.importRecordId, record);
       await initVault(vaultPath());
       await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "cancel", {
         requestId,
         finishedAt
       });
+      record.state = "cancelled";
+      record.updatedAt = finishedAt;
+      importRecords.set(record.importRecordId, record);
       return { importRecordId: record.importRecordId, status: "cancelled", message: "Import cancelled." };
     }
     if (body.confirm !== true) {
@@ -725,9 +829,7 @@ export function createImportExportService({
       });
     }
 
-    record.state = "completed";
-    record.originalityGuard = confirmGuard;
-    record.confirmResult = {
+    const confirmResult = {
       created,
       skipped,
       selection: selected.selection,
@@ -736,23 +838,49 @@ export function createImportExportService({
       createdFiles,
       finishedAt: new Date().toISOString()
     };
-    record.updatedAt = record.confirmResult.finishedAt;
-    importRecords.set(record.importRecordId, record);
-    await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "confirm", {
-      requestId,
-      created,
-      skipped,
-      selection: record.confirmResult.selection,
-      targetDirectories,
-      writtenPaths: record.confirmResult.writtenPaths,
-      createdFiles,
-      finishedAt: record.confirmResult.finishedAt,
-      originalityGuard: {
-        plan: confirmGuard.plan,
-        blockedPermanentIds: confirmGuard.flaggedPermanentIds,
-        evaluations: confirmGuard.evaluations
+    try {
+      await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "confirm", {
+        requestId,
+        created,
+        skipped,
+        selection: confirmResult.selection,
+        targetDirectories,
+        writtenPaths: confirmResult.writtenPaths,
+        createdFiles,
+        finishedAt: confirmResult.finishedAt,
+        originalityGuard: {
+          plan: confirmGuard.plan,
+          blockedPermanentIds: confirmGuard.flaggedPermanentIds,
+          evaluations: confirmGuard.evaluations
+        }
+      });
+    } catch (error) {
+      let failedError = error;
+      try {
+        await cleanupCreatedArtifacts(createdFiles);
+      } catch (cleanupError) {
+        if (!cleanupError.cause) cleanupError.cause = error;
+        failedError = cleanupError;
       }
-    });
+      if (failedError !== error) {
+        await persistFailedImportRecord(record, record.connector, requestId, failedError, {
+          selection: selected.selection,
+          candidateSelection: summarizeCandidateSelection(selected.candidates),
+          originalityGuard: {
+            plan: confirmGuard.plan,
+            blockedPermanentIds: confirmGuard.flaggedPermanentIds,
+            evaluations: confirmGuard.evaluations
+          }
+        });
+      }
+      throw failedError;
+    }
+
+    record.state = "completed";
+    record.originalityGuard = confirmGuard;
+    record.confirmResult = confirmResult;
+    record.updatedAt = confirmResult.finishedAt;
+    importRecords.set(record.importRecordId, record);
 
     return {
       importRecordId: record.importRecordId,
@@ -760,9 +888,9 @@ export function createImportExportService({
       result: {
         created,
         skipped,
-        selection: record.confirmResult.selection,
+        selection: confirmResult.selection,
         targetDirectories,
-        writtenPaths: record.confirmResult.writtenPaths,
+        writtenPaths: confirmResult.writtenPaths,
         createdFiles
       },
       originalityGuard: {
@@ -770,7 +898,7 @@ export function createImportExportService({
         blockedPermanentIds: confirmGuard.flaggedPermanentIds,
         evaluations: confirmGuard.evaluations
       },
-      finishedAt: record.confirmResult.finishedAt
+      finishedAt: confirmResult.finishedAt
     };
   }
 
@@ -782,30 +910,49 @@ export function createImportExportService({
     }
 
     const createdFiles = Array.isArray(record.confirmResult?.createdFiles) ? record.confirmResult.createdFiles : [];
-    const { rolledBack, skipped } = await rollbackCreatedFiles(vaultPath(), createdFiles);
-    for (const item of rolledBack) {
-      if (item.noteType === "literature" || item.noteType === "permanent") {
-        try {
-          await deleteNoteById(vaultPath(), item.noteId);
-        } catch {}
+    const { rolledBack, skipped, backups } = await rollbackCreatedFilesWithRecovery(createdFiles);
+    let deletedCatalogEntries = [];
+    try {
+      deletedCatalogEntries = await deleteRolledBackCatalogEntries(rolledBack);
+    } catch (error) {
+      try {
+        await restoreRolledBackFiles(backups);
+        await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
+      } catch (restoreError) {
+        if (!restoreError.cause) restoreError.cause = error;
+        throw restoreError;
       }
+      throw error;
     }
 
     const finishedAt = new Date().toISOString();
-    record.state = "rolled_back";
-    record.rollbackResult = {
+    const rollbackResult = {
       rolledBack,
       skipped,
       finishedAt
     };
+    try {
+      await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "rollback", {
+        requestId,
+        rolledBack,
+        skipped,
+        finishedAt
+      });
+    } catch (error) {
+      try {
+        await restoreRolledBackFiles(backups);
+        await restoreRolledBackCatalogEntries(record, deletedCatalogEntries, backups);
+      } catch (restoreError) {
+        if (!restoreError.cause) restoreError.cause = error;
+        throw restoreError;
+      }
+      throw error;
+    }
+
+    record.state = "rolled_back";
+    record.rollbackResult = rollbackResult;
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
-    await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "rollback", {
-      requestId,
-      rolledBack,
-      skipped,
-      finishedAt
-    });
 
     return {
       importRecordId: record.importRecordId,
