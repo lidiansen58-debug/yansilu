@@ -77,6 +77,7 @@ test("listImportRecords restores records from disk in updated order with limit",
   assert.equal(records.length, 1);
   assert.equal(records[0].importRecordId, "imp_newer");
   assert.equal(records[0].state, "completed");
+  assert.equal(records[0].updatedAt, "2026-04-22T00:02:00.000Z");
 });
 
 test("publicImportRecord returns the safe API-facing record shape", () => {
@@ -187,6 +188,12 @@ test("loadImportRecord restores failed lifecycle records from disk", async () =>
     state: "preview",
     summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
     samples: { sourceIds: ["src_1"], literatureNoteIds: ["ln_1"], permanentNoteIds: [] },
+    candidateSelection: {
+      sources: ["src_1"],
+      literatureNotes: ["ln_1"],
+      permanentNotes: [],
+      total: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
     warnings: [],
     createdAt: "2026-06-01T00:00:00.000Z"
   };
@@ -201,6 +208,24 @@ test("loadImportRecord restores failed lifecycle records from disk", async () =>
     code: "IMPORT_CLEANUP_PRESERVE_FAILED",
     message: "preserve move failed",
     details: { preserved: 1 },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_1"],
+      permanentNotes: [],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: {
+      plan: { allowDraftOnWarning: true, blockOnBlocked: true, blockThreshold: 0.85, warnThreshold: 0.6 },
+      blockedPermanentIds: [],
+      evaluations: []
+    },
     finishedAt: "2026-06-01T00:05:00.000Z"
   });
 
@@ -210,5 +235,12 @@ test("loadImportRecord restores failed lifecycle records from disk", async () =>
   assert.equal(record?.status, "preview");
   assert.equal(record?.failureResult?.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
   assert.equal(record?.failureResult?.message, "preserve move failed");
+  assert.equal(record?.failureResult?.selection?.selectedCandidates, 1);
+  assert.deepEqual(record?.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_1"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
   assert.equal(record?.updatedAt, "2026-06-01T00:05:00.000Z");
 });

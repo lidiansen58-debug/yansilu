@@ -216,6 +216,7 @@ export async function loadImportRecord(vaultPath, recordId) {
         code: String(failedEnvelope.code || "").trim() || null,
         message: String(failedEnvelope.message || "").trim() || null,
         details: failedEnvelope.details || null,
+        selection: failedEnvelope.selection || null,
         finishedAt: failedEnvelope.finishedAt || null
       }
     : null;
@@ -242,10 +243,11 @@ export async function loadImportRecord(vaultPath, recordId) {
   return {
     ...preview,
     state,
+    candidateSelection: failedEnvelope?.candidateSelection || preview.candidateSelection || summarizeCandidateSelection(previewEnvelope.candidates || {}),
     payload: previewEnvelope.payload || {},
     options: previewEnvelope.options || {},
     candidates: previewEnvelope.candidates || { sources: [], literature: [], permanent: [], warnings: [] },
-    originalityGuard: confirmEnvelope?.originalityGuard || preview.originalityGuard || null,
+    originalityGuard: confirmEnvelope?.originalityGuard || failedEnvelope?.originalityGuard || preview.originalityGuard || null,
     failureResult,
     confirmResult,
     rollbackResult,

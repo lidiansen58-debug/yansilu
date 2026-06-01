@@ -312,6 +312,88 @@ test("confirmImport reports only directories that received imported notes", asyn
   assert.match(result.result.targetDirectories[0].label, /Imported reading batch/);
 });
 
+test("confirmImport persists finishedAt so completed records reload with completion ordering", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-finished-at-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_finished_at_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_finished_at",
+          source_type: "markdown",
+          title: "Finished at source",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Body"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+  await appendImportRecord(vaultPath, "markdown", record.importRecordId, "preview", {
+    preview: {
+      importRecordId: record.importRecordId,
+      status: "preview",
+      connector: "markdown",
+      summary: { sources: 1, literatureNotes: 0, permanentNotes: 0, warnings: 0 },
+      samples: { sourceIds: ["src_finished_at"], literatureNoteIds: [], permanentNoteIds: [] },
+      candidatePreview: {
+        sources: [{ id: "src_finished_at", type: "Source", title: "Finished at source", status: "candidate" }],
+        literatureNotes: [],
+        permanentNotes: [],
+        total: { sources: 1, literatureNotes: 0, permanentNotes: 0 },
+        truncated: false
+      },
+      candidateSelection: {
+        sources: ["src_finished_at"],
+        literatureNotes: [],
+        permanentNotes: [],
+        total: { sources: 1, literatureNotes: 0, permanentNotes: 0 }
+      },
+      warnings: [],
+      originalityGuard: null,
+      createdAt: record.createdAt
+    },
+    payload: record.payload,
+    options: record.options,
+    candidates: record.candidates
+  });
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent
+  });
+
+  const result = await service.confirmImport(record, { confirm: true }, "req_finished_at");
+  const confirmStagePath = path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.confirm.json`);
+  const confirmStage = JSON.parse(await fs.readFile(confirmStagePath, "utf8"));
+
+  assert.equal(typeof result.finishedAt, "string");
+  assert.equal(confirmStage.finishedAt, result.finishedAt);
+
+  importRecords.clear();
+  const reloaded = await service.getImportRecord(record.importRecordId);
+  assert.equal(reloaded?.state, "completed");
+  assert.equal(reloaded?.updatedAt, result.finishedAt);
+  assert.equal(reloaded?.confirmResult?.finishedAt, result.finishedAt);
+});
+
 test("confirmImport rejects an unknown selected directory id instead of silently falling back", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-invalid-dir-");
   const importRecords = new Map();
@@ -827,7 +909,27 @@ test("confirmImport persists failed lifecycle records when preserve cleanup fail
   const failedStagePath = path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.failed.json`);
   const failedStage = JSON.parse(await fs.readFile(failedStagePath, "utf8"));
   assert.equal(failedStage.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
-
+  assert.deepEqual(failedStage.selection, {
+    mode: "all",
+    candidateIds: ["src_preserve_failed_record"],
+    totalCandidates: 1,
+    selectedCandidates: 1,
+    counts: {
+      sources: 1,
+      literatureNotes: 0,
+      permanentNotes: 0
+    }
+  });
+  assert.deepEqual(failedStage.candidateSelection, {
+    sources: ["src_preserve_failed_record"],
+    literatureNotes: [],
+    permanentNotes: [],
+    total: {
+      sources: 1,
+      literatureNotes: 0,
+      permanentNotes: 0
+    }
+  });
 });
 
 test("confirmImport does not switch memory state to failed when failed stage persistence itself fails", async () => {

@@ -397,7 +397,7 @@ export function createImportExportService({
     return null;
   }
 
-  async function persistFailedImportRecord(record, connector, requestId, error) {
+  async function persistFailedImportRecord(record, connector, requestId, error, context = {}) {
     const finishedAt = new Date().toISOString();
     const failureResult = {
       code: error?.code || null,
@@ -405,16 +405,27 @@ export function createImportExportService({
       details: failureDetailsFor(error),
       finishedAt
     };
+    const failedSelection = context?.selection || null;
+    const failedCandidateSelection = context?.candidateSelection || null;
+    const failedOriginalityGuard = context?.originalityGuard || null;
     await appendImportRecordImpl(vaultPath(), connector, record.importRecordId, "failed", {
       requestId,
       code: failureResult.code,
       message: failureResult.message,
       details: failureResult.details,
-      finishedAt
+      finishedAt,
+      selection: failedSelection,
+      candidateSelection: failedCandidateSelection,
+      originalityGuard: failedOriginalityGuard
     });
     record.state = "failed";
     record.updatedAt = finishedAt;
-    record.failureResult = failureResult;
+    record.failureResult = {
+      ...failureResult,
+      selection: failedSelection
+    };
+    if (failedCandidateSelection) record.candidateSelection = failedCandidateSelection;
+    if (failedOriginalityGuard) record.originalityGuard = failedOriginalityGuard;
     importRecords.set(record.importRecordId, record);
   }
 
@@ -686,7 +697,15 @@ export function createImportExportService({
         if (!cleanupError.cause) cleanupError.cause = error;
         failedError = cleanupError;
       }
-      await persistFailedImportRecord(record, record.connector, requestId, failedError);
+      await persistFailedImportRecord(record, record.connector, requestId, failedError, {
+        selection: selected.selection,
+        candidateSelection: summarizeCandidateSelection(selected.candidates),
+        originalityGuard: {
+          plan: confirmGuard.plan,
+          blockedPermanentIds: confirmGuard.flaggedPermanentIds,
+          evaluations: confirmGuard.evaluations
+        }
+      });
       throw failedError;
     }
 
@@ -727,6 +746,7 @@ export function createImportExportService({
       targetDirectories,
       writtenPaths: record.confirmResult.writtenPaths,
       createdFiles,
+      finishedAt: record.confirmResult.finishedAt,
       originalityGuard: {
         plan: confirmGuard.plan,
         blockedPermanentIds: confirmGuard.flaggedPermanentIds,

@@ -7,6 +7,7 @@ import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseMarkdownWithFrontmatter } from "../../packages/domain/src/index.mjs";
+import { appendImportRecord } from "../../packages/connectors/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -173,7 +174,19 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
   ]);
   assertRequiredFields(schema.properties.candidateSelection, ["sources", "literatureNotes", "permanentNotes", "total"]);
   assertRequiredFields(schema.properties.candidateSelection.properties.total, ["sources", "literatureNotes", "permanentNotes"]);
-  assertRequiredFields(schema.properties.failureResult, ["code", "message", "details", "finishedAt"]);
+  assertRequiredFields(schema.properties.failureResult, ["code", "message", "details", "selection", "finishedAt"]);
+  assertRequiredFields(schema.properties.failureResult.properties.selection, [
+    "mode",
+    "candidateIds",
+    "totalCandidates",
+    "selectedCandidates",
+    "counts"
+  ]);
+  assertRequiredFields(schema.properties.failureResult.properties.selection.properties.counts, [
+    "sources",
+    "literatureNotes",
+    "permanentNotes"
+  ]);
 }
 
 function validateSchema(schema, value, location = "$") {
@@ -1139,6 +1152,97 @@ test("API import records can be restored from disk after restart", async (t) => 
     sources: 1,
     literatureNotes: 1,
     permanentNotes: 0
+  });
+});
+
+test("API failed import records can be restored from disk after restart with subset selection", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-restore-failed-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+
+  t.after(async () => {
+    await stopApi(child);
+  });
+
+  const preview = {
+    importRecordId: "imp_restore_failed",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_restore_failed"], literatureNoteIds: ["ln_restore_failed"], permanentNoteIds: [] },
+    candidateSelection: {
+      sources: ["src_restore_failed"],
+      literatureNotes: ["ln_restore_failed"],
+      permanentNotes: [],
+      total: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_restore_failed", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_restore_failed", "failed", {
+    code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+    message: "preserve move failed",
+    details: { preserved: 1 },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_restore_failed"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_restore_failed"],
+      permanentNotes: [],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: {
+      plan: { allowDraftOnWarning: true, blockOnBlocked: true, blockThreshold: 0.85, warnThreshold: 0.6 },
+      blockedPermanentIds: [],
+      evaluations: []
+    },
+    finishedAt: "2026-06-01T00:05:00.000Z"
+  });
+
+  await waitForHealth(baseUrl);
+
+  const schema = await readImportRecordSchema();
+  const restoredRecord = await getJson(baseUrl, "/api/v1/imports/imp_restore_failed");
+  assert.equal(restoredRecord.status, 200);
+  assert.equal(restoredRecord.json.importRecord.status, "failed");
+  assert.equal(restoredRecord.json.importRecord.failureResult.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
+  assert.equal(restoredRecord.json.importRecord.failureResult.selection.selectedCandidates, 1);
+  assert.deepEqual(restoredRecord.json.importRecord.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_restore_failed"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
+  assert.equal(restoredRecord.json.importRecord.updatedAt, "2026-06-01T00:05:00.000Z");
+  validateSchema(schema, restoredRecord.json.importRecord);
+
+  await stopApi(child);
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+
+  const reloadedRecord = await getJson(baseUrl, "/api/v1/imports/imp_restore_failed");
+  assert.equal(reloadedRecord.status, 200);
+  assert.equal(reloadedRecord.json.importRecord.status, "failed");
+  assert.equal(reloadedRecord.json.importRecord.failureResult.selection.mode, "subset");
+  assert.deepEqual(reloadedRecord.json.importRecord.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_restore_failed"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
   });
 });
 
