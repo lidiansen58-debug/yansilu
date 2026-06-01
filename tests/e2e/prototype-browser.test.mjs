@@ -7556,6 +7556,11 @@ test("prototype graph panel bridge gap followup opens relation creation on an is
   await waitFor(async () => {
     assert.equal(await page.locator('.quick-entry.active.current-root[data-action="quick-original"]').count(), 1);
   }, 4000);
+  await page.evaluate(() => window.__prototypeEditor?.onStatus?.("桥接动作后的失败提示", "bad"));
+  await waitFor(async () => {
+    const statusText = await currentStatusText(page);
+    assert.match(String(statusText || ""), /桥接动作后的失败提示/);
+  }, 4000);
 
   const relationFormText = await page.locator("[data-create-relation-form]").textContent();
   assert.ok(String(relationFormText || "").trim().length > 0);
@@ -7639,9 +7644,12 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
   if (!playwright) return;
 
   let aiAnalysisMode = "success";
+  const requestedDirectoryIds = [];
   const stack = await startPrototypeStack(t, playwright, {
     beforeGoto: async (page) => {
       await page.route("**/api/v1/graph/ai-analysis", async (route) => {
+        const payload = route.request().postDataJSON?.() || {};
+        requestedDirectoryIds.push(String(payload.directoryId || ""));
         if (aiAnalysisMode === "fail") {
           await route.abort("failed");
           return;
@@ -7675,8 +7683,20 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
     }
   });
   if (!stack) return;
-  const { page } = stack;
+  const { apiBase, page, vaultPath, webBase } = stack;
 
+  const graphDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Graph AI Scope",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "graph-ai-scope"),
+    maxNotes: 500
+  });
+  assert.equal(graphDirectory.status, 201, JSON.stringify(graphDirectory.json));
+  const graphDirectoryId = graphDirectory.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${graphDirectoryId}"]`).click();
   await page.locator('.rail-btn[data-module="graph"]').click();
   await page.locator('[data-graph-section="ai-analysis"] summary').click();
   await page.locator('[data-run-graph-ai-analysis]').click();
@@ -7684,6 +7704,7 @@ test("prototype graph ai analysis badge counts candidates and opens on failure",
   await waitFor(async () => {
     const badge = await page.locator('[data-graph-section="ai-analysis"] .graph-collapsible-badge').textContent();
     assert.match(String(badge || ""), /4 项/);
+    assert.equal(requestedDirectoryIds.at(-1), graphDirectoryId);
   }, 4000);
 
   aiAnalysisMode = "fail";

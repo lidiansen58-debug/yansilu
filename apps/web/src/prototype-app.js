@@ -599,7 +599,11 @@ function setStatus(text, cls = "", options = {}) {
   const requiredModule = String(options?.requireModule || "").trim();
   if (requiredModule && state.module !== requiredModule) return false;
   const now = Date.now();
-  const incomingPriority = Number(options?.priority || 0) || 0;
+  const incomingTone = String(cls || "").trim().toLowerCase();
+  const incomingPriority = Math.max(
+    Number(options?.priority || 0) || 0,
+    incomingTone === "bad" ? 4 : incomingTone === "warn" ? 3 : 0
+  );
   const force = options?.force === true;
   if (!force && now < statusHoldUntil && incomingPriority < statusHoldPriority) return false;
   statusRevision += 1;
@@ -10026,11 +10030,12 @@ async function refreshDirectoryGraph() {
 
 async function runGraphAiAnalysis() {
   if (graphState.aiAnalysisLoading) return;
+  const directoryId = graphScopeDirectoryId();
   graphState.aiAnalysisLoading = true;
   graphState.aiAnalysisError = "";
   renderGraphPanel();
   try {
-    const result = await analyzeDirectoryGraph(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, {
+    const result = await analyzeDirectoryGraph(directoryId, {
       includeDescendants: true,
       minRelationConfidence: 0.05,
       persistArtifacts: true
