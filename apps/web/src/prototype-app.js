@@ -3157,7 +3157,7 @@ async function refreshImportHistory({ silent = false } = {}) {
   }
 }
 
-async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读取导入记录" } = {}) {
+async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读取导入记录", statusTone = "ok", announce = true } = {}) {
   const cleanImportRecordId = String(importRecordId || "").trim();
   if (!cleanImportRecordId) throw new Error("importRecordId is required");
   const importRecord = await fetchImportRecord(cleanImportRecordId);
@@ -3176,7 +3176,7 @@ async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读�
     stage: "record",
     importRecord
   });
-  setStatus(`${statusPrefix}：${cleanImportRecordId}`, "ok");
+  if (announce) setStatus(`${statusPrefix}：${cleanImportRecordId}`, statusTone);
   return importRecord;
 }
 

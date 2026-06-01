@@ -26,7 +26,10 @@ function resolveImportRecordId(values = {}, fallbackImportRecordId = "") {
 }
 
 export function selectedCandidateGroups(candidatePreview = null, selectedIds = []) {
-  const selectedIdSet = selectedIds instanceof Set ? selectedIds : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  const selectedIdSet =
+    selectedIds instanceof Set
+      ? selectedIds
+      : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
   return [
     ...new Set(
       candidatePreviewItems(candidatePreview)
@@ -38,7 +41,10 @@ export function selectedCandidateGroups(candidatePreview = null, selectedIds = [
 }
 
 function selectedCandidateGroupsFromSelection(candidateSelection = null, selectedIds = []) {
-  const selectedIdSet = selectedIds instanceof Set ? selectedIds : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  const selectedIdSet =
+    selectedIds instanceof Set
+      ? selectedIds
+      : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
   if (!selectedIdSet.size || !candidateSelection || typeof candidateSelection !== "object") return [];
   const groups = [];
   if ((Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
@@ -62,9 +68,10 @@ export function validateImportDirectorySelection({
 } = {}) {
   const cleanDirectoryId = String(directoryId || "").trim();
   if (!cleanDirectoryId) return null;
-  const groups = (selectedCandidateGroupsFromSelection(candidateSelection, selectedIds).length
-    ? selectedCandidateGroupsFromSelection(candidateSelection, selectedIds)
-    : selectedCandidateGroups(candidatePreview, selectedIds)
+  const groups = (
+    selectedCandidateGroupsFromSelection(candidateSelection, selectedIds).length
+      ? selectedCandidateGroupsFromSelection(candidateSelection, selectedIds)
+      : selectedCandidateGroups(candidatePreview, selectedIds)
   ).filter((group) => group !== "Source");
   if (!groups.length) return null;
   if (groups.includes("LiteratureNote") && groups.includes("PermanentNote")) {
@@ -180,6 +187,22 @@ export function createImportToolbarActions({
       await refreshImportedNotesView?.();
       return result;
     } catch (error) {
+      let syncedRecord = null;
+      try {
+        if (importRecordId && typeof loadImportRecordIntoUi === "function") {
+          syncedRecord = await loadImportRecordIntoUi(importRecordId, { announce: false });
+          await refreshImportHistory?.({ silent: true });
+        }
+      } catch {}
+      const syncedStatus = String(syncedRecord?.status || syncedRecord?.state || "").trim();
+      if (syncedStatus && syncedStatus !== "preview") {
+        const statusText =
+          syncedStatus === "failed"
+            ? `导入确认失败，已同步失败记录：${importRecordId}`
+            : `导入确认未完成，已同步当前记录：${importRecordId}`;
+        setStatus?.(statusText, "warn");
+        return null;
+      }
       showImportResult?.({
         stage: "confirm_error",
         importRecordId,

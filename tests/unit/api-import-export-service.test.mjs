@@ -44,6 +44,7 @@ function createService(overrides = {}) {
     writePermanentNoteIfAbsent: overrides.writePermanentNoteIfAbsent || (async () => ({ written: false })),
     deleteNoteById: overrides.deleteNoteById || (async () => {}),
     registerImportCatalogNote: overrides.registerImportCatalogNote || (async () => null),
+    appendImportRecord: overrides.appendImportRecord,
     createdEntryFromWriteResult: overrides.createdEntryFromWriteResult,
     createdEntryFromVaultPath: overrides.createdEntryFromVaultPath,
     rollbackCreatedFiles: overrides.rollbackCreatedFiles
@@ -827,6 +828,70 @@ test("confirmImport persists failed lifecycle records when preserve cleanup fail
   const failedStage = JSON.parse(await fs.readFile(failedStagePath, "utf8"));
   assert.equal(failedStage.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
 
+});
+
+test("confirmImport does not switch memory state to failed when failed stage persistence itself fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-failed-persist-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(vaultPath, "imports"), { recursive: true });
+  await fs.writeFile(path.join(vaultPath, "imports", "recovered-failed-imports"), "blocked", "utf8");
+
+  const record = {
+    importRecordId: "imp_failed_persist_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_failed_persist",
+          source_type: "markdown",
+          title: "Failed persist source",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Original content"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+      if (stage === "failed") {
+        throw Object.assign(new Error("failed stage write failed"), { code: "IMPORT_FAILED_STAGE_WRITE_FAILED" });
+      }
+      return "";
+    },
+    createdEntryFromWriteResult: async (_vaultPath, result) => {
+      await fs.writeFile(result.path, "# Modified before preserve\n\nChanged body", "utf8");
+      throw Object.assign(new Error("entry build failed after modification"), { code: "ENTRY_BUILD_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_failed_persist"),
+    {
+      code: "IMPORT_FAILED_STAGE_WRITE_FAILED"
+    }
+  );
+
+  const memoryRecord = importRecords.get(record.importRecordId);
+  assert.equal(memoryRecord?.state, "preview");
+  assert.equal(memoryRecord?.failureResult, undefined);
 });
 
 test("confirmImport logically removes written notes when rollback skips modified files", async () => {

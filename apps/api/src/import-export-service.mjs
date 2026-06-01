@@ -205,6 +205,7 @@ export function createImportExportService({
   writePermanentNoteIfAbsent,
   deleteNoteById,
   registerImportCatalogNote,
+  appendImportRecord: appendImportRecordImpl = appendImportRecord,
   createdEntryFromWriteResult: materializeCreatedEntryFromWriteResult = createdEntryFromWriteResult,
   createdEntryFromVaultPath: materializeCreatedEntryFromVaultPath = createdEntryFromVaultPath,
   rollbackCreatedFiles: rollbackCreatedFilesImpl = rollbackCreatedFiles
@@ -398,22 +399,23 @@ export function createImportExportService({
 
   async function persistFailedImportRecord(record, connector, requestId, error) {
     const finishedAt = new Date().toISOString();
-    record.state = "failed";
-    record.updatedAt = finishedAt;
-    record.failureResult = {
+    const failureResult = {
       code: error?.code || null,
       message: String(error?.message || error),
       details: failureDetailsFor(error),
       finishedAt
     };
-    importRecords.set(record.importRecordId, record);
-    await appendImportRecord(vaultPath(), connector, record.importRecordId, "failed", {
+    await appendImportRecordImpl(vaultPath(), connector, record.importRecordId, "failed", {
       requestId,
-      code: record.failureResult.code,
-      message: record.failureResult.message,
-      details: record.failureResult.details,
+      code: failureResult.code,
+      message: failureResult.message,
+      details: failureResult.details,
       finishedAt
     });
+    record.state = "failed";
+    record.updatedAt = finishedAt;
+    record.failureResult = failureResult;
+    importRecords.set(record.importRecordId, record);
   }
 
   async function createPreview(connector, payload, options, requestId) {
@@ -462,7 +464,7 @@ export function createImportExportService({
       updatedAt: preview.createdAt
     });
     await initVault(vaultPath());
-    await appendImportRecord(vaultPath(), connector, importRecordId, "preview", {
+    await appendImportRecordImpl(vaultPath(), connector, importRecordId, "preview", {
       requestId,
       preview,
       payload,
@@ -510,7 +512,7 @@ export function createImportExportService({
       record.updatedAt = finishedAt;
       importRecords.set(record.importRecordId, record);
       await initVault(vaultPath());
-      await appendImportRecord(vaultPath(), record.connector, record.importRecordId, "cancel", {
+      await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "cancel", {
         requestId,
         finishedAt
       });
@@ -717,7 +719,7 @@ export function createImportExportService({
     };
     record.updatedAt = record.confirmResult.finishedAt;
     importRecords.set(record.importRecordId, record);
-    await appendImportRecord(vaultPath(), record.connector, record.importRecordId, "confirm", {
+    await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "confirm", {
       requestId,
       created,
       skipped,
@@ -778,7 +780,7 @@ export function createImportExportService({
     };
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
-    await appendImportRecord(vaultPath(), record.connector, record.importRecordId, "rollback", {
+    await appendImportRecordImpl(vaultPath(), record.connector, record.importRecordId, "rollback", {
       requestId,
       rolledBack,
       skipped,

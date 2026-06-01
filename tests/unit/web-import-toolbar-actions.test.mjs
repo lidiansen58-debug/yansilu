@@ -11,7 +11,7 @@ test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
   assert.deepEqual(buildImportPayload({ connector: "markdown", path: "E:\\vault" }), { path: "E:\\vault" });
   assert.deepEqual(buildImportPayload({ connector: "zotero", payloadText: '{"library":"main"}' }), { library: "main" });
-  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /Payload JSON|来源目录/);
+  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /Payload JSON|来源路径/);
 });
 
 test("import toolbar actions preview assembles params and reports success", async () => {
@@ -75,6 +75,7 @@ test("import toolbar actions block confirm when no candidates are selected", asy
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0][0], "setStatus");
+  assert.equal(calls[0][1], "请至少勾选一个候选后再确认写入");
   assert.equal(calls[0][2], "warn");
 });
 
@@ -114,6 +115,43 @@ test("import toolbar actions pass selected file-box directory on confirm", async
   await actions.handleConfirm();
 
   assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
+});
+
+test("import toolbar actions reload failed lifecycle records after confirm errors", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_failed_1" }),
+    getFallbackImportRecordId: () => "imp_failed_1",
+    getActivePreview: () => ({
+      importRecordId: "imp_failed_1",
+      candidatePreview: { sources: [{ id: "src_1" }] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(["src_1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async () => {
+      throw Object.assign(new Error("cleanup preserve failed"), { code: "IMPORT_CLEANUP_PRESERVE_FAILED" });
+    },
+    loadImportRecordIntoUi: async (importRecordId, options) => {
+      calls.push(["loadImportRecordIntoUi", importRecordId, options]);
+      return { importRecordId, status: "failed", state: "failed" };
+    },
+    refreshImportHistory: async (options) => {
+      calls.push(["refreshImportHistory", options]);
+    },
+    showImportResult: (payload) => {
+      calls.push(["showImportResult", payload.stage]);
+    },
+    setStatus: (text, tone) => {
+      calls.push(["setStatus", text, tone]);
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [
+    ["loadImportRecordIntoUi", "imp_failed_1", { announce: false }],
+    ["refreshImportHistory", { silent: true }],
+    ["setStatus", "导入确认失败，已同步失败记录：imp_failed_1", "warn"]
+  ]);
 });
 
 test("validateImportDirectorySelection blocks mixed literature and permanent selections", () => {
