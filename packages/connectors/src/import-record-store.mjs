@@ -442,12 +442,12 @@ export async function loadImportRecord(vaultPath, recordId) {
   const state =
     rollbackResult
       ? "rolled_back"
-      : confirmResult
-        ? "completed"
-        : cancelEnvelope
-          ? "cancelled"
-          : failureResult || syntheticFailureResult
-            ? "failed"
+      : failureResult || syntheticFailureResult
+        ? "failed"
+        : confirmResult
+          ? "completed"
+          : cancelEnvelope
+            ? "cancelled"
             : preview.status || "preview";
   const warnings = [
     ...(Array.isArray(preview.warnings) ? preview.warnings : []),
@@ -466,7 +466,7 @@ export async function loadImportRecord(vaultPath, recordId) {
     failureResult: effectiveFailureResult,
     confirmResult,
     rollbackResult,
-    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || effectiveFailureResult?.finishedAt || optionalCorruptUpdatedAt || preview.createdAt
+    updatedAt: rollbackResult?.finishedAt || effectiveFailureResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || optionalCorruptUpdatedAt || preview.createdAt
   };
 }
 

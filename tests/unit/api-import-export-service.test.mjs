@@ -1431,13 +1431,13 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
     writeLiteratureNoteIfAbsent,
     deleteNoteById,
     registerImportCatalogNote,
-    appendImportRecord: async (_vaultPath, _connector, _recordId, stage) => {
+    appendImportRecord: async (currentVaultPath, connector, recordId, stage, body) => {
       if (stage === "rollback") {
         await fs.mkdir(path.dirname(recreatedPath), { recursive: true });
         await fs.writeFile(recreatedPath, recreatedContent, "utf8");
         throw Object.assign(new Error("rollback stage write failed"), { code: "IMPORT_ROLLBACK_STAGE_WRITE_FAILED" });
       }
-      return "";
+      return appendImportRecord(currentVaultPath, connector, recordId, stage, body);
     }
   });
 
@@ -1448,8 +1448,12 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
     }
   );
 
-  assert.equal(record.state, "completed");
+  assert.equal(record.state, "failed");
   assert.equal(record.rollbackResult, undefined);
+  assert.equal(record.failureResult?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+  assert.equal(Array.isArray(record.failureResult?.details?.conflicts), true);
+  assert.equal(record.failureResult.details.conflicts.length, 1);
+  assert.match(String(record.failureResult.details.conflicts[0].preservedPath || ""), /imports\/rollback-recovery-conflicts\//);
   const currentFile = await fs.readFile(recreatedPath, "utf8");
   assert.equal(currentFile, recreatedContent);
   const restored = await readNote(vaultPath, "literature", "ln_rollback_restore_conflict");
@@ -1461,6 +1465,12 @@ test("rollbackImport preserves newly recreated files instead of overwriting them
   assert.equal(preservedFiles.length, 1);
   const preserved = await fs.readFile(preservedFiles[0], "utf8");
   assert.match(preserved, /Rollback restore conflict/);
+  const failedStage = JSON.parse(
+    await fs.readFile(path.join(vaultPath, "imports", "markdown", "imp_rollback_restore_conflict_1.failed.json"), "utf8")
+  );
+  assert.equal(failedStage.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+  assert.equal(Array.isArray(failedStage.details?.conflicts), true);
+  assert.equal(failedStage.selection.mode, "all");
 });
 
 test("rollbackImport removes staged rollback backups after a successful rollback", async () => {

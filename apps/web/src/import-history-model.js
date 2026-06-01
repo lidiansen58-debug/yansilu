@@ -132,6 +132,9 @@ export function importHistoryRiskHint(record = {}) {
     if (String(record.failureResult?.code || "").trim() === "IMPORT_CLEANUP_PRESERVE_FAILED") {
       return "导入失败，已修改文件未能安全移入恢复区，请先手动处理这些文件后再重试。";
     }
+    if (String(record.failureResult?.code || "").trim() === "IMPORT_ROLLBACK_RESTORE_CONFLICT") {
+      return "回滚恢复时发现原路径已经有新内容。当前文件已保留，旧版本放进了恢复冲突区，请核对后再决定是否重新回滚。";
+    }
     return "这次导入没有完成，请先查看失败原因后再决定是否重试。";
   }
   return "";
@@ -235,7 +238,15 @@ export function importHistoryActions(record = {}) {
   }
 
   if (status === "preview") return [{ action: "load", label: "继续处理" }];
-  if (status === "failed") return [{ action: "load", label: "查看失败" }];
+  if (status === "failed") {
+    if (record.confirmResult && String(record.failureResult?.code || "").trim() === "IMPORT_ROLLBACK_RESTORE_CONFLICT") {
+      return [
+        { action: "load", label: "查看失败" },
+        { action: "rollback", label: "重新回滚" }
+      ];
+    }
+    return [{ action: "load", label: "查看失败" }];
+  }
   if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }

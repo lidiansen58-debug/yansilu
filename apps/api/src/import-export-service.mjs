@@ -15,7 +15,7 @@ import {
   summarizeImportCandidates,
   vaultRelativePath
 } from "../../../packages/connectors/src/index.mjs";
-import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType } from "../../../packages/domain/src/index.mjs";
+import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType, parseMarkdownWithFrontmatter } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
 import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
@@ -38,6 +38,31 @@ function isPermanentDirectoryId(value) {
   const directoryId = String(value || "").trim();
   if (!directoryId) return false;
   return directoryId === "dir_original_default";
+}
+
+function cleanMarkdownTitle(value) {
+  return String(value || "").replace(/^#+\s*/, "").replace(/\r?\n/g, " ").trim();
+}
+
+function titleFromMarkdownBody(markdown = "", fallback = "") {
+  const parsed = parseMarkdownWithFrontmatter(markdown);
+  const frontmatterTitle = cleanMarkdownTitle(parsed?.frontmatter?.title);
+  if (frontmatterTitle) {
+    return {
+      title: frontmatterTitle,
+      status: String(parsed?.frontmatter?.status || "").trim() || null
+    };
+  }
+  const firstMeaningfulLine = String(parsed?.body || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  const headingMatch = firstMeaningfulLine?.match(/^#{1,6}\s+(.+)$/);
+  const title = cleanMarkdownTitle(headingMatch ? headingMatch[1] : firstMeaningfulLine || fallback || "");
+  return {
+    title: title || cleanMarkdownTitle(fallback) || "Untitled",
+    status: String(parsed?.frontmatter?.status || "").trim() || null
+  };
 }
 
 function rootDirectoryIdFor(directories = [], directoryId = "") {
@@ -502,7 +527,13 @@ export function createImportExportService({
         error.code = "IMPORT_ROLLBACK_RESTORE_CANDIDATE_MISSING";
         throw error;
       }
-      await registerImportCatalogNote(candidate, item.noteType, {
+      const currentMarkdown = await fs.readFile(backup.fullPath, "utf8");
+      const restoredMeta = titleFromMarkdownBody(currentMarkdown, candidate.title || item.noteId);
+      await registerImportCatalogNote({
+        ...candidate,
+        title: restoredMeta.title || candidate.title,
+        status: restoredMeta.status || candidate.status
+      }, item.noteType, {
         written: true,
         noteId: item.noteId,
         noteType: item.noteType,
@@ -511,13 +542,18 @@ export function createImportExportService({
     }
   }
 
-  async function restoreRolledBackArtifacts(record, deletedEntries = [], backups = [], stageRoot = "", causeError = null) {
+  async function restoreRolledBackArtifacts(record, deletedEntries = [], backups = [], stageRoot = "", requestId = "", causeError = null) {
     const restoreResult = await restoreRolledBackFiles(backups, record?.importRecordId || "");
     await restoreRolledBackCatalogEntries(record, deletedEntries, backups);
     await discardRolledBackFileBackups(stageRoot);
     if (restoreResult.conflicts.length) {
       const conflictError = buildRollbackRestoreConflict(restoreResult.conflicts);
       if (causeError && !conflictError.cause) conflictError.cause = causeError;
+      await persistFailedImportRecord(record, record.connector, requestId, conflictError, {
+        selection: record.confirmResult?.selection || null,
+        candidateSelection: record.candidateSelection || summarizeCandidateSelection(record.candidates),
+        originalityGuard: record.originalityGuard || null
+      });
       throw conflictError;
     }
   }
@@ -1009,7 +1045,8 @@ export function createImportExportService({
   }
 
   async function rollbackImport(record, requestId) {
-    if (record.state !== "completed") {
+    const rollbackRecoverableFailure = record.state === "failed" && record.confirmResult && !record.rollbackResult;
+    if (record.state !== "completed" && !rollbackRecoverableFailure) {
       const error = new Error("only completed imports can be rolled back");
       error.code = "IMPORT_STATUS_INVALID";
       throw error;
@@ -1022,7 +1059,7 @@ export function createImportExportService({
       deletedCatalogEntries = await deleteRolledBackCatalogEntries(rolledBack);
     } catch (error) {
       try {
-        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, error);
+        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, requestId, error);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;
@@ -1045,7 +1082,7 @@ export function createImportExportService({
       });
     } catch (error) {
       try {
-        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, error);
+        await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, requestId, error);
       } catch (restoreError) {
         if (!restoreError.cause) restoreError.cause = error;
         throw restoreError;
@@ -1055,6 +1092,7 @@ export function createImportExportService({
 
     record.state = "rolled_back";
     record.rollbackResult = rollbackResult;
+    record.failureResult = undefined;
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
     await discardRolledBackFileBackups(stageRoot);

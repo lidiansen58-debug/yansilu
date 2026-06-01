@@ -258,3 +258,26 @@ test("import history model surfaces failed lifecycle records", () => {
     "导入失败，已修改文件未能安全移入恢复区，请先手动处理这些文件后再重试。"
   ]);
 });
+
+test("import history model surfaces rollback restore conflicts as retryable failed records", () => {
+  const record = {
+    importRecordId: "imp_failed_conflict",
+    status: "failed",
+    connector: "markdown",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    confirmResult: {
+      created: { sources: 1, literatureNotes: 1, permanentNotes: 0 },
+      skipped: { conflicted: 0, invalid: 0 }
+    },
+    failureResult: {
+      code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+      message: "rollback restore preserved newer files without overwriting them"
+    }
+  };
+
+  assert.match(importHistoryRiskHint(record), /恢复冲突区/);
+  assert.deepEqual(importHistoryActions(record), [
+    { action: "load", label: "查看失败" },
+    { action: "rollback", label: "重新回滚" }
+  ]);
+});

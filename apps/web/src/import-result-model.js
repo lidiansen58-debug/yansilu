@@ -203,6 +203,7 @@ function actionableTextForCode(code) {
     IMPORT_STATUS_INVALID: "这条记录当前不能执行这个操作。",
     IMPORT_CONFIRM_REQUIRED: "请先预览，再确认导入。",
     IMPORT_CLEANUP_PRESERVE_FAILED: "失败导入的已修改文件未能自动迁移，请先手动处理后再重试。",
+    IMPORT_ROLLBACK_RESTORE_CONFLICT: "回滚恢复时发现原路径已经有新内容。当前文件已保留，旧版本已转存到恢复冲突区。",
     IMPORT_ORIGINALITY_BLOCKED: "先改写被阻止的永久笔记，再重新确认。",
     ORIGINALITY_GUARD_WARNING: "先处理原创性警告再继续。",
     ORIGINALITY_GUARD_BLOCKED: "先降低与原文的重复度。",

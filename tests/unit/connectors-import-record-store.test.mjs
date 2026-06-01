@@ -311,3 +311,68 @@ test("loadImportRecord restores failed lifecycle records from disk", async () =>
   });
   assert.equal(record?.updatedAt, "2026-06-01T00:05:00.000Z");
 });
+
+test("loadImportRecord prioritizes failed lifecycle over completed confirm records", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_failed_after_confirm",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_1"], literatureNoteIds: ["ln_1"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_failed_after_confirm", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_failed_after_confirm", "confirm", {
+    created: { sources: 1, literatureNotes: 1, permanentNotes: 0 },
+    skipped: { conflicted: 0, invalid: 0 },
+    selection: {
+      mode: "all",
+      candidateIds: ["src_1", "ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 2,
+      counts: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
+    targetDirectories: [],
+    writtenPaths: ["notes/sources", "notes/literature"],
+    createdFiles: [],
+    finishedAt: "2026-06-01T00:03:00.000Z"
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_failed_after_confirm", "failed", {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: {
+      conflicts: [{ noteId: "ln_1", noteType: "literature", path: "notes/literature/ln_1.md", preservedPath: "imports/rollback-recovery-conflicts/conflict.md" }]
+    },
+    selection: {
+      mode: "all",
+      candidateIds: ["src_1", "ln_1"],
+      totalCandidates: 2,
+      selectedCandidates: 2,
+      counts: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
+    candidateSelection: {
+      sources: ["src_1"],
+      literatureNotes: ["ln_1"],
+      permanentNotes: [],
+      total: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: null,
+    finishedAt: "2026-06-01T00:04:00.000Z"
+  });
+
+  const record = await loadImportRecord(vaultPath, "imp_failed_after_confirm");
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.confirmResult?.finishedAt, "2026-06-01T00:03:00.000Z");
+  assert.equal(record?.failureResult?.code, "IMPORT_ROLLBACK_RESTORE_CONFLICT");
+  assert.equal(record?.updatedAt, "2026-06-01T00:04:00.000Z");
+});
