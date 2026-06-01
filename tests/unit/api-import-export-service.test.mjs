@@ -611,9 +611,78 @@ test("confirmImport does not delete source files that changed before staged clea
     () => service.confirmImport(record, { confirm: true }, "req_source_modified"),
     { code: "ENTRY_BUILD_FAILED" }
   );
-  const note = await readNote(vaultPath, "source", "src_modified_stage");
-  assert.equal(note.note.title, "Modified during failure");
-  assert.equal(note.note.body, "Changed body");
+  await assert.rejects(() => readNote(vaultPath, "source", "src_modified_stage"), { code: "ENOENT" });
+  const recoveredFiles = (await listFiles(path.join(vaultPath, "imports", "recovered-failed-imports", "source"))).filter((filePath) =>
+    path.basename(filePath).startsWith("src_modified_stage.preserved-")
+  );
+  assert.equal(recoveredFiles.length, 1);
+  const recovered = await fs.readFile(recoveredFiles[0], "utf8");
+  assert.match(recovered, /Modified during failure/);
+  assert.match(recovered, /Changed body/);
+});
+
+test("confirmImport moves modified failed literature notes aside so retries are unblocked", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-literature-modified-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_literature_modified_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_modified_retry",
+          source_id: "src_modified_retry",
+          title: "Modified before rollback",
+          quote_text: "Original body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    registerImportCatalogNote: async (_candidate, _noteType, result) => {
+      await fs.writeFile(result.path, "# Preserved failed import\n\nChanged after write", "utf8");
+      throw Object.assign(new Error("catalog registration failed"), { code: "CATALOG_WRITE_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_literature_modified"),
+    { code: "CATALOG_WRITE_FAILED" }
+  );
+  await assert.rejects(() => readNote(vaultPath, "literature", "ln_modified_retry"), { code: "ENOENT" });
+
+  const recoveredFiles = (await listFiles(path.join(vaultPath, "imports", "recovered-failed-imports", "literature"))).filter((filePath) =>
+    path.basename(filePath).startsWith("ln_modified_retry.preserved-")
+  );
+  assert.equal(recoveredFiles.length, 1);
+  const retried = await writeLiteratureNoteIfAbsent(vaultPath, {
+    id: "ln_modified_retry",
+    source_id: "src_modified_retry",
+    title: "Retry succeeds",
+    quote_text: "Fresh content"
+  });
+  assert.equal(retried.written, true);
 });
 
 test("confirmImport logically removes written notes when rollback skips modified files", async () => {

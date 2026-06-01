@@ -211,8 +211,41 @@ export function createImportExportService({
   const vaultPath = () => getVaultPath();
   const cwd = () => getCwd();
 
+  function createdFileAbsolutePath(item) {
+    const relativePath = String(item?.path || "").trim();
+    if (!relativePath) return "";
+    const fullPath = path.resolve(vaultPath(), relativePath);
+    const rel = path.relative(vaultPath(), fullPath);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) return "";
+    return fullPath;
+  }
+
+  async function preserveSkippedCreatedArtifacts(skipped = []) {
+    for (const item of Array.isArray(skipped) ? skipped : []) {
+      if (String(item?.reason || "").trim() !== "modified") continue;
+      const sourcePath = createdFileAbsolutePath(item);
+      if (!sourcePath) continue;
+      try {
+        await fs.access(sourcePath);
+      } catch {
+        continue;
+      }
+      const parsed = path.parse(sourcePath);
+      const typeSegment = String(item?.noteType || "file")
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]/g, "_") || "file";
+      const recoveryDir = path.join(vaultPath(), "imports", "recovered-failed-imports", typeSegment);
+      const recoveredName = `${parsed.name}.preserved-${randomUUID().slice(0, 8)}${parsed.ext || ""}`;
+      await fs.mkdir(recoveryDir, { recursive: true });
+      try {
+        await fs.rename(sourcePath, path.join(recoveryDir, recoveredName));
+      } catch {}
+    }
+  }
+
   async function cleanupCreatedArtifacts(createdFiles = []) {
     const { rolledBack, skipped } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
+    await preserveSkippedCreatedArtifacts(skipped);
     const cleanedNotes = new Set();
     for (const item of rolledBack) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
@@ -261,7 +294,8 @@ export function createImportExportService({
   async function rollbackStagedEntry(entry) {
     if (!entry) return;
     try {
-      await rollbackCreatedFilesImpl(vaultPath(), [entry]);
+      const { skipped } = await rollbackCreatedFilesImpl(vaultPath(), [entry]);
+      await preserveSkippedCreatedArtifacts(skipped);
     } catch {}
   }
 

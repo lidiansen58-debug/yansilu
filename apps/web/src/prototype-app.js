@@ -12042,6 +12042,7 @@ async function bootstrap() {
     getFallbackImportRecordId: () => importState.importRecordId,
     getActivePreview: () => activeImportPreviewContext(),
     selectionSummary,
+    resolveDirectoryRootId: (directoryId) => rootBoxIdFromFolder(state, directoryId),
     previewImport,
     confirmImport,
     cancelImport,

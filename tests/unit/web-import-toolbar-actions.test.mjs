@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildImportPayload, createImportToolbarActions, parseJsonOrEmpty } from "../../apps/web/src/import-toolbar-actions.js";
+import {
+  buildImportPayload,
+  createImportToolbarActions,
+  parseJsonOrEmpty,
+  validateImportDirectorySelection
+} from "../../apps/web/src/import-toolbar-actions.js";
 
 test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
@@ -97,8 +102,9 @@ test("import toolbar actions pass selected file-box directory on confirm", async
   const actions = createImportToolbarActions({
     getToolbarValues: () => ({ importRecordId: "imp_4", directoryId: "dir_literature_child" }),
     getFallbackImportRecordId: () => "imp_4",
-    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { items: [{ id: "c1" }] } }),
+    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { literatureNotes: [{ id: "c1" }] } }),
     selectionSummary: () => ({ selectedIds: new Set(["c1"]), selectedCount: 1, totalCount: 1 }),
+    resolveDirectoryRootId: () => "dir_literature_default",
     confirmImport: async (importRecordId, payload) => {
       calls.push([importRecordId, payload]);
       return { status: "completed", result: {} };
@@ -108,6 +114,54 @@ test("import toolbar actions pass selected file-box directory on confirm", async
   await actions.handleConfirm();
 
   assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
+});
+
+test("validateImportDirectorySelection blocks mixed literature and permanent selections", () => {
+  const result = validateImportDirectorySelection({
+    candidatePreview: {
+      literatureNotes: [{ id: "ln_1" }],
+      permanentNotes: [{ id: "pn_1" }]
+    },
+    selectedIds: ["ln_1", "pn_1"],
+    directoryId: "dir_literature_child",
+    resolveDirectoryRootId: () => "dir_literature_default"
+  });
+
+  assert.deepEqual(result, {
+    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
+  });
+});
+
+test("import toolbar actions block mismatched directory roots before confirm", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_5", directoryId: "dir_literature_child" }),
+    getFallbackImportRecordId: () => "imp_5",
+    getActivePreview: () => ({
+      importRecordId: "imp_5",
+      candidatePreview: { permanentNotes: [{ id: "pn_1" }] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(["pn_1"]), selectedCount: 1, totalCount: 1 }),
+    resolveDirectoryRootId: () => "dir_literature_default",
+    confirmImport: async () => {
+      calls.push(["confirmImport"]);
+      return { status: "completed", result: {} };
+    },
+    showImportResult: (payload) => {
+      calls.push(["showImportResult", payload.code, payload.message]);
+    },
+    setStatus: (text, tone) => {
+      calls.push(["setStatus", text, tone]);
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [
+    ["showImportResult", "IMPORT_DIRECTORY_SCOPE_INVALID", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。"],
+    ["setStatus", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。", "warn"]
+  ]);
 });
 
 test("import toolbar actions emit stable error payloads", async () => {
