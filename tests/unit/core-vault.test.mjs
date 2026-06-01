@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import {
   buildNotePathIndex,
+  getNoteById,
   initVault,
   parseMarkdownWithFrontmatter,
   readNote,
@@ -336,6 +337,8 @@ test("readNote ignores stale catalog paths when the markdown file is missing", a
   const note = await readNote(vaultPath, "literature", "ln_stale_catalog");
   assert.equal(note.path, livePath);
   assert.equal(note.note.title, "Live copy");
+  const catalogNote = await getNoteById(vaultPath, "ln_stale_catalog");
+  assert.equal(catalogNote.markdownPath, path.relative(vaultPath, livePath).replaceAll("\\", "/"));
 });
 
 test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a missing file", async () => {
@@ -379,6 +382,8 @@ test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a miss
   const note = await readNote(vaultPath, "literature", "ln_restore");
   assert.equal(note.path, result.path);
   assert.equal(note.note.title, "Restored copy");
+  const catalogNote = await getNoteById(vaultPath, "ln_restore");
+  assert.equal(catalogNote.markdownPath, path.relative(vaultPath, result.path).replaceAll("\\", "/"));
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {

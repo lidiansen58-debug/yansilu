@@ -455,6 +455,59 @@ test("confirmImport cleans up source files when staged entry creation fails", as
   await assert.rejects(() => readNote(vaultPath, "source", "src_stage_fail"), { code: "ENOENT" });
 });
 
+test("confirmImport does not delete source files that changed before staged cleanup runs", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-source-modified-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_source_modified_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_modified_stage",
+          source_type: "markdown",
+          title: "Modified during stage",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Original content"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    createdEntryFromWriteResult: async (_vaultPath, result) => {
+      await fs.writeFile(result.path, "# Modified during failure\n\nChanged body", "utf8");
+      throw Object.assign(new Error("entry build failed after modification"), { code: "ENTRY_BUILD_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_source_modified"),
+    { code: "ENTRY_BUILD_FAILED" }
+  );
+  const note = await readNote(vaultPath, "source", "src_modified_stage");
+  assert.equal(note.note.title, "Modified during failure");
+  assert.equal(note.note.body, "Changed body");
+});
+
 test("confirmImport cleans up copied obsidian assets when staged entry creation fails", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-asset-stage-vault-");
   const importRoot = await makeTempDir("yansilu-service-confirm-asset-stage-import-");

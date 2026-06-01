@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
-import { writeMarkdownIfAbsent } from "./vault.mjs";
+import { listMarkdownFiles, writeMarkdownIfAbsent } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
@@ -438,6 +438,69 @@ function mapNoteRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+const NOTE_TYPE_MARKDOWN_DIRS = {
+  source: path.join("notes", "sources"),
+  literature: path.join("notes", "literature"),
+  permanent: path.join("notes", "permanent")
+};
+
+function noteFilenameFromId(noteId) {
+  const filename = String(noteId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (!filename) throw new Error("noteId is required");
+  return `${filename}.md`;
+}
+
+async function locateUniqueMarkdownPathForNote(vaultPath, noteType, noteId) {
+  const typeDir = NOTE_TYPE_MARKDOWN_DIRS[String(noteType || "").trim()];
+  if (!typeDir) return null;
+  const root = path.join(path.resolve(vaultPath), typeDir);
+  let files = [];
+  try {
+    files = await listMarkdownFiles(root);
+  } catch {
+    return null;
+  }
+  const filename = noteFilenameFromId(noteId);
+  const matches = files
+    .filter((filePath) => path.basename(filePath) === filename)
+    .map((filePath) => path.resolve(filePath))
+    .sort((a, b) => a.localeCompare(b));
+  if (matches.length === 0) return null;
+  if (matches.length > 1) {
+    const error = new Error(`Multiple ${noteType} note files found for ${noteId}`);
+    error.code = "NOTE_PATH_AMBIGUOUS";
+    error.paths = matches;
+    throw error;
+  }
+  return matches[0];
+}
+
+function isPathInside(basePath, candidatePath) {
+  const rel = path.relative(path.resolve(basePath), path.resolve(candidatePath));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function bestDirectoryIdForMarkdownPath(db, noteType, fallbackDirectoryId, markdownFullPath) {
+  const rows = db.prepare("SELECT id, fs_path FROM directories").all();
+  const matches = rows
+    .filter((row) => row?.fs_path && isPathInside(row.fs_path, markdownFullPath))
+    .sort((a, b) => String(b.fs_path || "").length - String(a.fs_path || "").length);
+  if (matches.length > 0) return String(matches[0].id || "").trim();
+  const fallback = String(fallbackDirectoryId || "").trim() || defaultDirectoryIdForNoteType(noteType);
+  return fallback;
+}
+
+async function recoverCatalogMarkdownPath(vaultPath, db, row) {
+  const fullPath = await locateUniqueMarkdownPathForNote(vaultPath, row.note_type, row.id);
+  if (!fullPath) return null;
+  const markdownPath = path.relative(path.resolve(vaultPath), fullPath).replaceAll("\\", "/");
+  const directoryId = bestDirectoryIdForMarkdownPath(db, row.note_type, row.directory_id, fullPath);
+  const now = new Date().toISOString();
+  db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(markdownPath, now, row.id);
+  ensureSingleDirectoryMembership(db, row.id, directoryId);
+  return { fullPath, markdownPath, directoryId };
 }
 
 function attachNoteThinkingStatus(note) {
@@ -1927,13 +1990,28 @@ export async function getNoteById(vaultPath, noteId) {
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
 
-    const markdownFullPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const markdown = await fs.readFile(markdownFullPath, "utf8");
+    let effectiveRow = row;
+    let markdownFullPath = path.join(path.resolve(vaultPath), row.markdown_path);
+    let markdown = "";
+    try {
+      markdown = await fs.readFile(markdownFullPath, "utf8");
+    } catch (error) {
+      if (String(error?.code || "").trim() !== "ENOENT") throw error;
+      const recovered = await recoverCatalogMarkdownPath(vaultPath, db, row);
+      if (!recovered) throw error;
+      markdownFullPath = recovered.fullPath;
+      markdown = await fs.readFile(markdownFullPath, "utf8");
+      effectiveRow = {
+        ...row,
+        markdown_path: recovered.markdownPath,
+        directory_id: recovered.directoryId
+      };
+    }
     const parsed = parseMarkdownWithFrontmatter(markdown);
     const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
-    const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
+    const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
     return attachNoteThinkingStatus({
-      ...mapNoteRow(row),
+      ...mapNoteRow(effectiveRow),
       body: parsed.body,
       markdown,
       ...(permanentMeta

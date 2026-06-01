@@ -5,12 +5,14 @@ import { createHash, randomUUID } from "node:crypto";
 import {
   appendImportRecord,
   buildExternalCandidates,
+  contentHash,
   createdEntryFromVaultPath,
   createdEntryFromWriteResult,
   listImportRecords,
   loadImportRecord,
   rollbackCreatedFiles,
-  summarizeImportCandidates
+  summarizeImportCandidates,
+  vaultRelativePath
 } from "../../../packages/connectors/src/index.mjs";
 import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
@@ -200,26 +202,50 @@ export function createImportExportService({
     }
   }
 
-  async function cleanupWrittenPath(filePath) {
+  function fallbackCreatedEntryFromWriteResult(result) {
+    const hash = String(result?.contentHash || "").trim();
+    if (!result?.path || !hash) return null;
+    return {
+      noteId: result.noteId,
+      noteType: result.noteType,
+      path: vaultRelativePath(vaultPath(), result.path),
+      hash
+    };
+  }
+
+  function fallbackCreatedEntryFromVaultPath(input, hash) {
+    const normalizedHash = String(hash || "").trim();
+    if (!input?.filePath || !normalizedHash) return null;
+    return {
+      noteId: input.noteId,
+      noteType: input.noteType,
+      path: vaultRelativePath(vaultPath(), input.filePath),
+      hash: normalizedHash
+    };
+  }
+
+  async function rollbackStagedEntry(entry) {
+    if (!entry) return;
     try {
-      await fs.unlink(filePath);
+      await rollbackCreatedFilesImpl(vaultPath(), [entry]);
     } catch {}
   }
 
   async function stageCreatedEntryFromWriteResult(result) {
+    const fallbackEntry = fallbackCreatedEntryFromWriteResult(result);
     try {
       return await materializeCreatedEntryFromWriteResult(vaultPath(), result);
     } catch (error) {
-      await cleanupWrittenPath(result?.path);
+      await rollbackStagedEntry(fallbackEntry);
       throw error;
     }
   }
 
-  async function stageCreatedEntryFromVaultPath(input) {
+  async function stageCreatedEntryFromVaultPath(input, fallbackEntry = null) {
     try {
       return await materializeCreatedEntryFromVaultPath(vaultPath(), input);
     } catch (error) {
-      await cleanupWrittenPath(input?.filePath);
+      await rollbackStagedEntry(fallbackEntry);
       throw error;
     }
   }
@@ -439,14 +465,23 @@ export function createImportExportService({
 
             const destRel = path.posix.join("assets", "imports", record.importRecordId, normalizedTarget);
             const destFull = path.join(vaultPath(), destRel);
+            const sourceContent = await fs.readFile(sourcePath);
+            const fallbackEntry = fallbackCreatedEntryFromVaultPath(
+              {
+                noteId: stableAssetId(record.importRecordId, destRel),
+                noteType: "asset",
+                filePath: destFull
+              },
+              contentHash(sourceContent)
+            );
             await fs.mkdir(path.dirname(destFull), { recursive: true });
-            await fs.copyFile(sourcePath, destFull);
+            await fs.writeFile(destFull, sourceContent);
             createdFiles.push(
               await stageCreatedEntryFromVaultPath({
                 noteId: stableAssetId(record.importRecordId, destRel),
                 noteType: "asset",
                 filePath: destFull
-              })
+              }, fallbackEntry)
             );
             writtenPaths.add(path.dirname(destFull));
           }

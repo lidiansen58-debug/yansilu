@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { getNoteCatalogEntryById } from "./note-catalog-store.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { initVault, listMarkdownFiles, readMarkdown, resolveVaultPath, writeMarkdownIfAbsent } from "./vault.mjs";
@@ -46,6 +47,10 @@ function noteFilename(id) {
 function noteBody(type, note) {
   const field = NOTE_TYPES[type].bodyField;
   return String(note.body ?? note[field] ?? "");
+}
+
+function contentHash(content) {
+  return createHash("sha1").update(Buffer.from(String(content ?? ""), "utf8")).digest("hex");
 }
 
 function toSingleLineTitle(input) {
@@ -252,7 +257,7 @@ export async function writeNoteIfAbsent(vaultPath, type, note, options = {}) {
   const content = serializeNote(type, note);
   const result = await writeMarkdownIfAbsent(filePath, content);
   if (result.written) rememberNotePath(options.notePathIndex, note?.id, result.path);
-  return { ...result, noteId: note.id, noteType: type };
+  return { ...result, noteId: note.id, noteType: type, contentHash: contentHash(content) };
 }
 
 export async function readNote(vaultPath, type, id) {
