@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
-import { writeMarkdownIfAbsent } from "./vault.mjs";
+import { listMarkdownFiles, writeMarkdownIfAbsent } from "./vault.mjs";
 import { parseMarkdownWithFrontmatter, serializeMarkdownWithFrontmatter } from "./frontmatter.mjs";
 import { relativeMarkdownLinkPath } from "./markdown-asset-links.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
@@ -440,6 +440,203 @@ function mapNoteRow(row) {
   };
 }
 
+const NOTE_TYPE_MARKDOWN_DIRS = {
+  source: path.join("notes", "sources"),
+  literature: path.join("notes", "literature"),
+  permanent: path.join("notes", "permanent")
+};
+
+function noteFilenameFromId(noteId) {
+  const filename = String(noteId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (!filename) throw new Error("noteId is required");
+  return `${filename}.md`;
+}
+
+async function locateUniqueMarkdownPathForNote(vaultPath, noteType, noteId) {
+  const typeDir = NOTE_TYPE_MARKDOWN_DIRS[String(noteType || "").trim()];
+  if (!typeDir) return null;
+  const root = path.join(path.resolve(vaultPath), typeDir);
+  let files = [];
+  try {
+    files = await listMarkdownFiles(root);
+  } catch {
+    return null;
+  }
+  const filename = noteFilenameFromId(noteId);
+  const matches = files
+    .filter((filePath) => path.basename(filePath) === filename)
+    .map((filePath) => path.resolve(filePath))
+    .sort((a, b) => a.localeCompare(b));
+  if (matches.length === 0) return null;
+  if (matches.length > 1) {
+    const error = new Error(`Multiple ${noteType} note files found for ${noteId}`);
+    error.code = "NOTE_PATH_AMBIGUOUS";
+    error.paths = matches;
+    throw error;
+  }
+  return matches[0];
+}
+
+function isPathInside(basePath, candidatePath) {
+  const rel = path.relative(path.resolve(basePath), path.resolve(candidatePath));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function bestDirectoryForMarkdownPath(db, noteType, fallbackDirectoryId, markdownFullPath) {
+  const rows = db.prepare("SELECT id, fs_path FROM directories").all();
+  const matches = rows
+    .filter((row) => row?.fs_path && isPathInside(row.fs_path, markdownFullPath))
+    .sort((a, b) => String(b.fs_path || "").length - String(a.fs_path || "").length);
+  if (matches.length > 0) {
+    return {
+      id: String(matches[0].id || "").trim(),
+      fsPath: String(matches[0].fs_path || "").trim() || null
+    };
+  }
+  const fallbackId = String(fallbackDirectoryId || "").trim() || defaultDirectoryIdForNoteType(noteType);
+  const fallbackRow = rows.find((row) => String(row?.id || "").trim() === fallbackId);
+  return {
+    id: fallbackId,
+    fsPath: String(fallbackRow?.fs_path || "").trim() || null
+  };
+}
+
+function healedCatalogTitle(parsed, row) {
+  const title = toTitleLine(parsed?.frontmatter?.title);
+  return title || String(row?.title || row?.id || "Untitled").trim();
+}
+
+function healedCatalogStatus(parsed, row) {
+  return String(parsed?.frontmatter?.status || row?.status || "draft").trim() || "draft";
+}
+
+async function recoverCatalogMarkdownPath(vaultPath, db, row) {
+  const fullPath = await locateUniqueMarkdownPathForNote(vaultPath, row.note_type, row.id);
+  if (!fullPath) return null;
+  const markdownPath = path.relative(path.resolve(vaultPath), fullPath).replaceAll("\\", "/");
+  const markdown = await fs.readFile(fullPath, "utf8");
+  const parsed = parseMarkdownWithFrontmatter(markdown);
+  const directory = bestDirectoryForMarkdownPath(db, row.note_type, row.directory_id, fullPath);
+  const title = healedCatalogTitle(parsed, row);
+  const status = healedCatalogStatus(parsed, row);
+  const now = new Date().toISOString();
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    db.prepare("UPDATE notes SET title = ?, status = ?, markdown_path = ?, updated_at = ? WHERE id = ?").run(
+      title,
+      status,
+      markdownPath,
+      now,
+      row.id
+    );
+    ensureSingleDirectoryMembership(db, row.id, directory.id);
+    syncMarkdownRelations(db, row.id, parsed.body);
+    db.exec("COMMIT;");
+  } catch (error) {
+    db.exec("ROLLBACK;");
+    throw error;
+  }
+  return {
+    fullPath,
+    markdownPath,
+    directoryId: directory.id,
+    directoryFsPath: directory.fsPath,
+    title,
+    status,
+    markdown,
+    parsed
+  };
+}
+
+async function resolveCatalogRowState(vaultPath, db, row, options = {}) {
+  const root = path.resolve(vaultPath);
+  const hydrateMarkdown = options.hydrateMarkdown === true;
+  const tolerateMissing = options.tolerateMissing === true;
+
+  async function loadFromRow(targetRow) {
+    const markdownPath = String(targetRow?.markdown_path || "").trim();
+    if (!markdownPath) {
+      const error = new Error(`markdownPath missing for noteId: ${targetRow?.id || "unknown"}`);
+      error.code = "MARKDOWN_PATH_MISSING";
+      throw error;
+    }
+    const fullPath = path.join(root, markdownPath);
+    if (!hydrateMarkdown) {
+      await fs.access(fullPath);
+      return { fullPath, markdown: null, parsed: null };
+    }
+    const markdown = await fs.readFile(fullPath, "utf8");
+    return { fullPath, markdown, parsed: parseMarkdownWithFrontmatter(markdown) };
+  }
+
+  try {
+    const loaded = await loadFromRow(row);
+    return { row, ...loaded, recovered: false, missing: false };
+  } catch (error) {
+    if (String(error?.code || "").trim() !== "ENOENT") {
+      if (tolerateMissing) return { row, fullPath: null, markdown: null, parsed: null, recovered: false, missing: true };
+      throw error;
+    }
+    const recovered = await recoverCatalogMarkdownPath(vaultPath, db, row);
+    if (!recovered) {
+      if (tolerateMissing) return { row, fullPath: null, markdown: null, parsed: null, recovered: false, missing: true };
+      throw error;
+    }
+    return {
+      row: {
+        ...row,
+        title: recovered.title,
+        status: recovered.status,
+        markdown_path: recovered.markdownPath,
+        directory_id: recovered.directoryId,
+        directory_fs_path: recovered.directoryFsPath
+      },
+      fullPath: recovered.fullPath,
+      markdown: hydrateMarkdown ? recovered.markdown : null,
+      parsed: hydrateMarkdown ? recovered.parsed : null,
+      recovered: true,
+      missing: false
+    };
+  }
+}
+
+async function normalizeCatalogRows(vaultPath, db, rows = [], options = {}) {
+  return Promise.all((Array.isArray(rows) ? rows : []).map((row) => resolveCatalogRowState(vaultPath, db, row, options)));
+}
+
+async function normalizeCatalogRowsForMetadata(vaultPath, db, rows = []) {
+  const resolved = await normalizeCatalogRows(vaultPath, db, rows, { tolerateMissing: true });
+  return resolved.map((item) => item.row);
+}
+
+async function healCatalogScope(vaultPath, db, options = {}) {
+  const rootDirectoryId = String(options.rootDirectoryId || "").trim();
+  const rows = rootDirectoryId
+    ? db
+        .prepare(
+          `${directoryScopeClause("heal_scope")}
+           SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                  ndm.directory_id, d.fs_path AS directory_fs_path
+           FROM note_directory_membership ndm
+           JOIN heal_scope ON heal_scope.id = ndm.directory_id
+           JOIN notes n ON n.id = ndm.note_id
+           LEFT JOIN directories d ON d.id = ndm.directory_id
+           WHERE n.deleted_at IS NULL`
+        )
+        .all(rootDirectoryId)
+    : db
+        .prepare(
+          `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                  ndm.directory_id, d.fs_path AS directory_fs_path
+           FROM notes n
+           LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+           LEFT JOIN directories d ON d.id = ndm.directory_id
+           WHERE n.deleted_at IS NULL`
+        )
+        .all();
+  await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+}
+
 function attachNoteThinkingStatus(note) {
   return {
     ...note,
@@ -447,35 +644,32 @@ function attachNoteThinkingStatus(note) {
   };
 }
 
-async function mapNoteRowsWithThinkingStatus(vaultPath, rows = []) {
-  const root = path.resolve(vaultPath);
-  return Promise.all(
-    rows.map(async (row) => {
-      const note = mapNoteRow(row);
-      if (!["permanent", "literature"].includes(note.noteType)) return attachNoteThinkingStatus(note);
-      try {
-        const markdown = await fs.readFile(path.join(root, row.markdown_path), "utf8");
-        const parsed = parseMarkdownWithFrontmatter(markdown);
-        const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
-        const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
-        return attachNoteThinkingStatus({
-          ...note,
-          body: parsed.body,
-          ...(permanentMeta
-            ? {
-                thesis: permanentMeta.thesis,
-                threeLineSummary: permanentMeta.threeLineSummary,
-                distillationStatus: permanentMeta.distillationStatus,
-                authorship: permanentMeta.authorship
-              }
-            : {}),
-          ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
-        });
-      } catch {
-        return attachNoteThinkingStatus(note);
-      }
-    })
-  );
+async function mapNoteRowsWithThinkingStatus(vaultPath, db, rows = []) {
+  const resolvedRows = await normalizeCatalogRows(vaultPath, db, rows, {
+    hydrateMarkdown: true,
+    tolerateMissing: true
+  });
+  return resolvedRows.map((item) => {
+    const note = mapNoteRow(item.row);
+    if (!["permanent", "literature"].includes(note.noteType) || !item.parsed) {
+      return attachNoteThinkingStatus(note);
+    }
+    const boundaryOrCounterpoint = boundaryValueFromInput(item.parsed.frontmatter || {});
+    const permanentMeta = item.row.note_type === "permanent" ? permanentMetadataFromFrontmatter(item.parsed.frontmatter || {}) : null;
+    return attachNoteThinkingStatus({
+      ...note,
+      body: item.parsed.body,
+      ...(permanentMeta
+        ? {
+            thesis: permanentMeta.thesis,
+            threeLineSummary: permanentMeta.threeLineSummary,
+            distillationStatus: permanentMeta.distillationStatus,
+            authorship: permanentMeta.authorship
+          }
+        : {}),
+      ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
+    });
+  });
 }
 
 const NOTE_SEARCH_RANKING_PRIORITY = [
@@ -553,6 +747,103 @@ function mapRelationLinkRow(row) {
   };
 }
 
+async function normalizeRelationRowMetadata(vaultPath, db, row) {
+  const nextRow = { ...row };
+  if (row?.target_id) {
+    const targetResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.target_id,
+        note_type: row.target_note_type,
+        title: row.target_title,
+        status: row.target_status,
+        markdown_path: row.target_markdown_path,
+        directory_id: row.target_directory_id || null,
+        directory_fs_path: row.target_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.target_note_type = targetResolved.row.note_type;
+    nextRow.target_title = targetResolved.row.title;
+    nextRow.target_status = targetResolved.row.status;
+    nextRow.target_markdown_path = targetResolved.row.markdown_path;
+  }
+  if (row?.source_id) {
+    const sourceResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.source_id,
+        note_type: row.source_note_type,
+        title: row.source_title,
+        status: row.source_status,
+        markdown_path: row.source_markdown_path,
+        directory_id: row.source_directory_id || null,
+        directory_fs_path: row.source_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.source_note_type = sourceResolved.row.note_type;
+    nextRow.source_title = sourceResolved.row.title;
+    nextRow.source_status = sourceResolved.row.status;
+    nextRow.source_markdown_path = sourceResolved.row.markdown_path;
+  }
+  return nextRow;
+}
+
+async function mapRelationLinkRows(vaultPath, db, rows = []) {
+  const normalized = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    normalized.push(mapRelationLinkRow(await normalizeRelationRowMetadata(vaultPath, db, row)));
+  }
+  return normalized;
+}
+
+async function mapSingleRelationLinkRow(vaultPath, db, row) {
+  if (!row) return null;
+  return mapRelationLinkRow(await normalizeRelationRowMetadata(vaultPath, db, row));
+}
+
+async function normalizeGraphEdgeRowMetadata(vaultPath, db, row) {
+  const nextRow = { ...row };
+  if (row?.from_note_id) {
+    const fromResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.from_note_id,
+        note_type: row.from_note_type,
+        title: row.from_title,
+        status: row.from_status,
+        markdown_path: row.from_markdown_path,
+        directory_id: row.from_directory_id || null,
+        directory_fs_path: row.from_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.from_title = fromResolved.row.title;
+  }
+  if (row?.to_note_id) {
+    const toResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.to_note_id,
+        note_type: row.to_note_type,
+        title: row.to_title,
+        status: row.to_status,
+        markdown_path: row.to_markdown_path,
+        directory_id: row.to_directory_id || null,
+        directory_fs_path: row.to_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.to_title = toResolved.row.title;
+  }
+  return nextRow;
+}
+
 function mapGraphEdgeRow(row) {
   return {
     id: row.id,
@@ -571,6 +862,14 @@ function mapGraphEdgeRow(row) {
     status: row.status || "confirmed",
     updatedAt: row.updated_at || row.created_at
   };
+}
+
+async function mapGraphEdgeRows(vaultPath, db, rows = []) {
+  const normalized = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    normalized.push(mapGraphEdgeRow(await normalizeGraphEdgeRowMetadata(vaultPath, db, row)));
+  }
+  return normalized;
 }
 
 const EXPLICIT_SUPPORT_RELATION_TYPES = new Set(["supports"]);
@@ -722,11 +1021,17 @@ function getRelationByIdRow(db, relationId) {
     .prepare(
       `SELECT l.*, to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
               to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+              target_member.directory_id AS target_directory_id, target_directory.fs_path AS target_directory_fs_path,
               from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
-              from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+              from_note.status AS source_status, from_note.markdown_path AS source_markdown_path,
+              source_member.directory_id AS source_directory_id, source_directory.fs_path AS source_directory_fs_path
        FROM links l
        JOIN notes from_note ON from_note.id = l.from_note_id
        JOIN notes to_note ON to_note.id = l.to_note_id
+       LEFT JOIN note_directory_membership source_member ON source_member.note_id = from_note.id
+       LEFT JOIN directories source_directory ON source_directory.id = source_member.directory_id
+       LEFT JOIN note_directory_membership target_member ON target_member.note_id = to_note.id
+       LEFT JOIN directories target_directory ON target_directory.id = target_member.directory_id
        WHERE l.id = ? AND from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
        LIMIT 1`
     )
@@ -897,9 +1202,12 @@ async function evaluatePermanentOriginality(db, vaultPath, noteId, markdownBody)
 
   const literature = [];
   for (const note of linkedLiterature) {
-    const absMarkdownPath = path.join(path.resolve(vaultPath), String(note.markdown_path || "").replaceAll("/", path.sep));
-    const markdown = await fs.readFile(absMarkdownPath, "utf8");
-    const parsed = parseMarkdownWithFrontmatter(markdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, note, {
+      hydrateMarkdown: true,
+      tolerateMissing: true
+    });
+    if (!resolved.markdown || !resolved.parsed) continue;
+    const parsed = resolved.parsed;
     literature.push({
       id: note.id,
       source_id: `src_from_${note.id}`,
@@ -1168,7 +1476,7 @@ export async function listNotesInDirectory(vaultPath, directoryId) {
          ORDER BY n.updated_at DESC`
       )
       .all(id);
-    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
+    return await mapNoteRowsWithThinkingStatus(vaultPath, db, rows);
   } finally {
     db.close();
   }
@@ -1206,7 +1514,7 @@ export async function listNotesInDirectoryScope(vaultPath, directoryId, options 
              ORDER BY lower(n.title), n.updated_at DESC`
           )
           .all(id);
-    return mapNoteRowsWithThinkingStatus(vaultPath, rows);
+    return await mapNoteRowsWithThinkingStatus(vaultPath, db, rows);
   } finally {
     db.close();
   }
@@ -1302,6 +1610,7 @@ export async function searchNotes(vaultPath, options = {}) {
       const directory = db.prepare("SELECT id FROM directories WHERE id = ? LIMIT 1").get(rootDirectoryId);
       if (!directory) throw new Error(`rootDirectoryId not found: ${rootDirectoryId}`);
     }
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
 
     const matchClause =
       "(? = '' OR LOWER(n.title) LIKE '%' || ? || '%' OR LOWER(n.id) LIKE '%' || ? || '%' OR LOWER(n.markdown_path) LIKE '%' || ? || '%')";
@@ -1351,7 +1660,8 @@ export async function searchNotes(vaultPath, options = {}) {
           )
           .all(excludeNoteId, excludeNoteId, ...queryArgs, limit);
 
-    const items = rows.map((row) => mapNoteSearchRow(row, query));
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    const items = normalizedRows.map((row) => mapNoteSearchRow(row, query));
     return {
       rootDirectoryId: rootDirectoryId || null,
       query,
@@ -1379,7 +1689,7 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
     const directory = db.prepare("SELECT id, title FROM directories WHERE id = ? LIMIT 1").get(id);
     if (!directory) throw new Error(`directoryId not found: ${id}`);
 
-    const nodes = includeDescendants
+    const nodeRows = includeDescendants
       ? db
           .prepare(
             `${directoryScopeClause("graph_scope")}
@@ -1391,7 +1701,6 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              ORDER BY n.title ASC, n.updated_at DESC`
           )
           .all(id)
-          .map(mapNoteRow)
       : db
           .prepare(
             `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
@@ -1400,18 +1709,22 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              WHERE ndm.directory_id = ? AND n.deleted_at IS NULL
              ORDER BY n.title ASC, n.updated_at DESC`
           )
-          .all(id)
-          .map(mapNoteRow);
+          .all(id);
+    const nodes = (await normalizeCatalogRowsForMetadata(vaultPath, db, nodeRows)).map(mapNoteRow);
 
-    const edges = includeDescendants
+    const edgeRows = includeDescendants
       ? db
           .prepare(
             `${directoryScopeClause("graph_scope")}
              SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
@@ -1419,25 +1732,32 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              JOIN graph_scope to_scope ON to_scope.id = to_member.directory_id
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL
                AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
           .all(id)
-          .map(mapGraphEdgeRow)
       : db
           .prepare(
             `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_member.directory_id = ?
                AND to_member.directory_id = ?
                AND from_note.deleted_at IS NULL
@@ -1445,8 +1765,9 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
-          .all(id, id)
-          .map(mapGraphEdgeRow);
+          .all(id, id);
+
+    const edges = await mapGraphEdgeRows(vaultPath, db, edgeRows);
 
     return {
       directoryId: id,
@@ -1522,11 +1843,17 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
          SELECT l.*,
                 to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
                 to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+                to_member.directory_id AS target_directory_id, to_directory.fs_path AS target_directory_fs_path,
                 from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
-                from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+                from_note.status AS source_status, from_note.markdown_path AS source_markdown_path,
+                from_member.directory_id AS source_directory_id, from_directory.fs_path AS source_directory_fs_path
          FROM links l
          JOIN notes from_note ON from_note.id = l.from_note_id
          JOIN notes to_note ON to_note.id = l.to_note_id
+         LEFT JOIN note_directory_membership from_member ON from_member.note_id = from_note.id
+         LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+         LEFT JOIN note_directory_membership to_member ON to_member.note_id = to_note.id
+         LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
          WHERE from_note.deleted_at IS NULL
            AND to_note.deleted_at IS NULL
            AND COALESCE(l.rationale_quality_level, 'empty') IN (${qualityPlaceholders})
@@ -1565,8 +1892,8 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
       )
       .all(...args);
 
-    const items = rows.map((row) => {
-      const relation = mapRelationLinkRow(row);
+    const normalizedRelations = await mapRelationLinkRows(vaultPath, db, rows);
+    const items = normalizedRelations.map((relation) => {
       const reviewReason = relationReviewReason(relation);
       return {
         ...relation,
@@ -1605,14 +1932,14 @@ export async function findNotePath(vaultPath, input = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
-    const endpoints = db
+    const endpointRows = db
       .prepare(
         `SELECT id, note_type, title, status, markdown_path, created_at, updated_at, NULL AS directory_id
          FROM notes
          WHERE id IN (?, ?) AND deleted_at IS NULL`
       )
-      .all(fromNoteId, toNoteId)
-      .map(mapNoteRow);
+      .all(fromNoteId, toNoteId);
+    const endpoints = (await normalizeCatalogRowsForMetadata(vaultPath, db, endpointRows)).map(mapNoteRow);
     if (!endpoints.find((note) => note.id === fromNoteId)) throw new Error(`fromNoteId not found: ${fromNoteId}`);
     if (!endpoints.find((note) => note.id === toNoteId)) throw new Error(`toNoteId not found: ${toNoteId}`);
 
@@ -1623,8 +1950,12 @@ export async function findNotePath(vaultPath, input = {}) {
              SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
@@ -1632,6 +1963,8 @@ export async function findNotePath(vaultPath, input = {}) {
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
              JOIN scope from_scope ON from_scope.id = from_member.directory_id
              JOIN scope to_scope ON to_scope.id = to_member.directory_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
@@ -1641,17 +1974,25 @@ export async function findNotePath(vaultPath, input = {}) {
             `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
           .all();
 
-    const edges = edgeRows.map(mapGraphEdgeRow);
+    const edges = await mapGraphEdgeRows(vaultPath, db, edgeRows);
     const adjacency = new Map();
     for (const edge of edges) {
       if (!adjacency.has(edge.fromNoteId)) adjacency.set(edge.fromNoteId, []);
@@ -1682,7 +2023,7 @@ export async function findNotePath(vaultPath, input = {}) {
     const pathNoteIds = foundEdges
       ? [fromNoteId, ...foundEdges.map((edge) => edge.toNoteId)]
       : [];
-    const pathNodes = pathNoteIds.length
+    const pathNodeRows = pathNoteIds.length
       ? db
           .prepare(
             `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
@@ -1691,8 +2032,8 @@ export async function findNotePath(vaultPath, input = {}) {
              WHERE n.id IN (${pathNoteIds.map(() => "?").join(",")}) AND n.deleted_at IS NULL`
           )
           .all(...pathNoteIds)
-          .map(mapNoteRow)
       : [];
+    const pathNodes = (await normalizeCatalogRowsForMetadata(vaultPath, db, pathNodeRows)).map(mapNoteRow);
     const nodeById = new Map(pathNodes.map((node) => [node.id, node]));
 
     return {
@@ -1748,8 +2089,9 @@ export async function detectGraphConflicts(vaultPath, input = {}) {
           )
           .all(directoryId);
 
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
     const groups = new Map();
-    for (const row of rows) {
+    for (const row of normalizedRows) {
       const key = String(row.title || "").trim().toLowerCase();
       if (!key) continue;
       if (!groups.has(key)) groups.set(key, []);
@@ -1789,6 +2131,7 @@ export async function listNotesByTag(vaultPath, tagName, options = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
     const tag = db.prepare("SELECT id, name FROM tags WHERE name = ? LIMIT 1").get(name);
     if (!tag) {
       return {
@@ -1831,7 +2174,8 @@ export async function listNotesByTag(vaultPath, tagName, options = {}) {
           )
           .all(tag.id);
 
-    const items = rows.map(mapNoteRow);
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    const items = normalizedRows.map(mapNoteRow);
     return {
       tag: tag.name,
       rootDirectoryId: rootDirectoryId || null,
@@ -1852,6 +2196,7 @@ export async function listTags(vaultPath, options = {}) {
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
+    await healCatalogScope(vaultPath, db, { rootDirectoryId });
     const scopedRows = rootDirectoryId
       ? db
           .prepare(
@@ -1926,16 +2271,15 @@ export async function getNoteById(vaultPath, noteId) {
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
-
-    const markdownFullPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const markdown = await fs.readFile(markdownFullPath, "utf8");
-    const parsed = parseMarkdownWithFrontmatter(markdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { hydrateMarkdown: true });
+    const effectiveRow = resolved.row;
+    const parsed = resolved.parsed || parseMarkdownWithFrontmatter(String(resolved.markdown || ""));
     const boundaryOrCounterpoint = boundaryValueFromInput(parsed.frontmatter || {});
-    const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
+    const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromFrontmatter(parsed.frontmatter || {}) : null;
     return attachNoteThinkingStatus({
-      ...mapNoteRow(row),
+      ...mapNoteRow(effectiveRow),
       body: parsed.body,
-      markdown,
+      markdown: resolved.markdown,
       ...(permanentMeta
         ? {
             thesis: permanentMeta.thesis,
@@ -1950,6 +2294,63 @@ export async function getNoteById(vaultPath, noteId) {
         : {}),
       ...(boundaryOrCounterpoint ? { boundaryOrCounterpoint } : {})
     });
+  } finally {
+    db.close();
+  }
+}
+
+export async function getNoteCatalogEntryById(vaultPath, noteId) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const id = String(noteId || "").trim();
+  if (!id) throw new Error("noteId is required");
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const row = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.id = ? AND n.deleted_at IS NULL
+         LIMIT 1`
+      )
+      .get(id);
+    if (!row) throw new Error(`noteId not found: ${id}`);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
+    return {
+      ...mapNoteRow(resolved.row),
+      directoryFsPath: resolved.row.directory_fs_path || null
+    };
+  } finally {
+    db.close();
+  }
+}
+
+export async function listNoteCatalogEntriesByType(vaultPath, noteType) {
+  if (!vaultPath) throw new Error("vaultPath is required");
+  const normalizedType = String(noteType || "").trim();
+  if (!normalizedType) throw new Error("noteType is required");
+  const DatabaseSync = await loadDatabaseSync();
+  const db = new DatabaseSync(catalogDbPath(vaultPath));
+  try {
+    const rows = db
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.note_type = ? AND n.deleted_at IS NULL
+         ORDER BY n.updated_at DESC`
+      )
+      .all(normalizedType);
+    const normalizedRows = await normalizeCatalogRowsForMetadata(vaultPath, db, rows);
+    return normalizedRows.map((row) => ({
+      ...mapNoteRow(row),
+      directoryFsPath: row.directory_fs_path || null
+    }));
   } finally {
     db.close();
   }
@@ -2089,7 +2490,7 @@ export async function createNoteRelation(vaultPath, fromNoteIdOrInput, input = {
       .get(payload.fromNoteId, payload.toNoteId, payload.relationType);
     if (duplicate) {
       return {
-        ...mapRelationLinkRow(getRelationByIdRow(db, duplicate.id)),
+        ...(await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, duplicate.id))),
         created: false
       };
     }
@@ -2116,7 +2517,7 @@ export async function createNoteRelation(vaultPath, fromNoteIdOrInput, input = {
     );
 
     return {
-      ...mapRelationLinkRow(getRelationByIdRow(db, relationId)),
+      ...(await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, relationId))),
       created: true
     };
   } finally {
@@ -2185,7 +2586,7 @@ export async function updateNoteRelation(vaultPath, relationId, input = {}) {
        WHERE id = ?`
     ).run(relationType, rationale, insightQuestion, rationaleQuality.score, rationaleQuality.level, status, confidence, now, id);
 
-    return mapRelationLinkRow(getRelationByIdRow(db, id));
+    return await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, id));
   } finally {
     db.close();
   }
@@ -2202,7 +2603,7 @@ export async function deleteNoteRelation(vaultPath, relationId) {
     const existing = getRelationByIdRow(db, id);
     if (!existing) throw noteValidationError("RELATION_NOT_FOUND", `relationId not found: ${id}`, { relationId: id });
     db.prepare("DELETE FROM links WHERE id = ?").run(id);
-    return { ok: true, deleted: true, relationId: id, item: mapRelationLinkRow(existing) };
+    return { ok: true, deleted: true, relationId: id, item: await mapSingleRelationLinkRow(vaultPath, db, existing) };
   } finally {
     db.close();
   }
@@ -2235,33 +2636,42 @@ export async function listNoteRelations(vaultPath, noteId) {
         createdAt: row.created_at
       }));
 
-    const outgoingLinks = db
+    const outgoingRows = db
       .prepare(
         `SELECT l.*, n.id AS target_id, n.note_type AS target_note_type, n.title AS target_title,
                 n.status AS target_status, n.markdown_path AS target_markdown_path,
+                target_member.directory_id AS target_directory_id, target_directory.fs_path AS target_directory_fs_path,
                 NULL AS source_id, NULL AS source_note_type, NULL AS source_title,
-                NULL AS source_status, NULL AS source_markdown_path
+                NULL AS source_status, NULL AS source_markdown_path,
+                NULL AS source_directory_id, NULL AS source_directory_fs_path
          FROM links l
          JOIN notes n ON n.id = l.to_note_id
+         LEFT JOIN note_directory_membership target_member ON target_member.note_id = n.id
+         LEFT JOIN directories target_directory ON target_directory.id = target_member.directory_id
          WHERE l.from_note_id = ? AND n.deleted_at IS NULL
          ORDER BY l.created_at DESC`
       )
-      .all(id)
-      .map(mapRelationLinkRow);
+      .all(id);
 
-    const backlinks = db
+    const backlinkRows = db
       .prepare(
         `SELECT l.*, NULL AS target_id, NULL AS target_note_type, NULL AS target_title,
                 NULL AS target_status, NULL AS target_markdown_path,
+                NULL AS target_directory_id, NULL AS target_directory_fs_path,
                 n.id AS source_id, n.note_type AS source_note_type, n.title AS source_title,
-                n.status AS source_status, n.markdown_path AS source_markdown_path
+                n.status AS source_status, n.markdown_path AS source_markdown_path,
+                source_member.directory_id AS source_directory_id, source_directory.fs_path AS source_directory_fs_path
          FROM links l
          JOIN notes n ON n.id = l.from_note_id
+         LEFT JOIN note_directory_membership source_member ON source_member.note_id = n.id
+         LEFT JOIN directories source_directory ON source_directory.id = source_member.directory_id
          WHERE l.to_note_id = ? AND n.deleted_at IS NULL
          ORDER BY l.created_at DESC`
       )
-      .all(id)
-      .map(mapRelationLinkRow);
+      .all(id);
+
+    const outgoingLinks = await mapRelationLinkRows(vaultPath, db, outgoingRows);
+    const backlinks = await mapRelationLinkRows(vaultPath, db, backlinkRows);
 
     return {
       noteId: id,
@@ -2293,23 +2703,24 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
-
-    const currentMarkdownPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const currentMarkdown = await fs.readFile(currentMarkdownPath, "utf8");
-    const currentParsed = parseMarkdownWithFrontmatter(currentMarkdown);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { hydrateMarkdown: true });
+    const effectiveRow = resolved.row;
+    const currentMarkdownPath = resolved.fullPath;
+    const currentMarkdown = resolved.markdown;
+    const currentParsed = resolved.parsed || parseMarkdownWithFrontmatter(currentMarkdown);
     const preservedFrontmatter = currentParsed.frontmatter && typeof currentParsed.frontmatter === "object" ? { ...currentParsed.frontmatter } : {};
-    const requestedStatus = String(input.status || row.status || "draft");
+    const requestedStatus = String(input.status || effectiveRow.status || "draft");
     const normalized = normalizeMarkdown(
-      input.title === undefined ? row.title : input.title,
+      input.title === undefined ? effectiveRow.title : input.title,
       input.body === undefined ? currentParsed.body : input.body
     );
-    assertLiteratureCompletionAllowed(row.note_type, requestedStatus, normalized.markdownBody);
+    assertLiteratureCompletionAllowed(effectiveRow.note_type, requestedStatus, normalized.markdownBody);
     const now = new Date().toISOString();
-    const permanentMeta = row.note_type === "permanent" ? permanentMetadataFromInput(input, preservedFrontmatter) : null;
-    assertConfirmedDistillationAllowed(row.note_type, input, permanentMeta);
+    const permanentMeta = effectiveRow.note_type === "permanent" ? permanentMetadataFromInput(input, preservedFrontmatter) : null;
+    assertConfirmedDistillationAllowed(effectiveRow.note_type, input, permanentMeta);
     let status = requestedStatus;
-    if (row.note_type === "permanent") {
-      const originality = await evaluatePermanentOriginality(db, vaultPath, row.id, normalized.markdownBody);
+    if (effectiveRow.note_type === "permanent") {
+      const originality = await evaluatePermanentOriginality(db, vaultPath, effectiveRow.id, normalized.markdownBody);
       if (originality) {
         permanentMeta.originalityStatus = originality.status;
         permanentMeta.originalitySimilarity = originality.similarity;
@@ -2318,7 +2729,7 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
             "PERMANENT_ORIGINALITY_BLOCKED",
             "Permanent note save blocked: rewrite this note in your own words before saving.",
             {
-              noteType: row.note_type,
+              noteType: effectiveRow.note_type,
               requestedStatus,
               originality
             }
@@ -2333,17 +2744,17 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
     }
     const nextFrontmatter = {
       ...preservedFrontmatter,
-      id: row.id,
-      note_type: row.note_type,
+      id: effectiveRow.id,
+      note_type: effectiveRow.note_type,
       title: normalized.title,
       status,
-      created_at: row.created_at,
+      created_at: effectiveRow.created_at,
       updated_at: now
     };
     delete nextFrontmatter.boundaryOrCounterpoint;
     delete nextFrontmatter.threeLineSummary;
     delete nextFrontmatter.distillationStatus;
-    if (row.note_type === "permanent") {
+    if (effectiveRow.note_type === "permanent") {
       const boundaryOrCounterpoint = boundaryValueFromInput(input, preservedFrontmatter.boundary_or_counterpoint || preservedFrontmatter.boundaryOrCounterpoint);
       if (boundaryOrCounterpoint) nextFrontmatter.boundary_or_counterpoint = boundaryOrCounterpoint;
       else delete nextFrontmatter.boundary_or_counterpoint;
@@ -2364,8 +2775,8 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
       delete nextFrontmatter.boundary_or_counterpoint;
     }
     const markdown = serializeMarkdownWithFrontmatter(nextFrontmatter, normalized.markdownBody);
-    const nextMarkdownPath = await resolveUniqueMarkdownPath(row.directory_fs_path, normalized.title, {
-      fallbackStem: row.id,
+    const nextMarkdownPath = await resolveUniqueMarkdownPath(effectiveRow.directory_fs_path, normalized.title, {
+      fallbackStem: effectiveRow.id,
       excludePath: currentMarkdownPath
     });
     const hasRenamedFile = path.resolve(nextMarkdownPath) !== path.resolve(currentMarkdownPath);
@@ -2397,10 +2808,10 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
         status,
         nextRelPath,
         now,
-        row.id
+        effectiveRow.id
       );
-      ensureSingleDirectoryMembership(db, row.id, row.directory_id);
-      syncMarkdownRelations(db, row.id, normalized.markdownBody);
+      ensureSingleDirectoryMembership(db, effectiveRow.id, effectiveRow.directory_id);
+      syncMarkdownRelations(db, effectiveRow.id, normalized.markdownBody);
       db.exec("COMMIT;");
     } catch (error) {
       db.exec("ROLLBACK;");
@@ -2423,12 +2834,12 @@ export async function updateNoteContent(vaultPath, noteId, input = {}) {
          WHERE n.id = ?
          LIMIT 1`
       )
-      .get(row.id);
+      .get(effectiveRow.id);
     return attachNoteThinkingStatus({
       ...mapNoteRow(refreshed),
       body: normalized.markdownBody,
       markdown,
-      ...(row.note_type === "permanent"
+      ...(effectiveRow.note_type === "permanent"
         ? {
             thesis: permanentMeta.thesis,
             threeLineSummary: permanentMeta.threeLineSummary,
@@ -2459,27 +2870,31 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
   try {
     const row = db
       .prepare(
-        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at, ndm.directory_id
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path
          FROM notes n
          LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
          WHERE n.id = ? AND n.deleted_at IS NULL
          LIMIT 1`
       )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: false });
+    const effectiveRow = resolved.row;
 
     const targetDir = db
       .prepare("SELECT id, fs_path FROM directories WHERE id = ? LIMIT 1")
       .get(targetDirectoryId);
     if (!targetDir) throw new Error(`directoryId not found: ${targetDirectoryId}`);
 
-    if (row.directory_id === targetDirectoryId) {
-      return mapNoteRow({ ...row, directory_id: targetDirectoryId });
+    if (effectiveRow.directory_id === targetDirectoryId) {
+      return mapNoteRow({ ...effectiveRow, directory_id: targetDirectoryId });
     }
 
-    const oldAbsPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    const newAbsPath = await resolveUniqueMarkdownPath(targetDir.fs_path, row.title, {
-      fallbackStem: row.id
+    const oldAbsPath = resolved.fullPath;
+    const newAbsPath = await resolveUniqueMarkdownPath(targetDir.fs_path, effectiveRow.title, {
+      fallbackStem: effectiveRow.id
     });
     await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
     await fs.rename(oldAbsPath, newAbsPath);
@@ -2488,7 +2903,7 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
 
     db.exec("BEGIN IMMEDIATE;");
     try {
-      await rewriteAssetLinksInMarkdownFile(newAbsPath, row.markdown_path, relPath, now);
+      await rewriteAssetLinksInMarkdownFile(newAbsPath, effectiveRow.markdown_path, relPath, now);
       db.prepare("UPDATE notes SET markdown_path = ?, updated_at = ? WHERE id = ?").run(relPath, now, id);
       ensureSingleDirectoryMembership(db, id, targetDirectoryId);
       db.exec("COMMIT;");
@@ -2515,24 +2930,35 @@ export async function moveNoteToDirectory(vaultPath, noteId, directoryId) {
   }
 }
 
-export async function deleteNoteById(vaultPath, noteId) {
+export async function deleteNoteById(vaultPath, noteId, options = {}) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const id = String(noteId || "").trim();
   if (!id) throw new Error("noteId is required");
+  const deleteFile = options.deleteFile !== false;
 
   const DatabaseSync = await loadDatabaseSync();
   const db = new DatabaseSync(catalogDbPath(vaultPath));
   try {
     const row = db
-      .prepare("SELECT id, markdown_path, deleted_at FROM notes WHERE id = ? LIMIT 1")
+      .prepare(
+        `SELECT n.id, n.note_type, n.title, n.status, n.markdown_path, n.created_at, n.updated_at,
+                ndm.directory_id, d.fs_path AS directory_fs_path, n.deleted_at
+         FROM notes n
+         LEFT JOIN note_directory_membership ndm ON ndm.note_id = n.id
+         LEFT JOIN directories d ON d.id = ndm.directory_id
+         WHERE n.id = ?
+         LIMIT 1`
+      )
       .get(id);
     if (!row) throw new Error(`noteId not found: ${id}`);
     if (row.deleted_at) return { id, deleted: true };
+    const resolved = await resolveCatalogRowState(vaultPath, db, row, { tolerateMissing: true });
 
-    const absPath = path.join(path.resolve(vaultPath), row.markdown_path);
-    try {
-      await fs.unlink(absPath);
-    } catch {}
+    if (deleteFile && resolved.fullPath) {
+      try {
+        await fs.unlink(resolved.fullPath);
+      } catch {}
+    }
     const now = new Date().toISOString();
     db.prepare("UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?").run(now, now, id);
     db.prepare("DELETE FROM note_directory_membership WHERE note_id = ?").run(id);

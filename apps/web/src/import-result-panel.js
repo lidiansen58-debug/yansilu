@@ -38,7 +38,7 @@ function renderFileInventory(data = {}) {
   if (!createdFiles.length) return "";
   return `
     <div class="result-file-inventory">
-      <strong>写入内容</strong>
+      <strong>已写入</strong>
       <div class="result-file-types">${fileTypeSummary(createdFiles).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
     </div>
   `;
@@ -49,6 +49,17 @@ function warningText(item = {}) {
   const message = String(item.message || "").trim();
   if (code && message) return `${code}: ${message}`;
   return message || code || JSON.stringify(item);
+}
+
+function renderDetailSection(title = "", content = "", extraClass = "") {
+  if (!content) return "";
+  const className = ["result-detail-section", extraClass].filter(Boolean).join(" ");
+  return `
+    <details class="${escapeHtml(className)}">
+      <summary>${escapeHtml(title)}</summary>
+      <div class="result-detail-body">${content}</div>
+    </details>
+  `;
 }
 
 export function renderImportResultPanel({
@@ -102,14 +113,16 @@ export function renderImportResultPanel({
           : ""
       }
       ${writingActionsHtml}
-      ${skipBreakdownHtml}
-      ${candidatePreviewHtml}
-      ${writingDetailsHtml}
+      ${renderDetailSection("查看候选与预览", candidatePreviewHtml, "result-candidates-detail")}
+      ${renderDetailSection("查看跳过与保留", skipBreakdownHtml, "result-skip-detail")}
+      ${renderDetailSection("查看写作细节", writingDetailsHtml, "result-writing-detail")}
       ${
         raw
-          ? `<details class="result-json">
+          ? `<details class="result-json result-detail-section">
               <summary>查看原始数据</summary>
-              <pre>${escapeHtml(raw)}</pre>
+              <div class="result-detail-body">
+                <pre>${escapeHtml(raw)}</pre>
+              </div>
             </details>`
           : ""
       }

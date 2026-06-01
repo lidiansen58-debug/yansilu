@@ -34,20 +34,19 @@ import {
   renderImportResultMount
 } from "./import-result-mount.js";
 import {
-  candidateIdsByOriginalityStatus,
   candidatePreviewItemIds,
   candidatePreviewItems,
   confirmSkipReasonMap,
   confirmSkippedCandidateIds,
-  confirmableCandidateIds,
-  riskyCandidateIds,
-  safeCandidateIds,
   selectionSummary as summarizeCandidateSelection
 } from "./import-candidate-preview-model.js";
 import {
   renderCandidatePreview,
   renderConfirmSkipBreakdown
 } from "./import-candidate-preview-panel.js";
+import {
+  selectedCandidateIdsForImportAction
+} from "./import-selection-actions.js";
 import { basenameLocalPath, dirnameLocalPath, joinLocalPath } from "./desktop-file-adapter.js";
 import {
   renderAiInboxPanel
@@ -203,6 +202,7 @@ state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 const importState = {
   importRecordId: "",
+  directoryId: "",
   lastPreview: null,
   lastResultPayload: null,
   literatureBatchSummary: null,
@@ -1124,6 +1124,7 @@ function compactValue(value) {
 function currentImportToolbarValues() {
   return {
     connector: String($("importConnector")?.value || "markdown").trim(),
+    directoryId: String($("importDirectoryId")?.value || importState.directoryId || "").trim(),
     path: String($("importPath")?.value || "").trim(),
     payload: String($("importPayload")?.value || ""),
     options: String($("importOptions")?.value || ""),
@@ -1135,9 +1136,12 @@ function renderImportToolbar() {
   const el = $("importToolbarMount");
   if (!el) return;
   const values = currentImportToolbarValues();
+  importState.directoryId = preferredImportDirectoryId(values.directoryId);
   const preview = activeImportPreviewContext();
   const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === values.importRecordId);
-  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, values.importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const summary = hasMatchingPreview
+    ? selectionSummary(preview.candidatePreview, values.importRecordId, null, preview.candidateSelection || null)
+    : { selectedCount: 0, totalCount: 0 };
   const confirmButton = importConfirmButtonState({
     hasMatchingPreview,
     selectedCount: summary.selectedCount,
@@ -1146,6 +1150,11 @@ function renderImportToolbar() {
 
   el.innerHTML = renderImportToolbarMount({
     ...values,
+    directoryId: importState.directoryId,
+    directoryOptions: importTargetDirectories().map((folder) => ({
+      value: folder.id,
+      label: directoryPathLabel(folder.id)
+    })),
     confirmButton
   });
 }
@@ -1168,6 +1177,14 @@ function renderImportPageShell() {
         }
       : null
   });
+  mountExportCardIntoImportShell();
+}
+
+function mountExportCardIntoImportShell() {
+  const exportCard = $("importPanel")?.querySelector(".export-card");
+  const exportMount = $("exportCardMount");
+  if (!exportCard || !exportMount) return;
+  exportMount.replaceChildren(exportCard);
 }
 
 function renderAiInboxWorkspace() {
@@ -3184,7 +3201,7 @@ async function refreshImportHistory({ silent = false } = {}) {
   }
 }
 
-async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读取导入记录" } = {}) {
+async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读取导入记录", statusTone = "ok", announce = true } = {}) {
   const cleanImportRecordId = String(importRecordId || "").trim();
   if (!cleanImportRecordId) throw new Error("importRecordId is required");
   const importRecord = await fetchImportRecord(cleanImportRecordId);
@@ -3193,16 +3210,17 @@ async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读�
       ? {
           importRecordId: cleanImportRecordId,
           candidatePreview: importRecord.candidatePreview || null,
+          candidateSelection: importRecord.candidateSelection || null,
           originalityGuard: importRecord.originalityGuard || null
         }
       : null;
-  syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, { preserve: true });
+  syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, importRecord?.candidateSelection || null, { preserve: true });
   setImportRecordId(cleanImportRecordId);
   showImportResult({
     stage: "record",
     importRecord
   });
-  setStatus(`${statusPrefix}：${cleanImportRecordId}`, "ok");
+  if (announce) setStatus(`${statusPrefix}：${cleanImportRecordId}`, statusTone);
   return importRecord;
 }
 
@@ -3232,9 +3250,27 @@ function candidatePreviewFromPayload(payload = {}) {
   return payload.candidatePreview || payload.importRecord?.candidatePreview || null;
 }
 
-function syncImportSelection(importRecordId, candidatePreview, { preserve = false } = {}) {
+function candidateSelectionFromPayload(payload = {}) {
+  return payload.candidateSelection || payload.importRecord?.candidateSelection || null;
+}
+
+function candidateSelectionIds(candidateSelection = null) {
+  if (!candidateSelection || typeof candidateSelection !== "object") return [];
+  return [
+    ...(Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []),
+    ...(Array.isArray(candidateSelection.literatureNotes) ? candidateSelection.literatureNotes : []),
+    ...(Array.isArray(candidateSelection.permanentNotes) ? candidateSelection.permanentNotes : [])
+  ].map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function candidateIdsForSelection(candidatePreview, candidateSelection = null) {
+  const ids = candidateSelectionIds(candidateSelection);
+  return ids.length ? [...new Set(ids)] : candidatePreviewItemIds(candidatePreview);
+}
+
+function syncImportSelection(importRecordId, candidatePreview, candidateSelection = null, { preserve = false } = {}) {
   const cleanRecordId = String(importRecordId || "").trim();
-  const candidateIds = candidatePreviewItemIds(candidatePreview);
+  const candidateIds = candidateIdsForSelection(candidatePreview, candidateSelection);
   const selected = new Set();
   if (preserve && importState.selectionImportRecordId === cleanRecordId) {
     for (const id of candidateIds) {
@@ -3247,19 +3283,41 @@ function syncImportSelection(importRecordId, candidatePreview, { preserve = fals
   importState.selectedCandidateIds = selected;
 }
 
-function selectedCandidateIdsFor(candidatePreview, importRecordId, selection = null) {
+function selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection = null) {
   if (selection && Array.isArray(selection.candidateIds)) {
     return new Set(selection.candidateIds.map((item) => String(item || "").trim()).filter(Boolean));
   }
   if (importState.selectionImportRecordId === String(importRecordId || "").trim()) {
     return new Set(importState.selectedCandidateIds);
   }
-  return new Set(candidatePreviewItemIds(candidatePreview));
+  return new Set(candidateIdsForSelection(candidatePreview, candidateSelection));
 }
 
-function selectionSummary(candidatePreview, importRecordId, selection = null) {
-  const selectedIds = selectedCandidateIdsFor(candidatePreview, importRecordId, selection);
-  return summarizeCandidateSelection(candidatePreview, selectedIds);
+function selectionSummary(candidatePreview, importRecordId, selection = null, candidateSelection = null) {
+  const selectedIds = selectedCandidateIdsFor(candidatePreview, candidateSelection, importRecordId, selection);
+  const visibleSummary = summarizeCandidateSelection(candidatePreview, new Set(
+    candidatePreviewItemIds(candidatePreview).filter((id) => selectedIds.has(id))
+  ));
+  if (selection && Number.isFinite(Number(selection.totalCandidates))) {
+    const selectedCount = Number.isFinite(Number(selection.selectedCandidates)) ? Number(selection.selectedCandidates) : selectedIds.size;
+    const totalCount = Number(selection.totalCandidates);
+    return {
+      ...visibleSummary,
+      selectedIds,
+      selectedCount,
+      totalCount,
+      excludedCount: Math.max(0, totalCount - selectedCount)
+    };
+  }
+  const totalIds = candidateIdsForSelection(candidatePreview, candidateSelection);
+  const selectedCount = totalIds.filter((id) => selectedIds.has(id)).length;
+  return {
+    ...visibleSummary,
+    selectedIds,
+    selectedCount,
+    totalCount: totalIds.length,
+    excludedCount: Math.max(0, totalIds.length - selectedCount)
+  };
 }
 
 function renderImportWritingActions(payload = {}) {
@@ -3455,7 +3513,7 @@ function renderResult(el, payload) {
   const importRecordId = data.importRecordId || data.importRecord?.importRecordId || "";
   const interactivePreview = stage === "preview" || (stage === "record" && data.importRecord?.status === "preview");
   const selection = data.result?.selection || data.importRecord?.confirmResult?.selection || null;
-  const previewSummary = selectionSummary(candidatePreview, importRecordId, selection);
+  const previewSummary = selectionSummary(candidatePreview, importRecordId, selection, candidateSelectionFromPayload(data));
   const showExcludedSummary = stage === "confirm" && Boolean(selection?.selectedCandidates < selection?.totalCandidates);
   const raw = JSON.stringify(data, null, 2);
 
@@ -3487,7 +3545,10 @@ function showImportResult(payload) {
 }
 
 function showExportResult(payload) {
+  const directoryId = String(payload?.directoryId || "").trim();
+  if (directoryId && !payload.directoryLabel) payload.directoryLabel = directoryPathLabel(directoryId);
   renderResult($("exportResult"), payload);
+  updateExportTargetHint();
 }
 
 function normalizeWritingProjectTitleSeed(title = "") {
@@ -4054,6 +4115,7 @@ function activeImportPreviewContext() {
     return {
       importRecordId: recordPreview.importRecordId,
       candidatePreview: recordPreview.candidatePreview || null,
+      candidateSelection: recordPreview.candidateSelection || null,
       originalityGuard: recordPreview.originalityGuard || null
     };
   }
@@ -4066,7 +4128,9 @@ function updateImportConfirmButton() {
   const preview = activeImportPreviewContext();
   const importRecordId = String($("importRecordId")?.value || importState.importRecordId || "").trim();
   const hasMatchingPreview = Boolean(preview?.candidatePreview && preview.importRecordId === importRecordId);
-  const summary = hasMatchingPreview ? selectionSummary(preview.candidatePreview, importRecordId) : { selectedCount: 0, totalCount: 0 };
+  const summary = hasMatchingPreview
+    ? selectionSummary(preview.candidatePreview, importRecordId, null, preview.candidateSelection || null)
+    : { selectedCount: 0, totalCount: 0 };
   const state = importConfirmButtonState({
     hasMatchingPreview,
     selectedCount: summary.selectedCount,
@@ -4091,37 +4155,12 @@ function applyCandidateSelection(action) {
   const preview = activeImportPreviewContext();
   if (!preview?.candidatePreview) return;
   const importRecordId = String(preview.importRecordId || "").trim();
-  const items = candidatePreviewItems(preview.candidatePreview);
-  const next = new Set();
-  if (action === "all") {
-    for (const item of items) next.add(String(item.id));
-  } else if (action === "confirmable") {
-    for (const id of confirmableCandidateIds(preview.candidatePreview, preview.originalityGuard || null)) next.add(id);
-  } else if (action === "safe") {
-    for (const id of safeCandidateIds(preview.candidatePreview)) next.add(id);
-  } else if (action === "exclude-risky") {
-    const riskyIds = new Set(riskyCandidateIds(preview.candidatePreview));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!riskyIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "exclude-warning") {
-    const warningIds = new Set(candidateIdsByOriginalityStatus(preview.candidatePreview, "warning"));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!warningIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "exclude-blocked") {
-    const blockedIds = new Set(candidateIdsByOriginalityStatus(preview.candidatePreview, "blocked"));
-    for (const item of items) {
-      const candidateId = String(item.id);
-      if (!blockedIds.has(candidateId)) next.add(candidateId);
-    }
-  } else if (action === "permanent") {
-    for (const item of items) {
-      if (item.candidateGroup === "PermanentNote") next.add(String(item.id));
-    }
-  }
+  const next = selectedCandidateIdsForImportAction({
+    action,
+    candidatePreview: preview.candidatePreview,
+    candidateSelection: preview.candidateSelection || null,
+    originalityGuard: preview.originalityGuard || null
+  });
   importState.selectionImportRecordId = importRecordId;
   importState.selectedCandidateIds = next;
   rerenderImportResult();
@@ -4752,10 +4791,11 @@ function renderSidebarTitle() {
   }
 
   const moduleUi = currentModuleUi();
+  const compactImportSidebar = state.module === "imports" && typeof window !== "undefined" && window.innerWidth <= 700;
   $("sidebarTitle").textContent = moduleUi.sidebarTitle;
   if (sidebarSubtitle) {
     sidebarSubtitle.classList.remove("hidden");
-    sidebarSubtitle.textContent = moduleUi.sidebarSubtitle || "当前功能页。";
+    sidebarSubtitle.textContent = compactImportSidebar ? "先预览，再写入。" : (moduleUi.sidebarSubtitle || "当前功能页。");
   }
   $("explorerActions").classList.add("hidden");
   $("explorerActions").innerHTML = "";
@@ -4764,11 +4804,16 @@ function renderSidebarTitle() {
   sidebarFlow?.classList.add("hidden");
   if (sidebarFlow) sidebarFlow.innerHTML = "";
   listArea?.classList.add("hidden");
-  moduleSidebar?.classList.add("visible");
-  if (moduleSidebar) moduleSidebar.innerHTML = moduleUi.sidebarHtml;
+  moduleSidebar?.classList.toggle("visible", !compactImportSidebar);
+  if (moduleSidebar) moduleSidebar.innerHTML = compactImportSidebar ? "" : moduleUi.sidebarHtml;
   if (sidebarFoot) {
-    sidebarFoot.classList.remove("hidden");
-    sidebarFoot.textContent = moduleUi.sidebarFoot;
+    if (compactImportSidebar) {
+      sidebarFoot.textContent = "";
+      sidebarFoot.classList.add("hidden");
+    } else {
+      sidebarFoot.classList.remove("hidden");
+      sidebarFoot.textContent = moduleUi.sidebarFoot;
+    }
   }
 }
 
@@ -4947,6 +4992,14 @@ function renderModuleWorkspaceHeader() {
     : modelRef
       ? modelRef
       : "AI 路由暂不可用";
+  if (state.module === "imports") {
+    moduleHeaderActions.innerHTML = `
+      <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
+      <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "未检测")}</span>
+    `;
+    $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
+    return;
+  }
   moduleHeaderActions.innerHTML = `
     <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
     <span class="settings-stat-badge ${localOnly ? "ok" : ""}">${escapeHtml(statusLabel)}</span>
@@ -5123,6 +5176,32 @@ function permanentExportDirectories() {
     .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
 }
 
+function importTargetDirectories() {
+  return state.folders
+    .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(rootBoxIdFromFolder(state, folder.id)))
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+}
+
+function preferredImportDirectoryId(currentValue = "") {
+  const options = importTargetDirectories();
+  const cleanCurrentValue = String(currentValue || "").trim();
+  if (options.some((folder) => folder.id === cleanCurrentValue)) return cleanCurrentValue;
+  const selectedFolderId = String(state.selectedFolderId || "").trim();
+  if (options.some((folder) => folder.id === selectedFolderId)) return selectedFolderId;
+  return options.some((folder) => folder.id === "dir_literature_default") ? "dir_literature_default" : options[0]?.id || "";
+}
+
+function confirmedImportTargetDirectoryId(result = {}, fallbackDirectoryId = "") {
+  const targetDirectories = Array.isArray(result?.result?.targetDirectories) ? result.result.targetDirectories : [];
+  if (targetDirectories.length === 1) return String(targetDirectories[0]?.directoryId || "").trim();
+  if (targetDirectories.length > 1) {
+    const fallback = String(fallbackDirectoryId || "").trim();
+    if (targetDirectories.some((item) => String(item?.directoryId || "").trim() === fallback)) return fallback;
+    return "";
+  }
+  return "";
+}
+
 function syncExportDirectoryOptions() {
   const select = $("exportDirectoryId");
   if (!select) return;
@@ -5142,6 +5221,23 @@ function syncExportDirectoryOptions() {
     select.innerHTML = `<option value="dir_original_default">永久笔记盒</option>`;
   }
   select.value = preferredValue;
+  updateExportTargetHint();
+}
+
+function selectedExportDirectoryLabel() {
+  const directoryId = String($("exportDirectoryId")?.value || "").trim();
+  if (!directoryId) return "";
+  return directoryPathLabel(directoryId);
+}
+
+function updateExportTargetHint() {
+  const hint = $("exportTargetHint");
+  if (!hint) return;
+  const targetPath = String($("exportTargetPath")?.value || "").trim();
+  const directoryLabel = selectedExportDirectoryLabel() || "永久笔记盒";
+  hint.textContent = targetPath
+    ? `将从 ${directoryLabel} 导出，写入 ${targetPath}。`
+    : `将从 ${directoryLabel} 导出。首次导出时再选择保存位置。`;
 }
 
 function activeEditorNote() {
@@ -13030,6 +13126,7 @@ async function bootstrap() {
     getFallbackImportRecordId: () => importState.importRecordId,
     getActivePreview: () => activeImportPreviewContext(),
     selectionSummary,
+    resolveDirectoryRootId: (directoryId) => rootBoxIdFromFolder(state, directoryId),
     previewImport,
     confirmImport,
     cancelImport,
@@ -13037,7 +13134,7 @@ async function bootstrap() {
     rollbackImportIntoUi,
     onPreviewSuccess: async (preview) => {
       importState.lastPreview = preview;
-      syncImportSelection(preview.importRecordId, preview.candidatePreview);
+      syncImportSelection(preview.importRecordId, preview.candidatePreview, preview.candidateSelection || null);
       setImportRecordId(preview.importRecordId);
       showImportResult({
         stage: "preview",
@@ -13046,12 +13143,20 @@ async function bootstrap() {
         status: preview.status,
         summary: preview.summary,
         candidatePreview: preview.candidatePreview,
+        candidateSelection: preview.candidateSelection || null,
         warnings: preview.warnings,
         originalityGuard: preview.originalityGuard
       });
     },
     onConfirmSuccess: async ({ importRecordId, result, preview }) => {
       setImportRecordId(importRecordId);
+      const targetDirectoryId = confirmedImportTargetDirectoryId(result, preferredImportDirectoryId(importState.directoryId));
+      if (targetDirectoryId && folderById(state, targetDirectoryId)) {
+        importState.directoryId = targetDirectoryId;
+        state.selectedFolderId = targetDirectoryId;
+        state.browserRootId = rootBoxIdFromFolder(state, targetDirectoryId);
+        await syncNotesForDirectory(targetDirectoryId);
+      }
       showImportResult({
         stage: "confirm",
         importRecordId,
@@ -13088,7 +13193,9 @@ async function bootstrap() {
     if (!candidateId || !importRecordId) return;
     if (importState.selectionImportRecordId !== importRecordId) {
       importState.selectionImportRecordId = importRecordId;
-      importState.selectedCandidateIds = new Set(candidatePreviewItemIds(importState.lastPreview?.candidatePreview));
+      importState.selectedCandidateIds = new Set(
+        candidateIdsForSelection(importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null)
+      );
     }
     if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
     else importState.selectedCandidateIds.delete(candidateId);
@@ -13179,6 +13286,19 @@ async function bootstrap() {
     renderImportHistory();
   });
 
+  $("importDirectoryId")?.addEventListener("change", (event) => {
+    importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
+    setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
+  });
+
+  $("exportDirectoryId")?.addEventListener("change", () => {
+    updateExportTargetHint();
+  });
+
+  $("exportTargetPath")?.addEventListener("change", () => {
+    updateExportTargetHint();
+  });
+
   $("btnImportPreview")?.addEventListener("click", async () => {
     await importToolbarActions.handlePreview();
   });
@@ -13211,8 +13331,20 @@ async function bootstrap() {
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
     const directoryId = String($("exportDirectoryId")?.value || "").trim();
-    const targetPath = String($("exportTargetPath")?.value || "").trim();
     if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+    let targetPath = String($("exportTargetPath")?.value || "").trim();
+    if (!targetPath) {
+      const picked = await desktopCommands.browseDirectory({
+        defaultPath: "",
+        purpose: "导出目录"
+      });
+      targetPath = String(picked?.path || "").trim();
+      if (targetPath) {
+        $("exportTargetPath").value = targetPath;
+        $("exportAdvanced")?.setAttribute("open", "open");
+        updateExportTargetHint();
+      }
+    }
     if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
     try {
       const result = await exportMarkdown({
@@ -13223,6 +13355,7 @@ async function bootstrap() {
         stage: "export_markdown",
         targetPath,
         directoryId,
+        directoryLabel: directoryPathLabel(directoryId),
         exportJobId: result.exportJobId,
         status: result.status,
         copied: result.copied,
@@ -13234,6 +13367,7 @@ async function bootstrap() {
         stage: "export_error",
         targetPath,
         directoryId,
+        directoryLabel: directoryPathLabel(directoryId),
         message: String(error?.message || error),
         code: error?.code || null,
         details: error?.details || null
@@ -13249,6 +13383,8 @@ async function bootstrap() {
     });
     if (!picked.path) return;
     $("exportTargetPath").value = picked.path;
+    $("exportAdvanced")?.setAttribute("open", "open");
+    updateExportTargetHint();
     setStatus("已选择导出目录", "ok");
   });
 

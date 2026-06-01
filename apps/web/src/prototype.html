@@ -1771,6 +1771,9 @@
     .import-page-primary {
       min-width: 0;
     }
+    #exportCardMount {
+      min-width: 0;
+    }
     .import-card {
       border: 1px solid rgba(210, 220, 217, 0.92);
       border-radius: 16px;
@@ -1781,6 +1784,9 @@
     }
     .import-card + .import-card {
       margin-top: 16px;
+    }
+    #exportCardMount .import-card {
+      margin-top: 0;
     }
     .import-card-head {
       display: flex;
@@ -2947,6 +2953,22 @@
 	      cursor: pointer;
 	      color: #475569;
 	      font-weight: 700;
+	    }
+	    .result-detail-section {
+	      border-top: 1px solid #e2e8f0;
+	      padding-top: 10px;
+	    }
+	    .result-detail-section summary {
+	      cursor: pointer;
+	      color: #475569;
+	      font-weight: 700;
+	      list-style: none;
+	    }
+	    .result-detail-section summary::-webkit-details-marker {
+	      display: none;
+	    }
+	    .result-detail-body {
+	      margin-top: 10px;
 	    }
 	    .result-json pre {
 	      margin: 8px 0 0;
@@ -7474,6 +7496,9 @@
       .module-header-actions {
         justify-content: flex-start;
       }
+      .module-summary {
+        line-height: 1.55;
+      }
       .module-stage {
         padding: 14px 12px 16px;
       }
@@ -7487,10 +7512,40 @@
       .import-card {
         padding: 14px;
       }
+      .import-card-head {
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .import-card-head strong {
+        font-size: 15px;
+      }
+      .import-card-badge {
+        padding: 3px 8px;
+        font-size: 10px;
+      }
+      .toolbar-note,
+      .muted {
+        font-size: 11px;
+        line-height: 1.5;
+      }
       .import-grid,
       .path-picker,
       .result-file-row {
         grid-template-columns: 1fr;
+      }
+      .import-actions {
+        gap: 6px;
+        margin-top: 12px;
+      }
+      .import-actions .mini-btn {
+        flex: 1 1 calc(50% - 6px);
+        min-height: 40px;
+      }
+      .import-actions.secondary .mini-btn {
+        flex-basis: 100%;
+      }
+      .import-result {
+        font-size: 13px;
       }
       .import-flow-steps {
         grid-template-columns: 1fr;
@@ -7501,6 +7556,9 @@
       .result-card-head {
         align-items: flex-start;
         flex-direction: column;
+      }
+      .result-metrics.compact {
+        grid-template-columns: 1fr;
       }
       .editor-helper {
         width: min(138px, calc(100vw - 72px));
@@ -10095,109 +10153,39 @@
         </div>
         <div class="module-stage">
           <div class="panel hidden" id="importPanel">
-            <div id="importPageMount">
-              <div class="import-page-shell">
-                <section class="import-page-primary" id="importToolbarMount">
-                  <div class="import-card import-toolbar-card">
-                    <div class="import-card-head">
-                      <div>
-                        <div class="import-card-kicker">导入</div>
-                        <strong>导入</strong>
-                      </div>
-                      <span class="import-card-badge">预览后导入</span>
-                    </div>
-                    <div class="import-grid import-form-grid" style="margin-top:10px;">
-                      <label for="importConnector">来源</label>
-                      <select id="importConnector">
-                        <option value="markdown">Markdown 文档</option>
-                        <option value="obsidian">Obsidian 库</option>
-                        <option value="zotero">Zotero 文献库</option>
-                        <option value="readwise">Readwise 高亮</option>
-                        <option value="notebooklm">NotebookLM 项目</option>
-                      </select>
-
-                      <label for="importPath">路径</label>
-                      <div class="import-field-stack">
-                        <div class="path-picker">
-                          <input id="importPath" placeholder="选择要导入的目录" />
-                          <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择</button>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="import-actions">
-                      <button class="mini-btn primary" id="btnImportPreview">预览</button>
-                      <button class="mini-btn" id="btnImportConfirm">确认写入</button>
-                    </div>
-                    <details class="import-advanced" id="importAdvanced">
-                      <summary>高级选项</summary>
-                      <div class="import-advanced-body">
-                        <div class="import-grid">
-                          <label for="importPayload">请求体 JSON</label>
-                          <textarea id="importPayload" style="min-height:90px;" placeholder='留空时自动使用 {"path":"当前路径"}'></textarea>
-
-                          <label for="importOptions">选项 JSON</label>
-                          <textarea id="importOptions" style="min-height:80px;" placeholder='例如：{"detectWikilinks":true}'></textarea>
-
-                          <label for="importRecordId">导入记录 ID</label>
-                          <input id="importRecordId" placeholder="预览后自动填入" />
-                        </div>
-                        <div class="import-actions secondary">
-                          <button class="mini-btn" id="btnImportCancel">取消</button>
-                          <button class="mini-btn" id="btnImportRefresh">刷新记录</button>
-                          <button class="mini-btn" id="btnImportRollback">回滚</button>
-                        </div>
-                      </div>
-                    </details>
-                  </div>
-                </section>
-                <section class="import-card import-history-card">
-                  <div class="import-history-head">
-                    <div>
-                      <div class="import-card-kicker">最近</div>
-                      <div class="import-history-title">最近导入</div>
-                    </div>
-                  </div>
-                  <div id="importHistoryMount">
-                    <div class="import-history-summary tone-neutral">
-                      <div class="import-history-summary-main">
-                        <div>
-                          <div class="import-history-summary-kicker">最近导入</div>
-                          <strong>最近导入</strong>
-                          <div class="import-history-summary-subtitle">暂无记录</div>
-                        </div>
-                      </div>
-                      <div class="import-history-summary-detail">先导入一次，这里会显示最近状态。</div>
-                    </div>
-                    <div class="import-history" id="importHistory">还没有导入记录。</div>
-                  </div>
-                  <div class="import-result" id="importResult">还没有导入结果。</div>
-                </section>
-              </div>
-            </div>
+            <div id="importPageMount"></div>
             <div class="import-card export-card">
               <div class="import-card-head">
                 <div>
                   <div class="import-card-kicker">导出</div>
                   <strong>导出永久笔记</strong>
                 </div>
-                <span class="import-card-badge">目录导出</span>
+                <span class="import-card-badge">选目录，再导出</span>
               </div>
               <div class="import-grid import-form-grid" style="margin-top:10px;">
-                <label for="exportDirectoryId">永久笔记目录</label>
+                <label for="exportDirectoryId">导出范围</label>
                 <select id="exportDirectoryId">
                   <option value="dir_original_default">永久笔记目录</option>
                 </select>
-                <label for="exportTargetPath">目标目录</label>
-                <div class="import-field-stack">
-                  <div class="path-picker">
-                    <input id="exportTargetPath" placeholder="选择导出目标目录" />
-                    <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择</button>
+              </div>
+              <p class="muted" id="exportTargetHint">先选文件盒目录。首次导出时再选择保存位置。</p>
+              <div class="import-actions">
+                <button class="mini-btn primary" id="btnExportMarkdown">开始导出</button>
+              </div>
+              <details class="import-advanced" id="exportAdvanced">
+                <summary>高级选项</summary>
+                <div class="import-advanced-body">
+                  <div class="import-grid">
+                    <label for="exportTargetPath">保存位置</label>
+                    <div class="import-field-stack">
+                      <div class="path-picker">
+                        <input id="exportTargetPath" placeholder="选择导出目标目录" />
+                        <button class="mini-btn is-ghost" id="btnBrowseExportPath" type="button">选择</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="import-actions">
-                <button class="mini-btn primary" id="btnExportMarkdown">导出 Markdown 文档</button>
-              </div>
+              </details>
               <div class="import-result" id="exportResult">选择目录后即可导出。</div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-﻿import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
+import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
 
 function folderIconSvg(isRoot = false) {
   return `
@@ -8,6 +8,7 @@ function folderIconSvg(isRoot = false) {
     </svg>
   `;
 }
+
 function fileIconSvg() {
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -33,6 +34,17 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
+function generatedOriginalBadge(state, note = null) {
+  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
+  if (!generatedId) return "";
+  if (noteType !== "fleeting" && noteType !== "literature") return "";
+  const originalNote = Array.isArray(state?.notes) ? state.notes.find((item) => item.id === generatedId) : null;
+  const originalTitle = String(originalNote?.title || "").trim();
+  const title = originalTitle ? `已关联永久笔记：${originalTitle}` : "已关联到一条永久笔记";
+  return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
+}
+
 function canRecordPermanentFromNote(note = null) {
   const noteType = String(note?.noteType || "").trim().toLowerCase();
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
@@ -48,8 +60,19 @@ function permanentDirectoryPrompt(state = {}) {
   return options.some((folder) => folder.id === directoryId) ? directoryId : "";
 }
 
+function thinkingStatusBadge(note = null) {
+  const thinkingStatus = note?.thinkingStatus && typeof note.thinkingStatus === "object" ? note.thinkingStatus : null;
+  const label = String(thinkingStatus?.label || "").trim();
+  if (!label) return "";
+  const nextAction = String(thinkingStatus?.nextAction || "").trim();
+  const severity = String(thinkingStatus?.severity || "").trim() || "next";
+  const status = String(thinkingStatus?.status || "").trim();
+  const title = nextAction ? `${label}：${nextAction}` : label;
+  return `<span class="item-badge item-badge-thinking" data-severity="${escapeHtml(severity)}" data-status="${escapeHtml(status)}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+}
+
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有关联到其他永久笔记。">孤立</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
 }
 
 function disconnectedFolderBadge(count = 0) {
@@ -722,9 +745,15 @@ export class ExplorerPane {
     const forceExpand = Boolean(q) && hasChildren;
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
-    const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
     const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
+    const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
+    const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
+    const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
     const folderDisconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedCount : 0;
+    const folderTrail = [
+      folder.hidden ? `<span class="item-badge">已隐藏</span>` : "",
+      disconnectedFolderBadge(folderDisconnectedCount)
+    ].join("");
     const folderRow = `
       <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderDisconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
@@ -733,30 +762,43 @@ export class ExplorerPane {
           <span class="icon">${folderIconSvg(isRoot)}</span>
           <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
-        <div class="item-trail">${disconnectedFolderBadge(folderDisconnectedCount)}</div>
+        <div class="item-trail">${folderTrail}</div>
       </div>
     `;
 
     if (!expanded) return folderRow;
 
-    const fileRows = allFiles.map((note) => this.renderFileNode(note, depth + 1)).join("");
+    const fileRows = [
+      connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
+      disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
+    ].join("");
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
 
     return `${folderRow}${childFolderRows}${fileRows}`;
   }
 
   renderFileNode(note, depth) {
+    const thinkingBadge = thinkingStatusBadge(note);
+    const originalBadge = generatedOriginalBadge(this.state, note);
     const disconnected = this.noteIsDisconnected(note);
     const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
+    const simplifiedNoteBrowser = this.isSimplifiedNoteBrowserScope(note.folderId);
+    const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
+    const associateButton = disconnected && !simplifiedNoteBrowser
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
+      : "";
+    const trail = simplifiedNoteBrowser
+      ? disconnectedBadge
+      : `${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
-      <div class="explorer-item tree-row file-row ${disconnected ? "is-disconnected" : ""} ${this.state.selectedFileId === note.id ? "active" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${this.state.selectedFileId === note.id ? "active" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
           <span class="icon">${fileIconSvg()}</span>
           <span class="name"><strong>${note.title}</strong></span>
         </div>
-        <div class="item-trail">${disconnectedBadge}</div>
+        <div class="item-trail">${trail}</div>
       </div>
     `;
   }
@@ -789,7 +831,14 @@ export class ExplorerPane {
   }
 
   renderGroupedFileRows(files = [], depth = 0, groupId = "") {
-    return files.map((note) => this.renderFileNode(note, depth)).join("");
+    const connectedFiles = files.filter((note) => !this.noteIsDisconnected(note));
+    const disconnectedFiles = files.filter((note) => this.noteIsDisconnected(note));
+    const disconnectedCollapsed = this.collapsedDisconnectedGroups.has(groupId);
+    return [
+      connectedFiles.map((note) => this.renderFileNode(note, depth)).join(""),
+      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedFiles.length, disconnectedCollapsed) : "",
+      disconnectedCollapsed ? "" : disconnectedFiles.map((note) => this.renderFileNode(note, depth)).join("")
+    ].join("");
   }
 
   render() {

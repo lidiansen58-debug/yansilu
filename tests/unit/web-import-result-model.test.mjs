@@ -115,13 +115,45 @@ test("import result model derives export simplified metrics", () => {
     status: "queued",
     copied: 3,
     directoryId: "dir_original_default",
+    directoryLabel: "永久笔记盒 / 写作方法",
     targetPath: "E:\\exports"
   };
 
   assert.deepEqual(resultMetrics(payload), [
-    { label: "状态", value: "已提交" },
+    { label: "状态", value: "已排队" },
     { label: "文件", value: "3" },
-    { label: "目录", value: "dir_original_default" },
+    { label: "导出自", value: "永久笔记盒 / 写作方法" },
     { label: "目标", value: "E:\\exports" }
+  ]);
+});
+
+test("import result model surfaces failed import records", () => {
+  const payload = {
+    stage: "record",
+    importRecordId: "imp_failed_1",
+    importRecord: {
+      connector: "markdown",
+      status: "failed",
+      summary: { sources: 1, literatureNotes: 1, permanentNotes: 0 },
+      failureResult: {
+        code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+        message: "preserve move failed"
+      }
+    }
+  };
+
+  const warnings = warningItems(payload);
+  assert.equal(resultTone(payload), "bad");
+  assert.deepEqual(resultMetrics(payload), [
+    { label: "来源", value: "Markdown" },
+    { label: "状态", value: "失败" },
+    { label: "摘要", value: "1 来源 / 1 文献 / 0 永久" },
+    { label: "失败代码", value: "IMPORT_CLEANUP_PRESERVE_FAILED" }
+  ]);
+  assert.deepEqual(warnings, [
+    { code: "IMPORT_CLEANUP_PRESERVE_FAILED", message: "preserve move failed" }
+  ]);
+  assert.deepEqual(actionItems(payload, warnings), [
+    "失败导入的已修改文件未能自动迁移，请先手动处理后再重试。"
   ]);
 });

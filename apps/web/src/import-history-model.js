@@ -18,6 +18,11 @@ function createdFileCounts(record = {}) {
   };
 }
 
+function targetDirectoryText(record = {}) {
+  const targets = Array.isArray(record.confirmResult?.targetDirectories) ? record.confirmResult.targetDirectories : [];
+  return targets.map((item) => String(item?.label || item?.directoryId || "").trim()).filter(Boolean).join(" + ");
+}
+
 export function formatImportTimestamp(value) {
   if (!value) return "时间未知";
   const date = new Date(value);
@@ -40,7 +45,8 @@ export function importStatusLabel(status) {
     preview: "预览中",
     completed: "已完成",
     rolled_back: "已回滚",
-    cancelled: "已取消"
+    cancelled: "已取消",
+    failed: "已失败"
   };
   return labels[String(status || "").trim()] || compactValue(status);
 }
@@ -50,7 +56,8 @@ export function importStatusTone(status) {
     preview: "neutral",
     completed: "ok",
     rolled_back: "warn",
-    cancelled: "muted"
+    cancelled: "muted",
+    failed: "bad"
   };
   return tones[String(status || "").trim()] || "neutral";
 }
@@ -77,12 +84,13 @@ export function importHistoryAlertBadges(record = {}) {
   const warningCount = Math.max(summaryWarnings, originality.warning);
 
   if (warningCount > 0) badges.push({ tone: "warn", text: `警告 ${warningCount}` });
-  if (originality.blocked > 0) badges.push({ tone: "bad", text: `阻断 ${originality.blocked}` });
+  if (originality.blocked > 0) badges.push({ tone: "bad", text: `阻止 ${originality.blocked}` });
   if (status === "rolled_back") {
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
     if (modifiedCount > 0) badges.push({ tone: "warn", text: `保留 ${modifiedCount}` });
   }
+  if (status === "failed") badges.push({ tone: "bad", text: "失败" });
   if (status === "completed" && progress && Number(progress.total || 0) > 0 && Number(progress.remaining || 0) === 0) {
     badges.push({ tone: "ok", text: "文献队列已清空" });
   }
@@ -98,9 +106,9 @@ export function importHistoryMatchesRisk(record = {}, riskFilter = "all") {
   const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
   const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
 
-  if (normalized === "warning") return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0;
+  if (normalized === "warning") return summaryWarnings > 0 || originality.warning > 0 || skipped.length > 0 || String(record.status || record.state || "").trim() === "failed";
   if (normalized === "blocked") return originality.blocked > 0;
-  if (normalized === "modified") return modifiedCount > 0;
+  if (normalized === "modified") return modifiedCount > 0 || String(record.failureResult?.code || "").trim() === "IMPORT_CLEANUP_PRESERVE_FAILED";
   return true;
 }
 
@@ -110,7 +118,7 @@ export function importHistoryRiskHint(record = {}) {
   const originality = importHistoryOriginalityCounts(record);
 
   if (originality.blocked > 0) {
-    return "阻断项默认不会写入；请先改写高相似度内容，或在确认时显式覆盖原创性保护。";
+    return "阻止项默认不会写入；请先改写高相似度内容，或在确认时显式覆盖原创性保护。";
   }
   if (summaryWarnings > 0 || originality.warning > 0) {
     return "警告项建议先补充引用定位或增强转述，再确认写入。";
@@ -119,6 +127,15 @@ export function importHistoryRiskHint(record = {}) {
     const skipped = Array.isArray(record.rollbackResult?.skipped) ? record.rollbackResult.skipped : [];
     const modifiedCount = skipped.filter((item) => String(item?.reason || "").trim() === "modified").length;
     if (modifiedCount > 0) return "已修改文件被保留，请手动核对后再决定合并或删除。";
+  }
+  if (status === "failed") {
+    if (String(record.failureResult?.code || "").trim() === "IMPORT_CLEANUP_PRESERVE_FAILED") {
+      return "导入失败，已修改文件未能安全移入恢复区，请先手动处理这些文件后再重试。";
+    }
+    if (String(record.failureResult?.code || "").trim() === "IMPORT_ROLLBACK_RESTORE_CONFLICT") {
+      return "回滚恢复时发现原路径已经有新内容。当前文件已保留，旧版本放进了恢复冲突区，请核对后再决定是否重新回滚。";
+    }
+    return "这次导入没有完成，请先查看失败原因后再决定是否重试。";
   }
   return "";
 }
@@ -137,11 +154,11 @@ export function importHistoryDetailSummary(record = {}) {
   if (status === "preview") {
     const summary = record.summary || {};
     const originality = importHistoryOriginalityCounts(record);
-    const detail = [`候选 ${candidateCountText(summary)}`];
+    const detail = [`候选：${candidateCountText(summary)}`];
     const signals = [];
     if (Number(summary.warnings || 0) > 0) signals.push(`普通警告 ${Number(summary.warnings || 0)}`);
     if (originality.warning > 0) signals.push(`原创性警告 ${originality.warning}`);
-    if (originality.blocked > 0) signals.push(`原创性阻断 ${originality.blocked}`);
+    if (originality.blocked > 0) signals.push(`原创性阻止 ${originality.blocked}`);
     detail.push(signals.length ? `需要人工检查：${signals.join(" / ")}` : "当前预览未发现需要额外处理的风险项。");
     const hint = importHistoryRiskHint(record);
     if (hint) detail.push(hint);
@@ -154,10 +171,12 @@ export function importHistoryDetailSummary(record = {}) {
     const writtenPaths = Array.isArray(record.confirmResult?.writtenPaths) ? record.confirmResult.writtenPaths.filter(Boolean) : [];
     const files = createdFileCounts(record);
     const detail = [
-      `已创建 ${candidateCountText(created)}`,
-      `跳过 冲突 ${Number(skipped.conflicted || 0)} / 无效 ${Number(skipped.invalid || 0)}`,
-      writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径"
+      `已创建：${candidateCountText(created)}`,
+      `跳过 冲突 ${Number(skipped.conflicted || 0)} / 无效 ${Number(skipped.invalid || 0)}`
     ];
+    const targetText = targetDirectoryText(record);
+    if (targetText) detail.push(`写入到 ${targetText}`);
+    else detail.push(writtenPaths.length ? `写入 ${writtenPaths.join("、")}` : "未记录写入路径");
     if (files.assets > 0) detail.push(`随导入写入资源 ${files.assets} 个 / 文件总数 ${files.total}`);
 
     const queueText = importHistoryQueueProgressText(record.literatureBatchProgress);
@@ -179,7 +198,18 @@ export function importHistoryDetailSummary(record = {}) {
     const detail = [
       `已回滚 ${rolledBack.length} 项`,
       `跳过 ${skipped.length} 项`,
-      modifiedCount ? `保留 ${modifiedCount}` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
+      modifiedCount ? `其中 ${modifiedCount} 项因已被修改而保留` : skipped.length ? "存在未回滚文件，请查看详情" : "未发现需要人工处理的回滚冲突"
+    ];
+    const hint = importHistoryRiskHint(record);
+    if (hint) detail.push(hint);
+    return detail;
+  }
+
+  if (status === "failed") {
+    const detail = [
+      `候选：${candidateCountText(record.summary || {})}`,
+      `失败代码 ${compactValue(record.failureResult?.code || "FAILED")}`,
+      compactValue(record.failureResult?.message || "导入未完成")
     ];
     const hint = importHistoryRiskHint(record);
     if (hint) detail.push(hint);
@@ -208,6 +238,15 @@ export function importHistoryActions(record = {}) {
   }
 
   if (status === "preview") return [{ action: "load", label: "继续处理" }];
+  if (status === "failed") {
+    if (record.confirmResult && String(record.failureResult?.code || "").trim() === "IMPORT_ROLLBACK_RESTORE_CONFLICT") {
+      return [
+        { action: "load", label: "查看失败" },
+        { action: "rollback", label: "重新回滚" }
+      ];
+    }
+    return [{ action: "load", label: "查看失败" }];
+  }
   if (status === "rolled_back" || status === "cancelled") return [{ action: "load", label: "查看结果" }];
   return [{ action: "load", label: "查看记录" }];
 }

@@ -3,7 +3,6 @@ import {
   formatImportTimestamp,
   importHistoryActions,
   importHistoryConnectorLabel,
-  importHistoryDetailSummary,
   importHistorySummary,
   importStatusLabel,
   importStatusTone
@@ -21,8 +20,7 @@ function escapeHtml(value) {
 function renderImportHistoryItem(record, activeImportRecordId) {
   const recordId = String(record.importRecordId || "").trim();
   const status = String(record.status || record.state || "").trim();
-  const actions = importHistoryActions(record);
-  const details = importHistoryDetailSummary(record);
+  const actions = importHistoryActions(record).slice(0, 2);
 
   return `
     <div class="import-history-item ${recordId && recordId === activeImportRecordId ? "is-active" : ""}" data-import-history-id="${escapeHtml(recordId)}">
@@ -34,13 +32,6 @@ function renderImportHistoryItem(record, activeImportRecordId) {
         <span>${escapeHtml(importHistorySummary(record))}</span>
         <span>${escapeHtml(formatImportTimestamp(record.updatedAt || record.createdAt))}</span>
       </div>
-      ${
-        details.length
-          ? `<div class="import-history-item-meta">
-              ${details.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
-            </div>`
-          : ""
-      }
       <div class="import-history-actions">
         ${actions
           .map(
@@ -64,14 +55,14 @@ export function renderImportHistoryPanel({
   filters = {}
 } = {}) {
   const allItems = Array.isArray(items) ? items : [];
-  if (loading) return `<div class="import-history-empty">正在读取导入记录...</div>`;
+  if (loading) return `<div class="import-history-empty">正在读取记录...</div>`;
   if (!allItems.length) return `<div class="import-history-empty">还没有导入记录。</div>`;
 
   const filteredItems = filterImportHistoryItems(allItems, filters);
-  if (!filteredItems.length) return `<div class="import-history-empty">当前筛选下没有导入记录。</div>`;
+  if (!filteredItems.length) return `<div class="import-history-empty">当前筛选下没有记录。</div>`;
 
-  const visibleItems = filteredItems.slice(0, 6);
-  const summaryText = total > visibleItems.length ? `显示 ${visibleItems.length} / ${total}` : `显示 ${visibleItems.length}`;
+  const visibleItems = filteredItems.slice(0, 4);
+  const summaryText = total > visibleItems.length ? `最近 ${visibleItems.length} 条，共 ${total} 条` : `最近 ${visibleItems.length} 条`;
   return `
     <div class="import-history-list compact">
       ${visibleItems.map((record) => renderImportHistoryItem(record, String(activeImportRecordId || "").trim())).join("")}

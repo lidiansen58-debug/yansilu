@@ -7,6 +7,7 @@ import net from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseMarkdownWithFrontmatter } from "../../packages/domain/src/index.mjs";
+import { appendImportRecord } from "../../packages/connectors/src/index.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
@@ -80,9 +81,13 @@ function assertImportRecordBase(record, status) {
   assert.equal(typeof record.summary.permanentNotes, "number");
   assert.equal(typeof record.summary.warnings, "number");
   assert.ok(record.candidatePreview);
+  assert.ok(record.candidateSelection);
   assert.ok(Array.isArray(record.candidatePreview.sources));
   assert.ok(Array.isArray(record.candidatePreview.literatureNotes));
   assert.ok(Array.isArray(record.candidatePreview.permanentNotes));
+  assert.ok(Array.isArray(record.candidateSelection.sources));
+  assert.ok(Array.isArray(record.candidateSelection.literatureNotes));
+  assert.ok(Array.isArray(record.candidateSelection.permanentNotes));
   assert.ok(Array.isArray(record.warnings));
 }
 
@@ -110,16 +115,20 @@ function assertConfirmResultContract(record) {
     "permanentNotes",
     "sources"
   ]);
+  assert.ok(Array.isArray(record.confirmResult.targetDirectories));
   assert.ok(Array.isArray(record.confirmResult.writtenPaths));
   assert.ok(Array.isArray(record.confirmResult.createdFiles));
   for (const item of record.confirmResult.createdFiles) assertCreatedFileContract(item);
 }
 
 function assertSchemaDeclaresImportRecordLifecycle(schema) {
+  assert.equal(schema.properties.status.enum.includes("failed"), true);
+  assert.equal(schema.properties.state.enum.includes("failed"), true);
   assertRequiredFields(schema.properties.confirmResult, [
     "created",
     "skipped",
     "selection",
+    "targetDirectories",
     "writtenPaths",
     "createdFiles",
     "finishedAt"
@@ -142,6 +151,7 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "literatureNotes",
     "permanentNotes"
   ]);
+  assertRequiredFields(schema.properties.confirmResult.properties.targetDirectories.items, ["noteType", "directoryId", "label"]);
   assertRequiredFields(schema.properties.confirmResult.properties.createdFiles.items, ["noteId", "noteType", "path", "hash"]);
   assertRequiredFields(schema.properties.rollbackResult, ["rolledBack", "skipped", "finishedAt"]);
   assertRequiredFields(schema.properties.rollbackResult.properties.rolledBack.items, ["noteId", "noteType", "path", "hash"]);
@@ -162,6 +172,69 @@ function assertSchemaDeclaresImportRecordLifecycle(schema) {
     "status",
     "originalityStatus"
   ]);
+  assertRequiredFields(schema.properties.candidateSelection, ["sources", "literatureNotes", "permanentNotes", "total"]);
+  assertRequiredFields(schema.properties.candidateSelection.properties.total, ["sources", "literatureNotes", "permanentNotes"]);
+  assertRequiredFields(schema.properties.failureResult, ["code", "message", "details", "selection", "finishedAt"]);
+  assertRequiredFields(schema.properties.failureResult.properties.selection, [
+    "mode",
+    "candidateIds",
+    "totalCandidates",
+    "selectedCandidates",
+    "counts"
+  ]);
+  assertRequiredFields(schema.properties.failureResult.properties.selection.properties.counts, [
+    "sources",
+    "literatureNotes",
+    "permanentNotes"
+  ]);
+}
+
+function validateSchema(schema, value, location = "$") {
+  if (!schema || typeof schema !== "object") return;
+  if (Array.isArray(schema.type)) {
+    const allowed = schema.type;
+    assert.equal(allowed.some((item) => matchesSchemaType(item, value)), true, `${location} expected one of ${allowed.join(", ")}`);
+  } else if (schema.type) {
+    assert.equal(matchesSchemaType(schema.type, value), true, `${location} expected type ${schema.type}`);
+  }
+
+  if (schema.enum) {
+    assert.equal(schema.enum.includes(value), true, `${location} expected enum value`);
+  }
+
+  const isObjectSchema =
+    (schema.type === "object" || (Array.isArray(schema.type) && value && typeof value === "object" && !Array.isArray(value))) &&
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value);
+  if (isObjectSchema) {
+    const required = Array.isArray(schema.required) ? schema.required : [];
+    for (const key of required) {
+      assert.equal(Object.prototype.hasOwnProperty.call(value, key), true, `${location}.${key} is required`);
+    }
+    if (schema.additionalProperties === false && schema.properties) {
+      for (const key of Object.keys(value)) {
+        assert.equal(Object.prototype.hasOwnProperty.call(schema.properties, key), true, `${location}.${key} is not allowed`);
+      }
+    }
+    for (const [key, childSchema] of Object.entries(schema.properties || {})) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) validateSchema(childSchema, value[key], `${location}.${key}`);
+    }
+  }
+
+  if (schema.type === "array" && Array.isArray(value) && schema.items) {
+    value.forEach((item, index) => validateSchema(schema.items, item, `${location}[${index}]`));
+  }
+}
+
+function matchesSchemaType(type, value) {
+  if (type === "null") return value === null;
+  if (type === "array") return Array.isArray(value);
+  if (type === "object") return value !== null && typeof value === "object" && !Array.isArray(value);
+  if (type === "string") return typeof value === "string";
+  if (type === "number") return typeof value === "number";
+  if (type === "boolean") return typeof value === "boolean";
+  return true;
 }
 
 function startApi(port, vaultPath) {
@@ -317,7 +390,7 @@ test("API import confirm blocks flagged notes by default and allows explicit ori
 
   await fs.access(path.join(vaultPath, "notes", "sources", `${sourceId}.md`));
   await fs.access(path.join(vaultPath, "notes", "literature", `${literatureId}.md`));
-  await fs.access(path.join(vaultPath, "notes", "permanent", `${permanentId}.md`));
+  await fs.access(path.join(vaultPath, "notes", "original", `${permanentId}.md`));
 
   const secondPreview = await postJson(baseUrl, "/api/v1/imports/preview", {
     connector: "markdown",
@@ -406,6 +479,182 @@ test("API import confirm can write only selected candidates", async (t) => {
   assert.equal(completedRecord.status, 200);
   assert.equal(completedRecord.json.importRecord.confirmResult.selection.mode, "subset");
   assert.deepEqual(completedRecord.json.importRecord.confirmResult.selection.candidateIds, [selectedSourceId]);
+});
+
+test("API import confirm writes literature notes into selected literature directory", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-targeted-literature-");
+  const sourceDir = await makeTempDir("yansilu-api-md-targeted-literature-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Targeted literature import",
+      "type: literature",
+      'tags: ["literature"]',
+      "---",
+      "",
+      "Imported literature should land in the selected literature directory."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    selectedCandidateIds: [...preview.json.samples.sourceIds, ...preview.json.samples.literatureNoteIds],
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  const literatureFile = confirm.json.result.createdFiles.find((item) => item.noteType === "literature");
+  assert.ok(literatureFile);
+  assert.match(literatureFile.path, /notes\/literature\/imported-reading-batch\//);
+  assert.equal(confirm.json.result.targetDirectories.length, 1);
+  assert.equal(confirm.json.result.targetDirectories[0].noteType, "literature");
+  assert.equal(confirm.json.result.targetDirectories[0].directoryId, targetDirectory.json.item.id);
+  assert.match(confirm.json.result.targetDirectories[0].label, /Imported reading batch/);
+
+  const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
+  assert.equal(targetNotes.status, 200);
+  assert.equal(targetNotes.json.total, 1);
+  assert.equal(targetNotes.json.items[0].id, preview.json.samples.literatureNoteIds[0]);
+});
+
+test("API import confirm writes permanent notes into selected permanent directory", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-targeted-permanent-");
+  const sourceDir = await makeTempDir("yansilu-api-md-targeted-permanent-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Targeted permanent import",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A copied claim that should be flagged."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported arguments",
+    parentDirectoryId: "dir_original_default",
+    fsPath: path.join(vaultPath, "notes", "original", "imported-arguments")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    overrideOriginality: true,
+    selectedCandidateIds: [...preview.json.samples.sourceIds, ...preview.json.samples.permanentNoteIds],
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
+  const permanentFile = confirm.json.result.createdFiles.find((item) => item.noteType === "permanent");
+  assert.ok(permanentFile);
+  assert.match(permanentFile.path, /notes\/original\/imported-arguments\//);
+  const targetDirectories = confirm.json.result.targetDirectories;
+  assert.ok(targetDirectories.some((item) => item.noteType === "permanent" && item.directoryId === targetDirectory.json.item.id));
+  assert.ok(
+    targetDirectories.every((item) =>
+      ["literature", "permanent"].includes(item.noteType) && typeof item.label === "string" && item.label.length > 0
+    )
+  );
+
+  const targetNotes = await getJson(baseUrl, `/api/v1/directories/${encodeURIComponent(targetDirectory.json.item.id)}/notes`);
+  assert.equal(targetNotes.status, 200);
+  assert.equal(targetNotes.json.total, 1);
+  assert.equal(targetNotes.json.items[0].id, preview.json.samples.permanentNoteIds[0]);
+});
+
+test("API import confirm rejects a mismatched file-box directory for permanent notes", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-mismatched-permanent-dir-");
+  const sourceDir = await makeTempDir("yansilu-api-md-mismatched-permanent-dir-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  await fs.writeFile(
+    path.join(sourceDir, "note.md"),
+    [
+      "---",
+      "title: Mismatched permanent import",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A permanent note should not be silently routed into the literature box."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const child = startApi(port, vaultPath);
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const targetDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "Imported reading batch",
+    parentDirectoryId: "dir_literature_default",
+    fsPath: path.join(vaultPath, "notes", "literature", "imported-reading-batch")
+  });
+  assert.equal(targetDirectory.status, 201, JSON.stringify(targetDirectory.json));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "markdown",
+    payload: { path: sourceDir }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+
+  const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+    confirm: true,
+    overrideOriginality: true,
+    directoryId: targetDirectory.json.item.id
+  });
+
+  assert.equal(confirm.status, 400, JSON.stringify(confirm.json));
+  assert.equal(confirm.json.error.code, "IMPORT_DIRECTORY_SCOPE_INVALID");
 });
 
 test("API selective Obsidian confirm writes realistic Chinese vault notes and rolls them back", async (t) => {
@@ -741,6 +990,7 @@ test("API import records match schema contract across preview, completed, and ro
   assert.equal(completedRecord.status, 200);
   assertImportRecordBase(completedRecord.json.importRecord, "completed");
   assertConfirmResultContract(completedRecord.json.importRecord);
+  validateSchema(schema, completedRecord.json.importRecord);
   assert.equal(completedRecord.json.importRecord.rollbackResult, null);
 
   const rollback = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/rollback`, {});
@@ -750,6 +1000,7 @@ test("API import records match schema contract across preview, completed, and ro
   assert.equal(rolledBackRecord.status, 200);
   assertImportRecordBase(rolledBackRecord.json.importRecord, "rolled_back");
   assertConfirmResultContract(rolledBackRecord.json.importRecord);
+  validateSchema(schema, rolledBackRecord.json.importRecord);
   assert.equal(typeof rolledBackRecord.json.importRecord.rollbackResult.finishedAt, "string");
   assert.ok(Array.isArray(rolledBackRecord.json.importRecord.rollbackResult.rolledBack));
   assert.ok(Array.isArray(rolledBackRecord.json.importRecord.rollbackResult.skipped));
@@ -901,6 +1152,97 @@ test("API import records can be restored from disk after restart", async (t) => 
     sources: 1,
     literatureNotes: 1,
     permanentNotes: 0
+  });
+});
+
+test("API failed import records can be restored from disk after restart with subset selection", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-restore-failed-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  let child = startApi(port, vaultPath);
+
+  t.after(async () => {
+    await stopApi(child);
+  });
+
+  const preview = {
+    importRecordId: "imp_restore_failed",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_restore_failed"], literatureNoteIds: ["ln_restore_failed"], permanentNoteIds: [] },
+    candidateSelection: {
+      sources: ["src_restore_failed"],
+      literatureNotes: ["ln_restore_failed"],
+      permanentNotes: [],
+      total: { sources: 1, literatureNotes: 1, permanentNotes: 0 }
+    },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_restore_failed", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_restore_failed", "failed", {
+    code: "IMPORT_CLEANUP_PRESERVE_FAILED",
+    message: "preserve move failed",
+    details: { preserved: 1 },
+    selection: {
+      mode: "subset",
+      candidateIds: ["ln_restore_failed"],
+      totalCandidates: 2,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_restore_failed"],
+      permanentNotes: [],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    originalityGuard: {
+      plan: { allowDraftOnWarning: true, blockOnBlocked: true, blockThreshold: 0.85, warnThreshold: 0.6 },
+      blockedPermanentIds: [],
+      evaluations: []
+    },
+    finishedAt: "2026-06-01T00:05:00.000Z"
+  });
+
+  await waitForHealth(baseUrl);
+
+  const schema = await readImportRecordSchema();
+  const restoredRecord = await getJson(baseUrl, "/api/v1/imports/imp_restore_failed");
+  assert.equal(restoredRecord.status, 200);
+  assert.equal(restoredRecord.json.importRecord.status, "failed");
+  assert.equal(restoredRecord.json.importRecord.failureResult.code, "IMPORT_CLEANUP_PRESERVE_FAILED");
+  assert.equal(restoredRecord.json.importRecord.failureResult.selection.selectedCandidates, 1);
+  assert.deepEqual(restoredRecord.json.importRecord.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_restore_failed"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+  });
+  assert.equal(restoredRecord.json.importRecord.updatedAt, "2026-06-01T00:05:00.000Z");
+  validateSchema(schema, restoredRecord.json.importRecord);
+
+  await stopApi(child);
+  child = startApi(port, vaultPath);
+  await waitForHealth(baseUrl);
+
+  const reloadedRecord = await getJson(baseUrl, "/api/v1/imports/imp_restore_failed");
+  assert.equal(reloadedRecord.status, 200);
+  assert.equal(reloadedRecord.json.importRecord.status, "failed");
+  assert.equal(reloadedRecord.json.importRecord.failureResult.selection.mode, "subset");
+  assert.deepEqual(reloadedRecord.json.importRecord.candidateSelection, {
+    sources: [],
+    literatureNotes: ["ln_restore_failed"],
+    permanentNotes: [],
+    total: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
   });
 });
 
@@ -1070,4 +1412,42 @@ test("API import preview returns warnings instead of 500 for unreadable markdown
   assert.equal(preview.json.summary.sources, 0);
   assert.equal(preview.json.summary.literatureNotes, 0);
   assert.equal(preview.json.warnings[0].code, "IMPORT_SOURCE_UNREADABLE");
+});
+
+test("API import preview returns full candidateSelection ids even when candidatePreview is truncated", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-preview-selection-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  t.after(() => {
+    child.kill();
+  });
+
+  await waitForHealth(baseUrl);
+
+  const highlights = Array.from({ length: 13 }, (_, index) => ({
+    id: `hl_${index + 1}`,
+    title: `Highlight ${index + 1}`,
+    text: `Readwise highlight body ${index + 1}`
+  }));
+
+  const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+    connector: "readwise",
+    payload: { highlights },
+    options: {}
+  });
+
+  assert.equal(preview.status, 200);
+  assert.equal(preview.json.candidatePreview.sources.length, 12);
+  assert.equal(preview.json.candidatePreview.literatureNotes.length, 12);
+  assert.equal(preview.json.candidatePreview.truncated, true);
+  assert.equal(preview.json.candidateSelection.sources.length, 13);
+  assert.equal(preview.json.candidateSelection.literatureNotes.length, 13);
+  assert.equal(preview.json.candidateSelection.permanentNotes.length, 0);
+  assert.deepEqual(preview.json.candidateSelection.total, {
+    sources: 13,
+    literatureNotes: 13,
+    permanentNotes: 0
+  });
 });
