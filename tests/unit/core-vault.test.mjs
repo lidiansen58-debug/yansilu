@@ -5,10 +5,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import {
   buildNotePathIndex,
+  createNoteRelation,
+  getDirectoryGraph,
   getNoteById,
   initVault,
   listNotesByTag,
   listNotesInDirectory,
+  listNoteRelations,
   listTags,
   parseMarkdownWithFrontmatter,
   readNote,
@@ -506,6 +509,221 @@ test("tag queries heal stale notes and refresh markdown-body tag relations", asy
   const healed = notes.find((note) => note.id === "ln_list_heal");
   assert.ok(healed);
   assert.equal(healed.markdownPath, path.relative(vaultPath, liveWrite.path).replaceAll("\\", "/"));
+});
+
+test("relation queries heal stale endpoint metadata without a warm-up read", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale-relations");
+  const liveDir = path.join(vaultPath, "notes", "literature", "live-relations");
+  await fs.mkdir(staleDir, { recursive: true });
+  await fs.mkdir(liveDir, { recursive: true });
+  const now = new Date().toISOString();
+
+  const staleSource = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_relation_source",
+      source_id: "src_relation_source",
+      title: "Old source title",
+      quote_text: "Old source body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_relation_source",
+    noteType: "literature",
+    title: "Old source title",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleSource.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const staleTarget = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_relation_target",
+      source_id: "src_relation_target",
+      title: "Old target title",
+      quote_text: "Old target body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_relation_target",
+    noteType: "literature",
+    title: "Old target title",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleTarget.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  await createNoteRelation(vaultPath, {
+    fromNoteId: "ln_relation_source",
+    toNoteId: "ln_relation_target",
+    relationType: "supports",
+    rationale: "The source note directly supports the target claim.",
+    status: "confirmed",
+    createdBy: "user"
+  });
+
+  await fs.unlink(staleSource.path);
+  await fs.unlink(staleTarget.path);
+
+  const liveSource = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_relation_source",
+      source_id: "src_relation_source",
+      title: "Live source title",
+      quote_text: "Live source body",
+      paraphrase_text: "",
+      status: "active",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+  const liveTarget = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_relation_target",
+      source_id: "src_relation_target",
+      title: "Live target title",
+      quote_text: "Live target body",
+      paraphrase_text: "",
+      status: "active",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+
+  const sourceRelations = await listNoteRelations(vaultPath, "ln_relation_source");
+  assert.equal(sourceRelations.outgoingLinks.length, 1);
+  assert.equal(sourceRelations.outgoingLinks[0].target.title, "Live target title");
+  assert.equal(
+    sourceRelations.outgoingLinks[0].target.markdownPath,
+    path.relative(vaultPath, liveTarget.path).replaceAll("\\", "/")
+  );
+
+  const targetRelations = await listNoteRelations(vaultPath, "ln_relation_target");
+  assert.equal(targetRelations.backlinks.length, 1);
+  assert.equal(targetRelations.backlinks[0].source.title, "Live source title");
+  assert.equal(
+    targetRelations.backlinks[0].source.markdownPath,
+    path.relative(vaultPath, liveSource.path).replaceAll("\\", "/")
+  );
+});
+
+test("directory graph heals stale edge titles before building insights", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale-graph");
+  const liveDir = path.join(vaultPath, "notes", "literature", "live-graph");
+  await fs.mkdir(staleDir, { recursive: true });
+  await fs.mkdir(liveDir, { recursive: true });
+  const now = new Date().toISOString();
+
+  const staleFrom = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_graph_from",
+      source_id: "src_graph_from",
+      title: "Old graph from",
+      quote_text: "Old graph source",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_graph_from",
+    noteType: "literature",
+    title: "Old graph from",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleFrom.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  const staleTo = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_graph_to",
+      source_id: "src_graph_to",
+      title: "Old graph to",
+      quote_text: "Old graph target",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: staleDir }
+  );
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_graph_to",
+    noteType: "literature",
+    title: "Old graph to",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, staleTo.path).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+
+  await createNoteRelation(vaultPath, {
+    fromNoteId: "ln_graph_from",
+    toNoteId: "ln_graph_to",
+    relationType: "supports",
+    rationale: "This source-to-target relation should stay readable after healing.",
+    status: "confirmed",
+    createdBy: "user"
+  });
+
+  await fs.unlink(staleFrom.path);
+  await fs.unlink(staleTo.path);
+
+  await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_graph_from",
+      source_id: "src_graph_from",
+      title: "Live graph from",
+      quote_text: "Live graph source",
+      paraphrase_text: "",
+      status: "active",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+  await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_graph_to",
+      source_id: "src_graph_to",
+      title: "Live graph to",
+      quote_text: "Live graph target",
+      paraphrase_text: "",
+      status: "active",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: liveDir }
+  );
+
+  const graph = await getDirectoryGraph(vaultPath, "dir_literature_default");
+  assert.equal(graph.edges.length, 1);
+  assert.equal(graph.edges[0].fromTitle, "Live graph from");
+  assert.equal(graph.edges[0].toTitle, "Live graph to");
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {

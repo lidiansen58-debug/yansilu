@@ -747,6 +747,103 @@ function mapRelationLinkRow(row) {
   };
 }
 
+async function normalizeRelationRowMetadata(vaultPath, db, row) {
+  const nextRow = { ...row };
+  if (row?.target_id) {
+    const targetResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.target_id,
+        note_type: row.target_note_type,
+        title: row.target_title,
+        status: row.target_status,
+        markdown_path: row.target_markdown_path,
+        directory_id: row.target_directory_id || null,
+        directory_fs_path: row.target_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.target_note_type = targetResolved.row.note_type;
+    nextRow.target_title = targetResolved.row.title;
+    nextRow.target_status = targetResolved.row.status;
+    nextRow.target_markdown_path = targetResolved.row.markdown_path;
+  }
+  if (row?.source_id) {
+    const sourceResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.source_id,
+        note_type: row.source_note_type,
+        title: row.source_title,
+        status: row.source_status,
+        markdown_path: row.source_markdown_path,
+        directory_id: row.source_directory_id || null,
+        directory_fs_path: row.source_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.source_note_type = sourceResolved.row.note_type;
+    nextRow.source_title = sourceResolved.row.title;
+    nextRow.source_status = sourceResolved.row.status;
+    nextRow.source_markdown_path = sourceResolved.row.markdown_path;
+  }
+  return nextRow;
+}
+
+async function mapRelationLinkRows(vaultPath, db, rows = []) {
+  const normalized = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    normalized.push(mapRelationLinkRow(await normalizeRelationRowMetadata(vaultPath, db, row)));
+  }
+  return normalized;
+}
+
+async function mapSingleRelationLinkRow(vaultPath, db, row) {
+  if (!row) return null;
+  return mapRelationLinkRow(await normalizeRelationRowMetadata(vaultPath, db, row));
+}
+
+async function normalizeGraphEdgeRowMetadata(vaultPath, db, row) {
+  const nextRow = { ...row };
+  if (row?.from_note_id) {
+    const fromResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.from_note_id,
+        note_type: row.from_note_type,
+        title: row.from_title,
+        status: row.from_status,
+        markdown_path: row.from_markdown_path,
+        directory_id: row.from_directory_id || null,
+        directory_fs_path: row.from_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.from_title = fromResolved.row.title;
+  }
+  if (row?.to_note_id) {
+    const toResolved = await resolveCatalogRowState(
+      vaultPath,
+      db,
+      {
+        id: row.to_note_id,
+        note_type: row.to_note_type,
+        title: row.to_title,
+        status: row.to_status,
+        markdown_path: row.to_markdown_path,
+        directory_id: row.to_directory_id || null,
+        directory_fs_path: row.to_directory_fs_path || null
+      },
+      { tolerateMissing: true }
+    );
+    nextRow.to_title = toResolved.row.title;
+  }
+  return nextRow;
+}
+
 function mapGraphEdgeRow(row) {
   return {
     id: row.id,
@@ -765,6 +862,14 @@ function mapGraphEdgeRow(row) {
     status: row.status || "confirmed",
     updatedAt: row.updated_at || row.created_at
   };
+}
+
+async function mapGraphEdgeRows(vaultPath, db, rows = []) {
+  const normalized = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    normalized.push(mapGraphEdgeRow(await normalizeGraphEdgeRowMetadata(vaultPath, db, row)));
+  }
+  return normalized;
 }
 
 const EXPLICIT_SUPPORT_RELATION_TYPES = new Set(["supports"]);
@@ -916,11 +1021,17 @@ function getRelationByIdRow(db, relationId) {
     .prepare(
       `SELECT l.*, to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
               to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+              target_member.directory_id AS target_directory_id, target_directory.fs_path AS target_directory_fs_path,
               from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
-              from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+              from_note.status AS source_status, from_note.markdown_path AS source_markdown_path,
+              source_member.directory_id AS source_directory_id, source_directory.fs_path AS source_directory_fs_path
        FROM links l
        JOIN notes from_note ON from_note.id = l.from_note_id
        JOIN notes to_note ON to_note.id = l.to_note_id
+       LEFT JOIN note_directory_membership source_member ON source_member.note_id = from_note.id
+       LEFT JOIN directories source_directory ON source_directory.id = source_member.directory_id
+       LEFT JOIN note_directory_membership target_member ON target_member.note_id = to_note.id
+       LEFT JOIN directories target_directory ON target_directory.id = target_member.directory_id
        WHERE l.id = ? AND from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
        LIMIT 1`
     )
@@ -1598,15 +1709,19 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
           .all(id);
     const nodes = (await normalizeCatalogRowsForMetadata(vaultPath, db, nodeRows)).map(mapNoteRow);
 
-    const edges = includeDescendants
+    const edgeRows = includeDescendants
       ? db
           .prepare(
             `${directoryScopeClause("graph_scope")}
              SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
@@ -1614,25 +1729,32 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
              JOIN graph_scope to_scope ON to_scope.id = to_member.directory_id
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL
                AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
           .all(id)
-          .map(mapGraphEdgeRow)
       : db
           .prepare(
             `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_member.directory_id = ?
                AND to_member.directory_id = ?
                AND from_note.deleted_at IS NULL
@@ -1640,8 +1762,9 @@ export async function getDirectoryGraph(vaultPath, directoryId, options = {}) {
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')
              ORDER BY l.created_at DESC`
           )
-          .all(id, id)
-          .map(mapGraphEdgeRow);
+          .all(id, id);
+
+    const edges = await mapGraphEdgeRows(vaultPath, db, edgeRows);
 
     return {
       directoryId: id,
@@ -1717,11 +1840,17 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
          SELECT l.*,
                 to_note.id AS target_id, to_note.note_type AS target_note_type, to_note.title AS target_title,
                 to_note.status AS target_status, to_note.markdown_path AS target_markdown_path,
+                to_member.directory_id AS target_directory_id, to_directory.fs_path AS target_directory_fs_path,
                 from_note.id AS source_id, from_note.note_type AS source_note_type, from_note.title AS source_title,
-                from_note.status AS source_status, from_note.markdown_path AS source_markdown_path
+                from_note.status AS source_status, from_note.markdown_path AS source_markdown_path,
+                from_member.directory_id AS source_directory_id, from_directory.fs_path AS source_directory_fs_path
          FROM links l
          JOIN notes from_note ON from_note.id = l.from_note_id
          JOIN notes to_note ON to_note.id = l.to_note_id
+         LEFT JOIN note_directory_membership from_member ON from_member.note_id = from_note.id
+         LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+         LEFT JOIN note_directory_membership to_member ON to_member.note_id = to_note.id
+         LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
          WHERE from_note.deleted_at IS NULL
            AND to_note.deleted_at IS NULL
            AND COALESCE(l.rationale_quality_level, 'empty') IN (${qualityPlaceholders})
@@ -1760,8 +1889,8 @@ export async function listRelationReviewQueue(vaultPath, options = {}) {
       )
       .all(...args);
 
-    const items = rows.map((row) => {
-      const relation = mapRelationLinkRow(row);
+    const normalizedRelations = await mapRelationLinkRows(vaultPath, db, rows);
+    const items = normalizedRelations.map((relation) => {
       const reviewReason = relationReviewReason(relation);
       return {
         ...relation,
@@ -1818,8 +1947,12 @@ export async function findNotePath(vaultPath, input = {}) {
              SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
@@ -1827,6 +1960,8 @@ export async function findNotePath(vaultPath, input = {}) {
              JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
              JOIN scope from_scope ON from_scope.id = from_member.directory_id
              JOIN scope to_scope ON to_scope.id = to_member.directory_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
@@ -1836,17 +1971,25 @@ export async function findNotePath(vaultPath, input = {}) {
             `SELECT l.id, l.from_note_id, l.to_note_id, l.relation_type, l.rationale, l.created_by,
                     l.insight_question, l.rationale_quality_score, l.rationale_quality_level,
                     l.confidence, l.status, l.created_at, l.updated_at,
-                    from_note.title AS from_title,
-                    to_note.title AS to_title
+                    from_note.note_type AS from_note_type, from_note.title AS from_title,
+                    from_note.status AS from_status, from_note.markdown_path AS from_markdown_path,
+                    from_member.directory_id AS from_directory_id, from_directory.fs_path AS from_directory_fs_path,
+                    to_note.note_type AS to_note_type, to_note.title AS to_title,
+                    to_note.status AS to_status, to_note.markdown_path AS to_markdown_path,
+                    to_member.directory_id AS to_directory_id, to_directory.fs_path AS to_directory_fs_path
              FROM links l
              JOIN notes from_note ON from_note.id = l.from_note_id
              JOIN notes to_note ON to_note.id = l.to_note_id
+             LEFT JOIN note_directory_membership from_member ON from_member.note_id = l.from_note_id
+             LEFT JOIN directories from_directory ON from_directory.id = from_member.directory_id
+             LEFT JOIN note_directory_membership to_member ON to_member.note_id = l.to_note_id
+             LEFT JOIN directories to_directory ON to_directory.id = to_member.directory_id
              WHERE from_note.deleted_at IS NULL AND to_note.deleted_at IS NULL
                AND COALESCE(l.status, 'confirmed') NOT IN ('dismissed', 'archived')`
           )
           .all();
 
-    const edges = edgeRows.map(mapGraphEdgeRow);
+    const edges = await mapGraphEdgeRows(vaultPath, db, edgeRows);
     const adjacency = new Map();
     for (const edge of edges) {
       if (!adjacency.has(edge.fromNoteId)) adjacency.set(edge.fromNoteId, []);
@@ -2344,7 +2487,7 @@ export async function createNoteRelation(vaultPath, fromNoteIdOrInput, input = {
       .get(payload.fromNoteId, payload.toNoteId, payload.relationType);
     if (duplicate) {
       return {
-        ...mapRelationLinkRow(getRelationByIdRow(db, duplicate.id)),
+        ...(await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, duplicate.id))),
         created: false
       };
     }
@@ -2371,7 +2514,7 @@ export async function createNoteRelation(vaultPath, fromNoteIdOrInput, input = {
     );
 
     return {
-      ...mapRelationLinkRow(getRelationByIdRow(db, relationId)),
+      ...(await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, relationId))),
       created: true
     };
   } finally {
@@ -2440,7 +2583,7 @@ export async function updateNoteRelation(vaultPath, relationId, input = {}) {
        WHERE id = ?`
     ).run(relationType, rationale, insightQuestion, rationaleQuality.score, rationaleQuality.level, status, confidence, now, id);
 
-    return mapRelationLinkRow(getRelationByIdRow(db, id));
+    return await mapSingleRelationLinkRow(vaultPath, db, getRelationByIdRow(db, id));
   } finally {
     db.close();
   }
@@ -2457,7 +2600,7 @@ export async function deleteNoteRelation(vaultPath, relationId) {
     const existing = getRelationByIdRow(db, id);
     if (!existing) throw noteValidationError("RELATION_NOT_FOUND", `relationId not found: ${id}`, { relationId: id });
     db.prepare("DELETE FROM links WHERE id = ?").run(id);
-    return { ok: true, deleted: true, relationId: id, item: mapRelationLinkRow(existing) };
+    return { ok: true, deleted: true, relationId: id, item: await mapSingleRelationLinkRow(vaultPath, db, existing) };
   } finally {
     db.close();
   }
@@ -2490,33 +2633,42 @@ export async function listNoteRelations(vaultPath, noteId) {
         createdAt: row.created_at
       }));
 
-    const outgoingLinks = db
+    const outgoingRows = db
       .prepare(
         `SELECT l.*, n.id AS target_id, n.note_type AS target_note_type, n.title AS target_title,
                 n.status AS target_status, n.markdown_path AS target_markdown_path,
+                target_member.directory_id AS target_directory_id, target_directory.fs_path AS target_directory_fs_path,
                 NULL AS source_id, NULL AS source_note_type, NULL AS source_title,
-                NULL AS source_status, NULL AS source_markdown_path
+                NULL AS source_status, NULL AS source_markdown_path,
+                NULL AS source_directory_id, NULL AS source_directory_fs_path
          FROM links l
          JOIN notes n ON n.id = l.to_note_id
+         LEFT JOIN note_directory_membership target_member ON target_member.note_id = n.id
+         LEFT JOIN directories target_directory ON target_directory.id = target_member.directory_id
          WHERE l.from_note_id = ? AND n.deleted_at IS NULL
          ORDER BY l.created_at DESC`
       )
-      .all(id)
-      .map(mapRelationLinkRow);
+      .all(id);
 
-    const backlinks = db
+    const backlinkRows = db
       .prepare(
         `SELECT l.*, NULL AS target_id, NULL AS target_note_type, NULL AS target_title,
                 NULL AS target_status, NULL AS target_markdown_path,
+                NULL AS target_directory_id, NULL AS target_directory_fs_path,
                 n.id AS source_id, n.note_type AS source_note_type, n.title AS source_title,
-                n.status AS source_status, n.markdown_path AS source_markdown_path
+                n.status AS source_status, n.markdown_path AS source_markdown_path,
+                source_member.directory_id AS source_directory_id, source_directory.fs_path AS source_directory_fs_path
          FROM links l
          JOIN notes n ON n.id = l.from_note_id
+         LEFT JOIN note_directory_membership source_member ON source_member.note_id = n.id
+         LEFT JOIN directories source_directory ON source_directory.id = source_member.directory_id
          WHERE l.to_note_id = ? AND n.deleted_at IS NULL
          ORDER BY l.created_at DESC`
       )
-      .all(id)
-      .map(mapRelationLinkRow);
+      .all(id);
+
+    const outgoingLinks = await mapRelationLinkRows(vaultPath, db, outgoingRows);
+    const backlinks = await mapRelationLinkRows(vaultPath, db, backlinkRows);
 
     return {
       noteId: id,
