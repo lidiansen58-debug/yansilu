@@ -181,13 +181,16 @@ export function createImportExportService({
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
   deleteNoteById,
-  registerImportCatalogNote
+  registerImportCatalogNote,
+  createdEntryFromWriteResult: materializeCreatedEntryFromWriteResult = createdEntryFromWriteResult,
+  createdEntryFromVaultPath: materializeCreatedEntryFromVaultPath = createdEntryFromVaultPath,
+  rollbackCreatedFiles: rollbackCreatedFilesImpl = rollbackCreatedFiles
 }) {
   const vaultPath = () => getVaultPath();
   const cwd = () => getCwd();
 
   async function cleanupCreatedArtifacts(createdFiles = []) {
-    const { rolledBack } = await rollbackCreatedFiles(vaultPath(), createdFiles);
+    const { rolledBack } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
     for (const item of rolledBack) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
         try {
@@ -197,14 +200,36 @@ export function createImportExportService({
     }
   }
 
+  async function cleanupWrittenPath(filePath) {
+    try {
+      await fs.unlink(filePath);
+    } catch {}
+  }
+
+  async function stageCreatedEntryFromWriteResult(result) {
+    try {
+      return await materializeCreatedEntryFromWriteResult(vaultPath(), result);
+    } catch (error) {
+      await cleanupWrittenPath(result?.path);
+      throw error;
+    }
+  }
+
+  async function stageCreatedEntryFromVaultPath(input) {
+    try {
+      return await materializeCreatedEntryFromVaultPath(vaultPath(), input);
+    } catch (error) {
+      await cleanupWrittenPath(input?.filePath);
+      throw error;
+    }
+  }
+
   async function registerWrittenImportNote(candidate, noteType, result, directoryId) {
-    const createdEntry = await createdEntryFromWriteResult(vaultPath(), result);
+    const createdEntry = await stageCreatedEntryFromWriteResult(result);
     try {
       await registerImportCatalogNote(candidate, noteType, result, directoryId);
     } catch (error) {
-      try {
-        await fs.unlink(result.path);
-      } catch {}
+      await cleanupCreatedArtifacts([createdEntry]);
       throw error;
     }
     return createdEntry;
@@ -363,8 +388,8 @@ export function createImportExportService({
         });
         if (result.written) {
           created.sources += 1;
+          createdFiles.push(await stageCreatedEntryFromWriteResult(result));
           writtenPaths.add(path.dirname(result.path));
-          createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
         } else {
           skipped.conflicted += 1;
         }
@@ -416,14 +441,14 @@ export function createImportExportService({
             const destFull = path.join(vaultPath(), destRel);
             await fs.mkdir(path.dirname(destFull), { recursive: true });
             await fs.copyFile(sourcePath, destFull);
-            writtenPaths.add(path.dirname(destFull));
             createdFiles.push(
-              await createdEntryFromVaultPath(vaultPath(), {
+              await stageCreatedEntryFromVaultPath({
                 noteId: stableAssetId(record.importRecordId, destRel),
                 noteType: "asset",
                 filePath: destFull
               })
             );
+            writtenPaths.add(path.dirname(destFull));
           }
         }
       }

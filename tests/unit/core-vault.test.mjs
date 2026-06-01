@@ -8,6 +8,7 @@ import {
   initVault,
   parseMarkdownWithFrontmatter,
   readNote,
+  registerMarkdownNoteInCatalog,
   serializeMarkdownWithFrontmatter,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
@@ -301,6 +302,7 @@ test("readNote reports ambiguous paths when legacy duplicate files exist without
 
 test("readNote ignores stale catalog paths when the markdown file is missing", async () => {
   const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
   const liveDir = path.join(vaultPath, "notes", "literature", "live");
   const staleDir = path.join(vaultPath, "notes", "literature", "stale");
   await fs.mkdir(liveDir, { recursive: true });
@@ -318,11 +320,65 @@ test("readNote ignores stale catalog paths when the markdown file is missing", a
     "Live body"
   ].join("\n");
   const livePath = path.join(liveDir, filename);
+  const stalePath = path.join(staleDir, filename);
+  await fs.writeFile(stalePath, markdown, "utf8");
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_stale_catalog",
+    noteType: "literature",
+    title: "Stale copy",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, stalePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await fs.unlink(stalePath);
   await fs.writeFile(livePath, markdown, "utf8");
 
   const note = await readNote(vaultPath, "literature", "ln_stale_catalog");
   assert.equal(note.path, livePath);
   assert.equal(note.note.title, "Live copy");
+});
+
+test("writeLiteratureNoteIfAbsent recreates a note when catalog points at a missing file", async () => {
+  const vaultPath = await makeTempVault();
+  await initVault(vaultPath);
+  const staleDir = path.join(vaultPath, "notes", "literature", "stale-write");
+  const targetDir = path.join(vaultPath, "notes", "literature", "restored");
+  await fs.mkdir(staleDir, { recursive: true });
+  await fs.mkdir(targetDir, { recursive: true });
+  const stalePath = path.join(staleDir, "ln_restore.md");
+  const now = new Date().toISOString();
+
+  await fs.writeFile(stalePath, "# Stale copy\n\nOld body", "utf8");
+  await registerMarkdownNoteInCatalog(vaultPath, {
+    noteId: "ln_restore",
+    noteType: "literature",
+    title: "Stale copy",
+    status: "draft",
+    markdownPath: path.relative(vaultPath, stalePath).replaceAll("\\", "/"),
+    directoryId: "dir_literature_default"
+  });
+  await fs.unlink(stalePath);
+
+  const result = await writeLiteratureNoteIfAbsent(
+    vaultPath,
+    {
+      id: "ln_restore",
+      source_id: "src_restore",
+      title: "Restored copy",
+      quote_text: "Fresh body",
+      paraphrase_text: "",
+      status: "draft",
+      created_at: now,
+      updated_at: now
+    },
+    { directoryFsPath: targetDir }
+  );
+
+  assert.equal(result.written, true);
+  assert.equal(result.path, path.join(targetDir, "ln_restore.md"));
+  const note = await readNote(vaultPath, "literature", "ln_restore");
+  assert.equal(note.path, result.path);
+  assert.equal(note.note.title, "Restored copy");
 });
 
 test("title is derived from first markdown line when title field is absent", async () => {

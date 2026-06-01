@@ -144,6 +144,10 @@ function isRecoverableCatalogLookupError(error) {
   );
 }
 
+function isMissingFileError(error) {
+  return String(error?.code || "").trim() === "ENOENT";
+}
+
 async function catalogNotePath(vaultPath, type, id) {
   return catalogNotePathFromOptions(vaultPath, type, id, {});
 }
@@ -155,7 +159,12 @@ async function catalogNotePathFromOptions(vaultPath, type, id, options = {}) {
     const markdownPath = String(note?.markdownPath || "").trim();
     if (noteType === type && markdownPath) {
       const fullPath = path.resolve(resolveVaultPath(vaultPath, markdownPath));
-      await fs.access(fullPath);
+      try {
+        await fs.access(fullPath);
+      } catch (error) {
+        if (isMissingFileError(error)) return "";
+        throw error;
+      }
       return fullPath;
     }
   } catch (error) {

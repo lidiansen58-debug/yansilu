@@ -43,7 +43,10 @@ function createService(overrides = {}) {
     writeLiteratureNoteIfAbsent: overrides.writeLiteratureNoteIfAbsent || (async () => ({ written: false })),
     writePermanentNoteIfAbsent: overrides.writePermanentNoteIfAbsent || (async () => ({ written: false })),
     deleteNoteById: overrides.deleteNoteById || (async () => {}),
-    registerImportCatalogNote: overrides.registerImportCatalogNote || (async () => null)
+    registerImportCatalogNote: overrides.registerImportCatalogNote || (async () => null),
+    createdEntryFromWriteResult: overrides.createdEntryFromWriteResult,
+    createdEntryFromVaultPath: overrides.createdEntryFromVaultPath,
+    rollbackCreatedFiles: overrides.rollbackCreatedFiles
   });
 }
 
@@ -400,4 +403,116 @@ test("confirmImport does not register catalog entries when write result cannot b
     { code: "ENOENT" }
   );
   assert.deepEqual(calls, []);
+});
+
+test("confirmImport cleans up source files when staged entry creation fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-source-stage-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_source_stage_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [
+        {
+          id: "src_stage_fail",
+          source_type: "markdown",
+          title: "Source stage fail",
+          imported_from: "local",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          description: "Body"
+        }
+      ],
+      literature: [],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeSourceIfAbsent,
+    createdEntryFromWriteResult: async () => {
+      throw Object.assign(new Error("entry build failed"), { code: "ENTRY_BUILD_FAILED" });
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_source_stage"),
+    { code: "ENTRY_BUILD_FAILED" }
+  );
+  await assert.rejects(() => readNote(vaultPath, "source", "src_stage_fail"), { code: "ENOENT" });
+});
+
+test("confirmImport cleans up copied obsidian assets when staged entry creation fails", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-asset-stage-vault-");
+  const importRoot = await makeTempDir("yansilu-service-confirm-asset-stage-import-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+  await fs.mkdir(path.join(importRoot, "images"), { recursive: true });
+  await fs.writeFile(path.join(importRoot, "images", "figure.png"), "fake-image", "utf8");
+
+  const record = {
+    importRecordId: "imp_asset_stage_1",
+    connector: "obsidian",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: { path: importRoot },
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_asset_stage",
+          source_id: "src_asset_stage",
+          title: "Asset stage",
+          quote_text: "Body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+          parsed_wikilinks: [{ embed: true, target: "images/figure.png" }]
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    createdEntryFromVaultPath: async (_vaultPath, input) => {
+      if (input?.noteType === "asset") {
+        throw Object.assign(new Error("asset entry failed"), { code: "ASSET_ENTRY_FAILED" });
+      }
+      const rel = path.relative(vaultPath, input.filePath).replaceAll("\\", "/");
+      return { noteId: input.noteId, noteType: input.noteType, path: rel, hash: "ok" };
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_asset_stage"),
+    { code: "ASSET_ENTRY_FAILED" }
+  );
+  await assert.rejects(() => readNote(vaultPath, "literature", "ln_asset_stage"), { code: "ENOENT" });
+  await fs.access(path.join(vaultPath, "assets", "imports"));
+  const copiedAsset = path.join(vaultPath, "assets", "imports", record.importRecordId, "images", "figure.png");
+  await assert.rejects(() => fs.access(copiedAsset), { code: "ENOENT" });
 });
