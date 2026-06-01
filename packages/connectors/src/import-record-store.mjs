@@ -208,6 +208,17 @@ function stageCorruption(stage, filePath, error) {
   };
 }
 
+function stageOrder(stage) {
+  const order = {
+    preview: 0,
+    cancel: 1,
+    confirm: 2,
+    failed: 3,
+    rollback: 4
+  };
+  return Object.prototype.hasOwnProperty.call(order, stage) ? order[stage] : -1;
+}
+
 async function readStageEnvelope(filePath, stage) {
   try {
     return {
@@ -461,8 +472,22 @@ export async function loadImportRecord(vaultPath, recordId) {
   const optionalCorruptUpdatedAt = optionalCorruptStages.length
     ? latestTimestamp(await Promise.all(optionalCorruptStages.map((item) => fileModifiedTimestamp(item.filePath))))
     : null;
+  const highestSuccessfulStage = [
+    previewEnvelope ? "preview" : null,
+    cancelEnvelope ? "cancel" : null,
+    confirmEnvelope ? "confirm" : null,
+    failedEnvelope ? "failed" : null,
+    rollbackEnvelope ? "rollback" : null
+  ]
+    .filter(Boolean)
+    .sort((a, b) => stageOrder(b) - stageOrder(a))[0] || null;
+  const highestCorruptStage = optionalCorruptStages
+    .map((item) => item.stage)
+    .sort((a, b) => stageOrder(b) - stageOrder(a))[0] || null;
+  const terminalStageCorrupted =
+    highestCorruptStage !== null && stageOrder(highestCorruptStage) >= stageOrder(highestSuccessfulStage);
   const syntheticFailureResult =
-    !rollbackResult && !confirmResult && !cancelEnvelope && !failureResult && optionalCorruptStages.length
+    terminalStageCorrupted || (!rollbackResult && !confirmResult && !cancelEnvelope && !failureResult && optionalCorruptStages.length)
       ? corruptionFailureResult(optionalCorruptStages, optionalCorruptUpdatedAt || preview.createdAt)
       : null;
   const state =

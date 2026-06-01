@@ -147,6 +147,87 @@ test("listImportRecords tolerates corrupt optional stage json without dropping h
   assert.equal(byId.get("imp_confirm_corrupt")?.warnings?.some((item) => item.code === "IMPORT_RECORD_STAGE_CORRUPTED"), true);
 });
 
+test("loadImportRecord treats a corrupt rollback stage as a failed terminal lifecycle instead of regressing to completed", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_rollback_corrupt",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 0, literatureNotes: 1, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: [], literatureNoteIds: ["ln_corrupt_rollback"], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_rollback_corrupt", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [], literature: [{ id: "ln_corrupt_rollback" }], permanent: [], warnings: [] }
+  });
+  await appendImportRecord(vaultPath, "markdown", "imp_rollback_corrupt", "confirm", {
+    created: { sources: 0, literatureNotes: 1, permanentNotes: 0 },
+    skipped: { conflicted: 0, invalid: 0 },
+    selection: {
+      mode: "all",
+      candidateIds: ["ln_corrupt_rollback"],
+      totalCandidates: 1,
+      selectedCandidates: 1,
+      counts: { sources: 0, literatureNotes: 1, permanentNotes: 0 }
+    },
+    targetDirectories: [],
+    writtenPaths: ["notes/literature"],
+    createdFiles: [],
+    finishedAt: "2026-06-01T00:03:00.000Z"
+  });
+  await fs.writeFile(
+    path.join(vaultPath, "imports", "markdown", "imp_rollback_corrupt.rollback.json"),
+    '{"rolledBack": ',
+    "utf8"
+  );
+
+  const record = await loadImportRecord(vaultPath, "imp_rollback_corrupt");
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "IMPORT_RECORD_STAGE_CORRUPTED");
+  assert.equal(record?.failureResult?.details?.stages?.some((item) => item.stage === "rollback"), true);
+  assert.equal(record?.confirmResult?.finishedAt, "2026-06-01T00:03:00.000Z");
+});
+
+test("loadImportRecord treats a corrupt cancel stage as a failed terminal lifecycle instead of regressing to preview", async () => {
+  const vaultPath = await makeTempVault();
+  const preview = {
+    importRecordId: "imp_cancel_corrupt",
+    connector: "markdown",
+    status: "preview",
+    state: "preview",
+    summary: { sources: 1, literatureNotes: 0, permanentNotes: 0, warnings: 0 },
+    samples: { sourceIds: ["src_cancel_corrupt"], literatureNoteIds: [], permanentNoteIds: [] },
+    warnings: [],
+    createdAt: "2026-06-01T00:00:00.000Z"
+  };
+
+  await appendImportRecord(vaultPath, "markdown", "imp_cancel_corrupt", "preview", {
+    preview,
+    payload: {},
+    options: {},
+    candidates: { sources: [{ id: "src_cancel_corrupt" }], literature: [], permanent: [], warnings: [] }
+  });
+  await fs.writeFile(
+    path.join(vaultPath, "imports", "markdown", "imp_cancel_corrupt.cancel.json"),
+    '{"finishedAt": ',
+    "utf8"
+  );
+
+  const record = await loadImportRecord(vaultPath, "imp_cancel_corrupt");
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "IMPORT_RECORD_STAGE_CORRUPTED");
+  assert.equal(record?.failureResult?.details?.stages?.some((item) => item.stage === "cancel"), true);
+  assert.notEqual(record?.updatedAt, preview.createdAt);
+});
+
 test("publicImportRecord returns the safe API-facing record shape", () => {
   const publicRecord = publicImportRecord({
     importRecordId: "imp_1",

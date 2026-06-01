@@ -11,6 +11,7 @@ import {
   createNoteInDirectory,
   deleteNoteById,
   initVault,
+  listNoteCatalogEntriesByType,
   registerMarkdownNoteInCatalog,
   writeLiteratureNoteIfAbsent,
   writeSourceIfAbsent
@@ -1652,4 +1653,103 @@ test("rollbackImport removes stale failed stage after successful recovery rollba
     () => fs.access(path.join(vaultPath, "imports", "markdown", `${record.importRecordId}.failed.json`)),
     { code: "ENOENT" }
   );
+});
+
+test("rollbackImport restores catalog entries already deleted before a later catalog delete failure", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-rollback-partial-catalog-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_rollback_partial_catalog_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_partial_catalog_a",
+          source_id: "src_partial_catalog_a",
+          title: "Partial catalog A",
+          quote_text: "First rollback catalog body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        },
+        {
+          id: "ln_partial_catalog_b",
+          source_id: "src_partial_catalog_b",
+          title: "Partial catalog B",
+          quote_text: "Second rollback catalog body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const registerImportCatalogNote = async (candidate, noteType, result, directoryId = "") =>
+    registerMarkdownNoteInCatalog(vaultPath, {
+      noteId: candidate.id,
+      noteType,
+      title: candidate.title,
+      status: candidate.status || "draft",
+      markdownPath: path.relative(vaultPath, result.path).replaceAll("\\", "/"),
+      directoryId: String(directoryId || "").trim() || "dir_literature_default"
+    });
+
+  const confirmService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById,
+    registerImportCatalogNote
+  });
+
+  const confirmResult = await confirmService.confirmImport(record, { confirm: true }, "req_partial_catalog_confirm");
+  assert.equal(confirmResult.status, "completed");
+
+  let deleteCount = 0;
+  const failingDeleteNoteById = async (currentVaultPath, noteId, options = {}) => {
+    deleteCount += 1;
+    if (deleteCount === 1) {
+      return deleteNoteById(currentVaultPath, noteId, options);
+    }
+    throw Object.assign(new Error("catalog delete failed after partial progress"), { code: "IMPORT_ROLLBACK_CATALOG_DELETE_FAILED" });
+  };
+
+  const failingRollbackService = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent,
+    deleteNoteById: failingDeleteNoteById,
+    registerImportCatalogNote
+  });
+
+  await assert.rejects(
+    () => failingRollbackService.rollbackImport(record, "req_partial_catalog_rollback"),
+    { code: "IMPORT_ROLLBACK_CATALOG_DELETE_FAILED" }
+  );
+
+  const restoredA = await readNote(vaultPath, "literature", "ln_partial_catalog_a");
+  const restoredB = await readNote(vaultPath, "literature", "ln_partial_catalog_b");
+  assert.equal(restoredA.note.title, "Partial catalog A");
+  assert.equal(restoredB.note.title, "Partial catalog B");
+
+  const literatureEntries = await listNoteCatalogEntriesByType(vaultPath, "literature");
+  const ids = literatureEntries.map((item) => item.id).sort();
+  assert.deepEqual(ids, ["ln_partial_catalog_a", "ln_partial_catalog_b"]);
 });

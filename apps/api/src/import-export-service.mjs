@@ -517,8 +517,13 @@ export function createImportExportService({
     const deleted = [];
     for (const item of Array.isArray(rolledBack) ? rolledBack : []) {
       if (item.noteType !== "literature" && item.noteType !== "permanent") continue;
-      await deleteNoteById(vaultPath(), item.noteId, { deleteFile: false });
-      deleted.push(item);
+      try {
+        await deleteNoteById(vaultPath(), item.noteId, { deleteFile: false });
+        deleted.push(item);
+      } catch (error) {
+        error.deletedEntries = deleted;
+        throw error;
+      }
     }
     return deleted;
   }
@@ -1068,6 +1073,7 @@ export function createImportExportService({
     try {
       deletedCatalogEntries = await deleteRolledBackCatalogEntries(rolledBack);
     } catch (error) {
+      deletedCatalogEntries = Array.isArray(error?.deletedEntries) ? error.deletedEntries : deletedCatalogEntries;
       try {
         await restoreRolledBackArtifacts(record, deletedCatalogEntries, backups, stageRoot, requestId, error);
       } catch (restoreError) {
