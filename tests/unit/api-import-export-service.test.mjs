@@ -283,6 +283,56 @@ test("confirmImport reports only directories that received imported notes", asyn
   assert.match(result.result.targetDirectories[0].label, /Imported reading batch/);
 });
 
+test("confirmImport rejects an unknown selected directory id instead of silently falling back", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-invalid-dir-");
+  const importRecords = new Map();
+  await initVault(vaultPath);
+
+  const record = {
+    importRecordId: "imp_invalid_dir_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_invalid_dir",
+          source_id: "src_invalid_dir",
+          title: "Invalid directory target",
+          quote_text: "Body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    initVault,
+    writeLiteratureNoteIfAbsent
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true, directoryId: "dir_missing_target" }, "req_invalid_dir"),
+    {
+      code: "IMPORT_DIRECTORY_INVALID",
+      message: "directoryId not found: dir_missing_target"
+    }
+  );
+});
+
 test("confirmImport cleans up already written files when catalog registration fails", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-cleanup-");
   const importRecords = new Map();
@@ -506,6 +556,89 @@ test("confirmImport does not delete source files that changed before staged clea
   const note = await readNote(vaultPath, "source", "src_modified_stage");
   assert.equal(note.note.title, "Modified during failure");
   assert.equal(note.note.body, "Changed body");
+});
+
+test("confirmImport logically removes written notes when rollback skips modified files", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-modified-cleanup-");
+  await initVault(vaultPath);
+  const importRecords = new Map();
+  const deletedNoteIds = [];
+  const record = {
+    importRecordId: "imp_modified_cleanup_1",
+    connector: "markdown",
+    state: "preview",
+    status: "preview",
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    payload: {},
+    options: {},
+    candidates: {
+      sources: [],
+      literature: [
+        {
+          id: "ln_modified_cleanup",
+          source_id: "src_modified_cleanup",
+          title: "Modified cleanup",
+          quote_text: "Body",
+          paraphrase_text: "",
+          status: "draft",
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z"
+        }
+      ],
+      permanent: [],
+      warnings: []
+    }
+  };
+  importRecords.set(record.importRecordId, record);
+
+  const service = createService({
+    getVaultPath: () => vaultPath,
+    importRecords,
+    writeLiteratureNoteIfAbsent: async () => ({
+      written: true,
+      skipped: false,
+      noteId: "ln_modified_cleanup",
+      noteType: "literature",
+      path: path.join(vaultPath, "notes", "literature", "ln_modified_cleanup.md"),
+      contentHash: "abc123"
+    }),
+    createdEntryFromWriteResult: async () => ({
+      noteId: "ln_modified_cleanup",
+      noteType: "literature",
+      path: "notes/literature/ln_modified_cleanup.md",
+      hash: "abc123"
+    }),
+    registerImportCatalogNote: async () => {
+      throw new Error("confirm downstream failed");
+    },
+    rollbackCreatedFiles: async (currentVaultPath, createdFiles = []) => {
+      assert.equal(currentVaultPath, vaultPath);
+      return {
+        rolledBack: [],
+        skipped: createdFiles.length
+          ? [
+              {
+                noteId: "ln_modified_cleanup",
+                noteType: "literature",
+                path: "notes/literature/ln_modified_cleanup.md",
+                hash: "abc123",
+                reason: "modified"
+              }
+            ]
+          : []
+      };
+    },
+    deleteNoteById: async (_vaultPath, noteId) => {
+      deletedNoteIds.push(noteId);
+    }
+  });
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_modified_cleanup"),
+    /confirm downstream failed/
+  );
+  assert.deepEqual(deletedNoteIds, ["ln_modified_cleanup"]);
 });
 
 test("confirmImport cleans up copied obsidian assets when staged entry creation fails", async () => {

@@ -192,9 +192,13 @@ export function createImportExportService({
   const cwd = () => getCwd();
 
   async function cleanupCreatedArtifacts(createdFiles = []) {
-    const { rolledBack } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
-    for (const item of rolledBack) {
+    const { rolledBack, skipped } = await rollbackCreatedFilesImpl(vaultPath(), createdFiles);
+    const cleanedNotes = new Set();
+    for (const item of [...rolledBack, ...skipped]) {
       if (item.noteType === "literature" || item.noteType === "permanent") {
+        const key = `${item.noteType}:${item.noteId}`;
+        if (cleanedNotes.has(key)) continue;
+        cleanedNotes.add(key);
         try {
           await deleteNoteById(vaultPath(), item.noteId);
         } catch {}
@@ -388,6 +392,12 @@ export function createImportExportService({
     const createdFiles = [];
     const directories = await listDirectories(vaultPath(), { includeHidden: true });
     const selectedDirectoryId = String(body.directoryId || "").trim();
+    const selectedDirectory = selectedDirectoryId ? directoryById(directories, selectedDirectoryId) : null;
+    if (selectedDirectoryId && !selectedDirectory) {
+      const error = new Error(`directoryId not found: ${selectedDirectoryId}`);
+      error.code = "IMPORT_DIRECTORY_INVALID";
+      throw error;
+    }
     const literatureTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "literature");
     const permanentTargetDirectoryId = importedNoteTargetDirectory(directories, selectedDirectoryId, "permanent");
     const literatureTargetDirectory = directoryById(directories, literatureTargetDirectoryId);
