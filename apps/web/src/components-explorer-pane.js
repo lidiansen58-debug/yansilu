@@ -209,12 +209,8 @@ export class ExplorerPane {
 
     this.els.newNoteBtn.addEventListener("click", () => {
       const folderId = resolveExplorerNewNoteFolderId(this.state);
-      if (folderById(this.state, folderId)) {
-        this.state.selectedFolderId = folderId;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, folderId);
-        this.state.selectedFileId = null;
-      }
-      this.onStateChange("create-note-in-selected-folder");
+      if (!folderById(this.state, folderId)) return;
+      this.onStateChange("create-note-in-selected-folder", { folderId });
     });
 
     this.els.listArea.addEventListener("click", (e) => {
@@ -251,15 +247,12 @@ export class ExplorerPane {
       const id = item.dataset.id;
 
       if (kind === "folder") {
-        this.state.selectedFolderId = id;
-        this.state.selectedFileId = null;
         this.expandedFolders.add(id);
-        this.onStateChange("select-folder");
+        this.onStateChange("select-folder", { folderId: id });
         return;
       }
 
       if (kind === "file") {
-        this.state.selectedFileId = id;
         if (this.state.module === "graph") {
           this.onStateChange("graph-focus-note", { noteId: id });
           return;
@@ -456,7 +449,7 @@ export class ExplorerPane {
 
   async handleContextAction(action, target) {
     if (target.kind === "list") {
-      if (action === "new-note-here") this.onStateChange("create-note-in-selected-folder");
+      if (action === "new-note-here") this.onStateChange("create-note-in-selected-folder", { folderId: this.state.selectedFolderId });
       if (action === "new-child") {
         const visible = this.state.folders.filter((x) => !x.hidden);
         const scoped = visible.filter((f) => rootBoxIdFromFolder(this.state, f.id) === this.state.browserRootId);
@@ -482,16 +475,13 @@ export class ExplorerPane {
       if (!f) return;
 
       if (action === "open") {
-        this.state.selectedFolderId = f.id;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, f.id);
         this.expandedFolders.add(f.id);
+        this.onStateChange("select-folder", { folderId: f.id });
         this.onStatus(`已打开目录：${displayFolderName(f)}`, "ok");
       }
       if (action === "new-note-here") {
-        this.state.selectedFolderId = f.id;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, f.id);
         this.expandedFolders.add(f.id);
-        this.onStateChange("create-note-in-selected-folder");
+        this.onStateChange("create-note-in-selected-folder", { folderId: f.id });
         return;
       }
       if (action === "new-child") {
@@ -777,6 +767,58 @@ export class ExplorerPane {
     return `${folderRow}${childFolderRows}${fileRows}`;
   }
 
+  currentEditorNoteId() {
+    const activeTabId = String(this.state.activeTabId || "").trim();
+    if (!activeTabId) return "";
+    const activeTab = Array.isArray(this.state.tabs) ? this.state.tabs.find((item) => item.id === activeTabId) : null;
+    return String(activeTab?.noteId || "").trim();
+  }
+
+  expandCurrentEditorNotePathInRoot(rootId = this.state.browserRootId) {
+    const cleanRootId = String(rootId || "").trim();
+    const currentNoteId = this.currentEditorNoteId();
+    if (!cleanRootId || !currentNoteId) return false;
+    const note = Array.isArray(this.state.notes) ? this.state.notes.find((item) => item.id === currentNoteId) : null;
+    if (!note?.folderId) return false;
+    if (rootBoxIdFromFolder(this.state, note.folderId) !== cleanRootId) return false;
+    this.expandFolderPath(note.folderId);
+    return true;
+  }
+
+  preferredVisibleRowSelector() {
+    const selectedFileId = String(this.state.selectedFileId || "").trim();
+    if (selectedFileId) return `.explorer-item[data-kind="file"][data-id="${selectedFileId}"]`;
+    const currentNoteId = this.currentEditorNoteId();
+    if (currentNoteId) return `.explorer-item[data-kind="file"][data-id="${currentNoteId}"]`;
+    const selectedFolderId = String(this.state.selectedFolderId || "").trim();
+    if (selectedFolderId) return `.explorer-item[data-kind="folder"][data-id="${selectedFolderId}"]`;
+    return "";
+  }
+
+  revealPreferredVisibleRow() {
+    const selector = this.preferredVisibleRowSelector();
+    if (!selector) return false;
+    const target = this.els.listArea?.querySelector?.(selector);
+    if (!target) return false;
+    target.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+
+  scheduleRevealPreferredVisibleRow() {
+    const run = () => {
+      if (this.revealPreferredVisibleRow()) {
+        if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+          window.setTimeout(() => this.revealPreferredVisibleRow(), 32);
+        }
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+      return;
+    }
+    run();
+  }
+
   renderFileNode(note, depth) {
     const thinkingBadge = thinkingStatusBadge(note);
     const originalBadge = generatedOriginalBadge(this.state, note);
@@ -784,14 +826,19 @@ export class ExplorerPane {
     const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
     const simplifiedNoteBrowser = this.isSimplifiedNoteBrowserScope(note.folderId);
     const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
+    const fileIsSelected = this.state.selectedFileId === note.id;
+    const fileIsCurrent = this.currentEditorNoteId() === note.id;
+    const currentBadge = fileIsCurrent && !fileIsSelected
+      ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
+      : "";
     const associateButton = disconnected && !simplifiedNoteBrowser
       ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
       : "";
     const trail = simplifiedNoteBrowser
       ? disconnectedBadge
-      : `${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
+      : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
-      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${this.state.selectedFileId === note.id ? "active" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
@@ -873,5 +920,6 @@ export class ExplorerPane {
 
     const rootFileRows = flattenGraphRoot ? this.renderGroupedFileRows(rootFiles, 0, scopedRoot?.id || "dir_original_default") : rootFiles.map((note) => this.renderFileNode(note, 0)).join("");
     this.els.listArea.innerHTML = `<div class="tree-root">${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
+    this.scheduleRevealPreferredVisibleRow();
   }
 }

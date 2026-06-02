@@ -28,6 +28,8 @@ import {
 } from "./note-embedded-ai-workspace.js";
 import { aiSuggestionStatusLabel } from "./ai-suggestions-model.js";
 
+const UNTITLED_NOTE_TITLE = "未命名笔记";
+
 function saveIconMarkup(kind = "idle") {
   if (kind === "saving") {
     return `
@@ -73,14 +75,27 @@ function titleFromBody(body) {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
-  if (!lines.length) return "未命名笔记";
-  return lines[0].replace(/^#+\s*/, "").slice(0, 60) || "未命名笔记";
+  if (!lines.length) return UNTITLED_NOTE_TITLE;
+  return lines[0].replace(/^#+\s*/, "").slice(0, 60) || UNTITLED_NOTE_TITLE;
 }
 
 function normalizePlaceholderTitleBody(body = "") {
   const text = String(body || "").replace(/\r\n/g, "\n");
-  return text
-    .replace(/^#\s*未命名笔记(?=\S)/, "# ");
+  return text.replace(new RegExp(`^#\\s*${escapeRegExp(UNTITLED_NOTE_TITLE)}(?=\\S)`), "# ");
+}
+
+function normalizedNoteTitleText(title = "") {
+  return String(title || "").trim() || UNTITLED_NOTE_TITLE;
+}
+
+function noteUsesPlaceholderTitle(title = "") {
+  return normalizedNoteTitleText(title) === UNTITLED_NOTE_TITLE;
+}
+
+function normalizedBodyTextForDirtyCheck(body = "") {
+  return String(body || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n+$/g, "");
 }
 
 const LITERATURE_SECTION_LABELS = {
@@ -1602,7 +1617,11 @@ export class EditorPane {
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
+    this.currentPinnedLinkId = "";
     this.currentLinkContext = null;
+    this.manualLinkReturnSelection = null;
+    this.manualLinkReturnScrollState = null;
+    this.isSubmittingLinkInsert = false;
     this.currentTagCandidates = [];
     this.currentTagIndex = 0;
     this.currentTagContext = null;
@@ -1682,8 +1701,6 @@ export class EditorPane {
     const statusSnapshot = String(note.status || "draft").trim() || "draft";
 
     this.clearAutoSaveTimer();
-    this.closeLinkPicker();
-    this.closeTagPicker();
     this.setSaveUiState("saving", "当前文件：正在自动同步...");
 
     this.savingPromise = (async () => {
@@ -1718,6 +1735,7 @@ export class EditorPane {
 
       tab.savedBody = tab.body;
       tab.savedTitle = tab.title;
+      this.syncPlaceholderTitleArmed(tab);
       tab.dirty = false;
       this.clearDraft(tab.noteId);
       this.setSaveUiState("saved", "当前文件：已自动同步");
@@ -2114,6 +2132,61 @@ export class EditorPane {
     return host?.getBoundingClientRect?.() || null;
   }
 
+  editorScrollNodes() {
+    if (this.isLiteratureWorkspaceActive()) {
+      return [this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle].filter(Boolean);
+    }
+    if (this.isSourceMode()) {
+      return [this.markdownEditor?.view?.scrollDOM, this.els.editorHost, this.els.body].filter(Boolean);
+    }
+    return [
+      this.els.wysiwygHost?.querySelector?.(".toastui-editor-main"),
+      this.els.wysiwygHost?.querySelector?.(".toastui-editor-ww-container"),
+      this.els.wysiwygHost
+    ].filter(Boolean);
+  }
+
+  captureEditorScrollState() {
+    return {
+      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : "wysiwyg",
+      nodes: this.editorScrollNodes().map((node, index) => ({
+        index,
+        top: Number(node?.scrollTop || 0),
+        left: Number(node?.scrollLeft || 0)
+      }))
+    };
+  }
+
+  restoreEditorScrollState(state) {
+    if (!state || !Array.isArray(state.nodes)) return false;
+    const nodes = this.editorScrollNodes();
+    let restored = false;
+    for (const snapshot of state.nodes) {
+      const node = nodes[snapshot.index];
+      if (!node) continue;
+      if (typeof snapshot.top === "number") node.scrollTop = snapshot.top;
+      if (typeof snapshot.left === "number") node.scrollLeft = snapshot.left;
+      restored = true;
+    }
+    return restored;
+  }
+
+  scheduleEditorScrollRestore(state) {
+    if (!state) return;
+    const restore = () => {
+      this.restoreEditorScrollState(state);
+      if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+        window.setTimeout(() => this.restoreEditorScrollState(state), 32);
+        window.setTimeout(() => this.restoreEditorScrollState(state), 96);
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(restore);
+      return;
+    }
+    restore();
+  }
+
   defaultSaveUiState(tab = null) {
     if (!tab) return { mode: "idle", message: "" };
     return {
@@ -2325,6 +2398,7 @@ export class EditorPane {
       confirmed: Boolean(draft.authorshipConfirmed),
       confirmedBody: String(draft.authorshipConfirmedBody || "")
     };
+    this.syncPlaceholderTitleArmed(tab);
     tab.saveUiState = this.defaultSaveUiState(tab);
     this.onStatus("已恢复上次未完成的编辑内容", "warn");
   }
@@ -2354,10 +2428,11 @@ export class EditorPane {
         dirty: false,
         authorshipState: this.defaultAuthorshipState(n),
         saveUiState: this.defaultSaveUiState({ dirty: false }),
-        placeholderTitleArmed: n.title === "未命名笔记"
+        placeholderTitleArmed: noteUsesPlaceholderTitle(titleFromBody(n.body))
       };
       this.state.tabs.push(t);
       this.maybeRestoreDraft(t, n);
+      this.syncPlaceholderTitleArmed(t);
     }
     if (typeof t.savedBody !== "string") t.savedBody = t.body || "";
     if (typeof t.savedTitle !== "string") t.savedTitle = t.title || "未命名笔记";
@@ -2508,15 +2583,24 @@ export class EditorPane {
     if (!t) return null;
     t.body = this.getEditorValue();
     t.title = titleFromBody(t.body);
+    this.syncPlaceholderTitleArmed(t);
     this.syncTabDirtyState(t);
     return t;
   }
 
+  syncPlaceholderTitleArmed(tab) {
+    if (!tab) return false;
+    tab.placeholderTitleArmed = !this.isLiteratureWorkspaceActive() && noteUsesPlaceholderTitle(tab.title || titleFromBody(tab.body));
+    return tab.placeholderTitleArmed;
+  }
+
   syncTabDirtyState(tab) {
     if (!tab) return;
-    const savedBody = String(tab.savedBody || "");
-    const savedTitle = String(tab.savedTitle || "");
-    tab.dirty = savedBody !== String(tab.body || "") || savedTitle !== String(tab.title || "");
+    const savedBody = normalizedBodyTextForDirtyCheck(tab.savedBody);
+    const currentBody = normalizedBodyTextForDirtyCheck(tab.body);
+    const savedTitle = normalizedNoteTitleText(tab.savedTitle);
+    const currentTitle = normalizedNoteTitleText(tab.title);
+    tab.dirty = savedBody !== currentBody || savedTitle !== currentTitle;
   }
 
   renderSaveHint() {
@@ -3096,16 +3180,15 @@ export class EditorPane {
     this.els.modeSplit?.classList.add("hidden");
     if (this.richEditor && this.markdownEditor) {
       const content = this.isSourceMode() ? this.markdownEditor.getValue() : this.richEditor.getValue();
+      const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
       if (!this.isLiteratureWorkspaceActive()) {
+        if (this.isSourceMode()) this.clearMarkdownSelectionOverride();
+        else if (normalizedPendingSelection) this.setMarkdownSelectionOverride(normalizedPendingSelection.from, normalizedPendingSelection.to);
         if (this.isSourceMode()) this.markdownEditor.focus();
         else this.richEditor.focus();
-        if (
-          pendingSelection &&
-          Number.isFinite(pendingSelection.from) &&
-          Number.isFinite(pendingSelection.to)
-        ) {
-          this.setEditorSelectionRange(pendingSelection.from, pendingSelection.to);
+        if (normalizedPendingSelection) {
+          this.setEditorSelectionRange(normalizedPendingSelection.from, normalizedPendingSelection.to);
         }
       }
     }
@@ -3151,7 +3234,9 @@ export class EditorPane {
       return;
     }
     const latestValue = this.getEditorValue();
-    this.pendingEditorSelection = this.isLiteratureWorkspaceActive() ? null : this.editorSelection();
+    this.pendingEditorSelection = this.isLiteratureWorkspaceActive()
+      ? null
+      : this.normalizedSelectionRangeForValue(latestValue, this.editorSelection());
     this.state.previewMode = resolved;
     this.setEditorValue(latestValue);
     this.renderPreviewVisibility();
@@ -3471,6 +3556,22 @@ export class EditorPane {
     else this.els.body.focus();
   }
 
+  normalizedSelectionRange(range) {
+    if (!range || !Number.isFinite(range.from) || !Number.isFinite(range.to)) return null;
+    const from = Math.max(0, Number(range.from) || 0);
+    const to = Math.max(from, Number(range.to) || 0);
+    return { from, to };
+  }
+
+  normalizedSelectionRangeForValue(value, range) {
+    const normalized = this.normalizedSelectionRange(range);
+    if (!normalized) return null;
+    const limit = Math.max(0, String(value || "").length);
+    const from = Math.max(0, Math.min(limit, normalized.from));
+    const to = Math.max(from, Math.min(limit, normalized.to));
+    return { from, to };
+  }
+
   setEditorSelectionRange(from, to) {
     if (this.isLiteratureWorkspaceActive()) {
       const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
@@ -3478,8 +3579,9 @@ export class EditorPane {
       target?.setSelectionRange?.(from, to);
       return;
     }
-    const start = Math.max(0, Number(from) || 0);
-    const end = Math.max(start, Number(to) || 0);
+    const normalized = this.normalizedSelectionRangeForValue(this.getEditorValue(), { from, to });
+    const start = normalized?.from ?? 0;
+    const end = normalized?.to ?? start;
     this.focusEditor();
     const editor = this.currentEditor();
     if (editor?.setSelectionRange) {
@@ -3552,9 +3654,13 @@ export class EditorPane {
     if (!value.startsWith("# ")) return null;
     const lineEnd = value.indexOf("\n");
     const end = lineEnd >= 0 ? lineEnd : value.length;
-    const title = value.slice(2, end).trim();
-    if (title !== "未命名笔记") return null;
+    const title = normalizedNoteTitleText(value.slice(2, end));
+    if (title !== UNTITLED_NOTE_TITLE) return null;
     return { from: 2, to: end };
+  }
+
+  placeholderTitleSelectionRange() {
+    return this.placeholderTitleRange(this.getEditorValue());
   }
 
   firstHeadingEntryContext() {
@@ -3581,7 +3687,7 @@ export class EditorPane {
     if (!tab) return;
     const note = this.activeNote();
     if (!note) return;
-    if (tab.title === tab.savedTitle) return;
+    if (normalizedNoteTitleText(tab.title) === normalizedNoteTitleText(tab.savedTitle)) return;
     if (Date.now() - this.lastTitleInputAt > 8000) return;
     const now = Date.now();
     if (now - this.lastTitleBlurSaveAt < 450) return;
@@ -3591,10 +3697,7 @@ export class EditorPane {
     note.body = tab.body;
     note.updatedAt = new Date().toISOString();
     this.renderTabs();
-    setTimeout(() => {
-      this.onStateChange("switch-tab");
-      void this.saveActiveNote({ autoSave: true, trigger: "title-blur", skipOriginalityCheck: true });
-    }, 420);
+    void this.saveActiveNote({ autoSave: true, trigger: "title-blur", skipOriginalityCheck: true });
   }
 
   enterBodyFromTitle() {
@@ -3668,11 +3771,14 @@ export class EditorPane {
       return;
     }
     const applyPlaceholderSelection = () => {
+      const markdownRange = this.placeholderTitleSelectionRange();
+      if (!markdownRange) return false;
+      this.setMarkdownSelectionOverride(markdownRange.from, markdownRange.to);
       if (this.isWysiwygMode() && this.els.wysiwygHost) {
         const heading = this.els.wysiwygHost.querySelector(".toastui-editor-contents h1");
         const titleNode = heading?.firstChild;
-        const titleText = String(heading?.textContent || "");
-        if (!titleNode || !titleText) return false;
+        const titleText = String(heading?.textContent || "").trim();
+        if (!titleNode || !titleText || normalizedNoteTitleText(titleText) !== UNTITLED_NOTE_TITLE) return false;
         this.richEditor?.focus?.();
         const selection = window.getSelection?.();
         if (!selection) return false;
@@ -3683,9 +3789,7 @@ export class EditorPane {
         selection.addRange(range);
         return true;
       }
-      const range = this.placeholderTitleRange(this.getEditorValue());
-      if (!range) return false;
-      this.setEditorSelectionRange(range.from, range.to);
+      this.setEditorSelectionRange(markdownRange.from, markdownRange.to);
       return true;
     };
     const apply = () => {
@@ -4589,6 +4693,12 @@ export class EditorPane {
     return null;
   }
 
+  hasResolvedLinkToNote(noteId, body = this.getEditorValue(), scopedNotes = this.scopedLinkCandidates()) {
+    const targetId = String(noteId || "").trim();
+    if (!targetId) return false;
+    return parseLinks(body).some((token) => this.resolveLinkToken(token, scopedNotes)?.note?.id === targetId);
+  }
+
   upsertApiNotes(items = []) {
     for (const item of items) {
       const existing = this.state.notes.find((n) => n.id === item.id);
@@ -4686,15 +4796,20 @@ export class EditorPane {
   renderLinkCandidates(query = "", preferredId = "") {
     const q = String(query || "").trim().toLowerCase();
     const all = this.scopedLinkCandidates();
-    const list = (q
+    const computed = (q
       ? all
           .filter((n) => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
           .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
       : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
+    const selectedId = String(preferredId || this.currentPinnedLinkId || "").trim();
+    const pinnedNote = selectedId
+      ? computed.find((n) => n.id === selectedId) || all.find((n) => n.id === selectedId) || null
+      : null;
+    const list = pinnedNote ? [pinnedNote] : computed;
     this.currentLinkCandidates = list;
     this.currentLinkIndex = 0;
-    if (preferredId) {
-      const idx = list.findIndex((n) => n.id === preferredId);
+    if (selectedId) {
+      const idx = list.findIndex((n) => n.id === selectedId);
       if (idx >= 0) this.currentLinkIndex = idx;
     }
     this.els.linkSearchList.innerHTML = list.length
@@ -4703,16 +4818,93 @@ export class EditorPane {
           ({ note }) => linkCandidateGroupLabel(note, q),
           ({ note: n, idx }) => {
             const badge = linkCandidateBadge(n, q);
-            return `<button class="link-picker-item ${idx === this.currentLinkIndex ? "active" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
-              idx === this.currentLinkIndex ? "true" : "false"
+            const selected = idx === this.currentLinkIndex;
+            const pinned = Boolean(pinnedNote && n.id === pinnedNote.id);
+            const preview = pinned ? this.linkCandidatePreviewText(n) : "";
+            const location = pinned ? this.linkCandidateLocationText(n) : "";
+            const duplicateHint = pinned && this.hasResolvedLinkToNote(n.id) ? "正文里已经有这条链接，提交时只会补建或复用关系。" : "";
+            return `<button class="link-picker-item ${selected ? "active" : ""} ${pinned ? "picked" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
+              selected ? "true" : "false"
             }"><span class="picker-headline"><strong>${highlightMatch(n.title, q)}</strong>${
               badge ? `<span class="picker-badge">${escapeHtml(badge)}</span>` : ""
-            }</span><span class="picker-meta">${highlightMatch(n.id, q)} · ${escapeHtml(this.folderLabel(n.folderId))}</span></button>`;
+            }</span><span class="picker-meta">${highlightMatch(n.id, q)} · ${escapeHtml(this.folderLabel(n.folderId))}</span>${
+              pinned
+                ? `<span class="picker-selection-state">已选中</span>${
+                    duplicateHint ? `<span class="picker-duplicate-hint">${escapeHtml(duplicateHint)}</span>` : ""
+                  }<span class="picker-preview">${escapeHtml(preview)}</span><span class="picker-detail-row"><span class="picker-detail-label">目录位置</span><span class="picker-detail-value">${escapeHtml(
+                    location
+                  )}</span></span>`
+                : ""
+            }</button>`;
           }
         )
-      : `<div class="picker-empty">无匹配笔记</div>`;
+      : `<div class="picker-empty">当前目录下没有匹配笔记，换个关键词或先新建笔记。</div>`;
     this.scrollActiveLinkCandidateIntoView();
-    if (this.els.confirmLinkInsert) this.els.confirmLinkInsert.disabled = !list.length;
+    this.updateLinkPickerConfirmButton();
+  }
+
+  updateLinkPickerConfirmButton() {
+    const button = this.els.confirmLinkInsert;
+    if (!button) return;
+    const selectedId = String(this.currentPinnedLinkId || "").trim();
+    const selectedNote = selectedId ? this.currentLinkCandidates.find((item) => item.id === selectedId) || null : null;
+    const requiresReason = !this.currentLinkContext;
+    const hasReason = !requiresReason || String(this.els.linkReasonInput?.value || "").trim().length > 0;
+    const bodyAlreadyLinked = !this.currentLinkContext && selectedNote ? this.hasResolvedLinkToNote(selectedNote.id) : false;
+    button.disabled = this.isSubmittingLinkInsert || !selectedNote || !hasReason;
+    if (this.isSubmittingLinkInsert) {
+      button.textContent = selectedNote ? `正在插入：${selectedNote.title || selectedNote.id}` : "正在插入...";
+      return;
+    }
+    if (!selectedNote) {
+      button.textContent = "请先选择一条关联笔记";
+      return;
+    }
+    if (!hasReason) {
+      button.textContent = bodyAlreadyLinked
+        ? `正文已有链接，先写理由：${selectedNote.title || selectedNote.id}`
+        : `先写理由，再插入：${selectedNote.title || selectedNote.id}`;
+      return;
+    }
+    button.textContent = bodyAlreadyLinked
+      ? `正文已有链接，补建关系：${selectedNote.title || selectedNote.id}`
+      : `插入：${selectedNote.title || selectedNote.id}`;
+  }
+
+  focusManualLinkReasonInput() {
+    if (this.currentLinkContext || !this.els.linkReasonInput) return;
+    this.els.linkReasonInput.focus();
+    const value = String(this.els.linkReasonInput.value || "");
+    this.els.linkReasonInput.setSelectionRange?.(value.length, value.length);
+  }
+
+  linkCandidatePreviewText(note) {
+    const thesis = String(note?.thesis || "").trim();
+    if (thesis) return thesis.slice(0, 96);
+    const lines = String(note?.body || "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) =>
+        String(line || "")
+          .replace(/\[\[([^[\]]+)\]\]/g, "$1")
+          .replace(/<!--[\s\S]*?-->/g, "")
+          .replace(/^#{1,6}\s*/, "")
+          .replace(/^>\s*/, "")
+          .replace(/^[-*]\s+/, "")
+          .trim()
+      )
+      .filter((line) => line && !/^#/.test(line) && !/^tag[:：]/i.test(line));
+    const meaningful = lines.find((line) => normalizeText(line).length >= 6) || lines[0] || "";
+    return meaningful ? meaningful.slice(0, 96) : "打开后可查看这条笔记的正文与关联。";
+  }
+
+  linkCandidateLocationText(note) {
+    return `${noteTypeText(note?.noteType || typeFromFolder(this.state, note?.folderId || ""))} · ${this.folderLabel(note?.folderId || "")}`;
+  }
+
+  setLinkInsertSubmitting(nextSubmitting) {
+    this.isSubmittingLinkInsert = nextSubmitting === true;
+    this.updateLinkPickerConfirmButton();
   }
 
   scrollActiveLinkCandidateIntoView() {
@@ -4740,8 +4932,10 @@ export class EditorPane {
       this.els.linkRelationTypeSelect.value = currentType;
     }
     this.els.linkSearchInput.value = initialQuery;
+    this.currentPinnedLinkId = "";
+    this.manualLinkReturnSelection = inlineMode ? null : this.normalizedSelectionRange(this.editorSelection());
+    this.manualLinkReturnScrollState = inlineMode ? null : this.captureEditorScrollState();
     if (!inlineMode) {
-      if (this.els.linkManagerSelect) this.els.linkManagerSelect.value = this.els.linkManagerSelect.value || "self";
       if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = this.els.linkRelationTypeSelect.value || "supports";
       if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     }
@@ -4776,8 +4970,13 @@ export class EditorPane {
     this.els.linkPicker.style.maxHeight = "";
     this.currentLinkContext = null;
     this.lastInlinePickerAnchor = 0;
+    this.currentPinnedLinkId = "";
+    this.manualLinkReturnSelection = null;
+    this.manualLinkReturnScrollState = null;
+    this.isSubmittingLinkInsert = false;
     this.els.insertLink?.classList.remove("active");
     if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
+    this.updateLinkPickerConfirmButton();
   }
 
   positionInlineLinkPicker() {
@@ -4785,12 +4984,45 @@ export class EditorPane {
     this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
   }
 
+  manualLinkInsertOutcome(bodyAlreadyLinked, reusedRelation) {
+    if (bodyAlreadyLinked && reusedRelation) return "body-and-relation-existed";
+    if (bodyAlreadyLinked) return "body-only-existed";
+    if (reusedRelation) return "relation-only-existed";
+    return "created";
+  }
+
+  manualLinkInsertFeedback(target, outcome) {
+    const title = target?.title || target?.id || "这条笔记";
+    switch (String(outcome || "")) {
+      case "body-and-relation-existed":
+        return {
+          status: `正文已有链接，语义关系也已存在：${title}`,
+          related: "正文链接与现有语义关系均已复用。"
+        };
+      case "body-only-existed":
+        return {
+          status: `正文已有链接，已补建语义关系：${title}`,
+          related: "正文链接已保留，并补建语义关系。"
+        };
+      case "relation-only-existed":
+        return {
+          status: `已插入正文链接，现有语义关系已复用：${title}`,
+          related: "正文链接已插入，现有语义关系已复用。"
+        };
+      default:
+        return {
+          status: `已按你的确认插入关联笔记：${title}`,
+          related: "关联已插入。"
+        };
+    }
+  }
+
   async insertSelectedLinkNote(noteId) {
     if (!noteId) return;
+    if (this.isSubmittingLinkInsert) return;
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
     const inlineInsert = Boolean(this.currentLinkContext);
-    const manager = String(this.els.linkManagerSelect?.value || "self").trim() || "self";
     const relationType = String(this.els.linkRelationTypeSelect?.value || "supports").trim() || "supports";
     const rawReason = String(this.els.linkReasonInput?.value || "").trim();
     if (!inlineInsert && this.els.linkReasonInput && !rawReason) {
@@ -4799,30 +5031,79 @@ export class EditorPane {
       this.els.linkReasonInput.select?.();
       return;
     }
+    const manualSelection = !inlineInsert
+      ? this.normalizedSelectionRange(this.manualLinkReturnSelection) || this.normalizedSelectionRange(this.editorSelection())
+      : null;
+    const manualScrollState = !inlineInsert ? this.manualLinkReturnScrollState : null;
+    const currentBody = this.getEditorValue();
+    const bodyAlreadyLinked = !inlineInsert && this.hasResolvedLinkToNote(target.id, currentBody);
     const reason = rawReason
       .replace(/\s+/g, " ")
       .replace(/--/g, "- -")
       .slice(0, 280);
-    const annotation = reason
-      ? ` <!-- rel:type=${escapeHtml(relationType)} manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->`
-      : "";
-    const token = `[[${target.title}]]${annotation}`;
-    if (inlineInsert) {
-      const { start, end } = this.currentLinkContext;
-      if (this.isWysiwygMode()) {
-        this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
+    const token = `[[${target.title}]]`;
+    const restoreSelection =
+      manualSelection && Number.isFinite(manualSelection.from)
+        ? bodyAlreadyLinked
+          ? { from: manualSelection.to, to: manualSelection.to }
+          : { from: manualSelection.from + token.length, to: manualSelection.from + token.length }
+        : null;
+    this.setLinkInsertSubmitting(true);
+    try {
+      let relationCreateResult = null;
+      if (inlineInsert) {
+        const { start, end } = this.currentLinkContext;
+        if (this.isWysiwygMode()) {
+          this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
+        } else {
+          this.replaceEditorRange(start, end, `[[${target.title}]]`);
+        }
+      } else if (bodyAlreadyLinked) {
+        // Keep the existing wikilink in place and only ensure the semantic relation is tracked.
+      } else if (manualSelection) {
+        if (this.isWysiwygMode()) {
+          this.replaceMarkdownWhileInWysiwyg(manualSelection.from, manualSelection.to, token, {
+            selectionStart: restoreSelection?.from,
+            selectionEnd: restoreSelection?.to
+          });
+        } else {
+          this.replaceEditorRange(manualSelection.from, manualSelection.to, token, {
+            selectionStart: restoreSelection?.from,
+            selectionEnd: restoreSelection?.to
+          });
+        }
       } else {
-        this.replaceEditorRange(start, end, `[[${target.title}]]`);
+        this.insertAtCursor(token);
       }
-    } else {
-      this.insertAtCursor(token);
-    }
-    this.handleEditorInput();
-    this.closeLinkPicker();
-    this.focusEditor();
-    this.onStatus(`已插入关联笔记：${target.title}`, "ok");
-    if (!inlineInsert) {
-      await this.saveActiveNote({ autoSave: true, trigger: "link-insert", skipOriginalityCheck: true });
+      this.handleEditorInput();
+      this.closeLinkPicker();
+      this.focusEditor();
+      if (!inlineInsert) {
+        try {
+          relationCreateResult = await createNoteRelation(this.activeNote()?.id || "", {
+            toNoteId: target.id,
+            relationType,
+            rationale: reason,
+            insightQuestion: "",
+            createdBy: "user",
+            confidence: 1,
+            status: "confirmed"
+          });
+        } catch (error) {
+          this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
+        }
+        await this.saveActiveNote({ autoSave: true, trigger: "link-insert", skipOriginalityCheck: true });
+        if (restoreSelection) this.setEditorSelectionRange(restoreSelection.from, restoreSelection.to);
+        this.scheduleEditorScrollRestore(manualScrollState);
+        const reusedRelation = relationCreateResult?.created === false;
+        const feedback = this.manualLinkInsertFeedback(target, this.manualLinkInsertOutcome(bodyAlreadyLinked, reusedRelation));
+        this.onStatus(feedback.status, "ok");
+        this.renderRelated(feedback.related);
+      } else {
+        this.onStatus(`已按你的确认插入关联笔记：${target.title}`, "ok");
+      }
+    } finally {
+      this.setLinkInsertSubmitting(false);
     }
   }
 
@@ -6042,6 +6323,7 @@ export class EditorPane {
     const tags = parseTags(tab.body || "");
     const rootId = rootBoxIdFromFolder(this.state, note.folderId);
     const scoped = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId && n.id !== note.id);
+    const backlinkCandidates = this.state.notes.filter((n) => rootBoxIdFromFolder(this.state, n.folderId) === rootId);
     const resolvedForwardIds = new Set(
       links
         .map((token) => this.resolveLinkToken(token, scoped))
@@ -6051,7 +6333,7 @@ export class EditorPane {
     const forward = scoped.filter((n) => resolvedForwardIds.has(n.id));
     const backward = scoped.filter((n) => {
       const refs = parseLinks(n.body || "");
-      return refs.some((token) => this.resolveLinkToken(token, scoped)?.note?.id === note.id);
+      return refs.some((token) => this.resolveLinkToken(token, backlinkCandidates)?.note?.id === note.id);
     });
     const tagRelated = tags.length
       ? scoped
@@ -7155,7 +7437,7 @@ export class EditorPane {
     if (submit) submit.disabled = true;
     if (errorEl) errorEl.textContent = "";
     try {
-      await createNoteRelation(note.id, {
+      const relation = await createNoteRelation(note.id, {
         toNoteId,
         relationType,
         rationale,
@@ -7164,9 +7446,14 @@ export class EditorPane {
         status: "confirmed"
       });
       const target = this.state.notes.find((item) => item.id === toNoteId);
-      this.onStatus(`关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`, "ok");
+      this.onStatus(
+        relation?.created === false
+          ? `关系已存在，已复用：${note.title || note.id} -> ${target?.title || toNoteId}`
+          : `关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`,
+        "ok"
+      );
       this.resetRelationPanelState(note.id);
-      this.renderRelated("关系已建立。");
+      this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已建立。");
     } catch (error) {
       const message = String(error?.message || error);
       if (errorEl) errorEl.textContent = message;
@@ -8053,8 +8340,12 @@ export class EditorPane {
 
     this.els.closeLinkPicker.addEventListener("click", () => this.closeLinkPicker());
     this.els.linkSearchInput.addEventListener("input", () => {
+      this.currentPinnedLinkId = "";
       this.renderLinkCandidates(this.els.linkSearchInput.value);
       if (this.currentLinkContext) this.positionInlineLinkPicker();
+    });
+    this.els.linkReasonInput?.addEventListener("input", () => {
+      this.updateLinkPickerConfirmButton();
     });
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
@@ -8082,7 +8373,9 @@ export class EditorPane {
       if (!row) return;
       const next = Number(row.dataset.linkIndex);
       if (Number.isInteger(next)) this.currentLinkIndex = next;
+      this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
       this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
+      this.focusManualLinkReasonInput();
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
@@ -8359,10 +8652,8 @@ export class EditorPane {
           this.setEditorValue(normalized);
         }
       }
-      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode() && tab.placeholderTitleArmed) {
-        if (titleFromBody(tab.body) !== "未命名笔记") tab.placeholderTitleArmed = false;
-      }
       tab.title = titleFromBody(tab.body);
+      this.syncPlaceholderTitleArmed(tab);
       this.syncTabDirtyState(tab);
       if (this.isOriginalNote()) {
         const authorship = this.activeAuthorshipState();
@@ -8552,8 +8843,10 @@ export class EditorPane {
   async saveActiveNote(options = {}) {
     if (this.savingPromise) return this.savingPromise;
     this.clearAutoSaveTimer();
-    this.closeLinkPicker();
-    this.closeTagPicker();
+    if (!options?.autoSave) {
+      this.closeLinkPicker();
+      this.closeTagPicker();
+    }
     this.setSaveUiState("saving", "当前文件：正在自动同步...");
     this.savingPromise = this.performSaveActiveNote(options);
     try {
@@ -8675,6 +8968,7 @@ export class EditorPane {
     }
     tab.savedBody = tab.body;
     tab.savedTitle = tab.title;
+    this.syncPlaceholderTitleArmed(tab);
     tab.dirty = false;
     this.clearDraft(tab.noteId);
     this.setSaveUiState("saved", "当前文件：已自动同步");

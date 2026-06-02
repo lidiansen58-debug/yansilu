@@ -3060,6 +3060,300 @@ test("prototype tab switch syncs the left navigation to the active note location
   }, 7000);
 });
 
+test("prototype explorer keeps current-note context when selecting a different folder", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const sourceDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Explorer Sync Source",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "explorer-sync-source"),
+    maxNotes: 500
+  });
+  assert.equal(sourceDirectory.status, 201, JSON.stringify(sourceDirectory.json));
+  const sourceDirectoryId = sourceDirectory.json.item.id;
+
+  const childDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Explorer Sync Child",
+    parentDirectoryId: sourceDirectoryId,
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "explorer-sync-source", "explorer-sync-child"),
+    maxNotes: 500
+  });
+  assert.equal(childDirectory.status, 201, JSON.stringify(childDirectory.json));
+  const childDirectoryId = childDirectory.json.item.id;
+
+  const siblingDirectory = await postJson(apiBase, "/api/v1/directories", {
+    title: "Explorer Sync Sibling",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "explorer-sync-sibling"),
+    maxNotes: 500
+  });
+  assert.equal(siblingDirectory.status, 201, JSON.stringify(siblingDirectory.json));
+  const siblingDirectoryId = siblingDirectory.json.item.id;
+
+  const note = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: childDirectoryId,
+    body: "# Explorer Sync Note\n\nThis note stays current while the folder selection moves elsewhere."
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+  const noteId = note.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${sourceDirectoryId}"]`).click();
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${childDirectoryId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Explorer Sync Note" }).click();
+
+  await waitFor(async () => {
+    const opened = await page.evaluate(({ noteId, sourceDirectoryId, childDirectoryId }) => {
+      const currentNote = document.querySelector(`.explorer-item[data-kind="file"][data-id="${noteId}"]`);
+      return {
+        activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+        currentNoteId: currentNote?.getAttribute("data-id") || "",
+        sourceExpanded: document.querySelector(`.explorer-item[data-kind="folder"][data-id="${sourceDirectoryId}"] .tree-toggle`)?.textContent?.trim() || "",
+        childVisible: Boolean(document.querySelector(`.explorer-item[data-kind="folder"][data-id="${childDirectoryId}"]`))
+      };
+    }, { noteId, sourceDirectoryId, childDirectoryId });
+    assert.equal(opened.activeFileId, noteId);
+    assert.equal(opened.currentNoteId, noteId);
+    assert.equal(opened.sourceExpanded, "▾");
+    assert.equal(opened.childVisible, true);
+  }, 7000);
+
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${siblingDirectoryId}"]`).click();
+
+  await waitFor(async () => {
+    const state = await page.evaluate(({ noteId, sourceDirectoryId, childDirectoryId, siblingDirectoryId }) => {
+      const currentNote = document.querySelector(`.explorer-item[data-kind="file"][data-id="${noteId}"]`);
+      const listArea = document.querySelector("#listArea");
+      const noteRect = currentNote?.getBoundingClientRect?.() || null;
+      const listRect = listArea?.getBoundingClientRect?.() || null;
+      return {
+        selectedFolderId: document.querySelector('.explorer-item[data-kind="folder"].active')?.getAttribute("data-id") || "",
+        activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+        currentNoteId: currentNote?.getAttribute("data-id") || "",
+        currentNoteIsActive: currentNote?.classList.contains("active") || false,
+        currentNoteHasWeakState: currentNote?.classList.contains("is-current-note") || false,
+        sourceExpanded: document.querySelector(`.explorer-item[data-kind="folder"][data-id="${sourceDirectoryId}"] .tree-toggle`)?.textContent?.trim() || "",
+        childVisible: Boolean(document.querySelector(`.explorer-item[data-kind="folder"][data-id="${childDirectoryId}"]`)),
+        currentNoteVisible: Boolean(noteRect && listRect && noteRect.top < listRect.bottom && noteRect.bottom > listRect.top),
+        expectedFolder: siblingDirectoryId
+      };
+    }, { noteId, sourceDirectoryId, childDirectoryId, siblingDirectoryId });
+    assert.equal(state.selectedFolderId, siblingDirectoryId);
+    assert.equal(state.activeFileId, "");
+    assert.equal(state.currentNoteId, noteId);
+    assert.equal(state.currentNoteIsActive, false);
+    assert.equal(state.currentNoteHasWeakState, true);
+    assert.equal(state.sourceExpanded, "▾");
+    assert.equal(state.childVisible, true);
+    assert.equal(state.currentNoteVisible, true);
+  }, 7000);
+});
+
+test("prototype explorer close-all clears stale file highlight and current-note state", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const folder = await postJson(apiBase, "/api/v1/directories", {
+    title: "Explorer Close All Sync",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "explorer-close-all-sync"),
+    maxNotes: 500
+  });
+  assert.equal(folder.status, 201, JSON.stringify(folder.json));
+  const folderId = folder.json.item.id;
+
+  const note = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: folderId,
+    body: "# Explorer Close All Sync Note\n\nClose-all should clear stale explorer file highlight."
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+  const noteId = note.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${folderId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Explorer Close All Sync Note" }).click();
+
+  await waitFor(async () => {
+    const opened = await page.evaluate(({ noteId }) => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector(`.explorer-item[data-kind="file"][data-id="${noteId}"]`)?.getAttribute("data-id") || "",
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }), { noteId });
+    assert.notEqual(opened.activeTabId, "");
+    assert.equal(opened.selectedFileId, noteId);
+    assert.equal(opened.activeFileId, noteId);
+    assert.equal(opened.currentNoteId, noteId);
+    assert.ok(opened.tabCount >= 1);
+  }, 7000);
+
+  await page.evaluate(() => {
+    const closed = window.__prototypeEditor?.closeAllTabs?.();
+    if (!closed) throw new Error("closeAllTabs returned false");
+  });
+
+  await waitFor(async () => {
+    const closed = await page.evaluate(() => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || "",
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }));
+    assert.equal(closed.activeTabId, "");
+    assert.equal(closed.selectedFileId, "");
+    assert.equal(closed.activeFileId, "");
+    assert.equal(closed.currentNoteId, "");
+    assert.equal(closed.tabCount, 0);
+  }, 7000);
+});
+
+test("prototype close-all lets a new note reopen from a clean explorer and tab state", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath, webBase } = stack;
+
+  const folder = await postJson(apiBase, "/api/v1/directories", {
+    title: "Explorer Reopen Sync",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: path.join(vaultPath, "notes", "original", "explorer-reopen-sync"),
+    maxNotes: 500
+  });
+  assert.equal(folder.status, 201, JSON.stringify(folder.json));
+  const folderId = folder.json.item.id;
+
+  const note = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: folderId,
+    body: "# Explorer Reopen Sync Note\n\nThis note anchors the reopen-from-clean-state flow."
+  });
+  assert.equal(note.status, 201, JSON.stringify(note.json));
+  const noteId = note.json.item.id;
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    window.__prototypeEditor?.closeAllTabs?.();
+  });
+  await page.locator(`.explorer-item[data-kind="folder"][data-id="${folderId}"]`).click();
+  await page.locator('.explorer-item[data-kind="file"]', { hasText: "Explorer Reopen Sync Note" }).click();
+
+  await waitFor(async () => {
+    const opened = await page.evaluate(({ noteId }) => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || "",
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }), { noteId });
+    assert.notEqual(opened.activeTabId, "");
+    assert.equal(opened.selectedFileId, noteId);
+    assert.equal(opened.activeFileId, noteId);
+    assert.equal(opened.currentNoteId, noteId);
+    assert.equal(opened.tabCount, 1);
+  }, 7000);
+
+  await page.locator("#btnNewNote").click();
+
+  await waitFor(async () => {
+    const afterNewTab = await page.evaluate(({ noteId }) => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || "",
+      oldNoteIsCurrent: document.querySelector(`.explorer-item[data-kind="file"][data-id="${noteId}"]`)?.classList.contains("is-current-note") || false,
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }), { noteId });
+    assert.notEqual(afterNewTab.activeTabId, "");
+    assert.equal(afterNewTab.tabCount, 2);
+    assert.notEqual(afterNewTab.selectedFileId, noteId);
+    assert.notEqual(afterNewTab.activeFileId, noteId);
+    assert.notEqual(afterNewTab.currentNoteId, noteId);
+    assert.equal(afterNewTab.oldNoteIsCurrent, false);
+  }, 7000);
+
+  await page.locator(".tab", { hasText: "Explorer Reopen Sync Note" }).click();
+
+  await waitFor(async () => {
+    const switchedBack = await page.evaluate(({ noteId }) => ({
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || ""
+    }), { noteId });
+    assert.equal(switchedBack.activeFileId, noteId);
+    assert.equal(switchedBack.currentNoteId, noteId);
+  }, 7000);
+
+  await page.evaluate(() => {
+    const closed = window.__prototypeEditor?.closeAllTabs?.();
+    if (!closed) throw new Error("closeAllTabs returned false");
+  });
+
+  await waitFor(async () => {
+    const cleared = await page.evaluate(() => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || "",
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }));
+    assert.equal(cleared.activeTabId, "");
+    assert.equal(cleared.selectedFileId, "");
+    assert.equal(cleared.activeFileId, "");
+    assert.equal(cleared.currentNoteId, "");
+    assert.equal(cleared.tabCount, 0);
+  }, 7000);
+
+  await page.locator("#btnNewNote").click();
+
+  await waitFor(async () => {
+    const reopened = await page.evaluate(({ noteId }) => ({
+      activeTabId: window.__prototypeState?.activeTabId || "",
+      selectedFileId: window.__prototypeState?.selectedFileId || "",
+      activeFileId: document.querySelector('.explorer-item.file-row.active[data-kind="file"]')?.getAttribute("data-id") || "",
+      currentNoteId: document.querySelector('.explorer-item.file-row.is-current-note[data-kind="file"]')?.getAttribute("data-id") || "",
+      oldNoteIsCurrent: document.querySelector(`.explorer-item[data-kind="file"][data-id="${noteId}"]`)?.classList.contains("is-current-note") || false,
+      tabCount: Array.isArray(window.__prototypeState?.tabs) ? window.__prototypeState.tabs.length : -1
+    }), { noteId });
+    assert.notEqual(reopened.activeTabId, "");
+    assert.equal(reopened.tabCount, 1);
+    assert.notEqual(reopened.selectedFileId, noteId);
+    assert.notEqual(reopened.activeFileId, noteId);
+    assert.notEqual(reopened.currentNoteId, noteId);
+    assert.equal(reopened.oldNoteIsCurrent, false);
+  }, 7000);
+});
+
 test("prototype editor stays editable after opening related panel and switching directories", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

@@ -5258,27 +5258,58 @@ function noteMatchesSearchQuery(note = null, query = "") {
   return target.includes(normalized);
 }
 
-function syncExplorerContextToNote(note = null) {
-  if (!note?.id) return false;
-  const folder = folderById(state, note.folderId);
-  if (!folder) return false;
-  state.selectedFileId = note.id;
-  state.selectedFolderId = folder.id;
-  state.browserRootId = rootBoxIdFromFolder(state, folder.id);
-  if (!noteMatchesSearchQuery(note, state.searchQuery)) {
-    state.searchQuery = "";
-    const searchInput = $("searchInput");
-    if (searchInput) searchInput.value = "";
+function applyExplorerSelectionContext({
+  note = null,
+  noteId = "",
+  folderId = "",
+  clearSelectedFile = false,
+  syncSearch = false,
+  expandFolder = true
+} = {}) {
+  const resolvedNote =
+    note?.id
+      ? note
+      : noteId
+        ? state.notes.find((item) => item.id === String(noteId || "").trim()) || null
+        : null;
+  if (resolvedNote?.id) {
+    const folder = folderById(state, resolvedNote.folderId);
+    if (!folder) return false;
+    state.selectedFileId = resolvedNote.id;
+    state.selectedFolderId = folder.id;
+    state.browserRootId = rootBoxIdFromFolder(state, folder.id);
+    if (syncSearch && !noteMatchesSearchQuery(resolvedNote, state.searchQuery)) {
+      state.searchQuery = "";
+      const searchInput = $("searchInput");
+      if (searchInput) searchInput.value = "";
+    }
+    if (expandFolder) explorer?.expandFolderPath?.(folder.id);
+    return true;
   }
-  explorer.expandFolderPath(folder.id);
-  return true;
+
+  const cleanFolderId = String(folderId || "").trim();
+  const folder = cleanFolderId ? folderById(state, cleanFolderId) : null;
+  if (folder) {
+    state.selectedFolderId = folder.id;
+    state.browserRootId = rootBoxIdFromFolder(state, folder.id);
+    if (clearSelectedFile) state.selectedFileId = null;
+    if (expandFolder) explorer?.expandFolderPath?.(folder.id);
+    return true;
+  }
+
+  if (clearSelectedFile) state.selectedFileId = null;
+  return false;
+}
+
+function syncExplorerContextToNote(note = null) {
+  return applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });
 }
 
 function syncExplorerContextToActiveTab() {
   const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
-  if (!activeTab?.noteId) return false;
-  const note = state.notes.find((item) => item.id === activeTab.noteId) || null;
-  return syncExplorerContextToNote(note);
+  return activeTab?.noteId
+    ? applyExplorerSelectionContext({ noteId: activeTab.noteId, syncSearch: true, expandFolder: true })
+    : applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
 }
 
 function noteGrowthStage(note, body = "") {
@@ -9962,10 +9993,13 @@ function renderGraphPanel() {
     return;
   }
 
+  const allGraphEdges = Array.isArray(graph?.edges) ? graph.edges : [];
+  state.graphConnectedNoteIds = new Set(
+    allGraphEdges.flatMap((edge) => [String(edge?.fromNoteId || "").trim(), String(edge?.toNoteId || "").trim()]).filter(Boolean)
+  );
   const scoped = graphScopedItems(graph);
   const focused = graphFocusedItems(scoped.nodes, scoped.edges);
   const showingFocusedNote = focused.focused && focused.focusedNoteId;
-  state.graphConnectedNoteIds = new Set(scoped.nodes.map((node) => node.id));
   const graphInsights = graph?.insights && typeof graph.insights === "object" ? graph.insights : {};
   const scopedAllNodes = Array.isArray(scoped.allNodes) ? scoped.allNodes : scoped.nodes;
   const supportingRelations = Array.isArray(graphInsights.supportingRelations) ? graphInsights.supportingRelations : [];
@@ -10079,6 +10113,7 @@ function renderGraphPanel() {
 
 async function refreshDirectoryGraph() {
   const directoryId = graphScopeDirectoryId();
+  const networkDirectoryId = GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID;
   const requestSerial = (graphState.requestSerial || 0) + 1;
   const canReuseScopedGraph = graphLoadedScopeCoversDirectory(directoryId);
   let succeeded = false;
@@ -10088,9 +10123,9 @@ async function refreshDirectoryGraph() {
   renderGraphPanel();
   try {
     const [graph, conflicts, reviewQueue] = await Promise.all([
-      fetchDirectoryGraph(directoryId, { includeDescendants: true, timeoutMs: 15000 }),
-      fetchGraphConflicts({ directoryId, includeDescendants: true }).catch(() => null),
-      fetchRelationReviewQueue({ directoryId, includeDescendants: true, limit: 8 }).catch((error) => ({
+      fetchDirectoryGraph(networkDirectoryId, { includeDescendants: true, timeoutMs: 15000 }),
+      fetchGraphConflicts({ directoryId: networkDirectoryId, includeDescendants: true }).catch(() => null),
+      fetchRelationReviewQueue({ directoryId: networkDirectoryId, includeDescendants: true, limit: 8 }).catch((error) => ({
         error: String(error?.message || error),
         items: [],
         total: 0
@@ -10098,7 +10133,7 @@ async function refreshDirectoryGraph() {
     ]);
     if (requestSerial !== graphState.requestSerial) return;
     graphState.item = graph;
-    graphState.lastLoadedDirectoryId = graph ? directoryId : "";
+    graphState.lastLoadedDirectoryId = graph ? networkDirectoryId : "";
     graphState.lastLoadedAt = graph ? new Date().toISOString() : "";
     graphState.conflicts = conflicts;
     graphState.reviewQueue = reviewQueue;
@@ -10307,14 +10342,13 @@ function openNoteById(id, options = {}) {
     editor.updateActiveTabFromEditor();
     void editor.autoSaveTabById(activeTab.id, "switch-note");
   }
-  state.selectedFileId = id;
   const note = state.notes.find((n) => n.id === id);
   const focusedIds = Array.isArray(state.literatureQueueFocusNoteIds) ? state.literatureQueueFocusNoteIds : [];
   if (focusedIds.length) {
     const keepFocus = String(note?.noteType || "").trim() === "literature" && focusedIds.includes(String(id || "").trim());
     if (!keepFocus) clearLiteratureQueueFocus();
   }
-  if (note) syncExplorerContextToNote(note);
+  if (note) applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });
   editor.openNoteTab(id, options);
   renderAll();
   if (options.focusDistillation) {
@@ -10721,6 +10755,13 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "create-note-in-selected-folder") {
+    if (payload.folderId) {
+      applyExplorerSelectionContext({
+        folderId: String(payload.folderId || "").trim(),
+        clearSelectedFile: true,
+        expandFolder: true
+      });
+    }
     if (state.activeTabId) {
       state.activeTabId = null;
       editor.fillEditorFromTab();
@@ -10816,13 +10857,21 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "select-folder") {
+    if (payload.folderId) {
+      applyExplorerSelectionContext({
+        folderId: String(payload.folderId || "").trim(),
+        clearSelectedFile: true,
+        expandFolder: true
+      });
+    }
     try {
       if (state.module === "graph") {
-        state.selectedFileId = null;
+        applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
         explorer?.restoreAutoCollapsedDisconnectedGroups?.();
         expandGraphBrowserTree();
       }
       await syncNotesForDirectory(state.selectedFolderId);
+      explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);
       if (state.module === "graph") await refreshDirectoryGraph();
     } catch (error) {
       setStatus(`目录加载失败，保留本地数据：${String(error?.message || error)}`, "warn");
@@ -10832,6 +10881,13 @@ async function handleStateChange(reason, payload = {}) {
   }
 
   if (reason === "graph-focus-note") {
+    if (payload.noteId) {
+      applyExplorerSelectionContext({
+        noteId: String(payload.noteId || "").trim(),
+        syncSearch: false,
+        expandFolder: true
+      });
+    }
     if (state.module === "graph") {
       explorer?.collapseDisconnectedGroup?.(state.selectedFolderId, { auto: true });
       explorer?.collapseDisconnectedGroup?.(GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID, { auto: true });
@@ -11347,7 +11403,6 @@ const editor = new EditorPane({
     linkPicker: $("linkPicker"),
     linkSearchInput: $("linkSearchInput"),
     linkSearchList: $("linkSearchList"),
-    linkManagerSelect: $("linkManagerSelect"),
     linkRelationTypeSelect: $("linkRelationTypeSelect"),
     linkReasonInput: $("linkReasonInput"),
     confirmLinkInsert: $("btnConfirmLinkInsert"),
