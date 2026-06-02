@@ -4,11 +4,53 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createInitialState } from "../../apps/web/src/prototype-store.js";
+import { createInitialState, folderById } from "../../apps/web/src/prototype-store.js";
 import {
+  ExplorerPane,
   explorerNewNoteButtonCopy,
   resolveExplorerNewNoteFolderId
 } from "../../apps/web/src/components-explorer-pane.js";
+
+const currentFile = fileURLToPath(import.meta.url);
+const repoRoot = path.resolve(path.dirname(currentFile), "../..");
+
+function readRepoFile(...segments) {
+  return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
+}
+
+function createStubButton() {
+  return {
+    dataset: {},
+    title: "",
+    addEventListener() {},
+    setAttribute() {},
+    querySelector() {
+      return null;
+    }
+  };
+}
+
+function createStubElements() {
+  return {
+    searchInput: { value: "", addEventListener() {}, focus() {} },
+    toggleSearchBtn: { addEventListener() {} },
+    openNewBoxBtn: { addEventListener() {} },
+    newNoteBtn: createStubButton(),
+    listArea: { addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; } }
+  };
+}
+
+function createExplorerForTest(state) {
+  return new ExplorerPane({
+    state,
+    elements: createStubElements(),
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    onOpenNote() {},
+    onStatus() {},
+    onStateChange() {}
+  });
+}
 
 test("note browser new action follows the current material root", () => {
   const state = createInitialState();
@@ -53,9 +95,7 @@ test("note browser new action names permanent notes without legacy original copy
 });
 
 test("editor toolbar does not render the file attachment button", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const html = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
+  const html = readRepoFile("apps/web/src/prototype.html");
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
   assert.doesNotMatch(html, /插入文件附件/);
@@ -73,9 +113,7 @@ test("prototype fallback state keeps local permanent note seeds for reviewable m
 });
 
 test("save-note re-syncs explorer context before repainting the note tree", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/if \(reason === "save-note"\) \{([\s\S]*?)\n\s*if \(reason === "note-move"\)/);
 
   assert.ok(match, "expected save-note handler to exist");
@@ -86,9 +124,7 @@ test("save-note re-syncs explorer context before repainting the note tree", () =
 });
 
 test("new directory creation expands and selects the created folder in the explorer", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/createBoxDialog\.onCreate = async \(\{ name, parentId, fsPath, maxCards \}\) => \{([\s\S]*?)\n\};/);
 
   assert.ok(match, "expected createBoxDialog.onCreate handler to exist");
@@ -100,9 +136,7 @@ test("new directory creation expands and selects the created folder in the explo
 });
 
 test("explorer keeps the currently selected empty folder visible after directory creation", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/components-explorer-pane.js"), "utf8");
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const match = source.match(/renderFolderNode\(folder, depth, q, memo\) \{([\s\S]*?)\n\s*const allFiles = this\.getFolderFiles/);
 
   assert.ok(match, "expected renderFolderNode() to exist");
@@ -112,20 +146,159 @@ test("explorer keeps the currently selected empty folder visible after directory
   assert.match(fnBody, /if \(!q && c\.id === selectedFolderId\) return true;/);
 });
 
+test("note browser only marks permanent notes as disconnected", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+
+  const permanent = { id: "pn_lonely", noteType: "permanent" };
+  const fleeting = { id: "fn_001", noteType: "fleeting" };
+  const literature = { id: "ln_001", noteType: "literature" };
+
+  assert.equal(explorer.noteIsDisconnected(permanent), true);
+  assert.equal(explorer.noteIsDisconnected(fleeting), false);
+  assert.equal(explorer.noteIsDisconnected(literature), false);
+});
+
+test("note browser counts disconnected permanent notes across child directories for folder alerts", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.folders.push(
+    { id: "dir_parent", name: "Parent", parentId: "dir_original_default", hidden: false },
+    { id: "dir_child", name: "Child", parentId: "dir_parent", hidden: false }
+  );
+  state.notes.push(
+    { id: "perm_connected", title: "Connected", folderId: "dir_parent", noteType: "permanent" },
+    { id: "perm_disconnected_child", title: "Disconnected child", folderId: "dir_child", noteType: "permanent" },
+    { id: "lit_child", title: "Literature child", folderId: "dir_child", noteType: "literature" }
+  );
+  state.graphConnectedNoteIds = new Set(["perm_connected"]);
+
+  assert.equal(explorer.countDisconnectedNotesInFolder("dir_parent"), 1);
+  assert.equal(explorer.countDisconnectedNotesInFolder("dir_child"), 1);
+});
+
+test("note browsers show isolated counts only for the simplified root scopes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });
+  state.notes.push(
+    { id: "perm_lonely_box", title: "Lonely Box", folderId: "dir_original_method", noteType: "permanent" },
+    { id: "perm_custom", title: "Custom", folderId: "dir_custom_root", noteType: "permanent" }
+  );
+  state.graphConnectedNoteIds = new Set(["pn_001", "pn_002"]);
+
+  const simplifiedRow = explorer.renderFolderNode(folderById(state, "dir_original_default"), 0, "", new Map());
+  const customRow = explorer.renderFolderNode(folderById(state, "dir_custom_root"), 0, "", new Map());
+
+  assert.match(simplifiedRow, /孤立 1/);
+  assert.match(simplifiedRow, /has-folder-alert/);
+  assert.doesNotMatch(customRow, /孤立 1/);
+  assert.doesNotMatch(customRow, /has-folder-alert/);
+});
+
+test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.folders.push({ id: "dir_ordered", name: "Ordered", parentId: "dir_original_default", hidden: false });
+  state.notes.push(
+    { id: "perm_connected", title: "A Connected", folderId: "dir_ordered", noteType: "permanent" },
+    { id: "perm_disconnected", title: "Z Disconnected", folderId: "dir_ordered", noteType: "permanent" }
+  );
+  state.graphConnectedNoteIds = new Set(["pn_001", "pn_002", "perm_connected"]);
+  explorer.expandedFolders.add("dir_ordered");
+
+  const html = explorer.renderFolderNode(folderById(state, "dir_ordered"), 1, "", new Map());
+  const connectedIndex = html.indexOf("perm_connected");
+  const disconnectedIndex = html.indexOf("perm_disconnected");
+
+  assert.ok(connectedIndex >= 0, "expected connected note row to render");
+  assert.ok(disconnectedIndex >= 0, "expected disconnected note row to render");
+  assert.ok(connectedIndex < disconnectedIndex, "expected connected note rows to appear before disconnected ones");
+});
+
+test("note browsers render isolated-note badges without extra relation actions in simplified scopes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set(["pn_002"]);
+  const html = explorer.renderFileNode({
+    id: "pn_001",
+    title: "Lonely permanent",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    generatedOriginalNoteId: "pn_002",
+    thinkingStatus: { label: "待思考", severity: "next", status: "open" }
+  }, 0);
+
+  assert.match(html, /孤立/);
+  assert.doesNotMatch(html, /data-associate-note=/);
+  assert.doesNotMatch(html, /item-inline-action warn/);
+  assert.doesNotMatch(html, /item-badge-thinking/);
+  assert.doesNotMatch(html, /item-badge-original-record/);
+});
+
+test("note browsers keep richer note actions and thinking badges outside simplified scopes", () => {
+  const state = createInitialState();
+  state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set(["pn_001", "pn_002"]);
+  const html = explorer.renderFileNode({
+    id: "perm_custom",
+    title: "Custom permanent",
+    folderId: "dir_custom_root",
+    noteType: "permanent",
+    thinkingStatus: { label: "待补推理", nextAction: "补一条关系", severity: "next", status: "open" }
+  }, 0);
+
+  assert.match(html, /孤立/);
+  assert.match(html, /item-badge-thinking/);
+  assert.match(html, /data-associate-note="perm_custom"/);
+  assert.match(html, /补关系/);
+});
+
+test("note browsers show generated-original badges for non-simplified literature notes", () => {
+  const state = createInitialState();
+  state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });
+  const explorer = createExplorerForTest(state);
+
+  const html = explorer.renderFileNode({
+    id: "lit_custom",
+    title: "Custom literature",
+    folderId: "dir_custom_root",
+    noteType: "literature",
+    generatedOriginalNoteId: "pn_001"
+  }, 0);
+
+  assert.match(html, /item-badge-original-record/);
+  assert.match(html, /已生成永久笔记/);
+});
+
+test("fleeting and literature boxes use the same simplified note-browser scope", () => {
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
+
+  assert.match(
+    source,
+    /return rootId === "dir_original_default"\s*\|\|\s*rootId === "dir_fleeting_default"\s*\|\|\s*rootId === "dir_literature_default";/
+  );
+});
+
 test("writing workspace defines hasProject before project list hints use it", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/const hasProject = Boolean\(writingState\.project\?\.id\);[\s\S]*?const projectPreflightSummary = describeWritingProjectPreflight/);
 
   assert.ok(match, "expected writing workspace project-entry block to exist");
   assert.match(match[0], /const hasProject = Boolean\(writingState\.project\?\.id\);/);
+  assert.match(match[0], /const projectPreflightSummary = describeWritingProjectPreflight/);
 });
 
 test("writing panel defines canContinueProjectedStrongModel before strong-model button wiring uses it", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/const strongModelReady =[\s\S]*?const strongModelState = describeWritingStrongModelStatus/);
 
   assert.ok(match, "expected writing panel strong-model block to exist");
@@ -136,9 +309,7 @@ test("writing panel defines canContinueProjectedStrongModel before strong-model 
 });
 
 test("renderAll repaints explorer before writing panel side-effects can interrupt the tree", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/function renderAll\(\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected renderAll() to exist");
@@ -148,9 +319,7 @@ test("renderAll repaints explorer before writing panel side-effects can interrup
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/function renderWritingScaffoldPreview\(\) \{([\s\S]*?)\n\s*if \(!writingState\.scaffold\)/);
 
   assert.ok(match, "expected renderWritingScaffoldPreview() to exist");
@@ -158,18 +327,14 @@ test("writing scaffold preview defines project preflight summary before next-act
 });
 
 test("writing strong-model action uses a defined basket readiness helper", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
 
   assert.match(source, /function currentWritingBasketReadiness\(\) \{/);
   assert.match(source, /\$\("btnWritingStrongModelAnalysis"\)\?\.addEventListener\("click", async \(\) => \{[\s\S]*const basketReadiness = currentWritingBasketReadiness\(\);/);
 });
 
 test("import-result create-writing-project path reuses unified writing entry reset", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/async function createWritingProjectFromImportedPermanentNotes\(\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected createWritingProjectFromImportedPermanentNotes() to exist");
@@ -181,9 +346,7 @@ test("import-result create-writing-project path reuses unified writing entry res
 });
 
 test("theme index append skips writing-entry reset when the basket already contains all theme notes", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/async function useThemeIndexAsWritingEntry\(indexCardId, \{ replaceBasket = false, resetContext = false, source = "writing_theme_index" \} = \{\}\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected useThemeIndexAsWritingEntry() to exist");
@@ -195,9 +358,7 @@ test("theme index append skips writing-entry reset when the basket already conta
 });
 
 test("theme index replace path also reuses unified writing-entry reset", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/async function useThemeIndexAsWritingEntry\(indexCardId, \{ replaceBasket = false, resetContext = false, source = "writing_theme_index" \} = \{\}\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected useThemeIndexAsWritingEntry() to exist");
@@ -210,9 +371,7 @@ test("theme index replace path also reuses unified writing-entry reset", () => {
 });
 
 test("continueWritingEntry preserves the current selected theme when merged provenance still contains it", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/function continueWritingEntry\(noteIds = \[\], \{ title = "", source = "writing_center", sourceIndexIds = \[\], preserveSourceIndexIds = true \} = \{\}\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected continueWritingEntry() to exist");
@@ -223,9 +382,7 @@ test("continueWritingEntry preserves the current selected theme when merged prov
 });
 
 test("theme index selection preserves hydrated theme context when switching between identical note sets", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/async function selectWritingThemeIndex\(indexId\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected selectWritingThemeIndex() to exist");
@@ -236,9 +393,7 @@ test("theme index selection preserves hydrated theme context when switching betw
 });
 
 test("theme index cards reuse continuity actions when a matching project already exists", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/function renderWritingThemeIndexCard\(indexCard\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected renderWritingThemeIndexCard() to exist");
@@ -251,9 +406,7 @@ test("theme index cards reuse continuity actions when a matching project already
 });
 
 test("theme index list click handler routes continuity actions through continueWritingProjectEntry", () => {
-  const currentFile = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
-  const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
+  const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/\$\("writingThemeIndexList"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
 
   assert.ok(match, "expected writingThemeIndexList click handler to exist");

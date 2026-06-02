@@ -1,3 +1,5 @@
+import { candidatePreviewItems } from "./import-candidate-preview-model.js";
+
 export function parseJsonOrEmpty(raw, label) {
   const text = String(raw || "").trim();
   if (!text) return {};
@@ -23,11 +25,84 @@ function resolveImportRecordId(values = {}, fallbackImportRecordId = "") {
   return String(values.importRecordId || fallbackImportRecordId || "").trim();
 }
 
+export function selectedCandidateGroups(candidatePreview = null, selectedIds = []) {
+  const selectedIdSet =
+    selectedIds instanceof Set
+      ? selectedIds
+      : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  return [
+    ...new Set(
+      candidatePreviewItems(candidatePreview)
+        .filter((item) => selectedIdSet.has(String(item.id || "").trim()))
+        .map((item) => String(item.candidateGroup || "").trim())
+        .filter(Boolean)
+    )
+  ];
+}
+
+function selectedCandidateGroupsFromSelection(candidateSelection = null, selectedIds = []) {
+  const selectedIdSet =
+    selectedIds instanceof Set
+      ? selectedIds
+      : new Set((Array.isArray(selectedIds) ? selectedIds : []).map((item) => String(item || "").trim()).filter(Boolean));
+  if (!selectedIdSet.size || !candidateSelection || typeof candidateSelection !== "object") return [];
+  const groups = [];
+  if ((Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("Source");
+  }
+  if ((Array.isArray(candidateSelection.literatureNotes) ? candidateSelection.literatureNotes : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("LiteratureNote");
+  }
+  if ((Array.isArray(candidateSelection.permanentNotes) ? candidateSelection.permanentNotes : []).some((id) => selectedIdSet.has(String(id || "").trim()))) {
+    groups.push("PermanentNote");
+  }
+  return groups;
+}
+
+export function validateImportDirectorySelection({
+  candidatePreview = null,
+  candidateSelection = null,
+  selectedIds = [],
+  directoryId = "",
+  resolveDirectoryRootId
+} = {}) {
+  const cleanDirectoryId = String(directoryId || "").trim();
+  if (!cleanDirectoryId) return null;
+  const groups = (
+    selectedCandidateGroupsFromSelection(candidateSelection, selectedIds).length
+      ? selectedCandidateGroupsFromSelection(candidateSelection, selectedIds)
+      : selectedCandidateGroups(candidatePreview, selectedIds)
+  ).filter((group) => group !== "Source");
+  if (!groups.length) return null;
+  if (groups.includes("LiteratureNote") && groups.includes("PermanentNote")) {
+    return {
+      code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+      message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
+    };
+  }
+  const rootDirectoryId = typeof resolveDirectoryRootId === "function" ? String(resolveDirectoryRootId(cleanDirectoryId) || "").trim() : "";
+  if (!rootDirectoryId) return null;
+  if (groups.includes("LiteratureNote") && rootDirectoryId !== "dir_literature_default") {
+    return {
+      code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+      message: "当前选择的是文献笔记，请改选文献卡片盒目录后再确认。"
+    };
+  }
+  if (groups.includes("PermanentNote") && rootDirectoryId !== "dir_original_default") {
+    return {
+      code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+      message: "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。"
+    };
+  }
+  return null;
+}
+
 export function createImportToolbarActions({
   getToolbarValues,
   getFallbackImportRecordId,
   getActivePreview,
   selectionSummary,
+  resolveDirectoryRootId,
   previewImport,
   confirmImport,
   cancelImport,
@@ -84,13 +159,50 @@ export function createImportToolbarActions({
         setStatus?.("请至少勾选一个候选后再确认写入", "warn");
         return null;
       }
-      const result = await confirmImport(importRecordId, selectedIds ? { selectedCandidateIds: selectedIds } : {});
+      const confirmPayload = selectedIds ? { selectedCandidateIds: selectedIds } : {};
+      const directoryId = String(values.directoryId || "").trim();
+      const directoryValidationError = validateImportDirectorySelection({
+        candidatePreview: preview?.candidatePreview || null,
+        candidateSelection: preview?.candidateSelection || null,
+        selectedIds,
+        directoryId,
+        resolveDirectoryRootId
+      });
+      if (directoryValidationError) {
+        showImportResult?.({
+          stage: "confirm_error",
+          importRecordId,
+          message: directoryValidationError.message,
+          code: directoryValidationError.code,
+          details: null
+        });
+        setStatus?.(directoryValidationError.message, "warn");
+        return null;
+      }
+      if (directoryId) confirmPayload.directoryId = directoryId;
+      const result = await confirmImport(importRecordId, confirmPayload);
       setStatus?.(`导入确认完成：${importRecordId}`, "ok");
       await onConfirmSuccess?.({ importRecordId, result, preview });
       await refreshImportHistory?.({ silent: true });
       await refreshImportedNotesView?.();
       return result;
     } catch (error) {
+      let syncedRecord = null;
+      try {
+        if (importRecordId && typeof loadImportRecordIntoUi === "function") {
+          syncedRecord = await loadImportRecordIntoUi(importRecordId, { announce: false });
+          await refreshImportHistory?.({ silent: true });
+        }
+      } catch {}
+      const syncedStatus = String(syncedRecord?.status || syncedRecord?.state || "").trim();
+      if (syncedStatus && syncedStatus !== "preview") {
+        const statusText =
+          syncedStatus === "failed"
+            ? `导入确认失败，已同步失败记录：${importRecordId}`
+            : `导入确认未完成，已同步当前记录：${importRecordId}`;
+        setStatus?.(statusText, "warn");
+        return null;
+      }
       showImportResult?.({
         stage: "confirm_error",
         importRecordId,

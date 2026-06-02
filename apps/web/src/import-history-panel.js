@@ -55,14 +55,14 @@ export function renderImportHistoryPanel({
   filters = {}
 } = {}) {
   const allItems = Array.isArray(items) ? items : [];
-  if (loading) return `<div class="import-history-empty">正在读取导入记录...</div>`;
+  if (loading) return `<div class="import-history-empty">正在读取记录...</div>`;
   if (!allItems.length) return `<div class="import-history-empty">还没有导入记录。</div>`;
 
   const filteredItems = filterImportHistoryItems(allItems, filters);
-  if (!filteredItems.length) return `<div class="import-history-empty">当前筛选下没有导入记录。</div>`;
+  if (!filteredItems.length) return `<div class="import-history-empty">当前筛选下没有记录。</div>`;
 
-  const visibleItems = filteredItems.slice(0, 6);
-  const summaryText = total > visibleItems.length ? `显示 ${visibleItems.length} / ${total}` : `显示 ${visibleItems.length}`;
+  const visibleItems = filteredItems.slice(0, 4);
+  const summaryText = total > visibleItems.length ? `最近 ${visibleItems.length} 条，共 ${total} 条` : `最近 ${visibleItems.length} 条`;
   return `
     <div class="import-history-list compact">
       ${visibleItems.map((record) => renderImportHistoryItem(record, String(activeImportRecordId || "").trim())).join("")}

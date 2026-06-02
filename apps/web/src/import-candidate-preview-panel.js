@@ -1,10 +1,15 @@
 import {
   candidateBadge,
   candidateGroups,
+  candidateIdsByOriginalityStatus,
   candidateMeta,
   candidatePreviewItems,
   candidateReasonText,
-  candidateTone
+  candidateTone,
+  isConfirmableCandidate,
+  confirmableCandidateIds,
+  riskyCandidateIds,
+  safeCandidateIds
 } from "./import-candidate-preview-model.js";
 
 function escapeHtml(value) {
@@ -44,7 +49,7 @@ function resultFocusLabel(reason = "") {
   const labels = {
     unselected: "未勾选跳过",
     invalid: "警告跳过",
-    conflicted: "冲突跳过"
+    conflicted: "文件冲突跳过"
   };
   return labels[String(reason || "").trim()] || "候选项";
 }
@@ -73,6 +78,18 @@ function renderExcludedCandidateSummary(candidatePreview, options = {}) {
   `;
 }
 
+function filterLabel(key, count) {
+  const labels = {
+    blocked: "阻断",
+    warning: "警告",
+    risky: "风险",
+    safe: "安全",
+    confirmable: "可确认",
+    excluded: "未写入"
+  };
+  return `${labels[key] || key} ${Number(count || 0)}`;
+}
+
 export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null, options = {}) {
   if (String(payload.stage || "") !== "confirm") return "";
   const selection = payload.result?.selection || null;
@@ -83,7 +100,7 @@ export function renderConfirmSkipBreakdown(payload = {}, candidatePreview = null
   const rows = [
     { key: "unselected", label: "未勾选跳过", count: unselected },
     { key: "invalid", label: "警告跳过", count: originalitySkipped },
-    { key: "conflicted", label: "冲突跳过", count: conflictedSkipped }
+    { key: "conflicted", label: "文件冲突跳过", count: conflictedSkipped }
   ].filter((item) => item.count > 0);
   if (!rows.length) return "";
 
@@ -110,10 +127,31 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
   const interactive = Boolean(options.interactive);
   const summary = options.summary || { selectedIds: new Set(), selectedCount: 0, totalCount: 0, excludedCount: 0 };
   const total = candidatePreview.total || {};
+  const originalityGuard = options.originalityGuard || null;
   const focusReason = String(options.focusReason || "").trim();
   const focusCandidateIds = new Set((options.focusCandidateIds || []).map((item) => String(item || "").trim()).filter(Boolean));
   const skipReasonMap = options.skipReasonMap || {};
   const hasFocus = !interactive && focusCandidateIds.size > 0;
+  const blockedCount = candidateIdsByOriginalityStatus(candidatePreview, "blocked").length;
+  const warningCount = candidateIdsByOriginalityStatus(candidatePreview, "warning").length;
+  const riskyCount = riskyCandidateIds(candidatePreview).length;
+  const safeCount = safeCandidateIds(candidatePreview).length;
+  const confirmableCount = confirmableCandidateIds(candidatePreview, originalityGuard).length;
+  const excludedCount = summary.excludedCount;
+  const selectedIdSet = summary.selectedIds instanceof Set ? summary.selectedIds : new Set();
+  const previewFilter = interactive ? focusReason : "";
+
+  function itemVisibleForFilter(item) {
+    const candidateId = String(item.id || "");
+    if (!previewFilter) return true;
+    if (previewFilter === "blocked") return item.originalityStatus === "blocked";
+    if (previewFilter === "warning") return item.originalityStatus === "warning";
+    if (previewFilter === "risky") return item.originalityStatus === "warning" || item.originalityStatus === "blocked";
+    if (previewFilter === "safe") return item.originalityStatus !== "blocked";
+    if (previewFilter === "confirmable") return isConfirmableCandidate(item, originalityGuard);
+    if (previewFilter === "excluded") return !selectedIdSet.has(candidateId);
+    return true;
+  }
 
   return `
     <div class="result-candidates simple">
@@ -128,11 +166,30 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                 <button class="mini-btn" type="button" data-candidate-action="all">全选</button>
                 <button class="mini-btn" type="button" data-candidate-action="none">清空</button>
                 <button class="mini-btn" type="button" data-candidate-action="permanent">只选永久</button>
+                ${confirmableCount < summary.totalCount ? `<button class="mini-btn" type="button" data-candidate-action="confirmable">只选可确认 ${escapeHtml(confirmableCount)}</button>` : ""}
+                ${safeCount < summary.totalCount ? `<button class="mini-btn" type="button" data-candidate-action="safe">只选安全 ${escapeHtml(safeCount)}</button>` : ""}
+                ${blockedCount > 0 ? `<button class="mini-btn" type="button" data-candidate-action="exclude-blocked">跳过阻断 ${escapeHtml(blockedCount)}</button>` : ""}
+                ${warningCount > 0 ? `<button class="mini-btn" type="button" data-candidate-action="exclude-warning">跳过警告 ${escapeHtml(warningCount)}</button>` : ""}
+                ${riskyCount > 0 ? `<button class="mini-btn" type="button" data-candidate-action="exclude-risky">跳过风险 ${escapeHtml(riskyCount)}</button>` : ""}
               </div>
             </div>`
           : ""
       }
-      ${!interactive && options.showExcludedSummary ? renderExcludedCandidateSummary(candidatePreview, { selectedIds: summary.selectedIds }) : ""}
+      ${
+        interactive
+          ? `<div class="result-candidates-toolbar">
+              <div class="toolbar-actions">
+                ${blockedCount > 0 ? `<button class="mini-btn ${previewFilter === "blocked" ? "is-filter-active" : ""}" type="button" data-candidate-filter="blocked">${escapeHtml(filterLabel("blocked", blockedCount))}</button>` : ""}
+                ${warningCount > 0 ? `<button class="mini-btn ${previewFilter === "warning" ? "is-filter-active" : ""}" type="button" data-candidate-filter="warning">${escapeHtml(filterLabel("warning", warningCount))}</button>` : ""}
+                ${riskyCount > 0 ? `<button class="mini-btn ${previewFilter === "risky" ? "is-filter-active" : ""}" type="button" data-candidate-filter="risky">${escapeHtml(filterLabel("risky", riskyCount))}</button>` : ""}
+                ${safeCount > 0 && safeCount < summary.totalCount ? `<button class="mini-btn ${previewFilter === "safe" ? "is-filter-active" : ""}" type="button" data-candidate-filter="safe">${escapeHtml(filterLabel("safe", safeCount))}</button>` : ""}
+                ${confirmableCount > 0 && confirmableCount < summary.totalCount ? `<button class="mini-btn ${previewFilter === "confirmable" ? "is-filter-active" : ""}" type="button" data-candidate-filter="confirmable">${escapeHtml(filterLabel("confirmable", confirmableCount))}</button>` : ""}
+                ${excludedCount > 0 ? `<button class="mini-btn ${previewFilter === "excluded" ? "is-filter-active" : ""}" type="button" data-candidate-filter="excluded">${escapeHtml(filterLabel("excluded", excludedCount))}</button>` : ""}
+              </div>
+            </div>`
+          : ""
+      }
+      ${(options.showExcludedSummary || (interactive && excludedCount > 0)) ? renderExcludedCandidateSummary(candidatePreview, { selectedIds: summary.selectedIds }) : ""}
       ${
         hasFocus
           ? `<div class="candidate-focus-banner">
@@ -146,7 +203,8 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
           const groupItems = group.items.map((item) => ({
             ...item,
             candidateGroup: group.title
-          }));
+          })).filter(itemVisibleForFilter);
+          if (!groupItems.length) return "";
           return `
             <div class="candidate-group">
               <div class="candidate-group-title">${escapeHtml(candidateGroupLabel(group.title))}</div>
@@ -173,7 +231,7 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                             ${
                               skipReason
                                 ? `<div class="candidate-inline-note">${escapeHtml(skipReason.message)}</div>`
-                                : !interactive && !checked
+                                : !checked
                                   ? `<div class="candidate-inline-note">确认前取消勾选。</div>`
                                   : ""
                             }

@@ -8,6 +8,7 @@ function folderIconSvg(isRoot = false) {
     </svg>
   `;
 }
+
 function fileIconSvg() {
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -71,7 +72,13 @@ function thinkingStatusBadge(note = null) {
 }
 
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络，暂时难以参与整体推理。">未入网</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
+}
+
+function disconnectedFolderBadge(count = 0) {
+  const safeCount = Number(count) || 0;
+  if (safeCount <= 0) return "";
+  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立 ${safeCount}</span>`;
 }
 
 function displayFolderName(folder) {
@@ -325,7 +332,7 @@ export class ExplorerPane {
           target: { kind: "list", id: this.state.selectedFolderId },
           actions: [
             { key: "new-note-here", label: "新建笔记", shortcut: "Ctrl+N", icon: "+" },
-            { key: "new-child", label: "新建目录...", icon: "▣" },
+            { key: "new-child", label: "新建目录...", icon: "▸" },
             { type: "separator" },
             { key: "refresh", label: "刷新", shortcut: "F5", icon: "↻" },
             { key: "properties", label: "属性", icon: "ⓘ" }
@@ -348,10 +355,10 @@ export class ExplorerPane {
           actions: [
             { key: "open", label: "打开目录", icon: "↗" },
             { key: "new-note-here", label: "在此新建笔记", shortcut: "Ctrl+N", icon: "+" },
-            { key: "new-child", label: "新建子目录...", icon: "▣" },
+            { key: "new-child", label: "新建子目录...", icon: "▸" },
             { type: "separator" },
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-            { key: "copy-folder-id", label: "复制目录ID", icon: "⧉" },
+            { key: "copy-folder-id", label: "复制目录 ID", icon: "⧉" },
             { key: "set-folder-path", label: "设置保存位置...", icon: "⌂" },
             { key: "reveal-folder", label: "在系统文件管理器中显示", disabled: !folder?.fsPath, icon: "⌂" },
             { key: "toggle-hidden", label: folder?.hidden ? "显示目录" : "隐藏目录", disabled: isDefault, icon: "◌" },
@@ -374,7 +381,7 @@ export class ExplorerPane {
             ...(canRecordPermanentFromNote(note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
             { key: "move", label: "移动到...", icon: "⇄" },
-            { key: "copy-note-id", label: "复制笔记ID", icon: "⧉" },
+            { key: "copy-note-id", label: "复制笔记 ID", icon: "⧉" },
             { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
             { type: "separator" },
             { key: "properties", label: "属性", icon: "ⓘ" },
@@ -502,7 +509,7 @@ export class ExplorerPane {
       }
       if (action === "copy-folder-id") {
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(f.id).catch(() => {});
-        this.onStatus(`已复制目录ID：${f.id}`, "ok");
+        this.onStatus(`已复制目录 ID：${f.id}`, "ok");
       }
       if (action === "set-folder-path") {
         if (!this.pickDirectory) {
@@ -530,7 +537,7 @@ export class ExplorerPane {
       }
       if (action === "delete") {
         if (f.isDefault) return this.onStatus("默认根目录不可删除", "bad");
-        const ok = confirm(`确认删除目录「${f.name}」及其直属笔记吗？`);
+        const ok = confirm(`确认删除目录“${f.name}”及其直属笔记吗？`);
         if (!ok) return;
         await this.onStateChange("directory-delete", { directoryId: f.id });
       }
@@ -561,7 +568,7 @@ export class ExplorerPane {
       }
       if (action === "copy-note-id") {
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n.id).catch(() => {});
-        this.onStatus(`已复制笔记ID：${n.id}`, "ok");
+        this.onStatus(`已复制笔记 ID：${n.id}`, "ok");
       }
       if (action === "record-permanent") {
         const directoryId = permanentDirectoryPrompt(this.state);
@@ -586,7 +593,7 @@ export class ExplorerPane {
         this.onStatus(`${n.title}：类型 ${typeLabel(n.noteType || "original")}，更新于 ${new Date(n.updatedAt).toLocaleString()}`, "ok");
       }
       if (action === "delete") {
-        const ok = confirm(`确认删除笔记「${n.title}」吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
+        const ok = confirm(`确认删除笔记“${n.title}”吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
         if (!ok) return;
         await this.onStateChange("note-delete", { noteId: n.id });
       }
@@ -634,6 +641,26 @@ export class ExplorerPane {
     const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : null;
     if (!connectedIds) return false;
     return !connectedIds.has(note.id);
+  }
+
+  countDisconnectedNotesInFolder(folderId, memo = new Map()) {
+    const key = String(folderId || "").trim();
+    if (!key) return 0;
+    if (memo.has(key)) return memo.get(key);
+
+    const ownCount = this.getFolderFiles(key).filter((note) => this.noteIsDisconnected(note)).length;
+    const childCount = this.getFolderChildren(key)
+      .reduce((sum, child) => sum + this.countDisconnectedNotesInFolder(child.id, memo), 0);
+    const total = ownCount + childCount;
+    memo.set(key, total);
+    return total;
+  }
+
+  isSimplifiedNoteBrowserScope(folderId = "") {
+    const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
+    return rootId === "dir_original_default"
+      || rootId === "dir_fleeting_default"
+      || rootId === "dir_literature_default";
   }
 
   fileMatches(note, q) {
@@ -718,31 +745,33 @@ export class ExplorerPane {
     const forceExpand = Boolean(q) && hasChildren;
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
-
-      const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
-      const folderRow = `
-        <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
-          <div class="left">
-            <span class="tree-indent"></span>
-            <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="\u5c55\u5f00/\u6298\u53e0">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
-            <span class="icon">${folderIconSvg(isRoot)}</span>
-            <span class="name"><strong>${displayFolderName(folder)}</strong></span>
-          </div>
-          <div class="item-trail">${folder.hidden ? `<span class="item-badge">已隐藏</span>` : ""}</div>
+    const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
+    const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
+    const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
+    const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
+    const folderDisconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedCount : 0;
+    const folderTrail = [
+      folder.hidden ? `<span class="item-badge">已隐藏</span>` : "",
+      disconnectedFolderBadge(folderDisconnectedCount)
+    ].join("");
+    const folderRow = `
+      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderDisconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
+        <div class="left">
+          <span class="tree-indent"></span>
+          <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
+          <span class="icon">${folderIconSvg(isRoot)}</span>
+          <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
-      `;
+        <div class="item-trail">${folderTrail}</div>
+      </div>
+    `;
 
     if (!expanded) return folderRow;
 
-    const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
-    const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
-    const disconnectedCollapsed = this.collapsedDisconnectedGroups.has(folder.id);
     const fileRows = [
       connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
-      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(folder.id, depth + 1, disconnectedFiles.length, disconnectedCollapsed) : "",
-      disconnectedCollapsed ? "" : disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
+      disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
     ].join("");
-
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
 
     return `${folderRow}${childFolderRows}${fileRows}`;
@@ -751,12 +780,16 @@ export class ExplorerPane {
   renderFileNode(note, depth) {
     const thinkingBadge = thinkingStatusBadge(note);
     const originalBadge = generatedOriginalBadge(this.state, note);
-    const thinkingClass = thinkingBadge ? "has-thinking-status" : "";
     const disconnected = this.noteIsDisconnected(note);
     const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
-    const associateButton = disconnected
+    const simplifiedNoteBrowser = this.isSimplifiedNoteBrowserScope(note.folderId);
+    const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
+    const associateButton = disconnected && !simplifiedNoteBrowser
       ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
       : "";
+    const trail = simplifiedNoteBrowser
+      ? disconnectedBadge
+      : `${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
       <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${this.state.selectedFileId === note.id ? "active" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
@@ -765,7 +798,7 @@ export class ExplorerPane {
           <span class="icon">${fileIconSvg()}</span>
           <span class="name"><strong>${note.title}</strong></span>
         </div>
-        <div class="item-trail">${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}</div>
+        <div class="item-trail">${trail}</div>
       </div>
     `;
   }
@@ -774,7 +807,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <span class="tree-group-pill">未入网 ${count}</span>
+        <span class="tree-group-pill">孤立 ${count}</span>
       </div>
     `;
   }
@@ -783,7 +816,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 未入网 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
       </div>
     `;
   }
@@ -792,7 +825,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 未入网 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
       </div>
     `;
   }

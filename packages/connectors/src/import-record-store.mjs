@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export function contentHash(content) {
   // Prefer hashing raw bytes (Buffer) when available so both text + binary files are supported.
@@ -93,6 +93,26 @@ function summarizePermanent(candidate, evaluationById) {
   };
 }
 
+function uniqueCandidateIds(items = []) {
+  return [...new Set((Array.isArray(items) ? items : []).map((item) => String(item?.id || "").trim()).filter(Boolean))];
+}
+
+export function summarizeCandidateSelection(candidates = {}) {
+  const sources = uniqueCandidateIds(candidates.sources);
+  const literatureNotes = uniqueCandidateIds(candidates.literature);
+  const permanentNotes = uniqueCandidateIds(candidates.permanent);
+  return {
+    sources,
+    literatureNotes,
+    permanentNotes,
+    total: {
+      sources: sources.length,
+      literatureNotes: literatureNotes.length,
+      permanentNotes: permanentNotes.length
+    }
+  };
+}
+
 export function summarizeImportCandidates(candidates = {}, originalityGuard = null, limit = 12) {
   const sources = Array.isArray(candidates.sources) ? candidates.sources : [];
   const literature = Array.isArray(candidates.literature) ? candidates.literature : [];
@@ -124,12 +144,14 @@ export function publicImportRecord(record) {
     summary: record.summary,
     samples: record.samples,
     candidatePreview: record.candidatePreview || summarizeImportCandidates(record.candidates, record.originalityGuard),
+    candidateSelection: record.candidateSelection || summarizeCandidateSelection(record.candidates),
     warnings: record.warnings || [],
     originalityGuard: record.originalityGuard || null,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt || record.createdAt,
     payload: record.payload || {},
     options: record.options || {},
+    failureResult: record.failureResult || null,
     confirmResult: record.confirmResult || null,
     rollbackResult: record.rollbackResult || null
   };
@@ -139,8 +161,33 @@ export async function appendImportRecord(vaultPath, connector, recordId, stage, 
   const dir = path.join(vaultPath, "imports", connector);
   await fs.mkdir(dir, { recursive: true });
   const recordPath = path.join(dir, `${recordId}.${stage}.json`);
-  await fs.writeFile(recordPath, JSON.stringify(body, null, 2), "utf8");
+  const tempPath = path.join(dir, `${recordId}.${stage}.${randomUUID().slice(0, 8)}.tmp`);
+  const handle = await fs.open(tempPath, "w");
+  try {
+    await handle.writeFile(JSON.stringify(body, null, 2), "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  try {
+    await fs.rename(tempPath, recordPath);
+  } catch (error) {
+    try {
+      await fs.unlink(tempPath);
+    } catch {}
+    throw error;
+  }
   return recordPath;
+}
+
+export async function deleteImportRecordStage(vaultPath, connector, recordId, stage) {
+  const dir = path.join(vaultPath, "imports", connector);
+  const recordPath = path.join(dir, `${recordId}.${stage}.json`);
+  try {
+    await fs.unlink(recordPath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
 }
 
 async function readJsonIfExists(filePath) {
@@ -150,6 +197,242 @@ async function readJsonIfExists(filePath) {
     if (error?.code === "ENOENT") return null;
     throw error;
   }
+}
+
+function stageCorruption(stage, filePath, error) {
+  return {
+    stage,
+    filePath,
+    code: "IMPORT_RECORD_STAGE_CORRUPTED",
+    message: String(error?.message || error || "stage json is corrupted")
+  };
+}
+
+function stageOrder(stage) {
+  const order = {
+    preview: 0,
+    cancel: 1,
+    confirm: 2,
+    failed: 3,
+    rollback: 4
+  };
+  return Object.prototype.hasOwnProperty.call(order, stage) ? order[stage] : -1;
+}
+
+async function readStageEnvelope(filePath, stage) {
+  try {
+    return {
+      stage,
+      filePath,
+      data: await readJsonIfExists(filePath),
+      corruption: null
+    };
+  } catch (error) {
+    if (error instanceof SyntaxError || error?.name === "SyntaxError") {
+      return {
+        stage,
+        filePath,
+        data: null,
+        corruption: stageCorruption(stage, filePath, error)
+      };
+    }
+    throw error;
+  }
+}
+
+async function statIfExists(filePath) {
+  try {
+    return await fs.stat(filePath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function isoTimestamp(value) {
+  return value instanceof Date && !Number.isNaN(value.valueOf()) ? value.toISOString() : null;
+}
+
+async function fileModifiedTimestamp(filePath) {
+  const stat = await statIfExists(filePath);
+  return isoTimestamp(stat?.mtime);
+}
+
+async function listFilesRecursive(rootPath) {
+  let entries = [];
+  try {
+    entries = await fs.readdir(rootPath, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+
+  const files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(rootPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(fullPath)));
+      continue;
+    }
+    if (entry.isFile()) files.push(fullPath);
+  }
+  return files;
+}
+
+function latestTimestamp(values = []) {
+  const timestamps = values.map((value) => String(value || "").trim()).filter(Boolean);
+  if (!timestamps.length) return null;
+  timestamps.sort((a, b) => b.localeCompare(a));
+  return timestamps[0];
+}
+
+function emptyImportCandidates() {
+  return { sources: [], literature: [], permanent: [], warnings: [] };
+}
+
+function emptyImportSelection() {
+  return {
+    sources: [],
+    literatureNotes: [],
+    permanentNotes: [],
+    total: {
+      sources: 0,
+      literatureNotes: 0,
+      permanentNotes: 0
+    }
+  };
+}
+
+function emptyImportSummary(warningCount = 0) {
+  return {
+    sources: 0,
+    literatureNotes: 0,
+    permanentNotes: 0,
+    warnings: warningCount
+  };
+}
+
+function emptyImportSamples() {
+  return {
+    sourceIds: [],
+    literatureNoteIds: [],
+    permanentNoteIds: []
+  };
+}
+
+function selectionCandidateSelection(candidates = {}, selection = null) {
+  const sourceItems = Array.isArray(candidates?.sources) ? candidates.sources : [];
+  const literatureItems = Array.isArray(candidates?.literature) ? candidates.literature : [];
+  const permanentItems = Array.isArray(candidates?.permanent) ? candidates.permanent : [];
+  const requestedIds = Array.isArray(selection?.candidateIds)
+    ? [...new Set(selection.candidateIds.map((item) => String(item || "").trim()).filter(Boolean))]
+    : [];
+  if (!requestedIds.length) return null;
+  const requested = new Set(requestedIds);
+  return summarizeCandidateSelection({
+    sources: sourceItems.filter((item) => requested.has(String(item?.id || "").trim())),
+    literature: literatureItems.filter((item) => requested.has(String(item?.id || "").trim())),
+    permanent: permanentItems.filter((item) => requested.has(String(item?.id || "").trim()))
+  });
+}
+
+function corruptionWarning(corruption) {
+  const stage = String(corruption?.stage || "unknown").trim() || "unknown";
+  const fileName = path.basename(String(corruption?.filePath || "").trim() || `${stage}.json`);
+  return {
+    code: "IMPORT_RECORD_STAGE_CORRUPTED",
+    stage,
+    message: `导入记录阶段文件损坏: ${fileName}`
+  };
+}
+
+function corruptionFailureResult(corruptStages = [], finishedAt = null) {
+  return {
+    code: "IMPORT_RECORD_STAGE_CORRUPTED",
+    message: "import record stage data is corrupted",
+    details: {
+      stages: corruptStages.map((item) => ({
+        stage: item.stage,
+        filePath: item.filePath,
+        message: item.message
+      }))
+    },
+    selection: null,
+    finishedAt
+  };
+}
+
+async function rollbackConflictFailureResult(vaultPath, recordId, confirmResult = null) {
+  const conflictRoot = path.join(vaultPath, "imports", "rollback-recovery-conflicts");
+  let entries = [];
+  try {
+    entries = await fs.readdir(conflictRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+
+  const matchingDirs = entries
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith(`${recordId}-`))
+    .map((entry) => path.join(conflictRoot, entry.name));
+  if (!matchingDirs.length) return null;
+
+  const createdFileByPath = new Map(
+    (Array.isArray(confirmResult?.createdFiles) ? confirmResult.createdFiles : []).map((item) => [String(item?.path || "").trim(), item])
+  );
+  const conflicts = [];
+  const timestamps = [];
+
+  for (const dirPath of matchingDirs) {
+    const files = await listFilesRecursive(dirPath);
+    for (const filePath of files) {
+      const originalPath = path.relative(dirPath, filePath).replaceAll("\\", "/");
+      const preservedPath = vaultRelativePath(vaultPath, filePath);
+      const stat = await statIfExists(filePath);
+      const finishedAt = isoTimestamp(stat?.mtime);
+      if (finishedAt) timestamps.push(finishedAt);
+      const createdEntry = createdFileByPath.get(originalPath) || null;
+      conflicts.push({
+        noteId: createdEntry?.noteId || null,
+        noteType: createdEntry?.noteType || null,
+        path: originalPath,
+        preservedPath,
+        reason: "destination_modified"
+      });
+    }
+  }
+
+  if (!conflicts.length) return null;
+  return {
+    code: "IMPORT_ROLLBACK_RESTORE_CONFLICT",
+    message: "rollback restore preserved newer files without overwriting them",
+    details: { conflicts },
+    selection: confirmResult?.selection || null,
+    finishedAt: latestTimestamp(timestamps)
+  };
+}
+
+function buildCorruptedImportRecord({ recordId, connector, corruptStages = [], createdAt, updatedAt }) {
+  const normalizedCreatedAt = String(createdAt || updatedAt || new Date().toISOString()).trim();
+  const normalizedUpdatedAt = String(updatedAt || normalizedCreatedAt).trim();
+  return {
+    importRecordId: recordId,
+    connector,
+    state: "failed",
+    summary: emptyImportSummary(corruptStages.length),
+    samples: emptyImportSamples(),
+    candidateSelection: emptyImportSelection(),
+    payload: {},
+    options: {},
+    candidates: emptyImportCandidates(),
+    warnings: corruptStages.map(corruptionWarning),
+    originalityGuard: null,
+    failureResult: corruptionFailureResult(corruptStages, normalizedUpdatedAt),
+    confirmResult: null,
+    rollbackResult: null,
+    createdAt: normalizedCreatedAt,
+    updatedAt: normalizedUpdatedAt
+  };
 }
 
 async function findImportRecordConnector(vaultPath, recordId) {
@@ -181,17 +464,69 @@ export async function loadImportRecord(vaultPath, recordId) {
   if (!connector) return null;
 
   const dir = path.join(vaultPath, "imports", connector);
-  const previewEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.preview.json`));
+  const previewPath = path.join(dir, `${recordId}.preview.json`);
+  const confirmPath = path.join(dir, `${recordId}.confirm.json`);
+  const cancelPath = path.join(dir, `${recordId}.cancel.json`);
+  const failedPath = path.join(dir, `${recordId}.failed.json`);
+  const rollbackPath = path.join(dir, `${recordId}.rollback.json`);
+  const [previewStage, confirmStage, cancelStage, failedStage, rollbackStage] = await Promise.all([
+    readStageEnvelope(previewPath, "preview"),
+    readStageEnvelope(confirmPath, "confirm"),
+    readStageEnvelope(cancelPath, "cancel"),
+    readStageEnvelope(failedPath, "failed"),
+    readStageEnvelope(rollbackPath, "rollback")
+  ]);
+  const corruptStages = [previewStage, confirmStage, cancelStage, failedStage, rollbackStage]
+    .map((item) => item.corruption)
+    .filter(Boolean);
+  if (previewStage.corruption) {
+    const [previewStat, confirmStat, cancelStat, failedStat, rollbackStat] = await Promise.all([
+      statIfExists(previewPath),
+      statIfExists(confirmPath),
+      statIfExists(cancelPath),
+      statIfExists(failedPath),
+      statIfExists(rollbackPath)
+    ]);
+    const createdAt = isoTimestamp(previewStat?.mtime) || latestTimestamp([isoTimestamp(confirmStat?.mtime), isoTimestamp(cancelStat?.mtime), isoTimestamp(failedStat?.mtime), isoTimestamp(rollbackStat?.mtime)]) || new Date().toISOString();
+    const updatedAt = latestTimestamp([
+      isoTimestamp(previewStat?.mtime),
+      isoTimestamp(confirmStat?.mtime),
+      isoTimestamp(cancelStat?.mtime),
+      isoTimestamp(failedStat?.mtime),
+      isoTimestamp(rollbackStat?.mtime)
+    ]) || createdAt;
+    return buildCorruptedImportRecord({
+      recordId,
+      connector,
+      corruptStages,
+      createdAt,
+      updatedAt
+    });
+  }
+
+  const previewEnvelope = previewStage.data;
   if (!previewEnvelope?.preview) return null;
 
-  const confirmEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.confirm.json`));
-  const cancelEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.cancel.json`));
-  const rollbackEnvelope = await readJsonIfExists(path.join(dir, `${recordId}.rollback.json`));
+  const confirmEnvelope = confirmStage.data;
+  const cancelEnvelope = cancelStage.data;
+  const failedEnvelope = failedStage.data;
+  const rollbackEnvelope = rollbackStage.data;
   const preview = previewEnvelope.preview;
+  const failureResult = failedEnvelope
+    ? {
+        code: String(failedEnvelope.code || "").trim() || null,
+        message: String(failedEnvelope.message || "").trim() || null,
+        details: failedEnvelope.details || null,
+        selection: failedEnvelope.selection || null,
+        finishedAt: failedEnvelope.finishedAt || null
+      }
+    : null;
   const confirmResult = confirmEnvelope
     ? {
         created: confirmEnvelope.created || {},
         skipped: confirmEnvelope.skipped || {},
+        selection: confirmEnvelope.selection || null,
+        targetDirectories: confirmEnvelope.targetDirectories || [],
         writtenPaths: confirmEnvelope.writtenPaths || [],
         createdFiles: confirmEnvelope.createdFiles || [],
         finishedAt: confirmEnvelope.finishedAt || null
@@ -204,18 +539,72 @@ export async function loadImportRecord(vaultPath, recordId) {
         finishedAt: rollbackEnvelope.finishedAt || null
       }
     : null;
-
-  const state = rollbackResult ? "rolled_back" : confirmResult ? "completed" : cancelEnvelope ? "cancelled" : preview.status || "preview";
+  const optionalCorruptStages = corruptStages.filter((item) => item.stage !== "preview");
+  const optionalCorruptUpdatedAt = optionalCorruptStages.length
+    ? latestTimestamp(await Promise.all(optionalCorruptStages.map((item) => fileModifiedTimestamp(item.filePath))))
+    : null;
+  const highestSuccessfulStage = [
+    previewEnvelope ? "preview" : null,
+    cancelEnvelope ? "cancel" : null,
+    confirmEnvelope ? "confirm" : null,
+    failedEnvelope ? "failed" : null,
+    rollbackEnvelope ? "rollback" : null
+  ]
+    .filter(Boolean)
+    .sort((a, b) => stageOrder(b) - stageOrder(a))[0] || null;
+  const highestCorruptStage = optionalCorruptStages
+    .map((item) => item.stage)
+    .sort((a, b) => stageOrder(b) - stageOrder(a))[0] || null;
+  const terminalStageCorrupted =
+    highestCorruptStage !== null && stageOrder(highestCorruptStage) >= stageOrder(highestSuccessfulStage);
+  const syntheticFailureResult =
+    terminalStageCorrupted || (!rollbackResult && !confirmResult && !cancelEnvelope && !failureResult && optionalCorruptStages.length)
+      ? corruptionFailureResult(optionalCorruptStages, optionalCorruptUpdatedAt || preview.createdAt)
+      : null;
+  const syntheticRollbackConflict = !failureResult && !rollbackResult && confirmResult
+    ? await rollbackConflictFailureResult(vaultPath, recordId, confirmResult)
+    : null;
+  const state =
+    rollbackResult
+      ? "rolled_back"
+      : failureResult || syntheticRollbackConflict || syntheticFailureResult
+        ? "failed"
+        : confirmResult
+          ? "completed"
+          : cancelEnvelope
+            ? "cancelled"
+            : preview.status || "preview";
+  const warnings = [
+    ...(Array.isArray(preview.warnings) ? preview.warnings : []),
+    ...optionalCorruptStages.map(corruptionWarning)
+  ];
+  const effectiveFailureResult = rollbackResult ? null : failureResult || syntheticRollbackConflict || syntheticFailureResult;
+  const previewCandidateSelection = preview.candidateSelection || summarizeCandidateSelection(previewEnvelope.candidates || {});
+  const confirmedCandidateSelection = confirmResult ? selectionCandidateSelection(previewEnvelope.candidates || {}, confirmResult.selection) : null;
+  const failedCandidateSelection =
+    failedEnvelope?.candidateSelection ||
+    (failureResult ? selectionCandidateSelection(previewEnvelope.candidates || {}, failureResult.selection) : null);
+  const effectiveCandidateSelection =
+    rollbackResult
+      ? confirmedCandidateSelection || previewCandidateSelection
+      : effectiveFailureResult
+        ? failedCandidateSelection || confirmedCandidateSelection || previewCandidateSelection
+        : confirmResult
+          ? confirmedCandidateSelection || previewCandidateSelection
+          : previewCandidateSelection;
   return {
     ...preview,
     state,
+    warnings,
+    candidateSelection: effectiveCandidateSelection,
     payload: previewEnvelope.payload || {},
     options: previewEnvelope.options || {},
-    candidates: previewEnvelope.candidates || { sources: [], literature: [], permanent: [], warnings: [] },
-    originalityGuard: confirmEnvelope?.originalityGuard || preview.originalityGuard || null,
+    candidates: previewEnvelope.candidates || emptyImportCandidates(),
+    originalityGuard: confirmEnvelope?.originalityGuard || failedEnvelope?.originalityGuard || preview.originalityGuard || null,
+    failureResult: effectiveFailureResult,
     confirmResult,
     rollbackResult,
-    updatedAt: rollbackResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || preview.createdAt
+    updatedAt: rollbackResult?.finishedAt || effectiveFailureResult?.finishedAt || confirmResult?.finishedAt || cancelEnvelope?.finishedAt || optionalCorruptUpdatedAt || preview.createdAt
   };
 }
 

@@ -183,6 +183,59 @@ test("POST /api/v1/exports/markdown rejects targets inside the active vault", as
   }
 });
 
+test("POST /api/v1/exports/markdown exports the whole vault when no scope is provided", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-export-all-vault-");
+  const targetPath = await makeTempDir("yansilu-api-export-all-target-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const api = startApi(port, vaultPath);
+
+  try {
+    await waitForHealth(baseUrl);
+
+    await fs.mkdir(path.join(vaultPath, "assets", "images"), { recursive: true });
+    await fs.writeFile(path.join(vaultPath, "assets", "images", "all-export.txt"), "asset", "utf8");
+
+    const literatureNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_literature_default",
+      title: "API all export literature",
+      body: "All export literature body."
+    });
+    const permanentNote = await postJson(baseUrl, "/api/v1/notes", {
+      directoryId: "dir_original_default",
+      title: "API all export permanent",
+      body: "All export permanent body."
+    });
+
+    assert.equal(literatureNote.response.status, 201, JSON.stringify(literatureNote.payload));
+    assert.equal(permanentNote.response.status, 201, JSON.stringify(permanentNote.payload));
+
+    const { response, payload } = await postJson(baseUrl, "/api/v1/exports/markdown", {
+      targetPath
+    });
+
+    assert.equal(response.status, 202);
+    assert.deepEqual(payload.scope, { type: "all" });
+    assert.equal(payload.copiedBreakdown.markdownFiles, 2);
+    assert.equal(payload.copiedBreakdown.assetFiles, 1);
+
+    await fs.access(
+      path.join(targetPath, path.posix.relative("notes", literatureNote.payload.item.markdownPath).replaceAll("/", path.sep))
+    );
+    await fs.access(
+      path.join(targetPath, path.posix.relative("notes", permanentNote.payload.item.markdownPath).replaceAll("/", path.sep))
+    );
+    await fs.access(path.join(targetPath, "assets", "images", "all-export.txt"));
+
+    const record = JSON.parse(
+      await fs.readFile(path.join(vaultPath, "exports", `${payload.exportJobId}.json`), "utf8")
+    );
+    assert.deepEqual(record.scope, { type: "all" });
+  } finally {
+    await stopApi(api);
+  }
+});
+
 test("POST /api/v1/exports/markdown can export selected noteIds", async () => {
   const vaultPath = await makeTempDir("yansilu-api-export-noteids-vault-");
   const targetPath = await makeTempDir("yansilu-api-export-noteids-target-");

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
-test("import result panel renders simplified metrics warnings actions and raw json", () => {
+test("import result panel renders simplified metrics warnings actions and folded details", () => {
   const html = renderImportResultPanel({
     data: { stage: "preview" },
     title: "导入预览已生成",
@@ -28,6 +28,10 @@ test("import result panel renders simplified metrics warnings actions and raw js
   assert.match(html, /需要处理/);
   assert.match(html, /payload missing/);
   assert.match(html, /补充导入路径或 Payload/);
+  assert.match(html, /查看候选与预览/);
+  assert.match(html, /查看跳过与保留/);
+  assert.match(html, /查看写作细节/);
+  assert.match(html, /result-detail-body/);
   assert.match(html, /result-candidates/);
   assert.match(html, /查看原始数据/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
@@ -50,7 +54,7 @@ test("import result panel renders created files summary with assets", () => {
   });
 
   assert.match(html, /result-file-inventory/);
-  assert.match(html, /写入内容/);
+  assert.match(html, /已写入/);
   assert.match(html, /来源 1/);
   assert.match(html, /资源 1/);
 });

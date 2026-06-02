@@ -1272,9 +1272,11 @@ const RELATION_TYPE_LABELS = {
   restates: "重述",
   reframes: "改写问题",
   appears_in_draft: "进入草稿",
+  asks: "追问",
+  duplicates: "重复重叠",
   belongs_to_topic: "归属主题",
-  associated_with: "关联",
-  free_link: "自由关联"
+  associated_with: "链接线索",
+  free_link: "自由链接"
 };
 
 const RELATION_STATUS_LABELS = {
@@ -1303,6 +1305,14 @@ const RELATION_CREATE_TYPES = [
   "reframes",
   "appears_in_draft"
 ];
+
+function relationCreateTypeOptionsMarkup(selected = "supports") {
+  const normalized = String(selected || "supports").trim().toLowerCase() || "supports";
+  return RELATION_CREATE_TYPES.map((type) => {
+    const isSelected = type === normalized;
+    return `<option value="${escapeHtml(type)}"${isSelected ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`;
+  }).join("");
+}
 
 const RELATION_EDIT_STATUSES = ["confirmed", "draft", "suggested", "dismissed", "archived"];
 
@@ -1362,6 +1372,31 @@ function relationQualityLabel(level = "") {
   return "质量 待补充";
 }
 
+function relationSourceLabel(value = "") {
+  const key = String(value || "").trim().toLowerCase();
+  if (key === "ai" || key === "ai_suggestion") return "AI";
+  if (key === "team") return "团队";
+  if (key === "import") return "导入";
+  return "自己";
+}
+
+function parseInlineRelationAnnotations(body = "") {
+  const text = String(body || "");
+  const pattern =
+    /(?:\$\$widget\d+\s*)?\[\[([^[\]]+)\]\](?:\$\$)?\s*\\?<!--\s*rel:type=([a-z_]+)\s+manager=([a-z_]+)\s+reason=([\s\S]*?)\s*-->/gi;
+  const results = [];
+  for (const match of text.matchAll(pattern)) {
+    results.push({
+      raw: String(match[0] || ""),
+      token: String(match[1] || "").trim(),
+      relationType: String(match[2] || "associated_with").trim().toLowerCase(),
+      manager: String(match[3] || "self").trim().toLowerCase(),
+      rationale: String(match[4] || "").trim()
+    });
+  }
+  return results;
+}
+
 export function relationTypeGuidance(type = "") {
   const key = String(type || "").trim().toLowerCase();
   if (key === "qualifies") {
@@ -1403,6 +1438,114 @@ export function relationTypeGuidance(type = "") {
     questionHint: "把问题写成这条连接接下来最值得验证的疑问，而不是泛泛地追问“然后呢”。"
   };
 }
+
+function normalizeRelationTemplateVariants(variants = [], selectedKey = "") {
+  const items = Array.isArray(variants)
+    ? variants
+        .map((variant) => ({
+          key: String(variant?.key || "").trim(),
+          label: String(variant?.label || "").trim(),
+          rationaleDraft: String(variant?.rationaleDraft || "").trim(),
+          insightQuestionDraft: String(variant?.insightQuestionDraft || "").trim()
+        }))
+        .filter((variant) => variant.key && variant.label)
+    : [];
+  if (!items.length) return { items: [], selectedKey: "" };
+  const fallbackKey = items[0].key;
+  const cleanSelected = String(selectedKey || "").trim();
+  return {
+    items,
+    selectedKey: items.some((variant) => variant.key === cleanSelected) ? cleanSelected : fallbackKey
+  };
+}
+
+function renderRelationTemplateVariantSwitcher(variants = [], selectedKey = "", rememberedLabel = "") {
+  const normalized = normalizeRelationTemplateVariants(variants, selectedKey);
+  if (normalized.items.length < 2) return "";
+  const cleanRemembered = String(rememberedLabel || "").trim();
+  return `
+    <div class="semantic-relation-template-picker" data-relation-template-picker>
+      <div class="semantic-relation-template-head">
+        <strong>起手模板</strong>
+        <small>按当前任务切换句式，再在草稿上继续改。</small>
+      </div>
+      ${
+        cleanRemembered
+          ? `<div class="semantic-template-memory" data-template-memory>
+              <span>已记住你最近常用的：${escapeHtml(cleanRemembered)}</span>
+              <button class="semantic-template-memory-action" type="button" data-template-preference-clear="relation">改回默认</button>
+            </div>`
+          : ""
+      }
+      <div class="semantic-relation-template-options">
+        ${normalized.items
+          .map((variant) => {
+            const active = variant.key === normalized.selectedKey;
+            return `<button class="semantic-relation-template-btn${active ? " is-active" : ""}" type="button" data-relation-template-variant="${escapeHtml(
+              variant.key
+            )}" data-rationale-draft="${escapeHtml(variant.rationaleDraft)}" data-insight-question-draft="${escapeHtml(
+              variant.insightQuestionDraft
+            )}" aria-pressed="${active}">${escapeHtml(variant.label)}</button>`;
+          })
+          .join("")}
+      </div>
+      <div class="semantic-template-merge-choice" data-relation-template-merge-choice hidden></div>
+    </div>
+  `;
+}
+
+function normalizeDistillationTemplateVariants(variants = [], selectedKey = "") {
+  const items = Array.isArray(variants)
+    ? variants
+        .map((variant) => ({
+          key: String(variant?.key || "").trim(),
+          label: String(variant?.label || "").trim(),
+          boundaryDraft: String(variant?.boundaryDraft || "").trim()
+        }))
+        .filter((variant) => variant.key && variant.label)
+    : [];
+  if (!items.length) return { items: [], selectedKey: "" };
+  const fallbackKey = items[0].key;
+  const cleanSelected = String(selectedKey || "").trim();
+  return {
+    items,
+    selectedKey: items.some((variant) => variant.key === cleanSelected) ? cleanSelected : fallbackKey
+  };
+}
+
+function renderDistillationTemplateVariantSwitcher(variants = [], selectedKey = "", rememberedLabel = "") {
+  const normalized = normalizeDistillationTemplateVariants(variants, selectedKey);
+  if (normalized.items.length < 2) return "";
+  const cleanRemembered = String(rememberedLabel || "").trim();
+  return `
+    <div class="semantic-relation-template-picker" data-distillation-template-picker>
+      <div class="semantic-relation-template-head">
+        <strong>边界起手模板</strong>
+        <small>先选当前视角，再在这段草稿上继续改写。</small>
+      </div>
+      ${
+        cleanRemembered
+          ? `<div class="semantic-template-memory" data-template-memory>
+              <span>已记住你最近常用的：${escapeHtml(cleanRemembered)}</span>
+              <button class="semantic-template-memory-action" type="button" data-template-preference-clear="distillation">改回默认</button>
+            </div>`
+          : ""
+      }
+      <div class="semantic-relation-template-options">
+        ${normalized.items
+          .map((variant) => {
+            const active = variant.key === normalized.selectedKey;
+            return `<button class="semantic-relation-template-btn${active ? " is-active" : ""}" type="button" data-distillation-template-variant="${escapeHtml(
+              variant.key
+            )}" data-boundary-draft="${escapeHtml(variant.boundaryDraft)}" aria-pressed="${active}">${escapeHtml(variant.label)}</button>`;
+          })
+          .join("")}
+      </div>
+      <div class="semantic-template-merge-choice" data-distillation-template-merge-choice hidden></div>
+    </div>
+  `;
+}
+
 function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
   const quality = relationQualityEvaluation(rationale, insightQuestion);
   return `
@@ -1483,6 +1626,19 @@ export class EditorPane {
     this.relationsRequestSerial = 0;
     this.currentSemanticRelations = null;
     this.semanticRelationsState = "idle";
+    this.relationPanelState = {
+      noteId: "",
+      mode: "list",
+      relationId: "",
+      targetNoteId: "",
+      relationType: "",
+      entryHint: "",
+      rationaleDraft: "",
+      insightQuestionDraft: "",
+      draftVariants: [],
+      selectedTemplateVariant: "",
+      rememberedTemplateVariantLabel: ""
+    };
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
     this.noteAiAnalysisByNoteId = new Map();
@@ -1498,6 +1654,13 @@ export class EditorPane {
       actionNoticeTone: "muted"
     };
     this.noteAiSuggestionsRequestSerial = 0;
+    this.distillationPrefillState = {
+      noteId: "",
+      boundaryDraft: "",
+      draftVariants: [],
+      selectedTemplateVariant: "",
+      rememberedTemplateVariantLabel: ""
+    };
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
@@ -1997,6 +2160,74 @@ export class EditorPane {
 
   draftKey(noteId) {
     return `yansilu:draft:${noteId}`;
+  }
+
+  templatePreferenceKey(kind = "") {
+    const cleanKind = String(kind || "").trim().toLowerCase();
+    return `yansilu:template-variant:${cleanKind || "default"}`;
+  }
+
+  readTemplateVariantPreference(kind = "", variants = [], fallback = "") {
+    const normalized =
+      kind === "distillation"
+        ? normalizeDistillationTemplateVariants(variants, fallback)
+        : normalizeRelationTemplateVariants(variants, fallback);
+    if (!normalized.items.length) return "";
+    const rawFallback = String(fallback || "").trim();
+    try {
+      const stored = String(window.localStorage?.getItem(this.templatePreferenceKey(kind)) || "").trim();
+      if (stored && normalized.items.some((variant) => variant.key === stored)) return stored;
+    } catch {}
+    return normalized.items.some((variant) => variant.key === rawFallback) ? rawFallback : normalized.selectedKey;
+  }
+
+  writeTemplateVariantPreference(kind = "", key = "") {
+    const cleanKind = String(kind || "").trim().toLowerCase();
+    const cleanKey = String(key || "").trim();
+    if (!cleanKind || !cleanKey) return;
+    try {
+      window.localStorage?.setItem(this.templatePreferenceKey(cleanKind), cleanKey);
+    } catch {}
+  }
+
+  clearTemplateVariantPreference(kind = "") {
+    const cleanKind = String(kind || "").trim().toLowerCase();
+    if (!cleanKind) return;
+    try {
+      window.localStorage?.removeItem(this.templatePreferenceKey(cleanKind));
+    } catch {}
+  }
+
+  templateVariantPreferenceMeta(kind = "", variants = []) {
+    const cleanKind = String(kind || "").trim().toLowerCase();
+    const items =
+      cleanKind === "distillation"
+        ? normalizeDistillationTemplateVariants(variants, "").items
+        : normalizeRelationTemplateVariants(variants, "").items;
+    if (!items.length) return { key: "", label: "" };
+    try {
+      const stored = String(window.localStorage?.getItem(this.templatePreferenceKey(cleanKind)) || "").trim();
+      if (!stored) return { key: "", label: "" };
+      const matched = items.find((variant) => variant.key === stored);
+      return matched ? { key: matched.key, label: matched.label } : { key: "", label: "" };
+    } catch {
+      return { key: "", label: "" };
+    }
+  }
+
+  applyTemplatePreferenceClear(kind = "", button = null) {
+    const cleanKind = String(kind || "").trim().toLowerCase();
+    if (!cleanKind) return;
+    this.clearTemplateVariantPreference(cleanKind);
+    const memory = button?.closest?.("[data-template-memory]");
+    if (memory) memory.remove();
+    if (cleanKind === "relation" && this.relationPanelState) {
+      this.relationPanelState.rememberedTemplateVariantLabel = "";
+    }
+    if (cleanKind === "distillation" && this.distillationPrefillState) {
+      this.distillationPrefillState.rememberedTemplateVariantLabel = "";
+    }
+    this.onStatus(`已清除${cleanKind === "distillation" ? "边界模板" : "关系模板"}偏好，下次会按任务默认视角打开`, "ok");
   }
 
   readDraft(noteId) {
@@ -4481,6 +4712,7 @@ export class EditorPane {
         )
       : `<div class="picker-empty">无匹配笔记</div>`;
     this.scrollActiveLinkCandidateIntoView();
+    if (this.els.confirmLinkInsert) this.els.confirmLinkInsert.disabled = !list.length;
   }
 
   scrollActiveLinkCandidateIntoView() {
@@ -4491,6 +4723,7 @@ export class EditorPane {
 
   openLinkPicker(initialQuery = "", options = {}) {
     this.closeTagPicker();
+    this.hideOriginalityNotice();
     const inlineMode = Boolean(options.inlineContext);
     const anchorAtCursor = Boolean(options.anchorAtCursor);
     const focusInput = Boolean(options.focusInput);
@@ -4501,6 +4734,11 @@ export class EditorPane {
     this.els.linkPicker.style.width = "";
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
+    if (this.els.linkRelationTypeSelect) {
+      const currentType = this.els.linkRelationTypeSelect.value || "supports";
+      this.els.linkRelationTypeSelect.innerHTML = relationCreateTypeOptionsMarkup(currentType);
+      this.els.linkRelationTypeSelect.value = currentType;
+    }
     this.els.linkSearchInput.value = initialQuery;
     if (!inlineMode) {
       if (this.els.linkManagerSelect) this.els.linkManagerSelect.value = this.els.linkManagerSelect.value || "self";
@@ -4547,16 +4785,18 @@ export class EditorPane {
     this.positionFloatingPicker(this.els.linkPicker, Math.min(420, Math.max(320, Math.floor(window.innerWidth * 0.34))));
   }
 
-  insertSelectedLinkNote(noteId) {
+  async insertSelectedLinkNote(noteId) {
     if (!noteId) return;
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
+    const inlineInsert = Boolean(this.currentLinkContext);
     const manager = String(this.els.linkManagerSelect?.value || "self").trim() || "self";
     const relationType = String(this.els.linkRelationTypeSelect?.value || "supports").trim() || "supports";
     const rawReason = String(this.els.linkReasonInput?.value || "").trim();
-    if (!this.currentLinkContext && this.els.linkReasonInput && !rawReason) {
-      this.onStatus("请先填写关联理由，再插入这条关联。", "warn");
+    if (!inlineInsert && this.els.linkReasonInput && !rawReason) {
+      this.onStatus("先写一句“为什么相关”，再插入这条关联。", "warn");
       this.els.linkReasonInput.focus();
+      this.els.linkReasonInput.select?.();
       return;
     }
     const reason = rawReason
@@ -4567,7 +4807,7 @@ export class EditorPane {
       ? ` <!-- rel:type=${escapeHtml(relationType)} manager=${escapeHtml(manager)} reason=${escapeHtml(reason)} -->`
       : "";
     const token = `[[${target.title}]]${annotation}`;
-    if (this.currentLinkContext) {
+    if (inlineInsert) {
       const { start, end } = this.currentLinkContext;
       if (this.isWysiwygMode()) {
         this.replaceMarkdownWhileInWysiwyg(start, end, `[[${target.title}]]`);
@@ -4577,9 +4817,13 @@ export class EditorPane {
     } else {
       this.insertAtCursor(token);
     }
+    this.handleEditorInput();
     this.closeLinkPicker();
     this.focusEditor();
     this.onStatus(`已插入关联笔记：${target.title}`, "ok");
+    if (!inlineInsert) {
+      await this.saveActiveNote({ autoSave: true, trigger: "link-insert", skipOriginalityCheck: true });
+    }
   }
 
   moveLinkCandidate(step) {
@@ -4589,6 +4833,15 @@ export class EditorPane {
     const preferredId = this.currentLinkCandidates[this.currentLinkIndex]?.id || "";
     this.renderLinkCandidates(this.els.linkSearchInput.value, preferredId);
     if (this.currentLinkContext) this.positionInlineLinkPicker();
+  }
+
+  async confirmSelectedLinkCandidate() {
+    const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
+    if (!chosen) {
+      this.onStatus("请先选择一条关联笔记", "warn");
+      return;
+    }
+    await this.insertSelectedLinkNote(chosen.id);
   }
 
   activeRootDirectoryId() {
@@ -4770,7 +5023,7 @@ export class EditorPane {
     const type = String(link?.relationType || "").trim().toLowerCase();
     const directionLabel = direction === "outgoing" ? "当前指向" : "指向当前";
     const createdBy = String(link?.createdBy || "user").trim();
-    const createdByLabel = createdBy === "ai_suggestion" ? "AI 建议" : createdBy === "import" ? "导入" : "手动";
+    const createdByLabel = relationSourceLabel(createdBy);
     const confidence =
       link?.confidence === null || link?.confidence === undefined || link?.confidence === ""
         ? ""
@@ -4818,6 +5071,52 @@ export class EditorPane {
     `;
   }
 
+  renderInlineDraftRelationSection(note, tab) {
+    const drafts = parseInlineRelationAnnotations(tab?.body || "");
+    if (!drafts.length) return "";
+    const scoped = this.scopedLinkCandidates();
+    const items = drafts
+      .map((draft, index) => {
+        const resolved = this.resolveLinkToken(draft.token, scoped);
+        const endpoint = resolved?.note || {
+          id: draft.token,
+          title: draft.token,
+          noteType: "original",
+          folderId: ""
+        };
+        const createdByLabel = relationSourceLabel(draft.manager);
+        const quality = relationQualityEvaluation(draft.rationale, "");
+        return `
+          <article class="related-item semantic-relation-item" data-relation-tone="${escapeHtml(relationTone({ relationType: draft.relationType }))}" data-inline-relation-index="${index}">
+            <button class="semantic-relation-open" type="button" data-preview-note="${escapeHtml(endpoint.id || "")}">
+              <span class="related-item-title">${escapeHtml(endpoint.title || draft.token)}</span>
+              <span class="related-item-meta">${escapeHtml("刚写入正文")} · ${escapeHtml(relationTypeLabel(draft.relationType))} · ${escapeHtml(endpoint.folderId ? this.folderLabel(endpoint.folderId) : noteTypeText(endpoint.noteType))}</span>
+              ${draft.rationale ? `<span class="related-item-preview">${escapeHtml(draft.rationale)}</span>` : ""}
+            </button>
+        <div class="related-item-badges">
+          <span class="related-item-badge">${escapeHtml(relationTypeLabel(draft.relationType))}</span>
+          <span class="related-item-badge">${escapeHtml(createdByLabel)}</span>
+          <span class="related-item-badge">${escapeHtml(relationQualityLabel(quality.level))}</span>
+        </div>
+        <div class="semantic-relation-card-actions">
+          <button class="mini-btn primary" type="button" data-relation-action="promote-inline" data-inline-relation-index="${index}">升级为正式关系</button>
+        </div>
+      </article>
+    `;
+      })
+      .join("");
+    return `
+      <section class="inspector-section semantic-relations-section">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">刚写入的关联</div>
+          <div class="inspector-count">${drafts.length}</div>
+        </div>
+        <div class="inspector-section-note">这些关系已经写进当前笔记正文，并会在后续关系读取完成后进入正式语义关系区。</div>
+        <div class="inspector-list">${items}</div>
+      </section>
+    `;
+  }
+
   relationCreateDefaultType(note = this.activeNote()) {
     return relationCreateDefaultTypeForNote(note);
   }
@@ -4828,7 +5127,16 @@ export class EditorPane {
 
   renderRelationTargetOptions(candidates = [], selectedId = "") {
     const selected = String(selectedId || "").trim();
-    return this.sortRelationTargetCandidates(candidates)
+    const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
+    const sorted = this.sortRelationTargetCandidates(candidates);
+    const items = selected && !sorted.some((candidate) => candidate?.id === selected)
+      ? [
+          ...(selectedNote ? [selectedNote] : []),
+          ...sorted
+        ]
+      : sorted;
+    return items
+      .filter(Boolean)
       .map((n) => {
         const meta = `${noteTypeText(n.noteType || typeFromFolder(this.state, n.folderId))} · ${this.folderLabel(n.folderId)}`;
         return `<option value="${escapeHtml(n.id)}"${n.id === selected ? " selected" : ""}>${escapeHtml(n.title || n.id)} · ${escapeHtml(meta)}</option>`;
@@ -4836,16 +5144,23 @@ export class EditorPane {
       .join("");
   }
 
-  renderCreateRelationFormSection(noteId) {
+  renderCreateRelationFormSection(noteId, prefill = {}) {
     const activeNote = this.activeNote();
     const candidates = this.scopedLinkCandidates();
     const defaultType = this.relationCreateDefaultType(activeNote);
-    const defaultGuidance = relationTypeGuidance(defaultType);
+    const selectedTargetId = String(prefill?.targetNoteId || "").trim();
+    const selectedRelationType = String(prefill?.relationType || "").trim().toLowerCase() || defaultType;
+    const entryHint = String(prefill?.entryHint || "").trim();
+    const rationaleDraft = String(prefill?.rationaleDraft || "").trim();
+    const insightQuestionDraft = String(prefill?.insightQuestionDraft || "").trim();
+    const templateVariants = normalizeRelationTemplateVariants(prefill?.draftVariants || [], prefill?.selectedTemplateVariant || "");
+    const rememberedTemplateVariantLabel = String(prefill?.rememberedTemplateVariantLabel || "").trim();
+    const defaultGuidance = relationTypeGuidance(selectedRelationType);
     const scopeFolderLabel = activeNote?.folderId ? this.folderLabel(activeNote.folderId) : "当前目录";
     const typeOptions = RELATION_CREATE_TYPES.map(
-      (type) => `<option value="${escapeHtml(type)}"${type === defaultType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
+      (type) => `<option value="${escapeHtml(type)}"${type === selectedRelationType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
-    const noteOptions = this.renderRelationTargetOptions(candidates);
+    const noteOptions = this.renderRelationTargetOptions(candidates, selectedTargetId);
 
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
@@ -4855,15 +5170,17 @@ export class EditorPane {
         </div>
         <div class="semantic-relation-status">
           <span class="inspector-chip">范围 ${escapeHtml(scopeFolderLabel)}</span>
-          <span class="inspector-chip">默认 ${escapeHtml(relationTypeLabel(defaultType))}</span>
+          <span class="inspector-chip">默认 ${escapeHtml(relationTypeLabel(selectedRelationType))}</span>
         </div>
+        ${entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(entryHint)}</div>` : ""}
         <form class="semantic-relation-form" data-create-relation-form data-note-id="${escapeHtml(noteId)}">
+          ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
             <span>目标笔记</span>
             <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="搜索标题、ID 或路径" autofocus />
-            <select name="toNoteId" data-relation-target-select required ${candidates.length ? "" : "disabled"}>${noteOptions}</select>
+            <select name="toNoteId" data-relation-target-select required ${noteOptions ? "" : "disabled"}>${noteOptions}</select>
             <small class="semantic-relation-target-status" data-relation-target-status>${
-              candidates.length ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"
+              noteOptions ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"
             }</small>
           </label>
           <label>
@@ -4872,18 +5189,18 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}"></textarea>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-create" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-create">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}"></textarea>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-create" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-question-guidance-create">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
-          ${renderRelationQualityMeter("", "")}
+          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit" ${candidates.length ? "" : "disabled"}>确认建立</button>
+            <button class="mini-btn primary" type="submit" ${noteOptions ? "" : "disabled"}>确认建立</button>
           </div>
         </form>
       </section>
@@ -4904,8 +5221,14 @@ export class EditorPane {
     ).join("");
   }
 
-  renderEditRelationFormSection(noteId, link) {
+  renderEditRelationFormSection(noteId, link, context = {}) {
     const endpoint = this.relationEndpoint(link, link?.fromNoteId === noteId ? "outgoing" : "incoming");
+    const defaultGuidance = relationTypeGuidance(link?.relationType || "supports");
+    const entryHint = String(context?.entryHint || "").trim();
+    const rationaleDraft = String(link?.rationale || "").trim() || String(context?.rationaleDraft || "").trim();
+    const insightQuestionDraft = String(link?.insightQuestion || "").trim() || String(context?.insightQuestionDraft || "").trim();
+    const templateVariants = normalizeRelationTemplateVariants(context?.draftVariants || [], context?.selectedTemplateVariant || "");
+    const rememberedTemplateVariantLabel = String(context?.rememberedTemplateVariantLabel || "").trim();
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
         <div class="inspector-section-head">
@@ -4915,7 +5238,9 @@ export class EditorPane {
           </div>
           <button class="mini-btn is-ghost" type="button" data-relation-action="cancel-edit">取消</button>
         </div>
+        ${entryHint ? `<div class="inspector-section-note" data-relation-entry-hint>${escapeHtml(entryHint)}</div>` : ""}
         <form class="semantic-relation-form" data-edit-relation-form data-note-id="${escapeHtml(noteId)}" data-relation-id="${escapeHtml(link?.id || "")}">
+          ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
             <span>关系类型</span>
             <select name="relationType" required>${this.renderRelationTypeOptions(link?.relationType || "supports")}</select>
@@ -4926,15 +5251,15 @@ export class EditorPane {
           </label>
           <label>
             <span>连接理由</span>
-            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(link?.rationale || "")}</textarea>
+            <textarea name="rationale" required aria-describedby="relation-rationale-guidance-edit" placeholder="${escapeHtml(defaultGuidance.rationalePlaceholder)}">${escapeHtml(rationaleDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-rationale-guidance-edit">${escapeHtml(defaultGuidance.rationaleHint)}</small>
           </label>
           <label>
             <span>洞见问题</span>
-            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(link?.insightQuestion || "")}</textarea>
+            <textarea name="insightQuestion" aria-describedby="relation-question-guidance-edit" placeholder="${escapeHtml(defaultGuidance.questionPlaceholder)}">${escapeHtml(insightQuestionDraft)}</textarea>
             <small class="semantic-relation-quality-guidance" id="relation-question-guidance-edit">${escapeHtml(defaultGuidance.questionHint)}</small>
           </label>
-          ${renderRelationQualityMeter(link?.rationale || "", link?.insightQuestion || "")}
+          ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
             <button class="mini-btn primary" type="submit">保存修改</button>
@@ -5001,6 +5326,107 @@ export class EditorPane {
     `;
   }
 
+  setRelationPanelState(mode = "list", options = {}) {
+    const cleanMode = ["list", "create", "edit"].includes(String(mode || "").trim()) ? String(mode || "").trim() : "list";
+    const noteId = String(options.noteId || this.activeNote()?.id || "").trim();
+    const preferredTemplateVariant =
+      cleanMode === "list"
+        ? ""
+        : this.readTemplateVariantPreference("relation", options.draftVariants || [], options.selectedTemplateVariant || "");
+    const rememberedTemplateVariant = cleanMode === "list" ? { key: "", label: "" } : this.templateVariantPreferenceMeta("relation", options.draftVariants || []);
+    const normalizedTemplates =
+      cleanMode === "list"
+        ? { items: [], selectedKey: "" }
+        : normalizeRelationTemplateVariants(options.draftVariants || [], preferredTemplateVariant);
+    this.relationPanelState = {
+      noteId,
+      mode: cleanMode,
+      relationId: cleanMode === "edit" ? String(options.relationId || "").trim() : "",
+      targetNoteId: cleanMode === "create" ? String(options.targetNoteId || "").trim() : "",
+      relationType: cleanMode === "create" ? String(options.relationType || "").trim().toLowerCase() : "",
+      entryHint: cleanMode === "list" ? "" : String(options.entryHint || "").trim(),
+      rationaleDraft: cleanMode === "list" ? "" : String(options.rationaleDraft || "").trim(),
+      insightQuestionDraft: cleanMode === "list" ? "" : String(options.insightQuestionDraft || "").trim(),
+      draftVariants: normalizedTemplates.items,
+      selectedTemplateVariant: normalizedTemplates.selectedKey,
+      rememberedTemplateVariantLabel:
+        rememberedTemplateVariant.key && rememberedTemplateVariant.key === normalizedTemplates.selectedKey ? rememberedTemplateVariant.label : ""
+    };
+  }
+
+  resetRelationPanelState(noteId = this.activeNote()?.id || "") {
+    this.setRelationPanelState("list", { noteId });
+  }
+
+  currentRelationPanelState(noteId = this.activeNote()?.id || "") {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!cleanNoteId || this.relationPanelState.noteId !== cleanNoteId) {
+      return {
+        noteId: cleanNoteId,
+        mode: "list",
+        relationId: "",
+        targetNoteId: "",
+        relationType: "",
+        entryHint: "",
+        rationaleDraft: "",
+        insightQuestionDraft: "",
+        draftVariants: [],
+        selectedTemplateVariant: "",
+        rememberedTemplateVariantLabel: ""
+      };
+    }
+    return this.relationPanelState;
+  }
+
+  renderSemanticRelationsErrorSection(noteId, error) {
+    return `
+      <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
+        <div class="inspector-section-head">
+          <div class="inspector-section-title">语义关系</div>
+          <div class="inspector-count">不可用</div>
+        </div>
+        <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error || "未知错误"))}</div>
+      </section>
+    `;
+  }
+
+  renderCurrentRelationSection(noteId, { relations = this.currentSemanticRelations, relationState = this.semanticRelationsState, error = null } = {}) {
+    const panelState = this.currentRelationPanelState(noteId);
+    if (panelState.mode === "create") {
+      return this.renderCreateRelationFormSection(noteId, {
+        targetNoteId: panelState.targetNoteId,
+        relationType: panelState.relationType,
+        entryHint: panelState.entryHint,
+        rationaleDraft: panelState.rationaleDraft,
+        insightQuestionDraft: panelState.insightQuestionDraft,
+        draftVariants: panelState.draftVariants,
+        selectedTemplateVariant: panelState.selectedTemplateVariant,
+        rememberedTemplateVariantLabel: panelState.rememberedTemplateVariantLabel
+      });
+    }
+    if (panelState.mode === "edit") {
+      const link =
+        relationState === "loaded" && relations
+          ? [...(Array.isArray(relations?.outgoingLinks) ? relations.outgoingLinks : []), ...(Array.isArray(relations?.backlinks) ? relations.backlinks : [])].find(
+              (item) => item?.id === panelState.relationId
+            ) || null
+          : this.findSemanticRelation(panelState.relationId);
+      if (link) {
+        return this.renderEditRelationFormSection(noteId, link, {
+          entryHint: panelState.entryHint,
+          rationaleDraft: panelState.rationaleDraft,
+          insightQuestionDraft: panelState.insightQuestionDraft,
+          draftVariants: panelState.draftVariants,
+          selectedTemplateVariant: panelState.selectedTemplateVariant,
+          rememberedTemplateVariantLabel: panelState.rememberedTemplateVariantLabel
+        });
+      }
+    }
+    if (relationState === "error") return this.renderSemanticRelationsErrorSection(noteId, error);
+    if (relationState !== "loaded" || !relations) return this.renderSemanticRelationsLoadingSection(noteId);
+    return this.renderSemanticRelationsSection(relations, noteId);
+  }
+
   async refreshSemanticRelations(noteId, requestSerial) {
     try {
       const relations = await fetchNoteRelations(noteId);
@@ -5016,11 +5442,14 @@ export class EditorPane {
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
-      section.outerHTML = this.renderSemanticRelationsSection(relations, noteId);
+      section.outerHTML = this.renderCurrentRelationSection(noteId, {
+        relations,
+        relationState: "loaded"
+      });
 
       if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = this.renderSemanticRelationsSection(relations, noteId);
-        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
       }
     } catch (error) {
       if (requestSerial !== this.relationsRequestSerial || this.activeNote()?.id !== noteId) return;
@@ -5035,20 +5464,15 @@ export class EditorPane {
       }
       const section = this.els.result?.querySelector?.("[data-note-relations-section]");
       if (!section || section.getAttribute("data-note-id") !== noteId) return;
-      const errorHtml = `
-        <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
-          <div class="inspector-section-head">
-            <div class="inspector-section-title">语义关系</div>
-            <div class="inspector-count">不可用</div>
-          </div>
-          <div class="related-empty bad">关系读取失败：${escapeHtml(String(error?.message || error))}</div>
-        </section>
-      `;
-      section.outerHTML = errorHtml;
+      section.outerHTML = this.renderCurrentRelationSection(noteId, {
+        relations: null,
+        relationState: "error",
+        error
+      });
 
       if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = errorHtml;
-        this.els.editorRelationsBelow.classList.toggle("hidden", false);
+        this.els.editorRelationsBelow.innerHTML = "";
+        this.els.editorRelationsBelow.classList.add("hidden");
       }
     }
   }
@@ -5061,12 +5485,25 @@ export class EditorPane {
     return [...outgoing, ...backlinks].find((link) => link?.id === id) || null;
   }
 
-  openCreateRelationForm() {
+  openCreateRelationForm(options = {}) {
     const note = this.activeNote();
     if (!note?.id) return;
+    this.setRelationPanelState("create", {
+      noteId: note.id,
+      targetNoteId: options?.targetNoteId,
+      relationType: options?.relationType,
+      entryHint: options?.entryHint,
+      rationaleDraft: options?.rationaleDraft,
+      insightQuestionDraft: options?.insightQuestionDraft,
+      draftVariants: options?.draftVariants,
+      selectedTemplateVariant: options?.selectedTemplateVariant
+    });
     const section = this.els.result?.querySelector?.("[data-note-relations-section]");
     if (!section) return;
-    section.outerHTML = this.renderCreateRelationFormSection(note.id);
+    section.outerHTML = this.renderCurrentRelationSection(note.id, {
+      relations: this.currentSemanticRelations,
+      relationState: this.semanticRelationsState
+    });
     void this.refreshRelationTargetSearch("");
   }
 
@@ -5081,7 +5518,7 @@ export class EditorPane {
     return outgoing.length + backlinks.length;
   }
 
-  openEditRelationForm(relationId) {
+  openEditRelationForm(relationId, options = {}) {
     const note = this.activeNote();
     if (!note?.id) return;
     const link = this.findSemanticRelation(relationId);
@@ -5091,7 +5528,163 @@ export class EditorPane {
     }
     const section = this.els.result?.querySelector?.("[data-note-relations-section]");
     if (!section) return;
-    section.outerHTML = this.renderEditRelationFormSection(note.id, link);
+    this.setRelationPanelState("edit", {
+      noteId: note.id,
+      relationId,
+      entryHint: options?.entryHint,
+      rationaleDraft: options?.rationaleDraft,
+      insightQuestionDraft: options?.insightQuestionDraft,
+      draftVariants: options?.draftVariants,
+      selectedTemplateVariant: options?.selectedTemplateVariant
+    });
+    section.outerHTML = this.renderCurrentRelationSection(note.id, {
+      relations: this.currentSemanticRelations,
+      relationState: this.semanticRelationsState
+    });
+  }
+
+  normalizeTemplateDraftValue(value = "") {
+    return String(value || "")
+      .replace(/\r\n/g, "\n")
+      .trim();
+  }
+
+  templateDraftHasConflict(currentValue = "", activeDraft = "", nextDraft = "") {
+    const cleanCurrent = this.normalizeTemplateDraftValue(currentValue);
+    if (!cleanCurrent) return false;
+    const cleanActive = this.normalizeTemplateDraftValue(activeDraft);
+    const cleanNext = this.normalizeTemplateDraftValue(nextDraft);
+    return cleanCurrent !== cleanActive && cleanCurrent !== cleanNext;
+  }
+
+  appendTemplateDraft(currentValue = "", nextDraft = "", label = "", title = "备选模板") {
+    const base = String(currentValue || "").trimEnd();
+    const draft = String(nextDraft || "").trim();
+    if (!draft) return base;
+    if (!base) return draft;
+    if (this.normalizeTemplateDraftValue(base).includes(this.normalizeTemplateDraftValue(draft))) return base;
+    const cleanLabel = String(label || "").trim();
+    return `${base}\n\n---\n${title}${cleanLabel ? `（${cleanLabel}）` : ""}\n${draft}`;
+  }
+
+  toggleTemplateVariantButtons(buttons = [], activeButton = null) {
+    buttons.forEach((item) => {
+      const active = item === activeButton;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+
+  clearTemplateMergeChoice(choiceBox) {
+    if (!choiceBox) return;
+    choiceBox.hidden = true;
+    choiceBox.innerHTML = "";
+    [
+      "pendingVariantKey",
+      "pendingVariantLabel",
+      "pendingRationaleDraft",
+      "pendingInsightQuestionDraft",
+      "pendingBoundaryDraft"
+    ].forEach((key) => {
+      delete choiceBox.dataset[key];
+    });
+  }
+
+  showRelationTemplateMergeChoice(picker, button) {
+    const choiceBox = picker?.querySelector?.("[data-relation-template-merge-choice]");
+    if (!choiceBox || !button) return;
+    const label = String(button.textContent || "").trim();
+    choiceBox.dataset.pendingVariantKey = String(button.dataset.relationTemplateVariant || "").trim();
+    choiceBox.dataset.pendingVariantLabel = label;
+    choiceBox.dataset.pendingRationaleDraft = String(button.dataset.rationaleDraft || "");
+    choiceBox.dataset.pendingInsightQuestionDraft = String(button.dataset.insightQuestionDraft || "");
+    choiceBox.hidden = false;
+    choiceBox.innerHTML = `
+      <p>你已经改过当前草稿了。切到“${escapeHtml(label)}”时，要直接替换，还是先追加成备选？</p>
+      <div class="semantic-template-merge-actions">
+        <button class="mini-btn primary" type="button" data-relation-template-merge-action="replace">替换当前草稿</button>
+        <button class="mini-btn" type="button" data-relation-template-merge-action="append">追加为备选</button>
+        <button class="mini-btn is-ghost" type="button" data-relation-template-merge-action="cancel">先不切</button>
+      </div>
+    `;
+  }
+
+  commitRelationTemplateVariant(choiceBox, action = "replace") {
+    if (!choiceBox) return;
+    if (action === "cancel") {
+      this.clearTemplateMergeChoice(choiceBox);
+      return;
+    }
+    const picker = choiceBox.closest("[data-relation-template-picker]");
+    const form = picker?.closest?.("[data-create-relation-form], [data-edit-relation-form]");
+    if (!picker || !form) return;
+    const cleanKey = String(choiceBox.dataset.pendingVariantKey || "").trim();
+    const label = String(choiceBox.dataset.pendingVariantLabel || "").trim();
+    const rationaleDraft = String(choiceBox.dataset.pendingRationaleDraft || "");
+    const insightDraft = String(choiceBox.dataset.pendingInsightQuestionDraft || "");
+    const targetButton =
+      Array.from(picker.querySelectorAll("[data-relation-template-variant]")).find(
+        (item) => String(item.dataset.relationTemplateVariant || "").trim() === cleanKey
+      ) || picker.querySelector("[data-relation-template-variant]");
+    if (!targetButton) {
+      this.clearTemplateMergeChoice(choiceBox);
+      return;
+    }
+    const rationale = form.querySelector('textarea[name="rationale"]');
+    const insight = form.querySelector('textarea[name="insightQuestion"]');
+    if (action === "append") {
+      if (rationale) rationale.value = this.appendTemplateDraft(rationale.value, rationaleDraft, label, "备选关系理由");
+      if (insight) insight.value = this.appendTemplateDraft(insight.value, insightDraft, label, "备选追问");
+    } else {
+      if (rationale) rationale.value = rationaleDraft;
+      if (insight) insight.value = insightDraft;
+    }
+    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-relation-template-variant]"), targetButton);
+    const noteId = String(form.dataset.noteId || this.activeNote()?.id || "").trim();
+    if (noteId && this.relationPanelState.noteId === noteId) {
+      this.relationPanelState.selectedTemplateVariant = cleanKey;
+      this.relationPanelState.rationaleDraft = rationale?.value || "";
+      this.relationPanelState.insightQuestionDraft = insight?.value || "";
+    }
+    this.writeTemplateVariantPreference("relation", cleanKey);
+    this.clearTemplateMergeChoice(choiceBox);
+    this.refreshRelationQualityMeter(form);
+    rationale?.focus?.();
+  }
+
+  applyRelationTemplateVariant(button) {
+    const cleanKey = String(button?.dataset?.relationTemplateVariant || "").trim();
+    if (!cleanKey) return;
+    const form = button.closest("[data-create-relation-form], [data-edit-relation-form]");
+    if (!form) return;
+    const picker = button.closest("[data-relation-template-picker]");
+    const activeButton = form.querySelector("[data-relation-template-variant].is-active");
+    if (activeButton === button) {
+      this.clearTemplateMergeChoice(picker?.querySelector?.("[data-relation-template-merge-choice]"));
+      return;
+    }
+    const rationale = form.querySelector('textarea[name="rationale"]');
+    const insight = form.querySelector('textarea[name="insightQuestion"]');
+    const shouldConfirm =
+      this.templateDraftHasConflict(rationale?.value || "", activeButton?.dataset?.rationaleDraft || "", button.dataset.rationaleDraft || "") ||
+      this.templateDraftHasConflict(insight?.value || "", activeButton?.dataset?.insightQuestionDraft || "", button.dataset.insightQuestionDraft || "");
+    if (shouldConfirm) {
+      this.showRelationTemplateMergeChoice(picker, button);
+      return;
+    }
+    if (rationale) rationale.value = String(button.dataset.rationaleDraft || "");
+    if (insight) insight.value = String(button.dataset.insightQuestionDraft || "");
+    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-relation-template-variant]"), button);
+    const noteId = String(form.dataset.noteId || this.activeNote()?.id || "").trim();
+    if (noteId && this.relationPanelState.noteId === noteId) {
+      this.relationPanelState.selectedTemplateVariant = cleanKey;
+      this.relationPanelState.rationaleDraft = rationale?.value || "";
+      this.relationPanelState.insightQuestionDraft = insight?.value || "";
+    }
+    this.writeTemplateVariantPreference("relation", cleanKey);
+    this.clearTemplateMergeChoice(picker?.querySelector?.("[data-relation-template-merge-choice]"));
+    this.refreshRelationQualityMeter(form);
+    rationale?.focus?.();
   }
 
   relationTargetSearchRootId(note = this.activeNote()) {
@@ -5979,13 +6572,141 @@ export class EditorPane {
     mount.outerHTML = this.renderInspectorLinkSummaryNote();
   }
 
+  setDistillationPrefill(noteId = "", options = {}) {
+    const cleanNoteId = String(noteId || "").trim();
+    const preferredTemplateVariant = cleanNoteId
+      ? this.readTemplateVariantPreference("distillation", options?.draftVariants || [], options?.selectedTemplateVariant || "")
+      : "";
+    const rememberedTemplateVariant = cleanNoteId ? this.templateVariantPreferenceMeta("distillation", options?.draftVariants || []) : { key: "", label: "" };
+    const normalized = normalizeDistillationTemplateVariants(options?.draftVariants || [], preferredTemplateVariant);
+    this.distillationPrefillState = {
+      noteId: cleanNoteId,
+      boundaryDraft: cleanNoteId ? String(options?.boundaryDraft || "").trim() : "",
+      draftVariants: cleanNoteId ? normalized.items : [],
+      selectedTemplateVariant: cleanNoteId ? normalized.selectedKey : "",
+      rememberedTemplateVariantLabel:
+        cleanNoteId && rememberedTemplateVariant.key && rememberedTemplateVariant.key === normalized.selectedKey ? rememberedTemplateVariant.label : ""
+    };
+  }
+
+  currentDistillationPrefill(noteId = "") {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!cleanNoteId || this.distillationPrefillState.noteId !== cleanNoteId) {
+      return {
+        noteId: cleanNoteId,
+        boundaryDraft: "",
+        draftVariants: [],
+        selectedTemplateVariant: "",
+        rememberedTemplateVariantLabel: ""
+      };
+    }
+    return this.distillationPrefillState;
+  }
+
+  showDistillationTemplateMergeChoice(picker, button) {
+    const choiceBox = picker?.querySelector?.("[data-distillation-template-merge-choice]");
+    if (!choiceBox || !button) return;
+    const label = String(button.textContent || "").trim();
+    choiceBox.dataset.pendingVariantKey = String(button.dataset.distillationTemplateVariant || "").trim();
+    choiceBox.dataset.pendingVariantLabel = label;
+    choiceBox.dataset.pendingBoundaryDraft = String(button.dataset.boundaryDraft || "");
+    choiceBox.hidden = false;
+    choiceBox.innerHTML = `
+      <p>你已经改过这段边界草稿了。切到“${escapeHtml(label)}”时，要直接替换，还是先追加成备选？</p>
+      <div class="semantic-template-merge-actions">
+        <button class="mini-btn primary" type="button" data-distillation-template-merge-action="replace">替换当前草稿</button>
+        <button class="mini-btn" type="button" data-distillation-template-merge-action="append">追加为备选</button>
+        <button class="mini-btn is-ghost" type="button" data-distillation-template-merge-action="cancel">先不切</button>
+      </div>
+    `;
+  }
+
+  commitDistillationTemplateVariant(choiceBox, action = "replace") {
+    if (!choiceBox) return;
+    if (action === "cancel") {
+      this.clearTemplateMergeChoice(choiceBox);
+      return;
+    }
+    const picker = choiceBox.closest("[data-distillation-template-picker]");
+    const form = picker?.closest?.("[data-note-distillation-form]");
+    if (!picker || !form) return;
+    const cleanKey = String(choiceBox.dataset.pendingVariantKey || "").trim();
+    const label = String(choiceBox.dataset.pendingVariantLabel || "").trim();
+    const boundaryDraft = String(choiceBox.dataset.pendingBoundaryDraft || "");
+    const targetButton =
+      Array.from(picker.querySelectorAll("[data-distillation-template-variant]")).find(
+        (item) => String(item.dataset.distillationTemplateVariant || "").trim() === cleanKey
+      ) || picker.querySelector("[data-distillation-template-variant]");
+    if (!targetButton) {
+      this.clearTemplateMergeChoice(choiceBox);
+      return;
+    }
+    const boundary = form.querySelector('textarea[name="boundaryOrCounterpoint"]');
+    if (boundary) {
+      boundary.value =
+        action === "append"
+          ? this.appendTemplateDraft(boundary.value, boundaryDraft, label, "备选边界视角")
+          : boundaryDraft;
+    }
+    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-distillation-template-variant]"), targetButton);
+    const noteId = String(form.closest("[data-note-distillation-section]")?.getAttribute("data-note-id") || this.activeNote()?.id || "").trim();
+    if (noteId && this.distillationPrefillState.noteId === noteId) {
+      this.distillationPrefillState.selectedTemplateVariant = cleanKey;
+      this.distillationPrefillState.boundaryDraft = boundary?.value || "";
+    }
+    this.writeTemplateVariantPreference("distillation", cleanKey);
+    this.clearTemplateMergeChoice(choiceBox);
+    this.refreshDistillationQuality(form);
+    boundary?.focus?.();
+  }
+
+  applyDistillationTemplateVariant(button) {
+    const cleanKey = String(button?.dataset?.distillationTemplateVariant || "").trim();
+    if (!cleanKey) return;
+    const form = button.closest("[data-note-distillation-form]");
+    if (!form) return;
+    const picker = button.closest("[data-distillation-template-picker]");
+    const activeButton = form.querySelector("[data-distillation-template-variant].is-active");
+    if (activeButton === button) {
+      this.clearTemplateMergeChoice(picker?.querySelector?.("[data-distillation-template-merge-choice]"));
+      return;
+    }
+    const boundary = form.querySelector('textarea[name="boundaryOrCounterpoint"]');
+    const shouldConfirm = this.templateDraftHasConflict(
+      boundary?.value || "",
+      activeButton?.dataset?.boundaryDraft || "",
+      button.dataset.boundaryDraft || ""
+    );
+    if (shouldConfirm) {
+      this.showDistillationTemplateMergeChoice(picker, button);
+      return;
+    }
+    if (boundary) boundary.value = String(button.dataset.boundaryDraft || "");
+    this.toggleTemplateVariantButtons(form.querySelectorAll("[data-distillation-template-variant]"), button);
+    const noteId = String(form.closest("[data-note-distillation-section]")?.getAttribute("data-note-id") || this.activeNote()?.id || "").trim();
+    if (noteId && this.distillationPrefillState.noteId === noteId) {
+      this.distillationPrefillState.selectedTemplateVariant = cleanKey;
+      this.distillationPrefillState.boundaryDraft = boundary?.value || "";
+    }
+    this.writeTemplateVariantPreference("distillation", cleanKey);
+    this.clearTemplateMergeChoice(picker?.querySelector?.("[data-distillation-template-merge-choice]"));
+    this.refreshDistillationQuality(form);
+    boundary?.focus?.();
+  }
+
   renderPermanentNoteDistillationSection(note) {
     const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
     const summaryLines = [0, 1, 2].map((idx) => String(summary[idx] || "").trim());
-    const boundaryOrCounterpoint = String(note.boundaryOrCounterpoint || "").trim();
+    const distillationPrefill = this.currentDistillationPrefill(note.id);
+    const distillationVariants = normalizeDistillationTemplateVariants(
+      distillationPrefill.draftVariants || [],
+      distillationPrefill.selectedTemplateVariant || ""
+    );
+    const rememberedTemplateVariantLabel = String(distillationPrefill.rememberedTemplateVariantLabel || "").trim();
+    const boundaryOrCounterpoint = String(note.boundaryOrCounterpoint || "").trim() || String(distillationPrefill.boundaryDraft || "").trim();
     const qualityWarnings = collectDistillationWarnings({
       title: note.title,
       body: note.body,
@@ -6035,6 +6756,11 @@ export class EditorPane {
             <span class="sr-only">三句话压缩第三句</span>
             <textarea name="summary3" rows="2" placeholder="3. 它服务于哪个问题或写作方向">${escapeHtml(summaryLines[2])}</textarea>
           </label>
+          ${renderDistillationTemplateVariantSwitcher(
+            distillationVariants.items,
+            distillationVariants.selectedKey,
+            rememberedTemplateVariantLabel
+          )}
           <label>
             边界 / 反方 / 不适用条件
             <textarea name="boundaryOrCounterpoint" rows="3" placeholder="这条判断在哪些条件下不成立？最需要防的反例或反方是什么？">${escapeHtml(boundaryOrCounterpoint)}</textarea>
@@ -6295,12 +7021,13 @@ export class EditorPane {
     });
     if (!saved) return;
     note.thesis = thesis;
-    note.threeLineSummary = threeLineSummary;
-    note.boundaryOrCounterpoint = boundaryOrCounterpoint;
-    note.distillationStatus = distillationStatus;
-    if (distillationStatus === "confirmed") {
-      note.authorship = { user_confirmed: true, ai_assisted: false };
-    }
+      note.threeLineSummary = threeLineSummary;
+      note.boundaryOrCounterpoint = boundaryOrCounterpoint;
+      note.distillationStatus = distillationStatus;
+      this.setDistillationPrefill(note.id, { boundaryDraft: "" });
+      if (distillationStatus === "confirmed") {
+        note.authorship = { user_confirmed: true, ai_assisted: false };
+      }
     this.renderThinkingStatus();
     this.renderRelated();
   }
@@ -6337,6 +7064,7 @@ export class EditorPane {
       note.thesis = thesis;
       note.threeLineSummary = threeLineSummary;
       note.boundaryOrCounterpoint = boundaryOrCounterpoint;
+      this.setDistillationPrefill(note.id, { boundaryDraft: "" });
     }
     const confirmed = await this.onStateChange("confirm-note-distillation", { noteId: note.id });
     if (!confirmed) return;
@@ -6437,6 +7165,7 @@ export class EditorPane {
       });
       const target = this.state.notes.find((item) => item.id === toNoteId);
       this.onStatus(`关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`, "ok");
+      this.resetRelationPanelState(note.id);
       this.renderRelated("关系已建立。");
     } catch (error) {
       const message = String(error?.message || error);
@@ -6444,6 +7173,44 @@ export class EditorPane {
       this.onStatus(`关系创建失败：${message}`, "warn");
     } finally {
       if (submit) submit.disabled = false;
+    }
+  }
+
+  async promoteInlineDraftRelation(indexValue = "") {
+    const note = this.activeNote();
+    const tab = this.activeTab();
+    if (!note?.id || !tab) return;
+    const drafts = parseInlineRelationAnnotations(this.getEditorValue() || tab.body || "");
+    const index = Number(indexValue);
+    const draft = Number.isInteger(index) ? drafts[index] : null;
+    if (!draft) {
+      this.onStatus("没有找到这条临时关联", "warn");
+      return;
+    }
+    const target = this.resolveLinkToken(draft.token)?.note;
+    if (!target?.id) {
+      this.onStatus(`没有找到关联目标：${draft.token}`, "warn");
+      return;
+    }
+    try {
+      await createNoteRelation(note.id, {
+        toNoteId: target.id,
+        relationType: draft.relationType,
+        rationale: draft.rationale,
+        insightQuestion: "",
+        confidence: 1,
+        status: "confirmed"
+      });
+      const currentBody = this.getEditorValue() || tab.body || "";
+      const cleanedBody = currentBody.replace(draft.raw, `[[${draft.token}]]`);
+      this.setEditorValue(cleanedBody);
+      this.handleEditorInput();
+      await this.saveActiveNote({ autoSave: true, trigger: "promote-inline-relation", skipOriginalityCheck: true });
+      this.onStatus(`已升级为正式关系：${note.title || note.id} -> ${target.title || target.id}`, "ok");
+      this.resetRelationPanelState(note.id);
+      this.renderRelated("已升级为正式语义关系。");
+    } catch (error) {
+      this.onStatus(`正式关系创建失败：${String(error?.message || error)}`, "warn");
     }
   }
 
@@ -6476,6 +7243,7 @@ export class EditorPane {
         insightQuestion
       });
       this.onStatus("关系已更新", "ok");
+      this.resetRelationPanelState(note.id);
       this.renderRelated("关系已更新。");
     } catch (error) {
       const message = String(error?.message || error);
@@ -6496,6 +7264,7 @@ export class EditorPane {
     try {
       await deleteNoteRelation(id);
       this.onStatus("关系已删除", "ok");
+      this.resetRelationPanelState(this.activeNote()?.id || "");
       this.renderRelated("关系已删除。");
     } catch (error) {
       this.onStatus(`关系删除失败：${String(error?.message || error)}`, "warn");
@@ -6505,15 +7274,16 @@ export class EditorPane {
   renderRelated(extraTitle = "") {
     const note = this.activeNote();
     const tab = this.activeTab();
+    if (this.els.editorRelationsBelow) {
+      this.els.editorRelationsBelow.innerHTML = "";
+      this.els.editorRelationsBelow.classList.add("hidden");
+    }
     if (!note || !tab) {
       this.relationsRequestSerial += 1;
       this.currentSemanticRelations = null;
       this.semanticRelationsState = "idle";
+      this.resetRelationPanelState("");
       this.els.result.innerHTML = `<div class="related-empty">打开笔记后，这里会显示引用、回链和同标签结果。</div>`;
-      if (this.els.editorRelationsBelow) {
-        this.els.editorRelationsBelow.innerHTML = "";
-        this.els.editorRelationsBelow.classList.add("hidden");
-      }
       return;
     }
     const relationRequestSerial = ++this.relationsRequestSerial;
@@ -6562,21 +7332,12 @@ export class EditorPane {
           <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
           <div class="inspector-overview-meta">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
         </div>
-        <div class="inspector-overview-grid">
-          <div class="inspector-overview-row">
-            <span class="inspector-overview-label">标签</span>
-            <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
-          </div>
-          <div class="inspector-overview-row">
-            <span class="inspector-overview-label">出链 / 回链</span>
-            <span class="inspector-overview-value">${forward.length} / ${backward.length}</span>
-          </div>
+      <div class="inspector-overview-grid">
+        <div class="inspector-overview-row">
+          <span class="inspector-overview-label">标签</span>
+          <span class="inspector-overview-value">${tags.length ? escapeHtml(tags.map((tag) => `#${tag}`).join(" ")) : "还没有标签"}</span>
         </div>
       </div>
-      <div class="inspector-summary">
-        <span class="inspector-chip">正向链接 ${forward.length}</span>
-        <span class="inspector-chip">反向链接 ${backward.length}</span>
-        <span class="inspector-chip">标签 ${tags.length}</span>
       </div>
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
@@ -6589,13 +7350,16 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${this.renderPermanentNoteMainPathSectionV2(note, this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: this.semanticRelationsState }))}
+        ${this.renderPermanentNoteMainPathSectionV2(
+          note,
+          this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
+        )}
         ${this.renderPermanentNoteDistillationSection(note)}
-        ${this.renderPermanentNoteAiAnalysisSection(note)}
-        ${this.renderSemanticRelationsLoadingSection(note.id)}
-        ${block("引用", "", forward, "还没有引用。", "出链")}
-        ${block("回链", "", backward, "还没有回链。", "回链")}
-        ${block("同标签", "", tagRelated, tags.length ? "没有更多结果。" : "还没有标签。", "同标签")}
+        ${this.renderInlineDraftRelationSection(note, tab)}
+        ${this.renderCurrentRelationSection(note.id, {
+          relations: this.currentSemanticRelations,
+          relationState: this.semanticRelationsState
+        })}
       </div>
     `;
     void this.refreshSemanticRelations(note.id, relationRequestSerial);
@@ -6971,14 +7735,55 @@ export class EditorPane {
     );
 
     this.els.result.addEventListener("click", (e) => {
+      const templatePreferenceClear = e.target.closest("[data-template-preference-clear]");
+      if (templatePreferenceClear) {
+        this.applyTemplatePreferenceClear(
+          templatePreferenceClear.getAttribute("data-template-preference-clear") || "",
+          templatePreferenceClear
+        );
+        return;
+      }
+      const distillationTemplateMergeAction = e.target.closest("[data-distillation-template-merge-action]");
+      if (distillationTemplateMergeAction) {
+        this.commitDistillationTemplateVariant(
+          distillationTemplateMergeAction.closest("[data-distillation-template-merge-choice]"),
+          distillationTemplateMergeAction.getAttribute("data-distillation-template-merge-action") || "replace"
+        );
+        return;
+      }
+      const relationTemplateMergeAction = e.target.closest("[data-relation-template-merge-action]");
+      if (relationTemplateMergeAction) {
+        this.commitRelationTemplateVariant(
+          relationTemplateMergeAction.closest("[data-relation-template-merge-choice]"),
+          relationTemplateMergeAction.getAttribute("data-relation-template-merge-action") || "replace"
+        );
+        return;
+      }
+      const distillationTemplateButton = e.target.closest("[data-distillation-template-variant]");
+      if (distillationTemplateButton) {
+        this.applyDistillationTemplateVariant(distillationTemplateButton);
+        return;
+      }
+      const templateVariantButton = e.target.closest("[data-relation-template-variant]");
+      if (templateVariantButton) {
+        this.applyRelationTemplateVariant(templateVariantButton);
+        return;
+      }
       const relationAction = e.target.closest("[data-relation-action]");
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
         if (action === "open-create") this.openCreateRelationForm();
-        if (action === "cancel-create") this.renderRelated();
+        if (action === "cancel-create") {
+          this.resetRelationPanelState();
+          this.renderRelated();
+        }
         if (action === "open-edit") this.openEditRelationForm(relationAction.dataset.relationId);
-        if (action === "cancel-edit") this.renderRelated();
+        if (action === "cancel-edit") {
+          this.resetRelationPanelState();
+          this.renderRelated();
+        }
         if (action === "delete") void this.deleteSemanticRelation(relationAction.dataset.relationId);
+        if (action === "promote-inline") void this.promoteInlineDraftRelation(relationAction.dataset.inlineRelationIndex);
         return;
       }
 
@@ -7239,6 +8044,8 @@ export class EditorPane {
 
     const preserveInlinePickerFocus = (event) => {
       if (!event.target.closest("#linkPicker") && !event.target.closest("#tagPicker")) return;
+      const interactiveControl = event.target.closest("select, textarea, input, button, option, label");
+      if (interactiveControl && !this.currentLinkContext && !this.currentTagContext) return;
       event.preventDefault();
     };
     this.els.linkPicker?.addEventListener("mousedown", preserveInlinePickerFocus);
@@ -7266,15 +8073,16 @@ export class EditorPane {
         return;
       }
       if (e.key === "Enter") {
-        const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-        if (chosen) this.insertSelectedLinkNote(chosen.id);
+        void this.confirmSelectedLinkCandidate();
         e.preventDefault();
       }
     });
     this.els.linkSearchList.addEventListener("click", (e) => {
       const row = e.target.closest("[data-link-note-id]");
       if (!row) return;
-      this.insertSelectedLinkNote(row.dataset.linkNoteId);
+      const next = Number(row.dataset.linkIndex);
+      if (Number.isInteger(next)) this.currentLinkIndex = next;
+      this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
@@ -7283,6 +8091,9 @@ export class EditorPane {
       if (!Number.isInteger(next) || next === this.currentLinkIndex) return;
       this.currentLinkIndex = next;
       this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
+    });
+    this.els.confirmLinkInsert?.addEventListener("click", () => {
+      void this.confirmSelectedLinkCandidate();
     });
 
     this.els.insertTag.addEventListener("click", async () => {
@@ -7723,8 +8534,7 @@ export class EditorPane {
     }
     if (e.key === "Enter") {
       if (linkInlineOpen) {
-        const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-        if (chosen) this.insertSelectedLinkNote(chosen.id);
+        void this.confirmSelectedLinkCandidate();
       } else {
         const chosen = this.currentTagCandidates[this.currentTagIndex] || this.currentTagCandidates[0];
         this.insertSelectedTag(chosen?.name || this.els.tagSearchInput.value);

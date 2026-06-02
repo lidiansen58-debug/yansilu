@@ -31,7 +31,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
   assert.equal(fixture.literature_notes.length, 24);
   assert.equal(fixture.permanent_notes.length, 100);
   assert.equal(fixture.index_cards.length, 12);
-  assert.equal(fixture.relations.length, 308);
+  assert.equal(fixture.relations.length, 322);
   assert.equal(fixture.writing_projects.length, 1);
   assert.equal(fixture.draft_scaffolds.length, 1);
   assert.equal(fixture.final_essays.length, 1);
@@ -42,7 +42,7 @@ test("smart notes product demo fixture keeps the requested scope", () => {
     literature_notes: 24,
     permanent_notes: 100,
     index_cards: 12,
-    relations: 308,
+    relations: 322,
     writing_projects: 1,
     draft_scaffolds: 1,
     final_essays: 1,
@@ -103,8 +103,18 @@ test("smart notes product demo fixture models processed fleeting notes", () => {
   }
 });
 
-test("smart notes product demo fixture permanent notes are PM-restated judgments", () => {
+test("smart notes product demo fixture permanent notes follow the unified PM-angle template", () => {
   const literatureIds = new Set(fixture.literature_notes.map((note) => note.id));
+  const universalSections = [
+    "核心论点",
+    "知识点提取",
+    "三句话压缩",
+    "论证理由",
+    "来源追溯",
+    "产品含义",
+    "关键笔记定位",
+    "边界或反例"
+  ];
 
   for (const note of fixture.permanent_notes) {
     assert.equal(note.note_type, "permanent");
@@ -116,10 +126,10 @@ test("smart notes product demo fixture permanent notes are PM-restated judgments
     assert.equal(note.threeLineSummary.length, 3, `${note.id} needs a three-line summary`);
     assert.equal(note.core_claim, note.thesis, `${note.id} core claim should mirror its confirmed thesis`);
     assert.ok(note.knowledge_point?.id, `${note.id} should link to an extracted knowledge point`);
-    assert.ok(note.template?.required_sections?.length > 0, `${note.id} should declare its conversion template`);
-    assert.ok(note.pmRestatement, `${note.id} needs a product-manager restatement`);
+    assert.deepEqual(note.template?.required_sections, universalSections, `${note.id} should declare the unified permanent-note template`);
+    assert.equal(Boolean(note.pmRestatement), false, `${note.id} should not carry a separate PM restatement field`);
     assert.ok(note.productImplication, `${note.id} needs a product implication`);
-    assert.ok(note.body.includes("## 产品经理复述"), `${note.id} body should expose the PM restatement`);
+    assert.equal(note.body.includes("## 产品经理复述"), false, `${note.id} body should not repeat a PM restatement section`);
     assert.ok(note.body.includes("## 知识点提取"), `${note.id} body should expose richer knowledge extraction`);
     for (const sourceId of note.from_literature_note_ids || []) {
       assert.ok(literatureIds.has(sourceId), `${note.id} references missing literature note ${sourceId}`);

@@ -28,6 +28,7 @@
     "test:e2e:smoke": "node --test --test-isolation=none ./tests/e2e/prototype-smoke.test.mjs",
     "test:e2e:browser:mvp": "node ./scripts/browser-mvp-check.mjs",
     "test:e2e:browser": "node ./scripts/browser-e2e-check.mjs",
+    "test:e2e:browser:relations-graph-closeout": "node ./scripts/browser-e2e-check.mjs relations-graph-closeout",
     "test:e2e:browser:file": "node --test --test-isolation=none ./tests/e2e/prototype-browser.test.mjs",
     "test:e2e:mobile:permanent-note": "node ./scripts/browser-mobile-permanent-note-check.mjs",
     "test:review-first:core": "node ./scripts/review-first-core-check.mjs",

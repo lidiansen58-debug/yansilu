@@ -1,7 +1,7 @@
 import { importConnectorLabel } from "./import-connector-labels.js";
 
 function compactValue(value) {
-  if (value === null || value === undefined || value === "") return "未提供";
+  if (value === null || value === undefined || value === "") return "未知";
   if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
 }
@@ -19,7 +19,7 @@ function statusValue(status) {
     blocked: "已阻止",
     failed: "失败",
     ok: "完成",
-    queued: "已提交"
+    queued: "已排队"
   };
   return labels[String(status || "").trim()] || compactValue(status);
 }
@@ -56,6 +56,14 @@ function reasonText(reason) {
   return labels[String(reason || "").trim()] || compactValue(reason);
 }
 
+function targetDirectorySummary(payload = {}) {
+  const targetDirectories =
+    Array.isArray(payload.result?.targetDirectories) ? payload.result.targetDirectories :
+    Array.isArray(payload.importRecord?.confirmResult?.targetDirectories) ? payload.importRecord.confirmResult.targetDirectories :
+    [];
+  return targetDirectories.map((item) => String(item?.label || item?.directoryId || "").trim()).filter(Boolean).join(" + ");
+}
+
 export function resultTitle(stage) {
   const titles = {
     preview: "导入预览已生成",
@@ -87,6 +95,8 @@ export function resultTitle(stage) {
 export function resultTone(payload = {}) {
   const stage = String(payload.stage || "");
   if (stage.includes("error")) return "bad";
+  const importRecordStatus = String(payload.importRecord?.status || payload.importRecord?.state || "").trim();
+  if (importRecordStatus === "failed") return "bad";
   if (Array.isArray(payload.warnings) && payload.warnings.length) return "warn";
   if (payload.status === "blocked" || payload.status === "failed") return "bad";
   if (Number(payload.result?.skipped || 0) > 0) return "warn";
@@ -117,6 +127,8 @@ export function resultMetrics(payload = {}) {
       push("已选", `${compactValue(selection.selectedCandidates)}/${compactValue(selection.totalCandidates)}`);
       push("范围", selectionModeValue(selection.mode));
     }
+    const targets = targetDirectorySummary(payload);
+    if (targets) push("写入到", targets);
     const createdFiles = createdFilesFromPayload(payload);
     if (createdFiles.length) {
       push("写入", createdFiles.length);
@@ -135,13 +147,16 @@ export function resultMetrics(payload = {}) {
     if (summary && Object.keys(summary).length) {
       push("摘要", `${Number(summary.sources || 0)} 来源 / ${Number(summary.literatureNotes || 0)} 文献 / ${Number(summary.permanentNotes || 0)} 永久`);
     }
+    const targets = targetDirectorySummary(payload);
+    if (targets) push("写入到", targets);
+    if (payload.importRecord?.failureResult?.code) push("失败代码", payload.importRecord.failureResult.code);
     return metrics;
   }
 
   if (stage === "export_markdown") {
     push("状态", statusValue(payload.status));
     push("文件", payload.copied);
-    if (payload.directoryId) push("目录", payload.directoryId);
+    if (payload.directoryLabel || payload.directoryId) push("导出自", payload.directoryLabel || payload.directoryId);
     push("目标", payload.targetPath);
     return metrics;
   }
@@ -155,6 +170,12 @@ export function warningItems(payload = {}) {
   const warnings = [];
   if (Array.isArray(payload.warnings)) warnings.push(...payload.warnings);
   if (payload.code) warnings.push({ code: payload.code, message: payload.message || "" });
+  if (payload.importRecord?.failureResult?.code || payload.importRecord?.failureResult?.message) {
+    warnings.push({
+      code: payload.importRecord.failureResult.code || "IMPORT_FAILED",
+      message: payload.importRecord.failureResult.message || ""
+    });
+  }
   const evaluations = payload.originalityGuard?.evaluations;
   if (Array.isArray(evaluations)) {
     for (const item of evaluations) {
@@ -181,6 +202,8 @@ function actionableTextForCode(code) {
     IMPORT_RECORD_NOT_FOUND: "确认这条记录属于当前 Vault。",
     IMPORT_STATUS_INVALID: "这条记录当前不能执行这个操作。",
     IMPORT_CONFIRM_REQUIRED: "请先预览，再确认导入。",
+    IMPORT_CLEANUP_PRESERVE_FAILED: "失败导入的已修改文件未能自动迁移，请先手动处理后再重试。",
+    IMPORT_ROLLBACK_RESTORE_CONFLICT: "回滚恢复时发现原路径已经有新内容。当前文件已保留，旧版本已转存到恢复冲突区。",
     IMPORT_ORIGINALITY_BLOCKED: "先改写被阻止的永久笔记，再重新确认。",
     ORIGINALITY_GUARD_WARNING: "先处理原创性警告再继续。",
     ORIGINALITY_GUARD_BLOCKED: "先降低与原文的重复度。",
@@ -202,6 +225,9 @@ function actionableTextForReason(reason) {
 export function actionItems(payload = {}, warnings = []) {
   const actions = [];
   for (const warning of warnings) {
+    if (String(warning?.code || "").trim() === "IMPORT_EMPTY_PAYLOAD") {
+      actions.push("补充 Payload JSON。");
+    }
     const text = actionableTextForCode(warning?.code);
     if (text) actions.push(text);
   }
@@ -236,7 +262,7 @@ export function resultBrief(payload = {}, tone = resultTone(payload)) {
   if (tone === "warn") return "可以继续，但建议先处理警告。";
   const briefs = {
     preview: "检查候选内容，确认后再导入。",
-    confirm: "内容已经写入，可以继续整理或写作。",
+    confirm: "内容已经写入，可继续整理或写作。",
     cancel: "这次导入没有写入任何新内容。",
     record: "你可以继续确认、回滚，或仅查看这次记录。",
     rollback: "系统已完成可安全回滚的部分。",

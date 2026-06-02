@@ -1,12 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildImportPayload, createImportToolbarActions, parseJsonOrEmpty } from "../../apps/web/src/import-toolbar-actions.js";
+import {
+  buildImportPayload,
+  createImportToolbarActions,
+  parseJsonOrEmpty,
+  validateImportDirectorySelection
+} from "../../apps/web/src/import-toolbar-actions.js";
 
 test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
   assert.deepEqual(buildImportPayload({ connector: "markdown", path: "E:\\vault" }), { path: "E:\\vault" });
   assert.deepEqual(buildImportPayload({ connector: "zotero", payloadText: '{"library":"main"}' }), { library: "main" });
-  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /来源路径/);
+  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /Payload JSON|来源路径/);
 });
 
 test("import toolbar actions preview assembles params and reports success", async () => {
@@ -68,7 +73,10 @@ test("import toolbar actions block confirm when no candidates are selected", asy
 
   await actions.handleConfirm();
 
-  assert.deepEqual(calls, [["setStatus", "请至少勾选一个候选后再确认写入", "warn"]]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "setStatus");
+  assert.equal(calls[0][1], "请至少勾选一个候选后再确认写入");
+  assert.equal(calls[0][2], "warn");
 });
 
 test("import toolbar actions require record id for refresh and rollback", async () => {
@@ -87,6 +95,132 @@ test("import toolbar actions require record id for refresh and rollback", async 
   assert.deepEqual(calls, [
     ["请先填写 ImportRecord ID", "warn"],
     ["请先填写 ImportRecord ID", "warn"]
+  ]);
+});
+
+test("import toolbar actions pass selected file-box directory on confirm", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_4", directoryId: "dir_literature_child" }),
+    getFallbackImportRecordId: () => "imp_4",
+    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { literatureNotes: [{ id: "c1" }] } }),
+    selectionSummary: () => ({ selectedIds: new Set(["c1"]), selectedCount: 1, totalCount: 1 }),
+    resolveDirectoryRootId: () => "dir_literature_default",
+    confirmImport: async (importRecordId, payload) => {
+      calls.push([importRecordId, payload]);
+      return { status: "completed", result: {} };
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
+});
+
+test("import toolbar actions reload failed lifecycle records after confirm errors", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_failed_1" }),
+    getFallbackImportRecordId: () => "imp_failed_1",
+    getActivePreview: () => ({
+      importRecordId: "imp_failed_1",
+      candidatePreview: { sources: [{ id: "src_1" }] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(["src_1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async () => {
+      throw Object.assign(new Error("cleanup preserve failed"), { code: "IMPORT_CLEANUP_PRESERVE_FAILED" });
+    },
+    loadImportRecordIntoUi: async (importRecordId, options) => {
+      calls.push(["loadImportRecordIntoUi", importRecordId, options]);
+      return { importRecordId, status: "failed", state: "failed" };
+    },
+    refreshImportHistory: async (options) => {
+      calls.push(["refreshImportHistory", options]);
+    },
+    showImportResult: (payload) => {
+      calls.push(["showImportResult", payload.stage]);
+    },
+    setStatus: (text, tone) => {
+      calls.push(["setStatus", text, tone]);
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [
+    ["loadImportRecordIntoUi", "imp_failed_1", { announce: false }],
+    ["refreshImportHistory", { silent: true }],
+    ["setStatus", "导入确认失败，已同步失败记录：imp_failed_1", "warn"]
+  ]);
+});
+
+test("validateImportDirectorySelection blocks mixed literature and permanent selections", () => {
+  const result = validateImportDirectorySelection({
+    candidatePreview: {
+      literatureNotes: [{ id: "ln_1" }],
+      permanentNotes: [{ id: "pn_1" }]
+    },
+    selectedIds: ["ln_1", "pn_1"],
+    directoryId: "dir_literature_child",
+    resolveDirectoryRootId: () => "dir_literature_default"
+  });
+
+  assert.deepEqual(result, {
+    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
+  });
+});
+
+test("validateImportDirectorySelection uses candidateSelection when truncated preview omits hidden groups", () => {
+  const result = validateImportDirectorySelection({
+    candidatePreview: {
+      literatureNotes: [{ id: "ln_1" }]
+    },
+    candidateSelection: {
+      sources: [],
+      literatureNotes: ["ln_1"],
+      permanentNotes: ["pn_hidden"],
+      total: { sources: 0, literatureNotes: 1, permanentNotes: 1 }
+    },
+    selectedIds: ["ln_1", "pn_hidden"],
+    directoryId: "dir_literature_child",
+    resolveDirectoryRootId: () => "dir_literature_default"
+  });
+
+  assert.deepEqual(result, {
+    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
+    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
+  });
+});
+
+test("import toolbar actions block mismatched directory roots before confirm", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_5", directoryId: "dir_literature_child" }),
+    getFallbackImportRecordId: () => "imp_5",
+    getActivePreview: () => ({
+      importRecordId: "imp_5",
+      candidatePreview: { permanentNotes: [{ id: "pn_1" }] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(["pn_1"]), selectedCount: 1, totalCount: 1 }),
+    resolveDirectoryRootId: () => "dir_literature_default",
+    confirmImport: async () => {
+      calls.push(["confirmImport"]);
+      return { status: "completed", result: {} };
+    },
+    showImportResult: (payload) => {
+      calls.push(["showImportResult", payload.code, payload.message]);
+    },
+    setStatus: (text, tone) => {
+      calls.push(["setStatus", text, tone]);
+    }
+  });
+
+  await actions.handleConfirm();
+
+  assert.deepEqual(calls, [
+    ["showImportResult", "IMPORT_DIRECTORY_SCOPE_INVALID", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。"],
+    ["setStatus", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。", "warn"]
   ]);
 });
 

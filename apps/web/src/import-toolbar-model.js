@@ -20,6 +20,8 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
 
 export function importToolbarViewModel({
   connector = "markdown",
+  directoryId = "",
+  directoryOptions = [],
   path = "",
   payload = "",
   options = "",
@@ -28,6 +30,8 @@ export function importToolbarViewModel({
 } = {}) {
   return {
     connector: String(connector || "markdown").trim() || "markdown",
+    directoryId: String(directoryId || "").trim(),
+    directoryOptions: Array.isArray(directoryOptions) ? directoryOptions : [],
     path: String(path || ""),
     payload: String(payload || ""),
     options: String(options || ""),

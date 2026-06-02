@@ -34,9 +34,18 @@ export function latestImportHistoryItem(items = []) {
 function summaryActions(record = {}) {
   const status = String(record.status || record.state || "").trim();
   const remaining = Number(record.literatureBatchProgress?.remaining || 0);
+  const total = Number(record.literatureBatchProgress?.total || 0);
+  const ready = Number(record.literatureBatchProgress?.ready || 0);
+
   if (status === "preview") return [{ action: "load", label: "继续处理" }];
-  if (status === "completed" && remaining > 0) return [{ action: "resume-literature-queue", label: "继续处理" }];
-  if (status === "completed") return [{ action: "load", label: "查看结果" }];
+  if (status === "completed") {
+    const actions = [];
+    if (remaining > 0) actions.push({ action: "resume-literature-queue", label: "继续处理" });
+    if (remaining === 0 && ready > 0) actions.push({ action: "promote-literature-batch", label: "转去永久笔记整理" });
+    if (total > 0) actions.push({ action: "open-literature-queue", label: "打开文献队列" });
+    actions.push({ action: "load", label: "查看结果" });
+    return actions;
+  }
   return [{ action: "load", label: "查看记录" }];
 }
 
@@ -74,7 +83,7 @@ export function importHistoryRecentSummaryModel({ items = [], loading = false } 
 
   return {
     recordId,
-    title: `${importHistoryConnectorLabel(record.connector)} · ${importStatusLabel(status)}`,
+    title: `${importHistoryConnectorLabel(record.connector)} 路 ${importStatusLabel(status)}`,
     subtitle: formatImportTimestamp(record.updatedAt || record.createdAt),
     detail,
     tone: badgeTone,

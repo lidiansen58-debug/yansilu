@@ -1,12 +1,12 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["importRecordId", "connector", "status", "state", "summary", "createdAt", "updatedAt"],
+  "required": ["importRecordId", "connector", "status", "state", "summary", "candidateSelection", "createdAt", "updatedAt"],
   "properties": {
     "importRecordId": { "type": "string" },
     "connector": { "type": "string", "enum": ["markdown", "obsidian", "zotero", "readwise", "notebooklm"] },
-    "status": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
-    "state": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back"] },
+    "status": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back", "failed"] },
+    "state": { "type": "string", "enum": ["preview", "cancelled", "completed", "rolled_back", "failed"] },
     "summary": {
       "type": "object",
       "additionalProperties": false,
@@ -88,6 +88,26 @@
         "truncated": { "type": "boolean" }
       }
     },
+    "candidateSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sources", "literatureNotes", "permanentNotes", "total"],
+      "properties": {
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "literatureNotes": { "type": "array", "items": { "type": "string" } },
+        "permanentNotes": { "type": "array", "items": { "type": "string" } },
+        "total": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sources", "literatureNotes", "permanentNotes"],
+          "properties": {
+            "sources": { "type": "number" },
+            "literatureNotes": { "type": "number" },
+            "permanentNotes": { "type": "number" }
+          }
+        }
+      }
+    },
     "warnings": {
       "type": "array",
       "items": {
@@ -104,10 +124,42 @@
     "payload": { "type": "object", "additionalProperties": true },
     "options": { "type": "object", "additionalProperties": true },
     "originalityGuard": { "type": ["object", "null"], "additionalProperties": true },
+    "failureResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message", "details", "selection", "finishedAt"],
+      "properties": {
+        "code": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "details": { "type": ["object", "array", "string", "number", "boolean", "null"], "additionalProperties": true },
+        "selection": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["mode", "candidateIds", "totalCandidates", "selectedCandidates", "counts"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["all", "subset"] },
+            "candidateIds": { "type": "array", "items": { "type": "string" } },
+            "totalCandidates": { "type": "number" },
+            "selectedCandidates": { "type": "number" },
+            "counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["sources", "literatureNotes", "permanentNotes"],
+              "properties": {
+                "sources": { "type": "number" },
+                "literatureNotes": { "type": "number" },
+                "permanentNotes": { "type": "number" }
+              }
+            }
+          }
+        },
+        "finishedAt": { "type": ["string", "null"] }
+      }
+    },
     "confirmResult": {
       "type": ["object", "null"],
       "additionalProperties": false,
-      "required": ["created", "skipped", "selection", "writtenPaths", "createdFiles", "finishedAt"],
+      "required": ["created", "skipped", "selection", "targetDirectories", "writtenPaths", "createdFiles", "finishedAt"],
       "properties": {
         "created": {
           "type": "object",
@@ -146,6 +198,19 @@
                 "literatureNotes": { "type": "number" },
                 "permanentNotes": { "type": "number" }
               }
+            }
+          }
+        },
+        "targetDirectories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["noteType", "directoryId", "label"],
+            "properties": {
+              "noteType": { "type": "string", "enum": ["literature", "permanent"] },
+              "directoryId": { "type": "string" },
+              "label": { "type": "string" }
             }
           }
         },
