@@ -1318,9 +1318,9 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), false);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
-  assert.match(
-    (await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /随笔待转/
+  assert.equal(
+    await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"] .tree-state-icon`).getAttribute("data-note-state"),
+    "source-pending"
   );
   assert.match(String((await page.locator("#btnRecordPermanent").textContent()) || ""), /创建永久笔记/);
 
@@ -1334,9 +1334,9 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), true);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
-  assert.match(
-    (await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /文献待转/
+  assert.equal(
+    await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"] .tree-state-icon`).getAttribute("data-note-state"),
+    "source-pending"
   );
   await page.locator("#btnRecordPermanent").click();
   await page.locator("#permanentNoteModal").waitFor();
@@ -1351,14 +1351,15 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   await page.locator('[data-action="quick-original"]').click();
   await page.waitForFunction(() => window.__prototypeState?.browserRootId === "dir_original_default");
 
-  const originalTrail = (await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .item-trail').textContent()) || "";
-  assert.match(originalTrail, /孤立/);
-  assert.doesNotMatch(originalTrail, /\d/);
-
-  const permanentTrails = await page.locator('.explorer-item[data-kind="file"] .item-trail').evaluateAll((nodes) =>
-    nodes.map((node) => (node.textContent || "").trim()).filter(Boolean)
+  assert.equal(
+    await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .tree-state-icon').getAttribute("data-folder-state"),
+    "permanent-isolated"
   );
-  assert.ok(permanentTrails.some((value) => value === "孤立"));
+
+  const permanentStates = await page.locator('.explorer-item[data-kind="file"] .tree-state-icon').evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-note-state")).filter(Boolean)
+  );
+  assert.ok(permanentStates.some((value) => value === "permanent-isolated"));
 });
 
 test("prototype mobile viewport keeps permanent-note entry usable", async (t) => {

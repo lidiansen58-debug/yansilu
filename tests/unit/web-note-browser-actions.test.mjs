@@ -218,7 +218,7 @@ test("source-note badges still render for generated permanent notes even when no
 
   const row = explorer.renderFileNode(literatureWithStaleType, 1);
 
-  assert.match(row, /item-badge-original-record/);
+  assert.match(row, /data-note-state=""/);
   assert.doesNotMatch(row, /item-badge-warning/);
 });
 
@@ -283,7 +283,7 @@ test("note browsers show isolated folder flags without counts only for the perma
   const customRow = explorer.renderFolderNode(folderById(state, "dir_custom_root"), 0, "", new Map());
 
   assert.match(simplifiedRow, /has-folder-alert/);
-  assert.match(simplifiedRow, /item-badge-warning/);
+  assert.match(simplifiedRow, /data-folder-state="permanent-isolated"/);
   assert.doesNotMatch(simplifiedRow, /\d+<\/span>/);
   assert.doesNotMatch(customRow, /item-badge-warning/);
   assert.doesNotMatch(customRow, /has-folder-alert/);
@@ -348,11 +348,29 @@ test("note browsers render isolated-note badges without extra relation actions i
     thinkingStatus: { label: "待思考", severity: "next", status: "open" }
   }, 0);
 
-  assert.match(html, /孤立/);
+  assert.match(html, /data-note-state="permanent-isolated"/);
   assert.doesNotMatch(html, /data-associate-note=/);
   assert.doesNotMatch(html, /item-inline-action warn/);
   assert.doesNotMatch(html, /item-badge-thinking/);
   assert.doesNotMatch(html, /item-badge-original-record/);
+});
+
+test("connected permanent notes keep the ordinary file icon in simplified scopes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set(["pn_connected"]);
+  state.graphConnectivityReady = true;
+  const html = explorer.renderFileNode({
+    id: "pn_connected",
+    title: "Connected permanent",
+    folderId: "dir_original_default",
+    noteType: "permanent"
+  }, 0);
+
+  assert.match(html, /data-note-state=""/);
+  assert.doesNotMatch(html, /permanent-connected/);
+  assert.doesNotMatch(html, /permanent-isolated/);
 });
 
 test("source-note boxes surface notes that still have not been turned into permanent notes", () => {
@@ -373,9 +391,9 @@ test("source-note boxes surface notes that still have not been turned into perma
     generatedOriginalNoteId: "pn_001"
   }, 0);
 
-  assert.match(pendingHtml, /随笔待转/);
-  assert.doesNotMatch(pendingHtml, /孤立/);
-  assert.match(doneHtml, /item-badge-original-record/);
+  assert.match(pendingHtml, /data-note-state="source-pending"/);
+  assert.doesNotMatch(pendingHtml, /data-note-state="permanent-isolated"/);
+  assert.match(doneHtml, /data-note-state=""/);
 });
 
 test("source-note browser uses different pending badges for fleeting and literature notes", () => {
@@ -396,9 +414,27 @@ test("source-note browser uses different pending badges for fleeting and literat
   }, 0);
 
   assert.match(fleetingHtml, /data-source-kind="fleeting"/);
-  assert.match(fleetingHtml, /随笔待转/);
+  assert.match(fleetingHtml, /data-note-state="source-pending"/);
   assert.match(literatureHtml, /data-source-kind="literature"/);
-  assert.match(literatureHtml, /文献待转/);
+  assert.match(literatureHtml, /data-note-state="source-pending"/);
+});
+
+test("source-note folders surface pending permanent-note creation through icon state", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.notes.push({
+    id: "fn_pending_folder_state",
+    title: "Pending folder state",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting"
+  });
+
+  const html = explorer.renderFolderNode(folderById(state, "dir_fleeting_default"), 0, "", new Map());
+
+  assert.match(html, /has-folder-alert/);
+  assert.match(html, /data-folder-state="source-pending"/);
+  assert.doesNotMatch(html, /随笔待转|文献待转/);
 });
 
 test("source-note promote flows no longer ask users to type a directory id", () => {

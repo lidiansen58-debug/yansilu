@@ -440,6 +440,24 @@
       display: inline-grid;
       place-items: center;
     }
+    .explorer-item .tree-state-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      position: relative;
+    }
+    .explorer-item .tree-state-icon svg {
+      width: 16px;
+      height: 16px;
+      overflow: visible;
+      filter: drop-shadow(0 1px 1px rgba(23, 34, 33, 0.08));
+    }
+    .explorer-item .tree-state-icon[data-folder-state="source-pending"],
+    .explorer-item .tree-state-icon[data-folder-state="permanent-isolated"],
+    .explorer-item .tree-state-icon[data-note-state="source-pending"],
+    .explorer-item .tree-state-icon[data-note-state="permanent-isolated"] {
+      background: rgba(255, 241, 242, 0.66);
+    }
     .type-badge {
       display: none;
       border: 1px solid #c6d8ea;

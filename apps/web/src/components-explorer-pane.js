@@ -1,20 +1,55 @@
 import { childFolders, folderById, notesInFolder, rootBoxIdFromFolder, typeFromFolder, typeLabel } from "./prototype-store.js";
 
-function folderIconSvg(isRoot = false) {
+function folderIconSvg(isRoot = false, state = "") {
+  const cleanState = String(state || "").trim();
+  const stateOverlay = cleanState === "source-pending"
+    ? `
+      <circle cx="12.4" cy="12.2" r="2.65" fill="#d92d20" stroke="#fff8ee" stroke-width="1.2"/>
+      <path d="M12.4 10.5v2.1" stroke="#fff8ee" stroke-width=".9" stroke-linecap="round"/>
+      <circle cx="12.4" cy="13.4" r=".35" fill="#fff8ee"/>
+    `
+    : cleanState === "permanent-isolated"
+      ? `<circle cx="12.2" cy="12.1" r="3.05" fill="none" stroke="#d92d20" stroke-width="1.25" stroke-dasharray="1.8 1.7"/>`
+      : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
       <path d="M2.25 4.25h4.1l1.1 1.4h6.3v5.6a1.5 1.5 0 0 1-1.5 1.5H3.75a1.5 1.5 0 0 1-1.5-1.5z" fill="${isRoot ? "#b78a1f" : "#c89b2b"}"/>
       <path d="M2.25 5.25h11.5a1 1 0 0 1 .98 1.2l-.83 4.02a1.5 1.5 0 0 1-1.47 1.2H3.57a1.5 1.5 0 0 1-1.47-1.2l-.83-4.02a1 1 0 0 1 .98-1.2z" fill="${isRoot ? "#d8b24c" : "#e3be62"}"/>
+      ${stateOverlay}
     </svg>
   `;
 }
 
-function fileIconSvg() {
+function fileIconSvg(state = "", sourceKind = "") {
+  const cleanState = String(state || "").trim();
+  const cleanSourceKind = String(sourceKind || "").trim();
+  const isPermanent = cleanState === "permanent-isolated";
+  const pageFill = isPermanent ? "#26312f" : "#f8fafc";
+  const foldFill = isPermanent ? "#3c4845" : "#eef2f7";
+  const lineStroke = isPermanent ? "#fff8ee" : "#7c8796";
+  const sourceOverlay = cleanSourceKind === "literature"
+    ? `
+      <circle cx="3.7" cy="12.2" r="2.45" fill="#dbeafe" stroke="#3f78a8" stroke-width=".9"/>
+      <path d="M2.8 11.5h.75M4.25 11.5h.75M2.8 12.7h2.2" stroke="#3f78a8" stroke-width=".65" stroke-linecap="round"/>
+    `
+    : cleanSourceKind === "fleeting"
+      ? `
+        <circle cx="3.7" cy="12.2" r="2.45" fill="#fff1f2" stroke="#d92d20" stroke-width=".9"/>
+        <path d="M2.75 12.2h1.9M3.7 11.25v1.9" stroke="#d92d20" stroke-width=".75" stroke-linecap="round"/>
+      `
+      : "";
+  const stateOverlay = cleanState === "source-pending"
+    ? `<circle cx="12.35" cy="12.15" r="2.35" fill="#d92d20" stroke="#fff8ee" stroke-width="1.05"/>`
+    : cleanState === "permanent-isolated"
+        ? `<circle cx="8" cy="8" r="6.15" fill="none" stroke="#d92d20" stroke-width="1.15" stroke-dasharray="2 1.8"/>`
+        : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M4 1.75h5.1l2.9 2.9v8.1a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.75v-9.5A1.5 1.5 0 0 1 4.5 1.75z" fill="#d7dde6"/>
-      <path d="M9.1 1.75v2.3a1 1 0 0 0 1 1h2.3" fill="#eef2f7"/>
-      <path d="M5.25 7.25h5.5M5.25 9.5h5.5" stroke="#7c8796" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M4 1.75h5.1l2.9 2.9v8.1a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 3 12.75v-9.5A1.5 1.5 0 0 1 4.5 1.75z" fill="${pageFill}"/>
+      <path d="M9.1 1.75v2.3a1 1 0 0 0 1 1h2.3" fill="${foldFill}"/>
+      <path d="M5.25 7.25h5.5M5.25 9.5h5.5" stroke="${lineStroke}" stroke-width="1.1" stroke-linecap="round"/>
+      ${sourceOverlay}
+      ${stateOverlay}
     </svg>
   `;
 }
@@ -59,14 +94,36 @@ function generatedOriginalBadge(state, note = null) {
   return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
 }
 
-function sourcePermanentStatusBadge(state, note = null) {
+function sourcePermanentState(state, note = null) {
   const noteType = resolvedNoteType(state, note) || String(note?.noteType || "").trim().toLowerCase();
   if (noteType !== "fleeting" && noteType !== "literature") return "";
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
-  if (generatedId) return generatedOriginalBadge(state, note);
-  const title = noteType === "literature" ? "这条文献笔记还没有生成永久笔记。" : "这条随笔还没有生成永久笔记。";
-  const label = noteType === "literature" ? "文献待转" : "随笔待转";
-  return `<span class="item-badge item-badge-warning" data-source-kind="${escapeHtml(noteType)}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+  return generatedId ? "source-linked" : "source-pending";
+}
+
+function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles = () => [], getFolderChildren = () => [], memo = new Map()) {
+  const key = String(folderId || "").trim();
+  if (!key) return false;
+  if (memo.has(key)) return memo.get(key);
+  const ownHasPending = getFolderFiles(key).some((note) => sourcePermanentState(state, note) === "source-pending");
+  const childHasPending = getFolderChildren(key).some((child) =>
+    folderHasPendingSourceNotes(state, child.id, getFolderFiles, getFolderChildren, memo)
+  );
+  const hasPending = ownHasPending || childHasPending;
+  memo.set(key, hasPending);
+  return hasPending;
+}
+
+function folderStateTitle(state = "") {
+  if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
+  if (state === "permanent-isolated") return "这个目录下还有永久笔记没有进入关系网络。";
+  return "";
+}
+
+function noteIconStateTitle(state = "", sourceKind = "") {
+  if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
+  if (state === "permanent-isolated") return "这条永久笔记还没有进入关系网络。";
+  return "";
 }
 
 function noteRelationNetworkStatus(note = null) {
@@ -94,11 +151,6 @@ function thinkingStatusBadge(note = null) {
 
 function disconnectedNoteBadge() {
   return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
-}
-
-function disconnectedFolderBadge(hasDisconnected = false) {
-  if (!hasDisconnected) return "";
-  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立</span>`;
 }
 
 function displayFolderName(folder) {
@@ -703,6 +755,16 @@ export class ExplorerPane {
     return hasDisconnected;
   }
 
+  folderHasPendingSourceNotes(folderId, memo = new Map()) {
+    return folderHasPendingSourceNotes(
+      this.state,
+      folderId,
+      (id) => this.getFolderFiles(id),
+      (id) => this.getFolderChildren(id),
+      memo
+    );
+  }
+
   isSimplifiedNoteBrowserScope(folderId = "") {
     const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
     return rootId === "dir_original_default"
@@ -803,21 +865,23 @@ export class ExplorerPane {
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
     const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
+    const folderHasPendingSource = this.isSourceNoteBrowserScope(folder.id) && this.folderHasPendingSourceNotes(folder.id);
     const folderHasDisconnected = this.isPermanentNoteBrowserScope(folder.id) && this.folderHasDisconnectedNotes(folder.id);
+    const folderState = folderHasPendingSource ? "source-pending" : folderHasDisconnected ? "permanent-isolated" : "";
+    const folderTitle = folderStateTitle(folderState);
     const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
     const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
     const pendingSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => canRecordPermanentFromNote(this.state, note)) : [];
     const completedSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => !canRecordPermanentFromNote(this.state, note)) : [];
     const folderTrail = [
       folder.hidden ? `<span class="item-badge">已隐藏</span>` : "",
-      disconnectedFolderBadge(folderHasDisconnected)
     ].join("");
     const folderRow = `
-      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderHasDisconnected ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderState ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
-          <span class="icon">${folderIconSvg(isRoot)}</span>
+          <span class="icon tree-state-icon" data-folder-state="${escapeHtml(folderState)}" ${folderTitle ? `title="${escapeHtml(folderTitle)}" aria-label="${escapeHtml(folderTitle)}"` : ""}>${folderIconSvg(isRoot, folderState)}</span>
           <span class="name"><strong>${displayFolderName(folder)}</strong></span>
         </div>
         <div class="item-trail">${folderTrail}</div>
@@ -897,12 +961,19 @@ export class ExplorerPane {
   renderFileNode(note, depth) {
     const thinkingBadge = thinkingStatusBadge(note);
     const originalBadge = generatedOriginalBadge(this.state, note);
-    const sourceStatusBadge = sourcePermanentStatusBadge(this.state, note);
     const disconnected = this.noteIsDisconnected(note);
     const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
+    const noteType = resolvedNoteType(this.state, note);
+    const sourceState = sourcePermanentState(this.state, note);
     const permanentSimplifiedScope = this.isPermanentNoteBrowserScope(note.folderId);
     const sourceSimplifiedScope = this.isSourceNoteBrowserScope(note.folderId);
     const simplifiedNoteBrowser = permanentSimplifiedScope || sourceSimplifiedScope;
+    const noteIconState = sourceSimplifiedScope
+      ? sourceState === "source-pending" ? "source-pending" : ""
+      : permanentSimplifiedScope
+        ? disconnected ? "permanent-isolated" : ""
+        : "";
+    const noteIconTitle = noteIconStateTitle(noteIconState, noteType);
     const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
     const fileIsSelected = this.state.selectedFileId === note.id;
     const fileIsCurrent = this.currentEditorNoteId() === note.id;
@@ -913,16 +984,16 @@ export class ExplorerPane {
       ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
       : "";
     const trail = permanentSimplifiedScope
-      ? disconnectedBadge
+      ? ""
       : sourceSimplifiedScope
-        ? sourceStatusBadge
+        ? ""
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
       <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
-          <span class="icon">${fileIconSvg()}</span>
+          <span class="icon tree-state-icon" data-note-state="${escapeHtml(noteIconState)}" data-source-kind="${escapeHtml(noteType)}" ${noteIconTitle ? `title="${escapeHtml(noteIconTitle)}" aria-label="${escapeHtml(noteIconTitle)}"` : ""}>${fileIconSvg(noteIconState, noteType)}</span>
           <span class="name"><strong>${note.title}</strong></span>
         </div>
         <div class="item-trail">${trail}</div>
