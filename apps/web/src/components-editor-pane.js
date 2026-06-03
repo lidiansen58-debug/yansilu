@@ -5546,12 +5546,58 @@ export class EditorPane {
       .join("");
   }
 
+  renderRelationTargetChoices(candidates = [], selectedId = "", query = "") {
+    const selected = String(selectedId || "").trim();
+    const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
+    const q = String(query || "").trim().toLowerCase();
+    const sorted = this.sortRelationTargetCandidates(candidates);
+    const filtered = q
+      ? sorted.filter((candidate) => {
+          const title = String(candidate?.title || "").toLowerCase();
+          const id = String(candidate?.id || "").toLowerCase();
+          const folder = String(this.folderLabel(candidate?.folderId || "") || "").toLowerCase();
+          return title.includes(q) || id.includes(q) || folder.includes(q);
+        })
+      : sorted;
+    const items = selected && !filtered.some((candidate) => candidate?.id === selected)
+      ? [
+          ...(selectedNote ? [selectedNote] : []),
+          ...filtered
+        ]
+      : filtered;
+    if (!items.length) return `<div class="picker-empty">没有匹配笔记</div>`;
+    return items
+      .slice(0, 12)
+      .map((candidate) => {
+        const active = candidate?.id === selected;
+        const resolvedType = noteTypeText(candidate?.noteType || typeFromFolder(this.state, candidate?.folderId || ""));
+        return `
+          <button
+            class="link-picker-item ${active ? "picked active" : ""}"
+            type="button"
+            data-relation-target-choice
+            data-note-id="${escapeHtml(candidate?.id || "")}"
+            data-note-title="${escapeHtml(candidate?.title || candidate?.id || "")}"
+          >
+            <span class="picker-headline">
+              <strong>${highlightMatch(candidate?.title || candidate?.id || "", q)}</strong>
+              ${active ? `<span class="picker-selection-state">已选</span>` : ""}
+            </span>
+            <span class="picker-meta">${highlightMatch(candidate?.id || "", q)} · ${escapeHtml(resolvedType)} · ${escapeHtml(this.folderLabel(candidate?.folderId || ""))}</span>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
   renderCreateRelationFormSection(noteId, prefill = {}) {
     const activeNote = this.activeNote();
     const candidates = this.scopedLinkCandidates();
     const defaultType = this.relationCreateDefaultType(activeNote);
     const selectedTargetId = String(prefill?.targetNoteId || "").trim();
+    const selectedTarget = selectedTargetId ? this.state.notes.find((item) => item?.id === selectedTargetId) || null : null;
     const selectedRelationType = String(prefill?.relationType || "").trim().toLowerCase() || defaultType;
+    const targetQuery = String(prefill?.targetQuery || selectedTarget?.title || "").trim();
     const entryHint = String(prefill?.entryHint || "").trim();
     const rationaleDraft = String(prefill?.rationaleDraft || "").trim();
     const insightQuestionDraft = String(prefill?.insightQuestionDraft || "").trim();
@@ -5562,7 +5608,12 @@ export class EditorPane {
     const typeOptions = RELATION_CREATE_TYPES.map(
       (type) => `<option value="${escapeHtml(type)}"${type === selectedRelationType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
-    const noteOptions = this.renderRelationTargetOptions(candidates, selectedTargetId);
+    const targetChoices = this.renderRelationTargetChoices(candidates, selectedTargetId, targetQuery);
+    const targetStatus = selectedTarget
+      ? `已选：${selectedTarget.title || selectedTarget.id}`
+      : candidates.length
+        ? "输入关键词后选择一条笔记"
+        : "当前范围没有可连接笔记";
 
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
@@ -5579,11 +5630,10 @@ export class EditorPane {
           ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
             <span>目标笔记</span>
-            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="搜索标题、ID 或路径" autofocus />
-            <select name="toNoteId" data-relation-target-select required ${noteOptions ? "" : "disabled"}>${noteOptions}</select>
-            <small class="semantic-relation-target-status" data-relation-target-status>${
-              noteOptions ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"
-            }</small>
+            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入关键词筛选笔记" value="${escapeHtml(targetQuery)}" autofocus />
+            <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
+            <div class="link-picker-list semantic-relation-target-list" data-relation-target-list>${targetChoices}</div>
+            <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
           </label>
           <label>
             <span>关系类型</span>
@@ -5602,7 +5652,7 @@ export class EditorPane {
           ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit" ${noteOptions ? "" : "disabled"}>确认建立</button>
+            <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>确认建立</button>
           </div>
         </form>
       </section>
@@ -7484,10 +7534,12 @@ export class EditorPane {
     if (!form || form.dataset.noteId !== note.id) return;
 
     const serial = ++this.relationTargetSearchSerial;
-    const select = form.querySelector("[data-relation-target-select]");
+    const searchInput = form.querySelector("[data-relation-target-search]");
+    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+    const list = form.querySelector("[data-relation-target-list]");
     const status = form.querySelector("[data-relation-target-status]");
     const submit = form.querySelector('button[type="submit"]');
-    const selectedBefore = String(select?.value || "").trim();
+    const selectedBefore = String(hiddenTargetId?.value || "").trim();
     if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
 
     try {
@@ -7501,32 +7553,62 @@ export class EditorPane {
       const items = Array.isArray(result?.items) ? result.items : [];
       this.upsertApiNotes(items);
       if (!form.isConnected) return;
-      if (select) {
-        select.innerHTML = this.renderRelationTargetOptions(items, selectedBefore);
-        select.disabled = items.length === 0;
-      }
-      if (submit) submit.disabled = items.length === 0;
+      const selectedNote = selectedBefore ? this.state.notes.find((item) => item?.id === selectedBefore) || null : null;
+      if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query);
+      if (submit) submit.disabled = !selectedBefore;
       if (status) {
         const cleanQuery = String(query || "").trim();
-        status.textContent = items.length
-          ? `${cleanQuery ? "搜索命中" : "当前范围"} ${items.length} 条可连接笔记。`
-          : cleanQuery
-            ? "没有找到匹配笔记，换个标题、ID 或路径试试。"
-            : "当前范围里还没有可连接的其他笔记。";
+        status.textContent = selectedNote
+          ? `已选：${selectedNote.title || selectedNote.id}`
+          : items.length
+            ? `${cleanQuery ? `已筛选 ${items.length} 条` : "输入关键词后选择一条笔记"}`
+            : cleanQuery
+              ? "没有匹配笔记"
+              : "当前范围没有可连接笔记";
+      }
+      if (searchInput && selectedNote && !String(searchInput.value || "").trim()) {
+        searchInput.value = selectedNote.title || selectedNote.id || "";
       }
     } catch (error) {
       if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
       if (status) status.textContent = `目标搜索失败：${String(error?.message || error)}`;
-      if (select && !select.options.length) select.disabled = true;
-      if (submit && select?.disabled) submit.disabled = true;
+      if (submit && !String(hiddenTargetId?.value || "").trim()) submit.disabled = true;
     }
   }
 
   queueRelationTargetSearch(input) {
+    const form = input?.closest?.("[data-create-relation-form]");
+    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
+    const selectedNote = hiddenTargetId?.value
+      ? this.state.notes.find((item) => item?.id === String(hiddenTargetId.value || "").trim()) || null
+      : null;
+    if (hiddenTargetId && selectedNote && normalizeText(input?.value || "") !== normalizeText(selectedNote?.title || selectedNote?.id || "")) {
+      hiddenTargetId.value = "";
+      delete hiddenTargetId.dataset.targetTitle;
+      const submit = form?.querySelector?.('button[type="submit"]');
+      if (submit) submit.disabled = true;
+    }
     window.clearTimeout(this.relationTargetSearchTimer);
     this.relationTargetSearchTimer = window.setTimeout(() => {
       void this.refreshRelationTargetSearch(input?.value || "");
     }, 180);
+  }
+
+  applyRelationTargetChoice(form, noteId = "", noteTitle = "") {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!form || !cleanNoteId) return;
+    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+    const searchInput = form.querySelector("[data-relation-target-search]");
+    const status = form.querySelector("[data-relation-target-status]");
+    const submit = form.querySelector('button[type="submit"]');
+    if (hiddenTargetId) {
+      hiddenTargetId.value = cleanNoteId;
+      hiddenTargetId.dataset.targetTitle = String(noteTitle || "").trim();
+    }
+    if (searchInput) searchInput.value = String(noteTitle || "").trim();
+    if (submit) submit.disabled = false;
+    if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;
+    void this.refreshRelationTargetSearch(String(noteTitle || "").trim());
   }
 
   refreshRelationQualityMeter(form) {
@@ -8188,6 +8270,16 @@ export class EditorPane {
       const templateVariantButton = e.target.closest("[data-relation-template-variant]");
       if (templateVariantButton) {
         this.applyRelationTemplateVariant(templateVariantButton);
+        return;
+      }
+      const relationTargetChoice = e.target.closest("[data-relation-target-choice]");
+      if (relationTargetChoice) {
+        const form = relationTargetChoice.closest("[data-create-relation-form]");
+        this.applyRelationTargetChoice(
+          form,
+          relationTargetChoice.dataset.noteId || "",
+          relationTargetChoice.dataset.noteTitle || ""
+        );
         return;
       }
       const relationAction = e.target.closest("[data-relation-action]");

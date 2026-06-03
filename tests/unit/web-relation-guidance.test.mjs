@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  EditorPane,
   relationCreateDefaultTypeForNote,
   relationTypeGuidance,
   sortRelationTargetCandidatesForNote
 } from "../../apps/web/src/components-editor-pane.js";
+import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
 test("relation guidance defaults to counterexample when note body signals a counterexample", () => {
   const note = {
@@ -121,4 +123,52 @@ test("relation target sorting favors same-folder notes with thesis over weaker e
     sorted.map((item) => item.id),
     ["same-folder-thesis", "other-folder"]
   );
+});
+
+test("create relation form uses a searchable target field instead of a select box", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const note = { id: "pn_current", folderId: "dir_original_default", noteType: "" };
+  state.notes.push(
+    note,
+    { id: "pn_target_a", title: "Alpha Note", folderId: "dir_original_default", noteType: "" },
+    { id: "pn_target_b", title: "Beta Note", folderId: "dir_original_default", noteType: "" }
+  );
+  pane.state = state;
+  pane.activeNote = () => note;
+  pane.scopedLinkCandidates = () => state.notes.filter((item) => item.id !== note.id);
+
+  const html = pane.renderCreateRelationFormSection(note.id, { targetNoteId: "pn_target_a" });
+
+  assert.match(html, /data-relation-target-search/);
+  assert.match(html, /data-relation-target-list/);
+  assert.match(html, /type="hidden" name="toNoteId"/);
+  assert.doesNotMatch(html, /data-relation-target-select/);
+  assert.match(html, /value="Alpha Note"/);
+});
+
+test("relation target selection writes the chosen title back into the search field", () => {
+  const pane = Object.create(EditorPane.prototype);
+  const hiddenTarget = { value: "", dataset: {} };
+  const searchInput = { value: "" };
+  const status = { textContent: "" };
+  const submit = { disabled: true };
+  const form = {
+    querySelector(selector) {
+      if (selector === "[data-relation-target-id]") return hiddenTarget;
+      if (selector === "[data-relation-target-search]") return searchInput;
+      if (selector === "[data-relation-target-status]") return status;
+      if (selector === 'button[type="submit"]') return submit;
+      return null;
+    }
+  };
+  pane.refreshRelationTargetSearch = async () => {};
+
+  pane.applyRelationTargetChoice(form, "pn_target_a", "Alpha Note");
+
+  assert.equal(hiddenTarget.value, "pn_target_a");
+  assert.equal(hiddenTarget.dataset.targetTitle, "Alpha Note");
+  assert.equal(searchInput.value, "Alpha Note");
+  assert.equal(status.textContent, "已选：Alpha Note");
+  assert.equal(submit.disabled, false);
 });
