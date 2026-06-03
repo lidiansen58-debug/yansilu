@@ -227,7 +227,12 @@ const graphState = {
   focusContextMode: String(readStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, "argument") || "").trim().toLowerCase() || "argument",
   zoom: "fit",
   expanded: false,
-  utilityDrawerOpen: false
+  utilityDrawerOpen: false,
+  sectionOpen: {
+    "bridge-gaps": false,
+    "review-queue": false,
+    "ai-analysis": false
+  }
 };
 const graphViewportDragState = {
   active: false,
@@ -8808,11 +8813,12 @@ function renderGraphInsightCoach(context = {}) {
   `;
 }
 
-function renderGraphBridgeGapSection(bridgeGaps = []) {
+function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
   const items = Array.isArray(bridgeGaps) ? bridgeGaps.filter((item) => Array.isArray(item?.noteIds) && item.noteIds.length) : [];
   if (!items.length) return "";
+  const open = options.open === true;
   return `
-      <details class="graph-section graph-collapsible-section graph-bridge-gap-section" data-graph-section="bridge-gaps">
+      <details class="graph-section graph-collapsible-section graph-bridge-gap-section" data-graph-section="bridge-gaps"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
             <div class="graph-section-title">潜在关联</div>
@@ -9782,17 +9788,18 @@ function applyGraphEdgeHoverState(edgeElement) {
   }
 }
 
-function renderRelationReviewQueueSection(reviewQueue) {
+function renderRelationReviewQueueSection(reviewQueue, options = {}) {
   const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
   const total = Number(reviewQueue?.total || items.length || 0);
   const error = String(reviewQueue?.error || "").trim();
   if (!error && total <= 0) return "";
+  const open = options.open === true;
   const summary = reviewQueue?.summary && typeof reviewQueue.summary === "object" ? reviewQueue.summary : {};
   const byQuality = summary.byQualityLevel && typeof summary.byQualityLevel === "object" ? summary.byQualityLevel : {};
   const emptyCount = Number(byQuality.empty || 0);
   const basicCount = Number(byQuality.basic || 0);
   return `
-      <details class="graph-section graph-collapsible-section graph-review-section" data-graph-section="review-queue">
+      <details class="graph-section graph-collapsible-section graph-review-section" data-graph-section="review-queue"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
             <div class="graph-section-title">待补关系理由</div>
@@ -9961,11 +9968,11 @@ function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()
   `;
 }
 
-function renderGraphAiAnalysisCard() {
+function renderGraphAiAnalysisCard(options = {}) {
   const { analysis, summary, pendingCount, topicCount, relationCount, bridgeCount, isolatedCount, totalCandidates } = graphAiAnalysisSummaryState();
   const loading = graphState.aiAnalysisLoading;
   const error = graphState.aiAnalysisError;
-  const shouldOpen = loading || Boolean(error);
+  const shouldOpen = options.open === true || loading || Boolean(error);
   return `
     <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
       <summary class="graph-collapsible-summary">
@@ -10039,15 +10046,34 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sect
   `;
 }
 
+function graphSummaryModeNote(relationType = "all") {
+  const key = String(relationType || "all").trim().toLowerCase();
+  if (key === "meaningful") return "先看有解释力的关系。";
+  if (key === "all") return "展开全部关系。";
+  if (key === "noisy") return "只看链接线索。";
+  if (key === "index") return "只看主题归属。";
+  return `只看${graphRelationTypeLabel(key)}。`;
+}
+
+function syncGraphDisclosureState(root) {
+  if (!root) return;
+  const utilityDrawer = root.querySelector("[data-graph-utility-drawer]");
+  if (utilityDrawer) {
+    graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+  }
+  root.querySelectorAll("[data-graph-section]").forEach((section) => {
+    const key = String(section.getAttribute("data-graph-section") || "").trim();
+    if (!key) return;
+    graphState.sectionOpen[key] = section.hasAttribute("open");
+  });
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
   if (!summary || !canvas) return;
-  const existingUtilityDrawer = canvas.querySelector("[data-graph-utility-drawer]");
-  if (existingUtilityDrawer) {
-    graphState.utilityDrawerOpen = existingUtilityDrawer.hasAttribute("open");
-  }
+  syncGraphDisclosureState(canvas);
 
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
@@ -10115,15 +10141,7 @@ function renderGraphPanel() {
   const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
   const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const readingMode = graphViewModeForRelationType(effectiveRelationType);
-  const summaryModeNote =
-    readingMode === "structure"
-      ? "只看主题归属。"
-      : effectiveRelationType === "meaningful"
-      ? "先看有解释力的关系。"
-      : effectiveRelationType === "noisy"
-          ? "只看链接线索。"
-          : "展开全部关系。";
+  const summaryModeNote = graphSummaryModeNote(effectiveRelationType);
   const baseSummary = showingFocusedNote
     ? `${focusedNote?.title || focused.focusedNoteId} · ${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label} · ${edges.length} 条关系`
     : `${scopeFolder?.name || "永久笔记盒"} · ${visibleNodes.length} 条永久笔记 · ${edges.length} 条关系 · ${summaryModeNote}`;
@@ -10153,9 +10171,9 @@ function renderGraphPanel() {
       : baseSummary;
   const supplementalSections = !showingFocusedNote
     ? `
-      ${renderGraphBridgeGapSection(bridgeGaps)}
-      ${renderRelationReviewQueueSection(graphState.reviewQueue)}
-      ${renderGraphAiAnalysisCard()}
+      ${renderGraphBridgeGapSection(bridgeGaps, { open: graphState.sectionOpen["bridge-gaps"] === true })}
+      ${renderRelationReviewQueueSection(graphState.reviewQueue, { open: graphState.sectionOpen["review-queue"] === true })}
+      ${renderGraphAiAnalysisCard({ open: graphState.sectionOpen["ai-analysis"] === true })}
     `
     : "";
   const utilityDrawer = !showingFocusedNote
@@ -12905,6 +12923,16 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     if (utilityDrawer) {
       requestAnimationFrame(() => {
         graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+      });
+    }
+  }
+  const collapsibleSummary = event.target.closest(".graph-collapsible-summary");
+  if (collapsibleSummary) {
+    const section = collapsibleSummary.closest("[data-graph-section]");
+    if (section) {
+      const sectionKey = String(section.getAttribute("data-graph-section") || "").trim();
+      requestAnimationFrame(() => {
+        if (sectionKey) graphState.sectionOpen[sectionKey] = section.hasAttribute("open");
       });
     }
   }
