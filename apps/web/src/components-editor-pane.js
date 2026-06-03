@@ -7919,7 +7919,7 @@ export class EditorPane {
     const linkedLiterature = links
       .map((token) => this.resolveLinkToken(token, scoped))
       .map((x) => x?.note)
-      .filter((x) => x && x.noteType === "literature");
+      .filter((x) => x && this.resolvedNoteType(x) === "literature");
 
     const dedupLiterature = [];
     const seen = new Set();

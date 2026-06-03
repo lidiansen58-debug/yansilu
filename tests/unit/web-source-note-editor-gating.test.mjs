@@ -211,3 +211,43 @@ test("literature queue records keep folder-root literature notes even when noteT
 
   assert.deepEqual(records.map((item) => item.note.id), ["ln_missing"]);
 });
+
+test("originality payload keeps linked literature sources by folder root when noteType is missing", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const literatureNote = {
+    id: "ln_source",
+    title: "Source Literature",
+    folderId: "dir_literature_default",
+    noteType: "",
+    body: [
+      "# Source Literature",
+      "",
+      "## 原文",
+      "Quoted source passage.",
+      "",
+      "## 转述",
+      "A paraphrased source point."
+    ].join("\n")
+  };
+
+  pane.state = state;
+  pane.getEditorValue = () => "# Permanent Claim\n\nMy claim cites [[Source Literature]].";
+  pane.scopedLinkCandidates = () => [literatureNote];
+  pane.resolveLinkToken = (token, scoped) => ({
+    note: scoped.find((item) => item.title === token) || null
+  });
+  pane.resolvePlanFromWindow = () => ({});
+  pane.extractCoreClaimFromBody = (body) => body;
+
+  const payload = pane.buildOriginalityPayload({
+    id: "pn_claim",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    body: ""
+  });
+
+  assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_source"]);
+  assert.match(payload.literature[0].quote_text, /Quoted source passage/);
+  assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
+});
