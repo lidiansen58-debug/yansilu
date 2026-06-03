@@ -8002,16 +8002,9 @@ export class EditorPane {
     }
 
     if (evalItem.status === "warning") {
-      const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-      const base = `这条永久笔记已经有判断雏形，但还不够像一条独立观点（相似度 ${similarity}%）。请补充你的判断依据，或为引用内容标明来源位置。`;
-      this.showOriginalityNotice("建议继续打磨", "warn", base);
-      this.onStatus(forSave ? `${base}，将暂时保持草稿状态` : base, "warn");
       return { ...evalItem, raw: result };
     }
 
-    const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-    this.showOriginalityNotice("原创性通过", "ok", `这条永久笔记已经基本长成独立判断，可继续建立关联。相似度 ${similarity}%。`);
-    this.onStatus(`原创性检查通过：相似度 ${similarity}%。`, "ok");
     return { ...evalItem, raw: result };
   }
 

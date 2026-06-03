@@ -11288,16 +11288,7 @@ async function handleStateChange(reason, payload = {}) {
             savedNote = updated;
           }
           syncExplorerContextToNote(note);
-          if (isPermanentLikeNote(note)) {
-            setStatus(
-              resolvedStatus === "active"
-                ? "已同步到 Markdown，永久笔记已完成作者确认"
-                : "已同步到 Markdown，但当前永久笔记仍按 draft 处理",
-              resolvedStatus === "active" ? "ok" : "warn"
-            );
-          } else {
-            setStatus("已同步到 Markdown", "ok");
-          }
+          setStatus("已同步到 Markdown", "ok");
           if (state.module === "graph") await refreshDirectoryGraph();
 	        } catch (error) {
             const feedback = noteSaveFailureFeedback(error);
