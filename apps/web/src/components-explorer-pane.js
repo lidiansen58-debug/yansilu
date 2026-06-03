@@ -198,7 +198,7 @@ export class ExplorerPane {
     const copy = explorerNewNoteButtonCopy(this.state);
     button.title = copy.title;
     button.dataset.tip = copy.title;
-    button.classList.toggle("is-source-note-entry", copy.entryKind === "fleeting" || copy.entryKind === "literature");
+    button.classList.remove("is-source-note-entry");
     button.dataset.noteEntryKind = copy.entryKind || "permanent";
     const folderId = resolveExplorerNewNoteFolderId(this.state);
     const noteType = typeFromFolder(this.state, folderId);

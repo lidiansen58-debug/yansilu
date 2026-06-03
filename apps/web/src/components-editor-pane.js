@@ -2889,7 +2889,7 @@ export class EditorPane {
             ? ""
             : `
               <div class="semantic-relation-card-actions">
-                <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
+                <button class="mini-btn primary create-original-cta" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
               </div>
             `
         }

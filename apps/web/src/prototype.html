@@ -267,16 +267,11 @@
       place-items: center;
     }
     .new-note-action {
-      flex: 0 0 auto;
-      width: auto;
-      min-width: 34px;
-      min-height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 10px;
-      white-space: nowrap;
+      min-width: 30px;
+      width: 30px;
+      padding: 0;
+      display: inline-grid;
+      place-items: center;
     }
     .new-note-action .mini-svg {
       width: 15px;
@@ -302,23 +297,19 @@
       white-space: nowrap;
     }
     .new-note-action.is-source-note-entry {
-      width: auto;
-      min-width: fit-content;
-      padding: 0 12px 0 10px;
-      border-color: rgba(15, 111, 86, 0.18);
-      background: linear-gradient(180deg, rgba(242, 250, 247, 0.98), rgba(232, 245, 239, 0.98));
-      color: #0f5f4f;
-      box-shadow: 0 12px 28px rgba(15, 111, 86, 0.12);
+      min-width: 30px;
+      width: 30px;
+      padding: 0;
     }
     .new-note-action.is-source-note-entry:hover {
-      border-color: rgba(15, 111, 86, 0.24);
-      background: linear-gradient(180deg, rgba(236, 248, 243, 1), rgba(224, 241, 234, 1));
-      color: #0c5446;
-      box-shadow: 0 14px 30px rgba(15, 111, 86, 0.16);
+      border-color: #d7dce3;
+      background: #ffffff;
+      color: inherit;
+      box-shadow: none;
     }
     .new-note-action.is-source-note-entry .new-note-action-label,
     .new-note-action.is-source-note-entry .new-note-action-meta {
-      display: inline-flex;
+      display: none;
     }
     .new-note-action.is-source-note-entry[data-note-entry-kind="fleeting"] .new-note-action-meta {
       background: rgba(180, 83, 9, 0.12);
