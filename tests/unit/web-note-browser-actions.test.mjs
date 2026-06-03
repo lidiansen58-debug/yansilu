@@ -285,6 +285,9 @@ test("save-note only persists known relation-network statuses", () => {
   assert.match(source, /function isPersistableRelationNetworkStatus\(status = ""\) \{/);
   assert.match(source, /if \(isPersistableRelationNetworkStatus\(nextStatus\)\) writeStoredRelationNetworkStatus\(note\.id, nextStatus\);/);
   assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined,/);
+  assert.match(source, /return isPersistableRelationNetworkStatus\(value\) \? value : "";/);
+  assert.match(source, /if \(!isPersistableRelationNetworkStatus\(cleanStatus\)\) return;/);
+  assert.doesNotMatch(source, /\["connected", "isolated", "unknown"\]\.includes/);
 });
 
 test("graph-ready relation sync does not let stale unknown statuses override recomputed connectivity", () => {
