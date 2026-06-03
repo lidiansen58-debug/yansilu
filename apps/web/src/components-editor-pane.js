@@ -1760,17 +1760,24 @@ export class EditorPane {
     return this.state.notes.find((n) => n.id === t.noteId) || null;
   }
 
+  resolvedNoteType(note = this.activeNote()) {
+    if (note?.folderId) return String(typeFromFolder(this.state, note.folderId) || "").trim().toLowerCase();
+    const explicitType = String(note?.noteType || "").trim().toLowerCase();
+    if (explicitType) return explicitType;
+    return "";
+  }
+
   isLiteratureNote(note = this.activeNote()) {
-    return String(note?.noteType || "").trim() === "literature";
+    return this.resolvedNoteType(note) === "literature";
   }
 
   isOriginalNote(note = this.activeNote()) {
-    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     return noteType === "original" || noteType === "permanent";
   }
 
   isOriginalRecordableSource(note = this.activeNote()) {
-    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     return noteType === "fleeting" || noteType === "literature";
   }
 
@@ -1783,7 +1790,7 @@ export class EditorPane {
   }
 
   isLiteratureWorkspaceActive(note = this.activeNote()) {
-    return false;
+    return this.resolvedNoteType(note) === "literature";
   }
 
   defaultAuthorshipState(note = null) {
@@ -2475,7 +2482,7 @@ export class EditorPane {
     const tabsHtml = this.state.tabs
       .map((t) => {
         const note = this.state.notes.find((n) => n.id === t.noteId);
-        const noteType = note?.noteType || typeFromFolder(this.state, note?.folderId || "");
+        const noteType = this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || "");
         return `
       <div class="tab ${t.id === this.state.activeTabId ? "active" : ""} ${t.dirty ? "dirty" : ""}" data-tab="${t.id}" title="${t.title}">
         <span class="tab-main">
@@ -2494,7 +2501,7 @@ export class EditorPane {
           .map(
             (t) => {
               const note = this.state.notes.find((n) => n.id === t.noteId);
-              const noteType = note?.noteType || typeFromFolder(this.state, note?.folderId || "");
+              const noteType = this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || "");
               return `<button class="tab-menu-item ${t.id === this.state.activeTabId ? "active" : ""}" data-switch-tab="${t.id}">
                 <span class="tab-menu-item-shell">
                   <span class="tab-menu-item-main">
@@ -2792,13 +2799,78 @@ export class EditorPane {
     button.setAttribute("aria-label", visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记");
   }
 
+  renderSourceNoteFlowSection(note) {
+    const noteType = this.resolvedNoteType(note);
+    if (!note?.id || (noteType !== "fleeting" && noteType !== "literature")) return "";
+
+    const generatedOriginalId = this.generatedOriginalNoteId(note);
+    const generatedOriginal = generatedOriginalId
+      ? this.state.notes.find((item) => item?.id === generatedOriginalId) || null
+      : null;
+    const hasGenerated = Boolean(generatedOriginalId);
+
+    let statusLabel = hasGenerated ? "已生成永久笔记" : "待生成永久笔记";
+    let hint = "先把这条材料沉淀成永久笔记，再进入关联与写作。";
+    let detail = "这里不会判断它是否孤立，因为随笔笔记和文献笔记本来就不进入永久笔记关系网络。";
+    let actionLabel = "生成永久笔记";
+
+    if (noteType === "literature") {
+      const completion = this.literatureCompletionState(note);
+      statusLabel = hasGenerated ? "已生成永久笔记" : completion.label;
+      hint = hasGenerated
+        ? "这条文献笔记已经长出永久笔记，接下来请回到永久笔记继续建立关联。"
+        : completion.hint;
+      detail = hasGenerated
+        ? "文献笔记继续保留为证据与出处，不参与“孤立/非孤立”的判断。"
+        : "文献笔记先补来源、转述和判断种子，再决定要不要沉淀成永久笔记。";
+      actionLabel = "记录永久笔记";
+    } else {
+      hint = hasGenerated
+        ? "这条随笔已经沉淀成永久笔记，接下来请回到永久笔记继续建立关联。"
+        : "随笔笔记只负责捕捉想法；当它值得长期保留时，再沉淀成永久笔记。";
+      detail = hasGenerated
+        ? "随笔笔记本身不参与永久笔记关系网络。"
+        : "随笔笔记不会被标成孤立；只有变成永久笔记之后，才进入关系网络。";
+    }
+
+    return `
+      <section class="inspector-section semantic-relations-section" data-source-note-flow-section data-note-id="${escapeHtml(note.id)}">
+        <div class="inspector-section-head">
+          <div>
+            <div class="inspector-section-title">生成永久笔记</div>
+            <div class="inspector-section-note">${escapeHtml(hint)}</div>
+          </div>
+          <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="related-empty">${escapeHtml(detail)}</div>
+        <div class="semantic-relation-status">
+          <span class="inspector-chip">${escapeHtml(noteTypeText(noteType))}</span>
+          ${
+            generatedOriginal?.title
+              ? `<span class="inspector-chip">已生成：${escapeHtml(generatedOriginal.title)}</span>`
+              : ""
+          }
+        </div>
+        ${
+          hasGenerated
+            ? ""
+            : `
+              <div class="semantic-relation-card-actions">
+                <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
+              </div>
+            `
+        }
+      </section>
+    `;
+  }
+
   renderLiteratureWorkspace() {
     const note = this.activeNote();
-    const isLiterature = false;
-    this.els.literatureWorkspace?.classList.add("hidden");
-    this.els.markdownSplit?.classList.remove("hidden");
+    const isLiterature = this.isLiteratureWorkspaceActive(note);
+    this.els.literatureWorkspace?.classList.toggle("hidden", !isLiterature);
+    this.els.markdownSplit?.classList.toggle("hidden", isLiterature);
     this.els.modeEdit?.classList.remove("hidden");
-    this.els.modeSplit?.classList.toggle("hidden", true);
+    this.els.modeSplit?.classList.toggle("hidden", isLiterature);
     if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
 
     for (const el of [this.els.insertImage, this.els.insertTag, this.els.toolbarCommandBtn]) {
@@ -2886,7 +2958,7 @@ export class EditorPane {
       <div class="token-preview-note">
         <div class="token-preview-meta">
           <span>${escapeHtml(badgeText)}</span>
-          <span>${escapeHtml(noteTypeText(note?.noteType || typeFromFolder(this.state, note?.folderId || "")))}</span>
+          <span>${escapeHtml(noteTypeText(this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || "")))}</span>
           <span>${escapeHtml(this.folderLabel(note?.folderId || ""))}</span>
         </div>
         <div class="markdown-preview token-preview-markdown">${preview}</div>
@@ -4899,7 +4971,7 @@ export class EditorPane {
   }
 
   linkCandidateLocationText(note) {
-    return `${noteTypeText(note?.noteType || typeFromFolder(this.state, note?.folderId || ""))} · ${this.folderLabel(note?.folderId || "")}`;
+    return `${noteTypeText(this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || ""))} · ${this.folderLabel(note?.folderId || "")}`;
   }
 
   setLinkInsertSubmitting(nextSubmitting) {
@@ -5978,7 +6050,7 @@ export class EditorPane {
     return this.state.notes
       .filter((item) => {
         if (!item?.id || item.id === note.id) return false;
-        const noteType = String(item.noteType || typeFromFolder(this.state, item.folderId)).trim().toLowerCase();
+        const noteType = this.resolvedNoteType(item);
         if (noteType !== "permanent" && noteType !== "original") return false;
         return rootBoxIdFromFolder(this.state, item.folderId) === rootId;
       })
@@ -5990,7 +6062,7 @@ export class EditorPane {
     const note = this.activeNote();
     const tab = this.activeTab();
     if (!note?.id || !tab) return;
-    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (noteType !== "permanent" && noteType !== "original") {
       this.onStatus("AI 分析目前只面向永久笔记。", "warn");
       return;
@@ -6018,7 +6090,7 @@ export class EditorPane {
   }
 
   renderPermanentNoteAiAnalysisSection(note) {
-    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (!note?.id || !["permanent", "original"].includes(noteType)) return "";
     const result = this.noteAiAnalysisByNoteId.get(note.id) || null;
     const analysis = result?.analysis || null;
@@ -6227,7 +6299,7 @@ export class EditorPane {
   }
 
   legacyRenderPermanentNoteMainPathSection(note, overview = {}) {
-    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
@@ -6666,7 +6738,7 @@ export class EditorPane {
   }
 
   renderPermanentNoteMainPathSectionV2(note, overview = {}) {
-    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary.filter((item) => String(item || "").trim()) : [];
@@ -6977,7 +7049,7 @@ export class EditorPane {
   }
 
   renderPermanentNoteDistillationSection(note) {
-    const noteType = String(note?.noteType || typeFromFolder(this.state, note?.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (!note?.id || (noteType !== "permanent" && noteType !== "original")) return "";
     const thesis = String(note.thesis || "").trim();
     const summary = Array.isArray(note.threeLineSummary) ? note.threeLineSummary : [];
@@ -7275,7 +7347,7 @@ export class EditorPane {
   async handleDistillationForm(form) {
     const note = this.activeNote();
     if (!note?.id) return;
-    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (noteType !== "permanent" && noteType !== "original") {
       this.onStatus("观点提纯面板只支持永久笔记", "warn");
       return;
@@ -7317,7 +7389,7 @@ export class EditorPane {
   async confirmDistillation() {
     const note = this.activeNote();
     if (!note?.id) return;
-    const noteType = String(note.noteType || typeFromFolder(this.state, note.folderId)).trim().toLowerCase();
+    const noteType = this.resolvedNoteType(note);
     if (noteType !== "permanent" && noteType !== "original") {
       this.onStatus("观点提纯面板只支持永久笔记", "warn");
       return;
@@ -7579,6 +7651,8 @@ export class EditorPane {
 
     const tags = parseTags(tab.body || "");
     const { forward, backward, tagRelated } = this.buildLocalRelationSignals(note, tab);
+    const isPermanentNote = this.isOriginalNote(note);
+    const isRecordableSource = this.isOriginalRecordableSource(note);
 
     const renderNoteItem = (n, badgeText = "") => `
       <button class="related-item" data-preview-note="${n.id}">
@@ -7617,7 +7691,7 @@ export class EditorPane {
       <div class="inspector-overview">
         <div class="inspector-overview-head">
           <div class="inspector-overview-title">${escapeHtml(note.title)}</div>
-          <div class="inspector-overview-meta">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
+          <div class="inspector-overview-meta">${escapeHtml(noteTypeText(this.resolvedNoteType(note)))} · ${escapeHtml(this.folderLabel(note.folderId))}</div>
         </div>
       <div class="inspector-overview-grid">
         <div class="inspector-overview-row">
@@ -7628,7 +7702,9 @@ export class EditorPane {
       </div>
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
-          this.semanticRelationsState === "error"
+          !isPermanentNote
+            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示生成永久笔记的下一步。"
+            : this.semanticRelationsState === "error"
             ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
             : this.semanticRelationsState === "loading"
               ? "上面这组数字只统计正文里的本地链接；显式关系仍在读取中，稍后会在主路径卡片和语义关系区里更新。"
@@ -7637,20 +7713,32 @@ export class EditorPane {
       </div>
       <div class="inspector-sections">
         ${extraTitle ? `<section class="inspector-section"><div class="related-empty">${escapeHtml(extraTitle)}</div></section>` : ""}
-        ${this.renderPermanentNoteMainPathSectionV2(
-          note,
-          this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
-        )}
-        ${this.renderPermanentNoteDistillationSection(note)}
-        ${this.renderInlineDraftRelationSection(note, tab)}
-        ${this.renderCurrentRelationSection(note.id, {
-          relations: this.currentSemanticRelations,
-          relationState: this.semanticRelationsState
-        })}
+        ${
+          isPermanentNote
+            ? `
+              ${this.renderPermanentNoteMainPathSectionV2(
+                note,
+                this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
+              )}
+              ${this.renderPermanentNoteDistillationSection(note)}
+              ${this.renderInlineDraftRelationSection(note, tab)}
+              ${this.renderCurrentRelationSection(note.id, {
+                relations: this.currentSemanticRelations,
+                relationState: this.semanticRelationsState
+              })}
+            `
+            : isRecordableSource
+              ? this.renderSourceNoteFlowSection(note)
+              : ""
+        }
       </div>
     `;
-    void this.refreshSemanticRelations(note.id, relationRequestSerial);
-    void this.refreshNoteAiSuggestions(note.id);
+    if (isPermanentNote) {
+      void this.refreshSemanticRelations(note.id, relationRequestSerial);
+      void this.refreshNoteAiSuggestions(note.id);
+      return;
+    }
+    this.semanticRelationsState = "idle";
   }
 
   async handleTokenAction(token) {
@@ -7772,7 +7860,7 @@ export class EditorPane {
         </div>
       </div>
       <div class="inspector-summary">
-        <span class="inspector-chip">${escapeHtml(noteTypeText(note.noteType || typeFromFolder(this.state, note.folderId)))}</span>
+        <span class="inspector-chip">${escapeHtml(noteTypeText(this.resolvedNoteType(note)))}</span>
         <span class="inspector-chip">${escapeHtml(this.folderLabel(note.folderId))}</span>
         <span class="inspector-chip">关联 ${links.length}</span>
         <span class="inspector-chip">标签 ${tags.length}</span>
@@ -7861,7 +7949,7 @@ export class EditorPane {
 
     if (evalItem.status === "blocked") {
       const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-      const message = `原创性检查未通过：相似度 ${similarity}%。请先改写成自己的判断，再保存。`;
+      const message = `这条永久笔记还太贴近材料原句（相似度 ${similarity}%），说明它还没有完全长成你自己的独立判断。请先改写成自己的判断，再保存。`;
       this.showOriginalityNotice("需要重写", "bad", message);
       this.onStatus(message, "bad");
       if (forSave) {
@@ -7872,14 +7960,14 @@ export class EditorPane {
 
     if (evalItem.status === "warning") {
       const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-      const base = `原创性提醒：相似度 ${similarity}%。请补充自己的判断依据，或为引用内容标明来源位置。`;
+      const base = `这条永久笔记已经有判断雏形，但还不够像一条独立观点（相似度 ${similarity}%）。请补充你的判断依据，或为引用内容标明来源位置。`;
       this.showOriginalityNotice("建议继续打磨", "warn", base);
       this.onStatus(forSave ? `${base}，将暂时保持草稿状态` : base, "warn");
       return { ...evalItem, raw: result };
     }
 
     const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-    this.showOriginalityNotice("原创性通过", "ok", `原创性检查通过：相似度 ${similarity}%。`);
+    this.showOriginalityNotice("原创性通过", "ok", `这条永久笔记已经基本长成独立判断，可继续建立关联。相似度 ${similarity}%。`);
     this.onStatus(`原创性检查通过：相似度 ${similarity}%。`, "ok");
     return { ...evalItem, raw: result };
   }
@@ -7887,6 +7975,10 @@ export class EditorPane {
   showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
     const panel = this.els.originalityNotice;
     if (!panel) return;
+    if (!this.isOriginalNote()) {
+      this.hideOriginalityNotice();
+      return;
+    }
     this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = title);
     this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = message);
     panel.classList.remove("hidden");
@@ -8105,6 +8197,15 @@ export class EditorPane {
           noteId: this.activeNote()?.id || "",
           artifactId: noteAiOpenInbox.getAttribute("data-note-ai-open-inbox") || ""
         });
+        return;
+      }
+
+      const sourceNoteAction = e.target.closest("[data-source-note-action]");
+      if (sourceNoteAction) {
+        const action = String(sourceNoteAction.getAttribute("data-source-note-action") || "").trim();
+        if (action === "record-permanent") {
+          this.els.recordPermanent?.click?.();
+        }
         return;
       }
 
@@ -8474,7 +8575,7 @@ export class EditorPane {
       }
       await this.onStateChange("record-original-from-note", {
         sourceNoteId: note.id,
-        sourceType: note.noteType,
+        sourceType: this.resolvedNoteType(note),
         sourceTitle: note.title,
         sourceBody: this.getEditorValue(),
         directoryId
@@ -8512,7 +8613,7 @@ export class EditorPane {
         void this.onStateChange("record-original-from-note", {
           sourceNoteId: record.note.id,
           sourceTitle: record.note.title || "",
-          sourceType: record.note.noteType || "literature",
+          sourceType: this.resolvedNoteType(record.note) || "literature",
           sourceBody: record.note.body || "",
           citation: record.fields.citation || {},
           originalText: record.fields.originalText || "",

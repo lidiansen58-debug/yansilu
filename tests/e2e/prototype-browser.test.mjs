@@ -1246,6 +1246,113 @@ test("prototype mobile viewport keeps new note entry discoverable", async (t) =>
   }, 7000);
 });
 
+test("prototype root boxes keep source-note and isolated badges scoped to their own note types", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, webBase } = stack;
+
+  const fleetingCreate = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_fleeting_default",
+    body: "# Fleeting Source Note\n\nCapture the idea first, then decide whether it deserves a permanent note."
+  });
+  assert.equal(fleetingCreate.status, 201, JSON.stringify(fleetingCreate.json));
+
+  const literatureCreate = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    status: "draft",
+    body: [
+      "# Literature Source Note",
+      "",
+      "## 引用信息",
+      "",
+      "- 标题：Boundary in Reading Notes",
+      "- 作者：Example Author",
+      "- 年份：2024",
+      "- 容器：Journal",
+      "- 出版社 / 来源：https://example.com/boundary",
+      "- 页码 / 定位：p. 12",
+      "",
+      "## 原文",
+      "Keep the citation boundary explicit.",
+      "",
+      "## 转述",
+      "A literature note should preserve provenance before it becomes a permanent note.",
+      "",
+      "## 判断种子",
+      "The source note is evidence, not yet part of the permanent-note relation network."
+    ].join("\n")
+  });
+  assert.equal(literatureCreate.status, 201, JSON.stringify(literatureCreate.json));
+
+  const permanentOne = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Lonely Permanent One\n\nThis permanent note does not yet connect to other notes."
+  });
+  const permanentTwo = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Lonely Permanent Two\n\nThis permanent note also waits for explicit relations."
+  });
+  assert.equal(permanentOne.status, 201, JSON.stringify(permanentOne.json));
+  assert.equal(permanentTwo.status, 201, JSON.stringify(permanentTwo.json));
+
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+
+  const fleetingNoteId = fleetingCreate.json.item.id;
+  const literatureNoteId = literatureCreate.json.item.id;
+
+  await page.locator('[data-action="quick-fleeting"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_fleeting_default"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"]`).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Fleeting Source Note");
+  }, 7000);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
+  assert.equal(await page.locator("#literatureWorkspace").isVisible(), false);
+  assert.equal(await page.locator("#originalityNotice").isVisible(), false);
+  assert.match(
+    (await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"]`).locator(".item-trail").textContent()) || "",
+    /未转永久/
+  );
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Literature Source Note");
+  }, 7000);
+  assert.equal(await page.locator("#btnInsertLink").isVisible(), false);
+  assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
+  assert.equal(await page.locator("#literatureWorkspace").isVisible(), true);
+  assert.equal(await page.locator("#originalityNotice").isVisible(), false);
+  assert.match(
+    (await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).locator(".item-trail").textContent()) || "",
+    /未转永久/
+  );
+
+  await page.locator('[data-module="graph"]').click();
+  await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
+  await page.locator('[data-action="quick-original"]').click();
+  await page.waitForFunction(() => window.__prototypeState?.browserRootId === "dir_original_default");
+
+  const originalTrail = (await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .item-trail').textContent()) || "";
+  assert.match(originalTrail, /孤立/);
+  assert.doesNotMatch(originalTrail, /\d/);
+
+  const permanentTrails = await page.locator('.explorer-item[data-kind="file"] .item-trail').evaluateAll((nodes) =>
+    nodes.map((node) => (node.textContent || "").trim()).filter(Boolean)
+  );
+  assert.ok(permanentTrails.some((value) => value === "孤立"));
+});
+
 test("prototype mobile viewport keeps permanent-note entry usable", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
