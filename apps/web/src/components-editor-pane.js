@@ -5632,7 +5632,7 @@ export class EditorPane {
             <span>目标笔记</span>
             <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入关键词筛选笔记" value="${escapeHtml(targetQuery)}" autofocus />
             <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
-            <div class="link-picker-list semantic-relation-target-list" data-relation-target-list>${targetChoices}</div>
+            <div class="link-picker-list semantic-relation-target-list" data-relation-target-list hidden>${targetChoices}</div>
             <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
           </label>
           <label>
@@ -7594,7 +7594,37 @@ export class EditorPane {
     }, 180);
   }
 
-  applyRelationTargetChoice(form, noteId = "", noteTitle = "") {
+  openRelationTargetList(form) {
+    const list = form?.querySelector?.("[data-relation-target-list]");
+    if (list) list.hidden = false;
+  }
+
+  closeRelationTargetList(form) {
+    const list = form?.querySelector?.("[data-relation-target-list]");
+    if (list) list.hidden = true;
+  }
+
+  visibleRelationTargetChoices(form) {
+    return Array.from(form?.querySelectorAll?.("[data-relation-target-choice]") || []).filter(Boolean);
+  }
+
+  moveRelationTargetChoice(form, step = 1) {
+    const buttons = this.visibleRelationTargetChoices(form);
+    if (!buttons.length) return;
+    this.openRelationTargetList(form);
+    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
+    const currentId = String(hiddenTargetId?.value || "").trim();
+    let index = buttons.findIndex((button) => String(button.dataset.noteId || "").trim() === currentId);
+    if (index < 0) index = step > 0 ? -1 : 0;
+    const next = buttons[(index + step + buttons.length) % buttons.length];
+    if (!next) return;
+    this.applyRelationTargetChoice(form, next.dataset.noteId || "", next.dataset.noteTitle || "", {
+      keepOpen: true
+    });
+    next.scrollIntoView?.({ block: "nearest" });
+  }
+
+  applyRelationTargetChoice(form, noteId = "", noteTitle = "", options = {}) {
     const cleanNoteId = String(noteId || "").trim();
     if (!form || !cleanNoteId) return;
     const hiddenTargetId = form.querySelector("[data-relation-target-id]");
@@ -7608,7 +7638,13 @@ export class EditorPane {
     if (searchInput) searchInput.value = String(noteTitle || "").trim();
     if (submit) submit.disabled = false;
     if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;
+    if (options.keepOpen) this.openRelationTargetList(form);
+    else this.closeRelationTargetList(form);
     void this.refreshRelationTargetSearch(String(noteTitle || "").trim());
+    if (options.focusReason !== false) {
+      const rationale = form.querySelector('textarea[name="rationale"]');
+      rationale?.focus?.();
+    }
   }
 
   refreshRelationQualityMeter(form) {
@@ -8450,6 +8486,47 @@ export class EditorPane {
       if (relationTextInput) {
         const form = relationTextInput.closest("[data-create-relation-form], [data-edit-relation-form]");
         if (form) this.refreshRelationQualityMeter(form);
+      }
+    });
+    this.els.result.addEventListener("focusin", (e) => {
+      const targetSearch = e.target.closest("[data-relation-target-search]");
+      if (!targetSearch) return;
+      const form = targetSearch.closest("[data-create-relation-form]");
+      if (!form) return;
+      this.openRelationTargetList(form);
+    });
+    this.els.result.addEventListener("keydown", (e) => {
+      const targetSearch = e.target.closest("[data-relation-target-search]");
+      if (!targetSearch) return;
+      const form = targetSearch.closest("[data-create-relation-form]");
+      if (!form) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.moveRelationTargetChoice(form, 1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.moveRelationTargetChoice(form, -1);
+        return;
+      }
+      if (e.key === "Enter") {
+        const buttons = this.visibleRelationTargetChoices(form);
+        if (!buttons.length) return;
+        e.preventDefault();
+        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+        const current = buttons.find((button) => String(button.dataset.noteId || "").trim() === String(hiddenTargetId?.value || "").trim()) || buttons[0];
+        if (current) {
+          this.applyRelationTargetChoice(form, current.dataset.noteId || "", current.dataset.noteTitle || "");
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+        const selectedTitle = String(hiddenTargetId?.dataset?.targetTitle || "").trim();
+        if (selectedTitle) targetSearch.value = selectedTitle;
+        this.closeRelationTargetList(form);
       }
     });
     this.els.result.addEventListener("submit", (e) => {
