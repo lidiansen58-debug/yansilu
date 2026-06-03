@@ -121,6 +121,54 @@ test("API import confirm can write only selected candidates from an Obsidian vau
   }
 });
 
+test("API import confirm blocks originality-flagged permanent notes by default and allows explicit override", async () => {
+  const vaultPath = await makeTempDir("yansilu-api-vault-originality-");
+  const importRoot = await makeTempDir("yansilu-api-import-originality-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const child = startApi(port, vaultPath);
+
+  await fs.writeFile(
+    path.join(importRoot, "copied-claim.md"),
+    [
+      "---",
+      "title: Copied claim",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A copied claim should remain a source excerpt."
+    ].join("\n"),
+    "utf8"
+  );
+
+  try {
+    await waitForHealth(baseUrl);
+
+    const preview = await postJson(baseUrl, "/api/v1/imports/preview", {
+      connector: "obsidian",
+      payload: { path: importRoot }
+    });
+    assert.equal(preview.status, 200, JSON.stringify(preview.json));
+    assert.deepEqual(preview.json.originalityGuard.flaggedPermanentIds, preview.json.samples.permanentNoteIds);
+
+    const blocked = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+      confirm: true
+    });
+    assert.equal(blocked.status, 409, JSON.stringify(blocked.json));
+    assert.equal(blocked.json.error.code, "IMPORT_ORIGINALITY_BLOCKED");
+
+    const confirmed = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
+      confirm: true,
+      overrideOriginality: true
+    });
+    assert.equal(confirmed.status, 200, JSON.stringify(confirmed.json));
+    assert.deepEqual(confirmed.json.originalityGuard.flaggedPermanentIds, preview.json.samples.permanentNoteIds);
+  } finally {
+    await stopApi(child);
+  }
+});
+
 test("API import confirm writes obsidian literature, permanent notes, and copied assets", async () => {
   const vaultPath = await makeTempDir("yansilu-api-vault-obsidian-");
   const port = await findFreePort();
@@ -140,7 +188,8 @@ test("API import confirm writes obsidian literature, permanent notes, and copied
 
     const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
       confirm: true,
-      directoryId: "dir_literature_default"
+      directoryId: "dir_literature_default",
+      overrideOriginality: true
     });
     assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
     assert.deepEqual(confirm.json.result.created, {
@@ -181,7 +230,8 @@ test("API import records can be fetched and listed during the current app sessio
 
     const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
       confirm: true,
-      directoryId: "dir_literature_default"
+      directoryId: "dir_literature_default",
+      overrideOriginality: true
     });
     assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
 
@@ -242,7 +292,8 @@ test("API import rollback is rejected in simplified mode", async () => {
 
     const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.json.importRecordId}/confirm`, {
       confirm: true,
-      directoryId: "dir_literature_default"
+      directoryId: "dir_literature_default",
+      overrideOriginality: true
     });
     assert.equal(confirm.status, 200, JSON.stringify(confirm.json));
 

@@ -98,12 +98,13 @@ test("simplified Obsidian import preview, confirm, and export works end-to-end",
       sources: 2,
       literatureNotes: 2,
       permanentNotes: 1,
-      warnings: 0
+      warnings: 1
     });
 
     const confirm = await postJson(baseUrl, `/api/v1/imports/${preview.payload.importRecordId}/confirm`, {
       confirm: true,
-      directoryId: "dir_literature_default"
+      directoryId: "dir_literature_default",
+      overrideOriginality: true
     });
 
     assert.equal(confirm.response.status, 200, JSON.stringify(confirm.payload));

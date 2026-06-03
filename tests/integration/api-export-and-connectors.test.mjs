@@ -430,10 +430,13 @@ test("POST /api/v1/imports/preview records edge-case Obsidian fixture candidates
     assert.equal(payload.summary.sources, 5);
     assert.equal(payload.summary.literatureNotes, 5);
     assert.equal(payload.summary.permanentNotes, 1);
-    assert.equal(payload.summary.warnings, 1);
+    assert.equal(payload.summary.warnings, 2);
     assert.ok(payload.candidatePreview.permanentNotes.some((item) => item.title === "Source Note"));
     assert.equal(payload.candidatePreview.permanentNotes[0].type, "PermanentNote");
-    assert.deepEqual(payload.warnings.map((warning) => warning.code), ["IMPORT_MALFORMED_FRONTMATTER"]);
+    assert.deepEqual(payload.warnings.map((warning) => warning.code), [
+      "IMPORT_MALFORMED_FRONTMATTER",
+      "ORIGINALITY_GUARD_BLOCKED"
+    ]);
   } finally {
     await stopApi(api);
   }
@@ -460,8 +463,8 @@ test("POST /api/v1/imports/preview records realistic Obsidian vault candidates w
     assert.equal(payload.summary.sources, 2);
     assert.equal(payload.summary.literatureNotes, 2);
     assert.equal(payload.summary.permanentNotes, 1);
-    assert.equal(payload.summary.warnings, 0);
-    assert.deepEqual(payload.warnings, []);
+    assert.equal(payload.summary.warnings, 1);
+    assert.deepEqual(payload.warnings.map((warning) => warning.code), ["ORIGINALITY_GUARD_BLOCKED"]);
     assert.ok(payload.candidatePreview.literatureNotes.some((item) => item.title === "中文阅读卡片"));
     assert.ok(payload.candidatePreview.permanentNotes.some((item) => item.title === "Spacing Note"));
   } finally {

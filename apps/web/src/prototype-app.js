@@ -6907,7 +6907,7 @@ function writingThemeProjectEntry(indexCard) {
     noteIds,
     readiness,
     projectEntry:
-      continuation ||
+      themeContinuation ||
       describeWritingThemeProjectEntryState({
         notesLoaded,
         loadingNoteDetails,

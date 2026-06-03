@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import {
   createDirectory,
   createNoteInDirectory,
+  deleteNoteById,
   initVault,
   listNoteCatalogEntriesByType,
   readNote,
@@ -53,17 +54,18 @@ async function registerImportCatalogNote(vaultPath, candidate, noteType, writeRe
   });
 }
 
-function createService(vaultPath, importRecords = new Map()) {
+function createService(vaultPath, importRecords = new Map(), overrides = {}) {
   return createImportExportService({
     getVaultPath: () => vaultPath,
     getCwd: () => REPO_ROOT,
     importRecords,
-    initVault,
-    writeSourceIfAbsent,
-    writeLiteratureNoteIfAbsent,
-    writePermanentNoteIfAbsent,
+    initVault: overrides.initVault || initVault,
+    writeSourceIfAbsent: overrides.writeSourceIfAbsent || writeSourceIfAbsent,
+    writeLiteratureNoteIfAbsent: overrides.writeLiteratureNoteIfAbsent || writeLiteratureNoteIfAbsent,
+    writePermanentNoteIfAbsent: overrides.writePermanentNoteIfAbsent || writePermanentNoteIfAbsent,
+    deleteNoteById: overrides.deleteNoteById || deleteNoteById,
     registerImportCatalogNote: (candidate, noteType, writeResult, directoryId) =>
-      registerImportCatalogNote(vaultPath, candidate, noteType, writeResult, directoryId)
+      (overrides.registerImportCatalogNote || registerImportCatalogNote)(vaultPath, candidate, noteType, writeResult, directoryId)
   });
 }
 
@@ -110,8 +112,9 @@ test("createPreview only accepts obsidian and keeps records in memory", async ()
     sources: 2,
     literatureNotes: 2,
     permanentNotes: 1,
-    warnings: 0
+    warnings: 1
   });
+  assert.deepEqual(preview.originalityGuard.flaggedPermanentIds, preview.samples.permanentNoteIds);
   const record = await service.getImportRecord(preview.importRecordId);
   assert.equal(record?.state, "preview");
 });
@@ -129,7 +132,11 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   );
   const record = await service.getImportRecord(preview.importRecordId);
 
-  const result = await service.confirmImport(record, { confirm: true, directoryId: "dir_literature_default" }, "req_confirm");
+  const result = await service.confirmImport(
+    record,
+    { confirm: true, directoryId: "dir_literature_default", overrideOriginality: true },
+    "req_confirm"
+  );
   assert.equal(result.status, "completed");
   assert.deepEqual(result.result.created, {
     sources: 2,
@@ -177,6 +184,81 @@ test("confirmImport honors selectedCandidateIds subset", async () => {
       permanentNotes: 0
     }
   });
+});
+
+test("confirmImport blocks originality-flagged permanent notes by default and allows override", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-originality-vault-");
+  const importRoot = await makeTempDir("yansilu-service-originality-import-");
+  const service = createService(vaultPath);
+
+  await fs.writeFile(
+    path.join(importRoot, "copied-claim.md"),
+    [
+      "---",
+      "title: Copied claim",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "A copied claim should remain a source excerpt."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_originality_preview");
+  assert.deepEqual(preview.originalityGuard.flaggedPermanentIds, preview.samples.permanentNoteIds);
+
+  const record = await service.getImportRecord(preview.importRecordId);
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_originality_blocked"),
+    { code: "IMPORT_ORIGINALITY_BLOCKED" }
+  );
+  assert.equal(record?.state, "preview");
+
+  const confirmed = await service.confirmImport(record, { confirm: true, overrideOriginality: true }, "req_originality_override");
+  assert.equal(confirmed.status, "completed");
+  assert.deepEqual(confirmed.originalityGuard.flaggedPermanentIds, preview.samples.permanentNoteIds);
+
+  const permanentEntries = await listNoteCatalogEntriesByType(vaultPath, "permanent");
+  assert.equal(permanentEntries.length, 1);
+  const permanent = await readNote(vaultPath, "permanent", permanentEntries[0].id);
+  assert.match(permanent.markdown, /originality_status: blocked/);
+});
+
+test("confirmImport cleans up already written files and marks the record failed when a downstream step throws", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-cleanup-");
+  const importRoot = await makeTempDir("yansilu-service-confirm-cleanup-import-");
+  const importRecords = new Map();
+  const service = createService(vaultPath, importRecords, {
+    registerImportCatalogNote: async () => {
+      throw Object.assign(new Error("catalog unavailable"), { code: "CATALOG_UNAVAILABLE" });
+    }
+  });
+
+  await fs.writeFile(
+    path.join(importRoot, "cleanup.md"),
+    [
+      "---",
+      "title: Cleanup candidate",
+      "---",
+      "",
+      "This note should be removed when confirm fails."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_cleanup_preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_cleanup_confirm"),
+    { code: "CATALOG_UNAVAILABLE" }
+  );
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "CATALOG_UNAVAILABLE");
+  await assert.rejects(() => readNote(vaultPath, "source", preview.samples.sourceIds[0]), { code: "ENOENT" });
+  await assert.rejects(() => readNote(vaultPath, "literature", preview.samples.literatureNoteIds[0]), { code: "ENOENT" });
 });
 
 test("runMarkdownExport resolves the active vault path at call time", async () => {

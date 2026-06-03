@@ -4,13 +4,13 @@ import { createHash, randomUUID } from "node:crypto";
 
 import {
   createdEntryFromVaultPath,
-  createdEntryFromWriteResult,
   summarizeCandidateSelection,
   summarizeImportCandidates
 } from "../../../packages/connectors/src/index.mjs";
 import { buildNotePathIndex, listDirectories, listNoteCatalogEntriesByType } from "../../../packages/domain/src/index.mjs";
 import { exportMarkdown } from "../../../packages/export-engine/src/index.mjs";
 import { buildMarkdownCandidates } from "../../../packages/markdown-engine/src/index.mjs";
+import { normalizeOriginalityPlan, originalityGuard } from "../../../packages/originality-guard/src/index.mjs";
 
 function stableAssetId(importRecordId, relativePath) {
   const hash = createHash("sha1").update(`${importRecordId}:${relativePath}`).digest("hex").slice(0, 12);
@@ -262,11 +262,32 @@ async function collectObsidianAssetPlans(record, cwdResolver, literatureCandidat
   return assetPathByTarget;
 }
 
-function emptyOriginalityGuard() {
+function originalityGuardPayload(guard = null) {
   return {
-    plan: null,
-    flaggedPermanentIds: [],
-    evaluations: []
+    plan: guard?.plan ?? null,
+    flaggedPermanentIds: Array.isArray(guard?.flaggedPermanentIds) ? guard.flaggedPermanentIds : [],
+    evaluations: Array.isArray(guard?.evaluations) ? guard.evaluations : []
+  };
+}
+
+function failureDetailsFor(error) {
+  if (!error || typeof error !== "object") return null;
+  return error.details && typeof error.details === "object" ? error.details : null;
+}
+
+function cleanupEntryFromWriteResult(result) {
+  return {
+    noteId: result.noteId,
+    noteType: result.noteType,
+    filePath: result.path
+  };
+}
+
+function cleanupEntryFromAsset(noteId, filePath) {
+  return {
+    noteId,
+    noteType: "asset",
+    filePath
   };
 }
 
@@ -286,10 +307,63 @@ export function createImportExportService({
   writeSourceIfAbsent,
   writeLiteratureNoteIfAbsent,
   writePermanentNoteIfAbsent,
+  deleteNoteById,
   registerImportCatalogNote
 }) {
   const vaultPath = () => getVaultPath();
   const cwd = () => getCwd();
+
+  async function createdFileFromCleanupEntry(entry) {
+    return createdEntryFromVaultPath(vaultPath(), {
+      noteId: entry.noteId,
+      noteType: entry.noteType,
+      filePath: entry.filePath
+    });
+  }
+
+  async function cleanupTrackedEntries(entries = []) {
+    const seen = new Set();
+    let firstError = null;
+    for (const entry of [...entries].reverse()) {
+      const key = `${entry?.noteType || ""}:${entry?.noteId || ""}:${portablePath(entry?.filePath || "")}`;
+      if (!entry?.filePath || seen.has(key)) continue;
+      seen.add(key);
+      try {
+        if (entry.noteType === "asset") {
+          await fs.unlink(entry.filePath);
+          continue;
+        }
+        if (typeof deleteNoteById === "function") {
+          await deleteNoteById(vaultPath(), entry.noteId);
+        } else {
+          await fs.unlink(entry.filePath);
+        }
+      } catch (error) {
+        try {
+          await fs.unlink(entry.filePath);
+        } catch (unlinkError) {
+          if (!firstError) firstError = unlinkError;
+        }
+      }
+    }
+    if (firstError) throw firstError;
+  }
+
+  function markImportFailed(record, error, { selection = null, candidateSelection = null, guard = null } = {}) {
+    const finishedAt = new Date().toISOString();
+    record.state = "failed";
+    record.updatedAt = finishedAt;
+    record.failureResult = {
+      code: error?.code || null,
+      message: String(error?.message || error),
+      details: failureDetailsFor(error),
+      selection,
+      finishedAt
+    };
+    if (candidateSelection) record.candidateSelection = candidateSelection;
+    if (guard) record.originalityGuard = originalityGuardPayload(guard);
+    importRecords.set(record.importRecordId, record);
+  }
 
   async function createPreview(connector, payload, options, _requestId) {
     if (connector !== "obsidian") {
@@ -298,10 +372,12 @@ export function createImportExportService({
       throw error;
     }
 
+    const originalityPlan = normalizeOriginalityPlan(options?.originalityPlan || {});
     const built = await buildMarkdownCandidates({ connector, payload, options, cwd: cwd() });
-    const warnings = [...built.warnings];
+    const guard = originalityGuard(built, originalityPlan);
+    const warnings = [...built.warnings, ...guard.warnings];
     const importRecordId = `imp_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const candidatePreview = summarizeImportCandidates(built, null);
+    const candidatePreview = summarizeImportCandidates(built, guard);
     const candidateSelection = summarizeCandidateSelection(built);
     const preview = {
       importRecordId,
@@ -321,7 +397,7 @@ export function createImportExportService({
       candidatePreview,
       candidateSelection,
       warnings,
-      originalityGuard: emptyOriginalityGuard(),
+      originalityGuard: originalityGuardPayload(guard),
       createdAt: new Date().toISOString()
     };
 
@@ -332,6 +408,7 @@ export function createImportExportService({
       payload,
       options,
       candidates: built,
+      originalityGuard: originalityGuardPayload(guard),
       updatedAt: preview.createdAt
     });
     return preview;
@@ -374,6 +451,21 @@ export function createImportExportService({
     await initVault(vaultPath());
 
     const selected = buildSelectedImportCandidates(record.candidates, body.selectedCandidateIds);
+    const confirmPlan = normalizeOriginalityPlan(body.originalityPlan || record.originalityGuard?.plan || {});
+    const confirmGuard = originalityGuard(selected.candidates, confirmPlan);
+    const blocked = confirmGuard.evaluations.filter((item) => item.status === "blocked");
+    const evaluationById = new Map(confirmGuard.evaluations.map((item) => [item.permanentId, item]));
+    const allowOverride = body.overrideOriginality === true;
+    if (confirmPlan.blockOnBlocked && blocked.length && !allowOverride) {
+      const error = new Error("originality guard blocked confirmation");
+      error.code = "IMPORT_ORIGINALITY_BLOCKED";
+      error.details = {
+        blockedPermanentIds: blocked.map((item) => item.permanentId),
+        threshold: confirmPlan.blockThreshold
+      };
+      throw error;
+    }
+
     const directories = await listDirectories(vaultPath(), { includeHidden: true });
     const selectedDirectoryId = String(body.directoryId || "").trim();
     const selectedDirectory = selectedDirectoryId ? directoryById(directories, selectedDirectoryId) : null;
@@ -406,72 +498,100 @@ export function createImportExportService({
     const skipped = { conflicted: 0, invalid: 0 };
     const writtenPaths = new Set();
     const createdFiles = [];
+    const cleanupEntries = [];
     const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates.literature);
     const assetPathByTarget = new Map([...assetPlans.entries()].map(([key, value]) => [key, value.assetRelativePath]));
 
-    for (const source of selected.candidates.sources) {
-      const result = await writeSourceIfAbsent(vaultPath(), source, {
-        notePathIndex: sourcePathIndex,
-        catalogEntriesById: sourceCatalogById,
-        skipInit: true
-      });
-      if (!result.written) {
-        skipped.conflicted += 1;
-        continue;
+    try {
+      for (const source of selected.candidates.sources) {
+        const result = await writeSourceIfAbsent(vaultPath(), source, {
+          notePathIndex: sourcePathIndex,
+          catalogEntriesById: sourceCatalogById,
+          skipInit: true
+        });
+        if (!result.written) {
+          skipped.conflicted += 1;
+          continue;
+        }
+        const cleanupEntry = cleanupEntryFromWriteResult(result);
+        cleanupEntries.push(cleanupEntry);
+        created.sources += 1;
+        writtenPaths.add(path.dirname(result.path));
+        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
       }
-      created.sources += 1;
-      writtenPaths.add(path.dirname(result.path));
-      createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-    }
 
-    for (const note of selected.candidates.literature) {
-      const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
-        directoryFsPath: literatureTargetDirectory?.fsPath || "",
-        notePathIndex: literaturePathIndex,
-        catalogEntriesById: literatureCatalogById,
-        skipInit: true
-      });
-      if (!result.written) {
-        skipped.conflicted += 1;
-        continue;
+      for (const note of selected.candidates.literature) {
+        const result = await writeLiteratureNoteIfAbsent(vaultPath(), note, {
+          directoryFsPath: literatureTargetDirectory?.fsPath || "",
+          notePathIndex: literaturePathIndex,
+          catalogEntriesById: literatureCatalogById,
+          skipInit: true
+        });
+        if (!result.written) {
+          skipped.conflicted += 1;
+          continue;
+        }
+        const cleanupEntry = cleanupEntryFromWriteResult(result);
+        cleanupEntries.push(cleanupEntry);
+        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
+        await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
+        await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
+        created.literatureNotes += 1;
+        writtenPaths.add(path.dirname(result.path));
       }
-      await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
-      await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
-      created.literatureNotes += 1;
-      writtenPaths.add(path.dirname(result.path));
-      createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-    }
 
-    for (const note of selected.candidates.permanent) {
-      const result = await writePermanentNoteIfAbsent(vaultPath(), note, {
-        directoryFsPath: permanentTargetDirectory?.fsPath || "",
-        notePathIndex: permanentPathIndex,
-        catalogEntriesById: permanentCatalogById,
-        skipInit: true
-      });
-      if (!result.written) {
-        skipped.conflicted += 1;
-        continue;
+      for (const note of selected.candidates.permanent) {
+        const evalItem = evaluationById.get(note.id);
+        if (evalItem?.status === "warning" && !confirmPlan.allowDraftOnWarning) {
+          skipped.invalid += 1;
+          continue;
+        }
+        const noteToWrite = {
+          ...note,
+          originality_status: evalItem?.status || note.originality_status || "warning"
+        };
+        const result = await writePermanentNoteIfAbsent(vaultPath(), noteToWrite, {
+          directoryFsPath: permanentTargetDirectory?.fsPath || "",
+          notePathIndex: permanentPathIndex,
+          catalogEntriesById: permanentCatalogById,
+          skipInit: true
+        });
+        if (!result.written) {
+          skipped.conflicted += 1;
+          continue;
+        }
+        const cleanupEntry = cleanupEntryFromWriteResult(result);
+        cleanupEntries.push(cleanupEntry);
+        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
+        await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
+        await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
+        created.permanentNotes += 1;
+        writtenPaths.add(path.dirname(result.path));
       }
-      await registerImportCatalogNote(note, "permanent", result, permanentTargetDirectoryId);
-      await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
-      created.permanentNotes += 1;
-      writtenPaths.add(path.dirname(result.path));
-      createdFiles.push(await createdEntryFromWriteResult(vaultPath(), result));
-    }
 
-    for (const [normalizedTarget, plan] of assetPlans.entries()) {
-      const destinationPath = path.join(vaultPath(), plan.assetRelativePath);
-      await fs.mkdir(path.dirname(destinationPath), { recursive: true });
-      await fs.copyFile(plan.sourcePath, destinationPath);
-      writtenPaths.add(path.dirname(destinationPath));
-      createdFiles.push(
-        await createdEntryFromVaultPath(vaultPath(), {
-          noteType: "asset",
-          noteId: stableAssetId(record.importRecordId, normalizedTarget),
-          filePath: destinationPath
-        })
-      );
+      for (const [normalizedTarget, plan] of assetPlans.entries()) {
+        const destinationPath = path.join(vaultPath(), plan.assetRelativePath);
+        await fs.mkdir(path.dirname(destinationPath), { recursive: true });
+        await fs.copyFile(plan.sourcePath, destinationPath);
+        const cleanupEntry = cleanupEntryFromAsset(stableAssetId(record.importRecordId, normalizedTarget), destinationPath);
+        cleanupEntries.push(cleanupEntry);
+        writtenPaths.add(path.dirname(destinationPath));
+        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
+      }
+    } catch (error) {
+      let finalError = error;
+      try {
+        await cleanupTrackedEntries(cleanupEntries);
+      } catch (cleanupError) {
+        if (!cleanupError.cause) cleanupError.cause = error;
+        finalError = cleanupError;
+      }
+      markImportFailed(record, finalError, {
+        selection: selected.selection,
+        candidateSelection: summarizeCandidateSelection(selected.candidates),
+        guard: confirmGuard
+      });
+      throw finalError;
     }
 
     const targetDirectories = [];
@@ -503,7 +623,7 @@ export function createImportExportService({
 
     record.state = "completed";
     record.confirmResult = confirmResult;
-    record.originalityGuard = emptyOriginalityGuard();
+    record.originalityGuard = originalityGuardPayload(confirmGuard);
     record.candidateSelection = candidateSelectionFromSelection(record.candidates, confirmResult.selection);
     record.updatedAt = finishedAt;
     importRecords.set(record.importRecordId, record);
@@ -519,7 +639,7 @@ export function createImportExportService({
         writtenPaths: confirmResult.writtenPaths,
         createdFiles
       },
-      originalityGuard: emptyOriginalityGuard(),
+      originalityGuard: originalityGuardPayload(confirmGuard),
       finishedAt
     };
   }
