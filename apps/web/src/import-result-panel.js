@@ -38,7 +38,7 @@ function renderFileInventory(data = {}) {
   if (!createdFiles.length) return "";
   return `
     <div class="result-file-inventory">
-      <strong>已写入</strong>
+      <strong>本次写入</strong>
       <div class="result-file-types">${fileTypeSummary(createdFiles).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
     </div>
   `;
@@ -64,7 +64,7 @@ function renderDetailSection(title = "", content = "", extraClass = "") {
 
 export function renderImportResultPanel({
   data = {},
-  title = "操作结果",
+  title = "最近一次执行结果",
   subtitle = "",
   brief = "",
   tone = "ok",
@@ -107,19 +107,19 @@ export function renderImportResultPanel({
       }
       ${
         actions.length
-          ? `<div class="result-actions simple"><div class="result-actions-title">下一步</div><ul>${actions
+          ? `<div class="result-actions simple"><div class="result-actions-title">建议下一步</div><ul>${actions
               .map((item) => `<li>${escapeHtml(item)}</li>`)
               .join("")}</ul></div>`
           : ""
       }
       ${writingActionsHtml}
-      ${renderDetailSection("查看候选与预览", candidatePreviewHtml, "result-candidates-detail")}
-      ${renderDetailSection("查看跳过与保留", skipBreakdownHtml, "result-skip-detail")}
-      ${renderDetailSection("查看写作细节", writingDetailsHtml, "result-writing-detail")}
+      ${renderDetailSection("候选详情", candidatePreviewHtml, "result-candidates-detail")}
+      ${renderDetailSection("跳过与保留", skipBreakdownHtml, "result-skip-detail")}
+      ${renderDetailSection("写作后续", writingDetailsHtml, "result-writing-detail")}
       ${
         raw
           ? `<details class="result-json result-detail-section">
-              <summary>查看原始数据</summary>
+              <summary>原始数据</summary>
               <div class="result-detail-body">
                 <pre>${escapeHtml(raw)}</pre>
               </div>

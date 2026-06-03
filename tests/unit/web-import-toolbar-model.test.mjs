@@ -1,24 +1,24 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { importConfirmButtonState, importConnectorOptions, importToolbarViewModel } from "../../apps/web/src/import-toolbar-model.js";
 
-test("import toolbar model exposes connector options", () => {
+test("import toolbar model exposes the obsidian-only connector option", () => {
   assert.deepEqual(importConnectorOptions().map((item) => item.value), ["obsidian"]);
-  assert.deepEqual(importConnectorOptions().map((item) => item.label), ["Obsidian"]);
+  assert.deepEqual(importConnectorOptions().map((item) => item.label), ["Obsidian 仓库"]);
 });
 
-test("import toolbar model derives confirm button state", () => {
+test("import toolbar model derives localized confirm button state", () => {
   assert.deepEqual(importConfirmButtonState(), {
     disabled: false,
-    label: "Confirm Import"
+    label: "确认导入"
   });
   assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 2, totalCount: 3 }), {
     disabled: false,
-    label: "Confirm Import (2/3)"
+    label: "确认导入（2/3）"
   });
   assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 0, totalCount: 3 }), {
     disabled: true,
-    label: "Confirm Import (0/3)"
+    label: "确认导入（0/3）"
   });
 });
 
@@ -33,7 +33,7 @@ test("import toolbar model normalizes view values", () => {
     options: "{}",
     confirmButton: {
       disabled: false,
-      label: "Confirm Import"
+      label: "确认导入"
     }
   });
 });

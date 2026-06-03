@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportResultPanel } from "../../apps/web/src/import-result-panel.js";
 
-test("import result panel renders simplified metrics warnings actions and folded details", () => {
+test("import result panel renders redesigned summary, warnings, actions, and folded details", () => {
   const html = renderImportResultPanel({
     data: { stage: "preview" },
     title: "导入预览已生成",
@@ -10,7 +10,7 @@ test("import result panel renders simplified metrics warnings actions and folded
     brief: "检查候选内容，确认后再导入。",
     tone: "warn",
     statusLabel: "注意",
-    metrics: [{ label: "来源", value: "Markdown" }],
+    metrics: [{ label: "来源", value: "Obsidian 仓库" }],
     warnings: [{ code: "IMPORT_EMPTY_PAYLOAD", message: "payload missing" }],
     actions: ["补充导入路径或 Payload。"],
     writingActionsHtml: '<div class="writing-actions">x</div>',
@@ -28,12 +28,12 @@ test("import result panel renders simplified metrics warnings actions and folded
   assert.match(html, /需要处理/);
   assert.match(html, /payload missing/);
   assert.match(html, /补充导入路径或 Payload/);
-  assert.match(html, /查看候选与预览/);
-  assert.match(html, /查看跳过与保留/);
-  assert.match(html, /查看写作细节/);
+  assert.match(html, /候选详情/);
+  assert.match(html, /跳过与保留/);
+  assert.match(html, /写作后续/);
+  assert.match(html, /原始数据/);
   assert.match(html, /result-detail-body/);
   assert.match(html, /result-candidates/);
-  assert.match(html, /查看原始数据/);
   assert.match(html, /&quot;stage&quot;:&quot;preview&quot;/);
 });
 
@@ -54,7 +54,7 @@ test("import result panel renders created files summary with assets", () => {
   });
 
   assert.match(html, /result-file-inventory/);
-  assert.match(html, /已写入/);
+  assert.match(html, /本次写入/);
   assert.match(html, /来源 1/);
   assert.match(html, /资源 1/);
 });
