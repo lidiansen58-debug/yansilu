@@ -704,7 +704,7 @@ function readStoredRelationNetworkStatus(noteId = "") {
   const key = noteRelationStatusStorageKey(noteId);
   if (!key) return "";
   const value = String(readStoredText(key, "") || "").trim().toLowerCase();
-  return value === "connected" || value === "isolated" || value === "unknown" ? value : "";
+  return isPersistableRelationNetworkStatus(value) ? value : "";
 }
 
 function writeStoredRelationNetworkStatus(noteId = "", status = "") {
@@ -715,7 +715,7 @@ function writeStoredRelationNetworkStatus(noteId = "", status = "") {
     writeStoredText(key, "");
     return;
   }
-  if (!["connected", "isolated", "unknown"].includes(cleanStatus)) return;
+  if (!isPersistableRelationNetworkStatus(cleanStatus)) return;
   writeStoredText(key, cleanStatus);
 }
 
