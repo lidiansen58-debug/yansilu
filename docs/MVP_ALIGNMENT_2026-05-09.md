@@ -1,5 +1,7 @@
 # MVP Alignment Snapshot - 2026-05-09
 
+> Legacy note (2026-06-03): this snapshot predates the simplified import/export refactor. The current product scope is Obsidian-only preview/confirm import plus Markdown export, with no import history or rollback workflow.
+
 This note is the current working context for the Yansilu MVP. It separates the release-facing MVP from adjacent planning and experimental work that already exists in the repository.
 
 ## Current MVP Scope

@@ -8,18 +8,18 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
   if (!hasMatchingPreview) {
     return {
       disabled: false,
-      label: "确认写入"
+      label: "Confirm Import"
     };
   }
 
   return {
     disabled: totalCount > 0 && selectedCount === 0,
-    label: `确认写入（${selectedCount}/${totalCount}）`
+    label: `Confirm Import (${selectedCount}/${totalCount})`
   };
 }
 
 export function importToolbarViewModel({
-  connector = "markdown",
+  connector = "obsidian",
   directoryId = "",
   directoryOptions = [],
   path = "",
@@ -29,7 +29,7 @@ export function importToolbarViewModel({
   confirmButton = null
 } = {}) {
   return {
-    connector: String(connector || "markdown").trim() || "markdown",
+    connector: String(connector || "obsidian").trim() || "obsidian",
     directoryId: String(directoryId || "").trim(),
     directoryOptions: Array.isArray(directoryOptions) ? directoryOptions : [],
     path: String(path || ""),
@@ -40,7 +40,7 @@ export function importToolbarViewModel({
       confirmButton ||
       {
         disabled: false,
-        label: "确认写入"
+        label: "Confirm Import"
       }
   };
 }

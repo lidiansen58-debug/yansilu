@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The current implementation has a runnable backend core for the Yansilu vault, Markdown import, originality guard, connector candidate generation, import records, rollback, directories, notes, writing projects, draft scaffolds, and Markdown export. The web prototype is wired to the real API for directories, notes, import preview/confirm/rollback, graph refresh, Markdown export, vault switching, writing project/scaffold creation, structured operation result panels, actionable warning hints, import candidate previews, selective confirm based on checked preview candidates, focused preview filters for confirmable/blocked/warning/excluded/risky candidates, one-click confirmable/safe-candidate selection, one-click blocked/warning/risky-candidate exclusion, confirm-time summaries of excluded candidates, clickable confirm-result skip reasons that focus related candidates, candidate-level skip explanations for unselected/originality/conflict outcomes, one-click handoff of newly imported PermanentNote results into the writing basket, directly into the writing center, or straight into a new writing project, and file-manager-like directory/note operations. A unified desktop file command service now fronts browse-directory, reveal-path, open-directory, and Vault-switch command entry points for the prototype, with automated coverage for browser-fallback path picking and Tauri-backed reveal-path UI flows.
+The current implementation has a runnable backend core for the Yansilu vault, Obsidian import preview/confirm, originality guard, directories, notes, writing projects, draft scaffolds, and Markdown export. The web prototype is wired to the real API for directories, notes, simplified import preview/confirm, graph refresh, Markdown export, vault switching, writing project/scaffold creation, structured operation result panels, actionable warning hints, import candidate previews, selective confirm based on checked preview candidates, focused preview filters for confirmable/blocked/warning/excluded/risky candidates, one-click confirmable/safe-candidate selection, one-click blocked/warning/risky-candidate exclusion, confirm-time summaries of excluded candidates, clickable confirm-result skip reasons that focus related candidates, candidate-level skip explanations for unselected/originality/conflict outcomes, one-click handoff of newly imported PermanentNote results into the writing basket, directly into the writing center, or straight into a new writing project, and file-manager-like directory/note operations. A unified desktop file command service now fronts browse-directory, reveal-path, open-directory, and Vault-switch command entry points for the prototype, with automated coverage for browser-fallback path picking and Tauri-backed reveal-path UI flows.
 
 The API server now mainly coordinates request parsing, route dispatch, and response shaping. Most business behavior has been moved into packages.
 
@@ -10,13 +10,13 @@ Current MVP alignment snapshot:
 
 - See [MVP_ALIGNMENT_2026-05-09.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/MVP_ALIGNMENT_2026-05-09.md) for the release-facing MVP scope.
 - V1.1 planning, paper workspace, marketing/auth/billing, and broader connector work are adjacent workstreams, not blockers for the current MVP release gate.
-- The current MVP release gate remains: local vault, note/editor flows, Markdown/Obsidian import, Markdown export, graph, writing scaffold, originality boundaries, and desktop file operations.
+- The current MVP release gate remains: local vault, note/editor flows, Obsidian import, Markdown export, graph, writing scaffold, originality boundaries, and desktop file operations.
 
 Note on planning vs. implementation:
 
-- The codebase already contains preview-generation support for several non-Phase-1 connectors.
+- The codebase may still contain experimental traces of broader connector work.
 - The product plan and release gate now distinguish between "implemented experimentally" and "required for current MVP release".
-- Until the roadmap advances, the blocking import/export promise remains: Markdown import, Obsidian import, and Markdown export.
+- Until the roadmap advances, the blocking import/export promise remains: Obsidian import and Markdown export.
 
 ## Runnable Verification
 
@@ -100,7 +100,7 @@ Owns local vault primitives and user content storage.
 
 ### `packages/markdown-engine`
 
-Owns Markdown and Obsidian parsing.
+Owns Markdown parsing used by the simplified Obsidian importer.
 
 - Markdown file discovery through domain helpers.
 - Frontmatter preservation.
@@ -124,17 +124,10 @@ Owns originality and trace checks for PermanentNote candidates.
 
 ### `packages/connectors`
 
-Owns connector candidate generation and import bookkeeping.
+Owns legacy or adjacent connector helpers that are not part of the current MVP release gate.
 
-- Zotero/Readwise/NotebookLM minimal candidate generation.
-- Readwise pending paraphrase tag.
-- Fixture-backed Zotero/Readwise/NotebookLM preview coverage.
-- Malformed external payload warning coverage.
-- Import preview/confirm/rollback JSON logs.
-- Import record public view.
-- Lightweight `candidatePreview` summaries for API/UI display.
-- Created file hashes for rollback.
-- Rollback that skips user-modified files.
+- Historical candidate-generation helpers for non-MVP connectors.
+- Shared import-shape utilities that may still be reused by tests or future connector work.
 
 ### `packages/export-engine`
 
@@ -164,13 +157,13 @@ Owns writing project and scaffold generation.
 - Request ID/error response shaping.
 - Route matching.
 - Import preview/confirm orchestration.
-- Import record fetch/rollback orchestration.
+- In-memory preview session lookup and rollback-unsupported response orchestration.
 - Directory and note route orchestration.
 - Tag, note-relation, and graph route orchestration.
 - Markdown export route orchestration.
 - Writing project and draft scaffold route orchestration.
 
-It should not regain parsing, storage, originality, connector, rollback, or export business logic.
+It should not regain parsing, storage, originality, connector, or export business logic.
 
 ## Implemented API Surface
 
@@ -196,7 +189,6 @@ It should not regain parsing, storage, originality, connector, rollback, or expo
 - `POST /api/v1/assets`
 - `GET /api/v1/assets/file`
 - `POST /api/v1/imports/preview`
-- `POST /api/v1/imports/:connector`
 - `GET /api/v1/imports`
 - `GET /api/v1/imports/:id`
 - `POST /api/v1/imports/:id/confirm`
@@ -219,6 +211,6 @@ It should not regain parsing, storage, originality, connector, rollback, or expo
 
 1. Keep `docs/API.md` synchronized with the currently implemented API routes in `apps/api/src/server.mjs`.
 2. Run the final packaged Windows desktop walkthrough in [MVP_RUNTIME_CHECKLIST.md](/E:/Projects/Thinking%20in%20Notes/yansilu/docs/MVP_RUNTIME_CHECKLIST.md).
-3. Expand fixture coverage under `tests/fixtures/` for larger real-world connector exports and multi-folder production vaults.
+3. Expand fixture coverage under `tests/fixtures/` for larger real-world Obsidian vaults and multi-folder production vaults.
 4. Split or budget the full browser e2e mode for CI when Playwright runtime is available.
 5. Keep V1.1, paper workspace, and marketing/auth/billing work separate from the current MVP release gate.

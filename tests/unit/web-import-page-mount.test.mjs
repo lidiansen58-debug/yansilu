@@ -2,33 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
-test("import page mount renders simplified toolbar, history, and result placeholders", () => {
+test("import page mount renders simplified toolbar and result placeholders", () => {
   const html = renderImportPageMount({
     toolbar: {
-      connector: "markdown",
+      connector: "obsidian",
       path: "E:\\vault"
-    },
-    history: {
-      items: [],
-      total: 0,
-      loading: false,
-      filters: {
-        status: "all",
-        connector: "all",
-        risk: "all"
-      }
     }
   });
 
   assert.match(html, /id="importToolbarMount"/);
-  assert.match(html, /id="importHistoryMount"/);
+  assert.doesNotMatch(html, /id="importHistoryMount"/);
   assert.match(html, /id="importResult"/);
-  assert.match(html, /导入资料/);
-  assert.match(html, /来源目录/);
-  assert.match(html, /高级选项/);
-  assert.match(html, /最近记录/);
-  assert.match(html, /暂无记录/);
-  assert.match(html, /还没有操作结果。/);
+  assert.match(html, /Obsidian Import/);
+  assert.match(html, /Vault Path/);
+  assert.match(html, /Advanced/);
+  assert.match(html, /Latest Run/);
+  assert.match(html, /No import or export result yet\./);
 });
 
 test("import page mount can render a composed result card", () => {
@@ -37,7 +26,7 @@ test("import page mount can render a composed result card", () => {
       data: {
         stage: "preview",
         importRecordId: "imp_page",
-        connector: "markdown",
+        connector: "obsidian",
         status: "preview",
         summary: { sources: 1, literatureNotes: 1, permanentNotes: 1, warnings: 0 },
         warnings: []

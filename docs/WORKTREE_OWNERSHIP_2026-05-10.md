@@ -1,5 +1,7 @@
 # Worktree Ownership Baseline
 
+Legacy note (2026-06-03): this document records a historical ownership snapshot. Current import/export work is now scoped to simplified Obsidian import plus Markdown export, without rollback.
+
 Date: 2026-05-10
 
 This document records the post-cleanup worktree layout. The active feature branches have been closed or archived. The directories remain reusable workspaces for new threads.
@@ -27,7 +29,7 @@ git -C "E:\Projects\Thinking in Notes\yansilu-wt\feat-core-workflow" switch -c f
 |---|---|---|---|
 | `E:\Projects\Thinking in Notes\yansilu` | `master` | integration, merge, release readiness | one coordination thread only |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-core-workflow` | detached `master` | editor, explorer, graph, writing workflow | create a new core workflow thread |
-| `E:\Projects\Thinking in Notes\yansilu-wt\feat-import-pipeline` | detached `master` | import preview, confirm, rollback, fixtures | create a new import thread |
+| `E:\Projects\Thinking in Notes\yansilu-wt\feat-import-pipeline` | detached `master` | simplified Obsidian import, Markdown export handoff, fixtures | create a new import thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-release` | detached `master` | Tauri shell, desktop packaging, updater, installer QA | create a new desktop release thread |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-desktop-runtime` | `feat/desktop-runtime` | final packaged-app walkthrough, worktree desktop preflight, desktop runtime fixes | active desktop runtime slice |
 | `E:\Projects\Thinking in Notes\yansilu-wt\feat-growth-site` | detached `master` | marketing site, auth, billing, public copy | create a new growth/website thread |
@@ -43,7 +45,7 @@ The long-lived `feat/*` branches from the May 9-10 cleanup are closed. Their fin
 Do not revive old feature branch names for new work. Prefer a short branch name that describes the next slice:
 
 - `feat/core-floating-editor-actions`
-- `feat/import-zotero-confirm-rollback`
+- `feat/import-obsidian-preview-polish`
 - `feat/desktop-updater-feed`
 - `feat/growth-download-release-copy`
 - `docs/ai-agent-mvp-review`

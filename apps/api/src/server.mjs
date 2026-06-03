@@ -648,7 +648,7 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
 }
 
 const importRecords = new Map();
-const allowedConnectors = new Set(["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
+const allowedConnectors = new Set(["obsidian"]);
 const authChallenges = new Map();
 const authSessions = new Map();
 const authUsers = new Map();
@@ -968,7 +968,7 @@ function parseImportRecordPath(urlPath) {
 }
 
 function parseConnectorPath(urlPath) {
-  const m = urlPath.match(/^\/api\/v1\/imports\/(markdown|obsidian|zotero|readwise|notebooklm)$/);
+  const m = urlPath.match(/^\/api\/v1\/imports\/(obsidian)$/);
   return m ? m[1] : null;
 }
 
@@ -1567,12 +1567,13 @@ function payloadWithRejectedFieldSuggestion(artifact = {}, suggestion = null) {
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
   if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
+  const copyJson = (value) => JSON.parse(JSON.stringify(value ?? null));
   const nextSource = suggestion && typeof suggestion === "object" && !Array.isArray(suggestion) ? suggestion : originalSuggestion;
   const nextProvenance = nextSource.provenance && typeof nextSource.provenance === "object" ? nextSource.provenance : {};
   const nextHistory = Array.isArray(nextSource.history)
-    ? cloneJson(nextSource.history)
+    ? copyJson(nextSource.history)
     : Array.isArray(originalSuggestion.history)
-      ? cloneJson(originalSuggestion.history)
+      ? copyJson(originalSuggestion.history)
       : undefined;
 
   const nextSuggestion = {

@@ -140,5 +140,5 @@ test("prototype keeps the public demo writing theme detail renderer", async (t) 
   const source = await app.text();
   assert.match(source, /function renderWritingThemeDetail/);
   assert.match(source, /writingThemeDetailTitle/);
-  assert.match(source, /data-writing-theme-action="create-project"/);
+  assert.match(source, /data-writing-theme-action="\$\{escapeHtml\(primaryThemeAction\)\}"/);
 });

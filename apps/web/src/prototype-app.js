@@ -17,9 +17,6 @@ import { createDesktopFileCommandService } from "./desktop-file-command-service.
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
 import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
 import {
-  renderImportHistoryMount
-} from "./import-history-mount.js";
-import {
   renderImportPageMount
 } from "./import-page-mount.js";
 import {
@@ -121,7 +118,6 @@ import {
   analyzeWritingWithStrongModel,
   bindWritingDraftNote,
   acceptAiInboxLink,
-  cancelImport,
   checkAiProviderHealth,
   confirmPermanentNoteDistillation,
   confirmImport,
@@ -151,11 +147,9 @@ import {
   updateIndexCard,
   fetchDirectoryNotes,
   fetchAiProviderConfigs,
-  fetchImportRecord,
   fetchAiPreferences,
   fetchOllamaModels,
   pullOllamaModel,
-  listImportRecords,
   listIndexCards,
   fetchNote,
   fetchNoteRelations,
@@ -176,7 +170,6 @@ import {
   previewImport,
   promoteAiInboxNote,
   recordAiInboxDecision,
-  rollbackImport,
   summarizeAiInboxItem,
   seedYijingKnowledgeNetwork,
   seedYijingRichAcceptanceDemo,
@@ -209,9 +202,6 @@ const importState = {
   lastPreview: null,
   lastResultPayload: null,
   literatureBatchSummary: null,
-  historyItems: [],
-  historyTotal: 0,
-  historyLoading: false,
   selectionImportRecordId: "",
   selectedCandidateIds: new Set(),
   resultFocusReason: ""
@@ -1149,7 +1139,6 @@ function setImportRecordId(value) {
   importState.importRecordId = String(value || "").trim();
   const input = $("importRecordId");
   if (input) input.value = importState.importRecordId;
-  renderImportHistory();
 }
 
 function escapeHtml(value) {
@@ -1190,7 +1179,7 @@ function compactValue(value) {
 
 function currentImportToolbarValues() {
   return {
-    connector: String($("importConnector")?.value || "markdown").trim(),
+    connector: String($("importConnector")?.value || "obsidian").trim(),
     directoryId: String($("importDirectoryId")?.value || importState.directoryId || "").trim(),
     path: String($("importPath")?.value || "").trim(),
     payload: String($("importPayload")?.value || ""),
@@ -1231,12 +1220,6 @@ function renderImportPageShell() {
   if (!el) return;
   el.innerHTML = renderImportPageMount({
     toolbar: currentImportToolbarValues(),
-    history: {
-      items: importState.historyItems,
-      total: importState.historyTotal,
-      loading: importState.historyLoading,
-      activeImportRecordId: String(importState.importRecordId || "").trim()
-    },
     result: importState.lastResultPayload
       ? {
           data: importState.lastResultPayload,
@@ -3238,77 +3221,6 @@ function renderThinkingStatusBadge(value, className = "thinking-status-badge") {
   return `<span class="${escapeHtml(className)}" data-tone="${escapeHtml(thinkingStatusTone(thinkingStatus))}" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>`;
 }
 
-function renderImportHistory() {
-  const el = $("importHistoryMount");
-  if (!el) return;
-  el.innerHTML = renderImportHistoryMount({
-    items: importState.historyItems,
-    total: importState.historyTotal,
-    loading: importState.historyLoading,
-    activeImportRecordId: String(importState.importRecordId || $("importRecordId")?.value || "").trim()
-  });
-}
-
-async function refreshImportHistory({ silent = false } = {}) {
-  if (!silent) {
-    importState.historyLoading = true;
-    renderImportHistory();
-  }
-  try {
-    const result = await listImportRecords(12);
-    importState.historyItems = await enrichImportHistoryItemsWithLiteratureProgress(result.items);
-    importState.historyTotal = result.total;
-  } catch (error) {
-    if (!silent) {
-      setStatus(`读取导入历史失败：${String(error?.message || error)}`, "warn");
-    }
-  } finally {
-    importState.historyLoading = false;
-    renderImportHistory();
-  }
-}
-
-async function loadImportRecordIntoUi(importRecordId, { statusPrefix = "已读取导入记录", statusTone = "ok", announce = true } = {}) {
-  const cleanImportRecordId = String(importRecordId || "").trim();
-  if (!cleanImportRecordId) throw new Error("importRecordId is required");
-  const importRecord = await fetchImportRecord(cleanImportRecordId);
-  importState.lastPreview =
-    importRecord?.status === "preview"
-      ? {
-          importRecordId: cleanImportRecordId,
-          candidatePreview: importRecord.candidatePreview || null,
-          candidateSelection: importRecord.candidateSelection || null,
-          originalityGuard: importRecord.originalityGuard || null
-        }
-      : null;
-  syncImportSelection(cleanImportRecordId, importRecord?.candidatePreview, importRecord?.candidateSelection || null, { preserve: true });
-  setImportRecordId(cleanImportRecordId);
-  showImportResult({
-    stage: "record",
-    importRecord
-  });
-  if (announce) setStatus(`${statusPrefix}：${cleanImportRecordId}`, statusTone);
-  return importRecord;
-}
-
-async function rollbackImportIntoUi(importRecordId, { statusPrefix = "回滚完成" } = {}) {
-  const cleanImportRecordId = String(importRecordId || "").trim();
-  if (!cleanImportRecordId) throw new Error("importRecordId is required");
-  const result = await rollbackImport(cleanImportRecordId);
-  setImportRecordId(cleanImportRecordId);
-  showImportResult({
-    stage: "rollback",
-    importRecordId: cleanImportRecordId,
-    status: result.status,
-    result: result.result
-  });
-  importState.lastPreview = null;
-  await refreshImportHistory({ silent: true });
-  await refreshImportedNotesView();
-  setStatus(`${statusPrefix}：${cleanImportRecordId}`, "ok");
-  return result;
-}
-
 function uniqueStrings(items = []) {
   return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
 }
@@ -3730,12 +3642,6 @@ async function enrichImportHistoryItemsWithLiteratureProgress(items = []) {
   });
 }
 
-function importHistoryRecordById(importRecordId = "") {
-  const id = String(importRecordId || "").trim();
-  if (!id) return null;
-  return importState.historyItems.find((item) => String(item?.importRecordId || "").trim() === id) || null;
-}
-
 const REQUIRED_LITERATURE_QUEUE_CITATION_FIELDS = ["sourceTitle", "authors", "year", "locator", "identifier"];
 
 function hasRequiredLiteratureCitation(citation = {}) {
@@ -3774,41 +3680,6 @@ function preferredLiteratureQueueNoteId(noteIds = [], { targetLane = "" } = {}) 
   const ranked = rankedLiteratureQueueNotes(notes);
   const match = targetLane ? ranked.find((item) => item.lane === targetLane) : ranked[0];
   return match?.note?.id || String(noteIds[0] || "").trim();
-}
-
-async function openLiteratureQueueForImportRecord(importRecordId, { preferNextPending = false, preferReadyForOriginal = false } = {}) {
-  const cleanImportRecordId = String(importRecordId || "").trim();
-  if (!cleanImportRecordId) throw new Error("importRecordId is required");
-  let record = importHistoryRecordById(cleanImportRecordId);
-  if (!record) {
-    record = await fetchImportRecord(cleanImportRecordId);
-  }
-  const noteIds = createdNoteIdsByTypeFromImportRecord(record || {}, "literature");
-  if (!noteIds.length) {
-    setStatus("这条导入记录里没有可处理的 LiteratureNote", "warn");
-    return false;
-  }
-  await ensureNotesLoaded(noteIds);
-  setImportRecordId(cleanImportRecordId);
-  setLiteratureQueueFocus(noteIds, `导入批次 ${cleanImportRecordId}`);
-  activateModule("explorer");
-  const targetNoteId = preferReadyForOriginal
-    ? preferredLiteratureQueueNoteId(noteIds, { targetLane: "ready" })
-    : preferNextPending
-      ? preferredLiteratureQueueNoteId(noteIds)
-      : noteIds[0];
-  const opened = openNoteById(targetNoteId, { preferTitleSelection: false });
-  if (!opened) return false;
-  setStatus(
-    preferReadyForOriginal
-      ? `已从历史记录定位到可转永久笔记文献条目：${cleanImportRecordId}`
-      : preferNextPending
-        ? `已从历史记录继续下一条待处理文献条目：${cleanImportRecordId}`
-        : `已从历史记录打开文献队列：${cleanImportRecordId}`,
-    "ok",
-    { requireModule: "explorer" }
-  );
-  return true;
 }
 
 function setLiteratureQueueFocus(noteIds = [], label = "") {
@@ -4915,10 +4786,10 @@ function currentModuleUi() {
     },
     imports: {
       sidebarTitle: "导入中心",
-      sidebarSubtitle: "选来源，先预览，再写入。",
-      sidebarFoot: "默认只需要路径和一次预览；高级参数、记录查询和回滚都收在导入卡片里。",
+      sidebarSubtitle: "只保留 Obsidian，先预览，再导入。",
+      sidebarFoot: "现在是最小可用版：不保留历史、不做回滚，只做一次预览和一次确认。",
       title: "导入与导出",
-      summary: "这里保持轻量：导入先预览、不直接写入；导出只复制 Markdown 与资源文件，不改动当前 Vault。",
+      summary: "导入只支持 Obsidian Vault，导出保持目录级 Markdown 复制，先求简单可用。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>当前目标</h3>
@@ -4929,7 +4800,7 @@ function currentModuleUi() {
           <ol class="module-sidebar-list">
             <li>选择来源和路径</li>
             <li>预览候选，排除不需要的项</li>
-            <li>确认写入，或从历史里回滚</li>
+            <li>确认写入，然后继续整理或导出</li>
           </ol>
         </div>
       `
@@ -7026,7 +6897,7 @@ function writingThemeProjectEntry(indexCard) {
   const relationCountsErrored = hasMatchingCounts && writingRelationCountsErrored(noteIds, relationErrors);
   const relationState = relationCountsErrored ? "error" : relationCountsReady ? "loaded" : "loading";
   const readiness = deriveBasketWritingReadiness(noteIds, writingKnownNoteById, relationCounts, { relationState });
-  const continuation = describeWritingContinuationAction({
+  const themeContinuation = describeWritingContinuationAction({
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
@@ -7309,7 +7180,7 @@ function renderWritingThemeIndexCard(indexCard) {
   const noteCount = Number(indexCard?.note_count || indexCard?.items?.length || 0);
   const directoryLabel = indexCard?.directory_title || indexCard?.directory_id || "";
   const existingProject = findExistingWritingProjectForTheme(indexCard, noteIds);
-  const continuation = describeWritingContinuationAction({
+  const themeContinuation = describeWritingContinuationAction({
     existingProjectId: existingProject?.id || "",
     existingProjectHasScaffold: Boolean(existingProject?.scaffold_id),
     existingProjectHasDraft: Boolean(existingProject?.draft_note_id),
@@ -7335,8 +7206,8 @@ function renderWritingThemeIndexCard(indexCard) {
       <div class="writing-note-actions">
         <button class="mini-btn" type="button" data-writing-index-action="use" data-writing-index-id="${escapeHtml(indexCard.id)}">把整组加入写作篮</button>
         ${
-          continuation?.projectId
-            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(continuation.action)}" data-writing-project-id="${escapeHtml(continuation.projectId)}">${escapeHtml(continuation.actionLabel)}</button>`
+          themeContinuation?.projectId
+            ? `<button class="mini-btn" type="button" data-writing-index-action="${escapeHtml(themeContinuation?.action || "resume-project")}" data-writing-project-id="${escapeHtml(themeContinuation.projectId)}">${escapeHtml(themeContinuation?.actionLabel || "继续当前项目")}</button>`
             : ""
         }
       </div>
@@ -13305,9 +13176,6 @@ async function bootstrap() {
     resolveDirectoryRootId: (directoryId) => rootBoxIdFromFolder(state, directoryId),
     previewImport,
     confirmImport,
-    cancelImport,
-    loadImportRecordIntoUi,
-    rollbackImportIntoUi,
     onPreviewSuccess: async (preview) => {
       importState.lastPreview = preview;
       syncImportSelection(preview.importRecordId, preview.candidatePreview, preview.candidateSelection || null);
@@ -13343,18 +13211,7 @@ async function bootstrap() {
       });
       importState.lastPreview = null;
     },
-    onCancelSuccess: async ({ importRecordId, result }) => {
-      setImportRecordId(importRecordId);
-      showImportResult({
-        stage: "cancel",
-        importRecordId,
-        status: result.status,
-        message: result.message
-      });
-      importState.lastPreview = null;
-    },
     showImportResult,
-    refreshImportHistory,
     refreshImportedNotesView,
     setStatus
   });
@@ -13415,53 +13272,6 @@ async function bootstrap() {
     }
   });
 
-  $("importHistoryMount")?.addEventListener("click", async (event) => {
-    const actionButton = event.target?.closest?.("[data-import-history-action]");
-    const item = event.target?.closest?.("[data-import-history-id]");
-    const importRecordId = String(
-      actionButton?.getAttribute("data-import-history-id") || item?.getAttribute("data-import-history-id") || ""
-    ).trim();
-    if (!importRecordId) return;
-    try {
-      const action = String(actionButton?.getAttribute("data-import-history-action") || "load").trim();
-      if (action === "rollback") {
-        await rollbackImportIntoUi(importRecordId, { statusPrefix: "已从历史记录回滚导入" });
-        return;
-      }
-      if (action === "resume-literature-queue") {
-        await openLiteratureQueueForImportRecord(importRecordId, { preferNextPending: true });
-        return;
-      }
-      if (action === "promote-literature-batch") {
-        await openLiteratureQueueForImportRecord(importRecordId, { preferReadyForOriginal: true });
-        return;
-      }
-      if (action === "open-literature-queue") {
-        await openLiteratureQueueForImportRecord(importRecordId);
-        return;
-      }
-      await loadImportRecordIntoUi(importRecordId, { statusPrefix: "已从历史记录读取导入记录" });
-    } catch (error) {
-      const action = String(actionButton?.getAttribute("data-import-history-action") || "load").trim();
-      showImportResult({
-        stage: action === "rollback" ? "rollback_error" : "record_error",
-        importRecordId,
-        message: String(error?.message || error),
-        code: error?.code || null
-      });
-      setStatus(
-        `${action === "rollback" ? "回滚" : action === "open-literature-queue" ? "打开文献队列" : action === "resume-literature-queue" ? "继续待转述队列" : action === "promote-literature-batch" ? "转去永久笔记整理" : "读取导入记录"}失败：${String(error?.message || error)}`,
-        "bad"
-      );
-    }
-  });
-
-  $("importRecordId")?.addEventListener("input", (event) => {
-    importState.importRecordId = String(event.target?.value || "").trim();
-    updateImportConfirmButton();
-    renderImportHistory();
-  });
-
   $("importDirectoryId")?.addEventListener("change", (event) => {
     importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
     setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
@@ -13491,18 +13301,6 @@ async function bootstrap() {
 
   $("btnImportConfirm")?.addEventListener("click", async () => {
     await importToolbarActions.handleConfirm();
-  });
-
-  $("btnImportCancel")?.addEventListener("click", async () => {
-    await importToolbarActions.handleCancel();
-  });
-
-  $("btnImportRefresh")?.addEventListener("click", async () => {
-    await importToolbarActions.handleRefresh();
-  });
-
-  $("btnImportRollback")?.addEventListener("click", async () => {
-    await importToolbarActions.handleRollback();
   });
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
@@ -13570,8 +13368,6 @@ async function bootstrap() {
     await syncNotesForDirectory(state.selectedFolderId);
     setStatus(`已连接 API：${getApiBase()}`, "ok");
   } catch (error) {
-    renderImportHistory();
-
     const tauri = typeof window !== "undefined" ? window.__TAURI__ : null;
     if (tauri) {
       setStatus(`API 连接失败：${String(error?.message || error)}`, "bad");
@@ -13598,10 +13394,6 @@ async function bootstrap() {
       setStatus(`API 连接失败，已回退到本地示例数据：${String(error?.message || error)}`, "warn");
     }
   }
-
-  try {
-    await refreshImportHistory({ silent: true });
-  } catch {}
 
   renderAll();
   const startupParams = new URLSearchParams(window.location.search);

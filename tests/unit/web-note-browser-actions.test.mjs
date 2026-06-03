@@ -623,9 +623,9 @@ test("theme index cards reuse continuity actions when a matching project already
   const fnBody = match[1];
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
-  assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
-  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
-  assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
+  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
 });
 
 test("theme index list click handler routes continuity actions through continueWritingProjectEntry", () => {
