@@ -34,8 +34,22 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
+function resolvedNoteType(state, note = null) {
+  const explicitType = String(note?.noteType || "").trim().toLowerCase();
+  const folderType = note?.folderId ? String(typeFromFolder(state, note.folderId) || "").trim().toLowerCase() : "";
+  const rootId = note?.folderId ? String(rootBoxIdFromFolder(state, note.folderId) || "").trim() : "";
+  if (rootId === "dir_original_default" || rootId === "dir_fleeting_default" || rootId === "dir_literature_default") {
+    if (folderType) return folderType;
+    if (explicitType) return explicitType;
+    return "";
+  }
+  if (explicitType) return explicitType;
+  if (folderType) return folderType;
+  return "";
+}
+
 function generatedOriginalBadge(state, note = null) {
-  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  const noteType = resolvedNoteType(state, note);
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
   if (!generatedId) return "";
   if (noteType !== "fleeting" && noteType !== "literature") return "";
@@ -45,8 +59,23 @@ function generatedOriginalBadge(state, note = null) {
   return `<span class="item-badge item-badge-original-record" title="${escapeHtml(title)}">已生成永久笔记</span>`;
 }
 
-function canRecordPermanentFromNote(note = null) {
-  const noteType = String(note?.noteType || "").trim().toLowerCase();
+function sourcePermanentStatusBadge(state, note = null) {
+  const noteType = resolvedNoteType(state, note) || String(note?.noteType || "").trim().toLowerCase();
+  if (noteType !== "fleeting" && noteType !== "literature") return "";
+  const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
+  if (generatedId) return generatedOriginalBadge(state, note);
+  const title = noteType === "literature" ? "这条文献笔记还没有生成永久笔记。" : "这条随笔笔记还没有生成永久笔记。";
+  return `<span class="item-badge item-badge-warning" title="${escapeHtml(title)}">未转永久</span>`;
+}
+
+function noteRelationNetworkStatus(note = null) {
+  const status = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
+  if (status === "connected" || status === "isolated") return status;
+  return "";
+}
+
+function canRecordPermanentFromNote(state, note = null) {
+  const noteType = resolvedNoteType(state, note);
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
   return (noteType === "fleeting" || noteType === "literature") && !generatedId;
 }
@@ -75,10 +104,9 @@ function disconnectedNoteBadge() {
   return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
 }
 
-function disconnectedFolderBadge(count = 0) {
-  const safeCount = Number(count) || 0;
-  if (safeCount <= 0) return "";
-  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立 ${safeCount}</span>`;
+function disconnectedFolderBadge(hasDisconnected = false) {
+  if (!hasDisconnected) return "";
+  return `<span class="item-badge item-badge-warning" title="这个目录下还有未关联的永久笔记。">孤立</span>`;
 }
 
 function displayFolderName(folder) {
@@ -209,12 +237,8 @@ export class ExplorerPane {
 
     this.els.newNoteBtn.addEventListener("click", () => {
       const folderId = resolveExplorerNewNoteFolderId(this.state);
-      if (folderById(this.state, folderId)) {
-        this.state.selectedFolderId = folderId;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, folderId);
-        this.state.selectedFileId = null;
-      }
-      this.onStateChange("create-note-in-selected-folder");
+      if (!folderById(this.state, folderId)) return;
+      this.onStateChange("create-note-in-selected-folder", { folderId });
     });
 
     this.els.listArea.addEventListener("click", (e) => {
@@ -251,15 +275,12 @@ export class ExplorerPane {
       const id = item.dataset.id;
 
       if (kind === "folder") {
-        this.state.selectedFolderId = id;
-        this.state.selectedFileId = null;
         this.expandedFolders.add(id);
-        this.onStateChange("select-folder");
+        this.onStateChange("select-folder", { folderId: id });
         return;
       }
 
       if (kind === "file") {
-        this.state.selectedFileId = id;
         if (this.state.module === "graph") {
           this.onStateChange("graph-focus-note", { noteId: id });
           return;
@@ -378,7 +399,7 @@ export class ExplorerPane {
           target: { kind, id },
           actions: [
             { key: "open", label: "打开笔记", icon: "↗" },
-            ...(canRecordPermanentFromNote(note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
+            ...(canRecordPermanentFromNote(this.state, note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
             { key: "move", label: "移动到...", icon: "⇄" },
             { key: "copy-note-id", label: "复制笔记 ID", icon: "⧉" },
@@ -456,7 +477,7 @@ export class ExplorerPane {
 
   async handleContextAction(action, target) {
     if (target.kind === "list") {
-      if (action === "new-note-here") this.onStateChange("create-note-in-selected-folder");
+      if (action === "new-note-here") this.onStateChange("create-note-in-selected-folder", { folderId: this.state.selectedFolderId });
       if (action === "new-child") {
         const visible = this.state.folders.filter((x) => !x.hidden);
         const scoped = visible.filter((f) => rootBoxIdFromFolder(this.state, f.id) === this.state.browserRootId);
@@ -482,16 +503,13 @@ export class ExplorerPane {
       if (!f) return;
 
       if (action === "open") {
-        this.state.selectedFolderId = f.id;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, f.id);
         this.expandedFolders.add(f.id);
+        this.onStateChange("select-folder", { folderId: f.id });
         this.onStatus(`已打开目录：${displayFolderName(f)}`, "ok");
       }
       if (action === "new-note-here") {
-        this.state.selectedFolderId = f.id;
-        this.state.browserRootId = rootBoxIdFromFolder(this.state, f.id);
         this.expandedFolders.add(f.id);
-        this.onStateChange("create-note-in-selected-folder");
+        this.onStateChange("create-note-in-selected-folder", { folderId: f.id });
         return;
       }
       if (action === "new-child") {
@@ -636,24 +654,27 @@ export class ExplorerPane {
   }
 
   noteIsDisconnected(note) {
-    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    const noteType = resolvedNoteType(this.state, note);
     if (noteType !== "original" && noteType !== "permanent") return false;
+    const storedStatus = noteRelationNetworkStatus(note);
+    if (storedStatus === "isolated") return true;
+    if (storedStatus === "connected") return false;
+    if (this.state.graphConnectivityReady !== true) return false;
     const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : null;
     if (!connectedIds) return false;
     return !connectedIds.has(note.id);
   }
 
-  countDisconnectedNotesInFolder(folderId, memo = new Map()) {
+  folderHasDisconnectedNotes(folderId, memo = new Map()) {
     const key = String(folderId || "").trim();
-    if (!key) return 0;
+    if (!key) return false;
     if (memo.has(key)) return memo.get(key);
 
-    const ownCount = this.getFolderFiles(key).filter((note) => this.noteIsDisconnected(note)).length;
-    const childCount = this.getFolderChildren(key)
-      .reduce((sum, child) => sum + this.countDisconnectedNotesInFolder(child.id, memo), 0);
-    const total = ownCount + childCount;
-    memo.set(key, total);
-    return total;
+    const ownHasDisconnected = this.getFolderFiles(key).some((note) => this.noteIsDisconnected(note));
+    const childHasDisconnected = this.getFolderChildren(key).some((child) => this.folderHasDisconnectedNotes(child.id, memo));
+    const hasDisconnected = ownHasDisconnected || childHasDisconnected;
+    memo.set(key, hasDisconnected);
+    return hasDisconnected;
   }
 
   isSimplifiedNoteBrowserScope(folderId = "") {
@@ -661,6 +682,16 @@ export class ExplorerPane {
     return rootId === "dir_original_default"
       || rootId === "dir_fleeting_default"
       || rootId === "dir_literature_default";
+  }
+
+  isPermanentNoteBrowserScope(folderId = "") {
+    const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
+    return rootId === "dir_original_default";
+  }
+
+  isSourceNoteBrowserScope(folderId = "") {
+    const rootId = rootBoxIdFromFolder(this.state, folderId || this.state.browserRootId || "");
+    return rootId === "dir_fleeting_default" || rootId === "dir_literature_default";
   }
 
   fileMatches(note, q) {
@@ -676,7 +707,7 @@ export class ExplorerPane {
     const title = String(note?.title || "").toLowerCase();
     const body = String(note?.body || "").toLowerCase();
     const tags = Array.isArray(note?.tags) ? note.tags.map((item) => String(item || "").toLowerCase()) : [];
-    const noteType = String(note?.noteType || "").trim().toLowerCase();
+    const noteType = resolvedNoteType(this.state, note);
 
     let score = 100;
 
@@ -746,16 +777,17 @@ export class ExplorerPane {
     const expanded = forceExpand || this.expandedFolders.has(folder.id);
     const isRoot = depth === 0;
     const folderIsActive = this.state.selectedFolderId === folder.id && !this.state.selectedFileId;
-    const disconnectedCount = this.countDisconnectedNotesInFolder(folder.id);
+    const folderHasDisconnected = this.isPermanentNoteBrowserScope(folder.id) && this.folderHasDisconnectedNotes(folder.id);
     const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
     const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
-    const folderDisconnectedCount = this.isSimplifiedNoteBrowserScope(folder.id) ? disconnectedCount : 0;
+    const pendingSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => canRecordPermanentFromNote(this.state, note)) : [];
+    const completedSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => !canRecordPermanentFromNote(this.state, note)) : [];
     const folderTrail = [
       folder.hidden ? `<span class="item-badge">已隐藏</span>` : "",
-      disconnectedFolderBadge(folderDisconnectedCount)
+      disconnectedFolderBadge(folderHasDisconnected)
     ].join("");
     const folderRow = `
-      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderDisconnectedCount ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row ${isRoot ? "folder-row-root" : ""} ${folderIsActive ? "active" : ""} ${folderHasDisconnected ? "has-folder-alert" : ""}" data-kind="folder" data-id="${folder.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <button class="tree-toggle" data-toggle-folder="${folder.id}" ${hasChildren ? "" : "disabled"} title="展开/折叠">${hasChildren ? (expanded ? "&#9662;" : "&#9656;") : "&middot;"}</button>
@@ -768,30 +800,99 @@ export class ExplorerPane {
 
     if (!expanded) return folderRow;
 
-    const fileRows = [
-      connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
-      disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
-    ].join("");
+    const fileRows = this.isPermanentNoteBrowserScope(folder.id)
+      ? [
+          connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
+          disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
+        ].join("")
+      : this.isSourceNoteBrowserScope(folder.id)
+        ? [
+            pendingSourceFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
+            completedSourceFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
+          ].join("")
+        : allFiles.map((note) => this.renderFileNode(note, depth + 1)).join("");
     const childFolderRows = allChildren.map((c) => this.renderFolderNode(c, depth + 1, q, memo)).join("");
 
     return `${folderRow}${childFolderRows}${fileRows}`;
   }
 
+  currentEditorNoteId() {
+    const activeTabId = String(this.state.activeTabId || "").trim();
+    if (!activeTabId) return "";
+    const activeTab = Array.isArray(this.state.tabs) ? this.state.tabs.find((item) => item.id === activeTabId) : null;
+    return String(activeTab?.noteId || "").trim();
+  }
+
+  expandCurrentEditorNotePathInRoot(rootId = this.state.browserRootId) {
+    const cleanRootId = String(rootId || "").trim();
+    const currentNoteId = this.currentEditorNoteId();
+    if (!cleanRootId || !currentNoteId) return false;
+    const note = Array.isArray(this.state.notes) ? this.state.notes.find((item) => item.id === currentNoteId) : null;
+    if (!note?.folderId) return false;
+    if (rootBoxIdFromFolder(this.state, note.folderId) !== cleanRootId) return false;
+    this.expandFolderPath(note.folderId);
+    return true;
+  }
+
+  preferredVisibleRowSelector() {
+    const selectedFileId = String(this.state.selectedFileId || "").trim();
+    if (selectedFileId) return `.explorer-item[data-kind="file"][data-id="${selectedFileId}"]`;
+    const currentNoteId = this.currentEditorNoteId();
+    if (currentNoteId) return `.explorer-item[data-kind="file"][data-id="${currentNoteId}"]`;
+    const selectedFolderId = String(this.state.selectedFolderId || "").trim();
+    if (selectedFolderId) return `.explorer-item[data-kind="folder"][data-id="${selectedFolderId}"]`;
+    return "";
+  }
+
+  revealPreferredVisibleRow() {
+    const selector = this.preferredVisibleRowSelector();
+    if (!selector) return false;
+    const target = this.els.listArea?.querySelector?.(selector);
+    if (!target) return false;
+    target.scrollIntoView({ block: "nearest" });
+    return true;
+  }
+
+  scheduleRevealPreferredVisibleRow() {
+    const run = () => {
+      if (this.revealPreferredVisibleRow()) {
+        if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+          window.setTimeout(() => this.revealPreferredVisibleRow(), 32);
+        }
+      }
+    };
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+      return;
+    }
+    run();
+  }
+
   renderFileNode(note, depth) {
     const thinkingBadge = thinkingStatusBadge(note);
     const originalBadge = generatedOriginalBadge(this.state, note);
+    const sourceStatusBadge = sourcePermanentStatusBadge(this.state, note);
     const disconnected = this.noteIsDisconnected(note);
     const disconnectedBadge = disconnected ? disconnectedNoteBadge() : "";
-    const simplifiedNoteBrowser = this.isSimplifiedNoteBrowserScope(note.folderId);
+    const permanentSimplifiedScope = this.isPermanentNoteBrowserScope(note.folderId);
+    const sourceSimplifiedScope = this.isSourceNoteBrowserScope(note.folderId);
+    const simplifiedNoteBrowser = permanentSimplifiedScope || sourceSimplifiedScope;
     const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
+    const fileIsSelected = this.state.selectedFileId === note.id;
+    const fileIsCurrent = this.currentEditorNoteId() === note.id;
+    const currentBadge = fileIsCurrent && !fileIsSelected
+      ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
+      : "";
     const associateButton = disconnected && !simplifiedNoteBrowser
       ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
       : "";
-    const trail = simplifiedNoteBrowser
+    const trail = permanentSimplifiedScope
       ? disconnectedBadge
-      : `${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
+      : sourceSimplifiedScope
+        ? sourceStatusBadge
+      : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
-      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${this.state.selectedFileId === note.id ? "active" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
@@ -803,29 +904,29 @@ export class ExplorerPane {
     `;
   }
 
-  renderDisconnectedGroupLabel(depth, count = 0) {
+  renderDisconnectedGroupLabel(depth) {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <span class="tree-group-pill">孤立 ${count}</span>
+        <span class="tree-group-pill">孤立</span>
       </div>
     `;
   }
 
-  renderDisconnectedGroupToggle(folderId, depth, count = 0, collapsed = true) {
+  renderDisconnectedGroupToggle(folderId, depth, collapsed = true) {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立</button>
       </div>
     `;
   }
 
-  renderDisconnectedGroupToggleClean(folderId, depth, count = 0, collapsed = true) {
+  renderDisconnectedGroupToggleClean(folderId, depth, collapsed = true) {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立 ${count}</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立</button>
       </div>
     `;
   }
@@ -836,7 +937,7 @@ export class ExplorerPane {
     const disconnectedCollapsed = this.collapsedDisconnectedGroups.has(groupId);
     return [
       connectedFiles.map((note) => this.renderFileNode(note, depth)).join(""),
-      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedFiles.length, disconnectedCollapsed) : "",
+      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedCollapsed) : "",
       disconnectedCollapsed ? "" : disconnectedFiles.map((note) => this.renderFileNode(note, depth)).join("")
     ].join("");
   }
@@ -873,5 +974,6 @@ export class ExplorerPane {
 
     const rootFileRows = flattenGraphRoot ? this.renderGroupedFileRows(rootFiles, 0, scopedRoot?.id || "dir_original_default") : rootFiles.map((note) => this.renderFileNode(note, 0)).join("");
     this.els.listArea.innerHTML = `<div class="tree-root">${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
+    this.scheduleRevealPreferredVisibleRow();
   }
 }

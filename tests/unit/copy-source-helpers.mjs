@@ -24,3 +24,7 @@ export function readPrototypeHtmlSource() {
 export function readComponentsEditorPaneSource() {
   return readRepoText("apps", "web", "src", "components-editor-pane.js");
 }
+
+export function readComponentsExplorerPaneSource() {
+  return readRepoText("apps", "web", "src", "components-explorer-pane.js");
+}

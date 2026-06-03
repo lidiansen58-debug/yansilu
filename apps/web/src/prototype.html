@@ -518,6 +518,12 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .item-badge-current {
+      border-color: rgba(33, 110, 201, 0.26);
+      background: rgba(236, 245, 255, 0.94);
+      color: #1f5ea8;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.76);
+    }
     .item-badge-warning {
       min-height: 17px;
       padding: 0 5px;
@@ -551,6 +557,18 @@
     .tree-toggle:disabled { cursor: default; color: #9aa7b8; }
     .tree-toggle.ghost { visibility: hidden; }
     .file-row .icon { color: #7b8794; }
+    .file-row.is-current-note:not(.active) {
+      border-color: rgba(56, 124, 191, 0.28);
+      background: linear-gradient(180deg, rgba(244, 249, 255, 0.96), rgba(237, 245, 255, 0.92));
+      box-shadow:
+        inset 3px 0 0 rgba(64, 134, 202, 0.54),
+        0 10px 22px rgba(64, 134, 202, 0.06),
+        inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+    .file-row.is-current-note:not(.active) .name,
+    .file-row.is-current-note:not(.active) .icon {
+      color: #22405f;
+    }
     .file-row.is-disconnected {
       border-color: rgba(187, 43, 43, 0.24);
       background: linear-gradient(180deg, rgba(255, 245, 245, 0.94), rgba(255, 238, 238, 0.9));
@@ -6297,6 +6315,12 @@
       color: #516074;
       letter-spacing: .02em;
     }
+    .link-picker-field-note {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #6b7280;
+    }
     .link-picker-meta textarea {
       min-height: 74px;
       resize: vertical;
@@ -6366,6 +6390,15 @@
       border-left-color: #3b82f6;
       box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.14);
     }
+    .link-picker-item.picked {
+      background: linear-gradient(180deg, #e8fbf6 0%, #d9f6ee 100%);
+      color: #0f5c4f;
+      border-left-color: #11967f;
+      box-shadow: inset 0 0 0 1px rgba(17, 150, 127, 0.22), 0 10px 20px rgba(17, 150, 127, 0.08);
+    }
+    .link-picker-item.picked .picker-headline strong {
+      color: #0f5c4f;
+    }
     .picker-headline {
       display: flex;
       align-items: center;
@@ -6392,6 +6425,59 @@
       white-space: normal;
       overflow-wrap: anywhere;
       line-height: 1.35;
+    }
+    .picker-selection-state {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 7px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(17, 150, 127, 0.12);
+      color: #0f7666;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .picker-duplicate-hint {
+      display: block;
+      margin-top: 8px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      background: rgba(180, 83, 9, 0.1);
+      color: #8a4b0f;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .picker-preview {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #25594d;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .picker-detail-row {
+      display: grid;
+      gap: 2px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(15, 118, 102, 0.14);
+    }
+    .picker-detail-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #5a7c74;
+      letter-spacing: .02em;
+    }
+    .picker-detail-value {
+      font-size: 11px;
+      line-height: 1.45;
+      color: #355f56;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .picker-mark {
       background: #fff3c4;
@@ -7705,6 +7791,11 @@
       border-color: rgba(0, 166, 138, 0.26);
       background: linear-gradient(90deg, rgba(0, 166, 138, 0.14), rgba(255, 255, 255, 0.62));
       box-shadow: inset 2px 0 0 rgba(0, 166, 138, 0.78);
+    }
+    .file-row.is-current-note:not(.active) {
+      border-color: rgba(51, 118, 196, 0.22);
+      background: linear-gradient(90deg, rgba(51, 118, 196, 0.1), rgba(255, 255, 255, 0.52));
+      box-shadow: inset 2px 0 0 rgba(51, 118, 196, 0.68);
     }
 
     .main {
@@ -9974,15 +10065,7 @@
             <div style="height:8px;"></div>
             <div class="link-picker-meta">
               <div class="link-picker-field">
-                <label for="linkManagerSelect">关联来源</label>
-                <select id="linkManagerSelect">
-                  <option value="self">自己</option>
-                  <option value="ai">AI</option>
-                  <option value="team">团队</option>
-                </select>
-              </div>
-              <div class="link-picker-field">
-                <label for="linkRelationTypeSelect">关联类型</label>
+                <label for="linkRelationTypeSelect">关联类型（你确认）</label>
                 <select id="linkRelationTypeSelect">
                   <option value="supports">支持</option>
                   <option value="complements">补充</option>
@@ -9995,14 +10078,16 @@
                   <option value="same_topic">同主题</option>
                   <option value="bridges">桥接</option>
                 </select>
+                <div class="link-picker-field-note">AI 只提供关联建议，最终会按你的确认写入正式关系。</div>
               </div>
               <div class="link-picker-field">
                 <label for="linkReasonInput">关联理由</label>
                 <textarea id="linkReasonInput" placeholder="为什么要建立这条关联？写一句就够。"></textarea>
               </div>
             </div>
+            <div class="semantic-relation-quality-guidance" style="margin:0 0 10px;">手动建立的关联默认记为自己，AI 只负责给出建议，不会替你确认关系。</div>
             <div class="semantic-relation-card-actions" style="margin:0 0 10px;">
-              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button">插入关联到当前笔记</button>
+              <button class="mini-btn primary" id="btnConfirmLinkInsert" type="button" disabled>请先选择一条关联笔记</button>
             </div>
             <div class="link-picker-list" id="linkSearchList"></div>
           </div>
