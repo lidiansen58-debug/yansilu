@@ -1320,8 +1320,9 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
   assert.match(
     (await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /未转永久/
+    /随笔待转/
   );
+  assert.match(String((await page.locator("#btnRecordPermanent").textContent()) || ""), /创建永久笔记/);
 
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
@@ -1335,8 +1336,15 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
   assert.match(
     (await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /未转永久/
+    /文献待转/
   );
+  await page.locator("#btnRecordPermanent").click();
+  await page.locator("#permanentNoteModal").waitFor();
+  assert.match(String((await page.locator("#permanentNoteSourceType").textContent()) || ""), /文献笔记/);
+  assert.match(String((await page.locator("#permanentNoteSourceHint").textContent()) || ""), /先选/);
+  assert.equal(await page.locator("#permanentNoteTargetFolder option").count() > 0, true);
+  await page.locator("#permanentNoteCancel").click();
+  await page.locator("#permanentNoteModal.hidden").waitFor();
 
   await page.locator('[data-module="graph"]').click();
   await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });

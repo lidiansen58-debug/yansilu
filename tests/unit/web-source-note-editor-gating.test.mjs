@@ -143,8 +143,9 @@ test("editor inspector shows source-note promote flow instead of relation panels
 
   pane.renderRelated();
 
-  assert.match(pane.els.result.innerHTML, /生成永久笔记/);
+  assert.match(pane.els.result.innerHTML, /创建永久笔记/);
   assert.match(pane.els.result.innerHTML, /只有永久笔记才会显示关联与主路径/);
+  assert.match(pane.els.result.innerHTML, /先选永久笔记盒目录/);
   assert.doesNotMatch(pane.els.result.innerHTML, /建立语义关系/);
   assert.equal(relationRefreshes, 0);
   assert.equal(aiRefreshes, 0);

@@ -1605,7 +1605,7 @@ function thinkingStatusTone(thinkingStatus = null) {
 }
 
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation }) {
+  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation, selectPermanentDirectory }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
@@ -1615,6 +1615,7 @@ export class EditorPane {
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
+    this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentPinnedLinkId = "";
@@ -1786,6 +1787,31 @@ export class EditorPane {
   isOriginalRecordableSource(note = this.activeNote()) {
     const noteType = this.resolvedNoteType(note);
     return noteType === "fleeting" || noteType === "literature";
+  }
+
+  sourceNotePromotionHint(note = this.activeNote()) {
+    const noteType = this.resolvedNoteType(note);
+    if (noteType === "literature") {
+      return "先选一个永久笔记盒目录，再把这条文献笔记整理成一条可以独立阅读的判断。";
+    }
+    if (noteType === "fleeting") {
+      return "先选一个永久笔记盒目录，再把这条随笔写成一条自己愿意长期保留的判断。";
+    }
+    return "先选一个永久笔记盒目录，再继续创建永久笔记。";
+  }
+
+  async pickPermanentDirectoryForNote(note = this.activeNote()) {
+    if (!note || !this.isOriginalRecordableSource(note)) return "";
+    if (!this.selectPermanentDirectory) {
+      this.onStatus("当前环境还没有接入永久笔记目录选择器", "warn");
+      return "";
+    }
+    return this.selectPermanentDirectory({
+      sourceNoteId: note.id,
+      sourceType: this.resolvedNoteType(note),
+      sourceTitle: note.title || "",
+      sourceHint: this.sourceNotePromotionHint(note)
+    });
   }
 
   generatedOriginalNoteId(note = this.activeNote()) {
@@ -2046,11 +2072,11 @@ export class EditorPane {
                 <div class="literature-queue-item-actions">
                   <button class="mini-btn" type="button" data-open-literature-note="${escapeHtml(item.note.id)}">${item.isCurrent ? "继续编辑当前条目" : "打开条目"}</button>
                   ${
-                    this.hasGeneratedOriginal(item.note)
-                      ? `<span class="item-badge">已生成永久笔记</span>`
-                      : item.lane === "ready"
-                        ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录永久笔记</button>`
-                      : ""
+                      this.hasGeneratedOriginal(item.note)
+                        ? `<span class="item-badge">已生成永久笔记</span>`
+                        : item.lane === "ready"
+                          ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">选择目录并创建</button>`
+                          : ""
                   }
                 </div>
               </article>
@@ -2801,9 +2827,9 @@ export class EditorPane {
     button.classList.toggle("hidden", !visible);
     button.disabled = !visible;
     button.dataset.sourceNoteId = visible ? note.id : "";
-    button.title = visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.dataset.tip = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.setAttribute("aria-label", visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记");
+    button.title = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.dataset.tip = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.setAttribute("aria-label", visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记");
   }
 
   renderSourceNoteFlowSection(note) {
@@ -2816,35 +2842,35 @@ export class EditorPane {
       : null;
     const hasGenerated = Boolean(generatedOriginalId);
 
-    let statusLabel = hasGenerated ? "已生成永久笔记" : "待生成永久笔记";
-    let hint = "先把这条材料沉淀成永久笔记，再进入关联与写作。";
-    let detail = "这里不会判断它是否孤立，因为随笔笔记和文献笔记本来就不进入永久笔记关系网络。";
-    let actionLabel = "生成永久笔记";
+    let statusLabel = hasGenerated ? "已转为永久笔记" : "待转永久";
+    let hint = "先把这条材料沉淀成永久笔记，再继续扩展关联和写作。";
+    let detail = "这里只保留下一步最需要做的动作。";
+    let actionLabel = "选择目录并创建";
 
     if (noteType === "literature") {
       const completion = this.literatureCompletionState(note);
-      statusLabel = hasGenerated ? "已生成永久笔记" : completion.label;
+      statusLabel = hasGenerated ? "已转为永久笔记" : "文献待转";
       hint = hasGenerated
-        ? "这条文献笔记已经长出永久笔记，接下来请回到永久笔记继续建立关联。"
+        ? "这条文献笔记已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
         : completion.hint;
       detail = hasGenerated
-        ? "文献笔记继续保留为证据与出处，不参与“孤立/非孤立”的判断。"
-        : "文献笔记先补来源、转述和判断种子，再决定要不要沉淀成永久笔记。";
-      actionLabel = "记录永久笔记";
+        ? "文献笔记继续保留出处和转述，不需要在这里重复处理。"
+        : "先选永久笔记盒目录，再把这条材料写成一条可以独立阅读的判断。";
     } else {
       hint = hasGenerated
-        ? "这条随笔已经沉淀成永久笔记，接下来请回到永久笔记继续建立关联。"
-        : "随笔笔记只负责捕捉想法；当它值得长期保留时，再沉淀成永久笔记。";
+        ? "这条随笔已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
+        : "随笔只负责抓住线索；当它值得保留时，再沉淀成永久笔记。";
+      statusLabel = hasGenerated ? "已转为永久笔记" : "随笔待转";
       detail = hasGenerated
-        ? "随笔笔记本身不参与永久笔记关系网络。"
-        : "随笔笔记不会被标成孤立；只有变成永久笔记之后，才进入关系网络。";
+        ? "这条随笔会继续保留原始线索，不需要在这里重复整理。"
+        : "先选永久笔记盒目录，再把这条想法写成一条自己愿意长期保留的判断。";
     }
 
     return `
       <section class="inspector-section semantic-relations-section" data-source-note-flow-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">生成永久笔记</div>
+            <div class="inspector-section-title">创建永久笔记</div>
             <div class="inspector-section-note">${escapeHtml(hint)}</div>
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
@@ -7720,7 +7746,7 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           !isPermanentNote
-            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示生成永久笔记的下一步。"
+            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示创建永久笔记的下一步。"
             : this.semanticRelationsState === "error"
             ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
             : this.semanticRelationsState === "loading"
@@ -8582,14 +8608,8 @@ export class EditorPane {
         this.onStatus("随笔笔记和文献笔记才能创建永久笔记", "warn");
         return;
       }
-      const folders = this.state.folders.filter((folder) => !folder.hidden && rootBoxIdFromFolder(this.state, folder.id) === "dir_original_default");
-      const options = folders.length ? folders : this.state.folders.filter((folder) => folder.id === "dir_original_default");
-      const picked = prompt(`选择永久笔记目录 ID：\n${options.map((folder) => `${folder.id} ${folder.name}`).join("\n")}`, "dir_original_default");
-      const directoryId = String(picked || "").trim();
-      if (!options.some((folder) => folder.id === directoryId)) {
-        this.onStatus("已取消创建永久笔记", "warn");
-        return;
-      }
+      const directoryId = await this.pickPermanentDirectoryForNote(note);
+      if (!directoryId) return;
       await this.onStateChange("record-original-from-note", {
         sourceNoteId: note.id,
         sourceType: this.resolvedNoteType(note),
@@ -8614,7 +8634,7 @@ export class EditorPane {
       this.onOpenNote(nextRecord.note.id);
       this.onStatus(`已打开下一条${nextRecord.label}：${nextRecord.note.title || nextRecord.note.id}`, "ok");
     });
-    this.els.literatureQueueList?.addEventListener("click", (event) => {
+    this.els.literatureQueueList?.addEventListener("click", async (event) => {
       const createButton = event.target.closest("[data-create-original-from-literature]");
       if (createButton) {
         const noteId = String(createButton.getAttribute("data-create-original-from-literature") || "").trim();
@@ -8627,11 +8647,14 @@ export class EditorPane {
           this.onStatus("这条文献笔记还没准备好进入永久笔记，请先补齐来源、转述、判断种子或追问", "warn");
           return;
         }
+        const directoryId = await this.pickPermanentDirectoryForNote(record.note);
+        if (!directoryId) return;
         void this.onStateChange("record-original-from-note", {
           sourceNoteId: record.note.id,
           sourceTitle: record.note.title || "",
           sourceType: this.resolvedNoteType(record.note) || "literature",
           sourceBody: record.note.body || "",
+          directoryId,
           citation: record.fields.citation || {},
           originalText: record.fields.originalText || "",
           paraphrase: record.fields.paraphrase || "",

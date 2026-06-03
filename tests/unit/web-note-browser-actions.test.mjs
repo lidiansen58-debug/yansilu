@@ -20,6 +20,7 @@ function readRepoFile(...segments) {
 
 function createStubButton() {
   return {
+    classList: { toggle() {} },
     dataset: {},
     title: "",
     addEventListener() {},
@@ -60,9 +61,12 @@ test("note browser new action follows the current material root", () => {
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_literature_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "新建文献",
-    title: "新建文献笔记",
-    ariaLabel: "在当前文献目录新建文献笔记"
+    label: "创建文件笔记",
+    title: "在当前文献目录创建文件笔记",
+    ariaLabel: "在当前文献目录创建文件笔记",
+    kindLabel: "文献",
+    entryKind: "literature",
+    mobileLabel: "文献"
   });
 });
 
@@ -74,9 +78,12 @@ test("note browser new action falls back to current root when selection is stale
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_fleeting_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "新建随笔",
-    title: "新建随笔笔记",
-    ariaLabel: "在当前随笔目录新建随笔笔记"
+    label: "创建文件笔记",
+    title: "在当前随笔目录创建文件笔记",
+    ariaLabel: "在当前随笔目录创建文件笔记",
+    kindLabel: "随笔",
+    entryKind: "fleeting",
+    mobileLabel: "随笔"
   });
 });
 
@@ -90,7 +97,10 @@ test("note browser new action names permanent notes without legacy original copy
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
     label: "新建笔记",
     title: "新建永久笔记",
-    ariaLabel: "在当前永久笔记目录新建笔记"
+    ariaLabel: "在当前永久笔记目录新建笔记",
+    kindLabel: "",
+    entryKind: "permanent",
+    mobileLabel: "永久"
   });
 });
 
@@ -363,9 +373,43 @@ test("source-note boxes surface notes that still have not been turned into perma
     generatedOriginalNoteId: "pn_001"
   }, 0);
 
-  assert.match(pendingHtml, /未转永久/);
+  assert.match(pendingHtml, /随笔待转/);
   assert.doesNotMatch(pendingHtml, /孤立/);
   assert.match(doneHtml, /item-badge-original-record/);
+});
+
+test("source-note browser uses different pending badges for fleeting and literature notes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  const fleetingHtml = explorer.renderFileNode({
+    id: "fn_pending_type",
+    title: "Pending fleeting",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting"
+  }, 0);
+  const literatureHtml = explorer.renderFileNode({
+    id: "ln_pending_type",
+    title: "Pending literature",
+    folderId: "dir_literature_default",
+    noteType: "literature"
+  }, 0);
+
+  assert.match(fleetingHtml, /data-source-kind="fleeting"/);
+  assert.match(fleetingHtml, /随笔待转/);
+  assert.match(literatureHtml, /data-source-kind="literature"/);
+  assert.match(literatureHtml, /文献待转/);
+});
+
+test("source-note promote flows no longer ask users to type a directory id", () => {
+  const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
+  const html = readRepoFile("apps/web/src/prototype.html");
+
+  assert.doesNotMatch(explorerSource, /选择永久笔记目录 ID/);
+  assert.doesNotMatch(editorSource, /选择永久笔记目录 ID/);
+  assert.match(html, /id="permanentNoteModal"/);
+  assert.match(html, /先选要放入的永久笔记盒目录/);
 });
 
 test("note browsers keep richer note actions and thinking badges outside simplified scopes", () => {

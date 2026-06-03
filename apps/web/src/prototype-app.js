@@ -12,6 +12,7 @@
 } from "./prototype-store.js";
 import { ContextMenu } from "./components-context-menu.js";
 import { CreateBoxDialog } from "./components-create-box-dialog.js";
+import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
 import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
@@ -198,6 +199,7 @@ const GRAPH_FOCUS_DEPTH_KEY = "yansilu:graph:focus-depth";
 const GRAPH_FOCUS_CONTEXT_MODE_KEY = "yansilu:graph:focus-context-mode";
 const state = createInitialState();
 let usingLocalFallbackData = false;
+let lastChosenPermanentDirectoryId = "dir_original_default";
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 state.graphConnectivityReady = false;
@@ -4778,21 +4780,10 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
   `;
 }
 
-function newNoteLabelForRoot(rootId = state.browserRootId) {
-  if (rootId === "dir_literature_default") return "新建文摘笔记";
-  if (rootId === "dir_fleeting_default") return "新建随笔";
-  return "新建永久笔记";
-}
-
-function newNoteShortLabelForRoot(rootId = state.browserRootId) {
-  if (rootId === "dir_literature_default") return "文摘";
-  if (rootId === "dir_fleeting_default") return "随笔";
-  return "永久";
-}
-
 function syncNewNoteButtons() {
-  const label = newNoteLabelForRoot();
-  const shortLabel = newNoteShortLabelForRoot();
+  const copy = explorerNewNoteButtonCopy(state);
+  const label = copy.title || copy.label;
+  const shortLabel = copy.mobileLabel || copy.kindLabel || copy.label;
   const sidebarNew = $("btnNewNote");
   const mobileNew = $("btnMobileNewNote");
   for (const button of [sidebarNew, mobileNew].filter(Boolean)) {
@@ -5254,6 +5245,29 @@ function permanentExportDirectories() {
   return state.folders
     .filter((folder) => folder?.id && isDirectoryUnderOriginalRoot(folder.id))
     .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"));
+}
+
+function sourceNoteTypeLabel(noteType = "") {
+  if (noteType === "literature") return "文献笔记";
+  if (noteType === "fleeting") return "随笔";
+  return "来源笔记";
+}
+
+function defaultPermanentDirectoryId() {
+  if (isDirectoryUnderOriginalRoot(state.selectedFolderId)) return state.selectedFolderId;
+  if (isDirectoryUnderOriginalRoot(lastChosenPermanentDirectoryId)) return lastChosenPermanentDirectoryId;
+  return permanentExportDirectories()[0]?.id || "";
+}
+
+function permanentDirectoryDialogOptions() {
+  return permanentExportDirectories().map((folder) => ({
+    id: folder.id,
+    label: directoryPathLabel(folder.id),
+    hint:
+      folder.id === "dir_original_default"
+        ? "先放到永久笔记盒根目录，后面再整理也可以。"
+        : `会创建到“${folder.name}”目录，创建后会直接打开继续编辑。`
+  }));
 }
 
 function importTargetDirectories() {
@@ -11412,6 +11426,16 @@ const createBoxDialog = new CreateBoxDialog({
   onStatus: setStatus,
   pickDirectory: desktopCommands.browseDirectory
 });
+const permanentNoteDialog = new PermanentNoteDialog({
+  maskEl: $("permanentNoteModal"),
+  sourceTypeEl: $("permanentNoteSourceType"),
+  sourceTitleEl: $("permanentNoteSourceTitle"),
+  sourceHintEl: $("permanentNoteSourceHint"),
+  directorySelectEl: $("permanentNoteTargetFolder"),
+  directoryHintEl: $("permanentNoteTargetHint"),
+  cancelEl: $("permanentNoteCancel"),
+  createEl: $("permanentNoteCreate")
+});
 
 createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   if (!name) return setStatus("请输入目录名称", "bad");
@@ -11440,6 +11464,30 @@ createBoxDialog.onCreate = async ({ name, parentId, fsPath, maxCards }) => {
   }
 };
 
+async function selectPermanentDirectory({
+  sourceNoteId = "",
+  sourceType = "",
+  sourceTitle = "",
+  sourceHint = ""
+} = {}) {
+  const options = permanentDirectoryDialogOptions();
+  if (!options.length) {
+    setStatus("当前还没有可用的永久笔记盒目录", "warn");
+    return "";
+  }
+  const directoryId = await permanentNoteDialog.open({
+    sourceType,
+    sourceTypeLabel: sourceNoteTypeLabel(sourceType),
+    sourceTitle: sourceTitle || sourceNoteId || "未命名笔记",
+    sourceHint: sourceHint || "先选一个永久笔记盒目录，再继续创建。",
+    directoryOptions: options,
+    defaultDirectoryId: defaultPermanentDirectoryId(),
+    actionLabel: "在这个目录创建"
+  });
+  if (directoryId) lastChosenPermanentDirectoryId = directoryId;
+  return directoryId;
+}
+
 const explorer = new ExplorerPane({
   state,
   elements: {
@@ -11455,6 +11503,7 @@ const explorer = new ExplorerPane({
   onStatus: setStatus,
   onStateChange: handleStateChange,
   pickDirectory: desktopCommands.browseDirectory,
+  selectPermanentDirectory,
   desktopFile: { revealPath: desktopCommands.revealInFileManager, openPath: desktopCommands.openDirectory },
   resolveNotePath
 });
@@ -11538,6 +11587,7 @@ const editor = new EditorPane({
   onStateChange: handleStateChange,
   onOpenNote: openNoteById,
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
+  selectPermanentDirectory,
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
