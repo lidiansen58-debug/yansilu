@@ -1976,7 +1976,7 @@ export class EditorPane {
     return this.state.notes
       .filter(
         (item) =>
-          String(item?.noteType || "").trim() === "literature" &&
+          this.resolvedNoteType(item) === "literature" &&
           scopeDirectoryIds.has(item.folderId) &&
           (!focusedIds.size || focusedIds.has(String(item.id || "").trim()))
       )

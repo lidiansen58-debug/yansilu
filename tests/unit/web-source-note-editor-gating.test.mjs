@@ -173,3 +173,41 @@ test("editor suppresses originality notice for source notes", () => {
   assert.equal(title.textContent, "");
   assert.equal(body.textContent, "");
 });
+
+test("literature queue records keep folder-root literature notes even when noteType metadata is missing", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  pane.literatureQueueScopeDirectoryIds = () => new Set(["dir_literature_default"]);
+  pane.literatureQueueRecord = (item) => ({
+    note: item,
+    lane: "pending",
+    label: "待转述",
+    tone: "warn",
+    noteText: item.title || "",
+    fields: {},
+    excerpt: ""
+  });
+
+  state.notes = [
+    {
+      id: "ln_missing",
+      title: "Missing Type Literature",
+      folderId: "dir_literature_default",
+      noteType: "",
+      updatedAt: "2026-06-03T00:00:00.000Z"
+    },
+    {
+      id: "fn_wrong_box",
+      title: "Fleeting Note",
+      folderId: "dir_fleeting_default",
+      noteType: "",
+      updatedAt: "2026-06-03T00:00:01.000Z"
+    }
+  ];
+
+  const records = pane.literatureQueueRecords({ id: "ln_missing", folderId: "dir_literature_default", noteType: "" });
+
+  assert.deepEqual(records.map((item) => item.note.id), ["ln_missing"]);
+});

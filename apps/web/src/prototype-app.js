@@ -596,9 +596,9 @@ function isPersistableRelationNetworkStatus(status = "") {
 
 function relationNetworkStatusForNote(note = null, options = {}) {
   const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
-  if (explicitStatus === "connected" || explicitStatus === "isolated" || explicitStatus === "unknown") return explicitStatus;
+  if (explicitStatus === "connected" || explicitStatus === "isolated") return explicitStatus;
   const storedStatus = readStoredRelationNetworkStatus(note?.id);
-  if (storedStatus === "connected" || storedStatus === "isolated" || storedStatus === "unknown") return storedStatus;
+  if (storedStatus === "connected" || storedStatus === "isolated") return storedStatus;
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   if (noteType !== "permanent" && noteType !== "original") return "";
   const connectedIds = options.connectedIds instanceof Set
@@ -5423,7 +5423,7 @@ function renderWorkspaceStatusHint() {
   const title = $("editorHelperTitle");
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
-  const noteType = String(activeNote?.noteType || "").trim();
+  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
   if (!activeNote) {
     if (action) {
       action.dataset.helperAction = "noop";
@@ -10433,7 +10433,9 @@ function openNoteById(id, options = {}) {
   const note = state.notes.find((n) => n.id === id);
   const focusedIds = Array.isArray(state.literatureQueueFocusNoteIds) ? state.literatureQueueFocusNoteIds : [];
   if (focusedIds.length) {
-    const keepFocus = String(note?.noteType || "").trim() === "literature" && focusedIds.includes(String(id || "").trim());
+    const keepFocus =
+      String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim() === "literature" &&
+      focusedIds.includes(String(id || "").trim());
     if (!keepFocus) clearLiteratureQueueFocus();
   }
   if (note) applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });

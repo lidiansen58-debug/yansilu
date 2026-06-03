@@ -287,6 +287,17 @@ test("save-note only persists known relation-network statuses", () => {
   assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined,/);
 });
 
+test("graph-ready relation sync does not let stale unknown statuses override recomputed connectivity", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.doesNotMatch(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated" \|\| explicitStatus === "unknown"\) return explicitStatus;/);
+  assert.doesNotMatch(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated" \|\| storedStatus === "unknown"\) return storedStatus;/);
+  assert.match(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated"\) return explicitStatus;/);
+  assert.match(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated"\) return storedStatus;/);
+  assert.match(source, /if \(!connectivityReady \|\| !connectedIds\) return "unknown";/);
+  assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
+});
+
 test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
@@ -438,6 +449,13 @@ test("note persistence keeps generated-original and relation-network status fiel
   assert.match(source, /generatedOriginalNoteId: note\.generatedOriginalNoteId \|\| undefined/);
   assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined/);
   assert.match(source, /const storedStatus = readStoredRelationNetworkStatus\(note\?\.id\);/);
+});
+
+test("workspace helper and note opening use folder-root note types for literature flows", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /const noteType = String\(\(activeNote\?\.folderId \? typeFromFolder\(state, activeNote\.folderId\) : ""\) \|\| activeNote\?\.noteType \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const keepFocus =\s*String\(\(note\?\.folderId \? typeFromFolder\(state, note\.folderId\) : ""\) \|\| note\?\.noteType \|\| ""\)\.trim\(\) === "literature"/);
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
