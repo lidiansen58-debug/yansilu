@@ -11565,6 +11565,7 @@ const editor = new EditorPane({
     showRelated: $("btnShowRelated"),
     hideRelated: $("btnHideRelated"),
     completeNote: $("btnCompleteNote"),
+    recordPermanentWrap: $("recordPermanentWrap"),
     recordPermanent: $("btnRecordPermanent"),
     save: $("btnSave"),
     statusHint: $("statusHint"),

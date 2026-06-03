@@ -2821,9 +2821,11 @@ export class EditorPane {
 
   renderRecordPermanentButton() {
     const button = this.els.recordPermanent;
+    const wrap = this.els.recordPermanentWrap;
     if (!button) return;
     const note = this.activeNote();
     const visible = Boolean(note && this.isOriginalRecordableSource(note) && !this.hasGeneratedOriginal(note));
+    wrap?.classList.toggle("hidden", !visible);
     button.classList.toggle("hidden", !visible);
     button.disabled = !visible;
     button.dataset.sourceNoteId = visible ? note.id : "";
