@@ -226,7 +226,8 @@ const graphState = {
   focusDepth: String(readStoredText(GRAPH_FOCUS_DEPTH_KEY, "1") || "").trim().toLowerCase() || "1",
   focusContextMode: String(readStoredText(GRAPH_FOCUS_CONTEXT_MODE_KEY, "argument") || "").trim().toLowerCase() || "argument",
   zoom: "fit",
-  expanded: false
+  expanded: false,
+  utilityDrawerOpen: false
 };
 const graphViewportDragState = {
   active: false,
@@ -8912,7 +8913,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
 
 function graphViewModeForRelationType(type = "") {
   const key = String(type || "meaningful").trim().toLowerCase();
-  if (key === "index") return "structure";
+  if (key === "index" || GRAPH_INDEX_RELATION_TYPES.has(key)) return "structure";
   return "argument";
 }
 
@@ -10008,7 +10009,7 @@ function renderGraphAiAnalysisCard() {
   `;
 }
 
-function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sectionsMarkup = "" } = {}) {
+function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sectionsMarkup = "", open = false } = {}) {
   const content = String(sectionsMarkup || "").trim();
   if (!content) return "";
   const reviewCount = Number(reviewQueue?.total || 0);
@@ -10021,7 +10022,7 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sect
     .filter(Boolean)
     .join("");
   return `
-    <details class="graph-utility-drawer" data-graph-utility-drawer>
+    <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
       <summary class="graph-utility-drawer-summary">
         <div class="graph-utility-drawer-copy">
           <strong>图谱待处理</strong>
@@ -10043,6 +10044,10 @@ function renderGraphPanel() {
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
   if (!summary || !canvas) return;
+  const existingUtilityDrawer = canvas.querySelector("[data-graph-utility-drawer]");
+  if (existingUtilityDrawer) {
+    graphState.utilityDrawerOpen = existingUtilityDrawer.hasAttribute("open");
+  }
 
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
@@ -10110,12 +10115,13 @@ function renderGraphPanel() {
   const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
   const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
+  const readingMode = graphViewModeForRelationType(effectiveRelationType);
   const summaryModeNote =
-    effectiveRelationType === "meaningful"
+    readingMode === "structure"
+      ? "只看主题归属。"
+      : effectiveRelationType === "meaningful"
       ? "先看有解释力的关系。"
-      : effectiveRelationType === "index"
-        ? "只看主题归属。"
-        : effectiveRelationType === "noisy"
+      : effectiveRelationType === "noisy"
           ? "只看链接线索。"
           : "展开全部关系。";
   const baseSummary = showingFocusedNote
@@ -10156,7 +10162,8 @@ function renderGraphPanel() {
     ? renderGraphUtilityDrawer({
         bridgeGapCount: bridgeGaps.length,
         reviewQueue: graphState.reviewQueue,
-        sectionsMarkup: supplementalSections
+        sectionsMarkup: supplementalSections,
+        open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
       })
     : "";
   canvas.innerHTML = `
@@ -12891,6 +12898,15 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     event.preventDefault();
     event.stopPropagation();
     return;
+  }
+  const utilityDrawerSummary = event.target.closest(".graph-utility-drawer-summary");
+  if (utilityDrawerSummary) {
+    const utilityDrawer = utilityDrawerSummary.closest("[data-graph-utility-drawer]");
+    if (utilityDrawer) {
+      requestAnimationFrame(() => {
+        graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+      });
+    }
   }
   const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
   if (graphAiButton) {
