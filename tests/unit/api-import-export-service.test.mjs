@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -152,6 +153,10 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
 
   const literatureNotes = await Promise.all(literatureEntries.map((entry) => readNote(vaultPath, "literature", entry.id)));
   assert.ok(literatureNotes.some((item) => /assets\/imports\//.test(item.markdown)));
+  const createdLiteratureFile = result.result.createdFiles.find((item) => item.noteType === "literature");
+  const createdLiteratureBuffer = await fs.readFile(path.join(vaultPath, createdLiteratureFile.path));
+  const createdLiteratureHash = createHash("sha1").update(createdLiteratureBuffer).digest("hex");
+  assert.equal(createdLiteratureFile.hash, createdLiteratureHash);
 });
 
 test("confirmImport honors selectedCandidateIds subset", async () => {
@@ -230,6 +235,21 @@ test("confirmImport cleans up already written files and marks the record failed 
   const importRoot = await makeTempDir("yansilu-service-confirm-cleanup-import-");
   const importRecords = new Map();
   const service = createService(vaultPath, importRecords, {
+    deleteNoteById: async (_vaultPath, noteId) => {
+      for (const relativeDir of [
+        path.join("notes", "sources"),
+        path.join("notes", "literature"),
+        path.join("notes", "original")
+      ]) {
+        const fullPath = path.join(vaultPath, relativeDir, `${noteId}.md`);
+        try {
+          await fs.unlink(fullPath);
+          return;
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+      }
+    },
     registerImportCatalogNote: async () => {
       throw Object.assign(new Error("catalog unavailable"), { code: "CATALOG_UNAVAILABLE" });
     }
@@ -259,6 +279,75 @@ test("confirmImport cleans up already written files and marks the record failed 
   assert.equal(record?.failureResult?.code, "CATALOG_UNAVAILABLE");
   await assert.rejects(() => readNote(vaultPath, "source", preview.samples.sourceIds[0]), { code: "ENOENT" });
   await assert.rejects(() => readNote(vaultPath, "literature", preview.samples.literatureNoteIds[0]), { code: "ENOENT" });
+});
+
+test("confirmImport surfaces catalog cleanup failures without deleting the note file behind a lingering catalog row", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-catalog-cleanup-");
+  const importRoot = await makeTempDir("yansilu-service-confirm-catalog-cleanup-import-");
+  const importRecords = new Map();
+  let literatureNoteId = "";
+  let literatureNotePath = "";
+
+  const service = createService(vaultPath, importRecords, {
+    deleteNoteById: async (currentVaultPath, noteId) => {
+      if (noteId === literatureNoteId) {
+        const error = new Error("catalog delete failed");
+        error.code = "CATALOG_DELETE_FAILED";
+        throw error;
+      }
+      const fileName = `${noteId}.md`;
+      for (const relativeDir of [
+        path.join("notes", "sources"),
+        path.join("notes", "literature"),
+        path.join("notes", "original")
+      ]) {
+        const fullPath = path.join(currentVaultPath, relativeDir, fileName);
+        try {
+          await fs.unlink(fullPath);
+          return;
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+      }
+    },
+    registerImportCatalogNote: async (currentVaultPath, candidate, noteType, writeResult, directoryId) => {
+      const registered = await registerImportCatalogNote(currentVaultPath, candidate, noteType, writeResult, directoryId);
+      if (noteType === "literature") {
+        literatureNoteId = candidate.id;
+        literatureNotePath = writeResult.path;
+        const error = new Error("late failure after catalog registration");
+        error.code = "LATE_FAILURE";
+        throw error;
+      }
+      return registered;
+    }
+  });
+
+  await fs.writeFile(
+    path.join(importRoot, "cleanup-row.md"),
+    [
+      "---",
+      "title: Cleanup row candidate",
+      "---",
+      "",
+      "This note should stay on disk if catalog cleanup fails."
+    ].join("\n"),
+    "utf8"
+  );
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_catalog_cleanup_preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+
+  await assert.rejects(
+    () => service.confirmImport(record, { confirm: true }, "req_catalog_cleanup_confirm"),
+    { code: "CATALOG_DELETE_FAILED" }
+  );
+
+  assert.equal(record?.state, "failed");
+  assert.equal(record?.failureResult?.code, "CATALOG_DELETE_FAILED");
+  await fs.access(literatureNotePath);
+  const literatureEntries = await listNoteCatalogEntriesByType(vaultPath, "literature");
+  assert.ok(literatureEntries.some((entry) => entry.id === literatureNoteId));
 });
 
 test("runMarkdownExport resolves the active vault path at call time", async () => {

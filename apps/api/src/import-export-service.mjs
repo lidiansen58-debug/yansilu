@@ -339,11 +339,15 @@ export function createImportExportService({
           await fs.unlink(entry.filePath);
         }
       } catch (error) {
-        try {
-          await fs.unlink(entry.filePath);
-        } catch (unlinkError) {
-          if (!firstError) firstError = unlinkError;
+        if (entry.noteType === "asset" || typeof deleteNoteById !== "function") {
+          try {
+            await fs.unlink(entry.filePath);
+          } catch (unlinkError) {
+            if (!firstError) firstError = unlinkError;
+            continue;
+          }
         }
+        if (!firstError) firstError = error;
       }
     }
     if (firstError) throw firstError;
@@ -497,7 +501,6 @@ export function createImportExportService({
     const created = { sources: 0, literatureNotes: 0, permanentNotes: 0 };
     const skipped = { conflicted: 0, invalid: 0 };
     const writtenPaths = new Set();
-    const createdFiles = [];
     const cleanupEntries = [];
     const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates.literature);
     const assetPathByTarget = new Map([...assetPlans.entries()].map(([key, value]) => [key, value.assetRelativePath]));
@@ -517,7 +520,6 @@ export function createImportExportService({
         cleanupEntries.push(cleanupEntry);
         created.sources += 1;
         writtenPaths.add(path.dirname(result.path));
-        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
       }
 
       for (const note of selected.candidates.literature) {
@@ -533,7 +535,6 @@ export function createImportExportService({
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
-        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
         await registerImportCatalogNote(note, "literature", result, literatureTargetDirectoryId);
         await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
         created.literatureNotes += 1;
@@ -562,7 +563,6 @@ export function createImportExportService({
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
-        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
         await registerImportCatalogNote(noteToWrite, "permanent", result, permanentTargetDirectoryId);
         await rewriteImportedAssetLinksInFile(result.path, vaultPath(), assetPathByTarget);
         created.permanentNotes += 1;
@@ -576,7 +576,6 @@ export function createImportExportService({
         const cleanupEntry = cleanupEntryFromAsset(stableAssetId(record.importRecordId, normalizedTarget), destinationPath);
         cleanupEntries.push(cleanupEntry);
         writtenPaths.add(path.dirname(destinationPath));
-        createdFiles.push(await createdFileFromCleanupEntry(cleanupEntry));
       }
     } catch (error) {
       let finalError = error;
@@ -592,6 +591,11 @@ export function createImportExportService({
         guard: confirmGuard
       });
       throw finalError;
+    }
+
+    const createdFiles = [];
+    for (const entry of cleanupEntries) {
+      createdFiles.push(await createdFileFromCleanupEntry(entry));
     }
 
     const targetDirectories = [];
