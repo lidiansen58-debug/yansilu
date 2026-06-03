@@ -2652,6 +2652,7 @@ export class EditorPane {
       this.renderSaveButton();
       this.renderCompleteButton();
       this.renderRecordPermanentButton();
+      this.renderRelationToolbarButtons();
       this.renderAuthorshipPanel();
       return;
     }
@@ -2671,6 +2672,7 @@ export class EditorPane {
     this.renderSaveButton();
     this.renderCompleteButton();
     this.renderRecordPermanentButton();
+    this.renderRelationToolbarButtons();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -2822,6 +2824,28 @@ export class EditorPane {
     button.title = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
     button.dataset.tip = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
     button.setAttribute("aria-label", visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记");
+  }
+
+  renderRelationToolbarButtons() {
+    const note = this.activeNote();
+    const visible = Boolean(note && this.isOriginalNote(note));
+
+    if (this.els.insertLink) {
+      this.els.insertLink.classList.toggle("hidden", !visible);
+      this.els.insertLink.disabled = !visible;
+      this.els.insertLink.title = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.dataset.tip = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.setAttribute("aria-label", visible ? "关联笔记" : "只有永久笔记才能关联其他笔记");
+    }
+
+    if (this.els.showRelated) {
+      this.els.showRelated.classList.toggle("hidden", !visible);
+      this.els.showRelated.disabled = !visible;
+    }
+
+    if (!visible && this.state.inspectorVisible) {
+      this.setInspectorVisible(false);
+    }
   }
 
   renderSourceNoteFlowSection(note) {

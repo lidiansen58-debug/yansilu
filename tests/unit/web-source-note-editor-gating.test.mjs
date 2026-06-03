@@ -106,6 +106,44 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.match(button.title, /永久笔记/);
 });
 
+test("editor shows relation actions for permanent notes", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const insertLink = createToolbarButtonStub();
+  const showRelated = createToolbarButtonStub();
+
+  pane.state = state;
+  pane.els = { insertLink, showRelated };
+  pane.activeNote = () => ({ id: "pn_1", folderId: "dir_original_default", noteType: "" });
+
+  pane.renderRelationToolbarButtons();
+
+  assert.equal(insertLink.classList.contains("hidden"), false);
+  assert.equal(insertLink.disabled, false);
+  assert.equal(insertLink.title, "关联笔记 [[");
+  assert.equal(showRelated.classList.contains("hidden"), false);
+  assert.equal(showRelated.disabled, false);
+});
+
+test("editor hides relation actions for source notes", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const insertLink = createToolbarButtonStub();
+  const showRelated = createToolbarButtonStub();
+
+  pane.state = state;
+  pane.els = { insertLink, showRelated };
+  pane.activeNote = () => ({ id: "fn_1", folderId: "dir_fleeting_default", noteType: "" });
+
+  pane.renderRelationToolbarButtons();
+
+  assert.equal(insertLink.classList.contains("hidden"), true);
+  assert.equal(insertLink.disabled, true);
+  assert.equal(insertLink.title, "只有永久笔记才能关联其他笔记");
+  assert.equal(showRelated.classList.contains("hidden"), true);
+  assert.equal(showRelated.disabled, true);
+});
+
 test("editor inspector shows source-note promote flow instead of relation panels for fleeting notes", () => {
   const state = createInitialState();
   const pane = Object.create(EditorPane.prototype);
