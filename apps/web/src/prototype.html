@@ -1957,19 +1957,23 @@
     }
     .import-workbench-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.06fr) minmax(360px, 0.94fr);
+      grid-template-columns: minmax(0, 1.06fr) minmax(340px, 0.94fr);
+      grid-template-areas:
+        "toolbar result"
+        "export result";
       gap: 18px;
       align-items: start;
     }
-    .import-page-primary,
+    .import-layout-toolbar,
+    .import-layout-result,
+    .import-layout-export,
     .import-page-side,
     #exportCardMount {
       min-width: 0;
     }
-    .import-page-primary {
-      display: grid;
-      gap: 18px;
-    }
+    .import-layout-toolbar { grid-area: toolbar; }
+    .import-layout-result { grid-area: result; }
+    .import-layout-export { grid-area: export; }
     .import-page-side {
       position: sticky;
       top: 16px;
@@ -2078,6 +2082,7 @@
       background: rgba(255, 255, 255, 0.84);
       padding: 16px;
       display: grid;
+      align-content: start;
       gap: 10px;
       min-width: 0;
     }
@@ -2196,8 +2201,23 @@
     }
     .import-result-card .import-result {
       margin-top: 16px;
-      min-height: 360px;
+      min-height: 220px;
       max-height: calc(100vh - 240px);
+    }
+    .module-workspace.imports-mode .module-header {
+      margin: 8px 12px 0;
+      padding: 4px 0 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      justify-content: flex-end;
+    }
+    .module-workspace.imports-mode .module-header > div:first-child {
+      display: none;
+    }
+    .module-workspace.imports-mode .module-header-actions {
+      width: 100%;
+      justify-content: flex-end;
     }
     .import-history {
       margin-top: 10px;
@@ -7648,6 +7668,12 @@
       .import-workbench-layout {
         grid-template-columns: 1fr;
       }
+      .import-workbench-layout {
+        grid-template-areas:
+          "toolbar"
+          "result"
+          "export";
+      }
       .import-page-side {
         position: static;
       }
@@ -7807,6 +7833,21 @@
       .import-card {
         padding: 14px;
       }
+      .import-workbench-hero {
+        padding: 18px;
+      }
+      .import-workbench-hero-copy h2 {
+        font-size: 24px;
+        line-height: 1.18;
+      }
+      .import-workbench-hero-copy p {
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .import-workbench-hero-points div,
+      .import-flow-steps div {
+        min-height: 0;
+      }
       .import-card-head {
         gap: 10px;
         margin-bottom: 10px;
@@ -7841,6 +7882,10 @@
       }
       .import-result {
         font-size: 13px;
+      }
+      .import-result-card .import-result {
+        min-height: 0;
+        max-height: none;
       }
       .import-flow-steps,
       .import-workbench-hero-points,

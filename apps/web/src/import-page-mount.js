@@ -111,15 +111,10 @@ export function renderImportPageMount({
         </div>
       </section>
       <div class="import-workbench-layout">
-        <div class="import-page-primary">
-          <section id="importToolbarMount">
-            ${renderImportToolbarMount(toolbar)}
-          </section>
-          <section id="exportCardMount" class="import-export-slot">
-            ${renderExportCard()}
-          </section>
-        </div>
-        <aside class="import-page-side">
+        <section id="importToolbarMount" class="import-layout-toolbar">
+          ${renderImportToolbarMount(toolbar)}
+        </section>
+        <aside class="import-page-side import-layout-result">
           <section class="import-card import-result-card">
             <div class="import-history-head">
               <div>
@@ -130,6 +125,9 @@ export function renderImportPageMount({
             <div class="import-result" id="importResult">${renderResultSection(result)}</div>
           </section>
         </aside>
+        <section id="exportCardMount" class="import-export-slot import-layout-export">
+          ${renderExportCard()}
+        </section>
       </div>
     </div>
   `;

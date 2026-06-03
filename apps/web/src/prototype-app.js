@@ -5975,6 +5975,7 @@ function renderModulePanels() {
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
   $("moduleWorkspace")?.classList.toggle("graph-mode", graphMode);
+  $("moduleWorkspace")?.classList.toggle("imports-mode", importsMode);
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
