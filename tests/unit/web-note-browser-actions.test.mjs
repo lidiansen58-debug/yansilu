@@ -364,7 +364,7 @@ test("source-note boxes surface notes that still have not been turned into perma
   }, 0);
 
   assert.match(pendingHtml, /未转永久/);
-  assert.doesNotMatch(pendingHtml, /瀛ょ珛/);
+  assert.doesNotMatch(pendingHtml, /孤立/);
   assert.match(doneHtml, /item-badge-original-record/);
 });
 
