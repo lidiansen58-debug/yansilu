@@ -1231,10 +1231,11 @@ function renderImportPageShell() {
 }
 
 function mountExportCardIntoImportShell() {
-  const exportCard = $("importPanel")?.querySelector(".export-card");
+  const legacyExportCard = $("importPanel")?.querySelector(".export-card");
   const exportMount = $("exportCardMount");
-  if (!exportCard || !exportMount) return;
-  exportMount.replaceChildren(exportCard);
+  if (!legacyExportCard || !exportMount) return;
+  if (legacyExportCard.parentElement === exportMount) return;
+  legacyExportCard.remove();
 }
 
 function renderAiInboxWorkspace() {
@@ -4804,7 +4805,7 @@ function currentModuleUi() {
       sidebarSubtitle: "只保留 Obsidian，先预览，再导入。",
       sidebarFoot: "现在是最小可用版：不保留历史、不做回滚，只做一次预览和一次确认。",
       title: "导入与导出",
-      summary: "导入只支持 Obsidian Vault，导出保持目录级 Markdown 复制，先求简单可用。",
+      summary: "导入只保留 Obsidian 仓库，导出保持 Markdown 目录复制，先把流程做得简单、稳定、可用。",
       sidebarHtml: `
         <div class="module-sidebar-card">
           <h3>当前目标</h3>
@@ -5974,6 +5975,7 @@ function renderModulePanels() {
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
   $("moduleWorkspace")?.classList.toggle("graph-mode", graphMode);
+  $("moduleWorkspace")?.classList.toggle("imports-mode", importsMode);
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);

@@ -8,13 +8,13 @@ export function importConfirmButtonState({ selectedCount = 0, totalCount = 0, ha
   if (!hasMatchingPreview) {
     return {
       disabled: false,
-      label: "Confirm Import"
+      label: "确认导入"
     };
   }
 
   return {
     disabled: totalCount > 0 && selectedCount === 0,
-    label: `Confirm Import (${selectedCount}/${totalCount})`
+    label: `确认导入（${selectedCount}/${totalCount}）`
   };
 }
 
@@ -40,7 +40,7 @@ export function importToolbarViewModel({
       confirmButton ||
       {
         disabled: false,
-        label: "Confirm Import"
+        label: "确认导入"
       }
   };
 }
