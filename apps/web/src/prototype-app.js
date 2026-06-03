@@ -589,6 +589,11 @@ function noteHasGeneratedOriginal(note = null) {
   return Boolean(noteGeneratedOriginalNoteId(note));
 }
 
+function isPersistableRelationNetworkStatus(status = "") {
+  const normalized = String(status || "").trim().toLowerCase();
+  return normalized === "connected" || normalized === "isolated";
+}
+
 function relationNetworkStatusForNote(note = null, options = {}) {
   const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
   if (explicitStatus === "connected" || explicitStatus === "isolated" || explicitStatus === "unknown") return explicitStatus;
@@ -611,7 +616,9 @@ function syncNoteRelationNetworkStatus(note = null, options = {}) {
   const nextStatus = relationNetworkStatusForNote(note, options);
   note.relationNetworkStatus = nextStatus;
   const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
-  if (noteType === "permanent" || noteType === "original") writeStoredRelationNetworkStatus(note.id, nextStatus);
+  if (noteType === "permanent" || noteType === "original") {
+    if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
+  }
   else writeStoredRelationNetworkStatus(note.id, "");
   return nextStatus;
 }
@@ -11241,7 +11248,7 @@ async function handleStateChange(reason, payload = {}) {
             body: note.body,
             status: resolvedStatus,
             generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
-            relationNetworkStatus: note.relationNetworkStatus || undefined,
+            relationNetworkStatus: isPersistableRelationNetworkStatus(note.relationNetworkStatus) ? note.relationNetworkStatus : undefined,
             originalityStatus: payload.originalityStatus,
             originalitySimilarity: payload.originalitySimilarity,
             authorship: isPermanentLikeNote(note) ? note.authorship : undefined

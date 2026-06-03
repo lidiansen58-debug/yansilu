@@ -35,14 +35,21 @@ function escapeHtml(value = "") {
 }
 
 function resolvedNoteType(state, note = null) {
-  if (note?.folderId) return String(typeFromFolder(state, note.folderId) || "").trim().toLowerCase();
   const explicitType = String(note?.noteType || "").trim().toLowerCase();
+  const folderType = note?.folderId ? String(typeFromFolder(state, note.folderId) || "").trim().toLowerCase() : "";
+  const rootId = note?.folderId ? String(rootBoxIdFromFolder(state, note.folderId) || "").trim() : "";
+  if (rootId === "dir_original_default" || rootId === "dir_fleeting_default" || rootId === "dir_literature_default") {
+    if (folderType) return folderType;
+    if (explicitType) return explicitType;
+    return "";
+  }
   if (explicitType) return explicitType;
+  if (folderType) return folderType;
   return "";
 }
 
 function generatedOriginalBadge(state, note = null) {
-  const noteType = String(note?.noteType || (note?.folderId ? typeFromFolder(state, note.folderId) : "") || "").trim().toLowerCase();
+  const noteType = resolvedNoteType(state, note);
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
   if (!generatedId) return "";
   if (noteType !== "fleeting" && noteType !== "literature") return "";

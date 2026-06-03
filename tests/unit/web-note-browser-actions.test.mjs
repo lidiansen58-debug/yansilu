@@ -187,6 +187,31 @@ test("note browser still treats literature-folder notes as non-disconnected when
   assert.equal(explorer.noteIsDisconnected(fleeting), false);
 });
 
+test("source-note badges still render for generated permanent notes even when noteType metadata is stale", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.notes.push({
+    id: "pn_from_source",
+    title: "Generated permanent",
+    folderId: "dir_original_default",
+    noteType: "permanent"
+  });
+
+  const literatureWithStaleType = {
+    id: "ln_generated",
+    title: "Literature source",
+    folderId: "dir_literature_default",
+    noteType: "permanent",
+    generatedOriginalNoteId: "pn_from_source"
+  };
+
+  const row = explorer.renderFileNode(literatureWithStaleType, 1);
+
+  assert.match(row, /item-badge-original-record/);
+  assert.doesNotMatch(row, /item-badge-warning/);
+});
+
 test("note browser suppresses disconnected badges until graph connectivity is ready", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
@@ -252,6 +277,14 @@ test("note browsers show isolated folder flags without counts only for the perma
   assert.doesNotMatch(simplifiedRow, /\d+<\/span>/);
   assert.doesNotMatch(customRow, /item-badge-warning/);
   assert.doesNotMatch(customRow, /has-folder-alert/);
+});
+
+test("save-note only persists known relation-network statuses", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /function isPersistableRelationNetworkStatus\(status = ""\) \{/);
+  assert.match(source, /if \(isPersistableRelationNetworkStatus\(nextStatus\)\) writeStoredRelationNetworkStatus\(note\.id, nextStatus\);/);
+  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined,/);
 });
 
 test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {
@@ -403,7 +436,7 @@ test("note persistence keeps generated-original and relation-network status fiel
 
   assert.match(source, /generatedOriginalNoteId: sourceNote\.generatedOriginalNoteId \|\| undefined/);
   assert.match(source, /generatedOriginalNoteId: note\.generatedOriginalNoteId \|\| undefined/);
-  assert.match(source, /relationNetworkStatus: note\.relationNetworkStatus \|\| undefined/);
+  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined/);
   assert.match(source, /const storedStatus = readStoredRelationNetworkStatus\(note\?\.id\);/);
 });
 

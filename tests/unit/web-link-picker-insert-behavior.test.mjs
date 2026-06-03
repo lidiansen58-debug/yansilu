@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
 import { readComponentsEditorPaneSource, readPrototypeHtmlSource } from "./copy-source-helpers.mjs";
 
 test("link picker inserts plain wikilinks instead of inline relation comments", async () => {
@@ -64,6 +65,43 @@ test("manual link picker refreshes confirm state from reason input and locks dup
   assert.ok(source.includes("if (this.isSubmittingLinkInsert) return;"));
   assert.ok(source.includes("this.setLinkInsertSubmitting(true);"));
   assert.ok(source.includes("this.setLinkInsertSubmitting(false);"));
+});
+
+test("manual link picker Enter first pins the highlighted candidate before submitting", async () => {
+  const pane = Object.create(EditorPane.prototype);
+  const statuses = [];
+  const rerenders = [];
+  let focusedReason = 0;
+  let insertedNoteId = "";
+
+  pane.currentLinkCandidates = [{ id: "pn_1", title: "Permanent note" }];
+  pane.currentLinkIndex = 0;
+  pane.currentPinnedLinkId = "";
+  pane.currentLinkContext = null;
+  pane.els = {
+    linkSearchInput: { value: "perm" }
+  };
+  pane.onStatus = (message, tone) => {
+    statuses.push({ message, tone });
+  };
+  pane.renderLinkCandidates = (query, preferredId) => {
+    rerenders.push({ query, preferredId });
+  };
+  pane.focusManualLinkReasonInput = () => {
+    focusedReason += 1;
+  };
+  pane.insertSelectedLinkNote = async (noteId) => {
+    insertedNoteId = noteId;
+  };
+
+  await pane.confirmSelectedLinkCandidate();
+
+  assert.equal(insertedNoteId, "");
+  assert.equal(pane.currentPinnedLinkId, "pn_1");
+  assert.deepEqual(rerenders, [{ query: "perm", preferredId: "pn_1" }]);
+  assert.equal(focusedReason, 1);
+  assert.equal(statuses.length, 1);
+  assert.match(statuses[0].message, /理由后提交/);
 });
 
 test("manual link picker surfaces three distinct duplicate-feedback states", async () => {

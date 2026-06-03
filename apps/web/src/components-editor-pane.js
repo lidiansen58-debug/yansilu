@@ -1761,9 +1761,16 @@ export class EditorPane {
   }
 
   resolvedNoteType(note = this.activeNote()) {
-    if (note?.folderId) return String(typeFromFolder(this.state, note.folderId) || "").trim().toLowerCase();
     const explicitType = String(note?.noteType || "").trim().toLowerCase();
+    const folderType = note?.folderId ? String(typeFromFolder(this.state, note.folderId) || "").trim().toLowerCase() : "";
+    const rootId = note?.folderId ? String(rootBoxIdFromFolder(this.state, note.folderId) || "").trim() : "";
+    if (rootId === "dir_original_default" || rootId === "dir_fleeting_default" || rootId === "dir_literature_default") {
+      if (folderType) return folderType;
+      if (explicitType) return explicitType;
+      return "";
+    }
     if (explicitType) return explicitType;
+    if (folderType) return folderType;
     return "";
   }
 
@@ -5193,6 +5200,16 @@ export class EditorPane {
     if (!chosen) {
       this.onStatus("请先选择一条关联笔记", "warn");
       return;
+    }
+    if (!this.currentLinkContext) {
+      const pinnedId = String(this.currentPinnedLinkId || "").trim();
+      if (pinnedId !== chosen.id) {
+        this.currentPinnedLinkId = chosen.id;
+        this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
+        this.focusManualLinkReasonInput();
+        this.onStatus("已选中这条关联笔记，再写一句理由后提交。", "ok");
+        return;
+      }
     }
     await this.insertSelectedLinkNote(chosen.id);
   }
