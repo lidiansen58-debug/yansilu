@@ -1823,7 +1823,7 @@ export class EditorPane {
   }
 
   isLiteratureWorkspaceActive(note = this.activeNote()) {
-    return this.resolvedNoteType(note) === "literature";
+    return false;
   }
 
   defaultAuthorshipState(note = null) {
@@ -2656,16 +2656,7 @@ export class EditorPane {
     }
     const note = this.activeNote();
     const saveUiState = this.activeSaveUiState();
-    if (this.isLiteratureWorkspaceActive(note)) {
-      const completion = this.literatureCompletionState(note);
-      if (this.els.statusHint) {
-        this.els.statusHint.textContent = completion.hasParaphrase
-          ? completion.status === "active"
-            ? "文献笔记已完成。你保留的是被你理解过的材料，而不是孤立摘录。"
-            : reflectionQuestionsHint("文献笔记已写转述。")
-          : reflectionQuestionsHint("文献笔记待完成。");
-      }
-    } else if (this.isOriginalNote(note)) {
+    if (this.isOriginalNote(note)) {
       if (this.els.statusHint && saveUiState?.mode === "blocked") {
         this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前修改被拦下了。");
       } else if (this.els.statusHint) {
@@ -2898,21 +2889,11 @@ export class EditorPane {
   }
 
   renderLiteratureWorkspace() {
-    const note = this.activeNote();
-    const isLiterature = this.isLiteratureWorkspaceActive(note);
-    this.els.literatureWorkspace?.classList.toggle("hidden", !isLiterature);
-    this.els.markdownSplit?.classList.toggle("hidden", isLiterature);
+    this.els.literatureWorkspace?.classList.add("hidden");
+    this.els.markdownSplit?.classList.remove("hidden");
     this.els.modeEdit?.classList.remove("hidden");
-    this.els.modeSplit?.classList.toggle("hidden", isLiterature);
-    if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
-
-    for (const el of [this.els.insertImage, this.els.insertTag, this.els.toolbarCommandBtn]) {
-      el?.classList?.toggle?.("hidden", isLiterature);
-    }
-    this.els.insertLink?.classList?.toggle?.("hidden", !this.isOriginalNote(note));
-    document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
-
-    this.renderLiteratureQueue(note);
+    this.els.modeSplit?.classList.add("hidden");
+    if (!this.isOriginalNote(this.activeNote())) this.hideOriginalityNotice();
   }
 
   setSaveUiState(mode, message = "") {

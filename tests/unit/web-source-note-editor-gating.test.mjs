@@ -66,7 +66,7 @@ test("editor falls back to folder root when source notes are missing noteType", 
   assert.equal(pane.isOriginalRecordableSource(fleeting), true);
   assert.equal(pane.isOriginalNote(fleeting), false);
 
-  assert.equal(pane.isLiteratureWorkspaceActive(literature), true);
+  assert.equal(pane.isLiteratureWorkspaceActive(literature), false);
   assert.equal(pane.isOriginalRecordableSource(literature), true);
   assert.equal(pane.isOriginalNote(literature), false);
 
@@ -81,7 +81,7 @@ test("editor follows the current folder root even when noteType metadata is stal
   const literatureInLiteratureBox = { id: "ln_stale", folderId: "dir_literature_default", noteType: "permanent" };
   const fleetingInFleetingBox = { id: "fn_stale", folderId: "dir_fleeting_default", noteType: "permanent" };
 
-  assert.equal(pane.isLiteratureWorkspaceActive(literatureInLiteratureBox), true);
+  assert.equal(pane.isLiteratureWorkspaceActive(literatureInLiteratureBox), false);
   assert.equal(pane.isOriginalNote(literatureInLiteratureBox), false);
   assert.equal(pane.isOriginalRecordableSource(literatureInLiteratureBox), true);
 
