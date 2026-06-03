@@ -200,6 +200,7 @@ const state = createInitialState();
 let usingLocalFallbackData = false;
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
+state.graphConnectivityReady = false;
 const importState = {
   importRecordId: "",
   directoryId: "",
@@ -588,8 +589,46 @@ function noteHasGeneratedOriginal(note = null) {
   return Boolean(noteGeneratedOriginalNoteId(note));
 }
 
+function isPersistableRelationNetworkStatus(status = "") {
+  const normalized = String(status || "").trim().toLowerCase();
+  return normalized === "connected" || normalized === "isolated";
+}
+
+function relationNetworkStatusForNote(note = null, options = {}) {
+  const explicitStatus = String(note?.relationNetworkStatus || note?.relation_network_status || "").trim().toLowerCase();
+  if (explicitStatus === "connected" || explicitStatus === "isolated") return explicitStatus;
+  const storedStatus = readStoredRelationNetworkStatus(note?.id);
+  if (storedStatus === "connected" || storedStatus === "isolated") return storedStatus;
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
+  if (noteType !== "permanent" && noteType !== "original") return "";
+  const connectedIds = options.connectedIds instanceof Set
+    ? options.connectedIds
+    : state.graphConnectedNoteIds instanceof Set
+      ? state.graphConnectedNoteIds
+      : null;
+  const connectivityReady = options.connectivityReady === undefined ? state.graphConnectivityReady === true : options.connectivityReady === true;
+  if (!connectivityReady || !connectedIds) return "unknown";
+  return connectedIds.has(note?.id) ? "connected" : "isolated";
+}
+
+function syncNoteRelationNetworkStatus(note = null, options = {}) {
+  if (!note || typeof note !== "object") return "";
+  const nextStatus = relationNetworkStatusForNote(note, options);
+  note.relationNetworkStatus = nextStatus;
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
+  if (noteType === "permanent" || noteType === "original") {
+    if (isPersistableRelationNetworkStatus(nextStatus)) writeStoredRelationNetworkStatus(note.id, nextStatus);
+  }
+  else writeStoredRelationNetworkStatus(note.id, "");
+  return nextStatus;
+}
+
+function syncAllNoteRelationNetworkStatuses(options = {}) {
+  for (const note of state.notes) syncNoteRelationNetworkStatus(note, options);
+}
+
 function isOriginalRecordableSource(note = null) {
-  const noteType = String(note?.noteType || "").trim().toLowerCase();
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "fleeting" || noteType === "literature";
 }
 
@@ -652,6 +691,32 @@ function writeStoredText(key, value) {
     if (!clean) window.localStorage?.removeItem(String(key || ""));
     else window.localStorage?.setItem(String(key || ""), clean);
   } catch {}
+}
+
+const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
+
+function noteRelationStatusStorageKey(noteId = "") {
+  const cleanId = String(noteId || "").trim();
+  return cleanId ? `${NOTE_RELATION_STATUS_KEY_PREFIX}${cleanId}` : "";
+}
+
+function readStoredRelationNetworkStatus(noteId = "") {
+  const key = noteRelationStatusStorageKey(noteId);
+  if (!key) return "";
+  const value = String(readStoredText(key, "") || "").trim().toLowerCase();
+  return isPersistableRelationNetworkStatus(value) ? value : "";
+}
+
+function writeStoredRelationNetworkStatus(noteId = "", status = "") {
+  const key = noteRelationStatusStorageKey(noteId);
+  if (!key) return;
+  const cleanStatus = String(status || "").trim().toLowerCase();
+  if (!cleanStatus) {
+    writeStoredText(key, "");
+    return;
+  }
+  if (!isPersistableRelationNetworkStatus(cleanStatus)) return;
+  writeStoredText(key, cleanStatus);
 }
 
 function loadAiSettingsFromStorage() {
@@ -4188,6 +4253,8 @@ function mapDirectoryItem(item) {
 
 function mapNoteItem(item) {
   const body = item.body || `# ${item.title || "未命名笔记"}\n`;
+  const folderId = item.directoryId || item.folderId || "";
+  const noteType = (folderId ? typeFromFolder(state, folderId) : "") || item.noteType || "original";
   const normalizedAuthorship =
     normalizeAuthorshipItem(item.authorship) ||
     normalizeAuthorshipItem({
@@ -4197,8 +4264,8 @@ function mapNoteItem(item) {
   return {
     id: item.id,
     title: item.title || "未命名笔记",
-    folderId: item.directoryId,
-    noteType: item.noteType || "original",
+    folderId,
+    noteType,
     status: item.status || "draft",
     markdownPath: item.markdownPath || "",
     body,
@@ -4213,6 +4280,12 @@ function mapNoteItem(item) {
     thinkingStatus: normalizeThinkingStatusItem(item.thinkingStatus),
     generatedOriginalNoteId:
       String(item.generatedOriginalNoteId || item.generated_original_note_id || generatedOriginalNoteIdFromBody(body)).trim(),
+    relationNetworkStatus: relationNetworkStatusForNote({
+      id: item.id,
+      folderId,
+      noteType,
+      relationNetworkStatus: item.relationNetworkStatus || item.relation_network_status || ""
+    }),
     boundaryOrCounterpoint: item.boundaryOrCounterpoint || item.boundary_or_counterpoint || "",
     tags: [],
     links: [],
@@ -4228,11 +4301,13 @@ function isLocalOnlyNote(note) {
 
 function createLocalDraftNote({ folderId, body }) {
   const nextBody = ensureEditableNoteBody(body);
+  const noteType = typeFromFolder(state, folderId);
+  const noteId = uid("local_note");
   return {
-    id: uid("local_note"),
+    id: noteId,
     title: "未命名笔记",
     folderId,
-    noteType: typeFromFolder(state, folderId),
+    noteType,
     status: "draft",
     markdownPath: "",
     body: nextBody,
@@ -4244,6 +4319,11 @@ function createLocalDraftNote({ folderId, body }) {
     distillationStatus: "",
     thinkingStatus: null,
     generatedOriginalNoteId: generatedOriginalNoteIdFromBody(nextBody),
+    relationNetworkStatus: relationNetworkStatusForNote({
+      id: noteId,
+      folderId,
+      noteType
+    }),
     boundaryOrCounterpoint: "",
     tags: [],
     links: [],
@@ -5057,7 +5137,7 @@ function noteTypeLabel(noteType = "") {
 }
 
 function isPermanentLikeNote(note = null) {
-  const noteType = String(note?.noteType || typeFromFolder(state, note?.folderId || "")).trim().toLowerCase();
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim().toLowerCase();
   return noteType === "permanent" || noteType === "original";
 }
 
@@ -5313,7 +5393,7 @@ function syncExplorerContextToActiveTab() {
 }
 
 function noteGrowthStage(note, body = "") {
-  const noteType = String(note?.noteType || typeFromFolder(state, note?.folderId || "")).toLowerCase();
+  const noteType = String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").toLowerCase();
   const text = String(body || note?.body || "");
   const tagCount = parseTags(text).length;
   const linkCount = parseLinks(text).length;
@@ -5343,7 +5423,7 @@ function renderWorkspaceStatusHint() {
   const title = $("editorHelperTitle");
   const body = $("editorHelperBody");
   const action = $("btnEditorHelperAction");
-  const noteType = String(activeNote?.noteType || "").trim();
+  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
   if (!activeNote) {
     if (action) {
       action.dataset.helperAction = "noop";
@@ -9969,16 +10049,20 @@ function renderGraphPanel() {
   const scopeDirectoryId = graphScopeDirectoryId();
   const canReuseScopedGraph = graphLoadedScopeCoversDirectory(scopeDirectoryId);
   if (graphState.loading && !canReuseScopedGraph) {
+    state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
     canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补理由。</div>`;
     return;
   }
 
   if (graphState.error && !canReuseScopedGraph) {
+    state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `图谱加载失败：${graphState.error}`;
     canvas.innerHTML = renderGraphErrorState(graphState.error);
     return;
@@ -9986,17 +10070,21 @@ function renderGraphPanel() {
 
   const graph = canReuseScopedGraph ? graphState.item : null;
   if (!graph) {
+    state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `永久笔记盒：点击“刷新图谱”查看所有永久笔记之间的关系。`;
     canvas.innerHTML = `<div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是支持、反驳、限定、桥接等关系。</div>`;
     return;
   }
 
   const allGraphEdges = Array.isArray(graph?.edges) ? graph.edges : [];
+  state.graphConnectivityReady = true;
   state.graphConnectedNoteIds = new Set(
     allGraphEdges.flatMap((edge) => [String(edge?.fromNoteId || "").trim(), String(edge?.toNoteId || "").trim()]).filter(Boolean)
   );
+  syncAllNoteRelationNetworkStatuses({ connectivityReady: true, connectedIds: state.graphConnectedNoteIds });
   const scoped = graphScopedItems(graph);
   const focused = graphFocusedItems(scoped.nodes, scoped.edges);
   const showingFocusedNote = focused.focused && focused.focusedNoteId;
@@ -10345,7 +10433,9 @@ function openNoteById(id, options = {}) {
   const note = state.notes.find((n) => n.id === id);
   const focusedIds = Array.isArray(state.literatureQueueFocusNoteIds) ? state.literatureQueueFocusNoteIds : [];
   if (focusedIds.length) {
-    const keepFocus = String(note?.noteType || "").trim() === "literature" && focusedIds.includes(String(id || "").trim());
+    const keepFocus =
+      String((note?.folderId ? typeFromFolder(state, note.folderId) : "") || note?.noteType || "").trim() === "literature" &&
+      focusedIds.includes(String(id || "").trim());
     if (!keepFocus) clearLiteratureQueueFocus();
   }
   if (note) applyExplorerSelectionContext({ note, syncSearch: true, expandFolder: true });
@@ -10786,7 +10876,7 @@ async function handleStateChange(reason, payload = {}) {
   if (reason === "record-original-from-note" || reason === "create-original-from-literature") {
     const sourceNoteId = String(payload.sourceNoteId || "").trim();
     const sourceNote = state.notes.find((item) => item.id === sourceNoteId) || null;
-    const sourceType = String(payload.sourceType || sourceNote?.noteType || "").trim().toLowerCase();
+    const sourceType = String(payload.sourceType || (sourceNote?.folderId ? typeFromFolder(state, sourceNote.folderId) : "") || sourceNote?.noteType || "").trim().toLowerCase();
     const sourceTitle = String(payload.sourceTitle || sourceNote?.title || "").trim();
     const body = originalDraftBodyFromSource({
       ...payload,
@@ -10814,6 +10904,7 @@ async function handleStateChange(reason, payload = {}) {
         ...created,
         body: typeof created?.body === "string" ? created.body : body
       });
+      syncNoteRelationNetworkStatus(note, { connectivityReady: false, connectedIds: null });
       state.notes = [note, ...state.notes.filter((item) => item.id !== note.id)];
         if (sourceNoteId && sourceNote && isOriginalRecordableSource(sourceNote)) {
           const sourceBodyWithVisibleReference = withGeneratedOriginalReference(
@@ -10839,6 +10930,7 @@ async function handleStateChange(reason, payload = {}) {
             title: sourceNote.title,
             body: sourceNote.body,
             status: sourceNote.status || "draft",
+            generatedOriginalNoteId: sourceNote.generatedOriginalNoteId || undefined,
             originalityStatus: sourceNote.originalityStatus || undefined,
             originalitySimilarity: sourceNote.originalitySimilarity ?? undefined
           });
@@ -11157,6 +11249,8 @@ async function handleStateChange(reason, payload = {}) {
             title: note.title,
             body: note.body,
             status: resolvedStatus,
+            generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
+            relationNetworkStatus: isPersistableRelationNetworkStatus(note.relationNetworkStatus) ? note.relationNetworkStatus : undefined,
             originalityStatus: payload.originalityStatus,
             originalitySimilarity: payload.originalitySimilarity,
             authorship: isPermanentLikeNote(note) ? note.authorship : undefined

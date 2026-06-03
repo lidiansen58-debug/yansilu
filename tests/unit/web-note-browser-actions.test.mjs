@@ -151,6 +151,7 @@ test("note browser only marks permanent notes as disconnected", () => {
   const explorer = createExplorerForTest(state);
 
   state.graphConnectedNoteIds = new Set();
+  state.graphConnectivityReady = true;
 
   const permanent = { id: "pn_lonely", noteType: "permanent" };
   const fleeting = { id: "fn_001", noteType: "fleeting" };
@@ -161,7 +162,81 @@ test("note browser only marks permanent notes as disconnected", () => {
   assert.equal(explorer.noteIsDisconnected(literature), false);
 });
 
-test("note browser counts disconnected permanent notes across child directories for folder alerts", () => {
+test("note browser prefers stored relation-network status for permanent notes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set(["pn_connected"]);
+  state.graphConnectivityReady = false;
+
+  assert.equal(explorer.noteIsDisconnected({ id: "pn_isolated", noteType: "permanent", relationNetworkStatus: "isolated" }), true);
+  assert.equal(explorer.noteIsDisconnected({ id: "pn_connected", noteType: "permanent", relationNetworkStatus: "connected" }), false);
+});
+
+test("note browser still treats literature-folder notes as non-disconnected when noteType is missing", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+  state.graphConnectivityReady = true;
+
+  const literature = { id: "ln_missing_type", folderId: "dir_literature_default", noteType: "" };
+  const fleeting = { id: "fn_missing_type", folderId: "dir_fleeting_default", noteType: "" };
+
+  assert.equal(explorer.noteIsDisconnected(literature), false);
+  assert.equal(explorer.noteIsDisconnected(fleeting), false);
+});
+
+test("source-note badges still render for generated permanent notes even when noteType metadata is stale", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.notes.push({
+    id: "pn_from_source",
+    title: "Generated permanent",
+    folderId: "dir_original_default",
+    noteType: "permanent"
+  });
+
+  const literatureWithStaleType = {
+    id: "ln_generated",
+    title: "Literature source",
+    folderId: "dir_literature_default",
+    noteType: "permanent",
+    generatedOriginalNoteId: "pn_from_source"
+  };
+
+  const row = explorer.renderFileNode(literatureWithStaleType, 1);
+
+  assert.match(row, /item-badge-original-record/);
+  assert.doesNotMatch(row, /item-badge-warning/);
+});
+
+test("note browser suppresses disconnected badges until graph connectivity is ready", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+  state.graphConnectivityReady = false;
+
+  const permanent = { id: "pn_waiting_graph", folderId: "dir_original_default", noteType: "permanent" };
+
+  assert.equal(explorer.noteIsDisconnected(permanent), false);
+});
+
+test("note browser follows folder root before stale noteType metadata when deciding disconnected state", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+  state.graphConnectivityReady = true;
+
+  const literatureWithStaleType = { id: "ln_stale_type", folderId: "dir_literature_default", noteType: "permanent" };
+
+  assert.equal(explorer.noteIsDisconnected(literatureWithStaleType), false);
+});
+
+test("note browser only tracks whether a folder subtree still has isolated permanent notes", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -175,12 +250,14 @@ test("note browser counts disconnected permanent notes across child directories 
     { id: "lit_child", title: "Literature child", folderId: "dir_child", noteType: "literature" }
   );
   state.graphConnectedNoteIds = new Set(["perm_connected"]);
+  state.graphConnectivityReady = true;
 
-  assert.equal(explorer.countDisconnectedNotesInFolder("dir_parent"), 1);
-  assert.equal(explorer.countDisconnectedNotesInFolder("dir_child"), 1);
+  assert.equal(explorer.folderHasDisconnectedNotes("dir_parent"), true);
+  assert.equal(explorer.folderHasDisconnectedNotes("dir_child"), true);
+  assert.equal(explorer.folderHasDisconnectedNotes("dir_literature_default"), false);
 });
 
-test("note browsers show isolated counts only for the simplified root scopes", () => {
+test("note browsers show isolated folder flags without counts only for the permanent root scope", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -190,14 +267,38 @@ test("note browsers show isolated counts only for the simplified root scopes", (
     { id: "perm_custom", title: "Custom", folderId: "dir_custom_root", noteType: "permanent" }
   );
   state.graphConnectedNoteIds = new Set(["pn_001", "pn_002"]);
+  state.graphConnectivityReady = true;
 
   const simplifiedRow = explorer.renderFolderNode(folderById(state, "dir_original_default"), 0, "", new Map());
   const customRow = explorer.renderFolderNode(folderById(state, "dir_custom_root"), 0, "", new Map());
 
-  assert.match(simplifiedRow, /孤立 1/);
   assert.match(simplifiedRow, /has-folder-alert/);
-  assert.doesNotMatch(customRow, /孤立 1/);
+  assert.match(simplifiedRow, /item-badge-warning/);
+  assert.doesNotMatch(simplifiedRow, /\d+<\/span>/);
+  assert.doesNotMatch(customRow, /item-badge-warning/);
   assert.doesNotMatch(customRow, /has-folder-alert/);
+});
+
+test("save-note only persists known relation-network statuses", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /function isPersistableRelationNetworkStatus\(status = ""\) \{/);
+  assert.match(source, /if \(isPersistableRelationNetworkStatus\(nextStatus\)\) writeStoredRelationNetworkStatus\(note\.id, nextStatus\);/);
+  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined,/);
+  assert.match(source, /return isPersistableRelationNetworkStatus\(value\) \? value : "";/);
+  assert.match(source, /if \(!isPersistableRelationNetworkStatus\(cleanStatus\)\) return;/);
+  assert.doesNotMatch(source, /\["connected", "isolated", "unknown"\]\.includes/);
+});
+
+test("graph-ready relation sync does not let stale unknown statuses override recomputed connectivity", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.doesNotMatch(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated" \|\| explicitStatus === "unknown"\) return explicitStatus;/);
+  assert.doesNotMatch(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated" \|\| storedStatus === "unknown"\) return storedStatus;/);
+  assert.match(source, /if \(explicitStatus === "connected" \|\| explicitStatus === "isolated"\) return explicitStatus;/);
+  assert.match(source, /if \(storedStatus === "connected" \|\| storedStatus === "isolated"\) return storedStatus;/);
+  assert.match(source, /if \(!connectivityReady \|\| !connectedIds\) return "unknown";/);
+  assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
 });
 
 test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {
@@ -210,6 +311,7 @@ test("note browsers keep disconnected notes visually behind connected notes insi
     { id: "perm_disconnected", title: "Z Disconnected", folderId: "dir_ordered", noteType: "permanent" }
   );
   state.graphConnectedNoteIds = new Set(["pn_001", "pn_002", "perm_connected"]);
+  state.graphConnectivityReady = true;
   explorer.expandedFolders.add("dir_ordered");
 
   const html = explorer.renderFolderNode(folderById(state, "dir_ordered"), 1, "", new Map());
@@ -226,6 +328,7 @@ test("note browsers render isolated-note badges without extra relation actions i
   const explorer = createExplorerForTest(state);
 
   state.graphConnectedNoteIds = new Set(["pn_002"]);
+  state.graphConnectivityReady = true;
   const html = explorer.renderFileNode({
     id: "pn_001",
     title: "Lonely permanent",
@@ -242,12 +345,36 @@ test("note browsers render isolated-note badges without extra relation actions i
   assert.doesNotMatch(html, /item-badge-original-record/);
 });
 
+test("source-note boxes surface notes that still have not been turned into permanent notes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  const pendingHtml = explorer.renderFileNode({
+    id: "fn_pending",
+    title: "Pending fleeting",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting"
+  }, 0);
+  const doneHtml = explorer.renderFileNode({
+    id: "ln_done",
+    title: "Done literature",
+    folderId: "dir_literature_default",
+    noteType: "literature",
+    generatedOriginalNoteId: "pn_001"
+  }, 0);
+
+  assert.match(pendingHtml, /未转永久/);
+  assert.doesNotMatch(pendingHtml, /瀛ょ珛/);
+  assert.match(doneHtml, /item-badge-original-record/);
+});
+
 test("note browsers keep richer note actions and thinking badges outside simplified scopes", () => {
   const state = createInitialState();
   state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });
   const explorer = createExplorerForTest(state);
 
   state.graphConnectedNoteIds = new Set(["pn_001", "pn_002"]);
+  state.graphConnectivityReady = true;
   const html = explorer.renderFileNode({
     id: "perm_custom",
     title: "Custom permanent",
@@ -262,7 +389,7 @@ test("note browsers keep richer note actions and thinking badges outside simplif
   assert.match(html, /补关系/);
 });
 
-test("note browsers show generated-original badges for non-simplified literature notes", () => {
+test("note browsers keep generated-original badges for notes explicitly marked as literature", () => {
   const state = createInitialState();
   state.folders.push({ id: "dir_custom_root", name: "Custom Root", parentId: null, hidden: false });
   const explorer = createExplorerForTest(state);
@@ -316,6 +443,22 @@ test("renderAll repaints explorer before writing panel side-effects can interrup
   const fnBody = match[1];
 
   assert.match(fnBody, /if \(state\.module === "explorer" \|\| state\.module === "graph"\) \{\s*explorer\.render\(\);\s*\}[\s\S]*renderWritingPanel\(\);/);
+});
+
+test("note persistence keeps generated-original and relation-network status fields in save paths", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /generatedOriginalNoteId: sourceNote\.generatedOriginalNoteId \|\| undefined/);
+  assert.match(source, /generatedOriginalNoteId: note\.generatedOriginalNoteId \|\| undefined/);
+  assert.match(source, /relationNetworkStatus: isPersistableRelationNetworkStatus\(note\.relationNetworkStatus\) \? note\.relationNetworkStatus : undefined/);
+  assert.match(source, /const storedStatus = readStoredRelationNetworkStatus\(note\?\.id\);/);
+});
+
+test("workspace helper and note opening use folder-root note types for literature flows", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /const noteType = String\(\(activeNote\?\.folderId \? typeFromFolder\(state, activeNote\.folderId\) : ""\) \|\| activeNote\?\.noteType \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const keepFocus =\s*String\(\(note\?\.folderId \? typeFromFolder\(state, note\.folderId\) : ""\) \|\| note\?\.noteType \|\| ""\)\.trim\(\) === "literature"/);
 });
 
 test("writing scaffold preview defines project preflight summary before next-action rendering uses it", () => {
