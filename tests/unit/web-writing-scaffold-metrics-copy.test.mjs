@@ -10,7 +10,7 @@ test("writing scaffold-related result metrics use 草稿骨架 label", () => {
     draftScaffoldId: "ds_1",
     sections: [{ id: "s1" }]
   });
-  assert.equal(scaffoldMetrics[1]?.label, "鑽夌楠ㄦ灦");
+  assert.equal(scaffoldMetrics[1]?.label, "草稿骨架");
 
   const draftMetrics = resultMetrics({
     stage: "writing_draft_note",
@@ -19,7 +19,7 @@ test("writing scaffold-related result metrics use 草稿骨架 label", () => {
     noteId: "pn_1",
     directoryId: "dir_1"
   });
-  assert.equal(draftMetrics[1]?.label, "鑽夌楠ㄦ灦");
+  assert.equal(draftMetrics[1]?.label, "草稿骨架");
 
   const exportMetrics = resultMetrics({
     stage: "writing_export_scaffold",
@@ -28,5 +28,5 @@ test("writing scaffold-related result metrics use 草稿骨架 label", () => {
     fileName: "draft.md",
     characters: 120
   });
-  assert.equal(exportMetrics[1]?.label, "鑽夌楠ㄦ灦");
+  assert.equal(exportMetrics[1]?.label, "草稿骨架");
 });

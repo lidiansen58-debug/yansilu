@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+
 import { renderImportToolbarPanel } from "../../apps/web/src/import-toolbar-panel.js";
 
-test("import toolbar panel prioritizes file-box directory and keeps source path in advanced options", () => {
+test("import toolbar panel keeps obsidian path in advanced options and exposes preview plus confirm", () => {
   const html = renderImportToolbarPanel({
     connector: "obsidian",
     directoryId: "dir_literature_default",
@@ -20,6 +21,9 @@ test("import toolbar panel prioritizes file-box directory and keeps source path 
     }
   });
 
+  assert.match(html, /Obsidian Import/);
+  assert.match(html, /Preview first/);
+  assert.match(html, /Use the Obsidian vault path, preview the files, then confirm import\./);
   assert.match(html, /id="importDirectoryId"/);
   assert.match(html, /文献盒/);
   assert.match(html, /永久笔记盒 \/ 方法论/);
@@ -31,15 +35,14 @@ test("import toolbar panel prioritizes file-box directory and keeps source path 
   assert.match(html, /id="importOptions"/);
   assert.match(html, /id="importRecordId"/);
   assert.match(html, /id="btnImportPreview"/);
-  assert.match(html, /生成预览/);
+  assert.match(html, />Preview</);
   assert.match(html, /id="btnImportConfirm" disabled/);
   assert.match(html, /确认写入 1\/3/);
-  assert.match(html, /id="btnImportCancel"/);
-  assert.match(html, /id="btnImportRefresh"/);
-  assert.match(html, /id="btnImportRollback"/);
-  assert.match(html, /导入资料/);
-  assert.match(html, /导入到/);
-  assert.match(html, /先选文件盒目录。物理路径只在高级选项里填写。/);
-  assert.match(html, /来源目录/);
-  assert.match(html, /高级选项/);
+  assert.doesNotMatch(html, /id="btnImportCancel"/);
+  assert.doesNotMatch(html, /id="btnImportRefresh"/);
+  assert.doesNotMatch(html, /id="btnImportRollback"/);
+  assert.match(html, /Import Into/);
+  assert.match(html, /Source/);
+  assert.match(html, /Vault Path/);
+  assert.match(html, /Advanced/);
 });

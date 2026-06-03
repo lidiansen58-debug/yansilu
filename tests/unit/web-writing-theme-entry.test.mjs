@@ -148,3 +148,10 @@ test("theme index hint also describes existing indexes as resumable writing entr
   assert.match(source, /当前范围内有 \$\{writingState\.themeIndexes\.length\} 个主题索引可作为可续接的写作入口。/);
   assert.doesNotMatch(source, /当前范围内有 \$\{writingState\.themeIndexes\.length\} 个主题索引可作为写作中心入口。/);
 });
+test("theme project entry uses the renamed themeContinuation variable consistently", () => {
+  const source = repoSource();
+
+  assert.match(source, /const themeContinuation = describeWritingContinuationAction\(/);
+  assert.match(source, /projectEntry:\s*themeContinuation \|\|/);
+  assert.doesNotMatch(source, /projectEntry:\s*continuation \|\|/);
+});

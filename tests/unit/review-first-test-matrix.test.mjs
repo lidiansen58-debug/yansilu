@@ -63,7 +63,7 @@ const MUST_KEEP_CASES = [
     file: "tests/integration/api-notes.test.mjs",
     snippets: [
       'test("notes AI analysis API stores reviewable local candidates without confirming relations"',
-      'const adoptedFieldAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion`, {'
+      'const adoptedFieldAgain = await postJson(baseUrl, `/api/v1/ai/inbox/${encodeURIComponent(fieldArtifact.id)}/adopt-field-suggestion?canonical=true`, {'
     ]
   },
   {
@@ -107,7 +107,7 @@ const MUST_KEEP_CASES = [
   {
     file: "tests/unit/web-ai-suggestions-panel.test.mjs",
     snippets: [
-      'test("AI suggestions panel keeps the list visible when detail loading fails"',
+      'test("AI suggestions panel keeps review safety visible when the selected latest detail fails to load"',
       'test("AI suggestions panel surfaces review action errors inside the detail pane"',
       'test("AI suggestions panel renders trace placeholders and target-missing guidance when detail is incomplete"',
       'test("AI suggestions panel does not keep rendering stale detail when selection has moved"'

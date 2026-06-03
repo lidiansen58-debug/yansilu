@@ -3,35 +3,37 @@ import assert from "node:assert/strict";
 import { importConfirmButtonState, importConnectorOptions, importToolbarViewModel } from "../../apps/web/src/import-toolbar-model.js";
 
 test("import toolbar model exposes connector options", () => {
-  assert.deepEqual(importConnectorOptions().map((item) => item.value), ["markdown", "obsidian", "zotero", "readwise", "notebooklm"]);
-  assert.deepEqual(importConnectorOptions().map((item) => item.label), ["Markdown", "Obsidian", "Zotero", "Readwise", "NotebookLM"]);
+  assert.deepEqual(importConnectorOptions().map((item) => item.value), ["obsidian"]);
+  assert.deepEqual(importConnectorOptions().map((item) => item.label), ["Obsidian"]);
 });
 
 test("import toolbar model derives confirm button state", () => {
   assert.deepEqual(importConfirmButtonState(), {
     disabled: false,
-    label: "确认写入"
+    label: "Confirm Import"
   });
   assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 2, totalCount: 3 }), {
     disabled: false,
-    label: "确认写入（2/3）"
+    label: "Confirm Import (2/3)"
   });
   assert.deepEqual(importConfirmButtonState({ hasMatchingPreview: true, selectedCount: 0, totalCount: 3 }), {
     disabled: true,
-    label: "确认写入（0/3）"
+    label: "Confirm Import (0/3)"
   });
 });
 
 test("import toolbar model normalizes view values", () => {
   assert.deepEqual(importToolbarViewModel({ connector: "", importRecordId: "imp_1", path: "C:\\vault", payload: "{}", options: "{}" }), {
-    connector: "markdown",
+    connector: "obsidian",
+    directoryId: "",
+    directoryOptions: [],
     importRecordId: "imp_1",
     path: "C:\\vault",
     payload: "{}",
     options: "{}",
     confirmButton: {
       disabled: false,
-      label: "确认写入"
+      label: "Confirm Import"
     }
   });
 });

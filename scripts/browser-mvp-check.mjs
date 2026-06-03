@@ -8,7 +8,7 @@ function exactTestPattern(testName) {
 const testNames = [
   "prototype browser flow creates, edits, and persists a markdown note",
   "prototype settings switches and initializes the active vault",
-  "prototype import panel previews confirms and rolls back markdown import",
+  "prototype import panel previews and confirms realistic Obsidian import",
   "prototype export panel exports markdown files through real API",
   "prototype graph panel renders directory wikilinks and opens graph nodes",
   "prototype explorer keeps current-note context when selecting a different folder",

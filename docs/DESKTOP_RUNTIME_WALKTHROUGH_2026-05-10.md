@@ -1,5 +1,7 @@
 # Desktop Runtime Walkthrough 2026-05-10
 
+> Legacy note (2026-06-03): this walkthrough captures the older desktop release validation path. The current import/export scope has since been simplified to Obsidian-only preview/confirm import plus Markdown export, with no import-history or rollback requirement.
+
 ## Purpose
 
 This checklist is the active `feat/desktop-runtime` validation plan for the v0.1.0 RC1 Windows desktop runtime.

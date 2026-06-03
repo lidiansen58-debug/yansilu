@@ -65,20 +65,9 @@ const groups = [
   },
   {
     name: "import-workflow",
-    description: "Markdown and Obsidian import preview, confirmation, history, rollback, and warning actions.",
+    description: "Simplified Obsidian-only import preview and confirmation flow.",
     tests: [
-      "prototype import panel previews confirms and rolls back markdown import",
-      "prototype import panel confirms and rolls back realistic Obsidian vault import",
-      "prototype import history filters records and supports inline actions",
-      "prototype import history highlights modified files skipped during rollback",
-      "prototype import history recent summary can open literature queue for a completed batch",
-      "prototype import panel explains conflicted candidates after repeated confirm",
-      "prototype import confirm can send created permanent notes into writing basket and open writing panel",
-      "prototype import confirm can open imported literature notes in paraphrase queue",
-      "prototype import confirm can create a writing project from created permanent notes",
-      "prototype import panel renders actionable warning hints",
-      "prototype import panel can focus blocked and excluded candidates",
-      "prototype import panel can exclude warning candidates with one action"
+      "prototype import panel previews and confirms realistic Obsidian import"
     ]
   },
   {

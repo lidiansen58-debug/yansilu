@@ -35,7 +35,7 @@ Monorepo scaffold for Yansilu (Thinking in Notes).
 ## Tests
 - `npm test` runs unit, integration, and smoke e2e tests.
 - `npm run test:e2e:smoke` starts temporary API/Web services and verifies the prototype can load against a real API.
-- `npm run test:e2e:browser:mvp` runs a smaller real-browser MVP flow covering note edit/save, vault switch, import/export, writing, graph, and note move/delete.
+- `npm run test:e2e:browser:mvp` runs a smaller real-browser MVP flow covering note edit/save, vault switch, simplified Obsidian import, export, graph, and note move/delete.
 - `npm run test:e2e:browser -- --list` shows the available browser e2e groups.
 - `npm run test:e2e:browser -- mobile-responsive` runs the mobile responsive browser checks, including the permanent-note capture flow.
 - `npm run test:e2e:mobile:permanent-note` runs only the mobile permanent-note capture regression and saves screenshots to a temporary artifact directory.
@@ -48,8 +48,14 @@ MVP API areas:
 - Directories and notes: `/api/v1/directories`, `/api/v1/notes`
 - Tags, relations, and graph: `/api/v1/tags`, `/api/v1/graph`
 - Assets: `/api/v1/assets`
-- Import/export: `/api/v1/imports`, `/api/v1/exports/markdown`
+- Import/export: `/api/v1/imports/preview`, `/api/v1/imports/:id/confirm`, `/api/v1/exports/markdown`
 - Originality and writing: `/api/v1/originality/check`, `/api/v1/writing-projects`, `/api/v1/draft-scaffolds`
+
+Current MVP import/export scope:
+- Import supports Obsidian vault preview and confirm only.
+- Preview records are session-local and in-memory.
+- Rollback/history-style recovery is intentionally not part of the simplified importer.
+- Export remains Markdown directory/file copy via `/api/v1/exports/markdown`.
 
 Key docs:
 - `docs/MVP_ALIGNMENT_2026-05-09.md`

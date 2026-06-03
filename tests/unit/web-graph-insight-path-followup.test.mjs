@@ -18,7 +18,7 @@ test("graph insight path items prefill target note for ordinary relation followu
   assert.match(fnBody, /relationPrefillAction && relationType \? ` data-graph-relation-type="\$\{escapeHtml\(relationType\)\}"` : ""/);
 });
 
-test("graph relation followup continues to use prefilled target and relation type", () => {
+test("graph relation followup continues to prefill target and relation type through the relation form entry helper", () => {
   const currentFile = fileURLToPath(import.meta.url);
   const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const source = fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype-app.js"), "utf8");
@@ -27,6 +27,7 @@ test("graph relation followup continues to use prefilled target and relation typ
   assert.ok(match, "expected openGraphFollowupNote() to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /if \(targetSelect && cleanTargetNoteId\) targetSelect\.value = cleanTargetNoteId;/);
-  assert.match(fnBody, /if \(relationTypeSelect && cleanRelationType\) relationTypeSelect\.value = cleanRelationType;/);
+  assert.match(fnBody, /editor\?\.openCreateRelationForm\?\.\(\{/);
+  assert.match(fnBody, /targetNoteId: cleanTargetNoteId,/);
+  assert.match(fnBody, /relationType: cleanRelationType,/);
 });

@@ -1,5 +1,7 @@
 # Import Pipeline Baseline 2026-05-09
 
+> Legacy note (2026-06-03): this baseline describes the pre-simplification import pipeline. Current work is scoped to simplified Obsidian preview/confirm import plus Markdown export, without import history or rollback.
+
 ## Goal
 
 Define the smallest coherent baseline for the `wt-import-pipeline` worktree so it can be recreated from a committed branch instead of the current dirty checkout.

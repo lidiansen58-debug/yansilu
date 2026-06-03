@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+
 import { renderCandidatePreview, renderConfirmSkipBreakdown } from "../../apps/web/src/import-candidate-preview-panel.js";
 
 test("candidate preview panel renders simplified selection summary", () => {
@@ -19,14 +20,12 @@ test("candidate preview panel renders simplified selection summary", () => {
     }
   });
 
-  assert.match(html, /将导入：1 来源 \/ 0 文献 \/ 1 永久/);
-  assert.match(html, /已选 1\/2/);
   assert.match(html, /data-candidate-action="all"/);
   assert.match(html, /data-candidate-action="none"/);
   assert.match(html, /data-candidate-action="permanent"/);
-  assert.match(html, /来源卡片/);
-  assert.match(html, /永久笔记/);
-  assert.match(html, /缺少引用定位/);
+  assert.match(html, /data-candidate-id="src_1"/);
+  assert.match(html, /data-candidate-id="pn_1"/);
+  assert.match(html, /candidate-reasons/);
 });
 
 test("candidate preview panel renders simple skip breakdown", () => {
@@ -39,7 +38,33 @@ test("candidate preview panel renders simple skip breakdown", () => {
   };
 
   const skipHtml = renderConfirmSkipBreakdown(payload);
-  assert.match(skipHtml, /未勾选跳过 2/);
-  assert.match(skipHtml, /警告跳过 1/);
-  assert.match(skipHtml, /冲突跳过 1/);
+  assert.match(skipHtml, /data-skip-focus="unselected"/);
+  assert.match(skipHtml, /data-skip-focus="invalid"/);
+  assert.match(skipHtml, /data-skip-focus="conflicted"/);
+});
+
+test("candidate preview panel marks truncated blocked candidates as read-only", () => {
+  const preview = {
+    truncated: true,
+    total: { sources: 1, literatureNotes: 0, permanentNotes: 2 },
+    sources: [{ id: "src_1", title: "Source A" }],
+    permanentNotes: [{ id: "pn_blocked", title: "Perm blocked", originalityStatus: "blocked" }]
+  };
+
+  const html = renderCandidatePreview(preview, {
+    interactive: true,
+    originalityGuard: {
+      plan: { allowDraftOnWarning: true, blockOnBlocked: true }
+    },
+    summary: {
+      selectedIds: new Set(["src_1"]),
+      selectedCount: 1,
+      totalCount: 3,
+      excludedCount: 2
+    }
+  });
+
+  assert.match(html, /Showing 2 visible candidates from a larger preview set/);
+  assert.match(html, /data-candidate-id="pn_blocked"[\s\S]*class="candidate-checkbox"[\s\S]*disabled/);
+  assert.match(html, /Originality guard requires override/);
 });

@@ -73,3 +73,31 @@ test("import selection actions can exclude risky hidden permanent notes outside 
 
   assert.deepEqual([...selectedIds], ["src_visible", "pn_hidden_pass"]);
 });
+
+test("import selection actions can stay within the visible preview subset", () => {
+  const selectedIds = selectedCandidateIdsForImportAction({
+    action: "all",
+    candidatePreview: {
+      truncated: true,
+      sources: [{ id: "src_visible", type: "Source", title: "Visible source" }],
+      literatureNotes: [],
+      permanentNotes: [{ id: "pn_blocked", title: "Blocked permanent", originalityStatus: "blocked" }]
+    },
+    candidateSelection: {
+      sources: ["src_visible", "src_hidden"],
+      literatureNotes: [],
+      permanentNotes: ["pn_blocked", "pn_hidden_pass"],
+      total: { sources: 2, literatureNotes: 0, permanentNotes: 2 }
+    },
+    originalityGuard: {
+      plan: { allowDraftOnWarning: true, blockOnBlocked: true },
+      evaluations: [
+        { permanentId: "pn_blocked", status: "blocked" },
+        { permanentId: "pn_hidden_pass", status: "pass" }
+      ]
+    },
+    visibleOnly: true
+  });
+
+  assert.deepEqual([...selectedIds], ["src_visible"]);
+});

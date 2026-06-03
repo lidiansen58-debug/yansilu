@@ -1,5 +1,7 @@
 # Yansilu v0.1.1-beta.1 Release Status
 
+> Legacy note (2026-06-03): this beta status snapshot predates the simplified import/export refactor. Current implementation no longer treats Markdown import, import history, or rollback as active product scope.
+
 Updated: 2026-05-14
 
 ## Release Target

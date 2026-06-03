@@ -1,9 +1,5 @@
 const CONNECTOR_OPTIONS = [
-  { value: "markdown", label: "Markdown" },
-  { value: "obsidian", label: "Obsidian" },
-  { value: "zotero", label: "Zotero" },
-  { value: "readwise", label: "Readwise" },
-  { value: "notebooklm", label: "NotebookLM" }
+  { value: "obsidian", label: "Obsidian" }
 ];
 
 export function importConnectorOptions() {
@@ -16,5 +12,8 @@ export function importConnectorFilterOptions() {
 
 export function importConnectorLabel(connector) {
   const value = String(connector || "").trim();
-  return CONNECTOR_OPTIONS.find((option) => option.value === value)?.label || value || "Import";
+  const known = CONNECTOR_OPTIONS.find((option) => option.value === value)?.label;
+  if (known) return known;
+  if (!value) return "Import";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

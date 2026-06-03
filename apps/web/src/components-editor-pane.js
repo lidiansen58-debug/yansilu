@@ -1763,8 +1763,9 @@ export class EditorPane {
 
   resolvedNoteType(note = this.activeNote()) {
     const explicitType = String(note?.noteType || "").trim().toLowerCase();
-    const folderType = note?.folderId ? String(typeFromFolder(this.state, note.folderId) || "").trim().toLowerCase() : "";
-    const rootId = note?.folderId ? String(rootBoxIdFromFolder(this.state, note.folderId) || "").trim() : "";
+    const safeState = this.state && Array.isArray(this.state.folders) ? this.state : { folders: [] };
+    const folderType = note?.folderId ? String(typeFromFolder(safeState, note.folderId) || "").trim().toLowerCase() : "";
+    const rootId = note?.folderId ? String(rootBoxIdFromFolder(safeState, note.folderId) || "").trim() : "";
     if (rootId === "dir_original_default" || rootId === "dir_fleeting_default" || rootId === "dir_literature_default") {
       if (folderType) return folderType;
       if (explicitType) return explicitType;

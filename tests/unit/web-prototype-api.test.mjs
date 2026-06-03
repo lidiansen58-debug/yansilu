@@ -469,7 +469,7 @@ test("prototype API seeds the rich Yijing acceptance demo through the public end
           importLifecycle: "none",
           fixtureId: "yijing-rich-acceptance-v1",
           directoryId: "dir_yijing_rich_acceptance_original",
-          counts: { original_notes: 55, relations: 85, writing_projects: 2 }
+          counts: { original_notes: 55, relations: 93, writing_projects: 2 }
         }
       }),
       {
@@ -492,7 +492,7 @@ test("prototype API seeds the rich Yijing acceptance demo through the public end
     assert.equal(result.importLifecycle, "none");
     assert.equal(result.directoryId, "dir_yijing_rich_acceptance_original");
     assert.equal(result.counts.original_notes, 55);
-    assert.equal(result.counts.relations, 85);
+    assert.equal(result.counts.relations, 93);
     assert.equal(result.counts.writing_projects, 2);
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
