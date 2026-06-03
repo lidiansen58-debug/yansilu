@@ -159,6 +159,56 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   assert.equal(createdLiteratureFile.hash, createdLiteratureHash);
 });
 
+test("confirmImport copies permanent-note embedded assets even when only permanent candidates are selected", async () => {
+  const vaultPath = await makeTempDir("yansilu-service-confirm-permanent-assets-");
+  const importRoot = await makeTempDir("yansilu-service-confirm-permanent-assets-import-");
+  const service = createService(vaultPath);
+
+  await fs.mkdir(path.join(importRoot, "assets"), { recursive: true });
+  await fs.writeFile(
+    path.join(importRoot, "permanent-asset.md"),
+    [
+      "---",
+      "title: Permanent asset note",
+      "type: permanent",
+      'tags: ["permanent"]',
+      "---",
+      "",
+      "An original claim with an embedded chart.",
+      "",
+      "![Chart](assets/chart.png)"
+    ].join("\n"),
+    "utf8"
+  );
+  await fs.writeFile(path.join(importRoot, "assets", "chart.png"), "chart-bytes", "utf8");
+
+  const preview = await service.createPreview("obsidian", { path: importRoot }, {}, "req_permanent_asset_preview");
+  const record = await service.getImportRecord(preview.importRecordId);
+  const permanentId = preview.samples.permanentNoteIds[0];
+
+  const result = await service.confirmImport(
+    record,
+    {
+      confirm: true,
+      selectedCandidateIds: [permanentId],
+      overrideOriginality: true
+    },
+    "req_permanent_asset_confirm"
+  );
+
+  assert.deepEqual(result.result.created, {
+    sources: 0,
+    literatureNotes: 0,
+    permanentNotes: 1
+  });
+  assert.ok(result.result.createdFiles.some((item) => item.noteType === "asset"));
+
+  const permanentEntries = await listNoteCatalogEntriesByType(vaultPath, "permanent");
+  assert.equal(permanentEntries.length, 1);
+  const permanent = await readNote(vaultPath, "permanent", permanentEntries[0].id);
+  assert.match(permanent.markdown, /assets\/imports\/.*chart\.png/);
+});
+
 test("confirmImport honors selectedCandidateIds subset", async () => {
   const vaultPath = await makeTempDir("yansilu-service-confirm-subset-");
   const service = createService(vaultPath);

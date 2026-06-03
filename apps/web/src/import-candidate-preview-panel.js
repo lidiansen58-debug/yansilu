@@ -140,6 +140,7 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
   const excludedCount = summary.excludedCount;
   const selectedIdSet = summary.selectedIds instanceof Set ? summary.selectedIds : new Set();
   const previewFilter = interactive ? focusReason : "";
+  const visibleCandidateCount = candidatePreviewItems(candidatePreview).length;
 
   function itemVisibleForFilter(item) {
     const candidateId = String(item.id || "");
@@ -153,12 +154,18 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
     return true;
   }
 
+  const truncatedNotice =
+    interactive && candidatePreview.truncated
+      ? `<div class="candidate-summary candidate-summary-warn">Showing ${escapeHtml(visibleCandidateCount)} visible candidates from a larger preview set. Confirm imports only the visible selected candidates.</div>`
+      : "";
+
   return `
     <div class="result-candidates simple">
       <div class="result-candidates-toolbar">
         <div class="result-candidates-title">将导入：${escapeHtml(candidateTotalText(total))}</div>
         <div class="toolbar-note">已选 ${summary.selectedCount}/${summary.totalCount}</div>
       </div>
+      ${truncatedNotice}
       ${
         interactive
           ? `<div class="result-candidates-toolbar">
@@ -215,12 +222,17 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                     const candidateId = String(item.id || "");
                     const checked = summary.selectedIds.has(candidateId);
                     const tone = candidateTone(item);
+                    const confirmable = isConfirmableCandidate(item, originalityGuard);
                     const focusClass = hasFocus ? (focusCandidateIds.has(candidateId) ? "is-focused" : "is-muted") : "";
                     const skipReason = skipReasonMap[candidateId] || null;
                     return `
                       <div class="candidate-item ${checked ? "selected" : "unselected"} ${focusClass} tone-${escapeHtml(tone)}" data-candidate-id="${escapeHtml(candidateId)}">
                         <label class="candidate-check">
-                          ${interactive ? `<input class="candidate-checkbox" type="checkbox" data-candidate-id="${escapeHtml(candidateId)}" ${checked ? "checked" : ""} />` : ""}
+                          ${
+                            interactive
+                              ? `<input class="candidate-checkbox" type="checkbox" data-candidate-id="${escapeHtml(candidateId)}" ${checked ? "checked" : ""} ${confirmable ? "" : "disabled"} />`
+                              : ""
+                          }
                           <div class="candidate-check-body">
                             <div class="candidate-line">
                               <span class="candidate-title" title="${escapeHtml(item.title)}">${escapeHtml(item.title || item.id)}</span>
@@ -231,6 +243,8 @@ export function renderCandidatePreview(candidatePreview, options = {}) {
                             ${
                               skipReason
                                 ? `<div class="candidate-inline-note">${escapeHtml(skipReason.message)}</div>`
+                                : !confirmable
+                                  ? `<div class="candidate-inline-note">Originality guard requires override, so this item stays read-only in the simplified importer.</div>`
                                 : !checked
                                   ? `<div class="candidate-inline-note">确认前取消勾选。</div>`
                                   : ""

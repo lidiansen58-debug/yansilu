@@ -227,7 +227,28 @@ async function rewriteImportedAssetLinksInFile(filePath, vaultRoot, assetPathByT
   return true;
 }
 
-async function collectObsidianAssetPlans(record, cwdResolver, literatureCandidates = []) {
+function embeddedAssetTargetsFromMarkdown(markdown = "") {
+  const normalizedTargets = new Set();
+  const text = String(markdown || "");
+  if (!text) return normalizedTargets;
+
+  for (const match of text.matchAll(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g)) {
+    const normalizedTarget = normalizeRelativeFileTarget(match[1]);
+    if (!normalizedTarget || normalizedTarget.toLowerCase().endsWith(".md")) continue;
+    normalizedTargets.add(normalizedTarget);
+  }
+
+  for (const match of text.matchAll(/!\[[^\]]*?\]\((<[^>]+>|[^)]+)\)/g)) {
+    const unwrapped = unwrapTarget(match[1]);
+    const normalizedTarget = normalizeRelativeFileTarget(unwrapped.target);
+    if (!normalizedTarget || normalizedTarget.toLowerCase().endsWith(".md")) continue;
+    normalizedTargets.add(normalizedTarget);
+  }
+
+  return normalizedTargets;
+}
+
+async function collectObsidianAssetPlans(record, cwdResolver, candidates = {}) {
   if (record?.connector !== "obsidian") return new Map();
 
   const importRootRaw = String(record?.payload?.path || "").trim();
@@ -235,10 +256,13 @@ async function collectObsidianAssetPlans(record, cwdResolver, literatureCandidat
   const importRoot = path.isAbsolute(importRootRaw) ? importRootRaw : path.resolve(cwdResolver(), importRootRaw);
 
   const assetPathByTarget = new Map();
-  for (const note of Array.isArray(literatureCandidates) ? literatureCandidates : []) {
-    for (const link of Array.isArray(note?.parsed_wikilinks) ? note.parsed_wikilinks : []) {
-      if (!link?.embed || !link?.target) continue;
-      const normalizedTarget = normalizeRelativeFileTarget(link.target);
+  const markdownBodies = [
+    ...(Array.isArray(candidates?.literature) ? candidates.literature : []).map((note) => note?.quote_text),
+    ...(Array.isArray(candidates?.permanent) ? candidates.permanent : []).map((note) => note?.core_claim)
+  ];
+
+  for (const markdown of markdownBodies) {
+    for (const normalizedTarget of embeddedAssetTargetsFromMarkdown(markdown)) {
       if (!normalizedTarget || normalizedTarget.toLowerCase().endsWith(".md")) continue;
       if (assetPathByTarget.has(normalizedTarget)) continue;
 
@@ -502,7 +526,7 @@ export function createImportExportService({
     const skipped = { conflicted: 0, invalid: 0 };
     const writtenPaths = new Set();
     const cleanupEntries = [];
-    const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates.literature);
+    const assetPlans = await collectObsidianAssetPlans(record, cwd, selected.candidates);
     const assetPathByTarget = new Map([...assetPlans.entries()].map(([key, value]) => [key, value.assetRelativePath]));
 
     try {
