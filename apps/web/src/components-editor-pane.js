@@ -4923,7 +4923,7 @@ export class EditorPane {
           .filter((n) => normalizeText(n.title).includes(q))
           .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
       : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
-    const list = computed.slice(0, 50);
+    const list = q ? computed.slice(0, 50) : [];
     const selectedId = String(preferredId || this.currentPinnedLinkId || "").trim();
     this.currentLinkCandidates = list;
     this.currentLinkIndex = 0;
@@ -4941,7 +4941,7 @@ export class EditorPane {
             }"><strong>${highlightMatch(this.linkCandidateDisplayTitle(n), q)}</strong></button>`;
           })
           .join("")
-      : `<div class="picker-empty">没有匹配笔记</div>`;
+      : q ? `<div class="picker-empty">没有匹配笔记</div>` : "";
     this.scrollActiveLinkCandidateIntoView();
     this.updateLinkPickerConfirmButton();
   }
@@ -4950,7 +4950,9 @@ export class EditorPane {
     const button = this.els.confirmLinkInsert;
     if (!button) return;
     const selectedId = String(this.currentPinnedLinkId || "").trim();
-    const selectedNote = selectedId ? this.currentLinkCandidates.find((item) => item.id === selectedId) || null : null;
+    const selectedNote = selectedId
+      ? this.currentLinkCandidates.find((item) => item.id === selectedId) || this.state.notes.find((item) => item.id === selectedId) || null
+      : null;
     button.disabled = this.isSubmittingLinkInsert || !selectedNote;
     if (this.isSubmittingLinkInsert) {
       button.textContent = "关联中...";
@@ -5030,6 +5032,11 @@ export class EditorPane {
     if (linkPickerMeta) linkPickerMeta.hidden = true;
     const linkPickerGuidance = linkPickerMeta?.nextElementSibling;
     if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = true;
+    const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;
+    if (linkSearchSpacer && linkSearchSpacer !== this.els.linkSearchList) {
+      this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);
+      if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;
+    }
     this.els.linkSearchInput.placeholder = "输入笔记标题，实时检索...";
     this.els.linkSearchInput.value = initialQuery;
     this.currentPinnedLinkId = "";
@@ -5218,6 +5225,7 @@ export class EditorPane {
     this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
     this.els.linkSearchInput.value = this.linkCandidateDisplayTitle(chosen);
     this.els.linkSearchList.innerHTML = "";
+    this.updateLinkPickerConfirmButton();
   }
 
   activeRootDirectoryId() {
@@ -8673,6 +8681,7 @@ export class EditorPane {
       this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
       this.els.linkSearchInput.value = row.textContent?.trim() || "";
       this.els.linkSearchList.innerHTML = "";
+      this.updateLinkPickerConfirmButton();
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
