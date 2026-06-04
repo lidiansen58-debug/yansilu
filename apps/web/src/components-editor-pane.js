@@ -4786,6 +4786,17 @@ export class EditorPane {
     return names.join(" / ");
   }
 
+  compactFolderLabel(folderId) {
+    return this.folderLabel(folderId).replace(/\s*\/\s*/g, "/");
+  }
+
+  linkCandidateDisplayTitle(note) {
+    const targetTitle = String(note?.title || note?.id || "未命名笔记").trim() || "未命名笔记";
+    const activeNote = this.activeNote();
+    if (!activeNote?.folderId || !note?.folderId || activeNote.folderId === note.folderId) return targetTitle;
+    return `${this.compactFolderLabel(note.folderId)}/${targetTitle}`;
+  }
+
   resolveLinkToken(token, scopedNotes = this.scopedLinkCandidates()) {
     const raw = String(token || "").trim();
     if (!raw) return null;
@@ -4905,18 +4916,15 @@ export class EditorPane {
   }
 
   renderLinkCandidates(query = "", preferredId = "") {
-    const q = String(query || "").trim().toLowerCase();
+    const q = normalizeText(query);
     const all = this.scopedLinkCandidates();
     const computed = (q
       ? all
-          .filter((n) => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
+          .filter((n) => normalizeText(n.title).includes(q))
           .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
       : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
+    const list = computed.slice(0, 50);
     const selectedId = String(preferredId || this.currentPinnedLinkId || "").trim();
-    const pinnedNote = selectedId
-      ? computed.find((n) => n.id === selectedId) || all.find((n) => n.id === selectedId) || null
-      : null;
-    const list = pinnedNote ? [pinnedNote] : computed;
     this.currentLinkCandidates = list;
     this.currentLinkIndex = 0;
     if (selectedId) {
@@ -4924,32 +4932,16 @@ export class EditorPane {
       if (idx >= 0) this.currentLinkIndex = idx;
     }
     this.els.linkSearchList.innerHTML = list.length
-      ? renderPickerSections(
-          list.slice(0, 50).map((n, idx) => ({ note: n, idx })),
-          ({ note }) => linkCandidateGroupLabel(note, q),
-          ({ note: n, idx }) => {
-            const badge = linkCandidateBadge(n, q);
+      ? list
+          .map((n, idx) => {
             const selected = idx === this.currentLinkIndex;
-            const pinned = Boolean(pinnedNote && n.id === pinnedNote.id);
-            const preview = pinned ? this.linkCandidatePreviewText(n) : "";
-            const location = pinned ? this.linkCandidateLocationText(n) : "";
-            const duplicateHint = pinned && this.hasResolvedLinkToNote(n.id) ? "正文里已经有这条链接，提交时只会补建或复用关系。" : "";
+            const pinned = selectedId && n.id === selectedId;
             return `<button class="link-picker-item ${selected ? "active" : ""} ${pinned ? "picked" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
               selected ? "true" : "false"
-            }"><span class="picker-headline"><strong>${highlightMatch(n.title, q)}</strong>${
-              badge ? `<span class="picker-badge">${escapeHtml(badge)}</span>` : ""
-            }</span><span class="picker-meta">${highlightMatch(n.id, q)} · ${escapeHtml(this.folderLabel(n.folderId))}</span>${
-              pinned
-                ? `<span class="picker-selection-state">已选中</span>${
-                    duplicateHint ? `<span class="picker-duplicate-hint">${escapeHtml(duplicateHint)}</span>` : ""
-                  }<span class="picker-preview">${escapeHtml(preview)}</span><span class="picker-detail-row"><span class="picker-detail-label">目录位置</span><span class="picker-detail-value">${escapeHtml(
-                    location
-                  )}</span></span>`
-                : ""
-            }</button>`;
-          }
-        )
-      : `<div class="picker-empty">当前目录下没有匹配笔记，换个关键词或先新建笔记。</div>`;
+            }"><strong>${highlightMatch(this.linkCandidateDisplayTitle(n), q)}</strong></button>`;
+          })
+          .join("")
+      : `<div class="picker-empty">没有匹配笔记</div>`;
     this.scrollActiveLinkCandidateIntoView();
     this.updateLinkPickerConfirmButton();
   }
@@ -4959,27 +4951,12 @@ export class EditorPane {
     if (!button) return;
     const selectedId = String(this.currentPinnedLinkId || "").trim();
     const selectedNote = selectedId ? this.currentLinkCandidates.find((item) => item.id === selectedId) || null : null;
-    const requiresReason = !this.currentLinkContext;
-    const hasReason = !requiresReason || String(this.els.linkReasonInput?.value || "").trim().length > 0;
-    const bodyAlreadyLinked = !this.currentLinkContext && selectedNote ? this.hasResolvedLinkToNote(selectedNote.id) : false;
-    button.disabled = this.isSubmittingLinkInsert || !selectedNote || !hasReason;
+    button.disabled = this.isSubmittingLinkInsert || !selectedNote;
     if (this.isSubmittingLinkInsert) {
-      button.textContent = selectedNote ? `正在插入：${selectedNote.title || selectedNote.id}` : "正在插入...";
+      button.textContent = "关联中...";
       return;
     }
-    if (!selectedNote) {
-      button.textContent = "请先选择一条关联笔记";
-      return;
-    }
-    if (!hasReason) {
-      button.textContent = bodyAlreadyLinked
-        ? `正文已有链接，先写理由：${selectedNote.title || selectedNote.id}`
-        : `先写理由，再插入：${selectedNote.title || selectedNote.id}`;
-      return;
-    }
-    button.textContent = bodyAlreadyLinked
-      ? `正文已有链接，补建关系：${selectedNote.title || selectedNote.id}`
-      : `插入：${selectedNote.title || selectedNote.id}`;
+    button.textContent = "关联";
   }
 
   focusManualLinkReasonInput() {
@@ -5013,6 +4990,18 @@ export class EditorPane {
     return `${noteTypeText(this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || ""))} · ${this.folderLabel(note?.folderId || "")}`;
   }
 
+  syncRelationNetworkConnected(...noteIds) {
+    const ids = noteIds.map((item) => String(item || "").trim()).filter(Boolean);
+    if (!ids.length) return;
+    const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : new Set();
+    this.state.graphConnectedNoteIds = connectedIds;
+    for (const id of ids) {
+      connectedIds.add(id);
+      const note = this.state.notes.find((item) => item.id === id);
+      if (note) note.relationNetworkStatus = "connected";
+    }
+  }
+
   setLinkInsertSubmitting(nextSubmitting) {
     this.isSubmittingLinkInsert = nextSubmitting === true;
     this.updateLinkPickerConfirmButton();
@@ -5037,17 +5026,17 @@ export class EditorPane {
     this.els.linkPicker.style.width = "";
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
-    if (this.els.linkRelationTypeSelect) {
-      const currentType = this.els.linkRelationTypeSelect.value || "supports";
-      this.els.linkRelationTypeSelect.innerHTML = relationCreateTypeOptionsMarkup(currentType);
-      this.els.linkRelationTypeSelect.value = currentType;
-    }
+    const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");
+    if (linkPickerMeta) linkPickerMeta.hidden = true;
+    const linkPickerGuidance = linkPickerMeta?.nextElementSibling;
+    if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = true;
+    this.els.linkSearchInput.placeholder = "输入笔记标题，实时检索...";
     this.els.linkSearchInput.value = initialQuery;
     this.currentPinnedLinkId = "";
     this.manualLinkReturnSelection = inlineMode ? null : this.normalizedSelectionRange(this.editorSelection());
     this.manualLinkReturnScrollState = inlineMode ? null : this.captureEditorScrollState();
     if (!inlineMode) {
-      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = this.els.linkRelationTypeSelect.value || "supports";
+      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = "supports";
       if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     }
     this.currentLinkContext = options.inlineContext || null;
@@ -5134,14 +5123,8 @@ export class EditorPane {
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
     const inlineInsert = Boolean(this.currentLinkContext);
-    const relationType = String(this.els.linkRelationTypeSelect?.value || "supports").trim() || "supports";
-    const rawReason = String(this.els.linkReasonInput?.value || "").trim();
-    if (!inlineInsert && this.els.linkReasonInput && !rawReason) {
-      this.onStatus("先写一句“为什么相关”，再插入这条关联。", "warn");
-      this.els.linkReasonInput.focus();
-      this.els.linkReasonInput.select?.();
-      return;
-    }
+    const relationType = "supports";
+    const rawReason = "手动确认关联。";
     const manualSelection = !inlineInsert
       ? this.normalizedSelectionRange(this.manualLinkReturnSelection) || this.normalizedSelectionRange(this.editorSelection())
       : null;
@@ -5200,6 +5183,7 @@ export class EditorPane {
             confidence: 1,
             status: "confirmed"
           });
+          this.syncRelationNetworkConnected(this.activeNote()?.id || "", target.id);
         } catch (error) {
           this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
         }
@@ -5229,21 +5213,11 @@ export class EditorPane {
 
   async confirmSelectedLinkCandidate() {
     const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-    if (!chosen) {
-      this.onStatus("请先选择一条关联笔记", "warn");
-      return;
-    }
-    if (!this.currentLinkContext) {
-      const pinnedId = String(this.currentPinnedLinkId || "").trim();
-      if (pinnedId !== chosen.id) {
-        this.currentPinnedLinkId = chosen.id;
-        this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
-        this.focusManualLinkReasonInput();
-        this.onStatus("已选中这条关联笔记，再写一句理由后提交。", "ok");
-        return;
-      }
-    }
-    await this.insertSelectedLinkNote(chosen.id);
+    if (!chosen) return;
+    this.currentPinnedLinkId = chosen.id;
+    this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
+    this.els.linkSearchInput.value = this.linkCandidateDisplayTitle(chosen);
+    this.els.linkSearchList.innerHTML = "";
   }
 
   activeRootDirectoryId() {
@@ -8626,7 +8600,7 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
-      if (!candidates.length) return this.onStatus("当前目录下无可关联笔记", "warn");
+      if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
       if (this.isWysiwygMode()) {
         this.openLinkPicker("", { anchorAtCursor: true });
         return;
@@ -8669,9 +8643,6 @@ export class EditorPane {
       this.renderLinkCandidates(this.els.linkSearchInput.value);
       if (this.currentLinkContext) this.positionInlineLinkPicker();
     });
-    this.els.linkReasonInput?.addEventListener("input", () => {
-      this.updateLinkPickerConfirmButton();
-    });
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") {
@@ -8700,7 +8671,8 @@ export class EditorPane {
       if (Number.isInteger(next)) this.currentLinkIndex = next;
       this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
       this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
-      this.focusManualLinkReasonInput();
+      this.els.linkSearchInput.value = row.textContent?.trim() || "";
+      this.els.linkSearchList.innerHTML = "";
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
@@ -8711,7 +8683,9 @@ export class EditorPane {
       this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
     });
     this.els.confirmLinkInsert?.addEventListener("click", () => {
-      void this.confirmSelectedLinkCandidate();
+      const selectedId = String(this.currentPinnedLinkId || "").trim();
+      if (!selectedId) return;
+      void this.insertSelectedLinkNote(selectedId);
     });
 
     this.els.insertTag.addEventListener("click", async () => {
