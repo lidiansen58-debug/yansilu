@@ -108,16 +108,16 @@ async function moveDirectoryOnDisk(oldFsPath, newFsPath) {
 function directoryScopeRows(db, directoryId) {
   return db
     .prepare(
-      `WITH RECURSIVE directory_scope(id, parent_directory_id, fs_path) AS (
-         SELECT id, parent_directory_id, fs_path
+      `WITH RECURSIVE directory_scope(id, parent_directory_id, fs_path, is_hidden) AS (
+         SELECT id, parent_directory_id, fs_path, is_hidden
          FROM directories
          WHERE id = ?
          UNION ALL
-         SELECT d.id, d.parent_directory_id, d.fs_path
+         SELECT d.id, d.parent_directory_id, d.fs_path, d.is_hidden
          FROM directories d
          JOIN directory_scope scope ON d.parent_directory_id = scope.id
        )
-       SELECT id, parent_directory_id, fs_path
+       SELECT id, parent_directory_id, fs_path, is_hidden
        FROM directory_scope`
     )
     .all(directoryId);
@@ -147,6 +147,15 @@ function assertVisibleDirectoryAllowed(db, parentDirectoryId, isHidden) {
   if (isHidden || !parentDirectoryId) return;
   if (hasHiddenAncestor(db, parentDirectoryId)) {
     throw new Error("visible directories cannot be created under a hidden parent");
+  }
+}
+
+function assertHideDoesNotOrphanVisibleDescendants(scopedDirectories, isHidden) {
+  if (!isHidden) return;
+  const descendants = Array.isArray(scopedDirectories) ? scopedDirectories.slice(1) : [];
+  const hasVisibleDescendant = descendants.some((row) => Number(row?.is_hidden || 0) !== 1);
+  if (hasVisibleDescendant) {
+    throw new Error("hidden directories cannot keep visible descendant directories");
   }
 }
 
@@ -279,6 +288,7 @@ export async function updateDirectory(vaultPath, directoryId, input = {}) {
           ? Math.floor(Number(input.maxNotes))
           : 500;
     assertVisibleDirectoryAllowed(db, parentDirectoryId, isHidden);
+    assertHideDoesNotOrphanVisibleDescendants(scopedDirectories, isHidden);
 
     const pathChanged = path.resolve(fsPath) !== path.resolve(current.fs_path);
     if (pathChanged) {

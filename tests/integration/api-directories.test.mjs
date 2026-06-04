@@ -380,3 +380,53 @@ test("directories API rejects visible directories under hidden parents on create
   assert.equal(movedUnderHidden.json.error.code, "DIRECTORY_UPDATE_INVALID");
   assert.match(movedUnderHidden.json.error.message, /hidden parent/i);
 });
+
+test("directories API rejects hiding a directory that still has visible descendants", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-hide-with-visible-children-vault-");
+  const parentPath = path.join(vaultPath, "notes", "original", "hide-parent");
+  const childPath = path.join(parentPath, "visible-child");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const parentDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "hide-parent",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: parentPath,
+    maxNotes: 500
+  });
+  assert.equal(parentDir.status, 201, JSON.stringify(parentDir.json));
+
+  const childDir = await postJson(baseUrl, "/api/v1/directories", {
+    title: "visible-child",
+    parentDirectoryId: parentDir.json.item.id,
+    directoryType: "custom",
+    fsPath: childPath,
+    maxNotes: 500
+  });
+  assert.equal(childDir.status, 201, JSON.stringify(childDir.json));
+
+  const hiddenParent = await patchJson(
+    baseUrl,
+    `/api/v1/directories/${encodeURIComponent(parentDir.json.item.id)}`,
+    {
+      isHidden: true
+    }
+  );
+  assert.equal(hiddenParent.status, 400, JSON.stringify(hiddenParent.json));
+  assert.equal(hiddenParent.json.error.code, "DIRECTORY_UPDATE_INVALID");
+  assert.match(hiddenParent.json.error.message, /visible descendant/i);
+});
