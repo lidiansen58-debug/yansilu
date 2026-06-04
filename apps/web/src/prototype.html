@@ -6828,6 +6828,45 @@
       font-weight: 700;
       letter-spacing: .01em;
     }
+    .semantic-relation-target-list {
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+      max-height: 260px;
+    }
+    .semantic-relation-target-list .link-picker-item {
+      padding: 9px 12px;
+      border-left: 0;
+      border-radius: 0;
+      transform: none;
+      box-shadow: none;
+    }
+    .semantic-relation-target-list .link-picker-item:hover {
+      background: #f5f8fb;
+      border-left-color: transparent;
+    }
+    .semantic-relation-target-list .link-picker-item.active {
+      background: #ebf3ff;
+      color: #0f4f8a;
+      border-left-color: transparent;
+      box-shadow: none;
+      transform: none;
+    }
+    .semantic-relation-target-list .picker-headline {
+      justify-content: flex-start;
+      min-width: 0;
+    }
+    .semantic-relation-target-list .picker-headline strong {
+      display: block;
+      width: 100%;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.45;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .picker-duplicate-hint {
       display: block;
       margin-top: 8px;

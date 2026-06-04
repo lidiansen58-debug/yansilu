@@ -5546,17 +5546,16 @@ export class EditorPane {
       .join("");
   }
 
-  renderRelationTargetChoices(candidates = [], selectedId = "", query = "") {
+  renderRelationTargetChoices(candidates = [], selectedId = "", query = "", activeId = "") {
     const selected = String(selectedId || "").trim();
+    const active = String(activeId || "").trim();
     const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
     const q = String(query || "").trim().toLowerCase();
     const sorted = this.sortRelationTargetCandidates(candidates);
     const filtered = q
       ? sorted.filter((candidate) => {
           const title = String(candidate?.title || "").toLowerCase();
-          const id = String(candidate?.id || "").toLowerCase();
-          const folder = String(this.folderLabel(candidate?.folderId || "") || "").toLowerCase();
-          return title.includes(q) || id.includes(q) || folder.includes(q);
+          return title.includes(q);
         })
       : sorted;
     const items = selected && !filtered.some((candidate) => candidate?.id === selected)
@@ -5567,23 +5566,24 @@ export class EditorPane {
       : filtered;
     if (!items.length) return `<div class="picker-empty">没有匹配笔记</div>`;
     return items
-      .slice(0, 12)
+      .slice(0, 10)
       .map((candidate) => {
-        const active = candidate?.id === selected;
+        const isActive = candidate?.id === active;
         const resolvedType = noteTypeText(candidate?.noteType || typeFromFolder(this.state, candidate?.folderId || ""));
+        const location = this.folderLabel(candidate?.folderId || "");
         return `
           <button
-            class="link-picker-item ${active ? "picked active" : ""}"
+            class="link-picker-item ${isActive ? "active" : ""}"
             type="button"
             data-relation-target-choice
             data-note-id="${escapeHtml(candidate?.id || "")}"
             data-note-title="${escapeHtml(candidate?.title || candidate?.id || "")}"
+            aria-selected="${isActive ? "true" : "false"}"
+            title="${escapeHtml(`${candidate?.title || candidate?.id || ""} · ${resolvedType} · ${location}`)}"
           >
             <span class="picker-headline">
               <strong>${highlightMatch(candidate?.title || candidate?.id || "", q)}</strong>
-              ${active ? `<span class="picker-selection-state">已选</span>` : ""}
             </span>
-            <span class="picker-meta">${highlightMatch(candidate?.id || "", q)} · ${escapeHtml(resolvedType)} · ${escapeHtml(this.folderLabel(candidate?.folderId || ""))}</span>
           </button>
         `;
       })
@@ -5608,11 +5608,11 @@ export class EditorPane {
     const typeOptions = RELATION_CREATE_TYPES.map(
       (type) => `<option value="${escapeHtml(type)}"${type === selectedRelationType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
-    const targetChoices = this.renderRelationTargetChoices(candidates, selectedTargetId, targetQuery);
+    const targetChoices = this.renderRelationTargetChoices(candidates, selectedTargetId, targetQuery, selectedTargetId);
     const targetStatus = selectedTarget
       ? `已选：${selectedTarget.title || selectedTarget.id}`
       : candidates.length
-        ? "输入关键词后选择一条笔记"
+        ? "输入标题后选择一条笔记"
         : "当前范围没有可连接笔记";
 
     return `
@@ -5630,7 +5630,7 @@ export class EditorPane {
           ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
             <span>目标笔记</span>
-            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入关键词筛选笔记" value="${escapeHtml(targetQuery)}" autofocus />
+            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(targetQuery)}" autofocus />
             <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
             <div class="link-picker-list semantic-relation-target-list" data-relation-target-list hidden>${targetChoices}</div>
             <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
@@ -7540,6 +7540,7 @@ export class EditorPane {
     const status = form.querySelector("[data-relation-target-status]");
     const submit = form.querySelector('button[type="submit"]');
     const selectedBefore = String(hiddenTargetId?.value || "").trim();
+    const highlightBefore = String(form.dataset.relationTargetHighlightId || "").trim();
     if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
 
     try {
@@ -7554,10 +7555,17 @@ export class EditorPane {
       this.upsertApiNotes(items);
       if (!form.isConnected) return;
       const selectedNote = selectedBefore ? this.state.notes.find((item) => item?.id === selectedBefore) || null : null;
-      if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query);
+      const cleanQuery = String(query || "").trim();
+      let nextHighlightId = highlightBefore && items.some((item) => item?.id === highlightBefore) ? highlightBefore : "";
+      if (!nextHighlightId) {
+        if (cleanQuery) nextHighlightId = items[0]?.id || "";
+        else if (selectedBefore && items.some((item) => item?.id === selectedBefore)) nextHighlightId = selectedBefore;
+        else nextHighlightId = items[0]?.id || "";
+      }
+      form.dataset.relationTargetHighlightId = nextHighlightId;
+      if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query, nextHighlightId);
       if (submit) submit.disabled = !selectedBefore;
       if (status) {
-        const cleanQuery = String(query || "").trim();
         status.textContent = selectedNote
           ? `已选：${selectedNote.title || selectedNote.id}`
           : items.length
@@ -7588,6 +7596,7 @@ export class EditorPane {
       const submit = form?.querySelector?.('button[type="submit"]');
       if (submit) submit.disabled = true;
     }
+    if (form) form.dataset.relationTargetHighlightId = "";
     window.clearTimeout(this.relationTargetSearchTimer);
     this.relationTargetSearchTimer = window.setTimeout(() => {
       void this.refreshRelationTargetSearch(input?.value || "");
@@ -7613,13 +7622,16 @@ export class EditorPane {
     if (!buttons.length) return;
     this.openRelationTargetList(form);
     const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
-    const currentId = String(hiddenTargetId?.value || "").trim();
+    const currentId = String(form?.dataset?.relationTargetHighlightId || hiddenTargetId?.value || "").trim();
     let index = buttons.findIndex((button) => String(button.dataset.noteId || "").trim() === currentId);
     if (index < 0) index = step > 0 ? -1 : 0;
     const next = buttons[(index + step + buttons.length) % buttons.length];
     if (!next) return;
-    this.applyRelationTargetChoice(form, next.dataset.noteId || "", next.dataset.noteTitle || "", {
-      keepOpen: true
+    form.dataset.relationTargetHighlightId = String(next.dataset.noteId || "").trim();
+    buttons.forEach((button) => {
+      const active = button === next;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
     });
     next.scrollIntoView?.({ block: "nearest" });
   }
@@ -7635,6 +7647,7 @@ export class EditorPane {
       hiddenTargetId.value = cleanNoteId;
       hiddenTargetId.dataset.targetTitle = String(noteTitle || "").trim();
     }
+    form.dataset.relationTargetHighlightId = cleanNoteId;
     if (searchInput) searchInput.value = String(noteTitle || "").trim();
     if (submit) submit.disabled = false;
     if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;

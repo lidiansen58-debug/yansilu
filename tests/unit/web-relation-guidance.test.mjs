@@ -9,6 +9,28 @@ import {
 } from "../../apps/web/src/components-editor-pane.js";
 import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
+function createClassList() {
+  const classes = new Set();
+  return {
+    toggle(token, force) {
+      if (force === undefined) {
+        if (classes.has(token)) {
+          classes.delete(token);
+          return false;
+        }
+        classes.add(token);
+        return true;
+      }
+      if (force) classes.add(token);
+      else classes.delete(token);
+      return force;
+    },
+    contains(token) {
+      return classes.has(token);
+    }
+  };
+}
+
 test("relation guidance defaults to counterexample when note body signals a counterexample", () => {
   const note = {
     body: "# Note\n\n这个反例说明原判断并不总成立。"
@@ -155,6 +177,7 @@ test("relation target selection writes the chosen title back into the search fie
   const submit = { disabled: true };
   const list = { hidden: false };
   const form = {
+    dataset: {},
     querySelector(selector) {
       if (selector === "[data-relation-target-id]") return hiddenTarget;
       if (selector === "[data-relation-target-search]") return searchInput;
@@ -185,10 +208,27 @@ test("relation target keyboard move updates the chosen candidate without closing
   const submit = { disabled: true };
   const list = { hidden: false };
   const buttons = [
-    { dataset: { noteId: "pn_target_a", noteTitle: "Alpha Note" }, scrollIntoView() {} },
-    { dataset: { noteId: "pn_target_b", noteTitle: "Beta Note" }, scrollIntoView() {} }
+    {
+      dataset: { noteId: "pn_target_a", noteTitle: "Alpha Note" },
+      classList: createClassList(),
+      attributes: {},
+      setAttribute(name, value) {
+        this.attributes[name] = value;
+      },
+      scrollIntoView() {}
+    },
+    {
+      dataset: { noteId: "pn_target_b", noteTitle: "Beta Note" },
+      classList: createClassList(),
+      attributes: {},
+      setAttribute(name, value) {
+        this.attributes[name] = value;
+      },
+      scrollIntoView() {}
+    }
   ];
   const form = {
+    dataset: {},
     querySelector(selector) {
       if (selector === "[data-relation-target-id]") return hiddenTarget;
       if (selector === "[data-relation-target-search]") return searchInput;
@@ -207,7 +247,8 @@ test("relation target keyboard move updates the chosen candidate without closing
 
   pane.moveRelationTargetChoice(form, 1);
 
-  assert.equal(hiddenTarget.value, "pn_target_a");
-  assert.equal(searchInput.value, "Alpha Note");
+  assert.equal(hiddenTarget.value, "");
+  assert.equal(searchInput.value, "");
+  assert.equal(form.dataset.relationTargetHighlightId, "pn_target_a");
   assert.equal(list.hidden, false);
 });
