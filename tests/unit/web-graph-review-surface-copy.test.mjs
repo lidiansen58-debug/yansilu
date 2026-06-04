@@ -21,7 +21,8 @@ test("graph review queue consistently frames missing-rationale work as relation 
   assert.match(source, /没有缺理由或理由偏薄的关系/);
   assert.match(source, /label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), relationCandidateCount\)/);
   assert.match(source, /reviewCount > 0 \? `<span>待补理由 \$\{escapeHtml\(String\(reviewCount\)\)\}<\/span>` : ""/);
-  assert.match(source, /<span>把潜在关联、待补理由和 AI 候选收在一起，需要时再展开。<\/span>/);
+  assert.match(source, /<strong>\$\{renderGraphIcon\("clue"\)\}待判断线索<\/strong>/);
+  assert.match(source, /<span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。<\/span>/);
   assert.match(source, /已从图谱打开笔记，继续补当前关系理由/);
   assert.match(source, /已从图谱打开笔记，继续补关系理由/);
   assert.match(source, /已从图谱打开笔记，继续补反例、边界或例外条件/);

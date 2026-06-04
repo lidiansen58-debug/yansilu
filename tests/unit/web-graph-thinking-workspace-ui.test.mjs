@@ -33,6 +33,17 @@ test("graph thinking panel is rendered inside the visual map instead of below it
   assert.match(source, /renderGraphVisualMap\(\{[\s\S]*nodes: visualNodes,[\s\S]*relationType: effectiveRelationType,[\s\S]*thinkingPanelMarkup: thinkingPanel[\s\S]*\}\)/);
 });
 
+test("graph type tabs stay as a primary choice instead of hidden inside filters", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphViewModeSwitcher\(relationType = "meaningful"\) \{[\s\S]*graph-view-tabs[\s\S]*graph-view-tab/);
+  assert.match(source, /\$\{!showingFocusedNote \? renderGraphViewModeSwitcher\(effectiveRelationType\) : ""\}\s*\n\s*<div class="graph-canvas-toolbar">/);
+  assert.doesNotMatch(source, /<div class="graph-filters graph-filters-single" data-graph-filters>\s*\n\s*\$\{renderGraphViewModeSwitcher\(effectiveRelationType\)\}/);
+  assert.match(html, /\.graph-view-tabs \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*border-color: #88c9a7;/);
+});
+
 test("graph isolated notes become visible selectable orbit nodes", () => {
   const source = readPrototypeApp();
   assert.match(source, /function graphBuildIsolatedVisualNodes\(\{ isolatedNotes = \[\], allNodes = \[\], currentNodes = \[\], limit = 12 \} = \{\}\)/);

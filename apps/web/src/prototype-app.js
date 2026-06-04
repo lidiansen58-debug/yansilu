@@ -8627,14 +8627,72 @@ const GRAPH_RELATION_GROUP_META = {
 };
 
 const GRAPH_VISUAL_ZOOM_OPTIONS = {
-  fit: { label: "全览", scale: 1, note: "看整体结构", icon: "－" },
-  read: { label: "放大", scale: 1.35, note: "读节点标题", icon: "＋" },
-  detail: { label: "细节", scale: 1.75, note: "检查关系线", icon: "◎" }
+  fit: { label: "全览", scale: 1, note: "看整体结构", icon: "fit" },
+  read: { label: "放大", scale: 1.35, note: "读节点标题", icon: "read" },
+  detail: { label: "细节", scale: 1.75, note: "检查关系线", icon: "detail" }
 };
 
 function graphZoomOption(value = "") {
   const key = String(value || "fit").trim().toLowerCase();
   return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
+}
+
+function renderGraphIcon(name = "") {
+  const key = String(name || "").trim().toLowerCase();
+  if (key === "collapse") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M7.5 4.5H4.5V7.5M4.8 4.8L8.2 8.2M12.5 15.5H15.5V12.5M15.2 15.2L11.8 11.8"></path>
+      </svg>
+    `;
+  }
+  if (key === "expand") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M8 4.5H4.5V8M4.8 4.8L8.2 8.2M12 15.5H15.5V12M15.2 15.2L11.8 11.8"></path>
+      </svg>
+    `;
+  }
+  if (key === "read") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M10 4.5V15.5M4.5 10H15.5"></path>
+      </svg>
+    `;
+  }
+  if (key === "detail") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="10" cy="10" r="4.2"></circle>
+        <path d="M10 2.8V4.2M10 15.8V17.2M2.8 10H4.2M15.8 10H17.2"></path>
+      </svg>
+    `;
+  }
+  if (key === "clue") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="6" cy="6.5" r="2.2"></circle>
+        <circle cx="14" cy="5" r="1.8"></circle>
+        <circle cx="12.5" cy="14" r="2.4"></circle>
+        <path d="M8.1 6.1L12.2 5.3M7.5 8.2L11 12.2"></path>
+      </svg>
+    `;
+  }
+  if (key === "question") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M6.2 6.9C6.7 4.8 8.3 3.8 10.3 3.8C12.4 3.8 14 5 14 6.8C14 8.3 13.2 9.1 11.6 10.1C10.5 10.8 10.1 11.3 10.1 12.5"></path>
+        <path d="M10.1 15.4H10.2"></path>
+        <circle cx="10" cy="10" r="8"></circle>
+      </svg>
+    `;
+  }
+  return `
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path d="M5 10H15"></path>
+      <path d="M7 6.5L5 10L7 13.5M13 6.5L15 10L13 13.5"></path>
+    </svg>
+  `;
 }
 
 function normalizeGraphFocusDepth(value = "", fallback = "1") {
@@ -9003,22 +9061,20 @@ function graphReadingModeMeta(mode = "argument") {
 
 function renderGraphViewModeSwitcher(relationType = "meaningful") {
   const mode = graphViewModeForRelationType(relationType);
-  const meta = graphReadingModeMeta(mode);
+  const modes = [graphReadingModeMeta("argument"), graphReadingModeMeta("structure")];
   return `
-    <div class="graph-view-switch" aria-label="图谱阅读模式">
-      <div class="graph-view-switch-head">
-        <span>阅读模式</span>
-        <span class="graph-view-status">当前：${escapeHtml(meta.label)}</span>
-      </div>
-      <div class="graph-view-switch-actions">
-        <button class="mini-btn ${mode === "argument" ? "is-filter-active" : ""}" type="button" data-graph-view-mode="argument" aria-pressed="${mode === "argument"}">论证图</button>
-        <button class="mini-btn ${mode === "structure" ? "is-filter-active" : ""}" type="button" data-graph-view-mode="structure" aria-pressed="${mode === "structure"}">结构图</button>
-      </div>
-      <div class="graph-view-switch-copy">
-        <strong>${escapeHtml(meta.label)}</strong>
-        <span>${escapeHtml(meta.purpose)}</span>
-        <small>${escapeHtml(meta.filterHint)}</small>
-      </div>
+    <div class="graph-view-tabs" aria-label="图谱类型">
+      ${modes
+        .map((item) => {
+          const active = item.key === mode;
+          return `
+            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}">
+              <span>${escapeHtml(item.label)}</span>
+              <small>${escapeHtml(item.purpose)}</small>
+            </button>
+          `;
+        })
+        .join("")}
     </div>
   `;
 }
@@ -10475,7 +10531,8 @@ function renderGraphVisualMap({
   topicCandidates = [],
   isolatedNotes = [],
   bridgeGaps = [],
-  thinkingPanelMarkup = ""
+  thinkingPanelMarkup = "",
+  utilityDrawerMarkup = ""
 } = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -10512,8 +10569,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0 0 L 8 3 L 0 6 z" fill="${escapeHtml(color)}"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
+          <path d="M 2 2.5 L 9 6 L 2 9.5" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
@@ -10550,7 +10607,7 @@ function renderGraphVisualMap({
   const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
     .map(([key, option]) => {
       const active = zoom.key === key;
-      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}"><span>${escapeHtml(option.icon || option.label)}</span></button>`;
+      return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
   const focusContextMarkup = filterActive && normalizedFocusedNoteId
@@ -10603,12 +10660,16 @@ function renderGraphVisualMap({
       const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge;
       const haloTone = node.isGraphIsolatedCandidate || selectedIsolated ? "is-isolated" : inSelectedBridge ? "is-bridge" : node.isFocused || selected ? "is-focus" : inSelectedTheme ? "is-theme" : "is-anchor";
       const hitRadius = Math.max(24, Number(node.radius || 0) + 8);
+      const glintRadius = Math.max(2.2, Number(node.radius || 0) * 0.18);
+      const glintX = Number(node.x || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
+      const glintY = Number(node.y || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       return `
         <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
           ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 8}"></circle>` : ""}
           <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
+          <circle class="graph-map-node-glint" cx="${glintX}" cy="${glintY}" r="${glintRadius}"></circle>
           ${(showLabel || revealOnly) ? `<text class="graph-map-node-label${revealOnly ? " is-hover-reveal" : ""}" x="${node.x}" y="${labelY}" text-anchor="middle">${escapeHtml(label)}</text>` : ""}
           ${showMeta ? `<text class="graph-map-node-meta" x="${node.x}" y="${metaY}" text-anchor="middle">${escapeHtml(metaLabel)} · ${Number(node.degree || 0)}</text>` : ""}
         </g>
@@ -10648,6 +10709,12 @@ function renderGraphVisualMap({
       `;
     })
     .join("");
+  const emptyTitle = filterActive ? "这条笔记周围暂时没有可见关系" : `${modeMeta.label}当前没有可见节点`;
+  const emptyMessage = filterActive
+    ? "可能是这条笔记还没有建立显式关系，也可能是当前阅读深度太窄。可以先补一条支持、限定或桥接关系。"
+    : graphViewModeForRelationType(relationType) === "structure"
+      ? "结构图只看主题归属、索引和知识分区。如果这里为空，可以切回论证图，或先为笔记补充主题归属。"
+      : "当前筛选没有留下可读的论证关系。可以切到全部关系，或先从右侧线索里判断潜在关联。";
 
   return `
     <section class="graph-map-panel${expanded ? " is-expanded" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
@@ -10675,6 +10742,7 @@ function renderGraphVisualMap({
         </div>
       </div>
       <div class="graph-map-stage">
+        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap">${utilityDrawerMarkup}</div>` : ""}
         ${
           layout.nodes.length
             ? `
@@ -10682,7 +10750,7 @@ function renderGraphVisualMap({
                 <div class="graph-map-canvas">
                   <div class="graph-map-viewport" data-graph-zoom="${escapeHtml(zoom.key)}" aria-label="可缩放关系图画布">
                     <div class="graph-map-floater" aria-label="图谱查看工具">
-                      <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}">${expanded ? "×" : "⤢"}</button>
+                      <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}" aria-label="${expanded ? "退出放大" : "放大查看"}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
                       <div class="graph-zoom-controls" aria-label="图谱缩放">
                         ${zoomControls}
                       </div>
@@ -10692,7 +10760,31 @@ function renderGraphVisualMap({
                       <span>拖动画布换位置；把鼠标移到节点或关系上，可以只看它附近的一跳结构。</span>
                     </div>
                     <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoom.key)}" viewBox="0 0 ${layout.width} ${layout.height}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="永久笔记关系图">
-                      <defs>${markers}</defs>
+                      <defs>
+                        ${markers}
+                        <radialGradient id="graph-node-core-fill" cx="38%" cy="30%" r="70%">
+                          <stop offset="0%" stop-color="#ffffff"></stop>
+                          <stop offset="58%" stop-color="#f4fff8"></stop>
+                          <stop offset="100%" stop-color="#ddf8e9"></stop>
+                        </radialGradient>
+                        <radialGradient id="graph-node-literature-fill" cx="38%" cy="30%" r="70%">
+                          <stop offset="0%" stop-color="#ffffff"></stop>
+                          <stop offset="62%" stop-color="#fff8ed"></stop>
+                          <stop offset="100%" stop-color="#ffe4bd"></stop>
+                        </radialGradient>
+                        <radialGradient id="graph-node-fleeting-fill" cx="38%" cy="30%" r="70%">
+                          <stop offset="0%" stop-color="#ffffff"></stop>
+                          <stop offset="62%" stop-color="#effbff"></stop>
+                          <stop offset="100%" stop-color="#cceff8"></stop>
+                        </radialGradient>
+                        <filter id="graph-soft-node-glow" x="-70%" y="-70%" width="240%" height="240%">
+                          <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#0f6f48" flood-opacity="0.14"></feDropShadow>
+                          <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#35b779" flood-opacity="0.16"></feDropShadow>
+                        </filter>
+                        <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
+                          <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#38a3c9" flood-opacity="0.15"></feDropShadow>
+                        </filter>
+                      </defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>
@@ -10703,7 +10795,21 @@ function renderGraphVisualMap({
                 ${sidePanelMarkup}
               </div>
             `
-            : `<div class="graph-empty">当前范围内还没有已建立关系的永久笔记。先在中间栏选一个有关系的目录或笔记。</div>`
+            : `
+              <div class="graph-map-empty-canvas">
+                <div class="graph-map-empty-orbit" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="graph-map-empty-card">
+                  <strong>${escapeHtml(emptyTitle)}</strong>
+                  <span>${escapeHtml(emptyMessage)}</span>
+                  <div class="graph-map-empty-actions">
+                    <button class="mini-btn primary" type="button" data-graph-view-mode="argument">看论证图</button>
+                    <button class="mini-btn" type="button" data-graph-view-mode="structure">看结构图</button>
+                  </div>
+                </div>
+              </div>
+            `
         }
         ${thinkingPanelMarkup && !filterActive ? thinkingPanelMarkup : ""}
         ${questionSpotSummary && !filterActive ? renderGraphQuestionSpotChip(questionSpotSummary) : ""}
@@ -11379,6 +11485,7 @@ function renderGraphQuestionSpotChip(summary = {}) {
   const empty = !total;
   return `
     <button class="graph-question-chip${open ? " is-open" : ""}${empty ? " is-empty" : ""}" type="button" data-graph-thinking-toggle aria-expanded="${open}" aria-label="${empty ? "打开可追问处并运行图谱扫描" : "打开可追问处"}">
+      ${renderGraphIcon("question")}
       <span>${escapeHtml(summary?.label || "暂无可追问处")}</span>
       <small>${escapeHtml(summary?.detail || "当前范围暂时没有明显的待追问结构。")}</small>
     </button>
@@ -11720,11 +11827,11 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sect
     <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
       <summary class="graph-utility-drawer-summary">
         <div class="graph-utility-drawer-copy">
-          <strong>图谱待处理</strong>
-          <span>把潜在关联、待补理由和 AI 候选收在一起，需要时再展开。</span>
+          <strong>${renderGraphIcon("clue")}待判断线索</strong>
+          <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
         </div>
         <div class="graph-utility-drawer-meta">
-          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">整理入口</div>`}
+          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
         </div>
       </summary>
       <div class="graph-utility-drawer-body">
@@ -11918,11 +12025,11 @@ function renderGraphPanel() {
     : "";
   canvas.innerHTML = `
     ${notices.join("")}
+    ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : ""}
     <div class="graph-canvas-toolbar">
       <details class="graph-advanced-controls">
         <summary>筛选</summary>
         <div class="graph-filters graph-filters-single" data-graph-filters>
-          ${renderGraphViewModeSwitcher(effectiveRelationType)}
           <label>
             <span>关系类型</span>
             <select id="graphRelationTypeFilter" data-graph-filter="relationType">
@@ -11933,7 +12040,6 @@ function renderGraphPanel() {
         </div>
       </details>
     </div>
-    ${utilityDrawer ? `<div class="graph-utility-drawer-wrap">${utilityDrawer}</div>` : ""}
     ${renderGraphVisualMap({
       nodes: visualNodes,
       edges,
@@ -11944,7 +12050,8 @@ function renderGraphPanel() {
       topicCandidates,
       isolatedNotes,
       bridgeGaps,
-      thinkingPanelMarkup: thinkingPanel
+      thinkingPanelMarkup: thinkingPanel,
+      utilityDrawerMarkup: utilityDrawer
     })}
   `;
 }
