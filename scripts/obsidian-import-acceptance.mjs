@@ -256,39 +256,42 @@ async function inspectImportedAssetLinksInVault(vaultPath, entriesByType) {
 }
 
 function markdownStatusLine(report) {
-  if (report.severityCounts.error > 0) return "失败";
-  if (report.severityCounts.warning > 0) return "通过（有警告）";
-  return "通过";
+  if (report.severityCounts.error > 0) return "FAILED";
+  if (report.severityCounts.warning > 0) return "PASSED WITH WARNINGS";
+  return "PASSED";
 }
 
 function renderMarkdownReport(report) {
   const lines = [
-    "# Obsidian 导入验收报告",
+    "# Obsidian Import Acceptance Report",
     "",
-    `- 结论: ${markdownStatusLine(report)}`,
-    `- 生成时间: ${report.generatedAt}`,
-    `- 导入源目录: \`${report.sourcePath}\``,
-    `- 目标 vault: \`${report.vaultPath}\``,
-    `- Preview 摘要: source ${report.preview.summary.sources} / literature ${report.preview.summary.literatureNotes} / permanent ${report.preview.summary.permanentNotes} / warnings ${report.preview.summary.warnings}`,
-    `- Confirm 创建: source ${report.confirm.created.sources} / literature ${report.confirm.created.literatureNotes} / permanent ${report.confirm.created.permanentNotes}`,
-    `- 检查结果: ${report.severityCounts.error} 个错误，${report.severityCounts.warning} 个警告`,
-    "",
-    "## 检查项",
-    "",
-    "- preview 是否识别出候选内容",
-    "- confirm 创建数量是否与 preview 一致",
-    "- literature / permanent catalog 增量是否与导入创建数量一致",
-    "- createdFiles 是否都真实落盘",
-    "- 含附件的导入是否把链接改写到 `assets/imports/...`",
-    ""
   ];
 
+  lines.splice(2, 0,
+    `- Status: ${markdownStatusLine(report)}`,
+    `- Generated at: ${report.generatedAt}`,
+    `- Source vault: \`${report.sourcePath}\``,
+    `- Destination vault: \`${report.vaultPath}\``,
+    `- Preview summary: source ${report.preview.summary.sources} / literature ${report.preview.summary.literatureNotes} / permanent ${report.preview.summary.permanentNotes} / warnings ${report.preview.summary.warnings}`,
+    `- Confirm created: source ${report.confirm.created.sources} / literature ${report.confirm.created.literatureNotes} / permanent ${report.confirm.created.permanentNotes}`,
+    `- Check results: ${report.severityCounts.error} errors, ${report.severityCounts.warning} warnings`,
+    "",
+    "## Checks",
+    "",
+    "- Preview finds candidates",
+    "- Confirm counts match preview counts",
+    "- Source / literature / permanent catalog deltas match created counts",
+    "- createdFiles entries exist on disk",
+    "- Imported asset links are rewritten to assets/imports/... when needed",
+    ""
+  );
+
   if (!report.issues.length) {
-    lines.push("## 结果", "", "- 未发现错误或警告。", "");
+    lines.push("## Summary", "", "- No errors or warnings were found.", "");
     return `${lines.join("\n")}\n`;
   }
 
-  lines.push("## 问题", "");
+  lines.push("## Issues", "");
   for (const issue of report.issues) {
     lines.push(`- [${issue.severity}] \`${issue.id}\` ${issue.detail}`);
   }

@@ -431,44 +431,44 @@ function writeAcceptanceReport(targetPath, report) {
 }
 
 function markdownStatusLine(report) {
-  if (report.severityCounts.error > 0) return "失败";
-  if (report.severityCounts.warning > 0) return "通过（有警告）";
-  return "通过";
+  if (report.severityCounts.error > 0) return "FAILED";
+  if (report.severityCounts.warning > 0) return "PASSED WITH WARNINGS";
+  return "PASSED";
 }
 
 function issueMarkdownLine(issue) {
   const detail = issue.target
-    ? `目标: \`${issue.target}\``
+    ? `target: \`${issue.target}\``
     : issue.key
-      ? `字段: \`${issue.key}\``
+      ? `field: \`${issue.key}\``
       : issue.fileName
-        ? `文件名: \`${issue.fileName}\``
+        ? `file name: \`${issue.fileName}\``
         : "";
-  return `- [${issue.severity}] \`${issue.type}\` ${issue.file}${detail ? `，${detail}` : ""}`;
+  return `- [${issue.severity}] \`${issue.type}\` ${issue.file}${detail ? ` -> ${detail}` : ""}`;
 }
 
 function renderAcceptanceMarkdown(report) {
   const lines = [
-    "# Obsidian 导出验收报告",
+    "# Obsidian Export Acceptance Report",
     "",
-    `- 结论: ${markdownStatusLine(report)}`,
-    `- 生成时间: ${report.generatedAt}`,
-    `- 导出目录: \`${report.targetPath}\``,
-    `- 导出记录: \`${report.exportRecordPath}\``,
-    `- 导出文件: ${report.copiedBreakdown.markdownFiles} 篇 Markdown，${report.copiedBreakdown.assetFiles} 个附件，共 ${report.copiedBreakdown.totalFiles} 个文件`,
-    `- 实际扫描: ${report.actualFiles.markdownFiles} 篇 Markdown，${report.actualFiles.assetFiles} 个附件，共 ${report.actualFiles.totalFiles} 个文件`,
-    `- 检查结果: ${report.severityCounts.error} 个错误，${report.severityCounts.warning} 个警告`,
+    `- Status: ${markdownStatusLine(report)}`,
+    `- Generated at: ${report.generatedAt}`,
+    `- Export target: \`${report.targetPath}\``,
+    `- Export record: \`${report.exportRecordPath}\``,
+    `- Exported files: ${report.copiedBreakdown.markdownFiles} markdown, ${report.copiedBreakdown.assetFiles} assets, ${report.copiedBreakdown.totalFiles} total`,
+    `- Scanned files: ${report.actualFiles.markdownFiles} markdown, ${report.actualFiles.assetFiles} assets, ${report.actualFiles.totalFiles} total`,
+    `- Check results: ${report.severityCounts.error} errors, ${report.severityCounts.warning} warnings`,
     "",
-    "## 检查项",
+    "## Checks",
     "",
-    "- frontmatter 内部字段泄漏",
-    "- wikilink / embed / 本地 Markdown 链接是否指向存在文件",
-    "- 导出文件名是否仍是内部 id 风格",
+    "- No internal frontmatter keys leak into exported notes",
+    "- Wikilinks, embeds, and local Markdown links resolve to existing files",
+    "- Exported file names do not fall back to internal id-style names",
     ""
   ];
 
   if (!report.issues.length) {
-    lines.push("## 结果", "", "- 未发现错误或警告。", "");
+    lines.push("## Summary", "", "- No errors or warnings were found.", "");
     return `${lines.join("\n")}\n`;
   }
 
@@ -476,10 +476,10 @@ function renderAcceptanceMarkdown(report) {
   const warnings = report.issues.filter((item) => item.severity === "warning");
 
   if (errors.length) {
-    lines.push("## 错误", "", ...errors.map(issueMarkdownLine), "");
+    lines.push("## Errors", "", ...errors.map(issueMarkdownLine), "");
   }
   if (warnings.length) {
-    lines.push("## 警告", "", ...warnings.map(issueMarkdownLine), "");
+    lines.push("## Warnings", "", ...warnings.map(issueMarkdownLine), "");
   }
 
   return `${lines.join("\n")}\n`;

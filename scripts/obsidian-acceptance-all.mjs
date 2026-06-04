@@ -102,55 +102,55 @@ function runNodeScript(scriptRelativePath, args) {
 
 function statusLine(report) {
   const counts = report?.severityCounts || { error: 0, warning: 0 };
-  if (counts.error > 0) return "失败";
-  if (counts.warning > 0) return "通过（有警告）";
-  return "通过";
+  if (counts.error > 0) return "FAILED";
+  if (counts.warning > 0) return "PASSED WITH WARNINGS";
+  return "PASSED";
 }
 
 function roundTripStatus(importReport, exportReport) {
-  if (statusLine(importReport) === "失败" || statusLine(exportReport) === "失败") return "失败";
-  if (statusLine(importReport) !== "通过" || statusLine(exportReport) !== "通过") return "通过（有警告）";
-  return "通过";
+  if (statusLine(importReport) === "FAILED" || statusLine(exportReport) === "FAILED") return "FAILED";
+  if (statusLine(importReport) !== "PASSED" || statusLine(exportReport) !== "PASSED") return "PASSED WITH WARNINGS";
+  return "PASSED";
 }
 
 function renderMarkdownReport(report) {
   const lines = [
-    "# Obsidian 往返验收报告",
+    "# Obsidian Round-Trip Acceptance Report",
     "",
-    `- 结论: ${report.status}`,
-    `- 生成时间: ${report.generatedAt}`,
-    `- 导入源目录: \`${report.sourcePath}\``,
-    `- 工作区目录: \`${report.workspaceRoot}\``,
-    `- 导入目标 vault: \`${report.importVaultPath}\``,
-    `- 导出目标目录: \`${report.exportTargetPath}\``,
+    `- Status: ${report.status}`,
+    `- Generated at: ${report.generatedAt}`,
+    `- Source vault: \`${report.sourcePath}\``,
+    `- Workspace: \`${report.workspaceRoot}\``,
+    `- Import vault: \`${report.importVaultPath}\``,
+    `- Export target: \`${report.exportTargetPath}\``,
     "",
-    "## 导入验收",
+    "## Import Acceptance",
     "",
-    `- 结果: ${statusLine(report.importReport)}`,
+    `- Result: ${statusLine(report.importReport)}`,
     `- Report JSON: \`${report.importReportPath}\``,
     `- Report Markdown: \`${report.importMarkdownReportPath}\``,
     `- Preview: source ${report.importReport.preview.summary.sources} / literature ${report.importReport.preview.summary.literatureNotes} / permanent ${report.importReport.preview.summary.permanentNotes} / warnings ${report.importReport.preview.summary.warnings}`,
     `- Confirm: source ${report.importReport.confirm.created.sources} / literature ${report.importReport.confirm.created.literatureNotes} / permanent ${report.importReport.confirm.created.permanentNotes}`,
     "",
-    "## 导出验收",
+    "## Export Acceptance",
     "",
-    `- 结果: ${statusLine(report.exportReport)}`,
+    `- Result: ${statusLine(report.exportReport)}`,
     `- Report JSON: \`${report.exportReportPath}\``,
     `- Report Markdown: \`${report.exportMarkdownReportPath}\``,
-    `- 导出文件: ${report.exportReport.copiedBreakdown.markdownFiles} 篇 Markdown，${report.exportReport.copiedBreakdown.assetFiles} 个附件，共 ${report.exportReport.copiedBreakdown.totalFiles} 个文件`,
-    `- 检查结果: ${report.exportReport.severityCounts.error} 个错误，${report.exportReport.severityCounts.warning} 个警告`,
+    `- Exported files: ${report.exportReport.copiedBreakdown.markdownFiles} markdown, ${report.exportReport.copiedBreakdown.assetFiles} assets, ${report.exportReport.copiedBreakdown.totalFiles} total`,
+    `- Check results: ${report.exportReport.severityCounts.error} errors, ${report.exportReport.severityCounts.warning} warnings`,
     ""
   ];
 
-  if (report.status === "通过") {
-    lines.push("## 结果", "", "- 导入和导出两段验收都已通过。", "");
+  if (report.status === "PASSED") {
+    lines.push("## Summary", "", "- Both import and export acceptance checks passed.", "");
   } else {
-    lines.push("## 结果", "");
+    lines.push("## Summary", "");
     if (report.importReport.issues?.length) {
-      lines.push("- 导入侧存在问题，请看导入报告。");
+      lines.push("- Import acceptance reported issues. See the import report.");
     }
     if (report.exportReport.issues?.length) {
-      lines.push("- 导出侧存在问题，请看导出报告。");
+      lines.push("- Export acceptance reported issues. See the export report.");
     }
     lines.push("");
   }
