@@ -16,7 +16,6 @@ function renderExportCard() {
           <div class="import-card-kicker">导出</div>
           <strong>导出 Markdown</strong>
         </div>
-        <span class="import-card-badge">当前任务</span>
       </div>
       <div class="import-toolbar-layout">
         <section class="import-field-panel">
@@ -38,10 +37,6 @@ function renderExportCard() {
       <div class="import-actions">
         <button class="mini-btn primary" id="btnExportMarkdown">开始导出</button>
       </div>
-      <div class="import-current-result-head">
-        <span>当前结果</span>
-      </div>
-      <div class="import-result" id="exportResult">还没有执行导出。</div>
     </section>
   `;
 }
@@ -49,7 +44,7 @@ function renderExportCard() {
 function tabButtonMarkup(tab, activeTab) {
   const isActive = tab === activeTab;
   const label = tab === "export" ? "导出 Markdown" : "导入 Obsidian";
-  const detail = tab === "export" ? "把永久笔记写到目标目录" : "从仓库读取到笔记库";
+  const detail = tab === "export" ? "写到目标目录" : "读取到笔记库";
   const panelId = tab === "export" ? "exportCardMount" : "importToolbarMount";
   const buttonId = tab === "export" ? "importWorkspaceTabExport" : "importWorkspaceTabImport";
   const icon = tab === "export"
@@ -86,7 +81,6 @@ export function renderImportPageMount({
       <section class="import-page-header">
         <div>
           <h2>导入导出</h2>
-          <p>选择当前任务，然后完成表单。</p>
         </div>
       </section>
       <div class="import-workspace-tabs" role="tablist" aria-label="导入导出切换">
@@ -103,12 +97,6 @@ export function renderImportPageMount({
             ${normalizedActiveTab === "import" ? "" : "hidden"}
           >
             ${renderImportToolbarMount(toolbar)}
-            <section class="import-card import-current-result-card">
-              <div class="import-current-result-head">
-                <span>当前结果</span>
-              </div>
-              <div class="import-result" id="importResult">${renderResultSection(result)}</div>
-            </section>
           </section>
           <section
             id="exportCardMount"
@@ -120,6 +108,18 @@ export function renderImportPageMount({
             ${renderExportCard()}
           </section>
         </section>
+      </div>
+      <div id="importOperationResultModal" class="modal-mask import-result-modal hidden" role="dialog" aria-modal="true" aria-labelledby="importOperationResultTitle">
+        <div class="modal import-result-dialog">
+          <div class="modal-head import-result-dialog-head">
+            <span id="importOperationResultTitle">操作结果</span>
+            <button class="mini-btn is-ghost" id="btnCloseImportOperationResult" type="button">关闭</button>
+          </div>
+          <div class="modal-body import-result-dialog-body">
+            <div class="import-result" id="importResult">${renderResultSection(result)}</div>
+            <div class="import-result" id="exportResult" hidden></div>
+          </div>
+        </div>
       </div>
     </div>
   `;

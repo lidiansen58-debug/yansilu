@@ -75,6 +75,7 @@ test("prototype import create-project action uses 项目 wording", async (t) => 
     return text.includes('"stage": "confirm"') && text.includes("Imported Project Copy Seed");
   });
 
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   const importResultText = await page.locator("#importResult").textContent();
   assert.match(String(importResultText || ""), /直接创建项目/);

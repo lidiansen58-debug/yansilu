@@ -1897,7 +1897,7 @@
     }
     .import-page-shell {
       display: grid;
-      gap: 14px;
+      gap: 10px;
       max-width: 880px;
       margin: 0 auto;
     }
@@ -1906,7 +1906,7 @@
       align-items: flex-end;
       justify-content: space-between;
       gap: 14px;
-      padding: 2px 2px 0;
+      padding: 0 2px;
     }
     .import-page-eyebrow {
       font-size: 11px;
@@ -1934,21 +1934,21 @@
     .import-workspace-tabs {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      padding: 7px;
+      gap: 6px;
+      padding: 5px;
       border: 1px solid rgba(209, 222, 216, 0.96);
-      border-radius: 18px;
+      border-radius: 16px;
       background: rgba(255, 255, 255, 0.82);
       box-shadow: 0 10px 24px rgba(23, 34, 33, 0.04);
     }
     .import-workspace-tab {
       display: flex;
       align-items: center;
-      gap: 12px;
-      min-height: 68px;
-      padding: 12px 14px;
+      gap: 10px;
+      min-height: 46px;
+      padding: 8px 11px;
       border: 1px solid transparent;
-      border-radius: 15px;
+      border-radius: 13px;
       background: transparent;
       color: #475569;
       text-align: left;
@@ -1972,8 +1972,8 @@
       transform: translateY(-1px);
     }
     .import-workspace-tab-icon {
-      width: 34px;
-      height: 34px;
+      width: 28px;
+      height: 28px;
       border-radius: 999px;
       display: inline-grid;
       place-items: center;
@@ -1983,8 +1983,8 @@
       color: #617076;
     }
     .import-workspace-tab-icon svg {
-      width: 18px;
-      height: 18px;
+      width: 15px;
+      height: 15px;
       fill: none;
       stroke: currentColor;
       stroke-width: 1.9;
@@ -1999,16 +1999,16 @@
     .import-workspace-tab-copy {
       min-width: 0;
       display: grid;
-      gap: 3px;
+      gap: 1px;
     }
     .import-workspace-tab-label {
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.2;
       font-weight: 750;
     }
     .import-workspace-tab-detail {
-      font-size: 12px;
-      line-height: 1.5;
+      font-size: 11px;
+      line-height: 1.35;
       color: #64748b;
     }
     .import-workbench-layout {
@@ -2045,7 +2045,7 @@
       border: 1px solid rgba(206, 218, 214, 0.96);
       border-radius: 22px;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(251, 253, 252, 0.96) 100%);
-      padding: 22px;
+      padding: 18px;
       box-shadow: 0 18px 42px rgba(23, 34, 33, 0.06);
       min-width: 0;
     }
@@ -2133,8 +2133,8 @@
     .import-toolbar-layout {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 18px;
+      gap: 12px;
+      margin-top: 12px;
     }
     .import-field-panel-wide {
       grid-column: 1 / -1;
@@ -2143,7 +2143,7 @@
       border: 1px solid rgba(215, 224, 221, 0.96);
       border-radius: 18px;
       background: rgba(255, 255, 255, 0.84);
-      padding: 16px;
+      padding: 14px;
       display: grid;
       align-content: start;
       gap: 10px;
@@ -2161,7 +2161,7 @@
       line-height: 1.55;
     }
     .import-compat-details {
-      margin-top: 16px;
+      margin-top: 12px;
       border: 1px solid rgba(215, 224, 221, 0.96);
       border-radius: 16px;
       background: linear-gradient(180deg, rgba(248, 251, 250, 0.96) 0%, rgba(255, 255, 255, 0.96) 100%);
@@ -2173,7 +2173,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 16px;
+      padding: 12px 16px;
       cursor: pointer;
       font-size: 13px;
       font-weight: 700;
@@ -2249,8 +2249,9 @@
     .import-actions {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 10px;
-      margin-top: 18px;
+      margin-top: 16px;
     }
     .import-actions.secondary {
       margin-top: 12px;
@@ -2332,19 +2333,28 @@
       max-height: calc(100vh - 240px);
     }
     .module-workspace.imports-mode .module-header {
-      margin: 8px 12px 0;
-      padding: 4px 0 0;
-      border: 0;
-      background: transparent;
-      box-shadow: none;
-      justify-content: flex-end;
-    }
-    .module-workspace.imports-mode .module-header > div:first-child {
       display: none;
     }
-    .module-workspace.imports-mode .module-header-actions {
-      width: 100%;
-      justify-content: flex-end;
+    .import-result-dialog {
+      width: min(760px, 100%);
+      max-height: min(760px, calc(100vh - 40px));
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .import-result-dialog-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .import-result-dialog-body {
+      overflow: auto;
+      max-height: calc(100vh - 136px);
+      padding: 16px;
+    }
+    .import-result-modal .import-result {
+      min-height: 0;
+      max-height: none;
     }
     .import-history {
       margin-top: 10px;

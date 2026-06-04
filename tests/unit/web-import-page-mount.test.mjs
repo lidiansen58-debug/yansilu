@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
-test("import page mount renders current import export workspace and result placeholder", () => {
+test("import page mount renders compact import export workspace and result modal", () => {
   const html = renderImportPageMount({
     toolbar: {
       connector: "obsidian",
@@ -21,12 +21,14 @@ test("import page mount renders current import export workspace and result place
   assert.match(html, /id="exportCardMount"/);
   assert.match(html, /导入 Obsidian/);
   assert.match(html, /导出 Markdown/);
-  assert.match(html, /当前结果/);
+  assert.doesNotMatch(html, /当前结果/);
   assert.doesNotMatch(html, /最近一次操作/);
-  assert.match(html, /还没有执行操作/);
+  assert.match(html, /id="importOperationResultModal"/);
+  assert.match(html, /id="importResult"/);
+  assert.match(html, /id="exportResult"/);
 });
 
-test("import page mount can render a composed result card", () => {
+test("import page mount keeps composed results inside the modal sink", () => {
   const html = renderImportPageMount({
     result: {
       data: {
@@ -41,7 +43,8 @@ test("import page mount can render a composed result card", () => {
     }
   });
 
-  assert.match(html, /import-current-result-card/);
+  assert.doesNotMatch(html, /import-current-result-card/);
+  assert.match(html, /import-result-modal/);
   assert.match(html, /imp_page/);
   assert.match(html, /result-json/);
 });

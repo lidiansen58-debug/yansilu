@@ -28,7 +28,6 @@ export function renderImportToolbarPanel(input = {}) {
           <div class="import-card-kicker">导入</div>
           <strong>从 Obsidian 导入</strong>
         </div>
-        <span class="import-card-badge">当前任务</span>
       </div>
       <input id="importRecordId" type="hidden" value="${escapeHtml(model.importRecordId)}" />
       <select id="importConnector" hidden aria-hidden="true" tabindex="-1">

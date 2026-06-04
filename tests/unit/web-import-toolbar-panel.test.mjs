@@ -17,7 +17,7 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
     importRecordId: "imp_123",
     confirmButton: {
       disabled: true,
-      label: "确认导入（2/3）"
+      label: "确认导入（0/3）"
     }
   });
 
@@ -25,6 +25,7 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.match(html, /从 Obsidian 导入/);
   assert.match(html, /Obsidian 仓库/);
   assert.doesNotMatch(html, /普通导入只需要填写来源仓库和导入位置/);
+  assert.doesNotMatch(html, /当前任务/);
   assert.match(html, /来源仓库/);
   assert.match(html, /导入到/);
   assert.match(html, /兼容设置（通常不用填）/);
@@ -46,7 +47,7 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   assert.match(html, /id="btnImportPreview"/);
   assert.match(html, />生成预览</);
   assert.match(html, /id="btnImportConfirm" disabled/);
-  assert.match(html, /确认导入（2\/3）/);
+  assert.match(html, /确认导入（0\/3）/);
   assert.doesNotMatch(html, /导入参数 JSON/);
   assert.doesNotMatch(html, /导入选项 JSON/);
   assert.doesNotMatch(html, /id="importAdvanced"/);

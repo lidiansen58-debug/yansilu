@@ -3580,11 +3580,28 @@ function renderResult(el, payload) {
   });
 }
 
+function showImportOperationResultModal(mode = "import", title = "操作结果") {
+  const modal = $("importOperationResultModal");
+  const titleEl = $("importOperationResultTitle");
+  const importResult = $("importResult");
+  const exportResult = $("exportResult");
+  if (!modal) return;
+  if (titleEl) titleEl.textContent = title;
+  if (importResult) importResult.hidden = mode !== "import";
+  if (exportResult) exportResult.hidden = mode !== "export";
+  modal.classList.remove("hidden");
+}
+
+function hideImportOperationResultModal() {
+  $("importOperationResultModal")?.classList.add("hidden");
+}
+
 function showImportResult(payload) {
   importState.resultFocusReason = "";
   importState.lastResultPayload = payload;
   importState.literatureBatchSummary = null;
   renderResult($("importResult"), payload);
+  showImportOperationResultModal("import", "导入结果");
   void refreshImportLiteratureBatchSummary(payload);
   updateImportConfirmButton();
 }
@@ -3593,6 +3610,7 @@ function showExportResult(payload) {
   const directoryId = String(payload?.directoryId || "").trim();
   if (directoryId && !payload.directoryLabel) payload.directoryLabel = directoryPathLabel(directoryId);
   renderResult($("exportResult"), payload);
+  showImportOperationResultModal("export", "导出结果");
   updateExportTargetHint();
 }
 
@@ -15341,6 +15359,11 @@ async function bootstrap() {
   renderImportToolbar();
 
   $("importPageMount")?.addEventListener("click", (event) => {
+    if (event.target?.closest?.("#btnCloseImportOperationResult") || event.target?.id === "importOperationResultModal") {
+      hideImportOperationResultModal();
+      return;
+    }
+
     const tabButton = event.target?.closest?.(".import-workspace-tab[data-import-workspace-tab]");
     if (tabButton) {
       const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
