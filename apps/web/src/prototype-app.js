@@ -201,6 +201,7 @@ const importState = {
   directoryId: "",
   lastPreview: null,
   lastResultPayload: null,
+  activeTab: "import",
   literatureBatchSummary: null,
   selectionImportRecordId: "",
   selectedCandidateIds: new Set(),
@@ -230,7 +231,24 @@ const graphState = {
   legendOpen: false,
   thinkingPanelOpen: false,
   thinkingFilter: "all",
-  selection: null
+  selection: null,
+  utilityDrawerOpen: false,
+  sectionOpen: {
+    "bridge-gaps": false,
+    "review-queue": false,
+    "ai-analysis": false
+  }
+};
+const graphViewportDragState = {
+  active: false,
+  moved: false,
+  pointerId: null,
+  viewport: null,
+  startX: 0,
+  startY: 0,
+  startScrollLeft: 0,
+  startScrollTop: 0,
+  suppressClickUntil: 0
 };
 const distillationState = {
   filter: "all"
@@ -1224,6 +1242,7 @@ function renderImportPageShell() {
   if (!el) return;
   el.innerHTML = renderImportPageMount({
     toolbar: currentImportToolbarValues(),
+    activeTab: importState.activeTab,
     result: importState.lastResultPayload
       ? {
           data: importState.lastResultPayload,
@@ -1232,13 +1251,42 @@ function renderImportPageShell() {
       : null
   });
   mountExportCardIntoImportShell();
+  syncImportWorkspaceTabs();
 }
 
 function mountExportCardIntoImportShell() {
-  const exportCard = $("importPanel")?.querySelector(".export-card");
+  const legacyExportCard = $("importPanel")?.querySelector(".export-card");
   const exportMount = $("exportCardMount");
-  if (!exportCard || !exportMount) return;
-  exportMount.replaceChildren(exportCard);
+  if (!legacyExportCard || !exportMount) return;
+  if (legacyExportCard.parentElement === exportMount) return;
+  legacyExportCard.remove();
+}
+
+function normalizeImportWorkspaceTab(tab = "import") {
+  return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
+}
+
+function syncImportWorkspaceTabs() {
+  const mount = $("importPageMount");
+  if (!mount) return;
+  const activeTab = normalizeImportWorkspaceTab(importState.activeTab);
+  mount.setAttribute("data-import-workspace-tab", activeTab);
+  mount.querySelectorAll("[data-import-workspace-tab]").forEach((button) => {
+    const buttonTab = normalizeImportWorkspaceTab(button.getAttribute("data-import-workspace-tab"));
+    const isActive = buttonTab === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+    button.setAttribute("tabindex", isActive ? "0" : "-1");
+  });
+  const importPanel = $("importToolbarMount");
+  const exportPanel = $("exportCardMount");
+  if (importPanel) importPanel.hidden = activeTab !== "import";
+  if (exportPanel) exportPanel.hidden = activeTab !== "export";
+}
+
+function setImportWorkspaceTab(tab = "import") {
+  importState.activeTab = normalizeImportWorkspaceTab(tab);
+  syncImportWorkspaceTabs();
 }
 
 function renderAiInboxWorkspace() {
@@ -4804,25 +4852,12 @@ function currentModuleUi() {
       `
     },
     imports: {
-      sidebarTitle: "导入中心",
-      sidebarSubtitle: "只保留 Obsidian，先预览，再导入。",
-      sidebarFoot: "现在是最小可用版：不保留历史、不做回滚，只做一次预览和一次确认。",
+      sidebarTitle: "导入与导出",
+      sidebarSubtitle: "切换标签后直接操作。",
+      sidebarFoot: "",
       title: "导入与导出",
-      summary: "导入只支持 Obsidian Vault，导出保持目录级 Markdown 复制，先求简单可用。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>当前目标</h3>
-          <p>把外部资料安全带入 <strong>${escapeHtml(rootName)}</strong>：先看候选，再确认写入；不确定的内容先留在预览里。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>推荐顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>选择来源和路径</li>
-            <li>预览候选，排除不需要的项</li>
-            <li>确认写入，然后继续整理或导出</li>
-          </ol>
-        </div>
-      `
+      summary: `把外部资料带入 ${escapeHtml(rootName)}，或者把永久笔记导出到目标目录。`,
+      sidebarHtml: ""
     },
     aiInbox: {
       sidebarTitle: "AI 建议待办",
@@ -5978,6 +6013,7 @@ function renderModulePanels() {
   $("editorWorkspace")?.classList.toggle("hidden", !editorMode);
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
   $("moduleWorkspace")?.classList.toggle("graph-mode", graphMode);
+  $("moduleWorkspace")?.classList.toggle("imports-mode", importsMode);
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
@@ -6216,6 +6252,7 @@ function activateModule(moduleName) {
   if (normalizedModule === "graph") expandGraphBrowserTree();
   syncRailSelectionState();
   renderAll();
+  if (normalizedModule === "imports") renderImportPageShell();
 }
 
 function renderSettingsPanel() {
@@ -8800,15 +8837,16 @@ function renderGraphInsightCoach(context = {}) {
   `;
 }
 
-function renderGraphBridgeGapSection(bridgeGaps = []) {
+function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
   const items = Array.isArray(bridgeGaps) ? bridgeGaps.filter((item) => Array.isArray(item?.noteIds) && item.noteIds.length) : [];
   if (!items.length) return "";
+  const open = options.open === true;
   return `
-      <details class="graph-section graph-collapsible-section graph-bridge-gap-section" open data-graph-section="bridge-gaps">
+      <details class="graph-section graph-collapsible-section graph-bridge-gap-section" data-graph-section="bridge-gaps"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
-            <div class="graph-section-title">桥接缺口</div>
-            <div class="graph-section-note">孤立笔记和断裂簇会先排在这里。点开后直接进入补桥接关系，不用先在主图里找入口。</div>
+            <div class="graph-section-title">潜在关联</div>
+            <div class="graph-section-note">这里收的是还没连成清楚关系、但很值得补上的连接。点开后可以直接回到笔记补关联。</div>
           </div>
           <span class="graph-collapsible-badge">${items.length} 条</span>
         </summary>
@@ -8823,17 +8861,17 @@ function renderGraphBridgeGapSection(bridgeGaps = []) {
                 const rationale = String(gap?.suggestedAction || gap?.rationale || "").trim();
                 const gapType = String(gap?.gapType || "bridge_gap").trim().toLowerCase();
                 const counterpartSummary = targetTitle
-                  ? `建议先把它和「${targetTitle}」补上一条可解释的桥接关系。`
-                  : "它现在还挂在图谱外面，先补一条能把它带回主结构的桥接关系。";
+                  ? `建议先把它和「${targetTitle}」补上一条说得清理由的关联。`
+                  : "它现在还挂在主结构外面，先补一条能把它带回来的关联。";
                 const metaLabel = gapType === "disconnected_cluster" ? "断裂簇" : "孤立笔记";
                 return `
                   <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}">
                     <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(sourceNoteId)}">
                       <strong>${escapeHtml(sourceTitle)}</strong>
-                      <span>${escapeHtml(metaLabel)} · 待补桥接</span>
+                      <span>${escapeHtml(metaLabel)} · 潜在关联</span>
                       <small>${escapeHtml(rationale || counterpartSummary)}</small>
                     </button>
-                    <button class="graph-focus-card-action" type="button" data-graph-bridge-gap-action="bridge" data-open-note="${escapeHtml(sourceNoteId)}" data-graph-followup-action="bridge"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges">去补桥接</button>
+                    <button class="graph-focus-card-action" type="button" data-graph-bridge-gap-action="bridge" data-open-note="${escapeHtml(sourceNoteId)}" data-graph-followup-action="bridge"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges">去补关联</button>
                   </div>
                 `;
               })
@@ -8905,9 +8943,8 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
 
 function graphViewModeForRelationType(type = "") {
   const key = String(type || "meaningful").trim().toLowerCase();
-  if (key === "index") return "structure";
-  if (key === "meaningful" || GRAPH_MEANINGFUL_RELATION_TYPES.has(key)) return "argument";
-  return "custom";
+  if (key === "index" || GRAPH_INDEX_RELATION_TYPES.has(key)) return "structure";
+  return "argument";
 }
 
 function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
@@ -8930,23 +8967,44 @@ function setGraphRelationTypeFilter(value = "", options = {}) {
 
 setGraphRelationTypeFilter(graphState.filters?.relationType, { persist: false });
 
+function graphReadingModeMeta(mode = "argument") {
+  const key = String(mode || "argument").trim().toLowerCase() === "structure" ? "structure" : "argument";
+  if (key === "structure") {
+    return {
+      key,
+      label: "结构图",
+      purpose: "用来快速看主题归属和聚集位置，判断这组笔记主要落在哪些主题结构下。",
+      filterHint: "默认只看主题归属；要回到支持、反驳或边界，切回论证图。",
+      mapNote: "只保留主题归属和聚集位置。拖动画布，就能快速判断这批笔记主要聚在哪些主题。"
+    };
+  }
+  return {
+    key: "argument",
+    label: "论证图",
+    purpose: "用来判断这组笔记能否形成清楚论证，优先看支持、反驳、限定和潜在关联。",
+    filterHint: "关系类型还能继续收窄，方便只看当前最重要的一类连接。",
+    mapNote: "只保留当前模式最值得看的关系。拖动画布换位置，悬停节点或连线继续读局部。"
+  };
+}
+
 function renderGraphViewModeSwitcher(relationType = "meaningful") {
   const mode = graphViewModeForRelationType(relationType);
-  const customNote =
-    mode === "custom"
-      ? `<span class="graph-view-status">当前：自定义筛选</span>`
-      : `<span class="graph-view-status">${mode === "structure" ? "当前：结构图" : "当前：论证图"}</span>`;
+  const meta = graphReadingModeMeta(mode);
   return `
     <div class="graph-view-switch" aria-label="图谱阅读模式">
       <div class="graph-view-switch-head">
         <span>阅读模式</span>
-        ${customNote}
+        <span class="graph-view-status">当前：${escapeHtml(meta.label)}</span>
       </div>
       <div class="graph-view-switch-actions">
         <button class="mini-btn ${mode === "argument" ? "is-filter-active" : ""}" type="button" data-graph-view-mode="argument" aria-pressed="${mode === "argument"}">论证图</button>
         <button class="mini-btn ${mode === "structure" ? "is-filter-active" : ""}" type="button" data-graph-view-mode="structure" aria-pressed="${mode === "structure"}">结构图</button>
       </div>
-      <div class="graph-view-switch-note">论证图先看支持、反驳、限定和桥接；结构图只看主题归属。</div>
+      <div class="graph-view-switch-copy">
+        <strong>${escapeHtml(meta.label)}</strong>
+        <span>${escapeHtml(meta.purpose)}</span>
+        <small>${escapeHtml(meta.filterHint)}</small>
+      </div>
     </div>
   `;
 }
@@ -10389,9 +10447,21 @@ function graphFocusedItems(nodes = [], edges = []) {
   };
 }
 
-function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, focusedNoteId = "", questionSpotSummary = null, topicCandidates = [], isolatedNotes = [], bridgeGaps = [], thinkingPanelMarkup = "" } = {}) {
+function renderGraphVisualMap({
+  nodes = [],
+  edges = [],
+  filterActive = false,
+  focusedNoteId = "",
+  relationType = "meaningful",
+  questionSpotSummary = null,
+  topicCandidates = [],
+  isolatedNotes = [],
+  bridgeGaps = [],
+  thinkingPanelMarkup = ""
+} = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
+  const modeMeta = graphReadingModeMeta(graphViewModeForRelationType(relationType));
   const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
   const zoom = graphZoomOption(graphState.zoom);
   const expanded = graphState.expanded === true;
@@ -10565,8 +10635,8 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, fo
     <section class="graph-map-panel${expanded ? " is-expanded" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
       <div class="graph-map-head">
         <div>
-          <div class="graph-section-title">笔记关系图谱</div>
-          <div class="graph-section-note">${filterActive ? `当前笔记固定在中心，周边按 ${focusDepth.label} 展开；想收窄或放大阅读范围，可以直接切换深度。` : "默认先看已经写清理由的关系；链接线索会被弱化，主题归属会退到次级视图，避免和正式关系混在一起。"}</div>
+          <div class="graph-section-title">${filterActive ? "当前笔记关系图" : escapeHtml(modeMeta.label)}</div>
+          <div class="graph-section-note">${filterActive ? `当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。` : escapeHtml(modeMeta.mapNote)}</div>
           ${
             filterActive
               ? `
@@ -10583,14 +10653,7 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, fo
               `
               : ""
           }
-          ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前是高密度图。默认先压住标题和关系标记，建议配合悬停、放大或切到单篇笔记阅读。</div>` : ""}
-        </div>
-        <div class="graph-map-tools">
-          <div class="graph-map-badges">
-            <span>${layout.nodes.length} 点</span>
-            <span>${visibleEdges.length} 线</span>
-            <span>${filterActive ? "当前笔记" : "当前目录"}</span>
-          </div>
+          ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
         </div>
       </div>
       <div class="graph-map-stage">
@@ -10607,8 +10670,8 @@ function renderGraphVisualMap({ nodes = [], edges = [], filterActive = false, fo
                       </div>
                     </div>
                     <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
-                      <strong>悬停局部阅读</strong>
-                      <span>把鼠标移到节点或关系上，只看它附近的一跳结构，其他内容会自动退后。</span>
+                      <strong>拖动或悬停查看局部</strong>
+                      <span>拖动画布换位置；把鼠标移到节点或关系上，可以只看它附近的一跳结构。</span>
                     </div>
                     <svg class="graph-map-svg" data-graph-zoom="${escapeHtml(zoom.key)}" viewBox="0 0 ${layout.width} ${layout.height}" style="--graph-zoom-width: ${zoomWidth}px; --graph-zoom-height: ${zoomHeight}px;" role="img" aria-label="永久笔记关系图">
                       <defs>${markers}</defs>
@@ -10798,6 +10861,55 @@ function centerGraphViewportIfZoomed() {
   viewport.scrollTop = Math.max(0, Math.round((viewport.scrollHeight - viewport.clientHeight) / 2));
 }
 
+function beginGraphViewportDrag(viewport, event) {
+  if (!viewport || event.button !== 0) return false;
+  const ignoredTarget = event.target.closest(".graph-map-floater, .graph-hover-card, .graph-focus-context");
+  if (ignoredTarget) return false;
+  graphViewportDragState.active = true;
+  graphViewportDragState.moved = false;
+  graphViewportDragState.pointerId = event.pointerId;
+  graphViewportDragState.viewport = viewport;
+  graphViewportDragState.startX = event.clientX;
+  graphViewportDragState.startY = event.clientY;
+  graphViewportDragState.startScrollLeft = viewport.scrollLeft;
+  graphViewportDragState.startScrollTop = viewport.scrollTop;
+  viewport.classList.add("is-dragging");
+  try {
+    viewport.setPointerCapture(event.pointerId);
+  } catch {}
+  return true;
+}
+
+function updateGraphViewportDrag(event) {
+  if (!graphViewportDragState.active || !graphViewportDragState.viewport || event.pointerId !== graphViewportDragState.pointerId) return;
+  const deltaX = event.clientX - graphViewportDragState.startX;
+  const deltaY = event.clientY - graphViewportDragState.startY;
+  if (!graphViewportDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 5) {
+    graphViewportDragState.moved = true;
+  }
+  if (!graphViewportDragState.moved) return;
+  graphViewportDragState.viewport.scrollLeft = graphViewportDragState.startScrollLeft - deltaX;
+  graphViewportDragState.viewport.scrollTop = graphViewportDragState.startScrollTop - deltaY;
+}
+
+function endGraphViewportDrag(event) {
+  if (!graphViewportDragState.active || event.pointerId !== graphViewportDragState.pointerId) return;
+  const viewport = graphViewportDragState.viewport;
+  if (viewport) {
+    viewport.classList.remove("is-dragging");
+    try {
+      viewport.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+  graphViewportDragState.active = false;
+  graphViewportDragState.pointerId = null;
+  graphViewportDragState.viewport = null;
+  if (graphViewportDragState.moved) {
+    graphViewportDragState.suppressClickUntil = Date.now() + 250;
+  }
+  graphViewportDragState.moved = false;
+}
+
 function resetGraphHoverState() {
   const panel = document.querySelector(".graph-map-panel");
   if (!panel) return;
@@ -10811,8 +10923,8 @@ function resetGraphHoverState() {
   const card = $("graphHoverCard");
   if (card) {
     card.innerHTML = `
-      <strong>悬停局部阅读</strong>
-      <span>把鼠标移到节点或关系上，只看它附近的一跳结构，其他内容会自动退后。</span>
+      <strong>拖动或悬停查看局部</strong>
+      <span>拖动画布换位置；把鼠标移到节点或关系上，可以只看它附近的一跳结构。</span>
     `;
   }
 }
@@ -10977,16 +11089,18 @@ function applyGraphEdgeHoverState(edgeElement) {
   }
 }
 
-function renderRelationReviewQueueSection(reviewQueue) {
+function renderRelationReviewQueueSection(reviewQueue, options = {}) {
   const items = Array.isArray(reviewQueue?.items) ? reviewQueue.items : [];
   const total = Number(reviewQueue?.total || items.length || 0);
   const error = String(reviewQueue?.error || "").trim();
+  if (!error && total <= 0) return "";
+  const open = options.open === true;
   const summary = reviewQueue?.summary && typeof reviewQueue.summary === "object" ? reviewQueue.summary : {};
   const byQuality = summary.byQualityLevel && typeof summary.byQualityLevel === "object" ? summary.byQualityLevel : {};
   const emptyCount = Number(byQuality.empty || 0);
   const basicCount = Number(byQuality.basic || 0);
   return `
-      <details class="graph-section graph-collapsible-section graph-review-section" open data-graph-section="review-queue">
+      <details class="graph-section graph-collapsible-section graph-review-section" data-graph-section="review-queue"${open ? " open" : ""}>
         <summary class="graph-collapsible-summary">
           <div>
             <div class="graph-section-title">待补关系理由</div>
@@ -11047,6 +11161,26 @@ function renderGraphMetricCard(label, value, note, tone = "") {
       <small>${escapeHtml(note)}</small>
     </div>
   `;
+}
+
+function graphAiAnalysisSummaryState() {
+  const analysis = graphState.aiAnalysis?.analysis || null;
+  const summary = graphState.aiAnalysis?.reviewItems?.summary || {};
+  const pendingCount = Number(summary.artifactCount || 0);
+  const topicCount = Number(summary.topicCandidateCount || analysis?.topicCandidates?.length || 0);
+  const relationCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
+  const bridgeCount = Number(summary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
+  const isolatedCount = Number(summary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
+  return {
+    analysis,
+    summary,
+    pendingCount,
+    topicCount,
+    relationCount,
+    bridgeCount,
+    isolatedCount,
+    totalCandidates: pendingCount || topicCount + relationCount + bridgeCount + isolatedCount
+  };
 }
 
 function currentGraphVisibleNodeIds() {
@@ -11135,18 +11269,11 @@ function renderGraphMapPreview(nodes = [], edges = [], linkedNodeIds = new Set()
   `;
 }
 
-function renderGraphAiAnalysisCard() {
-  const analysis = graphState.aiAnalysis?.analysis || null;
-  const summary = graphState.aiAnalysis?.reviewItems?.summary || {};
+function renderGraphAiAnalysisCard(options = {}) {
+  const { analysis, summary, pendingCount, topicCount, relationCount, bridgeCount, isolatedCount, totalCandidates } = graphAiAnalysisSummaryState();
   const loading = graphState.aiAnalysisLoading;
   const error = graphState.aiAnalysisError;
-  const pendingCount = Number(summary.artifactCount || 0);
-  const topicCount = Number(summary.topicCandidateCount || analysis?.topicCandidates?.length || 0);
-  const relationCount = Number(summary.relationCandidateCount || analysis?.relationCandidates?.length || 0);
-  const bridgeCount = Number(summary.bridgeCandidateCount || analysis?.bridgeCandidates?.length || 0);
-  const isolatedCount = Number(summary.isolatedNoteCount || analysis?.isolatedNotes?.length || 0);
-  const totalCandidates = pendingCount || topicCount + relationCount + bridgeCount + isolatedCount;
-  const shouldOpen = loading || Boolean(error);
+  const shouldOpen = options.open === true || loading || Boolean(error);
   return `
     <details class="graph-section graph-collapsible-section" data-graph-section="ai-analysis"${shouldOpen ? " open" : analysis ? "" : ""} aria-label="AI 图谱初判">
       <summary class="graph-collapsible-summary">
@@ -11172,7 +11299,7 @@ function renderGraphAiAnalysisCard() {
                   ${renderGraphMetricCard("待审项", pendingCount, "进入 AI Inbox 复核", pendingCount ? "warn" : "good")}
                   ${renderGraphMetricCard("主题候选", topicCount, "不会自动建索引卡", topicCount ? "warn" : "good")}
                   ${renderGraphMetricCard("关系候选", relationCount, "不会自动建边", relationCount ? "warn" : "good")}
-                  ${renderGraphMetricCard("桥接/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补结构缺口", bridgeCount + isolatedCount ? "warn" : "good")}
+                  ${renderGraphMetricCard("潜在关联/孤岛", `${bridgeCount}/${isolatedCount}`, "优先补还没说清的连接", bridgeCount + isolatedCount ? "warn" : "good")}
                 </div>
                 <div class="graph-next-card">
                   <strong>待审优先级</strong>
@@ -11557,12 +11684,65 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
   `;
 }
 
+function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sectionsMarkup = "", open = false } = {}) {
+  const content = String(sectionsMarkup || "").trim();
+  if (!content) return "";
+  const reviewCount = Number(reviewQueue?.total || 0);
+  const aiState = graphAiAnalysisSummaryState();
+  const badges = [
+    bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
+    reviewCount > 0 ? `<span>待补理由 ${escapeHtml(String(reviewCount))}</span>` : "",
+    aiState.totalCandidates > 0 ? `<span>AI 候选 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
+  ]
+    .filter(Boolean)
+    .join("");
+  return `
+    <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
+      <summary class="graph-utility-drawer-summary">
+        <div class="graph-utility-drawer-copy">
+          <strong>图谱待处理</strong>
+          <span>把潜在关联、待补理由和 AI 候选收在一起，需要时再展开。</span>
+        </div>
+        <div class="graph-utility-drawer-meta">
+          ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">整理入口</div>`}
+        </div>
+      </summary>
+      <div class="graph-utility-drawer-body">
+        ${content}
+      </div>
+    </details>
+  `;
+}
+
+function graphSummaryModeNote(relationType = "all") {
+  const key = String(relationType || "all").trim().toLowerCase();
+  if (key === "meaningful") return "先看有解释力的关系。";
+  if (key === "all") return "展开全部关系。";
+  if (key === "noisy") return "只看链接线索。";
+  if (key === "index") return "只看主题归属。";
+  return `只看${graphRelationTypeLabel(key)}。`;
+}
+
+function syncGraphDisclosureState(root) {
+  if (!root) return;
+  const utilityDrawer = root.querySelector("[data-graph-utility-drawer]");
+  if (utilityDrawer) {
+    graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+  }
+  root.querySelectorAll("[data-graph-section]").forEach((section) => {
+    const key = String(section.getAttribute("data-graph-section") || "").trim();
+    if (!key) return;
+    graphState.sectionOpen[key] = section.hasAttribute("open");
+  });
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
   const legendButton = $("graphLegendToggle");
   if (!summary || !canvas) return;
+  syncGraphDisclosureState(canvas);
   if (legendButton) {
     legendButton.textContent = graphState.legendOpen ? "隐藏图例" : "图例";
     legendButton.setAttribute("aria-expanded", String(graphState.legendOpen === true));
@@ -11616,9 +11796,9 @@ function renderGraphPanel() {
   const topicCandidates = Array.isArray(graphState.aiAnalysis?.analysis?.topicCandidates) ? graphState.aiAnalysis.analysis.topicCandidates : [];
   const isolatedNotes = Array.isArray(graphState.aiAnalysis?.analysis?.isolatedNotes) ? graphState.aiAnalysis.analysis.isolatedNotes : [];
   const conflictingRelations = Array.isArray(graphInsights.conflictingRelations) ? graphInsights.conflictingRelations : [];
-  const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || 0);
+  const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
   const filters = graphState.filters || { relationType: "all", status: "all" };
   let effectiveRelationType = String(filters.relationType || "all").trim().toLowerCase() || "all";
   let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
@@ -11655,9 +11835,10 @@ function renderGraphPanel() {
   const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
   const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
+  const summaryModeNote = graphSummaryModeNote(effectiveRelationType);
   const baseSummary = showingFocusedNote
-    ? `${focusedNote?.title || focused.focusedNoteId}：${edges.length} 条关系，${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label}。`
-    : `${scopeFolder?.name || "永久笔记盒"}：${visualNodes.length} 条笔记，${edges.length} 条关系${isolatedVisualNodes.length ? `，${isolatedVisualNodes.length} 条孤立待判断` : ""}。`;
+    ? `${focusedNote?.title || focused.focusedNoteId} · ${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label} · ${edges.length} 条关系`
+    : `${scopeFolder?.name || "永久笔记盒"} · ${visibleNodes.length} 条永久笔记 · ${edges.length} 条关系 · ${summaryModeNote}${isolatedVisualNodes.length ? ` · ${isolatedVisualNodes.length} 条孤立待判断` : ""}`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -11700,6 +11881,21 @@ function renderGraphPanel() {
       })
     : [];
   const thinkingPanel = !showingFocusedNote && graphState.thinkingPanelOpen ? renderGraphThinkingPanel({ summary: questionSpotSummary, items: thinkingItems }) : "";
+  const supplementalSections = !showingFocusedNote
+    ? `
+      ${renderGraphBridgeGapSection(bridgeGaps, { open: graphState.sectionOpen["bridge-gaps"] === true })}
+      ${renderRelationReviewQueueSection(graphState.reviewQueue, { open: graphState.sectionOpen["review-queue"] === true })}
+      ${renderGraphAiAnalysisCard({ open: graphState.sectionOpen["ai-analysis"] === true })}
+    `
+    : "";
+  const utilityDrawer = !showingFocusedNote
+    ? renderGraphUtilityDrawer({
+        bridgeGapCount: bridgeGaps.length,
+        reviewQueue: graphState.reviewQueue,
+        sectionsMarkup: supplementalSections,
+        open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
+      })
+    : "";
   canvas.innerHTML = `
     ${notices.join("")}
     <div class="graph-canvas-toolbar">
@@ -11712,11 +11908,24 @@ function renderGraphPanel() {
             <select id="graphRelationTypeFilter" data-graph-filter="relationType">
               ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
             </select>
+            <small class="graph-filter-note">关系类型越细，图里保留的连线越少。</small>
           </label>
         </div>
       </details>
     </div>
-    ${renderGraphVisualMap({ nodes: visualNodes, edges, filterActive: Boolean(showingFocusedNote), focusedNoteId: focused.focusedNoteId, questionSpotSummary, topicCandidates, isolatedNotes, bridgeGaps, thinkingPanelMarkup: thinkingPanel })}
+    ${utilityDrawer ? `<div class="graph-utility-drawer-wrap">${utilityDrawer}</div>` : ""}
+    ${renderGraphVisualMap({
+      nodes: visualNodes,
+      edges,
+      filterActive: Boolean(showingFocusedNote),
+      focusedNoteId: focused.focusedNoteId,
+      relationType: effectiveRelationType,
+      questionSpotSummary,
+      topicCandidates,
+      isolatedNotes,
+      bridgeGaps,
+      thinkingPanelMarkup: thinkingPanel
+    })}
   `;
 }
 
@@ -13083,6 +13292,10 @@ const editor = new EditorPane({
 });
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
+window.__prototypeImport = {
+  showResult: showImportResult,
+  renderPage: renderImportPageShell
+};
 window.__prototypeGraph = {
   openFollowupNote: openGraphFollowupNote,
   openNoteById,
@@ -14441,6 +14654,30 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 });
 
 $("graphCanvas")?.addEventListener("click", async (event) => {
+  if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const utilityDrawerSummary = event.target.closest(".graph-utility-drawer-summary");
+  if (utilityDrawerSummary) {
+    const utilityDrawer = utilityDrawerSummary.closest("[data-graph-utility-drawer]");
+    if (utilityDrawer) {
+      requestAnimationFrame(() => {
+        graphState.utilityDrawerOpen = utilityDrawer.hasAttribute("open");
+      });
+    }
+  }
+  const collapsibleSummary = event.target.closest(".graph-collapsible-summary");
+  if (collapsibleSummary) {
+    const section = collapsibleSummary.closest("[data-graph-section]");
+    if (section) {
+      const sectionKey = String(section.getAttribute("data-graph-section") || "").trim();
+      requestAnimationFrame(() => {
+        if (sectionKey) graphState.sectionOpen[sectionKey] = section.hasAttribute("open");
+      });
+    }
+  }
   const graphAiButton = event.target.closest("[data-run-graph-ai-analysis]");
   if (graphAiButton) {
     runGraphAiAnalysis();
@@ -14717,6 +14954,28 @@ $("graphCanvas")?.addEventListener("focusout", (event) => {
   const currentPanel = event.currentTarget;
   if (nextTarget && currentPanel?.contains?.(nextTarget)) return;
   resetGraphHoverState();
+});
+
+$("graphCanvas")?.addEventListener("pointerdown", (event) => {
+  const viewport = event.target.closest(".graph-map-viewport");
+  if (!viewport) return;
+  beginGraphViewportDrag(viewport, event);
+});
+
+$("graphCanvas")?.addEventListener("pointermove", (event) => {
+  updateGraphViewportDrag(event);
+});
+
+$("graphCanvas")?.addEventListener("pointerup", (event) => {
+  endGraphViewportDrag(event);
+});
+
+$("graphCanvas")?.addEventListener("pointercancel", (event) => {
+  endGraphViewportDrag(event);
+});
+
+$("graphCanvas")?.addEventListener("lostpointercapture", (event) => {
+  endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("keydown", (event) => {
@@ -15075,27 +15334,17 @@ async function bootstrap() {
 
   renderImportToolbar();
 
-  $("importResult")?.addEventListener("change", (event) => {
-    const checkbox = event.target?.closest?.(".candidate-checkbox");
-    if (!checkbox) return;
-    const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
-    const importRecordId = String(importState.lastPreview?.importRecordId || "").trim();
-    if (!candidateId || !importRecordId) return;
-    if (importState.selectionImportRecordId !== importRecordId) {
-      syncImportSelection(importRecordId, importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null, {
-        selectedIds: defaultSelectedCandidateIds(
-          importState.lastPreview?.candidatePreview,
-          importState.lastPreview?.candidateSelection || null,
-          importState.lastPreview?.originalityGuard || null
-        )
-      });
+  $("importPageMount")?.addEventListener("click", (event) => {
+    const tabButton = event.target?.closest?.(".import-workspace-tab[data-import-workspace-tab]");
+    if (tabButton) {
+      const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
+      if (nextTab !== importState.activeTab) {
+        setImportWorkspaceTab(nextTab);
+        setStatus(`已切换到${nextTab === "export" ? "导出" : "导入"}界面`, "ok");
+      }
+      return;
     }
-    if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
-    else importState.selectedCandidateIds.delete(candidateId);
-    rerenderImportResult();
-  });
 
-  $("importResult")?.addEventListener("click", (event) => {
     const importWritingButton = event.target?.closest?.("[data-import-writing-action]");
     if (importWritingButton) {
       const action = String(importWritingButton.getAttribute("data-import-writing-action") || "").trim();
@@ -15130,96 +15379,123 @@ async function bootstrap() {
       applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
       return;
     }
-  });
 
-  $("importDirectoryId")?.addEventListener("change", (event) => {
-    importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
-    setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
-  });
-
-  $("exportDirectoryId")?.addEventListener("change", () => {
-    updateExportTargetHint();
-  });
-
-  $("exportTargetPath")?.addEventListener("change", () => {
-    updateExportTargetHint();
-  });
-
-  $("btnImportPreview")?.addEventListener("click", async () => {
-    await importToolbarActions.handlePreview();
-  });
-
-  $("btnBrowseImportPath")?.addEventListener("click", async () => {
-    const picked = await desktopCommands.browseDirectory({
-      defaultPath: $("importPath")?.value || "",
-      purpose: "导入目录"
-    });
-    if (!picked.path) return;
-    $("importPath").value = picked.path;
-    setStatus(`已选择导入目录（${picked.source}）`, "ok");
-  });
-
-  $("btnImportConfirm")?.addEventListener("click", async () => {
-    await importToolbarActions.handleConfirm();
-  });
-
-  $("btnExportMarkdown")?.addEventListener("click", async () => {
-    const directoryId = String($("exportDirectoryId")?.value || "").trim();
-    if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
-    let targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) {
-      const picked = await desktopCommands.browseDirectory({
-        defaultPath: "",
-        purpose: "导出目录"
-      });
-      targetPath = String(picked?.path || "").trim();
-      if (targetPath) {
-        $("exportTargetPath").value = targetPath;
+    if (event.target?.closest?.("#btnImportPreview")) {
+      setImportWorkspaceTab("import");
+      void importToolbarActions.handlePreview();
+      return;
+    }
+    if (event.target?.closest?.("#btnBrowseImportPath")) {
+      void (async () => {
+        const picked = await desktopCommands.browseDirectory({
+          defaultPath: $("importPath")?.value || "",
+          purpose: "导入目录"
+        });
+        if (!picked.path) return;
+        $("importPath").value = picked.path;
+        setStatus(`已选择导入目录（${picked.source}）`, "ok");
+      })();
+      return;
+    }
+    if (event.target?.closest?.("#btnImportConfirm")) {
+      setImportWorkspaceTab("import");
+      void importToolbarActions.handleConfirm();
+      return;
+    }
+    if (event.target?.closest?.("#btnExportMarkdown")) {
+      setImportWorkspaceTab("export");
+      void (async () => {
+        const directoryId = String($("exportDirectoryId")?.value || "").trim();
+        if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+        let targetPath = String($("exportTargetPath")?.value || "").trim();
+        if (!targetPath) {
+          const picked = await desktopCommands.browseDirectory({
+            defaultPath: "",
+            purpose: "导出目录"
+          });
+          targetPath = String(picked?.path || "").trim();
+          if (targetPath) {
+            $("exportTargetPath").value = targetPath;
+            $("exportAdvanced")?.setAttribute("open", "open");
+            updateExportTargetHint();
+          }
+        }
+        if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
+        try {
+          const result = await exportMarkdown({
+            targetPath,
+            directoryId
+          });
+          showExportResult({
+            stage: "export_markdown",
+            targetPath,
+            directoryId,
+            directoryLabel: directoryPathLabel(directoryId),
+            exportJobId: result.exportJobId,
+            status: result.status,
+            copied: result.copied,
+            copiedBreakdown: result.copiedBreakdown || null
+          });
+          setStatus(`已导出 ${result.copied} 个文件`, "ok");
+        } catch (error) {
+          showExportResult({
+            stage: "export_error",
+            targetPath,
+            directoryId,
+            directoryLabel: directoryPathLabel(directoryId),
+            message: String(error?.message || error),
+            code: error?.code || null,
+            details: error?.details || null
+          });
+          setStatus(`导出失败：${String(error?.message || error)}`, "bad");
+        }
+      })();
+      return;
+    }
+    if (event.target?.closest?.("#btnBrowseExportPath")) {
+      void (async () => {
+        const picked = await desktopCommands.browseDirectory({
+          defaultPath: $("exportTargetPath")?.value || "",
+          purpose: "导出目录"
+        });
+        if (!picked.path) return;
+        $("exportTargetPath").value = picked.path;
         $("exportAdvanced")?.setAttribute("open", "open");
         updateExportTargetHint();
-      }
-    }
-    if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
-    try {
-      const result = await exportMarkdown({
-        targetPath,
-        directoryId
-      });
-      showExportResult({
-        stage: "export_markdown",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        exportJobId: result.exportJobId,
-        status: result.status,
-        copied: result.copied,
-        copiedBreakdown: result.copiedBreakdown || null
-      });
-      setStatus(`已导出 ${result.copied} 个文件`, "ok");
-    } catch (error) {
-      showExportResult({
-        stage: "export_error",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`导出失败：${String(error?.message || error)}`, "bad");
+        setStatus("已选择导出目录", "ok");
+      })();
     }
   });
 
-  $("btnBrowseExportPath")?.addEventListener("click", async () => {
-    const picked = await desktopCommands.browseDirectory({
-      defaultPath: $("exportTargetPath")?.value || "",
-      purpose: "导出目录"
-    });
-    if (!picked.path) return;
-    $("exportTargetPath").value = picked.path;
-    $("exportAdvanced")?.setAttribute("open", "open");
-    updateExportTargetHint();
-    setStatus("已选择导出目录", "ok");
+  $("importPageMount")?.addEventListener("change", (event) => {
+    const checkbox = event.target?.closest?.(".candidate-checkbox");
+    if (checkbox) {
+      const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
+      const importRecordId = String(importState.lastPreview?.importRecordId || "").trim();
+      if (!candidateId || !importRecordId) return;
+      if (importState.selectionImportRecordId !== importRecordId) {
+        syncImportSelection(importRecordId, importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null, {
+          selectedIds: defaultSelectedCandidateIds(
+            importState.lastPreview?.candidatePreview,
+            importState.lastPreview?.candidateSelection || null,
+            importState.lastPreview?.originalityGuard || null
+          )
+        });
+      }
+      if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
+      else importState.selectedCandidateIds.delete(candidateId);
+      rerenderImportResult();
+      return;
+    }
+    if (event.target?.closest?.("#importDirectoryId")) {
+      importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
+      setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
+      return;
+    }
+    if (event.target?.closest?.("#exportDirectoryId") || event.target?.closest?.("#exportTargetPath")) {
+      updateExportTargetHint();
+      return;
+    }
   });
 
   try {

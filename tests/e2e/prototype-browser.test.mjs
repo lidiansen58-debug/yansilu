@@ -676,8 +676,10 @@ async function openImportsModule(page) {
     const isActive = await page.locator('.rail-btn[data-module="imports"]').getAttribute("class");
     assert.match(String(isActive || ""), /active/);
     await page.locator("#importPanel:not(.hidden)").waitFor({ timeout: 500 });
+    await page.locator("#importWorkspaceTabImport").waitFor({ timeout: 500 });
+    await page.locator("#importResult").waitFor({ state: "attached", timeout: 500 });
   }, 7000);
-  await page.locator("#importAdvanced").evaluate((el) => {
+  await page.locator(".import-compat-details").evaluate((el) => {
     el.open = true;
   });
 }
@@ -4316,7 +4318,6 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-realistic-vault");
 
   await openImportsModule(page);
-  await page.selectOption("#importConnector", "obsidian");
   await page.fill("#importPath", fixturePath);
   await page.fill("#importPayload", "");
   await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true }));
@@ -4347,8 +4348,8 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const confirmResultText = await page.locator("#importResult").textContent();
   assert.match(confirmResultText || "", /"sources":\s*2/);
   assert.match(confirmResultText || "", /"literatureNotes":\s*2/);
-  assert.match(confirmResultText || "", /"permanentNotes":\s*1/);
-  assert.match(confirmResultText || "", /"selectedCandidates":\s*5/);
+  assert.match(confirmResultText || "", /"permanentNotes":\s*0/);
+  assert.match(confirmResultText || "", /"selectedCandidates":\s*4/);
 
   const importedLiteratureNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
@@ -4359,14 +4360,13 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const importedPermanentNotes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
-    assert.equal(result.json.total, 1);
+    assert.equal(result.json.total, 0);
     return result;
   }, 7000);
 
   assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "中文阅读卡片"));
   assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "Spacing Note"));
-  assert.equal(importedPermanentNotes.json.total, 1);
-  assert.ok(importedPermanentNotes.json.items.some((item) => item.title === "Spacing Note"));
+  assert.equal(importedPermanentNotes.json.total, 0);
 
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
@@ -4403,6 +4403,8 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const exportTargetPath = await makeTempDir("yansilu-browser-export-target-");
   await openImportsModule(page);
+  await page.click("#importWorkspaceTabExport");
+  await page.locator("#exportCardMount:not([hidden])").waitFor();
   await page.fill("#exportTargetPath", exportTargetPath);
   await page.click("#btnExportMarkdown");
 

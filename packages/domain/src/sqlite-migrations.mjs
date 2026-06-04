@@ -36,8 +36,25 @@ const LEGACY_MIGRATION_CHECKSUMS = {
   "001_vectors_v1_2": new Set(["a4e8a99048c075caba3dfbcc3fcbdffb1b6fb37c846375563a97113a5df5429f"])
 };
 
+function normalizeSqlForChecksum(sql) {
+  return String(sql ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 function hashSql(sql) {
-  return createHash("sha256").update(sql).digest("hex");
+  return createHash("sha256").update(normalizeSqlForChecksum(sql)).digest("hex");
+}
+
+function acceptedChecksumsForMigration(migrationId, sql) {
+  const normalized = normalizeSqlForChecksum(sql);
+  const accepted = new Set([
+    createHash("sha256").update(normalized).digest("hex"),
+    createHash("sha256").update(normalized.replace(/\n/g, "\r\n")).digest("hex")
+  ]);
+  const legacyChecksums = LEGACY_MIGRATION_CHECKSUMS[migrationId];
+  if (legacyChecksums) {
+    for (const checksum of legacyChecksums) accepted.add(checksum);
+  }
+  return accepted;
 }
 
 async function readMigrationSql(fileName) {
@@ -77,9 +94,8 @@ function applySingleMigration(db, migrationId, sql) {
   const checksum = hashSql(sql);
   const existing = hasMigration(db, migrationId);
   if (existing) {
-    const legacyChecksums = LEGACY_MIGRATION_CHECKSUMS[migrationId];
-    const matchesLegacyChecksum = legacyChecksums?.has(existing.checksum) === true;
-    if (existing.checksum !== checksum && !matchesLegacyChecksum) {
+    const acceptedChecksums = acceptedChecksumsForMigration(migrationId, sql);
+    if (!acceptedChecksums.has(existing.checksum)) {
       throw new Error(`Migration checksum mismatch for ${migrationId}`);
     }
     return { id: migrationId, applied: false, skipped: true };

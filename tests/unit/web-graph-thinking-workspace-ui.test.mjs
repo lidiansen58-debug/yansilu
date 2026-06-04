@@ -27,10 +27,10 @@ test("graph empty question chip stays actionable and opens the scan surface", ()
 
 test("graph thinking panel is rendered inside the visual map instead of below it", () => {
   const source = readPrototypeApp();
-  const signature = /function renderGraphVisualMap\(\{ nodes = \[\], edges = \[\], filterActive = false, focusedNoteId = "", questionSpotSummary = null, topicCandidates = \[\], isolatedNotes = \[\], bridgeGaps = \[\], thinkingPanelMarkup = "" \} = \{\}\)/;
+  const signature = /function renderGraphVisualMap\(\{[\s\S]*nodes = \[\],[\s\S]*edges = \[\],[\s\S]*filterActive = false,[\s\S]*focusedNoteId = "",[\s\S]*relationType = "meaningful",[\s\S]*questionSpotSummary = null,[\s\S]*topicCandidates = \[\],[\s\S]*isolatedNotes = \[\],[\s\S]*bridgeGaps = \[\],[\s\S]*thinkingPanelMarkup = ""[\s\S]*\} = \{\}\)/;
   assert.match(source, signature);
   assert.match(source, /\$\{thinkingPanelMarkup && !filterActive \? thinkingPanelMarkup : ""\}\s*\n\s*\$\{questionSpotSummary && !filterActive \? renderGraphQuestionSpotChip\(questionSpotSummary\) : ""\}/);
-  assert.match(source, /renderGraphVisualMap\(\{ nodes: visualNodes,[\s\S]*thinkingPanelMarkup: thinkingPanel \}\)/);
+  assert.match(source, /renderGraphVisualMap\(\{[\s\S]*nodes: visualNodes,[\s\S]*relationType: effectiveRelationType,[\s\S]*thinkingPanelMarkup: thinkingPanel[\s\S]*\}\)/);
 });
 
 test("graph isolated notes become visible selectable orbit nodes", () => {

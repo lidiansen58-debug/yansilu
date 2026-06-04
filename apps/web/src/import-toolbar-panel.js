@@ -1,4 +1,4 @@
-import { importConnectorOptions, importToolbarViewModel } from "./import-toolbar-model.js";
+import { importToolbarViewModel } from "./import-toolbar-model.js";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -9,14 +9,10 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function renderConnectorOptions(selectedValue) {
-  return importConnectorOptions()
-    .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
-    .join("");
-}
-
 function renderDirectoryOptions(options = [], selectedValue = "") {
-  const items = Array.isArray(options) && options.length ? options : [{ value: "dir_literature_default", label: "Literature" }];
+  const items = Array.isArray(options) && options.length
+    ? options
+    : [{ value: "dir_literature_default", label: "文献笔记目录" }];
   return items
     .map((option) => `<option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>${escapeHtml(option.label)}</option>`)
     .join("");
@@ -29,49 +25,51 @@ export function renderImportToolbarPanel(input = {}) {
     <div class="import-card import-toolbar-card">
       <div class="import-card-head">
         <div>
-          <div class="import-card-kicker">Import</div>
-          <strong>Obsidian Import</strong>
+          <div class="import-card-kicker">导入</div>
+          <strong>从 Obsidian 导入</strong>
         </div>
-        <span class="import-card-badge">Preview first</span>
+        <span class="import-card-badge">当前任务</span>
       </div>
-      <div class="toolbar-note">Use the Obsidian vault path, preview the files, then confirm import.</div>
-      <div class="import-grid import-form-grid" style="margin-top:12px;">
-        <label for="importDirectoryId">Import Into</label>
-        <select id="importDirectoryId">
-          ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
-        </select>
-
-        <label for="importConnector">Source</label>
-        <select id="importConnector">
-          ${renderConnectorOptions(model.connector)}
-        </select>
-      </div>
-      <div class="import-actions">
-        <button class="mini-btn primary" id="btnImportPreview">Preview</button>
-        <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
-      </div>
-      <details class="import-advanced" id="importAdvanced">
-        <summary>Advanced</summary>
-        <div class="import-advanced-body">
-          <div class="import-grid">
-            <label for="importPath">Vault Path</label>
-            <div class="import-field-stack">
-              <div class="path-picker">
-                <input id="importPath" placeholder="Select Obsidian vault directory" value="${escapeHtml(model.path)}" />
-                <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">Browse</button>
-              </div>
-            </div>
-
-            <label for="importPayload">Payload JSON</label>
-            <textarea id="importPayload" style="min-height:90px;" placeholder='Optional override, e.g. {"path":"C:/vault"}'>${escapeHtml(model.payload)}</textarea>
-
-            <label for="importOptions">Options JSON</label>
-            <textarea id="importOptions" style="min-height:80px;" placeholder='Optional, e.g. {"detectWikilinks":true}'>${escapeHtml(model.options)}</textarea>
-
-            <input id="importRecordId" type="hidden" value="${escapeHtml(model.importRecordId)}" />
+      <input id="importRecordId" type="hidden" value="${escapeHtml(model.importRecordId)}" />
+      <select id="importConnector" hidden aria-hidden="true" tabindex="-1">
+        <option value="obsidian" selected>Obsidian 仓库</option>
+      </select>
+      <div class="import-toolbar-layout">
+        <section class="import-field-panel import-field-panel-wide">
+          <label class="import-field-label" for="importPath">来源仓库</label>
+          <div class="path-picker import-path-picker">
+            <input id="importPath" placeholder="选择 Obsidian 仓库目录" value="${escapeHtml(model.path)}" />
+            <button class="mini-btn is-ghost" id="btnBrowseImportPath" type="button">选择目录</button>
           </div>
+          <div class="import-field-help">例如：<code>E:/Notes/My Obsidian Vault</code>。支持中文和空格路径。</div>
+        </section>
+        <section class="import-field-panel">
+          <label class="import-field-label" for="importDirectoryId">导入到</label>
+          <select id="importDirectoryId">
+            ${renderDirectoryOptions(model.directoryOptions, model.directoryId)}
+          </select>
+          <div class="import-field-help">导入后的默认落点目录。</div>
+        </section>
+      </div>
+      <details class="import-compat-details">
+        <summary>兼容设置（通常不用填）</summary>
+        <div class="import-compat-body">
+          <section class="import-field-panel">
+            <label class="import-field-label" for="importPayload">覆盖请求（可选）</label>
+            <textarea id="importPayload" style="min-height:112px;" placeholder='例如：{"path":"E:/Notes/My Obsidian Vault"}'>${escapeHtml(model.payload)}</textarea>
+            <div class="import-field-help">只有上面的“来源仓库”不够表达时才填写。最常见就是补一个 <code>path</code>。</div>
+          </section>
+          <section class="import-field-panel">
+            <label class="import-field-label" for="importOptions">兼容规则（可选）</label>
+            <textarea id="importOptions" style="min-height:112px;" placeholder='例如：{"detectWikilinks":true}'>${escapeHtml(model.options)}</textarea>
+            <div class="import-field-help">控制导入时如何处理链接等内容。Obsidian 常见例子：<code>{"detectWikilinks":true}</code>。</div>
+          </section>
         </div>
       </details>
+      <div class="import-actions">
+        <button class="mini-btn primary" id="btnImportPreview">生成预览</button>
+        <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
+      </div>
     </div>
   `;
 }
