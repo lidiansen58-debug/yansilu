@@ -5007,11 +5007,7 @@ function renderModuleWorkspaceHeader() {
       ? modelRef
       : "AI 路由暂不可用";
   if (state.module === "imports") {
-    moduleHeaderActions.innerHTML = `
-      <button class="mini-btn" id="moduleBackToNotes">回到笔记</button>
-      <span class="settings-stat-badge ${statusTone}">${escapeHtml(headerHealthLabelMap[healthStatus] || healthStatus || "未检测")}</span>
-    `;
-    $("moduleBackToNotes")?.addEventListener("click", () => activateModule("explorer"));
+    moduleHeaderActions.innerHTML = "";
     return;
   }
   moduleHeaderActions.innerHTML = `
