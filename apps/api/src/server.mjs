@@ -1176,6 +1176,7 @@ function assetContentType(filePath) {
 }
 
 function defaultDirectoryIdForImportNoteType(noteType) {
+  if (noteType === "source") return "dir_source_default";
   if (noteType === "literature") return "dir_literature_default";
   if (noteType === "fleeting") return "dir_fleeting_default";
   return "dir_original_default";

@@ -201,6 +201,7 @@ const importState = {
   directoryId: "",
   lastPreview: null,
   lastResultPayload: null,
+  activeTab: "import",
   literatureBatchSummary: null,
   selectionImportRecordId: "",
   selectedCandidateIds: new Set(),
@@ -1237,6 +1238,7 @@ function renderImportPageShell() {
   if (!el) return;
   el.innerHTML = renderImportPageMount({
     toolbar: currentImportToolbarValues(),
+    activeTab: importState.activeTab,
     result: importState.lastResultPayload
       ? {
           data: importState.lastResultPayload,
@@ -1245,6 +1247,7 @@ function renderImportPageShell() {
       : null
   });
   mountExportCardIntoImportShell();
+  syncImportWorkspaceTabs();
 }
 
 function mountExportCardIntoImportShell() {
@@ -1253,6 +1256,33 @@ function mountExportCardIntoImportShell() {
   if (!legacyExportCard || !exportMount) return;
   if (legacyExportCard.parentElement === exportMount) return;
   legacyExportCard.remove();
+}
+
+function normalizeImportWorkspaceTab(tab = "import") {
+  return String(tab || "").trim().toLowerCase() === "export" ? "export" : "import";
+}
+
+function syncImportWorkspaceTabs() {
+  const mount = $("importPageMount");
+  if (!mount) return;
+  const activeTab = normalizeImportWorkspaceTab(importState.activeTab);
+  mount.setAttribute("data-import-workspace-tab", activeTab);
+  mount.querySelectorAll("[data-import-workspace-tab]").forEach((button) => {
+    const buttonTab = normalizeImportWorkspaceTab(button.getAttribute("data-import-workspace-tab"));
+    const isActive = buttonTab === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+    button.setAttribute("tabindex", isActive ? "0" : "-1");
+  });
+  const importPanel = $("importToolbarMount");
+  const exportPanel = $("exportCardMount");
+  if (importPanel) importPanel.hidden = activeTab !== "import";
+  if (exportPanel) exportPanel.hidden = activeTab !== "export";
+}
+
+function setImportWorkspaceTab(tab = "import") {
+  importState.activeTab = normalizeImportWorkspaceTab(tab);
+  syncImportWorkspaceTabs();
 }
 
 function renderAiInboxWorkspace() {
@@ -4818,25 +4848,12 @@ function currentModuleUi() {
       `
     },
     imports: {
-      sidebarTitle: "导入中心",
-      sidebarSubtitle: "只保留 Obsidian，先预览，再导入。",
-      sidebarFoot: "现在是最小可用版：不保留历史、不做回滚，只做一次预览和一次确认。",
+      sidebarTitle: "导入与导出",
+      sidebarSubtitle: "切换标签后直接操作。",
+      sidebarFoot: "",
       title: "导入与导出",
-      summary: "导入只保留 Obsidian 仓库，导出保持 Markdown 目录复制，先把流程做得简单、稳定、可用。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>当前目标</h3>
-          <p>把外部资料安全带入 <strong>${escapeHtml(rootName)}</strong>：先看候选，再确认写入；不确定的内容先留在预览里。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>推荐顺序</h3>
-          <ol class="module-sidebar-list">
-            <li>选择来源和路径</li>
-            <li>预览候选，排除不需要的项</li>
-            <li>确认写入，然后继续整理或导出</li>
-          </ol>
-        </div>
-      `
+      summary: `把外部资料带入 ${escapeHtml(rootName)}，或者把永久笔记导出到目标目录。`,
+      sidebarHtml: ""
     },
     aiInbox: {
       sidebarTitle: "AI 建议待办",
@@ -13389,6 +13406,15 @@ async function bootstrap() {
 
   renderImportToolbar();
 
+  $("importPageMount")?.addEventListener("click", (event) => {
+    const tabButton = event.target?.closest?.("[data-import-workspace-tab]");
+    if (!tabButton) return;
+    const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
+    if (nextTab === importState.activeTab) return;
+    setImportWorkspaceTab(nextTab);
+    setStatus(`已切换到${nextTab === "export" ? "导出" : "导入"}界面`, "ok");
+  });
+
   $("importResult")?.addEventListener("change", (event) => {
     const checkbox = event.target?.closest?.(".candidate-checkbox");
     if (!checkbox) return;
@@ -13460,6 +13486,7 @@ async function bootstrap() {
   });
 
   $("btnImportPreview")?.addEventListener("click", async () => {
+    setImportWorkspaceTab("import");
     await importToolbarActions.handlePreview();
   });
 
@@ -13474,10 +13501,12 @@ async function bootstrap() {
   });
 
   $("btnImportConfirm")?.addEventListener("click", async () => {
+    setImportWorkspaceTab("import");
     await importToolbarActions.handleConfirm();
   });
 
   $("btnExportMarkdown")?.addEventListener("click", async () => {
+    setImportWorkspaceTab("export");
     const directoryId = String($("exportDirectoryId")?.value || "").trim();
     if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
     let targetPath = String($("exportTargetPath")?.value || "").trim();

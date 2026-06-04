@@ -542,6 +542,7 @@ export function createImportExportService({
         }
         const cleanupEntry = cleanupEntryFromWriteResult(result);
         cleanupEntries.push(cleanupEntry);
+        await registerImportCatalogNote(source, "source", result);
         created.sources += 1;
         writtenPaths.add(path.dirname(result.path));
       }

@@ -12,6 +12,7 @@ import {
   deleteNoteById,
   initVault,
   listNoteCatalogEntriesByType,
+  listNotesInDirectoryScope,
   readNote,
   registerMarkdownNoteInCatalog,
   writeLiteratureNoteIfAbsent,
@@ -39,6 +40,7 @@ function titleForCatalogNote(candidate) {
 }
 
 function defaultDirectoryIdForImportNoteType(noteType) {
+  if (noteType === "source") return "dir_source_default";
   if (noteType === "literature") return "dir_literature_default";
   return "dir_original_default";
 }
@@ -146,8 +148,11 @@ test("confirmImport writes obsidian notes and imported assets", async () => {
   });
   assert.ok(result.result.createdFiles.some((item) => item.noteType === "asset"));
 
+  const sourceEntries = await listNoteCatalogEntriesByType(vaultPath, "source");
   const literatureEntries = await listNoteCatalogEntriesByType(vaultPath, "literature");
   const permanentEntries = await listNoteCatalogEntriesByType(vaultPath, "permanent");
+  assert.equal(sourceEntries.length, 2);
+  assert.deepEqual([...new Set(sourceEntries.map((entry) => entry.directoryId))], ["dir_source_default"]);
   assert.equal(literatureEntries.length, 2);
   assert.equal(permanentEntries.length, 1);
 
@@ -239,6 +244,11 @@ test("confirmImport honors selectedCandidateIds subset", async () => {
       permanentNotes: 0
     }
   });
+  const sourceEntries = await listNoteCatalogEntriesByType(vaultPath, "source");
+  assert.deepEqual(sourceEntries.map((entry) => entry.id), [selectedSourceId]);
+  assert.deepEqual(sourceEntries.map((entry) => entry.directoryId), ["dir_source_default"]);
+  const originalScopeNotes = await listNotesInDirectoryScope(vaultPath, "dir_original_default", { includeDescendants: true });
+  assert.deepEqual(originalScopeNotes, []);
 });
 
 test("confirmImport blocks originality-flagged permanent notes by default and allows override", async () => {

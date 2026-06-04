@@ -1897,83 +1897,103 @@
     }
     .import-page-shell {
       display: grid;
-      gap: 18px;
+      gap: 16px;
     }
-    .import-workbench-hero {
+    .import-page-header {
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-      gap: 18px;
-      padding: 24px;
-      background:
-        radial-gradient(circle at top right, rgba(30, 140, 98, 0.14), transparent 34%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(243, 248, 245, 0.98) 100%);
+      gap: 6px;
+      padding: 4px 2px 0;
     }
-    .import-workbench-hero-copy h2 {
-      margin: 6px 0 8px;
-      font-size: 28px;
-      line-height: 1.2;
-      letter-spacing: -0.03em;
-      color: #10221c;
-      font-family: "Iowan Old Style", "Songti SC", "Noto Serif SC", serif;
+    .import-page-eyebrow {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #9a6700;
     }
-    .import-workbench-hero-copy p {
+    .import-page-header h2 {
       margin: 0;
-      max-width: 58ch;
-      font-size: 14px;
-      line-height: 1.8;
-      color: #506269;
-    }
-    .import-workbench-hero-points {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      align-content: start;
-    }
-    .import-workbench-hero-points div {
-      border: 1px solid rgba(206, 220, 214, 0.96);
-      border-radius: 16px;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 14px;
-      display: grid;
-      gap: 10px;
-      min-height: 120px;
-    }
-    .import-workbench-hero-points strong {
-      width: 30px;
-      height: 30px;
-      border-radius: 999px;
-      display: inline-grid;
-      place-items: center;
-      background: rgba(20, 122, 72, 0.12);
-      color: #0f6f44;
-      font-size: 13px;
+      color: #0f172a;
+      font-size: clamp(26px, 4vw, 40px);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+      font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
       font-weight: 800;
     }
-    .import-workbench-hero-points span {
-      color: #213139;
-      font-size: 13px;
-      line-height: 1.65;
-      font-weight: 700;
+    .import-page-header p {
+      margin: 0;
+      color: #52606d;
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 48ch;
+    }
+    .import-workspace-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(223, 219, 214, 0.96);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 251, 235, 0.98) 0%, rgba(255, 255, 255, 0.96) 100%);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+    }
+    .import-workspace-tab {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      background: transparent;
+      color: #475569;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease, transform .18s ease;
+    }
+    .import-workspace-tab:hover {
+      background: rgba(255, 255, 255, 0.72);
+      border-color: rgba(222, 216, 208, 0.96);
+      color: #1f2937;
+    }
+    .import-workspace-tab:focus-visible {
+      outline: 2px solid rgba(120, 113, 108, 0.56);
+      outline-offset: 2px;
+    }
+    .import-workspace-tab.is-active {
+      background: #ffffff;
+      border-color: rgba(217, 119, 6, 0.26);
+      color: #0f172a;
+      box-shadow: 0 10px 24px rgba(217, 119, 6, 0.08);
+      transform: translateY(-1px);
+    }
+    .import-workspace-tab-label {
+      font-size: 16px;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+    .import-workspace-tab-detail {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #64748b;
     }
     .import-workbench-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.06fr) minmax(340px, 0.94fr);
-      grid-template-areas:
-        "toolbar result"
-        "export result";
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
       gap: 18px;
       align-items: start;
     }
-    .import-layout-toolbar,
+    .import-layout-main,
     .import-layout-result,
-    .import-layout-export,
     .import-page-side,
-    #exportCardMount {
+    #exportCardMount,
+    #importToolbarMount {
       min-width: 0;
     }
-    .import-layout-toolbar { grid-area: toolbar; }
-    .import-layout-result { grid-area: result; }
-    .import-layout-export { grid-area: export; }
+    .import-layout-main {
+      display: grid;
+    }
+    .import-tab-panel[hidden] {
+      display: none !important;
+    }
     .import-page-side {
       position: sticky;
       top: 16px;
@@ -2076,6 +2096,9 @@
       gap: 14px;
       margin-top: 18px;
     }
+    .import-field-panel-wide {
+      grid-column: 1 / -1;
+    }
     .import-field-panel {
       border: 1px solid rgba(215, 224, 221, 0.96);
       border-radius: 18px;
@@ -2085,6 +2108,54 @@
       align-content: start;
       gap: 10px;
       min-width: 0;
+    }
+    .import-field-label {
+      color: #16262d;
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+    .import-field-help {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .import-compat-details {
+      margin-top: 16px;
+      border: 1px solid rgba(223, 219, 214, 0.96);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255, 251, 235, 0.72) 0%, rgba(255, 255, 255, 0.96) 100%);
+      overflow: hidden;
+    }
+    .import-compat-details summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .import-compat-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .import-compat-details summary::after {
+      content: "展开";
+      color: #78716c;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .import-compat-details[open] summary::after {
+      content: "收起";
+    }
+    .import-compat-body {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 0 16px 16px;
     }
     .import-section-label {
       font-size: 11px;
@@ -7754,15 +7825,8 @@
 
     @media (max-width: 1180px) {
       .app { grid-template-columns: 56px 320px 1fr; }
-      .import-workbench-hero,
       .import-workbench-layout {
         grid-template-columns: 1fr;
-      }
-      .import-workbench-layout {
-        grid-template-areas:
-          "toolbar"
-          "result"
-          "export";
       }
       .import-page-side {
         position: static;
@@ -7923,20 +7987,19 @@
       .import-card {
         padding: 14px;
       }
-      .import-workbench-hero {
-        padding: 18px;
-      }
-      .import-workbench-hero-copy h2 {
+      .import-page-header h2 {
         font-size: 24px;
-        line-height: 1.18;
+        line-height: 1.12;
       }
-      .import-workbench-hero-copy p {
+      .import-page-header p {
         font-size: 13px;
-        line-height: 1.7;
+        line-height: 1.6;
       }
-      .import-workbench-hero-points div,
-      .import-flow-steps div {
-        min-height: 0;
+      .import-workspace-tabs {
+        padding: 6px;
+      }
+      .import-workspace-tab {
+        padding: 12px;
       }
       .import-card-head {
         gap: 10px;
@@ -7977,10 +8040,14 @@
         min-height: 0;
         max-height: none;
       }
-      .import-flow-steps,
-      .import-workbench-hero-points,
       .import-toolbar-layout {
         grid-template-columns: 1fr;
+      }
+      .import-compat-body {
+        grid-template-columns: 1fr;
+      }
+      .import-field-panel-wide {
+        grid-column: auto;
       }
       .import-history-item-head,
       .import-history-item-meta,

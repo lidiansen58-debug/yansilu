@@ -375,17 +375,44 @@ function permanentMetadataFromInput(input = {}, fallbackFrontmatter = {}) {
 }
 
 function noteTypeFromDirectoryType(directoryType) {
+  if (directoryType === "source_default") return "source";
   if (directoryType === "fleeting_default") return "fleeting";
   if (directoryType === "literature_default") return "literature";
+  if (directoryType === "original_default") return "permanent";
+  return "";
+}
+
+function resolveNoteTypeFromDirectory(db, directoryId) {
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE directory_ancestry(id, parent_directory_id, directory_type) AS (
+         SELECT id, parent_directory_id, directory_type
+         FROM directories
+         WHERE id = ?
+         UNION ALL
+         SELECT d.id, d.parent_directory_id, d.directory_type
+         FROM directories d
+         JOIN directory_ancestry ancestry ON ancestry.parent_directory_id = d.id
+       )
+       SELECT directory_type
+       FROM directory_ancestry`
+    )
+    .all(directoryId);
+  for (const row of rows) {
+    const noteType = noteTypeFromDirectoryType(row.directory_type);
+    if (noteType) return noteType;
+  }
   return "permanent";
 }
 
 function makeNoteId(noteType) {
-  const prefix = noteType === "fleeting" ? "fn" : noteType === "literature" ? "ln" : "pn";
+  const prefix =
+    noteType === "source" ? "src" : noteType === "fleeting" ? "fn" : noteType === "literature" ? "ln" : "pn";
   return `${prefix}_${randomUUID().slice(0, 8)}`;
 }
 
 function defaultDirectoryIdForNoteType(noteType) {
+  if (noteType === "source") return "dir_source_default";
   if (noteType === "fleeting") return "dir_fleeting_default";
   if (noteType === "literature") return "dir_literature_default";
   return "dir_original_default";
@@ -1300,7 +1327,7 @@ export async function createNoteInDirectory(vaultPath, input = {}) {
       .get(directoryId);
     if (!dir) throw new Error(`directoryId not found: ${directoryId}`);
 
-    const noteType = noteTypeFromDirectoryType(dir.directory_type);
+    const noteType = resolveNoteTypeFromDirectory(db, directoryId);
     const normalized = normalizeMarkdown(input.title, input.body);
     assertLiteratureCompletionAllowed(noteType, requestedStatus, normalized.markdownBody);
     const noteId = String(input.id || makeNoteId(noteType));
