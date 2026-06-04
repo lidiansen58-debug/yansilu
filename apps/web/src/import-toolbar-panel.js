@@ -26,11 +26,10 @@ export function renderImportToolbarPanel(input = {}) {
       <div class="import-card-head">
         <div>
           <div class="import-card-kicker">导入</div>
-          <strong>从 Obsidian 导入笔记</strong>
+          <strong>从 Obsidian 导入</strong>
         </div>
-        <span class="import-card-badge">Obsidian 仓库</span>
+        <span class="import-card-badge">当前任务</span>
       </div>
-      <p class="import-card-note">普通导入只需要填写来源仓库和导入位置。</p>
       <input id="importRecordId" type="hidden" value="${escapeHtml(model.importRecordId)}" />
       <select id="importConnector" hidden aria-hidden="true" tabindex="-1">
         <option value="obsidian" selected>Obsidian 仓库</option>
@@ -71,7 +70,6 @@ export function renderImportToolbarPanel(input = {}) {
         <button class="mini-btn primary" id="btnImportPreview">生成预览</button>
         <button class="mini-btn" id="btnImportConfirm"${model.confirmButton.disabled ? " disabled" : ""}>${escapeHtml(model.confirmButton.label)}</button>
       </div>
-      <div class="import-actions-note">选择仓库目录，点“生成预览”，检查候选后再确认导入。</div>
     </div>
   `;
 }

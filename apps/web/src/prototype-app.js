@@ -6248,6 +6248,7 @@ function activateModule(moduleName) {
   if (normalizedModule === "graph") expandGraphBrowserTree();
   syncRailSelectionState();
   renderAll();
+  if (normalizedModule === "imports") renderImportPageShell();
 }
 
 function renderSettingsPanel() {
@@ -11579,6 +11580,10 @@ const editor = new EditorPane({
 });
 window.__prototypeEditor = editor;
 window.__prototypeState = state;
+window.__prototypeImport = {
+  showResult: showImportResult,
+  renderPage: renderImportPageShell
+};
 window.__prototypeGraph = {
   openFollowupNote: openGraphFollowupNote,
   openNoteById,
@@ -13407,35 +13412,16 @@ async function bootstrap() {
   renderImportToolbar();
 
   $("importPageMount")?.addEventListener("click", (event) => {
-    const tabButton = event.target?.closest?.("[data-import-workspace-tab]");
-    if (!tabButton) return;
-    const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
-    if (nextTab === importState.activeTab) return;
-    setImportWorkspaceTab(nextTab);
-    setStatus(`已切换到${nextTab === "export" ? "导出" : "导入"}界面`, "ok");
-  });
-
-  $("importResult")?.addEventListener("change", (event) => {
-    const checkbox = event.target?.closest?.(".candidate-checkbox");
-    if (!checkbox) return;
-    const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
-    const importRecordId = String(importState.lastPreview?.importRecordId || "").trim();
-    if (!candidateId || !importRecordId) return;
-    if (importState.selectionImportRecordId !== importRecordId) {
-      syncImportSelection(importRecordId, importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null, {
-        selectedIds: defaultSelectedCandidateIds(
-          importState.lastPreview?.candidatePreview,
-          importState.lastPreview?.candidateSelection || null,
-          importState.lastPreview?.originalityGuard || null
-        )
-      });
+    const tabButton = event.target?.closest?.(".import-workspace-tab[data-import-workspace-tab]");
+    if (tabButton) {
+      const nextTab = normalizeImportWorkspaceTab(tabButton.getAttribute("data-import-workspace-tab"));
+      if (nextTab !== importState.activeTab) {
+        setImportWorkspaceTab(nextTab);
+        setStatus(`已切换到${nextTab === "export" ? "导出" : "导入"}界面`, "ok");
+      }
+      return;
     }
-    if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
-    else importState.selectedCandidateIds.delete(candidateId);
-    rerenderImportResult();
-  });
 
-  $("importResult")?.addEventListener("click", (event) => {
     const importWritingButton = event.target?.closest?.("[data-import-writing-action]");
     if (importWritingButton) {
       const action = String(importWritingButton.getAttribute("data-import-writing-action") || "").trim();
@@ -13470,99 +13456,123 @@ async function bootstrap() {
       applyCandidateSelection(String(actionButton.getAttribute("data-candidate-action") || ""));
       return;
     }
-  });
 
-  $("importDirectoryId")?.addEventListener("change", (event) => {
-    importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
-    setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
-  });
-
-  $("exportDirectoryId")?.addEventListener("change", () => {
-    updateExportTargetHint();
-  });
-
-  $("exportTargetPath")?.addEventListener("change", () => {
-    updateExportTargetHint();
-  });
-
-  $("btnImportPreview")?.addEventListener("click", async () => {
-    setImportWorkspaceTab("import");
-    await importToolbarActions.handlePreview();
-  });
-
-  $("btnBrowseImportPath")?.addEventListener("click", async () => {
-    const picked = await desktopCommands.browseDirectory({
-      defaultPath: $("importPath")?.value || "",
-      purpose: "导入目录"
-    });
-    if (!picked.path) return;
-    $("importPath").value = picked.path;
-    setStatus(`已选择导入目录（${picked.source}）`, "ok");
-  });
-
-  $("btnImportConfirm")?.addEventListener("click", async () => {
-    setImportWorkspaceTab("import");
-    await importToolbarActions.handleConfirm();
-  });
-
-  $("btnExportMarkdown")?.addEventListener("click", async () => {
-    setImportWorkspaceTab("export");
-    const directoryId = String($("exportDirectoryId")?.value || "").trim();
-    if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
-    let targetPath = String($("exportTargetPath")?.value || "").trim();
-    if (!targetPath) {
-      const picked = await desktopCommands.browseDirectory({
-        defaultPath: "",
-        purpose: "导出目录"
-      });
-      targetPath = String(picked?.path || "").trim();
-      if (targetPath) {
-        $("exportTargetPath").value = targetPath;
+    if (event.target?.closest?.("#btnImportPreview")) {
+      setImportWorkspaceTab("import");
+      void importToolbarActions.handlePreview();
+      return;
+    }
+    if (event.target?.closest?.("#btnBrowseImportPath")) {
+      void (async () => {
+        const picked = await desktopCommands.browseDirectory({
+          defaultPath: $("importPath")?.value || "",
+          purpose: "导入目录"
+        });
+        if (!picked.path) return;
+        $("importPath").value = picked.path;
+        setStatus(`已选择导入目录（${picked.source}）`, "ok");
+      })();
+      return;
+    }
+    if (event.target?.closest?.("#btnImportConfirm")) {
+      setImportWorkspaceTab("import");
+      void importToolbarActions.handleConfirm();
+      return;
+    }
+    if (event.target?.closest?.("#btnExportMarkdown")) {
+      setImportWorkspaceTab("export");
+      void (async () => {
+        const directoryId = String($("exportDirectoryId")?.value || "").trim();
+        if (!directoryId) return setStatus("请先选择永久笔记目录", "warn");
+        let targetPath = String($("exportTargetPath")?.value || "").trim();
+        if (!targetPath) {
+          const picked = await desktopCommands.browseDirectory({
+            defaultPath: "",
+            purpose: "导出目录"
+          });
+          targetPath = String(picked?.path || "").trim();
+          if (targetPath) {
+            $("exportTargetPath").value = targetPath;
+            $("exportAdvanced")?.setAttribute("open", "open");
+            updateExportTargetHint();
+          }
+        }
+        if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
+        try {
+          const result = await exportMarkdown({
+            targetPath,
+            directoryId
+          });
+          showExportResult({
+            stage: "export_markdown",
+            targetPath,
+            directoryId,
+            directoryLabel: directoryPathLabel(directoryId),
+            exportJobId: result.exportJobId,
+            status: result.status,
+            copied: result.copied,
+            copiedBreakdown: result.copiedBreakdown || null
+          });
+          setStatus(`已导出 ${result.copied} 个文件`, "ok");
+        } catch (error) {
+          showExportResult({
+            stage: "export_error",
+            targetPath,
+            directoryId,
+            directoryLabel: directoryPathLabel(directoryId),
+            message: String(error?.message || error),
+            code: error?.code || null,
+            details: error?.details || null
+          });
+          setStatus(`导出失败：${String(error?.message || error)}`, "bad");
+        }
+      })();
+      return;
+    }
+    if (event.target?.closest?.("#btnBrowseExportPath")) {
+      void (async () => {
+        const picked = await desktopCommands.browseDirectory({
+          defaultPath: $("exportTargetPath")?.value || "",
+          purpose: "导出目录"
+        });
+        if (!picked.path) return;
+        $("exportTargetPath").value = picked.path;
         $("exportAdvanced")?.setAttribute("open", "open");
         updateExportTargetHint();
-      }
-    }
-    if (!targetPath) return setStatus("请先选择导出目标目录", "warn");
-    try {
-      const result = await exportMarkdown({
-        targetPath,
-        directoryId
-      });
-      showExportResult({
-        stage: "export_markdown",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        exportJobId: result.exportJobId,
-        status: result.status,
-        copied: result.copied,
-        copiedBreakdown: result.copiedBreakdown || null
-      });
-      setStatus(`已导出 ${result.copied} 个文件`, "ok");
-    } catch (error) {
-      showExportResult({
-        stage: "export_error",
-        targetPath,
-        directoryId,
-        directoryLabel: directoryPathLabel(directoryId),
-        message: String(error?.message || error),
-        code: error?.code || null,
-        details: error?.details || null
-      });
-      setStatus(`导出失败：${String(error?.message || error)}`, "bad");
+        setStatus("已选择导出目录", "ok");
+      })();
     }
   });
 
-  $("btnBrowseExportPath")?.addEventListener("click", async () => {
-    const picked = await desktopCommands.browseDirectory({
-      defaultPath: $("exportTargetPath")?.value || "",
-      purpose: "导出目录"
-    });
-    if (!picked.path) return;
-    $("exportTargetPath").value = picked.path;
-    $("exportAdvanced")?.setAttribute("open", "open");
-    updateExportTargetHint();
-    setStatus("已选择导出目录", "ok");
+  $("importPageMount")?.addEventListener("change", (event) => {
+    const checkbox = event.target?.closest?.(".candidate-checkbox");
+    if (checkbox) {
+      const candidateId = String(checkbox.getAttribute("data-candidate-id") || "").trim();
+      const importRecordId = String(importState.lastPreview?.importRecordId || "").trim();
+      if (!candidateId || !importRecordId) return;
+      if (importState.selectionImportRecordId !== importRecordId) {
+        syncImportSelection(importRecordId, importState.lastPreview?.candidatePreview, importState.lastPreview?.candidateSelection || null, {
+          selectedIds: defaultSelectedCandidateIds(
+            importState.lastPreview?.candidatePreview,
+            importState.lastPreview?.candidateSelection || null,
+            importState.lastPreview?.originalityGuard || null
+          )
+        });
+      }
+      if (checkbox.checked) importState.selectedCandidateIds.add(candidateId);
+      else importState.selectedCandidateIds.delete(candidateId);
+      rerenderImportResult();
+      return;
+    }
+    if (event.target?.closest?.("#importDirectoryId")) {
+      importState.directoryId = preferredImportDirectoryId(String(event.target?.value || "").trim());
+      setStatus(`导入工作目录已切换到 ${directoryPathLabel(importState.directoryId)}`, "ok");
+      return;
+    }
+    if (event.target?.closest?.("#exportDirectoryId") || event.target?.closest?.("#exportTargetPath")) {
+      updateExportTargetHint();
+      return;
+    }
   });
 
   try {

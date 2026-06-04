@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
-test("import page mount renders tabbed import export workspace and result placeholder", () => {
+test("import page mount renders current import export workspace and result placeholder", () => {
   const html = renderImportPageMount({
     toolbar: {
       connector: "obsidian",
@@ -11,16 +11,18 @@ test("import page mount renders tabbed import export workspace and result placeh
     activeTab: "import"
   });
 
-  assert.match(html, /导入与导出/);
-  assert.match(html, /选择导入或导出/);
+  assert.match(html, /导入导出/);
+  assert.doesNotMatch(html, /导入与导出/);
+  assert.doesNotMatch(html, /选择导入或导出/);
   assert.match(html, /data-import-workspace-tab="import"/);
   assert.match(html, /id="importWorkspaceTabImport"/);
   assert.match(html, /id="importWorkspaceTabExport"/);
   assert.match(html, /id="importToolbarMount"/);
   assert.match(html, /id="exportCardMount"/);
-  assert.match(html, /从 Obsidian 仓库读入内容/);
-  assert.match(html, /把永久笔记导出成 Markdown 文件/);
-  assert.match(html, /最近一次操作/);
+  assert.match(html, /导入 Obsidian/);
+  assert.match(html, /导出 Markdown/);
+  assert.match(html, /当前结果/);
+  assert.doesNotMatch(html, /最近一次操作/);
   assert.match(html, /还没有执行操作/);
 });
 
@@ -39,7 +41,7 @@ test("import page mount can render a composed result card", () => {
     }
   });
 
-  assert.match(html, /import-result-card/);
+  assert.match(html, /import-current-result-card/);
   assert.match(html, /imp_page/);
   assert.match(html, /result-json/);
 });
