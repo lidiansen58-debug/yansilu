@@ -4327,6 +4327,7 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
     const text = document.querySelector("#importResult")?.textContent || "";
     return text.includes('"stage": "preview"') && text.includes("中文阅读卡片");
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
 
   const previewResultText = await page.locator("#importResult").textContent();
@@ -4338,11 +4339,13 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
 
+  await page.click("#btnCloseImportOperationResult");
   await page.click("#btnImportConfirm");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
     return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
 
   const confirmResultText = await page.locator("#importResult").textContent();
@@ -4412,6 +4415,7 @@ test("prototype export panel exports markdown files through real API", async (t)
     const text = document.querySelector("#exportResult")?.textContent || "";
     return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1');
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
