@@ -6752,7 +6752,10 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
     assert.ok(edgeCount >= 1, summary || "");
     await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).first().waitFor({ timeout: 2000 });
   }, 7000);
-  await page.locator("#graphCanvas .graph-node", { hasText: "Graph target" }).click();
+  await page.locator(`#graphCanvas .graph-node[data-node-id="${targetNote.json.item.id}"]`).click();
+  await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
+  await page.locator(".graph-selection-panel", { hasText: "笔记角色" }).waitFor({ timeout: 3000 });
+  await page.locator(`.graph-selection-action.is-primary[data-open-note="${targetNote.json.item.id}"]`).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
