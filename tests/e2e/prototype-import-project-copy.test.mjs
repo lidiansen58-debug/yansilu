@@ -1,7 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { optionalPlaywright, startPrototypeStack, waitFor } from "./prototype-copy-test-helpers.mjs";
 
 async function openImportsModule(page) {
@@ -10,10 +8,21 @@ async function openImportsModule(page) {
     const isActive = await page.locator('.rail-btn[data-module="imports"]').getAttribute("class");
     assert.match(String(isActive || ""), /active/);
     await page.locator("#importPanel:not(.hidden)").waitFor({ timeout: 500 });
+    await page.locator("#importWorkspaceTabImport").waitFor({ timeout: 500 });
   }, 7000);
-  await page.locator("#importAdvanced").evaluate((el) => {
+  await page.locator(".import-compat-details").evaluate((el) => {
     el.open = true;
   });
+}
+
+async function postJson(baseUrl, urlPath, body) {
+  const response = await fetch(`${baseUrl}${urlPath}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  return { status: response.status, payload };
 }
 
 test("prototype import create-project action uses 项目 wording", async (t) => {
@@ -27,93 +36,45 @@ test("prototype import create-project action uses 项目 wording", async (t) => 
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { page, webBase, vaultPath } = stack;
+  const { apiBase, page, webBase } = stack;
   const recordId = "imp_browser_project_copy";
-  const createdAt = new Date().toISOString();
 
-  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
-  await fs.writeFile(
-    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
-    JSON.stringify(
-      {
-        requestId: "browser_project_copy",
-        payload: {},
-        options: {},
-        preview: {
-          importRecordId: recordId,
-          connector: "markdown",
-          status: "preview",
-          state: "preview",
-          summary: { sources: 0, literatureNotes: 0, permanentNotes: 1, warnings: 0 },
-          samples: {
-            sourceIds: [],
-            literatureNoteIds: [],
-            permanentNoteIds: ["pn_browser_project_copy"]
-          },
-          warnings: [],
-          originalityGuard: {
-            plan: {
-              warnThreshold: 0.6,
-              blockThreshold: 0.8,
-              requireCitationLocator: true,
-              allowDraftOnWarning: true,
-              blockOnBlocked: true
-            },
-            flaggedPermanentIds: [],
-            evaluations: [
-              {
-                permanentId: "pn_browser_project_copy",
-                similarity: 0.19,
-                status: "pass",
-                reasons: []
-              }
-            ]
-          },
-          createdAt,
-          updatedAt: createdAt,
-          payload: {},
-          options: {}
-        },
-        candidates: {
-          sources: [],
-          literature: [],
-          permanent: [
-            {
-              id: "pn_browser_project_copy",
-              title: "Imported Project Copy Seed",
-              core_claim: "An imported permanent note ready to become a project seed.",
-              rationale: "",
-              from_literature_note_ids: [],
-              authorship: { user_confirmed: true, ai_assisted: false },
-              originality_status: "pass",
-              status: "active",
-              tags: ["permanent", "project"],
-              citations: [],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            }
-          ],
-          warnings: []
-        }
-      },
-      null,
-      2
-    ),
-    "utf8"
-  );
+  const created = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_original_default",
+    body: "# Imported Project Copy Seed\n\nAn imported permanent note ready to become a project seed."
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.payload));
+  const noteId = created.payload.item.id;
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
   await openImportsModule(page);
-  await page.fill("#importRecordId", recordId);
-  await page.click("#btnImportRefresh");
+  await page.evaluate(
+    ({ noteId, recordId }) => {
+      window.__prototypeImport?.showResult?.({
+        stage: "confirm",
+        importRecordId: recordId,
+        status: "completed",
+        result: {
+          created: { sources: 0, literatureNotes: 0, permanentNotes: 1 },
+          skipped: { conflicted: 0, invalid: 0 },
+          selection: {
+            mode: "subset",
+            candidateIds: [noteId],
+            totalCandidates: 1,
+            selectedCandidates: 1,
+            counts: { sources: 0, literatureNotes: 0, permanentNotes: 1 }
+          },
+          createdFiles: [{ noteId, noteType: "permanent", title: "Imported Project Copy Seed", path: `notes/original/${noteId}.md` }]
+        }
+      });
+    },
+    { noteId, recordId }
+  );
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "record"') && text.includes("Imported Project Copy Seed");
+    return text.includes('"stage": "confirm"') && text.includes("Imported Project Copy Seed");
   });
 
-  await page.click("#btnImportConfirm");
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
   const importResultText = await page.locator("#importResult").textContent();
   assert.match(String(importResultText || ""), /直接创建项目/);

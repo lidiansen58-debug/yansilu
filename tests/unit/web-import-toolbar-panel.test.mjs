@@ -22,9 +22,9 @@ test("import toolbar panel renders a simplified obsidian form with tucked-away c
   });
 
   assert.match(html, /导入/);
-  assert.match(html, /从 Obsidian 导入笔记/);
+  assert.match(html, /从 Obsidian 导入/);
   assert.match(html, /Obsidian 仓库/);
-  assert.match(html, /普通导入只需要填写来源仓库和导入位置/);
+  assert.doesNotMatch(html, /普通导入只需要填写来源仓库和导入位置/);
   assert.match(html, /来源仓库/);
   assert.match(html, /导入到/);
   assert.match(html, /兼容设置（通常不用填）/);
