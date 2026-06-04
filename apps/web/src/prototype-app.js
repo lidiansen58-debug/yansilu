@@ -231,6 +231,7 @@ const graphState = {
   legendOpen: false,
   thinkingPanelOpen: false,
   thinkingFilter: "all",
+  readingLens: "insight",
   selection: null,
   utilityDrawerOpen: false,
   sectionOpen: {
@@ -8936,14 +8937,63 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
                   ? `建议先把它和「${targetTitle}」补上一条说得清理由的关联。`
                   : "它现在还挂在主结构外面，先补一条能把它带回来的关联。";
                 const metaLabel = gapType === "disconnected_cluster" ? "断裂簇" : "孤立笔记";
+                const highlightNodeIds = [sourceNoteId, targetNoteId].filter(Boolean).join(",");
                 return `
-                  <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}">
+                  <div class="graph-focus-card graph-bridge-gap-card" data-graph-bridge-gap-id="${escapeHtml(String(gap?.id || sourceNoteId || "").trim())}" data-graph-thinking-highlight="true" data-graph-thinking-node-ids="${escapeHtml(highlightNodeIds)}" data-graph-thinking-title="${escapeHtml(sourceTitle)}" data-graph-thinking-kicker="潜在关联" data-graph-thinking-detail="${escapeHtml(rationale || counterpartSummary)}">
                     <button class="graph-focus-card-main" type="button" data-open-note="${escapeHtml(sourceNoteId)}">
                       <strong>${escapeHtml(sourceTitle)}</strong>
                       <span>${escapeHtml(metaLabel)} · 潜在关联</span>
                       <small>${escapeHtml(rationale || counterpartSummary)}</small>
                     </button>
                     <button class="graph-focus-card-action" type="button" data-graph-bridge-gap-action="bridge" data-open-note="${escapeHtml(sourceNoteId)}" data-graph-followup-action="bridge"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""} data-graph-relation-type="bridges">去补关联</button>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        </div>
+      </details>
+  `;
+}
+
+function graphWeakRelationClues(edges = [], limit = 6) {
+  return (Array.isArray(edges) ? edges : [])
+    .filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase()))
+    .slice(0, limit);
+}
+
+function renderGraphWeakRelationClueSection(edges = [], options = {}) {
+  const items = graphWeakRelationClues(edges, 6);
+  if (!items.length) return "";
+  const open = options.open === true;
+  return `
+      <details class="graph-section graph-collapsible-section graph-weak-relation-section" data-graph-section="weak-relations"${open ? " open" : ""}>
+        <summary class="graph-collapsible-summary">
+          <div>
+            <div class="graph-section-title">待判断关联</div>
+            <div class="graph-section-note">这些线已经连上，但语义还偏弱。先判断它该强化为论证关系，还是降级为普通线索。</div>
+          </div>
+          <span class="graph-collapsible-badge">${items.length} 条</span>
+        </summary>
+        <div class="graph-collapsible-body">
+          <div class="graph-list">
+            ${items
+              .map((edge) => {
+                const sourceNoteId = String(edge?.fromNoteId || "").trim();
+                const targetNoteId = String(edge?.toNoteId || "").trim();
+                const sourceTitle = String(edge?.fromTitle || sourceNoteId || "源笔记").trim() || "源笔记";
+                const targetTitle = String(edge?.toTitle || targetNoteId || "目标笔记").trim() || "目标笔记";
+                const relationLabel = graphRelationTypeLabel(edge?.relationType);
+                const rationale = String(edge?.rationale || "").trim();
+                const edgeKey = graphEdgeSelectionKey(edge);
+                return `
+                  <div class="graph-focus-card graph-weak-relation-card" data-graph-thinking-highlight="true" data-graph-thinking-node-ids="${escapeHtml([sourceNoteId, targetNoteId].filter(Boolean).join(","))}" data-graph-thinking-edge-key="${escapeHtml(edgeKey)}" data-graph-thinking-edge-id="${escapeHtml(String(edge?.id || "").trim())}" data-graph-thinking-edge-from="${escapeHtml(sourceNoteId)}" data-graph-thinking-edge-to="${escapeHtml(targetNoteId)}" data-graph-thinking-edge-type="${escapeHtml(String(edge?.relationType || "").trim().toLowerCase())}" data-graph-thinking-title="${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}" data-graph-thinking-kicker="待判断关联" data-graph-thinking-detail="${escapeHtml(rationale || relationLabel)}">
+                    <button class="graph-focus-card-main" type="button" ${graphSelectEdgeActionAttrs(edge)}>
+                      <strong>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</strong>
+                      <span>${escapeHtml(relationLabel)} · 需要判断</span>
+                      <small>${escapeHtml(rationale || "这条关系还没有形成清楚论证，需要判断是否值得保留或改类型。")}</small>
+                    </button>
+                    <button class="graph-focus-card-action" type="button" ${graphSelectEdgeActionAttrs(edge)}>复核</button>
                   </div>
                 `;
               })
@@ -9077,6 +9127,106 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
         .join("")}
     </div>
   `;
+}
+
+const GRAPH_READING_LENS_META = {
+  insight: {
+    key: "insight",
+    label: "洞见",
+    hint: "先放大中心、桥接与高解释力节点，适合寻找新判断。"
+  },
+  bridge: {
+    key: "bridge",
+    label: "桥接",
+    hint: "优先看跨簇连接、潜在关联和孤立节点，适合补关系。"
+  },
+  argument: {
+    key: "argument",
+    label: "论证",
+    hint: "优先看支持、反驳和边界，适合检查观点是否站得住。"
+  }
+};
+
+function graphReadingLensMeta(value = "insight") {
+  const key = String(value || "insight").trim().toLowerCase();
+  return GRAPH_READING_LENS_META[key] || GRAPH_READING_LENS_META.insight;
+}
+
+function renderGraphReadingLensControls(activeLens = "insight") {
+  const active = graphReadingLensMeta(activeLens);
+  return `
+    <div class="graph-reading-lens" aria-label="图谱阅读模式">
+      <span>阅读模式</span>
+      ${Object.values(GRAPH_READING_LENS_META)
+        .map((item) => {
+          const selected = item.key === active.key;
+          return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
+        })
+        .join("")}
+      <small>${escapeHtml(active.hint)}</small>
+    </div>
+  `;
+}
+
+function graphEdgeMatchesReadingLens(edge = {}, lens = "insight") {
+  const type = String(edge?.relationType || "associated_with").trim().toLowerCase();
+  const group = graphRelationVisual(type).key;
+  if (lens === "bridge") return group === "bridge";
+  if (lens === "argument") return group === "support" || group === "conflict" || group === "boundary";
+  return group === "support" || group === "conflict" || group === "boundary" || group === "bridge";
+}
+
+function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps = [], lens = "insight" } = {}) {
+  const meta = graphReadingLensMeta(lens);
+  const priorityEdgeKeys = new Set();
+  const priorityNodeIds = new Set();
+  visibleEdges.forEach(({ edge }) => {
+    if (!graphEdgeMatchesReadingLens(edge, meta.key)) return;
+    const edgeKey = graphEdgeSelectionKey(edge);
+    if (edgeKey) priorityEdgeKeys.add(edgeKey);
+    [edge?.fromNoteId, edge?.toNoteId].forEach((id) => {
+      const noteId = String(id || "").trim();
+      if (noteId) priorityNodeIds.add(noteId);
+    });
+  });
+  if (meta.key === "insight") {
+    nodes.forEach((node) => {
+      const degree = Number(node?.degree || 0) || 0;
+      if (node?.isHub || node?.isAnchor || degree >= 3) priorityNodeIds.add(String(node.id || "").trim());
+    });
+  }
+  if (meta.key === "bridge") {
+    bridgeGaps.forEach((gap) => {
+      [...(gap?.noteIds || []), ...(gap?.targetNoteIds || [])].forEach((id) => {
+        const noteId = String(id || "").trim();
+        if (noteId) priorityNodeIds.add(noteId);
+      });
+    });
+    nodes.forEach((node) => {
+      if (node?.isGraphIsolatedCandidate) priorityNodeIds.add(String(node.id || "").trim());
+    });
+  }
+  if (nodes.length > 8 && priorityNodeIds.size >= nodes.length) {
+    const limit = Math.max(8, Math.ceil(nodes.length * 0.38));
+    const cappedPriorityNodeIds = nodes
+      .slice()
+      .sort((a, b) => {
+        const bScore = (b?.isFocused ? 100 : 0) + (b?.isHub ? 40 : 0) + (b?.isAnchor ? 24 : 0) + Number(b?.degree || 0);
+        const aScore = (a?.isFocused ? 100 : 0) + (a?.isHub ? 40 : 0) + (a?.isAnchor ? 24 : 0) + Number(a?.degree || 0);
+        return bScore - aScore || String(a?.title || a?.id || "").localeCompare(String(b?.title || b?.id || ""), "zh-Hans-CN");
+      })
+      .slice(0, limit)
+      .map((node) => String(node?.id || "").trim())
+      .filter(Boolean);
+    priorityNodeIds.clear();
+    cappedPriorityNodeIds.forEach((id) => priorityNodeIds.add(id));
+  }
+  return {
+    lens: meta.key,
+    priorityEdgeKeys,
+    priorityNodeIds,
+    active: priorityEdgeKeys.size > 0 || priorityNodeIds.size > 0
+  };
 }
 
 function graphLoadErrorMessage(error) {
@@ -10540,6 +10690,7 @@ function renderGraphVisualMap({
   const layout = graphBuildVisualLayout(nodes, edges, { focusedNoteId: normalizedFocusedNoteId });
   const zoom = graphZoomOption(graphState.zoom);
   const expanded = graphState.expanded === true;
+  const readingLens = graphReadingLensMeta(graphState.readingLens);
   const zoomWidth = Math.round(layout.width * zoom.scale);
   const zoomHeight = Math.round(layout.height * zoom.scale);
   const adjacencyMap = new Map();
@@ -10581,6 +10732,7 @@ function renderGraphVisualMap({
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
+  const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
   const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
   const selectedThemeNoteIds = new Set(activeSelection?.kind === "theme" ? activeSelection.noteIds || [] : []);
   const selectedIsolatedNodeId = activeSelection?.kind === "isolated" ? activeSelection.noteId : "";
@@ -10617,6 +10769,12 @@ function renderGraphVisualMap({
         edges
       })
     : "";
+  const readingLensState = graphBuildReadingLensState({
+    nodes: layout.nodes,
+    visibleEdges,
+    bridgeGaps,
+    lens: readingLens.key
+  });
   const selectionContextMarkup = renderGraphSelectionPanel({
     selection: activeSelection,
     nodeMap: layout.nodeMap,
@@ -10650,8 +10808,11 @@ function renderGraphVisualMap({
       const selectedIsolated = selectedIsolatedNodeId === node.id || (activeSelection?.kind === "isolated" && isolatedKey && activeSelection.isolatedKey === isolatedKey);
       const inSelectedBridge = selectedBridgeNoteIds.has(node.id);
       const selected = selectedNodeId === node.id;
-      const showLabel = node.isFocused || node.isHub || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || index < labelQuota;
-      const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge) && zoom.key !== "fit";
+      const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
+      const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
+      const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
+      const showLabel = node.isFocused || node.isHub || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority || index < labelQuota;
+      const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
       const revealOnly = denseDirectoryMode && !node.isFocused && !node.isHub && !node.isAnchor && !showLabel;
       const neighbors = [...(adjacencyMap.get(node.id) || [])];
       const metaLabel = node.isGraphIsolatedCandidate ? "孤立待判断" : noteTypeLabel(node.noteType);
@@ -10664,7 +10825,7 @@ function renderGraphVisualMap({
       const glintX = Number(node.x || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       const glintY = Number(node.y || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       return `
-        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
           ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 8}"></circle>` : ""}
@@ -10692,8 +10853,11 @@ function renderGraphVisualMap({
       const toId = String(edge?.toNoteId || "").trim();
       const inSelectedTheme = selectedThemeNoteIds.has(fromId) && selectedThemeNoteIds.has(toId);
       const inSelectedBridge = selectedBridgeNoteIds.size > 1 && selectedBridgeNoteIds.has(fromId) && selectedBridgeNoteIds.has(toId);
+      const inSelectedNodeNeighborhood = Boolean(selectedNodeId) && (fromId === selectedNodeId || toId === selectedNodeId);
+      const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
+      const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
       return `
-        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
           <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
@@ -10717,7 +10881,7 @@ function renderGraphVisualMap({
       : "当前筛选没有留下可读的论证关系。可以切到全部关系，或先从右侧线索里判断潜在关联。";
 
   return `
-    <section class="graph-map-panel${expanded ? " is-expanded" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
+    <section class="graph-map-panel${expanded ? " is-expanded" : ""}${!filterActive && readingLensState.active ? ` has-reading-lens is-reading-lens-${escapeHtml(readingLens.key)}` : ""}${activeSelection?.kind === "node" ? " is-selecting-node" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
       <div class="graph-map-head">
         <div>
           <div class="graph-section-title">${filterActive ? "当前笔记关系图" : escapeHtml(modeMeta.label)}</div>
@@ -10738,6 +10902,7 @@ function renderGraphVisualMap({
               `
               : ""
           }
+          ${!filterActive ? renderGraphReadingLensControls(readingLens.key) : ""}
           ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
         </div>
       </div>
@@ -11811,13 +11976,14 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
   `;
 }
 
-function renderGraphUtilityDrawer({ bridgeGapCount = 0, reviewQueue = null, sectionsMarkup = "", open = false } = {}) {
+function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, reviewQueue = null, sectionsMarkup = "", open = false } = {}) {
   const content = String(sectionsMarkup || "").trim();
   if (!content) return "";
   const reviewCount = Number(reviewQueue?.total || 0);
   const aiState = graphAiAnalysisSummaryState();
   const badges = [
     bridgeGapCount > 0 ? `<span>潜在关联 ${escapeHtml(String(bridgeGapCount))}</span>` : "",
+    weakRelationCount > 0 ? `<span>待判断关联 ${escapeHtml(String(weakRelationCount))}</span>` : "",
     reviewCount > 0 ? `<span>待补理由 ${escapeHtml(String(reviewCount))}</span>` : "",
     aiState.totalCandidates > 0 ? `<span>AI 候选 ${escapeHtml(String(aiState.totalCandidates))}</span>` : ""
   ]
@@ -12008,9 +12174,11 @@ function renderGraphPanel() {
       })
     : [];
   const thinkingPanel = !showingFocusedNote && graphState.thinkingPanelOpen ? renderGraphThinkingPanel({ summary: questionSpotSummary, items: thinkingItems }) : "";
+  const weakRelationClueCount = !showingFocusedNote ? graphWeakRelationClues(scoped.edges, 6).length : 0;
   const supplementalSections = !showingFocusedNote
     ? `
       ${renderGraphBridgeGapSection(bridgeGaps, { open: graphState.sectionOpen["bridge-gaps"] === true })}
+      ${renderGraphWeakRelationClueSection(scoped.edges, { open: graphState.sectionOpen["weak-relations"] === true })}
       ${renderRelationReviewQueueSection(graphState.reviewQueue, { open: graphState.sectionOpen["review-queue"] === true })}
       ${renderGraphAiAnalysisCard({ open: graphState.sectionOpen["ai-analysis"] === true })}
     `
@@ -12018,6 +12186,7 @@ function renderGraphPanel() {
   const utilityDrawer = !showingFocusedNote
     ? renderGraphUtilityDrawer({
         bridgeGapCount: bridgeGaps.length,
+        weakRelationCount: weakRelationClueCount,
         reviewQueue: graphState.reviewQueue,
         sectionsMarkup: supplementalSections,
         open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
@@ -14967,6 +15136,13 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
     return;
   }
+  const readingLensButton = event.target.closest("[data-graph-reading-lens]");
+  if (readingLensButton) {
+    graphState.readingLens = graphReadingLensMeta(readingLensButton.getAttribute("data-graph-reading-lens")).key;
+    renderGraphPanel();
+    setStatus(`图谱阅读模式已切换为：${graphReadingLensMeta(graphState.readingLens).label}`, "ok");
+    return;
+  }
   const focusDepthButton = event.target.closest("[data-graph-focus-depth]");
   if (focusDepthButton) {
     const nextDepth = focusDepthButton.getAttribute("data-graph-focus-depth");
@@ -15027,7 +15203,7 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
 });
 
 function handleGraphHoverIntent(event) {
-  const thinking = event.target.closest(".graph-thinking-item[data-graph-thinking-highlight]");
+  const thinking = event.target.closest("[data-graph-thinking-highlight]");
   if (thinking) {
     applyGraphThinkingHoverState(thinking);
     return;
@@ -15058,7 +15234,7 @@ $("graphCanvas")?.addEventListener("mouseout", handleGraphHoverExit);
 $("graphCanvas")?.addEventListener("pointerout", handleGraphHoverExit);
 
 $("graphCanvas")?.addEventListener("focusin", (event) => {
-  const thinking = event.target.closest(".graph-thinking-item[data-graph-thinking-highlight]");
+  const thinking = event.target.closest("[data-graph-thinking-highlight]");
   if (thinking) {
     applyGraphThinkingHoverState(thinking);
     return;

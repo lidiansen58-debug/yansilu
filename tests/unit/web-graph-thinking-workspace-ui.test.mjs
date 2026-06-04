@@ -222,7 +222,7 @@ test("graph thinking cards highlight anchored graph elements on hover and focus"
   assert.match(source, /function graphEdgeMatchesThinkingTarget\(edgeElement, target = \{\}\) \{/);
   assert.match(source, /panel\.classList\.add\("is-hovering-thinking"\);/);
   assert.match(source, /element\.classList\.toggle\("is-hovered", hovered\);/);
-  assert.match(source, /event\.target\.closest\("\.graph-thinking-item\[data-graph-thinking-highlight\]"\)/);
+  assert.match(source, /event\.target\.closest\("\[data-graph-thinking-highlight\]"\)/);
   assert.match(source, /\$\("graphCanvas"\)\?\.addEventListener\("pointerover", handleGraphHoverIntent\);/);
   assert.match(source, /\$\("graphCanvas"\)\?\.addEventListener\("pointerout", handleGraphHoverExit\);/);
   assert.match(source, /focusin[\s\S]*applyGraphThinkingHoverState\(thinking\);/);
@@ -230,6 +230,66 @@ test("graph thinking cards highlight anchored graph elements on hover and focus"
 
   const html = readPrototypeHtml();
   assert.match(html, /\.graph-map-panel\.is-hovering-thinking \.graph-hover-card \{[\s\S]*border-color: rgba\(15, 111, 72, 0\.22\);[\s\S]*box-shadow: 0 18px 36px rgba\(15, 111, 72, 0\.12\);/);
+});
+
+test("graph reading noise controls expose three lightweight lenses without filtering data", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /readingLens: "insight"/);
+  assert.match(source, /const GRAPH_READING_LENS_META = \{[\s\S]*insight:[\s\S]*label: "洞见"[\s\S]*bridge:[\s\S]*label: "桥接"[\s\S]*argument:[\s\S]*label: "论证"/);
+  assert.match(source, /function renderGraphReadingLensControls\(activeLens = "insight"\) \{/);
+  assert.match(source, /data-graph-reading-lens="\$\{escapeHtml\(item\.key\)\}"/);
+  assert.match(source, /\$\{!filterActive \? renderGraphReadingLensControls\(readingLens\.key\) : ""\}/);
+  assert.match(source, /const readingLensButton = event\.target\.closest\("\[data-graph-reading-lens\]"\);/);
+  assert.match(source, /graphState\.readingLens = graphReadingLensMeta\(readingLensButton\.getAttribute\("data-graph-reading-lens"\)\)\.key;/);
+  assert.match(source, /graphBuildReadingLensState\(\{[\s\S]*visibleEdges,[\s\S]*bridgeGaps,[\s\S]*lens: readingLens\.key/);
+  assert.doesNotMatch(source, /edges\s*=\s*edges\.filter\([^)]*readingLens/, "reading lenses should not filter the underlying graph data");
+
+  assert.match(html, /\.graph-reading-lens \{[\s\S]*display: flex;[\s\S]*flex-wrap: wrap;/);
+  assert.match(html, /\.graph-reading-lens-btn\.is-active \{[\s\S]*background: linear-gradient/);
+  assert.match(html, /\.graph-map-panel\.has-reading-lens:not\(\.is-selecting-node\):not\(\.is-hovering-node\):not\(\.is-hovering-edge\):not\(\.is-hovering-thinking\) \.graph-map-node\.is-lens-secondary circle \{[\s\S]*opacity: 0\.42;/);
+});
+
+test("clicking a graph node keeps only its one-hop neighborhood visually prominent", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /const selectedNodeNeighborhood = new Set\(selectedNodeId \? \[selectedNodeId, \.\.\.\(adjacencyMap\.get\(selectedNodeId\) \|\| \[\]\)\] : \[\]\);/);
+  assert.match(source, /const inSelectedNodeNeighborhood = selectedNodeNeighborhood\.has\(node\.id\);/);
+  assert.match(source, /inSelectedNodeNeighborhood \? "is-selected-neighborhood" : ""/);
+  assert.match(source, /const inSelectedNodeNeighborhood = Boolean\(selectedNodeId\) && \(fromId === selectedNodeId \|\| toId === selectedNodeId\);/);
+  assert.match(source, /activeSelection\?\.kind === "node" \? " is-selecting-node" : ""/);
+
+  assert.match(html, /\.graph-map-panel\.is-selecting-node \.graph-map-node:not\(\.is-selected-neighborhood\) circle \{[\s\S]*opacity: \.22;/);
+  assert.match(html, /\.graph-map-panel\.is-selecting-node \.graph-map-edge-group:not\(\.is-selected-neighborhood\) \.graph-map-edge \{[\s\S]*opacity: 0\.1;/);
+  assert.match(html, /\.graph-map-node\.is-selected-neighborhood:not\(\.is-selected\) circle \{[\s\S]*stroke: #65b994;/);
+});
+
+test("bridge gap clues in the pending judgment drawer can highlight graph nodes", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /const highlightNodeIds = \[sourceNoteId, targetNoteId\]\.filter\(Boolean\)\.join\(","\);/);
+  assert.match(source, /class="graph-focus-card graph-bridge-gap-card"[\s\S]*data-graph-thinking-highlight="true"[\s\S]*data-graph-thinking-node-ids="\$\{escapeHtml\(highlightNodeIds\)\}"/);
+  assert.match(source, /data-graph-thinking-kicker="潜在关联"/);
+  assert.match(source, /event\.target\.closest\("\[data-graph-thinking-highlight\]"\)/);
+  assert.match(html, /\.graph-map-panel\.is-hovering-thinking \.graph-map-node\.is-dimmed circle \{[\s\S]*opacity: 0\.2;/);
+  assert.match(html, /\.graph-map-panel\.is-hovering-thinking \.graph-map-edge-group\.is-hovered \.graph-map-edge \{[\s\S]*stroke-width: 3\.8;/);
+});
+
+test("weak relation clues provide a non-AI pending judgment highlight path", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /function graphWeakRelationClues\(edges = \[\], limit = 6\) \{/);
+  assert.match(source, /GRAPH_LINK_CLUE_RELATION_TYPES\.has\(String\(edge\?\.relationType \|\| "associated_with"\)/);
+  assert.match(source, /function renderGraphWeakRelationClueSection\(edges = \[\], options = \{\}\) \{/);
+  assert.match(source, /data-graph-section="weak-relations"/);
+  assert.match(source, /class="graph-focus-card graph-weak-relation-card"[\s\S]*data-graph-thinking-highlight="true"[\s\S]*data-graph-thinking-edge-key="\$\{escapeHtml\(edgeKey\)\}"/);
+  assert.match(source, /data-graph-thinking-kicker="待判断关联"/);
+  assert.match(source, /graphSelectEdgeActionAttrs\(edge\)/);
+  assert.match(source, /待判断关联 \$\{escapeHtml\(String\(weakRelationCount\)\)\}/);
+  assert.match(source, /renderGraphWeakRelationClueSection\(scoped\.edges, \{ open: graphState\.sectionOpen\["weak-relations"\] === true \}\)/);
 });
 
 test("graph thinking panel and selection detail stay mutually exclusive", () => {

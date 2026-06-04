@@ -3933,6 +3933,52 @@
       font-size: 12px;
       line-height: 1.5;
     }
+    .graph-reading-lens {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+    }
+    .graph-reading-lens > span {
+      color: #526174;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .graph-reading-lens-btn {
+      min-height: 28px;
+      padding: 0 11px;
+      border: 1px solid #d8e4ec;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #526174;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+      transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .graph-reading-lens-btn:hover,
+    .graph-reading-lens-btn:focus-visible {
+      border-color: #b9ddc9;
+      background: #eef8f2;
+      color: #0f6f48;
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .graph-reading-lens-btn.is-active {
+      border-color: #8fc9ab;
+      background: linear-gradient(180deg, #f4fff8, #e7f7ee);
+      color: #0f6f48;
+      box-shadow: 0 8px 18px rgba(15, 111, 72, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+    }
+    .graph-reading-lens small {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.45;
+    }
     .graph-zoom-controls {
       display: inline-flex;
       gap: 4px;
@@ -5139,23 +5185,39 @@
       stroke-width: 3.4;
       filter: drop-shadow(0 0 9px rgba(15, 111, 72, 0.2));
     }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge {
+      opacity: 0.2;
+      stroke-width: 1.5;
+    }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge-underlay {
+      opacity: 0.06;
+    }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-priority .graph-map-edge {
+      opacity: 0.96;
+      stroke-width: 3.2;
+      filter: drop-shadow(0 0 9px rgba(15, 111, 72, 0.14));
+    }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge,
-    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge {
+    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge,
+    .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-dimmed .graph-map-edge {
       opacity: 0.1;
       stroke-width: 1.4;
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
-    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge-underlay {
+    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
+    .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-dimmed .graph-map-edge-underlay {
       opacity: 0.05;
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-hovered .graph-map-edge,
-    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge {
+    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge,
+    .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-hovered .graph-map-edge {
       opacity: 1;
       stroke-width: 3.8;
       filter: drop-shadow(0 0 12px rgba(15, 111, 72, 0.2));
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
-    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge-underlay {
+    .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
+    .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-hovered .graph-map-edge-underlay {
       opacity: 1;
     }
     .graph-map-edge-group.is-selected .graph-map-edge {
@@ -5168,6 +5230,21 @@
       stroke-width: 10;
       stroke: rgba(233, 249, 255, 0.92);
       filter: blur(2px);
+    }
+    .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge {
+      opacity: 0.1;
+      stroke-width: 1.3;
+    }
+    .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge-underlay {
+      opacity: 0.04;
+    }
+    .graph-map-edge-group.is-selected-neighborhood .graph-map-edge {
+      opacity: 1;
+      stroke-width: 3.7;
+      filter: drop-shadow(0 0 10px rgba(15, 111, 72, 0.22));
+    }
+    .graph-map-edge-group.is-selected-neighborhood .graph-map-edge-underlay {
+      opacity: .84;
     }
     .graph-map-panel.is-selecting-theme .graph-map-edge-group:not(.is-theme-selected) .graph-map-edge {
       opacity: 0.14;
@@ -5360,8 +5437,22 @@
     .graph-map-node.is-focused .graph-map-node-glint {
       opacity: 1;
     }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-node.is-lens-secondary circle {
+      opacity: 0.42;
+      stroke-width: 1.7;
+      filter: none;
+    }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-node.is-lens-secondary .graph-map-node-label,
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-node.is-lens-secondary .graph-map-node-meta {
+      opacity: .38;
+    }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-node.is-lens-priority circle {
+      stroke-width: 3.8;
+      filter: drop-shadow(0 0 14px rgba(15, 111, 72, 0.22)) drop-shadow(0 12px 20px rgba(15, 23, 42, 0.1));
+    }
     .graph-map-panel.is-hovering-node .graph-map-node.is-dimmed circle,
-    .graph-map-panel.is-hovering-edge .graph-map-node.is-dimmed circle {
+    .graph-map-panel.is-hovering-edge .graph-map-node.is-dimmed circle,
+    .graph-map-panel.is-hovering-thinking .graph-map-node.is-dimmed circle {
       opacity: 0.2;
       stroke-width: 1.4;
       filter: none;
@@ -5369,11 +5460,14 @@
     .graph-map-panel.is-hovering-node .graph-map-node.is-dimmed .graph-map-node-label,
     .graph-map-panel.is-hovering-node .graph-map-node.is-dimmed .graph-map-node-meta,
     .graph-map-panel.is-hovering-edge .graph-map-node.is-dimmed .graph-map-node-label,
-    .graph-map-panel.is-hovering-edge .graph-map-node.is-dimmed .graph-map-node-meta {
+    .graph-map-panel.is-hovering-edge .graph-map-node.is-dimmed .graph-map-node-meta,
+    .graph-map-panel.is-hovering-thinking .graph-map-node.is-dimmed .graph-map-node-label,
+    .graph-map-panel.is-hovering-thinking .graph-map-node.is-dimmed .graph-map-node-meta {
       opacity: 0.18;
     }
     .graph-map-panel.is-hovering-node .graph-map-node.is-hovered circle,
-    .graph-map-panel.is-hovering-edge .graph-map-node.is-hovered circle {
+    .graph-map-panel.is-hovering-edge .graph-map-node.is-hovered circle,
+    .graph-map-panel.is-hovering-thinking .graph-map-node.is-hovered circle {
       stroke: #0f6f48;
       stroke-width: 5;
       filter: drop-shadow(0 14px 24px rgba(15, 111, 72, 0.22));
@@ -5389,6 +5483,20 @@
     }
     .graph-map-node.is-selected .graph-map-node-label {
       fill: #0f172a;
+    }
+    .graph-map-panel.is-selecting-node .graph-map-node:not(.is-selected-neighborhood) circle {
+      opacity: .22;
+      stroke-width: 1.4;
+      filter: none;
+    }
+    .graph-map-panel.is-selecting-node .graph-map-node:not(.is-selected-neighborhood) .graph-map-node-label,
+    .graph-map-panel.is-selecting-node .graph-map-node:not(.is-selected-neighborhood) .graph-map-node-meta {
+      opacity: .18;
+    }
+    .graph-map-node.is-selected-neighborhood:not(.is-selected) circle {
+      stroke: #65b994;
+      stroke-width: 3.8;
+      filter: drop-shadow(0 0 12px rgba(15, 111, 72, 0.18));
     }
     .graph-map-panel.is-selecting-theme .graph-map-node:not(.is-theme-selected) circle {
       opacity: .26;
