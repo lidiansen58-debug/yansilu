@@ -140,6 +140,11 @@ test("question spots cover theme bridge relation-review and isolated thinking wo
 test("bridge question spots open an in-graph bridge judgment before editing", () => {
   const source = readPrototypeApp();
   assert.match(source, /function graphBridgeSelectionKey\(gap = \{\}, index = 0\) \{/);
+  assert.match(source, /const explicitId = String\(gap\?\.id \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const sourceId = String\(gap\?\.noteIds\?\.\[0\] \|\| gap\?\.sourceNoteId \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const targetId = String\(gap\?\.targetNoteIds\?\.\[0\] \|\| gap\?\.targetNoteId \|\| ""\)\.trim\(\);/);
+  assert.match(source, /\["bridge", sourceId \|\| title \|\| "source", targetId \|\| "no-target", String\(index\)\]\.join\("::"\)/);
+  assert.match(source, /id: `bridge-\$\{bridgeKey\}`/);
   assert.match(source, /function resolveGraphBridgeSelection\(selection = null, bridgeGaps = \[\], nodes = \[\]\) \{/);
   assert.match(source, /kind: "bridge",[\s\S]*bridgeKey: bridge\.bridgeKey,[\s\S]*noteId: bridge\.noteId,[\s\S]*targetNoteId: bridge\.targetNoteId/);
   assert.match(source, /function renderGraphBridgeSelectionPanel\(\{ selection = null, bridgeGaps = \[\], nodeMap = new Map\(\) \} = \{\}\) \{/);

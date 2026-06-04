@@ -9178,8 +9178,12 @@ function graphIsolatedSelectionKey(note = {}, index = 0) {
 }
 
 function graphBridgeSelectionKey(gap = {}, index = 0) {
-  const raw = String(gap?.id || gap?.noteIds?.[0] || gap?.title || index).trim();
-  return raw || `bridge-${index}`;
+  const explicitId = String(gap?.id || "").trim();
+  if (explicitId) return `id:${explicitId}`;
+  const sourceId = String(gap?.noteIds?.[0] || gap?.sourceNoteId || "").trim();
+  const targetId = String(gap?.targetNoteIds?.[0] || gap?.targetNoteId || "").trim();
+  const title = String(gap?.title || gap?.noteTitles?.[0] || "").trim();
+  return ["bridge", sourceId || title || "source", targetId || "no-target", String(index)].join("::");
 }
 
 function resolveGraphIsolatedSelection(selection = null, isolatedNotes = [], nodes = []) {
@@ -11468,7 +11472,7 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
     const gapType = String(gap?.gapType || "bridge_gap").trim().toLowerCase();
     const bridgeKey = graphBridgeSelectionKey(gap, index);
     addItem({
-      id: `bridge-${String(gap?.id || sourceNoteId || index)}`,
+      id: `bridge-${bridgeKey}`,
       priority: 84 - index,
       view: "organize",
       tone: "bridge",
