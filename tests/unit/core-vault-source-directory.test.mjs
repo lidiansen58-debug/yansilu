@@ -40,7 +40,8 @@ test("createNoteInDirectory inherits source note type for custom child directori
     title: "Source Child",
     parentDirectoryId: "dir_source_default",
     directoryType: "custom",
-    fsPath: path.join(vaultPath, "notes", "sources", "child")
+    fsPath: path.join(vaultPath, "notes", "sources", "child"),
+    isHidden: true
   });
 
   const created = await createNoteInDirectory(vaultPath, {
