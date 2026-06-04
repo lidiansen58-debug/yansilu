@@ -480,6 +480,86 @@ test("exportMarkdown rewrites imported obsidian path links and does not let sour
   assert.match(exportedPermanent, /\[\[literature\/中文阅读卡片\|中文阅读\]\]/);
 });
 
+test("exportMarkdown strips importer-only frontmatter without rewriting metadata strings", async () => {
+  const vaultPath = await makeTempDir("yansilu-export-imported-frontmatter-vault-");
+  const targetPath = await makeTempDir("yansilu-export-imported-frontmatter-target-");
+  await fs.mkdir(path.join(vaultPath, "notes", "sources"), { recursive: true });
+  await fs.mkdir(path.join(vaultPath, "notes", "literature"), { recursive: true });
+
+  await fs.writeFile(
+    path.join(vaultPath, "notes", "sources", "src_spacing.md"),
+    [
+      "---",
+      "id: src_spacing",
+      "note_type: source",
+      "title: Spacing Note",
+      "aliases: [\"Spacing Effect\"]",
+      "source_type: markdown",
+      "imported_from: obsidian",
+      "url_or_path: C:/fixtures/Research/Spacing Note.md",
+      "original_frontmatter: {\"alias\":\"Spacing Effect\"}",
+      "---",
+      "",
+      "# Spacing Note",
+      "",
+      "Source body."
+    ].join("\n"),
+    "utf8"
+  );
+  await fs.writeFile(
+    path.join(vaultPath, "notes", "literature", "ln_imported.md"),
+    [
+      "---",
+      "id: ln_imported",
+      "note_type: literature",
+      "title: Imported Literature",
+      "source_id: src_spacing",
+      "quote_text: \"Original metadata keeps [[Research/Spacing Note|英文材料]] untouched.\"",
+      "paraphrase_text:",
+      "imported_from: obsidian",
+      "wikilinks: [\"Research/Spacing Note|英文材料\"]",
+      "parsed_wikilinks: [\"[object Object]\"]",
+      "wikilink_targets: [\"Research/Spacing Note\"]",
+      "original_frontmatter: {\"aliases\":[\"Imported Alias\"]}",
+      "aliases: [\"Imported Alias\"]",
+      "tags: [\"imported\"]",
+      "---",
+      "",
+      "# Imported Literature",
+      "",
+      "Body link to [[Research/Spacing Note|英文材料]]."
+    ].join("\n"),
+    "utf8"
+  );
+
+  await exportMarkdown({
+    vaultPath,
+    targetPath
+  });
+
+  const exportedLiterature = await fs.readFile(path.join(targetPath, "literature", "Imported Literature.md"), "utf8");
+  const exportedSource = await fs.readFile(path.join(targetPath, "sources", "Spacing Note.md"), "utf8");
+
+  assert.match(exportedLiterature, /\[\[sources\/Spacing Note\|英文材料\]\]/);
+  assert.match(exportedLiterature, /aliases: \["Imported Alias"\]/);
+  assert.match(exportedLiterature, /tags: \["imported"\]/);
+  assert.doesNotMatch(exportedLiterature, /^source_id:/m);
+  assert.doesNotMatch(exportedLiterature, /^quote_text:/m);
+  assert.doesNotMatch(exportedLiterature, /^paraphrase_text:/m);
+  assert.doesNotMatch(exportedLiterature, /^imported_from:/m);
+  assert.doesNotMatch(exportedLiterature, /^wikilinks:/m);
+  assert.doesNotMatch(exportedLiterature, /^parsed_wikilinks:/m);
+  assert.doesNotMatch(exportedLiterature, /^wikilink_targets:/m);
+  assert.doesNotMatch(exportedLiterature, /^original_frontmatter:/m);
+  assert.doesNotMatch(exportedLiterature, /Original metadata keeps \[\[sources\/Spacing Note\|英文材料\]\] untouched\./);
+
+  assert.match(exportedSource, /aliases: \["Spacing Effect"\]/);
+  assert.doesNotMatch(exportedSource, /^source_type:/m);
+  assert.doesNotMatch(exportedSource, /^imported_from:/m);
+  assert.doesNotMatch(exportedSource, /^url_or_path:/m);
+  assert.doesNotMatch(exportedSource, /^original_frontmatter:/m);
+});
+
 test("exportMarkdown copies assets referenced by Obsidian embeds", async () => {
   const vaultPath = await makeTempDir("yansilu-export-obsidian-embed-vault-");
   const targetPath = await makeTempDir("yansilu-export-obsidian-embed-target-");

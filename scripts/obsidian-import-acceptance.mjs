@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createImportExportService } from "../apps/api/src/import-export-service.mjs";
+import { findVaultAssetLinks } from "../packages/domain/src/markdown-asset-links.mjs";
 import {
   deleteNoteById,
   initVault,
   listNoteCatalogEntriesByType,
+  listNotesInDirectoryScope,
   readNote,
   registerMarkdownNoteInCatalog,
   writeLiteratureNoteIfAbsent,
@@ -102,6 +105,7 @@ function titleForCatalogNote(candidate) {
 }
 
 function defaultDirectoryIdForImportNoteType(noteType) {
+  if (noteType === "source") return "dir_source_default";
   if (noteType === "literature") return "dir_literature_default";
   return "dir_original_default";
 }
@@ -163,6 +167,23 @@ function diffCounts(afterCounts, beforeCounts) {
   };
 }
 
+export function catalogDeltaMatchesCreated(deltaCounts = {}, createdCounts = {}) {
+  return (
+    Number(deltaCounts.sources || 0) === Number(createdCounts.sources || 0) &&
+    Number(deltaCounts.literatureNotes || 0) === Number(createdCounts.literatureNotes || 0) &&
+    Number(deltaCounts.permanentNotes || 0) === Number(createdCounts.permanentNotes || 0)
+  );
+}
+
+export function sourceEntriesUseSourceDirectory(entries = []) {
+  return (Array.isArray(entries) ? entries : []).every((entry) => cleanText(entry?.directoryId) === "dir_source_default");
+}
+
+export function sourceNotesExcludedFromOriginalScope(sourceEntries = [], originalScopeNotes = []) {
+  const sourceIds = new Set((Array.isArray(sourceEntries) ? sourceEntries : []).map((entry) => cleanText(entry?.id)).filter(Boolean));
+  return (Array.isArray(originalScopeNotes) ? originalScopeNotes : []).every((note) => !sourceIds.has(cleanText(note?.id)));
+}
+
 function markCheck(report, id, ok, detail, severity = "error") {
   report.checks.push({ id, ok, detail, severity });
   if (!ok) {
@@ -170,6 +191,15 @@ function markCheck(report, id, ok, detail, severity = "error") {
     if (severity === "error") report.severityCounts.error += 1;
     if (severity === "warning") report.severityCounts.warning += 1;
   }
+}
+
+export function assertNoAcceptanceErrors(report, label = "Acceptance checks") {
+  const errorCount = Number(report?.severityCounts?.error || 0);
+  if (errorCount <= 0) return report;
+  const error = new Error(`${label} failed with ${errorCount} error${errorCount === 1 ? "" : "s"}.`);
+  error.code = "ACCEPTANCE_FAILED";
+  error.report = report;
+  throw error;
 }
 
 async function createdFilesExist(vaultPath, createdFiles = []) {
@@ -183,15 +213,46 @@ async function createdFilesExist(vaultPath, createdFiles = []) {
   return true;
 }
 
-async function importedAssetLinksPresent(vaultPath, entriesByType) {
+export function inspectImportedAssetLinks(notes = []) {
+  const referencedAssetPaths = [];
+  const invalidReferences = [];
+  for (const note of notes) {
+    const markdown = String(note?.markdown || "");
+    const markdownPath = cleanText(note?.markdownPath);
+    if (!markdown || !markdownPath) continue;
+    for (const assetPath of findVaultAssetLinks(markdown, markdownPath)) {
+      referencedAssetPaths.push(assetPath);
+      if (!assetPath.startsWith("assets/imports/")) {
+        invalidReferences.push({
+          markdownPath,
+          assetPath
+        });
+      }
+    }
+  }
+  return {
+    referencedAssetPaths,
+    invalidReferences
+  };
+}
+
+async function inspectImportedAssetLinksInVault(vaultPath, entriesByType) {
   const notes = [];
   for (const entry of entriesByType.literature) {
-    notes.push(await readNote(vaultPath, "literature", entry.id));
+    const note = await readNote(vaultPath, "literature", entry.id);
+    notes.push({
+      markdown: note?.markdown,
+      markdownPath: entry.markdownPath
+    });
   }
   for (const entry of entriesByType.permanent) {
-    notes.push(await readNote(vaultPath, "permanent", entry.id));
+    const note = await readNote(vaultPath, "permanent", entry.id);
+    notes.push({
+      markdown: note?.markdown,
+      markdownPath: entry.markdownPath
+    });
   }
-  return notes.some((item) => /assets\/imports\//.test(String(item?.markdown || "")));
+  return inspectImportedAssetLinks(notes);
 }
 
 function markdownStatusLine(report) {
@@ -235,7 +296,7 @@ function renderMarkdownReport(report) {
   return `${lines.join("\n")}\n`;
 }
 
-async function main() {
+export async function main() {
   const options = parseArgs();
   if (options.help) {
     console.log(usage());
@@ -277,7 +338,13 @@ async function main() {
   const deltaCounts = diffCounts(afterCounts, beforeCounts);
   const createdFilesOk = await createdFilesExist(vaultPath, confirm.result.createdFiles);
   const hasImportedAssetFiles = confirm.result.createdFiles.some((item) => item.noteType === "asset");
-  const importedAssetLinksOk = !hasImportedAssetFiles || (await importedAssetLinksPresent(vaultPath, afterEntries));
+  const importedAssetLinkReport = await inspectImportedAssetLinksInVault(vaultPath, afterEntries);
+  const importedAssetLinksOk =
+    !hasImportedAssetFiles ||
+    (importedAssetLinkReport.referencedAssetPaths.length > 0 && importedAssetLinkReport.invalidReferences.length === 0);
+  const originalScopeNotes = await listNotesInDirectoryScope(vaultPath, "dir_original_default", { includeDescendants: true });
+  const sourceDirectoryPlacementOk = sourceEntriesUseSourceDirectory(afterEntries.sources);
+  const sourceExcludedFromOriginalScopeOk = sourceNotesExcludedFromOriginalScope(afterEntries.sources, originalScopeNotes);
 
   const report = {
     generatedAt: new Date().toISOString(),
@@ -325,12 +392,13 @@ async function main() {
   markCheck(
     report,
     "catalog_delta_matches_created",
-    deltaCounts.literatureNotes === confirm.result.created.literatureNotes &&
-      deltaCounts.permanentNotes === confirm.result.created.permanentNotes,
-    `Catalog delta literature/permanent ${JSON.stringify({
+    catalogDeltaMatchesCreated(deltaCounts, confirm.result.created),
+    `Catalog delta ${JSON.stringify({
+      sources: deltaCounts.sources,
       literatureNotes: deltaCounts.literatureNotes,
       permanentNotes: deltaCounts.permanentNotes
     })} vs created ${JSON.stringify({
+      sources: confirm.result.created.sources,
       literatureNotes: confirm.result.created.literatureNotes,
       permanentNotes: confirm.result.created.permanentNotes
     })}`
@@ -345,8 +413,29 @@ async function main() {
     report,
     "asset_links_rewritten",
     importedAssetLinksOk,
-    hasImportedAssetFiles ? "Imported markdown contains assets/imports/ rewritten links." : "No imported asset files were created.",
+    hasImportedAssetFiles
+      ? importedAssetLinkReport.invalidReferences.length > 0
+        ? `Found non-import asset links: ${importedAssetLinkReport.invalidReferences
+          .slice(0, 3)
+          .map((item) => `${item.markdownPath} -> ${item.assetPath}`)
+          .join(", ")}`
+        : importedAssetLinkReport.referencedAssetPaths.length > 0
+          ? `Imported markdown references ${importedAssetLinkReport.referencedAssetPaths.length} rewritten asset links.`
+          : "Imported asset files were created, but no markdown references rewritten assets/imports/ links."
+      : "No imported asset files were created.",
     hasImportedAssetFiles ? "error" : "warning"
+  );
+  markCheck(
+    report,
+    "source_entries_use_source_directory",
+    sourceDirectoryPlacementOk,
+    `Source directories: ${JSON.stringify([...new Set(afterEntries.sources.map((entry) => cleanText(entry?.directoryId)).filter(Boolean))])}`
+  );
+  markCheck(
+    report,
+    "source_notes_excluded_from_original_scope",
+    sourceExcludedFromOriginalScopeOk,
+    `Original scope note ids: ${JSON.stringify(originalScopeNotes.map((note) => cleanText(note?.id)).filter(Boolean))}`
   );
 
   const jsonReportPath = path.join(vaultPath, "obsidian-import-acceptance-report.json");
@@ -370,9 +459,14 @@ async function main() {
       console.log(`  [${issue.severity}] ${issue.id}: ${issue.detail}`);
     }
   }
+  assertNoAcceptanceErrors(report);
 }
 
-main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error?.stack || error?.message || String(error));
+    process.exit(1);
+  });
+}

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import { exportMarkdown } from "../packages/export-engine/src/index.mjs";
 import { parseMarkdownWithFrontmatter } from "../packages/domain/src/frontmatter.mjs";
@@ -19,7 +20,17 @@ const INTERNAL_FRONTMATTER_KEYS = new Set([
   "distillation_status",
   "connector",
   "candidate_only",
-  "from_literature_note_ids"
+  "from_literature_note_ids",
+  "source_id",
+  "source_type",
+  "quote_text",
+  "paraphrase_text",
+  "imported_from",
+  "url_or_path",
+  "wikilinks",
+  "parsed_wikilinks",
+  "wikilink_targets",
+  "original_frontmatter"
 ]);
 
 function cleanText(value) {
@@ -227,19 +238,44 @@ function listFilesRecursive(rootDir, filter) {
   return out.sort((a, b) => a.localeCompare(b));
 }
 
-function localMarkdownTargets(markdownBody) {
+function frontmatterAliasCandidates(frontmatter = {}) {
+  const raw = frontmatter.aliases ?? frontmatter.alias ?? frontmatter.Alias ?? frontmatter.Aliases;
+  if (Array.isArray(raw)) return raw.map((item) => cleanText(item)).filter(Boolean);
+  if (raw === null || raw === undefined) return [];
+  const single = cleanText(raw);
+  return single ? [single] : [];
+}
+
+function normalizeLocalMarkdownTarget(rawTarget) {
+  const normalized = cleanText(rawTarget);
+  if (!normalized || /^(https?:|data:|mailto:|file:)/i.test(normalized)) return "";
+  const hashIndex = normalized.indexOf("#");
+  return cleanText(hashIndex >= 0 ? normalized.slice(0, hashIndex) : normalized);
+}
+
+export function assertNoAcceptanceErrors(report, label = "Acceptance checks") {
+  const errorCount = Number(report?.severityCounts?.error || 0);
+  if (errorCount <= 0) return report;
+  const error = new Error(`${label} failed with ${errorCount} error${errorCount === 1 ? "" : "s"}.`);
+  error.code = "ACCEPTANCE_FAILED";
+  error.report = report;
+  throw error;
+}
+
+export function localMarkdownTargets(markdownBody) {
   const targets = [];
   const body = String(markdownBody || "");
   for (const match of body.matchAll(/(!?\[[^\]]*?\]\()(<[^>]+>|[^)]+)(\))/g)) {
     const rawTarget = cleanText(match[2]);
     const unwrapped = rawTarget.startsWith("<") && rawTarget.endsWith(">") ? rawTarget.slice(1, -1).trim() : rawTarget;
-    if (!unwrapped || /^(https?:|data:|mailto:|file:)/i.test(unwrapped)) continue;
-    targets.push(unwrapped);
+    const normalizedTarget = normalizeLocalMarkdownTarget(unwrapped);
+    if (!normalizedTarget) continue;
+    targets.push(normalizedTarget);
   }
   return targets;
 }
 
-function resolveLinkCandidatePaths(target, markdownFilePath, isEmbed) {
+export function resolveLinkCandidatePaths(target, markdownFilePath, isEmbed) {
   const noteDir = path.posix.dirname(toPortablePath(markdownFilePath));
   const normalizedTarget = toPortablePath(target);
   const directPath = path.posix.normalize(path.posix.join(noteDir, normalizedTarget));
@@ -249,28 +285,39 @@ function resolveLinkCandidatePaths(target, markdownFilePath, isEmbed) {
   return [...new Set(out)];
 }
 
-function buildMarkdownPathIndex(markdownFiles = [], exportRoot) {
+export function buildMarkdownPathIndex(markdownFiles = [], exportRoot) {
   const exactPaths = new Set();
   const basenameMap = new Map();
+  const aliasMap = new Map();
   for (const markdownFilePath of markdownFiles) {
     const relativePath = toPortablePath(path.relative(exportRoot, markdownFilePath));
+    const raw = fs.readFileSync(markdownFilePath, "utf8");
+    const parsed = parseMarkdownWithFrontmatter(raw);
     exactPaths.add(relativePath);
     const basename = path.posix.basename(relativePath, path.posix.extname(relativePath));
     if (!basenameMap.has(basename)) basenameMap.set(basename, []);
     basenameMap.get(basename).push(relativePath);
+    for (const alias of frontmatterAliasCandidates(parsed.frontmatter)) {
+      if (!aliasMap.has(alias)) aliasMap.set(alias, []);
+      aliasMap.get(alias).push(relativePath);
+    }
   }
-  return { exactPaths, basenameMap };
+  return { exactPaths, basenameMap, aliasMap };
 }
 
-function resolveWikilinkCandidatePaths(target, markdownIndex) {
+export function resolveWikilinkCandidatePaths(target, markdownIndex) {
   const normalizedTarget = toPortablePath(target).replace(/\.md$/i, "");
   if (!normalizedTarget) return [];
   if (normalizedTarget.includes("/")) {
     return [`${normalizedTarget}.md`];
   }
-  const basenameMatches = markdownIndex.basenameMap.get(normalizedTarget) || [];
-  if (basenameMatches.length === 1) return basenameMatches;
-  if (basenameMatches.length > 1) return basenameMatches.map((item) => `${item}#ambiguous`);
+  const matches = [
+    ...(markdownIndex.basenameMap.get(normalizedTarget) || []),
+    ...(markdownIndex.aliasMap.get(normalizedTarget) || [])
+  ].filter(Boolean);
+  const uniqueMatches = [...new Set(matches)];
+  if (uniqueMatches.length === 1) return uniqueMatches;
+  if (uniqueMatches.length > 1) return uniqueMatches.map((item) => `${item}#ambiguous`);
   return [`${normalizedTarget}.md`];
 }
 
@@ -299,8 +346,13 @@ function validateExportedMarkdownFile(markdownFilePath, exportRoot, issues, mark
     });
   }
 
-  for (const link of parseWikilinks(raw)) {
+  for (const link of parseWikilinks(parsed.body)) {
     if (!link.target) continue;
+    if (link.embed) {
+      const embedFileCandidates = resolveLinkCandidatePaths(link.target, portableMarkdownPath, true);
+      const fileExists = embedFileCandidates.some((candidate) => existingFile(path.join(exportRoot, candidate)));
+      if (fileExists) continue;
+    }
     const targetCandidates = resolveWikilinkCandidatePaths(link.target, markdownIndex);
     const ambiguous = targetCandidates.some((candidate) => candidate.endsWith("#ambiguous"));
     const exactMatches = targetCandidates.map((candidate) => candidate.replace(/#ambiguous$/, ""));
@@ -325,7 +377,7 @@ function validateExportedMarkdownFile(markdownFilePath, exportRoot, issues, mark
     });
   }
 
-  for (const target of localMarkdownTargets(raw)) {
+  for (const target of localMarkdownTargets(parsed.body)) {
     const targetCandidates = resolveLinkCandidatePaths(target, portableMarkdownPath, false);
     const exists = targetCandidates.some((candidate) => existingFile(path.join(exportRoot, candidate)));
     if (exists) continue;
@@ -339,7 +391,7 @@ function validateExportedMarkdownFile(markdownFilePath, exportRoot, issues, mark
   }
 }
 
-function buildAcceptanceReport(targetPath, exportResult) {
+export function buildAcceptanceReport(targetPath, exportResult) {
   const markdownFiles = listFilesRecursive(targetPath, (filePath) => filePath.toLowerCase().endsWith(".md"));
   const assetFiles = listFilesRecursive(path.join(targetPath, "assets"));
   const issues = [];
@@ -439,7 +491,7 @@ function writeAcceptanceMarkdownReport(targetPath, report) {
   return reportPath;
 }
 
-async function main() {
+export async function main() {
   const options = parseArgs();
   if (options.help) {
     console.log(usage());
@@ -497,6 +549,7 @@ async function main() {
         console.log(`  ... ${report.issues.length - 8} more issues`);
       }
     }
+    assertNoAcceptanceErrors(report);
   } else {
     console.log("Acceptance checks: skipped (--skip-checks).");
   }
@@ -516,7 +569,11 @@ async function main() {
   console.log(`Opened in Obsidian: ${obsidianPath}`);
 }
 
-main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error(error?.stack || error?.message || String(error));
+    process.exit(1);
+  });
+}

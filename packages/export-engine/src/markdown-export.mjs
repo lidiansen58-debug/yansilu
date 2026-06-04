@@ -16,7 +16,17 @@ const INTERNAL_EXPORT_FRONTMATTER_KEYS = new Set([
   "distillation_status",
   "connector",
   "candidate_only",
-  "from_literature_note_ids"
+  "from_literature_note_ids",
+  "source_id",
+  "source_type",
+  "quote_text",
+  "paraphrase_text",
+  "imported_from",
+  "url_or_path",
+  "wikilinks",
+  "parsed_wikilinks",
+  "wikilink_targets",
+  "original_frontmatter"
 ]);
 
 async function listAllFiles(root) {
@@ -110,11 +120,15 @@ function cleanExportFrontmatter(frontmatter, body) {
   return cleaned;
 }
 
-function rewriteExportFrontmatter(markdown) {
+function rewriteExportMarkdown(markdown, sourcePath, targetPath, noteTargetMap) {
   const parsed = parseMarkdownWithFrontmatter(markdown);
-  const cleanedFrontmatter = cleanExportFrontmatter(parsed.frontmatter, parsed.body);
-  if (!Object.keys(cleanedFrontmatter).length) return parsed.body;
-  return serializeMarkdownWithFrontmatter(cleanedFrontmatter, parsed.body);
+  let rewrittenBody = rewriteVaultNoteLinks(parsed.body, noteTargetMap);
+  if (sourcePath !== targetPath) {
+    rewrittenBody = rewriteVaultAssetLinks(rewrittenBody, sourcePath, targetPath);
+  }
+  const cleanedFrontmatter = cleanExportFrontmatter(parsed.frontmatter, rewrittenBody);
+  if (!Object.keys(cleanedFrontmatter).length) return rewrittenBody;
+  return serializeMarkdownWithFrontmatter(cleanedFrontmatter, rewrittenBody);
 }
 
 function exportStemFromMarkdown(markdown, fallbackStem = "note") {
@@ -411,11 +425,12 @@ export async function exportMarkdown({
   for (const plan of markdownPlans) {
     const dest = path.join(resolvedTargetPath, plan.targetPath.replaceAll("/", path.sep));
     await fs.mkdir(path.dirname(dest), { recursive: true });
-    let rewrittenMarkdown = rewriteVaultNoteLinks(plan.markdown, noteLinkTargetMap);
-    if (plan.sourcePath !== plan.targetPath) {
-      rewrittenMarkdown = rewriteVaultAssetLinks(rewrittenMarkdown, plan.sourcePath, plan.targetPath);
-    }
-    rewrittenMarkdown = rewriteExportFrontmatter(rewrittenMarkdown);
+    const rewrittenMarkdown = rewriteExportMarkdown(
+      plan.markdown,
+      plan.sourcePath,
+      plan.targetPath,
+      noteLinkTargetMap
+    );
     await fs.writeFile(dest, rewrittenMarkdown, "utf8");
     exportedFiles.push({
       kind: "markdown",

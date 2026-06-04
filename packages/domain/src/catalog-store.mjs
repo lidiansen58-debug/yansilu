@@ -5,6 +5,7 @@ import { SQLITE_DB_FILES } from "./sqlite-migrations.mjs";
 import { rewriteAssetLinksInMarkdownFile } from "./note-file-rewrite.mjs";
 
 const DEFAULT_DIRECTORY_SPECS = [
+  { id: "dir_source_default", type: "source_default", title: "Source Vault", relPath: path.join("notes", "sources"), isHidden: true },
   { id: "dir_fleeting_default", type: "fleeting_default", title: "随笔目录", relPath: path.join("notes", "fleeting") },
   { id: "dir_literature_default", type: "literature_default", title: "书摘目录", relPath: path.join("notes", "literature") },
   { id: "dir_original_default", type: "original_default", title: "永久笔记", relPath: path.join("notes", "original") }
@@ -52,7 +53,7 @@ function validateFsPath(vaultPath, fsPath) {
 
 function validateDirectoryType(input) {
   const value = String(input || "custom").trim();
-  const allowed = new Set(["fleeting_default", "literature_default", "original_default", "custom"]);
+  const allowed = new Set(["fleeting_default", "literature_default", "original_default", "source_default", "custom"]);
   if (!allowed.has(value)) throw new Error(`directoryType invalid: ${value}`);
   return value;
 }
@@ -122,6 +123,33 @@ function directoryScopeRows(db, directoryId) {
     .all(directoryId);
 }
 
+function hasHiddenAncestor(db, directoryId) {
+  if (!directoryId) return false;
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE directory_ancestry(id, parent_directory_id, is_hidden) AS (
+         SELECT id, parent_directory_id, is_hidden
+         FROM directories
+         WHERE id = ?
+         UNION ALL
+         SELECT d.id, d.parent_directory_id, d.is_hidden
+         FROM directories d
+         JOIN directory_ancestry ancestry ON ancestry.parent_directory_id = d.id
+       )
+       SELECT is_hidden
+       FROM directory_ancestry`
+    )
+    .all(directoryId);
+  return rows.some((row) => Number(row?.is_hidden || 0) === 1);
+}
+
+function assertVisibleDirectoryAllowed(db, parentDirectoryId, isHidden) {
+  if (isHidden || !parentDirectoryId) return;
+  if (hasHiddenAncestor(db, parentDirectoryId)) {
+    throw new Error("visible directories cannot be created under a hidden parent");
+  }
+}
+
 export async function ensureDefaultDirectories(vaultPath) {
   if (!vaultPath) throw new Error("vaultPath is required");
   const root = path.resolve(vaultPath);
@@ -135,9 +163,9 @@ export async function ensureDefaultDirectories(vaultPath) {
       db.prepare(
         `INSERT INTO directories
           (id, parent_directory_id, directory_type, title, fs_path, is_default, is_hidden, max_notes, created_at, updated_at)
-         VALUES (?, NULL, ?, ?, ?, 1, 0, 500, ?, ?)
+         VALUES (?, NULL, ?, ?, ?, ?, ?, 500, ?, ?)
          ON CONFLICT(id) DO NOTHING`
-      ).run(spec.id, spec.type, spec.title, fsPath, now, now);
+      ).run(spec.id, spec.type, spec.title, fsPath, spec.isDefault === false ? 0 : 1, spec.isHidden === true ? 1 : 0, now, now);
     }
   } finally {
     db.close();
@@ -187,6 +215,7 @@ export async function createDirectory(vaultPath, input = {}) {
         .get(parentDirectoryId);
       if (!parent) throw new Error(`parentDirectoryId not found: ${parentDirectoryId}`);
     }
+    assertVisibleDirectoryAllowed(db, parentDirectoryId, isHidden);
 
     await fs.mkdir(fsPath, { recursive: true });
     db.prepare(
@@ -249,6 +278,7 @@ export async function updateDirectory(vaultPath, directoryId, input = {}) {
         : Number.isFinite(Number(input.maxNotes)) && Number(input.maxNotes) > 0
           ? Math.floor(Number(input.maxNotes))
           : 500;
+    assertVisibleDirectoryAllowed(db, parentDirectoryId, isHidden);
 
     const pathChanged = path.resolve(fsPath) !== path.resolve(current.fs_path);
     if (pathChanged) {

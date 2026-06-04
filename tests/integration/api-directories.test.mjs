@@ -327,3 +327,56 @@ test("directories API keeps the record when filesystem delete fails", async (t) 
   assert.ok(directories.json.items.some((item) => item.id === created.json.item.id));
   await fs.access(folderPath);
 });
+
+test("directories API rejects visible directories under hidden parents on create and update", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-api-hidden-parent-vault-");
+  const originalPath = path.join(vaultPath, "notes", "original", "visible-dir");
+  const hiddenPath = path.join(vaultPath, "notes", "sources", "visible-under-hidden");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  await waitForHealth(baseUrl);
+
+  const createdUnderHidden = await postJson(baseUrl, "/api/v1/directories", {
+    title: "visible-under-hidden",
+    parentDirectoryId: "dir_source_default",
+    directoryType: "custom",
+    fsPath: hiddenPath,
+    maxNotes: 500
+  });
+  assert.equal(createdUnderHidden.status, 400, JSON.stringify(createdUnderHidden.json));
+  assert.equal(createdUnderHidden.json.error.code, "DIRECTORY_PAYLOAD_INVALID");
+  assert.match(createdUnderHidden.json.error.message, /hidden parent/i);
+
+  const visibleDirectory = await postJson(baseUrl, "/api/v1/directories", {
+    title: "visible-dir",
+    parentDirectoryId: "dir_original_default",
+    directoryType: "custom",
+    fsPath: originalPath,
+    maxNotes: 500
+  });
+  assert.equal(visibleDirectory.status, 201, JSON.stringify(visibleDirectory.json));
+
+  const movedUnderHidden = await patchJson(
+    baseUrl,
+    `/api/v1/directories/${encodeURIComponent(visibleDirectory.json.item.id)}`,
+    {
+      parentDirectoryId: "dir_source_default",
+      fsPath: hiddenPath
+    }
+  );
+  assert.equal(movedUnderHidden.status, 400, JSON.stringify(movedUnderHidden.json));
+  assert.equal(movedUnderHidden.json.error.code, "DIRECTORY_UPDATE_INVALID");
+  assert.match(movedUnderHidden.json.error.message, /hidden parent/i);
+});
