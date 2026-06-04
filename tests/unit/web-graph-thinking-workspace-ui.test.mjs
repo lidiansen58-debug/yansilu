@@ -89,6 +89,9 @@ test("graph thinking popover and isolated orbit styles stay content-first and to
   const html = readPrototypeHtml();
   assert.match(html, /\.graph-thinking-panel \{[\s\S]*position: absolute;[\s\S]*bottom: 82px;[\s\S]*max-height: min\(420px, calc\(100% - 112px\)\);[\s\S]*overflow: auto;/);
   assert.match(html, /\.graph-question-chip\.is-empty \{[\s\S]*opacity: \.72;[\s\S]*box-shadow: 0 12px 24px rgba\(15, 23, 42, 0\.08\);/);
+  assert.match(html, /\.graph-utility-drawer-wrap \{[\s\S]*pointer-events: none;/);
+  assert.match(html, /\.graph-utility-drawer \{[\s\S]*pointer-events: auto;/);
+  assert.match(html, /\.graph-selection-panel \{[\s\S]*position: relative;[\s\S]*z-index: 8;/);
   assert.match(html, /\.graph-map-node-hit \{[\s\S]*pointer-events: all;[\s\S]*vector-effect: non-scaling-stroke;/);
   assert.match(html, /\.graph-map-node-orbit\.is-isolated \{[\s\S]*stroke: rgba\(213, 156, 42, 0\.74\) !important;[\s\S]*animation: graphNodeOrbitPulse 3\.4s ease-in-out infinite;/);
   assert.match(html, /\.graph-map-node\.is-graph-isolated \.graph-map-node-core \{[\s\S]*stroke: #d59c2a;[\s\S]*stroke-dasharray: 3 4;/);

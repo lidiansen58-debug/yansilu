@@ -3400,6 +3400,7 @@
     .graph-utility-drawer-wrap {
       display: flex;
       justify-content: flex-end;
+      pointer-events: none;
     }
     .graph-utility-drawer {
       width: min(460px, 100%);
@@ -3408,6 +3409,7 @@
       background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
       overflow: hidden;
+      pointer-events: auto;
     }
     .graph-utility-drawer-summary {
       list-style: none;
@@ -4156,6 +4158,8 @@
       outline: none;
     }
     .graph-selection-panel {
+      position: relative;
+      z-index: 8;
       display: grid;
       align-content: start;
       gap: 12px;
