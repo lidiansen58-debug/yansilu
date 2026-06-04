@@ -18,6 +18,9 @@ test("manual link picker hides the old relation-type and reason block at runtime
   assert.ok(source.includes('const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");'));
   assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = true;"));
   assert.ok(source.includes("if (linkPickerGuidance?.classList?.contains(\"semantic-relation-quality-guidance\")) linkPickerGuidance.hidden = true;"));
+  assert.ok(source.includes("const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;"));
+  assert.ok(source.includes("this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);"));
+  assert.ok(source.includes("if (linkSearchSpacer.tagName === \"DIV\" && !String(linkSearchSpacer.textContent || \"\").trim()) linkSearchSpacer.hidden = true;"));
 });
 
 test("manual link picker renders a title-first autocomplete list", async () => {
@@ -25,6 +28,7 @@ test("manual link picker renders a title-first autocomplete list", async () => {
 
   assert.match(source, /filter\(\(n\) => normalizeText\(n\.title\)\.includes\(q\)\)/);
   assert.match(source, /highlightMatch\(this\.linkCandidateDisplayTitle\(n\), q\)/);
+  assert.match(source, /const list = q \? computed\.slice\(0, 50\) : \[\];/);
   assert.doesNotMatch(source, /picker-selection-state/);
   assert.doesNotMatch(source, /picker-preview/);
   assert.doesNotMatch(source, /picker-detail-row/);
