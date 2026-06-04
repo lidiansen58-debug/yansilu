@@ -2,24 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderImportPageMount } from "../../apps/web/src/import-page-mount.js";
 
-test("import page mount renders the redesigned workbench shell, export card, and result placeholder", () => {
+test("import page mount renders tabbed import export workspace and result placeholder", () => {
   const html = renderImportPageMount({
     toolbar: {
       connector: "obsidian",
       path: "E:\\vault"
-    }
+    },
+    activeTab: "import"
   });
 
-  assert.match(html, /import-workbench-hero/);
-  assert.match(html, /把 Obsidian 笔记稳稳带进来，再整洁导出去/);
+  assert.match(html, /导入与导出/);
+  assert.match(html, /选择导入或导出/);
+  assert.match(html, /data-import-workspace-tab="import"/);
+  assert.match(html, /id="importWorkspaceTabImport"/);
+  assert.match(html, /id="importWorkspaceTabExport"/);
   assert.match(html, /id="importToolbarMount"/);
   assert.match(html, /id="exportCardMount"/);
-  assert.match(html, /导出工作台/);
-  assert.match(html, /把永久笔记整洁导出成 Markdown/);
-  assert.match(html, /选择导出范围后即可开始/);
-  assert.match(html, /id="importResult"/);
+  assert.match(html, /从 Obsidian 仓库读入内容/);
+  assert.match(html, /把永久笔记导出成 Markdown 文件/);
   assert.match(html, /最近一次操作/);
-  assert.match(html, /还没有执行导入或导出。先选择 Obsidian 仓库并生成预览。/);
+  assert.match(html, /还没有执行操作/);
 });
 
 test("import page mount can render a composed result card", () => {

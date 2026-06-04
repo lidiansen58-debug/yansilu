@@ -116,6 +116,18 @@ test("applySqliteMigrations accepts legacy checksums for shipped databases", asy
       sqlFile: "006_catalog_v1_7.sql"
     },
     {
+      dbFile: SQLITE_DB_FILES.catalog,
+      migrationId: "007_catalog_v1_8",
+      legacyChecksum: "95642c88c3516d3092933ac2d16dcf61aa4d9a76f6df8f028576f389f185eb48",
+      sqlFile: "007_catalog_v1_8.sql"
+    },
+    {
+      dbFile: SQLITE_DB_FILES.catalog,
+      migrationId: "008_catalog_v1_9",
+      legacyChecksum: "c889a368f67e924eb7134e7895f971a868deec4deed2d3965f4d6394a0fd1904",
+      sqlFile: "008_catalog_v1_9.sql"
+    },
+    {
       dbFile: SQLITE_DB_FILES.graphCache,
       migrationId: "001_graph_cache_v1_2",
       legacyChecksum: "9f5c1811883b7917e529cfa895d3c3640c5bc8c7c64027a007c5586721d53ddb",
