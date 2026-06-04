@@ -10867,7 +10867,9 @@ function centerGraphViewportIfZoomed() {
 
 function beginGraphViewportDrag(viewport, event) {
   if (!viewport || event.button !== 0) return false;
-  const ignoredTarget = event.target.closest(".graph-map-floater, .graph-hover-card, .graph-focus-context");
+  const ignoredTarget = event.target.closest(
+    ".graph-map-floater, .graph-hover-card, .graph-focus-context, .graph-selection-panel, .graph-thinking-panel, .graph-map-node, .graph-map-edge-group"
+  );
   if (ignoredTarget) return false;
   graphViewportDragState.active = true;
   graphViewportDragState.moved = false;
