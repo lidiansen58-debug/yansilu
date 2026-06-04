@@ -4877,9 +4877,11 @@ export class EditorPane {
     const cursor = selection.from || 0;
     const tryCursor = (candidateCursor) => {
       const left = text.slice(0, candidateCursor);
-      const start = left.lastIndexOf("[[");
+      const asciiStart = left.lastIndexOf("[[");
+      const fullWidthStart = left.lastIndexOf("【【");
+      const start = Math.max(asciiStart, fullWidthStart);
       if (start < 0) return null;
-      const lastClose = left.lastIndexOf("]]");
+      const lastClose = Math.max(left.lastIndexOf("]]"), left.lastIndexOf("】】"));
       if (lastClose > start) return null;
       const query = left.slice(start + 2);
       if (query.includes("\n")) return null;
@@ -9002,10 +9004,7 @@ export class EditorPane {
 
       const inline = this.detectInlineLinkContext();
       const tagInline = this.detectInlineTagContext();
-      const explicitEmptyLinkTrigger =
-        inline &&
-        !inline.query &&
-        (Date.now() - this.lastLinkTriggerAt < 900 || previousValue.slice(inline.start, inline.end) !== "[[");
+      const explicitEmptyLinkTrigger = inline && !inline.query;
       const explicitEmptyTagTrigger =
         tagInline &&
         !tagInline.query &&
@@ -9038,6 +9037,18 @@ export class EditorPane {
       this.lastEditorValue = tab.body;
   }
 
+  scheduleInlineLinkTriggerProbe() {
+    setTimeout(() => {
+      const inline = this.detectInlineLinkContext();
+      if (!inline || inline.query) return;
+      const body = this.getEditorValue();
+      const trigger = String(body.slice(inline.start, inline.end) || "");
+      if (!["[[", "【【"].includes(trigger)) return;
+      void this.openLinkPicker("", { inlineContext: inline, focusInput: true });
+      this.lastInlinePickerAnchor = inline.end;
+    }, 0);
+  }
+
   handleEditorKeydown(e) {
     if (this.isWysiwygMode()) this.clearMarkdownSelectionOverride();
     if (e.isComposing || e.keyCode === 229) return;
@@ -9046,7 +9057,10 @@ export class EditorPane {
     const inlinePickerOpenBeforeEnter =
       (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) ||
       (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext);
-    if (!mod && e.key === "[") this.lastLinkTriggerAt = Date.now();
+    if (!mod && (e.key === "[" || e.key === "【")) {
+      this.lastLinkTriggerAt = Date.now();
+      this.scheduleInlineLinkTriggerProbe();
+    }
     if (!mod && e.key === "#") this.lastTagTriggerAt = Date.now();
     if (!mod && !e.shiftKey && e.key === "Enter" && !inlinePickerOpenBeforeEnter) this.lastPlainEnterAt = Date.now();
 

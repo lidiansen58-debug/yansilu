@@ -17,10 +17,10 @@ test("manual link picker hides the old relation-type and reason block at runtime
 
   assert.ok(source.includes('const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");'));
   assert.ok(source.includes("if (linkPickerMeta) linkPickerMeta.hidden = true;"));
-  assert.ok(source.includes("if (linkPickerGuidance?.classList?.contains(\"semantic-relation-quality-guidance\")) linkPickerGuidance.hidden = true;"));
+  assert.ok(source.includes('if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = true;'));
   assert.ok(source.includes("const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;"));
   assert.ok(source.includes("this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);"));
-  assert.ok(source.includes("if (linkSearchSpacer.tagName === \"DIV\" && !String(linkSearchSpacer.textContent || \"\").trim()) linkSearchSpacer.hidden = true;"));
+  assert.ok(source.includes('if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;'));
 });
 
 test("manual link picker renders a title-first autocomplete list", async () => {
@@ -122,6 +122,29 @@ test("manual link picker still detects existing wikilinks by resolved note id be
   assert.ok(source.includes("return parseLinks(body).some((token) => this.resolveLinkToken(token, scopedNotes)?.note?.id === targetId);"));
   assert.ok(source.includes("const bodyAlreadyLinked = !inlineInsert && this.hasResolvedLinkToNote(target.id, currentBody);"));
   assert.ok(source.includes("} else if (bodyAlreadyLinked) {"));
+});
+
+test("inline relation trigger recognizes both [[ and full-width 【【 prefixes", async () => {
+  const source = await readComponentsEditorPaneSource();
+
+  assert.ok(source.includes('const asciiStart = left.lastIndexOf("[[");'));
+  assert.ok(source.includes('const fullWidthStart = left.lastIndexOf("【【");'));
+  assert.ok(source.includes('const lastClose = Math.max(left.lastIndexOf("]]"), left.lastIndexOf("】】"));'));
+  assert.ok(source.includes("const explicitEmptyLinkTrigger = inline && !inline.query;"));
+  assert.ok(source.includes("scheduleInlineLinkTriggerProbe() {"));
+  assert.ok(source.includes('if (!["[[", "【【"].includes(trigger)) return;'));
+  assert.ok(source.includes('if (!mod && (e.key === "[" || e.key === "【")) {'));
+});
+
+test("detectInlineLinkContext returns context for full-width 【【 input", () => {
+  const pane = Object.create(EditorPane.prototype);
+  pane.editorSelection = () => ({ from: 2, to: 2 });
+  pane.getEditorValue = () => "【【";
+  pane.isWysiwygMode = () => false;
+
+  const inline = pane.detectInlineLinkContext();
+
+  assert.deepEqual(inline, { start: 0, end: 2, query: "" });
 });
 
 test("quick association synchronizes both note endpoints as connected", async () => {
