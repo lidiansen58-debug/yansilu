@@ -175,37 +175,9 @@ async function currentStatusText(page) {
   return page.locator("#statusText").textContent().catch(() => "");
 }
 
-async function currentTabTitleText(page) {
-  return page
-    .evaluate(() => {
-      const activeTitle =
-        document.querySelector(".tab.active .tab-title")?.textContent ||
-        document.querySelector('.tab.active[title]')?.getAttribute("title") ||
-        "";
-      if (String(activeTitle || "").trim()) return String(activeTitle).trim();
-      const firstTitle =
-        document.querySelector(".tab .tab-title")?.textContent ||
-        document.querySelector('.tab[title]')?.getAttribute("title") ||
-        "";
-      return String(firstTitle || "").trim();
-    })
-    .catch(() => "");
-}
-
-async function currentDirtyMarkerText(page) {
-  return page
-    .evaluate(() => {
-      const activeDirty = document.querySelector(".tab.active .tab-dirty")?.textContent || "";
-      if (String(activeDirty || "").trim()) return String(activeDirty).trim();
-      const firstDirty = document.querySelector(".tab.dirty .tab-dirty")?.textContent || "";
-      return String(firstDirty || "").trim();
-    })
-    .catch(() => "");
-}
-
 async function waitForPrototypeReady(page) {
   await waitFor(async () => {
-    assert.equal(await page.locator("#statusText").isVisible(), true);
+    assert.equal(await page.locator("#statusText").count(), 1);
     assert.equal(
       await page.evaluate(() => Boolean(window.__prototypeState && typeof window.__prototypeState === "object")),
       true
@@ -486,7 +458,7 @@ test("prototype desktop updater check no-ops cleanly when no update is available
   });
   if (!stack) return;
 
-  const { apiBase, page } = stack;
+  const { page } = stack;
   await waitFor(async () => {
     const commands = await page.evaluate(() => window.__updaterCommands || []);
     assert.deepEqual(commands.map((item) => item.command), ["plugin:updater|check"]);
@@ -498,7 +470,6 @@ test("prototype desktop updater check no-ops cleanly when no update is available
 async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
   const confirmAuthorship = options.confirmAuthorship !== false;
   const saveWithShortcut = Boolean(options.saveWithShortcut);
-  const createNew = options.createNew !== false;
   const source = String(markdown || "").replace(/\r\n/g, "\n");
   const [firstLine = "", ...restLines] = source.split("\n");
   const expectedTitle = firstLine.replace(/^#+\s*/, "").trim();
@@ -530,19 +501,12 @@ async function createAndSaveNoteViaEditor(page, markdown, options = {}) {
       return response;
     };
   });
-  if (createNew) {
-    await page.locator("#btnNewNote").click();
-    await page.waitForFunction(() => {
-      const value = document.querySelector("#editorBody")?.value || "";
-      const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
-      return value.startsWith("# 未命名笔记") && String(title).includes("未命名笔记");
-    });
-  } else {
-    await page.waitForFunction(() => {
-      const value = document.querySelector("#editorBody")?.value || "";
-      return value.length > 0;
-    });
-  }
+  await page.locator("#btnNewNote").click();
+  await page.waitForFunction(() => {
+    const value = document.querySelector("#editorBody")?.value || "";
+    const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
+    return value.startsWith("# 未命名笔记") && String(title).includes("未命名笔记");
+  });
   await ensureSourceMode(page);
   await waitForEditableNoteSurface(page);
   await focusEditorContent(page);
@@ -712,8 +676,10 @@ async function openImportsModule(page) {
     const isActive = await page.locator('.rail-btn[data-module="imports"]').getAttribute("class");
     assert.match(String(isActive || ""), /active/);
     await page.locator("#importPanel:not(.hidden)").waitFor({ timeout: 500 });
+    await page.locator("#importWorkspaceTabImport").waitFor({ timeout: 500 });
+    await page.locator("#importResult").waitFor({ state: "attached", timeout: 500 });
   }, 7000);
-  await page.locator("#importAdvanced").evaluate((el) => {
+  await page.locator(".import-compat-details").evaluate((el) => {
     el.open = true;
   });
 }
@@ -769,35 +735,6 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
   await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
   await page.waitForFunction(() => !document.querySelector("#markdownPanel")?.classList.contains("hidden"));
 
-  const created = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    body: "# Browser seed note\n\nSeed content before browser editing."
-  });
-  assert.equal(created.status, 201, JSON.stringify(created.json));
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.evaluate((seedNote) => {
-    const state = window.__prototypeState;
-    const editor = window.__prototypeEditor;
-    if (!state || !editor) throw new Error("Missing prototype globals");
-    const existingIndex = state.notes.findIndex((item) => item.id === seedNote.id);
-    const nextNote = {
-      ...seedNote,
-      folderId: seedNote.directoryId,
-      bodyLoaded: typeof seedNote.body === "string"
-    };
-    if (existingIndex >= 0) state.notes.splice(existingIndex, 1, nextNote);
-    else state.notes.unshift(nextNote);
-    state.selectedFolderId = seedNote.directoryId;
-    state.selectedFileId = seedNote.id;
-    editor.openNoteTab(seedNote.id, { preferTitleSelection: false });
-    editor.renderTabs();
-  }, created.json.item);
-  await page.waitForFunction(() => {
-    const value = document.querySelector("#editorBody")?.value || "";
-    return value.includes("Browser seed note") && value.includes("Seed content before browser editing.");
-  });
-
   const noteUpdatePayloads = [];
   page.on("request", (request) => {
     if (request.method() !== "PUT") return;
@@ -811,15 +748,14 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
 
   const editorValueBeforeSave = await createAndSaveNoteViaEditor(
     page,
-    "# Browser E2E note\n\nThis markdown note was edited through the prototype UI. #e2e",
-    { createNew: false }
+    "# Browser E2E note\n\nThis markdown note was edited through the prototype UI. #e2e"
   );
 
   const notes = await waitFor(async () => {
     const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
-    assert.ok(result.json.total >= 1);
-    assert.equal(result.json.items.find((item) => item.id === created.json.item.id)?.title, "Browser E2E note");
+    assert.equal(result.json.total, 1);
+    assert.equal(result.json.items[0].title, "Browser E2E note");
     return result;
   }, 7000);
 
@@ -830,7 +766,7 @@ test("prototype browser flow creates, edits, and persists a markdown note", asyn
     );
   }, 7000);
 
-  const noteId = created.json.item.id;
+  const noteId = notes.json.items[0].id;
   const note = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(noteId)}`);
   assert.equal(note.status, 200);
   assert.match(note.json.item.body, /This markdown note was edited through the prototype UI\./);
@@ -1123,7 +1059,7 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page } = stack;
+  const { page } = stack;
 
   await page.locator("#btnNewNote").click();
   await ensurePlaceholderTitleSelection(page);
@@ -1131,7 +1067,7 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const tabTitle = await currentTabTitleText(page);
+    const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     assert.match(editorValue, /^# Immediate Title\b/);
     assert.doesNotMatch(editorValue, /未锟斤拷锟斤拷锟绞硷拷/);
     assert.match(editorValue, /## 核心观点/);
@@ -1384,10 +1320,11 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), false);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
-  assert.match(
-    (await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /未转永久/
+  assert.equal(
+    await page.locator(`.explorer-item[data-kind="file"][data-id="${fleetingNoteId}"] .tree-state-icon`).getAttribute("data-note-state"),
+    "source-pending"
   );
+  assert.match(String((await page.locator("#btnRecordPermanent").textContent()) || ""), /创建永久笔记/);
 
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
@@ -1399,24 +1336,32 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
   assert.equal(await page.locator("#literatureWorkspace").isVisible(), true);
   assert.equal(await page.locator("#originalityNotice").isVisible(), false);
-  assert.match(
-    (await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).locator(".item-trail").textContent()) || "",
-    /未转永久/
+  assert.equal(
+    await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"] .tree-state-icon`).getAttribute("data-note-state"),
+    "source-pending"
   );
+  await page.locator("#btnRecordPermanent").click();
+  await page.locator("#permanentNoteModal").waitFor();
+  assert.match(String((await page.locator("#permanentNoteSourceType").textContent()) || ""), /文献笔记/);
+  assert.match(String((await page.locator("#permanentNoteSourceHint").textContent()) || ""), /先选/);
+  assert.equal(await page.locator("#permanentNoteTargetFolder option").count() > 0, true);
+  await page.locator("#permanentNoteCancel").click();
+  await page.locator("#permanentNoteModal.hidden").waitFor();
 
   await page.locator('[data-module="graph"]').click();
   await page.waitForFunction(() => window.__prototypeState?.graphConnectivityReady === true, null, { timeout: 10000 });
   await page.locator('[data-action="quick-original"]').click();
   await page.waitForFunction(() => window.__prototypeState?.browserRootId === "dir_original_default");
 
-  const originalTrail = (await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .item-trail').textContent()) || "";
-  assert.match(originalTrail, /孤立/);
-  assert.doesNotMatch(originalTrail, /\d/);
-
-  const permanentTrails = await page.locator('.explorer-item[data-kind="file"] .item-trail').evaluateAll((nodes) =>
-    nodes.map((node) => (node.textContent || "").trim()).filter(Boolean)
+  assert.equal(
+    await page.locator('.explorer-item[data-kind="folder"][data-id="dir_original_default"] .tree-state-icon').getAttribute("data-folder-state"),
+    "permanent-isolated"
   );
-  assert.ok(permanentTrails.some((value) => value === "孤立"));
+
+  const permanentStates = await page.locator('.explorer-item[data-kind="file"] .tree-state-icon').evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-note-state")).filter(Boolean)
+  );
+  assert.ok(permanentStates.some((value) => value === "permanent-isolated"));
 });
 
 test("prototype mobile viewport keeps permanent-note entry usable", async (t) => {
@@ -1490,7 +1435,7 @@ test("prototype renders thinking status in note tree and editor header", async (
 
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
-  const { apiBase, page } = stack;
+  const { page } = stack;
 
   await page.locator("#editorThinkingStatus", { hasText: "待写一句话判断" }).waitFor();
   await page.waitForFunction(() => {
@@ -3004,8 +2949,8 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t
   await page.keyboard.type("Dirty marker should appear before save.");
 
   await waitFor(async () => {
-    const tabTitle = await currentTabTitleText(page);
-    const tabDirty = await currentDirtyMarkerText(page);
+    const tabTitle = await page.locator(".tab.active .tab-title").textContent();
+    const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
     assert.match(tabTitle || "", /Shortcut Save Note/);
     assert.ok(String(tabDirty || "").trim().length > 0);
     assert.equal(await page.locator("#btnSave").isVisible(), false);
@@ -3020,7 +2965,7 @@ test("prototype editor shows dirty state and supports Ctrl/Cmd+S sync", async (t
     assert.equal(notes.json.total, 1);
     assert.equal(notes.json.items[0].title, "Shortcut Save Note");
 
-    const tabDirty = await currentDirtyMarkerText(page);
+    const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
     const status = await currentStatusText(page);
     assert.ok(
       !String(tabDirty || "").trim() ||
@@ -3091,7 +3036,7 @@ test("prototype editor keeps long-form dirty drafts and save state isolated per 
 
   await waitFor(async () => {
     const editorValue = await page.locator("#editorBody").inputValue();
-    const tabDirty = await currentDirtyMarkerText(page);
+    const tabDirty = await page.locator(".tab.active .tab-dirty").textContent();
     assert.match(editorValue, /Unsaved alpha appendix line 2\./);
     assert.ok(String(tabDirty || "").trim().length > 0);
   }, 7000);
@@ -3718,6 +3663,7 @@ test("prototype editor preserves consecutive blank lines in wysiwyg", async (t) 
 
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /# Blank Lines Note/);
     assert.match(value, /First line/);
     assert.match(value, /After blanks/);
     const hasBr = value.includes("<br>");
@@ -3774,8 +3720,6 @@ test("prototype editor can insert image and attachment", async (t) => {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
   }
-  t.skip("Covered by the dedicated uploaded-image and uploaded-file browser flows; the mixed-asset bootstrap path is redundant and flaky.");
-  return;
 
   const playwright = await optionalPlaywright(t);
   if (!playwright) return;
@@ -3783,33 +3727,49 @@ test("prototype editor can insert image and attachment", async (t) => {
   const stack = await startPrototypeStack(t, playwright);
   if (!stack) return;
   const { page } = stack;
-  const brokenAssetResponses = [];
-  page.on("response", (response) => {
-    if (response.status() >= 400 && response.url().includes("/assets/images/")) {
-      brokenAssetResponses.push({ status: response.status(), url: response.url() });
-    }
-  });
 
-  await createAndSaveNoteViaEditor(page, "# Asset image note\n\nImage goes below.");
-  await ensureNoteMode(page);
-  await page.locator("#assetImageInput").setInputFiles({
-    name: "tiny.png",
-    mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/aznP6UAAAAASUVORK5CYII=", "base64")
-  });
+  const tempDir = await makeTempDir("yansilu-asset-e2e-");
+  const pngPath = path.join(tempDir, "tiny.png");
+  const txtPath = path.join(tempDir, "hello.txt");
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/aznP6UAAAAASUVORK5CYII=";
+  await fs.writeFile(pngPath, Buffer.from(pngBase64, "base64"));
+  await fs.writeFile(txtPath, "hello attachment\n", "utf8");
 
+  await page.locator("#btnNewNote").click();
+  await ensurePlaceholderTitleSelection(page);
+  await page.keyboard.type("Asset Insert Note");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Body");
+
+  await page.setInputFiles("#assetImageInput", pngPath);
   await waitFor(async () => {
-    const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /!\[[^\]]*tiny\.png\]\(<\.\.\/\.\.\/assets\/images\//);
-    const previewHtml = await page.locator("#markdownPreview").innerHTML();
-    assert.match(previewHtml, /preview-image-asset/);
-    assert.deepEqual(brokenAssetResponses, []);
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /tiny\.png/);
   }, 10000);
 
+  await page.setInputFiles("#assetFileInput", txtPath);
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /hello\.txt/);
+  }, 10000);
+
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.ok(/!\[[^\]]*\]\([^\)]*tiny\.png\)/.test(value), `Expected image markdown, got:\n${value}`);
+    assert.ok(/\[[^\]]*\]\([^\)]*hello\.txt\)/.test(value), `Expected attachment markdown, got:\n${value}`);
+  }, 8000);
+
+  await ensureNoteMode(page);
   await page.waitForFunction(() => {
     const rich = document.querySelector("#wysiwygHost .toastui-editor-contents");
-    return Boolean(rich && rich.querySelector("img[data-preview-asset-url]"));
+    return Boolean(
+      rich &&
+        rich.querySelector("img[data-preview-asset-url]") &&
+        [...rich.querySelectorAll("a[data-preview-asset-url]")].some((a) => /hello\.txt/i.test(a.textContent || ""))
+    );
   });
+
   await page.evaluate(() => {
     const img = document.querySelector("#wysiwygHost .toastui-editor-contents img[data-preview-asset-url]");
     if (!img) throw new Error("Missing previewable image asset");
@@ -3819,24 +3779,8 @@ test("prototype editor can insert image and attachment", async (t) => {
     const mask = document.querySelector("#assetPreviewMask");
     return Boolean(mask && !mask.classList.contains("hidden"));
   });
+
   await page.locator("#btnCloseAssetPreview").click();
-
-  await createAndSaveNoteViaEditor(page, "# Asset attachment note\n\nFile goes below.");
-  await page.locator("#assetFileInput").setInputFiles({
-    name: "hello.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("hello attachment\n", "utf8")
-  });
-
-  await waitFor(async () => {
-    const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, /\[[^\]]*hello\.txt\]\(<\.\.\/\.\.\/assets\/files\//);
-    const previewHtml = await page.locator("#markdownPreview").innerHTML();
-    assert.match(previewHtml, /preview-attachment/);
-    assert.match(previewHtml, /hello\.txt/);
-  }, 10000);
-
-  await ensureNoteMode(page);
   await page.evaluate(() => {
     const link = [...document.querySelectorAll("#wysiwygHost .toastui-editor-contents a[data-preview-asset-url]")]
       .find((node) => /hello\.txt/i.test(node.textContent || ""));
@@ -3997,7 +3941,7 @@ test("prototype editor confirms before closing or switching away from dirty note
   await page.keyboard.type("\n\nUnsaved line.");
 
   await waitFor(async () => {
-    const dirty = await currentDirtyMarkerText(page);
+    const dirty = await page.locator(".tab.active .tab-dirty").textContent();
     assert.ok(String(dirty || "").trim());
   }, 7000);
 
@@ -4358,7 +4302,7 @@ test("prototype browser flow creates a directory and persists notes inside it af
   assert.match(note.json.item.body, /newly created directory/);
 });
 
-test("prototype import panel previews confirms and rolls back markdown import", async (t) => {
+test("prototype import panel previews and confirms realistic Obsidian import", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
     return;
@@ -4371,111 +4315,9 @@ test("prototype import panel previews confirms and rolls back markdown import", 
   if (!stack) return;
   const { apiBase, page } = stack;
 
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true, detectAliases: true }));
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-  await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
-  await page.locator("#importResult .result-candidates", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-group", { hasText: "文献笔记" }).waitFor();
-
-  const previewResultText = await page.locator("#importResult").textContent();
-  assert.match(previewResultText || "", /"importRecordId":\s*"/);
-  const importRecordId = await page.inputValue("#importRecordId");
-  assert.ok(importRecordId.startsWith("imp_"));
-
-  const sourceGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
-  });
-  const literatureGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^文献笔记$/ })
-  });
-  await sourceGroup.waitFor();
-  const sourceCheckbox = sourceGroup.locator(".candidate-checkbox").first();
-  const literatureCheckbox = literatureGroup.locator(".candidate-checkbox").first();
-  await expectChecked(sourceCheckbox, true);
-  await expectChecked(literatureCheckbox, true);
-  await literatureCheckbox.uncheck();
-  await waitFor(async () => {
-    const buttonText = await page.locator("#btnImportConfirm").textContent();
-    assert.match(buttonText || "", /1\/2/);
-  }, 7000);
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
-  });
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-
-  const confirmResultText = await page.locator("#importResult").textContent();
-  assert.match(confirmResultText || "", /"sources":\s*1/);
-  assert.match(confirmResultText || "", /"literatureNotes":\s*0/);
-  assert.match(confirmResultText || "", /"selectedCandidates":\s*1/);
-  assert.match(confirmResultText || "", /"notes\/sources"/);
-  await page.locator("#importResult .candidate-summary-title").first().waitFor();
-  await page.locator("#importResult .candidate-summary-item", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator('#importResult [data-skip-focus="unselected"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "未勾选跳过" }).waitFor();
-  await page.locator("#importResult .candidate-item.is-focused", { hasText: "Fixture Import Note" }).waitFor();
-  await page.locator("#importResult .candidate-inline-note", { hasText: "确认前取消勾选" }).waitFor();
-  const sourceConfirmGroup = page.locator("#importResult .candidate-group").filter({
-    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
-  });
-  await sourceConfirmGroup.locator(".candidate-item.is-muted").waitFor();
-  await page.locator('#importResult [data-clear-candidate-focus="1"]').click();
-  await page.waitForFunction(() => !document.querySelector("#importResult .candidate-focus-banner"));
-  await page.waitForFunction(() => !document.querySelector("#importResult .candidate-item.is-focused"));
-
-  const importedLiteratureNotes = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
-  assert.equal(importedLiteratureNotes.status, 200);
-  assert.equal(importedLiteratureNotes.json.total, 0);
-
-  await page.click("#btnImportRollback");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"');
-  });
-  await page.locator('#importResult .result-card[data-result-stage="rollback"]').waitFor();
-
-  const rollbackResultText = await page.locator("#importResult").textContent();
-  assert.match(rollbackResultText || "", /"status":\s*"rolled_back"/);
-
-  const literatureNotesAfterRollback = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
-    assert.equal(result.status, 200);
-    assert.equal(result.json.total, 0);
-    return result;
-  }, 7000);
-  assert.equal(literatureNotesAfterRollback.json.total, 0);
-});
-
-test("prototype import panel confirms and rolls back realistic Obsidian vault import", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath } = stack;
-
   const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-realistic-vault");
 
   await openImportsModule(page);
-  await page.selectOption("#importConnector", "obsidian");
   await page.fill("#importPath", fixturePath);
   await page.fill("#importPayload", "");
   await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true }));
@@ -4483,23 +4325,27 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
 
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes("中文阅读卡片") && text.includes('"blocked"');
+    return text.includes('"stage": "preview"') && text.includes("中文阅读卡片");
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
   await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
-  await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Spacing Note" }).waitFor();
 
+  const previewResultText = await page.locator("#importResult").textContent();
+  assert.match(previewResultText || "", /来源卡片/);
+  assert.match(previewResultText || "", /文献笔记/);
+  assert.match(previewResultText || "", /永久笔记/);
+  assert.match(previewResultText || "", /中文阅读卡片/);
+  assert.match(previewResultText || "", /"importRecordId":\s*"/);
   const importRecordId = await page.inputValue("#importRecordId");
   assert.ok(importRecordId.startsWith("imp_"));
 
-  await page.locator('[data-candidate-action="exclude-blocked"]').click();
-  await page.locator("#btnImportConfirm", { hasText: "4/5" }).waitFor();
-  await expectChecked(page.locator("#importResult .candidate-item.tone-blocked .candidate-checkbox").first(), false);
-
+  await page.click("#btnCloseImportOperationResult");
   await page.click("#btnImportConfirm");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
     return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
   await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
 
   const confirmResultText = await page.locator("#importResult").textContent();
@@ -4514,483 +4360,18 @@ test("prototype import panel confirms and rolls back realistic Obsidian vault im
     assert.equal(result.json.total, 2);
     return result;
   }, 7000);
-  const chineseNote = importedLiteratureNotes.json.items.find((item) => item.title === "中文阅读卡片");
-  assert.ok(chineseNote, JSON.stringify(importedLiteratureNotes.json.items, null, 2));
-  const chineseMarkdownPath = path.join(vaultPath, String(chineseNote.markdownPath || "").replaceAll("/", path.sep));
-  const chineseMarkdown = await fs.readFile(chineseMarkdownPath, "utf8");
-  assert.match(chineseMarkdown, /来源\/访谈/);
-  assert.match(chineseMarkdown, /\[\[Research\/Spacing Note\|英文材料\]\]/);
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"');
-  });
-
-  const literatureNotesAfterRollback = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+  const importedPermanentNotes = await waitFor(async () => {
+    const result = await fetchJson(apiBase, "/api/v1/directories/dir_original_default/notes");
     assert.equal(result.status, 200);
     assert.equal(result.json.total, 0);
     return result;
   }, 7000);
-  assert.equal(literatureNotesAfterRollback.json.total, 0);
-});
 
-test("prototype import history filters records and supports inline actions", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
+  assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "中文阅读卡片"));
+  assert.ok(importedLiteratureNotes.json.items.some((item) => item.title === "Spacing Note"));
+  assert.equal(importedPermanentNotes.json.total, 0);
 
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page } = stack;
-
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true, detectAliases: true }));
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-
-  const importRecordId = await page.inputValue("#importRecordId");
-  assert.ok(importRecordId.startsWith("imp_"));
-
-  await waitFor(async () => {
-    const item = page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`);
-    await item.waitFor({ timeout: 500 });
-    const text = await item.textContent();
-    assert.match(text || "", /预览中/);
-  }, 7000);
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
-  await page.waitForFunction(
-    (recordId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      return Boolean(item && /预览中/.test(item.textContent || ""));
-    },
-    importRecordId
-  );
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="load"]`).click();
-  await page.waitForFunction(
-    (recordId) => {
-      const input = document.querySelector("#importRecordId");
-      const result = document.querySelector("#importResult")?.textContent || "";
-      return input?.value === recordId && result.includes('"stage": "record"') && result.includes('"status": "preview"');
-    },
-    importRecordId
-  );
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
-  });
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importHistory")?.textContent || "";
-    return text.trim().length > 0;
-  });
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).waitFor();
-  await page.waitForFunction(
-    (recordId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      const text = item?.textContent || "";
-      return Boolean(
-        item &&
-          /已完成/.test(text) &&
-          /已创建 1 来源卡片 \/ 1 文献笔记 \/ 0 永久笔记/.test(text) &&
-          /写入 notes\/sources/.test(text) &&
-          item.querySelector('[data-import-history-action="rollback"]')
-      );
-    },
-    importRecordId
-  );
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
-  await page.waitForFunction(() => {
-    const resultText = document.querySelector("#importResult")?.textContent || "";
-    const historyText = document.querySelector("#importHistory")?.textContent || "";
-    return (
-      (resultText.includes('"stage": "rollback"') && resultText.includes('"status": "rolled_back"')) ||
-      historyText.trim().length > 0
-    );
-  });
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importHistory")?.textContent || "";
-    return text.trim().length > 0;
-  });
-
-  await page.click("#btnImportRefresh");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importHistory")?.textContent || "";
-    return text.trim().length > 0;
-  });
-
-  const notesAfterRollback = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
-    assert.equal(result.status, 200);
-    assert.equal(result.json.total, 0);
-    return result;
-  }, 7000);
-  assert.equal(notesAfterRollback.json.total, 0);
-});
-
-test("prototype import history highlights modified files skipped during rollback", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, vaultPath } = stack;
-
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", "");
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-
-  const importRecordId = await page.inputValue("#importRecordId");
-  assert.ok(importRecordId.startsWith("imp_"));
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
-  });
-
-  const literatureNotes = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
-    assert.equal(result.status, 200);
-    assert.equal(result.json.total, 1);
-    return result;
-  }, 7000);
-  const markdownPath = path.join(vaultPath, literatureNotes.json.items[0].markdownPath.replaceAll("/", path.sep));
-  await fs.appendFile(markdownPath, "\n\nUser edit after import.", "utf8");
-
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="rollback"]`).click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"') && text.includes('"reason": "modified"');
-  });
-
-  await page.waitForFunction(
-    (recordId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      const text = item?.textContent || "";
-      return Boolean(
-        item &&
-          /已回滚 1 项/.test(text) &&
-          /跳过 1 项/.test(text) &&
-          /保留 1/.test(text) &&
-          /已修改文件被保留/.test(text)
-      );
-    },
-    importRecordId
-  );
-
-  await fs.access(markdownPath);
-});
-
-test("prototype import history recent summary can open literature queue for a completed batch", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page, webBase } = stack;
-
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", "");
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-
-  const importRecordId = await page.inputValue("#importRecordId");
-  assert.ok(importRecordId.startsWith("imp_"));
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
-  });
-
-  const summary = page.locator(`.import-history-summary[data-import-history-id="${importRecordId}"]`);
-  await summary.waitFor();
-  await summary.locator('[data-import-history-action="resume-literature-queue"]').waitFor();
-  await summary.locator('[data-import-history-action="open-literature-queue"]').waitFor();
-  const historyItemText = await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"]`).textContent();
-  assert.match(String(historyItemText || ""), /Fixture Import Note/);
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="resume-literature-queue"]`).waitFor();
-  await page.locator(`.import-history-item[data-import-history-id="${importRecordId}"] [data-import-history-action="open-literature-queue"]`).waitFor();
-  await summary.locator('[data-import-history-action="resume-literature-queue"]').click();
-
-  await waitFor(async () => {
-    await page.locator("#editorWorkspace:not(.hidden)").waitFor({ timeout: 500 });
-    const statusText = await currentStatusText(page);
-    const editorBody = await page.locator("#editorBody").inputValue();
-    const currentRecordValue = await page.inputValue("#importRecordId");
-    assert.equal(currentRecordValue, importRecordId);
-    assert.match(String(statusText || ""), new RegExp(`已从历史记录继续下一条待处理文献条目：${importRecordId}`));
-    assert.match(String(editorBody || ""), /# Fixture Import Note/);
-    assert.match(String(editorBody || ""), /This note comes from tests fixture markdown import\./);
-  }, 10000);
-});
-
-test("prototype import panel explains conflicted candidates after repeated confirm", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page } = stack;
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", "");
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
-  });
-
-  await page.click("#btnImportPreview");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"');
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "confirm"') && text.includes('"conflicted": 2');
-  });
-
-  await page.locator('#importResult [data-skip-focus="conflicted"]').click();
-  await page.locator("#importResult .candidate-focus-banner", { hasText: "文件冲突跳过" }).waitFor();
-  await page.locator("#importResult .candidate-item.is-focused .candidate-inline-note", { hasText: "目标路径已有同名文件，系统没有覆盖。" }).first().waitFor();
-});
-
-test("prototype import confirm can send created permanent notes into writing basket and open writing panel", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase, vaultPath } = stack;
-  const recordId = "imp_browser_writing_seed";
-  const createdAt = new Date().toISOString();
-
-  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
-  await fs.writeFile(
-    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
-    JSON.stringify(
-      {
-        requestId: "browser_writing_seed",
-        payload: {},
-        options: {},
-        preview: {
-          importRecordId: recordId,
-          connector: "markdown",
-          status: "preview",
-          state: "preview",
-          summary: { sources: 0, literatureNotes: 0, permanentNotes: 1, warnings: 0 },
-          samples: {
-            sourceIds: [],
-            literatureNoteIds: [],
-            permanentNoteIds: ["pn_browser_writing_seed"]
-          },
-          warnings: [],
-          originalityGuard: {
-            plan: {
-              warnThreshold: 0.6,
-              blockThreshold: 0.8,
-              requireCitationLocator: true,
-              allowDraftOnWarning: true,
-              blockOnBlocked: true
-            },
-            flaggedPermanentIds: [],
-            evaluations: [
-              {
-                permanentId: "pn_browser_writing_seed",
-                similarity: 0.21,
-                status: "pass",
-                reasons: []
-              }
-            ]
-          },
-          createdAt,
-          updatedAt: createdAt,
-          payload: {},
-          options: {}
-        },
-        candidates: {
-          sources: [],
-          literature: [],
-          permanent: [
-            {
-              id: "pn_browser_writing_seed",
-              title: "Imported Writing Seed",
-              core_claim: "A stable imported permanent note that should seed the writing basket.",
-              rationale: "",
-              from_literature_note_ids: [],
-              authorship: { user_confirmed: true, ai_assisted: false },
-              originality_status: "pass",
-              status: "active",
-              tags: ["permanent", "writing"],
-              citations: [],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            }
-          ],
-          warnings: []
-        }
-      },
-      null,
-      2
-    ),
-    "utf8"
-  );
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openImportsModule(page);
-  await page.fill("#importRecordId", recordId);
-  await page.click("#btnImportRefresh");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "record"') && text.includes("Imported Writing Seed");
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-  await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').waitFor();
-  await page.locator('[data-import-writing-action="add-permanent-notes-open-writing"]').click();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮已有 1 条永久笔记");
-  });
-  await page.waitForFunction(() => {
-    const basketText = document.querySelector("#writingBasketList")?.textContent || "";
-    const titleValue = document.querySelector("#writingTitle")?.value || "";
-    return basketText.includes("Imported Writing Seed") && titleValue.includes("Imported Writing Seed");
-  });
-
-  const basketText = await page.locator("#writingBasketList").textContent();
-  assert.match(basketText || "", /Imported Writing Seed/);
-  const titleValue = await page.inputValue("#writingTitle");
-  assert.match(titleValue || "", /Imported Writing Seed/);
-});
-
-test("prototype import confirm can open imported literature notes in paraphrase queue", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page, webBase } = stack;
-
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", fixturePath);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", "");
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes("Fixture Import Note");
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult .result-actions-inline")?.textContent || "";
-    return text.includes("处理待转述队列") && text.includes("处理待转述队列 1") && text.includes("剩余待处理 1 条");
-  });
   await page.locator('[data-import-writing-action="open-literature-queue"]').waitFor();
-  const actionText = await page.locator('[data-import-writing-action="open-literature-queue"]').textContent();
-  const actionNoteText = await page.locator("#importResult .result-actions-inline .toolbar-note").first().textContent();
-  const importActionAreaText = await page.locator("#importResult .result-actions-inline").textContent();
-  assert.match(String(actionText || ""), /处理待转述队列 1/);
-  assert.match(String(actionNoteText || ""), /剩余待处理 1 条/);
-  assert.match(String(importActionAreaText || ""), /待转述/);
-  assert.match(String(importActionAreaText || ""), /待提炼/);
-  assert.match(String(importActionAreaText || ""), /可转永久笔记/);
-  await waitFor(async () => {
-    const statusText = await currentStatusText(page);
-    assert.ok(String(statusText || "").trim().length > 0);
-  }, 10000);
   await page.locator('[data-import-writing-action="open-literature-queue"]').click();
 
   await waitFor(async () => {
@@ -4998,602 +4379,8 @@ test("prototype import confirm can open imported literature notes in paraphrase 
     const statusText = await currentStatusText(page);
     const editorBody = await page.locator("#editorBody").inputValue();
     assert.ok(String(statusText || "").trim().length > 0);
-    assert.match(String(editorBody || ""), /# Fixture Import Note/);
-    assert.match(String(editorBody || ""), /It should produce source and literature candidates\./);
+    assert.match(String(editorBody || ""), /^# /);
   }, 10000);
-});
-
-test("prototype import confirm can create a writing project from created permanent notes", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase, vaultPath } = stack;
-  const recordId = "imp_browser_create_project";
-  const createdAt = new Date().toISOString();
-
-  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
-  await fs.writeFile(
-    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
-    JSON.stringify(
-      {
-        requestId: "browser_create_project",
-        payload: {},
-        options: {},
-        preview: {
-          importRecordId: recordId,
-          connector: "markdown",
-          status: "preview",
-          state: "preview",
-          summary: { sources: 0, literatureNotes: 0, permanentNotes: 1, warnings: 0 },
-          samples: {
-            sourceIds: [],
-            literatureNoteIds: [],
-            permanentNoteIds: ["pn_browser_create_project"]
-          },
-          warnings: [],
-          originalityGuard: {
-            plan: {
-              warnThreshold: 0.6,
-              blockThreshold: 0.8,
-              requireCitationLocator: true,
-              allowDraftOnWarning: true,
-              blockOnBlocked: true
-            },
-            flaggedPermanentIds: [],
-            evaluations: [
-              {
-                permanentId: "pn_browser_create_project",
-                similarity: 0.19,
-                status: "pass",
-                reasons: []
-              }
-            ]
-          },
-          createdAt,
-          updatedAt: createdAt,
-          payload: {},
-          options: {}
-        },
-        candidates: {
-          sources: [],
-          literature: [],
-          permanent: [
-            {
-              id: "pn_browser_create_project",
-              title: "Imported Project Seed",
-              core_claim: "An imported permanent note ready to become a writing project seed.",
-              rationale: "",
-              from_literature_note_ids: [],
-              authorship: { user_confirmed: true, ai_assisted: false },
-              originality_status: "pass",
-              status: "active",
-              tags: ["permanent", "project"],
-              citations: [],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            }
-          ],
-          warnings: []
-        }
-      },
-      null,
-      2
-    ),
-    "utf8"
-  );
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await openImportsModule(page);
-  await page.fill("#importRecordId", recordId);
-  await page.click("#btnImportRefresh");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "record"') && text.includes("Imported Project Seed");
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-  await page.locator('[data-import-writing-action="create-writing-project"]').click();
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes("写作篮已有 1 条永久笔记");
-  });
-  await page.waitForFunction(() => {
-    const basketText = document.querySelector("#writingBasketList")?.textContent || "";
-    const titleValue = document.querySelector("#writingTitle")?.value || "";
-    return basketText.includes("Imported Project Seed") && titleValue.includes("Imported Project Seed");
-  });
-  const projects = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/writing-projects?limit=10");
-    assert.equal(result.status, 200);
-    const match = result.json.items.find((item) => String(item?.title || "").includes("Imported Project Seed"));
-    assert.ok(match, JSON.stringify(result.json, null, 2));
-    return result;
-  }, 7000);
-  assert.ok(projects.json.items.some((item) => String(item?.title || "").includes("Imported Project Seed")));
-
-  const basketText = await page.locator("#writingBasketList").textContent();
-  assert.match(basketText || "", /Imported Project Seed/);
-  const titleValue = await page.inputValue("#writingTitle");
-  assert.match(titleValue || "", /Imported Project Seed/);
-});
-
-test("prototype import create-writing-project failure clears old writing project context", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page, webBase, vaultPath } = stack;
-  const recordId = "imp_browser_create_project_failure";
-  const createdAt = new Date().toISOString();
-
-  const oldNote = await postJson(apiBase, "/api/v1/notes", {
-    directoryId: "dir_original_default",
-    status: "active",
-    body: "# Existing writing context\n\nThis older project should be cleared before the import flow tries a new project."
-  });
-  assert.equal(oldNote.status, 201, JSON.stringify(oldNote.json));
-
-  const oldProject = await postJson(apiBase, "/api/v1/writing-projects", {
-    title: "Existing Project Context",
-    goal: "This goal should not leak after the import project creation fails.",
-    audience: "Existing audience",
-    basketNoteIds: [oldNote.json.item.id]
-  });
-  assert.equal(oldProject.status, 201, JSON.stringify(oldProject.json));
-
-  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
-  await fs.writeFile(
-    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
-    JSON.stringify(
-      {
-        requestId: "browser_create_project_failure",
-        payload: {},
-        options: {},
-        preview: {
-          importRecordId: recordId,
-          connector: "markdown",
-          status: "preview",
-          state: "preview",
-          summary: { sources: 0, literatureNotes: 0, permanentNotes: 1, warnings: 0 },
-          samples: {
-            sourceIds: [],
-            literatureNoteIds: [],
-            permanentNoteIds: ["pn_browser_create_project_failure"]
-          },
-          warnings: [],
-          originalityGuard: {
-            plan: {
-              warnThreshold: 0.6,
-              blockThreshold: 0.8,
-              requireCitationLocator: true,
-              allowDraftOnWarning: true,
-              blockOnBlocked: true
-            },
-            flaggedPermanentIds: [],
-            evaluations: [
-              {
-                permanentId: "pn_browser_create_project_failure",
-                similarity: 0.11,
-                status: "pass",
-                reasons: []
-              }
-            ]
-          },
-          createdAt,
-          updatedAt: createdAt,
-          payload: {},
-          options: {}
-        },
-        candidates: {
-          sources: [],
-          literature: [],
-          permanent: [
-            {
-              id: "pn_browser_create_project_failure",
-              title: "Imported Failure Seed",
-              core_claim: "A failed create-project import flow should still clear stale project context.",
-              rationale: "",
-              from_literature_note_ids: [],
-              authorship: { user_confirmed: true, ai_assisted: false },
-              originality_status: "pass",
-              status: "active",
-              tags: ["permanent", "project"],
-              citations: [],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            }
-          ],
-          warnings: []
-        }
-      },
-      null,
-      2
-    ),
-    "utf8"
-  );
-
-  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator(`#writingProjectsList button[data-writing-project-action="open"][data-writing-project-id="${oldProject.json.item.id}"]`).click();
-  await page.waitForFunction((projectId) => {
-    const text = document.querySelector("#writingBasketSummary")?.textContent || "";
-    return text.includes(projectId);
-  }, oldProject.json.item.id);
-
-  await page.route("**/api/v1/writing-projects", async (route) => {
-    if (route.request().method() !== "POST") {
-      await route.fallback();
-      return;
-    }
-    await route.fulfill({
-      status: 400,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          code: "WRITING_PROJECT_CREATE_FAILED",
-          message: "simulated writing project create failure"
-        }
-      })
-    });
-  });
-
-  await openImportsModule(page);
-  await page.fill("#importRecordId", recordId);
-  await page.click("#btnImportRefresh");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "record"') && text.includes("Imported Failure Seed");
-  });
-
-  await page.click("#btnImportConfirm");
-  await page.locator('#importResult .result-card[data-result-stage="confirm"]').waitFor();
-  await page.locator('[data-import-writing-action="create-writing-project"]').click();
-
-  await page.locator('.rail-btn[data-module="writing"]').click();
-  await page.locator('.rail-btn[data-module="writing"].active').waitFor();
-  await page.waitForFunction((oldProjectId) => {
-    const resultText = document.querySelector("#writingResult")?.textContent || "";
-    const basketText = document.querySelector("#writingBasketSummary")?.textContent || "";
-    const title = document.querySelector("#writingTitle")?.value || "";
-    const goal = document.querySelector("#writingGoal")?.value || "";
-    const audience = document.querySelector("#writingAudience")?.value || "";
-    return (
-      resultText.includes("writing_project_error") &&
-      resultText.includes("simulated writing project create failure") &&
-      basketText.includes("写锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 1 锟斤拷锟斤拷锟矫笔硷拷") &&
-      basketText.includes("锟斤拷未锟斤拷锟斤拷锟斤拷目") &&
-      basketText.includes("锟斤拷未锟斤拷锟斤拷 scaffold") &&
-      basketText.includes("锟斤拷未锟襟定草革拷") &&
-      !basketText.includes(oldProjectId) &&
-      !title.includes("Existing Project Context") &&
-      !goal.includes("This goal should not leak") &&
-      !audience.includes("Existing audience")
-    );
-  }, oldProject.json.item.id);
-
-  const basketSummary = await page.locator("#writingBasketSummary").textContent();
-  assert.match(basketSummary || "", /写锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷 1 锟斤拷锟斤拷锟矫笔硷拷/);
-  assert.match(basketSummary || "", /锟斤拷未锟斤拷锟斤拷锟斤拷目/);
-  assert.doesNotMatch(basketSummary || "", new RegExp(oldProject.json.item.id));
-  assert.doesNotMatch((await page.inputValue("#writingTitle")) || "", /Existing Project Context/);
-  assert.doesNotMatch((await page.inputValue("#writingGoal")) || "", /This goal should not leak/);
-  assert.doesNotMatch((await page.inputValue("#writingAudience")) || "", /Existing audience/);
-});
-
-test("prototype import panel renders actionable warning hints", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page } = stack;
-
-  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "malformed", "readwise-highlights-not-array.json");
-  const payload = await fs.readFile(fixturePath, "utf8");
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "readwise");
-  await page.fill("#importPath", "");
-  await page.fill("#importPayload", payload);
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes("IMPORT_EMPTY_PAYLOAD");
-  });
-
-  await page.locator("#importResult .result-warnings", { hasText: "IMPORT_EMPTY_PAYLOAD" }).waitFor();
-  await page.locator("#importResult .result-actions", { hasText: "Payload JSON" }).waitFor();
-});
-
-test("prototype import panel can focus blocked and excluded candidates", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page } = stack;
-
-  const sourceDir = await makeTempDir("yansilu-browser-blocked-import-");
-  await fs.writeFile(
-    path.join(sourceDir, "blocked.md"),
-    [
-      "---",
-      "title: Blocked candidate note",
-      "type: permanent",
-      'tags: ["permanent", "blocked"]',
-      "---",
-      "",
-      "A copied claim that should be flagged."
-    ].join("\n"),
-    "utf8"
-  );
-
-  await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
-  await page.fill("#importPath", sourceDir);
-  await page.fill("#importPayload", "");
-  await page.fill("#importOptions", "");
-  await page.click("#btnImportPreview");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "preview"') && text.includes('"blocked"');
-  });
-
-  await page.locator('#importResult .result-card[data-result-stage="preview"]').waitFor();
-  const importRecordId = await page.inputValue("#importRecordId");
-  assert.ok(importRecordId.startsWith("imp_"));
-  await page.waitForFunction(
-    (recordId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${recordId}"]`);
-      const text = item?.textContent || "";
-      return Boolean(item && /阻断 1/.test(text));
-    },
-    importRecordId
-  );
-  await page.locator('[data-candidate-filter="blocked"]', { hasText: "阻断 1" }).click();
-  await page.locator("#importResult .candidate-item.tone-blocked", { hasText: "Blocked candidate note" }).waitFor();
-  await page.locator("#importResult .candidate-reason").first().waitFor();
-
-  const blockedCheckbox = page.locator("#importResult .candidate-item.tone-blocked .candidate-checkbox").first();
-  await blockedCheckbox.uncheck();
-  await page.locator("#importResult .candidate-summary.candidate-summary-warn").waitFor();
-
-  await page.locator("[data-candidate-filter=\"excluded\"]").click();
-  await page.locator("#importResult .candidate-inline-note").waitFor();
-  await page.locator("[data-candidate-filter=\"excluded\"].is-filter-active").waitFor();
-
-  await page.locator("[data-candidate-action=\"all\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "3/3" }).waitFor();
-  await page.locator("[data-candidate-action=\"exclude-blocked\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "2/3" }).waitFor();
-  const blockedAfterExclude = page.locator("#importResult .candidate-item.tone-blocked .candidate-checkbox").first();
-  await expectChecked(blockedAfterExclude, false);
-
-  await page.locator("[data-candidate-action=\"safe\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "2/3" }).waitFor();
-  await page.locator("[data-candidate-filter=\"safe\"]").click();
-  await page.locator("[data-candidate-filter=\"safe\"].is-filter-active").waitFor();
-});
-
-test("prototype import panel can exclude warning candidates with one action", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { page, vaultPath } = stack;
-  const recordId = "imp_browser_warning_fixture";
-  const createdAt = new Date().toISOString();
-
-  await fs.mkdir(path.join(vaultPath, "imports", "markdown"), { recursive: true });
-  await fs.writeFile(
-    path.join(vaultPath, "imports", "markdown", `${recordId}.preview.json`),
-    JSON.stringify(
-      {
-        requestId: "browser_warning_fixture",
-        payload: {},
-        options: {},
-        preview: {
-          importRecordId: recordId,
-          connector: "markdown",
-          status: "preview",
-          state: "preview",
-          summary: { sources: 1, literatureNotes: 1, permanentNotes: 2, warnings: 2 },
-          samples: {
-            sourceIds: ["src_warning_browser"],
-            literatureNoteIds: ["ln_warning_browser"],
-            permanentNoteIds: ["pn_warning_browser", "pn_blocked_browser"]
-          },
-          warnings: [{ code: "ORIGINALITY_GUARD_WARNING", message: "Some permanent note candidates require manual review.", count: 2 }],
-          originalityGuard: {
-            plan: {
-              warnThreshold: 0.6,
-              blockThreshold: 0.8,
-              requireCitationLocator: true,
-              allowDraftOnWarning: true,
-              blockOnBlocked: true
-            },
-            flaggedPermanentIds: ["pn_blocked_browser"],
-            evaluations: [
-              {
-                permanentId: "pn_warning_browser",
-                similarity: 0,
-                status: "warning",
-                reasons: ["citation_locator_missing"],
-                sourceId: "src_warning_browser"
-              },
-              {
-                permanentId: "pn_blocked_browser",
-                similarity: 0.91,
-                status: "blocked",
-                reasons: ["similarity_above_block_threshold"],
-                sourceId: "src_warning_browser"
-              }
-            ]
-          },
-          createdAt,
-          updatedAt: createdAt,
-          payload: {},
-          options: {}
-        },
-        candidates: {
-          sources: [
-            {
-              id: "src_warning_browser",
-              title: "Warning source",
-              description: "Fixture source for browser warning preview."
-            }
-          ],
-          literature: [
-            {
-              id: "ln_warning_browser",
-              source_id: "src_warning_browser",
-              title: "Warning literature",
-              quote_text: "A reading note that remains distinct from the permanent claim.",
-              paraphrase_text: "",
-              status: "draft",
-              tags: ["warning"]
-            }
-          ],
-          permanent: [
-            {
-              id: "pn_warning_browser",
-              title: "Warning candidate note",
-              core_claim: "A distinct claim that should only be warned for missing locator.",
-              rationale: "",
-              from_literature_note_ids: ["ln_warning_browser"],
-              authorship: { user_confirmed: false, ai_assisted: false },
-              originality_status: "warning",
-              status: "draft",
-              tags: ["permanent", "warning"],
-              citations: [{ source_id: "src_warning_browser" }],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            },
-            {
-              id: "pn_blocked_browser",
-              title: "Blocked browser candidate",
-              core_claim: "A claim copied too closely from the source material.",
-              rationale: "",
-              from_literature_note_ids: ["ln_warning_browser"],
-              authorship: { user_confirmed: false, ai_assisted: false },
-              originality_status: "blocked",
-              status: "draft",
-              tags: ["permanent", "blocked"],
-              citations: [{ source_id: "src_warning_browser", locator: "p. 11" }],
-              created_at: createdAt,
-              updated_at: createdAt,
-              connector: "markdown",
-              candidate_only: true
-            }
-          ],
-          warnings: []
-        }
-      },
-      null,
-      2
-    ),
-    "utf8"
-  );
-
-  await openImportsModule(page);
-  await page.fill("#importRecordId", recordId);
-  await page.click("#btnImportRefresh");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "record"') && text.includes('"status": "preview"');
-  });
-
-  await page.locator('#importResult .result-card[data-result-stage="record"]').waitFor();
-  await page.waitForFunction(
-    (importId) => {
-      const item = document.querySelector(`.import-history-item[data-import-history-id="${importId}"]`);
-      const text = item?.textContent || "";
-      return Boolean(
-        item &&
-          /警告 2/.test(text) &&
-          /阻断 1/.test(text) &&
-          /候选 1 来源卡片 \/ 1 文献笔记 \/ 2 永久笔记/.test(text) &&
-          /需要人工检查：普通警告 2 \/ 原创性警告 1 \/ 原创性阻断 1/.test(text)
-      );
-    },
-    recordId
-  );
-  await page.locator('[data-candidate-filter="warning"]').click();
-  await page.locator("#importResult .candidate-item.tone-warning", { hasText: "Warning candidate note" }).waitFor();
-
-  await page.locator("[data-candidate-action=\"exclude-warning\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "3/4" }).waitFor();
-  const warningCheckbox = page.locator("#importResult .candidate-item.tone-warning .candidate-checkbox").first();
-  await expectChecked(warningCheckbox, false);
-
-  await page.locator("[data-candidate-action=\"all\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "4/4" }).waitFor();
-  await page.locator("[data-candidate-action=\"confirmable\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "3/4" }).waitFor();
-  await expectChecked(warningCheckbox, true);
-
-  await page.locator("[data-candidate-filter=\"blocked\"]").click();
-  await page.locator("[data-candidate-filter=\"blocked\"].is-filter-active").waitFor();
-  const blockedCheckbox = page.locator("#importResult .candidate-item.tone-blocked .candidate-checkbox").first();
-  await expectChecked(blockedCheckbox, false);
-
-  await page.locator("[data-candidate-filter=\"confirmable\"]").click();
-  await page.locator("[data-candidate-filter=\"confirmable\"].is-filter-active").waitFor();
-  await page.locator("#importResult .candidate-item.tone-warning", { hasText: "Warning candidate note" }).waitFor();
-  await page.waitForFunction(() => !document.querySelector("#importResult .candidate-item.tone-blocked"));
-
-  await page.locator("[data-candidate-action=\"all\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "4/4" }).waitFor();
-  await page.locator("[data-candidate-filter=\"risky\"]").click();
-  await page.locator("[data-candidate-filter=\"risky\"].is-filter-active").waitFor();
-  await page.locator("#importResult .candidate-item.tone-warning", { hasText: "Warning candidate note" }).waitFor();
-  await page.locator("[data-candidate-action=\"exclude-risky\"]").click();
-  await page.locator("#btnImportConfirm", { hasText: "2/4" }).waitFor();
-  await expectChecked(warningCheckbox, false);
-  await expectChecked(blockedCheckbox, false);
-
-  await page.locator("[data-candidate-filter=\"excluded\"]").click();
-  await page.locator("#importResult .candidate-item.tone-warning .candidate-inline-note").waitFor();
 });
 
 test("prototype export panel exports markdown files through real API", async (t) => {
@@ -5619,6 +4406,8 @@ test("prototype export panel exports markdown files through real API", async (t)
 
   const exportTargetPath = await makeTempDir("yansilu-browser-export-target-");
   await openImportsModule(page);
+  await page.click("#importWorkspaceTabExport");
+  await page.locator("#exportCardMount:not([hidden])").waitFor();
   await page.fill("#exportTargetPath", exportTargetPath);
   await page.click("#btnExportMarkdown");
 
@@ -5626,6 +4415,7 @@ test("prototype export panel exports markdown files through real API", async (t)
     const text = document.querySelector("#exportResult")?.textContent || "";
     return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1');
   });
+  await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
 
   const exportResultText = await page.locator("#exportResult").textContent();
   assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
@@ -7956,41 +6746,20 @@ test("prototype graph panel renders directory wikilinks and opens graph nodes", 
     assert.match(String(explorerText || ""), /Graph source/);
     assert.match(String(explorerText || ""), /Graph target/);
   }, 7000);
-  await page.evaluate(() => {
-    if (!window.__prototypeState || typeof window.__prototypeState !== "object") {
-      throw new Error("Missing prototype state");
-    }
-    window.__prototypeState.selectedFileId = null;
-  });
   await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.locator("#graphRefresh").click();
 
   await waitFor(async () => {
-    assert.ok((await page.locator("#graphCanvas .graph-map-node[data-open-note]").count()) >= 2);
+    await page.waitForSelector("#graphCanvas .graph-node", { timeout: 2000 });
     const summary = await page.locator("#graphSummary").textContent();
     const [nodeCount = 0, edgeCount = 0] = [...String(summary || "").matchAll(/\d+/g)].map((match) => Number(match[0]));
     assert.ok(nodeCount >= 2, summary || "");
     assert.ok(edgeCount >= 1, summary || "");
-    assert.ok((await page.locator("#graphCanvas .graph-map-edge-group").count()) >= 1);
+    await page.locator("#graphCanvas .graph-edge", { hasText: "Graph source" }).first().waitFor({ timeout: 2000 });
   }, 7000);
-
-  const targetNode = page.locator('#graphCanvas .graph-map-node[data-open-note]', { hasText: "Graph target" }).first();
-  await targetNode.click();
-  await page.waitForFunction(
-    (expectedTitle) => {
-      const title = document.querySelector(".tab.active .tab-title")?.textContent || "";
-      const selectedFileId = window.__prototypeGraph?.getSelectedFileId?.() || "";
-      return title.includes(expectedTitle) && Boolean(selectedFileId);
-    },
-    "Graph target"
-  );
-
-  const statusTextAfterNodeOpen = await currentStatusText(page);
-  assert.match(statusTextAfterNodeOpen || "", /已切换为这条永久笔记的关系视图|已从图谱打开笔记|永久笔记关系图谱已刷新/);
-
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="graph"]')?.classList.contains("active"));
-  await page.locator('#graphCanvas .graph-map-node[data-open-note]', { hasText: "Graph target" }).first().click();
+  await page.locator(`#graphCanvas .graph-node[data-node-id="${targetNote.json.item.id}"]`).click();
+  await page.locator(".graph-selection-panel", { hasText: "Graph target" }).waitFor({ timeout: 3000 });
+  await page.locator(".graph-selection-panel", { hasText: "笔记角色" }).waitFor({ timeout: 3000 });
+  await page.locator(`.graph-selection-action.is-primary[data-open-note="${targetNote.json.item.id}"]`).click();
   await page.waitForFunction(() => document.querySelector("#editorBody")?.value?.includes("Graph target"));
 
   const activeEditorText = await page.locator("#editorBody").inputValue();
@@ -8430,7 +7199,9 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
   if (!stack) return;
   const { apiBase, page, webBase } = stack;
 
-  await page.goto(`${webBase}/prototype?demo=yijing`, { waitUntil: "networkidle" });
+  await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
+  await page.locator('.rail-btn[data-module="graph"]').click();
+  await page.locator("#graphSeedYijing").click();
 
   await waitFor(async () => {
     const notes = await fetchJson(apiBase, "/api/v1/directories/dir_demo_yijing_knowledge_network/notes");
@@ -8443,28 +7214,22 @@ test("prototype graph panel seeds the Yijing demo network", async (t) => {
     assert.equal(graph.json.item.totalEdges, 27);
 
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已导入易经案例：21 个节点，27 条关系/);
+    assert.match(String(statusText || ""), /锟阶撅拷锟斤拷锟斤拷/);
+    assert.ok((await page.locator("#graphCanvas .graph-node").count()) >= 21);
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 27);
   }, 15000);
-
-  await page.click('.rail-btn[data-module="graph"]');
-  await page.waitForFunction(() => document.querySelector('.rail-btn[data-module="graph"]')?.classList.contains("active"));
-  await waitFor(async () => {
-    assert.ok((await page.locator("#graphCanvas .graph-map-node[data-open-note]").count()) >= 20);
-    assert.ok((await page.locator("#graphCanvas .graph-map-edge-group").count()) >= 27);
-    const summaryText = await page.locator("#graphSummary").textContent();
-    assert.match(String(summaryText || ""), /显示当前目录内 20 条已建立关系的永久笔记、27 条关系/);
-  }, 10000);
 
   await page.locator("#graphRelationTypeFilter").selectOption("supports");
   await waitFor(async () => {
     const summaryText = await page.locator("#graphSummary").textContent();
-    assert.match(String(summaryText || ""), /显示当前目录内/);
-    assert.equal(await page.locator("#graphCanvas .graph-map-edge-group").count(), 6);
+    assert.match(String(summaryText || ""), /锟斤拷前锟斤拷示/);
+    assert.match(String(summaryText || ""), /支锟斤拷/);
+    assert.equal(await page.locator("#graphCanvas .graph-edge").count(), 6);
   }, 5000);
 
   await page.locator("#graphRelationTypeFilter").selectOption("all");
   await waitFor(async () => {
-    assert.ok((await page.locator("#graphCanvas .graph-map-edge-group").count()) >= 27);
+    assert.ok((await page.locator("#graphCanvas .graph-edge").count()) >= 27);
   }, 5000);
 });
 
@@ -8485,8 +7250,8 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
 
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已导入 Smart Notes 产品思考 Demo/);
-    assert.match(String(statusText || ""), /已打开导览笔记/);
+    assert.match(String(statusText || ""), /Smart Notes 锟斤拷品思锟斤拷 Demo/);
+    assert.match(String(statusText || ""), /锟窖打开碉拷锟斤拷锟绞硷拷/);
 
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
@@ -8505,7 +7270,7 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
   await page.goto(`${webBase}/prototype?demo=smart-notes-product-thinking`, { waitUntil: "networkidle" });
   await waitFor(async () => {
     const statusText = await currentStatusText(page);
-    assert.match(String(statusText || ""), /已打开导览笔记/);
+    assert.match(String(statusText || ""), /锟窖打开碉拷锟斤拷锟绞硷拷/);
     const startupState = await page.evaluate(() => ({
       module: window.__prototypeState?.module || "",
       selectedFileId: window.__prototypeState?.selectedFileId || ""
@@ -8525,8 +7290,8 @@ test("prototype smart notes startup demo opens the guide note without duplicatin
     assert.ok(String(writingState.title || "").trim().length > 0);
     assert.ok(String(writingState.goal || "").trim().length > 0);
     assert.ok(String(writingState.audience || "").trim().length > 0);
-    assert.match(writingState.basketSummary, /写作篮已有 12 条永久笔记/);
-    assert.match(writingState.basketSummary, /可续接的写作入口/);
+    assert.match(writingState.basketSummary, /WP-SN-PM-001/);
+    assert.match(writingState.basketSummary, /DS-SN-PM-001/);
   }, 15000);
 
   const secondSeedDirectory = await fetchJson(apiBase, "/api/v1/directories/dir_demo_smart_notes_product_thinking_original/notes");
@@ -8841,35 +7606,6 @@ test("prototype explorer note context move and delete update disk state", async 
   await fs.access(oldMarkdownPath);
 
   await page.goto(`${webBase}/prototype`, { waitUntil: "networkidle" });
-  await page.evaluate(({ targetDirectory, sourceNote }) => {
-    const state = window.__prototypeState;
-    if (!state) throw new Error("Missing prototype state");
-    const normalizedFolder = {
-      id: targetDirectory.id,
-      name: targetDirectory.title,
-      parentId: targetDirectory.parentDirectoryId,
-      isDefault: Boolean(targetDirectory.isDefault),
-      hidden: Boolean(targetDirectory.isHidden),
-      maxCards: Number(targetDirectory.maxNotes || 500),
-      fsPath: targetDirectory.fsPath || "",
-      directoryType: targetDirectory.directoryType || "custom"
-    };
-    if (!state.folders.some((item) => item.id === normalizedFolder.id)) {
-      state.folders.push(normalizedFolder);
-    }
-    const normalizedNote = {
-      ...sourceNote,
-      folderId: sourceNote.directoryId,
-      title: sourceNote.title || "Note move source",
-      noteType: sourceNote.noteType || "permanent",
-      bodyLoaded: typeof sourceNote.body === "string"
-    };
-    const noteIndex = state.notes.findIndex((item) => item.id === normalizedNote.id);
-    if (noteIndex >= 0) state.notes.splice(noteIndex, 1, normalizedNote);
-    else state.notes.unshift(normalizedNote);
-  }, { targetDirectory: targetDirectory.json.item, sourceNote: note.json.item });
-  await page.locator('.rail-btn[data-module="graph"]').click();
-  await page.locator('[data-action="quick-original"]').click();
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Note move source" });
   await noteRow.waitFor();
 

@@ -20,6 +20,7 @@ function readRepoFile(...segments) {
 
 function createStubButton() {
   return {
+    classList: { toggle() {} },
     dataset: {},
     title: "",
     addEventListener() {},
@@ -60,9 +61,12 @@ test("note browser new action follows the current material root", () => {
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_literature_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "新建文献",
-    title: "新建文献笔记",
-    ariaLabel: "在当前文献目录新建文献笔记"
+    label: "创建文件笔记",
+    title: "在当前文献目录创建文件笔记",
+    ariaLabel: "在当前文献目录创建文件笔记",
+    kindLabel: "文献",
+    entryKind: "literature",
+    mobileLabel: "文献"
   });
 });
 
@@ -74,9 +78,12 @@ test("note browser new action falls back to current root when selection is stale
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_fleeting_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "新建随笔",
-    title: "新建随笔笔记",
-    ariaLabel: "在当前随笔目录新建随笔笔记"
+    label: "创建文件笔记",
+    title: "在当前随笔目录创建文件笔记",
+    ariaLabel: "在当前随笔目录创建文件笔记",
+    kindLabel: "随笔",
+    entryKind: "fleeting",
+    mobileLabel: "随笔"
   });
 });
 
@@ -90,7 +97,10 @@ test("note browser new action names permanent notes without legacy original copy
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
     label: "新建笔记",
     title: "新建永久笔记",
-    ariaLabel: "在当前永久笔记目录新建笔记"
+    ariaLabel: "在当前永久笔记目录新建笔记",
+    kindLabel: "",
+    entryKind: "permanent",
+    mobileLabel: "永久"
   });
 });
 
@@ -208,7 +218,7 @@ test("source-note badges still render for generated permanent notes even when no
 
   const row = explorer.renderFileNode(literatureWithStaleType, 1);
 
-  assert.match(row, /item-badge-original-record/);
+  assert.match(row, /data-note-state=""/);
   assert.doesNotMatch(row, /item-badge-warning/);
 });
 
@@ -273,7 +283,7 @@ test("note browsers show isolated folder flags without counts only for the perma
   const customRow = explorer.renderFolderNode(folderById(state, "dir_custom_root"), 0, "", new Map());
 
   assert.match(simplifiedRow, /has-folder-alert/);
-  assert.match(simplifiedRow, /item-badge-warning/);
+  assert.match(simplifiedRow, /data-folder-state="permanent-isolated"/);
   assert.doesNotMatch(simplifiedRow, /\d+<\/span>/);
   assert.doesNotMatch(customRow, /item-badge-warning/);
   assert.doesNotMatch(customRow, /has-folder-alert/);
@@ -338,11 +348,29 @@ test("note browsers render isolated-note badges without extra relation actions i
     thinkingStatus: { label: "待思考", severity: "next", status: "open" }
   }, 0);
 
-  assert.match(html, /孤立/);
+  assert.match(html, /data-note-state="permanent-isolated"/);
   assert.doesNotMatch(html, /data-associate-note=/);
   assert.doesNotMatch(html, /item-inline-action warn/);
   assert.doesNotMatch(html, /item-badge-thinking/);
   assert.doesNotMatch(html, /item-badge-original-record/);
+});
+
+test("connected permanent notes keep the ordinary file icon in simplified scopes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set(["pn_connected"]);
+  state.graphConnectivityReady = true;
+  const html = explorer.renderFileNode({
+    id: "pn_connected",
+    title: "Connected permanent",
+    folderId: "dir_original_default",
+    noteType: "permanent"
+  }, 0);
+
+  assert.match(html, /data-note-state=""/);
+  assert.doesNotMatch(html, /permanent-connected/);
+  assert.doesNotMatch(html, /permanent-isolated/);
 });
 
 test("source-note boxes surface notes that still have not been turned into permanent notes", () => {
@@ -363,9 +391,61 @@ test("source-note boxes surface notes that still have not been turned into perma
     generatedOriginalNoteId: "pn_001"
   }, 0);
 
-  assert.match(pendingHtml, /未转永久/);
-  assert.doesNotMatch(pendingHtml, /孤立/);
-  assert.match(doneHtml, /item-badge-original-record/);
+  assert.match(pendingHtml, /data-note-state="source-pending"/);
+  assert.doesNotMatch(pendingHtml, /data-note-state="permanent-isolated"/);
+  assert.match(doneHtml, /data-note-state=""/);
+});
+
+test("source-note browser uses different pending badges for fleeting and literature notes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  const fleetingHtml = explorer.renderFileNode({
+    id: "fn_pending_type",
+    title: "Pending fleeting",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting"
+  }, 0);
+  const literatureHtml = explorer.renderFileNode({
+    id: "ln_pending_type",
+    title: "Pending literature",
+    folderId: "dir_literature_default",
+    noteType: "literature"
+  }, 0);
+
+  assert.match(fleetingHtml, /data-source-kind="fleeting"/);
+  assert.match(fleetingHtml, /data-note-state="source-pending"/);
+  assert.match(literatureHtml, /data-source-kind="literature"/);
+  assert.match(literatureHtml, /data-note-state="source-pending"/);
+});
+
+test("source-note folders surface pending permanent-note creation through icon state", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.notes.push({
+    id: "fn_pending_folder_state",
+    title: "Pending folder state",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting"
+  });
+
+  const html = explorer.renderFolderNode(folderById(state, "dir_fleeting_default"), 0, "", new Map());
+
+  assert.match(html, /has-folder-alert/);
+  assert.match(html, /data-folder-state="source-pending"/);
+  assert.doesNotMatch(html, /随笔待转|文献待转/);
+});
+
+test("source-note promote flows no longer ask users to type a directory id", () => {
+  const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const editorSource = readRepoFile("apps/web/src/components-editor-pane.js");
+  const html = readRepoFile("apps/web/src/prototype.html");
+
+  assert.doesNotMatch(explorerSource, /选择永久笔记目录 ID/);
+  assert.doesNotMatch(editorSource, /选择永久笔记目录 ID/);
+  assert.match(html, /id="permanentNoteModal"/);
+  assert.match(html, /先选要放入的永久笔记盒目录/);
 });
 
 test("note browsers keep richer note actions and thinking badges outside simplified scopes", () => {
@@ -543,9 +623,9 @@ test("theme index cards reuse continuity actions when a matching project already
   const fnBody = match[1];
 
   assert.match(fnBody, /const existingProject = findExistingWritingProjectForTheme\(indexCard, noteIds\)/);
-  assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
-  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
-  assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
+  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
 });
 
 test("theme index list click handler routes continuity actions through continueWritingProjectEntry", () => {

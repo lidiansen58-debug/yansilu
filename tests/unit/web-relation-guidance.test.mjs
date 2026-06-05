@@ -2,10 +2,34 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  EditorPane,
   relationCreateDefaultTypeForNote,
   relationTypeGuidance,
   sortRelationTargetCandidatesForNote
 } from "../../apps/web/src/components-editor-pane.js";
+import { createInitialState } from "../../apps/web/src/prototype-store.js";
+
+function createClassList() {
+  const classes = new Set();
+  return {
+    toggle(token, force) {
+      if (force === undefined) {
+        if (classes.has(token)) {
+          classes.delete(token);
+          return false;
+        }
+        classes.add(token);
+        return true;
+      }
+      if (force) classes.add(token);
+      else classes.delete(token);
+      return force;
+    },
+    contains(token) {
+      return classes.has(token);
+    }
+  };
+}
 
 test("relation guidance defaults to counterexample when note body signals a counterexample", () => {
   const note = {
@@ -121,4 +145,110 @@ test("relation target sorting favors same-folder notes with thesis over weaker e
     sorted.map((item) => item.id),
     ["same-folder-thesis", "other-folder"]
   );
+});
+
+test("create relation form uses a searchable target field instead of a select box", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const note = { id: "pn_current", folderId: "dir_original_default", noteType: "" };
+  state.notes.push(
+    note,
+    { id: "pn_target_a", title: "Alpha Note", folderId: "dir_original_default", noteType: "" },
+    { id: "pn_target_b", title: "Beta Note", folderId: "dir_original_default", noteType: "" }
+  );
+  pane.state = state;
+  pane.activeNote = () => note;
+  pane.scopedLinkCandidates = () => state.notes.filter((item) => item.id !== note.id);
+
+  const html = pane.renderCreateRelationFormSection(note.id, { targetNoteId: "pn_target_a" });
+
+  assert.match(html, /data-relation-target-search/);
+  assert.match(html, /data-relation-target-list/);
+  assert.match(html, /type="hidden" name="toNoteId"/);
+  assert.doesNotMatch(html, /data-relation-target-select/);
+  assert.match(html, /value="Alpha Note"/);
+});
+
+test("relation target selection writes the chosen title back into the search field", () => {
+  const pane = Object.create(EditorPane.prototype);
+  const hiddenTarget = { value: "", dataset: {} };
+  const searchInput = { value: "" };
+  const status = { textContent: "" };
+  const submit = { disabled: true };
+  const list = { hidden: false };
+  const form = {
+    dataset: {},
+    querySelector(selector) {
+      if (selector === "[data-relation-target-id]") return hiddenTarget;
+      if (selector === "[data-relation-target-search]") return searchInput;
+      if (selector === "[data-relation-target-status]") return status;
+      if (selector === 'button[type="submit"]') return submit;
+      if (selector === "[data-relation-target-list]") return list;
+      if (selector === 'textarea[name="rationale"]') return null;
+      return null;
+    }
+  };
+  pane.refreshRelationTargetSearch = async () => {};
+
+  pane.applyRelationTargetChoice(form, "pn_target_a", "Alpha Note");
+
+  assert.equal(hiddenTarget.value, "pn_target_a");
+  assert.equal(hiddenTarget.dataset.targetTitle, "Alpha Note");
+  assert.equal(searchInput.value, "Alpha Note");
+  assert.equal(status.textContent, "已选：Alpha Note");
+  assert.equal(submit.disabled, false);
+  assert.equal(list.hidden, true);
+});
+
+test("relation target keyboard move updates the chosen candidate without closing the list", () => {
+  const pane = Object.create(EditorPane.prototype);
+  const hiddenTarget = { value: "", dataset: {} };
+  const searchInput = { value: "" };
+  const status = { textContent: "" };
+  const submit = { disabled: true };
+  const list = { hidden: false };
+  const buttons = [
+    {
+      dataset: { noteId: "pn_target_a", noteTitle: "Alpha Note" },
+      classList: createClassList(),
+      attributes: {},
+      setAttribute(name, value) {
+        this.attributes[name] = value;
+      },
+      scrollIntoView() {}
+    },
+    {
+      dataset: { noteId: "pn_target_b", noteTitle: "Beta Note" },
+      classList: createClassList(),
+      attributes: {},
+      setAttribute(name, value) {
+        this.attributes[name] = value;
+      },
+      scrollIntoView() {}
+    }
+  ];
+  const form = {
+    dataset: {},
+    querySelector(selector) {
+      if (selector === "[data-relation-target-id]") return hiddenTarget;
+      if (selector === "[data-relation-target-search]") return searchInput;
+      if (selector === "[data-relation-target-status]") return status;
+      if (selector === 'button[type="submit"]') return submit;
+      if (selector === "[data-relation-target-list]") return list;
+      if (selector === 'textarea[name="rationale"]') return null;
+      return null;
+    },
+    querySelectorAll(selector) {
+      if (selector === "[data-relation-target-choice]") return buttons;
+      return [];
+    }
+  };
+  pane.refreshRelationTargetSearch = async () => {};
+
+  pane.moveRelationTargetChoice(form, 1);
+
+  assert.equal(hiddenTarget.value, "");
+  assert.equal(searchInput.value, "");
+  assert.equal(form.dataset.relationTargetHighlightId, "pn_target_a");
+  assert.equal(list.hidden, false);
 });

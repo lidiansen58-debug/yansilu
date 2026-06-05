@@ -29,7 +29,7 @@ test("writing center static flow placeholder keeps the create-project to 草稿�
 test("writing note cards use 写作篮 wording for add and remove actions", async () => {
   const source = await readPrototypeAppSource();
 
-  assert.match(source, /actionLabel = "加入写作篮"/);
+  assert.match(source, /actionLabel = "加入写作篮/);
   assert.match(source, /renderWritingNoteCard\(entry, \{ selected: true, action: "remove", actionLabel: "移出写作篮" \}\)/);
   assert.match(source, /actionLabel: basketIdSet\.has\(entry\.id\) \? "移出写作篮" : "加入写作篮"/);
 });

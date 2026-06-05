@@ -789,22 +789,6 @@ export async function previewImport({ connector, payload, options } = {}) {
   });
 }
 
-export async function fetchImportRecord(importRecordId) {
-  if (!importRecordId) throw new Error("importRecordId is required");
-  const json = await request(`/api/v1/imports/${encodeURIComponent(importRecordId)}`);
-  return json.importRecord || null;
-}
-
-export async function listImportRecords(limit = 12) {
-  const size = Math.max(0, Math.min(200, Number(limit || 12) || 12));
-  const json = await request(`/api/v1/imports?limit=${encodeURIComponent(String(size))}`);
-  return {
-    items: Array.isArray(json.items) ? json.items : [],
-    count: Number(json.count || 0),
-    total: Number(json.total || 0)
-  };
-}
-
 export async function confirmImport(importRecordId, payload = {}) {
   if (!importRecordId) throw new Error("importRecordId is required");
   return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
@@ -814,24 +798,6 @@ export async function confirmImport(importRecordId, payload = {}) {
       confirm: true,
       ...payload
     })
-  });
-}
-
-export async function cancelImport(importRecordId) {
-  if (!importRecordId) throw new Error("importRecordId is required");
-  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/confirm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ confirm: false })
-  });
-}
-
-export async function rollbackImport(importRecordId) {
-  if (!importRecordId) throw new Error("importRecordId is required");
-  return request(`/api/v1/imports/${encodeURIComponent(importRecordId)}/rollback`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({})
   });
 }
 

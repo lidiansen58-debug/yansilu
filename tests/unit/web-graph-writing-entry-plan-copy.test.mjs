@@ -106,10 +106,10 @@ test("graph next action previews manual picking when the visible slice is too la
   assert.doesNotMatch(nextAction.note, /在写作中心挑/);
 });
 
-test("graph panel passes the current writing entry plan into graph next-action planning", () => {
+test("graph panel derives the current writing entry plan before continuing from graph follow-up", () => {
   const source = appSource();
 
   assert.match(source, /const plan = graphWritingFollowupEntryPlan\(\{/);
   assert.match(source, /if \(plan\.prefillNoteIds\.length\) \{/);
-  assert.match(source, /continueWritingEntry\(plan\.prefillNoteIds, \{/);
+  assert.match(source, /if \(plan\.mode === "no-candidates" && !plan\.hasBasket\) \{/);
 });

@@ -1,130 +1,47 @@
 # 研思录 v0.1.0 Release Notes
 
+> Legacy note (2026-06-03): this historical release note originally described a broader import/export model. The current codebase has since been simplified to Obsidian-only preview/confirm import plus Markdown export.
+
 - 发布日期：2026-05-13
 - 版本基线：`v0.1.0-67-g15653f8`
-- 发布对象：Windows 桌面版内测 / 朋友测试
+- 发布对象：Windows 桌面内测 / 朋友测试
 
-研思录 v0.1.0 是第一个可真实走完整 MVP 链路的本地优先桌面版本。它仍然是内测候选，不建议作为公开生产版本大范围分发；但已经可以用于验证从资料收集、文献转述、原创判断、关系网络、导入导出到写作准备的核心工作流。
+## 历史背景
 
-## 重点更新
+`v0.1.0` 记录的是项目第一次把本地 Vault、笔记编辑、图谱、导入导出、写作脚手架和桌面打包串成完整主路径的阶段。
 
-- **本地优先的笔记工作台**：以本地 Vault 和 Markdown 文件为内容事实源，SQLite 负责目录、关系、检索和图谱索引。
-- **三类笔记流程**：支持随笔笔记、文献笔记、永久笔记，区分原始材料、理解后的转述和自己的判断。
-- **文献笔记工作区升级**：文献笔记现在围绕“原文、转述、判断种子、追问、边界 / 反例、保留原因”组织，帮助材料更自然地转化为永久笔记。
-- **知识网络能力**：新增显式语义关系、关系目标搜索、关系编辑 / 删除，以及易经示例知识网络 seed 流程。
-- **导入导出闭环**：Markdown / Obsidian 导入支持预览、确认、历史记录和回滚；Markdown 导出支持 manifest、指定 noteIds 和目录范围，并阻止导出到当前 Vault 内部。
-- **桌面发布准备**：Windows NSIS 安装包、桌面 bundle preflight、GitHub Actions 桌面构建、相对资源路径和 Tauri updater 基础设施已经就绪。
-- **AI 基础设施**：加入模型路由、用户模型偏好、provider 配置、provider 健康检查、预算守卫、计划任务边界和 OpenAI Agents SDK 运行边界。
+这份说明保留的意义主要是：
 
-## 新功能
+1. 记录当时的发布基线
+2. 保留桌面打包与验证背景
+3. 说明哪些能力是内测时重点覆盖的
 
-### 本地 Vault 与笔记
+## 仍然有效的版本信息
 
-- 在应用内创建、编辑、移动、重命名和删除目录与笔记。
-- 笔记正文以 Markdown 写入当前 Vault。
-- 支持切换 Vault，并通过本地 API 保持目录和笔记状态一致。
-- 中文路径、带空格路径在保存、导入、导出、附件和桌面定位中更稳定。
-- 目录移动会同步更新后代目录路径和笔记 Markdown 路径。
-- 笔记移动时会重写相对附件链接，避免图片和文件预览断链。
+以下信息仍有参考价值：
 
-### 编辑器
+- 本地 Vault + Markdown 文件是内容事实源
+- 三类笔记、图谱、写作 scaffold、桌面打包都已进入真实实现
+- Windows NSIS 安装包和桌面 preflight 在当时已打通
+- 发布说明明确把产品定位为内测候选，而非大规模生产版
 
-- 默认进入 WYSIWYG 书写界面，可切换到 Markdown 源码模式。
-- 输入 `[[` 可触发笔记链接选择器，输入 `#` 可触发标签选择器。
-- 支持格式工具栏、标题、列表、引用、代码块、表格、分隔线、图片和文件附件。
-- 支持连续空行、带空格附件链接、图片附件、普通文件附件和外部链接。
-- 永久笔记支持原创性检查和作者确认状态。
-- 文献笔记可以在具备来源、原文、转述、判断种子或追问后记录为永久笔记草稿。
+## 已经过时的导入导出描述
 
-### 文献到永久笔记
+本文件原先把以下能力写成了当时的发布描述：
 
-- 新文献模板包含引用信息、原文、转述、判断种子、追问、边界 / 反例和保留原因。
-- 旧标题“支持判断”仍可被兼容解析为“判断种子”。
-- 文献队列会区分待补来源、待转述、待提炼判断、可转永久笔记和已转永久笔记。
-- 从文献生成永久笔记草稿时，会保留来源笔记、引用摘要和证据回查提醒，而不直接复制原文或转述正文。
+1. Markdown / Obsidian 并列导入
+2. 导入历史记录
+3. 导入回滚
+4. 更宽的导入导出闭环表述
 
-### 关系网络与图谱
+这些内容不再代表当前代码库边界。
 
-- 支持显式语义关系，关系类型和说明可以被创建、编辑和删除。
-- 关系目标搜索可以从 SQLite 中查找尚未加载到当前目录视图的笔记。
-- 图谱继续支持 wikilink、标签和反链导航。
-- 新增易经知识网络示例 seed，用于验证概念、卦象、文献和原创判断之间的关系建模。
+## 当前应以哪些文档为准
 
-### 导入、导出与安全
+如果你正在开发或验收当前版本，请改看这些文件：
 
-- Markdown / Obsidian 导入支持预览、选择性确认、历史记录、回滚和风险提示。
-- Obsidian frontmatter 标签解析更稳，包括 `#来源/访谈` 这类中文 / 分层标签。
-- 导入流程保留相关附件文件。
-- Markdown 导出会写出 manifest，方便确认导出了哪些内容。
-- 导出范围可按 `noteIds` 或目录树限定。
-- 导出目标如果位于当前 Vault 内，会被拒绝，避免误覆盖源内容。
-
-### 写作准备
-
-- 可以从永久笔记创建写作项目。
-- 写作 scaffold 会保留证据映射、缺口、反方观点、边界和开放问题。
-- 写作流程强调组织材料和暴露结构问题，而不是直接代写完整文章。
-
-### AI 基础设施
-
-- 设置页支持简单 AI 模式选择和模型偏好预览。
-- API 持久化用户 AI 偏好、provider 配置和健康状态。
-- 模型路由会结合用户模式、预算策略、隐私模式和 provider 健康情况。
-- 支持 OpenAI Agents SDK runtime 边界和工具桥接。
-- 计划任务、上下文包、运行日志、AI artifact inbox 和 provider health store 已具备基础持久化能力。
-- 本版本的 AI 能力仍以基础设施和边界验证为主，不承诺自动生成永久笔记正文或完整文章。
-
-### Windows 桌面版
-
-- 支持 Windows NSIS 安装包，供内测使用。
-- 打包后的桌面应用在 API 占位符未替换时，会回退到 `http://localhost:3000`。
-- 如果本地 API 未运行，应用会显示阻断提示，而不是静默退回假数据。
-- 原生打开目录、定位 Markdown 文件和 Vault 路径处理更稳定。
-- 桌面 preflight 覆盖 Rust / Tauri、图标、前端入口、updater 权限和 `cargo check`。
-
-## 修复与体验打磨
-
-- 稳定 MVP 工具栏、内联选择器、编辑器关联逻辑和附件预览。
-- 恢复 WYSIWYG 作为默认编辑模式。
-- 修复换行、附件链接包裹、图片 / 文件附件和外部链接相关问题。
-- 改进新建笔记入口在移动视口中的可发现性。
-- 改进启动笔记和内联 token 预览体验。
-- 优化营销页、登录 / 注册 / 计费路由、favicon 和静态资源路径。
-- 修复 tagged desktop bundle 在 updater artifact 未启用时的构建问题。
-
-## 验证结果
-
-最近一次本地验证时间：2026-05-13
-
-- `node --test tests\unit\web-editor-asset-markdown.test.mjs` 通过：6/6。
-- `npm.cmd run mvp:check` 通过。
-- Core tests：309 pass / 0 fail / 67 skipped。
-- Smoke E2E 通过。
-- Browser MVP E2E 通过，覆盖 10 条 MVP 浏览器主路径：笔记、Vault、导入、导出、图谱、Explorer 移动 / 删除、编辑器空行、外部链接、图片 / 附件、wikilink / tag token。
-- Desktop dev preflight 通过，包括 Rust / Tauri CLI、web dev server `:5173` 和 api server `:3000`。
-- Desktop bundle preflight 通过，包括 Tauri 配置、图标、updater 权限和 `cargo check`。
-- 合并 AI agent layer 与 V1.5 thinking status 后，`npm.cmd test` 通过：309 pass / 0 fail / 67 skipped。
-
-完整浏览器 E2E 默认不在 `mvp:check` 中运行。需要完整验证时可单独执行：
-
-```powershell
-$env:RUN_BROWSER_E2E='1'
-npm.cmd run test:e2e:browser
-```
-
-## 已知限制
-
-- Windows 安装包暂未签名，安装或首次启动时可能触发 SmartScreen 提示。
-- v0.1.0 仍依赖外部本地 API 服务 `http://localhost:3000`，后端尚未嵌入桌面应用。
-- 自动更新目前是基础设施准备，不应承诺生产可用，直到签名更新源和 feed 完成并验证。
-- macOS 和 Linux 包暂不作为正式承诺，需在真实目标机器完成 smoke 测试后再开放。
-- MSI 不是当前推荐的内测分发格式。
-- 生产级账号、计费、跨设备同步、协作、语义搜索、语音输入等不在 v0.1 范围内。
-
-## 内测建议
-
-- 测试前请备份本地 Vault。
-- 启动桌面应用前，先启动本地 API。
-- 至少测试一次包含中文或空格的 Vault 路径。
-- 建议走完整主链路：创建目录、创建笔记、编辑保存、重启确认仍然存在、添加 `[[wikilink]]`、添加 `#tag`、导入 Markdown / Obsidian、导出 Markdown、打开图谱、创建写作 scaffold。
-- 文献工作流建议额外验证：补引用信息、粘贴原文、写转述、写判断种子或追问、记录永久笔记，再回到来源文献核对证据链。
+1. `README.md`
+2. `docs/API.md`
+3. `docs/ACCEPTANCE_TESTS.md`
+4. `docs/CONNECTORS_MVP_CONTRACT.md`
+5. `docs/IMPLEMENTATION_STATUS.md`

@@ -1605,7 +1605,7 @@ function thinkingStatusTone(thinkingStatus = null) {
 }
 
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation }) {
+  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation, selectPermanentDirectory }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
@@ -1615,6 +1615,7 @@ export class EditorPane {
     this.onChromeChange = typeof onChromeChange === "function" ? onChromeChange : () => {};
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
+    this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentPinnedLinkId = "";
@@ -1762,8 +1763,9 @@ export class EditorPane {
 
   resolvedNoteType(note = this.activeNote()) {
     const explicitType = String(note?.noteType || "").trim().toLowerCase();
-    const folderType = note?.folderId ? String(typeFromFolder(this.state, note.folderId) || "").trim().toLowerCase() : "";
-    const rootId = note?.folderId ? String(rootBoxIdFromFolder(this.state, note.folderId) || "").trim() : "";
+    const safeState = this.state && Array.isArray(this.state.folders) ? this.state : { folders: [] };
+    const folderType = note?.folderId ? String(typeFromFolder(safeState, note.folderId) || "").trim().toLowerCase() : "";
+    const rootId = note?.folderId ? String(rootBoxIdFromFolder(safeState, note.folderId) || "").trim() : "";
     if (rootId === "dir_original_default" || rootId === "dir_fleeting_default" || rootId === "dir_literature_default") {
       if (folderType) return folderType;
       if (explicitType) return explicitType;
@@ -1788,6 +1790,31 @@ export class EditorPane {
     return noteType === "fleeting" || noteType === "literature";
   }
 
+  sourceNotePromotionHint(note = this.activeNote()) {
+    const noteType = this.resolvedNoteType(note);
+    if (noteType === "literature") {
+      return "先选一个永久笔记盒目录，再把这条文献笔记整理成一条可以独立阅读的判断。";
+    }
+    if (noteType === "fleeting") {
+      return "先选一个永久笔记盒目录，再把这条随笔写成一条自己愿意长期保留的判断。";
+    }
+    return "先选一个永久笔记盒目录，再继续创建永久笔记。";
+  }
+
+  async pickPermanentDirectoryForNote(note = this.activeNote()) {
+    if (!note || !this.isOriginalRecordableSource(note)) return "";
+    if (!this.selectPermanentDirectory) {
+      this.onStatus("当前环境还没有接入永久笔记目录选择器", "warn");
+      return "";
+    }
+    return this.selectPermanentDirectory({
+      sourceNoteId: note.id,
+      sourceType: this.resolvedNoteType(note),
+      sourceTitle: note.title || "",
+      sourceHint: this.sourceNotePromotionHint(note)
+    });
+  }
+
   generatedOriginalNoteId(note = this.activeNote()) {
     return String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
   }
@@ -1797,7 +1824,7 @@ export class EditorPane {
   }
 
   isLiteratureWorkspaceActive(note = this.activeNote()) {
-    return this.resolvedNoteType(note) === "literature";
+    return false;
   }
 
   defaultAuthorshipState(note = null) {
@@ -2046,11 +2073,11 @@ export class EditorPane {
                 <div class="literature-queue-item-actions">
                   <button class="mini-btn" type="button" data-open-literature-note="${escapeHtml(item.note.id)}">${item.isCurrent ? "继续编辑当前条目" : "打开条目"}</button>
                   ${
-                    this.hasGeneratedOriginal(item.note)
-                      ? `<span class="item-badge">已生成永久笔记</span>`
-                      : item.lane === "ready"
-                        ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">记录永久笔记</button>`
-                      : ""
+                      this.hasGeneratedOriginal(item.note)
+                        ? `<span class="item-badge">已生成永久笔记</span>`
+                        : item.lane === "ready"
+                          ? `<button class="mini-btn primary create-original-cta" type="button" data-create-original-from-literature="${escapeHtml(item.note.id)}">选择目录并创建</button>`
+                          : ""
                   }
                 </div>
               </article>
@@ -2625,21 +2652,13 @@ export class EditorPane {
       this.renderSaveButton();
       this.renderCompleteButton();
       this.renderRecordPermanentButton();
+      this.renderRelationToolbarButtons();
       this.renderAuthorshipPanel();
       return;
     }
     const note = this.activeNote();
     const saveUiState = this.activeSaveUiState();
-    if (this.isLiteratureWorkspaceActive(note)) {
-      const completion = this.literatureCompletionState(note);
-      if (this.els.statusHint) {
-        this.els.statusHint.textContent = completion.hasParaphrase
-          ? completion.status === "active"
-            ? "文献笔记已完成。你保留的是被你理解过的材料，而不是孤立摘录。"
-            : reflectionQuestionsHint("文献笔记已写转述。")
-          : reflectionQuestionsHint("文献笔记待完成。");
-      }
-    } else if (this.isOriginalNote(note)) {
+    if (this.isOriginalNote(note)) {
       if (this.els.statusHint && saveUiState?.mode === "blocked") {
         this.els.statusHint.textContent = reflectionQuestionsHint(saveUiState.message || "当前修改被拦下了。");
       } else if (this.els.statusHint) {
@@ -2653,6 +2672,7 @@ export class EditorPane {
     this.renderSaveButton();
     this.renderCompleteButton();
     this.renderRecordPermanentButton();
+    this.renderRelationToolbarButtons();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -2801,9 +2821,31 @@ export class EditorPane {
     button.classList.toggle("hidden", !visible);
     button.disabled = !visible;
     button.dataset.sourceNoteId = visible ? note.id : "";
-    button.title = visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.dataset.tip = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.setAttribute("aria-label", visible ? "从当前笔记创建永久笔记" : "当前笔记不需要创建永久笔记");
+    button.title = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.dataset.tip = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.setAttribute("aria-label", visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记");
+  }
+
+  renderRelationToolbarButtons() {
+    const note = this.activeNote();
+    const visible = Boolean(note && this.isOriginalNote(note));
+
+    if (this.els.insertLink) {
+      this.els.insertLink.classList.toggle("hidden", !visible);
+      this.els.insertLink.disabled = !visible;
+      this.els.insertLink.title = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.dataset.tip = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.setAttribute("aria-label", visible ? "关联笔记" : "只有永久笔记才能关联其他笔记");
+    }
+
+    if (this.els.showRelated) {
+      this.els.showRelated.classList.toggle("hidden", !visible);
+      this.els.showRelated.disabled = !visible;
+    }
+
+    if (!visible && this.state.inspectorVisible) {
+      this.setInspectorVisible(false);
+    }
   }
 
   renderSourceNoteFlowSection(note) {
@@ -2816,35 +2858,35 @@ export class EditorPane {
       : null;
     const hasGenerated = Boolean(generatedOriginalId);
 
-    let statusLabel = hasGenerated ? "已生成永久笔记" : "待生成永久笔记";
-    let hint = "先把这条材料沉淀成永久笔记，再进入关联与写作。";
-    let detail = "这里不会判断它是否孤立，因为随笔笔记和文献笔记本来就不进入永久笔记关系网络。";
-    let actionLabel = "生成永久笔记";
+    let statusLabel = hasGenerated ? "已转为永久笔记" : "待转永久";
+    let hint = "先把这条材料沉淀成永久笔记，再继续扩展关联和写作。";
+    let detail = "这里只保留下一步最需要做的动作。";
+    let actionLabel = "选择目录并创建";
 
     if (noteType === "literature") {
       const completion = this.literatureCompletionState(note);
-      statusLabel = hasGenerated ? "已生成永久笔记" : completion.label;
+      statusLabel = hasGenerated ? "已转为永久笔记" : "文献待转";
       hint = hasGenerated
-        ? "这条文献笔记已经长出永久笔记，接下来请回到永久笔记继续建立关联。"
+        ? "这条文献笔记已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
         : completion.hint;
       detail = hasGenerated
-        ? "文献笔记继续保留为证据与出处，不参与“孤立/非孤立”的判断。"
-        : "文献笔记先补来源、转述和判断种子，再决定要不要沉淀成永久笔记。";
-      actionLabel = "记录永久笔记";
+        ? "文献笔记继续保留出处和转述，不需要在这里重复处理。"
+        : "先选永久笔记盒目录，再把这条材料写成一条可以独立阅读的判断。";
     } else {
       hint = hasGenerated
-        ? "这条随笔已经沉淀成永久笔记，接下来请回到永久笔记继续建立关联。"
-        : "随笔笔记只负责捕捉想法；当它值得长期保留时，再沉淀成永久笔记。";
+        ? "这条随笔已经对应到一条永久笔记，接下来去那条判断继续完善会更顺。"
+        : "随笔只负责抓住线索；当它值得保留时，再沉淀成永久笔记。";
+      statusLabel = hasGenerated ? "已转为永久笔记" : "随笔待转";
       detail = hasGenerated
-        ? "随笔笔记本身不参与永久笔记关系网络。"
-        : "随笔笔记不会被标成孤立；只有变成永久笔记之后，才进入关系网络。";
+        ? "这条随笔会继续保留原始线索，不需要在这里重复整理。"
+        : "先选永久笔记盒目录，再把这条想法写成一条自己愿意长期保留的判断。";
     }
 
     return `
       <section class="inspector-section semantic-relations-section" data-source-note-flow-section data-note-id="${escapeHtml(note.id)}">
         <div class="inspector-section-head">
           <div>
-            <div class="inspector-section-title">生成永久笔记</div>
+            <div class="inspector-section-title">创建永久笔记</div>
             <div class="inspector-section-note">${escapeHtml(hint)}</div>
           </div>
           <span class="inspector-chip">${escapeHtml(statusLabel)}</span>
@@ -2863,7 +2905,7 @@ export class EditorPane {
             ? ""
             : `
               <div class="semantic-relation-card-actions">
-                <button class="mini-btn primary" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
+                <button class="mini-btn primary create-original-cta" type="button" data-source-note-action="record-permanent">${escapeHtml(actionLabel)}</button>
               </div>
             `
         }
@@ -2872,21 +2914,11 @@ export class EditorPane {
   }
 
   renderLiteratureWorkspace() {
-    const note = this.activeNote();
-    const isLiterature = this.isLiteratureWorkspaceActive(note);
-    this.els.literatureWorkspace?.classList.toggle("hidden", !isLiterature);
-    this.els.markdownSplit?.classList.toggle("hidden", isLiterature);
+    this.els.literatureWorkspace?.classList.add("hidden");
+    this.els.markdownSplit?.classList.remove("hidden");
     this.els.modeEdit?.classList.remove("hidden");
-    this.els.modeSplit?.classList.toggle("hidden", isLiterature);
-    if (!this.isOriginalNote(note)) this.hideOriginalityNotice();
-
-    for (const el of [this.els.insertImage, this.els.insertTag, this.els.toolbarCommandBtn]) {
-      el?.classList?.toggle?.("hidden", isLiterature);
-    }
-    this.els.insertLink?.classList?.toggle?.("hidden", !this.isOriginalNote(note));
-    document.querySelectorAll(".tb[data-md]").forEach((button) => button.classList.toggle("hidden", isLiterature));
-
-    this.renderLiteratureQueue(note);
+    this.els.modeSplit?.classList.add("hidden");
+    if (!this.isOriginalNote(this.activeNote())) this.hideOriginalityNotice();
   }
 
   setSaveUiState(mode, message = "") {
@@ -4754,6 +4786,17 @@ export class EditorPane {
     return names.join(" / ");
   }
 
+  compactFolderLabel(folderId) {
+    return this.folderLabel(folderId).replace(/\s*\/\s*/g, "/");
+  }
+
+  linkCandidateDisplayTitle(note) {
+    const targetTitle = String(note?.title || note?.id || "未命名笔记").trim() || "未命名笔记";
+    const activeNote = this.activeNote();
+    if (!activeNote?.folderId || !note?.folderId || activeNote.folderId === note.folderId) return targetTitle;
+    return `${this.compactFolderLabel(note.folderId)}/${targetTitle}`;
+  }
+
   resolveLinkToken(token, scopedNotes = this.scopedLinkCandidates()) {
     const raw = String(token || "").trim();
     if (!raw) return null;
@@ -4834,9 +4877,11 @@ export class EditorPane {
     const cursor = selection.from || 0;
     const tryCursor = (candidateCursor) => {
       const left = text.slice(0, candidateCursor);
-      const start = left.lastIndexOf("[[");
+      const asciiStart = left.lastIndexOf("[[");
+      const fullWidthStart = left.lastIndexOf("【【");
+      const start = Math.max(asciiStart, fullWidthStart);
       if (start < 0) return null;
-      const lastClose = left.lastIndexOf("]]");
+      const lastClose = Math.max(left.lastIndexOf("]]"), left.lastIndexOf("】】"));
       if (lastClose > start) return null;
       const query = left.slice(start + 2);
       if (query.includes("\n")) return null;
@@ -4873,18 +4918,15 @@ export class EditorPane {
   }
 
   renderLinkCandidates(query = "", preferredId = "") {
-    const q = String(query || "").trim().toLowerCase();
+    const q = normalizeText(query);
     const all = this.scopedLinkCandidates();
     const computed = (q
       ? all
-          .filter((n) => n.id.toLowerCase().includes(q) || n.title.toLowerCase().includes(q))
+          .filter((n) => normalizeText(n.title).includes(q))
           .sort((a, b) => linkCandidateRank(a, q) - linkCandidateRank(b, q) || a.title.localeCompare(b.title, "zh-CN"))
       : [...all].sort((a, b) => a.title.localeCompare(b.title, "zh-CN")));
+    const list = q ? computed.slice(0, 50) : [];
     const selectedId = String(preferredId || this.currentPinnedLinkId || "").trim();
-    const pinnedNote = selectedId
-      ? computed.find((n) => n.id === selectedId) || all.find((n) => n.id === selectedId) || null
-      : null;
-    const list = pinnedNote ? [pinnedNote] : computed;
     this.currentLinkCandidates = list;
     this.currentLinkIndex = 0;
     if (selectedId) {
@@ -4892,32 +4934,16 @@ export class EditorPane {
       if (idx >= 0) this.currentLinkIndex = idx;
     }
     this.els.linkSearchList.innerHTML = list.length
-      ? renderPickerSections(
-          list.slice(0, 50).map((n, idx) => ({ note: n, idx })),
-          ({ note }) => linkCandidateGroupLabel(note, q),
-          ({ note: n, idx }) => {
-            const badge = linkCandidateBadge(n, q);
+      ? list
+          .map((n, idx) => {
             const selected = idx === this.currentLinkIndex;
-            const pinned = Boolean(pinnedNote && n.id === pinnedNote.id);
-            const preview = pinned ? this.linkCandidatePreviewText(n) : "";
-            const location = pinned ? this.linkCandidateLocationText(n) : "";
-            const duplicateHint = pinned && this.hasResolvedLinkToNote(n.id) ? "正文里已经有这条链接，提交时只会补建或复用关系。" : "";
+            const pinned = selectedId && n.id === selectedId;
             return `<button class="link-picker-item ${selected ? "active" : ""} ${pinned ? "picked" : ""}" data-link-note-id="${n.id}" data-link-index="${idx}" aria-selected="${
               selected ? "true" : "false"
-            }"><span class="picker-headline"><strong>${highlightMatch(n.title, q)}</strong>${
-              badge ? `<span class="picker-badge">${escapeHtml(badge)}</span>` : ""
-            }</span><span class="picker-meta">${highlightMatch(n.id, q)} · ${escapeHtml(this.folderLabel(n.folderId))}</span>${
-              pinned
-                ? `<span class="picker-selection-state">已选中</span>${
-                    duplicateHint ? `<span class="picker-duplicate-hint">${escapeHtml(duplicateHint)}</span>` : ""
-                  }<span class="picker-preview">${escapeHtml(preview)}</span><span class="picker-detail-row"><span class="picker-detail-label">目录位置</span><span class="picker-detail-value">${escapeHtml(
-                    location
-                  )}</span></span>`
-                : ""
-            }</button>`;
-          }
-        )
-      : `<div class="picker-empty">当前目录下没有匹配笔记，换个关键词或先新建笔记。</div>`;
+            }"><strong>${highlightMatch(this.linkCandidateDisplayTitle(n), q)}</strong></button>`;
+          })
+          .join("")
+      : q ? `<div class="picker-empty">没有匹配笔记</div>` : "";
     this.scrollActiveLinkCandidateIntoView();
     this.updateLinkPickerConfirmButton();
   }
@@ -4926,28 +4952,15 @@ export class EditorPane {
     const button = this.els.confirmLinkInsert;
     if (!button) return;
     const selectedId = String(this.currentPinnedLinkId || "").trim();
-    const selectedNote = selectedId ? this.currentLinkCandidates.find((item) => item.id === selectedId) || null : null;
-    const requiresReason = !this.currentLinkContext;
-    const hasReason = !requiresReason || String(this.els.linkReasonInput?.value || "").trim().length > 0;
-    const bodyAlreadyLinked = !this.currentLinkContext && selectedNote ? this.hasResolvedLinkToNote(selectedNote.id) : false;
-    button.disabled = this.isSubmittingLinkInsert || !selectedNote || !hasReason;
+    const selectedNote = selectedId
+      ? this.currentLinkCandidates.find((item) => item.id === selectedId) || this.state.notes.find((item) => item.id === selectedId) || null
+      : null;
+    button.disabled = this.isSubmittingLinkInsert || !selectedNote;
     if (this.isSubmittingLinkInsert) {
-      button.textContent = selectedNote ? `正在插入：${selectedNote.title || selectedNote.id}` : "正在插入...";
+      button.textContent = "关联中...";
       return;
     }
-    if (!selectedNote) {
-      button.textContent = "请先选择一条关联笔记";
-      return;
-    }
-    if (!hasReason) {
-      button.textContent = bodyAlreadyLinked
-        ? `正文已有链接，先写理由：${selectedNote.title || selectedNote.id}`
-        : `先写理由，再插入：${selectedNote.title || selectedNote.id}`;
-      return;
-    }
-    button.textContent = bodyAlreadyLinked
-      ? `正文已有链接，补建关系：${selectedNote.title || selectedNote.id}`
-      : `插入：${selectedNote.title || selectedNote.id}`;
+    button.textContent = "关联";
   }
 
   focusManualLinkReasonInput() {
@@ -4981,6 +4994,18 @@ export class EditorPane {
     return `${noteTypeText(this.resolvedNoteType(note) || typeFromFolder(this.state, note?.folderId || ""))} · ${this.folderLabel(note?.folderId || "")}`;
   }
 
+  syncRelationNetworkConnected(...noteIds) {
+    const ids = noteIds.map((item) => String(item || "").trim()).filter(Boolean);
+    if (!ids.length) return;
+    const connectedIds = this.state.graphConnectedNoteIds instanceof Set ? this.state.graphConnectedNoteIds : new Set();
+    this.state.graphConnectedNoteIds = connectedIds;
+    for (const id of ids) {
+      connectedIds.add(id);
+      const note = this.state.notes.find((item) => item.id === id);
+      if (note) note.relationNetworkStatus = "connected";
+    }
+  }
+
   setLinkInsertSubmitting(nextSubmitting) {
     this.isSubmittingLinkInsert = nextSubmitting === true;
     this.updateLinkPickerConfirmButton();
@@ -5005,17 +5030,22 @@ export class EditorPane {
     this.els.linkPicker.style.width = "";
     this.els.linkPicker.style.maxHeight = "";
     this.els.linkPicker.classList.remove("hidden");
-    if (this.els.linkRelationTypeSelect) {
-      const currentType = this.els.linkRelationTypeSelect.value || "supports";
-      this.els.linkRelationTypeSelect.innerHTML = relationCreateTypeOptionsMarkup(currentType);
-      this.els.linkRelationTypeSelect.value = currentType;
+    const linkPickerMeta = this.els.linkRelationTypeSelect?.closest?.(".link-picker-meta");
+    if (linkPickerMeta) linkPickerMeta.hidden = true;
+    const linkPickerGuidance = linkPickerMeta?.nextElementSibling;
+    if (linkPickerGuidance?.classList?.contains("semantic-relation-quality-guidance")) linkPickerGuidance.hidden = true;
+    const linkSearchSpacer = this.els.linkSearchInput?.nextElementSibling;
+    if (linkSearchSpacer && linkSearchSpacer !== this.els.linkSearchList) {
+      this.els.linkSearchInput.parentNode?.insertBefore(this.els.linkSearchList, linkSearchSpacer);
+      if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;
     }
+    this.els.linkSearchInput.placeholder = "输入笔记标题，实时检索...";
     this.els.linkSearchInput.value = initialQuery;
     this.currentPinnedLinkId = "";
     this.manualLinkReturnSelection = inlineMode ? null : this.normalizedSelectionRange(this.editorSelection());
     this.manualLinkReturnScrollState = inlineMode ? null : this.captureEditorScrollState();
     if (!inlineMode) {
-      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = this.els.linkRelationTypeSelect.value || "supports";
+      if (this.els.linkRelationTypeSelect) this.els.linkRelationTypeSelect.value = "supports";
       if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     }
     this.currentLinkContext = options.inlineContext || null;
@@ -5102,14 +5132,8 @@ export class EditorPane {
     const target = this.state.notes.find((n) => n.id === noteId);
     if (!target) return;
     const inlineInsert = Boolean(this.currentLinkContext);
-    const relationType = String(this.els.linkRelationTypeSelect?.value || "supports").trim() || "supports";
-    const rawReason = String(this.els.linkReasonInput?.value || "").trim();
-    if (!inlineInsert && this.els.linkReasonInput && !rawReason) {
-      this.onStatus("先写一句“为什么相关”，再插入这条关联。", "warn");
-      this.els.linkReasonInput.focus();
-      this.els.linkReasonInput.select?.();
-      return;
-    }
+    const relationType = "supports";
+    const rawReason = "手动确认关联。";
     const manualSelection = !inlineInsert
       ? this.normalizedSelectionRange(this.manualLinkReturnSelection) || this.normalizedSelectionRange(this.editorSelection())
       : null;
@@ -5168,6 +5192,7 @@ export class EditorPane {
             confidence: 1,
             status: "confirmed"
           });
+          this.syncRelationNetworkConnected(this.activeNote()?.id || "", target.id);
         } catch (error) {
           this.onStatus(`关联已插入，但正式关系创建失败：${String(error?.message || error)}`, "warn");
         }
@@ -5197,21 +5222,12 @@ export class EditorPane {
 
   async confirmSelectedLinkCandidate() {
     const chosen = this.currentLinkCandidates[this.currentLinkIndex] || this.currentLinkCandidates[0];
-    if (!chosen) {
-      this.onStatus("请先选择一条关联笔记", "warn");
-      return;
-    }
-    if (!this.currentLinkContext) {
-      const pinnedId = String(this.currentPinnedLinkId || "").trim();
-      if (pinnedId !== chosen.id) {
-        this.currentPinnedLinkId = chosen.id;
-        this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
-        this.focusManualLinkReasonInput();
-        this.onStatus("已选中这条关联笔记，再写一句理由后提交。", "ok");
-        return;
-      }
-    }
-    await this.insertSelectedLinkNote(chosen.id);
+    if (!chosen) return;
+    this.currentPinnedLinkId = chosen.id;
+    this.renderLinkCandidates(this.els.linkSearchInput.value, chosen.id);
+    this.els.linkSearchInput.value = this.linkCandidateDisplayTitle(chosen);
+    this.els.linkSearchList.innerHTML = "";
+    this.updateLinkPickerConfirmButton();
   }
 
   activeRootDirectoryId() {
@@ -5514,12 +5530,58 @@ export class EditorPane {
       .join("");
   }
 
+  renderRelationTargetChoices(candidates = [], selectedId = "", query = "", activeId = "") {
+    const selected = String(selectedId || "").trim();
+    const active = String(activeId || "").trim();
+    const selectedNote = selected ? this.state.notes.find((item) => item?.id === selected) || null : null;
+    const q = String(query || "").trim().toLowerCase();
+    const sorted = this.sortRelationTargetCandidates(candidates);
+    const filtered = q
+      ? sorted.filter((candidate) => {
+          const title = String(candidate?.title || "").toLowerCase();
+          return title.includes(q);
+        })
+      : sorted;
+    const items = selected && !filtered.some((candidate) => candidate?.id === selected)
+      ? [
+          ...(selectedNote ? [selectedNote] : []),
+          ...filtered
+        ]
+      : filtered;
+    if (!items.length) return `<div class="picker-empty">没有匹配笔记</div>`;
+    return items
+      .slice(0, 10)
+      .map((candidate) => {
+        const isActive = candidate?.id === active;
+        const resolvedType = noteTypeText(candidate?.noteType || typeFromFolder(this.state, candidate?.folderId || ""));
+        const location = this.folderLabel(candidate?.folderId || "");
+        return `
+          <button
+            class="link-picker-item ${isActive ? "active" : ""}"
+            type="button"
+            data-relation-target-choice
+            data-note-id="${escapeHtml(candidate?.id || "")}"
+            data-note-title="${escapeHtml(candidate?.title || candidate?.id || "")}"
+            aria-selected="${isActive ? "true" : "false"}"
+            title="${escapeHtml(`${candidate?.title || candidate?.id || ""} · ${resolvedType} · ${location}`)}"
+          >
+            <span class="picker-headline">
+              <strong>${highlightMatch(candidate?.title || candidate?.id || "", q)}</strong>
+            </span>
+          </button>
+        `;
+      })
+      .join("");
+  }
+
   renderCreateRelationFormSection(noteId, prefill = {}) {
     const activeNote = this.activeNote();
     const candidates = this.scopedLinkCandidates();
     const defaultType = this.relationCreateDefaultType(activeNote);
     const selectedTargetId = String(prefill?.targetNoteId || "").trim();
+    const selectedTarget = selectedTargetId ? this.state.notes.find((item) => item?.id === selectedTargetId) || null : null;
     const selectedRelationType = String(prefill?.relationType || "").trim().toLowerCase() || defaultType;
+    const targetQuery = String(prefill?.targetQuery || selectedTarget?.title || "").trim();
     const entryHint = String(prefill?.entryHint || "").trim();
     const rationaleDraft = String(prefill?.rationaleDraft || "").trim();
     const insightQuestionDraft = String(prefill?.insightQuestionDraft || "").trim();
@@ -5530,7 +5592,12 @@ export class EditorPane {
     const typeOptions = RELATION_CREATE_TYPES.map(
       (type) => `<option value="${escapeHtml(type)}"${type === selectedRelationType ? " selected" : ""}>${escapeHtml(relationTypeLabel(type))}</option>`
     ).join("");
-    const noteOptions = this.renderRelationTargetOptions(candidates, selectedTargetId);
+    const targetChoices = this.renderRelationTargetChoices(candidates, selectedTargetId, targetQuery, selectedTargetId);
+    const targetStatus = selectedTarget
+      ? `已选：${selectedTarget.title || selectedTarget.id}`
+      : candidates.length
+        ? "输入标题后选择一条笔记"
+        : "当前范围没有可连接笔记";
 
     return `
       <section class="inspector-section semantic-relations-section" data-note-relations-section data-note-id="${escapeHtml(noteId)}">
@@ -5547,11 +5614,10 @@ export class EditorPane {
           ${renderRelationTemplateVariantSwitcher(templateVariants.items, templateVariants.selectedKey, rememberedTemplateVariantLabel)}
           <label>
             <span>目标笔记</span>
-            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="搜索标题、ID 或路径" autofocus />
-            <select name="toNoteId" data-relation-target-select required ${noteOptions ? "" : "disabled"}>${noteOptions}</select>
-            <small class="semantic-relation-target-status" data-relation-target-status>${
-              noteOptions ? "正在从 SQLite 扩展搜索范围。" : "正在搜索当前范围里的可连接笔记。"
-            }</small>
+            <input id="targetQuery" class="semantic-relation-target-search" name="targetQuery" data-relation-target-search data-autofocus-relation-target autocomplete="off" placeholder="输入标题关键词" value="${escapeHtml(targetQuery)}" autofocus />
+            <input type="hidden" name="toNoteId" data-relation-target-id value="${escapeHtml(selectedTargetId)}" />
+            <div class="link-picker-list semantic-relation-target-list" data-relation-target-list hidden>${targetChoices}</div>
+            <small class="semantic-relation-target-status" data-relation-target-status>${escapeHtml(targetStatus)}</small>
           </label>
           <label>
             <span>关系类型</span>
@@ -5570,7 +5636,7 @@ export class EditorPane {
           ${renderRelationQualityMeter(rationaleDraft, insightQuestionDraft)}
           <div class="semantic-relation-form-error" data-relation-form-error></div>
           <div class="semantic-relation-actions">
-            <button class="mini-btn primary" type="submit" ${noteOptions ? "" : "disabled"}>确认建立</button>
+            <button class="mini-btn primary" type="submit" ${selectedTargetId ? "" : "disabled"}>确认建立</button>
           </div>
         </form>
       </section>
@@ -7452,10 +7518,13 @@ export class EditorPane {
     if (!form || form.dataset.noteId !== note.id) return;
 
     const serial = ++this.relationTargetSearchSerial;
-    const select = form.querySelector("[data-relation-target-select]");
+    const searchInput = form.querySelector("[data-relation-target-search]");
+    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+    const list = form.querySelector("[data-relation-target-list]");
     const status = form.querySelector("[data-relation-target-status]");
     const submit = form.querySelector('button[type="submit"]');
-    const selectedBefore = String(select?.value || "").trim();
+    const selectedBefore = String(hiddenTargetId?.value || "").trim();
+    const highlightBefore = String(form.dataset.relationTargetHighlightId || "").trim();
     if (status) status.textContent = "正在搜索 SQLite 笔记目录...";
 
     try {
@@ -7469,32 +7538,110 @@ export class EditorPane {
       const items = Array.isArray(result?.items) ? result.items : [];
       this.upsertApiNotes(items);
       if (!form.isConnected) return;
-      if (select) {
-        select.innerHTML = this.renderRelationTargetOptions(items, selectedBefore);
-        select.disabled = items.length === 0;
+      const selectedNote = selectedBefore ? this.state.notes.find((item) => item?.id === selectedBefore) || null : null;
+      const cleanQuery = String(query || "").trim();
+      let nextHighlightId = highlightBefore && items.some((item) => item?.id === highlightBefore) ? highlightBefore : "";
+      if (!nextHighlightId) {
+        if (cleanQuery) nextHighlightId = items[0]?.id || "";
+        else if (selectedBefore && items.some((item) => item?.id === selectedBefore)) nextHighlightId = selectedBefore;
+        else nextHighlightId = items[0]?.id || "";
       }
-      if (submit) submit.disabled = items.length === 0;
+      form.dataset.relationTargetHighlightId = nextHighlightId;
+      if (list) list.innerHTML = this.renderRelationTargetChoices(items, selectedBefore, query, nextHighlightId);
+      if (submit) submit.disabled = !selectedBefore;
       if (status) {
-        const cleanQuery = String(query || "").trim();
-        status.textContent = items.length
-          ? `${cleanQuery ? "搜索命中" : "当前范围"} ${items.length} 条可连接笔记。`
-          : cleanQuery
-            ? "没有找到匹配笔记，换个标题、ID 或路径试试。"
-            : "当前范围里还没有可连接的其他笔记。";
+        status.textContent = selectedNote
+          ? `已选：${selectedNote.title || selectedNote.id}`
+          : items.length
+            ? `${cleanQuery ? `已筛选 ${items.length} 条` : "输入关键词后选择一条笔记"}`
+            : cleanQuery
+              ? "没有匹配笔记"
+              : "当前范围没有可连接笔记";
+      }
+      if (searchInput && selectedNote && !String(searchInput.value || "").trim()) {
+        searchInput.value = selectedNote.title || selectedNote.id || "";
       }
     } catch (error) {
       if (serial !== this.relationTargetSearchSerial || this.activeNote()?.id !== note.id) return;
       if (status) status.textContent = `目标搜索失败：${String(error?.message || error)}`;
-      if (select && !select.options.length) select.disabled = true;
-      if (submit && select?.disabled) submit.disabled = true;
+      if (submit && !String(hiddenTargetId?.value || "").trim()) submit.disabled = true;
     }
   }
 
   queueRelationTargetSearch(input) {
+    const form = input?.closest?.("[data-create-relation-form]");
+    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
+    const selectedNote = hiddenTargetId?.value
+      ? this.state.notes.find((item) => item?.id === String(hiddenTargetId.value || "").trim()) || null
+      : null;
+    if (hiddenTargetId && selectedNote && normalizeText(input?.value || "") !== normalizeText(selectedNote?.title || selectedNote?.id || "")) {
+      hiddenTargetId.value = "";
+      delete hiddenTargetId.dataset.targetTitle;
+      const submit = form?.querySelector?.('button[type="submit"]');
+      if (submit) submit.disabled = true;
+    }
+    if (form) form.dataset.relationTargetHighlightId = "";
     window.clearTimeout(this.relationTargetSearchTimer);
     this.relationTargetSearchTimer = window.setTimeout(() => {
       void this.refreshRelationTargetSearch(input?.value || "");
     }, 180);
+  }
+
+  openRelationTargetList(form) {
+    const list = form?.querySelector?.("[data-relation-target-list]");
+    if (list) list.hidden = false;
+  }
+
+  closeRelationTargetList(form) {
+    const list = form?.querySelector?.("[data-relation-target-list]");
+    if (list) list.hidden = true;
+  }
+
+  visibleRelationTargetChoices(form) {
+    return Array.from(form?.querySelectorAll?.("[data-relation-target-choice]") || []).filter(Boolean);
+  }
+
+  moveRelationTargetChoice(form, step = 1) {
+    const buttons = this.visibleRelationTargetChoices(form);
+    if (!buttons.length) return;
+    this.openRelationTargetList(form);
+    const hiddenTargetId = form?.querySelector?.("[data-relation-target-id]");
+    const currentId = String(form?.dataset?.relationTargetHighlightId || hiddenTargetId?.value || "").trim();
+    let index = buttons.findIndex((button) => String(button.dataset.noteId || "").trim() === currentId);
+    if (index < 0) index = step > 0 ? -1 : 0;
+    const next = buttons[(index + step + buttons.length) % buttons.length];
+    if (!next) return;
+    form.dataset.relationTargetHighlightId = String(next.dataset.noteId || "").trim();
+    buttons.forEach((button) => {
+      const active = button === next;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    next.scrollIntoView?.({ block: "nearest" });
+  }
+
+  applyRelationTargetChoice(form, noteId = "", noteTitle = "", options = {}) {
+    const cleanNoteId = String(noteId || "").trim();
+    if (!form || !cleanNoteId) return;
+    const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+    const searchInput = form.querySelector("[data-relation-target-search]");
+    const status = form.querySelector("[data-relation-target-status]");
+    const submit = form.querySelector('button[type="submit"]');
+    if (hiddenTargetId) {
+      hiddenTargetId.value = cleanNoteId;
+      hiddenTargetId.dataset.targetTitle = String(noteTitle || "").trim();
+    }
+    form.dataset.relationTargetHighlightId = cleanNoteId;
+    if (searchInput) searchInput.value = String(noteTitle || "").trim();
+    if (submit) submit.disabled = false;
+    if (status) status.textContent = `已选：${noteTitle || cleanNoteId}`;
+    if (options.keepOpen) this.openRelationTargetList(form);
+    else this.closeRelationTargetList(form);
+    void this.refreshRelationTargetSearch(String(noteTitle || "").trim());
+    if (options.focusReason !== false) {
+      const rationale = form.querySelector('textarea[name="rationale"]');
+      rationale?.focus?.();
+    }
   }
 
   refreshRelationQualityMeter(form) {
@@ -7720,7 +7867,7 @@ export class EditorPane {
       <div class="inspector-section-note" data-inspector-link-summary-note>
         ${
           !isPermanentNote
-            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示生成永久笔记的下一步。"
+            ? "当前编辑的是来源笔记。只有永久笔记才会显示关联与主路径；这里优先显示创建永久笔记的下一步。"
             : this.semanticRelationsState === "error"
             ? "上面这组数字只统计正文里的本地链接；显式关系当前读取失败，请以主路径卡片和语义关系区的错误提示为准。"
             : this.semanticRelationsState === "loading"
@@ -7976,16 +8123,9 @@ export class EditorPane {
     }
 
     if (evalItem.status === "warning") {
-      const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-      const base = `这条永久笔记已经有判断雏形，但还不够像一条独立观点（相似度 ${similarity}%）。请补充你的判断依据，或为引用内容标明来源位置。`;
-      this.showOriginalityNotice("建议继续打磨", "warn", base);
-      this.onStatus(forSave ? `${base}，将暂时保持草稿状态` : base, "warn");
       return { ...evalItem, raw: result };
     }
 
-    const similarity = Math.round((Number(evalItem.similarity) || 0) * 100);
-    this.showOriginalityNotice("原创性通过", "ok", `这条永久笔记已经基本长成独立判断，可继续建立关联。相似度 ${similarity}%。`);
-    this.onStatus(`原创性检查通过：相似度 ${similarity}%。`, "ok");
     return { ...evalItem, raw: result };
   }
 
@@ -8165,6 +8305,16 @@ export class EditorPane {
         this.applyRelationTemplateVariant(templateVariantButton);
         return;
       }
+      const relationTargetChoice = e.target.closest("[data-relation-target-choice]");
+      if (relationTargetChoice) {
+        const form = relationTargetChoice.closest("[data-create-relation-form]");
+        this.applyRelationTargetChoice(
+          form,
+          relationTargetChoice.dataset.noteId || "",
+          relationTargetChoice.dataset.noteTitle || ""
+        );
+        return;
+      }
       const relationAction = e.target.closest("[data-relation-action]");
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
@@ -8335,6 +8485,47 @@ export class EditorPane {
         if (form) this.refreshRelationQualityMeter(form);
       }
     });
+    this.els.result.addEventListener("focusin", (e) => {
+      const targetSearch = e.target.closest("[data-relation-target-search]");
+      if (!targetSearch) return;
+      const form = targetSearch.closest("[data-create-relation-form]");
+      if (!form) return;
+      this.openRelationTargetList(form);
+    });
+    this.els.result.addEventListener("keydown", (e) => {
+      const targetSearch = e.target.closest("[data-relation-target-search]");
+      if (!targetSearch) return;
+      const form = targetSearch.closest("[data-create-relation-form]");
+      if (!form) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.moveRelationTargetChoice(form, 1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.moveRelationTargetChoice(form, -1);
+        return;
+      }
+      if (e.key === "Enter") {
+        const buttons = this.visibleRelationTargetChoices(form);
+        if (!buttons.length) return;
+        e.preventDefault();
+        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+        const current = buttons.find((button) => String(button.dataset.noteId || "").trim() === String(hiddenTargetId?.value || "").trim()) || buttons[0];
+        if (current) {
+          this.applyRelationTargetChoice(form, current.dataset.noteId || "", current.dataset.noteTitle || "");
+        }
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        const hiddenTargetId = form.querySelector("[data-relation-target-id]");
+        const selectedTitle = String(hiddenTargetId?.dataset?.targetTitle || "").trim();
+        if (selectedTitle) targetSearch.value = selectedTitle;
+        this.closeRelationTargetList(form);
+      }
+    });
     this.els.result.addEventListener("submit", (e) => {
       const distillationForm = e.target.closest("[data-note-distillation-form]");
       if (distillationForm) {
@@ -8419,7 +8610,7 @@ export class EditorPane {
       const note = this.activeNote();
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
-      if (!candidates.length) return this.onStatus("当前目录下无可关联笔记", "warn");
+      if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
       if (this.isWysiwygMode()) {
         this.openLinkPicker("", { anchorAtCursor: true });
         return;
@@ -8462,9 +8653,6 @@ export class EditorPane {
       this.renderLinkCandidates(this.els.linkSearchInput.value);
       if (this.currentLinkContext) this.positionInlineLinkPicker();
     });
-    this.els.linkReasonInput?.addEventListener("input", () => {
-      this.updateLinkPickerConfirmButton();
-    });
     this.els.linkSearchInput.addEventListener("keydown", (e) => {
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "Escape") {
@@ -8493,7 +8681,9 @@ export class EditorPane {
       if (Number.isInteger(next)) this.currentLinkIndex = next;
       this.currentPinnedLinkId = String(row.dataset.linkNoteId || "").trim();
       this.renderLinkCandidates(this.els.linkSearchInput.value, row.dataset.linkNoteId || "");
-      this.focusManualLinkReasonInput();
+      this.els.linkSearchInput.value = row.textContent?.trim() || "";
+      this.els.linkSearchList.innerHTML = "";
+      this.updateLinkPickerConfirmButton();
     });
     this.els.linkSearchList.addEventListener("mouseover", (e) => {
       const row = e.target.closest("[data-link-index]");
@@ -8504,7 +8694,9 @@ export class EditorPane {
       this.renderLinkCandidates(this.els.linkSearchInput.value, this.currentLinkCandidates[next]?.id || "");
     });
     this.els.confirmLinkInsert?.addEventListener("click", () => {
-      void this.confirmSelectedLinkCandidate();
+      const selectedId = String(this.currentPinnedLinkId || "").trim();
+      if (!selectedId) return;
+      void this.insertSelectedLinkNote(selectedId);
     });
 
     this.els.insertTag.addEventListener("click", async () => {
@@ -8582,14 +8774,8 @@ export class EditorPane {
         this.onStatus("随笔笔记和文献笔记才能创建永久笔记", "warn");
         return;
       }
-      const folders = this.state.folders.filter((folder) => !folder.hidden && rootBoxIdFromFolder(this.state, folder.id) === "dir_original_default");
-      const options = folders.length ? folders : this.state.folders.filter((folder) => folder.id === "dir_original_default");
-      const picked = prompt(`选择永久笔记目录 ID：\n${options.map((folder) => `${folder.id} ${folder.name}`).join("\n")}`, "dir_original_default");
-      const directoryId = String(picked || "").trim();
-      if (!options.some((folder) => folder.id === directoryId)) {
-        this.onStatus("已取消创建永久笔记", "warn");
-        return;
-      }
+      const directoryId = await this.pickPermanentDirectoryForNote(note);
+      if (!directoryId) return;
       await this.onStateChange("record-original-from-note", {
         sourceNoteId: note.id,
         sourceType: this.resolvedNoteType(note),
@@ -8614,7 +8800,7 @@ export class EditorPane {
       this.onOpenNote(nextRecord.note.id);
       this.onStatus(`已打开下一条${nextRecord.label}：${nextRecord.note.title || nextRecord.note.id}`, "ok");
     });
-    this.els.literatureQueueList?.addEventListener("click", (event) => {
+    this.els.literatureQueueList?.addEventListener("click", async (event) => {
       const createButton = event.target.closest("[data-create-original-from-literature]");
       if (createButton) {
         const noteId = String(createButton.getAttribute("data-create-original-from-literature") || "").trim();
@@ -8627,11 +8813,14 @@ export class EditorPane {
           this.onStatus("这条文献笔记还没准备好进入永久笔记，请先补齐来源、转述、判断种子或追问", "warn");
           return;
         }
+        const directoryId = await this.pickPermanentDirectoryForNote(record.note);
+        if (!directoryId) return;
         void this.onStateChange("record-original-from-note", {
           sourceNoteId: record.note.id,
           sourceTitle: record.note.title || "",
           sourceType: this.resolvedNoteType(record.note) || "literature",
           sourceBody: record.note.body || "",
+          directoryId,
           citation: record.fields.citation || {},
           originalText: record.fields.originalText || "",
           paraphrase: record.fields.paraphrase || "",
@@ -8815,10 +9004,7 @@ export class EditorPane {
 
       const inline = this.detectInlineLinkContext();
       const tagInline = this.detectInlineTagContext();
-      const explicitEmptyLinkTrigger =
-        inline &&
-        !inline.query &&
-        (Date.now() - this.lastLinkTriggerAt < 900 || previousValue.slice(inline.start, inline.end) !== "[[");
+      const explicitEmptyLinkTrigger = inline && !inline.query;
       const explicitEmptyTagTrigger =
         tagInline &&
         !tagInline.query &&
@@ -8851,6 +9037,18 @@ export class EditorPane {
       this.lastEditorValue = tab.body;
   }
 
+  scheduleInlineLinkTriggerProbe() {
+    setTimeout(() => {
+      const inline = this.detectInlineLinkContext();
+      if (!inline || inline.query) return;
+      const body = this.getEditorValue();
+      const trigger = String(body.slice(inline.start, inline.end) || "");
+      if (!["[[", "【【"].includes(trigger)) return;
+      void this.openLinkPicker("", { inlineContext: inline, focusInput: true });
+      this.lastInlinePickerAnchor = inline.end;
+    }, 0);
+  }
+
   handleEditorKeydown(e) {
     if (this.isWysiwygMode()) this.clearMarkdownSelectionOverride();
     if (e.isComposing || e.keyCode === 229) return;
@@ -8859,7 +9057,10 @@ export class EditorPane {
     const inlinePickerOpenBeforeEnter =
       (!this.els.linkPicker.classList.contains("hidden") && this.currentLinkContext) ||
       (!this.els.tagPicker.classList.contains("hidden") && this.currentTagContext);
-    if (!mod && e.key === "[") this.lastLinkTriggerAt = Date.now();
+    if (!mod && (e.key === "[" || e.key === "【")) {
+      this.lastLinkTriggerAt = Date.now();
+      this.scheduleInlineLinkTriggerProbe();
+    }
     if (!mod && e.key === "#") this.lastTagTriggerAt = Date.now();
     if (!mod && !e.shiftKey && e.key === "Enter" && !inlinePickerOpenBeforeEnter) this.lastPlainEnterAt = Date.now();
 

@@ -926,43 +926,33 @@ Response:
 
 ## Imports
 
-Supported connectors:
+Current simplified import scope:
 
-- `markdown`
-- `obsidian`
-- `zotero`
-- `readwise`
-- `notebooklm`
+- `obsidian` only
+- preview records are kept in memory for the running server process
+- confirm writes selected candidates into the vault
+- rollback is intentionally unsupported in this simplified mode
 
 Fixture examples live under `tests/fixtures/imports`:
 
-- `zotero-basic.json`
-- `readwise-basic.json`
-- `notebooklm-basic.json`
 - `obsidian-edge-vault/`
-- `malformed/readwise-highlights-not-array.json`
+- `obsidian-realistic-vault/`
 
 ### `POST /api/v1/imports/preview`
 
-Builds candidates and writes a preview log under `vault/imports/{connector}`. It does not write notes into `vault/notes`.
-
-External connector payloads with missing or non-array item lists currently degrade to an empty preview with `IMPORT_EMPTY_PAYLOAD` warning instead of returning `500`.
+Builds candidates for an Obsidian vault path and keeps the preview in memory. It does not write notes into `vault/notes` during preview.
 
 Request:
 
 ```json
 {
-  "connector": "markdown",
+  "connector": "obsidian",
   "payload": {
-    "path": "E:/imports/markdown-basic"
+    "path": "E:/imports/obsidian-vault"
   },
   "options": {
     "detectWikilinks": true,
-    "detectAliases": true,
-    "originalityPlan": {
-      "warnThreshold": 0.6,
-      "blockThreshold": 0.8
-    }
+    "detectAliases": true
   }
 }
 ```
@@ -973,55 +963,31 @@ Response status: `200`
 {
   "importRecordId": "imp_1776900000000_abcd1234",
   "status": "preview",
-  "connector": "markdown",
+  "connector": "obsidian",
   "summary": {
-    "sources": 1,
-    "literatureNotes": 1,
-    "permanentNotes": 0,
+    "sources": 2,
+    "literatureNotes": 2,
+    "permanentNotes": 1,
     "warnings": 0
   },
   "samples": {
     "sourceIds": ["src_..."],
     "literatureNoteIds": ["ln_..."],
-    "permanentNoteIds": []
+    "permanentNoteIds": ["pn_..."]
   },
   "warnings": [],
   "originalityGuard": {
-    "plan": {},
-    "blockedPermanentIds": [],
-    "evaluations": [],
-    "warnings": []
+    "plan": null,
+    "flaggedPermanentIds": [],
+    "evaluations": []
   },
   "createdAt": "2026-04-23T03:00:00.000Z"
 }
 ```
 
-### `POST /api/v1/imports/:connector`
-
-Direct connector shorthand for preview.
-
-Example:
-
-```json
-{
-  "payload": {
-    "items": [
-      {
-        "key": "Z1",
-        "title": "Zotero Item",
-        "text": "Quoted text",
-        "locator": "p. 9"
-      }
-    ]
-  }
-}
-```
-
-The response shape is the same as `POST /api/v1/imports/preview`.
-
 ### `GET /api/v1/imports`
 
-Lists import records merged from memory and disk.
+Lists preview/confirm records currently available from the running server process.
 
 Query parameters:
 
@@ -1050,9 +1016,7 @@ Import states:
 | State | Description |
 | --- | --- |
 | `preview` | Candidates exist, but no notes were written. |
-| `cancelled` | Preview was explicitly cancelled. |
 | `completed` | Confirm wrote available candidates to the vault. |
-| `rolled_back` | Rollback attempted to remove files created by confirm. |
 
 Response:
 
@@ -1060,7 +1024,7 @@ Response:
 {
   "importRecord": {
     "importRecordId": "imp_...",
-    "connector": "markdown",
+    "connector": "obsidian",
     "status": "completed",
     "state": "completed",
     "summary": {
@@ -1077,19 +1041,18 @@ Response:
     "options": {},
     "confirmResult": {
       "created": {
-        "sources": 1,
-        "literatureNotes": 1,
-        "permanentNotes": 0
+        "sources": 2,
+        "literatureNotes": 2,
+        "permanentNotes": 1
       },
       "skipped": {
         "conflicted": 0,
         "invalid": 0
       },
-      "writtenPaths": ["notes/sources", "notes/literature"],
+      "writtenPaths": ["notes/sources", "notes/literature", "notes/permanent", "assets/imports"],
       "createdFiles": [],
       "finishedAt": "2026-04-23T03:00:00.000Z"
-    },
-    "rollbackResult": null
+    }
   },
   "requestId": "req_...",
   "timestamp": "2026-04-23T03:00:00.000Z"
@@ -1106,14 +1069,7 @@ Request:
 {
   "confirm": true,
   "selectedCandidateIds": ["src_001", "ln_001"],
-  "overrideOriginality": false,
-  "originalityPlan": {
-    "warnThreshold": 0.6,
-    "blockThreshold": 0.8,
-    "requireCitationLocator": true,
-    "allowDraftOnWarning": true,
-    "blockOnBlocked": true
-  }
+  "directoryId": "dir_literature_default"
 }
 ```
 
@@ -1127,9 +1083,9 @@ Response status: `200`
   "status": "completed",
   "result": {
     "created": {
-      "sources": 1,
-      "literatureNotes": 1,
-      "permanentNotes": 0
+      "sources": 2,
+      "literatureNotes": 2,
+      "permanentNotes": 1
     },
     "skipped": {
       "conflicted": 0,
@@ -1146,60 +1102,31 @@ Response status: `200`
     ]
   },
   "originalityGuard": {
-    "plan": {},
-    "blockedPermanentIds": [],
+    "plan": null,
+    "flaggedPermanentIds": [],
     "evaluations": []
   },
   "finishedAt": "2026-04-23T03:00:00.000Z"
 }
 ```
 
-`result.createdFiles` exposes the exact note ids and vault-relative file paths created during confirm, which is useful for UI follow-up flows such as rollback details and writing-basket handoff.
-
-Cancel request:
-
-```json
-{
-  "confirm": false
-}
-```
-
-Cancel response:
-
-```json
-{
-  "importRecordId": "imp_...",
-  "status": "cancelled",
-  "message": "Import cancelled."
-}
-```
+`result.createdFiles` exposes the exact note ids and vault-relative file paths created during confirm, which is useful for UI follow-up flows such as writing-basket or literature-queue handoff.
 
 If originality guard blocks confirmation, response status is `409` with `error.code = IMPORT_ORIGINALITY_BLOCKED`.
 
 ### `POST /api/v1/imports/:id/rollback`
 
-Rolls back a completed import by deleting only files recorded in `confirmResult.createdFiles`. Files modified after confirm are skipped.
+Rollback is intentionally unsupported in the simplified importer.
 
-Response status: `200`
+Response status: `400`
 
 ```json
 {
   "importRecordId": "imp_...",
-  "status": "rolled_back",
-  "result": {
-    "rolledBack": 2,
-    "skipped": 1,
-    "rolledBackPaths": ["notes/sources/src_abc.md"],
-    "skippedFiles": [
-      {
-        "noteId": "ln_modified",
-        "noteType": "literature",
-        "path": "notes/literature/ln_modified.md",
-        "reason": "modified"
-      }
-    ]
-  },
-  "finishedAt": "2026-04-23T03:00:00.000Z"
+  "error": {
+    "code": "IMPORT_ROLLBACK_UNSUPPORTED",
+    "message": "rollback is not supported in the simplified importer"
+  }
 }
 ```
 

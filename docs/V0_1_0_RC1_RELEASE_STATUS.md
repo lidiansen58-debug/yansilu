@@ -1,5 +1,7 @@
 # Yansilu v0.1.0 RC1 Release Status
 
+> Legacy note (2026-06-03): this RC status snapshot reflects the older import/export model used during the May 2026 release cycle. Current implementation has been simplified to Obsidian-only preview/confirm import plus Markdown export.
+
 Updated: 2026-05-13
 
 ## Release Target

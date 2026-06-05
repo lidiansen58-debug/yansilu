@@ -30,7 +30,7 @@ This checklist tracks what is already runnable in the first Yansilu MVP and what
 - Graph panel backed by real directory graph API.
 - Writing panel backed by real writing project + scaffold API.
 - Settings panel backed by real Vault read/switch API.
-- Import preview/confirm/cancel/rollback wired to real APIs.
+- Simplified Obsidian import preview/confirm wired to real APIs.
 - Markdown export wired to real API.
 
 ### File-manager-like interaction

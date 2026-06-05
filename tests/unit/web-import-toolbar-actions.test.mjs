@@ -9,16 +9,16 @@ import {
 
 test("import toolbar actions parse JSON and build payloads", () => {
   assert.deepEqual(parseJsonOrEmpty('{"detectAliases":true}', "Options"), { detectAliases: true });
-  assert.deepEqual(buildImportPayload({ connector: "markdown", path: "E:\\vault" }), { path: "E:\\vault" });
-  assert.deepEqual(buildImportPayload({ connector: "zotero", payloadText: '{"library":"main"}' }), { library: "main" });
-  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /Payload JSON|来源路径/);
+  assert.deepEqual(buildImportPayload({ connector: "obsidian", path: "E:\\vault" }), { path: "E:\\vault" });
+  assert.deepEqual(buildImportPayload({ connector: "obsidian", payloadText: '{"path":"C:/vault"}' }), { path: "C:/vault" });
+  assert.throws(() => buildImportPayload({ connector: "obsidian", path: "" }), /vault path or payload json/i);
 });
 
 test("import toolbar actions preview assembles params and reports success", async () => {
   const calls = [];
   const actions = createImportToolbarActions({
     getToolbarValues: () => ({
-      connector: "markdown",
+      connector: "obsidian",
       path: "E:\\vault",
       payload: "",
       options: '{"detectAliases":true}',
@@ -26,13 +26,10 @@ test("import toolbar actions preview assembles params and reports success", asyn
     }),
     previewImport: async (input) => {
       calls.push(["previewImport", input]);
-      return { importRecordId: "imp_1", connector: "markdown" };
+      return { importRecordId: "imp_1", connector: "obsidian" };
     },
     onPreviewSuccess: async (preview) => {
       calls.push(["onPreviewSuccess", preview.importRecordId]);
-    },
-    refreshImportHistory: async (options) => {
-      calls.push(["refreshImportHistory", options]);
     },
     setStatus: (text, tone) => {
       calls.push(["setStatus", text, tone]);
@@ -47,39 +44,36 @@ test("import toolbar actions preview assembles params and reports success", asyn
   assert.deepEqual(calls[0], [
     "previewImport",
     {
-      connector: "markdown",
+      connector: "obsidian",
       payload: { path: "E:\\vault" },
       options: { detectAliases: true }
     }
   ]);
   assert.deepEqual(calls[1], ["onPreviewSuccess", "imp_1"]);
-  assert.deepEqual(calls[2], ["refreshImportHistory", { silent: true }]);
-  assert.deepEqual(calls[3], ["setStatus", "导入预览完成：imp_1", "ok"]);
+  assert.deepEqual(calls[2], ["setStatus", "Import preview ready: imp_1", "ok"]);
 });
 
-test("import toolbar actions block confirm when no candidates are selected", async () => {
+test("import toolbar actions confirm with selected candidates and directory", async () => {
   const calls = [];
   const actions = createImportToolbarActions({
-    getToolbarValues: () => ({ importRecordId: "imp_2" }),
-    getActivePreview: () => ({ importRecordId: "imp_2", candidatePreview: { items: [{ id: "c1" }] } }),
-    selectionSummary: () => ({ selectedIds: new Set(), selectedCount: 0, totalCount: 1 }),
-    confirmImport: async () => {
-      calls.push(["confirmImport"]);
+    getToolbarValues: () => ({ importRecordId: "imp_4", directoryId: "dir_literature_child" }),
+    getFallbackImportRecordId: () => "imp_4",
+    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { literatureNotes: [{ id: "c1" }] } }),
+    selectionSummary: () => ({ selectedIds: new Set(["c1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async (importRecordId, payload) => {
+      calls.push([importRecordId, payload]);
+      return { status: "completed", result: {} };
     },
-    setStatus: (text, tone) => {
-      calls.push(["setStatus", text, tone]);
-    }
+    setStatus: () => {},
+    showImportResult: () => {}
   });
 
   await actions.handleConfirm();
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0][0], "setStatus");
-  assert.equal(calls[0][1], "请至少勾选一个候选后再确认写入");
-  assert.equal(calls[0][2], "warn");
+  assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
 });
 
-test("import toolbar actions require record id for refresh and rollback", async () => {
+test("import toolbar actions require preview before confirm", async () => {
   const calls = [];
   const actions = createImportToolbarActions({
     getToolbarValues: () => ({ importRecordId: "" }),
@@ -89,147 +83,22 @@ test("import toolbar actions require record id for refresh and rollback", async 
     }
   });
 
-  await actions.handleRefresh();
-  await actions.handleRollback();
-
-  assert.deepEqual(calls, [
-    ["请先填写 ImportRecord ID", "warn"],
-    ["请先填写 ImportRecord ID", "warn"]
-  ]);
-});
-
-test("import toolbar actions pass selected file-box directory on confirm", async () => {
-  const calls = [];
-  const actions = createImportToolbarActions({
-    getToolbarValues: () => ({ importRecordId: "imp_4", directoryId: "dir_literature_child" }),
-    getFallbackImportRecordId: () => "imp_4",
-    getActivePreview: () => ({ importRecordId: "imp_4", candidatePreview: { literatureNotes: [{ id: "c1" }] } }),
-    selectionSummary: () => ({ selectedIds: new Set(["c1"]), selectedCount: 1, totalCount: 1 }),
-    resolveDirectoryRootId: () => "dir_literature_default",
-    confirmImport: async (importRecordId, payload) => {
-      calls.push([importRecordId, payload]);
-      return { status: "completed", result: {} };
-    }
-  });
-
   await actions.handleConfirm();
 
-  assert.deepEqual(calls, [["imp_4", { selectedCandidateIds: ["c1"], directoryId: "dir_literature_child" }]]);
+  assert.deepEqual(calls, [["Preview the import first.", "warn"]]);
 });
 
-test("import toolbar actions reload failed lifecycle records after confirm errors", async () => {
-  const calls = [];
-  const actions = createImportToolbarActions({
-    getToolbarValues: () => ({ importRecordId: "imp_failed_1" }),
-    getFallbackImportRecordId: () => "imp_failed_1",
-    getActivePreview: () => ({
-      importRecordId: "imp_failed_1",
-      candidatePreview: { sources: [{ id: "src_1" }] }
-    }),
-    selectionSummary: () => ({ selectedIds: new Set(["src_1"]), selectedCount: 1, totalCount: 1 }),
-    confirmImport: async () => {
-      throw Object.assign(new Error("cleanup preserve failed"), { code: "IMPORT_CLEANUP_PRESERVE_FAILED" });
-    },
-    loadImportRecordIntoUi: async (importRecordId, options) => {
-      calls.push(["loadImportRecordIntoUi", importRecordId, options]);
-      return { importRecordId, status: "failed", state: "failed" };
-    },
-    refreshImportHistory: async (options) => {
-      calls.push(["refreshImportHistory", options]);
-    },
-    showImportResult: (payload) => {
-      calls.push(["showImportResult", payload.stage]);
-    },
-    setStatus: (text, tone) => {
-      calls.push(["setStatus", text, tone]);
-    }
-  });
-
-  await actions.handleConfirm();
-
-  assert.deepEqual(calls, [
-    ["loadImportRecordIntoUi", "imp_failed_1", { announce: false }],
-    ["refreshImportHistory", { silent: true }],
-    ["setStatus", "导入确认失败，已同步失败记录：imp_failed_1", "warn"]
-  ]);
-});
-
-test("validateImportDirectorySelection blocks mixed literature and permanent selections", () => {
-  const result = validateImportDirectorySelection({
-    candidatePreview: {
-      literatureNotes: [{ id: "ln_1" }],
-      permanentNotes: [{ id: "pn_1" }]
-    },
-    selectedIds: ["ln_1", "pn_1"],
-    directoryId: "dir_literature_child",
-    resolveDirectoryRootId: () => "dir_literature_default"
-  });
-
-  assert.deepEqual(result, {
-    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
-    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
-  });
-});
-
-test("validateImportDirectorySelection uses candidateSelection when truncated preview omits hidden groups", () => {
-  const result = validateImportDirectorySelection({
-    candidatePreview: {
-      literatureNotes: [{ id: "ln_1" }]
-    },
-    candidateSelection: {
-      sources: [],
-      literatureNotes: ["ln_1"],
-      permanentNotes: ["pn_hidden"],
-      total: { sources: 0, literatureNotes: 1, permanentNotes: 1 }
-    },
-    selectedIds: ["ln_1", "pn_hidden"],
-    directoryId: "dir_literature_child",
-    resolveDirectoryRootId: () => "dir_literature_default"
-  });
-
-  assert.deepEqual(result, {
-    code: "IMPORT_DIRECTORY_SCOPE_INVALID",
-    message: "当前一次确认只能给同一根目录的一批笔记选择“导入到”。请把文献笔记和永久笔记分开确认。"
-  });
-});
-
-test("import toolbar actions block mismatched directory roots before confirm", async () => {
-  const calls = [];
-  const actions = createImportToolbarActions({
-    getToolbarValues: () => ({ importRecordId: "imp_5", directoryId: "dir_literature_child" }),
-    getFallbackImportRecordId: () => "imp_5",
-    getActivePreview: () => ({
-      importRecordId: "imp_5",
-      candidatePreview: { permanentNotes: [{ id: "pn_1" }] }
-    }),
-    selectionSummary: () => ({ selectedIds: new Set(["pn_1"]), selectedCount: 1, totalCount: 1 }),
-    resolveDirectoryRootId: () => "dir_literature_default",
-    confirmImport: async () => {
-      calls.push(["confirmImport"]);
-      return { status: "completed", result: {} };
-    },
-    showImportResult: (payload) => {
-      calls.push(["showImportResult", payload.code, payload.message]);
-    },
-    setStatus: (text, tone) => {
-      calls.push(["setStatus", text, tone]);
-    }
-  });
-
-  await actions.handleConfirm();
-
-  assert.deepEqual(calls, [
-    ["showImportResult", "IMPORT_DIRECTORY_SCOPE_INVALID", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。"],
-    ["setStatus", "当前选择的是永久笔记，请改选永久笔记盒目录后再确认。", "warn"]
-  ]);
-});
-
-test("import toolbar actions emit stable error payloads", async () => {
+test("import toolbar actions emit stable confirm error payloads", async () => {
   const calls = [];
   const actions = createImportToolbarActions({
     getToolbarValues: () => ({ importRecordId: "imp_3" }),
     getFallbackImportRecordId: () => "imp_3",
-    loadImportRecordIntoUi: async () => {
+    getActivePreview: () => ({
+      importRecordId: "imp_3",
+      candidatePreview: { sources: [{ id: "src_1" }] }
+    }),
+    selectionSummary: () => ({ selectedIds: new Set(["src_1"]), selectedCount: 1, totalCount: 1 }),
+    confirmImport: async () => {
       throw Object.assign(new Error("missing"), { code: "IMPORT_RECORD_NOT_FOUND" });
     },
     showImportResult: (payload) => {
@@ -240,16 +109,49 @@ test("import toolbar actions emit stable error payloads", async () => {
     }
   });
 
-  await actions.handleRefresh();
+  await actions.handleConfirm();
 
   assert.deepEqual(calls[0], {
-    stage: "record_error",
+    stage: "confirm_error",
     importRecordId: "imp_3",
     message: "missing",
-    code: "IMPORT_RECORD_NOT_FOUND"
+    code: "IMPORT_RECORD_NOT_FOUND",
+    details: null
   });
   assert.deepEqual(calls[1], {
-    text: "读取导入记录失败：missing",
+    text: "Import failed: missing",
     tone: "bad"
   });
+});
+
+test("validateImportDirectorySelection is a no-op in simplified mode", () => {
+  const result = validateImportDirectorySelection({
+    candidatePreview: {
+      literatureNotes: [{ id: "ln_1" }],
+      permanentNotes: [{ id: "pn_1" }]
+    },
+    selectedIds: ["ln_1", "pn_1"],
+    directoryId: "dir_literature_child",
+    resolveDirectoryRootId: () => "dir_literature_default"
+  });
+
+  assert.equal(result, null);
+});
+
+test("import toolbar actions refresh and rollback report unsupported mode", async () => {
+  const calls = [];
+  const actions = createImportToolbarActions({
+    getToolbarValues: () => ({ importRecordId: "imp_x" }),
+    setStatus: (text, tone) => {
+      calls.push([text, tone]);
+    }
+  });
+
+  await actions.handleRefresh();
+  await actions.handleRollback();
+
+  assert.deepEqual(calls, [
+    ["Refresh is not available in the simplified importer.", "warn"],
+    ["Rollback is not available in the simplified importer.", "warn"]
+  ]);
 });

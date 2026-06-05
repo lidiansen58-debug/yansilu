@@ -66,7 +66,7 @@ test("editor falls back to folder root when source notes are missing noteType", 
   assert.equal(pane.isOriginalRecordableSource(fleeting), true);
   assert.equal(pane.isOriginalNote(fleeting), false);
 
-  assert.equal(pane.isLiteratureWorkspaceActive(literature), true);
+  assert.equal(pane.isLiteratureWorkspaceActive(literature), false);
   assert.equal(pane.isOriginalRecordableSource(literature), true);
   assert.equal(pane.isOriginalNote(literature), false);
 
@@ -81,7 +81,7 @@ test("editor follows the current folder root even when noteType metadata is stal
   const literatureInLiteratureBox = { id: "ln_stale", folderId: "dir_literature_default", noteType: "permanent" };
   const fleetingInFleetingBox = { id: "fn_stale", folderId: "dir_fleeting_default", noteType: "permanent" };
 
-  assert.equal(pane.isLiteratureWorkspaceActive(literatureInLiteratureBox), true);
+  assert.equal(pane.isLiteratureWorkspaceActive(literatureInLiteratureBox), false);
   assert.equal(pane.isOriginalNote(literatureInLiteratureBox), false);
   assert.equal(pane.isOriginalRecordableSource(literatureInLiteratureBox), true);
 
@@ -104,6 +104,44 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.equal(button.classList.contains("hidden"), false);
   assert.equal(button.dataset.sourceNoteId, "fn_missing");
   assert.match(button.title, /永久笔记/);
+});
+
+test("editor shows relation actions for permanent notes", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const insertLink = createToolbarButtonStub();
+  const showRelated = createToolbarButtonStub();
+
+  pane.state = state;
+  pane.els = { insertLink, showRelated };
+  pane.activeNote = () => ({ id: "pn_1", folderId: "dir_original_default", noteType: "" });
+
+  pane.renderRelationToolbarButtons();
+
+  assert.equal(insertLink.classList.contains("hidden"), false);
+  assert.equal(insertLink.disabled, false);
+  assert.equal(insertLink.title, "关联笔记 [[");
+  assert.equal(showRelated.classList.contains("hidden"), false);
+  assert.equal(showRelated.disabled, false);
+});
+
+test("editor hides relation actions for source notes", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const insertLink = createToolbarButtonStub();
+  const showRelated = createToolbarButtonStub();
+
+  pane.state = state;
+  pane.els = { insertLink, showRelated };
+  pane.activeNote = () => ({ id: "fn_1", folderId: "dir_fleeting_default", noteType: "" });
+
+  pane.renderRelationToolbarButtons();
+
+  assert.equal(insertLink.classList.contains("hidden"), true);
+  assert.equal(insertLink.disabled, true);
+  assert.equal(insertLink.title, "只有永久笔记才能关联其他笔记");
+  assert.equal(showRelated.classList.contains("hidden"), true);
+  assert.equal(showRelated.disabled, true);
 });
 
 test("editor inspector shows source-note promote flow instead of relation panels for fleeting notes", () => {
@@ -143,8 +181,9 @@ test("editor inspector shows source-note promote flow instead of relation panels
 
   pane.renderRelated();
 
-  assert.match(pane.els.result.innerHTML, /生成永久笔记/);
+  assert.match(pane.els.result.innerHTML, /创建永久笔记/);
   assert.match(pane.els.result.innerHTML, /只有永久笔记才会显示关联与主路径/);
+  assert.match(pane.els.result.innerHTML, /先选永久笔记盒目录/);
   assert.doesNotMatch(pane.els.result.innerHTML, /建立语义关系/);
   assert.equal(relationRefreshes, 0);
   assert.equal(aiRefreshes, 0);

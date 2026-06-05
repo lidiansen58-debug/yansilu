@@ -30,23 +30,41 @@ function statusForCandidate(candidateId, evaluations, previewStatusById) {
   return String(evaluations.get(id)?.status || previewStatusById.get(id) || "").trim();
 }
 
+function selectableForImport(candidateId, permanentIds, evaluations, previewStatusById, { allowDraftOnWarning, blockOnBlocked }) {
+  if (!permanentIds.has(candidateId)) return true;
+  const status = statusForCandidate(candidateId, evaluations, previewStatusById);
+  if (status === "blocked") return !blockOnBlocked;
+  if (status === "warning") return allowDraftOnWarning;
+  return true;
+}
+
 export function selectedCandidateIdsForImportAction({
   action = "",
   candidatePreview = null,
   candidateSelection = null,
-  originalityGuard = null
+  originalityGuard = null,
+  visibleOnly = false
 } = {}) {
+  const visibleCandidateIds = fallbackCandidateIds(candidatePreview);
   const allCandidateIds = uniqueIds(
-    candidateSelection
+    visibleOnly
+      ? visibleCandidateIds
+      : candidateSelection
       ? [
           ...(Array.isArray(candidateSelection.sources) ? candidateSelection.sources : []),
           ...(Array.isArray(candidateSelection.literatureNotes) ? candidateSelection.literatureNotes : []),
           ...(Array.isArray(candidateSelection.permanentNotes) ? candidateSelection.permanentNotes : [])
         ]
-      : fallbackCandidateIds(candidatePreview)
+      : visibleCandidateIds
   );
   const permanentIds = new Set(
-    candidateSelection
+    visibleOnly
+      ? uniqueIds(
+          candidatePreviewItems(candidatePreview)
+            .filter((item) => item.candidateGroup === "PermanentNote")
+            .map((item) => item.id)
+        )
+      : candidateSelection
       ? uniqueIds(candidateSelection.permanentNotes)
       : fallbackPermanentIds(candidatePreview)
   );
@@ -63,12 +81,20 @@ export function selectedCandidateIdsForImportAction({
   const normalizedAction = String(action || "").trim();
 
   if (normalizedAction === "all") {
-    for (const id of allCandidateIds) next.add(id);
+    for (const id of allCandidateIds) {
+      if (selectableForImport(id, permanentIds, evaluations, previewStatusById, { allowDraftOnWarning, blockOnBlocked })) {
+        next.add(id);
+      }
+    }
     return next;
   }
 
   if (normalizedAction === "permanent") {
-    for (const id of permanentIds) next.add(id);
+    for (const id of permanentIds) {
+      if (selectableForImport(id, permanentIds, evaluations, previewStatusById, { allowDraftOnWarning, blockOnBlocked })) {
+        next.add(id);
+      }
+    }
     return next;
   }
 

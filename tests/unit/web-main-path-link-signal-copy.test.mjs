@@ -31,7 +31,7 @@ test("main-path summary labels wikilink-only signals as body link clues", () => 
   assert.match(result.summary, /正文里的 wikilink 线索/);
 });
 
-test("main-path summary labels mixed weak signals with current wikilink wording", () => {
+test("main-path summary labels mixed weak signals without hiding the current wikilink wording", () => {
   const pane = createPane();
   const result = pane.permanentNoteMainPathSummaryV2(
     {

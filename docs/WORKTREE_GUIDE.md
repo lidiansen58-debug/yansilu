@@ -24,7 +24,7 @@ Keep these workspaces by default:
 |---|---|---|
 | `mainline` | integration and release | merge, regression, release candidate |
 | `wt-core-workflow` | note-taking and writing workflow | explorer, editor, graph, writing |
-| `wt-import-pipeline` | import and rollback flow | connectors, markdown engine, import UI |
+| `wt-import-pipeline` | simplified import/export flow | Obsidian import, markdown export, import UI |
 | `wt-desktop-release` | desktop shell and packaging | Tauri shell, native file actions, installers |
 | `wt-growth-site` | marketing, auth, billing | landing pages, login/register, pricing, Stripe |
 
@@ -94,11 +94,11 @@ Owns import-specific behavior:
 
 Typical work:
 
-- Markdown and Obsidian import
-- external connector parsing
-- preview, confirm, rollback
+- Obsidian import
+- markdown export handoff
+- preview and confirm flow
 - import result clarity
-- import history and recovery UX
+- realistic import fixtures
 
 Avoid:
 
@@ -294,7 +294,7 @@ Minimum regression after meaningful merges:
 3. edit and save note
 4. insert `[[wikilink]]`
 5. click `#tag`
-6. import Markdown or Obsidian content
+6. import Obsidian content
 7. open graph
 8. create writing project and scaffold
 

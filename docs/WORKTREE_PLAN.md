@@ -1,10 +1,12 @@
 # Worktree Development Plan v2
 
+Legacy note (2026-06-03): this plan captures the broader May 2026 MVP split. The current import/export scope has since been simplified to `Obsidian preview -> confirm import + Markdown export`, with no import rollback requirement.
+
 ## Goal
 
 This plan replaces the earlier capability-building split with a narrower delivery split for the first desktop-runnable Yansilu MVP.
 
-The current project is no longer at the "build the core model from scratch" stage. The API, local vault, import preview/confirm flow, originality guard, graph, writing scaffold, and web prototype are already in place. The remaining work is to stabilize the baseline, validate the desktop shell on a real machine, harden the import path, polish the main user journey, and decide whether the build is ready to ship as a first internal version.
+The current project is no longer at the "build the core model from scratch" stage. The API, local vault, import preview/confirm flow, originality guard, graph, writing scaffold, and web prototype are already in place. The remaining work is to stabilize the baseline, validate the desktop shell on a real machine, harden the simplified import path, polish the main user journey, and decide whether the build is ready to ship as a first internal version.
 
 The target for this phase is:
 
@@ -51,7 +53,7 @@ Use one coordination tree plus four focused worktrees.
 |---|---|---|
 | `integration-main` | Shared baseline and merge point | Branch hygiene, failing tests, docs, merge coordination, release decision |
 | `wt-desktop-runtime` | Desktop shell validation | Tauri runtime, desktop file dialogs, opener flows, build scripts, packaging |
-| `wt-import-hardening` | Import and rollback stability | Markdown/Obsidian fixtures, import preview/confirm/rollback correctness, import UX messages |
+| `wt-import-hardening` | Simplified import stability | Obsidian fixtures, import preview/confirm correctness, import UX messages |
 | `wt-shell-polish` | Demo-ready shell and workflow UX | Explorer/editor/graph/writing shell polish, empty states, error states, main-path usability |
 | `wt-release-qa` | Verification and release readiness | E2E coverage, smoke checklist, walkthrough validation, known-issues log |
 
@@ -130,7 +132,7 @@ Acceptance:
 Scope:
 
 - expand real-world Markdown and Obsidian fixtures
-- stabilize preview -> confirm -> rollback
+- stabilize preview -> confirm
 - verify skipped/warning/blocked/excluded behavior
 - improve import result clarity where needed
 
@@ -150,7 +152,7 @@ Primary files:
 
 Acceptance:
 
-1. Repeated preview/confirm/rollback runs remain stable.
+1. Repeated preview/confirm runs remain stable.
 2. Large fixture imports produce warnings instead of crashes.
 3. Candidate-level skip reasons stay traceable and user-readable.
 4. Import confirm still hands off cleanly into note review or writing workflows.
@@ -317,7 +319,7 @@ Exit:
 ### Day 3
 
 1. run `npm run build:desktop:check`
-2. harden rollback and conflict handling
+2. harden simplified import warnings and conflict handling
 3. close obvious demo UX gaps
 4. QA fills coverage holes in browser smoke/E2E
 
