@@ -46,6 +46,22 @@ test("graph type tabs stay as a primary choice instead of hidden inside filters"
   assert.match(html, /\.graph-toolbar-filter-panel \{[\s\S]*width: min\(760px, 100%\);/);
 });
 
+test("graph edges use softer asymmetric curves and slimmer arrow markers", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /const curveMagnitude = Math\.min\(38, Math\.max\(10, length \* 0\.085\)\);/);
+  assert.match(source, /const driftSeed = \(\(graphHash\(`\$\{edge\.fromNoteId\}:\$\{edge\.toNoteId\}:\$\{edge\.relationType\}:drift`\) % 9\) - 4\) \/ 4;/);
+  assert.match(source, /const control1X = startX \+ dx \* 0\.28 \+ controlOffsetX - unitX \* forwardDrift;/);
+  assert.match(source, /const control2X = startX \+ dx \* 0\.72 \+ controlOffsetX \+ unitX \* forwardDrift;/);
+  assert.match(source, /markerWidth="10" markerHeight="10" refX="8" refY="5"/);
+  assert.match(source, /<path d="M 2 2\.4 L 8 5 L 2 7\.6" fill="none" stroke="\$\{escapeHtml\(color\)\}" stroke-width="1\.35"/);
+
+  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 1\.35;[\s\S]*opacity: 0\.52;/);
+  assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 5\.2;[\s\S]*opacity: 0\.24;/);
+  assert.match(html, /\.graph-map-edge-group:hover \.graph-map-edge,[\s\S]*stroke-width: 2\.3;/);
+});
+
 test("graph isolated notes become visible selectable orbit nodes", () => {
   const source = readPrototypeApp();
   assert.match(source, /function graphBuildIsolatedVisualNodes\(\{ isolatedNotes = \[\], allNodes = \[\], currentNodes = \[\], limit = 12 \} = \{\}\)/);

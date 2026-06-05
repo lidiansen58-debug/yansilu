@@ -10496,11 +10496,12 @@ function graphEdgePath(edge, nodeMap) {
   if (!from || !to) return null;
 
   if (from.id === to.id) {
-    const loopRadius = from.radius + 18;
+    const loopRadius = from.radius + 14;
+    const loopLift = loopRadius * 1.6;
     return {
-      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius} ${from.y - loopRadius * 2}, ${from.x + loopRadius * 2} ${from.y}, ${from.x + from.radius + 5} ${from.y}`,
+      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius * 0.7} ${from.y - loopLift}, ${from.x + loopRadius * 1.9} ${from.y - loopRadius * 0.24}, ${from.x + from.radius + 5} ${from.y}`,
       labelX: from.x + loopRadius + 4,
-      labelY: from.y - loopRadius,
+      labelY: from.y - loopRadius * 0.88,
       titleX: from.x,
       titleY: from.y
     };
@@ -10516,22 +10517,24 @@ function graphEdgePath(edge, nodeMap) {
   const endX = to.x - unitX * (to.radius + 8);
   const endY = to.y - unitY * (to.radius + 8);
   const signedSeed = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}`) % 11) - 5) / 5;
-  const curveMagnitude = Math.min(54, Math.max(16, length * 0.12));
-  const curve = signedSeed === 0 ? curveMagnitude * 0.35 : signedSeed * curveMagnitude;
+  const curveMagnitude = Math.min(38, Math.max(10, length * 0.085));
+  const curve = signedSeed === 0 ? curveMagnitude * 0.28 : signedSeed * curveMagnitude;
+  const driftSeed = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}:drift`) % 9) - 4) / 4;
+  const forwardDrift = driftSeed * Math.min(18, Math.max(6, length * 0.045));
   const midX = (startX + endX) / 2;
   const midY = (startY + endY) / 2;
   const controlOffsetX = -unitY * curve;
   const controlOffsetY = unitX * curve;
-  const control1X = startX + dx * 0.32 + controlOffsetX;
-  const control1Y = startY + dy * 0.32 + controlOffsetY;
-  const control2X = startX + dx * 0.68 + controlOffsetX;
-  const control2Y = startY + dy * 0.68 + controlOffsetY;
-  const labelX = midX + controlOffsetX * 0.62;
-  const labelY = midY + controlOffsetY * 0.62;
+  const control1X = startX + dx * 0.28 + controlOffsetX - unitX * forwardDrift;
+  const control1Y = startY + dy * 0.28 + controlOffsetY - unitY * forwardDrift;
+  const control2X = startX + dx * 0.72 + controlOffsetX + unitX * forwardDrift;
+  const control2Y = startY + dy * 0.72 + controlOffsetY + unitY * forwardDrift;
+  const labelX = midX + controlOffsetX * 0.54;
+  const labelY = midY + controlOffsetY * 0.54;
   return {
     d: `M ${startX.toFixed(1)} ${startY.toFixed(1)} C ${control1X.toFixed(1)} ${control1Y.toFixed(1)} ${control2X.toFixed(1)} ${control2Y.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`,
     labelX: Math.round(labelX),
-    labelY: Math.round(labelY - 8),
+    labelY: Math.round(labelY - 6),
     titleX: Math.round(midX),
     titleY: Math.round(midY)
   };
@@ -10720,8 +10723,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
-          <path d="M 2 2.5 L 9 6 L 2 9.5" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+          <path d="M 2 2.4 L 8 5 L 2 7.6" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
