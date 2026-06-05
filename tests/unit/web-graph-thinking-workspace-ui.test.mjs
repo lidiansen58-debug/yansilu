@@ -259,6 +259,8 @@ test("clicking a graph node keeps only its one-hop neighborhood visually promine
   assert.match(source, /const inSelectedNodeNeighborhood = selectedNodeNeighborhood\.has\(node\.id\);/);
   assert.match(source, /inSelectedNodeNeighborhood \? "is-selected-neighborhood" : ""/);
   assert.match(source, /const inSelectedNodeNeighborhood = Boolean\(selectedNodeId\) && \(fromId === selectedNodeId \|\| toId === selectedNodeId\);/);
+  assert.match(source, /const related = fromId === nodeId \|\| toId === nodeId;/);
+  assert.doesNotMatch(source, /const related = neighbors\.has\(fromId\) && neighbors\.has\(toId\)/);
   assert.match(source, /activeSelection\?\.kind === "node" \? " is-selecting-node" : ""/);
 
   assert.match(html, /\.graph-map-panel\.is-selecting-node \.graph-map-node:not\(\.is-selected-neighborhood\) circle \{[\s\S]*opacity: \.22;/);
@@ -289,7 +291,9 @@ test("weak relation clues provide a non-AI pending judgment highlight path", () 
   assert.match(source, /data-graph-thinking-kicker="待判断关联"/);
   assert.match(source, /graphSelectEdgeActionAttrs\(edge\)/);
   assert.match(source, /待判断关联 \$\{escapeHtml\(String\(weakRelationCount\)\)\}/);
-  assert.match(source, /renderGraphWeakRelationClueSection\(scoped\.edges, \{ open: graphState\.sectionOpen\["weak-relations"\] === true \}\)/);
+  assert.match(source, /const weakRelationClueCount = !showingFocusedNote \? graphWeakRelationClues\(edges, 6\)\.length : 0;/);
+  assert.match(source, /renderGraphWeakRelationClueSection\(edges, \{ open: graphState\.sectionOpen\["weak-relations"\] === true \}\)/);
+  assert.doesNotMatch(source, /renderGraphWeakRelationClueSection\(scoped\.edges/);
 });
 
 test("graph thinking panel and selection detail stay mutually exclusive", () => {

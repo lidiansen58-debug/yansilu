@@ -11328,8 +11328,8 @@ function applyGraphNodeHoverState(nodeElement) {
   panel.querySelectorAll(".graph-map-edge-group").forEach((element) => {
     const fromId = String(element.getAttribute("data-edge-from") || "").trim();
     const toId = String(element.getAttribute("data-edge-to") || "").trim();
-    const related = neighbors.has(fromId) && neighbors.has(toId) && (fromId === nodeId || toId === nodeId || neighbors.has(fromId) || neighbors.has(toId));
-    element.classList.toggle("is-hovered", fromId === nodeId || toId === nodeId);
+    const related = fromId === nodeId || toId === nodeId;
+    element.classList.toggle("is-hovered", related);
     element.classList.toggle("is-dimmed", !related);
   });
   const card = $("graphHoverCard");
@@ -12174,11 +12174,11 @@ function renderGraphPanel() {
       })
     : [];
   const thinkingPanel = !showingFocusedNote && graphState.thinkingPanelOpen ? renderGraphThinkingPanel({ summary: questionSpotSummary, items: thinkingItems }) : "";
-  const weakRelationClueCount = !showingFocusedNote ? graphWeakRelationClues(scoped.edges, 6).length : 0;
+  const weakRelationClueCount = !showingFocusedNote ? graphWeakRelationClues(edges, 6).length : 0;
   const supplementalSections = !showingFocusedNote
     ? `
       ${renderGraphBridgeGapSection(bridgeGaps, { open: graphState.sectionOpen["bridge-gaps"] === true })}
-      ${renderGraphWeakRelationClueSection(scoped.edges, { open: graphState.sectionOpen["weak-relations"] === true })}
+      ${renderGraphWeakRelationClueSection(edges, { open: graphState.sectionOpen["weak-relations"] === true })}
       ${renderRelationReviewQueueSection(graphState.reviewQueue, { open: graphState.sectionOpen["review-queue"] === true })}
       ${renderGraphAiAnalysisCard({ open: graphState.sectionOpen["ai-analysis"] === true })}
     `
