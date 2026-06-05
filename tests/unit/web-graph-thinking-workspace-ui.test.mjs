@@ -39,9 +39,11 @@ test("graph type tabs stay as a primary choice instead of hidden inside filters"
 
   assert.match(source, /function renderGraphViewModeSwitcher\(relationType = "meaningful"\) \{[\s\S]*graph-view-tabs[\s\S]*graph-view-tab/);
   assert.match(source, /\$\{!showingFocusedNote \? renderGraphViewModeSwitcher\(effectiveRelationType\) : ""\}\s*\n\s*<div class="graph-canvas-toolbar">/);
-  assert.doesNotMatch(source, /<div class="graph-filters graph-filters-single" data-graph-filters>\s*\n\s*\$\{renderGraphViewModeSwitcher\(effectiveRelationType\)\}/);
+  assert.match(source, /<div class="graph-toolbar-filter-panel graph-filters graph-filters-single" data-graph-filters>/);
+  assert.doesNotMatch(source, /<details class="graph-advanced-controls">/);
   assert.match(html, /\.graph-view-tabs \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*border-color: #88c9a7;/);
+  assert.match(html, /\.graph-toolbar-filter-panel \{[\s\S]*width: min\(760px, 100%\);/);
 });
 
 test("graph isolated notes become visible selectable orbit nodes", () => {

@@ -12196,18 +12196,15 @@ function renderGraphPanel() {
     ${notices.join("")}
     ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : ""}
     <div class="graph-canvas-toolbar">
-      <details class="graph-advanced-controls">
-        <summary>筛选</summary>
-        <div class="graph-filters graph-filters-single" data-graph-filters>
-          <label>
-            <span>关系类型</span>
-            <select id="graphRelationTypeFilter" data-graph-filter="relationType">
-              ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
-            </select>
-            <small class="graph-filter-note">关系类型越细，图里保留的连线越少。</small>
-          </label>
-        </div>
-      </details>
+      <div class="graph-toolbar-filter-panel graph-filters graph-filters-single" data-graph-filters>
+        <label>
+          <span>关系类型</span>
+          <select id="graphRelationTypeFilter" data-graph-filter="relationType">
+            ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
+          </select>
+          <small class="graph-filter-note">关系类型越细，图里保留的连线越少。</small>
+        </label>
+      </div>
     </div>
     ${renderGraphVisualMap({
       nodes: visualNodes,

@@ -977,7 +977,8 @@ export class ExplorerPane {
     const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
     const fileIsSelected = this.state.selectedFileId === note.id;
     const fileIsCurrent = this.currentEditorNoteId() === note.id;
-    const currentBadge = fileIsCurrent && !fileIsSelected
+    const showCurrentNoteState = fileIsCurrent && this.state.module !== "graph";
+    const currentBadge = showCurrentNoteState && !fileIsSelected
       ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
       : "";
     const associateButton = disconnected && !simplifiedNoteBrowser
@@ -989,7 +990,7 @@ export class ExplorerPane {
         ? ""
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
-      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
+      <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${showCurrentNoteState ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">
         <div class="left">
           <span class="tree-indent"></span>
           <span class="tree-toggle ghost"> </span>
