@@ -3917,11 +3917,18 @@
       line-height: 1.5;
     }
     .graph-reading-lens {
-      margin-top: 10px;
+      flex: 1 1 auto;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 7px;
+    }
+    .graph-reading-lens-row {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
     .graph-reading-lens > span {
       color: #526174;
@@ -3958,9 +3965,14 @@
       box-shadow: 0 8px 18px rgba(15, 111, 72, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.72);
     }
     .graph-reading-lens small {
+      flex: 1 1 320px;
       color: #64748b;
       font-size: 12px;
       line-height: 1.45;
+    }
+    .graph-legend-inline-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
     }
     .graph-zoom-controls {
       display: inline-flex;
@@ -6505,6 +6517,10 @@
       }
       .graph-map-head {
         display: grid;
+      }
+      .graph-reading-lens-row {
+        display: grid;
+        justify-content: stretch;
       }
       .graph-map-tools {
         justify-items: stretch;

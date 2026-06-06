@@ -9136,17 +9136,17 @@ const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
     label: "洞见",
-    hint: "先放大中心、桥接与高解释力节点，适合寻找新判断。"
+    hint: "突出最值得继续想的笔记，帮你发现可能长出新观点的地方。"
   },
   bridge: {
     key: "bridge",
     label: "桥接",
-    hint: "优先看跨簇连接、潜在关联和孤立节点，适合补关系。"
+    hint: "突出还没连起来的笔记，帮你判断哪里需要补一条关系。"
   },
   argument: {
     key: "argument",
     label: "论证",
-    hint: "优先看支持、反驳和边界，适合检查观点是否站得住。"
+    hint: "突出证据、反方和边界，帮你检查这个想法站不站得住。"
   }
 };
 
@@ -9155,18 +9155,21 @@ function graphReadingLensMeta(value = "insight") {
   return GRAPH_READING_LENS_META[key] || GRAPH_READING_LENS_META.insight;
 }
 
-function renderGraphReadingLensControls(activeLens = "insight") {
+function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false) {
   const active = graphReadingLensMeta(activeLens);
   return `
-    <div class="graph-reading-lens" aria-label="图谱阅读模式">
-      <span>阅读模式</span>
-      ${Object.values(GRAPH_READING_LENS_META)
-        .map((item) => {
-          const selected = item.key === active.key;
-          return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
-        })
-        .join("")}
-      <small>${escapeHtml(active.hint)}</small>
+    <div class="graph-reading-lens-row">
+      <div class="graph-reading-lens" aria-label="图谱阅读模式">
+        <span>阅读模式</span>
+        ${Object.values(GRAPH_READING_LENS_META)
+          .map((item) => {
+            const selected = item.key === active.key;
+            return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
+          })
+          .join("")}
+        <small>${escapeHtml(active.hint)}</small>
+      </div>
+      <button class="mini-btn is-ghost graph-legend-inline-btn" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
     </div>
   `;
 }
@@ -10907,7 +10910,8 @@ function renderGraphVisualMap({
               </div>
             `
             : `
-              ${renderGraphReadingLensControls(readingLens.key)}
+              ${renderGraphViewModeSwitcher(relationType)}
+              ${renderGraphReadingLensControls(readingLens.key, legendOpen)}
               ${layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
             `
         }
@@ -12190,14 +12194,13 @@ function renderGraphPanel() {
     : "";
   const toolbarMarkup = `
     <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs graph-canvas-toolbar-merged" : ""}">
-      ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : '<div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>'}
+      <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
       <div class="graph-canvas-toolbar-actions">
         <div class="graph-filters graph-filters-single" data-graph-filters>
           <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
             ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
           </select>
         </div>
-        <button class="mini-btn is-ghost" id="graphLegendToggle" type="button" aria-expanded="${graphState.legendOpen === true}" aria-label="${graphState.legendOpen === true ? "隐藏图例" : "查看图例"}">${graphState.legendOpen === true ? "隐藏图例" : "查看图例"}</button>
       </div>
     </div>
   `;
