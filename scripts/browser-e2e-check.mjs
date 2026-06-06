@@ -14,6 +14,7 @@ const groups = [
       "prototype desktop updater check no-ops cleanly when no update is available",
       "prototype browser flow creates, edits, and persists a markdown note",
       "prototype permanent note can save and persists content after authorship confirmation flow",
+      "prototype permanent note structured workspace round-trips through source mode without losing fields",
       "prototype literature note keeps permanent-note actions out of the editor toolbar",
       "prototype literature note with missing metadata has no toolbar recording action",
       "standalone editor route loads and saves a note without workspace chrome",
@@ -105,7 +106,7 @@ const groups = [
     description: "Mobile viewport entry points and responsive capture flows.",
     tests: [
       "prototype mobile viewport keeps new note entry discoverable",
-      "prototype mobile viewport keeps permanent-note capture flow usable"
+      "prototype mobile viewport keeps permanent-note entry usable"
     ]
   },
   {

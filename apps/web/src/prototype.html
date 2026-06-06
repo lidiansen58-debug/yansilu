@@ -13082,6 +13082,57 @@
                 </section>
               </div>
             </div>
+            <div class="literature-workspace hidden" id="permanentWorkspace">
+              <div class="literature-head">
+                <h3>永久笔记工作台</h3>
+                <p>这里固定保留一套轻量骨架：观点、理由、边界、关联。需要自由排版或补充原始 Markdown 时，随时切回源码模式。</p>
+              </div>
+              <div class="literature-title">
+                <label for="permanentTitleInput">标题</label>
+                <input id="permanentTitleInput" placeholder="这条永久笔记最终要承担什么判断？" />
+              </div>
+              <div class="literature-grid">
+                <section class="literature-card">
+                  <div class="literature-card-head">
+                    <div>
+                      <div class="literature-card-title">判断骨架</div>
+                      <div class="literature-card-note">先把这条笔记写成一个你愿意长期承担的判断单元，再补它为什么成立。</div>
+                    </div>
+                  </div>
+                  <div class="literature-field">
+                    <label for="permanentCoreClaimInput">核心观点</label>
+                    <textarea id="permanentCoreClaimInput" placeholder="写出一句可被反驳、可被引用、也值得被保留的判断"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentWhyTrueInput">为什么成立</label>
+                    <textarea id="permanentWhyTrueInput" placeholder="写清它依赖哪些理由、证据、经验或推理链条"></textarea>
+                  </div>
+                </section>
+                <section class="literature-card">
+                  <div class="literature-card-head">
+                    <div>
+                      <div class="literature-card-title">约束与去向</div>
+                      <div class="literature-card-note">不要只写顺滑的一面；补上边界、反例和后续可延伸的关联线索。</div>
+                    </div>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentBoundaryInput">边界 / 反例</label>
+                    <textarea id="permanentBoundaryInput" placeholder="这条判断在什么条件下不成立，或最可能被什么反例推翻？"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentRelatedCluesInput">关联线索</label>
+                    <textarea id="permanentRelatedCluesInput" placeholder="记录相关笔记、来源线索、待连接主题或后续写作去向"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentSupplementInput">补充内容</label>
+                    <textarea id="permanentSupplementInput" placeholder="这里会保留旧笔记里暂时映射不到核心骨架的内容，也可手动补充备注"></textarea>
+                  </div>
+                  <div class="literature-reflection-note">
+                    旧笔记里不符合这套骨架的内容，会先落在“补充内容”里，避免强制迁移或直接丢失信息。
+                  </div>
+                </section>
+              </div>
+            </div>
             <div class="markdown-split editor-mode-wysiwyg" id="markdownSplit">
               <div class="markdown-editor-col markdown-wysiwyg-col">
                 <div id="wysiwygHost" class="wysiwyg-host" aria-label="所见即所得笔记编辑器"></div>

@@ -108,6 +108,22 @@ const LITERATURE_SECTION_LABELS = {
   boundary: "边界 / 反例"
 };
 
+const PERMANENT_SECTION_LABELS = {
+  coreClaim: "核心观点",
+  whyTrue: "为什么成立",
+  boundary: "边界 / 反例",
+  relatedClues: "关联线索",
+  supplement: "补充内容"
+};
+
+const PERMANENT_SECTION_ALIASES = {
+  coreClaim: ["核心判断", "中心观点", "一句话判断", "论点"],
+  whyTrue: ["成立理由", "理由", "论证", "为什么它成立"],
+  boundary: ["边界/反例", "边界与反例", "反例", "适用边界", "适用条件"],
+  relatedClues: ["来源线索", "证据来源", "关联", "相关线索", "延伸线索"],
+  supplement: ["附加内容", "补充说明", "备注"]
+};
+
 function normalizeLooseText(value = "") {
   return String(value || "")
     .trim()
@@ -274,6 +290,45 @@ function stripMarkdownTitle(body = "") {
   return lines.slice(1).join("\n").replace(/^\n+/, "");
 }
 
+function splitMarkdownLevelTwoSections(body = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "");
+  if (!text) return { preface: "", sections: [] };
+  const lines = text.split("\n");
+  const sections = [];
+  const prefaceLines = [];
+  let currentHeading = "";
+  let currentLines = [];
+  for (const line of lines) {
+    const headingMatch = /^##\s+(.+?)\s*$/.exec(line);
+    if (headingMatch) {
+      if (currentHeading) {
+        sections.push({
+          heading: currentHeading,
+          body: currentLines.join("\n").replace(/^\n+|\n+$/g, "")
+        });
+      } else {
+        prefaceLines.push(...currentLines);
+      }
+      currentHeading = String(headingMatch[1] || "").trim();
+      currentLines = [];
+      continue;
+    }
+    currentLines.push(line);
+  }
+  if (currentHeading) {
+    sections.push({
+      heading: currentHeading,
+      body: currentLines.join("\n").replace(/^\n+|\n+$/g, "")
+    });
+  } else {
+    prefaceLines.push(...currentLines);
+  }
+  return {
+    preface: prefaceLines.join("\n").replace(/^\n+|\n+$/g, ""),
+    sections
+  };
+}
+
 function literatureSectionLabelsFor(key = "") {
   const primary = LITERATURE_SECTION_LABELS[key];
   return [...new Set([primary, ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
@@ -281,6 +336,127 @@ function literatureSectionLabelsFor(key = "") {
 
 function allLiteratureSectionLabels() {
   return Object.keys(LITERATURE_SECTION_LABELS).flatMap((key) => literatureSectionLabelsFor(key));
+}
+
+function permanentSectionLabelsFor(key = "") {
+  const primary = PERMANENT_SECTION_LABELS[key];
+  return [...new Set([primary, ...(PERMANENT_SECTION_ALIASES[key] || [])].filter(Boolean))];
+}
+
+function allPermanentSectionLabels() {
+  return Object.keys(PERMANENT_SECTION_LABELS).flatMap((key) => permanentSectionLabelsFor(key));
+}
+
+function normalizePermanentExtraSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => section.heading);
+}
+
+function normalizePermanentSectionLayout(layout = []) {
+  const normalized = [];
+  const seenKnown = new Set();
+  for (const item of Array.isArray(layout) ? layout : []) {
+    const kind = String(item?.kind || "").trim().toLowerCase();
+    if (kind === "known") {
+      const key = String(item?.key || "").trim();
+      if (!PERMANENT_SECTION_LABELS[key] || seenKnown.has(key)) continue;
+      seenKnown.add(key);
+      normalized.push({ kind: "known", key });
+      continue;
+    }
+    if (kind === "duplicate_known") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "duplicate_known", index });
+      continue;
+    }
+    if (kind === "unknown") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "unknown", index });
+    }
+  }
+  return normalized;
+}
+
+function defaultPermanentSectionLayout() {
+  return Object.keys(PERMANENT_SECTION_LABELS).map((key) => ({ kind: "known", key }));
+}
+
+function normalizeRepeatedKnownPermanentSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      key: String(section?.key || "").trim(),
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => PERMANENT_SECTION_LABELS[section.key] && section.heading);
+}
+
+function permanentSectionKeyFromHeading(heading = "") {
+  const normalizedHeading = normalizeLooseText(heading);
+  for (const key of Object.keys(PERMANENT_SECTION_LABELS)) {
+    if (permanentSectionLabelsFor(key).some((label) => normalizeLooseText(label) === normalizedHeading)) {
+      return key;
+    }
+  }
+  return "";
+}
+
+function inferLegacyPermanentFields(content = "") {
+  const text = normalizeFieldText(content);
+  if (!text) {
+    return {
+      preface: "",
+      coreClaim: "",
+      whyTrue: "",
+      boundary: "",
+      relatedClues: "",
+      supplement: "",
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
+    };
+  }
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((item) => normalizeFieldText(item))
+    .filter(Boolean);
+  const firstParagraph = paragraphs[0] || "";
+  const rest = paragraphs.slice(1).join("\n\n");
+  const canUseFirstParagraphAsClaim =
+    firstParagraph &&
+    firstParagraph.length <= 180 &&
+    !/^[#>*\-]/.test(firstParagraph) &&
+    countIdeaUnits(firstParagraph) >= 4;
+  if (!canUseFirstParagraphAsClaim) {
+    return {
+      preface: "",
+      coreClaim: "",
+      whyTrue: "",
+      boundary: "",
+      relatedClues: "",
+      supplement: text,
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
+    };
+  }
+  return {
+    preface: "",
+    coreClaim: firstParagraph,
+    whyTrue: "",
+    boundary: "",
+    relatedClues: "",
+    supplement: rest,
+    extraSections: [],
+    repeatedKnownSections: [],
+    sectionLayout: []
+  };
 }
 
 function extractLiteratureSection(body = "", labels = "") {
@@ -391,6 +567,157 @@ function composeLiteratureWorkspace(fields = {}) {
 
 function literatureTemplateBody(title = "未命名笔记") {
   return composeLiteratureWorkspace({ title });
+}
+
+export function parsePermanentWorkspace(body = "") {
+  const title = titleFromBody(body);
+  const content = stripMarkdownTitle(body);
+  const { preface, sections } = splitMarkdownLevelTwoSections(content);
+  const structured = allPermanentSectionLabels().some((label) =>
+    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+  );
+  const parsed = {
+    title,
+    preface: "",
+    coreClaim: "",
+    whyTrue: "",
+    boundary: "",
+    relatedClues: "",
+    supplement: "",
+    extraSections: [],
+    repeatedKnownSections: [],
+    sectionLayout: [],
+    structured
+  };
+
+  if (!structured) {
+    if (sections.length) {
+      return {
+        ...parsed,
+        preface: normalizeFieldText(preface),
+        extraSections: normalizePermanentExtraSections(sections),
+        repeatedKnownSections: [],
+        sectionLayout: normalizePermanentSectionLayout(
+          sections.map((_, index) => ({ kind: "unknown", index }))
+        )
+      };
+    }
+    return {
+      ...parsed,
+      ...inferLegacyPermanentFields(content)
+    };
+  }
+
+  parsed.preface = normalizeFieldText(preface);
+  const supplementParts = [];
+  const unknownSections = [];
+  const repeatedKnownSections = [];
+  const sectionLayout = [];
+  const seenKnown = new Set();
+  for (const section of sections) {
+    const key = permanentSectionKeyFromHeading(section.heading);
+    const sectionBody = normalizeFieldText(section.body);
+    if (!key) {
+      unknownSections.push(section);
+      sectionLayout.push({ kind: "unknown", index: unknownSections.length - 1 });
+      continue;
+    }
+    if (seenKnown.has(key)) {
+      repeatedKnownSections.push({
+        key,
+        heading: String(section.heading || "").trim() || PERMANENT_SECTION_LABELS[key],
+        body: sectionBody
+      });
+      sectionLayout.push({ kind: "duplicate_known", index: repeatedKnownSections.length - 1 });
+      continue;
+    }
+    if (!seenKnown.has(key)) {
+      sectionLayout.push({ kind: "known", key });
+      seenKnown.add(key);
+    }
+    if (key === "supplement") {
+      if (sectionBody) supplementParts.push(sectionBody);
+      continue;
+    }
+    parsed[key] = parsed[key] ? `${parsed[key]}\n\n${sectionBody}` : sectionBody;
+  }
+  parsed.supplement = normalizeFieldText(supplementParts.join("\n\n"));
+  parsed.extraSections = normalizePermanentExtraSections(unknownSections);
+  parsed.repeatedKnownSections = normalizeRepeatedKnownPermanentSections(repeatedKnownSections);
+  parsed.sectionLayout = normalizePermanentSectionLayout(sectionLayout);
+  return parsed;
+}
+
+export function composePermanentWorkspace(fields = {}, options = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const includeEmptySections = options?.includeEmptySections === true;
+  const preface = normalizeFieldText(fields.preface || options?.preface);
+  const normalized = {
+    coreClaim: normalizeFieldText(fields.coreClaim),
+    whyTrue: normalizeFieldText(fields.whyTrue),
+    boundary: normalizeFieldText(fields.boundary),
+    relatedClues: normalizeFieldText(fields.relatedClues),
+    supplement: normalizeFieldText(fields.supplement)
+  };
+  const extraSections = normalizePermanentExtraSections(options?.extraSections);
+  const repeatedKnownSections = normalizeRepeatedKnownPermanentSections(options?.repeatedKnownSections);
+  const sectionLayout = normalizePermanentSectionLayout(options?.sectionLayout);
+  const lines = [`# ${title}`, ""];
+  if (preface) lines.push(preface, "");
+  const sectionOrder = [
+    ["coreClaim", PERMANENT_SECTION_LABELS.coreClaim],
+    ["whyTrue", PERMANENT_SECTION_LABELS.whyTrue],
+    ["boundary", PERMANENT_SECTION_LABELS.boundary],
+    ["relatedClues", PERMANENT_SECTION_LABELS.relatedClues],
+    ["supplement", PERMANENT_SECTION_LABELS.supplement]
+  ];
+  const labelByKey = Object.fromEntries(sectionOrder);
+  const emittedKnown = new Set();
+  const emittedUnknown = new Set();
+  const resolvedLayout = sectionLayout.length ? sectionLayout : defaultPermanentSectionLayout();
+
+  const appendKnownSection = (key = "") => {
+    const value = normalized[key];
+    if (emittedKnown.has(key)) return;
+    if (!includeEmptySections && !value) return;
+    const label = labelByKey[key];
+    if (!label) return;
+    lines.push(`## ${label}`, "", value, "");
+    emittedKnown.add(key);
+  };
+
+  const appendUnknownSection = (index = -1) => {
+    if (emittedUnknown.has(index)) return;
+    const section = extraSections[index];
+    if (!section) return;
+    lines.push(`## ${section.heading}`, "", section.body, "");
+    emittedUnknown.add(index);
+  };
+
+  const emittedDuplicateKnown = new Set();
+  const appendDuplicateKnownSection = (index = -1) => {
+    if (emittedDuplicateKnown.has(index)) return;
+    const section = repeatedKnownSections[index];
+    if (!section) return;
+    lines.push(`## ${section.heading || PERMANENT_SECTION_LABELS[section.key]}`, "", section.body, "");
+    emittedDuplicateKnown.add(index);
+  };
+
+  for (const item of resolvedLayout) {
+    if (item.kind === "known") appendKnownSection(item.key);
+    if (item.kind === "duplicate_known") appendDuplicateKnownSection(item.index);
+    if (item.kind === "unknown") appendUnknownSection(item.index);
+  }
+  for (const [key] of sectionOrder) {
+    appendKnownSection(key);
+  }
+  for (let index = 0; index < repeatedKnownSections.length; index += 1) {
+    appendDuplicateKnownSection(index);
+  }
+  for (let index = 0; index < extraSections.length; index += 1) {
+    appendUnknownSection(index);
+  }
+  return lines.join("\n").replace(/\n+$/g, "\n");
 }
 
 function reflectionQuestionsHint(prefix = "") {
@@ -1626,6 +1953,7 @@ export class EditorPane {
     this.suppressRichEditorChange = false;
     this.suppressSourceEditorChange = false;
     this.suppressLiteratureWorkspaceChange = false;
+    this.suppressPermanentWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
     this.wasEditingTitleLine = false;
@@ -1819,6 +2147,18 @@ export class EditorPane {
     return false;
   }
 
+  isPermanentWorkspaceEligible(note = this.activeNote()) {
+    return this.isOriginalNote(note);
+  }
+
+  isPermanentWorkspaceActive(note = this.activeNote()) {
+    return this.isPermanentWorkspaceEligible(note) && !this.isSourceMode();
+  }
+
+  isStructuredWorkspaceActive(note = this.activeNote()) {
+    return this.isLiteratureWorkspaceActive(note) || this.isPermanentWorkspaceActive(note);
+  }
+
   defaultAuthorshipState(note = null) {
     return {
       claim: "",
@@ -1866,6 +2206,41 @@ export class EditorPane {
       question: this.els.literatureQuestion?.value || "",
       boundary: this.els.literatureBoundary?.value || ""
     };
+  }
+
+  permanentFieldsFromInputs() {
+    return {
+      title: this.els.permanentTitle?.value || "未命名笔记",
+      coreClaim: this.els.permanentCoreClaim?.value || "",
+      whyTrue: this.els.permanentWhyTrue?.value || "",
+      boundary: this.els.permanentBoundary?.value || "",
+      relatedClues: this.els.permanentRelatedClues?.value || "",
+      supplement: this.els.permanentSupplement?.value || ""
+    };
+  }
+
+  permanentExtraSections(tab = this.activeTab()) {
+    return normalizePermanentExtraSections(tab?.permanentExtraSections);
+  }
+
+  permanentPreface(tab = this.activeTab()) {
+    return normalizeFieldText(tab?.permanentPreface);
+  }
+
+  permanentSectionLayout(tab = this.activeTab()) {
+    return normalizePermanentSectionLayout(tab?.permanentSectionLayout);
+  }
+
+  permanentRepeatedKnownSections(tab = this.activeTab()) {
+    return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
+  }
+
+  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
+    if (!tab) return;
+    tab.permanentPreface = normalizeFieldText(parsed?.preface);
+    tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
+    tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
+    tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
   }
 
   literatureCompletionState(note = this.activeNote()) {
@@ -2153,6 +2528,36 @@ export class EditorPane {
     this.setUnderlyingEditorValue(composeLiteratureWorkspace(this.literatureFieldsFromInputs()));
   }
 
+  syncPermanentWorkspaceFromBody(body = "") {
+    if (!this.els.permanentWorkspace) return;
+    const parsed = parsePermanentWorkspace(body || "");
+    this.rememberPermanentWorkspaceParse(parsed);
+    this.suppressPermanentWorkspaceChange = true;
+    try {
+      if (this.els.permanentTitle) this.els.permanentTitle.value = parsed.title || "未命名笔记";
+      if (this.els.permanentCoreClaim) this.els.permanentCoreClaim.value = parsed.coreClaim || "";
+      if (this.els.permanentWhyTrue) this.els.permanentWhyTrue.value = parsed.whyTrue || "";
+      if (this.els.permanentBoundary) this.els.permanentBoundary.value = parsed.boundary || "";
+      if (this.els.permanentRelatedClues) this.els.permanentRelatedClues.value = parsed.relatedClues || "";
+      if (this.els.permanentSupplement) this.els.permanentSupplement.value = parsed.supplement || "";
+    } finally {
+      this.suppressPermanentWorkspaceChange = false;
+    }
+  }
+
+  syncPermanentWorkspaceToEditor(options = {}) {
+    if (this.suppressPermanentWorkspaceChange || !this.isPermanentWorkspaceActive()) return;
+    this.setUnderlyingEditorValue(
+      composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        ...options,
+        preface: options?.preface ?? this.permanentPreface(),
+        sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
+        repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
+        extraSections: options?.extraSections || this.permanentExtraSections()
+      })
+    );
+  }
+
   currentSelectionRect() {
     if (this.isSourceMode() && this.markdownEditor?.view?.coordsAtPos) {
       const selection = this.editorSelection();
@@ -2169,6 +2574,9 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return [this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle].filter(Boolean);
     }
+    if (this.isPermanentWorkspaceActive()) {
+      return [this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle].filter(Boolean);
+    }
     if (this.isSourceMode()) {
       return [this.markdownEditor?.view?.scrollDOM, this.els.editorHost, this.els.body].filter(Boolean);
     }
@@ -2181,7 +2589,7 @@ export class EditorPane {
 
   captureEditorScrollState() {
     return {
-      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : "wysiwyg",
+      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : this.isPermanentWorkspaceActive() ? "permanent" : "wysiwyg",
       nodes: this.editorScrollNodes().map((node, index) => ({
         index,
         top: Number(node?.scrollTop || 0),
@@ -2592,6 +3000,7 @@ export class EditorPane {
       this.renderEmptyEditorState();
       this.els.result.innerHTML = "";
       this.setInspectorVisible(false);
+      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.renderPreviewVisibility();
@@ -2601,6 +3010,7 @@ export class EditorPane {
     this.ensureTabAuthorshipState(t, this.activeNote());
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderRelated();
     this.renderPreview();
@@ -2623,7 +3033,7 @@ export class EditorPane {
 
   syncPlaceholderTitleArmed(tab) {
     if (!tab) return false;
-    tab.placeholderTitleArmed = !this.isLiteratureWorkspaceActive() && noteUsesPlaceholderTitle(tab.title || titleFromBody(tab.body));
+    tab.placeholderTitleArmed = !this.isStructuredWorkspaceActive() && noteUsesPlaceholderTitle(tab.title || titleFromBody(tab.body));
     return tab.placeholderTitleArmed;
   }
 
@@ -2665,6 +3075,7 @@ export class EditorPane {
     this.renderCompleteButton();
     this.renderRecordPermanentButton();
     this.renderRelationToolbarButtons();
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -2824,12 +3235,13 @@ export class EditorPane {
   renderRelationToolbarButtons() {
     const note = this.activeNote();
     const visible = Boolean(note && this.isOriginalNote(note));
+    const allowInlineInsert = visible && !this.isStructuredWorkspaceActive(note);
 
     if (this.els.insertLink) {
       this.els.insertLink.classList.toggle("hidden", !visible);
-      this.els.insertLink.disabled = !visible;
+      this.els.insertLink.disabled = !allowInlineInsert;
       this.els.insertLink.title = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
-      this.els.insertLink.dataset.tip = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.dataset.tip = this.els.insertLink.title;
       this.els.insertLink.setAttribute("aria-label", visible ? "关联笔记" : "只有永久笔记才能关联其他笔记");
     }
 
@@ -2909,11 +3321,38 @@ export class EditorPane {
   }
 
   renderLiteratureWorkspace() {
-    this.els.literatureWorkspace?.classList.add("hidden");
-    this.els.markdownSplit?.classList.remove("hidden");
-    this.els.modeEdit?.classList.remove("hidden");
-    this.els.modeSplit?.classList.add("hidden");
+    const active = this.isLiteratureWorkspaceActive(this.activeNote());
+    this.els.literatureWorkspace?.classList.toggle("hidden", !active);
+    if (active) {
+      this.els.permanentWorkspace?.classList.add("hidden");
+      this.els.markdownSplit?.classList.add("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+      return;
+    }
+    if (!this.isPermanentWorkspaceActive(this.activeNote())) {
+      this.els.markdownSplit?.classList.remove("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+    }
     if (!this.isOriginalNote(this.activeNote())) this.hideOriginalityNotice();
+  }
+
+  renderPermanentWorkspace() {
+    const active = this.isPermanentWorkspaceActive(this.activeNote());
+    this.els.permanentWorkspace?.classList.toggle("hidden", !active);
+    if (active) {
+      this.els.literatureWorkspace?.classList.add("hidden");
+      this.els.markdownSplit?.classList.add("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+      return;
+    }
+    if (!this.isLiteratureWorkspaceActive(this.activeNote())) {
+      this.els.markdownSplit?.classList.remove("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+    }
   }
 
   setSaveUiState(mode, message = "") {
@@ -3285,10 +3724,14 @@ export class EditorPane {
     this.updateModeToggleButton(mode);
     this.els.modeSplit?.classList.add("hidden");
     if (this.richEditor && this.markdownEditor) {
-      const content = this.isSourceMode() ? this.markdownEditor.getValue() : this.richEditor.getValue();
+      const content = this.isSourceMode()
+        ? this.markdownEditor.getValue()
+        : this.isStructuredWorkspaceActive()
+          ? String(this.els.body?.value || "")
+          : this.richEditor.getValue();
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
-      if (!this.isLiteratureWorkspaceActive()) {
+      if (!this.isStructuredWorkspaceActive()) {
         if (this.isSourceMode()) this.clearMarkdownSelectionOverride();
         else if (normalizedPendingSelection) this.setMarkdownSelectionOverride(normalizedPendingSelection.from, normalizedPendingSelection.to);
         if (this.isSourceMode()) this.markdownEditor.focus();
@@ -3298,6 +3741,7 @@ export class EditorPane {
         }
       }
     }
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderContextualToolbarState();
   }
@@ -3305,11 +3749,12 @@ export class EditorPane {
   updateModeToggleButton(mode = "wysiwyg") {
     const button = this.els.modeEdit;
     if (!button) return;
+    const workspaceModeLabel = this.isPermanentWorkspaceEligible(this.activeNote()) ? "结构化模式" : "笔记模式";
     if (mode === "source") {
-      button.title = "切换到笔记模式 Ctrl/Cmd+1";
-      button.dataset.tip = "切换到笔记模式 Ctrl/Cmd+1";
-      button.setAttribute("aria-label", "切换到笔记模式");
-      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg><span>笔记模式</span>`;
+      button.title = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
+      button.dataset.tip = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
+      button.setAttribute("aria-label", `切换到${workspaceModeLabel}`);
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg><span>${workspaceModeLabel}</span>`;
       return;
     }
     button.title = "切换到源码模式 Ctrl/Cmd+2";
@@ -3320,10 +3765,25 @@ export class EditorPane {
 
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
+    const structured = this.isStructuredWorkspaceActive();
     if (this.els.headingLevel) {
       const value = Number(active.headingLevel || 0);
       this.els.headingLevel.value = value ? String(value) : this.activeTab() ? "p" : "";
+      this.els.headingLevel.disabled = structured;
+      this.els.headingLevel.title = structured ? "结构化模式下请切到源码模式再调整标题层级" : "多级标题";
     }
+    const buttonDefaults = [
+      [this.els.insertImage, "插入图片"],
+      [this.els.insertTag, "插入标签 #"],
+      [this.els.toolbarCommandBtn, "更多低频操作"]
+    ];
+    for (const [button, defaultTitle] of buttonDefaults) {
+      if (!button) continue;
+      button.disabled = structured;
+      button.title = structured ? "结构化模式下请切到源码模式再使用这个编辑操作" : defaultTitle;
+      button.dataset.tip = button.title;
+    }
+    if (structured) this.els.toolbarCommandMenu?.classList.add("hidden");
   }
 
   togglePreview(nextMode = null) {
@@ -3340,7 +3800,7 @@ export class EditorPane {
       return;
     }
     const latestValue = this.getEditorValue();
-    this.pendingEditorSelection = this.isLiteratureWorkspaceActive()
+    this.pendingEditorSelection = this.isStructuredWorkspaceActive()
       ? null
       : this.normalizedSelectionRangeForValue(latestValue, this.editorSelection());
     this.state.previewMode = resolved;
@@ -3610,6 +4070,14 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
     }
+    if (this.isPermanentWorkspaceActive()) {
+      return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        preface: this.permanentPreface(),
+        sectionLayout: this.permanentSectionLayout(),
+        repeatedKnownSections: this.permanentRepeatedKnownSections(),
+        extraSections: this.permanentExtraSections()
+      });
+    }
     if (this.isWysiwygMode()) {
       return String(this.els.body.value || "").replace(/\r\n/g, "\n");
     }
@@ -3622,10 +4090,23 @@ export class EditorPane {
     const text = String(value || "");
     this.setUnderlyingEditorValue(text);
     this.syncLiteratureWorkspaceFromBody(text);
+    this.syncPermanentWorkspaceFromBody(text);
+  }
+
+  normalizePermanentBodyForSave(body = "") {
+    const raw = String(body || "").replace(/\r\n/g, "\n");
+    const parsed = parsePermanentWorkspace(raw);
+    if (!parsed.structured) return raw;
+    return composePermanentWorkspace(parsed, {
+      preface: parsed.preface,
+      sectionLayout: parsed.sectionLayout,
+      repeatedKnownSections: parsed.repeatedKnownSections,
+      extraSections: parsed.extraSections
+    });
   }
 
   editorSelection() {
-    if (this.isLiteratureWorkspaceActive()) {
+    if (this.isStructuredWorkspaceActive()) {
       const active = document.activeElement;
       if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
         return {
@@ -3657,6 +4138,10 @@ export class EditorPane {
       this.els.literatureParaphrase?.focus();
       return;
     }
+    if (this.isPermanentWorkspaceActive()) {
+      this.els.permanentCoreClaim?.focus();
+      return;
+    }
     const editor = this.currentEditor();
     if (editor?.focus) editor.focus();
     else this.els.body.focus();
@@ -3681,6 +4166,12 @@ export class EditorPane {
   setEditorSelectionRange(from, to) {
     if (this.isLiteratureWorkspaceActive()) {
       const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
+      target?.focus();
+      target?.setSelectionRange?.(from, to);
+      return;
+    }
+    if (this.isPermanentWorkspaceActive()) {
+      const target = this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle;
       target?.focus();
       target?.setSelectionRange?.(from, to);
       return;
@@ -3874,6 +4365,16 @@ export class EditorPane {
         return;
       }
       this.els.literatureParaphrase?.focus();
+      return;
+    }
+    if (this.isPermanentWorkspaceActive()) {
+      if (mode === "select-placeholder-title") {
+        const titleInput = this.els.permanentTitle;
+        titleInput?.focus();
+        titleInput?.select?.();
+        return;
+      }
+      this.els.permanentCoreClaim?.focus();
       return;
     }
     const applyPlaceholderSelection = () => {
@@ -8889,6 +9390,21 @@ export class EditorPane {
       });
     }
 
+    for (const field of [
+      this.els.permanentTitle,
+      this.els.permanentCoreClaim,
+      this.els.permanentWhyTrue,
+      this.els.permanentBoundary,
+      this.els.permanentRelatedClues,
+      this.els.permanentSupplement
+    ]) {
+      field?.addEventListener("input", () => {
+        if (!this.isPermanentWorkspaceActive()) return;
+        this.syncPermanentWorkspaceToEditor();
+        this.handleEditorInput();
+      });
+    }
+
     this.els.body.addEventListener("input", () => this.handleEditorInput());
 
     this.els.editorHost?.addEventListener("paste", (event) => {
@@ -8985,7 +9501,7 @@ export class EditorPane {
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";
       tab.body = this.getEditorValue();
-      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode()) {
+      if (!this.isStructuredWorkspaceActive() && this.isWysiwygMode()) {
         const normalized = normalizePlaceholderTitleBody(tab.body);
         if (normalized !== tab.body) {
           tab.body = normalized;
@@ -9011,11 +9527,12 @@ export class EditorPane {
       else this.clearAutoSaveTimer();
       this.renderTabs();
       this.renderSaveHint();
+      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.updateToolbarFormattingState();
 
-      if (this.isLiteratureWorkspaceActive()) {
+      if (this.isStructuredWorkspaceActive()) {
         this.lastEditorValue = tab.body;
         return;
       }
@@ -9218,8 +9735,15 @@ export class EditorPane {
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
     note.body = tab.body;
-    note.title = titleFromBody(tab.body);
     note.noteType = typeFromFolder(this.state, note.folderId);
+    if (this.isOriginalNote(note)) {
+      const normalizedBody = this.normalizePermanentBodyForSave(note.body);
+      if (normalizedBody !== note.body) {
+        note.body = normalizedBody;
+        tab.body = normalizedBody;
+      }
+    }
+    note.title = titleFromBody(note.body);
     note.tags = parseTags(note.body);
     note.links = parseLinks(note.body);
     note.updatedAt = new Date().toISOString();

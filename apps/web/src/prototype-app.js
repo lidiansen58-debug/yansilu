@@ -15,7 +15,7 @@ import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
-import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
+import { EditorPane, composePermanentWorkspace, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
 import {
   renderImportPageMount
 } from "./import-page-mount.js";
@@ -4554,35 +4554,36 @@ function originalDraftBodyFromSource(payload = {}) {
       sourceTitle === "未命名文献笔记"
         ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名永久笔记")
         : sourceTitle;
-    return [
-      `# ${titleSeed}`,
-      "",
-      "## 核心观点",
-      "",
-      supportsJudgment
-        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
-      "",
-      "## 为什么成立",
-      "",
-      question
-        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
-        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
-      "",
-      "## 边界 / 反例",
-      "",
-      boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "",
-      "## 证据来源",
-      "",
+    const relatedClues = [
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-      ...citationSummaryLines(citation),
-      claim ? "- 已有用户转述：见来源文献笔记，不在永久笔记草稿中直接复制。" : "",
-      whyKeep || supportsJudgment || question || boundary || originalText ? "- 证据、判断种子、追问、边界与原文摘录请回到来源文献笔记核对。" : "",
-      ""
+      ...citationSummaryLines(citation)
     ]
-      .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
+      .filter(Boolean)
       .join("\n");
+    const supplement = [
+      claim ? "- 已有用户转述仍保留在来源文献笔记中，写永久笔记时请继续改写，不要直接复述。" : "",
+      whyKeep ? `- 来源文献里的保留原因：${whyKeep}` : "",
+      question ? `- 还待回答的追问：${question}` : "",
+      originalText ? "- 原文摘录与证据链仍以来源文献笔记为准，永久笔记里不重复复制。" : "",
+      supportsJudgment ? `- 来源里的判断种子：${supportsJudgment}` : ""
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return composePermanentWorkspace(
+      {
+        title: titleSeed,
+        coreClaim: supportsJudgment
+          ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
+          : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+        whyTrue: question
+          ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
+          : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
+        boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
+        relatedClues,
+        supplement
+      }
+    );
   }
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
   const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
@@ -4590,30 +4591,18 @@ function originalDraftBodyFromSource(payload = {}) {
     .replace(/^#\s+[^\n]*\n?/m, "")
     .trim();
   const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
-  return [
-    `# ${titleSeed}`,
-    "",
-    "## 核心观点",
-    "",
-    "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
-    "",
-    "## 为什么成立",
-    "",
-    "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
-    "",
-    "## 边界 / 反例",
-    "",
-    "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
-    "",
-    "## 来源线索",
-    "",
-    `- 来自随笔笔记：[[${sourceTitle}]]`,
-    payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-    excerpt ? `- 原始线索摘录：${excerpt}` : "",
-    ""
-  ]
-    .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
-    .join("\n");
+  return composePermanentWorkspace(
+    {
+      title: titleSeed,
+      coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
+      whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
+      boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
+      relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
+        .filter(Boolean)
+        .join("\n"),
+      supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
+    }
+  );
 }
 
 async function syncDirectoriesFromApi() {
@@ -5742,22 +5731,9 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return [
-    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
-    "",
-    "## 核心观点",
-    "",
-    "",
-    "## 为什么成立",
-    "",
-    "",
-    "## 边界 / 反例",
-    "",
-    "",
-    "## 关联线索",
-    "",
-    ""
-  ].join("\n");
+  return composePermanentWorkspace({
+    title: String(title || "未命名笔记").trim() || "未命名笔记"
+  });
 }
 
 function initialBodyForFolder(folderId = "") {
@@ -13748,6 +13724,25 @@ const editor = new EditorPane({
     editorHost: $("editorHost"),
     markdownSplit: $("markdownSplit"),
     emptyStart: $("editorEmptyStart"),
+    literatureWorkspace: $("literatureWorkspace"),
+    literatureQueueSummary: $("literatureQueueSummary"),
+    literatureQueueList: $("literatureQueueList"),
+    literatureQueueNote: $("literatureQueueNote"),
+    literatureOpenNext: $("btnLiteratureOpenNext"),
+    literatureTitle: $("literatureTitleInput"),
+    literatureOriginal: $("literatureOriginalInput"),
+    literatureParaphrase: $("literatureParaphraseInput"),
+    literatureWhyKeep: $("literatureWhyKeepInput"),
+    literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
+    literatureQuestion: $("literatureQuestionInput"),
+    literatureBoundary: $("literatureBoundaryInput"),
+    permanentWorkspace: $("permanentWorkspace"),
+    permanentTitle: $("permanentTitleInput"),
+    permanentCoreClaim: $("permanentCoreClaimInput"),
+    permanentWhyTrue: $("permanentWhyTrueInput"),
+    permanentBoundary: $("permanentBoundaryInput"),
+    permanentRelatedClues: $("permanentRelatedCluesInput"),
+    permanentSupplement: $("permanentSupplementInput"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
     editorThinkingStatus: $("editorThinkingStatus"),

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 const testFile = "./tests/e2e/prototype-browser.test.mjs";
-const testName = "prototype mobile viewport keeps permanent-note capture flow usable";
+const testName = "prototype mobile viewport keeps permanent-note entry usable";
 
 function exactTestPattern(name) {
   return `^${String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`;
