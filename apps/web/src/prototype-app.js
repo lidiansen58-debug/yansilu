@@ -5472,22 +5472,26 @@ function renderStatusMeta() {
 function renderWorkspaceStatusHint() {
   const helper = $("editorHelper");
   if (!helper) return;
+  const kicker = $("editorHelperKicker");
+  const title = $("editorHelperTitle");
+  const body = $("editorHelperBody");
+  const action = $("btnEditorHelperAction");
+  if (!kicker || !title || !body || !action) {
+    hideEditorHelper();
+    return;
+  }
   if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
     hideEditorHelper();
     return;
   }
   const activeNote = activeEditorNote();
   const activeBody = activeEditorBody();
-  const kicker = $("editorHelperKicker");
-  const title = $("editorHelperTitle");
-  const body = $("editorHelperBody");
-  const action = $("btnEditorHelperAction");
-  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
+  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "")
+    .trim()
+    .toLowerCase();
   if (!activeNote) {
-    if (action) {
-      action.dataset.helperAction = "noop";
-      action.dataset.targetNoteId = "";
-    }
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
     helper.hidden = false;
     helper.setAttribute("aria-hidden", "false");
     helper.style.pointerEvents = "";
@@ -5502,10 +5506,8 @@ function renderWorkspaceStatusHint() {
     hideEditorHelper();
     return;
   }
-  if (action) {
-    action.dataset.helperAction = "noop";
-    action.dataset.targetNoteId = "";
-  }
+  action.dataset.helperAction = "noop";
+  action.dataset.targetNoteId = "";
   helper.hidden = false;
   helper.setAttribute("aria-hidden", "false");
   helper.style.pointerEvents = "";
@@ -5527,10 +5529,8 @@ function renderWorkspaceStatusHint() {
       title.textContent = "这条文献已经长出永久笔记";
       body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条永久笔记里继续提炼自己的判断。";
       action.textContent = "打开永久笔记";
-      if (action) {
-        action.dataset.helperAction = "open-generated-original";
-        action.dataset.targetNoteId = targetNoteId;
-      }
+      action.dataset.helperAction = "open-generated-original";
+      action.dataset.targetNoteId = targetNoteId;
     } else {
       title.textContent = "先把原文转成你的判断";
       body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
@@ -5551,10 +5551,8 @@ function renderWorkspaceStatusHint() {
     title.textContent = "这条随笔已经沉淀为永久笔记";
     body.textContent = "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。";
     action.textContent = "打开永久笔记";
-    if (action) {
-      action.dataset.helperAction = "open-generated-original";
-      action.dataset.targetNoteId = targetNoteId;
-    }
+    action.dataset.helperAction = "open-generated-original";
+    action.dataset.targetNoteId = targetNoteId;
     return;
   }
   title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
