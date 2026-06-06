@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
   composePermanentWorkspace,
+  deriveLiteratureSectionLabelsFromTemplate,
   formatMarkdownLinkDestination,
   parseLiteratureWorkspace,
   parseMarkdownLinkSyntax,
   parsePermanentWorkspace,
-  renderMarkdownPreview
+  renderMarkdownPreview,
+  validateLiteratureTemplateSource
 } from "../../apps/web/src/components-editor-pane.js";
 
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
@@ -156,6 +158,237 @@ test("parseLiteratureWorkspace keeps backward-compatible literature headings", (
 
   assert.equal(parsed.supportsJudgment, "旧判断");
   assert.equal(parsed.boundary, "旧边界");
+});
+
+test("parseLiteratureWorkspace follows renamed headings inferred from template order", () => {
+  const sectionLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+- 标题：
+- 作者：
+- 年份：
+- 页码 / 定位：
+- DOI / ISBN / arXiv / URL / PDF：
+
+## Excerpt
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+  const parsed = parseLiteratureWorkspace(`# Renamed Literature Note
+
+## Source Card
+
+- 标题：Source
+- 作者：Author
+- 年份：2026
+- 页码 / 定位：p. 8
+- DOI / ISBN / arXiv / URL / PDF：doi:10/example
+
+## Excerpt
+
+Quoted passage
+
+## My Paraphrase
+
+User paraphrase
+
+## Claim Seed
+
+Possible claim
+
+## Open Question
+
+What still needs testing?
+
+## Constraints
+
+Where does this stop holding?
+
+## Why Keep
+
+Useful later in synthesis
+`, { sectionLabels });
+
+  assert.equal(parsed.originalText, "Quoted passage");
+  assert.equal(parsed.paraphrase, "User paraphrase");
+  assert.equal(parsed.supportsJudgment, "Possible claim");
+  assert.equal(parsed.question, "What still needs testing?");
+  assert.equal(parsed.boundary, "Where does this stop holding?");
+  assert.equal(parsed.whyKeep, "Useful later in synthesis");
+});
+
+test("deriveLiteratureSectionLabelsFromTemplate stays conservative when custom headings would shift known fields", () => {
+  const sectionLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## Research Notes
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+
+  assert.equal(sectionLabels.citation, "引用信息");
+  assert.equal(sectionLabels.originalText, "原文");
+  assert.equal(sectionLabels.paraphrase, "转述");
+  assert.equal(sectionLabels.supportsJudgment, "判断种子");
+  assert.equal(sectionLabels.question, "追问");
+  assert.equal(sectionLabels.boundary, "边界 / 反例");
+  assert.equal(sectionLabels.whyKeep, "保留原因");
+});
+
+test("parseLiteratureWorkspace can keep reading older renamed headings from template history candidates", () => {
+  const currentLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+  const oldLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Metadata
+
+## Quote
+
+## Restatement
+
+## Thesis Seed
+
+## Tension
+
+## Limits
+
+## Worth Keeping
+`);
+  const parsed = parseLiteratureWorkspace(`# Historic Literature Note
+
+## Metadata
+
+- 标题：Source
+- 作者：Author
+- 年份：2025
+- 页码 / 定位：p. 9
+- DOI / ISBN / arXiv / URL / PDF：doi:10/history
+
+## Quote
+
+Original text
+
+## Restatement
+
+Old paraphrase
+
+## Thesis Seed
+
+Historical claim
+
+## Tension
+
+Historical question
+
+## Limits
+
+Historical boundary
+
+## Worth Keeping
+
+Historical reason
+`, { sectionLabelCandidates: [currentLabels, oldLabels] });
+
+  assert.equal(parsed.originalText, "Original text");
+  assert.equal(parsed.paraphrase, "Old paraphrase");
+  assert.equal(parsed.supportsJudgment, "Historical claim");
+  assert.equal(parsed.question, "Historical question");
+  assert.equal(parsed.boundary, "Historical boundary");
+  assert.equal(parsed.whyKeep, "Historical reason");
+});
+
+test("validateLiteratureTemplateSource rejects extra top-level custom sections", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## Research Notes
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /只支持重命名现有顶层 section|额外的二级标题|顶层 section/);
+});
+
+test("validateLiteratureTemplateSource allows renamed partial literature templates", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## My Paraphrase
+`);
+
+  assert.equal(validation.ok, true);
+  assert.equal(validation.message, "");
+});
+
+test("validateLiteratureTemplateSource rejects mixed full literature templates that replace a slot with custom heading", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /混用默认字段名和自定义 section|自定义二级标题替换其中一格/);
 });
 
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {
@@ -346,6 +579,31 @@ Custom before related.
   assert.notEqual(customIndex, -1);
   assert.notEqual(relatedIndex, -1);
   assert.ok(customIndex < relatedIndex, markdown);
+});
+
+test("composePermanentWorkspace can avoid appending omitted known sections when asked", () => {
+  const markdown = composePermanentWorkspace(
+    {
+      title: "Permanent note",
+      coreClaim: "A stable claim.",
+      whyTrue: "This explanation should stay hidden when the template omits it.",
+      relatedClues: "- [[Related note]]"
+    },
+    {
+      sectionLayout: [
+        { kind: "unknown", index: 0 }
+      ],
+      extraSections: [{ heading: "Context", body: "Template-defined custom section." }],
+      appendRemainingKnown: false
+    }
+  );
+
+  assert.match(markdown, /^# Permanent note/m);
+  assert.match(markdown, /## Context/);
+  assert.match(markdown, /Template-defined custom section\./);
+  assert.doesNotMatch(markdown, /## \u6838\u5fc3\u89c2\u70b9/);
+  assert.doesNotMatch(markdown, /## \u4e3a\u4ec0\u4e48\u6210\u7acb/);
+  assert.doesNotMatch(markdown, /## \u5173\u8054\u7ebf\u7d22/);
 });
 
 test("parsePermanentWorkspace preserves legacy custom sections without wrapping them in supplement", () => {

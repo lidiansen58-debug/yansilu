@@ -4387,6 +4387,581 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
   assert.equal(path.resolve(String(promptMeta.defaultPath || "")), path.resolve(vaultPath));
 });
 
+test("prototype settings exposes the permanent note template entry", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await openSettingsModule(page);
+
+  const toggle = page.locator("#settingsOpenPermanentTemplateConfig");
+  await waitFor(async () => {
+    assert.equal(await toggle.isVisible(), true);
+  }, 5000);
+  assert.match(String(await page.locator("#settingsPermanentTemplateSummary").textContent() || ""), /新建模板|Markdown 骨架/);
+  assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+
+  await toggle.click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  assert.match(String(await toggle.textContent() || ""), /收起永久笔记模板设置/);
+  assert.match(String(await page.locator("#settingsPermanentTemplateFieldList").textContent() || ""), /核心观点/);
+  assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /## 核心观点/);
+
+  await toggle.click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+  }, 5000);
+});
+
+test("prototype settings keeps template drafts across same-vault refreshes", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+  const draftTemplate = `# {{title}}
+
+## 核心观点
+
+这是还没保存的模板草稿。
+`;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+
+  await page.locator("#settingsPermanentTemplateEditor").fill(draftTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+
+  await page.locator("#settingsRefreshVault").click();
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.ok(currentVaultText.length > 0);
+    assert.notEqual(currentVaultText, "尚未读取");
+  }, 10000);
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+
+  await page.locator("#settingsPermanentTemplateEditor").fill("");
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  }, 5000);
+  await page.locator("#settingsRefreshVault").click();
+  await waitFor(async () => {
+  assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  }, 5000);
+});
+
+test("prototype literature template preview surfaces invalid shapes before save", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+  const invalidLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsLiteratureTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsLiteratureTemplateEditor").fill(invalidLiteratureTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+    assert.match(String(await page.locator("#settingsLiteratureTemplateSummary").textContent() || ""), /当前草稿还不能保存/);
+  }, 5000);
+});
+
+test("prototype falls back to default literature template when stored template is invalid", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const invalidLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(({ literature }) => {
+        window.localStorage.setItem("yansilu:settings:note-template:literature", literature);
+      }, {
+        literature: invalidLiteratureTemplate
+      });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+  }, 5000);
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 原文/);
+    assert.match(value, /## 转述/);
+    assert.doesNotMatch(value, /## Research Notes/);
+  }, 5000);
+  const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+  assert.ok(originalUntitledNoteId);
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+    assert.equal(selectedFileId, originalUntitledNoteId);
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /## 引用信息/);
+    assert.doesNotMatch(value, /## Research Notes/);
+  }, 5000);
+});
+
+test("prototype migrates legacy global note templates into the active vault scope", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const legacyPermanentTemplate = `# {{title}}
+
+## 核心观点
+
+这是旧版全局永久模板。
+`;
+  const legacyLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+- 标题：旧版全局来源
+
+## 原文
+
+旧版全局原文占位
+
+## 转述
+
+这是旧版全文献模板。
+`;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(({ permanent, literature }) => {
+        window.localStorage.setItem("yansilu:settings:note-template:permanent", permanent);
+        window.localStorage.setItem("yansilu:settings:note-template:literature", literature);
+      }, {
+        permanent: legacyPermanentTemplate,
+        literature: legacyLiteratureTemplate
+      });
+    }
+  });
+  if (!stack) return;
+  const { page, vaultPath } = stack;
+  const nextVaultPath = path.join(await makeTempDir("yansilu-browser-e2e-template-legacy-vault-"), "vault");
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.equal(path.resolve(currentVaultText), path.resolve(vaultPath));
+  }, 10000);
+
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
+    assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
+  }, 5000);
+
+  const migratedStorage = await page.evaluate(() => {
+    const keys = Object.keys(window.localStorage);
+    const scopedPermanentKey = keys.find((key) => key.startsWith("yansilu:settings:note-template:permanent:") && !key.endsWith(":history")) || "";
+    const scopedLiteratureKey = keys.find((key) => key.startsWith("yansilu:settings:note-template:literature:") && !key.endsWith(":history")) || "";
+    return {
+      legacyPermanent: window.localStorage.getItem("yansilu:settings:note-template:permanent"),
+      legacyLiterature: window.localStorage.getItem("yansilu:settings:note-template:literature"),
+      scopedPermanentKey,
+      scopedPermanentValue: scopedPermanentKey ? window.localStorage.getItem(scopedPermanentKey) : "",
+      scopedLiteratureKey,
+      scopedLiteratureValue: scopedLiteratureKey ? window.localStorage.getItem(scopedLiteratureKey) : ""
+    };
+  });
+
+  assert.match(String(migratedStorage.legacyPermanent || ""), /这是旧版全局永久模板。/);
+  assert.match(String(migratedStorage.legacyLiterature || ""), /这是旧版全文献模板。/);
+  assert.match(String(migratedStorage.scopedPermanentKey || ""), /yansilu:settings:note-template:permanent:/);
+  assert.match(String(migratedStorage.scopedPermanentValue || ""), /这是旧版全局永久模板。/);
+  assert.match(String(migratedStorage.scopedLiteratureKey || ""), /yansilu:settings:note-template:literature:/);
+  assert.match(String(migratedStorage.scopedLiteratureValue || ""), /这是旧版全文献模板。/);
+
+  await page.locator("#settingsVaultPath").fill(nextVaultPath);
+  await page.locator("#settingsSwitchVault").click();
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.equal(path.resolve(currentVaultText), path.resolve(nextVaultPath));
+  }, 10000);
+
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
+    assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
+  }, 5000);
+});
+
+test("prototype settings saved literature and permanent templates drive later new notes in the same vault", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+  const permanentTemplate = `# {{title}}
+
+## 核心观点
+
+这是新的永久模板起手句。
+
+## 关联线索
+
+- [[模板测试]]
+`;
+  const literatureTemplate = `# {{title}}
+
+## 引用信息
+
+- 标题：模板来源
+
+## 原文
+
+原文占位
+
+## 转述
+
+这是新的文献模板起手句。
+`;
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.ok(currentVaultText.length > 0);
+    assert.notEqual(currentVaultText, "尚未读取");
+  }, 10000);
+
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是新的永久模板起手句。/);
+  }, 5000);
+  await page.locator("#settingsSavePermanentTemplate").click();
+  assert.match(
+    String(
+      await page.evaluate(
+        () =>
+          Object.entries(window.localStorage)
+            .filter(([key]) => key.includes("yansilu:settings:note-template:permanent"))
+            .map(([, value]) => value)
+            .join("\n")
+      )
+    ),
+    /这是新的永久模板起手句。/
+  );
+
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsLiteratureTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsLiteratureTemplateEditor").fill(literatureTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /这是新的文献模板起手句。/);
+  }, 5000);
+  await page.locator("#settingsSaveLiteratureTemplate").click();
+  assert.match(
+    String(
+      await page.evaluate(
+        () =>
+          Object.entries(window.localStorage)
+            .filter(([key]) => key.includes("yansilu:settings:note-template:literature"))
+            .map(([, value]) => value)
+            .join("\n")
+      )
+    ),
+    /这是新的文献模板起手句。/
+  );
+
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是新的永久模板起手句。/);
+    assert.match(value, /- \[\[模板测试\]\]/);
+  }, 5000);
+  await page.locator("#permanentTitleInput").fill("已有永久笔记");
+
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是新的永久模板起手句。/);
+    assert.match(value, /- \[\[模板测试\]\]/);
+  }, 5000);
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是新的文献模板起手句。/);
+    assert.match(value, /原文占位/);
+  }, 5000);
+});
+
+test("prototype note templates stay scoped to the active vault and old untitled placeholders stay reusable", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, apiBase, vaultPath } = stack;
+  const nextVaultPath = path.join(await makeTempDir("yansilu-browser-e2e-template-scope-vault-"), "vault");
+  const customPermanentTemplate = `# {{title}}
+
+## 核心观点
+
+这是按当前 Vault 定义的永久模板。
+`;
+
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+    assert.ok(selectedFileId);
+  }, 5000);
+  const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+  assert.ok(originalUntitledNoteId);
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.equal(path.resolve(currentVaultText), path.resolve(vaultPath));
+  }, 10000);
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.evaluate((value) => {
+    const editor = document.querySelector("#settingsPermanentTemplateEditor");
+    if (!editor) throw new Error("missing permanent template editor");
+    editor.value = value;
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  }, customPermanentTemplate);
+  await page.locator("#settingsSavePermanentTemplate").click();
+
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+    assert.ok(selectedFileId);
+  }, 5000);
+  const reopenedUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+  assert.equal(reopenedUntitledNoteId, originalUntitledNoteId);
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是按当前 Vault 定义的永久模板。/);
+  }, 5000);
+
+  await openSettingsModule(page);
+  await page.locator("#settingsVaultPath").fill(nextVaultPath);
+  await page.locator("#settingsSwitchVault").click();
+  await waitFor(async () => {
+    const health = await fetchJson(apiBase, "/health");
+    assert.equal(health.status, 200);
+    assert.equal(path.resolve(health.json.vaultPath), path.resolve(nextVaultPath));
+  }, 10000);
+
+  await page.locator('[data-action="quick-original"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.doesNotMatch(value, /这是按当前 Vault 定义的永久模板。/);
+    assert.match(value, /## 核心观点/);
+  }, 5000);
+});
+
+test("prototype source-generated permanent notes adopt the current permanent template", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  const permanentTemplate = `# {{title}}
+
+这是一条来自模板前言的提醒。
+
+## 自定义问题
+
+这个 section 应该跟着模板一起进入来源生成的永久笔记。
+`;
+  const literatureBody = `# Source Driven Literature
+
+## 引用信息
+
+- 标题：Source Driven Literature
+
+## 原文
+
+Original evidence block.
+
+## 转述
+
+这里已经有一段用户转述。
+
+## 判断种子
+
+把转述压成一句可辩护的判断。
+`;
+  const createdLiterature = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    body: literatureBody
+  });
+  assert.equal(createdLiterature.status, 201, JSON.stringify(createdLiterature.json));
+  const literatureNoteId = createdLiterature.json.item.id;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
+  await page.locator("#settingsSavePermanentTemplate").click();
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Source Driven Literature");
+    assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
+  }, 7000);
+
+  await page.locator("#btnRecordPermanent").click();
+  await page.locator("#permanentNoteModal").waitFor();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#permanentNoteTargetFolder option").count() > 0, true);
+  }, 5000);
+  await page.locator("#permanentNoteCreate").click();
+  await page.locator("#permanentNoteModal").waitFor({ state: "hidden" });
+
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.equal(await page.locator("#permanentWorkspace").isVisible().catch(() => false), false);
+    assert.match(value, /这是一条来自模板前言的提醒。/);
+    assert.match(value, /## 自定义问题/);
+    assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);
+    assert.match(value, /## 来源生成提示/);
+    assert.match(value, /### 核心观点/);
+    assert.match(value, /把转述压成一句可辩护的判断。/);
+    assert.match(value, /### 关联线索/);
+    assert.match(value, /来自文献笔记：\[\[Source Driven Literature\]\]/);
+    assert.match(value, /把转述压成一句可辩护的判断。/);
+    assert.doesNotMatch(value, /^## 核心观点$/m);
+    assert.doesNotMatch(value, /^## 为什么成立$/m);
+    assert.doesNotMatch(value, /^## 边界 \/ 反例$/m);
+  }, 7000);
+});
+
 test("prototype browser flow creates a directory and persists notes inside it after reload", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
