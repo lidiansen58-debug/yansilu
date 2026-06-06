@@ -323,11 +323,15 @@ const settingsState = {
   noteTemplates: {
     permanent: {
       panelOpen: false,
-      text: ""
+      text: "",
+      draftText: "",
+      history: []
     },
     literature: {
       panelOpen: false,
-      text: ""
+      text: "",
+      draftText: "",
+      history: []
     }
   },
   ai: {
@@ -427,6 +431,7 @@ const NOTE_TEMPLATE_STORAGE_KEYS = {
   permanent: "yansilu:settings:note-template:permanent",
   literature: "yansilu:settings:note-template:literature"
 };
+const NOTE_TEMPLATE_HISTORY_LIMIT = 8;
 const writingState = {
   project: null,
   scaffold: null,
@@ -808,6 +813,38 @@ function normalizeNoteTemplateSource(text = "", kind = "") {
   return normalized || defaultTemplateSourceForKind(kind);
 }
 
+function normalizeNoteTemplateHistory(items = [], kind = "") {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(items) ? items : []) {
+    const text = normalizeNoteTemplateSource(item, kind);
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    normalized.push(text);
+    if (normalized.length >= NOTE_TEMPLATE_HISTORY_LIMIT) break;
+  }
+  return normalized;
+}
+
+function noteTemplateStorageScope(vaultPath = "") {
+  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
+  return cleanPath || "global";
+}
+
+function noteTemplateStorageKey(kind = "", options = {}) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
+  const suffix = String(options?.suffix || "").trim();
+  const scope = noteTemplateStorageScope(options?.vaultPath || "");
+  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
+}
+
+function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") {
+  const cleanPrevious = normalizeNoteTemplateSource(previousText, kind);
+  if (!cleanPrevious) return normalizeNoteTemplateHistory(history, kind);
+  return normalizeNoteTemplateHistory([cleanPrevious, ...(Array.isArray(history) ? history : [])], kind);
+}
+
 function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") {
   const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
   const fallbackSource = defaultTemplateSourceForKind(kind);
@@ -818,25 +855,32 @@ function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记"
 }
 
 function loadNoteTemplateSettingsFromStorage() {
-  settingsState.noteTemplates.permanent.text = normalizeNoteTemplateSource(
-    readStoredText(NOTE_TEMPLATE_STORAGE_KEYS.permanent, ""),
-    "permanent"
-  );
-  settingsState.noteTemplates.literature.text = normalizeNoteTemplateSource(
-    readStoredText(NOTE_TEMPLATE_STORAGE_KEYS.literature, ""),
-    "literature"
-  );
+  for (const kind of ["permanent", "literature"]) {
+    const scopedText = readStoredText(noteTemplateStorageKey(kind), "");
+    const legacyText = noteTemplateStorageScope() === "global" ? readStoredText(NOTE_TEMPLATE_STORAGE_KEYS[kind], "") : "";
+    const normalizedText = normalizeNoteTemplateSource(scopedText || legacyText, kind);
+    settingsState.noteTemplates[kind].text = normalizedText;
+    settingsState.noteTemplates[kind].draftText = normalizedText;
+    const scopedHistory = readStoredText(noteTemplateStorageKey(kind, { suffix: "history" }), "");
+    let parsedHistory = [];
+    try {
+      parsedHistory = scopedHistory ? JSON.parse(scopedHistory) : [];
+    } catch {}
+    settingsState.noteTemplates[kind].history = normalizeNoteTemplateHistory(parsedHistory, kind);
+  }
 }
 
 function persistNoteTemplateSettingsToStorage() {
-  writeStoredText(
-    NOTE_TEMPLATE_STORAGE_KEYS.permanent,
-    normalizeNoteTemplateSource(settingsState.noteTemplates.permanent.text, "permanent")
-  );
-  writeStoredText(
-    NOTE_TEMPLATE_STORAGE_KEYS.literature,
-    normalizeNoteTemplateSource(settingsState.noteTemplates.literature.text, "literature")
-  );
+  for (const kind of ["permanent", "literature"]) {
+    writeStoredText(
+      noteTemplateStorageKey(kind),
+      normalizeNoteTemplateSource(settingsState.noteTemplates[kind].text, kind)
+    );
+    writeStoredText(
+      noteTemplateStorageKey(kind, { suffix: "history" }),
+      JSON.stringify(normalizeNoteTemplateHistory(settingsState.noteTemplates[kind].history, kind))
+    );
+  }
 }
 
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
@@ -4510,11 +4554,21 @@ function normalizedDefaultUntitledBody(folderId = "") {
   return ensureEditableNoteBody(initialBodyForFolder(folderId)).replace(/\r\n/g, "\n").trim();
 }
 
+function historicalUntitledTemplateBodies(folderId = "") {
+  const noteType = String(typeFromFolder(state, folderId) || "").trim().toLowerCase();
+  const kind = noteType === "literature" ? "literature" : noteType === "original" || noteType === "permanent" ? "permanent" : "";
+  if (!kind) return [];
+  return normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
+    applyTitleToNoteTemplate(template, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim()
+  );
+}
+
 function isEmptyUntitledMarkdown(body = "", folderId = "") {
   const text = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!text) return true;
   if (!text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim()) return true;
-  return text === normalizedDefaultUntitledBody(folderId);
+  const candidates = [normalizedDefaultUntitledBody(folderId), ...historicalUntitledTemplateBodies(folderId)];
+  return candidates.some((candidate) => candidate === text);
 }
 
 function noteTabFor(noteId = "") {
@@ -6779,8 +6833,18 @@ function toggleNoteTemplatePanel(kind = "") {
 function saveNoteTemplateFromEditor(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const editorField = $(noteTemplateEditorElementId(cleanKind));
-  const nextSource = normalizeNoteTemplateSource(editorField?.value || "", cleanKind);
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
+  const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
+  if (nextSource !== previousSource) {
+    settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+      settingsState.noteTemplates[cleanKind].history,
+      previousSource,
+      cleanKind
+    );
+  }
   settingsState.noteTemplates[cleanKind].text = nextSource;
+  settingsState.noteTemplates[cleanKind].draftText = nextSource;
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
@@ -6788,7 +6852,14 @@ function saveNoteTemplateFromEditor(kind = "") {
 
 function resetNoteTemplateToDefault(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+    settingsState.noteTemplates[cleanKind].history,
+    previousSource,
+    cleanKind
+  );
   settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
+  settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
@@ -6801,7 +6872,9 @@ function updateNoteTemplatePreviewFromEditor(kind = "") {
   const preview = $(`settings${capitalizedKind}TemplatePreview`);
   if (!preview) return;
   const copy = noteTemplateCardCopy(cleanKind);
-  preview.textContent = applyTitleToNoteTemplate(editorField?.value || "", copy.previewTitle, cleanKind);
+  const draftSource = String(editorField?.value || "").replace(/\r\n/g, "\n");
+  settingsState.noteTemplates[cleanKind].draftText = draftSource;
+  preview.textContent = applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind);
 }
 
 function renderNoteTemplateSettingsCard(kind = "") {
@@ -6814,11 +6887,17 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const list = $(`settings${capitalizedKind}TemplateFieldList`);
   const preview = $(`settings${capitalizedKind}TemplatePreview`);
   const editorField = $(`settings${capitalizedKind}TemplateEditor`);
-  const stateEntry = settingsState.noteTemplates?.[cleanKind] || { panelOpen: false, text: defaultTemplateSourceForKind(cleanKind) };
+  const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
+    panelOpen: false,
+    text: defaultTemplateSourceForKind(cleanKind),
+    draftText: defaultTemplateSourceForKind(cleanKind)
+  };
   const open = stateEntry.panelOpen === true;
   const copy = noteTemplateCardCopy(cleanKind);
   const fieldMeta = noteTemplateFieldMeta(cleanKind);
-  const normalizedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
+  const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
+  const draftSource = String(stateEntry.draftText || "").trim() ? stateEntry.draftText : savedSource;
+  const visibleSource = open ? draftSource : savedSource;
 
   if (stats) {
     stats.innerHTML = `
@@ -6836,8 +6915,8 @@ function renderNoteTemplateSettingsCard(kind = "") {
   if (list) {
     list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
   }
-  if (editorField && String(editorField.value || "") !== normalizedSource) editorField.value = normalizedSource;
-  if (preview) preview.textContent = applyTitleToNoteTemplate(normalizedSource, copy.previewTitle, cleanKind);
+  if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
+  if (preview) preview.textContent = applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind);
 }
 
 function renderAiCanonicalDebugPanel() {
@@ -8955,6 +9034,7 @@ function renderWritingPanel() {
 async function refreshVaultSettings() {
   try {
     settingsState.vault = await fetchVaultInfo();
+    loadNoteTemplateSettingsFromStorage();
     const prefs = await fetchAiPreferences().catch(() => null);
     if (prefs) {
       const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
@@ -14753,6 +14833,7 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   try {
     const vault = await desktopCommands.switchVault(vaultPath);
     settingsState.vault = vault;
+    loadNoteTemplateSettingsFromStorage();
     state.notes = [];
     state.tabs = [];
     state.activeTabId = null;
