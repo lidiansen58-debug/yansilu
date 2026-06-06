@@ -426,6 +426,12 @@ export function validateLiteratureTemplateSource(templateSource = "") {
   }
 
   const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
+  if (sections.length === LITERATURE_SECTION_ORDER.length && unresolvedCount > 0 && usedKeys.size > 0) {
+    return {
+      ok: false,
+      message: "文献模板当前不支持在完整顶层骨架里混用默认字段名和自定义 section。请要么整体改名，要么只保留现有字段，不要用自定义二级标题替换其中一格。"
+    };
+  }
   if (unresolvedCount > remainingSlots) {
     return {
       ok: false,

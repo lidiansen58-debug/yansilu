@@ -369,6 +369,28 @@ test("validateLiteratureTemplateSource allows renamed partial literature templat
   assert.equal(validation.message, "");
 });
 
+test("validateLiteratureTemplateSource rejects mixed full literature templates that replace a slot with custom heading", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /混用默认字段名和自定义 section|自定义二级标题替换其中一格/);
+});
+
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {
   const parsed = parsePermanentWorkspace(`# Permanent note
 
