@@ -15,7 +15,15 @@ import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
-import { EditorPane, composePermanentWorkspace, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
+import {
+  deriveLiteratureSectionLabelsFromTemplate,
+  EditorPane,
+  composePermanentWorkspace,
+  normalizeFieldText,
+  parseLiteratureWorkspace,
+  parsePermanentWorkspace,
+  validateLiteratureTemplateSource
+} from "./components-editor-pane.js";
 import {
   renderImportPageMount
 } from "./import-page-mount.js";
@@ -320,6 +328,24 @@ const aiInboxState = {
 };
 const settingsState = {
   vault: null,
+  noteTemplates: {
+    permanent: {
+      panelOpen: false,
+      scope: "",
+      text: "",
+      draftText: "",
+      draftActive: false,
+      history: []
+    },
+    literature: {
+      panelOpen: false,
+      scope: "",
+      text: "",
+      draftText: "",
+      draftActive: false,
+      history: []
+    }
+  },
   ai: {
     runtimeMode: "auto",
     userMode: "Auto",
@@ -397,6 +423,34 @@ const settingsState = {
   },
   error: ""
 };
+const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
+  { key: "whyTrue", label: "为什么成立", note: "核心字段，不建议隐藏" },
+  { key: "boundary", label: "边界 / 反例", note: "核心字段，不建议隐藏" },
+  { key: "relatedClues", label: "关联线索", note: "核心字段，不建议隐藏" },
+  { key: "supplement", label: "补充内容", note: "可选增强字段" }
+];
+const LITERATURE_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "citation", label: "引用信息", note: "记录来源元数据，便于追溯" },
+  { key: "originalText", label: "原文", note: "保留可核对的摘录或原文片段" },
+  { key: "paraphrase", label: "转述", note: "先用自己的话完成理解" },
+  { key: "supportsJudgment", label: "判断种子", note: "可选增强字段" },
+  { key: "question", label: "追问", note: "可选增强字段" },
+  { key: "boundary", label: "边界 / 反例", note: "可选增强字段" },
+  { key: "whyKeep", label: "保留原因", note: "可选增强字段" }
+];
+const NOTE_TEMPLATE_STORAGE_KEYS = {
+  permanent: "yansilu:settings:note-template:permanent",
+  literature: "yansilu:settings:note-template:literature"
+};
+const NOTE_TEMPLATE_HISTORY_LIMIT = 8;
+const PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS = {
+  coreClaim: "核心观点",
+  whyTrue: "为什么成立",
+  boundary: "边界 / 反例",
+  relatedClues: "关联线索",
+  supplement: "补充内容"
+};
 const writingState = {
   project: null,
   scaffold: null,
@@ -465,6 +519,7 @@ const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
+loadNoteTemplateSettingsFromStorage();
 
 if (typeof document !== "undefined") {
   const suppressStartupAutoOpen = () => {
@@ -730,6 +785,242 @@ function writeStoredText(key, value) {
     if (!clean) window.localStorage?.removeItem(String(key || ""));
     else window.localStorage?.setItem(String(key || ""), clean);
   } catch {}
+}
+
+function defaultLiteratureTemplateSource(title = "{{title}}") {
+  return [
+    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
+    "",
+    "## 引用信息",
+    "",
+    "- 标题：",
+    "- 作者：",
+    "- 年份：",
+    "- 容器：",
+    "- 出版社 / 来源：",
+    "- 页码 / 定位：",
+    "- 版本：",
+    "- 译者 / 编者：",
+    "- DOI / ISBN / arXiv / URL / PDF：",
+    "",
+    "## 原文",
+    "",
+    "",
+    "## 转述",
+    "",
+    ""
+  ].join("\n");
+}
+
+function currentLiteratureTemplateSectionLabels() {
+  return deriveLiteratureSectionLabelsFromTemplate(effectiveSavedNoteTemplateSource("literature"));
+}
+
+function literatureTemplateSectionLabelCandidates() {
+  return [
+    currentLiteratureTemplateSectionLabels(),
+    ...normalizeNoteTemplateHistory(settingsState.noteTemplates.literature.history, "literature").map((template) =>
+      deriveLiteratureSectionLabelsFromTemplate(template)
+    )
+  ];
+}
+
+function defaultPermanentTemplateSource(title = "{{title}}") {
+  return composePermanentWorkspace(
+    {
+      title: String(title || "{{title}}").trim() || "{{title}}"
+    },
+    { includeEmptySections: true }
+  );
+}
+
+function defaultTemplateSourceForKind(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? defaultLiteratureTemplateSource()
+    : defaultPermanentTemplateSource();
+}
+
+function normalizeNoteTemplateSource(text = "", kind = "") {
+  const normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+  return normalized || defaultTemplateSourceForKind(kind);
+}
+
+function effectiveSavedNoteTemplateSource(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const savedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
+  if (cleanKind !== "literature") return savedSource;
+  const validation = validateLiteratureTemplateSource(savedSource);
+  return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
+}
+
+function normalizeNoteTemplateHistory(items = [], kind = "") {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(items) ? items : []) {
+    const text = normalizeNoteTemplateSource(item, kind);
+    if (String(kind || "").trim().toLowerCase() === "literature" && !validateLiteratureTemplateSource(text).ok) continue;
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    normalized.push(text);
+    if (normalized.length >= NOTE_TEMPLATE_HISTORY_LIMIT) break;
+  }
+  return normalized;
+}
+
+function noteTemplateStorageScope(vaultPath = "") {
+  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
+  return cleanPath || "global";
+}
+
+function noteTemplateStorageKey(kind = "", options = {}) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
+  const suffix = String(options?.suffix || "").trim();
+  const scope = noteTemplateStorageScope(options?.vaultPath || "");
+  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
+}
+
+function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") {
+  const cleanPrevious = normalizeNoteTemplateSource(previousText, kind);
+  if (!cleanPrevious) return normalizeNoteTemplateHistory(history, kind);
+  return normalizeNoteTemplateHistory([cleanPrevious, ...(Array.isArray(history) ? history : [])], kind);
+}
+
+function normalizeDraftBuffer(text = "") {
+  return String(text || "").replace(/\r\n/g, "\n");
+}
+
+function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") {
+  const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
+  const fallbackSource = defaultTemplateSourceForKind(kind);
+  const source = normalizeNoteTemplateSource(templateSource, kind) || fallbackSource;
+  const replaced = source.replace(/\{\{\s*title\s*\}\}/gi, cleanTitle);
+  if (/^\s*#\s+/m.test(replaced)) return ensureEditableNoteBody(replaced);
+  return ensureEditableNoteBody(`# ${cleanTitle}\n\n${replaced}`);
+}
+
+function mergeTemplateFieldText(base = "", addition = "") {
+  const normalizedBase = normalizeFieldText(base);
+  const normalizedAddition = normalizeFieldText(addition);
+  if (!normalizedBase) return normalizedAddition;
+  if (!normalizedAddition) return normalizedBase;
+  if (normalizedBase === normalizedAddition) return normalizedAddition;
+  return `${normalizedBase}\n\n${normalizedAddition}`;
+}
+
+function composePermanentTemplateDraft(fields = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const templateBody = permanentNoteTemplateBody(title);
+  const parsedTemplate = parsePermanentWorkspace(templateBody);
+  const hasTemplateStructure =
+    parsedTemplate.structured === true ||
+    Boolean(parsedTemplate.preface) ||
+    (Array.isArray(parsedTemplate.sectionLayout) && parsedTemplate.sectionLayout.length > 0) ||
+    (Array.isArray(parsedTemplate.extraSections) && parsedTemplate.extraSections.length > 0) ||
+    (Array.isArray(parsedTemplate.repeatedKnownSections) && parsedTemplate.repeatedKnownSections.length > 0);
+
+  if (!hasTemplateStructure) {
+    return composePermanentWorkspace({
+      ...fields,
+      title
+    });
+  }
+
+  const knownKeysInTemplate = new Set(
+    (Array.isArray(parsedTemplate.sectionLayout) ? parsedTemplate.sectionLayout : [])
+      .filter((item) => item?.kind === "known" && item?.key)
+      .map((item) => item.key)
+  );
+  const fallbackFieldEntries = Object.entries({
+    coreClaim: normalizeFieldText(fields.coreClaim),
+    whyTrue: normalizeFieldText(fields.whyTrue),
+    boundary: normalizeFieldText(fields.boundary),
+    relatedClues: normalizeFieldText(fields.relatedClues),
+    supplement: normalizeFieldText(fields.supplement)
+  }).filter(([key, value]) => value && !knownKeysInTemplate.has(key));
+  const extraSections = Array.isArray(parsedTemplate.extraSections) ? [...parsedTemplate.extraSections] : [];
+  const sectionLayout = Array.isArray(parsedTemplate.sectionLayout) ? [...parsedTemplate.sectionLayout] : [];
+  if (fallbackFieldEntries.length) {
+    extraSections.push({
+      heading: "来源生成提示",
+      body: fallbackFieldEntries
+        .map(([key, value]) => `### ${PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS[key] || key}\n\n${value}`)
+        .join("\n\n")
+    });
+    sectionLayout.push({ kind: "unknown", index: extraSections.length - 1 });
+  }
+
+  return composePermanentWorkspace(
+    {
+      title,
+      coreClaim: mergeTemplateFieldText(parsedTemplate.coreClaim, fields.coreClaim),
+      whyTrue: mergeTemplateFieldText(parsedTemplate.whyTrue, fields.whyTrue),
+      boundary: mergeTemplateFieldText(parsedTemplate.boundary, fields.boundary),
+      relatedClues: mergeTemplateFieldText(parsedTemplate.relatedClues, fields.relatedClues),
+      supplement: mergeTemplateFieldText(parsedTemplate.supplement, fields.supplement)
+    },
+    {
+      preface: parsedTemplate.preface,
+      extraSections,
+      repeatedKnownSections: parsedTemplate.repeatedKnownSections,
+      sectionLayout,
+      appendRemainingKnown: false
+    }
+  );
+}
+
+function loadNoteTemplateSettingsFromStorage() {
+  const scope = noteTemplateStorageScope();
+  for (const kind of ["permanent", "literature"]) {
+    const entry = settingsState.noteTemplates[kind];
+    const previousScope = String(entry?.scope || "");
+    const savedTextBeforeLoad = normalizeNoteTemplateSource(entry?.text, kind);
+    const draftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
+    const hasUnsavedDraft =
+      previousScope === scope &&
+      entry?.draftActive === true &&
+      draftTextBeforeLoad !== normalizeDraftBuffer(savedTextBeforeLoad);
+    const scopedKey = noteTemplateStorageKey(kind);
+    const scopedHistoryKey = noteTemplateStorageKey(kind, { suffix: "history" });
+    const legacyKey = NOTE_TEMPLATE_STORAGE_KEYS[kind];
+    const legacyHistoryKey = `${legacyKey}:history`;
+    const scopedText = readStoredText(scopedKey, "");
+    const legacyText = readStoredText(legacyKey, "");
+    const scopedHistory = readStoredText(scopedHistoryKey, "");
+    const legacyHistory = readStoredText(legacyHistoryKey, "");
+    const shouldMigrateLegacy = scope !== "global" && !String(scopedText || "").trim() && String(legacyText || "").trim();
+    const resolvedText = shouldMigrateLegacy ? legacyText : scopedText || (scope === "global" ? legacyText : "");
+    const resolvedHistory = shouldMigrateLegacy ? legacyHistory : scopedHistory || (scope === "global" ? legacyHistory : "");
+    const normalizedText = normalizeNoteTemplateSource(resolvedText, kind);
+    settingsState.noteTemplates[kind].text = normalizedText;
+    settingsState.noteTemplates[kind].scope = scope;
+    if (!hasUnsavedDraft) {
+      settingsState.noteTemplates[kind].draftText = normalizedText;
+      settingsState.noteTemplates[kind].draftActive = false;
+    }
+    let parsedHistory = [];
+    try {
+      parsedHistory = resolvedHistory ? JSON.parse(resolvedHistory) : [];
+    } catch {}
+    settingsState.noteTemplates[kind].history = normalizeNoteTemplateHistory(parsedHistory, kind);
+    if (shouldMigrateLegacy) {
+      writeStoredText(scopedKey, normalizedText);
+      writeStoredText(scopedHistoryKey, JSON.stringify(settingsState.noteTemplates[kind].history));
+    }
+  }
+}
+
+function persistNoteTemplateSettingsToStorage() {
+  for (const kind of ["permanent", "literature"]) {
+    writeStoredText(
+      noteTemplateStorageKey(kind),
+      normalizeNoteTemplateSource(settingsState.noteTemplates[kind].text, kind)
+    );
+    writeStoredText(
+      noteTemplateStorageKey(kind, { suffix: "history" }),
+      JSON.stringify(normalizeNoteTemplateHistory(settingsState.noteTemplates[kind].history, kind))
+    );
+  }
 }
 
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
@@ -3834,7 +4125,7 @@ function hasRequiredLiteratureCitation(citation = {}) {
 }
 
 function literatureQueueLaneForNote(note) {
-  const fields = parseLiteratureWorkspace(note?.body || "");
+  const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabelCandidates: literatureTemplateSectionLabelCandidates() });
   const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
   const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
   const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -4403,11 +4694,76 @@ function normalizedDefaultUntitledBody(folderId = "") {
   return ensureEditableNoteBody(initialBodyForFolder(folderId)).replace(/\r\n/g, "\n").trim();
 }
 
+function historicalUntitledTemplateBodies(folderId = "") {
+  const noteType = String(typeFromFolder(state, folderId) || "").trim().toLowerCase();
+  const kind = noteType === "literature" ? "literature" : noteType === "original" || noteType === "permanent" ? "permanent" : "";
+  if (!kind) return [];
+  const candidates = normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
+    applyTitleToNoteTemplate(template, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim()
+  );
+  if (kind === "literature") {
+    const rawSavedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[kind]?.text, kind);
+    if (!validateLiteratureTemplateSource(rawSavedSource).ok) {
+      const rawBody = applyTitleToNoteTemplate(rawSavedSource, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim();
+      if (rawBody && !candidates.includes(rawBody)) candidates.unshift(rawBody);
+    }
+  }
+  return candidates;
+}
+
 function isEmptyUntitledMarkdown(body = "", folderId = "") {
   const text = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!text) return true;
   if (!text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim()) return true;
-  return text === normalizedDefaultUntitledBody(folderId);
+  const candidates = [normalizedDefaultUntitledBody(folderId), ...historicalUntitledTemplateBodies(folderId)];
+  return candidates.some((candidate) => candidate === text);
+}
+
+async function refreshUntitledPlaceholderForCurrentTemplate(note) {
+  if (!note || !isUntitledTitle(note.title)) return note;
+  const tab = noteTabFor(note.id);
+  const currentBody = normalizedDefaultUntitledBody(note.folderId);
+  const existingBody = ensureEditableNoteBody(typeof tab?.body === "string" ? tab.body : note.body).replace(/\r\n/g, "\n").trim();
+  if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) return note;
+
+  const nextBody = ensureEditableNoteBody(initialBodyForFolder(note.folderId));
+  if (isLocalOnlyNote(note)) {
+    note.body = nextBody;
+    note.bodyLoaded = true;
+    note.tags = parseTags(nextBody);
+    note.links = parseLinks(nextBody);
+    note.updatedAt = new Date().toISOString();
+    if (tab) {
+      tab.body = nextBody;
+      tab.savedBody = nextBody;
+      tab.dirty = false;
+    }
+    return note;
+  }
+
+  try {
+    const updated = await updateNote(note.id, {
+      title: note.title,
+      body: nextBody,
+      status: note.status || "draft",
+      generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
+      originalityStatus: note.originalityStatus || undefined,
+      originalitySimilarity: note.originalitySimilarity ?? undefined
+    });
+    if (updated) {
+      Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      if (tab) {
+        tab.body = note.body;
+        tab.savedBody = note.body;
+        tab.title = note.title;
+        tab.savedTitle = note.title;
+        tab.dirty = false;
+      }
+    }
+  } catch (error) {
+    setStatus(`未命名占位模板刷新失败，仍打开旧内容：${String(error?.message || error)}`, "warn");
+  }
+  return note;
 }
 
 function noteTabFor(noteId = "") {
@@ -4559,7 +4915,9 @@ function citationSummaryLines(citation = {}) {
 function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
-    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "");
+    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "", {
+      sectionLabelCandidates: literatureTemplateSectionLabelCandidates()
+    });
     const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
     const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
     const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
@@ -4588,20 +4946,18 @@ function originalDraftBodyFromSource(payload = {}) {
     ]
       .filter(Boolean)
       .join("\n");
-    return composePermanentWorkspace(
-      {
-        title: titleSeed,
-        coreClaim: supportsJudgment
-          ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-          : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
-        whyTrue: question
-          ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
-          : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
-        boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
-        relatedClues,
-        supplement
-      }
-    );
+    return composePermanentTemplateDraft({
+      title: titleSeed,
+      coreClaim: supportsJudgment
+        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
+        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+      whyTrue: question
+        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
+        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
+      boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
+      relatedClues,
+      supplement
+    });
   }
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
   const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
@@ -4609,18 +4965,16 @@ function originalDraftBodyFromSource(payload = {}) {
     .replace(/^#\s+[^\n]*\n?/m, "")
     .trim();
   const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
-  return composePermanentWorkspace(
-    {
-      title: titleSeed,
-      coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
-      whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
-      boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
-      relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
-        .filter(Boolean)
-        .join("\n"),
-      supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
-    }
-  );
+  return composePermanentTemplateDraft({
+    title: titleSeed,
+    coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
+    whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
+    boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
+    relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
+      .filter(Boolean)
+      .join("\n"),
+    supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
+  });
 }
 
 async function syncDirectoriesFromApi() {
@@ -5811,34 +6165,11 @@ function ensureEditableNoteBody(body = "") {
 }
 
 function literatureNoteTemplateBody(title = "未命名笔记") {
-  return [
-    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
-    "",
-    "## 引用信息",
-    "",
-    "- 标题：",
-    "- 作者：",
-    "- 年份：",
-    "- 容器：",
-    "- 出版社 / 来源：",
-    "- 页码 / 定位：",
-    "- 版本：",
-    "- 译者 / 编者：",
-    "- DOI / ISBN / arXiv / URL / PDF：",
-    "",
-    "## 原文",
-    "",
-    "",
-    "## 转述",
-    "",
-    ""
-  ].join("\n");
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("literature"), title, "literature");
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return composePermanentWorkspace({
-    title: String(title || "未命名笔记").trim() || "未命名笔记"
-  });
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("permanent"), title, "permanent");
 }
 
 function initialBodyForFolder(folderId = "") {
@@ -5856,6 +6187,7 @@ async function createNoteInSelectedFolder(options = {}) {
   try {
     const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
     if (reuseUntitled && cleanup.kept) {
+      await refreshUntitledPlaceholderForCurrentTemplate(cleanup.kept);
       if (openInStandalone) {
         openStandaloneEditorWindow(cleanup.kept.id);
       } else {
@@ -6592,6 +6924,9 @@ function renderSettingsPanel() {
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
 
+  renderNoteTemplateSettingsCard("permanent");
+  renderNoteTemplateSettingsCard("literature");
+
   renderAiLocalModelControls();
   renderAiSettingsExperience();
 
@@ -6636,6 +6971,195 @@ function renderSettingsPanel() {
     testOutput.textContent = settingsState.ai.testOutput || "（空）";
   }
   renderAiCanonicalDebugPanel();
+}
+
+function noteTemplateFieldMeta(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? LITERATURE_TEMPLATE_SETTINGS_FIELDS
+    : PERMANENT_TEMPLATE_SETTINGS_FIELDS;
+}
+
+function noteTemplateCardCopy(kind = "") {
+  if (String(kind || "").trim().toLowerCase() === "literature") {
+    return {
+      stats: ["文献模板", "普通 Markdown"],
+      summaryClosed: "这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。",
+      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。当前只支持重命名现有顶层 section，不支持新增额外的二级标题。",
+      openLabel: "打开文献模板设置",
+      closeLabel: "收起文献模板设置",
+      statusClosed: "待保存修改",
+      statusOpen: "正在编辑",
+      previewTitle: "示例文献笔记"
+    };
+  }
+  return {
+    stats: ["统一骨架", "普通 Markdown"],
+    summaryClosed: "这里可以修改永久笔记的新建模板。保存后，后续新建永久笔记会直接采用这份 Markdown 骨架。",
+    summaryOpen: "支持直接编辑永久笔记模板文本，并用 {{title}} 作为标题占位符。后续新建永久笔记会按这里的内容落盘。",
+    openLabel: "打开永久笔记模板设置",
+    closeLabel: "收起永久笔记模板设置",
+    statusClosed: "待保存修改",
+    statusOpen: "正在编辑",
+    previewTitle: "示例永久笔记"
+  };
+}
+
+function noteTemplateEditorElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateEditor"
+    : "settingsPermanentTemplateEditor";
+}
+
+function noteTemplateSaveButtonElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsSaveLiteratureTemplate"
+    : "settingsSavePermanentTemplate";
+}
+
+function noteTemplateDraftValidation(kind = "", source = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (cleanKind !== "literature") return { ok: true, message: "" };
+  return validateLiteratureTemplateSource(source);
+}
+
+function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (!settingsState.noteTemplates?.[cleanKind]) return;
+  settingsState.noteTemplates[cleanKind].panelOpen = nextOpen === true;
+}
+
+function toggleNoteTemplatePanel(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const current = settingsState.noteTemplates?.[cleanKind]?.panelOpen === true;
+  setNoteTemplatePanelOpen(cleanKind, !current);
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板设置已${current ? "收起" : "打开"}`, "ok");
+}
+
+function saveNoteTemplateFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
+  const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
+  if (cleanKind === "literature") {
+    const validation = validateLiteratureTemplateSource(nextSource);
+    if (!validation.ok) {
+      setStatus(validation.message || "文献模板当前形状不受支持", "warn");
+      return;
+    }
+  }
+  if (nextSource !== previousSource) {
+    settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+      settingsState.noteTemplates[cleanKind].history,
+      previousSource,
+      cleanKind
+    );
+  }
+  settingsState.noteTemplates[cleanKind].text = nextSource;
+  settingsState.noteTemplates[cleanKind].draftText = nextSource;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
+}
+
+function resetNoteTemplateToDefault(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+    settingsState.noteTemplates[cleanKind].history,
+    previousSource,
+    cleanKind
+  );
+  settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
+  settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
+}
+
+function updateNoteTemplatePreviewFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  if (!preview) return;
+  const copy = noteTemplateCardCopy(cleanKind);
+  const draftSource = normalizeDraftBuffer(editorField?.value || "");
+  settingsState.noteTemplates[cleanKind].draftText = draftSource;
+  settingsState.noteTemplates[cleanKind].draftActive = true;
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  preview.textContent = validation.ok
+    ? applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind)
+    : `模板当前不能保存：${validation.message}`;
+}
+
+function renderNoteTemplateSettingsCard(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const stats = $(`settings${capitalizedKind}TemplateStats`);
+  const summary = $(`settings${capitalizedKind}TemplateSummary`);
+  const button = $(`settingsOpen${capitalizedKind}TemplateConfig`);
+  const detail = $(`settings${capitalizedKind}TemplateDetail`);
+  const list = $(`settings${capitalizedKind}TemplateFieldList`);
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  const editorField = $(`settings${capitalizedKind}TemplateEditor`);
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
+    panelOpen: false,
+    text: defaultTemplateSourceForKind(cleanKind),
+    draftText: defaultTemplateSourceForKind(cleanKind),
+    draftActive: false
+  };
+  const open = stateEntry.panelOpen === true;
+  const copy = noteTemplateCardCopy(cleanKind);
+  const fieldMeta = noteTemplateFieldMeta(cleanKind);
+  const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
+  const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
+  const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
+
+  if (stats) {
+    stats.innerHTML = `
+      <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
+      <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
+      <span class="settings-stat-badge ${open ? (validation.ok ? "ok" : "warn") : "warn"}">${escapeHtml(open ? (validation.ok ? copy.statusOpen : "当前草稿不可保存") : copy.statusClosed)}</span>
+    `;
+  }
+  if (summary) {
+    summary.textContent = open
+      ? validation.ok
+        ? copy.summaryOpen
+        : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`
+      : copy.summaryClosed;
+  }
+  if (button) {
+    button.textContent = open ? copy.closeLabel : copy.openLabel;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (detail) detail.classList.toggle("hidden", !open);
+  if (list) {
+    list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
+  }
+  if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  if (preview) {
+    preview.textContent = validation.ok
+      ? applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind)
+      : `模板当前不能保存：${validation.message}`;
+  }
 }
 
 function renderAiCanonicalDebugPanel() {
@@ -8753,6 +9277,7 @@ function renderWritingPanel() {
 async function refreshVaultSettings() {
   try {
     settingsState.vault = await fetchVaultInfo();
+    loadNoteTemplateSettingsFromStorage();
     const prefs = await fetchAiPreferences().catch(() => null);
     if (prefs) {
       const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
@@ -14467,6 +14992,8 @@ const editor = new EditorPane({
   onOpenNote: openNoteById,
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   selectPermanentDirectory,
+  resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
+  resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
@@ -14551,6 +15078,7 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   try {
     const vault = await desktopCommands.switchVault(vaultPath);
     settingsState.vault = vault;
+    loadNoteTemplateSettingsFromStorage();
     state.notes = [];
     state.tabs = [];
     state.activeTabId = null;
@@ -14564,6 +15092,38 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   } catch (error) {
     setStatus(`切换 Vault 失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
+  toggleNoteTemplatePanel("permanent");
+});
+
+$("settingsOpenLiteratureTemplateConfig")?.addEventListener("click", () => {
+  toggleNoteTemplatePanel("literature");
+});
+
+$("settingsSavePermanentTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("permanent");
+});
+
+$("settingsResetPermanentTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("permanent");
+});
+
+$("settingsSaveLiteratureTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("literature");
+});
+
+$("settingsResetLiteratureTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("literature");
+});
+
+$("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("permanent");
+});
+
+$("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("literature");
 });
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {

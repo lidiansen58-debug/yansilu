@@ -108,6 +108,16 @@ const LITERATURE_SECTION_LABELS = {
   boundary: "边界 / 反例"
 };
 
+const LITERATURE_SECTION_ORDER = [
+  "citation",
+  "originalText",
+  "paraphrase",
+  "supportsJudgment",
+  "question",
+  "boundary",
+  "whyKeep"
+];
+
 const PERMANENT_SECTION_LABELS = {
   coreClaim: "核心观点",
   whyTrue: "为什么成立",
@@ -329,13 +339,129 @@ function splitMarkdownLevelTwoSections(body = "") {
   };
 }
 
-function literatureSectionLabelsFor(key = "") {
-  const primary = LITERATURE_SECTION_LABELS[key];
-  return [...new Set([primary, ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
+function normalizedLiteratureSectionLabels(sectionLabels = {}) {
+  const normalized = {};
+  for (const key of LITERATURE_SECTION_ORDER) {
+    const label = LITERATURE_SECTION_LABELS[key];
+    normalized[key] = normalizeFieldText(sectionLabels?.[key] || "") || label;
+  }
+  return normalized;
 }
 
-function allLiteratureSectionLabels() {
-  return Object.keys(LITERATURE_SECTION_LABELS).flatMap((key) => literatureSectionLabelsFor(key));
+export function deriveLiteratureSectionLabelsFromTemplate(templateSource = "") {
+  const normalized = normalizedLiteratureSectionLabels();
+  const { sections } = splitMarkdownLevelTwoSections(stripMarkdownTitle(templateSource));
+  const remainingKeys = new Set(LITERATURE_SECTION_ORDER);
+  const explicitMatches = new Map();
+
+  for (const section of sections) {
+    const heading = normalizeFieldText(section?.heading || "");
+    if (!heading) continue;
+    const headingToken = normalizeLooseText(heading);
+    const matchedKey = LITERATURE_SECTION_ORDER.find((key) =>
+      literatureSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken)
+    );
+    if (!matchedKey || explicitMatches.has(matchedKey)) continue;
+    explicitMatches.set(matchedKey, heading);
+    remainingKeys.delete(matchedKey);
+  }
+
+  for (const [key, heading] of explicitMatches.entries()) normalized[key] = heading;
+  const fallbackQueue = LITERATURE_SECTION_ORDER.filter((key) => remainingKeys.has(key));
+  let fallbackEnabled = true;
+  for (let index = 0; index < sections.length; index += 1) {
+    const heading = normalizeFieldText(sections[index]?.heading || "");
+    if (!heading) continue;
+    const isExplicit = Array.from(explicitMatches.values()).some(
+      (mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(heading)
+    );
+    if (isExplicit) continue;
+    if (!fallbackEnabled || !fallbackQueue.length) break;
+    const remainingHeadings = sections
+      .slice(index)
+      .map((section) => normalizeFieldText(section?.heading || ""))
+      .filter(
+        (item) =>
+          item &&
+          !Array.from(explicitMatches.values()).some((mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(item))
+      );
+    if (remainingHeadings.length > fallbackQueue.length) {
+      fallbackEnabled = false;
+      continue;
+    }
+    const key = fallbackQueue.shift();
+    if (!key) break;
+    normalized[key] = heading;
+  }
+
+  return normalized;
+}
+
+export function validateLiteratureTemplateSource(templateSource = "") {
+  const content = stripMarkdownTitle(templateSource);
+  const { sections } = splitMarkdownLevelTwoSections(content);
+  if (sections.length > LITERATURE_SECTION_ORDER.length) {
+    return {
+      ok: false,
+      message: `文献模板当前只支持 ${LITERATURE_SECTION_ORDER.length} 个以内的顶层 section；请把额外说明放进已有 section，或改成三级标题。`
+    };
+  }
+
+  const usedKeys = new Set();
+  let unresolvedCount = 0;
+  for (const section of sections) {
+    const heading = normalizeFieldText(section?.heading || "");
+    if (!heading) continue;
+    const headingToken = normalizeLooseText(heading);
+    const matchedKey = LITERATURE_SECTION_ORDER.find(
+      (key) =>
+        !usedKeys.has(key) &&
+        literatureSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken)
+    );
+    if (matchedKey) {
+      usedKeys.add(matchedKey);
+      continue;
+    }
+    unresolvedCount += 1;
+  }
+
+  const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
+  if (sections.length === LITERATURE_SECTION_ORDER.length && unresolvedCount > 0 && usedKeys.size > 0) {
+    return {
+      ok: false,
+      message: "文献模板当前不支持在完整顶层骨架里混用默认字段名和自定义 section。请要么整体改名，要么只保留现有字段，不要用自定义二级标题替换其中一格。"
+    };
+  }
+  if (unresolvedCount > remainingSlots) {
+    return {
+      ok: false,
+      message: "文献模板里有无法识别的顶层 section。请只保留现有字段的改名，不要新增额外的二级标题。"
+    };
+  }
+  return { ok: true, message: "" };
+}
+
+function normalizeLiteratureSectionLabelCandidates(candidates = [], fallback = {}) {
+  const normalized = [];
+  const seen = new Set();
+  for (const candidate of [...(Array.isArray(candidates) ? candidates : []), fallback]) {
+    const labels = normalizedLiteratureSectionLabels(candidate || {});
+    const signature = JSON.stringify(labels);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    normalized.push(labels);
+  }
+  return normalized.length ? normalized : [normalizedLiteratureSectionLabels()];
+}
+
+function literatureSectionLabelsFor(key = "", options = {}) {
+  const labels = normalizedLiteratureSectionLabels(options?.sectionLabels || options);
+  const primary = labels[key] || LITERATURE_SECTION_LABELS[key];
+  return [...new Set([primary, LITERATURE_SECTION_LABELS[key], ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
+}
+
+function allLiteratureSectionLabels(options = {}) {
+  return LITERATURE_SECTION_ORDER.flatMap((key) => literatureSectionLabelsFor(key, options));
 }
 
 function permanentSectionLabelsFor(key = "") {
@@ -511,30 +637,62 @@ function literatureCitationState(citation = {}) {
   };
 }
 
-export function parseLiteratureWorkspace(body = "") {
+export function parseLiteratureWorkspace(body = "", options = {}) {
   const title = titleFromBody(body);
   const content = stripMarkdownTitle(body);
-  const structured = allLiteratureSectionLabels().some((label) =>
-    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
-  );
-  const citation = structured
-    ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation")))
-    : emptyLiteratureCitationFields();
-  const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText")) : content.trim();
-  return {
+  const candidates = normalizeLiteratureSectionLabelCandidates(options?.sectionLabelCandidates, options?.sectionLabels || options);
+  let bestParsed = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const sectionLabels of candidates) {
+    const structured = allLiteratureSectionLabels({ sectionLabels }).some((label) =>
+      new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+    );
+    const citation = structured
+      ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation", { sectionLabels })))
+      : emptyLiteratureCitationFields();
+    const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText", { sectionLabels })) : content.trim();
+    const parsed = {
+      title,
+      citation,
+      originalText,
+      paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase", { sectionLabels })) : "",
+      whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep", { sectionLabels })) : "",
+      supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment", { sectionLabels })) : "",
+      question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question", { sectionLabels })) : "",
+      boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary", { sectionLabels })) : "",
+      sectionLabels
+    };
+    const score =
+      (structured ? 100 : 0) +
+      LITERATURE_SECTION_ORDER.reduce((total, key) => {
+        if (key === "citation") {
+          return total + (Object.values(parsed.citation || {}).some(Boolean) ? 20 : 0);
+        }
+        return total + (normalizeFieldText(parsed[key] || "") ? 20 : 0);
+      }, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestParsed = parsed;
+    }
+  }
+
+  return bestParsed || {
     title,
-    citation,
-    originalText,
-    paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase")) : "",
-    whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep")) : "",
-    supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment")) : "",
-    question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question")) : "",
-    boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary")) : ""
+    citation: emptyLiteratureCitationFields(),
+    originalText: content.trim(),
+    paraphrase: "",
+    whyKeep: "",
+    supportsJudgment: "",
+    question: "",
+    boundary: "",
+    sectionLabels: normalizedLiteratureSectionLabels()
   };
 }
 
-function composeLiteratureWorkspace(fields = {}) {
+function composeLiteratureWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const sectionLabels = normalizedLiteratureSectionLabels(options?.sectionLabels || options);
   const citation = normalizeLiteratureCitationFields(fields.citation || {});
   const originalText = normalizeFieldText(fields.originalText);
   const paraphrase = normalizeFieldText(fields.paraphrase);
@@ -545,23 +703,23 @@ function composeLiteratureWorkspace(fields = {}) {
   const lines = [
     `# ${title}`,
     "",
-    `## ${LITERATURE_SECTION_LABELS.citation}`,
+    `## ${sectionLabels.citation}`,
     "",
     ...composeLiteratureCitationLines(citation),
     "",
-    `## ${LITERATURE_SECTION_LABELS.originalText}`,
+    `## ${sectionLabels.originalText}`,
     "",
     originalText,
     "",
-    `## ${LITERATURE_SECTION_LABELS.paraphrase}`,
+    `## ${sectionLabels.paraphrase}`,
     "",
     paraphrase,
     ""
   ];
-  if (supportsJudgment) lines.push(`## ${LITERATURE_SECTION_LABELS.supportsJudgment}`, "", supportsJudgment, "");
-  if (question) lines.push(`## ${LITERATURE_SECTION_LABELS.question}`, "", question, "");
-  if (boundary) lines.push(`## ${LITERATURE_SECTION_LABELS.boundary}`, "", boundary, "");
-  if (whyKeep) lines.push(`## ${LITERATURE_SECTION_LABELS.whyKeep}`, "", whyKeep, "");
+  if (supportsJudgment) lines.push(`## ${sectionLabels.supportsJudgment}`, "", supportsJudgment, "");
+  if (question) lines.push(`## ${sectionLabels.question}`, "", question, "");
+  if (boundary) lines.push(`## ${sectionLabels.boundary}`, "", boundary, "");
+  if (whyKeep) lines.push(`## ${sectionLabels.whyKeep}`, "", whyKeep, "");
   return lines.join("\n");
 }
 
@@ -651,6 +809,7 @@ export function parsePermanentWorkspace(body = "") {
 export function composePermanentWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
   const includeEmptySections = options?.includeEmptySections === true;
+  const appendRemainingKnown = options?.appendRemainingKnown !== false;
   const preface = normalizeFieldText(fields.preface || options?.preface);
   const normalized = {
     coreClaim: normalizeFieldText(fields.coreClaim),
@@ -708,8 +867,10 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     if (item.kind === "duplicate_known") appendDuplicateKnownSection(item.index);
     if (item.kind === "unknown") appendUnknownSection(item.index);
   }
-  for (const [key] of sectionOrder) {
-    appendKnownSection(key);
+  if (appendRemainingKnown) {
+    for (const [key] of sectionOrder) {
+      appendKnownSection(key);
+    }
   }
   for (let index = 0; index < repeatedKnownSections.length; index += 1) {
     appendDuplicateKnownSection(index);
@@ -1921,7 +2082,18 @@ function thinkingStatusTone(thinkingStatus = null) {
 }
 
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation, selectPermanentDirectory }) {
+  constructor({
+    state,
+    elements,
+    onStatus,
+    onStateChange,
+    onOpenNote,
+    onChromeChange,
+    resolveNoteWritingContinuation,
+    selectPermanentDirectory,
+    resolveLiteratureSectionLabels,
+    resolveLiteratureSectionLabelCandidates
+  }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
@@ -1932,6 +2104,10 @@ export class EditorPane {
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
+    this.resolveLiteratureSectionLabels =
+      typeof resolveLiteratureSectionLabels === "function" ? resolveLiteratureSectionLabels : () => ({});
+    this.resolveLiteratureSectionLabelCandidates =
+      typeof resolveLiteratureSectionLabelCandidates === "function" ? resolveLiteratureSectionLabelCandidates : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentPinnedLinkId = "";
@@ -2148,7 +2324,7 @@ export class EditorPane {
   }
 
   isPermanentWorkspaceEligible(note = this.activeNote()) {
-    return false;
+    return this.permanentWorkspaceCompatible(this.activeTab(), note);
   }
 
   isPermanentWorkspaceActive(note = this.activeNote()) {
@@ -2194,8 +2370,46 @@ export class EditorPane {
     return "";
   }
 
+  literatureSectionLabels() {
+    return normalizedLiteratureSectionLabels(this.resolveLiteratureSectionLabels?.() || {});
+  }
+
+  literatureSectionLabelCandidates() {
+    const resolved = this.resolveLiteratureSectionLabelCandidates?.();
+    return normalizeLiteratureSectionLabelCandidates(resolved, this.literatureSectionLabels());
+  }
+
+  rememberedLiteratureSectionLabels(tab = this.activeTab()) {
+    return normalizedLiteratureSectionLabels(tab?.literatureSectionLabels || this.literatureSectionLabels());
+  }
+
+  rememberLiteratureWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const sectionLabels = normalizedLiteratureSectionLabels(parsed?.sectionLabels || this.literatureSectionLabels());
+    if (!tab) return sectionLabels;
+    tab.literatureParsedBody = String(body || "");
+    tab.literatureSectionLabels = sectionLabels;
+    return sectionLabels;
+  }
+
+  parseLiteratureBody(body = "") {
+    const rawBody = String(body || "");
+    const tab = this.activeTab();
+    const rememberedLabels =
+      tab && tab.literatureParsedBody === rawBody && tab.literatureSectionLabels
+        ? normalizedLiteratureSectionLabels(tab.literatureSectionLabels)
+        : null;
+    const parsed = parseLiteratureWorkspace(
+      rawBody,
+      rememberedLabels
+        ? { sectionLabels: rememberedLabels }
+        : { sectionLabelCandidates: this.literatureSectionLabelCandidates() }
+    );
+    this.rememberLiteratureWorkspaceParse(parsed, tab, rawBody);
+    return parsed;
+  }
+
   literatureFieldsFromInputs() {
-    const currentCitation = parseLiteratureWorkspace(this.els.body?.value || "").citation;
+    const currentCitation = this.parseLiteratureBody(this.els.body?.value || "").citation;
     return {
       title: this.els.literatureTitle?.value || "未命名笔记",
       citation: currentCitation,
@@ -2235,16 +2449,40 @@ export class EditorPane {
     return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
   }
 
-  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
-    if (!tab) return;
+  permanentWorkspaceAppendRemainingKnown(tab = this.activeTab()) {
+    return tab?.permanentAppendRemainingKnown !== false;
+  }
+
+  permanentWorkspaceCompatible(tab = this.activeTab(), note = this.activeNote()) {
+    if (!this.isOriginalNote(note)) return false;
+    const rawBody = typeof tab?.body === "string" ? tab.body : typeof note?.body === "string" ? note.body : "";
+    if (!String(rawBody || "").trim()) return true;
+    if (tab && tab.permanentParsedBody === rawBody && typeof tab.permanentWorkspaceCompatible === "boolean") {
+      return tab.permanentWorkspaceCompatible;
+    }
+    const parsed = parsePermanentWorkspace(rawBody);
+    return this.rememberPermanentWorkspaceParse(parsed, tab, rawBody);
+  }
+
+  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const compatible =
+      parsed?.structured === true &&
+      !normalizeFieldText(parsed?.preface) &&
+      normalizePermanentExtraSections(parsed?.extraSections).length === 0 &&
+      normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections).length === 0;
+    if (!tab) return compatible;
+    tab.permanentParsedBody = body;
     tab.permanentPreface = normalizeFieldText(parsed?.preface);
     tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
     tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
     tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
+    tab.permanentAppendRemainingKnown = parsed?.structured === true;
+    tab.permanentWorkspaceCompatible = compatible;
+    return compatible;
   }
 
   literatureCompletionState(note = this.activeNote()) {
-    const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
+    const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : this.parseLiteratureBody(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
     const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
     const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -2311,7 +2549,7 @@ export class EditorPane {
   }
 
   literatureQueueRecord(note) {
-    const fields = parseLiteratureWorkspace(note?.body || "");
+    const fields = this.parseLiteratureBody(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
     const citation = literatureCitationState(fields.citation);
     const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
@@ -2508,7 +2746,8 @@ export class EditorPane {
 
   syncLiteratureWorkspaceFromBody(body = "") {
     if (!this.els.literatureWorkspace) return;
-    const parsed = parseLiteratureWorkspace(body || "");
+    const parsed = this.parseLiteratureBody(body || "");
+    this.rememberLiteratureWorkspaceParse(parsed, this.activeTab(), body || "");
     this.suppressLiteratureWorkspaceChange = true;
     try {
       if (this.els.literatureTitle) this.els.literatureTitle.value = parsed.title || "未命名笔记";
@@ -2525,7 +2764,9 @@ export class EditorPane {
 
   syncLiteratureWorkspaceToEditor() {
     if (this.suppressLiteratureWorkspaceChange || !this.isLiteratureWorkspaceActive()) return;
-    this.setUnderlyingEditorValue(composeLiteratureWorkspace(this.literatureFieldsFromInputs()));
+    this.setUnderlyingEditorValue(
+      composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() })
+    );
   }
 
   syncPermanentWorkspaceFromBody(body = "") {
@@ -2553,7 +2794,8 @@ export class EditorPane {
         preface: options?.preface ?? this.permanentPreface(),
         sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
         repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
-        extraSections: options?.extraSections || this.permanentExtraSections()
+        extraSections: options?.extraSections || this.permanentExtraSections(),
+        appendRemainingKnown: options?.appendRemainingKnown ?? this.permanentWorkspaceAppendRemainingKnown()
       })
     );
   }
@@ -3008,6 +3250,16 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
+    const activeNote = this.activeNote();
+    const forcedSourceNoteId = String(this.state.forcedSourcePreviewNoteId || "").trim();
+    const permanentWorkspaceEligible = this.permanentWorkspaceCompatible(t, activeNote);
+    if (this.isOriginalNote(activeNote) && !permanentWorkspaceEligible && !this.isSourceMode()) {
+      this.state.previewMode = "source";
+      this.state.forcedSourcePreviewNoteId = activeNote?.id || "";
+    } else if (this.isOriginalNote(activeNote) && permanentWorkspaceEligible && forcedSourceNoteId && this.isSourceMode()) {
+      this.state.previewMode = "wysiwyg";
+      this.state.forcedSourcePreviewNoteId = "";
+    }
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
     this.renderPermanentWorkspace();
@@ -3803,6 +4055,7 @@ export class EditorPane {
     this.pendingEditorSelection = this.isStructuredWorkspaceActive()
       ? null
       : this.normalizedSelectionRangeForValue(latestValue, this.editorSelection());
+    this.state.forcedSourcePreviewNoteId = "";
     this.state.previewMode = resolved;
     this.setEditorValue(latestValue);
     this.renderPreviewVisibility();
@@ -4068,14 +4321,15 @@ export class EditorPane {
 
   getEditorValue() {
     if (this.isLiteratureWorkspaceActive()) {
-      return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
+      return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() });
     }
     if (this.isPermanentWorkspaceActive()) {
       return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
         preface: this.permanentPreface(),
         sectionLayout: this.permanentSectionLayout(),
         repeatedKnownSections: this.permanentRepeatedKnownSections(),
-        extraSections: this.permanentExtraSections()
+        extraSections: this.permanentExtraSections(),
+        appendRemainingKnown: this.permanentWorkspaceAppendRemainingKnown()
       });
     }
     if (this.isWysiwygMode()) {
@@ -8582,7 +8836,7 @@ export class EditorPane {
 
     const literature = dedupLiterature.map((ln) => ({
       source_id: `src_from_${ln.id}`,
-      quote_text: normalizeFieldText(parseLiteratureWorkspace(ln.body || "").originalText || ln.body || "")
+      quote_text: normalizeFieldText(this.parseLiteratureBody(ln.body || "").originalText || ln.body || "")
     }));
 
     const citations = dedupLiterature.map((ln) => ({

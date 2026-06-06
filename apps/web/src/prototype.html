@@ -13709,6 +13709,84 @@
                 <section class="settings-card">
                   <div class="settings-card-head">
                     <div>
+                      <div class="settings-card-title">永久笔记模板</div>
+                      <div class="settings-card-note">修改这里的 Markdown 模板后，后续新建永久笔记会直接采用新内容。支持 {{title}} 作为标题占位符。</div>
+                    </div>
+                  </div>
+                  <div class="settings-stat-row" id="settingsPermanentTemplateStats">
+                    <span class="settings-stat-badge">统一骨架</span>
+                    <span class="settings-stat-badge">Markdown 落盘</span>
+                    <span class="settings-stat-badge warn">待保存修改</span>
+                  </div>
+                  <div id="settingsPermanentTemplateSummary" class="settings-card-note">这里可以修改永久笔记的新建模板。保存后，后续新建永久笔记会直接采用这份 Markdown 骨架。</div>
+                  <div class="settings-help-actions">
+                    <button
+                      class="mini-btn"
+                      id="settingsOpenPermanentTemplateConfig"
+                      type="button"
+                      aria-expanded="false"
+                      aria-controls="settingsPermanentTemplateDetail"
+                    >
+                      打开永久笔记模板设置
+                    </button>
+                  </div>
+                  <div id="settingsPermanentTemplateDetail" class="hidden">
+                    <div class="settings-footnote">建议保留统一骨架思路：核心观点、为什么成立、边界 / 反例、关联线索。需要差异化时，优先改文案和增减少量可选 section，而不是分叉成多套学科模板。</div>
+                    <ul class="settings-mini-list" id="settingsPermanentTemplateFieldList"></ul>
+                    <div class="import-grid">
+                      <label for="settingsPermanentTemplateEditor">模板 Markdown</label>
+                      <textarea id="settingsPermanentTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                    </div>
+                    <div class="settings-help-actions">
+                      <button class="mini-btn primary" id="settingsSavePermanentTemplate" type="button">保存永久笔记模板</button>
+                      <button class="mini-btn" id="settingsResetPermanentTemplate" type="button">恢复默认模板</button>
+                    </div>
+                    <pre class="settings-code" id="settingsPermanentTemplatePreview">等待加载模板预览。</pre>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
+                      <div class="settings-card-title">文献笔记模板</div>
+                      <div class="settings-card-note">修改这里的 Markdown 模板后，后续新建文献笔记会直接采用新内容。支持 {{title}} 作为标题占位符。</div>
+                    </div>
+                  </div>
+                  <div class="settings-stat-row" id="settingsLiteratureTemplateStats">
+                    <span class="settings-stat-badge">文献模板</span>
+                    <span class="settings-stat-badge">Markdown 落盘</span>
+                    <span class="settings-stat-badge warn">待保存修改</span>
+                  </div>
+                  <div id="settingsLiteratureTemplateSummary" class="settings-card-note">这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。</div>
+                  <div class="settings-help-actions">
+                    <button
+                      class="mini-btn"
+                      id="settingsOpenLiteratureTemplateConfig"
+                      type="button"
+                      aria-expanded="false"
+                      aria-controls="settingsLiteratureTemplateDetail"
+                    >
+                      打开文献笔记模板设置
+                    </button>
+                  </div>
+                  <div id="settingsLiteratureTemplateDetail" class="hidden">
+                    <div class="settings-footnote">文献笔记优先服务于“先转述、再形成判断”的路径。建议保留引用信息、原文、转述这三个基础 section，其余 section 作为增强项按需保留。</div>
+                    <ul class="settings-mini-list" id="settingsLiteratureTemplateFieldList"></ul>
+                    <div class="import-grid">
+                      <label for="settingsLiteratureTemplateEditor">模板 Markdown</label>
+                      <textarea id="settingsLiteratureTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                    </div>
+                    <div class="settings-help-actions">
+                      <button class="mini-btn primary" id="settingsSaveLiteratureTemplate" type="button">保存文献笔记模板</button>
+                      <button class="mini-btn" id="settingsResetLiteratureTemplate" type="button">恢复默认模板</button>
+                    </div>
+                    <pre class="settings-code" id="settingsLiteratureTemplatePreview">等待加载模板预览。</pre>
+                  </div>
+                </section>
+
+                <section class="settings-card">
+                  <div class="settings-card-head">
+                    <div>
                       <div class="settings-card-title">AI 模式</div>
                       <div class="settings-card-note">这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。大多数人只需要先看状态摘要，再沿着引导把本地模型接好。</div>
                     </div>
