@@ -793,6 +793,10 @@
       position: fixed;
       z-index: 40;
       min-width: 196px;
+      max-width: min(280px, calc(100dvw - 16px));
+      max-height: calc(100dvh - 16px);
+      overflow-x: hidden;
+      overflow-y: auto;
       border: 1px solid #d7e0ea;
       border-radius: 14px;
       background: rgba(255, 255, 255, 0.96);
@@ -7127,39 +7131,48 @@
     }
     .floating-notice {
       position: fixed;
-      right: clamp(16px, 3vw, 46px);
-      bottom: 72px;
+      left: 50%;
+      right: auto;
+      bottom: 18px;
       top: auto;
-      width: min(420px, calc(100vw - 32px));
-      border: 1px solid rgba(250, 204, 21, 0.42);
-      border-radius: 18px;
-      background:
-        radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 30%),
-        linear-gradient(180deg, rgba(255, 254, 248, 0.98), rgba(255, 250, 235, 0.96));
-      box-shadow: 0 18px 40px rgba(146, 64, 14, 0.14);
-      padding: 14px 15px 15px;
+      transform: translateX(-50%);
+      width: min(560px, calc(100vw - 32px));
+      border: 1px solid rgba(176, 201, 192, 0.32);
+      border-radius: 10px;
+      background: rgba(250, 254, 252, 0.96);
+      box-shadow: 0 12px 28px rgba(36, 62, 57, 0.12);
+      padding: 10px 14px;
       z-index: 130;
       pointer-events: auto;
+      backdrop-filter: blur(14px) saturate(118%);
+    }
+    .floating-notice[data-tone="bad"] {
+      border-color: rgba(211, 84, 84, 0.28);
+      background: rgba(255, 249, 249, 0.97);
+    }
+    .floating-notice[data-tone="warn"] {
+      border-color: rgba(198, 150, 44, 0.28);
+      background: rgba(255, 252, 245, 0.97);
     }
     .floating-notice .tb {
-      pointer-events: auto;
+      display: none;
     }
     .floating-notice-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 8px;
+      justify-content: flex-start;
+      gap: 8px;
+      margin-bottom: 3px;
     }
     .floating-notice-head strong {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
-      color: #8a5a00;
+      color: #335f57;
     }
     .floating-notice-body {
       font-size: 12px;
-      line-height: 1.7;
-      color: #6b4f1d;
+      line-height: 1.6;
+      color: #45645d;
     }
     .authorship-check {
       display: flex;
@@ -8861,6 +8874,266 @@
       margin-top: 4px;
       overflow-wrap: anywhere;
     }
+    .settings-ai-layout {
+      display: grid;
+      gap: 14px;
+    }
+    .settings-ai-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+      gap: 12px;
+    }
+    .settings-ai-overview,
+    .settings-ai-quickstart {
+      border: 1px solid rgba(208, 219, 228, 0.92);
+      border-radius: 14px;
+      min-width: 0;
+    }
+    .settings-ai-overview {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+      background:
+        radial-gradient(circle at top right, rgba(170, 204, 190, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(248, 252, 255, 0.98), rgba(241, 247, 244, 0.98));
+    }
+    .settings-ai-quickstart {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 252, 0.98));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    }
+    .settings-ai-kicker {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #4f6b62;
+    }
+    .settings-ai-headline {
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 800;
+      color: #172033;
+      letter-spacing: -0.02em;
+    }
+    .settings-ai-body {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #4b5f73;
+      max-width: 60ch;
+    }
+    .settings-ai-quickstart-head {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .settings-ai-step-list {
+      display: grid;
+      gap: 10px;
+    }
+    .settings-ai-step {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 10px 11px;
+      border-radius: 12px;
+      border: 1px solid #dde6ef;
+      background: #fff;
+      min-width: 0;
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+    .settings-ai-step:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+    }
+    .settings-ai-step.is-current {
+      border-color: rgba(44, 106, 144, 0.34);
+      background: linear-gradient(180deg, rgba(244, 249, 255, 0.98), rgba(236, 246, 255, 0.98));
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+    }
+    .settings-ai-step.is-complete {
+      border-color: rgba(32, 129, 84, 0.3);
+      background: linear-gradient(180deg, rgba(241, 251, 245, 0.98), rgba(233, 248, 238, 0.98));
+    }
+    .settings-ai-step-index {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      color: #51606f;
+      background: #eef3f8;
+      border: 1px solid #d5e0ea;
+      box-sizing: border-box;
+    }
+    .settings-ai-step.is-current .settings-ai-step-index {
+      color: #1d4f91;
+      background: #e4f0ff;
+      border-color: #bfd8ff;
+    }
+    .settings-ai-step.is-complete .settings-ai-step-index {
+      color: #147a48;
+      background: #e8f6ee;
+      border-color: #bfe2cc;
+    }
+    .settings-ai-step-title {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.4;
+      color: #172033;
+      margin-bottom: 3px;
+    }
+    .settings-ai-step-note {
+      display: block;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #5c6b7b;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-section {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border: 1px solid rgba(214, 223, 232, 0.92);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.84);
+      min-width: 0;
+    }
+    .settings-ai-section-head {
+      display: grid;
+      gap: 4px;
+    }
+    .settings-ai-section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #172033;
+      letter-spacing: .01em;
+    }
+    .settings-ai-section-note {
+      font-size: 12px;
+      line-height: 1.65;
+      color: #64748b;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-grid {
+      display: grid;
+      grid-template-columns: minmax(108px, 132px) minmax(0, 1fr);
+      gap: 10px 12px;
+      align-items: center;
+      min-width: 0;
+    }
+    .settings-ai-grid label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+    }
+    .settings-ai-grid input,
+    .settings-ai-grid select,
+    .settings-ai-grid textarea {
+      min-width: 0;
+    }
+    .settings-ai-inline-note {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(207, 220, 231, 0.92);
+      background: linear-gradient(180deg, rgba(249, 252, 255, 0.98), rgba(244, 248, 251, 0.98));
+      font-size: 12px;
+      line-height: 1.65;
+      color: #51606f;
+    }
+    .settings-ai-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .settings-ai-actions-main,
+    .settings-ai-actions-secondary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .settings-ai-advanced {
+      border: 1px solid rgba(214, 223, 232, 0.92);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.88);
+      overflow: hidden;
+    }
+    .settings-ai-advanced-summary {
+      list-style: none;
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px;
+      cursor: pointer;
+      transition: background 180ms ease, color 180ms ease;
+    }
+    .settings-ai-advanced-summary::-webkit-details-marker {
+      display: none;
+    }
+    .settings-ai-advanced-summary::marker {
+      display: none;
+    }
+    .settings-ai-advanced-summary::after {
+      content: "▾";
+      font-size: 13px;
+      color: #64748b;
+      flex: 0 0 auto;
+      transition: transform 180ms ease;
+    }
+    .settings-ai-advanced[open] .settings-ai-advanced-summary {
+      background: rgba(244, 248, 251, 0.88);
+    }
+    .settings-ai-advanced[open] .settings-ai-advanced-summary::after {
+      transform: rotate(180deg);
+    }
+    .settings-ai-advanced-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .settings-ai-advanced-title {
+      display: block;
+      font-size: 14px;
+      font-weight: 800;
+      color: #172033;
+    }
+    .settings-ai-advanced-meta {
+      display: block;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #64748b;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-advanced-body {
+      display: grid;
+      gap: 12px;
+      padding: 0 14px 14px;
+    }
+    .settings-kv {
+      display: grid;
+      gap: 10px;
+    }
+    .settings-kv-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #172033;
+    }
+    .settings-kv-body {
+      display: grid;
+      gap: 10px;
+    }
     .settings-stat-row {
       display: flex;
       flex-wrap: wrap;
@@ -9815,6 +10088,9 @@
       .settings-grid {
         grid-template-columns: minmax(0, 1fr);
       }
+      .settings-ai-hero {
+        grid-template-columns: minmax(0, 1fr);
+      }
       .settings-canonical-grid {
         grid-template-columns: minmax(0, 1fr);
       }
@@ -9919,6 +10195,27 @@
       .settings-card {
         border-radius: 12px;
         padding: 14px;
+      }
+      .settings-ai-headline {
+        font-size: 18px;
+      }
+      .settings-ai-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-ai-actions,
+      .settings-ai-advanced-summary,
+      .settings-ai-quickstart-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .settings-ai-step {
+        grid-template-columns: 26px minmax(0, 1fr);
+        padding: 10px;
+      }
+      .settings-ai-step-index {
+        width: 26px;
+        height: 26px;
+        font-size: 11px;
       }
       .settings-card-head {
         flex-direction: column;
@@ -12219,6 +12516,388 @@
       box-shadow: var(--focus-ring);
     }
 
+    /* Editor workspace unification: let tabs, toolbar and paper read as one surface. */
+    #editorWorkspace {
+      padding: 0;
+    }
+
+    .editor-stage-shell {
+      position: relative;
+      --paper: #fcfffd;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      flex: 1 1 auto;
+      min-height: 0;
+      margin: 12px 12px 16px;
+      border: 1px solid rgba(156, 182, 173, 0.22);
+      border-radius: 0;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), transparent 34%),
+        radial-gradient(circle at top right, rgba(225, 241, 235, 0.68), transparent 28%),
+        linear-gradient(180deg, rgba(250, 254, 252, 0.99) 0%, rgba(244, 250, 247, 0.96) 18%, rgba(251, 254, 252, 0.98) 100%);
+      box-shadow: 0 24px 54px rgba(36, 62, 57, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.96);
+      overflow: hidden;
+      backdrop-filter: blur(18px) saturate(118%);
+    }
+
+    .editor-stage-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(47, 143, 131, 0.012) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(124, 166, 150, 0.012) 1px, transparent 1px);
+      background-size: 56px 56px;
+      opacity: 0.54;
+      pointer-events: none;
+    }
+
+    .editor-stage-top {
+      position: relative;
+      display: grid;
+      gap: 0;
+      padding: 6px 16px 0;
+      border-bottom: 0;
+      background: linear-gradient(180deg, rgba(252, 255, 254, 0.88) 0%, rgba(242, 249, 246, 0.76) 100%);
+      z-index: 1;
+    }
+
+    .editor-stage-top::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 0;
+      height: 1px;
+      background: rgba(176, 201, 192, 0.16);
+      pointer-events: none;
+    }
+
+    .editor-stage-shell .tabs {
+      width: 100%;
+      max-width: none;
+      min-height: 32px;
+      margin: 0 !important;
+      padding: 0 2px 0;
+      border: 0 !important;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .editor-stage-shell .tabs-shell {
+      min-height: 30px;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .editor-stage-shell .tabs-list {
+      gap: 6px;
+    }
+
+    .editor-stage-shell .tab {
+      min-width: 0;
+      max-width: min(360px, 34vw);
+      min-height: 30px;
+      padding: 3px 8px 2px;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      color: #5f726d;
+      box-shadow: none;
+    }
+
+    .editor-stage-shell .tab:hover {
+      border-bottom-color: rgba(149, 188, 176, 0.3);
+      background: rgba(246, 252, 249, 0.42);
+      color: #29433d;
+      transform: none;
+    }
+
+    .editor-stage-shell .tab.active {
+      border-bottom-color: rgba(47, 143, 131, 0.52);
+      background: rgba(238, 249, 245, 0.56);
+      box-shadow: inset 0 -1px 0 rgba(47, 143, 131, 0.18);
+      color: #1a302b;
+    }
+
+    .editor-stage-shell .tabs-actions .tab-act {
+      background: transparent;
+    }
+
+    .editor-stage-shell .tabs-meta {
+      opacity: 0.72;
+    }
+
+    .editor-stage-shell .toolbar,
+    .app[data-focus-mode="true"] .editor-stage-shell .toolbar,
+    html.editor-only .editor-stage-shell .toolbar {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      left: auto !important;
+      z-index: 1 !important;
+      width: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      padding: 2px 2px 2px !important;
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: wrap !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 8px !important;
+      overflow: visible !important;
+      border: 0 !important;
+      border-top: 1px solid rgba(176, 201, 192, 0.16) !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+    }
+
+    .editor-stage-shell .toolbar-group,
+    .editor-stage-shell .toolbar-group:first-child,
+    .editor-stage-shell .toolbar-group-structure {
+      width: auto !important;
+      margin: 0 !important;
+      padding: 0 0 0 8px !important;
+      border-top: 0 !important;
+      border-left: 1px solid rgba(176, 201, 192, 0.16) !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 4px !important;
+    }
+
+    .editor-stage-shell .toolbar-group:first-child {
+      padding-left: 0 !important;
+      border-left: 0 !important;
+    }
+
+    .editor-stage-shell .toolbar-group-structure {
+      order: -1;
+      padding-left: 0 !important;
+      padding-right: 8px !important;
+      border-left: 0 !important;
+      border-right: 1px solid rgba(176, 201, 192, 0.16) !important;
+    }
+
+    .editor-stage-shell .toolbar-segment {
+      width: auto !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+
+    .editor-stage-shell .heading-segment,
+    .editor-stage-shell .tb,
+    .editor-stage-shell .toolbar-segment .tb,
+    .editor-stage-shell .tb-icon,
+    .editor-stage-shell .tb-label,
+    .editor-stage-shell .tb-label.has-icon,
+    .editor-stage-shell #btnFocusMode,
+    .editor-stage-shell .toolbar-group-structure .tb-label.has-icon,
+    .editor-stage-shell #btnSave {
+      width: 36px !important;
+      min-width: 36px !important;
+      height: 36px !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      gap: 0 !important;
+    }
+
+    .editor-stage-shell .tb,
+    .editor-stage-shell .toolbar-segment .tb,
+    .editor-stage-shell .tb-icon,
+    .editor-stage-shell .tb-label,
+    .editor-stage-shell #btnFocusMode,
+    .editor-stage-shell #btnSave {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: #617670 !important;
+    }
+
+    .editor-stage-shell .tb:hover,
+    .editor-stage-shell .toolbar-segment .tb:hover,
+    .editor-stage-shell .tb:focus-visible,
+    .editor-stage-shell .toolbar-segment .tb:focus-visible,
+    .editor-stage-shell .tb.active,
+    .editor-stage-shell .toolbar-segment .tb.active,
+    .editor-stage-shell #btnFocusMode:hover,
+    .editor-stage-shell #btnSave:hover {
+      background: rgba(239, 248, 244, 0.62) !important;
+      color: #24443c !important;
+    }
+
+    .editor-stage-shell .tb.active,
+    .editor-stage-shell .toolbar-segment .tb.active {
+      box-shadow: inset 0 -1px 0 rgba(47, 143, 131, 0.34) !important;
+    }
+
+    .editor-stage-shell .tb-label.has-icon span,
+    .editor-stage-shell #btnFocusMode span,
+    .editor-stage-shell .toolbar-group-structure .tb-label.has-icon span {
+      display: none !important;
+    }
+
+    .editor-stage-shell .relation-primary:not(.hidden) {
+      width: auto !important;
+      min-width: 104px !important;
+      padding: 0 12px !important;
+      gap: 8px !important;
+      display: inline-flex !important;
+    }
+
+    .editor-stage-shell .relation-primary:not(.hidden) span {
+      display: inline !important;
+      white-space: nowrap;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .editor-stage-shell .editor-wrap,
+    .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
+    html.editor-only .editor-stage-shell .editor-wrap {
+      padding: 0 0 14px !important;
+      gap: 0 !important;
+      margin-top: 0;
+      background: transparent;
+      z-index: 1;
+    }
+
+    .editor-stage-shell .md-panel {
+      position: relative;
+      z-index: 1;
+      margin-top: 0;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      overflow: visible;
+    }
+
+    .editor-stage-shell .md-panel .panel-head.editor-intent {
+      display: none !important;
+    }
+
+    .editor-stage-shell .markdown-split {
+      background: transparent;
+    }
+
+    .editor-stage-shell .md-panel .editor-host,
+    .editor-stage-shell .md-panel .wysiwyg-host,
+    .editor-stage-shell .md-panel .markdown-preview,
+    .app[data-focus-mode="true"] .editor-stage-shell .md-panel .editor-host,
+    .app[data-focus-mode="true"] .editor-stage-shell .md-panel .wysiwyg-host,
+    .app[data-focus-mode="true"] .editor-stage-shell .md-panel .markdown-preview,
+    html.editor-only .editor-stage-shell .md-panel .editor-host,
+    html.editor-only .editor-stage-shell .md-panel .wysiwyg-host,
+    html.editor-only .editor-stage-shell .md-panel .markdown-preview {
+      width: 100%;
+      max-width: none;
+      min-height: calc(100dvh - 260px);
+      margin: 0;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background:
+        linear-gradient(90deg, rgba(47, 143, 131, 0.014) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(143, 187, 171, 0.014) 1px, transparent 1px),
+        var(--paper) !important;
+      background-size: 56px 56px, 56px 56px, auto !important;
+      box-shadow: none !important;
+    }
+
+    .editor-helper {
+      display: none !important;
+    }
+
+    .editor-stage-shell .editor-relations-below {
+      max-width: none;
+      margin-top: 0;
+      border-color: rgba(176, 201, 192, 0.18);
+      border-radius: 20px;
+      background: rgba(248, 253, 251, 0.74);
+      box-shadow: 0 14px 30px rgba(36, 62, 57, 0.05);
+    }
+
+    @media (max-width: 900px) {
+      .editor-stage-shell {
+        margin: 8px 8px 12px;
+        border-radius: 0;
+      }
+
+      .editor-stage-top {
+        padding: 4px 12px 0;
+      }
+
+      .editor-stage-top::after {
+        left: 12px;
+        right: 12px;
+      }
+
+      .editor-stage-shell .editor-wrap,
+      .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
+      html.editor-only .editor-stage-shell .editor-wrap {
+        padding: 0 0 10px !important;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .editor-stage-shell .tabs {
+        min-height: 30px;
+        padding: 0;
+      }
+
+      .editor-stage-shell .tabs-meta {
+        display: none;
+      }
+
+      .editor-stage-shell .toolbar,
+      .app[data-focus-mode="true"] .editor-stage-shell .toolbar,
+      html.editor-only .editor-stage-shell .toolbar {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        justify-content: flex-start !important;
+        margin-top: 0 !important;
+        padding: 2px 0 2px !important;
+        scrollbar-width: none;
+      }
+
+      .editor-stage-shell .toolbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .editor-stage-shell .toolbar-group,
+      .editor-stage-shell .toolbar-group:first-child,
+      .editor-stage-shell .toolbar-group-structure {
+        flex: 0 0 auto !important;
+      }
+
+      .editor-stage-shell .editor-wrap,
+      .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
+      html.editor-only .editor-stage-shell .editor-wrap {
+        padding: 0 0 8px !important;
+      }
+
+      .editor-stage-shell .md-panel .editor-host,
+      .editor-stage-shell .md-panel .wysiwyg-host,
+      .editor-stage-shell .md-panel .markdown-preview,
+      .app[data-focus-mode="true"] .editor-stage-shell .md-panel .editor-host,
+      .app[data-focus-mode="true"] .editor-stage-shell .md-panel .wysiwyg-host,
+      .app[data-focus-mode="true"] .editor-stage-shell .md-panel .markdown-preview,
+      html.editor-only .editor-stage-shell .md-panel .editor-host,
+      html.editor-only .editor-stage-shell .md-panel .wysiwyg-host,
+      html.editor-only .editor-stage-shell .md-panel .markdown-preview {
+        min-height: calc(100dvh - 228px);
+      }
+    }
+
     .hidden,
     .workspace-shell.hidden,
     #editorWorkspace.hidden,
@@ -12495,9 +13174,11 @@
 
     <main class="main">
       <section class="workspace-shell" id="editorWorkspace" tabindex="-1">
-        <div class="tabs" id="tabs"></div>
-        <div class="crumb" id="breadcrumb"></div>
-        <div class="toolbar">
+        <div class="editor-stage-shell">
+          <div class="editor-stage-top">
+            <div class="tabs" id="tabs"></div>
+            <div class="crumb" id="breadcrumb"></div>
+            <div class="toolbar">
           <div class="toolbar-group">
             <button class="tb tb-icon" data-md="bold" title="加粗 Ctrl/Cmd+B" data-tip="加粗 Ctrl/Cmd+B" aria-label="加粗"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="3.3" y="11.8" font-size="11.5">B</text></svg></button>
             <button class="tb tb-icon" data-md="italic" title="斜体 Ctrl/Cmd+I" data-tip="斜体 Ctrl/Cmd+I" aria-label="斜体"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="5.4" y="11.6" font-size="11.5" transform="skewX(-14)">I</text></svg></button>
@@ -12549,7 +13230,7 @@
             <button class="tb tb-label has-icon relation-primary hidden" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联笔记</span></button>
           </div>
         </div>
-          <div class="editor-wrap">
+        <div class="editor-wrap">
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
               <strong>关联笔记检索</strong>
@@ -12686,6 +13367,57 @@
                 </section>
               </div>
             </div>
+            <div class="literature-workspace hidden" id="permanentWorkspace">
+              <div class="literature-head">
+                <h3>永久笔记工作台</h3>
+                <p>这里固定保留一套轻量骨架：观点、理由、边界、关联。需要自由排版或补充原始 Markdown 时，随时切回源码模式。</p>
+              </div>
+              <div class="literature-title">
+                <label for="permanentTitleInput">标题</label>
+                <input id="permanentTitleInput" placeholder="这条永久笔记最终要承担什么判断？" />
+              </div>
+              <div class="literature-grid">
+                <section class="literature-card">
+                  <div class="literature-card-head">
+                    <div>
+                      <div class="literature-card-title">判断骨架</div>
+                      <div class="literature-card-note">先把这条笔记写成一个你愿意长期承担的判断单元，再补它为什么成立。</div>
+                    </div>
+                  </div>
+                  <div class="literature-field">
+                    <label for="permanentCoreClaimInput">核心观点</label>
+                    <textarea id="permanentCoreClaimInput" placeholder="写出一句可被反驳、可被引用、也值得被保留的判断"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentWhyTrueInput">为什么成立</label>
+                    <textarea id="permanentWhyTrueInput" placeholder="写清它依赖哪些理由、证据、经验或推理链条"></textarea>
+                  </div>
+                </section>
+                <section class="literature-card">
+                  <div class="literature-card-head">
+                    <div>
+                      <div class="literature-card-title">约束与去向</div>
+                      <div class="literature-card-note">不要只写顺滑的一面；补上边界、反例和后续可延伸的关联线索。</div>
+                    </div>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentBoundaryInput">边界 / 反例</label>
+                    <textarea id="permanentBoundaryInput" placeholder="这条判断在什么条件下不成立，或最可能被什么反例推翻？"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentRelatedCluesInput">关联线索</label>
+                    <textarea id="permanentRelatedCluesInput" placeholder="记录相关笔记、来源线索、待连接主题或后续写作去向"></textarea>
+                  </div>
+                  <div class="literature-field compact">
+                    <label for="permanentSupplementInput">补充内容</label>
+                    <textarea id="permanentSupplementInput" placeholder="这里会保留旧笔记里暂时映射不到核心骨架的内容，也可手动补充备注"></textarea>
+                  </div>
+                  <div class="literature-reflection-note">
+                    旧笔记里不符合这套骨架的内容，会先落在“补充内容”里，避免强制迁移或直接丢失信息。
+                  </div>
+                </section>
+              </div>
+            </div>
             <div class="markdown-split editor-mode-wysiwyg" id="markdownSplit">
               <div class="markdown-editor-col markdown-wysiwyg-col">
                 <div id="wysiwygHost" class="wysiwyg-host" aria-label="所见即所得笔记编辑器"></div>
@@ -12721,6 +13453,7 @@
             <div id="resultArea">打开笔记后，这里会显示相关引用、回链和标签结果。</div>
           </div>
         </div>
+      </div>
       </section>
       <section class="workspace-shell module-workspace hidden" id="moduleWorkspace">
         <div class="module-header">
@@ -12981,86 +13714,159 @@
                   <div class="settings-card-head">
                     <div>
                       <div class="settings-card-title">AI 模式</div>
-                      <div class="settings-card-note">
-                        这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。高级用户可以填模型 ID 直接覆盖，但默认不需要。                      </div>
+                      <div class="settings-card-note">这是给小白的一键选择：省钱 / 均衡 / 深度 / 本地。大多数人只需要先看状态摘要，再沿着引导把本地模型接好。</div>
                     </div>
                   </div>
-                  <div class="import-grid">
-                    <label for="settingsAiRuntimeMode">AI 运行模式</label>
-                    <select id="settingsAiRuntimeMode">
-                      <option value="auto">自动（推荐）</option>
-                      <option value="local_only">仅本地</option>
-                      <option value="cloud_only">仅云端</option>
-                      <option value="hybrid">混合（本地 + 云端）</option>
-                    </select>
+                  <div class="settings-ai-layout">
+                    <div class="settings-ai-hero">
+                      <section class="settings-ai-overview" aria-live="polite">
+                        <div class="settings-ai-kicker">当前 AI 状态</div>
+                        <div class="settings-ai-headline" id="settingsAiSetupTitle">先选一条适合你的 AI 路线</div>
+                        <div class="settings-ai-body" id="settingsAiSetupBody">默认推荐从自动模式开始；如果你希望敏感笔记尽量留在本机，再切到“仅本地”或“混合”。</div>
+                        <div class="settings-stat-row" id="settingsAiSetupBadges">
+                          <span class="settings-stat-badge warn">等待同步</span>
+                        </div>
+                      </section>
 
-                    <label for="settingsAiModelPack">模型包</label>
-                    <select id="settingsAiModelPack">
-                      <option value="Starter Auto">默认自动（Starter Auto）</option>
-                      <option value="Low Cost Research">低成本研究（Low Cost Research）</option>
-                      <option value="Deep Work">深度工作（Deep Work）</option>
-                      <option value="China Optimized">国内优化（China Optimized）</option>
-                      <option value="Global Optimized">全球网关（Global Optimized）</option>
-                      <option value="Privacy First">本地私密（Privacy First）</option>
-                      <option value="Ollama Local">Ollama 本地（Ollama Local）</option>
-                    </select>
+                      <section class="settings-ai-quickstart" aria-live="polite">
+                        <div class="settings-ai-quickstart-head">
+                          <div>
+                            <div class="settings-ai-kicker">本地模型启用向导</div>
+                            <div class="settings-ai-section-note">按这 3 步，就能把 Ollama 接进研思录。</div>
+                          </div>
+                          <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
+                        </div>
+                        <div class="settings-ai-step-list" id="settingsAiSetupSteps">
+                          <div class="settings-ai-step is-current">
+                            <span class="settings-ai-step-index">1</span>
+                            <div>
+                              <span class="settings-ai-step-title">选择运行模式</span>
+                              <span class="settings-ai-step-note">切到“仅本地”或“混合”后，下面会出现本地模型引导。</span>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
 
-                    <label for="settingsAiUserMode">使用模式</label>
-                    <select id="settingsAiUserMode">
-                      <option value="Auto">自动</option>
-                      <option value="Economy">省钱</option>
-                      <option value="Balanced">均衡</option>
-                      <option value="Deep Thinking">深度思考</option>
-                      <option value="Local / Private">本地 / 私密</option>
-                    </select>
+                    <section class="settings-ai-section">
+                      <div class="settings-ai-section-head">
+                        <div class="settings-ai-section-title">基础选择</div>
+                        <div class="settings-ai-section-note">新用户先改这里就够了。高级字段默认收起，只有自托管 / 调试 / BYOK 时才需要。</div>
+                      </div>
+                      <div class="settings-ai-grid">
+                        <label for="settingsAiRuntimeMode">AI 运行模式</label>
+                        <select id="settingsAiRuntimeMode">
+                          <option value="auto">自动（推荐）</option>
+                          <option value="local_only">仅本地</option>
+                          <option value="cloud_only">仅云端</option>
+                          <option value="hybrid">混合（本地 + 云端）</option>
+                        </select>
 
-                    <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
-                    <select id="settingsAiLocalModel">
-                      <option value="">检测 Ollama 后选择</option>
-                    </select>
+                        <label for="settingsAiModelPack">模型包</label>
+                        <select id="settingsAiModelPack">
+                          <option value="Starter Auto">默认自动（Starter Auto）</option>
+                          <option value="Low Cost Research">低成本研究（Low Cost Research）</option>
+                          <option value="Deep Work">深度工作（Deep Work）</option>
+                          <option value="China Optimized">国内优化（China Optimized）</option>
+                          <option value="Global Optimized">全球网关（Global Optimized）</option>
+                          <option value="Privacy First">本地私密（Privacy First）</option>
+                          <option value="Ollama Local">Ollama 本地（Ollama Local）</option>
+                        </select>
 
-                    <label for="settingsAiAdvancedModelRef">模型 ID（高级）</label>
-                    <input id="settingsAiAdvancedModelRef" placeholder="留空=自动选择（例如：platform_managed_openai:standard）" />
+                        <label for="settingsAiUserMode">使用模式</label>
+                        <select id="settingsAiUserMode">
+                          <option value="Auto">自动</option>
+                          <option value="Economy">省钱</option>
+                          <option value="Balanced">均衡</option>
+                          <option value="Deep Thinking">深度思考</option>
+                          <option value="Local / Private">本地 / 私密</option>
+                        </select>
 
-                    <label for="settingsAiSecretRef">密钥引用（高级）</label>
-                    <input id="settingsAiSecretRef" placeholder="只填引用名，不填真实 Key（例如：secret_china_gateway）" />
-
-                    <label for="settingsAiProviderEndpointUrl">服务端点（高级）</label>
-                    <input id="settingsAiProviderEndpointUrl" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
-
-                    <label for="settingsAiProviderHealthEndpointUrl">健康检查端点（可选）</label>
-                    <input id="settingsAiProviderHealthEndpointUrl" placeholder="留空=使用服务端点；例如：http://localhost:11434/api/tags" />
-                  </div>
-                  <div class="settings-stat-row">
-                    <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>
-                    <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
-                    <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                    <a class="mini-btn hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                    <button class="mini-btn hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen2.5:7b</button>
-                    <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
-                  </div>
-                  <div class="settings-stat-row" id="settingsAiRouteStats">
-                    <span class="settings-stat-badge warn">等待同步</span>
-                  </div>
-                  <div class="settings-route-preview" id="settingsAiRoutePreview">刷新当前 Vault 后会显示这套模式实际使用的模型路由。</div>
-                  <div class="settings-kv" style="margin-top: 12px;">
-                    <div class="settings-kv-title">AI 测试运行</div>
-                    <div class="settings-kv-body">
-                      <div class="import-grid">
-                        <label for="settingsAiTestPrompt">测试提示词</label>
-                        <textarea id="settingsAiTestPrompt" rows="3" placeholder="输入一句话，跑一次当前路由（本地/远程）并返回输出"></textarea>
-                        <div></div>
-                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                          <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
-                          <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
-                          <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
+                        <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
+                        <select id="settingsAiLocalModel">
+                          <option value="">检测 Ollama 后选择</option>
+                        </select>
+                      </div>
+                      <div class="settings-ai-inline-note" id="settingsAiLocalHint">切到“仅本地”或“混合”后，这里会自动出现 Ollama 检测与本地模型选择。</div>
+                      <div class="settings-ai-actions">
+                        <div class="settings-ai-actions-main">
+                          <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                          <a class="mini-btn hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                          <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen2.5:7b</button>
+                        </div>
+                        <div class="settings-ai-actions-secondary">
+                          <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>
+                          <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
+                          <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                         </div>
                       </div>
-                      <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:10px 0 0;">（空）</pre>
-                    </div>
+                    </section>
+
+                    <section class="settings-ai-section">
+                      <div class="settings-ai-section-head">
+                        <div class="settings-ai-section-title">当前路由预览</div>
+                        <div class="settings-ai-section-note">这里会显示这套模式最终落到哪个服务、哪一档模型，以及现在是否健康可用。</div>
+                      </div>
+                      <div class="settings-stat-row" id="settingsAiRouteStats">
+                        <span class="settings-stat-badge warn">等待同步</span>
+                      </div>
+                      <div class="settings-route-preview" id="settingsAiRoutePreview">刷新当前 Vault 后会显示这套模式实际使用的模型路由。</div>
+                    </section>
+
+                    <details class="settings-ai-advanced" id="settingsAiAdvancedSection">
+                      <summary class="settings-ai-advanced-summary">
+                        <span class="settings-ai-advanced-copy">
+                          <span class="settings-ai-advanced-title">高级配置</span>
+                          <span class="settings-ai-advanced-meta">只有在你需要固定模型 ID、填写密钥引用或接自定义网关时，再展开这一节。</span>
+                        </span>
+                        <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
+                      </summary>
+                      <div class="settings-ai-advanced-body">
+                        <div class="settings-ai-grid">
+                          <label for="settingsAiAdvancedModelRef">模型 ID</label>
+                          <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择，例如：platform_managed_openai:standard" />
+
+                          <label for="settingsAiSecretRef">密钥引用</label>
+                          <input id="settingsAiSecretRef" spellcheck="false" placeholder="只填引用名，不填真实 Key，例如：secret_china_gateway" />
+
+                          <label for="settingsAiProviderEndpointUrl">服务端点</label>
+                          <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="网关或本地端点，例如：https://gateway.example.com/v1/chat/completions" />
+
+                          <label for="settingsAiProviderHealthEndpointUrl">健康检查端点</label>
+                          <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="留空 = 使用服务端点；例如：http://localhost:11434/api/tags" />
+                        </div>
+                      </div>
+                    </details>
+
+                    <details class="settings-ai-advanced" id="settingsAiLabSection">
+                      <summary class="settings-ai-advanced-summary">
+                        <span class="settings-ai-advanced-copy">
+                          <span class="settings-ai-advanced-title">AI 测试运行</span>
+                          <span class="settings-ai-advanced-meta">用一句话跑一次当前路由，确认现在到底走的是本地还是远程。</span>
+                        </span>
+                        <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
+                      </summary>
+                      <div class="settings-ai-advanced-body">
+                        <div class="settings-kv">
+                          <div class="settings-kv-body">
+                            <div class="settings-ai-grid">
+                              <label for="settingsAiTestPrompt">测试提示词</label>
+                              <textarea id="settingsAiTestPrompt" rows="3" placeholder="输入一句话，跑一次当前路由（本地 / 远程）并返回输出"></textarea>
+                              <div></div>
+                              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
+                                <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
+                                <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
+                              </div>
+                            </div>
+                            <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:0;">（空）</pre>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+
+                    <div class="settings-footnote">说明：运行模式会影响模型路由和隐私策略；对大多数人来说，先选模式、检测 Ollama、再做一次测试运行就足够了。高级配置主要留给调试、自托管和 BYOK。</div>
                   </div>
-                  <div class="settings-footnote">
-                    说明：模式会影响路由的模型档位与隐私策略；高级模型 ID 仅用于调试或 BYOK，普通用户建议留空。                  </div>
                 </section>
 
                 <section class="settings-card">
@@ -13194,10 +14000,10 @@
 
   <div id="permanentNoteModal" class="modal-mask hidden">
     <div class="modal">
-      <div class="modal-head">创建永久笔记</div>
+      <div class="modal-head" id="permanentNoteModalTitle">创建永久笔记</div>
       <div class="modal-body">
-        <div class="modal-note">先选要放入的永久笔记盒目录，再继续创建。这里只保留对当前操作有帮助的信息。</div>
-        <div class="permanent-note-source-card">
+        <div class="modal-note" id="permanentNoteModalNote">先选要放入的永久笔记盒目录，再继续创建。这里只保留对当前操作有帮助的信息。</div>
+        <div class="permanent-note-source-card" id="permanentNoteSourceCard">
           <div class="permanent-note-source-head">
             <span class="permanent-note-source-badge" id="permanentNoteSourceType">来源笔记</span>
             <div class="permanent-note-source-title" id="permanentNoteSourceTitle">未命名笔记</div>
@@ -13205,7 +14011,7 @@
           <div class="permanent-note-source-note" id="permanentNoteSourceHint">先选一个永久笔记盒目录，再继续创建。</div>
         </div>
         <div>
-          <label for="permanentNoteTargetFolder">永久笔记盒目录</label>
+          <label for="permanentNoteTargetFolder" id="permanentNoteTargetFolderLabel">永久笔记盒目录</label>
           <select id="permanentNoteTargetFolder"></select>
           <div class="modal-field-note" id="permanentNoteTargetHint">创建后会直接打开这条永久笔记，继续完善判断。</div>
         </div>
