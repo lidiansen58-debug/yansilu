@@ -11341,12 +11341,14 @@ function graphEdgeShouldRender({
 } = {}) {
   if (zoomKey !== "fit") return true;
   if (filterActive) {
-    return fitVisible || connectsFocus || selected || inSelectedNodeNeighborhood;
+    // Focused scopes are already trimmed by relation filter + reading depth, so
+    // fit view should not silently hide edges inside that explicit local graph.
+    return true;
   }
   if (graphViewModeForRelationType(relationType) === "structure" || visualKey === "index") {
-    return fitVisible || selected || inSelectedTheme || inSelectedBridge;
+    return fitVisible || lensPriority || selected || inSelectedTheme || inSelectedBridge;
   }
-  return fitVisible || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge;
+  return fitVisible || lensPriority || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge;
 }
 
 function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
