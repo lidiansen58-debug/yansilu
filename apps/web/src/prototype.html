@@ -12315,30 +12315,31 @@
       min-width: 0;
       max-width: min(360px, 34vw);
       min-height: 30px;
-      padding: 4px 8px;
-      border: 1px solid transparent;
+      padding: 3px 8px 2px;
+      border: 0;
+      border-bottom: 1px solid transparent;
       border-radius: 0;
-      background: rgba(247, 252, 250, 0.78);
-      color: #506660;
+      background: transparent;
+      color: #5f726d;
       box-shadow: none;
     }
 
     .editor-stage-shell .tab:hover {
-      border-color: rgba(149, 188, 176, 0.24);
-      background: rgba(255, 255, 255, 0.94);
-      color: #1d3430;
+      border-bottom-color: rgba(149, 188, 176, 0.3);
+      background: rgba(246, 252, 249, 0.42);
+      color: #29433d;
       transform: none;
     }
 
     .editor-stage-shell .tab.active {
-      border-color: rgba(47, 143, 131, 0.22);
-      background: linear-gradient(180deg, rgba(239, 250, 247, 0.99), rgba(228, 244, 238, 0.98));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 8px 16px rgba(36, 62, 57, 0.08);
-      color: #17231f;
+      border-bottom-color: rgba(47, 143, 131, 0.52);
+      background: rgba(238, 249, 245, 0.56);
+      box-shadow: inset 0 -1px 0 rgba(47, 143, 131, 0.18);
+      color: #1a302b;
     }
 
     .editor-stage-shell .tabs-actions .tab-act {
-      background: rgba(247, 252, 250, 0.86);
+      background: transparent;
     }
 
     .editor-stage-shell .tabs-meta {
@@ -12422,6 +12423,35 @@
       padding: 0 !important;
       border-radius: 0 !important;
       gap: 0 !important;
+    }
+
+    .editor-stage-shell .tb,
+    .editor-stage-shell .toolbar-segment .tb,
+    .editor-stage-shell .tb-icon,
+    .editor-stage-shell .tb-label,
+    .editor-stage-shell #btnFocusMode,
+    .editor-stage-shell #btnSave {
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: #617670 !important;
+    }
+
+    .editor-stage-shell .tb:hover,
+    .editor-stage-shell .toolbar-segment .tb:hover,
+    .editor-stage-shell .tb:focus-visible,
+    .editor-stage-shell .toolbar-segment .tb:focus-visible,
+    .editor-stage-shell .tb.active,
+    .editor-stage-shell .toolbar-segment .tb.active,
+    .editor-stage-shell #btnFocusMode:hover,
+    .editor-stage-shell #btnSave:hover {
+      background: rgba(239, 248, 244, 0.62) !important;
+      color: #24443c !important;
+    }
+
+    .editor-stage-shell .tb.active,
+    .editor-stage-shell .toolbar-segment .tb.active {
+      box-shadow: inset 0 -1px 0 rgba(47, 143, 131, 0.34) !important;
     }
 
     .editor-stage-shell .tb-label.has-icon span,
