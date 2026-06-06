@@ -348,6 +348,31 @@ Custom before related.
   assert.ok(customIndex < relatedIndex, markdown);
 });
 
+test("composePermanentWorkspace can avoid appending omitted known sections when asked", () => {
+  const markdown = composePermanentWorkspace(
+    {
+      title: "Permanent note",
+      coreClaim: "A stable claim.",
+      whyTrue: "This explanation should stay hidden when the template omits it.",
+      relatedClues: "- [[Related note]]"
+    },
+    {
+      sectionLayout: [
+        { kind: "unknown", index: 0 }
+      ],
+      extraSections: [{ heading: "Context", body: "Template-defined custom section." }],
+      appendRemainingKnown: false
+    }
+  );
+
+  assert.match(markdown, /^# Permanent note/m);
+  assert.match(markdown, /## Context/);
+  assert.match(markdown, /Template-defined custom section\./);
+  assert.doesNotMatch(markdown, /## \u6838\u5fc3\u89c2\u70b9/);
+  assert.doesNotMatch(markdown, /## \u4e3a\u4ec0\u4e48\u6210\u7acb/);
+  assert.doesNotMatch(markdown, /## \u5173\u8054\u7ebf\u7d22/);
+});
+
 test("parsePermanentWorkspace preserves legacy custom sections without wrapping them in supplement", () => {
   const parsed = parsePermanentWorkspace(`# Permanent note
 

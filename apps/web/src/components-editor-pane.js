@@ -651,6 +651,7 @@ export function parsePermanentWorkspace(body = "") {
 export function composePermanentWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
   const includeEmptySections = options?.includeEmptySections === true;
+  const appendRemainingKnown = options?.appendRemainingKnown !== false;
   const preface = normalizeFieldText(fields.preface || options?.preface);
   const normalized = {
     coreClaim: normalizeFieldText(fields.coreClaim),
@@ -708,8 +709,10 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     if (item.kind === "duplicate_known") appendDuplicateKnownSection(item.index);
     if (item.kind === "unknown") appendUnknownSection(item.index);
   }
-  for (const [key] of sectionOrder) {
-    appendKnownSection(key);
+  if (appendRemainingKnown) {
+    for (const [key] of sectionOrder) {
+      appendKnownSection(key);
+    }
   }
   for (let index = 0; index < repeatedKnownSections.length; index += 1) {
     appendDuplicateKnownSection(index);

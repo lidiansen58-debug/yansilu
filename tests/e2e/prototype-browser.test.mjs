@@ -4470,6 +4470,15 @@ test("prototype settings keeps template drafts across same-vault refreshes", asy
     assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
     assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
   }, 5000);
+
+  await page.locator("#settingsPermanentTemplateEditor").fill("");
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  }, 5000);
+  await page.locator("#settingsRefreshVault").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  }, 5000);
 });
 
 test("prototype settings saved literature and permanent templates drive later new notes in the same vault", async (t) => {
@@ -4678,15 +4687,9 @@ test("prototype source-generated permanent notes adopt the current permanent tem
 
 这是一条来自模板前言的提醒。
 
-## 核心观点
-
-模板会在这里补一层判断提醒。
-
 ## 自定义问题
 
 这个 section 应该跟着模板一起进入来源生成的永久笔记。
-
-## 关联线索
 `;
   const literatureBody = `# Source Driven Literature
 
@@ -4740,11 +4743,17 @@ Original evidence block.
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
     assert.match(value, /这是一条来自模板前言的提醒。/);
-    assert.match(value, /模板会在这里补一层判断提醒。/);
     assert.match(value, /## 自定义问题/);
     assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);
+    assert.match(value, /## 来源生成提示/);
+    assert.match(value, /### 核心观点/);
+    assert.match(value, /把转述压成一句可辩护的判断。/);
+    assert.match(value, /### 关联线索/);
     assert.match(value, /来自文献笔记：\[\[Source Driven Literature\]\]/);
     assert.match(value, /把转述压成一句可辩护的判断。/);
+    assert.doesNotMatch(value, /^## 核心观点$/m);
+    assert.doesNotMatch(value, /^## 为什么成立$/m);
+    assert.doesNotMatch(value, /^## 边界 \/ 反例$/m);
   }, 7000);
 });
 

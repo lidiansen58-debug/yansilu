@@ -332,6 +332,7 @@ const settingsState = {
       scope: "",
       text: "",
       draftText: "",
+      draftActive: false,
       history: []
     },
     literature: {
@@ -339,6 +340,7 @@ const settingsState = {
       scope: "",
       text: "",
       draftText: "",
+      draftActive: false,
       history: []
     }
   },
@@ -440,6 +442,13 @@ const NOTE_TEMPLATE_STORAGE_KEYS = {
   literature: "yansilu:settings:note-template:literature"
 };
 const NOTE_TEMPLATE_HISTORY_LIMIT = 8;
+const PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS = {
+  coreClaim: "核心观点",
+  whyTrue: "为什么成立",
+  boundary: "边界 / 反例",
+  relatedClues: "关联线索",
+  supplement: "补充内容"
+};
 const writingState = {
   project: null,
   scaffold: null,
@@ -853,6 +862,10 @@ function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind =
   return normalizeNoteTemplateHistory([cleanPrevious, ...(Array.isArray(history) ? history : [])], kind);
 }
 
+function normalizeDraftBuffer(text = "") {
+  return String(text || "").replace(/\r\n/g, "\n");
+}
+
 function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") {
   const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
   const fallbackSource = defaultTemplateSourceForKind(kind);
@@ -889,6 +902,30 @@ function composePermanentTemplateDraft(fields = {}) {
     });
   }
 
+  const knownKeysInTemplate = new Set(
+    (Array.isArray(parsedTemplate.sectionLayout) ? parsedTemplate.sectionLayout : [])
+      .filter((item) => item?.kind === "known" && item?.key)
+      .map((item) => item.key)
+  );
+  const fallbackFieldEntries = Object.entries({
+    coreClaim: normalizeFieldText(fields.coreClaim),
+    whyTrue: normalizeFieldText(fields.whyTrue),
+    boundary: normalizeFieldText(fields.boundary),
+    relatedClues: normalizeFieldText(fields.relatedClues),
+    supplement: normalizeFieldText(fields.supplement)
+  }).filter(([key, value]) => value && !knownKeysInTemplate.has(key));
+  const extraSections = Array.isArray(parsedTemplate.extraSections) ? [...parsedTemplate.extraSections] : [];
+  const sectionLayout = Array.isArray(parsedTemplate.sectionLayout) ? [...parsedTemplate.sectionLayout] : [];
+  if (fallbackFieldEntries.length) {
+    extraSections.push({
+      heading: "来源生成提示",
+      body: fallbackFieldEntries
+        .map(([key, value]) => `### ${PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS[key] || key}\n\n${value}`)
+        .join("\n\n")
+    });
+    sectionLayout.push({ kind: "unknown", index: extraSections.length - 1 });
+  }
+
   return composePermanentWorkspace(
     {
       title,
@@ -900,9 +937,10 @@ function composePermanentTemplateDraft(fields = {}) {
     },
     {
       preface: parsedTemplate.preface,
-      extraSections: parsedTemplate.extraSections,
+      extraSections,
       repeatedKnownSections: parsedTemplate.repeatedKnownSections,
-      sectionLayout: parsedTemplate.sectionLayout
+      sectionLayout,
+      appendRemainingKnown: false
     }
   );
 }
@@ -913,9 +951,11 @@ function loadNoteTemplateSettingsFromStorage() {
     const entry = settingsState.noteTemplates[kind];
     const previousScope = String(entry?.scope || "");
     const savedTextBeforeLoad = normalizeNoteTemplateSource(entry?.text, kind);
-    const draftTextBeforeLoad = String(entry?.draftText || "");
+    const draftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
     const hasUnsavedDraft =
-      previousScope === scope && normalizeNoteTemplateSource(draftTextBeforeLoad || savedTextBeforeLoad, kind) !== savedTextBeforeLoad;
+      previousScope === scope &&
+      entry?.draftActive === true &&
+      draftTextBeforeLoad !== normalizeDraftBuffer(savedTextBeforeLoad);
     const scopedText = readStoredText(noteTemplateStorageKey(kind), "");
     const legacyText = noteTemplateStorageScope() === "global" ? readStoredText(NOTE_TEMPLATE_STORAGE_KEYS[kind], "") : "";
     const normalizedText = normalizeNoteTemplateSource(scopedText || legacyText, kind);
@@ -923,6 +963,7 @@ function loadNoteTemplateSettingsFromStorage() {
     settingsState.noteTemplates[kind].scope = scope;
     if (!hasUnsavedDraft) {
       settingsState.noteTemplates[kind].draftText = normalizedText;
+      settingsState.noteTemplates[kind].draftActive = false;
     }
     const scopedHistory = readStoredText(noteTemplateStorageKey(kind, { suffix: "history" }), "");
     let parsedHistory = [];
@@ -6952,6 +6993,7 @@ function saveNoteTemplateFromEditor(kind = "") {
   }
   settingsState.noteTemplates[cleanKind].text = nextSource;
   settingsState.noteTemplates[cleanKind].draftText = nextSource;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
@@ -6967,6 +7009,7 @@ function resetNoteTemplateToDefault(kind = "") {
   );
   settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
   settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
@@ -6979,8 +7022,9 @@ function updateNoteTemplatePreviewFromEditor(kind = "") {
   const preview = $(`settings${capitalizedKind}TemplatePreview`);
   if (!preview) return;
   const copy = noteTemplateCardCopy(cleanKind);
-  const draftSource = String(editorField?.value || "").replace(/\r\n/g, "\n");
+  const draftSource = normalizeDraftBuffer(editorField?.value || "");
   settingsState.noteTemplates[cleanKind].draftText = draftSource;
+  settingsState.noteTemplates[cleanKind].draftActive = true;
   preview.textContent = applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind);
 }
 
@@ -6997,14 +7041,15 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
     panelOpen: false,
     text: defaultTemplateSourceForKind(cleanKind),
-    draftText: defaultTemplateSourceForKind(cleanKind)
+    draftText: defaultTemplateSourceForKind(cleanKind),
+    draftActive: false
   };
   const open = stateEntry.panelOpen === true;
   const copy = noteTemplateCardCopy(cleanKind);
   const fieldMeta = noteTemplateFieldMeta(cleanKind);
   const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
-  const draftSource = String(stateEntry.draftText || "").trim() ? stateEntry.draftText : savedSource;
-  const visibleSource = open ? draftSource : savedSource;
+  const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
+  const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
 
   if (stats) {
     stats.innerHTML = `
