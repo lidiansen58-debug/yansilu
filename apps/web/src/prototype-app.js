@@ -15,7 +15,13 @@ import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
-import { EditorPane, composePermanentWorkspace, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
+import {
+  EditorPane,
+  composePermanentWorkspace,
+  normalizeFieldText,
+  parseLiteratureWorkspace,
+  parsePermanentWorkspace
+} from "./components-editor-pane.js";
 import {
   renderImportPageMount
 } from "./import-page-mount.js";
@@ -852,6 +858,51 @@ function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记"
   const replaced = source.replace(/\{\{\s*title\s*\}\}/gi, cleanTitle);
   if (/^\s*#\s+/m.test(replaced)) return ensureEditableNoteBody(replaced);
   return ensureEditableNoteBody(`# ${cleanTitle}\n\n${replaced}`);
+}
+
+function mergeTemplateFieldText(base = "", addition = "") {
+  const normalizedBase = normalizeFieldText(base);
+  const normalizedAddition = normalizeFieldText(addition);
+  if (!normalizedBase) return normalizedAddition;
+  if (!normalizedAddition) return normalizedBase;
+  if (normalizedBase === normalizedAddition) return normalizedAddition;
+  return `${normalizedBase}\n\n${normalizedAddition}`;
+}
+
+function composePermanentTemplateDraft(fields = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const templateBody = permanentNoteTemplateBody(title);
+  const parsedTemplate = parsePermanentWorkspace(templateBody);
+  const hasTemplateStructure =
+    parsedTemplate.structured === true ||
+    Boolean(parsedTemplate.preface) ||
+    (Array.isArray(parsedTemplate.sectionLayout) && parsedTemplate.sectionLayout.length > 0) ||
+    (Array.isArray(parsedTemplate.extraSections) && parsedTemplate.extraSections.length > 0) ||
+    (Array.isArray(parsedTemplate.repeatedKnownSections) && parsedTemplate.repeatedKnownSections.length > 0);
+
+  if (!hasTemplateStructure) {
+    return composePermanentWorkspace({
+      ...fields,
+      title
+    });
+  }
+
+  return composePermanentWorkspace(
+    {
+      title,
+      coreClaim: mergeTemplateFieldText(parsedTemplate.coreClaim, fields.coreClaim),
+      whyTrue: mergeTemplateFieldText(parsedTemplate.whyTrue, fields.whyTrue),
+      boundary: mergeTemplateFieldText(parsedTemplate.boundary, fields.boundary),
+      relatedClues: mergeTemplateFieldText(parsedTemplate.relatedClues, fields.relatedClues),
+      supplement: mergeTemplateFieldText(parsedTemplate.supplement, fields.supplement)
+    },
+    {
+      preface: parsedTemplate.preface,
+      extraSections: parsedTemplate.extraSections,
+      repeatedKnownSections: parsedTemplate.repeatedKnownSections,
+      sectionLayout: parsedTemplate.sectionLayout
+    }
+  );
 }
 
 function loadNoteTemplateSettingsFromStorage() {
@@ -4571,6 +4622,49 @@ function isEmptyUntitledMarkdown(body = "", folderId = "") {
   return candidates.some((candidate) => candidate === text);
 }
 
+async function refreshUntitledPlaceholderForCurrentTemplate(note) {
+  if (!note || !isUntitledTitle(note.title)) return note;
+  const tab = noteTabFor(note.id);
+  const currentBody = normalizedDefaultUntitledBody(note.folderId);
+  const existingBody = ensureEditableNoteBody(typeof tab?.body === "string" ? tab.body : note.body).replace(/\r\n/g, "\n").trim();
+  if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) return note;
+
+  const nextBody = ensureEditableNoteBody(initialBodyForFolder(note.folderId));
+  note.body = nextBody;
+  note.bodyLoaded = true;
+  note.tags = parseTags(nextBody);
+  note.links = parseLinks(nextBody);
+  note.updatedAt = new Date().toISOString();
+  if (tab) {
+    tab.body = nextBody;
+    tab.savedBody = nextBody;
+    tab.dirty = false;
+  }
+  if (isLocalOnlyNote(note)) return note;
+
+  try {
+    const updated = await updateNote(note.id, {
+      title: note.title,
+      body: nextBody,
+      status: note.status || "draft",
+      generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
+      originalityStatus: note.originalityStatus || undefined,
+      originalitySimilarity: note.originalitySimilarity ?? undefined
+    });
+    if (updated) {
+      Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      if (tab) {
+        tab.body = note.body;
+        tab.savedBody = note.body;
+        tab.title = note.title;
+        tab.savedTitle = note.title;
+        tab.dirty = false;
+      }
+    }
+  } catch {}
+  return note;
+}
+
 function noteTabFor(noteId = "") {
   return state.tabs.find((item) => item.noteId === noteId) || null;
 }
@@ -4749,20 +4843,18 @@ function originalDraftBodyFromSource(payload = {}) {
     ]
       .filter(Boolean)
       .join("\n");
-    return composePermanentWorkspace(
-      {
-        title: titleSeed,
-        coreClaim: supportsJudgment
-          ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-          : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
-        whyTrue: question
-          ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
-          : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
-        boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
-        relatedClues,
-        supplement
-      }
-    );
+    return composePermanentTemplateDraft({
+      title: titleSeed,
+      coreClaim: supportsJudgment
+        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
+        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+      whyTrue: question
+        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
+        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
+      boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
+      relatedClues,
+      supplement
+    });
   }
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
   const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
@@ -4770,18 +4862,16 @@ function originalDraftBodyFromSource(payload = {}) {
     .replace(/^#\s+[^\n]*\n?/m, "")
     .trim();
   const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
-  return composePermanentWorkspace(
-    {
-      title: titleSeed,
-      coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
-      whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
-      boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
-      relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
-        .filter(Boolean)
-        .join("\n"),
-      supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
-    }
-  );
+  return composePermanentTemplateDraft({
+    title: titleSeed,
+    coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
+    whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
+    boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
+    relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
+      .filter(Boolean)
+      .join("\n"),
+    supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
+  });
 }
 
 async function syncDirectoriesFromApi() {
@@ -5994,6 +6084,7 @@ async function createNoteInSelectedFolder(options = {}) {
   try {
     const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
     if (reuseUntitled && cleanup.kept) {
+      await refreshUntitledPlaceholderForCurrentTemplate(cleanup.kept);
       if (openInStandalone) {
         openStandaloneEditorWindow(cleanup.kept.id);
       } else {

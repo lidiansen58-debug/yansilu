@@ -4591,6 +4591,10 @@ test("prototype note templates stay scoped to the active vault and old untitled 
   }, 5000);
   const reopenedUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
   assert.equal(reopenedUntitledNoteId, originalUntitledNoteId);
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是按当前 Vault 定义的永久模板。/);
+  }, 5000);
 
   await openSettingsModule(page);
   await page.locator("#settingsVaultPath").fill(nextVaultPath);
@@ -4608,6 +4612,92 @@ test("prototype note templates stay scoped to the active vault and old untitled 
     assert.doesNotMatch(value, /这是按当前 Vault 定义的永久模板。/);
     assert.match(value, /## 核心观点/);
   }, 5000);
+});
+
+test("prototype source-generated permanent notes adopt the current permanent template", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, apiBase } = stack;
+  const permanentTemplate = `# {{title}}
+
+这是一条来自模板前言的提醒。
+
+## 核心观点
+
+模板会在这里补一层判断提醒。
+
+## 自定义问题
+
+这个 section 应该跟着模板一起进入来源生成的永久笔记。
+
+## 关联线索
+`;
+  const literatureBody = `# Source Driven Literature
+
+## 引用信息
+
+- 标题：Source Driven Literature
+
+## 原文
+
+Original evidence block.
+
+## 转述
+
+这里已经有一段用户转述。
+
+## 判断种子
+
+把转述压成一句可辩护的判断。
+`;
+  const createdLiterature = await postJson(apiBase, "/api/v1/notes", {
+    directoryId: "dir_literature_default",
+    body: literatureBody
+  });
+  assert.equal(createdLiterature.status, 201, JSON.stringify(createdLiterature.json));
+  const literatureNoteId = createdLiterature.json.item.id;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
+  await page.locator("#settingsSavePermanentTemplate").click();
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator('.explorer-item[data-kind="folder"][data-id="dir_literature_default"]').click();
+  await page.locator(`.explorer-item[data-kind="file"][data-id="${literatureNoteId}"]`).click();
+  await waitFor(async () => {
+    assert.equal(await page.locator(".tab.active .tab-title").textContent(), "Source Driven Literature");
+    assert.equal(await page.locator("#btnRecordPermanent").isVisible(), true);
+  }, 7000);
+
+  await page.locator("#btnRecordPermanent").click();
+  await page.locator("#permanentNoteModal").waitFor();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#permanentNoteTargetFolder option").count() > 0, true);
+  }, 5000);
+  await page.locator("#permanentNoteCreate").click();
+  await page.locator("#permanentNoteModal").waitFor({ state: "hidden" });
+
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /这是一条来自模板前言的提醒。/);
+    assert.match(value, /模板会在这里补一层判断提醒。/);
+    assert.match(value, /## 自定义问题/);
+    assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);
+    assert.match(value, /来自文献笔记：\[\[Source Driven Literature\]\]/);
+    assert.match(value, /把转述压成一句可辩护的判断。/);
+  }, 7000);
 });
 
 test("prototype browser flow creates a directory and persists notes inside it after reload", async (t) => {
