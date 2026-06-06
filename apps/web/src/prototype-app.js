@@ -320,8 +320,15 @@ const aiInboxState = {
 };
 const settingsState = {
   vault: null,
-  permanentTemplate: {
-    panelOpen: false
+  noteTemplates: {
+    permanent: {
+      panelOpen: false,
+      text: ""
+    },
+    literature: {
+      panelOpen: false,
+      text: ""
+    }
   },
   ai: {
     runtimeMode: "auto",
@@ -407,6 +414,19 @@ const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
   { key: "relatedClues", label: "关联线索", note: "核心字段，不建议隐藏" },
   { key: "supplement", label: "补充内容", note: "可选增强字段" }
 ];
+const LITERATURE_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "citation", label: "引用信息", note: "记录来源元数据，便于追溯" },
+  { key: "originalText", label: "原文", note: "保留可核对的摘录或原文片段" },
+  { key: "paraphrase", label: "转述", note: "先用自己的话完成理解" },
+  { key: "supportsJudgment", label: "判断种子", note: "可选增强字段" },
+  { key: "question", label: "追问", note: "可选增强字段" },
+  { key: "boundary", label: "边界 / 反例", note: "可选增强字段" },
+  { key: "whyKeep", label: "保留原因", note: "可选增强字段" }
+];
+const NOTE_TEMPLATE_STORAGE_KEYS = {
+  permanent: "yansilu:settings:note-template:permanent",
+  literature: "yansilu:settings:note-template:literature"
+};
 const writingState = {
   project: null,
   scaffold: null,
@@ -475,6 +495,7 @@ const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
+loadNoteTemplateSettingsFromStorage();
 
 if (typeof document !== "undefined") {
   const suppressStartupAutoOpen = () => {
@@ -740,6 +761,82 @@ function writeStoredText(key, value) {
     if (!clean) window.localStorage?.removeItem(String(key || ""));
     else window.localStorage?.setItem(String(key || ""), clean);
   } catch {}
+}
+
+function defaultLiteratureTemplateSource(title = "{{title}}") {
+  return [
+    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
+    "",
+    "## 引用信息",
+    "",
+    "- 标题：",
+    "- 作者：",
+    "- 年份：",
+    "- 容器：",
+    "- 出版社 / 来源：",
+    "- 页码 / 定位：",
+    "- 版本：",
+    "- 译者 / 编者：",
+    "- DOI / ISBN / arXiv / URL / PDF：",
+    "",
+    "## 原文",
+    "",
+    "",
+    "## 转述",
+    "",
+    ""
+  ].join("\n");
+}
+
+function defaultPermanentTemplateSource(title = "{{title}}") {
+  return composePermanentWorkspace(
+    {
+      title: String(title || "{{title}}").trim() || "{{title}}"
+    },
+    { includeEmptySections: true }
+  );
+}
+
+function defaultTemplateSourceForKind(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? defaultLiteratureTemplateSource()
+    : defaultPermanentTemplateSource();
+}
+
+function normalizeNoteTemplateSource(text = "", kind = "") {
+  const normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+  return normalized || defaultTemplateSourceForKind(kind);
+}
+
+function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") {
+  const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
+  const fallbackSource = defaultTemplateSourceForKind(kind);
+  const source = normalizeNoteTemplateSource(templateSource, kind) || fallbackSource;
+  const replaced = source.replace(/\{\{\s*title\s*\}\}/gi, cleanTitle);
+  if (/^\s*#\s+/m.test(replaced)) return ensureEditableNoteBody(replaced);
+  return ensureEditableNoteBody(`# ${cleanTitle}\n\n${replaced}`);
+}
+
+function loadNoteTemplateSettingsFromStorage() {
+  settingsState.noteTemplates.permanent.text = normalizeNoteTemplateSource(
+    readStoredText(NOTE_TEMPLATE_STORAGE_KEYS.permanent, ""),
+    "permanent"
+  );
+  settingsState.noteTemplates.literature.text = normalizeNoteTemplateSource(
+    readStoredText(NOTE_TEMPLATE_STORAGE_KEYS.literature, ""),
+    "literature"
+  );
+}
+
+function persistNoteTemplateSettingsToStorage() {
+  writeStoredText(
+    NOTE_TEMPLATE_STORAGE_KEYS.permanent,
+    normalizeNoteTemplateSource(settingsState.noteTemplates.permanent.text, "permanent")
+  );
+  writeStoredText(
+    NOTE_TEMPLATE_STORAGE_KEYS.literature,
+    normalizeNoteTemplateSource(settingsState.noteTemplates.literature.text, "literature")
+  );
 }
 
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
@@ -5821,34 +5918,11 @@ function ensureEditableNoteBody(body = "") {
 }
 
 function literatureNoteTemplateBody(title = "未命名笔记") {
-  return [
-    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
-    "",
-    "## 引用信息",
-    "",
-    "- 标题：",
-    "- 作者：",
-    "- 年份：",
-    "- 容器：",
-    "- 出版社 / 来源：",
-    "- 页码 / 定位：",
-    "- 版本：",
-    "- 译者 / 编者：",
-    "- DOI / ISBN / arXiv / URL / PDF：",
-    "",
-    "## 原文",
-    "",
-    "",
-    "## 转述",
-    "",
-    ""
-  ].join("\n");
+  return applyTitleToNoteTemplate(settingsState.noteTemplates.literature.text, title, "literature");
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return composePermanentWorkspace({
-    title: String(title || "未命名笔记").trim() || "未命名笔记"
-  });
+  return applyTitleToNoteTemplate(settingsState.noteTemplates.permanent.text, title, "permanent");
 }
 
 function initialBodyForFolder(folderId = "") {
@@ -6602,7 +6676,8 @@ function renderSettingsPanel() {
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
 
-  renderPermanentTemplateSettingsCard();
+  renderNoteTemplateSettingsCard("permanent");
+  renderNoteTemplateSettingsCard("literature");
 
   renderAiLocalModelControls();
   renderAiSettingsExperience();
@@ -6650,51 +6725,119 @@ function renderSettingsPanel() {
   renderAiCanonicalDebugPanel();
 }
 
-function renderPermanentTemplateSettingsCard() {
-  const stats = $("settingsPermanentTemplateStats");
-  const summary = $("settingsPermanentTemplateSummary");
-  const button = $("settingsOpenPermanentTemplateConfig");
-  const detail = $("settingsPermanentTemplateDetail");
-  const list = $("settingsPermanentTemplateFieldList");
-  const preview = $("settingsPermanentTemplatePreview");
-  const open = settingsState.permanentTemplate?.panelOpen === true;
+function noteTemplateFieldMeta(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? LITERATURE_TEMPLATE_SETTINGS_FIELDS
+    : PERMANENT_TEMPLATE_SETTINGS_FIELDS;
+}
+
+function noteTemplateCardCopy(kind = "") {
+  if (String(kind || "").trim().toLowerCase() === "literature") {
+    return {
+      stats: ["文献模板", "普通 Markdown"],
+      summaryClosed: "这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。",
+      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。后续新建文献笔记会按这里的内容落盘。",
+      openLabel: "打开文献模板设置",
+      closeLabel: "收起文献模板设置",
+      statusClosed: "待保存修改",
+      statusOpen: "正在编辑",
+      previewTitle: "示例文献笔记"
+    };
+  }
+  return {
+    stats: ["统一骨架", "普通 Markdown"],
+    summaryClosed: "这里可以修改永久笔记的新建模板。保存后，后续新建永久笔记会直接采用这份 Markdown 骨架。",
+    summaryOpen: "支持直接编辑永久笔记模板文本，并用 {{title}} 作为标题占位符。后续新建永久笔记会按这里的内容落盘。",
+    openLabel: "打开永久笔记模板设置",
+    closeLabel: "收起永久笔记模板设置",
+    statusClosed: "待保存修改",
+    statusOpen: "正在编辑",
+    previewTitle: "示例永久笔记"
+  };
+}
+
+function noteTemplateEditorElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateEditor"
+    : "settingsPermanentTemplateEditor";
+}
+
+function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (!settingsState.noteTemplates?.[cleanKind]) return;
+  settingsState.noteTemplates[cleanKind].panelOpen = nextOpen === true;
+}
+
+function toggleNoteTemplatePanel(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const current = settingsState.noteTemplates?.[cleanKind]?.panelOpen === true;
+  setNoteTemplatePanelOpen(cleanKind, !current);
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板设置已${current ? "收起" : "打开"}`, "ok");
+}
+
+function saveNoteTemplateFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const nextSource = normalizeNoteTemplateSource(editorField?.value || "", cleanKind);
+  settingsState.noteTemplates[cleanKind].text = nextSource;
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
+}
+
+function resetNoteTemplateToDefault(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
+}
+
+function updateNoteTemplatePreviewFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  if (!preview) return;
+  const copy = noteTemplateCardCopy(cleanKind);
+  preview.textContent = applyTitleToNoteTemplate(editorField?.value || "", copy.previewTitle, cleanKind);
+}
+
+function renderNoteTemplateSettingsCard(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const stats = $(`settings${capitalizedKind}TemplateStats`);
+  const summary = $(`settings${capitalizedKind}TemplateSummary`);
+  const button = $(`settingsOpen${capitalizedKind}TemplateConfig`);
+  const detail = $(`settings${capitalizedKind}TemplateDetail`);
+  const list = $(`settings${capitalizedKind}TemplateFieldList`);
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  const editorField = $(`settings${capitalizedKind}TemplateEditor`);
+  const stateEntry = settingsState.noteTemplates?.[cleanKind] || { panelOpen: false, text: defaultTemplateSourceForKind(cleanKind) };
+  const open = stateEntry.panelOpen === true;
+  const copy = noteTemplateCardCopy(cleanKind);
+  const fieldMeta = noteTemplateFieldMeta(cleanKind);
+  const normalizedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
 
   if (stats) {
     stats.innerHTML = `
-      <span class="settings-stat-badge ok">统一骨架</span>
-      <span class="settings-stat-badge">普通 Markdown</span>
-      <span class="settings-stat-badge ${open ? "ok" : "warn"}">${open ? "入口已展开" : "字段自定义待开放"}</span>
+      <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
+      <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
+      <span class="settings-stat-badge ${open ? "ok" : "warn"}">${escapeHtml(open ? copy.statusOpen : copy.statusClosed)}</span>
     `;
   }
-
-  if (summary) {
-    summary.textContent = open
-      ? "后续这里会接字段显示名、字段顺序和可选字段开关；本轮先把入口固定在设置里。"
-      : "当前永久笔记仍使用一套稳定骨架；后续字段显示名、顺序和可选字段开关会从这里进入。";
-  }
-
+  if (summary) summary.textContent = open ? copy.summaryOpen : copy.summaryClosed;
   if (button) {
-    button.textContent = open ? "收起模板设置入口" : "打开模板设置入口";
+    button.textContent = open ? copy.closeLabel : copy.openLabel;
     button.setAttribute("aria-expanded", open ? "true" : "false");
   }
-
   if (detail) detail.classList.toggle("hidden", !open);
-
   if (list) {
-    list.innerHTML = PERMANENT_TEMPLATE_SETTINGS_FIELDS.map(
-      (field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`
-    ).join("");
+    list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
   }
-
-  if (preview) {
-    preview.textContent = composePermanentWorkspace({
-      title: "示例永久笔记",
-      coreClaim: "永久笔记首先是可承担的判断单元，而不是按学科拆开的模板空壳。",
-      whyTrue: "统一骨架能保持编辑、图谱、搜索和写作链路稳定，同时保留足够的表达空间。",
-      boundary: "如果某类笔记真的需要更多维度，优先补少量可选字段，而不是立刻分叉成多套模板。",
-      relatedClues: "- [[文献卡片示例]]\n- [[写作中心示例]]"
-    });
-  }
+  if (editorField && String(editorField.value || "") !== normalizedSource) editorField.value = normalizedSource;
+  if (preview) preview.textContent = applyTitleToNoteTemplate(normalizedSource, copy.previewTitle, cleanKind);
 }
 
 function renderAiCanonicalDebugPanel() {
@@ -14626,14 +14769,35 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
 });
 
 $("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
-  settingsState.permanentTemplate.panelOpen = settingsState.permanentTemplate.panelOpen !== true;
-  renderSettingsPanel();
-  setStatus(
-    settingsState.permanentTemplate.panelOpen
-      ? "已打开永久笔记模板设置入口"
-      : "已收起永久笔记模板设置入口",
-    "ok"
-  );
+  toggleNoteTemplatePanel("permanent");
+});
+
+$("settingsOpenLiteratureTemplateConfig")?.addEventListener("click", () => {
+  toggleNoteTemplatePanel("literature");
+});
+
+$("settingsSavePermanentTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("permanent");
+});
+
+$("settingsResetPermanentTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("permanent");
+});
+
+$("settingsSaveLiteratureTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("literature");
+});
+
+$("settingsResetLiteratureTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("literature");
+});
+
+$("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("permanent");
+});
+
+$("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("literature");
 });
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
