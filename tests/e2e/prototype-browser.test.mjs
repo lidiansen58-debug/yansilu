@@ -4387,6 +4387,43 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
   assert.equal(path.resolve(String(promptMeta.defaultPath || "")), path.resolve(vaultPath));
 });
 
+test("prototype settings exposes the permanent note template entry", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+
+  await openSettingsModule(page);
+
+  const toggle = page.locator("#settingsOpenPermanentTemplateConfig");
+  await waitFor(async () => {
+    assert.equal(await toggle.isVisible(), true);
+  }, 5000);
+  assert.match(String(await page.locator("#settingsPermanentTemplateSummary").textContent() || ""), /稳定骨架|字段显示名/);
+  assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+
+  await toggle.click();
+
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+  assert.match(String(await toggle.textContent() || ""), /收起模板设置入口/);
+  assert.match(String(await page.locator("#settingsPermanentTemplateFieldList").textContent() || ""), /核心观点/);
+  assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /## 核心观点/);
+
+  await toggle.click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+  }, 5000);
+});
+
 test("prototype browser flow creates a directory and persists notes inside it after reload", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

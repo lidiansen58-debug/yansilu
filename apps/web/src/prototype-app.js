@@ -320,6 +320,9 @@ const aiInboxState = {
 };
 const settingsState = {
   vault: null,
+  permanentTemplate: {
+    panelOpen: false
+  },
   ai: {
     runtimeMode: "auto",
     userMode: "Auto",
@@ -397,6 +400,13 @@ const settingsState = {
   },
   error: ""
 };
+const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
+  { key: "whyTrue", label: "为什么成立", note: "核心字段，不建议隐藏" },
+  { key: "boundary", label: "边界 / 反例", note: "核心字段，不建议隐藏" },
+  { key: "relatedClues", label: "关联线索", note: "核心字段，不建议隐藏" },
+  { key: "supplement", label: "补充内容", note: "可选增强字段" }
+];
 const writingState = {
   project: null,
   scaffold: null,
@@ -6592,6 +6602,8 @@ function renderSettingsPanel() {
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
 
+  renderPermanentTemplateSettingsCard();
+
   renderAiLocalModelControls();
   renderAiSettingsExperience();
 
@@ -6636,6 +6648,53 @@ function renderSettingsPanel() {
     testOutput.textContent = settingsState.ai.testOutput || "（空）";
   }
   renderAiCanonicalDebugPanel();
+}
+
+function renderPermanentTemplateSettingsCard() {
+  const stats = $("settingsPermanentTemplateStats");
+  const summary = $("settingsPermanentTemplateSummary");
+  const button = $("settingsOpenPermanentTemplateConfig");
+  const detail = $("settingsPermanentTemplateDetail");
+  const list = $("settingsPermanentTemplateFieldList");
+  const preview = $("settingsPermanentTemplatePreview");
+  const open = settingsState.permanentTemplate?.panelOpen === true;
+
+  if (stats) {
+    stats.innerHTML = `
+      <span class="settings-stat-badge ok">统一骨架</span>
+      <span class="settings-stat-badge">普通 Markdown</span>
+      <span class="settings-stat-badge ${open ? "ok" : "warn"}">${open ? "入口已展开" : "字段自定义待开放"}</span>
+    `;
+  }
+
+  if (summary) {
+    summary.textContent = open
+      ? "后续这里会接字段显示名、字段顺序和可选字段开关；本轮先把入口固定在设置里。"
+      : "当前永久笔记仍使用一套稳定骨架；后续字段显示名、顺序和可选字段开关会从这里进入。";
+  }
+
+  if (button) {
+    button.textContent = open ? "收起模板设置入口" : "打开模板设置入口";
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  if (detail) detail.classList.toggle("hidden", !open);
+
+  if (list) {
+    list.innerHTML = PERMANENT_TEMPLATE_SETTINGS_FIELDS.map(
+      (field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`
+    ).join("");
+  }
+
+  if (preview) {
+    preview.textContent = composePermanentWorkspace({
+      title: "示例永久笔记",
+      coreClaim: "永久笔记首先是可承担的判断单元，而不是按学科拆开的模板空壳。",
+      whyTrue: "统一骨架能保持编辑、图谱、搜索和写作链路稳定，同时保留足够的表达空间。",
+      boundary: "如果某类笔记真的需要更多维度，优先补少量可选字段，而不是立刻分叉成多套模板。",
+      relatedClues: "- [[文献卡片示例]]\n- [[写作中心示例]]"
+    });
+  }
 }
 
 function renderAiCanonicalDebugPanel() {
@@ -14564,6 +14623,17 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   } catch (error) {
     setStatus(`切换 Vault 失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
+  settingsState.permanentTemplate.panelOpen = settingsState.permanentTemplate.panelOpen !== true;
+  renderSettingsPanel();
+  setStatus(
+    settingsState.permanentTemplate.panelOpen
+      ? "已打开永久笔记模板设置入口"
+      : "已收起永久笔记模板设置入口",
+    "ok"
+  );
 });
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
