@@ -4698,9 +4698,17 @@ function historicalUntitledTemplateBodies(folderId = "") {
   const noteType = String(typeFromFolder(state, folderId) || "").trim().toLowerCase();
   const kind = noteType === "literature" ? "literature" : noteType === "original" || noteType === "permanent" ? "permanent" : "";
   if (!kind) return [];
-  return normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
+  const candidates = normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
     applyTitleToNoteTemplate(template, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim()
   );
+  if (kind === "literature") {
+    const rawSavedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[kind]?.text, kind);
+    if (!validateLiteratureTemplateSource(rawSavedSource).ok) {
+      const rawBody = applyTitleToNoteTemplate(rawSavedSource, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim();
+      if (rawBody && !candidates.includes(rawBody)) candidates.unshift(rawBody);
+    }
+  }
+  return candidates;
 }
 
 function isEmptyUntitledMarkdown(body = "", folderId = "") {

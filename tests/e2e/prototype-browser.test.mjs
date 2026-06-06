@@ -4577,6 +4577,18 @@ test("prototype falls back to default literature template when stored template i
     assert.match(value, /## 转述/);
     assert.doesNotMatch(value, /## Research Notes/);
   }, 5000);
+  const originalUntitledNoteId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+  assert.ok(originalUntitledNoteId);
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const selectedFileId = await page.evaluate(() => String(window.__prototypeState?.selectedFileId || "").trim());
+    assert.equal(selectedFileId, originalUntitledNoteId);
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /## 引用信息/);
+    assert.doesNotMatch(value, /## Research Notes/);
+  }, 5000);
 });
 
 test("prototype migrates legacy global note templates into the active vault scope", async (t) => {
