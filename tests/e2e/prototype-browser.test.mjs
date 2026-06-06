@@ -4481,6 +4481,85 @@ test("prototype settings keeps template drafts across same-vault refreshes", asy
   }, 5000);
 });
 
+test("prototype migrates legacy global note templates into the active vault scope", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const legacyPermanentTemplate = `# {{title}}
+
+## 核心观点
+
+这是旧版全局永久模板。
+`;
+  const legacyLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+- 标题：旧版全局来源
+
+## 原文
+
+旧版全局原文占位
+
+## 转述
+
+这是旧版全文献模板。
+`;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(({ permanent, literature }) => {
+        window.localStorage.setItem("yansilu:settings:note-template:permanent", permanent);
+        window.localStorage.setItem("yansilu:settings:note-template:literature", literature);
+      }, {
+        permanent: legacyPermanentTemplate,
+        literature: legacyLiteratureTemplate
+      });
+    }
+  });
+  if (!stack) return;
+  const { page, vaultPath } = stack;
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.equal(path.resolve(currentVaultText), path.resolve(vaultPath));
+  }, 10000);
+
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
+    assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
+  }, 5000);
+
+  const migratedStorage = await page.evaluate(() => {
+    const keys = Object.keys(window.localStorage);
+    const scopedPermanentKey = keys.find((key) => key.startsWith("yansilu:settings:note-template:permanent:") && !key.endsWith(":history")) || "";
+    const scopedLiteratureKey = keys.find((key) => key.startsWith("yansilu:settings:note-template:literature:") && !key.endsWith(":history")) || "";
+    return {
+      legacyPermanent: window.localStorage.getItem("yansilu:settings:note-template:permanent"),
+      legacyLiterature: window.localStorage.getItem("yansilu:settings:note-template:literature"),
+      scopedPermanentKey,
+      scopedPermanentValue: scopedPermanentKey ? window.localStorage.getItem(scopedPermanentKey) : "",
+      scopedLiteratureKey,
+      scopedLiteratureValue: scopedLiteratureKey ? window.localStorage.getItem(scopedLiteratureKey) : ""
+    };
+  });
+
+  assert.equal(migratedStorage.legacyPermanent, null);
+  assert.equal(migratedStorage.legacyLiterature, null);
+  assert.match(String(migratedStorage.scopedPermanentKey || ""), /yansilu:settings:note-template:permanent:/);
+  assert.match(String(migratedStorage.scopedPermanentValue || ""), /这是旧版全局永久模板。/);
+  assert.match(String(migratedStorage.scopedLiteratureKey || ""), /yansilu:settings:note-template:literature:/);
+  assert.match(String(migratedStorage.scopedLiteratureValue || ""), /这是旧版全文献模板。/);
+});
+
 test("prototype settings saved literature and permanent templates drive later new notes in the same vault", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

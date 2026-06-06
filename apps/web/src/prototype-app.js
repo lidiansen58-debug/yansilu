@@ -956,21 +956,35 @@ function loadNoteTemplateSettingsFromStorage() {
       previousScope === scope &&
       entry?.draftActive === true &&
       draftTextBeforeLoad !== normalizeDraftBuffer(savedTextBeforeLoad);
-    const scopedText = readStoredText(noteTemplateStorageKey(kind), "");
-    const legacyText = noteTemplateStorageScope() === "global" ? readStoredText(NOTE_TEMPLATE_STORAGE_KEYS[kind], "") : "";
-    const normalizedText = normalizeNoteTemplateSource(scopedText || legacyText, kind);
+    const scopedKey = noteTemplateStorageKey(kind);
+    const scopedHistoryKey = noteTemplateStorageKey(kind, { suffix: "history" });
+    const legacyKey = NOTE_TEMPLATE_STORAGE_KEYS[kind];
+    const legacyHistoryKey = `${legacyKey}:history`;
+    const scopedText = readStoredText(scopedKey, "");
+    const legacyText = readStoredText(legacyKey, "");
+    const scopedHistory = readStoredText(scopedHistoryKey, "");
+    const legacyHistory = readStoredText(legacyHistoryKey, "");
+    const shouldMigrateLegacy = scope !== "global" && !String(scopedText || "").trim() && String(legacyText || "").trim();
+    const resolvedText = shouldMigrateLegacy ? legacyText : scopedText || (scope === "global" ? legacyText : "");
+    const resolvedHistory = shouldMigrateLegacy ? legacyHistory : scopedHistory || (scope === "global" ? legacyHistory : "");
+    const normalizedText = normalizeNoteTemplateSource(resolvedText, kind);
     settingsState.noteTemplates[kind].text = normalizedText;
     settingsState.noteTemplates[kind].scope = scope;
     if (!hasUnsavedDraft) {
       settingsState.noteTemplates[kind].draftText = normalizedText;
       settingsState.noteTemplates[kind].draftActive = false;
     }
-    const scopedHistory = readStoredText(noteTemplateStorageKey(kind, { suffix: "history" }), "");
     let parsedHistory = [];
     try {
-      parsedHistory = scopedHistory ? JSON.parse(scopedHistory) : [];
+      parsedHistory = resolvedHistory ? JSON.parse(resolvedHistory) : [];
     } catch {}
     settingsState.noteTemplates[kind].history = normalizeNoteTemplateHistory(parsedHistory, kind);
+    if (shouldMigrateLegacy) {
+      writeStoredText(scopedKey, normalizedText);
+      writeStoredText(scopedHistoryKey, JSON.stringify(settingsState.noteTemplates[kind].history));
+      writeStoredText(legacyKey, "");
+      writeStoredText(legacyHistoryKey, "");
+    }
   }
 }
 
