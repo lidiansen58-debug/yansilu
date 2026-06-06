@@ -389,6 +389,64 @@ Only custom sections live in this permanent note.
   assert.equal(pane.isPermanentWorkspaceEligible(note), false);
 });
 
+test("editor restores structured mode when leaving a custom-shape permanent note", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  state.forcedSourcePreviewNoteId = "pn_custom_shape";
+  const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "pn_structured_return",
+    folderId: "dir_original_default",
+    noteType: "",
+    body: `# Structured note
+
+## 核心观点
+
+A stable claim.
+`
+  };
+  const tab = {
+    id: "tab_pn_structured_return",
+    noteId: note.id,
+    title: "Structured note",
+    body: note.body,
+    savedTitle: "Structured note",
+    savedBody: note.body,
+    dirty: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {
+    result: { innerHTML: "" },
+    permanentWorkspace: { classList: createClassList() },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => note;
+  pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
+  pane.renderEmptyEditorState = () => {};
+  pane.setEditorValue = () => {};
+  pane.renderPermanentWorkspace = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderRelated = () => {};
+  pane.renderPreview = () => {};
+  pane.renderPreviewVisibility = () => {};
+  pane.renderInspectorVisibility = () => {};
+  pane.renderSaveHint = () => {};
+  pane.updateToolbarFormattingState = () => {};
+  pane.applyPendingEditorFocus = () => {};
+
+  pane.fillEditorFromTab();
+
+  assert.equal(state.previewMode, "wysiwyg");
+  assert.equal(state.forcedSourcePreviewNoteId, "");
+  assert.equal(pane.isPermanentWorkspaceEligible(note), true);
+});
+
 test("normalizePermanentBodyForSave drops empty scaffold sections and preserves unknown top-level sections", () => {
   const pane = Object.create(EditorPane.prototype);
 

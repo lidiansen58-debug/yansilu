@@ -3036,8 +3036,15 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
-    if (this.isOriginalNote(this.activeNote()) && !this.permanentWorkspaceCompatible(t, this.activeNote()) && !this.isSourceMode()) {
+    const activeNote = this.activeNote();
+    const forcedSourceNoteId = String(this.state.forcedSourcePreviewNoteId || "").trim();
+    const permanentWorkspaceEligible = this.permanentWorkspaceCompatible(t, activeNote);
+    if (this.isOriginalNote(activeNote) && !permanentWorkspaceEligible && !this.isSourceMode()) {
       this.state.previewMode = "source";
+      this.state.forcedSourcePreviewNoteId = activeNote?.id || "";
+    } else if (this.isOriginalNote(activeNote) && permanentWorkspaceEligible && forcedSourceNoteId && this.isSourceMode()) {
+      this.state.previewMode = "wysiwyg";
+      this.state.forcedSourcePreviewNoteId = "";
     }
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
@@ -3834,6 +3841,7 @@ export class EditorPane {
     this.pendingEditorSelection = this.isStructuredWorkspaceActive()
       ? null
       : this.normalizedSelectionRangeForValue(latestValue, this.editorSelection());
+    this.state.forcedSourcePreviewNoteId = "";
     this.state.previewMode = resolved;
     this.setEditorValue(latestValue);
     this.renderPreviewVisibility();
