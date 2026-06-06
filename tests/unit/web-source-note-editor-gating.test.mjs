@@ -106,7 +106,7 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.match(button.title, /永久笔记/);
 });
 
-test("editor keeps related-panel access and inline insert for permanent notes in the shared editor", () => {
+test("editor keeps related-panel access for permanent notes and disables inline insert in structured mode", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -120,7 +120,7 @@ test("editor keeps related-panel access and inline insert for permanent notes in
   pane.renderRelationToolbarButtons();
 
   assert.equal(insertLink.classList.contains("hidden"), false);
-  assert.equal(insertLink.disabled, false);
+  assert.equal(insertLink.disabled, true);
   assert.equal(insertLink.title, "关联笔记 [[");
   assert.equal(showRelated.classList.contains("hidden"), false);
   assert.equal(showRelated.disabled, false);
@@ -292,7 +292,7 @@ test("originality payload keeps linked literature sources by folder root when no
   assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
 });
 
-test("editor keeps permanent notes in the shared editor by default", () => {
+test("editor opens permanent notes in structured workspace by default", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -309,9 +309,9 @@ test("editor keeps permanent notes in the shared editor by default", () => {
 
   pane.renderPermanentWorkspace();
 
-  assert.equal(pane.isPermanentWorkspaceActive(), false);
-  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), true);
-  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), false);
+  assert.equal(pane.isPermanentWorkspaceActive(), true);
+  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), false);
+  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), true);
 });
 
 test("editor falls back to source markdown panel for permanent notes in source mode", () => {
@@ -447,6 +447,93 @@ A stable claim.
   assert.equal(pane.isPermanentWorkspaceEligible(note), true);
 });
 
+test("editor preserves matched historical literature headings when structured fields save back", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const body = `# Historic Literature Note
+
+## Metadata
+
+- 标题：Source
+- 作者：Author
+- 年份：2025
+- 页码 / 定位：p. 9
+- DOI / ISBN / arXiv / URL / PDF：doi:10/history
+
+## Quote
+
+Original text
+
+## Restatement
+
+Old paraphrase
+
+## Thesis Seed
+
+Historical claim
+`;
+  const tab = {
+    id: "tab_ln_historic",
+    noteId: "ln_historic",
+    body,
+    savedBody: body,
+    title: "Historic Literature Note",
+    savedTitle: "Historic Literature Note",
+    dirty: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.resolveLiteratureSectionLabels = () => ({
+    citation: "Source Card",
+    originalText: "Excerpt",
+    paraphrase: "My Paraphrase",
+    supportsJudgment: "Claim Seed",
+    question: "Open Question",
+    boundary: "Constraints",
+    whyKeep: "Why Keep"
+  });
+  pane.resolveLiteratureSectionLabelCandidates = () => [
+    pane.resolveLiteratureSectionLabels(),
+    {
+      citation: "Metadata",
+      originalText: "Quote",
+      paraphrase: "Restatement",
+      supportsJudgment: "Thesis Seed",
+      question: "Tension",
+      boundary: "Limits",
+      whyKeep: "Worth Keeping"
+    }
+  ];
+  pane.activeTab = () => tab;
+  pane.activeNote = () => ({ id: "ln_historic", folderId: "dir_literature_default", noteType: "literature", body });
+  pane.isLiteratureWorkspaceActive = () => true;
+  pane.els = {
+    literatureWorkspace: {},
+    body: { value: body },
+    literatureTitle: { value: "Historic Literature Note" },
+    literatureOriginal: { value: "Original text" },
+    literatureParaphrase: { value: "Updated paraphrase" },
+    literatureWhyKeep: { value: "" },
+    literatureSupportsJudgment: { value: "Historical claim" },
+    literatureQuestion: { value: "" },
+    literatureBoundary: { value: "" }
+  };
+
+  const parsed = pane.parseLiteratureBody(body);
+  pane.rememberLiteratureWorkspaceParse(parsed, tab, body);
+
+  const saved = pane.getEditorValue();
+  assert.match(saved, /^## Metadata$/m);
+  assert.match(saved, /^## Quote$/m);
+  assert.match(saved, /^## Restatement$/m);
+  assert.match(saved, /^## Thesis Seed$/m);
+  assert.doesNotMatch(saved, /^## Source Card$/m);
+  assert.doesNotMatch(saved, /^## My Paraphrase$/m);
+  assert.match(saved, /Updated paraphrase/);
+});
+
 test("normalizePermanentBodyForSave drops empty scaffold sections and preserves unknown top-level sections", () => {
   const pane = Object.create(EditorPane.prototype);
 
@@ -514,7 +601,7 @@ test.skip("renderPreviewVisibility keeps source markdown as the single source of
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
 
-test("renderPreviewVisibility keeps the rich editor as the source of truth in shared permanent-note mode", () => {
+test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -525,7 +612,7 @@ test("renderPreviewVisibility keeps the rich editor as the source of truth in sh
 
   pane.state = state;
   pane.els = {
-    body: { value: "# Source truth\n\n## Related clues\n\n- [[From source mode]]" },
+    body: { value: "# Source truth\n\n## 关联线索\n\n- [[From source mode]]" },
     markdownSplit: split,
     previewPanel: { classList: createClassList() },
     modeEdit,
@@ -534,7 +621,7 @@ test("renderPreviewVisibility keeps the rich editor as the source of truth in sh
   pane.activeNote = () => ({ id: "pn_roundtrip", folderId: "dir_original_default", noteType: "" });
   pane.pendingEditorSelection = null;
   pane.richEditor = { getValue: () => "# Stale rich value\n\n* $$widget0 [[Wrong]]$$", focus() {} };
-  pane.markdownEditor = { getValue: () => "# Source truth\n\n## Related clues\n\n- [[From source mode]]", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Source truth\n\n## 关联线索\n\n- [[From source mode]]", focus() {} };
   pane.normalizedSelectionRangeForValue = () => null;
   pane.setEditorValue = (value) => {
     nextEditorValue = value;
@@ -546,7 +633,7 @@ test("renderPreviewVisibility keeps the rich editor as the source of truth in sh
 
   pane.renderPreviewVisibility();
 
-  assert.equal(nextEditorValue, "# Stale rich value\n\n* $$widget0 [[Wrong]]$$");
+  assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });

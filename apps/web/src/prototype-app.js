@@ -21,7 +21,8 @@ import {
   composePermanentWorkspace,
   normalizeFieldText,
   parseLiteratureWorkspace,
-  parsePermanentWorkspace
+  parsePermanentWorkspace,
+  validateLiteratureTemplateSource
 } from "./components-editor-pane.js";
 import {
   renderImportPageMount
@@ -6966,7 +6967,7 @@ function noteTemplateCardCopy(kind = "") {
     return {
       stats: ["文献模板", "普通 Markdown"],
       summaryClosed: "这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。",
-      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。后续新建文献笔记会按这里的内容落盘。",
+      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。当前只支持重命名现有顶层 section，不支持新增额外的二级标题。",
       openLabel: "打开文献模板设置",
       closeLabel: "收起文献模板设置",
       statusClosed: "待保存修改",
@@ -7012,6 +7013,13 @@ function saveNoteTemplateFromEditor(kind = "") {
   const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
   const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
   const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
+  if (cleanKind === "literature") {
+    const validation = validateLiteratureTemplateSource(nextSource);
+    if (!validation.ok) {
+      setStatus(validation.message || "文献模板当前形状不受支持", "warn");
+      return;
+    }
+  }
   if (nextSource !== previousSource) {
     settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
       settingsState.noteTemplates[cleanKind].history,

@@ -397,6 +397,50 @@ export function deriveLiteratureSectionLabelsFromTemplate(templateSource = "") {
   return normalized;
 }
 
+export function validateLiteratureTemplateSource(templateSource = "") {
+  const content = stripMarkdownTitle(templateSource);
+  const { sections } = splitMarkdownLevelTwoSections(content);
+  if (sections.length > LITERATURE_SECTION_ORDER.length) {
+    return {
+      ok: false,
+      message: `文献模板当前只支持 ${LITERATURE_SECTION_ORDER.length} 个以内的顶层 section；请把额外说明放进已有 section，或改成三级标题。`
+    };
+  }
+
+  const usedKeys = new Set();
+  let unresolvedCount = 0;
+  for (const section of sections) {
+    const heading = normalizeFieldText(section?.heading || "");
+    if (!heading) continue;
+    const headingToken = normalizeLooseText(heading);
+    const matchedKey = LITERATURE_SECTION_ORDER.find(
+      (key) =>
+        !usedKeys.has(key) &&
+        literatureSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken)
+    );
+    if (matchedKey) {
+      usedKeys.add(matchedKey);
+      continue;
+    }
+    unresolvedCount += 1;
+  }
+
+  const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
+  if (unresolvedCount > 0 && sections.length !== LITERATURE_SECTION_ORDER.length) {
+    return {
+      ok: false,
+      message: "文献模板目前只支持重命名现有顶层 section。若想加额外说明，请写进已有 section，或改成三级标题。"
+    };
+  }
+  if (unresolvedCount > remainingSlots) {
+    return {
+      ok: false,
+      message: "文献模板里有无法识别的顶层 section。请只保留现有字段的改名，不要新增额外的二级标题。"
+    };
+  }
+  return { ok: true, message: "" };
+}
+
 function normalizeLiteratureSectionLabelCandidates(candidates = [], fallback = {}) {
   const normalized = [];
   const seen = new Set();
@@ -2335,8 +2379,33 @@ export class EditorPane {
     return normalizeLiteratureSectionLabelCandidates(resolved, this.literatureSectionLabels());
   }
 
+  rememberedLiteratureSectionLabels(tab = this.activeTab()) {
+    return normalizedLiteratureSectionLabels(tab?.literatureSectionLabels || this.literatureSectionLabels());
+  }
+
+  rememberLiteratureWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const sectionLabels = normalizedLiteratureSectionLabels(parsed?.sectionLabels || this.literatureSectionLabels());
+    if (!tab) return sectionLabels;
+    tab.literatureParsedBody = String(body || "");
+    tab.literatureSectionLabels = sectionLabels;
+    return sectionLabels;
+  }
+
   parseLiteratureBody(body = "") {
-    return parseLiteratureWorkspace(body || "", { sectionLabelCandidates: this.literatureSectionLabelCandidates() });
+    const rawBody = String(body || "");
+    const tab = this.activeTab();
+    const rememberedLabels =
+      tab && tab.literatureParsedBody === rawBody && tab.literatureSectionLabels
+        ? normalizedLiteratureSectionLabels(tab.literatureSectionLabels)
+        : null;
+    const parsed = parseLiteratureWorkspace(
+      rawBody,
+      rememberedLabels
+        ? { sectionLabels: rememberedLabels }
+        : { sectionLabelCandidates: this.literatureSectionLabelCandidates() }
+    );
+    this.rememberLiteratureWorkspaceParse(parsed, tab, rawBody);
+    return parsed;
   }
 
   literatureFieldsFromInputs() {
@@ -2678,6 +2747,7 @@ export class EditorPane {
   syncLiteratureWorkspaceFromBody(body = "") {
     if (!this.els.literatureWorkspace) return;
     const parsed = this.parseLiteratureBody(body || "");
+    this.rememberLiteratureWorkspaceParse(parsed, this.activeTab(), body || "");
     this.suppressLiteratureWorkspaceChange = true;
     try {
       if (this.els.literatureTitle) this.els.literatureTitle.value = parsed.title || "未命名笔记";
@@ -2695,7 +2765,7 @@ export class EditorPane {
   syncLiteratureWorkspaceToEditor() {
     if (this.suppressLiteratureWorkspaceChange || !this.isLiteratureWorkspaceActive()) return;
     this.setUnderlyingEditorValue(
-      composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.literatureSectionLabels() })
+      composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() })
     );
   }
 
@@ -4251,7 +4321,7 @@ export class EditorPane {
 
   getEditorValue() {
     if (this.isLiteratureWorkspaceActive()) {
-      return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.literatureSectionLabels() });
+      return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() });
     }
     if (this.isPermanentWorkspaceActive()) {
       return composePermanentWorkspace(this.permanentFieldsFromInputs(), {

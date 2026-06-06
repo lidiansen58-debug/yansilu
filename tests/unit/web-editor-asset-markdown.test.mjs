@@ -8,7 +8,8 @@ import {
   parseLiteratureWorkspace,
   parseMarkdownLinkSyntax,
   parsePermanentWorkspace,
-  renderMarkdownPreview
+  renderMarkdownPreview,
+  validateLiteratureTemplateSource
 } from "../../apps/web/src/components-editor-pane.js";
 
 test("formatMarkdownLinkDestination wraps local paths that need Markdown angle destinations", () => {
@@ -328,6 +329,30 @@ Historical reason
   assert.equal(parsed.question, "Historical question");
   assert.equal(parsed.boundary, "Historical boundary");
   assert.equal(parsed.whyKeep, "Historical reason");
+});
+
+test("validateLiteratureTemplateSource rejects extra top-level custom sections", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## Research Notes
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /只支持重命名现有顶层 section|额外的二级标题|顶层 section/);
 });
 
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {
