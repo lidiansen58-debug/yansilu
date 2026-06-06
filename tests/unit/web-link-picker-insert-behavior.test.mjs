@@ -23,6 +23,16 @@ test("manual link picker hides the old relation-type and reason block at runtime
   assert.ok(source.includes('if (linkSearchSpacer.tagName === "DIV" && !String(linkSearchSpacer.textContent || "").trim()) linkSearchSpacer.hidden = true;'));
 });
 
+test("closing transient pickers clears toolbar active and focus states", async () => {
+  const source = await readComponentsEditorPaneSource();
+
+  assert.ok(source.includes("resetToolbarTransientButtons() {"));
+  assert.ok(source.includes("[this.els.insertLink, this.els.insertTag, this.els.insertImage].forEach((button) => {"));
+  assert.ok(source.includes('button.classList.remove("active");'));
+  assert.ok(source.includes("button.blur?.();"));
+  assert.ok(source.includes("this.resetToolbarTransientButtons();"));
+});
+
 test("manual link picker renders a title-first autocomplete list", async () => {
   const source = await readComponentsEditorPaneSource();
 
@@ -95,6 +105,15 @@ test("manual link picker binds the explicit associate button to relation creatio
   const source = await readComponentsEditorPaneSource();
 
   assert.match(source, /this\.els\.confirmLinkInsert\?\.addEventListener\("click", \(\) => \{[\s\S]*const selectedId = String\(this\.currentPinnedLinkId \|\| ""\)\.trim\(\);[\s\S]*void this\.insertSelectedLinkNote\(selectedId\);/);
+});
+
+test("toolbar relation action reuses the inline [[ trigger flow", async () => {
+  const source = await readComponentsEditorPaneSource();
+
+  assert.match(
+    source,
+    /this\.els\.insertLink\.addEventListener\("click", \(\) => \{[\s\S]*this\.insertAtCursor\("\[\["\);[\s\S]*const inline = this\.detectInlineLinkContext\(\);[\s\S]*this\.openLinkPicker\("", \{ inlineContext: inline, focusInput: true \}\);/
+  );
 });
 
 test("manual link picker uses a fixed support relation for quick association", async () => {

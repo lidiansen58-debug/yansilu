@@ -5069,6 +5069,14 @@ export class EditorPane {
     this.els.linkSearchInput.select();
   }
 
+  resetToolbarTransientButtons() {
+    [this.els.insertLink, this.els.insertTag, this.els.insertImage].forEach((button) => {
+      if (!button) return;
+      button.classList.remove("active");
+      button.blur?.();
+    });
+  }
+
   closeLinkPicker() {
     this.els.linkPicker.classList.add("hidden");
     this.els.linkPicker.classList.remove("floating");
@@ -5083,7 +5091,7 @@ export class EditorPane {
     this.manualLinkReturnSelection = null;
     this.manualLinkReturnScrollState = null;
     this.isSubmittingLinkInsert = false;
-    this.els.insertLink?.classList.remove("active");
+    this.resetToolbarTransientButtons();
     if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     this.updateLinkPickerConfirmButton();
   }
@@ -5331,7 +5339,7 @@ export class EditorPane {
     this.els.tagPicker.style.width = "";
     this.els.tagPicker.style.maxHeight = "";
     this.currentTagContext = null;
-    this.els.insertTag?.classList.remove("active");
+    this.resetToolbarTransientButtons();
   }
 
   positionInlineTagPicker() {
@@ -8611,10 +8619,6 @@ export class EditorPane {
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
-      if (this.isWysiwygMode()) {
-        this.openLinkPicker("", { anchorAtCursor: true });
-        return;
-      }
       this.insertAtCursor("[[");
       const inline = this.detectInlineLinkContext();
       if (inline) {
