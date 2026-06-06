@@ -3976,15 +3976,51 @@
     }
     .graph-zoom-controls {
       display: inline-flex;
-      gap: 4px;
+      gap: 6px;
       min-height: 40px;
       align-items: center;
-      border: 1px solid #dce6ee;
+      border: 1px solid rgba(199, 220, 226, 0.88);
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.94);
-      padding: 4px;
-      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
-      backdrop-filter: blur(12px);
+      background: linear-gradient(180deg, rgba(252, 255, 255, 0.96), rgba(242, 250, 249, 0.92));
+      padding: 4px 5px;
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(14px);
+    }
+    .graph-zoom-preset-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 1px;
+      border-radius: 999px;
+      background: rgba(232, 242, 241, 0.82);
+    }
+    .graph-zoom-step {
+      width: 32px;
+      height: 32px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #35576a;
+      cursor: pointer;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
+      transition: background-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+    }
+    .graph-zoom-step:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.88);
+      color: #0f6f48;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(56, 163, 201, 0.12);
+    }
+    .graph-zoom-step:focus-visible {
+      outline: 3px solid rgba(19, 118, 79, 0.22);
+      outline-offset: 2px;
+    }
+    .graph-zoom-step:disabled {
+      color: #9aa9b7;
+      cursor: default;
+      opacity: 0.55;
     }
     .graph-expand-btn {
       width: 40px;
@@ -4014,6 +4050,7 @@
       outline-offset: 2px;
     }
     .graph-expand-btn svg,
+    .graph-zoom-step svg,
     .graph-zoom-btn svg {
       width: 18px;
       height: 18px;
@@ -4024,7 +4061,7 @@
       stroke-linejoin: round;
     }
     .graph-zoom-btn {
-      min-width: 40px;
+      min-width: 42px;
       height: 32px;
       border: 0;
       border-radius: 999px;
@@ -4039,7 +4076,7 @@
       align-items: center;
       justify-content: center;
       gap: 5px;
-      transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+      transition: background-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
     }
     .graph-zoom-btn span {
       font-size: 11px;
@@ -4050,13 +4087,16 @@
       transition: max-width .18s ease, opacity .18s ease;
     }
     .graph-zoom-btn:hover {
-      background: #eef4f1;
+      background: rgba(255, 255, 255, 0.92);
       color: #172033;
+      transform: translateY(-1px);
     }
     .graph-zoom-btn.is-active {
-      background: #ffffff;
+      background:
+        radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.96), transparent 42%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 249, 244, 0.96));
       color: #0f6f48;
-      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(129, 230, 217, 0.26);
     }
     .graph-zoom-btn.is-active span,
     .graph-zoom-btn:hover span,
@@ -4071,13 +4111,13 @@
     .graph-map-stage {
       min-height: 460px;
       background:
-        radial-gradient(circle at 25% 26%, rgba(20, 184, 166, 0.1), transparent 29%),
-        radial-gradient(circle at 78% 18%, rgba(56, 163, 201, 0.08), transparent 27%),
-        radial-gradient(circle at 54% 72%, rgba(245, 158, 11, 0.055), transparent 34%),
-        linear-gradient(rgba(148, 163, 184, 0.075) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.075) 1px, transparent 1px),
-        #f8fafc;
-      background-size: auto, auto, auto, 28px 28px, 28px 28px, auto;
+        radial-gradient(circle at 20% 22%, rgba(45, 212, 191, 0.13), transparent 28%),
+        radial-gradient(circle at 79% 18%, rgba(56, 189, 248, 0.11), transparent 26%),
+        radial-gradient(circle at 56% 76%, rgba(14, 165, 233, 0.08), transparent 33%),
+        linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+        linear-gradient(180deg, #fbfefd 0%, #f4fbfb 46%, #eff7fb 100%);
+      background-size: auto, auto, auto, 30px 30px, 30px 30px, auto;
       overflow: hidden;
       position: relative;
     }
@@ -4089,8 +4129,18 @@
       background:
         linear-gradient(120deg, transparent 0 22%, rgba(255, 255, 255, 0.42) 34%, transparent 48%),
         radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.44), transparent 42%);
-      opacity: .58;
+      opacity: .52;
       mix-blend-mode: screen;
+    }
+    .graph-map-stage::after {
+      content: "";
+      position: absolute;
+      inset: -18% -10%;
+      pointer-events: none;
+      background: linear-gradient(112deg, transparent 18%, rgba(148, 230, 218, 0.18) 36%, rgba(125, 211, 252, 0.16) 44%, transparent 60%);
+      opacity: .72;
+      mix-blend-mode: screen;
+      animation: graphStageSweep 15s linear infinite;
     }
     .graph-map-empty-canvas {
       min-height: 460px;
@@ -4170,11 +4220,13 @@
     @media (prefers-reduced-motion: reduce) {
       .graph-map-empty-orbit,
       .graph-theme-boundary-line,
-      .graph-map-node-orbit {
+      .graph-map-node-orbit,
+      .graph-map-stage::after {
         animation: none !important;
       }
       .graph-view-tab,
       .graph-expand-btn,
+      .graph-zoom-step,
       .graph-zoom-btn,
       .graph-question-chip,
       .graph-map-edge,
@@ -5031,7 +5083,9 @@
       max-width: none;
     }
     .graph-map-backdrop {
-      fill: transparent;
+      stroke: rgba(167, 216, 225, 0.34);
+      stroke-width: 1.2;
+      vector-effect: non-scaling-stroke;
     }
     .graph-map-theme-boundaries {
       pointer-events: none;
@@ -5081,10 +5135,11 @@
     .graph-map-edge {
       fill: none;
       stroke: #94a3b8;
-      stroke-width: 1.85;
+      stroke-width: 1.35;
       stroke-linecap: round;
       stroke-linejoin: round;
-      opacity: 0.62;
+      opacity: 0.48;
+      marker-end: var(--graph-edge-marker, none);
       pointer-events: stroke;
       cursor: pointer;
       filter: url(#graph-soft-edge-glow);
@@ -5093,14 +5148,25 @@
     }
     .graph-map-edge-underlay {
       fill: none;
-      stroke: rgba(47, 156, 104, 0.18);
-      stroke-width: 7.5;
+      stroke: rgba(47, 156, 104, 0.11);
+      stroke-width: 4.4;
       stroke-linecap: round;
       stroke-linejoin: round;
-      opacity: 0.42;
+      opacity: 0.22;
       pointer-events: none;
-      filter: blur(2px);
+      filter: blur(1.2px);
       vector-effect: non-scaling-stroke;
+    }
+    @keyframes graphStageSweep {
+      0% {
+        transform: translate3d(-8%, 0, 0);
+      }
+      50% {
+        transform: translate3d(8%, -2%, 0);
+      }
+      100% {
+        transform: translate3d(-8%, 0, 0);
+      }
     }
     @keyframes graphThemeBoundaryPulse {
       0%, 100% {
@@ -5138,10 +5204,24 @@
     }
     .graph-map-edge.is-index {
       stroke: #b9c7d5;
-      stroke-dasharray: 2 9;
-      stroke-width: 1.6;
-      opacity: 0.42;
+      stroke-dasharray: 2 10;
+      stroke-width: 1.2;
+      opacity: 0.3;
       filter: none;
+    }
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge {
+      marker-end: none;
+    }
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-focused-path .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-lens-priority .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-selected .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-selected-neighborhood .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-theme-selected .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-bridge-selected .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-hovered .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group:hover .graph-map-edge,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group:focus-visible .graph-map-edge {
+      marker-end: var(--graph-edge-marker, none);
     }
     .graph-map-edge-underlay.is-support {
       stroke: rgba(42, 168, 112, 0.16);
@@ -5166,7 +5246,7 @@
     .graph-map-edge-group:hover .graph-map-edge,
     .graph-map-edge-group:focus-visible .graph-map-edge {
       opacity: 1;
-      stroke-width: 3.3;
+      stroke-width: 2.2;
     }
     .graph-map-edge-group:hover .graph-map-edge-underlay,
     .graph-map-edge-group:focus-visible .graph-map-edge-underlay {
@@ -5176,27 +5256,27 @@
       outline: none;
     }
     .graph-map-edge-group.is-focused-path .graph-map-edge {
-      opacity: 0.96;
-      stroke-width: 3.4;
-      filter: drop-shadow(0 0 9px rgba(15, 111, 72, 0.2));
+      opacity: 0.94;
+      stroke-width: 2.4;
+      filter: drop-shadow(0 0 7px rgba(15, 111, 72, 0.16));
     }
     .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge {
-      opacity: 0.2;
-      stroke-width: 1.5;
+      opacity: 0.14;
+      stroke-width: 1.1;
     }
     .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge-underlay {
       opacity: 0.06;
     }
     .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-priority .graph-map-edge {
-      opacity: 0.96;
-      stroke-width: 3.2;
-      filter: drop-shadow(0 0 9px rgba(15, 111, 72, 0.14));
+      opacity: 0.94;
+      stroke-width: 2.45;
+      filter: drop-shadow(0 0 8px rgba(15, 111, 72, 0.12));
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge,
     .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-dimmed .graph-map-edge {
-      opacity: 0.1;
-      stroke-width: 1.4;
+      opacity: 0.08;
+      stroke-width: 1.05;
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
@@ -5207,8 +5287,8 @@
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge,
     .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-hovered .graph-map-edge {
       opacity: 1;
-      stroke-width: 3.8;
-      filter: drop-shadow(0 0 12px rgba(15, 111, 72, 0.2));
+      stroke-width: 2.6;
+      filter: drop-shadow(0 0 9px rgba(15, 111, 72, 0.16));
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
@@ -5217,53 +5297,53 @@
     }
     .graph-map-edge-group.is-selected .graph-map-edge {
       opacity: 1;
-      stroke-width: 4.1;
-      filter: drop-shadow(0 0 14px rgba(56, 163, 201, 0.36));
+      stroke-width: 2.9;
+      filter: drop-shadow(0 0 10px rgba(56, 163, 201, 0.24));
     }
     .graph-map-edge-group.is-selected .graph-map-edge-underlay {
-      opacity: 1;
-      stroke-width: 10;
+      opacity: 0.88;
+      stroke-width: 6.6;
       stroke: rgba(233, 249, 255, 0.92);
-      filter: blur(2px);
+      filter: blur(1.6px);
     }
     .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge {
-      opacity: 0.1;
-      stroke-width: 1.3;
+      opacity: 0.08;
+      stroke-width: 1;
     }
     .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge-underlay {
       opacity: 0.04;
     }
     .graph-map-edge-group.is-selected-neighborhood .graph-map-edge {
       opacity: 1;
-      stroke-width: 3.7;
-      filter: drop-shadow(0 0 10px rgba(15, 111, 72, 0.22));
+      stroke-width: 2.55;
+      filter: drop-shadow(0 0 8px rgba(15, 111, 72, 0.18));
     }
     .graph-map-edge-group.is-selected-neighborhood .graph-map-edge-underlay {
       opacity: .84;
     }
     .graph-map-panel.is-selecting-theme .graph-map-edge-group:not(.is-theme-selected) .graph-map-edge {
-      opacity: 0.14;
-      stroke-width: 1.4;
+      opacity: 0.1;
+      stroke-width: 1.05;
     }
     .graph-map-panel.is-selecting-theme .graph-map-edge-group:not(.is-theme-selected) .graph-map-edge-underlay {
       opacity: 0.04;
     }
     .graph-map-edge-group.is-theme-selected .graph-map-edge {
       opacity: 1;
-      stroke-width: 3.8;
-      filter: drop-shadow(0 0 10px rgba(56, 163, 201, 0.2));
+      stroke-width: 2.65;
+      filter: drop-shadow(0 0 8px rgba(56, 163, 201, 0.16));
     }
     .graph-map-edge-group.is-theme-selected .graph-map-edge-underlay {
-      opacity: .9;
+      opacity: .78;
       stroke: rgba(239, 250, 255, 0.9);
     }
     .graph-map-edge-label {
       fill: #334155;
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 800;
       paint-order: stroke;
       stroke: #f8fafc;
-      stroke-width: 5px;
+      stroke-width: 4px;
       stroke-linejoin: round;
       pointer-events: none;
     }
@@ -5287,6 +5367,8 @@
     }
     .graph-map-edge-pin {
       fill: #d6e0ea;
+      stroke: rgba(255, 255, 255, 0.9);
+      stroke-width: 1.1;
       pointer-events: none;
     }
     .graph-map-edge-pin.is-support {

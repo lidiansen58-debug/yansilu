@@ -232,6 +232,9 @@ const graphState = {
   thinkingPanelOpen: false,
   thinkingFilter: "all",
   readingLens: "insight",
+  densityHintKey: "",
+  densityHintVisibleUntil: 0,
+  densityHintTimer: 0,
   selection: null,
   utilityDrawerOpen: false,
   sectionOpen: {
@@ -8641,6 +8644,14 @@ function graphZoomOption(value = "") {
   return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
 }
 
+function graphZoomStep(value = "", direction = 0) {
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(value).key));
+  const nextIndex = Math.max(0, Math.min(zoomKeys.length - 1, currentIndex + Number(direction || 0)));
+  const nextKey = zoomKeys[nextIndex] || "fit";
+  return graphZoomOption(nextKey);
+}
+
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
   if (key === "collapse") {
@@ -8669,6 +8680,24 @@ function renderGraphIcon(name = "") {
       <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <circle cx="10" cy="10" r="4.2"></circle>
         <path d="M10 2.8V4.2M10 15.8V17.2M2.8 10H4.2M15.8 10H17.2"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-out") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-in") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M8.5 6.2V10.8M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
       </svg>
     `;
   }
@@ -10727,8 +10756,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
-          <path d="M 2 2.5 L 9 6 L 2 9.5" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="9" markerHeight="9" refX="7.2" refY="4.5" orient="auto" markerUnits="strokeWidth">
+          <path d="M 1.5 1.8 L 7.1 4.5 L 1.5 7.2" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
@@ -10736,6 +10765,7 @@ function renderGraphVisualMap({
   const edgeLabelLimit = zoom.key === "fit" ? 24 : zoom.key === "read" ? 48 : 64;
   const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
   const denseDirectoryMode = !filterActive;
+  const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -10763,12 +10793,21 @@ function renderGraphVisualMap({
       return meta ? { key, className: `is-${key}`, ...meta } : null;
     })
     .filter(Boolean);
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
   const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
     .map(([key, option]) => {
       const active = zoom.key === key;
       return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
+  const zoomStepperMarkup = `
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="缩小图谱" title="缩小图谱"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
+    <div class="graph-zoom-preset-group" aria-label="图谱缩放层级">
+      ${zoomControls}
+    </div>
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="放大图谱" title="放大图谱"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
+  `;
   const focusContextMarkup = filterActive && normalizedFocusedNoteId
     ? renderGraphFocusContextPanel({
         focusedNoteId: normalizedFocusedNoteId,
@@ -10867,7 +10906,7 @@ function renderGraphVisualMap({
         <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
-          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
+          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
           <path class="graph-map-edge-hit" d="${path.d}"></path>
           ${
             showEdgeLabel
@@ -10912,7 +10951,7 @@ function renderGraphVisualMap({
             : `
               ${renderGraphViewModeSwitcher(relationType)}
               ${renderGraphReadingLensControls(readingLens.key, legendOpen)}
-              ${layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
+              ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
             `
         }
       </div>
@@ -10945,7 +10984,7 @@ function renderGraphVisualMap({
                     <div class="graph-map-floater" aria-label="图谱查看工具">
                       <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}" aria-label="${expanded ? "退出放大" : "放大查看"}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
                       <div class="graph-zoom-controls" aria-label="图谱缩放">
-                        ${zoomControls}
+                        ${zoomStepperMarkup}
                       </div>
                     </div>
                     <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
@@ -10975,10 +11014,15 @@ function renderGraphVisualMap({
                           <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#35b779" flood-opacity="0.16"></feDropShadow>
                         </filter>
                         <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
-                          <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#38a3c9" flood-opacity="0.15"></feDropShadow>
+                          <feDropShadow dx="0" dy="0" stdDeviation="1.3" flood-color="#38a3c9" flood-opacity="0.1"></feDropShadow>
                         </filter>
+                        <linearGradient id="graph-map-backdrop-fill" x1="4%" y1="6%" x2="94%" y2="100%">
+                          <stop offset="0%" stop-color="#fdffff" stop-opacity="0.97"></stop>
+                          <stop offset="48%" stop-color="#f6fffb" stop-opacity="0.95"></stop>
+                          <stop offset="100%" stop-color="#eef9ff" stop-opacity="0.94"></stop>
+                        </linearGradient>
                       </defs>
-                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>
                       <g class="graph-map-nodes">${nodeMarkup}</g>
@@ -12037,6 +12081,54 @@ function syncGraphDisclosureState(root) {
     if (!key) return;
     graphState.sectionOpen[key] = section.hasAttribute("open");
   });
+}
+
+const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;
+
+function clearGraphDensityHintTimer() {
+  if (!graphState.densityHintTimer) return;
+  window.clearTimeout(graphState.densityHintTimer);
+  graphState.densityHintTimer = 0;
+}
+
+function scheduleGraphDensityHintDismiss() {
+  clearGraphDensityHintTimer();
+  const remaining = Number(graphState.densityHintVisibleUntil || 0) - Date.now();
+  if (remaining <= 0) {
+    graphState.densityHintVisibleUntil = 0;
+    return;
+  }
+  graphState.densityHintTimer = window.setTimeout(() => {
+    graphState.densityHintTimer = 0;
+    graphState.densityHintVisibleUntil = 0;
+    if (state.module === "graph") renderGraphPanel();
+  }, remaining);
+}
+
+function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}) {
+  const hintKey =
+    dense && !filterActive
+      ? `${String(graphState.lastLoadedDirectoryId || "").trim()}::${String(graphState.lastLoadedAt || "").trim()}::dense`
+      : "";
+  if (!hintKey) {
+    graphState.densityHintKey = "";
+    graphState.densityHintVisibleUntil = 0;
+    clearGraphDensityHintTimer();
+    return false;
+  }
+  const now = Date.now();
+  if (graphState.densityHintKey !== hintKey) {
+    graphState.densityHintKey = hintKey;
+    graphState.densityHintVisibleUntil = now + GRAPH_DENSITY_HINT_TIMEOUT_MS;
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  if (Number(graphState.densityHintVisibleUntil || 0) > now) {
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  clearGraphDensityHintTimer();
+  return false;
 }
 
 function renderGraphPanel() {
@@ -15128,6 +15220,17 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
     return;
   }
+  const zoomStepButton = event.target.closest("[data-graph-zoom-step]");
+  if (zoomStepButton) {
+    const nextZoom = graphZoomStep(graphState.zoom, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0));
+    if (nextZoom.key !== graphZoomOption(graphState.zoom).key) {
+      graphState.zoom = nextZoom.key;
+      renderGraphPanel();
+      requestAnimationFrame(centerGraphViewportIfZoomed);
+      setStatus(`图谱视图已切换为${nextZoom.label}`, "ok");
+    }
+    return;
+  }
   const readingLensButton = event.target.closest("[data-graph-reading-lens]");
   if (readingLensButton) {
     graphState.readingLens = graphReadingLensMeta(readingLensButton.getAttribute("data-graph-reading-lens")).key;
@@ -15374,12 +15477,9 @@ $("graphCanvas")?.addEventListener(
     const viewport = event.target.closest(".graph-map-viewport");
     if (!viewport) return;
     event.preventDefault();
-    const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
-    const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(graphState.zoom).key));
-    const nextIndex = event.deltaY > 0 ? Math.max(0, currentIndex - 1) : Math.min(zoomKeys.length - 1, currentIndex + 1);
-    const nextZoom = zoomKeys[nextIndex];
-    if (!nextZoom || nextZoom === graphState.zoom) return;
-    graphState.zoom = nextZoom;
+    const nextZoom = graphZoomStep(graphState.zoom, event.deltaY > 0 ? -1 : 1);
+    if (nextZoom.key === graphState.zoom) return;
+    graphState.zoom = nextZoom.key;
     renderGraphPanel();
     requestAnimationFrame(centerGraphViewportIfZoomed);
   },
