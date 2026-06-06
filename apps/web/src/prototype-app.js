@@ -113,6 +113,12 @@ import {
   normalizeScheduledTaskFilters
 } from "./scheduled-tasks-model.js";
 import {
+  canonicalizeAiSettingsSelection,
+  isAiLocalFlowActive,
+  isLocalModelPack,
+  localProviderPresetForModelPack
+} from "./ai-settings-state.js";
+import {
   analyzeDirectoryGraph,
   analyzePermanentNote,
   analyzeWritingWithStrongModel,
@@ -751,6 +757,7 @@ function loadAiSettingsFromStorage() {
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.localModel = storedLocalModel;
+  reconcileAiSelectionState();
 }
 
 function persistAiSettingsToStorage() {
@@ -833,14 +840,81 @@ function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
   return { modelPack: "Starter Auto", userMode: "Auto" };
 }
 
+function isLocalAdvancedModelRef(value = "") {
+  return /^(local_private_gateway|ollama_local_gateway|minicpm_local_gateway):/i.test(String(value || "").trim());
+}
+
+function preferredLocalProviderPresetForSelection() {
+  return localProviderPresetForModelPack(settingsState.ai.modelPack) || "local_private_gateway";
+}
+
+function reconcileAiSelectionState(options = {}) {
+  const previousModelPack = String(settingsState.ai.modelPack || "").trim();
+  const previousProviderPreset = providerPresetForModelPack(previousModelPack);
+  const nextSelection = canonicalizeAiSettingsSelection({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  }, {
+    syncUserMode: options.syncUserMode === true
+  });
+
+  settingsState.ai.runtimeMode = nextSelection.runtimeMode;
+  settingsState.ai.modelPack = nextSelection.modelPack;
+  if (options.syncUserMode === true || !String(settingsState.ai.userMode || "").trim()) {
+    settingsState.ai.userMode = nextSelection.userMode;
+  }
+  if (options.resetRoutePreview !== false) settingsState.ai.routePreview = null;
+  if (options.resetProviderState === true || previousProviderPreset !== nextSelection.providerPreset) {
+    settingsState.ai.providerEndpointUrl = "";
+    settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.secretRef = "";
+  }
+  if (nextSelection.providerPreset === "platform_managed_openai") {
+    settingsState.ai.providerEndpointUrl = "";
+    settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.secretRef = "";
+  }
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+
+  if (nextSelection.localFlowActive) {
+    const providerId = preferredLocalProviderPresetForSelection();
+    const endpointUrl = defaultProviderEndpointUrl(providerId) || OLLAMA_CHAT_ENDPOINT_URL;
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl) || OLLAMA_HEALTH_ENDPOINT_URL;
+    if (!settingsState.ai.providerEndpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
+    if (!settingsState.ai.providerHealthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+  }
+
+  if (settingsState.ai.localModel) {
+    applyOllamaLocalModelDefaults();
+  } else if (!nextSelection.localFlowActive && isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) {
+    settingsState.ai.advancedModelRef = "";
+  }
+
+  applyActiveAiProviderConfigToState();
+  return nextSelection;
+}
+
 function applyOllamaLocalModelDefaults() {
   if (!settingsState.ai.localModel) return;
-  settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
-  settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
-  settingsState.ai.secretRef = "";
-  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only") {
-    settingsState.ai.advancedModelRef = `local_private_gateway:${settingsState.ai.localModel}`;
-  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+  const providerId = preferredLocalProviderPresetForSelection();
+  const localFlowActive = isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  });
+  if (localFlowActive) {
+    const endpointUrl = defaultProviderEndpointUrl(providerId) || OLLAMA_CHAT_ENDPOINT_URL;
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl) || OLLAMA_HEALTH_ENDPOINT_URL;
+    settingsState.ai.providerEndpointUrl = endpointUrl;
+    settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+    settingsState.ai.secretRef = "";
+  }
+  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only" || isLocalModelPack(settingsState.ai.modelPack)) {
+    settingsState.ai.advancedModelRef = `${providerId}:${settingsState.ai.localModel}`;
+  } else if (isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) {
     settingsState.ai.advancedModelRef = "";
   }
 }
@@ -886,14 +960,22 @@ function applyActiveAiProviderConfigToState() {
 }
 
 function aiSettingsPayload() {
+  const selection = canonicalizeAiSettingsSelection({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  });
+  const localProviderPreset = preferredLocalProviderPresetForSelection();
   return {
     userMode: settingsState.ai.userMode,
-    modelPack: settingsState.ai.modelPack,
-    privacy: aiPrivacyPolicyForRuntimeMode(settingsState.ai.runtimeMode),
-    fallbackPolicy: aiFallbackPolicyForRuntimeMode(settingsState.ai.runtimeMode),
+    modelPack: selection.modelPack,
+    privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
+    fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
     advancedSettings: {
-      runtimeMode: settingsState.ai.runtimeMode,
+      runtimeMode: selection.runtimeMode,
       ...(settingsState.ai.localModel ? { localModel: settingsState.ai.localModel } : {}),
+      ...(settingsState.ai.localModel ? { localProviderPreset } : {}),
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
       ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
     }
@@ -949,7 +1031,7 @@ async function syncAiSettingsToApi() {
 
 async function saveLocalOllamaProviderConfig() {
   const saved = await saveAiProviderConfig(aiProviderConfigPayload({
-    providerId: "local_private_gateway",
+    providerId: preferredLocalProviderPresetForSelection(),
     authMode: "local_no_key"
   }));
   upsertAiProviderConfig(saved);
@@ -5210,6 +5292,19 @@ function permanentDirectoryDialogOptions() {
   }));
 }
 
+function noteMoveDirectoryOptions(currentDirectoryId = "") {
+  const currentFolder = folderById(state, currentDirectoryId);
+  const rootId = currentFolder ? rootBoxIdFromFolder(state, currentFolder.id) : "";
+  return state.folders
+    .filter((folder) => folder?.id && !folder.hidden && folder.id !== currentDirectoryId && rootBoxIdFromFolder(state, folder.id) === rootId)
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"))
+    .map((folder) => ({
+      id: folder.id,
+      label: directoryPathLabel(folder.id),
+      hint: `移动后会放到“${displayFolderName(folder)}”目录。`
+    }));
+}
+
 function importTargetDirectories() {
   return state.folders
     .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(rootBoxIdFromFolder(state, folder.id)))
@@ -5365,96 +5460,10 @@ function renderStatusMeta() {
 }
 
 function renderWorkspaceStatusHint() {
-  const helper = $("editorHelper");
-  if (!helper) return;
-  if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
-    hideEditorHelper();
-    return;
-  }
   const activeNote = activeEditorNote();
-  const activeBody = activeEditorBody();
-  const kicker = $("editorHelperKicker");
-  const title = $("editorHelperTitle");
-  const body = $("editorHelperBody");
-  const action = $("btnEditorHelperAction");
   const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
-  if (!activeNote) {
-    if (action) {
-      action.dataset.helperAction = "noop";
-      action.dataset.targetNoteId = "";
-    }
-    helper.hidden = false;
-    helper.setAttribute("aria-hidden", "false");
-    helper.style.pointerEvents = "";
-    helper.classList.remove("hidden");
-    kicker.textContent = "下一步推荐";
-    title.textContent = "先打开一条笔记";
-    body.textContent = "从随笔、文献或永久笔记里任选一条开始。后续会根据当前上下文提示相关任务和推荐下一步。";
-    action.textContent = "知道了";
-    return;
-  }
-  if (activeNote && !state.focusMode) {
-    hideEditorHelper();
-    return;
-  }
-  if (action) {
-    action.dataset.helperAction = "noop";
-    action.dataset.targetNoteId = "";
-  }
-  helper.hidden = false;
-  helper.setAttribute("aria-hidden", "false");
-  helper.style.pointerEvents = "";
-  helper.classList.remove("hidden");
-
-  if (state.focusMode) {
-    kicker.textContent = "专注模式";
-    title.textContent = "现在只保留当前笔记";
-    body.textContent = activeNote
-      ? `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}写清楚，再决定是否补连接与标签。`
-      : "专注模式会收起左侧导航和回链，只留下正文与关键按钮。打开一条笔记后再开始提炼。";
-    action.textContent = "保持专注";
-    return;
-  }
-  if (noteType === "literature") {
-    kicker.textContent = "文献笔记";
-    if (noteHasGeneratedOriginal(activeNote)) {
-      const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
-      title.textContent = "这条文献已经长出永久笔记";
-      body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条永久笔记里继续提炼自己的判断。";
-      action.textContent = "打开永久笔记";
-      if (action) {
-        action.dataset.helperAction = "open-generated-original";
-        action.dataset.targetNoteId = targetNoteId;
-      }
-    } else {
-      title.textContent = "先把原文转成你的判断";
-      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
-      action.textContent = "继续整理";
-    }
-    return;
-  }
-  if (isPermanentLikeNote(activeNote)) {
-    kicker.textContent = "永久笔记";
-    title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
-    body.textContent = "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。";
-    action.textContent = "继续提炼";
-    return;
-  }
-  kicker.textContent = "随笔笔记";
-  if (noteHasGeneratedOriginal(activeNote)) {
-    const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
-    title.textContent = "这条随笔已经沉淀为永久笔记";
-    body.textContent = "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。";
-    action.textContent = "打开永久笔记";
-    if (action) {
-      action.dataset.helperAction = "open-generated-original";
-      action.dataset.targetNoteId = targetNoteId;
-    }
-  } else {
-    title.textContent = "把这条随笔推进成可复用判断";
-    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录永久笔记”，把判断单独沉淀出来。";
-    action.textContent = "继续记录";
-  }
+  void noteType;
+  hideEditorHelper();
 }
 
 function applyFocusModeChrome() {
@@ -5968,28 +5977,28 @@ function continueWritingEntry(noteIds = [], { title = "", source = "writing_cent
 
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
+  const currentRuntimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  settingsState.ai.runtimeMode = isLocalModelPack(next)
+    ? "local_only"
+    : currentRuntimeMode === "local_only"
+      ? "auto"
+      : currentRuntimeMode;
   settingsState.ai.modelPack = next;
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerEndpointUrl = "";
-  settingsState.ai.providerHealthEndpointUrl = "";
-  settingsState.ai.secretRef = "";
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  applyActiveAiProviderConfigToState();
+  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
   refreshAiRoutePreview({ render: false });
 
   const settingsPack = $("settingsAiModelPack");
-  if (settingsPack && settingsPack.value !== next) settingsPack.value = next;
+  if (settingsPack && settingsPack.value !== settingsState.ai.modelPack) settingsPack.value = settingsState.ai.modelPack;
   const modulePack = $("moduleAiModelPack");
-  if (modulePack && modulePack.value !== next) modulePack.value = next;
+  if (modulePack && modulePack.value !== settingsState.ai.modelPack) modulePack.value = settingsState.ai.modelPack;
 
   renderModuleWorkspaceHeader();
   renderSettingsPanel();
 
   const source = String(options.source || "").trim();
-  setStatus(`AI model pack switched: ${next}${source ? ` (${source})` : ""}`, "ok");
+  setStatus(`AI model pack switched: ${settingsState.ai.modelPack}${source ? ` (${source})` : ""}`, "ok");
 }
 
 function syncMobileNewNoteButton() {
@@ -6128,6 +6137,201 @@ function renderAiRoutePreview() {
   `;
 }
 
+function renderAiSettingsExperience() {
+  const title = $("settingsAiSetupTitle");
+  const body = $("settingsAiSetupBody");
+  const badges = $("settingsAiSetupBadges");
+  const quickstartStatus = $("settingsAiQuickstartStatus");
+  const stepsEl = $("settingsAiSetupSteps");
+  const localHint = $("settingsAiLocalHint");
+  const advancedBadge = $("settingsAiAdvancedBadge");
+  const labBadge = $("settingsAiLabBadge");
+  if (!title || !body || !badges || !quickstartStatus || !stepsEl || !localHint || !advancedBadge || !labBadge) return;
+
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const localMode = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  const localStatus = String(settingsState.ai.localRuntimeStatus || "unknown").trim() || "unknown";
+  const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+  const localModel = String(settingsState.ai.localModel || "").trim();
+  const modelPack = String(settingsState.ai.modelPack || "").trim();
+  const providerId = currentAiProviderId();
+  const providerDisplayName = String(settingsState.ai.routePreview?.provider?.displayName || "").trim();
+  const localFlowActive = isAiLocalFlowActive({
+    runtimeMode,
+    modelPack,
+    providerId
+  });
+  const localDefaultsProviderId = localFlowActive ? preferredLocalProviderPresetForSelection() : providerId;
+  const providerLabel = providerId === "platform_managed_openai"
+    ? "平台托管 OpenAI"
+    : providerDisplayName === "Ollama Local"
+      ? "Ollama 本地"
+      : providerDisplayName || providerId || "未选择服务";
+  const routeModelRef = String(settingsState.ai.routePreview?.route?.modelRef || "").trim();
+  const routeHealthStatus = String(settingsState.ai.routePreview?.health?.status || settingsState.ai.providerHealthResult?.record?.status || "").trim();
+  const endpointOverride = String(settingsState.ai.providerEndpointUrl || "").trim();
+  const healthOverride = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+  const defaultEndpoint = defaultProviderEndpointUrl(localDefaultsProviderId) || (localFlowActive ? OLLAMA_CHAT_ENDPOINT_URL : "");
+  const defaultHealthEndpoint =
+    defaultProviderHealthEndpointUrl(localDefaultsProviderId, endpointOverride || defaultEndpoint) ||
+    (localFlowActive ? OLLAMA_HEALTH_ENDPOINT_URL : "");
+  const implicitLocalModelRef =
+    localModel && (runtimeMode === "local_only" || isLocalModelPack(modelPack))
+      ? `${preferredLocalProviderPresetForSelection()}:${localModel}`
+      : "";
+  const implicitLocalAdvancedOverride =
+    Boolean(settingsState.ai.routePreview?.route?.advancedOverride) &&
+    Boolean(implicitLocalModelRef) &&
+    routeModelRef === implicitLocalModelRef;
+  const advancedFields = [
+    String(settingsState.ai.advancedModelRef || "").trim() !== implicitLocalModelRef
+      ? String(settingsState.ai.advancedModelRef || "").trim()
+      : "",
+    String(settingsState.ai.secretRef || "").trim(),
+    endpointOverride && endpointOverride !== defaultEndpoint ? endpointOverride : "",
+    healthOverride && healthOverride !== defaultHealthEndpoint ? healthOverride : ""
+  ].filter(Boolean).length;
+  const hasMeaningfulAdvancedOverride = Boolean(settingsState.ai.routePreview?.route?.advancedOverride) && !implicitLocalAdvancedOverride;
+
+  const runtimeModeLabel = runtimeMode === "local_only"
+    ? "仅本地"
+    : runtimeMode === "hybrid"
+      ? "混合"
+      : runtimeMode === "cloud_only"
+        ? "仅云端"
+        : "自动";
+  const localRuntimeLabel = localMode
+    ? localStatus === "available"
+      ? localModel
+        ? `Ollama 已连接 / ${localModel}`
+        : models.length
+          ? `Ollama 已连接 / ${models.length} 个模型`
+          : "Ollama 已连接 / 还没有模型"
+      : localStatus === "unavailable"
+        ? "Ollama 未连接"
+        : settingsState.ai.localRuntimeChecking
+          ? "正在检测 Ollama"
+          : "等待检测 Ollama"
+    : "本地模型未启用";
+
+  const badgeItems = [
+    { tone: localFlowActive ? "ok" : "muted", text: `运行模式 ${runtimeModeLabel}` },
+    { tone: providerId.includes("local") ? "ok" : "", text: providerLabel }
+  ];
+  if (localFlowActive) {
+    badgeItems.push({
+      tone: localStatus === "available" ? "ok" : localStatus === "unavailable" ? "warn" : "muted",
+      text: localRuntimeLabel
+    });
+  }
+  badgeItems.push({
+    tone: routeHealthStatus === "healthy" ? "ok" : routeHealthStatus && routeHealthStatus !== "unknown" ? "warn" : "muted",
+    text: routeModelRef ? `模型 ${routeModelRef}` : "等待路由预览"
+  });
+  badges.innerHTML = badgeItems
+    .map((item) => `<span class="settings-stat-badge ${item.tone ? escapeHtml(item.tone) : ""}">${escapeHtml(item.text)}</span>`)
+    .join("");
+
+  let setupTitle = "当前以云端优先方式运行";
+  let setupBody = "如果你现在主要想先用起来，保留自动或仅云端就够了；想把敏感笔记尽量留在本机，再切到“仅本地”或“混合”。";
+  let quickstartLabel = "云端优先";
+  let helperText = "想启用本地模型，先把上面的 AI 运行模式切到“仅本地”或“混合”。";
+  let steps = [
+    { state: "complete", title: "当前模式已经可以直接使用", note: "你现在不需要额外安装本地推理环境。" },
+    { state: "current", title: "如果要本地模型，再切到“仅本地”或“混合”", note: "这样研思录才会进入 Ollama 本地模型流程。" },
+    { state: "pending", title: "检测 Ollama 并选择本地模型", note: "切换后会出现本地模型检测、下载和选择。" }
+  ];
+
+  if (localFlowActive) {
+    helperText = "本地模式下，推荐顺序是：先检测 Ollama，再下载 / 选择模型，最后跑一次测试运行确认路由。";
+    if (settingsState.ai.localRuntimeChecking) {
+      setupTitle = "正在检测本地模型环境";
+      setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内就会返回状态。";
+      quickstartLabel = "检测中";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}，后续操作都会围绕本地模型展开。` },
+        { state: "current", title: "正在检测 Ollama", note: "如果等待过久，先确认 Ollama 应用是否已经启动。" },
+        { state: "pending", title: "检测完成后选择或下载模型", note: "建议优先从 qwen2.5:7b 开始。" }
+      ];
+    } else if (localStatus !== "available") {
+      setupTitle = "先让 Ollama 在这台电脑上启动";
+      setupBody = "研思录已经进入本地模型流程，但当前还没连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
+      quickstartLabel = "等待 Ollama";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先用本地模型，深度任务仍可保留云端路由。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
+        { state: "current", title: "下载并启动 Ollama", note: "如果还没安装，点“下载 Ollama”；安装后保持它在后台运行。" },
+        { state: "pending", title: "回到研思录，点“检测 Ollama”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
+      ];
+      helperText = "如果你刚装好 Ollama，但这里还显示未连接，通常是因为 Ollama 服务还没启动，或者还没完成第一次初始化。";
+    } else if (!models.length) {
+      setupTitle = "Ollama 已连上，还差一个本地模型";
+      setupBody = "本地推理环境已经可用，但这台电脑里还没有可运行的模型。直接点“下载 qwen2.5:7b”即可开始。";
+      quickstartLabel = "等待模型";
+      steps = [
+        { state: "complete", title: "Ollama 已连接", note: "研思录已经能访问这台电脑上的本地推理服务。" },
+        { state: "current", title: "下载第一个本地模型", note: "推荐先从 qwen2.5:7b 开始，兼顾效果和资源占用。" },
+        { state: "pending", title: "下载后回来选择它并测试", note: "模型下载完成后，下面的本地模型下拉框会自动出现选项。" }
+      ];
+    } else if (!localModel) {
+      setupTitle = "本地模型已经可选，再选一个就能开始";
+      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个，研思录就会把本地路由补齐。";
+      quickstartLabel = "选择模型";
+      steps = [
+        { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
+        { state: "complete", title: "至少有一个本地模型可用", note: `当前检测到 ${models.length} 个模型。` },
+        { state: "current", title: "从下拉框里选一个模型", note: "选中后，建议立刻跑一次测试运行确认现在的路由确实走本地。" }
+      ];
+    } else {
+      setupTitle = "本地模型已经就绪";
+      setupBody = runtimeMode === "hybrid"
+        ? `当前已选中 ${localModel}。混合模式会优先把隐私 / 快速任务路由到本地，较重任务仍可能保留云端。`
+        : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖云端。`;
+      quickstartLabel = "本地已就绪";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
+        { state: "complete", title: "Ollama 和模型都已准备好", note: `当前使用 ${localModel}。` },
+        { state: settingsState.ai.testOutput ? "complete" : "current", title: "跑一次测试运行确认路由", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果，你可以继续微调模式和模型。" : "现在最适合做一次测试运行，确认提示词已经从本地模型返回。" }
+      ];
+    }
+  }
+
+  title.textContent = setupTitle;
+  body.textContent = setupBody;
+  quickstartStatus.textContent = quickstartLabel;
+  quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
+  quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
+  quickstartStatus.classList.toggle("muted", quickstartLabel === "云端优先");
+  stepsEl.innerHTML = steps
+    .map((step, index) => `
+      <div class="settings-ai-step ${escapeHtml(step.state === "complete" ? "is-complete" : step.state === "current" ? "is-current" : "")}">
+        <span class="settings-ai-step-index">${step.state === "complete" ? "✓" : index + 1}</span>
+        <div>
+          <span class="settings-ai-step-title">${escapeHtml(step.title)}</span>
+          <span class="settings-ai-step-note">${escapeHtml(step.note)}</span>
+        </div>
+      </div>
+    `)
+    .join("");
+  localHint.textContent = helperText;
+
+  advancedBadge.textContent = advancedFields
+    ? `${advancedFields} 项已填写`
+    : hasMeaningfulAdvancedOverride
+      ? "已覆盖自动路由"
+      : "保持默认";
+  advancedBadge.classList.toggle("warn", advancedFields > 0 || hasMeaningfulAdvancedOverride);
+  advancedBadge.classList.toggle("muted", !(advancedFields > 0 || hasMeaningfulAdvancedOverride));
+
+  labBadge.textContent = settingsState.ai.testRunning
+    ? "运行中"
+    : settingsState.ai.testOutput
+      ? "已有结果"
+      : "等待运行";
+  labBadge.classList.toggle("warn", settingsState.ai.testRunning);
+  labBadge.classList.toggle("ok", Boolean(settingsState.ai.testOutput) && !settingsState.ai.testRunning);
+  labBadge.classList.toggle("muted", !settingsState.ai.testRunning && !settingsState.ai.testOutput);
+}
+
 function renderAiLocalModelControls() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   const runtimeSelect = $("settingsAiRuntimeMode");
@@ -6135,7 +6339,12 @@ function renderAiLocalModelControls() {
 
   const modelSelect = $("settingsAiLocalModel");
   const modelLabel = $("settingsAiLocalModelLabel");
-  const showLocalModel = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  const providerId = currentAiProviderId();
+  const showLocalModel = isAiLocalFlowActive({
+    runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId
+  });
   modelSelect?.classList.toggle("hidden", !showLocalModel);
   modelLabel?.classList.toggle("hidden", !showLocalModel);
   if (modelSelect) {
@@ -6163,14 +6372,15 @@ function renderAiLocalModelControls() {
     detectButton.textContent = settingsState.ai.localRuntimeChecking ? "正在检测 Ollama..." : "检测 Ollama";
   }
 
-  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel);
+  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel || settingsState.ai.localRuntimeStatus === "available");
 
   const pullButton = $("settingsAiPullOllamaModel");
   if (pullButton) {
     const modelName = ollamaPullModelName();
     const installed = hasLocalModel(modelName);
-    pullButton.classList.toggle("hidden", !showLocalModel);
-    pullButton.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
+    const runtimeAvailable = settingsState.ai.localRuntimeStatus === "available";
+    pullButton.classList.toggle("hidden", !showLocalModel || !runtimeAvailable);
+    pullButton.disabled = !showLocalModel || !runtimeAvailable || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
     pullButton.textContent = settingsState.ai.localRuntimePulling
       ? `正在下载 ${modelName}...`
       : installed
@@ -6302,6 +6512,7 @@ function renderSettingsPanel() {
   }
 
   renderAiLocalModelControls();
+  renderAiSettingsExperience();
 
   const aiMode = $("settingsAiUserMode");
   if (aiMode) {
@@ -8476,11 +8687,16 @@ async function refreshVaultSettings() {
       settingsState.ai.advancedModelRef = advancedRef;
       const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
       settingsState.ai.secretRef = secretRef;
-      persistAiSettingsToStorage();
     }
+    reconcileAiSelectionState();
+    persistAiSettingsToStorage();
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
-    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+    if (isAiLocalFlowActive({
+      runtimeMode: settingsState.ai.runtimeMode,
+      modelPack: settingsState.ai.modelPack,
+      providerId: currentAiProviderId()
+    })) {
       await detectOllamaModels({ silent: true, render: false });
     }
     await refreshAiRoutePreview({ render: false });
@@ -13416,9 +13632,13 @@ const createBoxDialog = new CreateBoxDialog({
 });
 const permanentNoteDialog = new PermanentNoteDialog({
   maskEl: $("permanentNoteModal"),
+  modalTitleEl: $("permanentNoteModalTitle"),
+  modalNoteEl: $("permanentNoteModalNote"),
+  sourceCardEl: $("permanentNoteSourceCard"),
   sourceTypeEl: $("permanentNoteSourceType"),
   sourceTitleEl: $("permanentNoteSourceTitle"),
   sourceHintEl: $("permanentNoteSourceHint"),
+  directoryLabelEl: $("permanentNoteTargetFolderLabel"),
   directorySelectEl: $("permanentNoteTargetFolder"),
   directoryHintEl: $("permanentNoteTargetHint"),
   cancelEl: $("permanentNoteCancel"),
@@ -13476,6 +13696,28 @@ async function selectPermanentDirectory({
   return directoryId;
 }
 
+async function selectNoteMoveDirectory({
+  noteId = "",
+  noteTitle = "",
+  currentDirectoryId = ""
+} = {}) {
+  const options = noteMoveDirectoryOptions(currentDirectoryId);
+  if (!options.length) {
+    setStatus("当前文件盒里没有其他可移动目录", "warn");
+    return "";
+  }
+  return permanentNoteDialog.open({
+    modalTitle: "移动笔记",
+    modalNote: "选择要移动到的目录。这里只显示当前文件盒里可用的目录。",
+    sourceCardVisible: false,
+    directoryLabel: "目标目录",
+    directoryOptions: options,
+    defaultDirectoryId: options[0]?.id || "",
+    actionLabel: "移动到这个目录",
+    sourceTitle: noteTitle || noteId || "未命名笔记"
+  });
+}
+
 const explorer = new ExplorerPane({
   state,
   elements: {
@@ -13492,6 +13734,7 @@ const explorer = new ExplorerPane({
   onStateChange: handleStateChange,
   pickDirectory: desktopCommands.browseDirectory,
   selectPermanentDirectory,
+  selectNoteMoveDirectory,
   desktopFile: { revealPath: desktopCommands.revealInFileManager, openPath: desktopCommands.openDirectory },
   resolveNotePath
 });
@@ -13667,29 +13910,26 @@ $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
   settingsState.ai.runtimeMode = next;
   settingsState.ai.userMode = defaults.userMode;
   settingsState.ai.modelPack = defaults.modelPack;
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  if (next === "local_only" || next === "hybrid") {
-    settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
-    settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
-    settingsState.ai.secretRef = "";
-    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
-    else if (settingsState.ai.advancedModelRef && !settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) settingsState.ai.advancedModelRef = "";
-  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
-    settingsState.ai.advancedModelRef = "";
-  }
+  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
   persistAiSettingsToStorage();
   await syncAiSettingsToApi();
-  if ((next === "local_only" || next === "hybrid") && !settingsState.ai.localRuntimeModels.length) {
+  if (isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: currentAiProviderId()
+  }) && !settingsState.ai.localRuntimeModels.length) {
     await detectOllamaModels({ silent: true, render: false });
   }
-  if ((next === "local_only" || next === "hybrid") && settingsState.ai.localModel) {
+  if (isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: currentAiProviderId()
+  }) && settingsState.ai.localModel) {
     await saveLocalOllamaProviderConfig();
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(`AI 运行模式已切换为：${next}`, "ok");
+  setStatus(`AI 运行模式已切换为：${settingsState.ai.runtimeMode}`, "ok");
 });
 
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
@@ -13705,23 +13945,6 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
   applyAiModelPackChange(next, { source: "settings" });
-  return;
-  settingsState.ai.modelPack = next;
-  if (next === "Privacy First") settingsState.ai.runtimeMode = "local_only";
-  else if (settingsState.ai.runtimeMode === "local_only") settingsState.ai.runtimeMode = "auto";
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerEndpointUrl = "";
-  settingsState.ai.providerHealthEndpointUrl = "";
-  settingsState.ai.secretRef = "";
-  if (settingsState.ai.runtimeMode === "local_only" && settingsState.ai.localModel) applyOllamaLocalModelDefaults();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  applyActiveAiProviderConfigToState();
-  persistAiSettingsToStorage();
-  syncAiSettingsToApi();
-  refreshAiRoutePreview();
-  renderSettingsPanel();
-  setStatus(`AI 模型包已切换为：${next}`, "ok");
 });
 
 $("settingsAiLocalModel")?.addEventListener("change", async (event) => {

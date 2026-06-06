@@ -111,6 +111,46 @@ test("editor toolbar does not render the file attachment button", () => {
   assert.doesNotMatch(html, /插入文件附件/);
 });
 
+test("file context menu keeps move user-facing and removes id or properties utilities", () => {
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const menuStart = source.indexOf('      if (kind === "file") {\n        const note = this.state.notes.find((x) => x.id === id);');
+  const menuEnd = source.indexOf("  isDescendantFolder(", menuStart);
+
+  assert.ok(menuStart >= 0 && menuEnd > menuStart, "expected file context menu definition to exist");
+  const menuSource = source.slice(menuStart, menuEnd);
+
+  assert.match(menuSource, /label: "移动到\.\.\."/);
+  assert.doesNotMatch(menuSource, /复制笔记 ID/);
+  assert.doesNotMatch(menuSource, /label: "属性"/);
+});
+
+test("file move action uses the directory picker instead of prompting for ids", () => {
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const match = source.match(/if \(action === "move"\) \{([\s\S]*?)\n\s*if \(action === "record-permanent"\)/);
+
+  assert.ok(match, "expected file move handler to exist");
+  const fnBody = match[1];
+
+  assert.match(fnBody, /selectNoteMoveDirectory/);
+  assert.match(fnBody, /note-move/);
+  assert.doesNotMatch(fnBody, /prompt\(/);
+  assert.doesNotMatch(fnBody, /目录 ID/);
+});
+
+test("folder context menu removes id and properties utilities", () => {
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const menuStart = source.indexOf('      if (kind === "folder") {\n        const folder = folderById(this.state, id);');
+  const menuEnd = source.indexOf('      if (kind === "file") {', menuStart);
+
+  assert.ok(menuStart >= 0 && menuEnd > menuStart, "expected folder context menu definition to exist");
+  const menuSource = source.slice(menuStart, menuEnd);
+
+  assert.doesNotMatch(menuSource, /复制目录 ID/);
+  assert.doesNotMatch(menuSource, /label: "属性"/);
+  assert.match(menuSource, /设置保存位置/);
+  assert.match(menuSource, /在系统文件管理器中显示/);
+});
+
 test("prototype fallback state keeps local permanent note seeds for reviewable main-path flows", () => {
   const state = createInitialState();
 

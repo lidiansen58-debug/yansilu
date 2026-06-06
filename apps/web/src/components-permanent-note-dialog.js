@@ -10,18 +10,26 @@ function escapeHtml(value = "") {
 export class PermanentNoteDialog {
   constructor({
     maskEl,
+    modalTitleEl,
+    modalNoteEl,
+    sourceCardEl,
     sourceTypeEl,
     sourceTitleEl,
     sourceHintEl,
+    directoryLabelEl,
     directorySelectEl,
     directoryHintEl,
     cancelEl,
     createEl
   }) {
     this.maskEl = maskEl;
+    this.modalTitleEl = modalTitleEl;
+    this.modalNoteEl = modalNoteEl;
+    this.sourceCardEl = sourceCardEl;
     this.sourceTypeEl = sourceTypeEl;
     this.sourceTitleEl = sourceTitleEl;
     this.sourceHintEl = sourceHintEl;
+    this.directoryLabelEl = directoryLabelEl;
     this.directorySelectEl = directorySelectEl;
     this.directoryHintEl = directoryHintEl;
     this.cancelEl = cancelEl;
@@ -38,10 +46,14 @@ export class PermanentNoteDialog {
   }
 
   open({
+    modalTitle = "创建永久笔记",
+    modalNote = "先选要放入的永久笔记盒目录，再继续创建。这里只保留对当前操作有帮助的信息。",
     sourceType = "",
     sourceTypeLabel = "",
     sourceTitle = "",
     sourceHint = "",
+    sourceCardVisible = true,
+    directoryLabel = "永久笔记盒目录",
     directoryOptions = [],
     defaultDirectoryId = "",
     actionLabel = "在这个目录创建"
@@ -53,10 +65,14 @@ export class PermanentNoteDialog {
       this.pendingResolve = null;
     }
 
+    if (this.modalTitleEl) this.modalTitleEl.textContent = modalTitle;
+    if (this.modalNoteEl) this.modalNoteEl.textContent = modalNote;
+    if (this.sourceCardEl) this.sourceCardEl.hidden = !sourceCardVisible;
     this.sourceTypeEl.textContent = sourceTypeLabel || "来源笔记";
     this.sourceTypeEl.dataset.sourceType = String(sourceType || "").trim().toLowerCase();
     this.sourceTitleEl.textContent = String(sourceTitle || "").trim() || "未命名笔记";
     this.sourceHintEl.textContent = sourceHint || "先选一个永久笔记盒目录，再继续创建。";
+    if (this.directoryLabelEl) this.directoryLabelEl.textContent = directoryLabel;
     this.createEl.textContent = actionLabel;
 
     this.options = Array.isArray(directoryOptions) ? directoryOptions.filter((item) => item?.id && item?.label) : [];

@@ -7608,8 +7608,9 @@ test("prototype explorer note context move and delete update disk state", async 
   const noteRow = page.locator('.explorer-item[data-kind="file"]', { hasText: "Note move source" });
   await noteRow.waitFor();
 
-  await acceptPrompt(page, /移动到目录 ID/, targetDirectory.json.item.id);
   await openContextAction(page, noteRow, "move");
+  await page.locator("#permanentNoteTargetFolder").selectOption(targetDirectory.json.item.id);
+  await page.locator("#permanentNoteCreate").click();
 
   await waitFor(async () => {
     const statusText = await page.locator("#statusText").textContent();
