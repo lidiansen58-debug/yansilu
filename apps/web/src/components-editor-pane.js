@@ -351,7 +351,7 @@ function normalizedLiteratureSectionLabels(sectionLabels = {}) {
 export function deriveLiteratureSectionLabelsFromTemplate(templateSource = "") {
   const normalized = normalizedLiteratureSectionLabels();
   const { sections } = splitMarkdownLevelTwoSections(stripMarkdownTitle(templateSource));
-  const remainingKeys = new Set(Object.keys(LITERATURE_SECTION_LABELS));
+  const remainingKeys = new Set(LITERATURE_SECTION_ORDER);
   const explicitMatches = new Map();
 
   for (const section of sections) {
@@ -367,23 +367,47 @@ export function deriveLiteratureSectionLabelsFromTemplate(templateSource = "") {
   }
 
   for (const [key, heading] of explicitMatches.entries()) normalized[key] = heading;
-
-  const unmatchedHeadings = sections
-    .map((section) => normalizeFieldText(section?.heading || ""))
-    .filter(
-      (heading) =>
-        heading &&
-        !Array.from(explicitMatches.values()).some((mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(heading))
+  const fallbackQueue = LITERATURE_SECTION_ORDER.filter((key) => remainingKeys.has(key));
+  let fallbackEnabled = true;
+  for (let index = 0; index < sections.length; index += 1) {
+    const heading = normalizeFieldText(sections[index]?.heading || "");
+    if (!heading) continue;
+    const isExplicit = Array.from(explicitMatches.values()).some(
+      (mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(heading)
     );
-
-  for (const key of LITERATURE_SECTION_ORDER) {
-    if (!remainingKeys.has(key)) continue;
-    const nextHeading = unmatchedHeadings.shift();
-    if (!nextHeading) break;
-    normalized[key] = nextHeading;
+    if (isExplicit) continue;
+    if (!fallbackEnabled || !fallbackQueue.length) break;
+    const remainingHeadings = sections
+      .slice(index)
+      .map((section) => normalizeFieldText(section?.heading || ""))
+      .filter(
+        (item) =>
+          item &&
+          !Array.from(explicitMatches.values()).some((mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(item))
+      );
+    if (remainingHeadings.length > fallbackQueue.length) {
+      fallbackEnabled = false;
+      continue;
+    }
+    const key = fallbackQueue.shift();
+    if (!key) break;
+    normalized[key] = heading;
   }
 
   return normalized;
+}
+
+function normalizeLiteratureSectionLabelCandidates(candidates = [], fallback = {}) {
+  const normalized = [];
+  const seen = new Set();
+  for (const candidate of [...(Array.isArray(candidates) ? candidates : []), fallback]) {
+    const labels = normalizedLiteratureSectionLabels(candidate || {});
+    const signature = JSON.stringify(labels);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    normalized.push(labels);
+  }
+  return normalized.length ? normalized : [normalizedLiteratureSectionLabels()];
 }
 
 function literatureSectionLabelsFor(key = "", options = {}) {
@@ -572,23 +596,53 @@ function literatureCitationState(citation = {}) {
 export function parseLiteratureWorkspace(body = "", options = {}) {
   const title = titleFromBody(body);
   const content = stripMarkdownTitle(body);
-  const sectionLabels = normalizedLiteratureSectionLabels(options?.sectionLabels || options);
-  const structured = allLiteratureSectionLabels({ sectionLabels }).some((label) =>
-    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
-  );
-  const citation = structured
-    ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation", { sectionLabels })))
-    : emptyLiteratureCitationFields();
-  const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText", { sectionLabels })) : content.trim();
-  return {
+  const candidates = normalizeLiteratureSectionLabelCandidates(options?.sectionLabelCandidates, options?.sectionLabels || options);
+  let bestParsed = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const sectionLabels of candidates) {
+    const structured = allLiteratureSectionLabels({ sectionLabels }).some((label) =>
+      new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+    );
+    const citation = structured
+      ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation", { sectionLabels })))
+      : emptyLiteratureCitationFields();
+    const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText", { sectionLabels })) : content.trim();
+    const parsed = {
+      title,
+      citation,
+      originalText,
+      paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase", { sectionLabels })) : "",
+      whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep", { sectionLabels })) : "",
+      supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment", { sectionLabels })) : "",
+      question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question", { sectionLabels })) : "",
+      boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary", { sectionLabels })) : "",
+      sectionLabels
+    };
+    const score =
+      (structured ? 100 : 0) +
+      LITERATURE_SECTION_ORDER.reduce((total, key) => {
+        if (key === "citation") {
+          return total + (Object.values(parsed.citation || {}).some(Boolean) ? 20 : 0);
+        }
+        return total + (normalizeFieldText(parsed[key] || "") ? 20 : 0);
+      }, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestParsed = parsed;
+    }
+  }
+
+  return bestParsed || {
     title,
-    citation,
-    originalText,
-    paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase", { sectionLabels })) : "",
-    whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep", { sectionLabels })) : "",
-    supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment", { sectionLabels })) : "",
-    question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question", { sectionLabels })) : "",
-    boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary", { sectionLabels })) : ""
+    citation: emptyLiteratureCitationFields(),
+    originalText: content.trim(),
+    paraphrase: "",
+    whyKeep: "",
+    supportsJudgment: "",
+    question: "",
+    boundary: "",
+    sectionLabels: normalizedLiteratureSectionLabels()
   };
 }
 
@@ -1993,7 +2047,8 @@ export class EditorPane {
     onChromeChange,
     resolveNoteWritingContinuation,
     selectPermanentDirectory,
-    resolveLiteratureSectionLabels
+    resolveLiteratureSectionLabels,
+    resolveLiteratureSectionLabelCandidates
   }) {
     this.state = state;
     this.els = elements;
@@ -2007,6 +2062,8 @@ export class EditorPane {
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
     this.resolveLiteratureSectionLabels =
       typeof resolveLiteratureSectionLabels === "function" ? resolveLiteratureSectionLabels : () => ({});
+    this.resolveLiteratureSectionLabelCandidates =
+      typeof resolveLiteratureSectionLabelCandidates === "function" ? resolveLiteratureSectionLabelCandidates : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentPinnedLinkId = "";
@@ -2273,8 +2330,13 @@ export class EditorPane {
     return normalizedLiteratureSectionLabels(this.resolveLiteratureSectionLabels?.() || {});
   }
 
+  literatureSectionLabelCandidates() {
+    const resolved = this.resolveLiteratureSectionLabelCandidates?.();
+    return normalizeLiteratureSectionLabelCandidates(resolved, this.literatureSectionLabels());
+  }
+
   parseLiteratureBody(body = "") {
-    return parseLiteratureWorkspace(body || "", { sectionLabels: this.literatureSectionLabels() });
+    return parseLiteratureWorkspace(body || "", { sectionLabelCandidates: this.literatureSectionLabelCandidates() });
   }
 
   literatureFieldsFromInputs() {

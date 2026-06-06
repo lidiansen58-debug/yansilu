@@ -815,6 +815,15 @@ function currentLiteratureTemplateSectionLabels() {
   return deriveLiteratureSectionLabelsFromTemplate(settingsState.noteTemplates.literature.text);
 }
 
+function literatureTemplateSectionLabelCandidates() {
+  return [
+    currentLiteratureTemplateSectionLabels(),
+    ...normalizeNoteTemplateHistory(settingsState.noteTemplates.literature.history, "literature").map((template) =>
+      deriveLiteratureSectionLabelsFromTemplate(template)
+    )
+  ];
+}
+
 function defaultPermanentTemplateSource(title = "{{title}}") {
   return composePermanentWorkspace(
     {
@@ -4106,7 +4115,7 @@ function hasRequiredLiteratureCitation(citation = {}) {
 }
 
 function literatureQueueLaneForNote(note) {
-  const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabels: currentLiteratureTemplateSectionLabels() });
+  const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabelCandidates: literatureTemplateSectionLabelCandidates() });
   const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
   const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
   const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -4889,7 +4898,7 @@ function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
     const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "", {
-      sectionLabels: currentLiteratureTemplateSectionLabels()
+      sectionLabelCandidates: literatureTemplateSectionLabelCandidates()
     });
     const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
     const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
@@ -14921,6 +14930,7 @@ const editor = new EditorPane({
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   selectPermanentDirectory,
   resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
+  resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();

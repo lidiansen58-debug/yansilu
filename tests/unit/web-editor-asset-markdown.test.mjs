@@ -225,6 +225,111 @@ Useful later in synthesis
   assert.equal(parsed.whyKeep, "Useful later in synthesis");
 });
 
+test("deriveLiteratureSectionLabelsFromTemplate stays conservative when custom headings would shift known fields", () => {
+  const sectionLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## Research Notes
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+
+  assert.equal(sectionLabels.citation, "引用信息");
+  assert.equal(sectionLabels.originalText, "原文");
+  assert.equal(sectionLabels.paraphrase, "转述");
+  assert.equal(sectionLabels.supportsJudgment, "判断种子");
+  assert.equal(sectionLabels.question, "追问");
+  assert.equal(sectionLabels.boundary, "边界 / 反例");
+  assert.equal(sectionLabels.whyKeep, "保留原因");
+});
+
+test("parseLiteratureWorkspace can keep reading older renamed headings from template history candidates", () => {
+  const currentLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+  const oldLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Metadata
+
+## Quote
+
+## Restatement
+
+## Thesis Seed
+
+## Tension
+
+## Limits
+
+## Worth Keeping
+`);
+  const parsed = parseLiteratureWorkspace(`# Historic Literature Note
+
+## Metadata
+
+- 标题：Source
+- 作者：Author
+- 年份：2025
+- 页码 / 定位：p. 9
+- DOI / ISBN / arXiv / URL / PDF：doi:10/history
+
+## Quote
+
+Original text
+
+## Restatement
+
+Old paraphrase
+
+## Thesis Seed
+
+Historical claim
+
+## Tension
+
+Historical question
+
+## Limits
+
+Historical boundary
+
+## Worth Keeping
+
+Historical reason
+`, { sectionLabelCandidates: [currentLabels, oldLabels] });
+
+  assert.equal(parsed.originalText, "Original text");
+  assert.equal(parsed.paraphrase, "Old paraphrase");
+  assert.equal(parsed.supportsJudgment, "Historical claim");
+  assert.equal(parsed.question, "Historical question");
+  assert.equal(parsed.boundary, "Historical boundary");
+  assert.equal(parsed.whyKeep, "Historical reason");
+});
+
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {
   const parsed = parsePermanentWorkspace(`# Permanent note
 
