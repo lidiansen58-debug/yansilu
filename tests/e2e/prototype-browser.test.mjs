@@ -4523,6 +4523,62 @@ test("prototype literature template preview surfaces invalid shapes before save"
   }, 5000);
 });
 
+test("prototype falls back to default literature template when stored template is invalid", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const invalidLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`;
+
+  const stack = await startPrototypeStack(t, playwright, {
+    beforeGoto: async (page) => {
+      await page.addInitScript(({ literature }) => {
+        window.localStorage.setItem("yansilu:settings:note-template:literature", literature);
+      }, {
+        literature: invalidLiteratureTemplate
+      });
+    }
+  });
+  if (!stack) return;
+  const { page } = stack;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+  }, 5000);
+
+  await page.locator('[data-action="quick-literature"]').click();
+  await page.locator("#btnNewNote").click();
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /## 引用信息/);
+    assert.match(value, /## 原文/);
+    assert.match(value, /## 转述/);
+    assert.doesNotMatch(value, /## Research Notes/);
+  }, 5000);
+});
+
 test("prototype migrates legacy global note templates into the active vault scope", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

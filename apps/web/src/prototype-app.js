@@ -813,7 +813,7 @@ function defaultLiteratureTemplateSource(title = "{{title}}") {
 }
 
 function currentLiteratureTemplateSectionLabels() {
-  return deriveLiteratureSectionLabelsFromTemplate(settingsState.noteTemplates.literature.text);
+  return deriveLiteratureSectionLabelsFromTemplate(effectiveSavedNoteTemplateSource("literature"));
 }
 
 function literatureTemplateSectionLabelCandidates() {
@@ -845,11 +845,20 @@ function normalizeNoteTemplateSource(text = "", kind = "") {
   return normalized || defaultTemplateSourceForKind(kind);
 }
 
+function effectiveSavedNoteTemplateSource(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const savedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
+  if (cleanKind !== "literature") return savedSource;
+  const validation = validateLiteratureTemplateSource(savedSource);
+  return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
+}
+
 function normalizeNoteTemplateHistory(items = [], kind = "") {
   const normalized = [];
   const seen = new Set();
   for (const item of Array.isArray(items) ? items : []) {
     const text = normalizeNoteTemplateSource(item, kind);
+    if (String(kind || "").trim().toLowerCase() === "literature" && !validateLiteratureTemplateSource(text).ok) continue;
     if (!text || seen.has(text)) continue;
     seen.add(text);
     normalized.push(text);
@@ -6148,11 +6157,11 @@ function ensureEditableNoteBody(body = "") {
 }
 
 function literatureNoteTemplateBody(title = "未命名笔记") {
-  return applyTitleToNoteTemplate(settingsState.noteTemplates.literature.text, title, "literature");
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("literature"), title, "literature");
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return applyTitleToNoteTemplate(settingsState.noteTemplates.permanent.text, title, "permanent");
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("permanent"), title, "permanent");
 }
 
 function initialBodyForFolder(folderId = "") {
