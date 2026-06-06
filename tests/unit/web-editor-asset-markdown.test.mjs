@@ -209,6 +209,10 @@ Claim that can stand on its own.
   assert.equal(parsed.coreClaim, "Claim that can stand on its own.");
   assert.equal(parsed.relatedClues, "- [[Source note]]");
   assert.equal(parsed.supplement, "");
+  assert.deepEqual(parsed.sectionLayout, [
+    { kind: "known", key: "coreClaim" },
+    { kind: "known", key: "relatedClues" }
+  ]);
 });
 
 test("parsePermanentWorkspace keeps legacy freeform content editable without forcing migration", () => {
@@ -262,6 +266,11 @@ This custom section should stay top-level.
   assert.equal(parsed.relatedClues, "- [[Related note]]");
   assert.equal(parsed.supplement, "");
   assert.deepEqual(parsed.extraSections, [{ heading: "自定义问题", body: "This custom section should stay top-level." }]);
+  assert.deepEqual(parsed.sectionLayout, [
+    { kind: "known", key: "coreClaim" },
+    { kind: "unknown", index: 0 },
+    { kind: "known", key: "relatedClues" }
+  ]);
 });
 
 test("composePermanentWorkspace keeps unknown sections top-level instead of nesting them under supplement", () => {
@@ -287,11 +296,11 @@ test("composePermanentWorkspace preserves structured preface ahead of core secti
   const markdown = composePermanentWorkspace(
     {
       title: "Permanent note",
-      preface: "Intro paragraph stays outside sections.",
       coreClaim: "A stable claim.",
       relatedClues: "- [[Related note]]"
     },
     {
+      preface: "Intro paragraph stays outside sections.",
       extraSections: [{ heading: "自定义问题", body: "This custom section should stay top-level." }]
     }
   );
@@ -300,4 +309,41 @@ test("composePermanentWorkspace preserves structured preface ahead of core secti
   assert.match(markdown, /\n\n## 核心观点/);
   assert.match(markdown, /\n\n## 自定义问题/);
   assert.doesNotMatch(markdown, /## 补充内容/);
+});
+
+test("composePermanentWorkspace preserves custom section order from parsed layout", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+## 核心观点
+
+A stable claim.
+
+## 自定义问题
+
+Custom before related.
+
+## 关联线索
+
+- [[Related note]]
+`);
+
+  const markdown = composePermanentWorkspace(
+    {
+      title: parsed.title,
+      preface: parsed.preface,
+      coreClaim: "A revised stable claim.",
+      relatedClues: parsed.relatedClues,
+      supplement: parsed.supplement
+    },
+    {
+      sectionLayout: parsed.sectionLayout,
+      extraSections: parsed.extraSections
+    }
+  );
+
+  const customIndex = markdown.indexOf("## 自定义问题");
+  const relatedIndex = markdown.indexOf("## 关联线索");
+  assert.notEqual(customIndex, -1);
+  assert.notEqual(relatedIndex, -1);
+  assert.ok(customIndex < relatedIndex, markdown);
 });

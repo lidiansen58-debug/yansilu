@@ -356,6 +356,31 @@ function normalizePermanentExtraSections(sections = []) {
     .filter((section) => section.heading);
 }
 
+function normalizePermanentSectionLayout(layout = []) {
+  const normalized = [];
+  const seenKnown = new Set();
+  for (const item of Array.isArray(layout) ? layout : []) {
+    const kind = String(item?.kind || "").trim().toLowerCase();
+    if (kind === "known") {
+      const key = String(item?.key || "").trim();
+      if (!PERMANENT_SECTION_LABELS[key] || seenKnown.has(key)) continue;
+      seenKnown.add(key);
+      normalized.push({ kind: "known", key });
+      continue;
+    }
+    if (kind === "unknown") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "unknown", index });
+    }
+  }
+  return normalized;
+}
+
+function defaultPermanentSectionLayout() {
+  return Object.keys(PERMANENT_SECTION_LABELS).map((key) => ({ kind: "known", key }));
+}
+
 function permanentSectionKeyFromHeading(heading = "") {
   const normalizedHeading = normalizeLooseText(heading);
   for (const key of Object.keys(PERMANENT_SECTION_LABELS)) {
@@ -538,6 +563,7 @@ export function parsePermanentWorkspace(body = "") {
     relatedClues: "",
     supplement: "",
     extraSections: [],
+    sectionLayout: [],
     structured
   };
 
@@ -551,12 +577,19 @@ export function parsePermanentWorkspace(body = "") {
   parsed.preface = normalizeFieldText(preface);
   const supplementParts = [];
   const unknownSections = [];
+  const sectionLayout = [];
+  const seenKnown = new Set();
   for (const section of sections) {
     const key = permanentSectionKeyFromHeading(section.heading);
     const sectionBody = normalizeFieldText(section.body);
     if (!key) {
       unknownSections.push(section);
+      sectionLayout.push({ kind: "unknown", index: unknownSections.length - 1 });
       continue;
+    }
+    if (!seenKnown.has(key)) {
+      sectionLayout.push({ kind: "known", key });
+      seenKnown.add(key);
     }
     if (key === "supplement") {
       if (sectionBody) supplementParts.push(sectionBody);
@@ -566,13 +599,14 @@ export function parsePermanentWorkspace(body = "") {
   }
   parsed.supplement = normalizeFieldText(supplementParts.join("\n\n"));
   parsed.extraSections = normalizePermanentExtraSections(unknownSections);
+  parsed.sectionLayout = normalizePermanentSectionLayout(sectionLayout);
   return parsed;
 }
 
 export function composePermanentWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
   const includeEmptySections = options?.includeEmptySections === true;
-  const preface = normalizeFieldText(fields.preface);
+  const preface = normalizeFieldText(fields.preface || options?.preface);
   const normalized = {
     coreClaim: normalizeFieldText(fields.coreClaim),
     whyTrue: normalizeFieldText(fields.whyTrue),
@@ -581,6 +615,7 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     supplement: normalizeFieldText(fields.supplement)
   };
   const extraSections = normalizePermanentExtraSections(options?.extraSections);
+  const sectionLayout = normalizePermanentSectionLayout(options?.sectionLayout);
   const lines = [`# ${title}`, ""];
   if (preface) lines.push(preface, "");
   const sectionOrder = [
@@ -590,13 +625,38 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     ["relatedClues", PERMANENT_SECTION_LABELS.relatedClues],
     ["supplement", PERMANENT_SECTION_LABELS.supplement]
   ];
-  for (const [key, label] of sectionOrder) {
+  const labelByKey = Object.fromEntries(sectionOrder);
+  const emittedKnown = new Set();
+  const emittedUnknown = new Set();
+  const resolvedLayout = sectionLayout.length ? sectionLayout : defaultPermanentSectionLayout();
+
+  const appendKnownSection = (key = "") => {
     const value = normalized[key];
-    if (!includeEmptySections && !value) continue;
+    if (emittedKnown.has(key)) return;
+    if (!includeEmptySections && !value) return;
+    const label = labelByKey[key];
+    if (!label) return;
     lines.push(`## ${label}`, "", value, "");
-  }
-  for (const section of extraSections) {
+    emittedKnown.add(key);
+  };
+
+  const appendUnknownSection = (index = -1) => {
+    if (emittedUnknown.has(index)) return;
+    const section = extraSections[index];
+    if (!section) return;
     lines.push(`## ${section.heading}`, "", section.body, "");
+    emittedUnknown.add(index);
+  };
+
+  for (const item of resolvedLayout) {
+    if (item.kind === "known") appendKnownSection(item.key);
+    if (item.kind === "unknown") appendUnknownSection(item.index);
+  }
+  for (const [key] of sectionOrder) {
+    appendKnownSection(key);
+  }
+  for (let index = 0; index < extraSections.length; index += 1) {
+    appendUnknownSection(index);
   }
   return lines.join("\n").replace(/\n+$/g, "\n");
 }
@@ -2108,10 +2168,15 @@ export class EditorPane {
     return normalizeFieldText(tab?.permanentPreface);
   }
 
+  permanentSectionLayout(tab = this.activeTab()) {
+    return normalizePermanentSectionLayout(tab?.permanentSectionLayout);
+  }
+
   rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
     if (!tab) return;
     tab.permanentPreface = normalizeFieldText(parsed?.preface);
     tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
+    tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
   }
 
   literatureCompletionState(note = this.activeNote()) {
@@ -2422,6 +2487,7 @@ export class EditorPane {
       composePermanentWorkspace(this.permanentFieldsFromInputs(), {
         ...options,
         preface: options?.preface ?? this.permanentPreface(),
+        sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
         extraSections: options?.extraSections || this.permanentExtraSections()
       })
     );
@@ -3942,6 +4008,7 @@ export class EditorPane {
     if (this.isPermanentWorkspaceActive()) {
       return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
         preface: this.permanentPreface(),
+        sectionLayout: this.permanentSectionLayout(),
         extraSections: this.permanentExtraSections()
       });
     }
@@ -3966,6 +4033,7 @@ export class EditorPane {
     if (!parsed.structured) return raw;
     return composePermanentWorkspace(parsed, {
       preface: parsed.preface,
+      sectionLayout: parsed.sectionLayout,
       extraSections: parsed.extraSections
     });
   }
