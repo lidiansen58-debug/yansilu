@@ -368,6 +368,12 @@ function normalizePermanentSectionLayout(layout = []) {
       normalized.push({ kind: "known", key });
       continue;
     }
+    if (kind === "duplicate_known") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "duplicate_known", index });
+      continue;
+    }
     if (kind === "unknown") {
       const index = Number(item?.index);
       if (!Number.isInteger(index) || index < 0) continue;
@@ -379,6 +385,16 @@ function normalizePermanentSectionLayout(layout = []) {
 
 function defaultPermanentSectionLayout() {
   return Object.keys(PERMANENT_SECTION_LABELS).map((key) => ({ kind: "known", key }));
+}
+
+function normalizeRepeatedKnownPermanentSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      key: String(section?.key || "").trim(),
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => PERMANENT_SECTION_LABELS[section.key] && section.heading);
 }
 
 function permanentSectionKeyFromHeading(heading = "") {
@@ -401,7 +417,9 @@ function inferLegacyPermanentFields(content = "") {
       boundary: "",
       relatedClues: "",
       supplement: "",
-      extraSections: []
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
     };
   }
   const paragraphs = text
@@ -423,7 +441,9 @@ function inferLegacyPermanentFields(content = "") {
       boundary: "",
       relatedClues: "",
       supplement: text,
-      extraSections: []
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
     };
   }
   return {
@@ -433,7 +453,9 @@ function inferLegacyPermanentFields(content = "") {
     boundary: "",
     relatedClues: "",
     supplement: rest,
-    extraSections: []
+    extraSections: [],
+    repeatedKnownSections: [],
+    sectionLayout: []
   };
 }
 
@@ -563,11 +585,23 @@ export function parsePermanentWorkspace(body = "") {
     relatedClues: "",
     supplement: "",
     extraSections: [],
+    repeatedKnownSections: [],
     sectionLayout: [],
     structured
   };
 
   if (!structured) {
+    if (sections.length) {
+      return {
+        ...parsed,
+        preface: normalizeFieldText(preface),
+        extraSections: normalizePermanentExtraSections(sections),
+        repeatedKnownSections: [],
+        sectionLayout: normalizePermanentSectionLayout(
+          sections.map((_, index) => ({ kind: "unknown", index }))
+        )
+      };
+    }
     return {
       ...parsed,
       ...inferLegacyPermanentFields(content)
@@ -577,6 +611,7 @@ export function parsePermanentWorkspace(body = "") {
   parsed.preface = normalizeFieldText(preface);
   const supplementParts = [];
   const unknownSections = [];
+  const repeatedKnownSections = [];
   const sectionLayout = [];
   const seenKnown = new Set();
   for (const section of sections) {
@@ -585,6 +620,15 @@ export function parsePermanentWorkspace(body = "") {
     if (!key) {
       unknownSections.push(section);
       sectionLayout.push({ kind: "unknown", index: unknownSections.length - 1 });
+      continue;
+    }
+    if (seenKnown.has(key)) {
+      repeatedKnownSections.push({
+        key,
+        heading: String(section.heading || "").trim() || PERMANENT_SECTION_LABELS[key],
+        body: sectionBody
+      });
+      sectionLayout.push({ kind: "duplicate_known", index: repeatedKnownSections.length - 1 });
       continue;
     }
     if (!seenKnown.has(key)) {
@@ -599,6 +643,7 @@ export function parsePermanentWorkspace(body = "") {
   }
   parsed.supplement = normalizeFieldText(supplementParts.join("\n\n"));
   parsed.extraSections = normalizePermanentExtraSections(unknownSections);
+  parsed.repeatedKnownSections = normalizeRepeatedKnownPermanentSections(repeatedKnownSections);
   parsed.sectionLayout = normalizePermanentSectionLayout(sectionLayout);
   return parsed;
 }
@@ -615,6 +660,7 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     supplement: normalizeFieldText(fields.supplement)
   };
   const extraSections = normalizePermanentExtraSections(options?.extraSections);
+  const repeatedKnownSections = normalizeRepeatedKnownPermanentSections(options?.repeatedKnownSections);
   const sectionLayout = normalizePermanentSectionLayout(options?.sectionLayout);
   const lines = [`# ${title}`, ""];
   if (preface) lines.push(preface, "");
@@ -648,12 +694,25 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     emittedUnknown.add(index);
   };
 
+  const emittedDuplicateKnown = new Set();
+  const appendDuplicateKnownSection = (index = -1) => {
+    if (emittedDuplicateKnown.has(index)) return;
+    const section = repeatedKnownSections[index];
+    if (!section) return;
+    lines.push(`## ${section.heading || PERMANENT_SECTION_LABELS[section.key]}`, "", section.body, "");
+    emittedDuplicateKnown.add(index);
+  };
+
   for (const item of resolvedLayout) {
     if (item.kind === "known") appendKnownSection(item.key);
+    if (item.kind === "duplicate_known") appendDuplicateKnownSection(item.index);
     if (item.kind === "unknown") appendUnknownSection(item.index);
   }
   for (const [key] of sectionOrder) {
     appendKnownSection(key);
+  }
+  for (let index = 0; index < repeatedKnownSections.length; index += 1) {
+    appendDuplicateKnownSection(index);
   }
   for (let index = 0; index < extraSections.length; index += 1) {
     appendUnknownSection(index);
@@ -2172,10 +2231,15 @@ export class EditorPane {
     return normalizePermanentSectionLayout(tab?.permanentSectionLayout);
   }
 
+  permanentRepeatedKnownSections(tab = this.activeTab()) {
+    return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
+  }
+
   rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
     if (!tab) return;
     tab.permanentPreface = normalizeFieldText(parsed?.preface);
     tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
+    tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
     tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
   }
 
@@ -2488,6 +2552,7 @@ export class EditorPane {
         ...options,
         preface: options?.preface ?? this.permanentPreface(),
         sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
+        repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
         extraSections: options?.extraSections || this.permanentExtraSections()
       })
     );
@@ -4009,6 +4074,7 @@ export class EditorPane {
       return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
         preface: this.permanentPreface(),
         sectionLayout: this.permanentSectionLayout(),
+        repeatedKnownSections: this.permanentRepeatedKnownSections(),
         extraSections: this.permanentExtraSections()
       });
     }
@@ -4034,6 +4100,7 @@ export class EditorPane {
     return composePermanentWorkspace(parsed, {
       preface: parsed.preface,
       sectionLayout: parsed.sectionLayout,
+      repeatedKnownSections: parsed.repeatedKnownSections,
       extraSections: parsed.extraSections
     });
   }

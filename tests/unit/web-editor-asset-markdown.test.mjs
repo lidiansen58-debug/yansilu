@@ -347,3 +347,122 @@ Custom before related.
   assert.notEqual(relatedIndex, -1);
   assert.ok(customIndex < relatedIndex, markdown);
 });
+
+test("parsePermanentWorkspace preserves legacy custom sections without wrapping them in supplement", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+Intro paragraph stays outside sections.
+
+## Context
+
+First block.
+
+## Examples
+
+Second block.
+`);
+
+  assert.equal(parsed.structured, false);
+  assert.equal(parsed.preface, "Intro paragraph stays outside sections.");
+  assert.equal(parsed.supplement, "");
+  assert.deepEqual(parsed.extraSections, [
+    { heading: "Context", body: "First block." },
+    { heading: "Examples", body: "Second block." }
+  ]);
+  assert.deepEqual(parsed.sectionLayout, [
+    { kind: "unknown", index: 0 },
+    { kind: "unknown", index: 1 }
+  ]);
+
+  const markdown = composePermanentWorkspace(
+    {
+      title: parsed.title,
+      preface: parsed.preface,
+      supplement: parsed.supplement
+    },
+    {
+      sectionLayout: parsed.sectionLayout,
+      extraSections: parsed.extraSections
+    }
+  );
+
+  assert.equal(
+    markdown,
+    `# Permanent note
+
+Intro paragraph stays outside sections.
+
+## Context
+
+First block.
+
+## Examples
+
+Second block.
+`
+  );
+});
+
+test("parsePermanentWorkspace preserves repeated known sections as separate blocks", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+## \u6838\u5fc3\u89c2\u70b9
+
+Claim one.
+
+## \u6838\u5fc3\u89c2\u70b9
+
+Claim two.
+
+## \u5173\u8054\u7ebf\u7d22
+
+- [[Related note]]
+`);
+
+  assert.equal(parsed.coreClaim, "Claim one.");
+  assert.equal(parsed.relatedClues, "- [[Related note]]");
+  assert.deepEqual(parsed.repeatedKnownSections, [
+    {
+      key: "coreClaim",
+      heading: "\u6838\u5fc3\u89c2\u70b9",
+      body: "Claim two."
+    }
+  ]);
+  assert.deepEqual(parsed.sectionLayout, [
+    { kind: "known", key: "coreClaim" },
+    { kind: "duplicate_known", index: 0 },
+    { kind: "known", key: "relatedClues" }
+  ]);
+
+  const markdown = composePermanentWorkspace(
+    {
+      title: parsed.title,
+      preface: parsed.preface,
+      coreClaim: parsed.coreClaim,
+      relatedClues: parsed.relatedClues,
+      supplement: parsed.supplement
+    },
+    {
+      sectionLayout: parsed.sectionLayout,
+      repeatedKnownSections: parsed.repeatedKnownSections
+    }
+  );
+
+  assert.equal(
+    markdown,
+    `# Permanent note
+
+## \u6838\u5fc3\u89c2\u70b9
+
+Claim one.
+
+## \u6838\u5fc3\u89c2\u70b9
+
+Claim two.
+
+## \u5173\u8054\u7ebf\u7d22
+
+- [[Related note]]
+`
+  );
+});
