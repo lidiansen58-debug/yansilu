@@ -2151,7 +2151,7 @@ export class EditorPane {
   }
 
   isPermanentWorkspaceEligible(note = this.activeNote()) {
-    return false;
+    return this.permanentWorkspaceCompatible(this.activeTab(), note);
   }
 
   isPermanentWorkspaceActive(note = this.activeNote()) {
@@ -2238,12 +2238,36 @@ export class EditorPane {
     return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
   }
 
-  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
-    if (!tab) return;
+  permanentWorkspaceAppendRemainingKnown(tab = this.activeTab()) {
+    return tab?.permanentAppendRemainingKnown !== false;
+  }
+
+  permanentWorkspaceCompatible(tab = this.activeTab(), note = this.activeNote()) {
+    if (!this.isOriginalNote(note)) return false;
+    const rawBody = typeof tab?.body === "string" ? tab.body : typeof note?.body === "string" ? note.body : "";
+    if (!String(rawBody || "").trim()) return true;
+    if (tab && tab.permanentParsedBody === rawBody && typeof tab.permanentWorkspaceCompatible === "boolean") {
+      return tab.permanentWorkspaceCompatible;
+    }
+    const parsed = parsePermanentWorkspace(rawBody);
+    return this.rememberPermanentWorkspaceParse(parsed, tab, rawBody);
+  }
+
+  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const compatible =
+      parsed?.structured === true &&
+      !normalizeFieldText(parsed?.preface) &&
+      normalizePermanentExtraSections(parsed?.extraSections).length === 0 &&
+      normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections).length === 0;
+    if (!tab) return compatible;
+    tab.permanentParsedBody = body;
     tab.permanentPreface = normalizeFieldText(parsed?.preface);
     tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
     tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
     tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
+    tab.permanentAppendRemainingKnown = parsed?.structured === true;
+    tab.permanentWorkspaceCompatible = compatible;
+    return compatible;
   }
 
   literatureCompletionState(note = this.activeNote()) {
@@ -2556,7 +2580,8 @@ export class EditorPane {
         preface: options?.preface ?? this.permanentPreface(),
         sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
         repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
-        extraSections: options?.extraSections || this.permanentExtraSections()
+        extraSections: options?.extraSections || this.permanentExtraSections(),
+        appendRemainingKnown: options?.appendRemainingKnown ?? this.permanentWorkspaceAppendRemainingKnown()
       })
     );
   }
@@ -3011,6 +3036,9 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
+    if (this.isOriginalNote(this.activeNote()) && !this.permanentWorkspaceCompatible(t, this.activeNote()) && !this.isSourceMode()) {
+      this.state.previewMode = "source";
+    }
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
     this.renderPermanentWorkspace();
@@ -4078,7 +4106,8 @@ export class EditorPane {
         preface: this.permanentPreface(),
         sectionLayout: this.permanentSectionLayout(),
         repeatedKnownSections: this.permanentRepeatedKnownSections(),
-        extraSections: this.permanentExtraSections()
+        extraSections: this.permanentExtraSections(),
+        appendRemainingKnown: this.permanentWorkspaceAppendRemainingKnown()
       });
     }
     if (this.isWysiwygMode()) {

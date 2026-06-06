@@ -4742,6 +4742,7 @@ Original evidence block.
 
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
+    assert.equal(await page.locator("#permanentWorkspace").isVisible().catch(() => false), false);
     assert.match(value, /这是一条来自模板前言的提醒。/);
     assert.match(value, /## 自定义问题/);
     assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);
