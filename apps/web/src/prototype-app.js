@@ -202,6 +202,7 @@ let lastChosenPermanentDirectoryId = "dir_original_default";
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 state.graphConnectivityReady = false;
+state.graphVisibleNoteIdsReady = false;
 const importState = {
   importRecordId: "",
   directoryId: "",
@@ -9253,26 +9254,57 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
   `;
 }
 
-function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
-  const counts = edges.reduce((acc, edge) => {
+function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOverride = null) {
+  const fallbackCounts = edges.reduce((acc, edge) => {
     const fallback = field === "status" ? "confirmed" : "associated_with";
     const key = String(edge?.[field] || fallback).trim().toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   if (field === "relationType") {
-    const meaningfulCount = edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const indexCount = edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const noisyCount = edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
+    const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
+    const meaningfulCount =
+      Number.isFinite(Number(statsOverride?.meaningfulCount))
+        ? Number(statsOverride.meaningfulCount)
+        : edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const indexCount =
+      Number.isFinite(Number(statsOverride?.indexCount))
+        ? Number(statsOverride.indexCount)
+        : edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const noisyCount =
+      Number.isFinite(Number(statsOverride?.noisyCount))
+        ? Number(statsOverride.noisyCount)
+        : edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : edges.length;
     const leadingOptions = [
-      `<option value="meaningful"${selected === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
-      `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${edges.length})</option>`
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
+      `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selected === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
     }
     if (indexCount > 0) {
-      leadingOptions.push(`<option value="index"${selected === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+      leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+    }
+    const selectedTypeHasOption =
+      selectedKey === "meaningful" ||
+      selectedKey === "all" ||
+      (selectedKey === "noisy" && noisyCount > 0) ||
+      (selectedKey === "index" && indexCount > 0) ||
+      (selectedKey !== "meaningful" &&
+        selectedKey !== "all" &&
+        selectedKey !== "noisy" &&
+        selectedKey !== "index" &&
+        Object.prototype.hasOwnProperty.call(counts, selectedKey));
+    if (!selectedTypeHasOption && selectedKey) {
+      const selectedLabel =
+        selectedKey === "noisy"
+          ? "只看链接线索"
+          : selectedKey === "index"
+            ? "只看主题归属"
+            : labelFn(selectedKey);
+      leadingOptions.push(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedLabel)} (0)</option>`);
     }
     const groupedCounts = new Map();
     for (const [value, count] of Object.entries(counts)) {
@@ -9283,7 +9315,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
     }
     const groupOrder = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"];
     const typedOptions = groupOrder
-      .filter((key) => groupedCounts.has(key))
+      .filter((key) => groupedCounts.has(key) && key !== "index")
       .map((key) => {
         const items = groupedCounts
           .get(key)
@@ -9293,7 +9325,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
         const groupCount = items.reduce((sum, item) => sum + item.count, 0);
         const options = items
           .map((item) => {
-            const selectedAttr = item.value === selected ? " selected" : "";
+            const selectedAttr = item.value === selectedKey ? " selected" : "";
             return `<option value="${escapeHtml(item.value)}"${selectedAttr}>${escapeHtml(item.label)} (${item.count})</option>`;
           })
           .join("");
@@ -9302,7 +9334,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
       .join("");
     return `${leadingOptions.join("")}${typedOptions}`;
   }
-  const options = Object.entries(counts)
+  const options = Object.entries(fallbackCounts)
     .sort((a, b) => b[1] - a[1] || labelFn(a[0]).localeCompare(labelFn(b[0]), "zh-Hans-CN"))
     .map(([value, count]) => {
       const selectedAttr = value === selected ? " selected" : "";
@@ -9322,6 +9354,7 @@ function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
   const key = String(value || "").trim().toLowerCase();
   const normalizedFallback = String(fallback || "meaningful").trim().toLowerCase() || "meaningful";
   const allowed = new Set(["meaningful", "all", "noisy", "index", ...Object.keys(GRAPH_RELATION_TYPE_LABELS)]);
+  if (GRAPH_INDEX_RELATION_TYPES.has(key)) return "index";
   return allowed.has(key) ? key : normalizedFallback;
 }
 
@@ -9378,11 +9411,11 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
   `;
 }
 
-function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false) {
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
   return `
     <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
       <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
-        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel)}
+        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
       </select>
     </div>
   `;
@@ -10659,9 +10692,13 @@ function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
   const strongest = Math.max(fromRank, toRank);
   const weakest = Math.min(fromRank, toRank);
   const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const relationGroup = graphRelationVisual(relationType).key;
+  if (relationGroup === "index") return true;
   if (strongest >= 4) return true;
-  if (relationType === "bridges" && strongest >= 3) return true;
-  if ((relationType === "supports" || relationType === "extends" || relationType === "questions" || relationType === "contrasts") && strongest >= 3 && weakest >= 2) return true;
+  if (relationGroup === "bridge") return strongest >= 3;
+  if (["support", "conflict", "boundary", "flow"].includes(relationGroup)) {
+    return strongest >= 3 && weakest >= 2;
+  }
   return false;
 }
 
@@ -10768,20 +10805,70 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const isolatedIndexById = new Map(isolatedLayoutNodes.map((node, index) => [node.id, index]));
 
   if (!focusedNoteId && anchorOrder.length) {
-    layoutNodes.forEach((node, index) => {
-      if (!index || anchorIds.has(node.id) || node.isGraphIsolatedCandidate || node.graphVisualState === "isolated") return;
-      let bestIndex = -1;
-      let bestScore = -1;
-      anchorOrder.forEach((anchorId, anchorIndex) => {
-        const score = adjacencyMap.get(node.id)?.has(anchorId) ? 1 : 0;
-        if (score > bestScore) {
-          bestScore = score;
-          bestIndex = anchorIndex;
-        }
+    const eligibleIds = new Set(
+      layoutNodes
+        .filter((node, index) => index && !anchorIds.has(node.id) && !node.isGraphIsolatedCandidate && node.graphVisualState !== "isolated")
+        .map((node) => node.id)
+    );
+    eligibleIds.forEach((nodeId) => {
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        score: adjacencyMap.get(nodeId)?.has(anchorId) ? 1 : 0,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const connectedAnchors = rankedAnchors.filter((item) => item.score > 0);
+      if (!connectedAnchors.length) return;
+      const clusterIndex = connectedAnchors.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+      clusterAssignments.set(nodeId, clusterIndex);
+      clusterMembers[clusterIndex].push(nodeId);
+    });
+    let assignedInPass = true;
+    while (assignedInPass) {
+      assignedInPass = false;
+      eligibleIds.forEach((nodeId) => {
+        if (clusterAssignments.has(nodeId)) return;
+        const neighborScores = new Map();
+        (adjacencyMap.get(nodeId) || new Set()).forEach((neighborId) => {
+          if (!clusterAssignments.has(neighborId)) return;
+          const clusterIndex = clusterAssignments.get(neighborId);
+          neighborScores.set(clusterIndex, (neighborScores.get(clusterIndex) || 0) + 1);
+        });
+        if (!neighborScores.size) return;
+        const rankedClusters = [...neighborScores.entries()].map(([anchorIndex, score]) => ({
+          anchorIndex,
+          score,
+          load: clusterMembers[anchorIndex]?.length || 0
+        }));
+        const clusterIndex = rankedClusters.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+        clusterAssignments.set(nodeId, clusterIndex);
+        clusterMembers[clusterIndex].push(nodeId);
+        assignedInPass = true;
       });
-      const clusterIndex = bestIndex >= 0 && bestScore > 0 ? bestIndex : graphHash(node.id) % anchorOrder.length;
-      clusterAssignments.set(node.id, clusterIndex);
-      clusterMembers[clusterIndex].push(node.id);
+    }
+    const visited = new Set();
+    eligibleIds.forEach((nodeId) => {
+      if (clusterAssignments.has(nodeId) || visited.has(nodeId)) return;
+      const component = [];
+      const queue = [nodeId];
+      visited.add(nodeId);
+      while (queue.length) {
+        const currentId = queue.shift();
+        component.push(currentId);
+        (adjacencyMap.get(currentId) || new Set()).forEach((neighborId) => {
+          if (!eligibleIds.has(neighborId) || clusterAssignments.has(neighborId) || visited.has(neighborId)) return;
+          visited.add(neighborId);
+          queue.push(neighborId);
+        });
+      }
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const clusterIndex = rankedAnchors.sort((a, b) => a.load - b.load || a.anchorIndex - b.anchorIndex)[graphHash(component[0] || nodeId) % rankedAnchors.length].anchorIndex;
+      component.forEach((componentId) => {
+        clusterAssignments.set(componentId, clusterIndex);
+        clusterMembers[clusterIndex].push(componentId);
+      });
     });
   }
 
@@ -11006,6 +11093,22 @@ function graphScopedItems(graph) {
   const scopeDirectoryId = graphScopeDirectoryId();
   const scopedDirectoryIds = new Set(descendantDirectoryIds(scopeDirectoryId));
   const scopedNodes = nodes.filter((node) => scopedDirectoryIds.has(String(node.directoryId || node.folderId || "").trim()));
+  const focusedNoteId = String(state.selectedFileId || "").trim();
+  if (focusedNoteId && !scopedNodes.some((node) => String(node?.id || "").trim() === focusedNoteId)) {
+    const focusedNote = state.notes.find((note) => String(note?.id || "").trim() === focusedNoteId);
+    const focusedFolderId = String(focusedNote?.folderId || focusedNote?.directoryId || "").trim();
+    if (focusedNote && focusedFolderId && scopedDirectoryIds.has(focusedFolderId)) {
+      scopedNodes.push({
+        id: focusedNoteId,
+        title: String(focusedNote.title || focusedNoteId).trim() || focusedNoteId,
+        folderId: focusedFolderId,
+        directoryId: focusedFolderId,
+        noteType: String(focusedNote.noteType || (focusedFolderId ? typeFromFolder(state, focusedFolderId) : "") || "original").trim() || "original",
+        status: String(focusedNote.status || "draft").trim() || "draft",
+        degree: 0
+      });
+    }
+  }
   const scopedNodeIds = new Set(scopedNodes.map((node) => node.id));
   const scopedEdges = allEdges.filter((edge) => scopedNodeIds.has(edge.fromNoteId) && scopedNodeIds.has(edge.toNoteId));
   const relatedNodeIds = new Set(scopedEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
@@ -11017,12 +11120,12 @@ function graphScopedItems(graph) {
   };
 }
 
-function graphFocusedItems(nodes = [], edges = []) {
+function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEdges = edges) {
   const focusedNoteId = String(state.selectedFileId || "").trim();
   if (!focusedNoteId) return { focusedNoteId: "", nodes, edges, focused: false };
   const focusDepth = normalizeGraphFocusDepth(graphState.focusDepth, "1");
   const adjacency = new Map();
-  edges.forEach((edge) => {
+  traversalEdges.forEach((edge) => {
     const fromId = String(edge?.fromNoteId || "").trim();
     const toId = String(edge?.toNoteId || "").trim();
     if (!fromId || !toId) return;
@@ -11047,7 +11150,15 @@ function graphFocusedItems(nodes = [], edges = []) {
     }
   }
   const relatedEdges = edges.filter((edge) => visibleIds.has(edge.fromNoteId) && visibleIds.has(edge.toNoteId));
-  if (!relatedEdges.length) return { focusedNoteId, nodes: [], edges: [], focused: true, focusDepth };
+  if (!relatedEdges.length) {
+    return {
+      focusedNoteId,
+      nodes: allNodes.filter((node) => node.id === focusedNoteId),
+      edges: [],
+      focused: true,
+      focusDepth
+    };
+  }
   return {
     focusedNoteId,
     nodes: nodes.filter((node) => visibleIds.has(node.id)),
@@ -11057,9 +11168,45 @@ function graphFocusedItems(nodes = [], edges = []) {
   };
 }
 
+function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = nodes, filters = {}) {
+  const normalizedSelected = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const normalizedStatus = String(filters.status || "all").trim().toLowerCase() || "all";
+  const relationTypes = new Set(
+    (Array.isArray(edges) ? edges : [])
+      .map((edge) => String(edge?.relationType || "associated_with").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const countFor = (relationType = "all") => {
+    const traversalFilters = { relationType, status: normalizedStatus };
+    const traversalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters));
+    const focusedScope = graphFocusedItems(nodes, edges, allNodes, traversalEdges);
+    return focusedScope.edges.filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters)).length;
+  };
+  const counts = {};
+  relationTypes.forEach((relationType) => {
+    const count = countFor(relationType);
+    if (count > 0) counts[relationType] = count;
+  });
+  if (
+    normalizedSelected &&
+    !["meaningful", "all", "noisy", "index"].includes(normalizedSelected) &&
+    !Object.prototype.hasOwnProperty.call(counts, normalizedSelected)
+  ) {
+    counts[normalizedSelected] = 0;
+  }
+  return {
+    counts,
+    totalCount: countFor("all"),
+    meaningfulCount: countFor("meaningful"),
+    noisyCount: countFor("noisy"),
+    indexCount: countFor("index")
+  };
+}
+
 function renderGraphVisualMap({
   nodes = [],
   edges = [],
+  relationFilterEdges = [],
   filterActive = false,
   focusedNoteId = "",
   relationType = "meaningful",
@@ -11117,7 +11264,7 @@ function renderGraphVisualMap({
   const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
   const denseDirectoryMode = !filterActive;
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
-  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(edges, relationType, true) : "";
+  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -11211,6 +11358,7 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
+      const fitLensLabel = lensPriority && starRank >= 3;
       const showLabel = zoom.key === "fit"
         ? (
             node.isFocused ||
@@ -11220,7 +11368,7 @@ function renderGraphVisualMap({
             inSelectedTheme ||
             selectedIsolated ||
             inSelectedBridge ||
-            lensPriority
+            fitLensLabel
           )
         : (
             node.isFocused ||
@@ -11925,6 +12073,9 @@ function graphAiAnalysisSummaryState() {
 }
 
 function currentGraphVisibleNodeIds() {
+  if (state.module === "graph" && state.graphVisibleNoteIdsReady === true && state.graphVisibleNoteIds instanceof Set) {
+    return [...state.graphVisibleNoteIds];
+  }
   const graph = graphState.item;
   if (!graph) return [];
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
@@ -12653,6 +12804,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
     canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补理由。</div>`;
@@ -12663,6 +12815,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `图谱加载失败：${graphState.error}`;
     canvas.innerHTML = renderGraphErrorState(graphState.error);
@@ -12674,6 +12827,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = "0 条永久笔记，0 条关系";
     canvas.innerHTML = `<div class="graph-empty"></div>`;
@@ -12687,7 +12841,11 @@ function renderGraphPanel() {
   );
   syncAllNoteRelationNetworkStatuses({ connectivityReady: true, connectedIds: state.graphConnectedNoteIds });
   const scoped = graphScopedItems(graph);
-  const focused = graphFocusedItems(scoped.nodes, scoped.edges);
+  const filters = graphState.filters || { relationType: "all", status: "all" };
+  const effectiveRelationType = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const activeFilters = { ...filters, relationType: effectiveRelationType };
+  const focusTraversalEdges = scoped.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
+  const focused = graphFocusedItems(scoped.nodes, scoped.edges, scoped.allNodes, focusTraversalEdges);
   const showingFocusedNote = focused.focused && focused.focusedNoteId;
   const graphInsights = graph?.insights && typeof graph.insights === "object" ? graph.insights : {};
   const scopedAllNodes = Array.isArray(scoped.allNodes) ? scoped.allNodes : scoped.nodes;
@@ -12697,19 +12855,15 @@ function renderGraphPanel() {
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || 0);
   const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
-  const filters = graphState.filters || { relationType: "all", status: "all" };
-  let effectiveRelationType = String(filters.relationType || "all").trim().toLowerCase() || "all";
-  let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
-  if (!showingFocusedNote && effectiveRelationType === "meaningful" && !filteredEdges.length && focused.edges.length) {
-    effectiveRelationType = "all";
-    setGraphRelationTypeFilter("all", { persist: false });
-    filteredEdges = focused.edges;
-  }
+  const filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
   const visibleNodeIds = new Set(filteredEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const visibleNodes =
+  let visibleNodes =
     effectiveRelationType === "all"
       ? focused.nodes
       : focused.nodes.filter((node) => visibleNodeIds.has(node.id));
+  if (showingFocusedNote && !visibleNodes.length && focused.focusedNoteId) {
+    visibleNodes = focused.nodes.filter((node) => node.id === focused.focusedNoteId);
+  }
   const edges = filteredEdges;
   const showIsolatedVisualNodes = !showingFocusedNote && (effectiveRelationType === "meaningful" || effectiveRelationType === "all");
   const isolatedVisualNodes = showIsolatedVisualNodes
@@ -12720,18 +12874,22 @@ function renderGraphPanel() {
       })
     : [];
   const visualNodes = isolatedVisualNodes.length ? [...visibleNodes, ...isolatedVisualNodes] : visibleNodes;
+  const focusedRelationTypeStats = showingFocusedNote
+    ? graphBuildFocusedRelationTypeStats(scoped.nodes, scoped.edges, scoped.allNodes, activeFilters)
+    : null;
   graphState.selection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: visualNodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const notices = [];
   const lastLoadedAtLabel = formatClockTime(graphState.lastLoadedAt);
   const lastErrorAtLabel = formatClockTime(graphState.lastErrorAt);
   state.graphVisibleNoteIds = new Set(visualNodes.map((node) => node.id));
+  state.graphVisibleNoteIdsReady = true;
   const visibleRelationCounts = edges.reduce((acc, edge) => {
     const key = String(edge.relationType || "associated_with").trim();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const baseSummary = `${visibleNodes.length} 条永久笔记，${edges.length} 条关系`;
+  const baseSummary = `${visualNodes.length} 条永久笔记，${edges.length} 条关系`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -12797,7 +12955,7 @@ function renderGraphPanel() {
       <div class="graph-canvas-toolbar">
         <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
         <div class="graph-canvas-toolbar-actions">
-          ${renderGraphRelationTypeFilter(focused.edges, effectiveRelationType)}
+          ${renderGraphRelationTypeFilter(focused.edges, effectiveRelationType, false, focusedRelationTypeStats)}
         </div>
       </div>
     `
@@ -12807,6 +12965,7 @@ function renderGraphPanel() {
     ${renderGraphVisualMap({
       nodes: visualNodes,
       edges,
+      relationFilterEdges: focused.edges,
       filterActive: Boolean(showingFocusedNote),
       focusedNoteId: focused.focusedNoteId,
       relationType: effectiveRelationType,
