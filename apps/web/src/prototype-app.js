@@ -11352,15 +11352,23 @@ function graphEdgeShouldRender({
 function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
   const width = Math.max(960, Number(layoutWidth || 0));
   const height = Math.max(520, Number(layoutHeight || 0));
-  const count = Math.max(48, Math.round((width * height) / 26000));
+  const count = Math.max(96, Math.round((width * height) / 9000));
   return Array.from({ length: count }, (_, index) => {
     const base = graphHash(`${seed}:${index}`);
     const x = 24 + (base % Math.max(1, width - 48));
     const y = 20 + ((base * 17) % Math.max(1, height - 40));
-    const radius = 0.6 + ((base % 10) / 10) * 1.6;
-    const opacity = 0.14 + ((base % 7) / 7) * 0.34;
-    const blur = base % 3 === 0 ? " is-soft" : "";
-    return `<circle class="graph-map-star${blur}" cx="${x}" cy="${y}" r="${radius.toFixed(1)}" opacity="${opacity.toFixed(2)}"></circle>`;
+    const tier = base % 17 === 0 ? " is-bright" : base % 5 === 0 ? " is-soft" : base % 3 === 0 ? " is-faint" : "";
+    const radius = tier === " is-bright"
+      ? 1.3 + ((base % 8) / 10)
+      : tier === " is-soft"
+        ? 0.9 + ((base % 10) / 10) * 1.6
+        : 0.35 + ((base % 9) / 10) * 1.1;
+    const opacity = tier === " is-bright"
+      ? 0.66 + ((base % 5) / 10) * 0.22
+      : tier === " is-faint"
+        ? 0.12 + ((base % 7) / 10) * 0.12
+        : 0.18 + ((base % 9) / 10) * 0.34;
+    return `<circle class="graph-map-star${tier}" cx="${x}" cy="${y}" r="${radius.toFixed(1)}" opacity="${opacity.toFixed(2)}"></circle>`;
   }).join("");
 }
 
@@ -11371,7 +11379,9 @@ function renderGraphNebulaField(layoutWidth = 0, layoutHeight = 0, seed = "") {
     { x: 0.2, y: 0.26, rx: 0.22, ry: 0.16, className: "is-teal" },
     { x: 0.74, y: 0.2, rx: 0.18, ry: 0.15, className: "is-sky" },
     { x: 0.58, y: 0.72, rx: 0.24, ry: 0.18, className: "is-mist" },
-    { x: 0.35, y: 0.58, rx: 0.12, ry: 0.09, className: "is-bridge" }
+    { x: 0.35, y: 0.58, rx: 0.12, ry: 0.09, className: "is-bridge" },
+    { x: 0.88, y: 0.62, rx: 0.16, ry: 0.12, className: "is-sky" },
+    { x: 0.14, y: 0.78, rx: 0.18, ry: 0.14, className: "is-teal" }
   ];
   return specs.map((spec, index) => {
     const base = graphHash(`${seed}:nebula:${index}`);
@@ -11487,6 +11497,16 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const anchorIds = new Set(layoutNodes.slice(0, anchorCount).map((node) => node.id));
   const anchorOrder = [...anchorIds];
   const anchorAngles = graphClusterAnchorAngles(anchorOrder.length || anchorCount || 1);
+  const clusterCenters = anchorOrder.map((anchorId, anchorIndex) => {
+    const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorOrder.length || 1));
+    const radialScaleX = width * (anchorOrder.length > 2 ? 0.22 + (anchorIndex % 2) * 0.02 : 0.21);
+    const radialScaleY = height * (anchorOrder.length > 2 ? 0.17 + ((anchorIndex + 1) % 2) * 0.024 : 0.165);
+    return {
+      angle,
+      x: Math.round(centerX + Math.cos(angle) * radialScaleX),
+      y: Math.round(centerY + Math.sin(angle) * radialScaleY)
+    };
+  });
   const clusterAssignments = new Map();
   const clusterMembers = Array.from({ length: Math.max(1, anchorOrder.length || 3) }, () => []);
   const clusterMemberOrder = new Map();
@@ -11592,6 +11612,7 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
     node.isGraphIsolatedCandidate = isVisualIsolated;
     node.starTier = graphNodeStarTier(node);
     node.radius = graphNodeRadiusByTier(node.starTier, node.degree);
+    node.clusterArmDepth = 0;
     node.clusterIndex = !focusedNoteId && !isVisualIsolated ? clusterAssignments.get(node.id) ?? (node.isAnchor ? anchorOrder.indexOf(node.id) : -1) : -1;
     node.auraRadius =
       node.starTier === "focus"
@@ -11624,11 +11645,9 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
     const ringIndex = index - 1;
     const anchorIndex = !focusedNoteId ? anchorOrder.indexOf(node.id) : -1;
     if (anchorIndex >= 0) {
-      const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorCount));
-      const anchorRadiusX = width * 0.22;
-      const anchorRadiusY = height * 0.18;
-      node.x = Math.round(centerX + Math.cos(angle) * anchorRadiusX);
-      node.y = Math.round(centerY + Math.sin(angle) * anchorRadiusY);
+      const clusterCenter = clusterCenters[anchorIndex] || { x: centerX, y: centerY };
+      node.x = clusterCenter.x;
+      node.y = clusterCenter.y;
       return;
     }
 
@@ -11639,6 +11658,8 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
         const localIndex = Math.max(0, clusterMemberOrder.get(node.id) ?? memberIds.indexOf(node.id));
         const memberCount = Math.max(1, memberIds.length);
         const clusterProgress = memberCount <= 1 ? 0 : localIndex / Math.max(1, memberCount - 1);
+        const clusterCenter = clusterCenters[clusterIndex] || { x: centerX, y: centerY, angle: anchorAngles[clusterIndex] || -Math.PI / 2 };
+        const anchorAngle = clusterCenter.angle ?? (anchorAngles[clusterIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, anchorOrder.length)));
         const tierWeight =
           node.starTier === "major"
             ? 0
@@ -11648,22 +11669,43 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
                 ? 2
                 : 3;
         const armDirection = clusterIndex % 2 === 0 ? 1 : -1;
-        const radialBase = 34 + tierWeight * 12 + Math.floor(localIndex / 3) * 11;
-        const radialDrift = clusterProgress * Math.min(94, 28 + memberCount * 5.6);
-        const radialDistance = radialBase + radialDrift * 0.34 + Math.max(0, node.radius - 4) * 1.5;
-        const tangentialSpread = (clusterProgress - 0.5) * Math.min(132, 30 + memberCount * 7.2) * armDirection;
-        const swirl = armDirection * (0.28 + clusterProgress * 0.88);
-        const jitter = ((graphHash(node.id) % 11) - 5) * 1.8;
-        const anchorAngle = anchorAngles[clusterIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, anchorOrder.length));
-        const tangentAngle = anchorAngle + Math.PI / 2;
-        const clusterCenterX = centerX + Math.cos(anchorAngle) * width * 0.2;
-        const clusterCenterY = centerY + Math.sin(anchorAngle) * height * 0.16;
-        const radialX = Math.cos(anchorAngle + swirl * 0.2) * radialDistance;
-        const radialY = Math.sin(anchorAngle + swirl * 0.2) * radialDistance * 0.8;
-        const tangentX = Math.cos(tangentAngle) * (tangentialSpread + jitter);
-        const tangentY = Math.sin(tangentAngle) * (tangentialSpread + jitter) * 0.82;
-        node.x = Math.round(clusterCenterX + radialX + tangentX);
-        node.y = Math.round(clusterCenterY + radialY + tangentY);
+        const jitter = ((graphHash(node.id) % 11) - 5) * 1.4;
+        const nucleusCount = Math.min(memberCount > 12 ? 4 : 3, Math.max(1, Math.ceil(memberCount * 0.16)));
+        if (localIndex < nucleusCount) {
+          const nucleusAngle = anchorAngle + armDirection * 0.36 + (Math.PI * 2 * localIndex) / Math.max(1, nucleusCount) + jitter * 0.012;
+          const nucleusRadius = 16 + tierWeight * 3.8 + localIndex * 2.4 + Math.max(0, node.radius - 3) * 1.2;
+          node.clusterArmDepth = Math.min(0.16, 0.06 + localIndex * 0.04);
+          node.x = Math.round(clusterCenter.x + Math.cos(nucleusAngle) * nucleusRadius * 1.04);
+          node.y = Math.round(clusterCenter.y + Math.sin(nucleusAngle) * nucleusRadius * 0.82);
+          node.x = Math.max(28, Math.min(width - 28, node.x));
+          node.y = Math.max(28, Math.min(height - 28, node.y));
+          return;
+        }
+        const outerIndex = Math.max(0, localIndex - nucleusCount);
+        const armCount = memberCount > 16 ? 3 : memberCount > 8 ? 2 : 1;
+        const armIndex = outerIndex % armCount;
+        const armSlot = Math.floor(outerIndex / Math.max(1, armCount));
+        const armSpan = Math.max(1, Math.ceil((memberCount - nucleusCount) / Math.max(1, armCount)));
+        const armDepth = armSpan <= 1 ? clusterProgress : armSlot / Math.max(1, armSpan - 1);
+        node.clusterArmDepth = armDepth;
+        const armOffset = (armIndex - (armCount - 1) / 2) * 0.34;
+        const spiralTurn = 0.42 + armDepth * 1.9 + armOffset;
+        const spiralAngle = anchorAngle + armDirection * spiralTurn;
+        const radialDistance =
+          28 +
+          tierWeight * 8 +
+          armDepth * Math.min(148, 68 + memberCount * 3.4) +
+          Math.pow(armDepth, 1.45) * 32 +
+          armIndex * 5 +
+          Math.max(0, node.radius - 3) * 1.4;
+        const tangentAngle = spiralAngle + Math.PI / 2;
+        const laneSpread = armOffset * (26 + armDepth * 24) + jitter * (0.82 + armDepth * 0.4);
+        const radialX = Math.cos(spiralAngle) * radialDistance;
+        const radialY = Math.sin(spiralAngle) * radialDistance * 0.8;
+        const tangentX = Math.cos(tangentAngle) * laneSpread;
+        const tangentY = Math.sin(tangentAngle) * laneSpread * 0.78;
+        node.x = Math.round(clusterCenter.x + radialX + tangentX);
+        node.y = Math.round(clusterCenter.y + radialY + tangentY);
         node.x = Math.max(28, Math.min(width - 28, node.x));
         node.y = Math.max(28, Math.min(height - 28, node.y));
         return;
@@ -11683,29 +11725,46 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
 
   const clusterMeta = !focusedNoteId
     ? clusterMembers
-        .map((memberIds, clusterIndex) => {
+        .flatMap((memberIds, clusterIndex) => {
           const members = memberIds
             .map((memberId) => layoutNodes.find((node) => node.id === memberId))
             .filter(Boolean);
-          if (!members.length) return null;
+          if (!members.length) return [];
           const minX = Math.min(...members.map((node) => Number(node.x || 0)));
           const maxX = Math.max(...members.map((node) => Number(node.x || 0)));
           const minY = Math.min(...members.map((node) => Number(node.y || 0)));
           const maxY = Math.max(...members.map((node) => Number(node.y || 0)));
-          const cx = Math.round((minX + maxX) / 2);
-          const cy = Math.round((minY + maxY) / 2);
-          const rx = Math.max(54, Math.round((maxX - minX) * 0.68 + 42));
-          const ry = Math.max(42, Math.round((maxY - minY) * 0.74 + 34));
-          const tone = ["teal", "sky", "bridge", "mist"][clusterIndex % 4];
-          return {
-            cx,
-            cy,
-            rx,
-            ry,
-            rotation: Math.round(((anchorAngles[clusterIndex] || 0) * 180) / Math.PI + 90),
-            tone,
-            opacity: Math.max(0.1, 0.18 - clusterIndex * 0.015)
+          const clusterCenter = clusterCenters[clusterIndex] || {
+            x: Math.round((minX + maxX) / 2),
+            y: Math.round((minY + maxY) / 2),
+            angle: anchorAngles[clusterIndex] || 0
           };
+          const cx = clusterCenter.x;
+          const cy = clusterCenter.y;
+          const rx = Math.max(56, Math.round((maxX - minX) * 0.62 + 54));
+          const ry = Math.max(44, Math.round((maxY - minY) * 0.66 + 38));
+          const tone = ["teal", "sky", "bridge", "mist"][clusterIndex % 4];
+          const rotation = Math.round((((clusterCenter.angle || 0) * 180) / Math.PI) + 90);
+          return [
+            {
+              cx,
+              cy,
+              rx,
+              ry,
+              rotation,
+              tone,
+              opacity: Math.max(0.12, 0.18 - clusterIndex * 0.012)
+            },
+            {
+              cx: Math.round(cx + Math.cos(clusterCenter.angle || 0) * 6),
+              cy: Math.round(cy + Math.sin(clusterCenter.angle || 0) * 5),
+              rx: Math.max(28, Math.round(rx * 0.3)),
+              ry: Math.max(22, Math.round(ry * 0.28)),
+              rotation,
+              tone,
+              opacity: Math.max(0.22, 0.32 - clusterIndex * 0.01)
+            }
+          ];
         })
         .filter(Boolean)
     : [];
@@ -12019,8 +12078,6 @@ function renderGraphVisualMap({
       `
     )
     .join("");
-  const edgeLabelLimit = zoom.key === "fit" ? 24 : zoom.key === "read" ? 48 : 64;
-  const edgeLabelsEnabled = zoom.key === "detail" && visibleEdges.length <= Math.min(28, edgeLabelLimit);
   const denseDirectoryMode = !filterActive;
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
@@ -12174,8 +12231,12 @@ function renderGraphVisualMap({
       const glintX = Number(node.x || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
       const glintY = Number(node.y || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
       const pointLike = graphNodeShowsAsPoint(node);
+      const clusterArmDepth = Math.max(0, Math.min(1, Number(node.clusterArmDepth || 0)));
+      const pointFade = pointLike ? Math.max(0.36, 0.94 - clusterArmDepth * 0.48) : 1;
+      const glintFade = pointLike ? Math.max(0.18, 0.82 - clusterArmDepth * 0.52) : 1;
+      const nodeStyle = `--graph-node-core-alpha:${pointFade.toFixed(2)};--graph-node-glint-alpha:${glintFade.toFixed(2)};`;
       return `
-        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" style="${nodeStyle}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
           ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
@@ -12196,8 +12257,7 @@ function renderGraphVisualMap({
       const rationale = String(edge.rationale || "").trim();
       const sourceLabel = graphRelationSourceLabel(edge.createdBy);
       const relationGroup = graphRelationGroupMeta(edge.relationType);
-      const showEdgeLabel = edgeLabelsEnabled && visual.key !== "index";
-      const showEdgePin = !showEdgeLabel && (filterActive || zoom.key !== "fit") && visual.key !== "index";
+      const showEdgePin = (filterActive || zoom.key !== "fit") && visual.key !== "index";
       const edgeKey = graphEdgeSelectionKey(edge);
       const selected = selectedEdgeKey === edgeKey;
       const fromId = String(edge?.fromNoteId || "").trim();
@@ -12231,13 +12291,7 @@ function renderGraphVisualMap({
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
           <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
           <path class="graph-map-edge-hit" d="${path.d}"></path>
-          ${
-            showEdgeLabel
-              ? `<text class="graph-map-edge-label ${escapeHtml(visual.className)}" x="${path.labelX}" y="${path.labelY}" text-anchor="middle">${escapeHtml(relationLabel)}</text>`
-              : showEdgePin
-                ? `<circle class="graph-map-edge-pin ${escapeHtml(visual.className)}" cx="${path.titleX}" cy="${path.titleY}" r="3"></circle>`
-                : ""
-          }
+          ${showEdgePin ? `<circle class="graph-map-edge-pin ${escapeHtml(visual.className)}" cx="${path.titleX}" cy="${path.titleY}" r="3"></circle>` : ""}
         </g>
       `;
     })
@@ -12324,22 +12378,22 @@ function renderGraphVisualMap({
                         ${markers}
                         <radialGradient id="graph-node-core-fill" cx="38%" cy="30%" r="70%">
                           <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="58%" stop-color="#f4fff8"></stop>
-                          <stop offset="100%" stop-color="#ddf8e9"></stop>
+                          <stop offset="52%" stop-color="#edfaff"></stop>
+                          <stop offset="100%" stop-color="#8fe0de"></stop>
                         </radialGradient>
                         <radialGradient id="graph-node-literature-fill" cx="38%" cy="30%" r="70%">
                           <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="62%" stop-color="#fff8ed"></stop>
-                          <stop offset="100%" stop-color="#ffe4bd"></stop>
+                          <stop offset="60%" stop-color="#fff7e6"></stop>
+                          <stop offset="100%" stop-color="#f7c885"></stop>
                         </radialGradient>
                         <radialGradient id="graph-node-fleeting-fill" cx="38%" cy="30%" r="70%">
                           <stop offset="0%" stop-color="#ffffff"></stop>
-                          <stop offset="62%" stop-color="#effbff"></stop>
-                          <stop offset="100%" stop-color="#cceff8"></stop>
+                          <stop offset="58%" stop-color="#eefaff"></stop>
+                          <stop offset="100%" stop-color="#8ed4f6"></stop>
                         </radialGradient>
                         <filter id="graph-soft-node-glow" x="-70%" y="-70%" width="240%" height="240%">
-                          <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#0f6f48" flood-opacity="0.14"></feDropShadow>
-                          <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#35b779" flood-opacity="0.16"></feDropShadow>
+                          <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#07111c" flood-opacity="0.18"></feDropShadow>
+                          <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#67d8df" flood-opacity="0.2"></feDropShadow>
                         </filter>
                         <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
                           <feDropShadow dx="0" dy="0" stdDeviation="1.3" flood-color="#38a3c9" flood-opacity="0.1"></feDropShadow>
@@ -12348,9 +12402,9 @@ function renderGraphVisualMap({
                           <feGaussianBlur stdDeviation="22"></feGaussianBlur>
                         </filter>
                         <linearGradient id="graph-map-backdrop-fill" x1="4%" y1="6%" x2="94%" y2="100%">
-                          <stop offset="0%" stop-color="#fdffff" stop-opacity="0.97"></stop>
-                          <stop offset="48%" stop-color="#f7fffd" stop-opacity="0.94"></stop>
-                          <stop offset="100%" stop-color="#f1f9ff" stop-opacity="0.93"></stop>
+                          <stop offset="0%" stop-color="#040912" stop-opacity="0.99"></stop>
+                          <stop offset="46%" stop-color="#07111e" stop-opacity="0.985"></stop>
+                          <stop offset="100%" stop-color="#0b1828" stop-opacity="0.99"></stop>
                         </linearGradient>
                       </defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
