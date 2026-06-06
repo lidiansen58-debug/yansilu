@@ -237,6 +237,7 @@ const graphState = {
   densityHintTimer: 0,
   selection: null,
   utilityDrawerOpen: false,
+  utilityDrawerPosition: null,
   sectionOpen: {
     "bridge-gaps": false,
     "review-queue": false,
@@ -252,6 +253,19 @@ const graphViewportDragState = {
   startY: 0,
   startScrollLeft: 0,
   startScrollTop: 0,
+  suppressClickUntil: 0
+};
+const graphUtilityDrawerDragState = {
+  active: false,
+  moved: false,
+  pointerId: null,
+  handle: null,
+  wrapper: null,
+  stage: null,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
   suppressClickUntil: 0
 };
 const distillationState = {
@@ -8701,6 +8715,29 @@ function renderGraphIcon(name = "") {
       </svg>
     `;
   }
+  if (key === "drag") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="6" cy="5.5" r="1"></circle>
+        <circle cx="10" cy="5.5" r="1"></circle>
+        <circle cx="14" cy="5.5" r="1"></circle>
+        <circle cx="6" cy="10" r="1"></circle>
+        <circle cx="10" cy="10" r="1"></circle>
+        <circle cx="14" cy="10" r="1"></circle>
+        <circle cx="6" cy="14.5" r="1"></circle>
+        <circle cx="10" cy="14.5" r="1"></circle>
+        <circle cx="14" cy="14.5" r="1"></circle>
+      </svg>
+    `;
+  }
+  if (key === "reset") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5.2 8.2A5.6 5.6 0 1 1 6.4 14.7"></path>
+        <path d="M5.2 4.8V8.4H8.8"></path>
+      </svg>
+    `;
+  }
   if (key === "clue") {
     return `
       <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -10990,7 +11027,7 @@ function renderGraphVisualMap({
           : ""
       }
       <div class="graph-map-stage">
-        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap">${utilityDrawerMarkup}</div>` : ""}
+        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap"${graphUtilityDrawerWrapStyle()}>${utilityDrawerMarkup}</div>` : ""}
         ${
           layout.nodes.length
             ? `
@@ -12062,11 +12099,13 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
   return `
     <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
       <summary class="graph-utility-drawer-summary">
+        <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}待判断线索</strong>
           <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
         </div>
         <div class="graph-utility-drawer-meta">
+          <button class="graph-utility-drawer-reset" type="button" data-graph-utility-reset-position aria-label="恢复待判断线索默认位置" title="恢复默认位置"${graphState.utilityDrawerPosition ? "" : " disabled"}>${renderGraphIcon("reset")}回位</button>
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
         </div>
       </summary>
@@ -12097,6 +12136,116 @@ function syncGraphDisclosureState(root) {
     if (!key) return;
     graphState.sectionOpen[key] = section.hasAttribute("open");
   });
+}
+
+function clampGraphUtilityDrawerPosition(position, stage, wrapper) {
+  const nextX = Number(position?.x);
+  const nextY = Number(position?.y);
+  if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !stage || !wrapper) return null;
+  const padding = 10;
+  const maxX = Math.max(padding, stage.clientWidth - wrapper.offsetWidth - padding);
+  const maxY = Math.max(padding, stage.clientHeight - wrapper.offsetHeight - padding);
+  return {
+    x: Math.max(padding, Math.min(maxX, Math.round(nextX))),
+    y: Math.max(padding, Math.min(maxY, Math.round(nextY)))
+  };
+}
+
+function graphUtilityDrawerWrapStyle(root = $("graphCanvas")) {
+  const position = graphState.utilityDrawerPosition;
+  if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return "";
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const clamped = wrap && stage ? clampGraphUtilityDrawerPosition(position, stage, wrap) : position;
+  if (clamped) graphState.utilityDrawerPosition = clamped;
+  return ` style="left:${Number(clamped?.x || 0)}px; top:${Number(clamped?.y || 0)}px; right:auto; justify-content:flex-start;"`;
+}
+
+function applyGraphUtilityDrawerPosition(root = $("graphCanvas")) {
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const position = graphState.utilityDrawerPosition;
+  if (!wrap || !stage || !position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return;
+  const clamped = clampGraphUtilityDrawerPosition(position, stage, wrap);
+  if (!clamped) return;
+  graphState.utilityDrawerPosition = clamped;
+  wrap.style.left = `${clamped.x}px`;
+  wrap.style.top = `${clamped.y}px`;
+  wrap.style.right = "auto";
+  wrap.style.justifyContent = "flex-start";
+}
+
+function beginGraphUtilityDrawerDrag(handle, event) {
+  const wrapper = handle?.closest(".graph-utility-drawer-wrap");
+  const stage = wrapper?.closest(".graph-map-stage");
+  if (!wrapper || !stage) return;
+  const originX = Number.isFinite(graphState.utilityDrawerPosition?.x) ? graphState.utilityDrawerPosition.x : wrapper.offsetLeft;
+  const originY = Number.isFinite(graphState.utilityDrawerPosition?.y) ? graphState.utilityDrawerPosition.y : wrapper.offsetTop;
+  graphUtilityDrawerDragState.active = true;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = event.pointerId;
+  graphUtilityDrawerDragState.handle = handle;
+  graphUtilityDrawerDragState.wrapper = wrapper;
+  graphUtilityDrawerDragState.stage = stage;
+  graphUtilityDrawerDragState.startX = event.clientX;
+  graphUtilityDrawerDragState.startY = event.clientY;
+  graphUtilityDrawerDragState.originX = originX;
+  graphUtilityDrawerDragState.originY = originY;
+  wrapper.classList.add("is-dragging");
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {}
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function updateGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const deltaX = event.clientX - graphUtilityDrawerDragState.startX;
+  const deltaY = event.clientY - graphUtilityDrawerDragState.startY;
+  if (!graphUtilityDrawerDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 4) {
+    graphUtilityDrawerDragState.moved = true;
+  }
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  const stage = graphUtilityDrawerDragState.stage;
+  if (!wrapper || !stage) return;
+  const nextPosition = clampGraphUtilityDrawerPosition(
+    {
+      x: graphUtilityDrawerDragState.originX + deltaX,
+      y: graphUtilityDrawerDragState.originY + deltaY
+    },
+    stage,
+    wrapper
+  );
+  if (!nextPosition) return;
+  graphState.utilityDrawerPosition = nextPosition;
+  wrapper.style.left = `${nextPosition.x}px`;
+  wrapper.style.top = `${nextPosition.y}px`;
+  wrapper.style.right = "auto";
+  wrapper.style.justifyContent = "flex-start";
+  wrapper.querySelector("[data-graph-utility-reset-position]")?.removeAttribute("disabled");
+  event.preventDefault();
+}
+
+function endGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const handle = graphUtilityDrawerDragState.handle;
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  if (handle?.hasPointerCapture?.(event.pointerId)) {
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+  if (wrapper) wrapper.classList.remove("is-dragging");
+  if (graphUtilityDrawerDragState.moved) {
+    graphUtilityDrawerDragState.suppressClickUntil = Date.now() + 250;
+  }
+  graphUtilityDrawerDragState.active = false;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = null;
+  graphUtilityDrawerDragState.handle = null;
+  graphUtilityDrawerDragState.wrapper = null;
+  graphUtilityDrawerDragState.stage = null;
 }
 
 const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;
@@ -12327,6 +12476,7 @@ function renderGraphPanel() {
       toolbarMarkup
     })}
   `;
+  applyGraphUtilityDrawerPosition(canvas);
 }
 
 async function refreshDirectoryGraph() {
@@ -15053,6 +15203,26 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     event.stopPropagation();
     return;
   }
+  if (graphUtilityDrawerDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-utility-drawer")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const utilityDrawerReset = event.target.closest("[data-graph-utility-reset-position]");
+  if (utilityDrawerReset) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (utilityDrawerReset.hasAttribute("disabled")) return;
+    graphState.utilityDrawerPosition = null;
+    renderGraphPanel();
+    setStatus("待判断线索已恢复默认位置", "ok");
+    return;
+  }
+  if (event.target.closest("[data-graph-utility-drag-handle]")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const utilityDrawerSummary = event.target.closest(".graph-utility-drawer-summary");
   if (utilityDrawerSummary) {
     const utilityDrawer = utilityDrawerSummary.closest("[data-graph-utility-drawer]");
@@ -15369,24 +15539,33 @@ $("graphCanvas")?.addEventListener("focusout", (event) => {
 });
 
 $("graphCanvas")?.addEventListener("pointerdown", (event) => {
+  const utilityDrawerHandle = event.target.closest("[data-graph-utility-drag-handle]");
+  if (utilityDrawerHandle) {
+    beginGraphUtilityDrawerDrag(utilityDrawerHandle, event);
+    return;
+  }
   const viewport = event.target.closest(".graph-map-viewport");
   if (!viewport) return;
   beginGraphViewportDrag(viewport, event);
 });
 
 $("graphCanvas")?.addEventListener("pointermove", (event) => {
+  updateGraphUtilityDrawerDrag(event);
   updateGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointerup", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointercancel", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("lostpointercapture", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
