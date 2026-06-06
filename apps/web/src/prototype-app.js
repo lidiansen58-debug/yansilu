@@ -4582,8 +4582,7 @@ function originalDraftBodyFromSource(payload = {}) {
         boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
         relatedClues,
         supplement
-      },
-      { includeEmptySections: true }
+      }
     );
   }
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
@@ -4602,8 +4601,7 @@ function originalDraftBodyFromSource(payload = {}) {
         .filter(Boolean)
         .join("\n"),
       supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
-    },
-    { includeEmptySections: true }
+    }
   );
 }
 
@@ -5733,12 +5731,9 @@ function literatureNoteTemplateBody(title = "未命名笔记") {
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return composePermanentWorkspace(
-    {
-      title: String(title || "未命名笔记").trim() || "未命名笔记"
-    },
-    { includeEmptySections: true }
-  );
+  return composePermanentWorkspace({
+    title: String(title || "未命名笔记").trim() || "未命名笔记"
+  });
 }
 
 function initialBodyForFolder(folderId = "") {

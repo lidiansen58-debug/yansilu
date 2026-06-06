@@ -1182,10 +1182,10 @@ test("prototype new note auto-selects placeholder title for immediate typing", a
     const tabTitle = await page.locator(".tab.active .tab-title").textContent();
     assert.match(editorValue, /^# Immediate Title\b/);
     assert.doesNotMatch(editorValue, /未锟斤拷锟斤拷锟绞硷拷/);
-    assert.match(editorValue, /## 核心观点/);
-    assert.match(editorValue, /## 为什么成立/);
-    assert.match(editorValue, /## 边界 \/ 反例/);
-    assert.match(editorValue, /## 关联线索/);
+    assert.doesNotMatch(editorValue, /## 核心观点/);
+    assert.doesNotMatch(editorValue, /## 为什么成立/);
+    assert.doesNotMatch(editorValue, /## 边界 \/ 反例/);
+    assert.doesNotMatch(editorValue, /## 关联线索/);
     assert.match(tabTitle || "", /Immediate Title/);
   }, 7000);
 });

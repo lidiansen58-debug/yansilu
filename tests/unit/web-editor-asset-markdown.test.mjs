@@ -191,6 +191,26 @@ Legacy detail that should stay editable.
   assert.equal(parsed.structured, true);
 });
 
+test("parsePermanentWorkspace preserves structured preface outside recognized sections", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+Intro paragraph stays outside sections.
+
+## 核心观点
+
+Claim that can stand on its own.
+
+## 关联线索
+
+- [[Source note]]
+`);
+
+  assert.equal(parsed.preface, "Intro paragraph stays outside sections.");
+  assert.equal(parsed.coreClaim, "Claim that can stand on its own.");
+  assert.equal(parsed.relatedClues, "- [[Source note]]");
+  assert.equal(parsed.supplement, "");
+});
+
 test("parsePermanentWorkspace keeps legacy freeform content editable without forcing migration", () => {
   const parsed = parsePermanentWorkspace(`# Legacy note
 
@@ -261,4 +281,23 @@ test("composePermanentWorkspace keeps unknown sections top-level instead of nest
   assert.match(markdown, /This custom section should stay top-level\./);
   assert.doesNotMatch(markdown, /## 补充内容/);
   assert.doesNotMatch(markdown, /### 自定义问题/);
+});
+
+test("composePermanentWorkspace preserves structured preface ahead of core sections", () => {
+  const markdown = composePermanentWorkspace(
+    {
+      title: "Permanent note",
+      preface: "Intro paragraph stays outside sections.",
+      coreClaim: "A stable claim.",
+      relatedClues: "- [[Related note]]"
+    },
+    {
+      extraSections: [{ heading: "自定义问题", body: "This custom section should stay top-level." }]
+    }
+  );
+
+  assert.match(markdown, /^# Permanent note\n\nIntro paragraph stays outside sections\./);
+  assert.match(markdown, /\n\n## 核心观点/);
+  assert.match(markdown, /\n\n## 自定义问题/);
+  assert.doesNotMatch(markdown, /## 补充内容/);
 });

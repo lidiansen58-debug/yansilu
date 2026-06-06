@@ -370,6 +370,7 @@ function inferLegacyPermanentFields(content = "") {
   const text = normalizeFieldText(content);
   if (!text) {
     return {
+      preface: "",
       coreClaim: "",
       whyTrue: "",
       boundary: "",
@@ -391,6 +392,7 @@ function inferLegacyPermanentFields(content = "") {
     countIdeaUnits(firstParagraph) >= 4;
   if (!canUseFirstParagraphAsClaim) {
     return {
+      preface: "",
       coreClaim: "",
       whyTrue: "",
       boundary: "",
@@ -400,6 +402,7 @@ function inferLegacyPermanentFields(content = "") {
     };
   }
   return {
+    preface: "",
     coreClaim: firstParagraph,
     whyTrue: "",
     boundary: "",
@@ -528,6 +531,7 @@ export function parsePermanentWorkspace(body = "") {
   );
   const parsed = {
     title,
+    preface: "",
     coreClaim: "",
     whyTrue: "",
     boundary: "",
@@ -544,8 +548,8 @@ export function parsePermanentWorkspace(body = "") {
     };
   }
 
+  parsed.preface = normalizeFieldText(preface);
   const supplementParts = [];
-  if (normalizeFieldText(preface)) supplementParts.push(normalizeFieldText(preface));
   const unknownSections = [];
   for (const section of sections) {
     const key = permanentSectionKeyFromHeading(section.heading);
@@ -568,6 +572,7 @@ export function parsePermanentWorkspace(body = "") {
 export function composePermanentWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
   const includeEmptySections = options?.includeEmptySections === true;
+  const preface = normalizeFieldText(fields.preface);
   const normalized = {
     coreClaim: normalizeFieldText(fields.coreClaim),
     whyTrue: normalizeFieldText(fields.whyTrue),
@@ -577,6 +582,7 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
   };
   const extraSections = normalizePermanentExtraSections(options?.extraSections);
   const lines = [`# ${title}`, ""];
+  if (preface) lines.push(preface, "");
   const sectionOrder = [
     ["coreClaim", PERMANENT_SECTION_LABELS.coreClaim],
     ["whyTrue", PERMANENT_SECTION_LABELS.whyTrue],
@@ -2098,8 +2104,13 @@ export class EditorPane {
     return normalizePermanentExtraSections(tab?.permanentExtraSections);
   }
 
+  permanentPreface(tab = this.activeTab()) {
+    return normalizeFieldText(tab?.permanentPreface);
+  }
+
   rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
     if (!tab) return;
+    tab.permanentPreface = normalizeFieldText(parsed?.preface);
     tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
   }
 
@@ -2410,6 +2421,7 @@ export class EditorPane {
     this.setUnderlyingEditorValue(
       composePermanentWorkspace(this.permanentFieldsFromInputs(), {
         ...options,
+        preface: options?.preface ?? this.permanentPreface(),
         extraSections: options?.extraSections || this.permanentExtraSections()
       })
     );
@@ -3929,6 +3941,7 @@ export class EditorPane {
     }
     if (this.isPermanentWorkspaceActive()) {
       return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        preface: this.permanentPreface(),
         extraSections: this.permanentExtraSections()
       });
     }
@@ -3951,7 +3964,10 @@ export class EditorPane {
     const raw = String(body || "").replace(/\r\n/g, "\n");
     const parsed = parsePermanentWorkspace(raw);
     if (!parsed.structured) return raw;
-    return composePermanentWorkspace(parsed, { extraSections: parsed.extraSections });
+    return composePermanentWorkspace(parsed, {
+      preface: parsed.preface,
+      extraSections: parsed.extraSections
+    });
   }
 
   editorSelection() {
