@@ -10439,9 +10439,71 @@ function graphNodeAttentionReasons(node = {}, { selected = false, inSelectedThem
   return uniqueStrings(reasons);
 }
 
+function graphNodeStarTier(node = {}) {
+  if (node.isFocused) return "focus";
+  if (node.isHub) return "core";
+  if (node.isAnchor) return "major";
+  if (node.isGraphIsolatedCandidate) return "isolated";
+  const degree = Number(node.degree || 0);
+  if (degree >= 8) return "major";
+  if (degree >= 4) return "medium";
+  if (degree >= 1) return "minor";
+  return "dust";
+}
+
+function graphNodeStarRank(tier = "") {
+  if (tier === "focus") return 5;
+  if (tier === "core") return 4;
+  if (tier === "major") return 3;
+  if (tier === "medium") return 2;
+  if (tier === "minor") return 1;
+  return 0;
+}
+
+function graphNodeRadiusByTier(tier = "", degree = 0) {
+  const safeDegree = Number(degree || 0);
+  if (tier === "focus") return Math.round(24 + Math.min(10, safeDegree * 1.1));
+  if (tier === "core") return Math.round(20 + Math.min(8, safeDegree * 1.05));
+  if (tier === "major") return Math.round(14 + Math.min(5, safeDegree * 0.72));
+  if (tier === "medium") return Math.round(10 + Math.min(3, safeDegree * 0.45));
+  if (tier === "minor") return Math.round(7 + Math.min(2, safeDegree * 0.3));
+  if (tier === "isolated") return 10;
+  return 4;
+}
+
+function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
+  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
+  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
+  const fromRank = graphNodeStarRank(from?.starTier);
+  const toRank = graphNodeStarRank(to?.starTier);
+  const strongest = Math.max(fromRank, toRank);
+  const weakest = Math.min(fromRank, toRank);
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  if (strongest >= 4) return true;
+  if (relationType === "bridges" && strongest >= 3) return true;
+  if ((relationType === "supports" || relationType === "extends" || relationType === "questions" || relationType === "contrasts") && strongest >= 3 && weakest >= 2) return true;
+  return false;
+}
+
+function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
+  const width = Math.max(960, Number(layoutWidth || 0));
+  const height = Math.max(520, Number(layoutHeight || 0));
+  const count = Math.max(48, Math.round((width * height) / 26000));
+  return Array.from({ length: count }, (_, index) => {
+    const base = graphHash(`${seed}:${index}`);
+    const x = 24 + (base % Math.max(1, width - 48));
+    const y = 20 + ((base * 17) % Math.max(1, height - 40));
+    const radius = 0.6 + ((base % 10) / 10) * 1.6;
+    const opacity = 0.14 + ((base % 7) / 7) * 0.34;
+    const blur = base % 3 === 0 ? " is-soft" : "";
+    return `<circle class="graph-map-star${blur}" cx="${x}" cy="${y}" r="${radius.toFixed(1)}" opacity="${opacity.toFixed(2)}"></circle>`;
+  }).join("");
+}
+
 function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const focusedNoteId = String(options.focusedNoteId || "").trim();
   const nodeMap = new Map();
+  const adjacencyMap = new Map();
 
   nodes.forEach((node) => {
     const id = String(node?.id || "").trim();
@@ -10490,6 +10552,12 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
       to.degree += 1;
       to.inDegree += 1;
     }
+    if (fromId && toId && fromId !== toId) {
+      if (!adjacencyMap.has(fromId)) adjacencyMap.set(fromId, new Set());
+      if (!adjacencyMap.has(toId)) adjacencyMap.set(toId, new Set());
+      adjacencyMap.get(fromId).add(toId);
+      adjacencyMap.get(toId).add(fromId);
+    }
   });
 
   const nodeTotal = nodeMap.size;
@@ -10512,22 +10580,55 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const outerRingCount = Math.max(1, outerCount - innerCount);
   const anchorCount = focusedNoteId ? 1 : Math.min(3, layoutNodes.filter((node) => Number(node.degree || 0) > 0).length);
   const anchorIds = new Set(layoutNodes.slice(0, anchorCount).map((node) => node.id));
+  const anchorOrder = [...anchorIds];
+  const anchorAngles = focusedNoteId ? [-Math.PI / 2] : [-Math.PI / 2, Math.PI / 10, (8 * Math.PI) / 10];
+  const clusterAssignments = new Map();
+  const clusterMembers = Array.from({ length: Math.max(1, anchorOrder.length || 3) }, () => []);
   const isolatedLayoutNodes = layoutNodes.filter((node) => node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
   const isolatedIndexById = new Map(isolatedLayoutNodes.map((node, index) => [node.id, index]));
+
+  if (!focusedNoteId && anchorOrder.length) {
+    layoutNodes.forEach((node, index) => {
+      if (!index || anchorIds.has(node.id) || node.isGraphIsolatedCandidate || node.graphVisualState === "isolated") return;
+      let bestIndex = -1;
+      let bestScore = -1;
+      anchorOrder.forEach((anchorId, anchorIndex) => {
+        const score = adjacencyMap.get(node.id)?.has(anchorId) ? 1 : 0;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIndex = anchorIndex;
+        }
+      });
+      const clusterIndex = bestIndex >= 0 && bestScore > 0 ? bestIndex : graphHash(node.id) % anchorOrder.length;
+      clusterAssignments.set(node.id, clusterIndex);
+      clusterMembers[clusterIndex].push(node.id);
+    });
+  }
 
   layoutNodes.forEach((node, index) => {
     const isFocused = Boolean(focusedNoteId) && node.id === focusedNoteId;
     const isVisualIsolated = Boolean(node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
     const isHub = (index === 0 && node.degree > 0) || isFocused;
     const isAnchor = !focusedNoteId && anchorIds.has(node.id);
-    const degreeBoost = isVisualIsolated ? 0 : Math.min(8, Number(node.degree || 0) * 1.6);
-    const baseRadius = isVisualIsolated ? 14 : 18;
-    node.radius = Math.round(baseRadius + degreeBoost + (isHub ? 8 : 0) + (isFocused ? 4 : 0) + (isAnchor && !isHub ? 3 : 0));
     node.isHub = isHub;
     node.isFocused = isFocused;
     node.isContext = Boolean(focusedNoteId) && !isFocused;
     node.isAnchor = isAnchor;
     node.isGraphIsolatedCandidate = isVisualIsolated;
+    node.starTier = graphNodeStarTier(node);
+    node.radius = graphNodeRadiusByTier(node.starTier, node.degree);
+    node.auraRadius =
+      node.starTier === "focus"
+        ? node.radius + 20
+        : node.starTier === "core"
+          ? node.radius + 16
+          : node.starTier === "major"
+            ? node.radius + 10
+            : node.starTier === "isolated"
+              ? node.radius + 8
+              : node.starTier === "medium"
+                ? node.radius + 5
+                : 0;
 
     if (isVisualIsolated && outerCount) {
       const isolatedIndex = isolatedIndexById.get(node.id) || 0;
@@ -10547,15 +10648,38 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
     }
 
     const ringIndex = index - 1;
-    const anchorIndex = !focusedNoteId ? [...anchorIds].indexOf(node.id) : -1;
+    const anchorIndex = !focusedNoteId ? anchorOrder.indexOf(node.id) : -1;
     if (anchorIndex >= 0) {
-      const anchorAngles = [-Math.PI / 2, Math.PI / 6, (5 * Math.PI) / 6];
       const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorCount));
-      const anchorRadiusX = width * 0.2;
-      const anchorRadiusY = height * 0.16;
+      const anchorRadiusX = width * 0.19;
+      const anchorRadiusY = height * 0.15;
       node.x = Math.round(centerX + Math.cos(angle) * anchorRadiusX);
       node.y = Math.round(centerY + Math.sin(angle) * anchorRadiusY);
       return;
+    }
+
+    if (!focusedNoteId && anchorOrder.length) {
+      const clusterIndex = clusterAssignments.get(node.id);
+      if (Number.isInteger(clusterIndex) && clusterIndex >= 0) {
+        const memberIds = clusterMembers[clusterIndex] || [];
+        const localIndex = Math.max(0, memberIds.indexOf(node.id));
+        const membersPerRing = memberIds.length > 10 ? 5 : memberIds.length > 6 ? 4 : 3;
+        const ring = Math.floor(localIndex / Math.max(1, membersPerRing));
+        const slot = localIndex % Math.max(1, membersPerRing);
+        const slotCount = Math.min(Math.max(1, membersPerRing), Math.max(1, memberIds.length - ring * membersPerRing));
+        const spread = slotCount <= 2 ? 0.78 : slotCount <= 4 ? 1.35 : 1.82;
+        const localOffset = slotCount === 1 ? 0 : -spread / 2 + (spread * slot) / Math.max(1, slotCount - 1);
+        const jitter = ((graphHash(node.id) % 9) - 4) * 0.02;
+        const anchorAngle = anchorAngles[clusterIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, anchorOrder.length));
+        const clusterCenterX = centerX + Math.cos(anchorAngle) * width * 0.18;
+        const clusterCenterY = centerY + Math.sin(anchorAngle) * height * 0.14;
+        const orbitDistance = 58 + ring * 36 + (graphHash(node.id) % 12) * 1.8 + Math.max(0, node.radius - 7) * 1.4;
+        node.x = Math.round(clusterCenterX + Math.cos(anchorAngle + localOffset + jitter) * orbitDistance);
+        node.y = Math.round(clusterCenterY + Math.sin(anchorAngle + localOffset + jitter) * orbitDistance * 0.78);
+        node.x = Math.max(26, Math.min(width - 26, node.x));
+        node.y = Math.max(26, Math.min(height - 26, node.y));
+        return;
+      }
     }
 
     const useOuterRing = outerCount > 12 && ringIndex >= innerCount;
@@ -10849,6 +10973,7 @@ function renderGraphVisualMap({
       return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
+  const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
   const zoomStepperMarkup = `
     <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="缩小图谱" title="缩小图谱"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
     <div class="graph-zoom-preset-group" aria-label="图谱缩放层级">
@@ -10882,21 +11007,22 @@ function renderGraphVisualMap({
     .map((node, index) => {
       const typeClass = graphNodeClass(node.noteType);
       const title = node.title || node.id;
-      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : zoom.key === "fit" ? 10 : zoom.key === "read" ? 16 : 20;
+      const starRank = graphNodeStarRank(node.starTier);
+      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : starRank >= 3 ? (zoom.key === "fit" ? 12 : 18) : zoom.key === "fit" ? 8 : zoom.key === "read" ? 14 : 18;
       const label = graphShortTitle(title, labelLimit);
       const labelY = node.y + node.radius + 17;
       const metaY = labelY + 14;
       const labelQuota = denseDirectoryMode
         ? zoom.key === "detail"
-          ? 6
+          ? 8
           : zoom.key === "read"
-            ? 3
-            : 1
+            ? 4
+            : 0
         : zoom.key === "detail"
-          ? 14
+          ? 12
           : zoom.key === "read"
-            ? 8
-          : 3;
+            ? 6
+          : 2;
       const inSelectedTheme = selectedThemeNoteIds.has(node.id);
       const isolatedKey = String(node.isolatedKey || "").trim();
       const selectedIsolated = selectedIsolatedNodeId === node.id || (activeSelection?.kind === "isolated" && isolatedKey && activeSelection.isolatedKey === isolatedKey);
@@ -10905,23 +11031,58 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const showLabel = node.isFocused || node.isHub || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority || index < labelQuota;
-      const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
-      const revealOnly = denseDirectoryMode && !node.isFocused && !node.isHub && !node.isAnchor && !showLabel;
+      const showLabel = zoom.key === "fit"
+        ? (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            lensPriority
+          )
+        : (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedNodeNeighborhood ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            lensPriority ||
+            starRank >= 2 ||
+            index < labelQuota
+          );
+      const showMeta = showLabel && starRank >= 3 && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
+      const revealOnly =
+        !showLabel &&
+        !selected &&
+        !inSelectedTheme &&
+        !selectedIsolated &&
+        !inSelectedBridge &&
+        !lensPriority &&
+        (
+          zoom.key === "fit"
+            ? starRank <= 2
+            : denseDirectoryMode && starRank <= 1
+        );
       const neighbors = [...(adjacencyMap.get(node.id) || [])];
       const metaLabel = node.isGraphIsolatedCandidate ? "孤立待判断" : noteTypeLabel(node.noteType);
       const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
       const attentionText = attentionReasons.length ? `；${attentionReasons.join("、")}` : "";
-      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge;
+      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || starRank >= 3;
       const haloTone = node.isGraphIsolatedCandidate || selectedIsolated ? "is-isolated" : inSelectedBridge ? "is-bridge" : node.isFocused || selected ? "is-focus" : inSelectedTheme ? "is-theme" : "is-anchor";
       const hitRadius = Math.max(24, Number(node.radius || 0) + 8);
       const glintRadius = Math.max(2.2, Number(node.radius || 0) * 0.18);
       const glintX = Number(node.x || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       const glintY = Number(node.y || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       return `
-        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
+          ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
           ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 8}"></circle>` : ""}
           <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
           <circle class="graph-map-node-glint" cx="${glintX}" cy="${glintY}" r="${glintRadius}"></circle>
@@ -10950,8 +11111,9 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = Boolean(selectedNodeId) && (fromId === selectedNodeId || toId === selectedNodeId);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
+      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap);
       return `
-        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+        <g class="graph-map-edge-group graph-edge ${fitVisible ? "is-fit-visible" : "is-fit-hidden"} ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
           <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
@@ -11076,6 +11238,7 @@ function renderGraphVisualMap({
                         </linearGradient>
                       </defs>
                       <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
+                      <g class="graph-map-stars">${starfieldMarkup}</g>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>
                       <g class="graph-map-nodes">${nodeMarkup}</g>

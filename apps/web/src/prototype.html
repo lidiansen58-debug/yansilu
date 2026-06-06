@@ -5186,6 +5186,16 @@
       stroke-width: 1.2;
       vector-effect: non-scaling-stroke;
     }
+    .graph-map-stars {
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    .graph-map-star {
+      fill: rgba(255, 255, 255, 0.92);
+    }
+    .graph-map-star.is-soft {
+      filter: blur(0.8px);
+    }
     .graph-map-theme-boundaries {
       pointer-events: none;
     }
@@ -5310,6 +5320,16 @@
     }
     .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge {
       marker-end: none;
+    }
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-fit-hidden .graph-map-edge {
+      opacity: 0.04;
+      stroke-width: 0.8;
+      filter: none;
+    }
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-fit-hidden .graph-map-edge-underlay,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-fit-hidden .graph-map-edge-pin,
+    .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-fit-hidden .graph-map-edge-label {
+      opacity: 0;
     }
     .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-focused-path .graph-map-edge,
     .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge-group.is-lens-priority .graph-map-edge,
@@ -5501,6 +5521,24 @@
       pointer-events: all;
       vector-effect: non-scaling-stroke;
     }
+    .graph-map-node-aura {
+      fill: rgba(142, 231, 213, 0.18) !important;
+      stroke: none !important;
+      filter: blur(8px) !important;
+      opacity: 0.66;
+      pointer-events: none;
+    }
+    .graph-map-node-aura.is-focus {
+      fill: rgba(142, 231, 213, 0.28) !important;
+      opacity: 0.88;
+    }
+    .graph-map-node-aura.is-core,
+    .graph-map-node-aura.is-major {
+      fill: rgba(125, 211, 252, 0.18) !important;
+    }
+    .graph-map-node-aura.is-isolated {
+      fill: rgba(245, 208, 117, 0.2) !important;
+    }
     .graph-map-node-orbit {
       fill: none !important;
       stroke: rgba(47, 156, 104, 0.42) !important;
@@ -5553,6 +5591,27 @@
       stroke-width: 2.4;
       filter: url(#graph-soft-node-glow);
       transition: stroke 0.16s ease, stroke-width 0.16s ease, filter 0.16s ease;
+    }
+    .graph-map-node.is-star-dust .graph-map-node-core,
+    .graph-map-node.is-star-minor .graph-map-node-core {
+      stroke-width: 1.6;
+      filter: drop-shadow(0 0 10px rgba(103, 232, 249, 0.14));
+    }
+    .graph-map-node.is-star-dust .graph-map-node-core {
+      opacity: 0.72;
+    }
+    .graph-map-node.is-star-medium .graph-map-node-core {
+      stroke-width: 2;
+      filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.16));
+    }
+    .graph-map-node.is-star-major .graph-map-node-core {
+      stroke-width: 2.8;
+      filter: drop-shadow(0 0 16px rgba(110, 231, 246, 0.22)) drop-shadow(0 12px 20px rgba(15, 23, 42, 0.12));
+    }
+    .graph-map-node.is-star-core .graph-map-node-core,
+    .graph-map-node.is-star-focus .graph-map-node-core {
+      stroke-width: 3.6;
+      filter: drop-shadow(0 0 18px rgba(167, 243, 208, 0.28)) drop-shadow(0 18px 28px rgba(15, 23, 42, 0.14));
     }
     .graph-map-node.is-original circle {
       fill: url(#graph-node-core-fill);
@@ -5735,7 +5794,7 @@
     }
     .graph-map-node-label {
       fill: #172033;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 800;
       paint-order: stroke;
       stroke: #f8fafc;
@@ -5747,6 +5806,9 @@
       opacity: 0;
       transform-origin: center;
       transition: opacity 0.16s ease;
+    }
+    .graph-map-node.is-label-on-hover .graph-map-node-label.is-hover-reveal {
+      opacity: 0 !important;
     }
     .graph-map-node-meta {
       fill: #64748b;
@@ -5765,11 +5827,21 @@
     .graph-map-node.is-label-on-hover:hover .graph-map-node-label.is-hover-reveal,
     .graph-map-node.is-label-on-hover:focus .graph-map-node-label.is-hover-reveal,
     .graph-map-node.is-label-on-hover:focus-visible .graph-map-node-label.is-hover-reveal {
-      opacity: 1;
+      opacity: 1 !important;
     }
     .graph-map-node.is-focused .graph-map-node-label {
       fill: #0f172a;
       font-size: 14px;
+    }
+    .graph-map-node.is-star-major .graph-map-node-label,
+    .graph-map-node.is-star-core .graph-map-node-label,
+    .graph-map-node.is-star-focus .graph-map-node-label {
+      fill: #10202f;
+    }
+    .graph-map-node.is-star-dust .graph-map-node-label,
+    .graph-map-node.is-star-minor .graph-map-node-label {
+      fill: #415166;
+      font-size: 11px;
     }
     .graph-map-node.is-focused .graph-map-node-meta {
       fill: #0f6f48;
