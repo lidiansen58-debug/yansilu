@@ -4524,6 +4524,7 @@ test("prototype migrates legacy global note templates into the active vault scop
   });
   if (!stack) return;
   const { page, vaultPath } = stack;
+  const nextVaultPath = path.join(await makeTempDir("yansilu-browser-e2e-template-legacy-vault-"), "vault");
 
   await openSettingsModule(page);
   await waitFor(async () => {
@@ -4552,12 +4553,26 @@ test("prototype migrates legacy global note templates into the active vault scop
     };
   });
 
-  assert.equal(migratedStorage.legacyPermanent, null);
-  assert.equal(migratedStorage.legacyLiterature, null);
+  assert.match(String(migratedStorage.legacyPermanent || ""), /这是旧版全局永久模板。/);
+  assert.match(String(migratedStorage.legacyLiterature || ""), /这是旧版全文献模板。/);
   assert.match(String(migratedStorage.scopedPermanentKey || ""), /yansilu:settings:note-template:permanent:/);
   assert.match(String(migratedStorage.scopedPermanentValue || ""), /这是旧版全局永久模板。/);
   assert.match(String(migratedStorage.scopedLiteratureKey || ""), /yansilu:settings:note-template:literature:/);
   assert.match(String(migratedStorage.scopedLiteratureValue || ""), /这是旧版全文献模板。/);
+
+  await page.locator("#settingsVaultPath").fill(nextVaultPath);
+  await page.locator("#settingsSwitchVault").click();
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.equal(path.resolve(currentVaultText), path.resolve(nextVaultPath));
+  }, 10000);
+
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
+    assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
+  }, 5000);
 });
 
 test("prototype settings saved literature and permanent templates drive later new notes in the same vault", async (t) => {

@@ -982,8 +982,6 @@ function loadNoteTemplateSettingsFromStorage() {
     if (shouldMigrateLegacy) {
       writeStoredText(scopedKey, normalizedText);
       writeStoredText(scopedHistoryKey, JSON.stringify(settingsState.noteTemplates[kind].history));
-      writeStoredText(legacyKey, "");
-      writeStoredText(legacyHistoryKey, "");
     }
   }
 }
