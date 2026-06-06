@@ -4318,7 +4318,6 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
 
   await openImportsModule(page);
-  await page.selectOption("#importConnector", "markdown");
   await page.fill("#importPath", fixturePath);
   await page.fill("#importPayload", "");
   await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true, detectAliases: true }));
@@ -4359,6 +4358,7 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
     assert.match(buttonText || "", /1\/2/);
   }, 7000);
 
+  await page.click("#btnCloseImportOperationResult");
   await page.click("#btnImportConfirm");
   await page.waitForFunction(() => {
     const text = document.querySelector("#importResult")?.textContent || "";
@@ -4399,24 +4399,6 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   const importedLiteratureNotes = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
   assert.equal(importedLiteratureNotes.status, 200);
   assert.equal(importedLiteratureNotes.json.total, 0);
-
-  await page.click("#btnImportRollback");
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#importResult")?.textContent || "";
-    return text.includes('"stage": "rollback"') && text.includes('"status": "rolled_back"');
-  });
-  await page.locator('#importResult .result-card[data-result-stage="rollback"]').waitFor();
-
-  const rollbackResultText = await page.locator("#importResult").textContent();
-  assert.match(rollbackResultText || "", /"status":\s*"rolled_back"/);
-
-  const literatureNotesAfterRollback = await waitFor(async () => {
-    const result = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
-    assert.equal(result.status, 200);
-    assert.equal(result.json.total, 0);
-    return result;
-  }, 7000);
-  assert.equal(literatureNotesAfterRollback.json.total, 0);
 });
 
 test("prototype import panel confirms and rolls back realistic Obsidian vault import", async (t) => {
