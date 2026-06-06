@@ -3591,6 +3591,14 @@
       min-height: 42px;
       margin-bottom: 10px;
     }
+    .graph-map-head .graph-canvas-toolbar {
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+    .graph-canvas-toolbar-merged .graph-canvas-toolbar-actions {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
     .graph-canvas-toolbar-spacer {
       min-height: 1px;
       flex: 1 1 auto;
@@ -5581,7 +5589,7 @@
       fill: #2f6e50;
     }
     .graph-map-legend {
-      margin-top: 10px;
+      margin: 0 14px 12px;
       width: 100%;
       display: flex;
       flex-wrap: wrap;
@@ -12456,8 +12464,7 @@
           <div class="panel graph-panel hidden" id="graphPanel">
           <div class="graph-head">
             <div class="graph-status-bar">
-              <span class="graph-status-label">关系图谱</span>
-              <div class="graph-summary" id="graphSummary">正在读取关系图谱...</div>
+              <div class="graph-summary" id="graphSummary">0 条永久笔记，0 条关系</div>
             </div>
           <div class="graph-actions">
               <button class="mini-btn is-ghost hidden" id="graphBackToDirectory" type="button">返回目录关系</button>
@@ -12465,7 +12472,7 @@
             </div>
           </div>
           <div id="graphCanvas">
-            <div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是“支持、反驳、限定、桥接”等关系。</div>
+            <div class="graph-empty"></div>
           </div>
           </div>
           <div class="panel hidden" id="writingPanel">

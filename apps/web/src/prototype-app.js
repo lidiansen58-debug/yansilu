@@ -4776,7 +4776,10 @@ function renderSidebarTitle() {
         : state.browserRootId === "dir_literature_default"
           ? "quick-literature"
           : "quick-original";
-    document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
+    const explorerActive = state.module === "explorer";
+    document
+      .querySelectorAll(".quick-entry")
+      .forEach((entry) => entry.classList.toggle("current-root", explorerActive && entry.dataset.action === quickAction));
     syncNewNoteButtons();
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
@@ -5668,7 +5671,7 @@ function syncRailSelectionState() {
   const explorerActive = state.module === "explorer";
   document.querySelectorAll(".quick-entry").forEach((entry) => {
     const isCurrentRoot = entry.dataset.action === currentQuickAction;
-    entry.classList.toggle("current-root", isCurrentRoot);
+    entry.classList.toggle("current-root", explorerActive && isCurrentRoot);
     entry.classList.toggle("active", explorerActive && isCurrentRoot);
   });
   document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
@@ -10682,7 +10685,8 @@ function renderGraphVisualMap({
   isolatedNotes = [],
   bridgeGaps = [],
   thinkingPanelMarkup = "",
-  utilityDrawerMarkup = ""
+  utilityDrawerMarkup = "",
+  toolbarMarkup = ""
 } = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -10883,12 +10887,13 @@ function renderGraphVisualMap({
   return `
     <section class="graph-map-panel${expanded ? " is-expanded" : ""}${!filterActive && readingLensState.active ? ` has-reading-lens is-reading-lens-${escapeHtml(readingLens.key)}` : ""}${activeSelection?.kind === "node" ? " is-selecting-node" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
       <div class="graph-map-head">
-        <div>
-          <div class="graph-section-title">${filterActive ? "当前笔记关系图" : escapeHtml(modeMeta.label)}</div>
-          <div class="graph-section-note">${filterActive ? `当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。` : escapeHtml(modeMeta.mapNote)}</div>
-          ${
-            filterActive
-              ? `
+        ${toolbarMarkup}
+        ${
+          filterActive
+            ? `
+              <div>
+                <div class="graph-section-title">当前笔记关系图</div>
+                <div class="graph-section-note">当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。</div>
                 <div class="graph-focus-depth" aria-label="中心阅读深度">
                   ${["1", "2", "all"]
                     .map((value) => {
@@ -10899,13 +10904,32 @@ function renderGraphVisualMap({
                     .join("")}
                   <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
                 </div>
-              `
-              : ""
-          }
-          ${!filterActive ? renderGraphReadingLensControls(readingLens.key) : ""}
-          ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
-        </div>
+              </div>
+            `
+            : `
+              ${renderGraphReadingLensControls(readingLens.key)}
+              ${layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
+            `
+        }
       </div>
+      ${
+        legendOpen
+          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
+              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
+              ${legendGroups
+                .map(
+                  (group) => `
+                    <span>
+                      <i class="${escapeHtml(group.className)}"></i>
+                      <strong>${escapeHtml(group.label)}</strong>
+                      <small>${escapeHtml(group.detail)}</small>
+                    </span>
+                  `
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
       <div class="graph-map-stage">
         ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap">${utilityDrawerMarkup}</div>` : ""}
         ${
@@ -10978,27 +11002,6 @@ function renderGraphVisualMap({
         }
         ${thinkingPanelMarkup && !filterActive ? thinkingPanelMarkup : ""}
         ${questionSpotSummary && !filterActive ? renderGraphQuestionSpotChip(questionSpotSummary) : ""}
-      </div>
-      ${
-        legendOpen
-          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
-              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
-              ${legendGroups
-                .map(
-                  (group) => `
-                    <span>
-                      <i class="${escapeHtml(group.className)}"></i>
-                      <strong>${escapeHtml(group.label)}</strong>
-                      <small>${escapeHtml(group.detail)}</small>
-                    </span>
-                  `
-                )
-                .join("")}
-            </div>`
-          : ""
-      }
-      <div class="graph-map-footer-controls">
-        <button class="mini-btn is-ghost" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
       </div>
     </section>
   `;
@@ -12068,8 +12071,8 @@ function renderGraphPanel() {
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
-    summary.textContent = `永久笔记盒：点击“刷新图谱”查看所有永久笔记之间的关系。`;
-    canvas.innerHTML = `<div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是支持、反驳、限定、桥接等关系。</div>`;
+    summary.textContent = "0 条永久笔记，0 条关系";
+    canvas.innerHTML = `<div class="graph-empty"></div>`;
     return;
   }
 
@@ -12123,13 +12126,8 @@ function renderGraphPanel() {
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
-  const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
-  const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const summaryModeNote = graphSummaryModeNote(effectiveRelationType);
-  const baseSummary = showingFocusedNote
-    ? `${focusedNote?.title || focused.focusedNoteId} · ${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label} · ${edges.length} 条关系`
-    : `${scopeFolder?.name || "永久笔记盒"} · ${visibleNodes.length} 条永久笔记 · ${edges.length} 条关系 · ${summaryModeNote}${isolatedVisualNodes.length ? ` · ${isolatedVisualNodes.length} 条孤立待判断` : ""}`;
+  const baseSummary = `${visibleNodes.length} 条永久笔记，${edges.length} 条关系`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -12190,9 +12188,8 @@ function renderGraphPanel() {
         open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
       })
     : "";
-  canvas.innerHTML = `
-    ${notices.join("")}
-    <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs" : ""}">
+  const toolbarMarkup = `
+    <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs graph-canvas-toolbar-merged" : ""}">
       ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : '<div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>'}
       <div class="graph-canvas-toolbar-actions">
         <div class="graph-filters graph-filters-single" data-graph-filters>
@@ -12200,8 +12197,12 @@ function renderGraphPanel() {
             ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
           </select>
         </div>
+        <button class="mini-btn is-ghost" id="graphLegendToggle" type="button" aria-expanded="${graphState.legendOpen === true}" aria-label="${graphState.legendOpen === true ? "隐藏图例" : "查看图例"}">${graphState.legendOpen === true ? "隐藏图例" : "查看图例"}</button>
       </div>
     </div>
+  `;
+  canvas.innerHTML = `
+    ${notices.join("")}
     ${renderGraphVisualMap({
       nodes: visualNodes,
       edges,
@@ -12213,7 +12214,8 @@ function renderGraphPanel() {
       isolatedNotes,
       bridgeGaps,
       thinkingPanelMarkup: thinkingPanel,
-      utilityDrawerMarkup: utilityDrawer
+      utilityDrawerMarkup: utilityDrawer,
+      toolbarMarkup
     })}
   `;
 }
