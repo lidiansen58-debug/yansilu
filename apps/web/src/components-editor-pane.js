@@ -1673,6 +1673,9 @@ export class EditorPane {
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
+    this.bottomNoticeTimer = null;
+    this.lastBottomNoticeKey = "";
+    this.lastThinkingStatusNoticeKey = "";
     this.bind();
     this.renderPreviewVisibility();
     this.initRichEditor();
@@ -2670,21 +2673,24 @@ export class EditorPane {
     const el = this.els.editorThinkingStatus;
     if (!el) return;
     const thinkingStatus = normalizedThinkingStatus(this.activeNote()?.thinkingStatus);
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    el.dataset.tone = "";
     if (!thinkingStatus) {
-      el.classList.add("hidden");
-      el.innerHTML = "";
-      el.dataset.tone = "";
+      if (String(this.lastBottomNoticeKey || "").startsWith("thinking:")) {
+        this.hideBottomNotice();
+      }
+      this.lastThinkingStatusNoticeKey = "";
       return;
     }
-    el.classList.remove("hidden");
-    el.dataset.tone = thinkingStatusTone(thinkingStatus);
-    const title = thinkingStatus.nextAction
-      ? `${thinkingStatus.label}：${thinkingStatus.nextAction}`
-      : thinkingStatus.label;
-    el.innerHTML = `
-      <span class="thinking-status-chip" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>
-      ${thinkingStatus.nextAction ? `<span class="thinking-status-next">${escapeHtml(thinkingStatus.nextAction)}</span>` : ""}
-    `;
+    const noteId = String(this.activeNote()?.id || "").trim();
+    const noticeKey = `thinking:${noteId}:${thinkingStatus.status}:${thinkingStatus.label}:${thinkingStatus.nextAction}:${thinkingStatus.severity}`;
+    if (noticeKey === this.lastThinkingStatusNoticeKey) return;
+    this.lastThinkingStatusNoticeKey = noticeKey;
+    this.showBottomNotice(thinkingStatus.label || "当前提醒", thinkingStatusTone(thinkingStatus), thinkingStatus.nextAction || "继续完善当前笔记。", {
+      autoHideMs: 10000,
+      dedupeKey: noticeKey
+    });
   }
 
   renderAuthorshipPanel() {
@@ -8126,21 +8132,55 @@ export class EditorPane {
     return { ...evalItem, raw: result };
   }
 
-  showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
+  showBottomNotice(title = "提醒", tone = "", message = "", options = {}) {
     const panel = this.els.originalityNotice;
     if (!panel) return;
+    const resolvedTitle = String(title || "").trim() || "提醒";
+    const resolvedMessage = String(message || "").trim();
+    const dedupeKey = String(options?.dedupeKey || `${resolvedTitle}:${tone}:${resolvedMessage}`).trim();
+    const autoHideMs = Number(options?.autoHideMs);
+    const noticeHead = panel.querySelector(".floating-notice-head");
+    if (dedupeKey && dedupeKey === this.lastBottomNoticeKey && !panel.classList.contains("hidden")) {
+      if (this.bottomNoticeTimer) clearTimeout(this.bottomNoticeTimer);
+      if (autoHideMs > 0) {
+        this.bottomNoticeTimer = setTimeout(() => this.hideBottomNotice(), autoHideMs);
+      }
+      return;
+    }
+    this.lastBottomNoticeKey = dedupeKey;
+    if (this.bottomNoticeTimer) clearTimeout(this.bottomNoticeTimer);
+    this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = resolvedTitle);
+    this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = resolvedMessage || resolvedTitle);
+    if (noticeHead) noticeHead.hidden = !resolvedTitle;
+    panel.classList.remove("hidden");
+    panel.dataset.tone = String(tone || "");
+    if (autoHideMs > 0) {
+      this.bottomNoticeTimer = setTimeout(() => this.hideBottomNotice(), autoHideMs);
+    }
+  }
+
+  showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
     if (!this.isOriginalNote()) {
       this.hideOriginalityNotice();
       return;
     }
-    this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = title);
-    this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = message);
-    panel.classList.remove("hidden");
-    panel.dataset.tone = String(tone || "");
+    this.showBottomNotice(title, tone, message, {
+      autoHideMs: 10000,
+      dedupeKey: `originality:${title}:${tone}:${message}`
+    });
+  }
+
+  hideBottomNotice() {
+    if (this.bottomNoticeTimer) {
+      clearTimeout(this.bottomNoticeTimer);
+      this.bottomNoticeTimer = null;
+    }
+    this.lastBottomNoticeKey = "";
+    this.els.originalityNotice?.classList.add("hidden");
   }
 
   hideOriginalityNotice() {
-    this.els.originalityNotice?.classList.add("hidden");
+    this.hideBottomNotice();
   }
   bind() {
     this.els.tabs.addEventListener("click", async (e) => {

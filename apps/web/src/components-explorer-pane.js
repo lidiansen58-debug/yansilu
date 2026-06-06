@@ -218,6 +218,7 @@ export class ExplorerPane {
     onStateChange,
     pickDirectory,
     selectPermanentDirectory,
+    selectNoteMoveDirectory,
     desktopFile,
     resolveNotePath
   }) {
@@ -230,6 +231,7 @@ export class ExplorerPane {
     this.onStateChange = onStateChange;
     this.pickDirectory = pickDirectory;
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
+    this.selectNoteMoveDirectory = typeof selectNoteMoveDirectory === "function" ? selectNoteMoveDirectory : null;
     this.desktopFile = desktopFile || null;
     this.resolveNotePath = resolveNotePath || null;
 
@@ -450,12 +452,9 @@ export class ExplorerPane {
             { key: "new-child", label: "新建子目录...", icon: "▸" },
             { type: "separator" },
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-            { key: "copy-folder-id", label: "复制目录 ID", icon: "⧉" },
             { key: "set-folder-path", label: "设置保存位置...", icon: "⌂" },
             { key: "reveal-folder", label: "在系统文件管理器中显示", disabled: !folder?.fsPath, icon: "⌂" },
             { key: "toggle-hidden", label: folder?.hidden ? "显示目录" : "隐藏目录", disabled: isDefault, icon: "◌" },
-            { type: "separator" },
-            { key: "properties", label: "属性", icon: "ⓘ" },
             { key: "delete", label: "删除", danger: true, disabled: isDefault, icon: "✕" }
           ],
           onAction: (action, target) => void this.handleContextAction(action, target)
@@ -473,10 +472,8 @@ export class ExplorerPane {
             ...(canRecordPermanentFromNote(this.state, note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
             { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
             { key: "move", label: "移动到...", icon: "⇄" },
-            { key: "copy-note-id", label: "复制笔记 ID", icon: "⧉" },
             { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
             { type: "separator" },
-            { key: "properties", label: "属性", icon: "ⓘ" },
             { key: "delete", label: "删除", danger: true, icon: "✕" }
           ],
           onAction: (action, target) => void this.handleContextAction(action, target)
@@ -596,10 +593,6 @@ export class ExplorerPane {
           await this.onStateChange("directory-update", { directoryId: f.id, patch: { title: name.trim() } });
         }
       }
-      if (action === "copy-folder-id") {
-        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(f.id).catch(() => {});
-        this.onStatus(`已复制目录 ID：${f.id}`, "ok");
-      }
       if (action === "set-folder-path") {
         if (!this.pickDirectory) {
           this.onStatus("当前环境未提供目录选择器", "bad");
@@ -618,11 +611,6 @@ export class ExplorerPane {
         f.hidden = !f.hidden;
         await this.onStateChange("directory-update", { directoryId: f.id, patch: { isHidden: f.hidden } });
         this.onStatus(f.hidden ? "目录已隐藏" : "目录已显示", "ok");
-      }
-      if (action === "properties") {
-        const folderCount = childFolders(this.state, f.id).length;
-        const noteCount = notesInFolder(this.state, f.id).length;
-        this.onStatus(`${f.name}：子目录 ${folderCount}，笔记 ${noteCount}，上限 ${f.maxCards}，路径 ${f.fsPath || "-"}`, "ok");
       }
       if (action === "delete") {
         if (f.isDefault) return this.onStatus("默认根目录不可删除", "bad");
@@ -647,17 +635,19 @@ export class ExplorerPane {
         this.onStatus("笔记已重命名", "ok");
       }
       if (action === "move") {
-        const to = prompt(
-          "移动到目录 ID：\n" + this.state.folders.filter((f) => !f.hidden).map((f) => `${f.id} ${f.name}`).join("\n"),
-          n.folderId
-        );
-        if (to && this.state.folders.find((f) => f.id === to)) {
-          await this.onStateChange("note-move", { noteId: n.id, directoryId: to });
+        if (!this.selectNoteMoveDirectory) {
+          this.onStatus("当前环境还没有接入目录选择器", "warn");
+          return;
         }
-      }
-      if (action === "copy-note-id") {
-        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(n.id).catch(() => {});
-        this.onStatus(`已复制笔记 ID：${n.id}`, "ok");
+        const directoryId = await this.selectNoteMoveDirectory({
+          noteId: n.id,
+          noteTitle: n.title || "",
+          currentDirectoryId: n.folderId || "",
+          noteType: resolvedNoteType(this.state, n) || n.noteType || ""
+        });
+        if (directoryId) {
+          await this.onStateChange("note-move", { noteId: n.id, directoryId });
+        }
       }
       if (action === "record-permanent") {
         if (!this.selectPermanentDirectory) {
@@ -684,9 +674,6 @@ export class ExplorerPane {
       if (action === "reveal-note") {
         const notePath = this.resolveNotePath ? this.resolveNotePath(n) : "";
         await this.revealLocalPath(notePath, "Markdown 文件位置");
-      }
-      if (action === "properties") {
-        this.onStatus(`${n.title}：类型 ${typeLabel(n.noteType || "original")}，更新于 ${new Date(n.updatedAt).toLocaleString()}`, "ok");
       }
       if (action === "delete") {
         const ok = confirm(`确认删除笔记“${n.title}”吗？\n\n这会同时删除本地 Markdown 文件，且不可撤销。`);
