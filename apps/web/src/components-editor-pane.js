@@ -426,12 +426,6 @@ export function validateLiteratureTemplateSource(templateSource = "") {
   }
 
   const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
-  if (unresolvedCount > 0 && sections.length !== LITERATURE_SECTION_ORDER.length) {
-    return {
-      ok: false,
-      message: "文献模板目前只支持重命名现有顶层 section。若想加额外说明，请写进已有 section，或改成三级标题。"
-    };
-  }
   if (unresolvedCount > remainingSlots) {
     return {
       ok: false,

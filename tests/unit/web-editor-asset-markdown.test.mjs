@@ -355,6 +355,20 @@ test("validateLiteratureTemplateSource rejects extra top-level custom sections",
   assert.match(validation.message, /只支持重命名现有顶层 section|额外的二级标题|顶层 section/);
 });
 
+test("validateLiteratureTemplateSource allows renamed partial literature templates", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## My Paraphrase
+`);
+
+  assert.equal(validation.ok, true);
+  assert.equal(validation.message, "");
+});
+
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {
   const parsed = parsePermanentWorkspace(`# Permanent note
 
