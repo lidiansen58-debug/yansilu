@@ -8851,6 +8851,14 @@ function graphZoomStep(value = "", direction = 0) {
 
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
+  if (key === "close") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5.5 5.5L14.5 14.5"></path>
+        <path d="M14.5 5.5L5.5 14.5"></path>
+      </svg>
+    `;
+  }
   if (key === "collapse") {
     return `
       <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -12429,7 +12437,7 @@ function renderGraphQuestionSpotChip(summary = {}) {
         <span>${escapeHtml(summary?.label || "暂无可追问处")}</span>
         <small>${escapeHtml(summary?.detail || "当前范围暂时没有明显的待追问结构。")}</small>
       </button>
-      <button class="graph-question-chip-close" type="button" data-graph-thinking-hide aria-label="关闭可追问处" title="关闭可追问处">${renderGraphIcon("collapse")}</button>
+      <button class="graph-overlay-close graph-question-chip-close" type="button" data-graph-thinking-hide aria-label="关闭可追问处" title="关闭可追问处">${renderGraphIcon("close")}</button>
     </div>
   `;
 }
@@ -12735,7 +12743,7 @@ function renderGraphThinkingPanel({ summary = {}, items = [] } = {}) {
           <strong>${escapeHtml(summary.label || "可追问处")}</strong>
           <span>${escapeHtml(summary.detail || "按需查看主题、孤立、桥接和关系复核线索。")}</span>
         </div>
-        <button class="mini-btn is-ghost" type="button" data-graph-thinking-close aria-label="关闭可追问处面板">关闭</button>
+        <button class="graph-overlay-close graph-thinking-panel-close" type="button" data-graph-thinking-close aria-label="关闭可追问处面板" title="关闭可追问处">${renderGraphIcon("close")}</button>
       </div>
       <div class="graph-thinking-filters" aria-label="可追问处筛选">
         ${filterButtons}
@@ -12775,9 +12783,9 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
           <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
         </div>
         <div class="graph-utility-drawer-meta">
-          <button class="graph-utility-drawer-close" type="button" data-graph-utility-close aria-label="关闭待判断线索" title="关闭待判断线索">${renderGraphIcon("collapse")}关闭</button>
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
         </div>
+        <button class="graph-overlay-close graph-utility-drawer-close" type="button" data-graph-utility-close aria-label="关闭待判断线索" title="关闭待判断线索">${renderGraphIcon("close")}</button>
       </summary>
       <div class="graph-utility-drawer-body">
         ${content}

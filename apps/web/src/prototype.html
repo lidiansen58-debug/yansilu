@@ -3434,12 +3434,13 @@
     }
     .graph-utility-drawer-summary {
       list-style: none;
+      position: relative;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 10px 12px;
+      padding: 10px 42px 10px 12px;
     }
     .graph-utility-drawer-drag-handle {
       flex: 0 0 auto;
@@ -3515,33 +3516,29 @@
       gap: 8px;
       min-width: 0;
     }
-    .graph-utility-drawer-close {
+    .graph-overlay-close {
       flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      min-height: 24px;
-      padding: 0 8px;
+      width: 24px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
       border: 1px solid rgba(216, 228, 236, 0.76);
       border-radius: 999px;
-      background: rgba(248, 251, 253, 0.72);
+      background: rgba(248, 251, 253, 0.78);
       color: #6c8092;
-      font: inherit;
-      font-size: 10px;
-      font-weight: 800;
-      line-height: 1;
       cursor: pointer;
       transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
     }
-    .graph-utility-drawer-close:hover,
-    .graph-utility-drawer-close:focus-visible {
+    .graph-overlay-close:hover,
+    .graph-overlay-close:focus-visible {
       border-color: #bfd8cb;
       background: rgba(244, 251, 247, 0.84);
       color: #0f6f48;
       outline: none;
       box-shadow: 0 5px 12px rgba(15, 111, 72, 0.08);
     }
-    .graph-utility-drawer-close svg {
+    .graph-overlay-close svg {
       width: 12px;
       height: 12px;
       fill: none;
@@ -3549,6 +3546,11 @@
       stroke-width: 1.6;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+    .graph-utility-drawer-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
     }
     .graph-utility-drawer-badges {
       display: flex;
@@ -6041,7 +6043,7 @@
       z-index: 5;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 0;
       max-width: min(420px, calc(100% - 32px));
     }
     .graph-question-chip {
@@ -6123,37 +6125,10 @@
       white-space: normal;
     }
     .graph-question-chip-close {
-      flex: 0 0 auto;
-      width: 32px;
-      height: 32px;
-      border: 1px solid rgba(183, 222, 200, 0.92);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.92);
-      color: #5c768a;
-      display: inline-grid;
-      place-items: center;
-      cursor: pointer;
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-      backdrop-filter: blur(10px);
-      transition: border-color .16s ease, background-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
-    }
-    .graph-question-chip-close:hover,
-    .graph-question-chip-close:focus-visible {
-      border-color: #7fc79f;
-      background: #f4fcf7;
-      color: #0f6f48;
-      box-shadow: 0 16px 30px rgba(15, 111, 72, 0.12);
-      transform: translateY(-1px);
-      outline: none;
-    }
-    .graph-question-chip-close svg {
-      width: 16px;
-      height: 16px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      z-index: 1;
     }
     .graph-thinking-panel {
       position: absolute;
@@ -6177,6 +6152,9 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
+    }
+    .graph-thinking-panel-close {
+      margin-top: 2px;
     }
     .graph-thinking-panel-head > div {
       display: grid;
