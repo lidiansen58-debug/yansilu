@@ -2830,7 +2830,7 @@
       "fleetingNoteCount": 2,
       "literatureNoteCount": 3,
       "originalNoteCount": 55,
-      "relationCount": 85,
+      "relationCount": 93,
       "indexCardCount": 5,
       "writingProjectCount": 2,
       "centralNodes": [
@@ -2841,7 +2841,7 @@
       ],
       "acceptanceAssertions": [
         "所有 relation.from 与 relation.to 都指向原创笔记。",
-        "图谱至少有 55 个原创节点和 85 条显式语义边。",
+        "图谱至少有 55 个原创节点和 93 条显式语义边。",
         "两份写作方案的每个段落都有 noteTraceIds 和 literatureTraceIds。",
         "同一主题下同时存在 supports、qualifies、counterexample_to、same_topic、unexpected_connection、appears_in_draft 等关系类型。"
       ]

@@ -33,11 +33,11 @@ test("theme index cards reuse continuity actions based on draft and scaffold sta
   assert.ok(match, "expected renderWritingThemeIndexCard() to exist");
   const fnBody = match[1];
 
-  assert.match(fnBody, /const continuation = describeWritingContinuationAction\(\{/);
+  assert.match(fnBody, /const themeContinuation = describeWritingContinuationAction\(\{/);
   assert.match(fnBody, /existingProjectHasScaffold: Boolean\(existingProject\?\.scaffold_id\)/);
   assert.match(fnBody, /existingProjectHasDraft: Boolean\(existingProject\?\.draft_note_id\)/);
-  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(continuation\.action\)\}"/);
-  assert.match(fnBody, /\$\{escapeHtml\(continuation\.actionLabel\)\}/);
+  assert.match(fnBody, /data-writing-index-action="\$\{escapeHtml\(themeContinuation\?\.action \|\| "resume-project"\)\}"/);
+  assert.match(fnBody, /\$\{escapeHtml\(themeContinuation\?\.actionLabel \|\| "继续当前项目"\)\}/);
 });
 
 test("theme index list actions keep scoped continuity success and failure copy", () => {
