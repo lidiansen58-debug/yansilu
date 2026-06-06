@@ -5470,10 +5470,94 @@ function renderStatusMeta() {
 }
 
 function renderWorkspaceStatusHint() {
+  const helper = $("editorHelper");
+  if (!helper) return;
+  const kicker = $("editorHelperKicker");
+  const title = $("editorHelperTitle");
+  const body = $("editorHelperBody");
+  const action = $("btnEditorHelperAction");
+  if (!kicker || !title || !body || !action) {
+    hideEditorHelper();
+    return;
+  }
+  if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
+    hideEditorHelper();
+    return;
+  }
   const activeNote = activeEditorNote();
-  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
-  void noteType;
-  hideEditorHelper();
+  const activeBody = activeEditorBody();
+  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "")
+    .trim()
+    .toLowerCase();
+  if (!activeNote) {
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
+    helper.hidden = false;
+    helper.setAttribute("aria-hidden", "false");
+    helper.style.pointerEvents = "";
+    helper.classList.remove("hidden");
+    kicker.textContent = "下一步推荐";
+    title.textContent = "先打开一条笔记";
+    body.textContent = "从随笔、文献或永久笔记里任选一条开始。后续会根据当前上下文提示相关任务和推荐下一步。";
+    action.textContent = "知道了";
+    return;
+  }
+  if (activeNote && !state.focusMode) {
+    hideEditorHelper();
+    return;
+  }
+  action.dataset.helperAction = "noop";
+  action.dataset.targetNoteId = "";
+  helper.hidden = false;
+  helper.setAttribute("aria-hidden", "false");
+  helper.style.pointerEvents = "";
+  helper.classList.remove("hidden");
+
+  if (state.focusMode) {
+    kicker.textContent = "专注模式";
+    title.textContent = "现在只保留当前笔记";
+    body.textContent = activeNote
+      ? `专注模式会收起左侧导航和回链，只留下正文与关键按钮。先把${noteGrowthStage(activeNote, activeBody) === "提炼中" ? "核心判断" : "关键判断与边界"}写清楚，再决定是否补连接与标签。`
+      : "专注模式会收起左侧导航和回链，只留下正文与关键按钮。打开一条笔记后再开始提炼。";
+    action.textContent = "保持专注";
+    return;
+  }
+  if (noteType === "literature") {
+    kicker.textContent = "文献笔记";
+    if (noteHasGeneratedOriginal(activeNote)) {
+      const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
+      title.textContent = "这条文献已经长出永久笔记";
+      body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条永久笔记里继续提炼自己的判断。";
+      action.textContent = "打开永久笔记";
+      action.dataset.helperAction = "open-generated-original";
+      action.dataset.targetNoteId = targetNoteId;
+    } else {
+      title.textContent = "先把原文转成你的判断";
+      body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
+      action.textContent = "继续整理";
+    }
+    return;
+  }
+  if (isPermanentLikeNote(activeNote)) {
+    kicker.textContent = "永久笔记";
+    title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
+    body.textContent = "先把观点写清楚，再决定是否补连接、标签和证据。原创性检测现在会以浮窗方式提醒，不再把确认操作压在编辑器底部。";
+    action.textContent = "继续提炼";
+    return;
+  }
+  kicker.textContent = "随笔笔记";
+  if (noteHasGeneratedOriginal(activeNote)) {
+    const targetNoteId = noteGeneratedOriginalNoteId(activeNote);
+    title.textContent = "这条随笔已经沉淀为永久笔记";
+    body.textContent = "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。";
+    action.textContent = "打开永久笔记";
+    action.dataset.helperAction = "open-generated-original";
+    action.dataset.targetNoteId = targetNoteId;
+    return;
+  }
+  title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
+  body.textContent = "随笔只负责抓住线索，不必在这里完成所有整理。等你判断它值得长期保留时，再点“记录永久笔记”。";
+  action.textContent = "继续记录";
 }
 
 function applyFocusModeChrome() {

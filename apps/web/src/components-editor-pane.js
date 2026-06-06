@@ -2148,7 +2148,7 @@ export class EditorPane {
   }
 
   isPermanentWorkspaceEligible(note = this.activeNote()) {
-    return this.isOriginalNote(note);
+    return false;
   }
 
   isPermanentWorkspaceActive(note = this.activeNote()) {
