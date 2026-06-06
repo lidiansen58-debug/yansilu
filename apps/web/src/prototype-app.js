@@ -9161,6 +9161,16 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
   `;
 }
 
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false) {
+  return `
+    <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
+      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
+        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel)}
+      </select>
+    </div>
+  `;
+}
+
 const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
@@ -10766,6 +10776,7 @@ function renderGraphVisualMap({
   const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
   const denseDirectoryMode = !filterActive;
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
+  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(edges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -10949,7 +10960,12 @@ function renderGraphVisualMap({
               </div>
             `
             : `
-              ${renderGraphViewModeSwitcher(relationType)}
+              <div class="graph-map-primary-row">
+                ${renderGraphViewModeSwitcher(relationType)}
+                <div class="graph-map-primary-actions">
+                  ${compactRelationFilterMarkup}
+                </div>
+              </div>
               ${renderGraphReadingLensControls(readingLens.key, legendOpen)}
               ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
             `
@@ -12284,18 +12300,16 @@ function renderGraphPanel() {
         open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
       })
     : "";
-  const toolbarMarkup = `
-    <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs graph-canvas-toolbar-merged" : ""}">
-      <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
-      <div class="graph-canvas-toolbar-actions">
-        <div class="graph-filters graph-filters-single" data-graph-filters>
-          <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
-            ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
-          </select>
+  const toolbarMarkup = showingFocusedNote
+    ? `
+      <div class="graph-canvas-toolbar">
+        <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
+        <div class="graph-canvas-toolbar-actions">
+          ${renderGraphRelationTypeFilter(focused.edges, effectiveRelationType)}
         </div>
       </div>
-    </div>
-  `;
+    `
+    : "";
   canvas.innerHTML = `
     ${notices.join("")}
     ${renderGraphVisualMap({

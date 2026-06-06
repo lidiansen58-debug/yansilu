@@ -3595,10 +3595,6 @@
       margin-bottom: 0;
       flex-wrap: wrap;
     }
-    .graph-canvas-toolbar-merged .graph-canvas-toolbar-actions {
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
     .graph-canvas-toolbar-spacer {
       min-height: 1px;
       flex: 1 1 auto;
@@ -3862,12 +3858,25 @@
     .graph-map-head {
       display: grid;
       gap: 10px;
-      padding: 12px 14px;
+      padding: 10px 12px;
       border-bottom: 1px solid #e1e9f1;
       background: #fff;
     }
+    .graph-map-primary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .graph-map-primary-actions {
+      margin-left: auto;
+      min-width: 0;
+      flex: 0 1 360px;
+      display: flex;
+      justify-content: flex-end;
+    }
     .graph-density-hint {
-      margin-top: 8px;
+      margin-top: 4px;
       display: inline-flex;
       align-items: center;
       min-height: 26px;
@@ -3924,7 +3933,7 @@
       gap: 7px;
     }
     .graph-reading-lens-row {
-      margin-top: 10px;
+      margin-top: 6px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -5081,6 +5090,23 @@
     }
     .graph-filters-single label {
       max-width: none;
+    }
+    .graph-filters-compact {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+      min-width: 0;
+      padding: 6px 8px;
+      border-radius: 18px;
+      background: rgba(250, 253, 255, 0.96);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+    .graph-filters-compact select {
+      min-height: 34px;
+      padding: 5px 34px 5px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
     }
     .graph-map-backdrop {
       stroke: rgba(167, 216, 225, 0.34);
@@ -6599,6 +6625,14 @@
       }
       .graph-map-head {
         display: grid;
+      }
+      .graph-map-primary-row {
+        display: grid;
+        justify-content: stretch;
+      }
+      .graph-map-primary-actions {
+        margin-left: 0;
+        flex: 1 1 auto;
       }
       .graph-reading-lens-row {
         display: grid;
