@@ -15,7 +15,15 @@ import { CreateBoxDialog } from "./components-create-box-dialog.js";
 import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
-import { EditorPane, normalizeFieldText, parseLiteratureWorkspace } from "./components-editor-pane.js";
+import {
+  deriveLiteratureSectionLabelsFromTemplate,
+  EditorPane,
+  composePermanentWorkspace,
+  normalizeFieldText,
+  parseLiteratureWorkspace,
+  parsePermanentWorkspace,
+  validateLiteratureTemplateSource
+} from "./components-editor-pane.js";
 import {
   renderImportPageMount
 } from "./import-page-mount.js";
@@ -113,6 +121,12 @@ import {
   normalizeScheduledTaskFilters
 } from "./scheduled-tasks-model.js";
 import {
+  canonicalizeAiSettingsSelection,
+  isAiLocalFlowActive,
+  isLocalModelPack,
+  localProviderPresetForModelPack
+} from "./ai-settings-state.js";
+import {
   analyzeDirectoryGraph,
   analyzePermanentNote,
   analyzeWritingWithStrongModel,
@@ -196,6 +210,7 @@ let lastChosenPermanentDirectoryId = "dir_original_default";
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 state.graphConnectivityReady = false;
+state.graphVisibleNoteIdsReady = false;
 const importState = {
   importRecordId: "",
   directoryId: "",
@@ -232,8 +247,12 @@ const graphState = {
   thinkingPanelOpen: false,
   thinkingFilter: "all",
   readingLens: "insight",
+  densityHintKey: "",
+  densityHintVisibleUntil: 0,
+  densityHintTimer: 0,
   selection: null,
   utilityDrawerOpen: false,
+  utilityDrawerPosition: null,
   sectionOpen: {
     "bridge-gaps": false,
     "review-queue": false,
@@ -249,6 +268,19 @@ const graphViewportDragState = {
   startY: 0,
   startScrollLeft: 0,
   startScrollTop: 0,
+  suppressClickUntil: 0
+};
+const graphUtilityDrawerDragState = {
+  active: false,
+  moved: false,
+  pointerId: null,
+  handle: null,
+  wrapper: null,
+  stage: null,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
   suppressClickUntil: 0
 };
 const distillationState = {
@@ -296,6 +328,24 @@ const aiInboxState = {
 };
 const settingsState = {
   vault: null,
+  noteTemplates: {
+    permanent: {
+      panelOpen: false,
+      scope: "",
+      text: "",
+      draftText: "",
+      draftActive: false,
+      history: []
+    },
+    literature: {
+      panelOpen: false,
+      scope: "",
+      text: "",
+      draftText: "",
+      draftActive: false,
+      history: []
+    }
+  },
   ai: {
     runtimeMode: "auto",
     userMode: "Auto",
@@ -373,6 +423,34 @@ const settingsState = {
   },
   error: ""
 };
+const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
+  { key: "whyTrue", label: "为什么成立", note: "核心字段，不建议隐藏" },
+  { key: "boundary", label: "边界 / 反例", note: "核心字段，不建议隐藏" },
+  { key: "relatedClues", label: "关联线索", note: "核心字段，不建议隐藏" },
+  { key: "supplement", label: "补充内容", note: "可选增强字段" }
+];
+const LITERATURE_TEMPLATE_SETTINGS_FIELDS = [
+  { key: "citation", label: "引用信息", note: "记录来源元数据，便于追溯" },
+  { key: "originalText", label: "原文", note: "保留可核对的摘录或原文片段" },
+  { key: "paraphrase", label: "转述", note: "先用自己的话完成理解" },
+  { key: "supportsJudgment", label: "判断种子", note: "可选增强字段" },
+  { key: "question", label: "追问", note: "可选增强字段" },
+  { key: "boundary", label: "边界 / 反例", note: "可选增强字段" },
+  { key: "whyKeep", label: "保留原因", note: "可选增强字段" }
+];
+const NOTE_TEMPLATE_STORAGE_KEYS = {
+  permanent: "yansilu:settings:note-template:permanent",
+  literature: "yansilu:settings:note-template:literature"
+};
+const NOTE_TEMPLATE_HISTORY_LIMIT = 8;
+const PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS = {
+  coreClaim: "核心观点",
+  whyTrue: "为什么成立",
+  boundary: "边界 / 反例",
+  relatedClues: "关联线索",
+  supplement: "补充内容"
+};
 const writingState = {
   project: null,
   scaffold: null,
@@ -441,6 +519,7 @@ const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen2.5:7b";
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
+loadNoteTemplateSettingsFromStorage();
 
 if (typeof document !== "undefined") {
   const suppressStartupAutoOpen = () => {
@@ -708,6 +787,242 @@ function writeStoredText(key, value) {
   } catch {}
 }
 
+function defaultLiteratureTemplateSource(title = "{{title}}") {
+  return [
+    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
+    "",
+    "## 引用信息",
+    "",
+    "- 标题：",
+    "- 作者：",
+    "- 年份：",
+    "- 容器：",
+    "- 出版社 / 来源：",
+    "- 页码 / 定位：",
+    "- 版本：",
+    "- 译者 / 编者：",
+    "- DOI / ISBN / arXiv / URL / PDF：",
+    "",
+    "## 原文",
+    "",
+    "",
+    "## 转述",
+    "",
+    ""
+  ].join("\n");
+}
+
+function currentLiteratureTemplateSectionLabels() {
+  return deriveLiteratureSectionLabelsFromTemplate(effectiveSavedNoteTemplateSource("literature"));
+}
+
+function literatureTemplateSectionLabelCandidates() {
+  return [
+    currentLiteratureTemplateSectionLabels(),
+    ...normalizeNoteTemplateHistory(settingsState.noteTemplates.literature.history, "literature").map((template) =>
+      deriveLiteratureSectionLabelsFromTemplate(template)
+    )
+  ];
+}
+
+function defaultPermanentTemplateSource(title = "{{title}}") {
+  return composePermanentWorkspace(
+    {
+      title: String(title || "{{title}}").trim() || "{{title}}"
+    },
+    { includeEmptySections: true }
+  );
+}
+
+function defaultTemplateSourceForKind(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? defaultLiteratureTemplateSource()
+    : defaultPermanentTemplateSource();
+}
+
+function normalizeNoteTemplateSource(text = "", kind = "") {
+  const normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+  return normalized || defaultTemplateSourceForKind(kind);
+}
+
+function effectiveSavedNoteTemplateSource(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const savedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind]?.text, cleanKind);
+  if (cleanKind !== "literature") return savedSource;
+  const validation = validateLiteratureTemplateSource(savedSource);
+  return validation.ok ? savedSource : defaultTemplateSourceForKind(cleanKind);
+}
+
+function normalizeNoteTemplateHistory(items = [], kind = "") {
+  const normalized = [];
+  const seen = new Set();
+  for (const item of Array.isArray(items) ? items : []) {
+    const text = normalizeNoteTemplateSource(item, kind);
+    if (String(kind || "").trim().toLowerCase() === "literature" && !validateLiteratureTemplateSource(text).ok) continue;
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    normalized.push(text);
+    if (normalized.length >= NOTE_TEMPLATE_HISTORY_LIMIT) break;
+  }
+  return normalized;
+}
+
+function noteTemplateStorageScope(vaultPath = "") {
+  const cleanPath = String(vaultPath || currentVaultPath() || "").trim().replace(/\//g, "\\").toLowerCase();
+  return cleanPath || "global";
+}
+
+function noteTemplateStorageKey(kind = "", options = {}) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const base = NOTE_TEMPLATE_STORAGE_KEYS[cleanKind];
+  const suffix = String(options?.suffix || "").trim();
+  const scope = noteTemplateStorageScope(options?.vaultPath || "");
+  return `${base}:${scope}${suffix ? `:${suffix}` : ""}`;
+}
+
+function noteTemplateHistoryWithPrevious(history = [], previousText = "", kind = "") {
+  const cleanPrevious = normalizeNoteTemplateSource(previousText, kind);
+  if (!cleanPrevious) return normalizeNoteTemplateHistory(history, kind);
+  return normalizeNoteTemplateHistory([cleanPrevious, ...(Array.isArray(history) ? history : [])], kind);
+}
+
+function normalizeDraftBuffer(text = "") {
+  return String(text || "").replace(/\r\n/g, "\n");
+}
+
+function applyTitleToNoteTemplate(templateSource = "", title = "未命名笔记", kind = "") {
+  const cleanTitle = String(title || "未命名笔记").trim() || "未命名笔记";
+  const fallbackSource = defaultTemplateSourceForKind(kind);
+  const source = normalizeNoteTemplateSource(templateSource, kind) || fallbackSource;
+  const replaced = source.replace(/\{\{\s*title\s*\}\}/gi, cleanTitle);
+  if (/^\s*#\s+/m.test(replaced)) return ensureEditableNoteBody(replaced);
+  return ensureEditableNoteBody(`# ${cleanTitle}\n\n${replaced}`);
+}
+
+function mergeTemplateFieldText(base = "", addition = "") {
+  const normalizedBase = normalizeFieldText(base);
+  const normalizedAddition = normalizeFieldText(addition);
+  if (!normalizedBase) return normalizedAddition;
+  if (!normalizedAddition) return normalizedBase;
+  if (normalizedBase === normalizedAddition) return normalizedAddition;
+  return `${normalizedBase}\n\n${normalizedAddition}`;
+}
+
+function composePermanentTemplateDraft(fields = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const templateBody = permanentNoteTemplateBody(title);
+  const parsedTemplate = parsePermanentWorkspace(templateBody);
+  const hasTemplateStructure =
+    parsedTemplate.structured === true ||
+    Boolean(parsedTemplate.preface) ||
+    (Array.isArray(parsedTemplate.sectionLayout) && parsedTemplate.sectionLayout.length > 0) ||
+    (Array.isArray(parsedTemplate.extraSections) && parsedTemplate.extraSections.length > 0) ||
+    (Array.isArray(parsedTemplate.repeatedKnownSections) && parsedTemplate.repeatedKnownSections.length > 0);
+
+  if (!hasTemplateStructure) {
+    return composePermanentWorkspace({
+      ...fields,
+      title
+    });
+  }
+
+  const knownKeysInTemplate = new Set(
+    (Array.isArray(parsedTemplate.sectionLayout) ? parsedTemplate.sectionLayout : [])
+      .filter((item) => item?.kind === "known" && item?.key)
+      .map((item) => item.key)
+  );
+  const fallbackFieldEntries = Object.entries({
+    coreClaim: normalizeFieldText(fields.coreClaim),
+    whyTrue: normalizeFieldText(fields.whyTrue),
+    boundary: normalizeFieldText(fields.boundary),
+    relatedClues: normalizeFieldText(fields.relatedClues),
+    supplement: normalizeFieldText(fields.supplement)
+  }).filter(([key, value]) => value && !knownKeysInTemplate.has(key));
+  const extraSections = Array.isArray(parsedTemplate.extraSections) ? [...parsedTemplate.extraSections] : [];
+  const sectionLayout = Array.isArray(parsedTemplate.sectionLayout) ? [...parsedTemplate.sectionLayout] : [];
+  if (fallbackFieldEntries.length) {
+    extraSections.push({
+      heading: "来源生成提示",
+      body: fallbackFieldEntries
+        .map(([key, value]) => `### ${PERMANENT_TEMPLATE_FALLBACK_HINT_LABELS[key] || key}\n\n${value}`)
+        .join("\n\n")
+    });
+    sectionLayout.push({ kind: "unknown", index: extraSections.length - 1 });
+  }
+
+  return composePermanentWorkspace(
+    {
+      title,
+      coreClaim: mergeTemplateFieldText(parsedTemplate.coreClaim, fields.coreClaim),
+      whyTrue: mergeTemplateFieldText(parsedTemplate.whyTrue, fields.whyTrue),
+      boundary: mergeTemplateFieldText(parsedTemplate.boundary, fields.boundary),
+      relatedClues: mergeTemplateFieldText(parsedTemplate.relatedClues, fields.relatedClues),
+      supplement: mergeTemplateFieldText(parsedTemplate.supplement, fields.supplement)
+    },
+    {
+      preface: parsedTemplate.preface,
+      extraSections,
+      repeatedKnownSections: parsedTemplate.repeatedKnownSections,
+      sectionLayout,
+      appendRemainingKnown: false
+    }
+  );
+}
+
+function loadNoteTemplateSettingsFromStorage() {
+  const scope = noteTemplateStorageScope();
+  for (const kind of ["permanent", "literature"]) {
+    const entry = settingsState.noteTemplates[kind];
+    const previousScope = String(entry?.scope || "");
+    const savedTextBeforeLoad = normalizeNoteTemplateSource(entry?.text, kind);
+    const draftTextBeforeLoad = normalizeDraftBuffer(entry?.draftText || "");
+    const hasUnsavedDraft =
+      previousScope === scope &&
+      entry?.draftActive === true &&
+      draftTextBeforeLoad !== normalizeDraftBuffer(savedTextBeforeLoad);
+    const scopedKey = noteTemplateStorageKey(kind);
+    const scopedHistoryKey = noteTemplateStorageKey(kind, { suffix: "history" });
+    const legacyKey = NOTE_TEMPLATE_STORAGE_KEYS[kind];
+    const legacyHistoryKey = `${legacyKey}:history`;
+    const scopedText = readStoredText(scopedKey, "");
+    const legacyText = readStoredText(legacyKey, "");
+    const scopedHistory = readStoredText(scopedHistoryKey, "");
+    const legacyHistory = readStoredText(legacyHistoryKey, "");
+    const shouldMigrateLegacy = scope !== "global" && !String(scopedText || "").trim() && String(legacyText || "").trim();
+    const resolvedText = shouldMigrateLegacy ? legacyText : scopedText || (scope === "global" ? legacyText : "");
+    const resolvedHistory = shouldMigrateLegacy ? legacyHistory : scopedHistory || (scope === "global" ? legacyHistory : "");
+    const normalizedText = normalizeNoteTemplateSource(resolvedText, kind);
+    settingsState.noteTemplates[kind].text = normalizedText;
+    settingsState.noteTemplates[kind].scope = scope;
+    if (!hasUnsavedDraft) {
+      settingsState.noteTemplates[kind].draftText = normalizedText;
+      settingsState.noteTemplates[kind].draftActive = false;
+    }
+    let parsedHistory = [];
+    try {
+      parsedHistory = resolvedHistory ? JSON.parse(resolvedHistory) : [];
+    } catch {}
+    settingsState.noteTemplates[kind].history = normalizeNoteTemplateHistory(parsedHistory, kind);
+    if (shouldMigrateLegacy) {
+      writeStoredText(scopedKey, normalizedText);
+      writeStoredText(scopedHistoryKey, JSON.stringify(settingsState.noteTemplates[kind].history));
+    }
+  }
+}
+
+function persistNoteTemplateSettingsToStorage() {
+  for (const kind of ["permanent", "literature"]) {
+    writeStoredText(
+      noteTemplateStorageKey(kind),
+      normalizeNoteTemplateSource(settingsState.noteTemplates[kind].text, kind)
+    );
+    writeStoredText(
+      noteTemplateStorageKey(kind, { suffix: "history" }),
+      JSON.stringify(normalizeNoteTemplateHistory(settingsState.noteTemplates[kind].history, kind))
+    );
+  }
+}
+
 const NOTE_RELATION_STATUS_KEY_PREFIX = "yansilu.noteRelationStatus.";
 
 function noteRelationStatusStorageKey(noteId = "") {
@@ -751,6 +1066,7 @@ function loadAiSettingsFromStorage() {
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
   settingsState.ai.localModel = storedLocalModel;
+  reconcileAiSelectionState();
 }
 
 function persistAiSettingsToStorage() {
@@ -833,14 +1149,81 @@ function aiDefaultsForRuntimeMode(runtimeMode = "auto") {
   return { modelPack: "Starter Auto", userMode: "Auto" };
 }
 
+function isLocalAdvancedModelRef(value = "") {
+  return /^(local_private_gateway|ollama_local_gateway|minicpm_local_gateway):/i.test(String(value || "").trim());
+}
+
+function preferredLocalProviderPresetForSelection() {
+  return localProviderPresetForModelPack(settingsState.ai.modelPack) || "local_private_gateway";
+}
+
+function reconcileAiSelectionState(options = {}) {
+  const previousModelPack = String(settingsState.ai.modelPack || "").trim();
+  const previousProviderPreset = providerPresetForModelPack(previousModelPack);
+  const nextSelection = canonicalizeAiSettingsSelection({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  }, {
+    syncUserMode: options.syncUserMode === true
+  });
+
+  settingsState.ai.runtimeMode = nextSelection.runtimeMode;
+  settingsState.ai.modelPack = nextSelection.modelPack;
+  if (options.syncUserMode === true || !String(settingsState.ai.userMode || "").trim()) {
+    settingsState.ai.userMode = nextSelection.userMode;
+  }
+  if (options.resetRoutePreview !== false) settingsState.ai.routePreview = null;
+  if (options.resetProviderState === true || previousProviderPreset !== nextSelection.providerPreset) {
+    settingsState.ai.providerEndpointUrl = "";
+    settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.secretRef = "";
+  }
+  if (nextSelection.providerPreset === "platform_managed_openai") {
+    settingsState.ai.providerEndpointUrl = "";
+    settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.secretRef = "";
+  }
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+
+  if (nextSelection.localFlowActive) {
+    const providerId = preferredLocalProviderPresetForSelection();
+    const endpointUrl = defaultProviderEndpointUrl(providerId) || OLLAMA_CHAT_ENDPOINT_URL;
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl) || OLLAMA_HEALTH_ENDPOINT_URL;
+    if (!settingsState.ai.providerEndpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
+    if (!settingsState.ai.providerHealthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+  }
+
+  if (settingsState.ai.localModel) {
+    applyOllamaLocalModelDefaults();
+  } else if (!nextSelection.localFlowActive && isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) {
+    settingsState.ai.advancedModelRef = "";
+  }
+
+  applyActiveAiProviderConfigToState();
+  return nextSelection;
+}
+
 function applyOllamaLocalModelDefaults() {
   if (!settingsState.ai.localModel) return;
-  settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
-  settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
-  settingsState.ai.secretRef = "";
-  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only") {
-    settingsState.ai.advancedModelRef = `local_private_gateway:${settingsState.ai.localModel}`;
-  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
+  const providerId = preferredLocalProviderPresetForSelection();
+  const localFlowActive = isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  });
+  if (localFlowActive) {
+    const endpointUrl = defaultProviderEndpointUrl(providerId) || OLLAMA_CHAT_ENDPOINT_URL;
+    const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl) || OLLAMA_HEALTH_ENDPOINT_URL;
+    settingsState.ai.providerEndpointUrl = endpointUrl;
+    settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+    settingsState.ai.secretRef = "";
+  }
+  if (normalizeAiRuntimeMode(settingsState.ai.runtimeMode) === "local_only" || isLocalModelPack(settingsState.ai.modelPack)) {
+    settingsState.ai.advancedModelRef = `${providerId}:${settingsState.ai.localModel}`;
+  } else if (isLocalAdvancedModelRef(settingsState.ai.advancedModelRef)) {
     settingsState.ai.advancedModelRef = "";
   }
 }
@@ -886,14 +1269,22 @@ function applyActiveAiProviderConfigToState() {
 }
 
 function aiSettingsPayload() {
+  const selection = canonicalizeAiSettingsSelection({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    userMode: settingsState.ai.userMode,
+    providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
+  });
+  const localProviderPreset = preferredLocalProviderPresetForSelection();
   return {
     userMode: settingsState.ai.userMode,
-    modelPack: settingsState.ai.modelPack,
-    privacy: aiPrivacyPolicyForRuntimeMode(settingsState.ai.runtimeMode),
-    fallbackPolicy: aiFallbackPolicyForRuntimeMode(settingsState.ai.runtimeMode),
+    modelPack: selection.modelPack,
+    privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
+    fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
     advancedSettings: {
-      runtimeMode: settingsState.ai.runtimeMode,
+      runtimeMode: selection.runtimeMode,
       ...(settingsState.ai.localModel ? { localModel: settingsState.ai.localModel } : {}),
+      ...(settingsState.ai.localModel ? { localProviderPreset } : {}),
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
       ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
     }
@@ -949,7 +1340,7 @@ async function syncAiSettingsToApi() {
 
 async function saveLocalOllamaProviderConfig() {
   const saved = await saveAiProviderConfig(aiProviderConfigPayload({
-    providerId: "local_private_gateway",
+    providerId: preferredLocalProviderPresetForSelection(),
     authMode: "local_no_key"
   }));
   upsertAiProviderConfig(saved);
@@ -3734,7 +4125,7 @@ function hasRequiredLiteratureCitation(citation = {}) {
 }
 
 function literatureQueueLaneForNote(note) {
-  const fields = parseLiteratureWorkspace(note?.body || "");
+  const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabelCandidates: literatureTemplateSectionLabelCandidates() });
   const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
   const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
   const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -4303,11 +4694,76 @@ function normalizedDefaultUntitledBody(folderId = "") {
   return ensureEditableNoteBody(initialBodyForFolder(folderId)).replace(/\r\n/g, "\n").trim();
 }
 
+function historicalUntitledTemplateBodies(folderId = "") {
+  const noteType = String(typeFromFolder(state, folderId) || "").trim().toLowerCase();
+  const kind = noteType === "literature" ? "literature" : noteType === "original" || noteType === "permanent" ? "permanent" : "";
+  if (!kind) return [];
+  const candidates = normalizeNoteTemplateHistory(settingsState.noteTemplates[kind]?.history, kind).map((template) =>
+    applyTitleToNoteTemplate(template, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim()
+  );
+  if (kind === "literature") {
+    const rawSavedSource = normalizeNoteTemplateSource(settingsState.noteTemplates[kind]?.text, kind);
+    if (!validateLiteratureTemplateSource(rawSavedSource).ok) {
+      const rawBody = applyTitleToNoteTemplate(rawSavedSource, UNTITLED_NOTE_TITLE, kind).replace(/\r\n/g, "\n").trim();
+      if (rawBody && !candidates.includes(rawBody)) candidates.unshift(rawBody);
+    }
+  }
+  return candidates;
+}
+
 function isEmptyUntitledMarkdown(body = "", folderId = "") {
   const text = String(body || "").replace(/\r\n/g, "\n").trim();
   if (!text) return true;
   if (!text.replace(/^#{1,6}\s*未命名笔记\s*/u, "").trim()) return true;
-  return text === normalizedDefaultUntitledBody(folderId);
+  const candidates = [normalizedDefaultUntitledBody(folderId), ...historicalUntitledTemplateBodies(folderId)];
+  return candidates.some((candidate) => candidate === text);
+}
+
+async function refreshUntitledPlaceholderForCurrentTemplate(note) {
+  if (!note || !isUntitledTitle(note.title)) return note;
+  const tab = noteTabFor(note.id);
+  const currentBody = normalizedDefaultUntitledBody(note.folderId);
+  const existingBody = ensureEditableNoteBody(typeof tab?.body === "string" ? tab.body : note.body).replace(/\r\n/g, "\n").trim();
+  if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) return note;
+
+  const nextBody = ensureEditableNoteBody(initialBodyForFolder(note.folderId));
+  if (isLocalOnlyNote(note)) {
+    note.body = nextBody;
+    note.bodyLoaded = true;
+    note.tags = parseTags(nextBody);
+    note.links = parseLinks(nextBody);
+    note.updatedAt = new Date().toISOString();
+    if (tab) {
+      tab.body = nextBody;
+      tab.savedBody = nextBody;
+      tab.dirty = false;
+    }
+    return note;
+  }
+
+  try {
+    const updated = await updateNote(note.id, {
+      title: note.title,
+      body: nextBody,
+      status: note.status || "draft",
+      generatedOriginalNoteId: note.generatedOriginalNoteId || undefined,
+      originalityStatus: note.originalityStatus || undefined,
+      originalitySimilarity: note.originalitySimilarity ?? undefined
+    });
+    if (updated) {
+      Object.assign(note, mapNoteItem(updated), { bodyLoaded: true });
+      if (tab) {
+        tab.body = note.body;
+        tab.savedBody = note.body;
+        tab.title = note.title;
+        tab.savedTitle = note.title;
+        tab.dirty = false;
+      }
+    }
+  } catch (error) {
+    setStatus(`未命名占位模板刷新失败，仍打开旧内容：${String(error?.message || error)}`, "warn");
+  }
+  return note;
 }
 
 function noteTabFor(noteId = "") {
@@ -4459,7 +4915,9 @@ function citationSummaryLines(citation = {}) {
 function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
-    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "");
+    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "", {
+      sectionLabelCandidates: literatureTemplateSectionLabelCandidates()
+    });
     const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
     const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
     const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
@@ -4472,35 +4930,34 @@ function originalDraftBodyFromSource(payload = {}) {
       sourceTitle === "未命名文献笔记"
         ? titleFromSeedText(citation?.sourceTitle || supportsJudgment || question || claim || originalText, "未命名永久笔记")
         : sourceTitle;
-    return [
-      `# ${titleSeed}`,
-      "",
-      "## 核心观点",
-      "",
-      supportsJudgment
-        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
-        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
-      "",
-      "## 为什么成立",
-      "",
-      question
-        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
-        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
-      "",
-      "## 边界 / 反例",
-      "",
-      boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "",
-      "## 证据来源",
-      "",
+    const relatedClues = [
       `- 来自文献笔记：[[${sourceTitle}]]`,
       payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-      ...citationSummaryLines(citation),
-      claim ? "- 已有用户转述：见来源文献笔记，不在永久笔记草稿中直接复制。" : "",
-      whyKeep || supportsJudgment || question || boundary || originalText ? "- 证据、判断种子、追问、边界与原文摘录请回到来源文献笔记核对。" : "",
-      ""
+      ...citationSummaryLines(citation)
     ]
-      .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
+      .filter(Boolean)
       .join("\n");
+    const supplement = [
+      claim ? "- 已有用户转述仍保留在来源文献笔记中，写永久笔记时请继续改写，不要直接复述。" : "",
+      whyKeep ? `- 来源文献里的保留原因：${whyKeep}` : "",
+      question ? `- 还待回答的追问：${question}` : "",
+      originalText ? "- 原文摘录与证据链仍以来源文献笔记为准，永久笔记里不重复复制。" : "",
+      supportsJudgment ? `- 来源里的判断种子：${supportsJudgment}` : ""
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return composePermanentTemplateDraft({
+      title: titleSeed,
+      coreClaim: supportsJudgment
+        ? "从来源文献里的判断种子继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。"
+        : "把这条文献转述继续改写成一句你自己的原创判断，不要直接复述摘录或文献笔记原句。",
+      whyTrue: question
+        ? "先回答来源文献里留下的追问，再说明这条判断为什么成立，以及它依赖哪些证据或观察。"
+        : "用你自己的理由说明这条判断为什么成立，以及它依赖哪些证据或观察。",
+      boundary: boundary ? "把来源文献里的边界或反例改写成这条判断的适用条件，不要只复制原句。" : "写出这条判断在哪些条件下不成立，或最容易被什么反例推翻。",
+      relatedClues,
+      supplement
+    });
   }
   const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名随笔笔记";
   const sourceBody = stripGeneratedOriginalMarker(String(payload.sourceBody || payload.body || "").trim());
@@ -4508,30 +4965,16 @@ function originalDraftBodyFromSource(payload = {}) {
     .replace(/^#\s+[^\n]*\n?/m, "")
     .trim();
   const titleSeed = titleFromSeedText(excerpt || sourceTitle, sourceTitle === "未命名随笔笔记" ? "未命名永久笔记" : sourceTitle);
-  return [
-    `# ${titleSeed}`,
-    "",
-    "## 核心观点",
-    "",
-    "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
-    "",
-    "## 为什么成立",
-    "",
-    "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
-    "",
-    "## 边界 / 反例",
-    "",
-    "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
-    "",
-    "## 来源线索",
-    "",
-    `- 来自随笔笔记：[[${sourceTitle}]]`,
-    payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : "",
-    excerpt ? `- 原始线索摘录：${excerpt}` : "",
-    ""
-  ]
-    .filter((line, index, list) => line !== "" || (index > 0 && list[index - 1] !== ""))
-    .join("\n");
+  return composePermanentTemplateDraft({
+    title: titleSeed,
+    coreClaim: "把这条随笔里已经开始成形的判断，改写成一句更清楚、可复用的原创观点。",
+    whyTrue: "补上这条判断为什么值得成立、依赖了哪些观察或经验。",
+    boundary: "写出它在哪些条件下不成立，或还有哪些地方需要继续验证。",
+    relatedClues: [`- 来自随笔笔记：[[${sourceTitle}]]`, payload.sourceNoteId ? `- 来源笔记 ID：${payload.sourceNoteId}` : ""]
+      .filter(Boolean)
+      .join("\n"),
+    supplement: excerpt ? `- 原始线索摘录：${excerpt}` : ""
+  });
 }
 
 async function syncDirectoriesFromApi() {
@@ -4776,7 +5219,10 @@ function renderSidebarTitle() {
         : state.browserRootId === "dir_literature_default"
           ? "quick-literature"
           : "quick-original";
-    document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
+    const explorerActive = state.module === "explorer";
+    document
+      .querySelectorAll(".quick-entry")
+      .forEach((entry) => entry.classList.toggle("current-root", explorerActive && entry.dataset.action === quickAction));
     syncNewNoteButtons();
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
@@ -5210,6 +5656,19 @@ function permanentDirectoryDialogOptions() {
   }));
 }
 
+function noteMoveDirectoryOptions(currentDirectoryId = "") {
+  const currentFolder = folderById(state, currentDirectoryId);
+  const rootId = currentFolder ? rootBoxIdFromFolder(state, currentFolder.id) : "";
+  return state.folders
+    .filter((folder) => folder?.id && !folder.hidden && folder.id !== currentDirectoryId && rootBoxIdFromFolder(state, folder.id) === rootId)
+    .sort((a, b) => directoryPathLabel(a.id).localeCompare(directoryPathLabel(b.id), "zh-Hans-CN"))
+    .map((folder) => ({
+      id: folder.id,
+      label: directoryPathLabel(folder.id),
+      hint: `移动后会放到“${displayFolderName(folder)}”目录。`
+    }));
+}
+
 function importTargetDirectories() {
   return state.folders
     .filter((folder) => folder?.id && !folder.hidden && ["dir_fleeting_default", "dir_literature_default", "dir_original_default"].includes(rootBoxIdFromFolder(state, folder.id)))
@@ -5367,22 +5826,26 @@ function renderStatusMeta() {
 function renderWorkspaceStatusHint() {
   const helper = $("editorHelper");
   if (!helper) return;
+  const kicker = $("editorHelperKicker");
+  const title = $("editorHelperTitle");
+  const body = $("editorHelperBody");
+  const action = $("btnEditorHelperAction");
+  if (!kicker || !title || !body || !action) {
+    hideEditorHelper();
+    return;
+  }
   if (editorHelperDismissed || editorHelperMuted || state.module !== "explorer") {
     hideEditorHelper();
     return;
   }
   const activeNote = activeEditorNote();
   const activeBody = activeEditorBody();
-  const kicker = $("editorHelperKicker");
-  const title = $("editorHelperTitle");
-  const body = $("editorHelperBody");
-  const action = $("btnEditorHelperAction");
-  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "").trim();
+  const noteType = String((activeNote?.folderId ? typeFromFolder(state, activeNote.folderId) : "") || activeNote?.noteType || "")
+    .trim()
+    .toLowerCase();
   if (!activeNote) {
-    if (action) {
-      action.dataset.helperAction = "noop";
-      action.dataset.targetNoteId = "";
-    }
+    action.dataset.helperAction = "noop";
+    action.dataset.targetNoteId = "";
     helper.hidden = false;
     helper.setAttribute("aria-hidden", "false");
     helper.style.pointerEvents = "";
@@ -5397,10 +5860,8 @@ function renderWorkspaceStatusHint() {
     hideEditorHelper();
     return;
   }
-  if (action) {
-    action.dataset.helperAction = "noop";
-    action.dataset.targetNoteId = "";
-  }
+  action.dataset.helperAction = "noop";
+  action.dataset.targetNoteId = "";
   helper.hidden = false;
   helper.setAttribute("aria-hidden", "false");
   helper.style.pointerEvents = "";
@@ -5422,10 +5883,8 @@ function renderWorkspaceStatusHint() {
       title.textContent = "这条文献已经长出永久笔记";
       body.textContent = "你可以继续补文献里的证据与边界，也可以直接跳到那条永久笔记里继续提炼自己的判断。";
       action.textContent = "打开永久笔记";
-      if (action) {
-        action.dataset.helperAction = "open-generated-original";
-        action.dataset.targetNoteId = targetNoteId;
-      }
+      action.dataset.helperAction = "open-generated-original";
+      action.dataset.targetNoteId = targetNoteId;
     } else {
       title.textContent = "先把原文转成你的判断";
       body.textContent = "文献笔记现在和其它笔记共用同一个编辑器。等你觉得材料已经能支撑一个明确判断时，再点“记录永久笔记”。";
@@ -5446,15 +5905,13 @@ function renderWorkspaceStatusHint() {
     title.textContent = "这条随笔已经沉淀为永久笔记";
     body.textContent = "原始线索还可以继续补，但它已经对应到一条永久笔记。你可以直接跳过去继续完善核心判断。";
     action.textContent = "打开永久笔记";
-    if (action) {
-      action.dataset.helperAction = "open-generated-original";
-      action.dataset.targetNoteId = targetNoteId;
-    }
-  } else {
-    title.textContent = "把这条随笔推进成可复用判断";
-    body.textContent = "随笔更适合捕捉线索。等它开始出现明确观点时，再点“记录永久笔记”，把判断单独沉淀出来。";
-    action.textContent = "继续记录";
+    action.dataset.helperAction = "open-generated-original";
+    action.dataset.targetNoteId = targetNoteId;
+    return;
   }
+  title.textContent = `当前在${noteGrowthStage(activeNote, activeBody)}`;
+  body.textContent = "随笔只负责抓住线索，不必在这里完成所有整理。等你判断它值得长期保留时，再点“记录永久笔记”。";
+  action.textContent = "继续记录";
 }
 
 function applyFocusModeChrome() {
@@ -5668,7 +6125,7 @@ function syncRailSelectionState() {
   const explorerActive = state.module === "explorer";
   document.querySelectorAll(".quick-entry").forEach((entry) => {
     const isCurrentRoot = entry.dataset.action === currentQuickAction;
-    entry.classList.toggle("current-root", isCurrentRoot);
+    entry.classList.toggle("current-root", explorerActive && isCurrentRoot);
     entry.classList.toggle("active", explorerActive && isCurrentRoot);
   });
   document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
@@ -5708,59 +6165,11 @@ function ensureEditableNoteBody(body = "") {
 }
 
 function literatureNoteTemplateBody(title = "未命名笔记") {
-  return [
-    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
-    "",
-    "## 引用信息",
-    "",
-    "- 标题：",
-    "- 作者：",
-    "- 年份：",
-    "- 容器：",
-    "- 出版社 / 来源：",
-    "- 页码 / 定位：",
-    "- 版本：",
-    "- 译者 / 编者：",
-    "- DOI / ISBN / arXiv / URL / PDF：",
-    "",
-    "## 原文",
-    "",
-    "",
-    "## 转述",
-    "",
-    "",
-    "## 判断种子",
-    "",
-    "",
-    "## 追问",
-    "",
-    "",
-    "## 边界 / 反例",
-    "",
-    "",
-    "## 保留原因",
-    "",
-    ""
-  ].join("\n");
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("literature"), title, "literature");
 }
 
 function permanentNoteTemplateBody(title = "未命名笔记") {
-  return [
-    `# ${String(title || "未命名笔记").trim() || "未命名笔记"}`,
-    "",
-    "## 核心观点",
-    "",
-    "",
-    "## 为什么成立",
-    "",
-    "",
-    "## 边界 / 反例",
-    "",
-    "",
-    "## 关联线索",
-    "",
-    ""
-  ].join("\n");
+  return applyTitleToNoteTemplate(effectiveSavedNoteTemplateSource("permanent"), title, "permanent");
 }
 
 function initialBodyForFolder(folderId = "") {
@@ -5778,6 +6187,7 @@ async function createNoteInSelectedFolder(options = {}) {
   try {
     const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
     if (reuseUntitled && cleanup.kept) {
+      await refreshUntitledPlaceholderForCurrentTemplate(cleanup.kept);
       if (openInStandalone) {
         openStandaloneEditorWindow(cleanup.kept.id);
       } else {
@@ -5980,28 +6390,28 @@ function continueWritingEntry(noteIds = [], { title = "", source = "writing_cent
 
 function applyAiModelPackChange(nextPack = "Starter Auto", options = {}) {
   const next = String(nextPack || "Starter Auto").trim() || "Starter Auto";
+  const currentRuntimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  settingsState.ai.runtimeMode = isLocalModelPack(next)
+    ? "local_only"
+    : currentRuntimeMode === "local_only"
+      ? "auto"
+      : currentRuntimeMode;
   settingsState.ai.modelPack = next;
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerEndpointUrl = "";
-  settingsState.ai.providerHealthEndpointUrl = "";
-  settingsState.ai.secretRef = "";
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  applyActiveAiProviderConfigToState();
+  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
   persistAiSettingsToStorage();
   syncAiSettingsToApi();
   refreshAiRoutePreview({ render: false });
 
   const settingsPack = $("settingsAiModelPack");
-  if (settingsPack && settingsPack.value !== next) settingsPack.value = next;
+  if (settingsPack && settingsPack.value !== settingsState.ai.modelPack) settingsPack.value = settingsState.ai.modelPack;
   const modulePack = $("moduleAiModelPack");
-  if (modulePack && modulePack.value !== next) modulePack.value = next;
+  if (modulePack && modulePack.value !== settingsState.ai.modelPack) modulePack.value = settingsState.ai.modelPack;
 
   renderModuleWorkspaceHeader();
   renderSettingsPanel();
 
   const source = String(options.source || "").trim();
-  setStatus(`AI model pack switched: ${next}${source ? ` (${source})` : ""}`, "ok");
+  setStatus(`AI model pack switched: ${settingsState.ai.modelPack}${source ? ` (${source})` : ""}`, "ok");
 }
 
 function syncMobileNewNoteButton() {
@@ -6140,6 +6550,201 @@ function renderAiRoutePreview() {
   `;
 }
 
+function renderAiSettingsExperience() {
+  const title = $("settingsAiSetupTitle");
+  const body = $("settingsAiSetupBody");
+  const badges = $("settingsAiSetupBadges");
+  const quickstartStatus = $("settingsAiQuickstartStatus");
+  const stepsEl = $("settingsAiSetupSteps");
+  const localHint = $("settingsAiLocalHint");
+  const advancedBadge = $("settingsAiAdvancedBadge");
+  const labBadge = $("settingsAiLabBadge");
+  if (!title || !body || !badges || !quickstartStatus || !stepsEl || !localHint || !advancedBadge || !labBadge) return;
+
+  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
+  const localMode = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  const localStatus = String(settingsState.ai.localRuntimeStatus || "unknown").trim() || "unknown";
+  const models = Array.isArray(settingsState.ai.localRuntimeModels) ? settingsState.ai.localRuntimeModels : [];
+  const localModel = String(settingsState.ai.localModel || "").trim();
+  const modelPack = String(settingsState.ai.modelPack || "").trim();
+  const providerId = currentAiProviderId();
+  const providerDisplayName = String(settingsState.ai.routePreview?.provider?.displayName || "").trim();
+  const localFlowActive = isAiLocalFlowActive({
+    runtimeMode,
+    modelPack,
+    providerId
+  });
+  const localDefaultsProviderId = localFlowActive ? preferredLocalProviderPresetForSelection() : providerId;
+  const providerLabel = providerId === "platform_managed_openai"
+    ? "平台托管 OpenAI"
+    : providerDisplayName === "Ollama Local"
+      ? "Ollama 本地"
+      : providerDisplayName || providerId || "未选择服务";
+  const routeModelRef = String(settingsState.ai.routePreview?.route?.modelRef || "").trim();
+  const routeHealthStatus = String(settingsState.ai.routePreview?.health?.status || settingsState.ai.providerHealthResult?.record?.status || "").trim();
+  const endpointOverride = String(settingsState.ai.providerEndpointUrl || "").trim();
+  const healthOverride = String(settingsState.ai.providerHealthEndpointUrl || "").trim();
+  const defaultEndpoint = defaultProviderEndpointUrl(localDefaultsProviderId) || (localFlowActive ? OLLAMA_CHAT_ENDPOINT_URL : "");
+  const defaultHealthEndpoint =
+    defaultProviderHealthEndpointUrl(localDefaultsProviderId, endpointOverride || defaultEndpoint) ||
+    (localFlowActive ? OLLAMA_HEALTH_ENDPOINT_URL : "");
+  const implicitLocalModelRef =
+    localModel && (runtimeMode === "local_only" || isLocalModelPack(modelPack))
+      ? `${preferredLocalProviderPresetForSelection()}:${localModel}`
+      : "";
+  const implicitLocalAdvancedOverride =
+    Boolean(settingsState.ai.routePreview?.route?.advancedOverride) &&
+    Boolean(implicitLocalModelRef) &&
+    routeModelRef === implicitLocalModelRef;
+  const advancedFields = [
+    String(settingsState.ai.advancedModelRef || "").trim() !== implicitLocalModelRef
+      ? String(settingsState.ai.advancedModelRef || "").trim()
+      : "",
+    String(settingsState.ai.secretRef || "").trim(),
+    endpointOverride && endpointOverride !== defaultEndpoint ? endpointOverride : "",
+    healthOverride && healthOverride !== defaultHealthEndpoint ? healthOverride : ""
+  ].filter(Boolean).length;
+  const hasMeaningfulAdvancedOverride = Boolean(settingsState.ai.routePreview?.route?.advancedOverride) && !implicitLocalAdvancedOverride;
+
+  const runtimeModeLabel = runtimeMode === "local_only"
+    ? "仅本地"
+    : runtimeMode === "hybrid"
+      ? "混合"
+      : runtimeMode === "cloud_only"
+        ? "仅云端"
+        : "自动";
+  const localRuntimeLabel = localMode
+    ? localStatus === "available"
+      ? localModel
+        ? `Ollama 已连接 / ${localModel}`
+        : models.length
+          ? `Ollama 已连接 / ${models.length} 个模型`
+          : "Ollama 已连接 / 还没有模型"
+      : localStatus === "unavailable"
+        ? "Ollama 未连接"
+        : settingsState.ai.localRuntimeChecking
+          ? "正在检测 Ollama"
+          : "等待检测 Ollama"
+    : "本地模型未启用";
+
+  const badgeItems = [
+    { tone: localFlowActive ? "ok" : "muted", text: `运行模式 ${runtimeModeLabel}` },
+    { tone: providerId.includes("local") ? "ok" : "", text: providerLabel }
+  ];
+  if (localFlowActive) {
+    badgeItems.push({
+      tone: localStatus === "available" ? "ok" : localStatus === "unavailable" ? "warn" : "muted",
+      text: localRuntimeLabel
+    });
+  }
+  badgeItems.push({
+    tone: routeHealthStatus === "healthy" ? "ok" : routeHealthStatus && routeHealthStatus !== "unknown" ? "warn" : "muted",
+    text: routeModelRef ? `模型 ${routeModelRef}` : "等待路由预览"
+  });
+  badges.innerHTML = badgeItems
+    .map((item) => `<span class="settings-stat-badge ${item.tone ? escapeHtml(item.tone) : ""}">${escapeHtml(item.text)}</span>`)
+    .join("");
+
+  let setupTitle = "当前以云端优先方式运行";
+  let setupBody = "如果你现在主要想先用起来，保留自动或仅云端就够了；想把敏感笔记尽量留在本机，再切到“仅本地”或“混合”。";
+  let quickstartLabel = "云端优先";
+  let helperText = "想启用本地模型，先把上面的 AI 运行模式切到“仅本地”或“混合”。";
+  let steps = [
+    { state: "complete", title: "当前模式已经可以直接使用", note: "你现在不需要额外安装本地推理环境。" },
+    { state: "current", title: "如果要本地模型，再切到“仅本地”或“混合”", note: "这样研思录才会进入 Ollama 本地模型流程。" },
+    { state: "pending", title: "检测 Ollama 并选择本地模型", note: "切换后会出现本地模型检测、下载和选择。" }
+  ];
+
+  if (localFlowActive) {
+    helperText = "本地模式下，推荐顺序是：先检测 Ollama，再下载 / 选择模型，最后跑一次测试运行确认路由。";
+    if (settingsState.ai.localRuntimeChecking) {
+      setupTitle = "正在检测本地模型环境";
+      setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内就会返回状态。";
+      quickstartLabel = "检测中";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}，后续操作都会围绕本地模型展开。` },
+        { state: "current", title: "正在检测 Ollama", note: "如果等待过久，先确认 Ollama 应用是否已经启动。" },
+        { state: "pending", title: "检测完成后选择或下载模型", note: "建议优先从 qwen2.5:7b 开始。" }
+      ];
+    } else if (localStatus !== "available") {
+      setupTitle = "先让 Ollama 在这台电脑上启动";
+      setupBody = "研思录已经进入本地模型流程，但当前还没连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
+      quickstartLabel = "等待 Ollama";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先用本地模型，深度任务仍可保留云端路由。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
+        { state: "current", title: "下载并启动 Ollama", note: "如果还没安装，点“下载 Ollama”；安装后保持它在后台运行。" },
+        { state: "pending", title: "回到研思录，点“检测 Ollama”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
+      ];
+      helperText = "如果你刚装好 Ollama，但这里还显示未连接，通常是因为 Ollama 服务还没启动，或者还没完成第一次初始化。";
+    } else if (!models.length) {
+      setupTitle = "Ollama 已连上，还差一个本地模型";
+      setupBody = "本地推理环境已经可用，但这台电脑里还没有可运行的模型。直接点“下载 qwen2.5:7b”即可开始。";
+      quickstartLabel = "等待模型";
+      steps = [
+        { state: "complete", title: "Ollama 已连接", note: "研思录已经能访问这台电脑上的本地推理服务。" },
+        { state: "current", title: "下载第一个本地模型", note: "推荐先从 qwen2.5:7b 开始，兼顾效果和资源占用。" },
+        { state: "pending", title: "下载后回来选择它并测试", note: "模型下载完成后，下面的本地模型下拉框会自动出现选项。" }
+      ];
+    } else if (!localModel) {
+      setupTitle = "本地模型已经可选，再选一个就能开始";
+      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个，研思录就会把本地路由补齐。";
+      quickstartLabel = "选择模型";
+      steps = [
+        { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
+        { state: "complete", title: "至少有一个本地模型可用", note: `当前检测到 ${models.length} 个模型。` },
+        { state: "current", title: "从下拉框里选一个模型", note: "选中后，建议立刻跑一次测试运行确认现在的路由确实走本地。" }
+      ];
+    } else {
+      setupTitle = "本地模型已经就绪";
+      setupBody = runtimeMode === "hybrid"
+        ? `当前已选中 ${localModel}。混合模式会优先把隐私 / 快速任务路由到本地，较重任务仍可能保留云端。`
+        : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖云端。`;
+      quickstartLabel = "本地已就绪";
+      steps = [
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
+        { state: "complete", title: "Ollama 和模型都已准备好", note: `当前使用 ${localModel}。` },
+        { state: settingsState.ai.testOutput ? "complete" : "current", title: "跑一次测试运行确认路由", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果，你可以继续微调模式和模型。" : "现在最适合做一次测试运行，确认提示词已经从本地模型返回。" }
+      ];
+    }
+  }
+
+  title.textContent = setupTitle;
+  body.textContent = setupBody;
+  quickstartStatus.textContent = quickstartLabel;
+  quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
+  quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
+  quickstartStatus.classList.toggle("muted", quickstartLabel === "云端优先");
+  stepsEl.innerHTML = steps
+    .map((step, index) => `
+      <div class="settings-ai-step ${escapeHtml(step.state === "complete" ? "is-complete" : step.state === "current" ? "is-current" : "")}">
+        <span class="settings-ai-step-index">${step.state === "complete" ? "✓" : index + 1}</span>
+        <div>
+          <span class="settings-ai-step-title">${escapeHtml(step.title)}</span>
+          <span class="settings-ai-step-note">${escapeHtml(step.note)}</span>
+        </div>
+      </div>
+    `)
+    .join("");
+  localHint.textContent = helperText;
+
+  advancedBadge.textContent = advancedFields
+    ? `${advancedFields} 项已填写`
+    : hasMeaningfulAdvancedOverride
+      ? "已覆盖自动路由"
+      : "保持默认";
+  advancedBadge.classList.toggle("warn", advancedFields > 0 || hasMeaningfulAdvancedOverride);
+  advancedBadge.classList.toggle("muted", !(advancedFields > 0 || hasMeaningfulAdvancedOverride));
+
+  labBadge.textContent = settingsState.ai.testRunning
+    ? "运行中"
+    : settingsState.ai.testOutput
+      ? "已有结果"
+      : "等待运行";
+  labBadge.classList.toggle("warn", settingsState.ai.testRunning);
+  labBadge.classList.toggle("ok", Boolean(settingsState.ai.testOutput) && !settingsState.ai.testRunning);
+  labBadge.classList.toggle("muted", !settingsState.ai.testRunning && !settingsState.ai.testOutput);
+}
+
 function renderAiLocalModelControls() {
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   const runtimeSelect = $("settingsAiRuntimeMode");
@@ -6147,7 +6752,12 @@ function renderAiLocalModelControls() {
 
   const modelSelect = $("settingsAiLocalModel");
   const modelLabel = $("settingsAiLocalModelLabel");
-  const showLocalModel = runtimeMode === "local_only" || runtimeMode === "hybrid";
+  const providerId = currentAiProviderId();
+  const showLocalModel = isAiLocalFlowActive({
+    runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId
+  });
   modelSelect?.classList.toggle("hidden", !showLocalModel);
   modelLabel?.classList.toggle("hidden", !showLocalModel);
   if (modelSelect) {
@@ -6175,14 +6785,15 @@ function renderAiLocalModelControls() {
     detectButton.textContent = settingsState.ai.localRuntimeChecking ? "正在检测 Ollama..." : "检测 Ollama";
   }
 
-  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel);
+  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel || settingsState.ai.localRuntimeStatus === "available");
 
   const pullButton = $("settingsAiPullOllamaModel");
   if (pullButton) {
     const modelName = ollamaPullModelName();
     const installed = hasLocalModel(modelName);
-    pullButton.classList.toggle("hidden", !showLocalModel);
-    pullButton.disabled = !showLocalModel || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
+    const runtimeAvailable = settingsState.ai.localRuntimeStatus === "available";
+    pullButton.classList.toggle("hidden", !showLocalModel || !runtimeAvailable);
+    pullButton.disabled = !showLocalModel || !runtimeAvailable || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
     pullButton.textContent = settingsState.ai.localRuntimePulling
       ? `正在下载 ${modelName}...`
       : installed
@@ -6313,7 +6924,11 @@ function renderSettingsPanel() {
     feedbackLink.setAttribute("aria-disabled", FEEDBACK_REPOSITORY_READY ? "false" : "true");
   }
 
+  renderNoteTemplateSettingsCard("permanent");
+  renderNoteTemplateSettingsCard("literature");
+
   renderAiLocalModelControls();
+  renderAiSettingsExperience();
 
   const aiMode = $("settingsAiUserMode");
   if (aiMode) {
@@ -6356,6 +6971,195 @@ function renderSettingsPanel() {
     testOutput.textContent = settingsState.ai.testOutput || "（空）";
   }
   renderAiCanonicalDebugPanel();
+}
+
+function noteTemplateFieldMeta(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? LITERATURE_TEMPLATE_SETTINGS_FIELDS
+    : PERMANENT_TEMPLATE_SETTINGS_FIELDS;
+}
+
+function noteTemplateCardCopy(kind = "") {
+  if (String(kind || "").trim().toLowerCase() === "literature") {
+    return {
+      stats: ["文献模板", "普通 Markdown"],
+      summaryClosed: "这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。",
+      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。当前只支持重命名现有顶层 section，不支持新增额外的二级标题。",
+      openLabel: "打开文献模板设置",
+      closeLabel: "收起文献模板设置",
+      statusClosed: "待保存修改",
+      statusOpen: "正在编辑",
+      previewTitle: "示例文献笔记"
+    };
+  }
+  return {
+    stats: ["统一骨架", "普通 Markdown"],
+    summaryClosed: "这里可以修改永久笔记的新建模板。保存后，后续新建永久笔记会直接采用这份 Markdown 骨架。",
+    summaryOpen: "支持直接编辑永久笔记模板文本，并用 {{title}} 作为标题占位符。后续新建永久笔记会按这里的内容落盘。",
+    openLabel: "打开永久笔记模板设置",
+    closeLabel: "收起永久笔记模板设置",
+    statusClosed: "待保存修改",
+    statusOpen: "正在编辑",
+    previewTitle: "示例永久笔记"
+  };
+}
+
+function noteTemplateEditorElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateEditor"
+    : "settingsPermanentTemplateEditor";
+}
+
+function noteTemplateSaveButtonElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsSaveLiteratureTemplate"
+    : "settingsSavePermanentTemplate";
+}
+
+function noteTemplateDraftValidation(kind = "", source = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (cleanKind !== "literature") return { ok: true, message: "" };
+  return validateLiteratureTemplateSource(source);
+}
+
+function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (!settingsState.noteTemplates?.[cleanKind]) return;
+  settingsState.noteTemplates[cleanKind].panelOpen = nextOpen === true;
+}
+
+function toggleNoteTemplatePanel(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const current = settingsState.noteTemplates?.[cleanKind]?.panelOpen === true;
+  setNoteTemplatePanelOpen(cleanKind, !current);
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板设置已${current ? "收起" : "打开"}`, "ok");
+}
+
+function saveNoteTemplateFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  const draftSource = String(editorField?.value || settingsState.noteTemplates[cleanKind].draftText || "").replace(/\r\n/g, "\n");
+  const nextSource = normalizeNoteTemplateSource(draftSource, cleanKind);
+  if (cleanKind === "literature") {
+    const validation = validateLiteratureTemplateSource(nextSource);
+    if (!validation.ok) {
+      setStatus(validation.message || "文献模板当前形状不受支持", "warn");
+      return;
+    }
+  }
+  if (nextSource !== previousSource) {
+    settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+      settingsState.noteTemplates[cleanKind].history,
+      previousSource,
+      cleanKind
+    );
+  }
+  settingsState.noteTemplates[cleanKind].text = nextSource;
+  settingsState.noteTemplates[cleanKind].draftText = nextSource;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
+}
+
+function resetNoteTemplateToDefault(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const previousSource = normalizeNoteTemplateSource(settingsState.noteTemplates[cleanKind].text, cleanKind);
+  settingsState.noteTemplates[cleanKind].history = noteTemplateHistoryWithPrevious(
+    settingsState.noteTemplates[cleanKind].history,
+    previousSource,
+    cleanKind
+  );
+  settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
+  settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
+  settingsState.noteTemplates[cleanKind].draftActive = false;
+  persistNoteTemplateSettingsToStorage();
+  renderSettingsPanel();
+  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
+}
+
+function updateNoteTemplatePreviewFromEditor(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  if (!preview) return;
+  const copy = noteTemplateCardCopy(cleanKind);
+  const draftSource = normalizeDraftBuffer(editorField?.value || "");
+  settingsState.noteTemplates[cleanKind].draftText = draftSource;
+  settingsState.noteTemplates[cleanKind].draftActive = true;
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  preview.textContent = validation.ok
+    ? applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind)
+    : `模板当前不能保存：${validation.message}`;
+}
+
+function renderNoteTemplateSettingsCard(kind = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
+  const stats = $(`settings${capitalizedKind}TemplateStats`);
+  const summary = $(`settings${capitalizedKind}TemplateSummary`);
+  const button = $(`settingsOpen${capitalizedKind}TemplateConfig`);
+  const detail = $(`settings${capitalizedKind}TemplateDetail`);
+  const list = $(`settings${capitalizedKind}TemplateFieldList`);
+  const preview = $(`settings${capitalizedKind}TemplatePreview`);
+  const editorField = $(`settings${capitalizedKind}TemplateEditor`);
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
+    panelOpen: false,
+    text: defaultTemplateSourceForKind(cleanKind),
+    draftText: defaultTemplateSourceForKind(cleanKind),
+    draftActive: false
+  };
+  const open = stateEntry.panelOpen === true;
+  const copy = noteTemplateCardCopy(cleanKind);
+  const fieldMeta = noteTemplateFieldMeta(cleanKind);
+  const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
+  const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
+  const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
+
+  if (stats) {
+    stats.innerHTML = `
+      <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
+      <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
+      <span class="settings-stat-badge ${open ? (validation.ok ? "ok" : "warn") : "warn"}">${escapeHtml(open ? (validation.ok ? copy.statusOpen : "当前草稿不可保存") : copy.statusClosed)}</span>
+    `;
+  }
+  if (summary) {
+    summary.textContent = open
+      ? validation.ok
+        ? copy.summaryOpen
+        : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`
+      : copy.summaryClosed;
+  }
+  if (button) {
+    button.textContent = open ? copy.closeLabel : copy.openLabel;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (detail) detail.classList.toggle("hidden", !open);
+  if (list) {
+    list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
+  }
+  if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  if (preview) {
+    preview.textContent = validation.ok
+      ? applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind)
+      : `模板当前不能保存：${validation.message}`;
+  }
 }
 
 function renderAiCanonicalDebugPanel() {
@@ -8473,6 +9277,7 @@ function renderWritingPanel() {
 async function refreshVaultSettings() {
   try {
     settingsState.vault = await fetchVaultInfo();
+    loadNoteTemplateSettingsFromStorage();
     const prefs = await fetchAiPreferences().catch(() => null);
     if (prefs) {
       const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
@@ -8488,11 +9293,16 @@ async function refreshVaultSettings() {
       settingsState.ai.advancedModelRef = advancedRef;
       const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
       settingsState.ai.secretRef = secretRef;
-      persistAiSettingsToStorage();
     }
+    reconcileAiSelectionState();
+    persistAiSettingsToStorage();
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
-    if (["local_only", "hybrid"].includes(normalizeAiRuntimeMode(settingsState.ai.runtimeMode))) {
+    if (isAiLocalFlowActive({
+      runtimeMode: settingsState.ai.runtimeMode,
+      modelPack: settingsState.ai.modelPack,
+      providerId: currentAiProviderId()
+    })) {
       await detectOllamaModels({ silent: true, render: false });
     }
     await refreshAiRoutePreview({ render: false });
@@ -8638,6 +9448,14 @@ function graphZoomOption(value = "") {
   return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
 }
 
+function graphZoomStep(value = "", direction = 0) {
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(value).key));
+  const nextIndex = Math.max(0, Math.min(zoomKeys.length - 1, currentIndex + Number(direction || 0)));
+  const nextKey = zoomKeys[nextIndex] || "fit";
+  return graphZoomOption(nextKey);
+}
+
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
   if (key === "collapse") {
@@ -8666,6 +9484,47 @@ function renderGraphIcon(name = "") {
       <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <circle cx="10" cy="10" r="4.2"></circle>
         <path d="M10 2.8V4.2M10 15.8V17.2M2.8 10H4.2M15.8 10H17.2"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-out") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-in") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M8.5 6.2V10.8M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
+      </svg>
+    `;
+  }
+  if (key === "drag") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="6" cy="5.5" r="1"></circle>
+        <circle cx="10" cy="5.5" r="1"></circle>
+        <circle cx="14" cy="5.5" r="1"></circle>
+        <circle cx="6" cy="10" r="1"></circle>
+        <circle cx="10" cy="10" r="1"></circle>
+        <circle cx="14" cy="10" r="1"></circle>
+        <circle cx="6" cy="14.5" r="1"></circle>
+        <circle cx="10" cy="14.5" r="1"></circle>
+        <circle cx="14" cy="14.5" r="1"></circle>
+      </svg>
+    `;
+  }
+  if (key === "reset") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5.2 8.2A5.6 5.6 0 1 1 6.4 14.7"></path>
+        <path d="M5.2 4.8V8.4H8.8"></path>
       </svg>
     `;
   }
@@ -9004,26 +9863,57 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
   `;
 }
 
-function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
-  const counts = edges.reduce((acc, edge) => {
+function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOverride = null) {
+  const fallbackCounts = edges.reduce((acc, edge) => {
     const fallback = field === "status" ? "confirmed" : "associated_with";
     const key = String(edge?.[field] || fallback).trim().toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   if (field === "relationType") {
-    const meaningfulCount = edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const indexCount = edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const noisyCount = edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
+    const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
+    const meaningfulCount =
+      Number.isFinite(Number(statsOverride?.meaningfulCount))
+        ? Number(statsOverride.meaningfulCount)
+        : edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const indexCount =
+      Number.isFinite(Number(statsOverride?.indexCount))
+        ? Number(statsOverride.indexCount)
+        : edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const noisyCount =
+      Number.isFinite(Number(statsOverride?.noisyCount))
+        ? Number(statsOverride.noisyCount)
+        : edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : edges.length;
     const leadingOptions = [
-      `<option value="meaningful"${selected === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
-      `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${edges.length})</option>`
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
+      `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selected === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
     }
     if (indexCount > 0) {
-      leadingOptions.push(`<option value="index"${selected === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+      leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+    }
+    const selectedTypeHasOption =
+      selectedKey === "meaningful" ||
+      selectedKey === "all" ||
+      (selectedKey === "noisy" && noisyCount > 0) ||
+      (selectedKey === "index" && indexCount > 0) ||
+      (selectedKey !== "meaningful" &&
+        selectedKey !== "all" &&
+        selectedKey !== "noisy" &&
+        selectedKey !== "index" &&
+        Object.prototype.hasOwnProperty.call(counts, selectedKey));
+    if (!selectedTypeHasOption && selectedKey) {
+      const selectedLabel =
+        selectedKey === "noisy"
+          ? "只看链接线索"
+          : selectedKey === "index"
+            ? "只看主题归属"
+            : labelFn(selectedKey);
+      leadingOptions.push(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedLabel)} (0)</option>`);
     }
     const groupedCounts = new Map();
     for (const [value, count] of Object.entries(counts)) {
@@ -9034,7 +9924,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
     }
     const groupOrder = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"];
     const typedOptions = groupOrder
-      .filter((key) => groupedCounts.has(key))
+      .filter((key) => groupedCounts.has(key) && key !== "index")
       .map((key) => {
         const items = groupedCounts
           .get(key)
@@ -9044,7 +9934,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
         const groupCount = items.reduce((sum, item) => sum + item.count, 0);
         const options = items
           .map((item) => {
-            const selectedAttr = item.value === selected ? " selected" : "";
+            const selectedAttr = item.value === selectedKey ? " selected" : "";
             return `<option value="${escapeHtml(item.value)}"${selectedAttr}>${escapeHtml(item.label)} (${item.count})</option>`;
           })
           .join("");
@@ -9053,7 +9943,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
       .join("");
     return `${leadingOptions.join("")}${typedOptions}`;
   }
-  const options = Object.entries(counts)
+  const options = Object.entries(fallbackCounts)
     .sort((a, b) => b[1] - a[1] || labelFn(a[0]).localeCompare(labelFn(b[0]), "zh-Hans-CN"))
     .map(([value, count]) => {
       const selectedAttr = value === selected ? " selected" : "";
@@ -9073,6 +9963,7 @@ function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
   const key = String(value || "").trim().toLowerCase();
   const normalizedFallback = String(fallback || "meaningful").trim().toLowerCase() || "meaningful";
   const allowed = new Set(["meaningful", "all", "noisy", "index", ...Object.keys(GRAPH_RELATION_TYPE_LABELS)]);
+  if (GRAPH_INDEX_RELATION_TYPES.has(key)) return "index";
   return allowed.has(key) ? key : normalizedFallback;
 }
 
@@ -9117,10 +10008,10 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
       ${modes
         .map((item) => {
           const active = item.key === mode;
+          const purpose = escapeHtml(item.purpose);
           return `
-            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}">
+            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}" title="${purpose}">
               <span>${escapeHtml(item.label)}</span>
-              <small>${escapeHtml(item.purpose)}</small>
             </button>
           `;
         })
@@ -9129,21 +10020,31 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
   `;
 }
 
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
+  return `
+    <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
+      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
+        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
+      </select>
+    </div>
+  `;
+}
+
 const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
     label: "洞见",
-    hint: "先放大中心、桥接与高解释力节点，适合寻找新判断。"
+    hint: "突出最值得继续想的笔记，帮你发现可能长出新观点的地方。"
   },
   bridge: {
     key: "bridge",
     label: "桥接",
-    hint: "优先看跨簇连接、潜在关联和孤立节点，适合补关系。"
+    hint: "突出还没连起来的笔记，帮你判断哪里需要补一条关系。"
   },
   argument: {
     key: "argument",
     label: "论证",
-    hint: "优先看支持、反驳和边界，适合检查观点是否站得住。"
+    hint: "突出证据、反方和边界，帮你检查这个想法站不站得住。"
   }
 };
 
@@ -9152,18 +10053,21 @@ function graphReadingLensMeta(value = "insight") {
   return GRAPH_READING_LENS_META[key] || GRAPH_READING_LENS_META.insight;
 }
 
-function renderGraphReadingLensControls(activeLens = "insight") {
+function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false) {
   const active = graphReadingLensMeta(activeLens);
   return `
-    <div class="graph-reading-lens" aria-label="图谱阅读模式">
-      <span>阅读模式</span>
-      ${Object.values(GRAPH_READING_LENS_META)
-        .map((item) => {
-          const selected = item.key === active.key;
-          return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
-        })
-        .join("")}
-      <small>${escapeHtml(active.hint)}</small>
+    <div class="graph-reading-lens-row">
+      <div class="graph-reading-lens" aria-label="图谱阅读模式">
+        <span>阅读模式</span>
+        ${Object.values(GRAPH_READING_LENS_META)
+          .map((item) => {
+            const selected = item.key === active.key;
+            return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
+          })
+          .join("")}
+        <small>${escapeHtml(active.hint)}</small>
+      </div>
+      <button class="mini-btn is-ghost graph-legend-inline-btn" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
     </div>
   `;
 }
@@ -10357,9 +11261,75 @@ function graphNodeAttentionReasons(node = {}, { selected = false, inSelectedThem
   return uniqueStrings(reasons);
 }
 
+function graphNodeStarTier(node = {}) {
+  if (node.isFocused) return "focus";
+  if (node.isHub) return "core";
+  if (node.isAnchor) return "major";
+  if (node.isGraphIsolatedCandidate) return "isolated";
+  const degree = Number(node.degree || 0);
+  if (degree >= 8) return "major";
+  if (degree >= 4) return "medium";
+  if (degree >= 1) return "minor";
+  return "dust";
+}
+
+function graphNodeStarRank(tier = "") {
+  if (tier === "focus") return 5;
+  if (tier === "core") return 4;
+  if (tier === "major") return 3;
+  if (tier === "medium") return 2;
+  if (tier === "minor") return 1;
+  return 0;
+}
+
+function graphNodeRadiusByTier(tier = "", degree = 0) {
+  const safeDegree = Number(degree || 0);
+  if (tier === "focus") return Math.round(24 + Math.min(10, safeDegree * 1.1));
+  if (tier === "core") return Math.round(20 + Math.min(8, safeDegree * 1.05));
+  if (tier === "major") return Math.round(14 + Math.min(5, safeDegree * 0.72));
+  if (tier === "medium") return Math.round(10 + Math.min(3, safeDegree * 0.45));
+  if (tier === "minor") return Math.round(7 + Math.min(2, safeDegree * 0.3));
+  if (tier === "isolated") return 10;
+  return 4;
+}
+
+function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
+  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
+  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
+  const fromRank = graphNodeStarRank(from?.starTier);
+  const toRank = graphNodeStarRank(to?.starTier);
+  const strongest = Math.max(fromRank, toRank);
+  const weakest = Math.min(fromRank, toRank);
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const relationGroup = graphRelationVisual(relationType).key;
+  if (relationGroup === "index") return true;
+  if (strongest >= 4) return true;
+  if (relationGroup === "bridge") return strongest >= 3;
+  if (["support", "conflict", "boundary", "flow"].includes(relationGroup)) {
+    return strongest >= 3 && weakest >= 2;
+  }
+  return false;
+}
+
+function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
+  const width = Math.max(960, Number(layoutWidth || 0));
+  const height = Math.max(520, Number(layoutHeight || 0));
+  const count = Math.max(48, Math.round((width * height) / 26000));
+  return Array.from({ length: count }, (_, index) => {
+    const base = graphHash(`${seed}:${index}`);
+    const x = 24 + (base % Math.max(1, width - 48));
+    const y = 20 + ((base * 17) % Math.max(1, height - 40));
+    const radius = 0.6 + ((base % 10) / 10) * 1.6;
+    const opacity = 0.14 + ((base % 7) / 7) * 0.34;
+    const blur = base % 3 === 0 ? " is-soft" : "";
+    return `<circle class="graph-map-star${blur}" cx="${x}" cy="${y}" r="${radius.toFixed(1)}" opacity="${opacity.toFixed(2)}"></circle>`;
+  }).join("");
+}
+
 function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const focusedNoteId = String(options.focusedNoteId || "").trim();
   const nodeMap = new Map();
+  const adjacencyMap = new Map();
 
   nodes.forEach((node) => {
     const id = String(node?.id || "").trim();
@@ -10408,6 +11378,12 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
       to.degree += 1;
       to.inDegree += 1;
     }
+    if (fromId && toId && fromId !== toId) {
+      if (!adjacencyMap.has(fromId)) adjacencyMap.set(fromId, new Set());
+      if (!adjacencyMap.has(toId)) adjacencyMap.set(toId, new Set());
+      adjacencyMap.get(fromId).add(toId);
+      adjacencyMap.get(toId).add(fromId);
+    }
   });
 
   const nodeTotal = nodeMap.size;
@@ -10430,22 +11406,105 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const outerRingCount = Math.max(1, outerCount - innerCount);
   const anchorCount = focusedNoteId ? 1 : Math.min(3, layoutNodes.filter((node) => Number(node.degree || 0) > 0).length);
   const anchorIds = new Set(layoutNodes.slice(0, anchorCount).map((node) => node.id));
+  const anchorOrder = [...anchorIds];
+  const anchorAngles = focusedNoteId ? [-Math.PI / 2] : [-Math.PI / 2, Math.PI / 10, (8 * Math.PI) / 10];
+  const clusterAssignments = new Map();
+  const clusterMembers = Array.from({ length: Math.max(1, anchorOrder.length || 3) }, () => []);
   const isolatedLayoutNodes = layoutNodes.filter((node) => node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
   const isolatedIndexById = new Map(isolatedLayoutNodes.map((node, index) => [node.id, index]));
+
+  if (!focusedNoteId && anchorOrder.length) {
+    const eligibleIds = new Set(
+      layoutNodes
+        .filter((node, index) => index && !anchorIds.has(node.id) && !node.isGraphIsolatedCandidate && node.graphVisualState !== "isolated")
+        .map((node) => node.id)
+    );
+    eligibleIds.forEach((nodeId) => {
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        score: adjacencyMap.get(nodeId)?.has(anchorId) ? 1 : 0,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const connectedAnchors = rankedAnchors.filter((item) => item.score > 0);
+      if (!connectedAnchors.length) return;
+      const clusterIndex = connectedAnchors.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+      clusterAssignments.set(nodeId, clusterIndex);
+      clusterMembers[clusterIndex].push(nodeId);
+    });
+    let assignedInPass = true;
+    while (assignedInPass) {
+      assignedInPass = false;
+      eligibleIds.forEach((nodeId) => {
+        if (clusterAssignments.has(nodeId)) return;
+        const neighborScores = new Map();
+        (adjacencyMap.get(nodeId) || new Set()).forEach((neighborId) => {
+          if (!clusterAssignments.has(neighborId)) return;
+          const clusterIndex = clusterAssignments.get(neighborId);
+          neighborScores.set(clusterIndex, (neighborScores.get(clusterIndex) || 0) + 1);
+        });
+        if (!neighborScores.size) return;
+        const rankedClusters = [...neighborScores.entries()].map(([anchorIndex, score]) => ({
+          anchorIndex,
+          score,
+          load: clusterMembers[anchorIndex]?.length || 0
+        }));
+        const clusterIndex = rankedClusters.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+        clusterAssignments.set(nodeId, clusterIndex);
+        clusterMembers[clusterIndex].push(nodeId);
+        assignedInPass = true;
+      });
+    }
+    const visited = new Set();
+    eligibleIds.forEach((nodeId) => {
+      if (clusterAssignments.has(nodeId) || visited.has(nodeId)) return;
+      const component = [];
+      const queue = [nodeId];
+      visited.add(nodeId);
+      while (queue.length) {
+        const currentId = queue.shift();
+        component.push(currentId);
+        (adjacencyMap.get(currentId) || new Set()).forEach((neighborId) => {
+          if (!eligibleIds.has(neighborId) || clusterAssignments.has(neighborId) || visited.has(neighborId)) return;
+          visited.add(neighborId);
+          queue.push(neighborId);
+        });
+      }
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const clusterIndex = rankedAnchors.sort((a, b) => a.load - b.load || a.anchorIndex - b.anchorIndex)[graphHash(component[0] || nodeId) % rankedAnchors.length].anchorIndex;
+      component.forEach((componentId) => {
+        clusterAssignments.set(componentId, clusterIndex);
+        clusterMembers[clusterIndex].push(componentId);
+      });
+    });
+  }
 
   layoutNodes.forEach((node, index) => {
     const isFocused = Boolean(focusedNoteId) && node.id === focusedNoteId;
     const isVisualIsolated = Boolean(node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
     const isHub = (index === 0 && node.degree > 0) || isFocused;
     const isAnchor = !focusedNoteId && anchorIds.has(node.id);
-    const degreeBoost = isVisualIsolated ? 0 : Math.min(8, Number(node.degree || 0) * 1.6);
-    const baseRadius = isVisualIsolated ? 14 : 18;
-    node.radius = Math.round(baseRadius + degreeBoost + (isHub ? 8 : 0) + (isFocused ? 4 : 0) + (isAnchor && !isHub ? 3 : 0));
     node.isHub = isHub;
     node.isFocused = isFocused;
     node.isContext = Boolean(focusedNoteId) && !isFocused;
     node.isAnchor = isAnchor;
     node.isGraphIsolatedCandidate = isVisualIsolated;
+    node.starTier = graphNodeStarTier(node);
+    node.radius = graphNodeRadiusByTier(node.starTier, node.degree);
+    node.auraRadius =
+      node.starTier === "focus"
+        ? node.radius + 20
+        : node.starTier === "core"
+          ? node.radius + 16
+          : node.starTier === "major"
+            ? node.radius + 10
+            : node.starTier === "isolated"
+              ? node.radius + 8
+              : node.starTier === "medium"
+                ? node.radius + 5
+                : 0;
 
     if (isVisualIsolated && outerCount) {
       const isolatedIndex = isolatedIndexById.get(node.id) || 0;
@@ -10465,15 +11524,38 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
     }
 
     const ringIndex = index - 1;
-    const anchorIndex = !focusedNoteId ? [...anchorIds].indexOf(node.id) : -1;
+    const anchorIndex = !focusedNoteId ? anchorOrder.indexOf(node.id) : -1;
     if (anchorIndex >= 0) {
-      const anchorAngles = [-Math.PI / 2, Math.PI / 6, (5 * Math.PI) / 6];
       const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorCount));
-      const anchorRadiusX = width * 0.2;
-      const anchorRadiusY = height * 0.16;
+      const anchorRadiusX = width * 0.19;
+      const anchorRadiusY = height * 0.15;
       node.x = Math.round(centerX + Math.cos(angle) * anchorRadiusX);
       node.y = Math.round(centerY + Math.sin(angle) * anchorRadiusY);
       return;
+    }
+
+    if (!focusedNoteId && anchorOrder.length) {
+      const clusterIndex = clusterAssignments.get(node.id);
+      if (Number.isInteger(clusterIndex) && clusterIndex >= 0) {
+        const memberIds = clusterMembers[clusterIndex] || [];
+        const localIndex = Math.max(0, memberIds.indexOf(node.id));
+        const membersPerRing = memberIds.length > 10 ? 5 : memberIds.length > 6 ? 4 : 3;
+        const ring = Math.floor(localIndex / Math.max(1, membersPerRing));
+        const slot = localIndex % Math.max(1, membersPerRing);
+        const slotCount = Math.min(Math.max(1, membersPerRing), Math.max(1, memberIds.length - ring * membersPerRing));
+        const spread = slotCount <= 2 ? 0.78 : slotCount <= 4 ? 1.35 : 1.82;
+        const localOffset = slotCount === 1 ? 0 : -spread / 2 + (spread * slot) / Math.max(1, slotCount - 1);
+        const jitter = ((graphHash(node.id) % 9) - 4) * 0.02;
+        const anchorAngle = anchorAngles[clusterIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, anchorOrder.length));
+        const clusterCenterX = centerX + Math.cos(anchorAngle) * width * 0.18;
+        const clusterCenterY = centerY + Math.sin(anchorAngle) * height * 0.14;
+        const orbitDistance = 58 + ring * 36 + (graphHash(node.id) % 12) * 1.8 + Math.max(0, node.radius - 7) * 1.4;
+        node.x = Math.round(clusterCenterX + Math.cos(anchorAngle + localOffset + jitter) * orbitDistance);
+        node.y = Math.round(clusterCenterY + Math.sin(anchorAngle + localOffset + jitter) * orbitDistance * 0.78);
+        node.x = Math.max(26, Math.min(width - 26, node.x));
+        node.y = Math.max(26, Math.min(height - 26, node.y));
+        return;
+      }
     }
 
     const useOuterRing = outerCount > 12 && ringIndex >= innerCount;
@@ -10623,6 +11705,22 @@ function graphScopedItems(graph) {
   const scopeDirectoryId = graphScopeDirectoryId();
   const scopedDirectoryIds = new Set(descendantDirectoryIds(scopeDirectoryId));
   const scopedNodes = nodes.filter((node) => scopedDirectoryIds.has(String(node.directoryId || node.folderId || "").trim()));
+  const focusedNoteId = String(state.selectedFileId || "").trim();
+  if (focusedNoteId && !scopedNodes.some((node) => String(node?.id || "").trim() === focusedNoteId)) {
+    const focusedNote = state.notes.find((note) => String(note?.id || "").trim() === focusedNoteId);
+    const focusedFolderId = String(focusedNote?.folderId || focusedNote?.directoryId || "").trim();
+    if (focusedNote && focusedFolderId && scopedDirectoryIds.has(focusedFolderId)) {
+      scopedNodes.push({
+        id: focusedNoteId,
+        title: String(focusedNote.title || focusedNoteId).trim() || focusedNoteId,
+        folderId: focusedFolderId,
+        directoryId: focusedFolderId,
+        noteType: String(focusedNote.noteType || (focusedFolderId ? typeFromFolder(state, focusedFolderId) : "") || "original").trim() || "original",
+        status: String(focusedNote.status || "draft").trim() || "draft",
+        degree: 0
+      });
+    }
+  }
   const scopedNodeIds = new Set(scopedNodes.map((node) => node.id));
   const scopedEdges = allEdges.filter((edge) => scopedNodeIds.has(edge.fromNoteId) && scopedNodeIds.has(edge.toNoteId));
   const relatedNodeIds = new Set(scopedEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
@@ -10634,12 +11732,12 @@ function graphScopedItems(graph) {
   };
 }
 
-function graphFocusedItems(nodes = [], edges = []) {
+function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEdges = edges) {
   const focusedNoteId = String(state.selectedFileId || "").trim();
   if (!focusedNoteId) return { focusedNoteId: "", nodes, edges, focused: false };
   const focusDepth = normalizeGraphFocusDepth(graphState.focusDepth, "1");
   const adjacency = new Map();
-  edges.forEach((edge) => {
+  traversalEdges.forEach((edge) => {
     const fromId = String(edge?.fromNoteId || "").trim();
     const toId = String(edge?.toNoteId || "").trim();
     if (!fromId || !toId) return;
@@ -10664,7 +11762,15 @@ function graphFocusedItems(nodes = [], edges = []) {
     }
   }
   const relatedEdges = edges.filter((edge) => visibleIds.has(edge.fromNoteId) && visibleIds.has(edge.toNoteId));
-  if (!relatedEdges.length) return { focusedNoteId, nodes: [], edges: [], focused: true, focusDepth };
+  if (!relatedEdges.length) {
+    return {
+      focusedNoteId,
+      nodes: allNodes.filter((node) => node.id === focusedNoteId),
+      edges: [],
+      focused: true,
+      focusDepth
+    };
+  }
   return {
     focusedNoteId,
     nodes: nodes.filter((node) => visibleIds.has(node.id)),
@@ -10674,9 +11780,45 @@ function graphFocusedItems(nodes = [], edges = []) {
   };
 }
 
+function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = nodes, filters = {}) {
+  const normalizedSelected = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const normalizedStatus = String(filters.status || "all").trim().toLowerCase() || "all";
+  const relationTypes = new Set(
+    (Array.isArray(edges) ? edges : [])
+      .map((edge) => String(edge?.relationType || "associated_with").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const countFor = (relationType = "all") => {
+    const traversalFilters = { relationType, status: normalizedStatus };
+    const traversalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters));
+    const focusedScope = graphFocusedItems(nodes, edges, allNodes, traversalEdges);
+    return focusedScope.edges.filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters)).length;
+  };
+  const counts = {};
+  relationTypes.forEach((relationType) => {
+    const count = countFor(relationType);
+    if (count > 0) counts[relationType] = count;
+  });
+  if (
+    normalizedSelected &&
+    !["meaningful", "all", "noisy", "index"].includes(normalizedSelected) &&
+    !Object.prototype.hasOwnProperty.call(counts, normalizedSelected)
+  ) {
+    counts[normalizedSelected] = 0;
+  }
+  return {
+    counts,
+    totalCount: countFor("all"),
+    meaningfulCount: countFor("meaningful"),
+    noisyCount: countFor("noisy"),
+    indexCount: countFor("index")
+  };
+}
+
 function renderGraphVisualMap({
   nodes = [],
   edges = [],
+  relationFilterEdges = [],
   filterActive = false,
   focusedNoteId = "",
   relationType = "meaningful",
@@ -10685,7 +11827,8 @@ function renderGraphVisualMap({
   isolatedNotes = [],
   bridgeGaps = [],
   thinkingPanelMarkup = "",
-  utilityDrawerMarkup = ""
+  utilityDrawerMarkup = "",
+  toolbarMarkup = ""
 } = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -10732,6 +11875,8 @@ function renderGraphVisualMap({
   const edgeLabelLimit = zoom.key === "fit" ? 24 : zoom.key === "read" ? 48 : 64;
   const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
   const denseDirectoryMode = !filterActive;
+  const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
+  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -10759,12 +11904,22 @@ function renderGraphVisualMap({
       return meta ? { key, className: `is-${key}`, ...meta } : null;
     })
     .filter(Boolean);
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
   const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
     .map(([key, option]) => {
       const active = zoom.key === key;
       return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
+  const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
+  const zoomStepperMarkup = `
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="缩小图谱" title="缩小图谱"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
+    <div class="graph-zoom-preset-group" aria-label="图谱缩放层级">
+      ${zoomControls}
+    </div>
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="放大图谱" title="放大图谱"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
+  `;
   const focusContextMarkup = filterActive && normalizedFocusedNoteId
     ? renderGraphFocusContextPanel({
         focusedNoteId: normalizedFocusedNoteId,
@@ -10791,21 +11946,22 @@ function renderGraphVisualMap({
     .map((node, index) => {
       const typeClass = graphNodeClass(node.noteType);
       const title = node.title || node.id;
-      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : zoom.key === "fit" ? 10 : zoom.key === "read" ? 16 : 20;
+      const starRank = graphNodeStarRank(node.starTier);
+      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : starRank >= 3 ? (zoom.key === "fit" ? 12 : 18) : zoom.key === "fit" ? 8 : zoom.key === "read" ? 14 : 18;
       const label = graphShortTitle(title, labelLimit);
       const labelY = node.y + node.radius + 17;
       const metaY = labelY + 14;
       const labelQuota = denseDirectoryMode
         ? zoom.key === "detail"
-          ? 6
+          ? 8
           : zoom.key === "read"
-            ? 3
-            : 1
+            ? 4
+            : 0
         : zoom.key === "detail"
-          ? 14
+          ? 12
           : zoom.key === "read"
-            ? 8
-          : 3;
+            ? 6
+          : 2;
       const inSelectedTheme = selectedThemeNoteIds.has(node.id);
       const isolatedKey = String(node.isolatedKey || "").trim();
       const selectedIsolated = selectedIsolatedNodeId === node.id || (activeSelection?.kind === "isolated" && isolatedKey && activeSelection.isolatedKey === isolatedKey);
@@ -10814,23 +11970,59 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const showLabel = node.isFocused || node.isHub || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority || index < labelQuota;
-      const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
-      const revealOnly = denseDirectoryMode && !node.isFocused && !node.isHub && !node.isAnchor && !showLabel;
+      const fitLensLabel = lensPriority && starRank >= 3;
+      const showLabel = zoom.key === "fit"
+        ? (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            fitLensLabel
+          )
+        : (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedNodeNeighborhood ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            lensPriority ||
+            starRank >= 2 ||
+            index < labelQuota
+          );
+      const showMeta = showLabel && starRank >= 3 && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
+      const revealOnly =
+        !showLabel &&
+        !selected &&
+        !inSelectedTheme &&
+        !selectedIsolated &&
+        !inSelectedBridge &&
+        !lensPriority &&
+        (
+          zoom.key === "fit"
+            ? starRank <= 2
+            : denseDirectoryMode && starRank <= 1
+        );
       const neighbors = [...(adjacencyMap.get(node.id) || [])];
       const metaLabel = node.isGraphIsolatedCandidate ? "孤立待判断" : noteTypeLabel(node.noteType);
       const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
       const attentionText = attentionReasons.length ? `；${attentionReasons.join("、")}` : "";
-      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge;
+      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || starRank >= 3;
       const haloTone = node.isGraphIsolatedCandidate || selectedIsolated ? "is-isolated" : inSelectedBridge ? "is-bridge" : node.isFocused || selected ? "is-focus" : inSelectedTheme ? "is-theme" : "is-anchor";
       const hitRadius = Math.max(24, Number(node.radius || 0) + 8);
       const glintRadius = Math.max(2.2, Number(node.radius || 0) * 0.18);
       const glintX = Number(node.x || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       const glintY = Number(node.y || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       return `
-        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
+          ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
           ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 8}"></circle>` : ""}
           <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
           <circle class="graph-map-node-glint" cx="${glintX}" cy="${glintY}" r="${glintRadius}"></circle>
@@ -10859,11 +12051,12 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = Boolean(selectedNodeId) && (fromId === selectedNodeId || toId === selectedNodeId);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
+      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap);
       return `
-        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+        <g class="graph-map-edge-group graph-edge ${fitVisible ? "is-fit-visible" : "is-fit-hidden"} ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
-          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
+          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
           <path class="graph-map-edge-hit" d="${path.d}"></path>
           ${
             showEdgeLabel
@@ -10886,12 +12079,13 @@ function renderGraphVisualMap({
   return `
     <section class="graph-map-panel${expanded ? " is-expanded" : ""}${!filterActive && readingLensState.active ? ` has-reading-lens is-reading-lens-${escapeHtml(readingLens.key)}` : ""}${activeSelection?.kind === "node" ? " is-selecting-node" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
       <div class="graph-map-head">
-        <div>
-          <div class="graph-section-title">${filterActive ? "当前笔记关系图" : escapeHtml(modeMeta.label)}</div>
-          <div class="graph-section-note">${filterActive ? `当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。` : escapeHtml(modeMeta.mapNote)}</div>
-          ${
-            filterActive
-              ? `
+        ${toolbarMarkup}
+        ${
+          filterActive
+            ? `
+              <div>
+                <div class="graph-section-title">当前笔记关系图</div>
+                <div class="graph-section-note">当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。</div>
                 <div class="graph-focus-depth" aria-label="中心阅读深度">
                   ${["1", "2", "all"]
                     .map((value) => {
@@ -10902,15 +12096,40 @@ function renderGraphVisualMap({
                     .join("")}
                   <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
                 </div>
-              `
-              : ""
-          }
-          ${!filterActive ? renderGraphReadingLensControls(readingLens.key) : ""}
-          ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
-        </div>
+              </div>
+            `
+            : `
+              <div class="graph-map-primary-row">
+                ${renderGraphViewModeSwitcher(relationType)}
+                <div class="graph-map-primary-actions">
+                  ${compactRelationFilterMarkup}
+                </div>
+              </div>
+              ${renderGraphReadingLensControls(readingLens.key, legendOpen)}
+              ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
+            `
+        }
       </div>
+      ${
+        legendOpen
+          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
+              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
+              ${legendGroups
+                .map(
+                  (group) => `
+                    <span>
+                      <i class="${escapeHtml(group.className)}"></i>
+                      <strong>${escapeHtml(group.label)}</strong>
+                      <small>${escapeHtml(group.detail)}</small>
+                    </span>
+                  `
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
       <div class="graph-map-stage">
-        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap">${utilityDrawerMarkup}</div>` : ""}
+        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap"${graphUtilityDrawerWrapStyle()}>${utilityDrawerMarkup}</div>` : ""}
         ${
           layout.nodes.length
             ? `
@@ -10920,7 +12139,7 @@ function renderGraphVisualMap({
                     <div class="graph-map-floater" aria-label="图谱查看工具">
                       <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}" aria-label="${expanded ? "退出放大" : "放大查看"}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
                       <div class="graph-zoom-controls" aria-label="图谱缩放">
-                        ${zoomControls}
+                        ${zoomStepperMarkup}
                       </div>
                     </div>
                     <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
@@ -10950,10 +12169,16 @@ function renderGraphVisualMap({
                           <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#35b779" flood-opacity="0.16"></feDropShadow>
                         </filter>
                         <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
-                          <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#38a3c9" flood-opacity="0.15"></feDropShadow>
+                          <feDropShadow dx="0" dy="0" stdDeviation="1.3" flood-color="#38a3c9" flood-opacity="0.1"></feDropShadow>
                         </filter>
+                        <linearGradient id="graph-map-backdrop-fill" x1="4%" y1="6%" x2="94%" y2="100%">
+                          <stop offset="0%" stop-color="#fdffff" stop-opacity="0.97"></stop>
+                          <stop offset="48%" stop-color="#f6fffb" stop-opacity="0.95"></stop>
+                          <stop offset="100%" stop-color="#eef9ff" stop-opacity="0.94"></stop>
+                        </linearGradient>
                       </defs>
-                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
+                      <g class="graph-map-stars">${starfieldMarkup}</g>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>
                       <g class="graph-map-nodes">${nodeMarkup}</g>
@@ -10982,24 +12207,6 @@ function renderGraphVisualMap({
         ${thinkingPanelMarkup && !filterActive ? thinkingPanelMarkup : ""}
         ${questionSpotSummary && !filterActive ? renderGraphQuestionSpotChip(questionSpotSummary) : ""}
       </div>
-      ${
-        legendOpen
-          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
-              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
-              ${legendGroups
-                .map(
-                  (group) => `
-                    <span>
-                      <i class="${escapeHtml(group.className)}"></i>
-                      <strong>${escapeHtml(group.label)}</strong>
-                      <small>${escapeHtml(group.detail)}</small>
-                    </span>
-                  `
-                )
-                .join("")}
-            </div>`
-          : ""
-      }
     </section>
   `;
 }
@@ -11478,6 +12685,9 @@ function graphAiAnalysisSummaryState() {
 }
 
 function currentGraphVisibleNodeIds() {
+  if (state.module === "graph" && state.graphVisibleNoteIdsReady === true && state.graphVisibleNoteIds instanceof Set) {
+    return [...state.graphVisibleNoteIds];
+  }
   const graph = graphState.item;
   if (!graph) return [];
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
@@ -11995,11 +13205,13 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
   return `
     <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
       <summary class="graph-utility-drawer-summary">
+        <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}待判断线索</strong>
           <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
         </div>
         <div class="graph-utility-drawer-meta">
+          <button class="graph-utility-drawer-reset" type="button" data-graph-utility-reset-position aria-label="恢复待判断线索默认位置" title="恢复默认位置"${graphState.utilityDrawerPosition ? "" : " disabled"}>${renderGraphIcon("reset")}回位</button>
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
         </div>
       </summary>
@@ -12032,17 +13244,170 @@ function syncGraphDisclosureState(root) {
   });
 }
 
+function clampGraphUtilityDrawerPosition(position, stage, wrapper) {
+  const nextX = Number(position?.x);
+  const nextY = Number(position?.y);
+  if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !stage || !wrapper) return null;
+  const padding = 10;
+  const maxX = Math.max(padding, stage.clientWidth - wrapper.offsetWidth - padding);
+  const maxY = Math.max(padding, stage.clientHeight - wrapper.offsetHeight - padding);
+  return {
+    x: Math.max(padding, Math.min(maxX, Math.round(nextX))),
+    y: Math.max(padding, Math.min(maxY, Math.round(nextY)))
+  };
+}
+
+function graphUtilityDrawerWrapStyle(root = $("graphCanvas")) {
+  const position = graphState.utilityDrawerPosition;
+  if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return "";
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const clamped = wrap && stage ? clampGraphUtilityDrawerPosition(position, stage, wrap) : position;
+  if (clamped) graphState.utilityDrawerPosition = clamped;
+  return ` style="left:${Number(clamped?.x || 0)}px; top:${Number(clamped?.y || 0)}px; right:auto; justify-content:flex-start;"`;
+}
+
+function applyGraphUtilityDrawerPosition(root = $("graphCanvas")) {
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const position = graphState.utilityDrawerPosition;
+  if (!wrap || !stage || !position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return;
+  const clamped = clampGraphUtilityDrawerPosition(position, stage, wrap);
+  if (!clamped) return;
+  graphState.utilityDrawerPosition = clamped;
+  wrap.style.left = `${clamped.x}px`;
+  wrap.style.top = `${clamped.y}px`;
+  wrap.style.right = "auto";
+  wrap.style.justifyContent = "flex-start";
+}
+
+function beginGraphUtilityDrawerDrag(handle, event) {
+  const wrapper = handle?.closest(".graph-utility-drawer-wrap");
+  const stage = wrapper?.closest(".graph-map-stage");
+  if (!wrapper || !stage) return;
+  const originX = Number.isFinite(graphState.utilityDrawerPosition?.x) ? graphState.utilityDrawerPosition.x : wrapper.offsetLeft;
+  const originY = Number.isFinite(graphState.utilityDrawerPosition?.y) ? graphState.utilityDrawerPosition.y : wrapper.offsetTop;
+  graphUtilityDrawerDragState.active = true;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = event.pointerId;
+  graphUtilityDrawerDragState.handle = handle;
+  graphUtilityDrawerDragState.wrapper = wrapper;
+  graphUtilityDrawerDragState.stage = stage;
+  graphUtilityDrawerDragState.startX = event.clientX;
+  graphUtilityDrawerDragState.startY = event.clientY;
+  graphUtilityDrawerDragState.originX = originX;
+  graphUtilityDrawerDragState.originY = originY;
+  wrapper.classList.add("is-dragging");
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {}
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function updateGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const deltaX = event.clientX - graphUtilityDrawerDragState.startX;
+  const deltaY = event.clientY - graphUtilityDrawerDragState.startY;
+  if (!graphUtilityDrawerDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 4) {
+    graphUtilityDrawerDragState.moved = true;
+  }
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  const stage = graphUtilityDrawerDragState.stage;
+  if (!wrapper || !stage) return;
+  const nextPosition = clampGraphUtilityDrawerPosition(
+    {
+      x: graphUtilityDrawerDragState.originX + deltaX,
+      y: graphUtilityDrawerDragState.originY + deltaY
+    },
+    stage,
+    wrapper
+  );
+  if (!nextPosition) return;
+  graphState.utilityDrawerPosition = nextPosition;
+  wrapper.style.left = `${nextPosition.x}px`;
+  wrapper.style.top = `${nextPosition.y}px`;
+  wrapper.style.right = "auto";
+  wrapper.style.justifyContent = "flex-start";
+  wrapper.querySelector("[data-graph-utility-reset-position]")?.removeAttribute("disabled");
+  event.preventDefault();
+}
+
+function endGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const handle = graphUtilityDrawerDragState.handle;
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  if (handle?.hasPointerCapture?.(event.pointerId)) {
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+  if (wrapper) wrapper.classList.remove("is-dragging");
+  if (graphUtilityDrawerDragState.moved) {
+    graphUtilityDrawerDragState.suppressClickUntil = Date.now() + 250;
+  }
+  graphUtilityDrawerDragState.active = false;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = null;
+  graphUtilityDrawerDragState.handle = null;
+  graphUtilityDrawerDragState.wrapper = null;
+  graphUtilityDrawerDragState.stage = null;
+}
+
+const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;
+
+function clearGraphDensityHintTimer() {
+  if (!graphState.densityHintTimer) return;
+  window.clearTimeout(graphState.densityHintTimer);
+  graphState.densityHintTimer = 0;
+}
+
+function scheduleGraphDensityHintDismiss() {
+  clearGraphDensityHintTimer();
+  const remaining = Number(graphState.densityHintVisibleUntil || 0) - Date.now();
+  if (remaining <= 0) {
+    graphState.densityHintVisibleUntil = 0;
+    return;
+  }
+  graphState.densityHintTimer = window.setTimeout(() => {
+    graphState.densityHintTimer = 0;
+    graphState.densityHintVisibleUntil = 0;
+    if (state.module === "graph") renderGraphPanel();
+  }, remaining);
+}
+
+function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}) {
+  const hintKey =
+    dense && !filterActive
+      ? `${String(graphState.lastLoadedDirectoryId || "").trim()}::${String(graphState.lastLoadedAt || "").trim()}::dense`
+      : "";
+  if (!hintKey) {
+    graphState.densityHintKey = "";
+    graphState.densityHintVisibleUntil = 0;
+    clearGraphDensityHintTimer();
+    return false;
+  }
+  const now = Date.now();
+  if (graphState.densityHintKey !== hintKey) {
+    graphState.densityHintKey = hintKey;
+    graphState.densityHintVisibleUntil = now + GRAPH_DENSITY_HINT_TIMEOUT_MS;
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  if (Number(graphState.densityHintVisibleUntil || 0) > now) {
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  clearGraphDensityHintTimer();
+  return false;
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
-  const legendButton = $("graphLegendToggle");
   if (!summary || !canvas) return;
   syncGraphDisclosureState(canvas);
-  if (legendButton) {
-    legendButton.textContent = graphState.legendOpen ? "隐藏图例" : "图例";
-    legendButton.setAttribute("aria-expanded", String(graphState.legendOpen === true));
-  }
 
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
@@ -12051,6 +13416,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
     canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补理由。</div>`;
@@ -12061,6 +13427,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `图谱加载失败：${graphState.error}`;
     canvas.innerHTML = renderGraphErrorState(graphState.error);
@@ -12072,9 +13439,10 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
-    summary.textContent = `永久笔记盒：点击“刷新图谱”查看所有永久笔记之间的关系。`;
-    canvas.innerHTML = `<div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是支持、反驳、限定、桥接等关系。</div>`;
+    summary.textContent = "0 条永久笔记，0 条关系";
+    canvas.innerHTML = `<div class="graph-empty"></div>`;
     return;
   }
 
@@ -12085,7 +13453,11 @@ function renderGraphPanel() {
   );
   syncAllNoteRelationNetworkStatuses({ connectivityReady: true, connectedIds: state.graphConnectedNoteIds });
   const scoped = graphScopedItems(graph);
-  const focused = graphFocusedItems(scoped.nodes, scoped.edges);
+  const filters = graphState.filters || { relationType: "all", status: "all" };
+  const effectiveRelationType = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const activeFilters = { ...filters, relationType: effectiveRelationType };
+  const focusTraversalEdges = scoped.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
+  const focused = graphFocusedItems(scoped.nodes, scoped.edges, scoped.allNodes, focusTraversalEdges);
   const showingFocusedNote = focused.focused && focused.focusedNoteId;
   const graphInsights = graph?.insights && typeof graph.insights === "object" ? graph.insights : {};
   const scopedAllNodes = Array.isArray(scoped.allNodes) ? scoped.allNodes : scoped.nodes;
@@ -12095,19 +13467,15 @@ function renderGraphPanel() {
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || 0);
   const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
-  const filters = graphState.filters || { relationType: "all", status: "all" };
-  let effectiveRelationType = String(filters.relationType || "all").trim().toLowerCase() || "all";
-  let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
-  if (!showingFocusedNote && effectiveRelationType === "meaningful" && !filteredEdges.length && focused.edges.length) {
-    effectiveRelationType = "all";
-    setGraphRelationTypeFilter("all", { persist: false });
-    filteredEdges = focused.edges;
-  }
+  const filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
   const visibleNodeIds = new Set(filteredEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const visibleNodes =
+  let visibleNodes =
     effectiveRelationType === "all"
       ? focused.nodes
       : focused.nodes.filter((node) => visibleNodeIds.has(node.id));
+  if (showingFocusedNote && !visibleNodes.length && focused.focusedNoteId) {
+    visibleNodes = focused.nodes.filter((node) => node.id === focused.focusedNoteId);
+  }
   const edges = filteredEdges;
   const showIsolatedVisualNodes = !showingFocusedNote && (effectiveRelationType === "meaningful" || effectiveRelationType === "all");
   const isolatedVisualNodes = showIsolatedVisualNodes
@@ -12118,23 +13486,22 @@ function renderGraphPanel() {
       })
     : [];
   const visualNodes = isolatedVisualNodes.length ? [...visibleNodes, ...isolatedVisualNodes] : visibleNodes;
+  const focusedRelationTypeStats = showingFocusedNote
+    ? graphBuildFocusedRelationTypeStats(scoped.nodes, scoped.edges, scoped.allNodes, activeFilters)
+    : null;
   graphState.selection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: visualNodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const notices = [];
   const lastLoadedAtLabel = formatClockTime(graphState.lastLoadedAt);
   const lastErrorAtLabel = formatClockTime(graphState.lastErrorAt);
   state.graphVisibleNoteIds = new Set(visualNodes.map((node) => node.id));
+  state.graphVisibleNoteIdsReady = true;
   const visibleRelationCounts = edges.reduce((acc, edge) => {
     const key = String(edge.relationType || "associated_with").trim();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
-  const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
-  const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const summaryModeNote = graphSummaryModeNote(effectiveRelationType);
-  const baseSummary = showingFocusedNote
-    ? `${focusedNote?.title || focused.focusedNoteId} · ${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label} · ${edges.length} 条关系`
-    : `${scopeFolder?.name || "永久笔记盒"} · ${visibleNodes.length} 条永久笔记 · ${edges.length} 条关系 · ${summaryModeNote}${isolatedVisualNodes.length ? ` · ${isolatedVisualNodes.length} 条孤立待判断` : ""}`;
+  const baseSummary = `${visualNodes.length} 条永久笔记，${edges.length} 条关系`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -12195,23 +13562,22 @@ function renderGraphPanel() {
         open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
       })
     : "";
+  const toolbarMarkup = showingFocusedNote
+    ? `
+      <div class="graph-canvas-toolbar">
+        <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
+        <div class="graph-canvas-toolbar-actions">
+          ${renderGraphRelationTypeFilter(focused.edges, effectiveRelationType, false, focusedRelationTypeStats)}
+        </div>
+      </div>
+    `
+    : "";
   canvas.innerHTML = `
     ${notices.join("")}
-    ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : ""}
-    <div class="graph-canvas-toolbar">
-      <div class="graph-toolbar-filter-panel graph-filters graph-filters-single" data-graph-filters>
-        <label>
-          <span>关系类型</span>
-          <select id="graphRelationTypeFilter" data-graph-filter="relationType">
-            ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
-          </select>
-          <small class="graph-filter-note">关系类型越细，图里保留的连线越少。</small>
-        </label>
-      </div>
-    </div>
     ${renderGraphVisualMap({
       nodes: visualNodes,
       edges,
+      relationFilterEdges: focused.edges,
       filterActive: Boolean(showingFocusedNote),
       focusedNoteId: focused.focusedNoteId,
       relationType: effectiveRelationType,
@@ -12220,9 +13586,11 @@ function renderGraphPanel() {
       isolatedNotes,
       bridgeGaps,
       thinkingPanelMarkup: thinkingPanel,
-      utilityDrawerMarkup: utilityDrawer
+      utilityDrawerMarkup: utilityDrawer,
+      toolbarMarkup
     })}
   `;
+  applyGraphUtilityDrawerPosition(canvas);
 }
 
 async function refreshDirectoryGraph() {
@@ -13435,9 +14803,13 @@ const createBoxDialog = new CreateBoxDialog({
 });
 const permanentNoteDialog = new PermanentNoteDialog({
   maskEl: $("permanentNoteModal"),
+  modalTitleEl: $("permanentNoteModalTitle"),
+  modalNoteEl: $("permanentNoteModalNote"),
+  sourceCardEl: $("permanentNoteSourceCard"),
   sourceTypeEl: $("permanentNoteSourceType"),
   sourceTitleEl: $("permanentNoteSourceTitle"),
   sourceHintEl: $("permanentNoteSourceHint"),
+  directoryLabelEl: $("permanentNoteTargetFolderLabel"),
   directorySelectEl: $("permanentNoteTargetFolder"),
   directoryHintEl: $("permanentNoteTargetHint"),
   cancelEl: $("permanentNoteCancel"),
@@ -13495,6 +14867,28 @@ async function selectPermanentDirectory({
   return directoryId;
 }
 
+async function selectNoteMoveDirectory({
+  noteId = "",
+  noteTitle = "",
+  currentDirectoryId = ""
+} = {}) {
+  const options = noteMoveDirectoryOptions(currentDirectoryId);
+  if (!options.length) {
+    setStatus("当前文件盒里没有其他可移动目录", "warn");
+    return "";
+  }
+  return permanentNoteDialog.open({
+    modalTitle: "移动笔记",
+    modalNote: "选择要移动到的目录。这里只显示当前文件盒里可用的目录。",
+    sourceCardVisible: false,
+    directoryLabel: "目标目录",
+    directoryOptions: options,
+    defaultDirectoryId: options[0]?.id || "",
+    actionLabel: "移动到这个目录",
+    sourceTitle: noteTitle || noteId || "未命名笔记"
+  });
+}
+
 const explorer = new ExplorerPane({
   state,
   elements: {
@@ -13511,6 +14905,7 @@ const explorer = new ExplorerPane({
   onStateChange: handleStateChange,
   pickDirectory: desktopCommands.browseDirectory,
   selectPermanentDirectory,
+  selectNoteMoveDirectory,
   desktopFile: { revealPath: desktopCommands.revealInFileManager, openPath: desktopCommands.openDirectory },
   resolveNotePath
 });
@@ -13524,6 +14919,25 @@ const editor = new EditorPane({
     editorHost: $("editorHost"),
     markdownSplit: $("markdownSplit"),
     emptyStart: $("editorEmptyStart"),
+    literatureWorkspace: $("literatureWorkspace"),
+    literatureQueueSummary: $("literatureQueueSummary"),
+    literatureQueueList: $("literatureQueueList"),
+    literatureQueueNote: $("literatureQueueNote"),
+    literatureOpenNext: $("btnLiteratureOpenNext"),
+    literatureTitle: $("literatureTitleInput"),
+    literatureOriginal: $("literatureOriginalInput"),
+    literatureParaphrase: $("literatureParaphraseInput"),
+    literatureWhyKeep: $("literatureWhyKeepInput"),
+    literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
+    literatureQuestion: $("literatureQuestionInput"),
+    literatureBoundary: $("literatureBoundaryInput"),
+    permanentWorkspace: $("permanentWorkspace"),
+    permanentTitle: $("permanentTitleInput"),
+    permanentCoreClaim: $("permanentCoreClaimInput"),
+    permanentWhyTrue: $("permanentWhyTrueInput"),
+    permanentBoundary: $("permanentBoundaryInput"),
+    permanentRelatedClues: $("permanentRelatedCluesInput"),
+    permanentSupplement: $("permanentSupplementInput"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
     editorThinkingStatus: $("editorThinkingStatus"),
@@ -13581,6 +14995,8 @@ const editor = new EditorPane({
   onOpenNote: openNoteById,
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   selectPermanentDirectory,
+  resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
+  resolveLiteratureSectionLabelCandidates: literatureTemplateSectionLabelCandidates,
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
@@ -13665,6 +15081,7 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   try {
     const vault = await desktopCommands.switchVault(vaultPath);
     settingsState.vault = vault;
+    loadNoteTemplateSettingsFromStorage();
     state.notes = [];
     state.tabs = [];
     state.activeTabId = null;
@@ -13680,35 +15097,64 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
   }
 });
 
+$("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
+  toggleNoteTemplatePanel("permanent");
+});
+
+$("settingsOpenLiteratureTemplateConfig")?.addEventListener("click", () => {
+  toggleNoteTemplatePanel("literature");
+});
+
+$("settingsSavePermanentTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("permanent");
+});
+
+$("settingsResetPermanentTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("permanent");
+});
+
+$("settingsSaveLiteratureTemplate")?.addEventListener("click", () => {
+  saveNoteTemplateFromEditor("literature");
+});
+
+$("settingsResetLiteratureTemplate")?.addEventListener("click", () => {
+  resetNoteTemplateToDefault("literature");
+});
+
+$("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("permanent");
+});
+
+$("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
+  updateNoteTemplatePreviewFromEditor("literature");
+});
+
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
   const next = normalizeAiRuntimeMode(event?.target?.value || "auto");
   const defaults = aiDefaultsForRuntimeMode(next);
   settingsState.ai.runtimeMode = next;
   settingsState.ai.userMode = defaults.userMode;
   settingsState.ai.modelPack = defaults.modelPack;
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  if (next === "local_only" || next === "hybrid") {
-    settingsState.ai.providerEndpointUrl = OLLAMA_CHAT_ENDPOINT_URL;
-    settingsState.ai.providerHealthEndpointUrl = OLLAMA_HEALTH_ENDPOINT_URL;
-    settingsState.ai.secretRef = "";
-    if (settingsState.ai.localModel) applyOllamaLocalModelDefaults();
-    else if (settingsState.ai.advancedModelRef && !settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) settingsState.ai.advancedModelRef = "";
-  } else if (settingsState.ai.advancedModelRef.startsWith("local_private_gateway:")) {
-    settingsState.ai.advancedModelRef = "";
-  }
+  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
   persistAiSettingsToStorage();
   await syncAiSettingsToApi();
-  if ((next === "local_only" || next === "hybrid") && !settingsState.ai.localRuntimeModels.length) {
+  if (isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: currentAiProviderId()
+  }) && !settingsState.ai.localRuntimeModels.length) {
     await detectOllamaModels({ silent: true, render: false });
   }
-  if ((next === "local_only" || next === "hybrid") && settingsState.ai.localModel) {
+  if (isAiLocalFlowActive({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerId: currentAiProviderId()
+  }) && settingsState.ai.localModel) {
     await saveLocalOllamaProviderConfig();
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(`AI 运行模式已切换为：${next}`, "ok");
+  setStatus(`AI 运行模式已切换为：${settingsState.ai.runtimeMode}`, "ok");
 });
 
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
@@ -13724,23 +15170,6 @@ $("settingsAiUserMode")?.addEventListener("change", (event) => {
 $("settingsAiModelPack")?.addEventListener("change", (event) => {
   const next = String(event?.target?.value || "Starter Auto").trim() || "Starter Auto";
   applyAiModelPackChange(next, { source: "settings" });
-  return;
-  settingsState.ai.modelPack = next;
-  if (next === "Privacy First") settingsState.ai.runtimeMode = "local_only";
-  else if (settingsState.ai.runtimeMode === "local_only") settingsState.ai.runtimeMode = "auto";
-  settingsState.ai.routePreview = null;
-  settingsState.ai.providerEndpointUrl = "";
-  settingsState.ai.providerHealthEndpointUrl = "";
-  settingsState.ai.secretRef = "";
-  if (settingsState.ai.runtimeMode === "local_only" && settingsState.ai.localModel) applyOllamaLocalModelDefaults();
-  settingsState.ai.providerConfigError = "";
-  settingsState.ai.providerHealthResult = null;
-  applyActiveAiProviderConfigToState();
-  persistAiSettingsToStorage();
-  syncAiSettingsToApi();
-  refreshAiRoutePreview();
-  renderSettingsPanel();
-  setStatus(`AI 模型包已切换为：${next}`, "ok");
 });
 
 $("settingsAiLocalModel")?.addEventListener("change", async (event) => {
@@ -14832,12 +16261,6 @@ $("graphRefresh")?.addEventListener("click", async () => {
   );
 });
 
-$("graphLegendToggle")?.addEventListener("click", () => {
-  graphState.legendOpen = graphState.legendOpen !== true;
-  renderGraphPanel();
-  setStatus(graphState.legendOpen ? "已显示关系图例" : "已隐藏关系图例", "ok");
-});
-
 $("graphBackToDirectory")?.addEventListener("click", () => {
   state.selectedFileId = null;
   explorer?.restoreAutoCollapsedDisconnectedGroups?.();
@@ -14951,6 +16374,26 @@ $("aiInboxPanel")?.addEventListener("click", async (event) => {
 
 $("graphCanvas")?.addEventListener("click", async (event) => {
   if (graphViewportDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-map-viewport")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  if (graphUtilityDrawerDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-utility-drawer")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const utilityDrawerReset = event.target.closest("[data-graph-utility-reset-position]");
+  if (utilityDrawerReset) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (utilityDrawerReset.hasAttribute("disabled")) return;
+    graphState.utilityDrawerPosition = null;
+    renderGraphPanel();
+    setStatus("待判断线索已恢复默认位置", "ok");
+    return;
+  }
+  if (event.target.closest("[data-graph-utility-drag-handle]")) {
     event.preventDefault();
     event.stopPropagation();
     return;
@@ -15136,6 +16579,17 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
     return;
   }
+  const zoomStepButton = event.target.closest("[data-graph-zoom-step]");
+  if (zoomStepButton) {
+    const nextZoom = graphZoomStep(graphState.zoom, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0));
+    if (nextZoom.key !== graphZoomOption(graphState.zoom).key) {
+      graphState.zoom = nextZoom.key;
+      renderGraphPanel();
+      requestAnimationFrame(centerGraphViewportIfZoomed);
+      setStatus(`图谱视图已切换为${nextZoom.label}`, "ok");
+    }
+    return;
+  }
   const readingLensButton = event.target.closest("[data-graph-reading-lens]");
   if (readingLensButton) {
     graphState.readingLens = graphReadingLensMeta(readingLensButton.getAttribute("data-graph-reading-lens")).key;
@@ -15260,24 +16714,33 @@ $("graphCanvas")?.addEventListener("focusout", (event) => {
 });
 
 $("graphCanvas")?.addEventListener("pointerdown", (event) => {
+  const utilityDrawerHandle = event.target.closest("[data-graph-utility-drag-handle]");
+  if (utilityDrawerHandle) {
+    beginGraphUtilityDrawerDrag(utilityDrawerHandle, event);
+    return;
+  }
   const viewport = event.target.closest(".graph-map-viewport");
   if (!viewport) return;
   beginGraphViewportDrag(viewport, event);
 });
 
 $("graphCanvas")?.addEventListener("pointermove", (event) => {
+  updateGraphUtilityDrawerDrag(event);
   updateGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointerup", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointercancel", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("lostpointercapture", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
@@ -15355,6 +16818,13 @@ $("graphCanvas")?.addEventListener("change", (event) => {
 });
 
 $("graphCanvas")?.addEventListener("click", (event) => {
+  const legendToggle = event.target.closest("#graphLegendToggle");
+  if (legendToggle) {
+    graphState.legendOpen = graphState.legendOpen !== true;
+    renderGraphPanel();
+    setStatus(graphState.legendOpen ? "已显示关系图例" : "已隐藏关系图例", "ok");
+    return;
+  }
   const toggle = event.target.closest("[data-graph-view-mode]");
   if (!toggle) return;
   const mode = String(toggle.dataset.graphViewMode || "").trim().toLowerCase();
@@ -15375,12 +16845,9 @@ $("graphCanvas")?.addEventListener(
     const viewport = event.target.closest(".graph-map-viewport");
     if (!viewport) return;
     event.preventDefault();
-    const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
-    const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(graphState.zoom).key));
-    const nextIndex = event.deltaY > 0 ? Math.max(0, currentIndex - 1) : Math.min(zoomKeys.length - 1, currentIndex + 1);
-    const nextZoom = zoomKeys[nextIndex];
-    if (!nextZoom || nextZoom === graphState.zoom) return;
-    graphState.zoom = nextZoom;
+    const nextZoom = graphZoomStep(graphState.zoom, event.deltaY > 0 ? -1 : 1);
+    if (nextZoom.key === graphState.zoom) return;
+    graphState.zoom = nextZoom.key;
     renderGraphPanel();
     requestAnimationFrame(centerGraphViewportIfZoomed);
   },

@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -21,7 +21,7 @@ test("graph empty question chip stays actionable and opens the scan surface", ()
 
   assert.match(match[1], /const empty = !total;/);
   assert.match(match[1], /graph-question-chip\$\{open \? " is-open" : ""\}\$\{empty \? " is-empty" : ""\}/);
-  assert.match(match[1], /aria-label="\$\{empty \? "打开可追问处并运行图谱扫描" : "打开可追问处"\}"/);
+  assert.match(match[1], /aria-label="\$\{empty \? "鎵撳紑鍙拷闂骞惰繍琛屽浘璋辨壂鎻? : "鎵撳紑鍙拷闂"\}"/);
   assert.doesNotMatch(match[1], /\sdisabled\b/, "empty state should not disable the thinking entry");
 });
 
@@ -38,12 +38,28 @@ test("graph type tabs stay as a primary choice instead of hidden inside filters"
   const html = readPrototypeHtml();
 
   assert.match(source, /function renderGraphViewModeSwitcher\(relationType = "meaningful"\) \{[\s\S]*graph-view-tabs[\s\S]*graph-view-tab/);
-  assert.match(source, /\$\{!showingFocusedNote \? renderGraphViewModeSwitcher\(effectiveRelationType\) : ""\}\s*\n\s*<div class="graph-canvas-toolbar">/);
-  assert.match(source, /<div class="graph-toolbar-filter-panel graph-filters graph-filters-single" data-graph-filters>/);
+  assert.match(source, /<div class="graph-map-primary-row">[\s\S]*\$\{renderGraphViewModeSwitcher\(relationType\)\}[\s\S]*<div class="graph-map-primary-actions">/);
+  assert.match(source, /<button class="graph-view-tab\$\{active \? " is-active" : ""\}" type="button" data-graph-view-mode="\$\{escapeHtml\(item\.key\)\}" aria-pressed="\$\{active\}" title="\$\{purpose\}">/);
+  assert.match(html, /\.graph-view-tabs \{[\s\S]*display: inline-flex;[\s\S]*border-radius: 999px;/);
+  assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*background: linear-gradient/);
+  assert.doesNotMatch(source, /<small>\$\{purpose\}<\/small>/);
+});
+
+test("graph legend toggle lives near the graph toolbar instead of the page header", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphReadingLensControls\(activeLens = "insight", legendOpen = false\) \{[\s\S]*id="graphLegendToggle"[\s\S]*graph-legend-inline-btn/);
+  assert.match(html, /\.graph-map-footer-controls \{[\s\S]*justify-content: flex-end;/);
   assert.doesNotMatch(source, /<details class="graph-advanced-controls">/);
-  assert.match(html, /\.graph-view-tabs \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*border-color: #88c9a7;/);
-  assert.match(html, /\.graph-toolbar-filter-panel \{[\s\S]*width: min\(760px, 100%\);/);
+});
+
+test("graph filter dropdown stays minimal inside the filter affordance", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /<div class="graph-filters graph-filters-single\$\{compact \? " graph-filters-compact" : ""\}" data-graph-filters>\s*\n\s*<select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">/);
+  assert.doesNotMatch(source, /<span>鍏崇郴绫诲瀷<\/span>/);
+  assert.doesNotMatch(source, /graph-filter-note/);
 });
 
 test("graph edges use softer asymmetric curves and slimmer arrow markers", () => {
@@ -56,8 +72,7 @@ test("graph edges use softer asymmetric curves and slimmer arrow markers", () =>
   assert.match(source, /const control2X = startX \+ dx \* 0\.72 \+ controlOffsetX \+ unitX \* forwardDrift;/);
   assert.match(source, /markerWidth="10" markerHeight="10" refX="8" refY="5"/);
   assert.match(source, /<path d="M 2 2\.4 L 8 5 L 2 7\.6" fill="none" stroke="\$\{escapeHtml\(color\)\}" stroke-width="1\.35"/);
-
-  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 1\.35;[\s\S]*opacity: 0\.52;/);
+  assert.match(html, /\.graph-map-edge \{[\s\S]*stroke-width: 1\.35;[\s\S]*opacity: 0\.52;[\s\S]*marker-end: var\(--graph-edge-marker, none\);/);
   assert.match(html, /\.graph-map-edge-underlay \{[\s\S]*stroke-width: 5\.2;[\s\S]*opacity: 0\.24;/);
   assert.match(html, /\.graph-map-edge-group:hover \.graph-map-edge,[\s\S]*stroke-width: 2\.3;/);
 });
@@ -75,7 +90,7 @@ test("graph isolated notes become visible selectable orbit nodes", () => {
   assert.match(source, /data-graph-isolated-key="\$\{escapeHtml\(isolatedKey\)\}"/);
   assert.match(source, /<circle class="graph-map-node-hit"/);
   assert.match(source, /<circle class="graph-map-node-orbit \$\{escapeHtml\(haloTone\)\}"/);
-  assert.match(source, /aria-label="\$\{node\.isGraphIsolatedCandidate \? "整理孤立节点" : "查看笔记角色"\}/);
+  assert.match(source, /aria-label="\$\{node\.isGraphIsolatedCandidate \? "鏁寸悊瀛ょ珛鑺傜偣" : "鏌ョ湅绗旇瑙掕壊"\}/);
 });
 
 test("clicking an isolated visual node opens isolated review before generic node role", () => {
@@ -95,11 +110,11 @@ test("isolated node review offers actionable organizing decisions", () => {
   assert.match(source, /function openGraphIsolatedDecisionAction\(noteId = "", action = ""\) \{/);
   assert.match(source, /if \(cleanAction === "bridge"\) \{[\s\S]*return openGraphFollowupNote\(cleanNoteId, "bridge", \{ relationType: "bridges" \}\);/);
   assert.match(source, /openNoteById\(cleanNoteId, \{ focusDistillation: cleanAction === "rewrite", preferTitleSelection: false \}\);/);
-  assert.match(source, /keep: "已打开孤立笔记：请补一句/);
-  assert.match(source, /actionLabel: "补独立理由"/);
-  assert.match(source, /actionLabel: "寻找关联"/);
-  assert.match(source, /actionLabel: "先暂存"/);
-  assert.match(source, /actionLabel: "重写判断"/);
+  assert.ok(source.includes('keep: "已打开孤立笔记：请补一句“为什么暂时保持独立”，避免之后误删或硬连线。"'));
+  assert.ok(source.includes('actionLabel: "补独立理由"'));
+  assert.ok(source.includes('actionLabel: "寻找关联"'));
+  assert.ok(source.includes('actionLabel: "先暂存"'));
+  assert.ok(source.includes('actionLabel: "重写判断"'));
   assert.match(source, /<button class="graph-isolated-decision\$\{card\.active \? " is-active" : ""\}" type="button" data-graph-isolated-action="\$\{escapeHtml\(card\.key\)\}" data-open-note="\$\{escapeHtml\(noteId\)\}" aria-pressed="\$\{card\.active\}">/);
   assert.match(source, /<small>\$\{escapeHtml\(card\.actionLabel\)\}<\/small>/);
 
@@ -133,17 +148,17 @@ test("graph AI scan keeps the researcher in the graph thinking workspace", () =>
 
   assert.match(match[1], /graphState\.thinkingPanelOpen = true;/);
   assert.match(match[1], /graphState\.thinkingFilter = "all";/);
-  assert.match(match[1], /已在可追问处展开/);
+  assert.match(match[1], /宸插湪鍙拷闂灞曞紑/);
   assert.doesNotMatch(match[1], /openAiInboxModule/, "graph scan should not auto-navigate away from the graph");
 });
 
 test("graph thinking cards include research questions instead of only actions", () => {
   const source = readPrototypeApp();
-  assert.match(source, /const listQuestion =[\s\S]*"这组笔记能否写成一句可争论的判断，而不只是共享同一个标签？";/);
-  assert.match(source, /question: quality\?\.listQuestion \|\| "这组笔记能否写成一句可争论的判断，而不只是共享同一个标签？"/);
-  assert.match(source, /question: "它孤立是因为真的独特，还是因为还没有写出关系理由？"/);
-  assert.match(source, /question: "这条候选关系能不能说清“为什么相连”，还是只是标题相似？"/);
-  assert.match(source, /<span class="graph-thinking-question"><small>可追问<\/small>\$\{escapeHtml\(item\.question\)\}<\/span>/);
+  assert.match(source, /const listQuestion =[\s\S]*"杩欑粍绗旇鑳藉惁鍐欐垚涓€鍙ュ彲浜夎鐨勫垽鏂紝鑰屼笉鍙槸鍏变韩鍚屼竴涓爣绛撅紵";/);
+  assert.match(source, /question: quality\?\.listQuestion \|\| "杩欑粍绗旇鑳藉惁鍐欐垚涓€鍙ュ彲浜夎鐨勫垽鏂紝鑰屼笉鍙槸鍏变韩鍚屼竴涓爣绛撅紵"/);
+  assert.match(source, /question: "瀹冨绔嬫槸鍥犱负鐪熺殑鐙壒锛岃繕鏄洜涓鸿繕娌℃湁鍐欏嚭鍏崇郴鐞嗙敱锛?/);
+  assert.match(source, /question: "杩欐潯鍊欓€夊叧绯昏兘涓嶈兘璇存竻鈥滀负浠€涔堢浉杩炩€濓紝杩樻槸鍙槸鏍囬鐩镐技锛?/);
+  assert.match(source, /<span class="graph-thinking-question"><small>鍙拷闂?\/small>\$\{escapeHtml\(item\.question\)\}<\/span>/);
 
   const html = readPrototypeHtml();
   assert.match(html, /\.graph-thinking-question \{[\s\S]*border: 1px solid rgba\(207, 228, 217, 0\.9\);[\s\S]*line-height: 1\.5;/);
@@ -155,18 +170,18 @@ test("question spots cover theme bridge relation-review and isolated thinking wo
 
   const summaryMatch = source.match(/function buildGraphQuestionSpotSummary\([\s\S]*?\n\}/);
   assert.ok(summaryMatch, "expected buildGraphQuestionSpotSummary() to exist");
-  assert.match(summaryMatch[0], /\{ key: "theme", label: "主题候选", count: topicCount \}/);
-  assert.match(summaryMatch[0], /\{ key: "bridge", label: "桥接机会", count: Math\.max\(Number\(bridgeGaps\?\.length \|\| 0\), bridgeCandidateCount\) \}/);
-  assert.match(summaryMatch[0], /\{ key: "review", label: "关系待复核", count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), relationCandidateCount\) \}/);
-  assert.match(summaryMatch[0], /\{ key: "isolated", label: "孤立待判断", count: isolatedCount \}/);
-  assert.match(summaryMatch[0], /label: total \? `\$\{total\} 个可追问处` : "暂无可追问处"/);
+  assert.match(summaryMatch[0], /\{ key: "theme", label: "涓婚鍊欓€?, count: topicCount \}/);
+  assert.match(summaryMatch[0], /\{ key: "bridge", label: "妗ユ帴鏈轰細", count: Math\.max\(Number\(bridgeGaps\?\.length \|\| 0\), bridgeCandidateCount\) \}/);
+  assert.match(summaryMatch[0], /\{ key: "review", label: "鍏崇郴寰呭鏍?, count: Math\.max\(Number\(reviewQueueTotal \|\| 0\), relationCandidateCount\) \}/);
+  assert.match(summaryMatch[0], /\{ key: "isolated", label: "瀛ょ珛寰呭垽鏂?, count: isolatedCount \}/);
+  assert.match(summaryMatch[0], /label: total \? `\$\{total\} 涓彲杩介棶澶刞 : "鏆傛棤鍙拷闂"/);
 
   const thinkingMatch = source.match(/function buildGraphThinkingItems\([\s\S]*?\n\}/);
   assert.ok(thinkingMatch, "expected buildGraphThinkingItems() to exist");
-  assert.match(thinkingMatch[0], /kicker: "主题候选"[\s\S]*actionLabel: "评估主题"[\s\S]*data-graph-select-theme/);
-  assert.match(thinkingMatch[0], /kicker: gapType === "disconnected_cluster" \? "断裂簇" : "桥接机会"[\s\S]*question: targetTitle \? `它和/);
-  assert.match(thinkingMatch[0], /kicker: "关系待复核"[\s\S]*question: "如果删掉这条线，损失的是论证结构，还是只是少了一个导航链接？"[\s\S]*actionLabel: "复核关系"/);
-  assert.match(thinkingMatch[0], /kicker: "孤立待判断"[\s\S]*question: "它孤立是因为真的独特，还是因为还没有写出关系理由？"[\s\S]*actionLabel: "整理"/);
+  assert.match(thinkingMatch[0], /kicker: "涓婚鍊欓€?[\s\S]*actionLabel: "璇勪及涓婚"[\s\S]*data-graph-select-theme/);
+  assert.match(thinkingMatch[0], /kicker: gapType === "disconnected_cluster" \? "鏂绨? : "妗ユ帴鏈轰細"[\s\S]*question: targetTitle \? `瀹冨拰/);
+  assert.match(thinkingMatch[0], /kicker: "鍏崇郴寰呭鏍?[\s\S]*question: "濡傛灉鍒犳帀杩欐潯绾匡紝鎹熷け鐨勬槸璁鸿瘉缁撴瀯锛岃繕鏄彧鏄皯浜嗕竴涓鑸摼鎺ワ紵"[\s\S]*actionLabel: "澶嶆牳鍏崇郴"/);
+  assert.match(thinkingMatch[0], /kicker: "瀛ょ珛寰呭垽鏂?[\s\S]*question: "瀹冨绔嬫槸鍥犱负鐪熺殑鐙壒锛岃繕鏄洜涓鸿繕娌℃湁鍐欏嚭鍏崇郴鐞嗙敱锛?[\s\S]*actionLabel: "鏁寸悊"/);
 });
 
 test("bridge question spots open an in-graph bridge judgment before editing", () => {
@@ -180,11 +195,11 @@ test("bridge question spots open an in-graph bridge judgment before editing", ()
   assert.match(source, /function resolveGraphBridgeSelection\(selection = null, bridgeGaps = \[\], nodes = \[\]\) \{/);
   assert.match(source, /kind: "bridge",[\s\S]*bridgeKey: bridge\.bridgeKey,[\s\S]*noteId: bridge\.noteId,[\s\S]*targetNoteId: bridge\.targetNoteId/);
   assert.match(source, /function renderGraphBridgeSelectionPanel\(\{ selection = null, bridgeGaps = \[\], nodeMap = new Map\(\) \} = \{\}\) \{/);
-  assert.match(source, /kicker: "桥接判断"/);
-  assert.match(source, /<strong>桥接问题<\/strong>/);
+  assert.match(source, /kicker: "妗ユ帴鍒ゆ柇"/);
+  assert.match(source, /<strong>妗ユ帴闂<\/strong>/);
   assert.match(source, /data-graph-followup-action="bridge"/);
-  assert.match(source, /actionLabel: "判断桥接"[\s\S]*data-graph-select-bridge/);
-  assert.doesNotMatch(source, /kicker: gapType === "disconnected_cluster" \? "断裂簇" : "桥接机会"[\s\S]{0,900}data-graph-followup-action="bridge"/);
+  assert.match(source, /actionLabel: "鍒ゆ柇妗ユ帴"[\s\S]*data-graph-select-bridge/);
+  assert.doesNotMatch(source, /kicker: gapType === "disconnected_cluster" \? "鏂绨? : "妗ユ帴鏈轰細"[\s\S]{0,900}data-graph-followup-action="bridge"/);
 
   const clickHandler = source.match(/\$\("graphCanvas"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
   assert.ok(clickHandler, "expected graph canvas click handler to exist");
@@ -255,7 +270,7 @@ test("graph reading noise controls expose three lightweight lenses without filte
   const html = readPrototypeHtml();
 
   assert.match(source, /readingLens: "insight"/);
-  assert.match(source, /const GRAPH_READING_LENS_META = \{[\s\S]*insight:[\s\S]*label: "洞见"[\s\S]*bridge:[\s\S]*label: "桥接"[\s\S]*argument:[\s\S]*label: "论证"/);
+  assert.match(source, /const GRAPH_READING_LENS_META = \{[\s\S]*insight:[\s\S]*label: "娲炶"[\s\S]*bridge:[\s\S]*label: "妗ユ帴"[\s\S]*argument:[\s\S]*label: "璁鸿瘉"/);
   assert.match(source, /function renderGraphReadingLensControls\(activeLens = "insight"\) \{/);
   assert.match(source, /data-graph-reading-lens="\$\{escapeHtml\(item\.key\)\}"/);
   assert.match(source, /\$\{!filterActive \? renderGraphReadingLensControls\(readingLens\.key\) : ""\}/);
@@ -292,7 +307,7 @@ test("bridge gap clues in the pending judgment drawer can highlight graph nodes"
 
   assert.match(source, /const highlightNodeIds = \[sourceNoteId, targetNoteId\]\.filter\(Boolean\)\.join\(","\);/);
   assert.match(source, /class="graph-focus-card graph-bridge-gap-card"[\s\S]*data-graph-thinking-highlight="true"[\s\S]*data-graph-thinking-node-ids="\$\{escapeHtml\(highlightNodeIds\)\}"/);
-  assert.match(source, /data-graph-thinking-kicker="潜在关联"/);
+  assert.match(source, /data-graph-thinking-kicker="娼滃湪鍏宠仈"/);
   assert.match(source, /event\.target\.closest\("\[data-graph-thinking-highlight\]"\)/);
   assert.match(html, /\.graph-map-panel\.is-hovering-thinking \.graph-map-node\.is-dimmed circle \{[\s\S]*opacity: 0\.2;/);
   assert.match(html, /\.graph-map-panel\.is-hovering-thinking \.graph-map-edge-group\.is-hovered \.graph-map-edge \{[\s\S]*stroke-width: 3\.8;/);
@@ -306,9 +321,9 @@ test("weak relation clues provide a non-AI pending judgment highlight path", () 
   assert.match(source, /function renderGraphWeakRelationClueSection\(edges = \[\], options = \{\}\) \{/);
   assert.match(source, /data-graph-section="weak-relations"/);
   assert.match(source, /class="graph-focus-card graph-weak-relation-card"[\s\S]*data-graph-thinking-highlight="true"[\s\S]*data-graph-thinking-edge-key="\$\{escapeHtml\(edgeKey\)\}"/);
-  assert.match(source, /data-graph-thinking-kicker="待判断关联"/);
+  assert.match(source, /data-graph-thinking-kicker="寰呭垽鏂叧鑱?/);
   assert.match(source, /graphSelectEdgeActionAttrs\(edge\)/);
-  assert.match(source, /待判断关联 \$\{escapeHtml\(String\(weakRelationCount\)\)\}/);
+  assert.match(source, /寰呭垽鏂叧鑱?\$\{escapeHtml\(String\(weakRelationCount\)\)\}/);
   assert.match(source, /const weakRelationClueCount = !showingFocusedNote \? graphWeakRelationClues\(edges, 6\)\.length : 0;/);
   assert.match(source, /renderGraphWeakRelationClueSection\(edges, \{ open: graphState\.sectionOpen\["weak-relations"\] === true \}\)/);
   assert.doesNotMatch(source, /renderGraphWeakRelationClueSection\(scoped\.edges/);
@@ -331,15 +346,15 @@ test("reviewable relation thinking items open graph edge review before editing",
   assert.match(source, /data-graph-select-edge-from/);
   assert.match(source, /data-graph-select-edge-to/);
   assert.match(source, /data-graph-select-edge-type/);
-  assert.match(source, /actionLabel: "复核关系",[\s\S]*actionAttrs: graphSelectEdgeActionAttrs\(edgeTarget\),[\s\S]*highlightEdge: edgeTarget/);
-  assert.match(source, /actionLabel: "复核边界",[\s\S]*actionAttrs: graphSelectEdgeActionAttrs\(edge\),[\s\S]*highlightEdge: edge/);
-  assert.doesNotMatch(source, /kicker: "关系待复核"[\s\S]{0,900}data-graph-followup-action="relations-edit"/);
+  assert.match(source, /actionLabel: "澶嶆牳鍏崇郴",[\s\S]*actionAttrs: graphSelectEdgeActionAttrs\(edgeTarget\),[\s\S]*highlightEdge: edgeTarget/);
+  assert.match(source, /actionLabel: "澶嶆牳杈圭晫",[\s\S]*actionAttrs: graphSelectEdgeActionAttrs\(edge\),[\s\S]*highlightEdge: edge/);
+  assert.doesNotMatch(source, /kicker: "鍏崇郴寰呭鏍?[\s\S]{0,900}data-graph-followup-action="relations-edit"/);
 
   const clickHandler = source.match(/\$\("graphCanvas"\)\?\.addEventListener\("click", async \(event\) => \{([\s\S]*?)\n\}\);/);
   assert.ok(clickHandler, "expected graph canvas click handler to exist");
   assert.match(clickHandler[1], /const edgeSelection = event\.target\.closest\("\[data-graph-select-edge\]"\);/);
   assert.match(clickHandler[1], /openGraphSelection\(\{[\s\S]*kind: "edge",[\s\S]*edgeKey,[\s\S]*relationId:[\s\S]*fromNoteId,[\s\S]*toNoteId,[\s\S]*relationType:/);
-  assert.match(clickHandler[1], /setStatus\("已打开关系复核详情", "ok"\);/);
+  assert.match(clickHandler[1], /setStatus\("宸叉墦寮€鍏崇郴澶嶆牳璇︽儏", "ok"\);/);
 });
 
 test("selected theme candidates render a subtle boundary behind graph nodes", () => {
@@ -375,3 +390,4 @@ test("graph theme candidates distinguish broad tags from research-ready clusters
   assert.match(html, /\.graph-theme-maturity\.is-loose \.graph-theme-meter i \{[\s\S]*linear-gradient\(90deg, #f5c567 0%, #d59c2a 100%\);/);
   assert.match(html, /\.graph-selection-panel\.is-theme\.is-loose \.graph-selection-role span \{[\s\S]*background: #fffaf0;/);
 });
+

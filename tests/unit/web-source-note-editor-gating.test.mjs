@@ -106,8 +106,9 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.match(button.title, /永久笔记/);
 });
 
-test("editor shows relation actions for permanent notes", () => {
+test("editor keeps related-panel access for permanent notes and disables inline insert in structured mode", () => {
   const state = createInitialState();
+  state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
   const insertLink = createToolbarButtonStub();
   const showRelated = createToolbarButtonStub();
@@ -119,7 +120,7 @@ test("editor shows relation actions for permanent notes", () => {
   pane.renderRelationToolbarButtons();
 
   assert.equal(insertLink.classList.contains("hidden"), false);
-  assert.equal(insertLink.disabled, false);
+  assert.equal(insertLink.disabled, true);
   assert.equal(insertLink.title, "关联笔记 [[");
   assert.equal(showRelated.classList.contains("hidden"), false);
   assert.equal(showRelated.disabled, false);
@@ -289,4 +290,350 @@ test("originality payload keeps linked literature sources by folder root when no
   assert.deepEqual(payload.literature.map((item) => item.source_id), ["src_from_ln_source"]);
   assert.match(payload.literature[0].quote_text, /Quoted source passage/);
   assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
+});
+
+test("editor opens permanent notes in structured workspace by default", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  pane.els = {
+    permanentWorkspace: { classList: createClassList() },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => ({ id: "pn_structured", folderId: "dir_original_default", noteType: "" });
+
+  pane.renderPermanentWorkspace();
+
+  assert.equal(pane.isPermanentWorkspaceActive(), true);
+  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), false);
+  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), true);
+});
+
+test("editor falls back to source markdown panel for permanent notes in source mode", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  const pane = Object.create(EditorPane.prototype);
+
+  pane.state = state;
+  pane.els = {
+    permanentWorkspace: { classList: createClassList() },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => ({ id: "pn_source", folderId: "dir_original_default", noteType: "" });
+
+  pane.renderPermanentWorkspace();
+
+  assert.equal(pane.isPermanentWorkspaceActive(), false);
+  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), true);
+  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), false);
+});
+
+test("editor forces source mode for permanent notes that do not fit the structured workspace", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+  const note = { id: "pn_custom_shape", folderId: "dir_original_default", noteType: "", body: `# Custom shape
+
+Template preface stays outside fixed fields.
+
+## 自定义问题
+
+Only custom sections live in this permanent note.
+` };
+  const tab = {
+    id: "tab_pn_custom_shape",
+    noteId: note.id,
+    title: "Custom shape",
+    body: note.body,
+    savedTitle: "Custom shape",
+    savedBody: note.body,
+    dirty: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {
+    result: { innerHTML: "" },
+    permanentWorkspace: { classList: createClassList() },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => note;
+  pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
+  pane.renderEmptyEditorState = () => {};
+  pane.setEditorValue = () => {};
+  pane.renderPermanentWorkspace = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderRelated = () => {};
+  pane.renderPreview = () => {};
+  pane.renderPreviewVisibility = () => {};
+  pane.renderInspectorVisibility = () => {};
+  pane.renderSaveHint = () => {};
+  pane.updateToolbarFormattingState = () => {};
+  pane.applyPendingEditorFocus = () => {};
+
+  pane.fillEditorFromTab();
+
+  assert.equal(state.previewMode, "source");
+  assert.equal(pane.isPermanentWorkspaceEligible(note), false);
+});
+
+test("editor restores structured mode when leaving a custom-shape permanent note", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  state.forcedSourcePreviewNoteId = "pn_custom_shape";
+  const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "pn_structured_return",
+    folderId: "dir_original_default",
+    noteType: "",
+    body: `# Structured note
+
+## 核心观点
+
+A stable claim.
+`
+  };
+  const tab = {
+    id: "tab_pn_structured_return",
+    noteId: note.id,
+    title: "Structured note",
+    body: note.body,
+    savedTitle: "Structured note",
+    savedBody: note.body,
+    dirty: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.els = {
+    result: { innerHTML: "" },
+    permanentWorkspace: { classList: createClassList() },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => note;
+  pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
+  pane.renderEmptyEditorState = () => {};
+  pane.setEditorValue = () => {};
+  pane.renderPermanentWorkspace = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderRelated = () => {};
+  pane.renderPreview = () => {};
+  pane.renderPreviewVisibility = () => {};
+  pane.renderInspectorVisibility = () => {};
+  pane.renderSaveHint = () => {};
+  pane.updateToolbarFormattingState = () => {};
+  pane.applyPendingEditorFocus = () => {};
+
+  pane.fillEditorFromTab();
+
+  assert.equal(state.previewMode, "wysiwyg");
+  assert.equal(state.forcedSourcePreviewNoteId, "");
+  assert.equal(pane.isPermanentWorkspaceEligible(note), true);
+});
+
+test("editor preserves matched historical literature headings when structured fields save back", () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const body = `# Historic Literature Note
+
+## Metadata
+
+- 标题：Source
+- 作者：Author
+- 年份：2025
+- 页码 / 定位：p. 9
+- DOI / ISBN / arXiv / URL / PDF：doi:10/history
+
+## Quote
+
+Original text
+
+## Restatement
+
+Old paraphrase
+
+## Thesis Seed
+
+Historical claim
+`;
+  const tab = {
+    id: "tab_ln_historic",
+    noteId: "ln_historic",
+    body,
+    savedBody: body,
+    title: "Historic Literature Note",
+    savedTitle: "Historic Literature Note",
+    dirty: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.resolveLiteratureSectionLabels = () => ({
+    citation: "Source Card",
+    originalText: "Excerpt",
+    paraphrase: "My Paraphrase",
+    supportsJudgment: "Claim Seed",
+    question: "Open Question",
+    boundary: "Constraints",
+    whyKeep: "Why Keep"
+  });
+  pane.resolveLiteratureSectionLabelCandidates = () => [
+    pane.resolveLiteratureSectionLabels(),
+    {
+      citation: "Metadata",
+      originalText: "Quote",
+      paraphrase: "Restatement",
+      supportsJudgment: "Thesis Seed",
+      question: "Tension",
+      boundary: "Limits",
+      whyKeep: "Worth Keeping"
+    }
+  ];
+  pane.activeTab = () => tab;
+  pane.activeNote = () => ({ id: "ln_historic", folderId: "dir_literature_default", noteType: "literature", body });
+  pane.isLiteratureWorkspaceActive = () => true;
+  pane.els = {
+    literatureWorkspace: {},
+    body: { value: body },
+    literatureTitle: { value: "Historic Literature Note" },
+    literatureOriginal: { value: "Original text" },
+    literatureParaphrase: { value: "Updated paraphrase" },
+    literatureWhyKeep: { value: "" },
+    literatureSupportsJudgment: { value: "Historical claim" },
+    literatureQuestion: { value: "" },
+    literatureBoundary: { value: "" }
+  };
+
+  const parsed = pane.parseLiteratureBody(body);
+  pane.rememberLiteratureWorkspaceParse(parsed, tab, body);
+
+  const saved = pane.getEditorValue();
+  assert.match(saved, /^## Metadata$/m);
+  assert.match(saved, /^## Quote$/m);
+  assert.match(saved, /^## Restatement$/m);
+  assert.match(saved, /^## Thesis Seed$/m);
+  assert.doesNotMatch(saved, /^## Source Card$/m);
+  assert.doesNotMatch(saved, /^## My Paraphrase$/m);
+  assert.match(saved, /Updated paraphrase/);
+});
+
+test("normalizePermanentBodyForSave drops empty scaffold sections and preserves unknown top-level sections", () => {
+  const pane = Object.create(EditorPane.prototype);
+
+  const normalized = pane.normalizePermanentBodyForSave(`# Permanent note
+
+## 核心观点
+
+A stable claim.
+
+## 为什么成立
+
+## 关联线索
+
+- [[Related note]]
+
+## 自定义问题
+
+This custom section should stay top-level.
+`);
+
+  assert.match(normalized, /^# Permanent note/m);
+  assert.match(normalized, /## 核心观点/);
+  assert.match(normalized, /## 关联线索/);
+  assert.match(normalized, /## 自定义问题/);
+  assert.match(normalized, /This custom section should stay top-level\./);
+  assert.doesNotMatch(normalized, /## 为什么成立/);
+  assert.doesNotMatch(normalized, /## 补充内容/);
+  assert.doesNotMatch(normalized, /### 自定义问题/);
+});
+
+test.skip("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+  const split = { classList: createClassList() };
+  const modeEdit = createToolbarButtonStub();
+  const modeSplit = { classList: createClassList() };
+  let nextEditorValue = "";
+
+  pane.state = state;
+  pane.els = {
+    body: { value: "# Source truth\n\n## 关联线索\n\n- [[From source mode]]" },
+    markdownSplit: split,
+    previewPanel: { classList: createClassList() },
+    modeEdit,
+    modeSplit
+  };
+  pane.activeNote = () => ({ id: "pn_roundtrip", folderId: "dir_original_default", noteType: "" });
+  pane.pendingEditorSelection = null;
+  pane.richEditor = { getValue: () => "# Stale rich value\n\n* $$widget0 [[Wrong]]$$", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Source truth\n\n## 关联线索\n\n- [[From source mode]]", focus() {} };
+  pane.normalizedSelectionRangeForValue = () => null;
+  pane.setEditorValue = (value) => {
+    nextEditorValue = value;
+  };
+  pane.updateModeToggleButton = () => {};
+  pane.renderPermanentWorkspace = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderContextualToolbarState = () => {};
+
+  pane.renderPreviewVisibility();
+
+  assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
+  assert.equal(modeEdit.classList.contains("active"), false);
+  assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
+});
+
+test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+  const split = { classList: createClassList() };
+  const modeEdit = createToolbarButtonStub();
+  const modeSplit = { classList: createClassList() };
+  let nextEditorValue = "";
+
+  pane.state = state;
+  pane.els = {
+    body: { value: "# Source truth\n\n## 关联线索\n\n- [[From source mode]]" },
+    markdownSplit: split,
+    previewPanel: { classList: createClassList() },
+    modeEdit,
+    modeSplit
+  };
+  pane.activeNote = () => ({ id: "pn_roundtrip", folderId: "dir_original_default", noteType: "" });
+  pane.pendingEditorSelection = null;
+  pane.richEditor = { getValue: () => "# Stale rich value\n\n* $$widget0 [[Wrong]]$$", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Source truth\n\n## 关联线索\n\n- [[From source mode]]", focus() {} };
+  pane.normalizedSelectionRangeForValue = () => null;
+  pane.setEditorValue = (value) => {
+    nextEditorValue = value;
+  };
+  pane.updateModeToggleButton = () => {};
+  pane.renderPermanentWorkspace = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderContextualToolbarState = () => {};
+
+  pane.renderPreviewVisibility();
+
+  assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
+  assert.equal(modeEdit.classList.contains("active"), false);
+  assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });

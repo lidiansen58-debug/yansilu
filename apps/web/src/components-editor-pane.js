@@ -108,6 +108,32 @@ const LITERATURE_SECTION_LABELS = {
   boundary: "边界 / 反例"
 };
 
+const LITERATURE_SECTION_ORDER = [
+  "citation",
+  "originalText",
+  "paraphrase",
+  "supportsJudgment",
+  "question",
+  "boundary",
+  "whyKeep"
+];
+
+const PERMANENT_SECTION_LABELS = {
+  coreClaim: "核心观点",
+  whyTrue: "为什么成立",
+  boundary: "边界 / 反例",
+  relatedClues: "关联线索",
+  supplement: "补充内容"
+};
+
+const PERMANENT_SECTION_ALIASES = {
+  coreClaim: ["核心判断", "中心观点", "一句话判断", "论点"],
+  whyTrue: ["成立理由", "理由", "论证", "为什么它成立"],
+  boundary: ["边界/反例", "边界与反例", "反例", "适用边界", "适用条件"],
+  relatedClues: ["来源线索", "证据来源", "关联", "相关线索", "延伸线索"],
+  supplement: ["附加内容", "补充说明", "备注"]
+};
+
 function normalizeLooseText(value = "") {
   return String(value || "")
     .trim()
@@ -274,13 +300,289 @@ function stripMarkdownTitle(body = "") {
   return lines.slice(1).join("\n").replace(/^\n+/, "");
 }
 
-function literatureSectionLabelsFor(key = "") {
-  const primary = LITERATURE_SECTION_LABELS[key];
-  return [...new Set([primary, ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
+function splitMarkdownLevelTwoSections(body = "") {
+  const text = String(body || "").replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "");
+  if (!text) return { preface: "", sections: [] };
+  const lines = text.split("\n");
+  const sections = [];
+  const prefaceLines = [];
+  let currentHeading = "";
+  let currentLines = [];
+  for (const line of lines) {
+    const headingMatch = /^##\s+(.+?)\s*$/.exec(line);
+    if (headingMatch) {
+      if (currentHeading) {
+        sections.push({
+          heading: currentHeading,
+          body: currentLines.join("\n").replace(/^\n+|\n+$/g, "")
+        });
+      } else {
+        prefaceLines.push(...currentLines);
+      }
+      currentHeading = String(headingMatch[1] || "").trim();
+      currentLines = [];
+      continue;
+    }
+    currentLines.push(line);
+  }
+  if (currentHeading) {
+    sections.push({
+      heading: currentHeading,
+      body: currentLines.join("\n").replace(/^\n+|\n+$/g, "")
+    });
+  } else {
+    prefaceLines.push(...currentLines);
+  }
+  return {
+    preface: prefaceLines.join("\n").replace(/^\n+|\n+$/g, ""),
+    sections
+  };
 }
 
-function allLiteratureSectionLabels() {
-  return Object.keys(LITERATURE_SECTION_LABELS).flatMap((key) => literatureSectionLabelsFor(key));
+function normalizedLiteratureSectionLabels(sectionLabels = {}) {
+  const normalized = {};
+  for (const key of LITERATURE_SECTION_ORDER) {
+    const label = LITERATURE_SECTION_LABELS[key];
+    normalized[key] = normalizeFieldText(sectionLabels?.[key] || "") || label;
+  }
+  return normalized;
+}
+
+export function deriveLiteratureSectionLabelsFromTemplate(templateSource = "") {
+  const normalized = normalizedLiteratureSectionLabels();
+  const { sections } = splitMarkdownLevelTwoSections(stripMarkdownTitle(templateSource));
+  const remainingKeys = new Set(LITERATURE_SECTION_ORDER);
+  const explicitMatches = new Map();
+
+  for (const section of sections) {
+    const heading = normalizeFieldText(section?.heading || "");
+    if (!heading) continue;
+    const headingToken = normalizeLooseText(heading);
+    const matchedKey = LITERATURE_SECTION_ORDER.find((key) =>
+      literatureSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken)
+    );
+    if (!matchedKey || explicitMatches.has(matchedKey)) continue;
+    explicitMatches.set(matchedKey, heading);
+    remainingKeys.delete(matchedKey);
+  }
+
+  for (const [key, heading] of explicitMatches.entries()) normalized[key] = heading;
+  const fallbackQueue = LITERATURE_SECTION_ORDER.filter((key) => remainingKeys.has(key));
+  let fallbackEnabled = true;
+  for (let index = 0; index < sections.length; index += 1) {
+    const heading = normalizeFieldText(sections[index]?.heading || "");
+    if (!heading) continue;
+    const isExplicit = Array.from(explicitMatches.values()).some(
+      (mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(heading)
+    );
+    if (isExplicit) continue;
+    if (!fallbackEnabled || !fallbackQueue.length) break;
+    const remainingHeadings = sections
+      .slice(index)
+      .map((section) => normalizeFieldText(section?.heading || ""))
+      .filter(
+        (item) =>
+          item &&
+          !Array.from(explicitMatches.values()).some((mappedHeading) => normalizeLooseText(mappedHeading) === normalizeLooseText(item))
+      );
+    if (remainingHeadings.length > fallbackQueue.length) {
+      fallbackEnabled = false;
+      continue;
+    }
+    const key = fallbackQueue.shift();
+    if (!key) break;
+    normalized[key] = heading;
+  }
+
+  return normalized;
+}
+
+export function validateLiteratureTemplateSource(templateSource = "") {
+  const content = stripMarkdownTitle(templateSource);
+  const { sections } = splitMarkdownLevelTwoSections(content);
+  if (sections.length > LITERATURE_SECTION_ORDER.length) {
+    return {
+      ok: false,
+      message: `文献模板当前只支持 ${LITERATURE_SECTION_ORDER.length} 个以内的顶层 section；请把额外说明放进已有 section，或改成三级标题。`
+    };
+  }
+
+  const usedKeys = new Set();
+  let unresolvedCount = 0;
+  for (const section of sections) {
+    const heading = normalizeFieldText(section?.heading || "");
+    if (!heading) continue;
+    const headingToken = normalizeLooseText(heading);
+    const matchedKey = LITERATURE_SECTION_ORDER.find(
+      (key) =>
+        !usedKeys.has(key) &&
+        literatureSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken)
+    );
+    if (matchedKey) {
+      usedKeys.add(matchedKey);
+      continue;
+    }
+    unresolvedCount += 1;
+  }
+
+  const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
+  if (sections.length === LITERATURE_SECTION_ORDER.length && unresolvedCount > 0 && usedKeys.size > 0) {
+    return {
+      ok: false,
+      message: "文献模板当前不支持在完整顶层骨架里混用默认字段名和自定义 section。请要么整体改名，要么只保留现有字段，不要用自定义二级标题替换其中一格。"
+    };
+  }
+  if (unresolvedCount > remainingSlots) {
+    return {
+      ok: false,
+      message: "文献模板里有无法识别的顶层 section。请只保留现有字段的改名，不要新增额外的二级标题。"
+    };
+  }
+  return { ok: true, message: "" };
+}
+
+function normalizeLiteratureSectionLabelCandidates(candidates = [], fallback = {}) {
+  const normalized = [];
+  const seen = new Set();
+  for (const candidate of [...(Array.isArray(candidates) ? candidates : []), fallback]) {
+    const labels = normalizedLiteratureSectionLabels(candidate || {});
+    const signature = JSON.stringify(labels);
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    normalized.push(labels);
+  }
+  return normalized.length ? normalized : [normalizedLiteratureSectionLabels()];
+}
+
+function literatureSectionLabelsFor(key = "", options = {}) {
+  const labels = normalizedLiteratureSectionLabels(options?.sectionLabels || options);
+  const primary = labels[key] || LITERATURE_SECTION_LABELS[key];
+  return [...new Set([primary, LITERATURE_SECTION_LABELS[key], ...(LITERATURE_SECTION_ALIASES[key] || [])].filter(Boolean))];
+}
+
+function allLiteratureSectionLabels(options = {}) {
+  return LITERATURE_SECTION_ORDER.flatMap((key) => literatureSectionLabelsFor(key, options));
+}
+
+function permanentSectionLabelsFor(key = "") {
+  const primary = PERMANENT_SECTION_LABELS[key];
+  return [...new Set([primary, ...(PERMANENT_SECTION_ALIASES[key] || [])].filter(Boolean))];
+}
+
+function allPermanentSectionLabels() {
+  return Object.keys(PERMANENT_SECTION_LABELS).flatMap((key) => permanentSectionLabelsFor(key));
+}
+
+function normalizePermanentExtraSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => section.heading);
+}
+
+function normalizePermanentSectionLayout(layout = []) {
+  const normalized = [];
+  const seenKnown = new Set();
+  for (const item of Array.isArray(layout) ? layout : []) {
+    const kind = String(item?.kind || "").trim().toLowerCase();
+    if (kind === "known") {
+      const key = String(item?.key || "").trim();
+      if (!PERMANENT_SECTION_LABELS[key] || seenKnown.has(key)) continue;
+      seenKnown.add(key);
+      normalized.push({ kind: "known", key });
+      continue;
+    }
+    if (kind === "duplicate_known") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "duplicate_known", index });
+      continue;
+    }
+    if (kind === "unknown") {
+      const index = Number(item?.index);
+      if (!Number.isInteger(index) || index < 0) continue;
+      normalized.push({ kind: "unknown", index });
+    }
+  }
+  return normalized;
+}
+
+function defaultPermanentSectionLayout() {
+  return Object.keys(PERMANENT_SECTION_LABELS).map((key) => ({ kind: "known", key }));
+}
+
+function normalizeRepeatedKnownPermanentSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      key: String(section?.key || "").trim(),
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => PERMANENT_SECTION_LABELS[section.key] && section.heading);
+}
+
+function permanentSectionKeyFromHeading(heading = "") {
+  const normalizedHeading = normalizeLooseText(heading);
+  for (const key of Object.keys(PERMANENT_SECTION_LABELS)) {
+    if (permanentSectionLabelsFor(key).some((label) => normalizeLooseText(label) === normalizedHeading)) {
+      return key;
+    }
+  }
+  return "";
+}
+
+function inferLegacyPermanentFields(content = "") {
+  const text = normalizeFieldText(content);
+  if (!text) {
+    return {
+      preface: "",
+      coreClaim: "",
+      whyTrue: "",
+      boundary: "",
+      relatedClues: "",
+      supplement: "",
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
+    };
+  }
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((item) => normalizeFieldText(item))
+    .filter(Boolean);
+  const firstParagraph = paragraphs[0] || "";
+  const rest = paragraphs.slice(1).join("\n\n");
+  const canUseFirstParagraphAsClaim =
+    firstParagraph &&
+    firstParagraph.length <= 180 &&
+    !/^[#>*\-]/.test(firstParagraph) &&
+    countIdeaUnits(firstParagraph) >= 4;
+  if (!canUseFirstParagraphAsClaim) {
+    return {
+      preface: "",
+      coreClaim: "",
+      whyTrue: "",
+      boundary: "",
+      relatedClues: "",
+      supplement: text,
+      extraSections: [],
+      repeatedKnownSections: [],
+      sectionLayout: []
+    };
+  }
+  return {
+    preface: "",
+    coreClaim: firstParagraph,
+    whyTrue: "",
+    boundary: "",
+    relatedClues: "",
+    supplement: rest,
+    extraSections: [],
+    repeatedKnownSections: [],
+    sectionLayout: []
+  };
 }
 
 function extractLiteratureSection(body = "", labels = "") {
@@ -335,30 +637,62 @@ function literatureCitationState(citation = {}) {
   };
 }
 
-export function parseLiteratureWorkspace(body = "") {
+export function parseLiteratureWorkspace(body = "", options = {}) {
   const title = titleFromBody(body);
   const content = stripMarkdownTitle(body);
-  const structured = allLiteratureSectionLabels().some((label) =>
-    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
-  );
-  const citation = structured
-    ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation")))
-    : emptyLiteratureCitationFields();
-  const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText")) : content.trim();
-  return {
+  const candidates = normalizeLiteratureSectionLabelCandidates(options?.sectionLabelCandidates, options?.sectionLabels || options);
+  let bestParsed = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const sectionLabels of candidates) {
+    const structured = allLiteratureSectionLabels({ sectionLabels }).some((label) =>
+      new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+    );
+    const citation = structured
+      ? parseLiteratureCitationFields(extractLiteratureSection(content, literatureSectionLabelsFor("citation", { sectionLabels })))
+      : emptyLiteratureCitationFields();
+    const originalText = structured ? extractLiteratureSection(content, literatureSectionLabelsFor("originalText", { sectionLabels })) : content.trim();
+    const parsed = {
+      title,
+      citation,
+      originalText,
+      paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase", { sectionLabels })) : "",
+      whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep", { sectionLabels })) : "",
+      supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment", { sectionLabels })) : "",
+      question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question", { sectionLabels })) : "",
+      boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary", { sectionLabels })) : "",
+      sectionLabels
+    };
+    const score =
+      (structured ? 100 : 0) +
+      LITERATURE_SECTION_ORDER.reduce((total, key) => {
+        if (key === "citation") {
+          return total + (Object.values(parsed.citation || {}).some(Boolean) ? 20 : 0);
+        }
+        return total + (normalizeFieldText(parsed[key] || "") ? 20 : 0);
+      }, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestParsed = parsed;
+    }
+  }
+
+  return bestParsed || {
     title,
-    citation,
-    originalText,
-    paraphrase: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("paraphrase")) : "",
-    whyKeep: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("whyKeep")) : "",
-    supportsJudgment: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("supportsJudgment")) : "",
-    question: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("question")) : "",
-    boundary: structured ? extractLiteratureSection(content, literatureSectionLabelsFor("boundary")) : ""
+    citation: emptyLiteratureCitationFields(),
+    originalText: content.trim(),
+    paraphrase: "",
+    whyKeep: "",
+    supportsJudgment: "",
+    question: "",
+    boundary: "",
+    sectionLabels: normalizedLiteratureSectionLabels()
   };
 }
 
-function composeLiteratureWorkspace(fields = {}) {
+function composeLiteratureWorkspace(fields = {}, options = {}) {
   const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const sectionLabels = normalizedLiteratureSectionLabels(options?.sectionLabels || options);
   const citation = normalizeLiteratureCitationFields(fields.citation || {});
   const originalText = normalizeFieldText(fields.originalText);
   const paraphrase = normalizeFieldText(fields.paraphrase);
@@ -366,42 +700,185 @@ function composeLiteratureWorkspace(fields = {}) {
   const supportsJudgment = normalizeFieldText(fields.supportsJudgment);
   const question = normalizeFieldText(fields.question);
   const boundary = normalizeFieldText(fields.boundary);
-  return [
+  const lines = [
     `# ${title}`,
     "",
-    `## ${LITERATURE_SECTION_LABELS.citation}`,
+    `## ${sectionLabels.citation}`,
     "",
     ...composeLiteratureCitationLines(citation),
     "",
-    `## ${LITERATURE_SECTION_LABELS.originalText}`,
+    `## ${sectionLabels.originalText}`,
     "",
     originalText,
     "",
-    `## ${LITERATURE_SECTION_LABELS.paraphrase}`,
+    `## ${sectionLabels.paraphrase}`,
     "",
     paraphrase,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.supportsJudgment}`,
-    "",
-    supportsJudgment,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.question}`,
-    "",
-    question,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.boundary}`,
-    "",
-    boundary,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.whyKeep}`,
-    "",
-    whyKeep,
     ""
-  ].join("\n");
+  ];
+  if (supportsJudgment) lines.push(`## ${sectionLabels.supportsJudgment}`, "", supportsJudgment, "");
+  if (question) lines.push(`## ${sectionLabels.question}`, "", question, "");
+  if (boundary) lines.push(`## ${sectionLabels.boundary}`, "", boundary, "");
+  if (whyKeep) lines.push(`## ${sectionLabels.whyKeep}`, "", whyKeep, "");
+  return lines.join("\n");
 }
 
 function literatureTemplateBody(title = "未命名笔记") {
   return composeLiteratureWorkspace({ title });
+}
+
+export function parsePermanentWorkspace(body = "") {
+  const title = titleFromBody(body);
+  const content = stripMarkdownTitle(body);
+  const { preface, sections } = splitMarkdownLevelTwoSections(content);
+  const structured = allPermanentSectionLabels().some((label) =>
+    new RegExp(`(^|\\n)##\\s+${escapeRegExp(label)}\\s*(\\n|$)`, "m").test(content)
+  );
+  const parsed = {
+    title,
+    preface: "",
+    coreClaim: "",
+    whyTrue: "",
+    boundary: "",
+    relatedClues: "",
+    supplement: "",
+    extraSections: [],
+    repeatedKnownSections: [],
+    sectionLayout: [],
+    structured
+  };
+
+  if (!structured) {
+    if (sections.length) {
+      return {
+        ...parsed,
+        preface: normalizeFieldText(preface),
+        extraSections: normalizePermanentExtraSections(sections),
+        repeatedKnownSections: [],
+        sectionLayout: normalizePermanentSectionLayout(
+          sections.map((_, index) => ({ kind: "unknown", index }))
+        )
+      };
+    }
+    return {
+      ...parsed,
+      ...inferLegacyPermanentFields(content)
+    };
+  }
+
+  parsed.preface = normalizeFieldText(preface);
+  const supplementParts = [];
+  const unknownSections = [];
+  const repeatedKnownSections = [];
+  const sectionLayout = [];
+  const seenKnown = new Set();
+  for (const section of sections) {
+    const key = permanentSectionKeyFromHeading(section.heading);
+    const sectionBody = normalizeFieldText(section.body);
+    if (!key) {
+      unknownSections.push(section);
+      sectionLayout.push({ kind: "unknown", index: unknownSections.length - 1 });
+      continue;
+    }
+    if (seenKnown.has(key)) {
+      repeatedKnownSections.push({
+        key,
+        heading: String(section.heading || "").trim() || PERMANENT_SECTION_LABELS[key],
+        body: sectionBody
+      });
+      sectionLayout.push({ kind: "duplicate_known", index: repeatedKnownSections.length - 1 });
+      continue;
+    }
+    if (!seenKnown.has(key)) {
+      sectionLayout.push({ kind: "known", key });
+      seenKnown.add(key);
+    }
+    if (key === "supplement") {
+      if (sectionBody) supplementParts.push(sectionBody);
+      continue;
+    }
+    parsed[key] = parsed[key] ? `${parsed[key]}\n\n${sectionBody}` : sectionBody;
+  }
+  parsed.supplement = normalizeFieldText(supplementParts.join("\n\n"));
+  parsed.extraSections = normalizePermanentExtraSections(unknownSections);
+  parsed.repeatedKnownSections = normalizeRepeatedKnownPermanentSections(repeatedKnownSections);
+  parsed.sectionLayout = normalizePermanentSectionLayout(sectionLayout);
+  return parsed;
+}
+
+export function composePermanentWorkspace(fields = {}, options = {}) {
+  const title = String(fields.title || "未命名笔记").trim() || "未命名笔记";
+  const includeEmptySections = options?.includeEmptySections === true;
+  const appendRemainingKnown = options?.appendRemainingKnown !== false;
+  const preface = normalizeFieldText(fields.preface || options?.preface);
+  const normalized = {
+    coreClaim: normalizeFieldText(fields.coreClaim),
+    whyTrue: normalizeFieldText(fields.whyTrue),
+    boundary: normalizeFieldText(fields.boundary),
+    relatedClues: normalizeFieldText(fields.relatedClues),
+    supplement: normalizeFieldText(fields.supplement)
+  };
+  const extraSections = normalizePermanentExtraSections(options?.extraSections);
+  const repeatedKnownSections = normalizeRepeatedKnownPermanentSections(options?.repeatedKnownSections);
+  const sectionLayout = normalizePermanentSectionLayout(options?.sectionLayout);
+  const lines = [`# ${title}`, ""];
+  if (preface) lines.push(preface, "");
+  const sectionOrder = [
+    ["coreClaim", PERMANENT_SECTION_LABELS.coreClaim],
+    ["whyTrue", PERMANENT_SECTION_LABELS.whyTrue],
+    ["boundary", PERMANENT_SECTION_LABELS.boundary],
+    ["relatedClues", PERMANENT_SECTION_LABELS.relatedClues],
+    ["supplement", PERMANENT_SECTION_LABELS.supplement]
+  ];
+  const labelByKey = Object.fromEntries(sectionOrder);
+  const emittedKnown = new Set();
+  const emittedUnknown = new Set();
+  const resolvedLayout = sectionLayout.length ? sectionLayout : defaultPermanentSectionLayout();
+
+  const appendKnownSection = (key = "") => {
+    const value = normalized[key];
+    if (emittedKnown.has(key)) return;
+    if (!includeEmptySections && !value) return;
+    const label = labelByKey[key];
+    if (!label) return;
+    lines.push(`## ${label}`, "", value, "");
+    emittedKnown.add(key);
+  };
+
+  const appendUnknownSection = (index = -1) => {
+    if (emittedUnknown.has(index)) return;
+    const section = extraSections[index];
+    if (!section) return;
+    lines.push(`## ${section.heading}`, "", section.body, "");
+    emittedUnknown.add(index);
+  };
+
+  const emittedDuplicateKnown = new Set();
+  const appendDuplicateKnownSection = (index = -1) => {
+    if (emittedDuplicateKnown.has(index)) return;
+    const section = repeatedKnownSections[index];
+    if (!section) return;
+    lines.push(`## ${section.heading || PERMANENT_SECTION_LABELS[section.key]}`, "", section.body, "");
+    emittedDuplicateKnown.add(index);
+  };
+
+  for (const item of resolvedLayout) {
+    if (item.kind === "known") appendKnownSection(item.key);
+    if (item.kind === "duplicate_known") appendDuplicateKnownSection(item.index);
+    if (item.kind === "unknown") appendUnknownSection(item.index);
+  }
+  if (appendRemainingKnown) {
+    for (const [key] of sectionOrder) {
+      appendKnownSection(key);
+    }
+  }
+  for (let index = 0; index < repeatedKnownSections.length; index += 1) {
+    appendDuplicateKnownSection(index);
+  }
+  for (let index = 0; index < extraSections.length; index += 1) {
+    appendUnknownSection(index);
+  }
+  return lines.join("\n").replace(/\n+$/g, "\n");
 }
 
 function reflectionQuestionsHint(prefix = "") {
@@ -1605,7 +2082,18 @@ function thinkingStatusTone(thinkingStatus = null) {
 }
 
 export class EditorPane {
-  constructor({ state, elements, onStatus, onStateChange, onOpenNote, onChromeChange, resolveNoteWritingContinuation, selectPermanentDirectory }) {
+  constructor({
+    state,
+    elements,
+    onStatus,
+    onStateChange,
+    onOpenNote,
+    onChromeChange,
+    resolveNoteWritingContinuation,
+    selectPermanentDirectory,
+    resolveLiteratureSectionLabels,
+    resolveLiteratureSectionLabelCandidates
+  }) {
     this.state = state;
     this.els = elements;
     this.onStatus = onStatus;
@@ -1616,6 +2104,10 @@ export class EditorPane {
     this.resolveNoteWritingContinuation =
       typeof resolveNoteWritingContinuation === "function" ? resolveNoteWritingContinuation : null;
     this.selectPermanentDirectory = typeof selectPermanentDirectory === "function" ? selectPermanentDirectory : null;
+    this.resolveLiteratureSectionLabels =
+      typeof resolveLiteratureSectionLabels === "function" ? resolveLiteratureSectionLabels : () => ({});
+    this.resolveLiteratureSectionLabelCandidates =
+      typeof resolveLiteratureSectionLabelCandidates === "function" ? resolveLiteratureSectionLabelCandidates : null;
     this.currentLinkCandidates = [];
     this.currentLinkIndex = 0;
     this.currentPinnedLinkId = "";
@@ -1637,6 +2129,7 @@ export class EditorPane {
     this.suppressRichEditorChange = false;
     this.suppressSourceEditorChange = false;
     this.suppressLiteratureWorkspaceChange = false;
+    this.suppressPermanentWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
     this.wasEditingTitleLine = false;
@@ -1684,6 +2177,9 @@ export class EditorPane {
     this.markdownSelectionOverride = null;
     this.pendingEditorFocus = null;
     this.pendingEditorSelection = null;
+    this.bottomNoticeTimer = null;
+    this.lastBottomNoticeKey = "";
+    this.lastThinkingStatusNoticeKey = "";
     this.bind();
     this.renderPreviewVisibility();
     this.initRichEditor();
@@ -1827,6 +2323,18 @@ export class EditorPane {
     return false;
   }
 
+  isPermanentWorkspaceEligible(note = this.activeNote()) {
+    return this.permanentWorkspaceCompatible(this.activeTab(), note);
+  }
+
+  isPermanentWorkspaceActive(note = this.activeNote()) {
+    return this.isPermanentWorkspaceEligible(note) && !this.isSourceMode();
+  }
+
+  isStructuredWorkspaceActive(note = this.activeNote()) {
+    return this.isLiteratureWorkspaceActive(note) || this.isPermanentWorkspaceActive(note);
+  }
+
   defaultAuthorshipState(note = null) {
     return {
       claim: "",
@@ -1862,8 +2370,46 @@ export class EditorPane {
     return "";
   }
 
+  literatureSectionLabels() {
+    return normalizedLiteratureSectionLabels(this.resolveLiteratureSectionLabels?.() || {});
+  }
+
+  literatureSectionLabelCandidates() {
+    const resolved = this.resolveLiteratureSectionLabelCandidates?.();
+    return normalizeLiteratureSectionLabelCandidates(resolved, this.literatureSectionLabels());
+  }
+
+  rememberedLiteratureSectionLabels(tab = this.activeTab()) {
+    return normalizedLiteratureSectionLabels(tab?.literatureSectionLabels || this.literatureSectionLabels());
+  }
+
+  rememberLiteratureWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const sectionLabels = normalizedLiteratureSectionLabels(parsed?.sectionLabels || this.literatureSectionLabels());
+    if (!tab) return sectionLabels;
+    tab.literatureParsedBody = String(body || "");
+    tab.literatureSectionLabels = sectionLabels;
+    return sectionLabels;
+  }
+
+  parseLiteratureBody(body = "") {
+    const rawBody = String(body || "");
+    const tab = this.activeTab();
+    const rememberedLabels =
+      tab && tab.literatureParsedBody === rawBody && tab.literatureSectionLabels
+        ? normalizedLiteratureSectionLabels(tab.literatureSectionLabels)
+        : null;
+    const parsed = parseLiteratureWorkspace(
+      rawBody,
+      rememberedLabels
+        ? { sectionLabels: rememberedLabels }
+        : { sectionLabelCandidates: this.literatureSectionLabelCandidates() }
+    );
+    this.rememberLiteratureWorkspaceParse(parsed, tab, rawBody);
+    return parsed;
+  }
+
   literatureFieldsFromInputs() {
-    const currentCitation = parseLiteratureWorkspace(this.els.body?.value || "").citation;
+    const currentCitation = this.parseLiteratureBody(this.els.body?.value || "").citation;
     return {
       title: this.els.literatureTitle?.value || "未命名笔记",
       citation: currentCitation,
@@ -1876,8 +2422,67 @@ export class EditorPane {
     };
   }
 
+  permanentFieldsFromInputs() {
+    return {
+      title: this.els.permanentTitle?.value || "未命名笔记",
+      coreClaim: this.els.permanentCoreClaim?.value || "",
+      whyTrue: this.els.permanentWhyTrue?.value || "",
+      boundary: this.els.permanentBoundary?.value || "",
+      relatedClues: this.els.permanentRelatedClues?.value || "",
+      supplement: this.els.permanentSupplement?.value || ""
+    };
+  }
+
+  permanentExtraSections(tab = this.activeTab()) {
+    return normalizePermanentExtraSections(tab?.permanentExtraSections);
+  }
+
+  permanentPreface(tab = this.activeTab()) {
+    return normalizeFieldText(tab?.permanentPreface);
+  }
+
+  permanentSectionLayout(tab = this.activeTab()) {
+    return normalizePermanentSectionLayout(tab?.permanentSectionLayout);
+  }
+
+  permanentRepeatedKnownSections(tab = this.activeTab()) {
+    return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
+  }
+
+  permanentWorkspaceAppendRemainingKnown(tab = this.activeTab()) {
+    return tab?.permanentAppendRemainingKnown !== false;
+  }
+
+  permanentWorkspaceCompatible(tab = this.activeTab(), note = this.activeNote()) {
+    if (!this.isOriginalNote(note)) return false;
+    const rawBody = typeof tab?.body === "string" ? tab.body : typeof note?.body === "string" ? note.body : "";
+    if (!String(rawBody || "").trim()) return true;
+    if (tab && tab.permanentParsedBody === rawBody && typeof tab.permanentWorkspaceCompatible === "boolean") {
+      return tab.permanentWorkspaceCompatible;
+    }
+    const parsed = parsePermanentWorkspace(rawBody);
+    return this.rememberPermanentWorkspaceParse(parsed, tab, rawBody);
+  }
+
+  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
+    const compatible =
+      parsed?.structured === true &&
+      !normalizeFieldText(parsed?.preface) &&
+      normalizePermanentExtraSections(parsed?.extraSections).length === 0 &&
+      normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections).length === 0;
+    if (!tab) return compatible;
+    tab.permanentParsedBody = body;
+    tab.permanentPreface = normalizeFieldText(parsed?.preface);
+    tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
+    tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
+    tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
+    tab.permanentAppendRemainingKnown = parsed?.structured === true;
+    tab.permanentWorkspaceCompatible = compatible;
+    return compatible;
+  }
+
   literatureCompletionState(note = this.activeNote()) {
-    const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
+    const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : this.parseLiteratureBody(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
     const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
     const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -1944,7 +2549,7 @@ export class EditorPane {
   }
 
   literatureQueueRecord(note) {
-    const fields = parseLiteratureWorkspace(note?.body || "");
+    const fields = this.parseLiteratureBody(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
     const citation = literatureCitationState(fields.citation);
     const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
@@ -2141,7 +2746,8 @@ export class EditorPane {
 
   syncLiteratureWorkspaceFromBody(body = "") {
     if (!this.els.literatureWorkspace) return;
-    const parsed = parseLiteratureWorkspace(body || "");
+    const parsed = this.parseLiteratureBody(body || "");
+    this.rememberLiteratureWorkspaceParse(parsed, this.activeTab(), body || "");
     this.suppressLiteratureWorkspaceChange = true;
     try {
       if (this.els.literatureTitle) this.els.literatureTitle.value = parsed.title || "未命名笔记";
@@ -2158,7 +2764,40 @@ export class EditorPane {
 
   syncLiteratureWorkspaceToEditor() {
     if (this.suppressLiteratureWorkspaceChange || !this.isLiteratureWorkspaceActive()) return;
-    this.setUnderlyingEditorValue(composeLiteratureWorkspace(this.literatureFieldsFromInputs()));
+    this.setUnderlyingEditorValue(
+      composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() })
+    );
+  }
+
+  syncPermanentWorkspaceFromBody(body = "") {
+    if (!this.els.permanentWorkspace) return;
+    const parsed = parsePermanentWorkspace(body || "");
+    this.rememberPermanentWorkspaceParse(parsed);
+    this.suppressPermanentWorkspaceChange = true;
+    try {
+      if (this.els.permanentTitle) this.els.permanentTitle.value = parsed.title || "未命名笔记";
+      if (this.els.permanentCoreClaim) this.els.permanentCoreClaim.value = parsed.coreClaim || "";
+      if (this.els.permanentWhyTrue) this.els.permanentWhyTrue.value = parsed.whyTrue || "";
+      if (this.els.permanentBoundary) this.els.permanentBoundary.value = parsed.boundary || "";
+      if (this.els.permanentRelatedClues) this.els.permanentRelatedClues.value = parsed.relatedClues || "";
+      if (this.els.permanentSupplement) this.els.permanentSupplement.value = parsed.supplement || "";
+    } finally {
+      this.suppressPermanentWorkspaceChange = false;
+    }
+  }
+
+  syncPermanentWorkspaceToEditor(options = {}) {
+    if (this.suppressPermanentWorkspaceChange || !this.isPermanentWorkspaceActive()) return;
+    this.setUnderlyingEditorValue(
+      composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        ...options,
+        preface: options?.preface ?? this.permanentPreface(),
+        sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
+        repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
+        extraSections: options?.extraSections || this.permanentExtraSections(),
+        appendRemainingKnown: options?.appendRemainingKnown ?? this.permanentWorkspaceAppendRemainingKnown()
+      })
+    );
   }
 
   currentSelectionRect() {
@@ -2177,6 +2816,9 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return [this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle].filter(Boolean);
     }
+    if (this.isPermanentWorkspaceActive()) {
+      return [this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle].filter(Boolean);
+    }
     if (this.isSourceMode()) {
       return [this.markdownEditor?.view?.scrollDOM, this.els.editorHost, this.els.body].filter(Boolean);
     }
@@ -2189,7 +2831,7 @@ export class EditorPane {
 
   captureEditorScrollState() {
     return {
-      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : "wysiwyg",
+      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : this.isPermanentWorkspaceActive() ? "permanent" : "wysiwyg",
       nodes: this.editorScrollNodes().map((node, index) => ({
         index,
         top: Number(node?.scrollTop || 0),
@@ -2600,6 +3242,7 @@ export class EditorPane {
       this.renderEmptyEditorState();
       this.els.result.innerHTML = "";
       this.setInspectorVisible(false);
+      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.renderPreviewVisibility();
@@ -2607,8 +3250,19 @@ export class EditorPane {
       return;
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
+    const activeNote = this.activeNote();
+    const forcedSourceNoteId = String(this.state.forcedSourcePreviewNoteId || "").trim();
+    const permanentWorkspaceEligible = this.permanentWorkspaceCompatible(t, activeNote);
+    if (this.isOriginalNote(activeNote) && !permanentWorkspaceEligible && !this.isSourceMode()) {
+      this.state.previewMode = "source";
+      this.state.forcedSourcePreviewNoteId = activeNote?.id || "";
+    } else if (this.isOriginalNote(activeNote) && permanentWorkspaceEligible && forcedSourceNoteId && this.isSourceMode()) {
+      this.state.previewMode = "wysiwyg";
+      this.state.forcedSourcePreviewNoteId = "";
+    }
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderRelated();
     this.renderPreview();
@@ -2631,7 +3285,7 @@ export class EditorPane {
 
   syncPlaceholderTitleArmed(tab) {
     if (!tab) return false;
-    tab.placeholderTitleArmed = !this.isLiteratureWorkspaceActive() && noteUsesPlaceholderTitle(tab.title || titleFromBody(tab.body));
+    tab.placeholderTitleArmed = !this.isStructuredWorkspaceActive() && noteUsesPlaceholderTitle(tab.title || titleFromBody(tab.body));
     return tab.placeholderTitleArmed;
   }
 
@@ -2673,6 +3327,7 @@ export class EditorPane {
     this.renderCompleteButton();
     this.renderRecordPermanentButton();
     this.renderRelationToolbarButtons();
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -2681,21 +3336,24 @@ export class EditorPane {
     const el = this.els.editorThinkingStatus;
     if (!el) return;
     const thinkingStatus = normalizedThinkingStatus(this.activeNote()?.thinkingStatus);
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    el.dataset.tone = "";
     if (!thinkingStatus) {
-      el.classList.add("hidden");
-      el.innerHTML = "";
-      el.dataset.tone = "";
+      if (String(this.lastBottomNoticeKey || "").startsWith("thinking:")) {
+        this.hideBottomNotice();
+      }
+      this.lastThinkingStatusNoticeKey = "";
       return;
     }
-    el.classList.remove("hidden");
-    el.dataset.tone = thinkingStatusTone(thinkingStatus);
-    const title = thinkingStatus.nextAction
-      ? `${thinkingStatus.label}：${thinkingStatus.nextAction}`
-      : thinkingStatus.label;
-    el.innerHTML = `
-      <span class="thinking-status-chip" title="${escapeHtml(title)}">${escapeHtml(thinkingStatus.label)}</span>
-      ${thinkingStatus.nextAction ? `<span class="thinking-status-next">${escapeHtml(thinkingStatus.nextAction)}</span>` : ""}
-    `;
+    const noteId = String(this.activeNote()?.id || "").trim();
+    const noticeKey = `thinking:${noteId}:${thinkingStatus.status}:${thinkingStatus.label}:${thinkingStatus.nextAction}:${thinkingStatus.severity}`;
+    if (noticeKey === this.lastThinkingStatusNoticeKey) return;
+    this.lastThinkingStatusNoticeKey = noticeKey;
+    this.showBottomNotice(thinkingStatus.label || "当前提醒", thinkingStatusTone(thinkingStatus), thinkingStatus.nextAction || "继续完善当前笔记。", {
+      autoHideMs: 10000,
+      dedupeKey: noticeKey
+    });
   }
 
   renderAuthorshipPanel() {
@@ -2829,12 +3487,13 @@ export class EditorPane {
   renderRelationToolbarButtons() {
     const note = this.activeNote();
     const visible = Boolean(note && this.isOriginalNote(note));
+    const allowInlineInsert = visible && !this.isStructuredWorkspaceActive(note);
 
     if (this.els.insertLink) {
       this.els.insertLink.classList.toggle("hidden", !visible);
-      this.els.insertLink.disabled = !visible;
+      this.els.insertLink.disabled = !allowInlineInsert;
       this.els.insertLink.title = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
-      this.els.insertLink.dataset.tip = visible ? "关联笔记 [[" : "只有永久笔记才能关联其他笔记";
+      this.els.insertLink.dataset.tip = this.els.insertLink.title;
       this.els.insertLink.setAttribute("aria-label", visible ? "关联笔记" : "只有永久笔记才能关联其他笔记");
     }
 
@@ -2914,11 +3573,38 @@ export class EditorPane {
   }
 
   renderLiteratureWorkspace() {
-    this.els.literatureWorkspace?.classList.add("hidden");
-    this.els.markdownSplit?.classList.remove("hidden");
-    this.els.modeEdit?.classList.remove("hidden");
-    this.els.modeSplit?.classList.add("hidden");
+    const active = this.isLiteratureWorkspaceActive(this.activeNote());
+    this.els.literatureWorkspace?.classList.toggle("hidden", !active);
+    if (active) {
+      this.els.permanentWorkspace?.classList.add("hidden");
+      this.els.markdownSplit?.classList.add("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+      return;
+    }
+    if (!this.isPermanentWorkspaceActive(this.activeNote())) {
+      this.els.markdownSplit?.classList.remove("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+    }
     if (!this.isOriginalNote(this.activeNote())) this.hideOriginalityNotice();
+  }
+
+  renderPermanentWorkspace() {
+    const active = this.isPermanentWorkspaceActive(this.activeNote());
+    this.els.permanentWorkspace?.classList.toggle("hidden", !active);
+    if (active) {
+      this.els.literatureWorkspace?.classList.add("hidden");
+      this.els.markdownSplit?.classList.add("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+      return;
+    }
+    if (!this.isLiteratureWorkspaceActive(this.activeNote())) {
+      this.els.markdownSplit?.classList.remove("hidden");
+      this.els.modeEdit?.classList.remove("hidden");
+      this.els.modeSplit?.classList.add("hidden");
+    }
   }
 
   setSaveUiState(mode, message = "") {
@@ -3290,10 +3976,14 @@ export class EditorPane {
     this.updateModeToggleButton(mode);
     this.els.modeSplit?.classList.add("hidden");
     if (this.richEditor && this.markdownEditor) {
-      const content = this.isSourceMode() ? this.markdownEditor.getValue() : this.richEditor.getValue();
+      const content = this.isSourceMode()
+        ? this.markdownEditor.getValue()
+        : this.isStructuredWorkspaceActive()
+          ? String(this.els.body?.value || "")
+          : this.richEditor.getValue();
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
-      if (!this.isLiteratureWorkspaceActive()) {
+      if (!this.isStructuredWorkspaceActive()) {
         if (this.isSourceMode()) this.clearMarkdownSelectionOverride();
         else if (normalizedPendingSelection) this.setMarkdownSelectionOverride(normalizedPendingSelection.from, normalizedPendingSelection.to);
         if (this.isSourceMode()) this.markdownEditor.focus();
@@ -3303,6 +3993,7 @@ export class EditorPane {
         }
       }
     }
+    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderContextualToolbarState();
   }
@@ -3310,11 +4001,12 @@ export class EditorPane {
   updateModeToggleButton(mode = "wysiwyg") {
     const button = this.els.modeEdit;
     if (!button) return;
+    const workspaceModeLabel = this.isPermanentWorkspaceEligible(this.activeNote()) ? "结构化模式" : "笔记模式";
     if (mode === "source") {
-      button.title = "切换到笔记模式 Ctrl/Cmd+1";
-      button.dataset.tip = "切换到笔记模式 Ctrl/Cmd+1";
-      button.setAttribute("aria-label", "切换到笔记模式");
-      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg><span>笔记模式</span>`;
+      button.title = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
+      button.dataset.tip = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
+      button.setAttribute("aria-label", `切换到${workspaceModeLabel}`);
+      button.innerHTML = `<svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 3.2h11.5v9.6H2.25z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M4.2 5.2h7.6M4.2 7.95h5.1M4.2 10.7h6.5" stroke="currentColor" stroke-width="1.05" stroke-linecap="round"/><path d="M11.3 9.05l1.15 1.15-2.15 2.15H9.15v-1.15z" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linejoin="round"/></svg><span>${workspaceModeLabel}</span>`;
       return;
     }
     button.title = "切换到源码模式 Ctrl/Cmd+2";
@@ -3325,10 +4017,25 @@ export class EditorPane {
 
   renderContextualToolbarState() {
     const active = this.detectActiveFormatting();
+    const structured = this.isStructuredWorkspaceActive();
     if (this.els.headingLevel) {
       const value = Number(active.headingLevel || 0);
       this.els.headingLevel.value = value ? String(value) : this.activeTab() ? "p" : "";
+      this.els.headingLevel.disabled = structured;
+      this.els.headingLevel.title = structured ? "结构化模式下请切到源码模式再调整标题层级" : "多级标题";
     }
+    const buttonDefaults = [
+      [this.els.insertImage, "插入图片"],
+      [this.els.insertTag, "插入标签 #"],
+      [this.els.toolbarCommandBtn, "更多低频操作"]
+    ];
+    for (const [button, defaultTitle] of buttonDefaults) {
+      if (!button) continue;
+      button.disabled = structured;
+      button.title = structured ? "结构化模式下请切到源码模式再使用这个编辑操作" : defaultTitle;
+      button.dataset.tip = button.title;
+    }
+    if (structured) this.els.toolbarCommandMenu?.classList.add("hidden");
   }
 
   togglePreview(nextMode = null) {
@@ -3345,9 +4052,10 @@ export class EditorPane {
       return;
     }
     const latestValue = this.getEditorValue();
-    this.pendingEditorSelection = this.isLiteratureWorkspaceActive()
+    this.pendingEditorSelection = this.isStructuredWorkspaceActive()
       ? null
       : this.normalizedSelectionRangeForValue(latestValue, this.editorSelection());
+    this.state.forcedSourcePreviewNoteId = "";
     this.state.previewMode = resolved;
     this.setEditorValue(latestValue);
     this.renderPreviewVisibility();
@@ -3613,7 +4321,16 @@ export class EditorPane {
 
   getEditorValue() {
     if (this.isLiteratureWorkspaceActive()) {
-      return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
+      return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() });
+    }
+    if (this.isPermanentWorkspaceActive()) {
+      return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        preface: this.permanentPreface(),
+        sectionLayout: this.permanentSectionLayout(),
+        repeatedKnownSections: this.permanentRepeatedKnownSections(),
+        extraSections: this.permanentExtraSections(),
+        appendRemainingKnown: this.permanentWorkspaceAppendRemainingKnown()
+      });
     }
     if (this.isWysiwygMode()) {
       return String(this.els.body.value || "").replace(/\r\n/g, "\n");
@@ -3627,10 +4344,23 @@ export class EditorPane {
     const text = String(value || "");
     this.setUnderlyingEditorValue(text);
     this.syncLiteratureWorkspaceFromBody(text);
+    this.syncPermanentWorkspaceFromBody(text);
+  }
+
+  normalizePermanentBodyForSave(body = "") {
+    const raw = String(body || "").replace(/\r\n/g, "\n");
+    const parsed = parsePermanentWorkspace(raw);
+    if (!parsed.structured) return raw;
+    return composePermanentWorkspace(parsed, {
+      preface: parsed.preface,
+      sectionLayout: parsed.sectionLayout,
+      repeatedKnownSections: parsed.repeatedKnownSections,
+      extraSections: parsed.extraSections
+    });
   }
 
   editorSelection() {
-    if (this.isLiteratureWorkspaceActive()) {
+    if (this.isStructuredWorkspaceActive()) {
       const active = document.activeElement;
       if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
         return {
@@ -3662,6 +4392,10 @@ export class EditorPane {
       this.els.literatureParaphrase?.focus();
       return;
     }
+    if (this.isPermanentWorkspaceActive()) {
+      this.els.permanentCoreClaim?.focus();
+      return;
+    }
     const editor = this.currentEditor();
     if (editor?.focus) editor.focus();
     else this.els.body.focus();
@@ -3686,6 +4420,12 @@ export class EditorPane {
   setEditorSelectionRange(from, to) {
     if (this.isLiteratureWorkspaceActive()) {
       const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
+      target?.focus();
+      target?.setSelectionRange?.(from, to);
+      return;
+    }
+    if (this.isPermanentWorkspaceActive()) {
+      const target = this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle;
       target?.focus();
       target?.setSelectionRange?.(from, to);
       return;
@@ -3879,6 +4619,16 @@ export class EditorPane {
         return;
       }
       this.els.literatureParaphrase?.focus();
+      return;
+    }
+    if (this.isPermanentWorkspaceActive()) {
+      if (mode === "select-placeholder-title") {
+        const titleInput = this.els.permanentTitle;
+        titleInput?.focus();
+        titleInput?.select?.();
+        return;
+      }
+      this.els.permanentCoreClaim?.focus();
       return;
     }
     const applyPlaceholderSelection = () => {
@@ -5069,6 +5819,14 @@ export class EditorPane {
     this.els.linkSearchInput.select();
   }
 
+  resetToolbarTransientButtons() {
+    [this.els.insertLink, this.els.insertTag, this.els.insertImage].forEach((button) => {
+      if (!button) return;
+      button.classList.remove("active");
+      button.blur?.();
+    });
+  }
+
   closeLinkPicker() {
     this.els.linkPicker.classList.add("hidden");
     this.els.linkPicker.classList.remove("floating");
@@ -5083,7 +5841,7 @@ export class EditorPane {
     this.manualLinkReturnSelection = null;
     this.manualLinkReturnScrollState = null;
     this.isSubmittingLinkInsert = false;
-    this.els.insertLink?.classList.remove("active");
+    this.resetToolbarTransientButtons();
     if (this.els.linkReasonInput) this.els.linkReasonInput.value = "";
     this.updateLinkPickerConfirmButton();
   }
@@ -5331,7 +6089,7 @@ export class EditorPane {
     this.els.tagPicker.style.width = "";
     this.els.tagPicker.style.maxHeight = "";
     this.currentTagContext = null;
-    this.els.insertTag?.classList.remove("active");
+    this.resetToolbarTransientButtons();
   }
 
   positionInlineTagPicker() {
@@ -8078,7 +8836,7 @@ export class EditorPane {
 
     const literature = dedupLiterature.map((ln) => ({
       source_id: `src_from_${ln.id}`,
-      quote_text: normalizeFieldText(parseLiteratureWorkspace(ln.body || "").originalText || ln.body || "")
+      quote_text: normalizeFieldText(this.parseLiteratureBody(ln.body || "").originalText || ln.body || "")
     }));
 
     const citations = dedupLiterature.map((ln) => ({
@@ -8129,21 +8887,55 @@ export class EditorPane {
     return { ...evalItem, raw: result };
   }
 
-  showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
+  showBottomNotice(title = "提醒", tone = "", message = "", options = {}) {
     const panel = this.els.originalityNotice;
     if (!panel) return;
+    const resolvedTitle = String(title || "").trim() || "提醒";
+    const resolvedMessage = String(message || "").trim();
+    const dedupeKey = String(options?.dedupeKey || `${resolvedTitle}:${tone}:${resolvedMessage}`).trim();
+    const autoHideMs = Number(options?.autoHideMs);
+    const noticeHead = panel.querySelector(".floating-notice-head");
+    if (dedupeKey && dedupeKey === this.lastBottomNoticeKey && !panel.classList.contains("hidden")) {
+      if (this.bottomNoticeTimer) clearTimeout(this.bottomNoticeTimer);
+      if (autoHideMs > 0) {
+        this.bottomNoticeTimer = setTimeout(() => this.hideBottomNotice(), autoHideMs);
+      }
+      return;
+    }
+    this.lastBottomNoticeKey = dedupeKey;
+    if (this.bottomNoticeTimer) clearTimeout(this.bottomNoticeTimer);
+    this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = resolvedTitle);
+    this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = resolvedMessage || resolvedTitle);
+    if (noticeHead) noticeHead.hidden = !resolvedTitle;
+    panel.classList.remove("hidden");
+    panel.dataset.tone = String(tone || "");
+    if (autoHideMs > 0) {
+      this.bottomNoticeTimer = setTimeout(() => this.hideBottomNotice(), autoHideMs);
+    }
+  }
+
+  showOriginalityNotice(title = "原创性提醒", tone = "", message = "") {
     if (!this.isOriginalNote()) {
       this.hideOriginalityNotice();
       return;
     }
-    this.els.originalityNoticeTitle && (this.els.originalityNoticeTitle.textContent = title);
-    this.els.originalityNoticeBody && (this.els.originalityNoticeBody.textContent = message);
-    panel.classList.remove("hidden");
-    panel.dataset.tone = String(tone || "");
+    this.showBottomNotice(title, tone, message, {
+      autoHideMs: 10000,
+      dedupeKey: `originality:${title}:${tone}:${message}`
+    });
+  }
+
+  hideBottomNotice() {
+    if (this.bottomNoticeTimer) {
+      clearTimeout(this.bottomNoticeTimer);
+      this.bottomNoticeTimer = null;
+    }
+    this.lastBottomNoticeKey = "";
+    this.els.originalityNotice?.classList.add("hidden");
   }
 
   hideOriginalityNotice() {
-    this.els.originalityNotice?.classList.add("hidden");
+    this.hideBottomNotice();
   }
   bind() {
     this.els.tabs.addEventListener("click", async (e) => {
@@ -8611,10 +9403,6 @@ export class EditorPane {
       if (!note) return this.onStatus("请先打开一个笔记", "warn");
       const candidates = this.scopedLinkCandidates();
       if (!candidates.length) return this.onStatus("当前笔记盒里无可关联笔记", "warn");
-      if (this.isWysiwygMode()) {
-        this.openLinkPicker("", { anchorAtCursor: true });
-        return;
-      }
       this.insertAtCursor("[[");
       const inline = this.detectInlineLinkContext();
       if (inline) {
@@ -8856,6 +9644,21 @@ export class EditorPane {
       });
     }
 
+    for (const field of [
+      this.els.permanentTitle,
+      this.els.permanentCoreClaim,
+      this.els.permanentWhyTrue,
+      this.els.permanentBoundary,
+      this.els.permanentRelatedClues,
+      this.els.permanentSupplement
+    ]) {
+      field?.addEventListener("input", () => {
+        if (!this.isPermanentWorkspaceActive()) return;
+        this.syncPermanentWorkspaceToEditor();
+        this.handleEditorInput();
+      });
+    }
+
     this.els.body.addEventListener("input", () => this.handleEditorInput());
 
     this.els.editorHost?.addEventListener("paste", (event) => {
@@ -8952,7 +9755,7 @@ export class EditorPane {
       if (!tab) return;
       const previousValue = this.lastEditorValue || "";
       tab.body = this.getEditorValue();
-      if (!this.isLiteratureWorkspaceActive() && this.isWysiwygMode()) {
+      if (!this.isStructuredWorkspaceActive() && this.isWysiwygMode()) {
         const normalized = normalizePlaceholderTitleBody(tab.body);
         if (normalized !== tab.body) {
           tab.body = normalized;
@@ -8978,11 +9781,12 @@ export class EditorPane {
       else this.clearAutoSaveTimer();
       this.renderTabs();
       this.renderSaveHint();
+      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.updateToolbarFormattingState();
 
-      if (this.isLiteratureWorkspaceActive()) {
+      if (this.isStructuredWorkspaceActive()) {
         this.lastEditorValue = tab.body;
         return;
       }
@@ -9185,8 +9989,15 @@ export class EditorPane {
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
     note.body = tab.body;
-    note.title = titleFromBody(tab.body);
     note.noteType = typeFromFolder(this.state, note.folderId);
+    if (this.isOriginalNote(note)) {
+      const normalizedBody = this.normalizePermanentBodyForSave(note.body);
+      if (normalizedBody !== note.body) {
+        note.body = normalizedBody;
+        tab.body = normalizedBody;
+      }
+    }
+    note.title = titleFromBody(note.body);
     note.tags = parseTags(note.body);
     note.links = parseLinks(note.body);
     note.updatedAt = new Date().toISOString();
