@@ -202,6 +202,7 @@ let lastChosenPermanentDirectoryId = "dir_original_default";
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 state.graphConnectivityReady = false;
+state.graphVisibleNoteIdsReady = false;
 const importState = {
   importRecordId: "",
   directoryId: "",
@@ -238,8 +239,12 @@ const graphState = {
   thinkingPanelOpen: false,
   thinkingFilter: "all",
   readingLens: "insight",
+  densityHintKey: "",
+  densityHintVisibleUntil: 0,
+  densityHintTimer: 0,
   selection: null,
   utilityDrawerOpen: false,
+  utilityDrawerPosition: null,
   sectionOpen: {
     "bridge-gaps": false,
     "review-queue": false,
@@ -255,6 +260,19 @@ const graphViewportDragState = {
   startY: 0,
   startScrollLeft: 0,
   startScrollTop: 0,
+  suppressClickUntil: 0
+};
+const graphUtilityDrawerDragState = {
+  active: false,
+  moved: false,
+  pointerId: null,
+  handle: null,
+  wrapper: null,
+  stage: null,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0,
   suppressClickUntil: 0
 };
 const distillationState = {
@@ -4847,7 +4865,10 @@ function renderSidebarTitle() {
         : state.browserRootId === "dir_literature_default"
           ? "quick-literature"
           : "quick-original";
-    document.querySelectorAll(".quick-entry").forEach((entry) => entry.classList.toggle("current-root", entry.dataset.action === quickAction));
+    const explorerActive = state.module === "explorer";
+    document
+      .querySelectorAll(".quick-entry")
+      .forEach((entry) => entry.classList.toggle("current-root", explorerActive && entry.dataset.action === quickAction));
     syncNewNoteButtons();
     $("explorerActions").classList.add("hidden");
     $("explorerActions").innerHTML = "";
@@ -5666,7 +5687,7 @@ function syncRailSelectionState() {
   const explorerActive = state.module === "explorer";
   document.querySelectorAll(".quick-entry").forEach((entry) => {
     const isCurrentRoot = entry.dataset.action === currentQuickAction;
-    entry.classList.toggle("current-root", isCurrentRoot);
+    entry.classList.toggle("current-root", explorerActive && isCurrentRoot);
     entry.classList.toggle("active", explorerActive && isCurrentRoot);
   });
   document.querySelectorAll(".rail-btn[data-module]").forEach((button) => {
@@ -8818,6 +8839,14 @@ function graphZoomOption(value = "") {
   return GRAPH_VISUAL_ZOOM_OPTIONS[key] ? { key, ...GRAPH_VISUAL_ZOOM_OPTIONS[key] } : { key: "fit", ...GRAPH_VISUAL_ZOOM_OPTIONS.fit };
 }
 
+function graphZoomStep(value = "", direction = 0) {
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(value).key));
+  const nextIndex = Math.max(0, Math.min(zoomKeys.length - 1, currentIndex + Number(direction || 0)));
+  const nextKey = zoomKeys[nextIndex] || "fit";
+  return graphZoomOption(nextKey);
+}
+
 function renderGraphIcon(name = "") {
   const key = String(name || "").trim().toLowerCase();
   if (key === "collapse") {
@@ -8846,6 +8875,47 @@ function renderGraphIcon(name = "") {
       <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <circle cx="10" cy="10" r="4.2"></circle>
         <path d="M10 2.8V4.2M10 15.8V17.2M2.8 10H4.2M15.8 10H17.2"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-out") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
+      </svg>
+    `;
+  }
+  if (key === "zoom-in") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="8.5" cy="8.5" r="4.6"></circle>
+        <path d="M8.5 6.2V10.8M6.2 8.5H10.8"></path>
+        <path d="M12.3 12.3L15.4 15.4"></path>
+      </svg>
+    `;
+  }
+  if (key === "drag") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="6" cy="5.5" r="1"></circle>
+        <circle cx="10" cy="5.5" r="1"></circle>
+        <circle cx="14" cy="5.5" r="1"></circle>
+        <circle cx="6" cy="10" r="1"></circle>
+        <circle cx="10" cy="10" r="1"></circle>
+        <circle cx="14" cy="10" r="1"></circle>
+        <circle cx="6" cy="14.5" r="1"></circle>
+        <circle cx="10" cy="14.5" r="1"></circle>
+        <circle cx="14" cy="14.5" r="1"></circle>
+      </svg>
+    `;
+  }
+  if (key === "reset") {
+    return `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M5.2 8.2A5.6 5.6 0 1 1 6.4 14.7"></path>
+        <path d="M5.2 4.8V8.4H8.8"></path>
       </svg>
     `;
   }
@@ -9184,26 +9254,57 @@ function renderGraphWeakRelationClueSection(edges = [], options = {}) {
   `;
 }
 
-function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
-  const counts = edges.reduce((acc, edge) => {
+function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOverride = null) {
+  const fallbackCounts = edges.reduce((acc, edge) => {
     const fallback = field === "status" ? "confirmed" : "associated_with";
     const key = String(edge?.[field] || fallback).trim().toLowerCase();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
   if (field === "relationType") {
-    const meaningfulCount = edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const indexCount = edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
-    const noisyCount = edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
+    const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
+    const meaningfulCount =
+      Number.isFinite(Number(statsOverride?.meaningfulCount))
+        ? Number(statsOverride.meaningfulCount)
+        : edges.filter((edge) => GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const indexCount =
+      Number.isFinite(Number(statsOverride?.indexCount))
+        ? Number(statsOverride.indexCount)
+        : edges.filter((edge) => GRAPH_INDEX_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const noisyCount =
+      Number.isFinite(Number(statsOverride?.noisyCount))
+        ? Number(statsOverride.noisyCount)
+        : edges.filter((edge) => GRAPH_LINK_CLUE_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())).length;
+    const totalCount = Number.isFinite(Number(statsOverride?.totalCount)) ? Number(statsOverride.totalCount) : edges.length;
     const leadingOptions = [
-      `<option value="meaningful"${selected === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
-      `<option value="all"${selected === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${edges.length})</option>`
+      `<option value="meaningful"${selectedKey === "meaningful" ? " selected" : ""}>优先看有解释力的关系 (${meaningfulCount})</option>`,
+      `<option value="all"${selectedKey === "all" ? " selected" : ""}>${escapeHtml(allLabel)} (${totalCount})</option>`
     ];
     if (noisyCount > 0) {
-      leadingOptions.push(`<option value="noisy"${selected === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
+      leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
     }
     if (indexCount > 0) {
-      leadingOptions.push(`<option value="index"${selected === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+      leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+    }
+    const selectedTypeHasOption =
+      selectedKey === "meaningful" ||
+      selectedKey === "all" ||
+      (selectedKey === "noisy" && noisyCount > 0) ||
+      (selectedKey === "index" && indexCount > 0) ||
+      (selectedKey !== "meaningful" &&
+        selectedKey !== "all" &&
+        selectedKey !== "noisy" &&
+        selectedKey !== "index" &&
+        Object.prototype.hasOwnProperty.call(counts, selectedKey));
+    if (!selectedTypeHasOption && selectedKey) {
+      const selectedLabel =
+        selectedKey === "noisy"
+          ? "只看链接线索"
+          : selectedKey === "index"
+            ? "只看主题归属"
+            : labelFn(selectedKey);
+      leadingOptions.push(`<option value="${escapeHtml(selectedKey)}" selected>${escapeHtml(selectedLabel)} (0)</option>`);
     }
     const groupedCounts = new Map();
     for (const [value, count] of Object.entries(counts)) {
@@ -9214,7 +9315,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
     }
     const groupOrder = ["support", "conflict", "boundary", "bridge", "flow", "neutral", "index"];
     const typedOptions = groupOrder
-      .filter((key) => groupedCounts.has(key))
+      .filter((key) => groupedCounts.has(key) && key !== "index")
       .map((key) => {
         const items = groupedCounts
           .get(key)
@@ -9224,7 +9325,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
         const groupCount = items.reduce((sum, item) => sum + item.count, 0);
         const options = items
           .map((item) => {
-            const selectedAttr = item.value === selected ? " selected" : "";
+            const selectedAttr = item.value === selectedKey ? " selected" : "";
             return `<option value="${escapeHtml(item.value)}"${selectedAttr}>${escapeHtml(item.label)} (${item.count})</option>`;
           })
           .join("");
@@ -9233,7 +9334,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn) {
       .join("");
     return `${leadingOptions.join("")}${typedOptions}`;
   }
-  const options = Object.entries(counts)
+  const options = Object.entries(fallbackCounts)
     .sort((a, b) => b[1] - a[1] || labelFn(a[0]).localeCompare(labelFn(b[0]), "zh-Hans-CN"))
     .map(([value, count]) => {
       const selectedAttr = value === selected ? " selected" : "";
@@ -9253,6 +9354,7 @@ function normalizeGraphRelationTypeFilter(value = "", fallback = "meaningful") {
   const key = String(value || "").trim().toLowerCase();
   const normalizedFallback = String(fallback || "meaningful").trim().toLowerCase() || "meaningful";
   const allowed = new Set(["meaningful", "all", "noisy", "index", ...Object.keys(GRAPH_RELATION_TYPE_LABELS)]);
+  if (GRAPH_INDEX_RELATION_TYPES.has(key)) return "index";
   return allowed.has(key) ? key : normalizedFallback;
 }
 
@@ -9309,21 +9411,31 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
   `;
 }
 
+function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", compact = false, statsOverride = null) {
+  return `
+    <div class="graph-filters graph-filters-single${compact ? " graph-filters-compact" : ""}" data-graph-filters>
+      <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
+        ${graphFilterOptions(edges, "relationType", selected, "全部关系", graphRelationTypeLabel, statsOverride)}
+      </select>
+    </div>
+  `;
+}
+
 const GRAPH_READING_LENS_META = {
   insight: {
     key: "insight",
     label: "洞见",
-    hint: "先放大中心、桥接与高解释力节点，适合寻找新判断。"
+    hint: "突出最值得继续想的笔记，帮你发现可能长出新观点的地方。"
   },
   bridge: {
     key: "bridge",
     label: "桥接",
-    hint: "优先看跨簇连接、潜在关联和孤立节点，适合补关系。"
+    hint: "突出还没连起来的笔记，帮你判断哪里需要补一条关系。"
   },
   argument: {
     key: "argument",
     label: "论证",
-    hint: "优先看支持、反驳和边界，适合检查观点是否站得住。"
+    hint: "突出证据、反方和边界，帮你检查这个想法站不站得住。"
   }
 };
 
@@ -9332,18 +9444,21 @@ function graphReadingLensMeta(value = "insight") {
   return GRAPH_READING_LENS_META[key] || GRAPH_READING_LENS_META.insight;
 }
 
-function renderGraphReadingLensControls(activeLens = "insight") {
+function renderGraphReadingLensControls(activeLens = "insight", legendOpen = false) {
   const active = graphReadingLensMeta(activeLens);
   return `
-    <div class="graph-reading-lens" aria-label="图谱阅读模式">
-      <span>阅读模式</span>
-      ${Object.values(GRAPH_READING_LENS_META)
-        .map((item) => {
-          const selected = item.key === active.key;
-          return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
-        })
-        .join("")}
-      <small>${escapeHtml(active.hint)}</small>
+    <div class="graph-reading-lens-row">
+      <div class="graph-reading-lens" aria-label="图谱阅读模式">
+        <span>阅读模式</span>
+        ${Object.values(GRAPH_READING_LENS_META)
+          .map((item) => {
+            const selected = item.key === active.key;
+            return `<button class="graph-reading-lens-btn${selected ? " is-active" : ""}" type="button" data-graph-reading-lens="${escapeHtml(item.key)}" aria-pressed="${selected}" title="${escapeHtml(item.hint)}">${escapeHtml(item.label)}</button>`;
+          })
+          .join("")}
+        <small>${escapeHtml(active.hint)}</small>
+      </div>
+      <button class="mini-btn is-ghost graph-legend-inline-btn" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
     </div>
   `;
 }
@@ -10537,9 +10652,75 @@ function graphNodeAttentionReasons(node = {}, { selected = false, inSelectedThem
   return uniqueStrings(reasons);
 }
 
+function graphNodeStarTier(node = {}) {
+  if (node.isFocused) return "focus";
+  if (node.isHub) return "core";
+  if (node.isAnchor) return "major";
+  if (node.isGraphIsolatedCandidate) return "isolated";
+  const degree = Number(node.degree || 0);
+  if (degree >= 8) return "major";
+  if (degree >= 4) return "medium";
+  if (degree >= 1) return "minor";
+  return "dust";
+}
+
+function graphNodeStarRank(tier = "") {
+  if (tier === "focus") return 5;
+  if (tier === "core") return 4;
+  if (tier === "major") return 3;
+  if (tier === "medium") return 2;
+  if (tier === "minor") return 1;
+  return 0;
+}
+
+function graphNodeRadiusByTier(tier = "", degree = 0) {
+  const safeDegree = Number(degree || 0);
+  if (tier === "focus") return Math.round(24 + Math.min(10, safeDegree * 1.1));
+  if (tier === "core") return Math.round(20 + Math.min(8, safeDegree * 1.05));
+  if (tier === "major") return Math.round(14 + Math.min(5, safeDegree * 0.72));
+  if (tier === "medium") return Math.round(10 + Math.min(3, safeDegree * 0.45));
+  if (tier === "minor") return Math.round(7 + Math.min(2, safeDegree * 0.3));
+  if (tier === "isolated") return 10;
+  return 4;
+}
+
+function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
+  const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
+  const to = nodeMap.get(String(edge?.toNoteId || "").trim());
+  const fromRank = graphNodeStarRank(from?.starTier);
+  const toRank = graphNodeStarRank(to?.starTier);
+  const strongest = Math.max(fromRank, toRank);
+  const weakest = Math.min(fromRank, toRank);
+  const relationType = String(edge?.relationType || "").trim().toLowerCase();
+  const relationGroup = graphRelationVisual(relationType).key;
+  if (relationGroup === "index") return true;
+  if (strongest >= 4) return true;
+  if (relationGroup === "bridge") return strongest >= 3;
+  if (["support", "conflict", "boundary", "flow"].includes(relationGroup)) {
+    return strongest >= 3 && weakest >= 2;
+  }
+  return false;
+}
+
+function renderGraphStarfield(layoutWidth = 0, layoutHeight = 0, seed = "") {
+  const width = Math.max(960, Number(layoutWidth || 0));
+  const height = Math.max(520, Number(layoutHeight || 0));
+  const count = Math.max(48, Math.round((width * height) / 26000));
+  return Array.from({ length: count }, (_, index) => {
+    const base = graphHash(`${seed}:${index}`);
+    const x = 24 + (base % Math.max(1, width - 48));
+    const y = 20 + ((base * 17) % Math.max(1, height - 40));
+    const radius = 0.6 + ((base % 10) / 10) * 1.6;
+    const opacity = 0.14 + ((base % 7) / 7) * 0.34;
+    const blur = base % 3 === 0 ? " is-soft" : "";
+    return `<circle class="graph-map-star${blur}" cx="${x}" cy="${y}" r="${radius.toFixed(1)}" opacity="${opacity.toFixed(2)}"></circle>`;
+  }).join("");
+}
+
 function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const focusedNoteId = String(options.focusedNoteId || "").trim();
   const nodeMap = new Map();
+  const adjacencyMap = new Map();
 
   nodes.forEach((node) => {
     const id = String(node?.id || "").trim();
@@ -10588,6 +10769,12 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
       to.degree += 1;
       to.inDegree += 1;
     }
+    if (fromId && toId && fromId !== toId) {
+      if (!adjacencyMap.has(fromId)) adjacencyMap.set(fromId, new Set());
+      if (!adjacencyMap.has(toId)) adjacencyMap.set(toId, new Set());
+      adjacencyMap.get(fromId).add(toId);
+      adjacencyMap.get(toId).add(fromId);
+    }
   });
 
   const nodeTotal = nodeMap.size;
@@ -10610,22 +10797,105 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const outerRingCount = Math.max(1, outerCount - innerCount);
   const anchorCount = focusedNoteId ? 1 : Math.min(3, layoutNodes.filter((node) => Number(node.degree || 0) > 0).length);
   const anchorIds = new Set(layoutNodes.slice(0, anchorCount).map((node) => node.id));
+  const anchorOrder = [...anchorIds];
+  const anchorAngles = focusedNoteId ? [-Math.PI / 2] : [-Math.PI / 2, Math.PI / 10, (8 * Math.PI) / 10];
+  const clusterAssignments = new Map();
+  const clusterMembers = Array.from({ length: Math.max(1, anchorOrder.length || 3) }, () => []);
   const isolatedLayoutNodes = layoutNodes.filter((node) => node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
   const isolatedIndexById = new Map(isolatedLayoutNodes.map((node, index) => [node.id, index]));
+
+  if (!focusedNoteId && anchorOrder.length) {
+    const eligibleIds = new Set(
+      layoutNodes
+        .filter((node, index) => index && !anchorIds.has(node.id) && !node.isGraphIsolatedCandidate && node.graphVisualState !== "isolated")
+        .map((node) => node.id)
+    );
+    eligibleIds.forEach((nodeId) => {
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        score: adjacencyMap.get(nodeId)?.has(anchorId) ? 1 : 0,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const connectedAnchors = rankedAnchors.filter((item) => item.score > 0);
+      if (!connectedAnchors.length) return;
+      const clusterIndex = connectedAnchors.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+      clusterAssignments.set(nodeId, clusterIndex);
+      clusterMembers[clusterIndex].push(nodeId);
+    });
+    let assignedInPass = true;
+    while (assignedInPass) {
+      assignedInPass = false;
+      eligibleIds.forEach((nodeId) => {
+        if (clusterAssignments.has(nodeId)) return;
+        const neighborScores = new Map();
+        (adjacencyMap.get(nodeId) || new Set()).forEach((neighborId) => {
+          if (!clusterAssignments.has(neighborId)) return;
+          const clusterIndex = clusterAssignments.get(neighborId);
+          neighborScores.set(clusterIndex, (neighborScores.get(clusterIndex) || 0) + 1);
+        });
+        if (!neighborScores.size) return;
+        const rankedClusters = [...neighborScores.entries()].map(([anchorIndex, score]) => ({
+          anchorIndex,
+          score,
+          load: clusterMembers[anchorIndex]?.length || 0
+        }));
+        const clusterIndex = rankedClusters.sort((a, b) => b.score - a.score || a.load - b.load || a.anchorIndex - b.anchorIndex)[0].anchorIndex;
+        clusterAssignments.set(nodeId, clusterIndex);
+        clusterMembers[clusterIndex].push(nodeId);
+        assignedInPass = true;
+      });
+    }
+    const visited = new Set();
+    eligibleIds.forEach((nodeId) => {
+      if (clusterAssignments.has(nodeId) || visited.has(nodeId)) return;
+      const component = [];
+      const queue = [nodeId];
+      visited.add(nodeId);
+      while (queue.length) {
+        const currentId = queue.shift();
+        component.push(currentId);
+        (adjacencyMap.get(currentId) || new Set()).forEach((neighborId) => {
+          if (!eligibleIds.has(neighborId) || clusterAssignments.has(neighborId) || visited.has(neighborId)) return;
+          visited.add(neighborId);
+          queue.push(neighborId);
+        });
+      }
+      const rankedAnchors = anchorOrder.map((anchorId, anchorIndex) => ({
+        anchorIndex,
+        load: clusterMembers[anchorIndex]?.length || 0
+      }));
+      const clusterIndex = rankedAnchors.sort((a, b) => a.load - b.load || a.anchorIndex - b.anchorIndex)[graphHash(component[0] || nodeId) % rankedAnchors.length].anchorIndex;
+      component.forEach((componentId) => {
+        clusterAssignments.set(componentId, clusterIndex);
+        clusterMembers[clusterIndex].push(componentId);
+      });
+    });
+  }
 
   layoutNodes.forEach((node, index) => {
     const isFocused = Boolean(focusedNoteId) && node.id === focusedNoteId;
     const isVisualIsolated = Boolean(node.isGraphIsolatedCandidate || node.graphVisualState === "isolated");
     const isHub = (index === 0 && node.degree > 0) || isFocused;
     const isAnchor = !focusedNoteId && anchorIds.has(node.id);
-    const degreeBoost = isVisualIsolated ? 0 : Math.min(8, Number(node.degree || 0) * 1.6);
-    const baseRadius = isVisualIsolated ? 14 : 18;
-    node.radius = Math.round(baseRadius + degreeBoost + (isHub ? 8 : 0) + (isFocused ? 4 : 0) + (isAnchor && !isHub ? 3 : 0));
     node.isHub = isHub;
     node.isFocused = isFocused;
     node.isContext = Boolean(focusedNoteId) && !isFocused;
     node.isAnchor = isAnchor;
     node.isGraphIsolatedCandidate = isVisualIsolated;
+    node.starTier = graphNodeStarTier(node);
+    node.radius = graphNodeRadiusByTier(node.starTier, node.degree);
+    node.auraRadius =
+      node.starTier === "focus"
+        ? node.radius + 20
+        : node.starTier === "core"
+          ? node.radius + 16
+          : node.starTier === "major"
+            ? node.radius + 10
+            : node.starTier === "isolated"
+              ? node.radius + 8
+              : node.starTier === "medium"
+                ? node.radius + 5
+                : 0;
 
     if (isVisualIsolated && outerCount) {
       const isolatedIndex = isolatedIndexById.get(node.id) || 0;
@@ -10645,15 +10915,38 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
     }
 
     const ringIndex = index - 1;
-    const anchorIndex = !focusedNoteId ? [...anchorIds].indexOf(node.id) : -1;
+    const anchorIndex = !focusedNoteId ? anchorOrder.indexOf(node.id) : -1;
     if (anchorIndex >= 0) {
-      const anchorAngles = [-Math.PI / 2, Math.PI / 6, (5 * Math.PI) / 6];
       const angle = anchorAngles[anchorIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * anchorIndex) / Math.max(1, anchorCount));
-      const anchorRadiusX = width * 0.2;
-      const anchorRadiusY = height * 0.16;
+      const anchorRadiusX = width * 0.19;
+      const anchorRadiusY = height * 0.15;
       node.x = Math.round(centerX + Math.cos(angle) * anchorRadiusX);
       node.y = Math.round(centerY + Math.sin(angle) * anchorRadiusY);
       return;
+    }
+
+    if (!focusedNoteId && anchorOrder.length) {
+      const clusterIndex = clusterAssignments.get(node.id);
+      if (Number.isInteger(clusterIndex) && clusterIndex >= 0) {
+        const memberIds = clusterMembers[clusterIndex] || [];
+        const localIndex = Math.max(0, memberIds.indexOf(node.id));
+        const membersPerRing = memberIds.length > 10 ? 5 : memberIds.length > 6 ? 4 : 3;
+        const ring = Math.floor(localIndex / Math.max(1, membersPerRing));
+        const slot = localIndex % Math.max(1, membersPerRing);
+        const slotCount = Math.min(Math.max(1, membersPerRing), Math.max(1, memberIds.length - ring * membersPerRing));
+        const spread = slotCount <= 2 ? 0.78 : slotCount <= 4 ? 1.35 : 1.82;
+        const localOffset = slotCount === 1 ? 0 : -spread / 2 + (spread * slot) / Math.max(1, slotCount - 1);
+        const jitter = ((graphHash(node.id) % 9) - 4) * 0.02;
+        const anchorAngle = anchorAngles[clusterIndex] ?? (-Math.PI / 2 + (Math.PI * 2 * clusterIndex) / Math.max(1, anchorOrder.length));
+        const clusterCenterX = centerX + Math.cos(anchorAngle) * width * 0.18;
+        const clusterCenterY = centerY + Math.sin(anchorAngle) * height * 0.14;
+        const orbitDistance = 58 + ring * 36 + (graphHash(node.id) % 12) * 1.8 + Math.max(0, node.radius - 7) * 1.4;
+        node.x = Math.round(clusterCenterX + Math.cos(anchorAngle + localOffset + jitter) * orbitDistance);
+        node.y = Math.round(clusterCenterY + Math.sin(anchorAngle + localOffset + jitter) * orbitDistance * 0.78);
+        node.x = Math.max(26, Math.min(width - 26, node.x));
+        node.y = Math.max(26, Math.min(height - 26, node.y));
+        return;
+      }
     }
 
     const useOuterRing = outerCount > 12 && ringIndex >= innerCount;
@@ -10800,6 +11093,22 @@ function graphScopedItems(graph) {
   const scopeDirectoryId = graphScopeDirectoryId();
   const scopedDirectoryIds = new Set(descendantDirectoryIds(scopeDirectoryId));
   const scopedNodes = nodes.filter((node) => scopedDirectoryIds.has(String(node.directoryId || node.folderId || "").trim()));
+  const focusedNoteId = String(state.selectedFileId || "").trim();
+  if (focusedNoteId && !scopedNodes.some((node) => String(node?.id || "").trim() === focusedNoteId)) {
+    const focusedNote = state.notes.find((note) => String(note?.id || "").trim() === focusedNoteId);
+    const focusedFolderId = String(focusedNote?.folderId || focusedNote?.directoryId || "").trim();
+    if (focusedNote && focusedFolderId && scopedDirectoryIds.has(focusedFolderId)) {
+      scopedNodes.push({
+        id: focusedNoteId,
+        title: String(focusedNote.title || focusedNoteId).trim() || focusedNoteId,
+        folderId: focusedFolderId,
+        directoryId: focusedFolderId,
+        noteType: String(focusedNote.noteType || (focusedFolderId ? typeFromFolder(state, focusedFolderId) : "") || "original").trim() || "original",
+        status: String(focusedNote.status || "draft").trim() || "draft",
+        degree: 0
+      });
+    }
+  }
   const scopedNodeIds = new Set(scopedNodes.map((node) => node.id));
   const scopedEdges = allEdges.filter((edge) => scopedNodeIds.has(edge.fromNoteId) && scopedNodeIds.has(edge.toNoteId));
   const relatedNodeIds = new Set(scopedEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
@@ -10811,12 +11120,12 @@ function graphScopedItems(graph) {
   };
 }
 
-function graphFocusedItems(nodes = [], edges = []) {
+function graphFocusedItems(nodes = [], edges = [], allNodes = nodes, traversalEdges = edges) {
   const focusedNoteId = String(state.selectedFileId || "").trim();
   if (!focusedNoteId) return { focusedNoteId: "", nodes, edges, focused: false };
   const focusDepth = normalizeGraphFocusDepth(graphState.focusDepth, "1");
   const adjacency = new Map();
-  edges.forEach((edge) => {
+  traversalEdges.forEach((edge) => {
     const fromId = String(edge?.fromNoteId || "").trim();
     const toId = String(edge?.toNoteId || "").trim();
     if (!fromId || !toId) return;
@@ -10841,7 +11150,15 @@ function graphFocusedItems(nodes = [], edges = []) {
     }
   }
   const relatedEdges = edges.filter((edge) => visibleIds.has(edge.fromNoteId) && visibleIds.has(edge.toNoteId));
-  if (!relatedEdges.length) return { focusedNoteId, nodes: [], edges: [], focused: true, focusDepth };
+  if (!relatedEdges.length) {
+    return {
+      focusedNoteId,
+      nodes: allNodes.filter((node) => node.id === focusedNoteId),
+      edges: [],
+      focused: true,
+      focusDepth
+    };
+  }
   return {
     focusedNoteId,
     nodes: nodes.filter((node) => visibleIds.has(node.id)),
@@ -10851,9 +11168,45 @@ function graphFocusedItems(nodes = [], edges = []) {
   };
 }
 
+function graphBuildFocusedRelationTypeStats(nodes = [], edges = [], allNodes = nodes, filters = {}) {
+  const normalizedSelected = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const normalizedStatus = String(filters.status || "all").trim().toLowerCase() || "all";
+  const relationTypes = new Set(
+    (Array.isArray(edges) ? edges : [])
+      .map((edge) => String(edge?.relationType || "associated_with").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const countFor = (relationType = "all") => {
+    const traversalFilters = { relationType, status: normalizedStatus };
+    const traversalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters));
+    const focusedScope = graphFocusedItems(nodes, edges, allNodes, traversalEdges);
+    return focusedScope.edges.filter((edge) => graphEdgeMatchesFilters(edge, traversalFilters)).length;
+  };
+  const counts = {};
+  relationTypes.forEach((relationType) => {
+    const count = countFor(relationType);
+    if (count > 0) counts[relationType] = count;
+  });
+  if (
+    normalizedSelected &&
+    !["meaningful", "all", "noisy", "index"].includes(normalizedSelected) &&
+    !Object.prototype.hasOwnProperty.call(counts, normalizedSelected)
+  ) {
+    counts[normalizedSelected] = 0;
+  }
+  return {
+    counts,
+    totalCount: countFor("all"),
+    meaningfulCount: countFor("meaningful"),
+    noisyCount: countFor("noisy"),
+    indexCount: countFor("index")
+  };
+}
+
 function renderGraphVisualMap({
   nodes = [],
   edges = [],
+  relationFilterEdges = [],
   filterActive = false,
   focusedNoteId = "",
   relationType = "meaningful",
@@ -10862,7 +11215,8 @@ function renderGraphVisualMap({
   isolatedNotes = [],
   bridgeGaps = [],
   thinkingPanelMarkup = "",
-  utilityDrawerMarkup = ""
+  utilityDrawerMarkup = "",
+  toolbarMarkup = ""
 } = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -10900,8 +11254,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
-          <path d="M 2 2.5 L 9 6 L 2 9.5" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="9" markerHeight="9" refX="7.2" refY="4.5" orient="auto" markerUnits="strokeWidth">
+          <path d="M 1.5 1.8 L 7.1 4.5 L 1.5 7.2" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
@@ -10909,6 +11263,8 @@ function renderGraphVisualMap({
   const edgeLabelLimit = zoom.key === "fit" ? 24 : zoom.key === "read" ? 48 : 64;
   const edgeLabelsEnabled = visibleEdges.length <= edgeLabelLimit;
   const denseDirectoryMode = !filterActive;
+  const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
+  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -10936,12 +11292,22 @@ function renderGraphVisualMap({
       return meta ? { key, className: `is-${key}`, ...meta } : null;
     })
     .filter(Boolean);
+  const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
+  const zoomIndex = Math.max(0, zoomKeys.indexOf(zoom.key));
   const zoomControls = Object.entries(GRAPH_VISUAL_ZOOM_OPTIONS)
     .map(([key, option]) => {
       const active = zoom.key === key;
       return `<button class="graph-zoom-btn${active ? " is-active" : ""}" type="button" data-graph-zoom-option="${escapeHtml(key)}" aria-pressed="${active}" title="${escapeHtml(option.note)}" aria-label="${escapeHtml(option.label)}">${renderGraphIcon(option.icon || key)}<span>${escapeHtml(option.label)}</span></button>`;
     })
     .join("");
+  const starfieldMarkup = renderGraphStarfield(layout.width, layout.height, `${graphState.lastLoadedAt}:${relationType}:${zoom.key}`);
+  const zoomStepperMarkup = `
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="-1" aria-label="缩小图谱" title="缩小图谱"${zoomIndex === 0 ? " disabled" : ""}>${renderGraphIcon("zoom-out")}</button>
+    <div class="graph-zoom-preset-group" aria-label="图谱缩放层级">
+      ${zoomControls}
+    </div>
+    <button class="graph-zoom-step" type="button" data-graph-zoom-step="1" aria-label="放大图谱" title="放大图谱"${zoomIndex === zoomKeys.length - 1 ? " disabled" : ""}>${renderGraphIcon("zoom-in")}</button>
+  `;
   const focusContextMarkup = filterActive && normalizedFocusedNoteId
     ? renderGraphFocusContextPanel({
         focusedNoteId: normalizedFocusedNoteId,
@@ -10968,21 +11334,22 @@ function renderGraphVisualMap({
     .map((node, index) => {
       const typeClass = graphNodeClass(node.noteType);
       const title = node.title || node.id;
-      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : zoom.key === "fit" ? 10 : zoom.key === "read" ? 16 : 20;
+      const starRank = graphNodeStarRank(node.starTier);
+      const labelLimit = node.isHub ? (zoom.key === "fit" ? 16 : 22) : starRank >= 3 ? (zoom.key === "fit" ? 12 : 18) : zoom.key === "fit" ? 8 : zoom.key === "read" ? 14 : 18;
       const label = graphShortTitle(title, labelLimit);
       const labelY = node.y + node.radius + 17;
       const metaY = labelY + 14;
       const labelQuota = denseDirectoryMode
         ? zoom.key === "detail"
-          ? 6
+          ? 8
           : zoom.key === "read"
-            ? 3
-            : 1
+            ? 4
+            : 0
         : zoom.key === "detail"
-          ? 14
+          ? 12
           : zoom.key === "read"
-            ? 8
-          : 3;
+            ? 6
+          : 2;
       const inSelectedTheme = selectedThemeNoteIds.has(node.id);
       const isolatedKey = String(node.isolatedKey || "").trim();
       const selectedIsolated = selectedIsolatedNodeId === node.id || (activeSelection?.kind === "isolated" && isolatedKey && activeSelection.isolatedKey === isolatedKey);
@@ -10991,23 +11358,59 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = selectedNodeNeighborhood.has(node.id);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityNodeIds.has(node.id);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const showLabel = node.isFocused || node.isHub || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority || index < labelQuota;
-      const showMeta = showLabel && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
-      const revealOnly = denseDirectoryMode && !node.isFocused && !node.isHub && !node.isAnchor && !showLabel;
+      const fitLensLabel = lensPriority && starRank >= 3;
+      const showLabel = zoom.key === "fit"
+        ? (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            fitLensLabel
+          )
+        : (
+            node.isFocused ||
+            node.isHub ||
+            node.isAnchor ||
+            selected ||
+            inSelectedNodeNeighborhood ||
+            inSelectedTheme ||
+            selectedIsolated ||
+            inSelectedBridge ||
+            lensPriority ||
+            starRank >= 2 ||
+            index < labelQuota
+          );
+      const showMeta = showLabel && starRank >= 3 && (node.isHub || node.isFocused || node.isAnchor || selected || inSelectedNodeNeighborhood || inSelectedTheme || selectedIsolated || inSelectedBridge || lensPriority) && zoom.key !== "fit";
+      const revealOnly =
+        !showLabel &&
+        !selected &&
+        !inSelectedTheme &&
+        !selectedIsolated &&
+        !inSelectedBridge &&
+        !lensPriority &&
+        (
+          zoom.key === "fit"
+            ? starRank <= 2
+            : denseDirectoryMode && starRank <= 1
+        );
       const neighbors = [...(adjacencyMap.get(node.id) || [])];
       const metaLabel = node.isGraphIsolatedCandidate ? "孤立待判断" : noteTypeLabel(node.noteType);
       const attentionReasons = graphNodeAttentionReasons(node, { selected, inSelectedTheme, selectedIsolated, inSelectedBridge });
       const attentionText = attentionReasons.length ? `；${attentionReasons.join("、")}` : "";
-      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge;
+      const haloVisible = node.isGraphIsolatedCandidate || node.isFocused || node.isAnchor || selected || inSelectedTheme || selectedIsolated || inSelectedBridge || starRank >= 3;
       const haloTone = node.isGraphIsolatedCandidate || selectedIsolated ? "is-isolated" : inSelectedBridge ? "is-bridge" : node.isFocused || selected ? "is-focus" : inSelectedTheme ? "is-theme" : "is-anchor";
       const hitRadius = Math.max(24, Number(node.radius || 0) + 8);
       const glintRadius = Math.max(2.2, Number(node.radius || 0) * 0.18);
       const glintX = Number(node.x || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       const glintY = Number(node.y || 0) - Math.max(2, Number(node.radius || 0) * 0.28);
       return `
-        <g class="graph-map-node graph-node ${typeClass} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
+        <g class="graph-map-node graph-node ${typeClass} is-star-${escapeHtml(node.starTier || "minor")} ${node.isHub ? "is-hub" : ""} ${node.isFocused ? "is-focused" : ""} ${node.isContext ? "is-context" : ""} ${node.isAnchor ? "is-anchor" : ""} ${node.isGraphIsolatedCandidate ? "is-graph-isolated" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${selectedIsolated ? "is-isolated-selected" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""} ${revealOnly ? "is-label-on-hover" : ""}" data-open-note="${escapeHtml(node.id)}" data-node-id="${escapeHtml(node.id)}" data-node-title="${escapeHtml(title)}" data-node-type="${escapeHtml(metaLabel)}" data-node-degree="${escapeHtml(String(Number(node.degree || 0)))}" data-node-neighbors="${escapeHtml(neighbors.join(","))}" data-node-attention="${escapeHtml(attentionReasons.join(","))}"${isolatedKey ? ` data-graph-isolated-key="${escapeHtml(isolatedKey)}"` : ""} role="button" tabindex="0" aria-label="${node.isGraphIsolatedCandidate ? "整理孤立节点" : "查看笔记角色"} ${escapeHtml(title)}">
           <title>${escapeHtml(title)}；${escapeHtml(metaLabel)}；连接 ${Number(node.degree || 0)} 条${escapeHtml(attentionText)}</title>
           <circle class="graph-map-node-hit" cx="${node.x}" cy="${node.y}" r="${hitRadius}"></circle>
+          ${Number(node.auraRadius || 0) > 0 ? `<circle class="graph-map-node-aura is-${escapeHtml(node.starTier || "minor")}" cx="${node.x}" cy="${node.y}" r="${Number(node.auraRadius || 0)}"></circle>` : ""}
           ${haloVisible ? `<circle class="graph-map-node-orbit ${escapeHtml(haloTone)}" cx="${node.x}" cy="${node.y}" r="${Number(node.radius || 0) + 8}"></circle>` : ""}
           <circle class="graph-map-node-core" cx="${node.x}" cy="${node.y}" r="${node.radius}"></circle>
           <circle class="graph-map-node-glint" cx="${glintX}" cy="${glintY}" r="${glintRadius}"></circle>
@@ -11036,11 +11439,12 @@ function renderGraphVisualMap({
       const inSelectedNodeNeighborhood = Boolean(selectedNodeId) && (fromId === selectedNodeId || toId === selectedNodeId);
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
+      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap);
       return `
-        <g class="graph-map-edge-group graph-edge ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
+        <g class="graph-map-edge-group graph-edge ${fitVisible ? "is-fit-visible" : "is-fit-hidden"} ${connectsFocus ? "is-focused-path" : ""} ${selected ? "is-selected" : ""} ${inSelectedNodeNeighborhood ? "is-selected-neighborhood" : ""} ${lensPriority ? "is-lens-priority" : ""} ${lensSecondary ? "is-lens-secondary" : ""} ${inSelectedTheme ? "is-theme-selected" : ""} ${inSelectedBridge ? "is-bridge-selected" : ""}" data-open-note="${escapeHtml(edge.fromNoteId || "")}" data-edge-key="${escapeHtml(edgeKey)}" data-edge-id="${escapeHtml(String(edge.id || "").trim())}" data-edge-from="${escapeHtml(edge.fromNoteId || "")}" data-edge-to="${escapeHtml(edge.toNoteId || "")}" data-edge-relation-type="${escapeHtml(String(edge.relationType || "").trim())}" data-edge-source-title="${escapeHtml(sourceTitle)}" data-edge-target-title="${escapeHtml(targetTitle)}" data-edge-relation="${escapeHtml(relationLabel)}" data-edge-group="${escapeHtml(relationGroup.label)}" data-edge-source="${escapeHtml(sourceLabel)}" data-edge-rationale="${escapeHtml(rationale)}" role="button" tabindex="0" aria-label="查看关系复核 ${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}">
           <title>${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}；${escapeHtml(relationGroup.label)} · ${escapeHtml(relationLabel)}；${escapeHtml(sourceLabel)}${rationale ? `；${escapeHtml(rationale)}` : ""}</title>
           <path class="graph-map-edge-underlay ${escapeHtml(visual.className)}" d="${path.d}"></path>
-          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` marker-end="url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
+          <path class="graph-map-edge ${escapeHtml(visual.className)}" d="${path.d}"${visual.key === "index" ? "" : ` style="--graph-edge-marker: url(#graph-arrow-${escapeHtml(visual.key)})"`}></path>
           <path class="graph-map-edge-hit" d="${path.d}"></path>
           ${
             showEdgeLabel
@@ -11063,12 +11467,13 @@ function renderGraphVisualMap({
   return `
     <section class="graph-map-panel${expanded ? " is-expanded" : ""}${!filterActive && readingLensState.active ? ` has-reading-lens is-reading-lens-${escapeHtml(readingLens.key)}` : ""}${activeSelection?.kind === "node" ? " is-selecting-node" : ""}${activeSelection?.kind === "theme" ? " is-selecting-theme" : ""}${activeSelection?.kind === "isolated" ? " is-selecting-isolated" : ""}${activeSelection?.kind === "bridge" ? " is-selecting-bridge" : ""}" aria-label="图形化笔记关系图谱">
       <div class="graph-map-head">
-        <div>
-          <div class="graph-section-title">${filterActive ? "当前笔记关系图" : escapeHtml(modeMeta.label)}</div>
-          <div class="graph-section-note">${filterActive ? `当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。` : escapeHtml(modeMeta.mapNote)}</div>
-          ${
-            filterActive
-              ? `
+        ${toolbarMarkup}
+        ${
+          filterActive
+            ? `
+              <div>
+                <div class="graph-section-title">当前笔记关系图</div>
+                <div class="graph-section-note">当前笔记固定在中心，周边按 ${focusDepth.label} 展开；可以直接拖动画布，查看这条笔记周围的不同局部。</div>
                 <div class="graph-focus-depth" aria-label="中心阅读深度">
                   ${["1", "2", "all"]
                     .map((value) => {
@@ -11079,15 +11484,40 @@ function renderGraphVisualMap({
                     .join("")}
                   <span class="graph-focus-depth-note">${escapeHtml(focusDepth.note)}</span>
                 </div>
-              `
-              : ""
-          }
-          ${!filterActive ? renderGraphReadingLensControls(readingLens.key) : ""}
-          ${!filterActive && layout.nodes.length > 120 ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
-        </div>
+              </div>
+            `
+            : `
+              <div class="graph-map-primary-row">
+                ${renderGraphViewModeSwitcher(relationType)}
+                <div class="graph-map-primary-actions">
+                  ${compactRelationFilterMarkup}
+                </div>
+              </div>
+              ${renderGraphReadingLensControls(readingLens.key, legendOpen)}
+              ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
+            `
+        }
       </div>
+      ${
+        legendOpen
+          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
+              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
+              ${legendGroups
+                .map(
+                  (group) => `
+                    <span>
+                      <i class="${escapeHtml(group.className)}"></i>
+                      <strong>${escapeHtml(group.label)}</strong>
+                      <small>${escapeHtml(group.detail)}</small>
+                    </span>
+                  `
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
       <div class="graph-map-stage">
-        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap">${utilityDrawerMarkup}</div>` : ""}
+        ${utilityDrawerMarkup ? `<div class="graph-utility-drawer-wrap"${graphUtilityDrawerWrapStyle()}>${utilityDrawerMarkup}</div>` : ""}
         ${
           layout.nodes.length
             ? `
@@ -11097,7 +11527,7 @@ function renderGraphVisualMap({
                     <div class="graph-map-floater" aria-label="图谱查看工具">
                       <button class="graph-expand-btn" type="button" data-graph-toggle-expanded="${expanded ? "off" : "on"}" title="${expanded ? "退出放大" : "放大查看"}" aria-label="${expanded ? "退出放大" : "放大查看"}">${renderGraphIcon(expanded ? "collapse" : "expand")}</button>
                       <div class="graph-zoom-controls" aria-label="图谱缩放">
-                        ${zoomControls}
+                        ${zoomStepperMarkup}
                       </div>
                     </div>
                     <div class="graph-hover-card" id="graphHoverCard" aria-live="polite">
@@ -11127,10 +11557,16 @@ function renderGraphVisualMap({
                           <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#35b779" flood-opacity="0.16"></feDropShadow>
                         </filter>
                         <filter id="graph-soft-edge-glow" x="-30%" y="-30%" width="160%" height="160%">
-                          <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="#38a3c9" flood-opacity="0.15"></feDropShadow>
+                          <feDropShadow dx="0" dy="0" stdDeviation="1.3" flood-color="#38a3c9" flood-opacity="0.1"></feDropShadow>
                         </filter>
+                        <linearGradient id="graph-map-backdrop-fill" x1="4%" y1="6%" x2="94%" y2="100%">
+                          <stop offset="0%" stop-color="#fdffff" stop-opacity="0.97"></stop>
+                          <stop offset="48%" stop-color="#f6fffb" stop-opacity="0.95"></stop>
+                          <stop offset="100%" stop-color="#eef9ff" stop-opacity="0.94"></stop>
+                        </linearGradient>
                       </defs>
-                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28"></rect>
+                      <rect class="graph-map-backdrop" x="0" y="0" width="${layout.width}" height="${layout.height}" rx="28" fill="url(#graph-map-backdrop-fill)"></rect>
+                      <g class="graph-map-stars">${starfieldMarkup}</g>
                       ${themeBoundaryMarkup ? `<g class="graph-map-theme-boundaries">${themeBoundaryMarkup}</g>` : ""}
                       <g class="graph-map-edges">${edgeMarkup}</g>
                       <g class="graph-map-nodes">${nodeMarkup}</g>
@@ -11158,27 +11594,6 @@ function renderGraphVisualMap({
         }
         ${thinkingPanelMarkup && !filterActive ? thinkingPanelMarkup : ""}
         ${questionSpotSummary && !filterActive ? renderGraphQuestionSpotChip(questionSpotSummary) : ""}
-      </div>
-      ${
-        legendOpen
-          ? `<div class="graph-map-legend" aria-label="关系颜色图例">
-              <div class="graph-map-legend-note">节点大小表示当前注意力，不表示最终价值；虚线表示候选或待确认关系。</div>
-              ${legendGroups
-                .map(
-                  (group) => `
-                    <span>
-                      <i class="${escapeHtml(group.className)}"></i>
-                      <strong>${escapeHtml(group.label)}</strong>
-                      <small>${escapeHtml(group.detail)}</small>
-                    </span>
-                  `
-                )
-                .join("")}
-            </div>`
-          : ""
-      }
-      <div class="graph-map-footer-controls">
-        <button class="mini-btn is-ghost" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
       </div>
     </section>
   `;
@@ -11658,6 +12073,9 @@ function graphAiAnalysisSummaryState() {
 }
 
 function currentGraphVisibleNodeIds() {
+  if (state.module === "graph" && state.graphVisibleNoteIdsReady === true && state.graphVisibleNoteIds instanceof Set) {
+    return [...state.graphVisibleNoteIds];
+  }
   const graph = graphState.item;
   if (!graph) return [];
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
@@ -12175,11 +12593,13 @@ function renderGraphUtilityDrawer({ bridgeGapCount = 0, weakRelationCount = 0, r
   return `
     <details class="graph-utility-drawer" data-graph-utility-drawer${open ? " open" : ""}>
       <summary class="graph-utility-drawer-summary">
+        <span class="graph-utility-drawer-drag-handle" data-graph-utility-drag-handle aria-hidden="true" title="拖动位置">${renderGraphIcon("drag")}</span>
         <div class="graph-utility-drawer-copy">
           <strong>${renderGraphIcon("clue")}待判断线索</strong>
           <span>把可能有启发的关联、理由缺口和主题候选先收起，需要时再展开判断。</span>
         </div>
         <div class="graph-utility-drawer-meta">
+          <button class="graph-utility-drawer-reset" type="button" data-graph-utility-reset-position aria-label="恢复待判断线索默认位置" title="恢复默认位置"${graphState.utilityDrawerPosition ? "" : " disabled"}>${renderGraphIcon("reset")}回位</button>
           ${badges ? `<div class="graph-utility-drawer-badges">${badges}</div>` : `<div class="graph-utility-drawer-hint">线索入口</div>`}
         </div>
       </summary>
@@ -12212,6 +12632,164 @@ function syncGraphDisclosureState(root) {
   });
 }
 
+function clampGraphUtilityDrawerPosition(position, stage, wrapper) {
+  const nextX = Number(position?.x);
+  const nextY = Number(position?.y);
+  if (!Number.isFinite(nextX) || !Number.isFinite(nextY) || !stage || !wrapper) return null;
+  const padding = 10;
+  const maxX = Math.max(padding, stage.clientWidth - wrapper.offsetWidth - padding);
+  const maxY = Math.max(padding, stage.clientHeight - wrapper.offsetHeight - padding);
+  return {
+    x: Math.max(padding, Math.min(maxX, Math.round(nextX))),
+    y: Math.max(padding, Math.min(maxY, Math.round(nextY)))
+  };
+}
+
+function graphUtilityDrawerWrapStyle(root = $("graphCanvas")) {
+  const position = graphState.utilityDrawerPosition;
+  if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return "";
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const clamped = wrap && stage ? clampGraphUtilityDrawerPosition(position, stage, wrap) : position;
+  if (clamped) graphState.utilityDrawerPosition = clamped;
+  return ` style="left:${Number(clamped?.x || 0)}px; top:${Number(clamped?.y || 0)}px; right:auto; justify-content:flex-start;"`;
+}
+
+function applyGraphUtilityDrawerPosition(root = $("graphCanvas")) {
+  const wrap = root?.querySelector(".graph-utility-drawer-wrap");
+  const stage = root?.querySelector(".graph-map-stage");
+  const position = graphState.utilityDrawerPosition;
+  if (!wrap || !stage || !position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return;
+  const clamped = clampGraphUtilityDrawerPosition(position, stage, wrap);
+  if (!clamped) return;
+  graphState.utilityDrawerPosition = clamped;
+  wrap.style.left = `${clamped.x}px`;
+  wrap.style.top = `${clamped.y}px`;
+  wrap.style.right = "auto";
+  wrap.style.justifyContent = "flex-start";
+}
+
+function beginGraphUtilityDrawerDrag(handle, event) {
+  const wrapper = handle?.closest(".graph-utility-drawer-wrap");
+  const stage = wrapper?.closest(".graph-map-stage");
+  if (!wrapper || !stage) return;
+  const originX = Number.isFinite(graphState.utilityDrawerPosition?.x) ? graphState.utilityDrawerPosition.x : wrapper.offsetLeft;
+  const originY = Number.isFinite(graphState.utilityDrawerPosition?.y) ? graphState.utilityDrawerPosition.y : wrapper.offsetTop;
+  graphUtilityDrawerDragState.active = true;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = event.pointerId;
+  graphUtilityDrawerDragState.handle = handle;
+  graphUtilityDrawerDragState.wrapper = wrapper;
+  graphUtilityDrawerDragState.stage = stage;
+  graphUtilityDrawerDragState.startX = event.clientX;
+  graphUtilityDrawerDragState.startY = event.clientY;
+  graphUtilityDrawerDragState.originX = originX;
+  graphUtilityDrawerDragState.originY = originY;
+  wrapper.classList.add("is-dragging");
+  try {
+    handle.setPointerCapture(event.pointerId);
+  } catch {}
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function updateGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const deltaX = event.clientX - graphUtilityDrawerDragState.startX;
+  const deltaY = event.clientY - graphUtilityDrawerDragState.startY;
+  if (!graphUtilityDrawerDragState.moved && Math.abs(deltaX) + Math.abs(deltaY) > 4) {
+    graphUtilityDrawerDragState.moved = true;
+  }
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  const stage = graphUtilityDrawerDragState.stage;
+  if (!wrapper || !stage) return;
+  const nextPosition = clampGraphUtilityDrawerPosition(
+    {
+      x: graphUtilityDrawerDragState.originX + deltaX,
+      y: graphUtilityDrawerDragState.originY + deltaY
+    },
+    stage,
+    wrapper
+  );
+  if (!nextPosition) return;
+  graphState.utilityDrawerPosition = nextPosition;
+  wrapper.style.left = `${nextPosition.x}px`;
+  wrapper.style.top = `${nextPosition.y}px`;
+  wrapper.style.right = "auto";
+  wrapper.style.justifyContent = "flex-start";
+  wrapper.querySelector("[data-graph-utility-reset-position]")?.removeAttribute("disabled");
+  event.preventDefault();
+}
+
+function endGraphUtilityDrawerDrag(event) {
+  if (!graphUtilityDrawerDragState.active || event.pointerId !== graphUtilityDrawerDragState.pointerId) return;
+  const handle = graphUtilityDrawerDragState.handle;
+  const wrapper = graphUtilityDrawerDragState.wrapper;
+  if (handle?.hasPointerCapture?.(event.pointerId)) {
+    try {
+      handle.releasePointerCapture(event.pointerId);
+    } catch {}
+  }
+  if (wrapper) wrapper.classList.remove("is-dragging");
+  if (graphUtilityDrawerDragState.moved) {
+    graphUtilityDrawerDragState.suppressClickUntil = Date.now() + 250;
+  }
+  graphUtilityDrawerDragState.active = false;
+  graphUtilityDrawerDragState.moved = false;
+  graphUtilityDrawerDragState.pointerId = null;
+  graphUtilityDrawerDragState.handle = null;
+  graphUtilityDrawerDragState.wrapper = null;
+  graphUtilityDrawerDragState.stage = null;
+}
+
+const GRAPH_DENSITY_HINT_TIMEOUT_MS = 10000;
+
+function clearGraphDensityHintTimer() {
+  if (!graphState.densityHintTimer) return;
+  window.clearTimeout(graphState.densityHintTimer);
+  graphState.densityHintTimer = 0;
+}
+
+function scheduleGraphDensityHintDismiss() {
+  clearGraphDensityHintTimer();
+  const remaining = Number(graphState.densityHintVisibleUntil || 0) - Date.now();
+  if (remaining <= 0) {
+    graphState.densityHintVisibleUntil = 0;
+    return;
+  }
+  graphState.densityHintTimer = window.setTimeout(() => {
+    graphState.densityHintTimer = 0;
+    graphState.densityHintVisibleUntil = 0;
+    if (state.module === "graph") renderGraphPanel();
+  }, remaining);
+}
+
+function shouldShowGraphDensityHint({ dense = false, filterActive = false } = {}) {
+  const hintKey =
+    dense && !filterActive
+      ? `${String(graphState.lastLoadedDirectoryId || "").trim()}::${String(graphState.lastLoadedAt || "").trim()}::dense`
+      : "";
+  if (!hintKey) {
+    graphState.densityHintKey = "";
+    graphState.densityHintVisibleUntil = 0;
+    clearGraphDensityHintTimer();
+    return false;
+  }
+  const now = Date.now();
+  if (graphState.densityHintKey !== hintKey) {
+    graphState.densityHintKey = hintKey;
+    graphState.densityHintVisibleUntil = now + GRAPH_DENSITY_HINT_TIMEOUT_MS;
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  if (Number(graphState.densityHintVisibleUntil || 0) > now) {
+    scheduleGraphDensityHintDismiss();
+    return true;
+  }
+  clearGraphDensityHintTimer();
+  return false;
+}
+
 function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
@@ -12226,6 +12804,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `正在加载“${folder?.name || "永久笔记盒"}”的永久笔记关系...`;
     canvas.innerHTML = `<div class="graph-empty">正在读取永久笔记盒及其子目录里的笔记节点、显式关系和待补理由。</div>`;
@@ -12236,6 +12815,7 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
     summary.textContent = `图谱加载失败：${graphState.error}`;
     canvas.innerHTML = renderGraphErrorState(graphState.error);
@@ -12247,9 +12827,10 @@ function renderGraphPanel() {
     state.graphConnectivityReady = false;
     state.graphConnectedNoteIds = new Set();
     state.graphVisibleNoteIds = new Set();
+    state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
-    summary.textContent = `永久笔记盒：点击“刷新图谱”查看所有永久笔记之间的关系。`;
-    canvas.innerHTML = `<div class="graph-empty">图谱固定展示永久笔记盒及其子目录：节点是永久笔记，边是支持、反驳、限定、桥接等关系。</div>`;
+    summary.textContent = "0 条永久笔记，0 条关系";
+    canvas.innerHTML = `<div class="graph-empty"></div>`;
     return;
   }
 
@@ -12260,7 +12841,11 @@ function renderGraphPanel() {
   );
   syncAllNoteRelationNetworkStatuses({ connectivityReady: true, connectedIds: state.graphConnectedNoteIds });
   const scoped = graphScopedItems(graph);
-  const focused = graphFocusedItems(scoped.nodes, scoped.edges);
+  const filters = graphState.filters || { relationType: "all", status: "all" };
+  const effectiveRelationType = normalizeGraphRelationTypeFilter(filters.relationType, "meaningful");
+  const activeFilters = { ...filters, relationType: effectiveRelationType };
+  const focusTraversalEdges = scoped.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
+  const focused = graphFocusedItems(scoped.nodes, scoped.edges, scoped.allNodes, focusTraversalEdges);
   const showingFocusedNote = focused.focused && focused.focusedNoteId;
   const graphInsights = graph?.insights && typeof graph.insights === "object" ? graph.insights : {};
   const scopedAllNodes = Array.isArray(scoped.allNodes) ? scoped.allNodes : scoped.nodes;
@@ -12270,19 +12855,15 @@ function renderGraphPanel() {
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || 0);
   const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
-  const filters = graphState.filters || { relationType: "all", status: "all" };
-  let effectiveRelationType = String(filters.relationType || "all").trim().toLowerCase() || "all";
-  let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, filters));
-  if (!showingFocusedNote && effectiveRelationType === "meaningful" && !filteredEdges.length && focused.edges.length) {
-    effectiveRelationType = "all";
-    setGraphRelationTypeFilter("all", { persist: false });
-    filteredEdges = focused.edges;
-  }
+  const filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
   const visibleNodeIds = new Set(filteredEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
-  const visibleNodes =
+  let visibleNodes =
     effectiveRelationType === "all"
       ? focused.nodes
       : focused.nodes.filter((node) => visibleNodeIds.has(node.id));
+  if (showingFocusedNote && !visibleNodes.length && focused.focusedNoteId) {
+    visibleNodes = focused.nodes.filter((node) => node.id === focused.focusedNoteId);
+  }
   const edges = filteredEdges;
   const showIsolatedVisualNodes = !showingFocusedNote && (effectiveRelationType === "meaningful" || effectiveRelationType === "all");
   const isolatedVisualNodes = showIsolatedVisualNodes
@@ -12293,23 +12874,22 @@ function renderGraphPanel() {
       })
     : [];
   const visualNodes = isolatedVisualNodes.length ? [...visibleNodes, ...isolatedVisualNodes] : visibleNodes;
+  const focusedRelationTypeStats = showingFocusedNote
+    ? graphBuildFocusedRelationTypeStats(scoped.nodes, scoped.edges, scoped.allNodes, activeFilters)
+    : null;
   graphState.selection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: visualNodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
   const notices = [];
   const lastLoadedAtLabel = formatClockTime(graphState.lastLoadedAt);
   const lastErrorAtLabel = formatClockTime(graphState.lastErrorAt);
   state.graphVisibleNoteIds = new Set(visualNodes.map((node) => node.id));
+  state.graphVisibleNoteIdsReady = true;
   const visibleRelationCounts = edges.reduce((acc, edge) => {
     const key = String(edge.relationType || "associated_with").trim();
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
-  const scopeFolder = folderById(state, scoped.scopeDirectoryId) || folder;
-  const focusedNote = state.notes.find((note) => note.id === focused.focusedNoteId) || null;
   if (backButton) backButton.classList.toggle("hidden", !(state.module === "graph" && String(state.selectedFileId || "").trim()));
-  const summaryModeNote = graphSummaryModeNote(effectiveRelationType);
-  const baseSummary = showingFocusedNote
-    ? `${focusedNote?.title || focused.focusedNoteId} · ${graphFocusDepthMeta(focused.focusDepth || graphState.focusDepth).label} · ${edges.length} 条关系`
-    : `${scopeFolder?.name || "永久笔记盒"} · ${visibleNodes.length} 条永久笔记 · ${edges.length} 条关系 · ${summaryModeNote}${isolatedVisualNodes.length ? ` · ${isolatedVisualNodes.length} 条孤立待判断` : ""}`;
+  const baseSummary = `${visualNodes.length} 条永久笔记，${edges.length} 条关系`;
   if (graphState.loading) {
     notices.push(
       renderGraphInlineNotice({
@@ -12370,21 +12950,22 @@ function renderGraphPanel() {
         open: graphState.utilityDrawerOpen || graphState.aiAnalysisLoading || Boolean(graphState.aiAnalysisError)
       })
     : "";
-  canvas.innerHTML = `
-    ${notices.join("")}
-    <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs" : ""}">
-      ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : '<div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>'}
-      <div class="graph-canvas-toolbar-actions">
-        <div class="graph-filters graph-filters-single" data-graph-filters>
-          <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
-            ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
-          </select>
+  const toolbarMarkup = showingFocusedNote
+    ? `
+      <div class="graph-canvas-toolbar">
+        <div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>
+        <div class="graph-canvas-toolbar-actions">
+          ${renderGraphRelationTypeFilter(focused.edges, effectiveRelationType, false, focusedRelationTypeStats)}
         </div>
       </div>
-    </div>
+    `
+    : "";
+  canvas.innerHTML = `
+    ${notices.join("")}
     ${renderGraphVisualMap({
       nodes: visualNodes,
       edges,
+      relationFilterEdges: focused.edges,
       filterActive: Boolean(showingFocusedNote),
       focusedNoteId: focused.focusedNoteId,
       relationType: effectiveRelationType,
@@ -12393,9 +12974,11 @@ function renderGraphPanel() {
       isolatedNotes,
       bridgeGaps,
       thinkingPanelMarkup: thinkingPanel,
-      utilityDrawerMarkup: utilityDrawer
+      utilityDrawerMarkup: utilityDrawer,
+      toolbarMarkup
     })}
   `;
+  applyGraphUtilityDrawerPosition(canvas);
 }
 
 async function refreshDirectoryGraph() {
@@ -15148,6 +15731,26 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     event.stopPropagation();
     return;
   }
+  if (graphUtilityDrawerDragState.suppressClickUntil > Date.now() && event.target.closest(".graph-utility-drawer")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  const utilityDrawerReset = event.target.closest("[data-graph-utility-reset-position]");
+  if (utilityDrawerReset) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (utilityDrawerReset.hasAttribute("disabled")) return;
+    graphState.utilityDrawerPosition = null;
+    renderGraphPanel();
+    setStatus("待判断线索已恢复默认位置", "ok");
+    return;
+  }
+  if (event.target.closest("[data-graph-utility-drag-handle]")) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const utilityDrawerSummary = event.target.closest(".graph-utility-drawer-summary");
   if (utilityDrawerSummary) {
     const utilityDrawer = utilityDrawerSummary.closest("[data-graph-utility-drawer]");
@@ -15329,6 +15932,17 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus(`图谱视图已切换为${graphZoomOption(graphState.zoom).label}`, "ok");
     return;
   }
+  const zoomStepButton = event.target.closest("[data-graph-zoom-step]");
+  if (zoomStepButton) {
+    const nextZoom = graphZoomStep(graphState.zoom, Number(zoomStepButton.getAttribute("data-graph-zoom-step") || 0));
+    if (nextZoom.key !== graphZoomOption(graphState.zoom).key) {
+      graphState.zoom = nextZoom.key;
+      renderGraphPanel();
+      requestAnimationFrame(centerGraphViewportIfZoomed);
+      setStatus(`图谱视图已切换为${nextZoom.label}`, "ok");
+    }
+    return;
+  }
   const readingLensButton = event.target.closest("[data-graph-reading-lens]");
   if (readingLensButton) {
     graphState.readingLens = graphReadingLensMeta(readingLensButton.getAttribute("data-graph-reading-lens")).key;
@@ -15453,24 +16067,33 @@ $("graphCanvas")?.addEventListener("focusout", (event) => {
 });
 
 $("graphCanvas")?.addEventListener("pointerdown", (event) => {
+  const utilityDrawerHandle = event.target.closest("[data-graph-utility-drag-handle]");
+  if (utilityDrawerHandle) {
+    beginGraphUtilityDrawerDrag(utilityDrawerHandle, event);
+    return;
+  }
   const viewport = event.target.closest(".graph-map-viewport");
   if (!viewport) return;
   beginGraphViewportDrag(viewport, event);
 });
 
 $("graphCanvas")?.addEventListener("pointermove", (event) => {
+  updateGraphUtilityDrawerDrag(event);
   updateGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointerup", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("pointercancel", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
 $("graphCanvas")?.addEventListener("lostpointercapture", (event) => {
+  endGraphUtilityDrawerDrag(event);
   endGraphViewportDrag(event);
 });
 
@@ -15575,12 +16198,9 @@ $("graphCanvas")?.addEventListener(
     const viewport = event.target.closest(".graph-map-viewport");
     if (!viewport) return;
     event.preventDefault();
-    const zoomKeys = Object.keys(GRAPH_VISUAL_ZOOM_OPTIONS);
-    const currentIndex = Math.max(0, zoomKeys.indexOf(graphZoomOption(graphState.zoom).key));
-    const nextIndex = event.deltaY > 0 ? Math.max(0, currentIndex - 1) : Math.min(zoomKeys.length - 1, currentIndex + 1);
-    const nextZoom = zoomKeys[nextIndex];
-    if (!nextZoom || nextZoom === graphState.zoom) return;
-    graphState.zoom = nextZoom;
+    const nextZoom = graphZoomStep(graphState.zoom, event.deltaY > 0 ? -1 : 1);
+    if (nextZoom.key === graphState.zoom) return;
+    graphState.zoom = nextZoom.key;
     renderGraphPanel();
     requestAnimationFrame(centerGraphViewportIfZoomed);
   },
