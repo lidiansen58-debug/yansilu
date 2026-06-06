@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
   composePermanentWorkspace,
+  deriveLiteratureSectionLabelsFromTemplate,
   formatMarkdownLinkDestination,
   parseLiteratureWorkspace,
   parseMarkdownLinkSyntax,
@@ -156,6 +157,72 @@ test("parseLiteratureWorkspace keeps backward-compatible literature headings", (
 
   assert.equal(parsed.supportsJudgment, "旧判断");
   assert.equal(parsed.boundary, "旧边界");
+});
+
+test("parseLiteratureWorkspace follows renamed headings inferred from template order", () => {
+  const sectionLabels = deriveLiteratureSectionLabelsFromTemplate(`# {{title}}
+
+## Source Card
+
+- 标题：
+- 作者：
+- 年份：
+- 页码 / 定位：
+- DOI / ISBN / arXiv / URL / PDF：
+
+## Excerpt
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+  const parsed = parseLiteratureWorkspace(`# Renamed Literature Note
+
+## Source Card
+
+- 标题：Source
+- 作者：Author
+- 年份：2026
+- 页码 / 定位：p. 8
+- DOI / ISBN / arXiv / URL / PDF：doi:10/example
+
+## Excerpt
+
+Quoted passage
+
+## My Paraphrase
+
+User paraphrase
+
+## Claim Seed
+
+Possible claim
+
+## Open Question
+
+What still needs testing?
+
+## Constraints
+
+Where does this stop holding?
+
+## Why Keep
+
+Useful later in synthesis
+`, { sectionLabels });
+
+  assert.equal(parsed.originalText, "Quoted passage");
+  assert.equal(parsed.paraphrase, "User paraphrase");
+  assert.equal(parsed.supportsJudgment, "Possible claim");
+  assert.equal(parsed.question, "What still needs testing?");
+  assert.equal(parsed.boundary, "Where does this stop holding?");
+  assert.equal(parsed.whyKeep, "Useful later in synthesis");
 });
 
 test("parsePermanentWorkspace reads structured core sections and aliases", () => {

@@ -16,6 +16,7 @@ import { PermanentNoteDialog } from "./components-permanent-note-dialog.js";
 import { createDesktopFileCommandService } from "./desktop-file-command-service.js";
 import { ExplorerPane, explorerNewNoteButtonCopy, resolveExplorerNewNoteFolderId } from "./components-explorer-pane.js";
 import {
+  deriveLiteratureSectionLabelsFromTemplate,
   EditorPane,
   composePermanentWorkspace,
   normalizeFieldText,
@@ -808,6 +809,10 @@ function defaultLiteratureTemplateSource(title = "{{title}}") {
     "",
     ""
   ].join("\n");
+}
+
+function currentLiteratureTemplateSectionLabels() {
+  return deriveLiteratureSectionLabelsFromTemplate(settingsState.noteTemplates.literature.text);
 }
 
 function defaultPermanentTemplateSource(title = "{{title}}") {
@@ -4101,7 +4106,7 @@ function hasRequiredLiteratureCitation(citation = {}) {
 }
 
 function literatureQueueLaneForNote(note) {
-  const fields = parseLiteratureWorkspace(note?.body || "");
+  const fields = parseLiteratureWorkspace(note?.body || "", { sectionLabels: currentLiteratureTemplateSectionLabels() });
   const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
   const hasOriginalText = Boolean(normalizeFieldText(fields.originalText));
   const hasJudgmentSeed = Boolean(normalizeFieldText(fields.supportsJudgment));
@@ -4883,7 +4888,9 @@ function citationSummaryLines(citation = {}) {
 function originalDraftBodyFromSource(payload = {}) {
   const sourceType = String(payload.sourceType || "").trim().toLowerCase();
   if (sourceType === "literature") {
-    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "");
+    const parsed = parseLiteratureWorkspace(payload.sourceBody || payload.body || "", {
+      sectionLabels: currentLiteratureTemplateSectionLabels()
+    });
     const sourceTitle = String(payload.sourceTitle || "").trim() || "未命名文献笔记";
     const claim = String(payload.paraphrase || parsed.paraphrase || "").trim();
     const whyKeep = String(payload.whyKeep || parsed.whyKeep || "").trim();
@@ -14913,6 +14920,7 @@ const editor = new EditorPane({
   onOpenNote: openNoteById,
   resolveNoteWritingContinuation: (note) => noteMainPathWritingContinuationEntry(note?.id || "", "当前笔记"),
   selectPermanentDirectory,
+  resolveLiteratureSectionLabels: currentLiteratureTemplateSectionLabels,
   onChromeChange: () => {
     renderStatusMeta();
     renderWorkspaceStatusHint();
