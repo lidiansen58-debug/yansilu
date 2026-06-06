@@ -329,12 +329,14 @@ const settingsState = {
   noteTemplates: {
     permanent: {
       panelOpen: false,
+      scope: "",
       text: "",
       draftText: "",
       history: []
     },
     literature: {
       panelOpen: false,
+      scope: "",
       text: "",
       draftText: "",
       history: []
@@ -906,12 +908,22 @@ function composePermanentTemplateDraft(fields = {}) {
 }
 
 function loadNoteTemplateSettingsFromStorage() {
+  const scope = noteTemplateStorageScope();
   for (const kind of ["permanent", "literature"]) {
+    const entry = settingsState.noteTemplates[kind];
+    const previousScope = String(entry?.scope || "");
+    const savedTextBeforeLoad = normalizeNoteTemplateSource(entry?.text, kind);
+    const draftTextBeforeLoad = String(entry?.draftText || "");
+    const hasUnsavedDraft =
+      previousScope === scope && normalizeNoteTemplateSource(draftTextBeforeLoad || savedTextBeforeLoad, kind) !== savedTextBeforeLoad;
     const scopedText = readStoredText(noteTemplateStorageKey(kind), "");
     const legacyText = noteTemplateStorageScope() === "global" ? readStoredText(NOTE_TEMPLATE_STORAGE_KEYS[kind], "") : "";
     const normalizedText = normalizeNoteTemplateSource(scopedText || legacyText, kind);
     settingsState.noteTemplates[kind].text = normalizedText;
-    settingsState.noteTemplates[kind].draftText = normalizedText;
+    settingsState.noteTemplates[kind].scope = scope;
+    if (!hasUnsavedDraft) {
+      settingsState.noteTemplates[kind].draftText = normalizedText;
+    }
     const scopedHistory = readStoredText(noteTemplateStorageKey(kind, { suffix: "history" }), "");
     let parsedHistory = [];
     try {
@@ -4630,17 +4642,19 @@ async function refreshUntitledPlaceholderForCurrentTemplate(note) {
   if (!existingBody || existingBody === currentBody || !isEmptyUntitledMarkdown(existingBody, note.folderId)) return note;
 
   const nextBody = ensureEditableNoteBody(initialBodyForFolder(note.folderId));
-  note.body = nextBody;
-  note.bodyLoaded = true;
-  note.tags = parseTags(nextBody);
-  note.links = parseLinks(nextBody);
-  note.updatedAt = new Date().toISOString();
-  if (tab) {
-    tab.body = nextBody;
-    tab.savedBody = nextBody;
-    tab.dirty = false;
+  if (isLocalOnlyNote(note)) {
+    note.body = nextBody;
+    note.bodyLoaded = true;
+    note.tags = parseTags(nextBody);
+    note.links = parseLinks(nextBody);
+    note.updatedAt = new Date().toISOString();
+    if (tab) {
+      tab.body = nextBody;
+      tab.savedBody = nextBody;
+      tab.dirty = false;
+    }
+    return note;
   }
-  if (isLocalOnlyNote(note)) return note;
 
   try {
     const updated = await updateNote(note.id, {
@@ -4661,7 +4675,9 @@ async function refreshUntitledPlaceholderForCurrentTemplate(note) {
         tab.dirty = false;
       }
     }
-  } catch {}
+  } catch (error) {
+    setStatus(`未命名占位模板刷新失败，仍打开旧内容：${String(error?.message || error)}`, "warn");
+  }
   return note;
 }
 

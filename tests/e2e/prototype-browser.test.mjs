@@ -4424,6 +4424,54 @@ test("prototype settings exposes the permanent note template entry", async (t) =
   }, 5000);
 });
 
+test("prototype settings keeps template drafts across same-vault refreshes", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+  const draftTemplate = `# {{title}}
+
+## 核心观点
+
+这是还没保存的模板草稿。
+`;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenPermanentTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+  }, 5000);
+
+  await page.locator("#settingsPermanentTemplateEditor").fill(draftTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+
+  await page.locator("#settingsRefreshVault").click();
+  await waitFor(async () => {
+    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
+    assert.ok(currentVaultText.length > 0);
+    assert.notEqual(currentVaultText, "尚未读取");
+  }, 10000);
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+
+  await openSettingsModule(page);
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
+    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+  }, 5000);
+});
+
 test("prototype settings saved literature and permanent templates drive later new notes in the same vault", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
