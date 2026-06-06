@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assetMarkdownSnippet,
+  composePermanentWorkspace,
   formatMarkdownLinkDestination,
   parseLiteratureWorkspace,
   parseMarkdownLinkSyntax,
+  parsePermanentWorkspace,
   renderMarkdownPreview
 } from "../../apps/web/src/components-editor-pane.js";
 
@@ -31,10 +33,10 @@ test("assetMarkdownSnippet inserts stable Markdown for image and file assets wit
   assert.equal(
     assetMarkdownSnippet({
       assetKind: "image",
-      fileName: "\u56fe\u50cf \u8d44\u6599.png",
-      markdownLinkPath: "../../../assets/images/pn_1/\u56fe\u50cf \u8d44\u6599.png"
+      fileName: "图像 资料.png",
+      markdownLinkPath: "../../../assets/images/pn_1/图像 资料.png"
     }),
-    "![\u56fe\u50cf \u8d44\u6599](<../../../assets/images/pn_1/\u56fe\u50cf \u8d44\u6599.png>)"
+    "![图像 资料](<../../../assets/images/pn_1/图像 资料.png>)"
   );
   assert.equal(
     assetMarkdownSnippet({
@@ -65,7 +67,7 @@ test("parseMarkdownLinkSyntax supports angle-wrapped asset destinations", () => 
 
 test("renderMarkdownPreview resolves angle-wrapped vault image destinations", () => {
   const html = renderMarkdownPreview(
-    "![\u56fe\u50cf \u8d44\u6599](<../../assets/images/pn_1/\u56fe\u50cf \u8d44\u6599.png>)",
+    "![图像 资料](<../../assets/images/pn_1/图像 资料.png>)",
     { noteMarkdownPath: "notes/original/source.md" }
   );
 
@@ -123,13 +125,13 @@ test("parseLiteratureWorkspace reads judgment seed, question, and boundary secti
 
 ## 保留原因
 
-为什么保留
+为什么值得保留
 `);
 
   assert.equal(parsed.supportsJudgment, "一个可继续发展的判断");
   assert.equal(parsed.question, "还需要验证什么？");
   assert.equal(parsed.boundary, "不适用的条件");
-  assert.equal(parsed.whyKeep, "为什么保留");
+  assert.equal(parsed.whyKeep, "为什么值得保留");
 });
 
 test("parseLiteratureWorkspace keeps backward-compatible literature headings", () => {
@@ -154,4 +156,66 @@ test("parseLiteratureWorkspace keeps backward-compatible literature headings", (
 
   assert.equal(parsed.supportsJudgment, "旧判断");
   assert.equal(parsed.boundary, "旧边界");
+});
+
+test("parsePermanentWorkspace reads structured core sections and aliases", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+## 核心观点
+
+Claim that can stand on its own.
+
+## 为什么成立
+
+Reasoning chain.
+
+## 边界 / 反例
+
+Counterexample or limit.
+
+## 证据来源
+
+- [[Source note]]
+
+## 补充说明
+
+Legacy detail that should stay editable.
+`);
+
+  assert.equal(parsed.coreClaim, "Claim that can stand on its own.");
+  assert.equal(parsed.whyTrue, "Reasoning chain.");
+  assert.equal(parsed.boundary, "Counterexample or limit.");
+  assert.equal(parsed.relatedClues, "- [[Source note]]");
+  assert.equal(parsed.supplement, "Legacy detail that should stay editable.");
+  assert.equal(parsed.structured, true);
+});
+
+test("parsePermanentWorkspace keeps legacy freeform content editable without forcing migration", () => {
+  const parsed = parsePermanentWorkspace(`# Legacy note
+
+A concise legacy claim.
+
+Freeform supporting paragraph that did not use the new section headings yet.
+`);
+
+  assert.equal(parsed.coreClaim, "A concise legacy claim.");
+  assert.equal(parsed.supplement, "Freeform supporting paragraph that did not use the new section headings yet.");
+  assert.equal(parsed.structured, false);
+});
+
+test("composePermanentWorkspace omits empty optional sections in saved Markdown", () => {
+  const markdown = composePermanentWorkspace({
+    title: "Permanent note",
+    coreClaim: "A stable claim.",
+    whyTrue: "",
+    boundary: "",
+    relatedClues: "- [[Related note]]",
+    supplement: ""
+  });
+
+  assert.match(markdown, /^# Permanent note/m);
+  assert.match(markdown, /## 核心观点/);
+  assert.match(markdown, /## 关联线索/);
+  assert.doesNotMatch(markdown, /## 为什么成立/);
+  assert.doesNotMatch(markdown, /## 补充内容/);
 });
