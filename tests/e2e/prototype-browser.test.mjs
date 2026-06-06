@@ -4477,7 +4477,49 @@ test("prototype settings keeps template drafts across same-vault refreshes", asy
   }, 5000);
   await page.locator("#settingsRefreshVault").click();
   await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), "");
+  }, 5000);
+});
+
+test("prototype literature template preview surfaces invalid shapes before save", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page } = stack;
+  const invalidLiteratureTemplate = `# {{title}}
+
+## 引用信息
+
+## 原文
+
+## 转述
+
+## 判断种子
+
+## 追问
+
+## 边界 / 反例
+
+## Research Notes
+`;
+
+  await openSettingsModule(page);
+  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await waitFor(async () => {
+    assert.equal(await page.locator("#settingsLiteratureTemplateDetail").isVisible(), true);
+  }, 5000);
+  await page.locator("#settingsLiteratureTemplateEditor").fill(invalidLiteratureTemplate);
+  await waitFor(async () => {
+    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
+    assert.match(String(await page.locator("#settingsLiteratureTemplateSummary").textContent() || ""), /当前草稿还不能保存/);
   }, 5000);
 });
 

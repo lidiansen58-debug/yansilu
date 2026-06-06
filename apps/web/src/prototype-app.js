@@ -6993,6 +6993,18 @@ function noteTemplateEditorElementId(kind = "") {
     : "settingsPermanentTemplateEditor";
 }
 
+function noteTemplateSaveButtonElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsSaveLiteratureTemplate"
+    : "settingsSavePermanentTemplate";
+}
+
+function noteTemplateDraftValidation(kind = "", source = "") {
+  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
+  if (cleanKind !== "literature") return { ok: true, message: "" };
+  return validateLiteratureTemplateSource(source);
+}
+
 function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   if (!settingsState.noteTemplates?.[cleanKind]) return;
@@ -7055,13 +7067,22 @@ function updateNoteTemplatePreviewFromEditor(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
   const editorField = $(noteTemplateEditorElementId(cleanKind));
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
   const preview = $(`settings${capitalizedKind}TemplatePreview`);
   if (!preview) return;
   const copy = noteTemplateCardCopy(cleanKind);
   const draftSource = normalizeDraftBuffer(editorField?.value || "");
   settingsState.noteTemplates[cleanKind].draftText = draftSource;
   settingsState.noteTemplates[cleanKind].draftActive = true;
-  preview.textContent = applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind);
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  preview.textContent = validation.ok
+    ? applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind)
+    : `模板当前不能保存：${validation.message}`;
 }
 
 function renderNoteTemplateSettingsCard(kind = "") {
@@ -7074,6 +7095,7 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const list = $(`settings${capitalizedKind}TemplateFieldList`);
   const preview = $(`settings${capitalizedKind}TemplatePreview`);
   const editorField = $(`settings${capitalizedKind}TemplateEditor`);
+  const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
   const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
     panelOpen: false,
     text: defaultTemplateSourceForKind(cleanKind),
@@ -7086,15 +7108,22 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
   const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
   const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
+  const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
 
   if (stats) {
     stats.innerHTML = `
       <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
       <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
-      <span class="settings-stat-badge ${open ? "ok" : "warn"}">${escapeHtml(open ? copy.statusOpen : copy.statusClosed)}</span>
+      <span class="settings-stat-badge ${open ? (validation.ok ? "ok" : "warn") : "warn"}">${escapeHtml(open ? (validation.ok ? copy.statusOpen : "当前草稿不可保存") : copy.statusClosed)}</span>
     `;
   }
-  if (summary) summary.textContent = open ? copy.summaryOpen : copy.summaryClosed;
+  if (summary) {
+    summary.textContent = open
+      ? validation.ok
+        ? copy.summaryOpen
+        : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`
+      : copy.summaryClosed;
+  }
   if (button) {
     button.textContent = open ? copy.closeLabel : copy.openLabel;
     button.setAttribute("aria-expanded", open ? "true" : "false");
@@ -7104,7 +7133,16 @@ function renderNoteTemplateSettingsCard(kind = "") {
     list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
   }
   if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
-  if (preview) preview.textContent = applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind);
+  if (saveButton) {
+    saveButton.disabled = !validation.ok;
+    saveButton.title = validation.ok ? "" : validation.message;
+    saveButton.dataset.tip = saveButton.title;
+  }
+  if (preview) {
+    preview.textContent = validation.ok
+      ? applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind)
+      : `模板当前不能保存：${validation.message}`;
+  }
 }
 
 function renderAiCanonicalDebugPanel() {
