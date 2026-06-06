@@ -9117,10 +9117,10 @@ function renderGraphViewModeSwitcher(relationType = "meaningful") {
       ${modes
         .map((item) => {
           const active = item.key === mode;
+          const purpose = escapeHtml(item.purpose);
           return `
-            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}">
+            <button class="graph-view-tab${active ? " is-active" : ""}" type="button" data-graph-view-mode="${escapeHtml(item.key)}" aria-pressed="${active}" title="${purpose}">
               <span>${escapeHtml(item.label)}</span>
-              <small>${escapeHtml(item.purpose)}</small>
             </button>
           `;
         })
@@ -10997,6 +10997,9 @@ function renderGraphVisualMap({
             </div>`
           : ""
       }
+      <div class="graph-map-footer-controls">
+        <button class="mini-btn is-ghost" id="graphLegendToggle" type="button" aria-expanded="${legendOpen}" aria-label="${legendOpen ? "隐藏图例" : "查看图例"}">${legendOpen ? "隐藏图例" : "查看图例"}</button>
+      </div>
     </section>
   `;
 }
@@ -12033,13 +12036,8 @@ function renderGraphPanel() {
   const summary = $("graphSummary");
   const canvas = $("graphCanvas");
   const backButton = $("graphBackToDirectory");
-  const legendButton = $("graphLegendToggle");
   if (!summary || !canvas) return;
   syncGraphDisclosureState(canvas);
-  if (legendButton) {
-    legendButton.textContent = graphState.legendOpen ? "隐藏图例" : "图例";
-    legendButton.setAttribute("aria-expanded", String(graphState.legendOpen === true));
-  }
 
   const folder = folderById(state, GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID);
   const scopeDirectoryId = graphScopeDirectoryId();
@@ -12194,20 +12192,15 @@ function renderGraphPanel() {
     : "";
   canvas.innerHTML = `
     ${notices.join("")}
-    ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : ""}
-    <div class="graph-canvas-toolbar">
-      <details class="graph-advanced-controls">
-        <summary>筛选</summary>
+    <div class="graph-canvas-toolbar${!showingFocusedNote ? " has-tabs" : ""}">
+      ${!showingFocusedNote ? renderGraphViewModeSwitcher(effectiveRelationType) : '<div class="graph-canvas-toolbar-spacer" aria-hidden="true"></div>'}
+      <div class="graph-canvas-toolbar-actions">
         <div class="graph-filters graph-filters-single" data-graph-filters>
-          <label>
-            <span>关系类型</span>
-            <select id="graphRelationTypeFilter" data-graph-filter="relationType">
-              ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
-            </select>
-            <small class="graph-filter-note">关系类型越细，图里保留的连线越少。</small>
-          </label>
+          <select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">
+            ${graphFilterOptions(focused.edges, "relationType", effectiveRelationType, "全部关系", graphRelationTypeLabel)}
+          </select>
         </div>
-      </details>
+      </div>
     </div>
     ${renderGraphVisualMap({
       nodes: visualNodes,
@@ -14832,12 +14825,6 @@ $("graphRefresh")?.addEventListener("click", async () => {
   );
 });
 
-$("graphLegendToggle")?.addEventListener("click", () => {
-  graphState.legendOpen = graphState.legendOpen !== true;
-  renderGraphPanel();
-  setStatus(graphState.legendOpen ? "已显示关系图例" : "已隐藏关系图例", "ok");
-});
-
 $("graphBackToDirectory")?.addEventListener("click", () => {
   state.selectedFileId = null;
   explorer?.restoreAutoCollapsedDisconnectedGroups?.();
@@ -15355,6 +15342,13 @@ $("graphCanvas")?.addEventListener("change", (event) => {
 });
 
 $("graphCanvas")?.addEventListener("click", (event) => {
+  const legendToggle = event.target.closest("#graphLegendToggle");
+  if (legendToggle) {
+    graphState.legendOpen = graphState.legendOpen !== true;
+    renderGraphPanel();
+    setStatus(graphState.legendOpen ? "已显示关系图例" : "已隐藏关系图例", "ok");
+    return;
+  }
   const toggle = event.target.closest("[data-graph-view-mode]");
   if (!toggle) return;
   const mode = String(toggle.dataset.graphViewMode || "").trim().toLowerCase();

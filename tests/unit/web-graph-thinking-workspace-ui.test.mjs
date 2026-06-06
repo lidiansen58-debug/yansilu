@@ -38,10 +38,28 @@ test("graph type tabs stay as a primary choice instead of hidden inside filters"
   const html = readPrototypeHtml();
 
   assert.match(source, /function renderGraphViewModeSwitcher\(relationType = "meaningful"\) \{[\s\S]*graph-view-tabs[\s\S]*graph-view-tab/);
-  assert.match(source, /\$\{!showingFocusedNote \? renderGraphViewModeSwitcher\(effectiveRelationType\) : ""\}\s*\n\s*<div class="graph-canvas-toolbar">/);
-  assert.doesNotMatch(source, /<div class="graph-filters graph-filters-single" data-graph-filters>\s*\n\s*\$\{renderGraphViewModeSwitcher\(effectiveRelationType\)\}/);
-  assert.match(html, /\.graph-view-tabs \{[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*border-color: #88c9a7;/);
+  assert.match(source, /<div class="graph-canvas-toolbar\$\{!showingFocusedNote \? " has-tabs" : ""\}">[\s\S]*\$\{!showingFocusedNote \? renderGraphViewModeSwitcher\(effectiveRelationType\) : '<div class="graph-canvas-toolbar-spacer" aria-hidden="true"><\/div>'\}/);
+  assert.match(source, /<button class="graph-view-tab\$\{active \? " is-active" : ""\}" type="button" data-graph-view-mode="\$\{escapeHtml\(item\.key\)\}" aria-pressed="\$\{active\}" title="\$\{purpose\}">/);
+  assert.match(html, /\.graph-view-tabs \{[\s\S]*display: inline-flex;[\s\S]*border-radius: 999px;/);
+  assert.match(html, /\.graph-view-tab\.is-active \{[\s\S]*background: linear-gradient/);
+  assert.doesNotMatch(source, /<small>\$\{purpose\}<\/small>/);
+});
+
+test("graph legend toggle lives near the graph toolbar instead of the page header", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /<div class="graph-map-footer-controls">[\s\S]*id="graphLegendToggle"[\s\S]*查看图例/);
+  assert.match(html, /\.graph-map-footer-controls \{[\s\S]*justify-content: flex-end;/);
+  assert.doesNotMatch(source, /<details class="graph-advanced-controls">/);
+});
+
+test("graph filter dropdown stays minimal inside the filter affordance", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /<div class="graph-filters graph-filters-single" data-graph-filters>\s*\n\s*<select id="graphRelationTypeFilter" data-graph-filter="relationType" aria-label="关系类型筛选">/);
+  assert.doesNotMatch(source, /<span>关系类型<\/span>/);
+  assert.doesNotMatch(source, /graph-filter-note/);
 });
 
 test("graph isolated notes become visible selectable orbit nodes", () => {
