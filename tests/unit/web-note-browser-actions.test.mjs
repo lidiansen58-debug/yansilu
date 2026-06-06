@@ -351,6 +351,16 @@ test("graph-ready relation sync does not let stale unknown statuses override rec
   assert.match(source, /return connectedIds\.has\(note\?\.id\) \? "connected" : "isolated";/);
 });
 
+test("empty thinking status clears only stale thinking notices", () => {
+  const source = readRepoFile("apps/web/src/components-editor-pane.js");
+  const match = source.match(/if \(!thinkingStatus\) \{([\s\S]*?)\n\s*return;/);
+
+  assert.ok(match, "expected empty thinking-status branch to exist");
+  assert.match(match[1], /lastBottomNoticeKey/);
+  assert.match(match[1], /startsWith\("thinking:"\)/);
+  assert.match(match[1], /hideBottomNotice\(\)/);
+});
+
 test("note browsers keep disconnected notes visually behind connected notes inside folders", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);

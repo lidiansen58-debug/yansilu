@@ -2677,6 +2677,9 @@ export class EditorPane {
     el.innerHTML = "";
     el.dataset.tone = "";
     if (!thinkingStatus) {
+      if (String(this.lastBottomNoticeKey || "").startsWith("thinking:")) {
+        this.hideBottomNotice();
+      }
       this.lastThinkingStatusNoticeKey = "";
       return;
     }
