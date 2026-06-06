@@ -187,6 +187,7 @@ Legacy detail that should stay editable.
   assert.equal(parsed.boundary, "Counterexample or limit.");
   assert.equal(parsed.relatedClues, "- [[Source note]]");
   assert.equal(parsed.supplement, "Legacy detail that should stay editable.");
+  assert.deepEqual(parsed.extraSections, []);
   assert.equal(parsed.structured, true);
 });
 
@@ -200,6 +201,7 @@ Freeform supporting paragraph that did not use the new section headings yet.
 
   assert.equal(parsed.coreClaim, "A concise legacy claim.");
   assert.equal(parsed.supplement, "Freeform supporting paragraph that did not use the new section headings yet.");
+  assert.deepEqual(parsed.extraSections, []);
   assert.equal(parsed.structured, false);
 });
 
@@ -218,4 +220,45 @@ test("composePermanentWorkspace omits empty optional sections in saved Markdown"
   assert.match(markdown, /## 关联线索/);
   assert.doesNotMatch(markdown, /## 为什么成立/);
   assert.doesNotMatch(markdown, /## 补充内容/);
+});
+
+test("parsePermanentWorkspace preserves unknown top-level sections for round-trip save", () => {
+  const parsed = parsePermanentWorkspace(`# Permanent note
+
+## 核心观点
+
+A stable claim.
+
+## 自定义问题
+
+This custom section should stay top-level.
+
+## 关联线索
+
+- [[Related note]]
+`);
+
+  assert.equal(parsed.coreClaim, "A stable claim.");
+  assert.equal(parsed.relatedClues, "- [[Related note]]");
+  assert.equal(parsed.supplement, "");
+  assert.deepEqual(parsed.extraSections, [{ heading: "自定义问题", body: "This custom section should stay top-level." }]);
+});
+
+test("composePermanentWorkspace keeps unknown sections top-level instead of nesting them under supplement", () => {
+  const markdown = composePermanentWorkspace(
+    {
+      title: "Permanent note",
+      coreClaim: "A stable claim.",
+      relatedClues: "- [[Related note]]"
+    },
+    {
+      extraSections: [{ heading: "自定义问题", body: "This custom section should stay top-level." }]
+    }
+  );
+
+  assert.match(markdown, /## 核心观点/);
+  assert.match(markdown, /## 自定义问题/);
+  assert.match(markdown, /This custom section should stay top-level\./);
+  assert.doesNotMatch(markdown, /## 补充内容/);
+  assert.doesNotMatch(markdown, /### 自定义问题/);
 });

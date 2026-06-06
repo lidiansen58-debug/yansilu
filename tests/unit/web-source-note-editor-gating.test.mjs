@@ -336,6 +336,36 @@ test("editor falls back to source markdown panel for permanent notes in source m
   assert.equal(pane.els.markdownSplit.classList.contains("hidden"), false);
 });
 
+test("normalizePermanentBodyForSave drops empty scaffold sections and preserves unknown top-level sections", () => {
+  const pane = Object.create(EditorPane.prototype);
+
+  const normalized = pane.normalizePermanentBodyForSave(`# Permanent note
+
+## 核心观点
+
+A stable claim.
+
+## 为什么成立
+
+## 关联线索
+
+- [[Related note]]
+
+## 自定义问题
+
+This custom section should stay top-level.
+`);
+
+  assert.match(normalized, /^# Permanent note/m);
+  assert.match(normalized, /## 核心观点/);
+  assert.match(normalized, /## 关联线索/);
+  assert.match(normalized, /## 自定义问题/);
+  assert.match(normalized, /This custom section should stay top-level\./);
+  assert.doesNotMatch(normalized, /## 为什么成立/);
+  assert.doesNotMatch(normalized, /## 补充内容/);
+  assert.doesNotMatch(normalized, /### 自定义问题/);
+});
+
 test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";

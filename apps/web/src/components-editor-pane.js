@@ -347,6 +347,15 @@ function allPermanentSectionLabels() {
   return Object.keys(PERMANENT_SECTION_LABELS).flatMap((key) => permanentSectionLabelsFor(key));
 }
 
+function normalizePermanentExtraSections(sections = []) {
+  return (Array.isArray(sections) ? sections : [])
+    .map((section) => ({
+      heading: String(section?.heading || "").trim(),
+      body: normalizeFieldText(section?.body || "")
+    }))
+    .filter((section) => section.heading);
+}
+
 function permanentSectionKeyFromHeading(heading = "") {
   const normalizedHeading = normalizeLooseText(heading);
   for (const key of Object.keys(PERMANENT_SECTION_LABELS)) {
@@ -357,18 +366,6 @@ function permanentSectionKeyFromHeading(heading = "") {
   return "";
 }
 
-function formatUnknownPermanentSections(sections = []) {
-  return (Array.isArray(sections) ? sections : [])
-    .map((section) => {
-      const heading = String(section?.heading || "").trim();
-      const body = normalizeFieldText(section?.body || "");
-      if (!heading) return body;
-      return [`### ${heading}`, "", body].filter(Boolean).join("\n");
-    })
-    .filter(Boolean)
-    .join("\n\n");
-}
-
 function inferLegacyPermanentFields(content = "") {
   const text = normalizeFieldText(content);
   if (!text) {
@@ -377,7 +374,8 @@ function inferLegacyPermanentFields(content = "") {
       whyTrue: "",
       boundary: "",
       relatedClues: "",
-      supplement: ""
+      supplement: "",
+      extraSections: []
     };
   }
   const paragraphs = text
@@ -397,7 +395,8 @@ function inferLegacyPermanentFields(content = "") {
       whyTrue: "",
       boundary: "",
       relatedClues: "",
-      supplement: text
+      supplement: text,
+      extraSections: []
     };
   }
   return {
@@ -405,7 +404,8 @@ function inferLegacyPermanentFields(content = "") {
     whyTrue: "",
     boundary: "",
     relatedClues: "",
-    supplement: rest
+    supplement: rest,
+    extraSections: []
   };
 }
 
@@ -533,6 +533,7 @@ export function parsePermanentWorkspace(body = "") {
     boundary: "",
     relatedClues: "",
     supplement: "",
+    extraSections: [],
     structured
   };
 
@@ -559,9 +560,8 @@ export function parsePermanentWorkspace(body = "") {
     }
     parsed[key] = parsed[key] ? `${parsed[key]}\n\n${sectionBody}` : sectionBody;
   }
-  const unknownText = formatUnknownPermanentSections(unknownSections);
-  if (unknownText) supplementParts.push(unknownText);
   parsed.supplement = normalizeFieldText(supplementParts.join("\n\n"));
+  parsed.extraSections = normalizePermanentExtraSections(unknownSections);
   return parsed;
 }
 
@@ -575,6 +575,7 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     relatedClues: normalizeFieldText(fields.relatedClues),
     supplement: normalizeFieldText(fields.supplement)
   };
+  const extraSections = normalizePermanentExtraSections(options?.extraSections);
   const lines = [`# ${title}`, ""];
   const sectionOrder = [
     ["coreClaim", PERMANENT_SECTION_LABELS.coreClaim],
@@ -587,6 +588,9 @@ export function composePermanentWorkspace(fields = {}, options = {}) {
     const value = normalized[key];
     if (!includeEmptySections && !value) continue;
     lines.push(`## ${label}`, "", value, "");
+  }
+  for (const section of extraSections) {
+    lines.push(`## ${section.heading}`, "", section.body, "");
   }
   return lines.join("\n").replace(/\n+$/g, "\n");
 }
@@ -2090,6 +2094,15 @@ export class EditorPane {
     };
   }
 
+  permanentExtraSections(tab = this.activeTab()) {
+    return normalizePermanentExtraSections(tab?.permanentExtraSections);
+  }
+
+  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab()) {
+    if (!tab) return;
+    tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
+  }
+
   literatureCompletionState(note = this.activeNote()) {
     const fields = this.isLiteratureWorkspaceActive(note) ? this.literatureFieldsFromInputs() : parseLiteratureWorkspace(note?.body || "");
     const hasParaphrase = Boolean(normalizeFieldText(fields.paraphrase));
@@ -2378,6 +2391,7 @@ export class EditorPane {
   syncPermanentWorkspaceFromBody(body = "") {
     if (!this.els.permanentWorkspace) return;
     const parsed = parsePermanentWorkspace(body || "");
+    this.rememberPermanentWorkspaceParse(parsed);
     this.suppressPermanentWorkspaceChange = true;
     try {
       if (this.els.permanentTitle) this.els.permanentTitle.value = parsed.title || "未命名笔记";
@@ -2393,7 +2407,12 @@ export class EditorPane {
 
   syncPermanentWorkspaceToEditor(options = {}) {
     if (this.suppressPermanentWorkspaceChange || !this.isPermanentWorkspaceActive()) return;
-    this.setUnderlyingEditorValue(composePermanentWorkspace(this.permanentFieldsFromInputs(), options));
+    this.setUnderlyingEditorValue(
+      composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        ...options,
+        extraSections: options?.extraSections || this.permanentExtraSections()
+      })
+    );
   }
 
   currentSelectionRect() {
@@ -3909,7 +3928,9 @@ export class EditorPane {
       return composeLiteratureWorkspace(this.literatureFieldsFromInputs());
     }
     if (this.isPermanentWorkspaceActive()) {
-      return composePermanentWorkspace(this.permanentFieldsFromInputs());
+      return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
+        extraSections: this.permanentExtraSections()
+      });
     }
     if (this.isWysiwygMode()) {
       return String(this.els.body.value || "").replace(/\r\n/g, "\n");
@@ -3924,6 +3945,13 @@ export class EditorPane {
     this.setUnderlyingEditorValue(text);
     this.syncLiteratureWorkspaceFromBody(text);
     this.syncPermanentWorkspaceFromBody(text);
+  }
+
+  normalizePermanentBodyForSave(body = "") {
+    const raw = String(body || "").replace(/\r\n/g, "\n");
+    const parsed = parsePermanentWorkspace(raw);
+    if (!parsed.structured) return raw;
+    return composePermanentWorkspace(parsed, { extraSections: parsed.extraSections });
   }
 
   editorSelection() {
@@ -9556,8 +9584,15 @@ export class EditorPane {
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
     note.body = tab.body;
-    note.title = titleFromBody(tab.body);
     note.noteType = typeFromFolder(this.state, note.folderId);
+    if (this.isOriginalNote(note)) {
+      const normalizedBody = this.normalizePermanentBodyForSave(note.body);
+      if (normalizedBody !== note.body) {
+        note.body = normalizedBody;
+        tab.body = normalizedBody;
+      }
+    }
+    note.title = titleFromBody(note.body);
     note.tags = parseTags(note.body);
     note.links = parseLinks(note.body);
     note.updatedAt = new Date().toISOString();
