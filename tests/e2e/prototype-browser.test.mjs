@@ -905,8 +905,7 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     assert.match(String(editorValue || ""), /DOI \/ ISBN \/ arXiv \/ URL \/ PDF/);
     assert.match(String(editorValue || ""), /## 原锟斤拷/);
     assert.match(String(editorValue || ""), /## 转锟斤拷/);
-    assert.match(String(editorValue || ""), /## 锟斤拷锟斤拷原锟斤拷/);
-    assert.match(String(editorValue || ""), /## 支锟斤拷锟叫讹拷/);
+    assert.doesNotMatch(String(editorValue || ""), /判断种子|追问|边界\s*\/\s*反例|保留原因/);
   }, 7000);
   assert.equal(await page.locator("#btnRunGuard").count(), 0);
   assert.equal(await page.locator("#btnInsertLink").isVisible(), false);

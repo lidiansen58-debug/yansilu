@@ -366,7 +366,7 @@ function composeLiteratureWorkspace(fields = {}) {
   const supportsJudgment = normalizeFieldText(fields.supportsJudgment);
   const question = normalizeFieldText(fields.question);
   const boundary = normalizeFieldText(fields.boundary);
-  return [
+  const lines = [
     `# ${title}`,
     "",
     `## ${LITERATURE_SECTION_LABELS.citation}`,
@@ -380,24 +380,13 @@ function composeLiteratureWorkspace(fields = {}) {
     `## ${LITERATURE_SECTION_LABELS.paraphrase}`,
     "",
     paraphrase,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.supportsJudgment}`,
-    "",
-    supportsJudgment,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.question}`,
-    "",
-    question,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.boundary}`,
-    "",
-    boundary,
-    "",
-    `## ${LITERATURE_SECTION_LABELS.whyKeep}`,
-    "",
-    whyKeep,
     ""
-  ].join("\n");
+  ];
+  if (supportsJudgment) lines.push(`## ${LITERATURE_SECTION_LABELS.supportsJudgment}`, "", supportsJudgment, "");
+  if (question) lines.push(`## ${LITERATURE_SECTION_LABELS.question}`, "", question, "");
+  if (boundary) lines.push(`## ${LITERATURE_SECTION_LABELS.boundary}`, "", boundary, "");
+  if (whyKeep) lines.push(`## ${LITERATURE_SECTION_LABELS.whyKeep}`, "", whyKeep, "");
+  return lines.join("\n");
 }
 
 function literatureTemplateBody(title = "未命名笔记") {
