@@ -369,6 +369,18 @@ test("validateLiteratureTemplateSource allows renamed partial literature templat
   assert.equal(validation.message, "");
 });
 
+test("validateLiteratureTemplateSource rejects short templates that do not look like literature notes", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## 核心观点
+
+## 关联线索
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /至少保留 3 个顶层 section|来源 \/ 原文 \/ 转述/);
+});
+
 test("validateLiteratureTemplateSource rejects mixed full literature templates that replace a slot with custom heading", () => {
   const validation = validateLiteratureTemplateSource(`# {{title}}
 

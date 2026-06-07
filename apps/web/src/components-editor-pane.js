@@ -426,6 +426,12 @@ export function validateLiteratureTemplateSource(templateSource = "") {
   }
 
   const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
+  if (sections.length > 0 && usedKeys.size === 0 && sections.length < 3) {
+    return {
+      ok: false,
+      message: "文献模板至少要能看出“来源 / 原文 / 转述”这类骨架；如果要整体改名，请至少保留 3 个顶层 section。"
+    };
+  }
   if (sections.length === LITERATURE_SECTION_ORDER.length && unresolvedCount > 0 && usedKeys.size > 0) {
     return {
       ok: false,
@@ -2129,7 +2135,6 @@ export class EditorPane {
     this.suppressRichEditorChange = false;
     this.suppressSourceEditorChange = false;
     this.suppressLiteratureWorkspaceChange = false;
-    this.suppressPermanentWorkspaceChange = false;
     this.savingPromise = null;
     this.autoSaveTimer = null;
     this.wasEditingTitleLine = false;
@@ -2323,16 +2328,8 @@ export class EditorPane {
     return false;
   }
 
-  isPermanentWorkspaceEligible(note = this.activeNote()) {
-    return this.permanentWorkspaceCompatible(this.activeTab(), note);
-  }
-
-  isPermanentWorkspaceActive(note = this.activeNote()) {
-    return this.isPermanentWorkspaceEligible(note) && !this.isSourceMode();
-  }
-
   isStructuredWorkspaceActive(note = this.activeNote()) {
-    return this.isLiteratureWorkspaceActive(note) || this.isPermanentWorkspaceActive(note);
+    return this.isLiteratureWorkspaceActive(note);
   }
 
   defaultAuthorshipState(note = null) {
@@ -2420,65 +2417,6 @@ export class EditorPane {
       question: this.els.literatureQuestion?.value || "",
       boundary: this.els.literatureBoundary?.value || ""
     };
-  }
-
-  permanentFieldsFromInputs() {
-    return {
-      title: this.els.permanentTitle?.value || "未命名笔记",
-      coreClaim: this.els.permanentCoreClaim?.value || "",
-      whyTrue: this.els.permanentWhyTrue?.value || "",
-      boundary: this.els.permanentBoundary?.value || "",
-      relatedClues: this.els.permanentRelatedClues?.value || "",
-      supplement: this.els.permanentSupplement?.value || ""
-    };
-  }
-
-  permanentExtraSections(tab = this.activeTab()) {
-    return normalizePermanentExtraSections(tab?.permanentExtraSections);
-  }
-
-  permanentPreface(tab = this.activeTab()) {
-    return normalizeFieldText(tab?.permanentPreface);
-  }
-
-  permanentSectionLayout(tab = this.activeTab()) {
-    return normalizePermanentSectionLayout(tab?.permanentSectionLayout);
-  }
-
-  permanentRepeatedKnownSections(tab = this.activeTab()) {
-    return normalizeRepeatedKnownPermanentSections(tab?.permanentRepeatedKnownSections);
-  }
-
-  permanentWorkspaceAppendRemainingKnown(tab = this.activeTab()) {
-    return tab?.permanentAppendRemainingKnown !== false;
-  }
-
-  permanentWorkspaceCompatible(tab = this.activeTab(), note = this.activeNote()) {
-    if (!this.isOriginalNote(note)) return false;
-    const rawBody = typeof tab?.body === "string" ? tab.body : typeof note?.body === "string" ? note.body : "";
-    if (!String(rawBody || "").trim()) return true;
-    if (tab && tab.permanentParsedBody === rawBody && typeof tab.permanentWorkspaceCompatible === "boolean") {
-      return tab.permanentWorkspaceCompatible;
-    }
-    const parsed = parsePermanentWorkspace(rawBody);
-    return this.rememberPermanentWorkspaceParse(parsed, tab, rawBody);
-  }
-
-  rememberPermanentWorkspaceParse(parsed = {}, tab = this.activeTab(), body = tab?.body || "") {
-    const compatible =
-      parsed?.structured === true &&
-      !normalizeFieldText(parsed?.preface) &&
-      normalizePermanentExtraSections(parsed?.extraSections).length === 0 &&
-      normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections).length === 0;
-    if (!tab) return compatible;
-    tab.permanentParsedBody = body;
-    tab.permanentPreface = normalizeFieldText(parsed?.preface);
-    tab.permanentExtraSections = normalizePermanentExtraSections(parsed?.extraSections);
-    tab.permanentRepeatedKnownSections = normalizeRepeatedKnownPermanentSections(parsed?.repeatedKnownSections);
-    tab.permanentSectionLayout = normalizePermanentSectionLayout(parsed?.sectionLayout);
-    tab.permanentAppendRemainingKnown = parsed?.structured === true;
-    tab.permanentWorkspaceCompatible = compatible;
-    return compatible;
   }
 
   literatureCompletionState(note = this.activeNote()) {
@@ -2769,37 +2707,6 @@ export class EditorPane {
     );
   }
 
-  syncPermanentWorkspaceFromBody(body = "") {
-    if (!this.els.permanentWorkspace) return;
-    const parsed = parsePermanentWorkspace(body || "");
-    this.rememberPermanentWorkspaceParse(parsed);
-    this.suppressPermanentWorkspaceChange = true;
-    try {
-      if (this.els.permanentTitle) this.els.permanentTitle.value = parsed.title || "未命名笔记";
-      if (this.els.permanentCoreClaim) this.els.permanentCoreClaim.value = parsed.coreClaim || "";
-      if (this.els.permanentWhyTrue) this.els.permanentWhyTrue.value = parsed.whyTrue || "";
-      if (this.els.permanentBoundary) this.els.permanentBoundary.value = parsed.boundary || "";
-      if (this.els.permanentRelatedClues) this.els.permanentRelatedClues.value = parsed.relatedClues || "";
-      if (this.els.permanentSupplement) this.els.permanentSupplement.value = parsed.supplement || "";
-    } finally {
-      this.suppressPermanentWorkspaceChange = false;
-    }
-  }
-
-  syncPermanentWorkspaceToEditor(options = {}) {
-    if (this.suppressPermanentWorkspaceChange || !this.isPermanentWorkspaceActive()) return;
-    this.setUnderlyingEditorValue(
-      composePermanentWorkspace(this.permanentFieldsFromInputs(), {
-        ...options,
-        preface: options?.preface ?? this.permanentPreface(),
-        sectionLayout: options?.sectionLayout || this.permanentSectionLayout(),
-        repeatedKnownSections: options?.repeatedKnownSections || this.permanentRepeatedKnownSections(),
-        extraSections: options?.extraSections || this.permanentExtraSections(),
-        appendRemainingKnown: options?.appendRemainingKnown ?? this.permanentWorkspaceAppendRemainingKnown()
-      })
-    );
-  }
-
   currentSelectionRect() {
     if (this.isSourceMode() && this.markdownEditor?.view?.coordsAtPos) {
       const selection = this.editorSelection();
@@ -2816,9 +2723,6 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return [this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle].filter(Boolean);
     }
-    if (this.isPermanentWorkspaceActive()) {
-      return [this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle].filter(Boolean);
-    }
     if (this.isSourceMode()) {
       return [this.markdownEditor?.view?.scrollDOM, this.els.editorHost, this.els.body].filter(Boolean);
     }
@@ -2831,7 +2735,7 @@ export class EditorPane {
 
   captureEditorScrollState() {
     return {
-      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : this.isPermanentWorkspaceActive() ? "permanent" : "wysiwyg",
+      mode: this.isSourceMode() ? "source" : this.isLiteratureWorkspaceActive() ? "literature" : "wysiwyg",
       nodes: this.editorScrollNodes().map((node, index) => ({
         index,
         top: Number(node?.scrollTop || 0),
@@ -3117,6 +3021,7 @@ export class EditorPane {
       this.maybeRestoreDraft(t, n);
       this.syncPlaceholderTitleArmed(t);
     }
+    t.preferPlainEditor = options.preferPlainEditor === true;
     if (typeof t.savedBody !== "string") t.savedBody = t.body || "";
     if (typeof t.savedTitle !== "string") t.savedTitle = t.title || "未命名笔记";
     if (typeof t.dirty !== "boolean") t.dirty = false;
@@ -3238,11 +3143,11 @@ export class EditorPane {
   fillEditorFromTab() {
     const t = this.activeTab();
     if (!t) {
+      this.lastFilledNoteId = "";
       this.setEditorValue("");
       this.renderEmptyEditorState();
       this.els.result.innerHTML = "";
       this.setInspectorVisible(false);
-      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.renderPreviewVisibility();
@@ -3251,18 +3156,21 @@ export class EditorPane {
     }
     this.ensureTabAuthorshipState(t, this.activeNote());
     const activeNote = this.activeNote();
+    const activeNoteId = String(activeNote?.id || "").trim();
+    const noteChanged = activeNoteId !== String(this.lastFilledNoteId || "").trim();
     const forcedSourceNoteId = String(this.state.forcedSourcePreviewNoteId || "").trim();
-    const permanentWorkspaceEligible = this.permanentWorkspaceCompatible(t, activeNote);
-    if (this.isOriginalNote(activeNote) && !permanentWorkspaceEligible && !this.isSourceMode()) {
-      this.state.previewMode = "source";
-      this.state.forcedSourcePreviewNoteId = activeNote?.id || "";
-    } else if (this.isOriginalNote(activeNote) && permanentWorkspaceEligible && forcedSourceNoteId && this.isSourceMode()) {
+    if (this.isOriginalNote(activeNote) && forcedSourceNoteId && forcedSourceNoteId !== activeNoteId && this.isSourceMode()) {
       this.state.previewMode = "wysiwyg";
       this.state.forcedSourcePreviewNoteId = "";
+    } else if (this.isOriginalNote(activeNote) && forcedSourceNoteId === activeNoteId) {
+      this.state.forcedSourcePreviewNoteId = "";
     }
+    if (noteChanged && this.isSourceMode() && !forcedSourceNoteId) {
+      this.state.previewMode = "wysiwyg";
+    }
+    this.lastFilledNoteId = activeNoteId;
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
-    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderRelated();
     this.renderPreview();
@@ -3327,7 +3235,6 @@ export class EditorPane {
     this.renderCompleteButton();
     this.renderRecordPermanentButton();
     this.renderRelationToolbarButtons();
-    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderAuthorshipPanel();
   }
@@ -3576,35 +3483,15 @@ export class EditorPane {
     const active = this.isLiteratureWorkspaceActive(this.activeNote());
     this.els.literatureWorkspace?.classList.toggle("hidden", !active);
     if (active) {
-      this.els.permanentWorkspace?.classList.add("hidden");
       this.els.markdownSplit?.classList.add("hidden");
       this.els.modeEdit?.classList.remove("hidden");
       this.els.modeSplit?.classList.add("hidden");
       return;
     }
-    if (!this.isPermanentWorkspaceActive(this.activeNote())) {
-      this.els.markdownSplit?.classList.remove("hidden");
-      this.els.modeEdit?.classList.remove("hidden");
-      this.els.modeSplit?.classList.add("hidden");
-    }
+    this.els.markdownSplit?.classList.remove("hidden");
+    this.els.modeEdit?.classList.remove("hidden");
+    this.els.modeSplit?.classList.add("hidden");
     if (!this.isOriginalNote(this.activeNote())) this.hideOriginalityNotice();
-  }
-
-  renderPermanentWorkspace() {
-    const active = this.isPermanentWorkspaceActive(this.activeNote());
-    this.els.permanentWorkspace?.classList.toggle("hidden", !active);
-    if (active) {
-      this.els.literatureWorkspace?.classList.add("hidden");
-      this.els.markdownSplit?.classList.add("hidden");
-      this.els.modeEdit?.classList.remove("hidden");
-      this.els.modeSplit?.classList.add("hidden");
-      return;
-    }
-    if (!this.isLiteratureWorkspaceActive(this.activeNote())) {
-      this.els.markdownSplit?.classList.remove("hidden");
-      this.els.modeEdit?.classList.remove("hidden");
-      this.els.modeSplit?.classList.add("hidden");
-    }
   }
 
   setSaveUiState(mode, message = "") {
@@ -3875,62 +3762,14 @@ export class EditorPane {
   }
 
   installToolbarCommandMenu() {
-    const btn = this.els.toolbarCommandBtn;
     const menu = this.els.toolbarCommandMenu;
-    const input = this.els.toolbarCommandSearchInput;
     const list = this.els.toolbarCommandList;
-    if (!btn || !menu || !input || !list) return;
-
-    const closeMenu = () => {
-      menu.classList.add("hidden");
-      btn.setAttribute("aria-expanded", "false");
-    };
-
-    const openMenu = () => {
-      menu.classList.remove("hidden");
-      btn.setAttribute("aria-expanded", "true");
-      input.value = "";
-      this.filterToolbarCommandMenu("");
-    };
-
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (menu.classList.contains("hidden")) openMenu();
-      else closeMenu();
-    });
-
-    document.addEventListener("click", (e) => {
-      if (menu.classList.contains("hidden")) return;
-      if (e.target.closest("#toolbarCommandMenu")) return;
-      if (e.target.closest("#btnToolbarCommandSearch")) return;
-      closeMenu();
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if (menu.classList.contains("hidden")) return;
-      if (e.key === "Escape") {
-        closeMenu();
-        btn.focus();
-      }
-    });
-
-    input.addEventListener("input", () => {
-      this.filterToolbarCommandMenu(input.value);
-    });
-
-    input.addEventListener("keydown", (e) => {
-      if (e.isComposing || e.keyCode === 229) return;
-      if (e.key === "Escape") {
-        closeMenu();
-        btn.focus();
-      }
-    });
+    if (!menu || !list) return;
 
     list.addEventListener("click", (e) => {
       const button = e.target.closest("[data-toolbar-command]");
       const command = String(button?.dataset.toolbarCommand || "").trim();
       if (!command) return;
-      closeMenu();
       this.runToolbarCommand(command);
       this.renderContextualToolbarState();
       this.focusEditor();
@@ -3993,7 +3832,6 @@ export class EditorPane {
         }
       }
     }
-    this.renderPermanentWorkspace();
     this.renderLiteratureWorkspace();
     this.renderContextualToolbarState();
   }
@@ -4001,7 +3839,7 @@ export class EditorPane {
   updateModeToggleButton(mode = "wysiwyg") {
     const button = this.els.modeEdit;
     if (!button) return;
-    const workspaceModeLabel = this.isPermanentWorkspaceEligible(this.activeNote()) ? "结构化模式" : "笔记模式";
+    const workspaceModeLabel = this.isLiteratureWorkspaceActive(this.activeNote()) ? "结构化模式" : "笔记模式";
     if (mode === "source") {
       button.title = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
       button.dataset.tip = `切换到${workspaceModeLabel} Ctrl/Cmd+1`;
@@ -4027,7 +3865,6 @@ export class EditorPane {
     const buttonDefaults = [
       [this.els.insertImage, "插入图片"],
       [this.els.insertTag, "插入标签 #"],
-      [this.els.toolbarCommandBtn, "更多低频操作"]
     ];
     for (const [button, defaultTitle] of buttonDefaults) {
       if (!button) continue;
@@ -4035,7 +3872,10 @@ export class EditorPane {
       button.title = structured ? "结构化模式下请切到源码模式再使用这个编辑操作" : defaultTitle;
       button.dataset.tip = button.title;
     }
-    if (structured) this.els.toolbarCommandMenu?.classList.add("hidden");
+    this.els.toolbarCommandList?.querySelectorAll("[data-toolbar-command]").forEach((button) => {
+      button.disabled = structured;
+      button.title = structured ? "结构化模式下请切到源码模式再使用这个编辑操作" : String(button.dataset.tip || button.title || "");
+    });
   }
 
   togglePreview(nextMode = null) {
@@ -4323,15 +4163,6 @@ export class EditorPane {
     if (this.isLiteratureWorkspaceActive()) {
       return composeLiteratureWorkspace(this.literatureFieldsFromInputs(), { sectionLabels: this.rememberedLiteratureSectionLabels() });
     }
-    if (this.isPermanentWorkspaceActive()) {
-      return composePermanentWorkspace(this.permanentFieldsFromInputs(), {
-        preface: this.permanentPreface(),
-        sectionLayout: this.permanentSectionLayout(),
-        repeatedKnownSections: this.permanentRepeatedKnownSections(),
-        extraSections: this.permanentExtraSections(),
-        appendRemainingKnown: this.permanentWorkspaceAppendRemainingKnown()
-      });
-    }
     if (this.isWysiwygMode()) {
       return String(this.els.body.value || "").replace(/\r\n/g, "\n");
     }
@@ -4344,7 +4175,6 @@ export class EditorPane {
     const text = String(value || "");
     this.setUnderlyingEditorValue(text);
     this.syncLiteratureWorkspaceFromBody(text);
-    this.syncPermanentWorkspaceFromBody(text);
   }
 
   normalizePermanentBodyForSave(body = "") {
@@ -4392,10 +4222,6 @@ export class EditorPane {
       this.els.literatureParaphrase?.focus();
       return;
     }
-    if (this.isPermanentWorkspaceActive()) {
-      this.els.permanentCoreClaim?.focus();
-      return;
-    }
     const editor = this.currentEditor();
     if (editor?.focus) editor.focus();
     else this.els.body.focus();
@@ -4420,12 +4246,6 @@ export class EditorPane {
   setEditorSelectionRange(from, to) {
     if (this.isLiteratureWorkspaceActive()) {
       const target = this.els.literatureParaphrase || this.els.literatureOriginal || this.els.literatureTitle;
-      target?.focus();
-      target?.setSelectionRange?.(from, to);
-      return;
-    }
-    if (this.isPermanentWorkspaceActive()) {
-      const target = this.els.permanentCoreClaim || this.els.permanentWhyTrue || this.els.permanentTitle;
       target?.focus();
       target?.setSelectionRange?.(from, to);
       return;
@@ -4619,16 +4439,6 @@ export class EditorPane {
         return;
       }
       this.els.literatureParaphrase?.focus();
-      return;
-    }
-    if (this.isPermanentWorkspaceActive()) {
-      if (mode === "select-placeholder-title") {
-        const titleInput = this.els.permanentTitle;
-        titleInput?.focus();
-        titleInput?.select?.();
-        return;
-      }
-      this.els.permanentCoreClaim?.focus();
       return;
     }
     const applyPlaceholderSelection = () => {
@@ -9644,21 +9454,6 @@ export class EditorPane {
       });
     }
 
-    for (const field of [
-      this.els.permanentTitle,
-      this.els.permanentCoreClaim,
-      this.els.permanentWhyTrue,
-      this.els.permanentBoundary,
-      this.els.permanentRelatedClues,
-      this.els.permanentSupplement
-    ]) {
-      field?.addEventListener("input", () => {
-        if (!this.isPermanentWorkspaceActive()) return;
-        this.syncPermanentWorkspaceToEditor();
-        this.handleEditorInput();
-      });
-    }
-
     this.els.body.addEventListener("input", () => this.handleEditorInput());
 
     this.els.editorHost?.addEventListener("paste", (event) => {
@@ -9781,7 +9576,6 @@ export class EditorPane {
       else this.clearAutoSaveTimer();
       this.renderTabs();
       this.renderSaveHint();
-      this.renderPermanentWorkspace();
       this.renderLiteratureWorkspace();
       this.renderPreview();
       this.updateToolbarFormattingState();
