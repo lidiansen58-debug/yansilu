@@ -11,7 +11,7 @@ export function createDesktopFileCommandService({ switchVaultImpl } = {}) {
   };
 
   const pickVaultDirectory = async ({ defaultPath = "" } = {}) =>
-    browseDirectory({ defaultPath, purpose: "Vault" });
+    browseDirectory({ defaultPath, purpose: "笔记库" });
 
   const revealInFileManager = async (targetPath) => revealPath(targetPath);
   const openDirectory = async (targetPath) => openPath(targetPath);

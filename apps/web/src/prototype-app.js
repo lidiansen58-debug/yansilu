@@ -121,6 +121,7 @@ import {
   normalizeScheduledTaskFilters
 } from "./scheduled-tasks-model.js";
 import {
+  aiSettingsSelectionFromPreferences,
   canonicalizeAiSettingsSelection,
   isAiLocalFlowActive,
   isLocalModelPack,
@@ -329,6 +330,8 @@ const aiInboxState = {
   aiSummaryRequestToken: 0
 };
 const settingsState = {
+  activeSection: "workspace",
+  activeItem: "current-vault",
   vault: null,
   noteTemplates: {
     permanent: {
@@ -337,7 +340,9 @@ const settingsState = {
       text: "",
       draftText: "",
       draftActive: false,
-      history: []
+      history: [],
+      feedbackTone: "",
+      feedbackText: ""
     },
     literature: {
       panelOpen: false,
@@ -345,7 +350,9 @@ const settingsState = {
       text: "",
       draftText: "",
       draftActive: false,
-      history: []
+      history: [],
+      feedbackTone: "",
+      feedbackText: ""
     }
   },
   ai: {
@@ -425,6 +432,371 @@ const settingsState = {
   },
   error: ""
 };
+const SETTINGS_SECTIONS = Object.freeze([
+  {
+    id: "workspace",
+    label: "工作区",
+    paneId: "settingsPaneWorkspace",
+    buttonId: "settingsNavWorkspace",
+    badgeId: "settingsNavWorkspaceBadge",
+    metaId: "settingsNavWorkspaceMeta",
+    bodyId: "settingsPaneWorkspaceBody"
+  },
+  {
+    id: "templates",
+    label: "模板",
+    paneId: "settingsPaneTemplates",
+    buttonId: "settingsNavTemplates",
+    badgeId: "settingsNavTemplatesBadge",
+    metaId: "settingsNavTemplatesMeta",
+    bodyId: "settingsPaneTemplatesBody"
+  },
+  {
+    id: "ai",
+    label: "AI",
+    paneId: "settingsPaneAi",
+    buttonId: "settingsNavAi",
+    badgeId: "settingsNavAiBadge",
+    metaId: "settingsNavAiMeta",
+    bodyId: "settingsPaneAiBody"
+  },
+  {
+    id: "automation",
+    label: "自动化",
+    paneId: "settingsPaneAutomation",
+    buttonId: "settingsNavAutomation",
+    badgeId: "settingsNavAutomationBadge",
+    metaId: "settingsNavAutomationMeta",
+    bodyId: "settingsPaneAutomationBody"
+  },
+  {
+    id: "support",
+    label: "支持",
+    paneId: "settingsPaneSupport",
+    buttonId: "settingsNavSupport",
+    badgeId: "settingsNavSupportBadge",
+    metaId: "settingsNavSupportMeta",
+    bodyId: "settingsPaneSupportBody"
+  }
+]);
+const SETTINGS_DETAIL_ITEMS = Object.freeze([
+  { id: "current-vault", label: "笔记库", group: "卡片盒", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "permanent-template", label: "永久笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
+  { id: "literature-template", label: "文献笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
+  { id: "ai-settings", label: "AI 设置", group: "智能", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
+  { id: "automation", label: "自动处理", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation", "settingsCardAutomationSuggestions", "settingsCardAutomationDebug"] },
+  { id: "desktop-help", label: "本地使用说明", group: "支持", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "feedback", label: "问题反馈", group: "支持", sectionId: "support", cardIds: ["settingsFeedbackCard"] }
+]);
+
+function settingsSectionChromeMap() {
+  const vault = settingsState.vault;
+  const missingPath = settingsVaultPathMissing();
+  const workspaceBadge = missingPath
+    ? "路径失效"
+    : vault
+      ? (vault.initialized ? "已初始化" : "待初始化")
+      : "待同步";
+  const workspaceMeta = missingPath
+    ? "当前路径失效，请重新选择"
+    : (vault?.vaultPath ? settingsLeafLabel(vault.vaultPath) : "选择或切换笔记库");
+  const templateDraftCount = ["permanent", "literature"].filter((kind) => settingsState.noteTemplates?.[kind]?.draftActive).length;
+  const aiSummary = settingsAiOverviewSummary();
+  const automationCount = Number(settingsState.ai.scheduledTasksTotal || 0) + Number(settingsState.ai.suggestionsTotal || 0);
+  return {
+    workspace: {
+      badge: workspaceBadge,
+      meta: workspaceMeta
+    },
+    templates: {
+      badge: templateDraftCount > 0 ? `${templateDraftCount} 个草稿` : "2 项",
+      meta: templateDraftCount > 0 ? "有未保存模板改动" : "永久笔记与文献模板"
+    },
+    ai: {
+      badge: settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
+      meta: aiSummary.meta || "使用方式、AI 方案与连接状态"
+    },
+    automation: {
+      badge: String(automationCount),
+      meta: `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`
+    },
+    support: {
+      badge: FEEDBACK_REPOSITORY_READY ? "GitHub" : "待绑定",
+      meta: FEEDBACK_REPOSITORY_READY ? FEEDBACK_REPOSITORY : "问题反馈与本地说明"
+    }
+  };
+}
+
+function settingsSectionIconLabel(sectionId = "") {
+  const labels = {
+    workspace: "WS",
+    templates: "TM",
+    ai: "AI",
+    automation: "AU",
+    support: "SP"
+  };
+  return labels[normalizeSettingsSection(sectionId)] || "ST";
+}
+
+function settingsSectionSidebarIconSvg(sectionId = "") {
+  const normalized = normalizeSettingsSection(sectionId);
+  const icons = {
+    workspace: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"></path>
+        <path d="M12 21V12"></path>
+        <path d="M21 7.5 12 12 3 7.5"></path>
+      </svg>
+    `,
+    templates: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6 4h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"></path>
+        <path d="M15 4v5h5"></path>
+        <path d="M8 13h8"></path>
+        <path d="M8 17h6"></path>
+      </svg>
+    `,
+    ai: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v4"></path>
+        <path d="M12 17v4"></path>
+        <path d="M4.93 4.93 7.76 7.76"></path>
+        <path d="M16.24 16.24 19.07 19.07"></path>
+        <path d="M3 12h4"></path>
+        <path d="M17 12h4"></path>
+        <path d="M4.93 19.07 7.76 16.24"></path>
+        <path d="M16.24 7.76 19.07 4.93"></path>
+        <circle cx="12" cy="12" r="4.5"></circle>
+      </svg>
+    `,
+    automation: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 6v6l4 2"></path>
+        <circle cx="12" cy="12" r="9"></circle>
+      </svg>
+    `,
+    support: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h9"></path>
+        <path d="M12 4h9"></path>
+        <path d="M3 6h4v4H3z"></path>
+        <path d="M3 14h4v4H3z"></path>
+        <path d="M7 8h5"></path>
+        <path d="M7 16h5"></path>
+      </svg>
+    `
+  };
+  return icons[normalized] || icons.workspace;
+}
+
+function settingsItemSidebarIconSvg(itemId = "") {
+  const normalized = normalizeSettingsItem(itemId);
+  const icons = {
+    "current-vault": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l1.6 2H17.5A2.5 2.5 0 0 1 20 9.5v7A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"></path>
+        <path d="M8 11h8"></path>
+        <path d="M8 14h5"></path>
+      </svg>
+    `,
+    "switch-vault": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H10l1.4 1.8H17.5A2.5 2.5 0 0 1 20 10.3v5.2A2.5 2.5 0 0 1 17.5 18h-11A2.5 2.5 0 0 1 4 15.5z"></path>
+        <path d="M10 12h8"></path>
+        <path d="m15 9 3 3-3 3"></path>
+      </svg>
+    `,
+    "permanent-template": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 4.5h7l4 4v11A2.5 2.5 0 0 1 15.5 22h-8A2.5 2.5 0 0 1 5 19.5v-12A3 3 0 0 1 8 4.5z"></path>
+        <path d="M14 4.5v4h4"></path>
+        <path d="M8.5 13h7"></path>
+        <path d="M8.5 16h5"></path>
+        <path d="m8.5 9.5 1.4 1.4L12.8 8"></path>
+      </svg>
+    `,
+    "literature-template": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 4.5h9A2.5 2.5 0 0 1 18 7v12.5l-3.5-2-3.5 2-3.5-2-3.5 2V7A2.5 2.5 0 0 1 6.5 4.5z"></path>
+        <path d="M8 9h8"></path>
+        <path d="M8 12h6"></path>
+        <path d="M8 15h4"></path>
+      </svg>
+    `,
+    "ai-settings": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="6.5" y="6.5" width="11" height="11" rx="2.5"></rect>
+        <path d="M12 3.5v3"></path>
+        <path d="M12 17.5v3"></path>
+        <path d="M3.5 12h3"></path>
+        <path d="M17.5 12h3"></path>
+        <circle cx="12" cy="12" r="2.4"></circle>
+      </svg>
+    `,
+    automation: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path d="M12 7.5v4.5l3 1.8"></path>
+        <path d="m16.8 5.8 1.4-1.4"></path>
+      </svg>
+    `,
+    "desktop-help": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4.5" y="5.5" width="15" height="10.5" rx="2"></rect>
+        <path d="M8 19h8"></path>
+        <path d="M10 16v3"></path>
+        <path d="M14 16v3"></path>
+      </svg>
+    `,
+    feedback: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 6.5h11A2.5 2.5 0 0 1 20 9v6a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3v-3H6.5A2.5 2.5 0 0 1 4 15V9a2.5 2.5 0 0 1 2.5-2.5z"></path>
+        <path d="M9 11h6"></path>
+        <path d="M9 14h4"></path>
+      </svg>
+    `
+  };
+  return icons[normalized] || settingsSectionSidebarIconSvg(settingsDetailItemConfig(normalized).sectionId);
+}
+
+function normalizeSettingsItem(itemId = "") {
+  const requested = String(itemId || "").trim().toLowerCase();
+  return SETTINGS_DETAIL_ITEMS.some((item) => item.id === requested) ? requested : SETTINGS_DETAIL_ITEMS[0].id;
+}
+
+function settingsDetailItemConfig(itemId = "") {
+  const normalized = normalizeSettingsItem(itemId);
+  return SETTINGS_DETAIL_ITEMS.find((item) => item.id === normalized) || SETTINGS_DETAIL_ITEMS[0];
+}
+
+function settingsItemSummary(itemId = "") {
+  const summaries = {
+    "current-vault": "在这里直接选择并切换笔记库路径。",
+    "permanent-template": "设置新建永久笔记时使用的默认内容。",
+    "literature-template": "设置新建文献笔记时使用的默认内容。",
+    "ai-settings": "设置 AI 使用方式、服务和试运行。",
+    automation: "查看定时任务、AI 待办和运行记录。",
+    "desktop-help": "查看本地文件、路径和切换规则。",
+    feedback: "提交问题、功能想法，或复制问题信息。"
+  };
+  return summaries[normalizeSettingsItem(itemId)] || "右侧只显示当前点击设置项相关的内容。";
+}
+
+function formatSettingsUserError(errorMessage = "") {
+  const text = String(errorMessage || "").trim();
+  if (!text) return "";
+  if (/ENOENT|no such file or directory/i.test(text)) return "找不到当前笔记库路径，请重新选择或切换笔记库。";
+  if (/EACCES|EPERM|permission denied/i.test(text)) return "当前路径没有访问权限，请检查文件夹权限后再试。";
+  if (/timed out|timeout/i.test(text)) return "读取超时，请稍后重试。";
+  return text.length > 120 ? "读取失败，请重试；如果仍然失败，请重新选择笔记库路径。" : text;
+}
+
+function settingsVaultPathMissing() {
+  return /找不到当前笔记库路径|ENOENT|no such file or directory/i.test(String(settingsState.error || "").trim());
+}
+
+function settingsSectionGuidanceMap() {
+  const currentVault = settingsState.vault?.vaultPath
+    ? settingsLeafLabel(settingsState.vault.vaultPath)
+    : "笔记库";
+  const aiSummary = settingsAiOverviewSummary();
+  return {
+    workspace: {
+      focus: `查看 ${currentVault} 的状态和默认路径。`,
+      notes: [
+        "切换笔记库会关闭当前标签页，并重新加载目录树与缓存上下文。",
+        "缓存可以重建，Markdown 主内容不能丢。",
+        "先用路径选择器确认目标目录，再执行切换。"
+      ]
+    },
+    templates: {
+      focus: "先统一永久笔记与文献模板骨架，再进入具体字段和 Markdown 预览。",
+      notes: [
+        "保存模板只影响后续新建笔记，不会回写已有内容。",
+        "{{title}} 是当前稳定标题占位符，优先围绕它组织骨架。",
+        "需要差异化时，先改字段文案，再决定是否扩展结构。"
+      ]
+    },
+    ai: {
+      focus: `先确认当前 AI 方案 ${aiSummary.value}，再处理 AI 方案、服务配置和测试请求。`,
+      notes: [
+        "先选使用方式，再看 AI 方案和高级选项，避免一上来堆满参数。",
+        "新工作区如果没有存过偏好，应回到默认 AI 设置。",
+        "试运行前先检查密钥名称、指定模型和服务配置是否完整。"
+      ]
+    },
+    automation: {
+      focus: "把定时任务、AI 待办和运行记录放在一起核对，先分清什么会执行、什么只是建议。",
+      notes: [
+        "定时任务和待办计数只反映入口量，不会直接改写笔记。",
+        "AI 待办默认停留在待确认层，需要你显式采纳。",
+        "运行记录更适合排查连接状态和待办堆积。"
+      ]
+    },
+    support: {
+      focus: "先确认反馈入口和本地说明，再决定是提交问题还是复制问题信息。",
+      notes: [
+        "反馈入口会优先带上当前版本、模块和上下文信息。",
+        "本地使用说明主要解释路径、本地文件和工作区切换行为。",
+        "复制问题信息前注意不要把敏感密钥一并带出去。"
+      ]
+    }
+  };
+}
+
+function settingsSidebarNavigationHtml() {
+  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
+  const chromeMap = settingsSectionChromeMap();
+  const groups = ["卡片盒", "模板", "智能", "支持"];
+  const groupHtml = groups.map((group) => {
+    const items = SETTINGS_DETAIL_ITEMS.filter((item) => item.group === group).map((item) => {
+      const chrome = chromeMap[item.sectionId] || {};
+      const isActive = item.id === activeItem.id;
+      return `
+        <button
+          class="settings-sidebar-menu-item ${isActive ? "is-active" : ""}"
+          type="button"
+          data-settings-item="${escapeHtml(item.id)}"
+          aria-pressed="${isActive ? "true" : "false"}"
+        >
+          <span class="settings-sidebar-menu-icon">${settingsItemSidebarIconSvg(item.id)}</span>
+          <span class="settings-sidebar-menu-copy">
+            <span class="settings-sidebar-menu-title">${escapeHtml(item.label)}</span>
+            <span class="settings-sidebar-menu-meta">${escapeHtml(chrome.meta || settingsSectionConfig(item.sectionId).label)}</span>
+          </span>
+          <span class="settings-sidebar-menu-badge">${escapeHtml(chrome.badge || settingsSectionConfig(item.sectionId).label)}</span>
+        </button>
+      `;
+    }).join("");
+    return `
+      <section class="settings-sidebar-menu-group">
+        <div class="settings-sidebar-menu-heading">${escapeHtml(group)}</div>
+        <div class="settings-sidebar-menu-list">${items}</div>
+      </section>
+    `;
+  }).join("");
+
+  return `
+    <div class="settings-sidebar-shell">
+      <button class="settings-sidebar-back" type="button" id="settingsSidebarBackToApp">
+        <span aria-hidden="true">←</span>
+        <span>返回应用</span>
+      </button>
+      <div class="settings-sidebar-menu">
+        ${groupHtml}
+      </div>
+    </div>
+  `;
+}
+
+function settingsModuleHeaderCopy() {
+  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
+  return {
+    title: activeItem.label,
+    summary: "仅显示当前设置项。"
+  };
+}
+
 const PERMANENT_TEMPLATE_SETTINGS_FIELDS = [
   { key: "coreClaim", label: "核心观点", note: "核心字段，不建议隐藏" },
   { key: "whyTrue", label: "为什么成立", note: "核心字段，不建议隐藏" },
@@ -5411,23 +5783,11 @@ function currentModuleUi() {
     },
     settings: {
       sidebarTitle: "设置",
-      sidebarSubtitle: "系统配置不应打断写作流程。",
-      sidebarFoot: "设置页只处理系统与卡片盒配置，不打断正在写的笔记流程。",
+      sidebarSubtitle: "左侧切换，右侧设置。",
+      sidebarFoot: "",
       title: "设置",
-      summary: "这里处理 Vault 路径、初始化状态和桌面文件能力。它应该像应用设置页，而不是混进笔记编辑视图。",
-      sidebarHtml: `
-        <div class="module-sidebar-card">
-          <h3>当前重点</h3>
-          <p>切换卡片盒根目录、检查当前 Vault 状态，并确保本地 Markdown 依然是主内容源。</p>
-        </div>
-        <div class="module-sidebar-card">
-          <h3>注意事项</h3>
-          <ul class="module-sidebar-list">
-            <li>切换 Vault 会关闭当前标签页</li>
-            <li>缓存可以重建，Markdown 主内容不能丢</li>
-          </ul>
-        </div>
-      `
+      summary: "当前设置项",
+      sidebarHtml: settingsSidebarNavigationHtml()
     }
   };
   return configs[state.module] || {
@@ -5451,6 +5811,13 @@ function renderModuleWorkspaceHeader() {
     return;
   }
   const moduleUi = currentModuleUi();
+  if (state.module === "settings") {
+    const settingsHeader = settingsModuleHeaderCopy();
+    moduleTitle.textContent = settingsHeader.title;
+    moduleSummary.textContent = settingsHeader.summary;
+    moduleHeaderActions.innerHTML = "";
+    return;
+  }
   moduleTitle.textContent = moduleUi.title;
   moduleSummary.textContent = moduleUi.summary;
   if (state.module === "graph") {
@@ -5487,7 +5854,7 @@ function renderModuleWorkspaceHeader() {
     ? `${providerId}${modelRef ? ` / ${modelRef}` : ""}`
     : modelRef
       ? modelRef
-      : "AI 路由暂不可用";
+      : "AI 连接暂不可用";
   if (state.module === "imports") {
     moduleHeaderActions.innerHTML = "";
     return;
@@ -5499,7 +5866,7 @@ function renderModuleWorkspaceHeader() {
     <span class="settings-stat-badge">${escapeHtml(statusDetail)}</span>
     <span class="module-ai-pack">
       <strong>AI</strong>
-      <select id="moduleAiModelPack" aria-label="AI 模型包">
+      <select id="moduleAiModelPack" aria-label="AI 方案">
         ${packOptionsHtml}
       </select>
     </span>
@@ -5521,7 +5888,7 @@ function renderModuleWorkspaceHeader() {
     await refreshAiRoutePreview({ render: false });
     renderModuleWorkspaceHeader();
     renderSettingsPanel();
-    setStatus("AI route refreshed", "ok");
+    setStatus("AI 连接信息已刷新", "ok");
   });
 }
 
@@ -6475,6 +6842,8 @@ function renderModulePanels() {
   $("moduleWorkspace")?.classList.toggle("hidden", editorMode);
   $("moduleWorkspace")?.classList.toggle("graph-mode", graphMode);
   $("moduleWorkspace")?.classList.toggle("imports-mode", importsMode);
+  $("moduleWorkspace")?.classList.toggle("settings-mode", settingsMode);
+  document.querySelector(".app")?.classList.toggle("settings-desktop-lock", settingsMode);
   $("aiInboxPanel")?.classList.toggle("hidden", !aiInboxMode);
   $("graphPanel")?.classList.toggle("hidden", !graphMode);
   $("settingsPanel")?.classList.toggle("hidden", !settingsMode);
@@ -6495,7 +6864,7 @@ function renderAiRoutePreview() {
 
   if (settingsState.ai.routePreviewLoading) {
     stats.innerHTML = `<span class="settings-stat-badge warn">正在预览</span>`;
-    detail.textContent = "正在根据当前模式计算模型路由...";
+    detail.textContent = "正在根据当前设置计算会使用的模型和服务...";
     return;
   }
 
@@ -6508,7 +6877,7 @@ function renderAiRoutePreview() {
   const preview = settingsState.ai.routePreview;
   if (!preview) {
     stats.innerHTML = `<span class="settings-stat-badge warn">等待同步</span>`;
-    detail.textContent = "刷新当前 Vault 后会显示这套模式实际使用的模型路由。";
+    detail.textContent = "刷新当前笔记库后会显示这套设置实际会使用的模型和服务。";
     return;
   }
 
@@ -6561,24 +6930,31 @@ function renderAiRoutePreview() {
   const accessMessage = String(access.message || "").trim() === "Platform-managed AI can run without a user-provided key."
     ? "平台托管 AI 可直接运行，不需要用户自行提供密钥。"
     : String(access.message || "").trim();
+  const accessLabelMap = {
+    none: "无需额外密钥",
+    optional: "可选密钥",
+    required: "需要密钥",
+    platform_managed: "平台托管"
+  };
+  const accessLabel = accessLabelMap[String(access.keyMode || "").trim()] || (access.ready ? "可直接使用" : "需要进一步配置");
   stats.innerHTML = [
     `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
     `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "可直接使用" : "需要配置 Key"}</span>`,
     `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
-    route.advancedOverride ? `<span class="settings-stat-badge warn">高级覆盖</span>` : `<span class="settings-stat-badge">自动路由</span>`
+    route.advancedOverride ? `<span class="settings-stat-badge warn">手动指定</span>` : `<span class="settings-stat-badge">自动选择</span>`
   ].join("");
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
     ? `<div>本地：${escapeHtml(localRuntimeSummaryText())}</div>`
     : "";
   const hybridLine = runtimeMode === "hybrid"
-    ? `<div>混合：本地模型已为隐私/快速任务准备；深度任务仍保留云端路由。</div>`
+    ? `<div>混合：隐私或快速任务优先走本地，较重任务仍可能走云端。</div>`
     : "";
   detail.innerHTML = `
     <div><strong>${escapeHtml(providerDisplayLabel())}</strong></div>
-    <div>模型包：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))} <code>(${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")})</code></div>
-    <div>档位：${escapeHtml(route.selectedTier || "standard")} / 模型：${escapeHtml(route.modelRef || "自动选择")}</div>
-    <div>服务标识：${escapeHtml(provider.providerId || "未标识")} / 授权：${escapeHtml(access.keyMode || "未标识")}</div>
+    <div>AI 方案：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))}</div>
+    <div>当前模型：${escapeHtml(route.modelRef || "自动选择")}</div>
+    <div>授权方式：${escapeHtml(accessLabel)}</div>
     ${localRuntimeLine}
     ${hybridLine}
     <div>${escapeHtml(healthDetail)}</div>
@@ -6664,7 +7040,7 @@ function renderAiSettingsExperience() {
     : "本地模型未启用";
 
   const badgeItems = [
-    { tone: localFlowActive ? "ok" : "muted", text: `运行模式 ${runtimeModeLabel}` },
+    { tone: localFlowActive ? "ok" : "muted", text: `使用方式 ${runtimeModeLabel}` },
     { tone: providerId.includes("local") ? "ok" : "", text: providerLabel }
   ];
   if (localFlowActive) {
@@ -6675,7 +7051,7 @@ function renderAiSettingsExperience() {
   }
   badgeItems.push({
     tone: routeHealthStatus === "healthy" ? "ok" : routeHealthStatus && routeHealthStatus !== "unknown" ? "warn" : "muted",
-    text: routeModelRef ? `模型 ${routeModelRef}` : "等待路由预览"
+    text: routeModelRef ? `模型 ${routeModelRef}` : "等待连接预览"
   });
   badges.innerHTML = badgeItems
     .map((item) => `<span class="settings-stat-badge ${item.tone ? escapeHtml(item.tone) : ""}">${escapeHtml(item.text)}</span>`)
@@ -6684,7 +7060,7 @@ function renderAiSettingsExperience() {
   let setupTitle = "当前以云端优先方式运行";
   let setupBody = "如果你现在主要想先用起来，保留自动或仅云端就够了；想把敏感笔记尽量留在本机，再切到“仅本地”或“混合”。";
   let quickstartLabel = "云端优先";
-  let helperText = "想启用本地模型，先把上面的 AI 运行模式切到“仅本地”或“混合”。";
+  let helperText = "想启用本地模型，先把上面的 AI 使用方式切到“仅本地”或“混合”。";
   let steps = [
     { state: "complete", title: "当前模式已经可以直接使用", note: "你现在不需要额外安装本地推理环境。" },
     { state: "current", title: "如果要本地模型，再切到“仅本地”或“混合”", note: "这样研思录才会进入 Ollama 本地模型流程。" },
@@ -6692,7 +7068,7 @@ function renderAiSettingsExperience() {
   ];
 
   if (localFlowActive) {
-    helperText = "本地模式下，推荐顺序是：先检测 Ollama，再下载 / 选择模型，最后跑一次测试运行确认路由。";
+    helperText = "本地模式下，推荐顺序是：先检测 Ollama，再下载或选择模型，最后试运行一次确认是否走本地。";
     if (settingsState.ai.localRuntimeChecking) {
       setupTitle = "正在检测本地模型环境";
       setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内就会返回状态。";
@@ -6707,7 +7083,7 @@ function renderAiSettingsExperience() {
       setupBody = "研思录已经进入本地模型流程，但当前还没连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
       quickstartLabel = "等待 Ollama";
       steps = [
-        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先用本地模型，深度任务仍可保留云端路由。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
+        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先用本地模型，较重任务仍可保留云端。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
         { state: "current", title: "下载并启动 Ollama", note: "如果还没安装，点“下载 Ollama”；安装后保持它在后台运行。" },
         { state: "pending", title: "回到研思录，点“检测 Ollama”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
       ];
@@ -6723,23 +7099,23 @@ function renderAiSettingsExperience() {
       ];
     } else if (!localModel) {
       setupTitle = "本地模型已经可选，再选一个就能开始";
-      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个，研思录就会把本地路由补齐。";
+      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个，研思录就会补齐本地连接。";
       quickstartLabel = "选择模型";
       steps = [
         { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
         { state: "complete", title: "至少有一个本地模型可用", note: `当前检测到 ${models.length} 个模型。` },
-        { state: "current", title: "从下拉框里选一个模型", note: "选中后，建议立刻跑一次测试运行确认现在的路由确实走本地。" }
+        { state: "current", title: "从下拉框里选一个模型", note: "选中后，建议立刻试运行一次，确认现在确实走本地。" }
       ];
     } else {
       setupTitle = "本地模型已经就绪";
       setupBody = runtimeMode === "hybrid"
-        ? `当前已选中 ${localModel}。混合模式会优先把隐私 / 快速任务路由到本地，较重任务仍可能保留云端。`
+        ? `当前已选中 ${localModel}。混合模式会优先把隐私或快速任务放到本地，较重任务仍可能保留云端。`
         : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖云端。`;
       quickstartLabel = "本地已就绪";
       steps = [
         { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
         { state: "complete", title: "Ollama 和模型都已准备好", note: `当前使用 ${localModel}。` },
-        { state: settingsState.ai.testOutput ? "complete" : "current", title: "跑一次测试运行确认路由", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果，你可以继续微调模式和模型。" : "现在最适合做一次测试运行，确认提示词已经从本地模型返回。" }
+        { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一次确认连接", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果，你可以继续微调设置。" : "现在最适合试运行一次，确认内容已经从本地模型返回。" }
       ];
     }
   }
@@ -6766,7 +7142,7 @@ function renderAiSettingsExperience() {
   advancedBadge.textContent = advancedFields
     ? `${advancedFields} 项已填写`
     : hasMeaningfulAdvancedOverride
-      ? "已覆盖自动路由"
+      ? "已手动指定"
       : "保持默认";
   advancedBadge.classList.toggle("warn", advancedFields > 0 || hasMeaningfulAdvancedOverride);
   advancedBadge.classList.toggle("muted", !(advancedFields > 0 || hasMeaningfulAdvancedOverride));
@@ -6917,27 +7293,229 @@ function activateModule(moduleName) {
   if (normalizedModule === "imports") renderImportPageShell();
 }
 
-function renderSettingsPanel() {
-  const current = $("settingsCurrentVault");
-  const input = $("settingsVaultPath");
-  const detail = $("settingsVaultDetail");
-  const stats = $("settingsVaultStats");
-  if (!current || !input || !detail || !stats) return;
+function normalizeSettingsSection(sectionId = "") {
+  const requested = String(sectionId || "").trim().toLowerCase();
+  return SETTINGS_SECTIONS.some((section) => section.id === requested) ? requested : "workspace";
+}
+
+function settingsSectionConfig(sectionId = "") {
+  const normalized = normalizeSettingsSection(sectionId);
+  return SETTINGS_SECTIONS.find((section) => section.id === normalized) || SETTINGS_SECTIONS[0];
+}
+
+function settingsLeafLabel(value = "", fallback = "默认笔记库") {
+  const text = String(value || "").trim();
+  if (!text) return fallback;
+  const segments = text.split(/[\\/]+/).filter(Boolean);
+  return segments.at(-1) || text || fallback;
+}
+
+function settingsAiRuntimeModeLabel(value = "") {
+  const normalized = normalizeAiRuntimeMode(value || "auto");
+  if (normalized === "local_only") return "仅本地";
+  if (normalized === "cloud_only") return "仅云端";
+  if (normalized === "hybrid") return "混合";
+  return "自动";
+}
+
+function settingsAiOverviewSummary() {
+  const preview = settingsState.ai.routePreview || null;
+  const providerName = String(preview?.provider?.displayName || preview?.provider?.providerId || "").trim();
+  const routeModel = String(preview?.route?.modelRef || "").trim();
+  const localModel = String(settingsState.ai.localModel || "").trim();
+  const value = routeModel || localModel || String(settingsState.ai.modelPack || "Starter Auto").trim() || "Starter Auto";
+  const metaParts = [
+    settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
+    String(settingsState.ai.userMode || "Auto").trim() || "Auto"
+  ];
+  if (providerName) metaParts.push(providerName);
+  return {
+    value,
+    meta: metaParts.filter(Boolean).join(" / ")
+  };
+}
+
+function setSettingsSection(sectionId = "", options = {}) {
+  const nextSection = normalizeSettingsSection(sectionId);
+  const changed = settingsState.activeSection !== nextSection;
+  settingsState.activeSection = nextSection;
+  const firstItem = SETTINGS_DETAIL_ITEMS.find((item) => item.sectionId === nextSection);
+  if (firstItem) settingsState.activeItem = firstItem.id;
+  if (options.render !== false) {
+    if (state.module === "settings") renderSidebarTitle();
+    renderSettingsPanel();
+  }
+  if (changed && options.announce) {
+    const config = settingsSectionConfig(nextSection);
+    setStatus(`已切换到设置分区：${config.label}`, "ok");
+  }
+}
+
+function setSettingsItem(itemId = "", options = {}) {
+  const nextItem = settingsDetailItemConfig(itemId);
+  const changed = settingsState.activeItem !== nextItem.id;
+  settingsState.activeItem = nextItem.id;
+  settingsState.activeSection = nextItem.sectionId;
+  if (options.render !== false) {
+    if (state.module === "settings") renderSidebarTitle();
+    renderSettingsPanel();
+  }
+  if (changed && options.announce) {
+    setStatus(`已切换到设置项：${nextItem.label}`, "ok");
+  }
+}
+
+function ensureSettingsWorkbenchLayout() {
+  return;
+}
+
+function renderSettingsWorkbenchChrome() {
+  const activeSection = normalizeSettingsSection(settingsState.activeSection);
+  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   const vault = settingsState.vault;
-  current.textContent = vault?.vaultPath || "尚未读取";
+  const chromeMap = settingsSectionChromeMap();
+  const aiSummary = settingsAiOverviewSummary();
+  const automationCount = Number(settingsState.ai.scheduledTasksTotal || 0) + Number(settingsState.ai.suggestionsTotal || 0);
+  const mapStatusValue = $("settingsMapStatusValue");
+  const overviewKicker = document.querySelector("#settingsPanel .settings-overview-kicker");
+  const overviewTitle = document.querySelector("#settingsPanel .settings-overview-title");
+  const overviewBody = document.querySelector("#settingsPanel .settings-overview-body");
+  const overviewLabels = document.querySelectorAll("#settingsPanel .settings-overview-label");
+
+  if (overviewKicker) overviewKicker.textContent = "Current Context";
+  if (overviewTitle) {
+    overviewTitle.textContent = "先看当前工作区与 AI 路线，再直接进入左栏参数入口。";
+  }
+  if (overviewBody) {
+    overviewBody.textContent = "这里保留最小必要的上下文信息，避免重复解释设置结构；真正的参数切换和操作都放在下面的左栏与右侧工作区里。";
+  }
+  if (overviewLabels.length >= 3) {
+    overviewLabels[0].textContent = "工作区";
+    overviewLabels[1].textContent = "AI 路线";
+    overviewLabels[2].textContent = "自动化";
+  }
+
+  SETTINGS_SECTIONS.forEach((section) => {
+    const pane = $(section.paneId);
+    const button = $(section.buttonId);
+    const badge = $(section.badgeId);
+    const meta = $(section.metaId);
+    const isActive = section.id === activeSection;
+    pane?.classList.toggle("hidden", !isActive);
+    button?.classList.toggle("is-active", isActive);
+    button?.setAttribute("aria-pressed", isActive ? "true" : "false");
+    if (badge) badge.textContent = chromeMap[section.id]?.badge || section.label;
+    if (meta) meta.textContent = chromeMap[section.id]?.meta || section.label;
+  });
+
+  if (mapStatusValue) {
+    mapStatusValue.textContent = activeItem.label;
+  }
+
+  const workspaceName = $("settingsOverviewWorkspaceName");
+  const workspaceMetaEl = $("settingsOverviewWorkspaceMeta");
+  const aiRoute = $("settingsOverviewAiRoute");
+  const aiMeta = $("settingsOverviewAiMeta");
+  const automationValue = $("settingsOverviewAutomation");
+  const automationMeta = $("settingsOverviewAutomationMeta");
+  if (workspaceName) workspaceName.textContent = vault?.vaultPath ? settingsLeafLabel(vault.vaultPath) : "等待同步";
+  if (workspaceMetaEl) {
+    workspaceMetaEl.textContent = vault
+      ? `${vault.initialized ? "已初始化" : "待初始化"} · ${vault.defaultVaultPath ? `默认：${settingsLeafLabel(vault.defaultVaultPath)}` : "等待默认路径"}`
+      : (formatSettingsUserError(settingsState.error) || "笔记库状态会在这里汇总。");
+  }
+  if (aiRoute) aiRoute.textContent = aiSummary.value;
+  if (aiMeta) aiMeta.textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
+  if (automationValue) automationValue.textContent = `${automationCount} 个入口项`;
+  if (automationMeta) automationMeta.textContent = `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
+}
+
+function renderSettingsSidebarColumn() {
+  const activeSection = normalizeSettingsSection(settingsState.activeSection);
+  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
+  const config = settingsSectionConfig(activeSection);
+  const chromeMap = settingsSectionChromeMap();
+  const guidance = settingsSectionGuidanceMap()[activeSection] || {};
+  const entryCard = $("settingsNavEntryCard");
+  const navCardNote = document.querySelector("#settingsSectionNav")?.closest(".settings-nav-card")?.querySelector(".settings-nav-card-note");
+  const introNote = $("settingsSidebarIntroNote");
+  const focusPill = $("settingsSidebarFocusPill");
+  const focusBody = $("settingsSidebarFocusBody");
+  const checklist = $("settingsSidebarChecklist");
+
+  entryCard?.classList.remove("hidden");
+  if (introNote) {
+    introNote.textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
+  }
+  if (navCardNote) {
+    navCardNote.textContent = "先在左侧选中设置项，再在右侧修改这一项的具体参数。";
+  }
+  if (focusPill) {
+    const badge = chromeMap[activeSection]?.badge || activeItem.label;
+    focusPill.textContent = `${activeItem.label} · ${badge}`;
+  }
+  if (focusBody) {
+    focusBody.textContent = guidance.focus || "先在左栏选中当前参数域，再在右侧完成具体调整。";
+  }
+  if (checklist) {
+    const notes = Array.isArray(guidance.notes) && guidance.notes.length > 0
+      ? guidance.notes
+      : ["当前参数会跟随笔记库同步。", "先确认状态，再执行写入操作。", "右侧区域只显示当前设置项内容。"];
+    checklist.innerHTML = notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+  }
+}
+
+function filterSettingsSidebarMenu(query = "") {
+  const normalized = String(query || "").trim().toLowerCase();
+  document.querySelectorAll("#moduleSidebar .settings-sidebar-menu-item[data-settings-search]").forEach((button) => {
+    const searchText = String(button.getAttribute("data-settings-search") || "").toLowerCase();
+    const hidden = normalized && !searchText.includes(normalized);
+    button.classList.toggle("hidden", Boolean(hidden));
+  });
+}
+
+function renderSettingsDetailFocus() {
+  const activeItem = settingsDetailItemConfig(settingsState.activeItem);
+  const config = settingsSectionConfig(activeItem.sectionId);
+  const visibleCardIds = new Set(activeItem.cardIds || []);
+  SETTINGS_DETAIL_ITEMS.forEach((item) => {
+    item.cardIds.forEach((cardId) => {
+      const card = $(cardId);
+      if (!card) return;
+      const belongsToActivePane = item.sectionId === config.id;
+      const visible = belongsToActivePane && visibleCardIds.has(cardId);
+      card.classList.toggle("hidden", !visible);
+    });
+  });
+  const pane = $(config.paneId);
+  const paneTitle = pane?.querySelector(".settings-pane-title");
+  const paneNote = pane?.querySelector(".settings-pane-note");
+  if (paneTitle) paneTitle.textContent = activeItem.label;
+  if (paneNote) paneNote.textContent = settingsItemSummary(activeItem.id);
+}
+
+function renderSettingsPanel() {
+  ensureSettingsWorkbenchLayout();
+  renderSettingsWorkbenchChrome();
+  renderSettingsSidebarColumn();
+  renderSettingsDetailFocus();
+  const input = $("settingsVaultPath");
+  const switchHint = $("settingsVaultSwitchHint");
+  const switchButton = $("settingsSwitchVault");
+  if (!input || !switchHint || !switchButton) return;
+  const vault = settingsState.vault;
   if (vault?.vaultPath && !String(input.value || "").trim()) input.value = vault.vaultPath;
   if (vault) {
-    const initialized = Boolean(vault.initialized);
-    const usingDefault = vault.vaultPath && vault.defaultVaultPath && String(vault.vaultPath) === String(vault.defaultVaultPath);
-    stats.innerHTML = `
-      <span class="settings-stat-badge ${initialized ? "ok" : "warn"}">${initialized ? "已初始化" : "待初始化"}</span>
-      <span class="settings-stat-badge">${usingDefault ? "默认工作区" : "自定义工作区"}</span>
-      <span class="settings-stat-badge">Markdown 主内容</span>
-    `;
-    detail.textContent = `默认路径：${vault.defaultVaultPath || "未知"}；当前切换目标会在确认后替换整套目录树与缓存上下文。`;
+    switchHint.textContent = vault.vaultPath
+      ? `当前使用：${settingsLeafLabel(vault.vaultPath)}${vault.initialized ? " · 已就绪" : ""}`
+      : "选择一个真实存在的笔记库目录。";
+    switchButton.textContent = "切换到这个路径";
   } else {
-    stats.innerHTML = `<span class="settings-stat-badge warn">等待读取</span>`;
-    detail.textContent = settingsState.error || "点击“刷新当前 Vault”读取 API 状态。";
+    const missingPath = settingsVaultPathMissing();
+    switchHint.textContent = missingPath
+      ? "当前路径已失效，请重新选一个笔记库目录。"
+      : (formatSettingsUserError(settingsState.error) || "选择一个真实存在的笔记库目录。");
+    switchButton.textContent = "选好后切换";
   }
 
   const feedbackBadge = $("settingsFeedbackRepoBadge");
@@ -7007,6 +7585,9 @@ function renderSettingsPanel() {
     testOutput.textContent = settingsState.ai.testOutput || "（空）";
   }
   renderAiCanonicalDebugPanel();
+  renderSettingsWorkbenchChrome();
+  if (state.module === "settings") renderSidebarTitle();
+  renderModuleWorkspaceHeader();
 }
 
 function noteTemplateFieldMeta(kind = "") {
@@ -7019,10 +7600,8 @@ function noteTemplateCardCopy(kind = "") {
   if (String(kind || "").trim().toLowerCase() === "literature") {
     return {
       stats: ["文献模板", "普通 Markdown"],
-      summaryClosed: "这里可以修改文献笔记的新建模板。保存后，后续新建文献笔记会直接采用这份 Markdown 骨架。",
-      summaryOpen: "支持直接编辑文献笔记模板文本，并用 {{title}} 作为标题占位符。当前只支持重命名现有顶层 section，不支持新增额外的二级标题。",
-      openLabel: "打开文献模板设置",
-      closeLabel: "收起文献模板设置",
+      summaryClosed: "修改后会用于后续新建文献笔记。",
+      summaryOpen: "修改后会用于后续新建文献笔记。",
       statusClosed: "待保存修改",
       statusOpen: "正在编辑",
       previewTitle: "示例文献笔记"
@@ -7030,10 +7609,8 @@ function noteTemplateCardCopy(kind = "") {
   }
   return {
     stats: ["统一骨架", "普通 Markdown"],
-    summaryClosed: "这里可以修改永久笔记的新建模板。保存后，后续新建永久笔记会直接采用这份 Markdown 骨架。",
-    summaryOpen: "支持直接编辑永久笔记模板文本，并用 {{title}} 作为标题占位符。后续新建永久笔记会按这里的内容落盘。",
-    openLabel: "打开永久笔记模板设置",
-    closeLabel: "收起永久笔记模板设置",
+    summaryClosed: "修改后会用于后续新建永久笔记。",
+    summaryOpen: "修改后会用于后续新建永久笔记。",
     statusClosed: "待保存修改",
     statusOpen: "正在编辑",
     previewTitle: "示例永久笔记"
@@ -7052,24 +7629,117 @@ function noteTemplateSaveButtonElementId(kind = "") {
     : "settingsSavePermanentTemplate";
 }
 
+function noteTemplateFeedbackElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateFeedback"
+    : "settingsPermanentTemplateFeedback";
+}
+
+function noteTemplateFeedbackTextElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateFeedbackText"
+    : "settingsPermanentTemplateFeedbackText";
+}
+
+function escapePreviewInline(text = "") {
+  return escapeHtml(String(text || ""))
+    .replace(/\[\[([^\]]+)\]\]/g, '<span class="preview-wikilink">[[$1]]</span>')
+    .replace(/(^|\s)#([^\s#]+)/g, '$1<span class="preview-tag">#$2</span>');
+}
+
+function renderTemplateMarkdownPreviewHtml(source = "") {
+  const lines = String(source || "").replace(/\r\n/g, "\n").split("\n");
+  const html = [];
+  let paragraph = [];
+  let listItems = [];
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    html.push(`<p>${escapePreviewInline(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  }
+
+  function flushList() {
+    if (!listItems.length) return;
+    html.push(`<ul>${listItems.map((item) => `<li>${escapePreviewInline(item)}</li>`).join("")}</ul>`);
+    listItems = [];
+  }
+
+  for (const rawLine of lines) {
+    const line = String(rawLine || "");
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+    if (/^#\s+/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<h1>${escapePreviewInline(trimmed.replace(/^#\s+/, ""))}</h1>`);
+      continue;
+    }
+    if (/^##\s+/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<h2>${escapePreviewInline(trimmed.replace(/^##\s+/, ""))}</h2>`);
+      continue;
+    }
+    if (/^>\s*/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<blockquote>${escapePreviewInline(trimmed.replace(/^>\s*/, ""))}</blockquote>`);
+      continue;
+    }
+    if (/^-\s+/.test(trimmed)) {
+      flushParagraph();
+      listItems.push(trimmed.replace(/^-\s+/, ""));
+      continue;
+    }
+    flushList();
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+  return html.join("") || `<div class="markdown-preview-empty">还没有可预览的内容。</div>`;
+}
+
 function noteTemplateDraftValidation(kind = "", source = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   if (cleanKind !== "literature") return { ok: true, message: "" };
   return validateLiteratureTemplateSource(source);
 }
 
-function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
+function openNoteTemplatePreview(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  if (!settingsState.noteTemplates?.[cleanKind]) return;
-  settingsState.noteTemplates[cleanKind].panelOpen = nextOpen === true;
+  const stateEntry = settingsState.noteTemplates?.[cleanKind];
+  if (!stateEntry) return;
+  const source = normalizeNoteTemplateSource(
+    stateEntry.draftActive ? stateEntry.draftText : stateEntry.text,
+    cleanKind
+  );
+  const validation = noteTemplateDraftValidation(cleanKind, source);
+  const copy = noteTemplateCardCopy(cleanKind);
+  const modal = $("settingsTemplatePreviewModal");
+  const title = $("settingsTemplatePreviewTitle");
+  const note = $("settingsTemplatePreviewNote");
+  const body = $("settingsTemplatePreviewBody");
+  if (!modal || !title || !note || !body) return;
+  title.textContent = cleanKind === "literature" ? "文献笔记模板预览" : "永久笔记模板预览";
+  note.textContent = validation.ok ? "这里会按真实笔记的样子显示。" : `当前内容还不能保存：${validation.message}`;
+  body.innerHTML = validation.ok
+    ? renderTemplateMarkdownPreviewHtml(applyTitleToNoteTemplate(source, copy.previewTitle, cleanKind))
+    : `<div class="markdown-preview-empty">模板当前不能保存：${escapeHtml(validation.message)}</div>`;
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
 }
 
-function toggleNoteTemplatePanel(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const current = settingsState.noteTemplates?.[cleanKind]?.panelOpen === true;
-  setNoteTemplatePanelOpen(cleanKind, !current);
-  renderSettingsPanel();
-  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板设置已${current ? "收起" : "打开"}`, "ok");
+function closeNoteTemplatePreview() {
+  const modal = $("settingsTemplatePreviewModal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
 }
 
 function saveNoteTemplateFromEditor(kind = "") {
@@ -7081,6 +7751,9 @@ function saveNoteTemplateFromEditor(kind = "") {
   if (cleanKind === "literature") {
     const validation = validateLiteratureTemplateSource(nextSource);
     if (!validation.ok) {
+      settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
+      settingsState.noteTemplates[cleanKind].feedbackText = validation.message || "文献模板当前还不能保存。";
+      renderSettingsPanel();
       setStatus(validation.message || "文献模板当前形状不受支持", "warn");
       return;
     }
@@ -7095,6 +7768,8 @@ function saveNoteTemplateFromEditor(kind = "") {
   settingsState.noteTemplates[cleanKind].text = nextSource;
   settingsState.noteTemplates[cleanKind].draftText = nextSource;
   settingsState.noteTemplates[cleanKind].draftActive = false;
+  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
+  settingsState.noteTemplates[cleanKind].feedbackText = "已保存，新建时会使用这个模板。";
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
@@ -7111,6 +7786,8 @@ function resetNoteTemplateToDefault(kind = "") {
   settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
   settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
   settingsState.noteTemplates[cleanKind].draftActive = false;
+  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
+  settingsState.noteTemplates[cleanKind].feedbackText = "已恢复默认模板。";
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
@@ -7118,24 +7795,19 @@ function resetNoteTemplateToDefault(kind = "") {
 
 function updateNoteTemplatePreviewFromEditor(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
   const editorField = $(noteTemplateEditorElementId(cleanKind));
   const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
-  const preview = $(`settings${capitalizedKind}TemplatePreview`);
-  if (!preview) return;
-  const copy = noteTemplateCardCopy(cleanKind);
   const draftSource = normalizeDraftBuffer(editorField?.value || "");
   settingsState.noteTemplates[cleanKind].draftText = draftSource;
   settingsState.noteTemplates[cleanKind].draftActive = true;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
+  settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
+  settingsState.noteTemplates[cleanKind].feedbackText = validation.ok ? "有未保存修改。" : `当前内容还不能保存：${validation.message}`;
   if (saveButton) {
     saveButton.disabled = !validation.ok;
     saveButton.title = validation.ok ? "" : validation.message;
     saveButton.dataset.tip = saveButton.title;
   }
-  preview.textContent = validation.ok
-    ? applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind)
-    : `模板当前不能保存：${validation.message}`;
 }
 
 function renderNoteTemplateSettingsCard(kind = "") {
@@ -7143,58 +7815,54 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
   const stats = $(`settings${capitalizedKind}TemplateStats`);
   const summary = $(`settings${capitalizedKind}TemplateSummary`);
-  const button = $(`settingsOpen${capitalizedKind}TemplateConfig`);
   const detail = $(`settings${capitalizedKind}TemplateDetail`);
-  const list = $(`settings${capitalizedKind}TemplateFieldList`);
-  const preview = $(`settings${capitalizedKind}TemplatePreview`);
   const editorField = $(`settings${capitalizedKind}TemplateEditor`);
   const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const feedback = $(noteTemplateFeedbackElementId(cleanKind));
+  const feedbackText = $(noteTemplateFeedbackTextElementId(cleanKind));
   const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
-    panelOpen: false,
     text: defaultTemplateSourceForKind(cleanKind),
     draftText: defaultTemplateSourceForKind(cleanKind),
-    draftActive: false
+    draftActive: false,
+    feedbackTone: "",
+    feedbackText: ""
   };
-  const open = stateEntry.panelOpen === true;
   const copy = noteTemplateCardCopy(cleanKind);
-  const fieldMeta = noteTemplateFieldMeta(cleanKind);
   const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
   const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
-  const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
+  const visibleSource = stateEntry.draftActive === true ? draftSource : savedSource;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
 
   if (stats) {
+    const draftBadgeText = !validation.ok
+      ? "当前草稿不可保存"
+      : stateEntry.draftActive
+        ? copy.statusClosed
+        : "已保存";
     stats.innerHTML = `
       <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
       <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
-      <span class="settings-stat-badge ${open ? (validation.ok ? "ok" : "warn") : "warn"}">${escapeHtml(open ? (validation.ok ? copy.statusOpen : "当前草稿不可保存") : copy.statusClosed)}</span>
+      <span class="settings-stat-badge ${validation.ok ? (stateEntry.draftActive ? "warn" : "ok") : "warn"}">${escapeHtml(draftBadgeText)}</span>
     `;
   }
   if (summary) {
-    summary.textContent = open
-      ? validation.ok
-        ? copy.summaryOpen
-        : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`
-      : copy.summaryClosed;
+    summary.textContent = validation.ok
+      ? copy.summaryOpen
+      : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`;
   }
-  if (button) {
-    button.textContent = open ? copy.closeLabel : copy.openLabel;
-    button.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  if (detail) detail.classList.toggle("hidden", !open);
-  if (list) {
-    list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
-  }
+  if (detail) detail.classList.remove("hidden");
   if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
   if (saveButton) {
     saveButton.disabled = !validation.ok;
     saveButton.title = validation.ok ? "" : validation.message;
     saveButton.dataset.tip = saveButton.title;
   }
-  if (preview) {
-    preview.textContent = validation.ok
-      ? applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind)
-      : `模板当前不能保存：${validation.message}`;
+  if (feedback && feedbackText) {
+    const visibleFeedback = String(stateEntry.feedbackText || "").trim();
+    feedback.classList.toggle("is-visible", Boolean(visibleFeedback));
+    feedback.classList.toggle("ok", stateEntry.feedbackTone === "ok");
+    feedback.classList.toggle("warn", stateEntry.feedbackTone === "warn");
+    feedbackText.textContent = visibleFeedback;
   }
 }
 
@@ -9315,21 +9983,15 @@ async function refreshVaultSettings() {
     settingsState.vault = await fetchVaultInfo();
     loadNoteTemplateSettingsFromStorage();
     const prefs = await fetchAiPreferences().catch(() => null);
-    if (prefs) {
-      const userMode = String(prefs.userMode || prefs.user_mode || "").trim();
-      if (userMode) settingsState.ai.userMode = userMode;
-      const modelPack = String(prefs.modelPack || prefs.model_pack || "").trim();
-      if (modelPack) settingsState.ai.modelPack = modelPack;
-      const advancedSettings = prefs.advancedSettings || prefs.advanced_settings || {};
-      const runtimeMode = String(advancedSettings.runtimeMode || advancedSettings.runtime_mode || "").trim();
-      if (runtimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(runtimeMode);
-      const localModel = String(advancedSettings.localModel || advancedSettings.local_model || "").trim();
-      if (localModel) settingsState.ai.localModel = localModel;
-      const advancedRef = String(prefs.advancedSettings?.modelRef || prefs.advanced_settings?.model_ref || "").trim();
-      settingsState.ai.advancedModelRef = advancedRef;
-      const secretRef = String(prefs.advancedSettings?.secretRef || prefs.advanced_settings?.secret_ref || "").trim();
-      settingsState.ai.secretRef = secretRef;
-    }
+    const nextAiSelection = aiSettingsSelectionFromPreferences(prefs);
+    settingsState.ai.runtimeMode = nextAiSelection.runtimeMode;
+    settingsState.ai.userMode = nextAiSelection.userMode;
+    settingsState.ai.modelPack = nextAiSelection.modelPack;
+    settingsState.ai.localModel = nextAiSelection.localModel;
+    settingsState.ai.advancedModelRef = nextAiSelection.advancedModelRef;
+    settingsState.ai.secretRef = nextAiSelection.secretRef;
+    settingsState.ai.providerEndpointUrl = "";
+    settingsState.ai.providerHealthEndpointUrl = "";
     reconcileAiSelectionState();
     persistAiSettingsToStorage();
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
@@ -15314,12 +15976,35 @@ $("btnEditorHelperAction")?.addEventListener("click", () => {
 });
 
 $("settingsRefreshVault")?.addEventListener("click", async () => {
+  setSettingsSection("workspace", { render: false });
   try {
     await refreshVaultSettings();
-    setStatus("已刷新当前 Vault 信息", "ok");
+    setStatus("已刷新当前笔记库信息", "ok");
   } catch (error) {
-    setStatus(`刷新 Vault 信息失败：${String(error?.message || error)}`, "bad");
+    setStatus(`刷新笔记库信息失败：${String(error?.message || error)}`, "bad");
   }
+});
+
+$("settingsSectionNav")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-settings-section]");
+  if (!button) return;
+  setSettingsSection(button.getAttribute("data-settings-section"), { announce: true });
+});
+
+$("moduleSidebar")?.addEventListener("click", (event) => {
+  if (state.module !== "settings") return;
+  if (event.target.closest("#settingsSidebarBackToApp")) {
+    activateModule("explorer");
+    return;
+  }
+  const itemButton = event.target.closest("[data-settings-item]");
+  if (itemButton) {
+    setSettingsItem(itemButton.getAttribute("data-settings-item"), { announce: true });
+    return;
+  }
+  const button = event.target.closest("[data-settings-section]");
+  if (!button) return;
+  setSettingsSection(button.getAttribute("data-settings-section"), { announce: true });
 });
 
 $("btnEditorHelperMute")?.addEventListener("click", () => {
@@ -15331,20 +16016,32 @@ $("btnEditorHelperMute")?.addEventListener("click", () => {
 });
 
 $("settingsBrowseVault")?.addEventListener("click", async () => {
+  setSettingsSection("workspace", { render: false });
   const picked = await desktopCommands.pickVaultDirectory({ defaultPath: $("settingsVaultPath")?.value || settingsState.vault?.vaultPath || "" });
   if (picked.path) {
     $("settingsVaultPath").value = picked.path;
-    setStatus(`已选择 Vault 路径（${picked.source}）`, "ok");
+    setStatus(`已选择笔记库路径（${picked.source}）`, "ok");
   }
 });
 
 $("settingsSwitchVault")?.addEventListener("click", async () => {
-  const vaultPath = String($("settingsVaultPath")?.value || "").trim();
-  if (!vaultPath) return setStatus("请先选择或输入 Vault 路径", "warn");
-  if (!editor.confirmDiscardDirtyTabs("切换 Vault 会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+  setSettingsSection("workspace", { render: false });
   try {
-    const vault = await desktopCommands.switchVault(vaultPath);
-    settingsState.vault = vault;
+    const currentInputPath = String($("settingsVaultPath")?.value || "").trim();
+    const defaultPath = currentInputPath || settingsState.vault?.vaultPath || "";
+    let nextPath = currentInputPath;
+    if (!currentInputPath) {
+      const picked = await desktopCommands.pickVaultDirectory({ defaultPath });
+      if (!picked.path) {
+        setStatus("未选择新的笔记库路径", "warn");
+        return;
+      }
+      nextPath = String(picked.path || "").trim();
+      if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
+    }
+    if (!editor.confirmDiscardDirtyTabs("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+    const nextVault = await desktopCommands.switchVault(nextPath);
+    settingsState.vault = nextVault;
     loadNoteTemplateSettingsFromStorage();
     state.notes = [];
     state.tabs = [];
@@ -15355,18 +16052,20 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
     state.selectedFolderId = "dir_original_default";
     await syncNotesForDirectory(state.selectedFolderId);
     renderAll();
-    setStatus(`已切换并初始化 Vault：${vault.vaultPath}`, "ok");
+    setStatus(`已重新选择并初始化笔记库：${nextVault.vaultPath}`, "ok");
   } catch (error) {
-    setStatus(`切换 Vault 失败：${String(error?.message || error)}`, "bad");
+    setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");
   }
 });
 
-$("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
-  toggleNoteTemplatePanel("permanent");
+$("settingsPreviewPermanentTemplate")?.addEventListener("click", () => {
+  setSettingsSection("templates", { render: false });
+  openNoteTemplatePreview("permanent");
 });
 
-$("settingsOpenLiteratureTemplateConfig")?.addEventListener("click", () => {
-  toggleNoteTemplatePanel("literature");
+$("settingsPreviewLiteratureTemplate")?.addEventListener("click", () => {
+  setSettingsSection("templates", { render: false });
+  openNoteTemplatePreview("literature");
 });
 
 $("settingsSavePermanentTemplate")?.addEventListener("click", () => {
@@ -15391,6 +16090,14 @@ $("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
 
 $("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
   updateNoteTemplatePreviewFromEditor("literature");
+});
+
+$("settingsTemplatePreviewClose")?.addEventListener("click", () => {
+  closeNoteTemplatePreview();
+});
+
+$("settingsTemplatePreviewModal")?.addEventListener("click", (event) => {
+  if (event.target === $("settingsTemplatePreviewModal")) closeNoteTemplatePreview();
 });
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
@@ -15418,7 +16125,7 @@ $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
   }
   await refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(`AI 运行模式已切换为：${settingsState.ai.runtimeMode}`, "ok");
+  setStatus(`AI 使用方式已切换为：${settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode)}`, "ok");
 });
 
 $("settingsAiUserMode")?.addEventListener("change", (event) => {
@@ -15460,7 +16167,7 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   syncAiSettingsToApi();
   refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(next ? "AI 高级模型 ID 已保存" : "AI 高级模型 ID 已清空（恢复自动选择）", "ok");
+  setStatus(next ? "指定模型已保存" : "指定模型已清空（恢复自动选择）", "ok");
 });
 
 $("settingsAiSecretRef")?.addEventListener("blur", (event) => {
@@ -15470,7 +16177,7 @@ $("settingsAiSecretRef")?.addEventListener("blur", (event) => {
   syncAiSettingsToApi();
   refreshAiRoutePreview();
   renderSettingsPanel();
-  setStatus(next ? "AI 密钥引用已保存" : "AI 密钥引用已清空", "ok");
+  setStatus(next ? "密钥名称已保存" : "密钥名称已清空", "ok");
 });
 
 $("settingsAiSecretRef")?.addEventListener("input", (event) => {
@@ -15501,7 +16208,7 @@ $("settingsAiTestPrompt")?.addEventListener("input", (event) => {
 
 $("btnAiTestChatRun")?.addEventListener("click", async () => {
   const prompt = String($("settingsAiTestPrompt")?.value || settingsState.ai.testPrompt || "").trim();
-  if (!prompt) return setStatus("先输入一条测试提示词", "warn");
+  if (!prompt) return setStatus("先输入一条测试内容", "warn");
   settingsState.ai.testRunning = true;
   settingsState.ai.testMeta = "";
   settingsState.ai.testOutput = "";
@@ -15516,11 +16223,11 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
     });
     settingsState.ai.testMeta = `${result?.providerId || "服务"} / ${result?.modelRef || "模型"} (${result?.status || "未检测"})`;
     settingsState.ai.testOutput = String(result?.output?.content || "").trim() || JSON.stringify(result?.output?.json || result || {}, null, 2);
-    setStatus("AI 测试运行已完成", "ok");
+    setStatus("AI 试运行已完成", "ok");
   } catch (error) {
     settingsState.ai.testMeta = "运行失败";
     settingsState.ai.testOutput = String(error?.message || error);
-    setStatus(`AI 测试运行失败：${settingsState.ai.testOutput}`, "bad");
+    setStatus(`AI 试运行失败：${settingsState.ai.testOutput}`, "bad");
   } finally {
     settingsState.ai.testRunning = false;
     renderSettingsPanel();
@@ -15698,9 +16405,9 @@ $("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
   try {
     await copyTextToClipboard(buildFeedbackDiagnosticText());
-    setStatus("已复制反馈诊断信息", "ok");
+    setStatus("已复制问题信息", "ok");
   } catch (error) {
-    setStatus(`复制反馈诊断信息失败：${String(error?.message || error)}`, "bad");
+    setStatus(`复制问题信息失败：${String(error?.message || error)}`, "bad");
   }
 });
 

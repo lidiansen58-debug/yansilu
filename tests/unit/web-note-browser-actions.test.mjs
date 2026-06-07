@@ -237,6 +237,18 @@ test("note browser still treats literature-folder notes as non-disconnected when
   assert.equal(explorer.noteIsDisconnected(fleeting), false);
 });
 
+test("note browser suppresses disconnected warnings for draft permanent notes", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.graphConnectedNoteIds = new Set();
+  state.graphConnectivityReady = true;
+
+  const draftPermanent = { id: "pn_draft", title: "draft-note", noteType: "permanent", status: "draft" };
+
+  assert.equal(explorer.noteIsDisconnected(draftPermanent), false);
+});
+
 test("source-note badges still render for generated permanent notes even when noteType metadata is stale", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
@@ -469,6 +481,23 @@ test("source-note browser uses different pending badges for fleeting and literat
   assert.match(literatureHtml, /data-note-state="source-pending"/);
 });
 
+test("source-note browser suppresses pending badges for draft placeholders", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  const draftFleetingHtml = explorer.renderFileNode({
+    id: "fn_placeholder",
+    title: "\u672a\u547d\u540d\u7b14\u8bb0",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting",
+    status: "draft"
+  }, 0);
+
+  assert.match(draftFleetingHtml, /data-source-kind="fleeting"/);
+  assert.match(draftFleetingHtml, /data-note-state=""/);
+  assert.doesNotMatch(draftFleetingHtml, /source-pending/);
+});
+
 test("source-note folders surface pending permanent-note creation through icon state", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
@@ -485,6 +514,24 @@ test("source-note folders surface pending permanent-note creation through icon s
   assert.match(html, /has-folder-alert/);
   assert.match(html, /data-folder-state="source-pending"/);
   assert.doesNotMatch(html, /随笔待转|文献待转/);
+});
+
+test("source-note folders ignore untitled draft placeholders when deciding pending state", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.notes.push({
+    id: "fn_placeholder_folder_state",
+    title: "\u672a\u547d\u540d\u7b14\u8bb0",
+    folderId: "dir_fleeting_default",
+    noteType: "fleeting",
+    status: "draft"
+  });
+
+  const html = explorer.renderFolderNode(folderById(state, "dir_fleeting_default"), 0, "", new Map());
+
+  assert.doesNotMatch(html, /has-folder-alert/);
+  assert.doesNotMatch(html, /data-folder-state="source-pending"/);
 });
 
 test("source-note promote flows no longer ask users to type a directory id", () => {
@@ -587,7 +634,7 @@ test("note persistence keeps generated-original and relation-network status fiel
 test("workspace helper and note opening use folder-root note types for literature flows", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
 
-  assert.match(source, /const noteType = String\(\(activeNote\?\.folderId \? typeFromFolder\(state, activeNote\.folderId\) : ""\) \|\| activeNote\?\.noteType \|\| ""\)\.trim\(\);/);
+  assert.match(source, /const noteType = String\(\(activeNote\?\.folderId \? typeFromFolder\(state, activeNote\.folderId\) : ""\) \|\| activeNote\?\.noteType \|\| ""\)\s*\.trim\(\)\s*\.toLowerCase\(\);/);
   assert.match(source, /const keepFocus =\s*String\(\(note\?\.folderId \? typeFromFolder\(state, note\.folderId\) : ""\) \|\| note\?\.noteType \|\| ""\)\.trim\(\) === "literature"/);
 });
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  aiSettingsSelectionFromPreferences,
   canonicalizeAiSettingsSelection,
   isAiLocalFlowActive,
   isLocalModelPack,
@@ -81,4 +82,40 @@ test("AI settings state can sync user mode and derive local flow badges", () => 
   assert.equal(hybrid.userMode, "Auto");
   assert.equal(isAiLocalFlowActive({ runtimeMode: "hybrid", modelPack: "Starter Auto" }), true);
   assert.equal(localProviderPresetForModelPack("Ollama Local"), "ollama_local_gateway");
+});
+
+test("AI settings state rebuilds vault preferences and clears missing overrides", () => {
+  assert.deepEqual(aiSettingsSelectionFromPreferences(null), {
+    runtimeMode: "auto",
+    modelPack: "Starter Auto",
+    userMode: "Auto",
+    providerPreset: "platform_managed_openai",
+    localFlowActive: false,
+    localModel: "",
+    advancedModelRef: "",
+    secretRef: ""
+  });
+
+  assert.deepEqual(
+    aiSettingsSelectionFromPreferences({
+      userMode: "Local / Private",
+      modelPack: "Ollama Local",
+      advancedSettings: {
+        runtimeMode: "local",
+        localModel: "qwen2.5:7b",
+        modelRef: "ollama_local_gateway:qwen2.5:7b",
+        secretRef: "secret_local_lab"
+      }
+    }),
+    {
+      runtimeMode: "local_only",
+      modelPack: "Ollama Local",
+      userMode: "Local / Private",
+      providerPreset: "ollama_local_gateway",
+      localFlowActive: true,
+      localModel: "qwen2.5:7b",
+      advancedModelRef: "ollama_local_gateway:qwen2.5:7b",
+      secretRef: "secret_local_lab"
+    }
+  );
 });

@@ -96,6 +96,38 @@ test("path picker falls back to browser prompt when tauri is unavailable", async
   }
 });
 
+test("path picker ignores showDirectoryPicker handles and still asks for a concrete path", async () => {
+  const previousWindow = globalThis.window;
+  const prompts = [];
+  let pickerCalls = 0;
+
+  globalThis.window = {
+    async showDirectoryPicker() {
+      pickerCalls += 1;
+      return { name: "yansilu-vault" };
+    },
+    prompt(message, defaultPath) {
+      prompts.push({ message, defaultPath });
+      return "E:\\Vaults\\prompt-picked";
+    }
+  };
+
+  try {
+    const result = await pickDirectoryPath({ defaultPath: "E:\\Vaults\\default" });
+    assert.equal(pickerCalls, 0);
+    assert.deepEqual(prompts, [
+      {
+        message: "请输入目录路径（浏览器降级模式）",
+        defaultPath: "E:\\Vaults\\default"
+      }
+    ]);
+    assert.deepEqual(result, { path: "E:\\Vaults\\prompt-picked", source: "browser" });
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test("path picker returns none when browser fallback is cancelled", async () => {
   const previousWindow = globalThis.window;
 
