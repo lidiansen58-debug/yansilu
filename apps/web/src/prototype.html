@@ -877,12 +877,22 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: #2b3444;
+      border-radius: 10px;
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 246, 248, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+      color: #314055;
     }
     .settings-sidebar-menu-icon svg {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       stroke: currentColor;
+    }
+    .settings-sidebar-menu-item.is-active .settings-sidebar-menu-icon {
+      border-color: rgba(148, 175, 165, 0.92);
+      background: linear-gradient(180deg, rgba(238, 246, 242, 0.98), rgba(224, 236, 230, 0.96));
+      color: #285548;
+      box-shadow: 0 8px 18px rgba(41, 85, 72, 0.12);
     }
     .settings-sidebar-menu-copy {
       display: grid;
@@ -9321,6 +9331,9 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 248, 0.96));
       box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
     }
+    .settings-pane[data-settings-pane] > .settings-pane-head {
+      display: none;
+    }
     .settings-pane-headline {
       display: flex;
       flex-wrap: wrap;
@@ -9767,6 +9780,142 @@
       flex-wrap: wrap;
       gap: 6px;
     }
+    .settings-template-editor {
+      display: grid;
+      gap: 14px;
+    }
+    .settings-template-editor-shell {
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(248, 251, 252, 0.98), rgba(255, 255, 255, 0.98));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.88),
+        0 14px 30px rgba(148, 163, 184, 0.08);
+      overflow: hidden;
+    }
+    .settings-template-editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+      background: rgba(248, 250, 252, 0.9);
+    }
+    .settings-template-editor-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .settings-template-editor-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #172033;
+    }
+    .settings-template-editor-note {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #64748b;
+    }
+    .settings-template-editor-chip {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(191, 219, 254, 0.96);
+      background: rgba(239, 246, 255, 0.96);
+      font-size: 11px;
+      font-weight: 700;
+      color: #1d4ed8;
+      letter-spacing: 0.02em;
+    }
+    .settings-template-editor textarea {
+      border: 0;
+      border-radius: 0;
+      min-height: 360px;
+      padding: 18px 18px 22px;
+      background: transparent;
+      box-shadow: none;
+      resize: vertical;
+    }
+    .settings-template-editor textarea:focus {
+      box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+    .settings-template-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 14px 16px;
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      border-radius: 18px;
+      background: rgba(248, 251, 252, 0.88);
+    }
+    .settings-pane .mini-btn {
+      min-height: 36px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    .settings-pane .mini-btn:not(.primary):not(.is-ghost):not(.is-subtle) {
+      border-color: rgba(214, 223, 232, 0.96);
+      background: rgba(255, 255, 255, 0.98);
+      color: #334155;
+      box-shadow: 0 8px 18px rgba(148, 163, 184, 0.08);
+    }
+    .settings-pane .mini-btn:not(.primary):not(.is-ghost):not(.is-subtle):hover {
+      border-color: rgba(186, 199, 213, 0.98);
+      background: rgba(248, 250, 252, 0.98);
+      color: #0f172a;
+      box-shadow: 0 12px 22px rgba(148, 163, 184, 0.12);
+    }
+    .settings-pane .mini-btn.primary {
+      min-width: 112px;
+    }
+    .settings-pane .mini-btn.is-subtle {
+      border-color: transparent;
+      background: transparent;
+      color: #64748b;
+      box-shadow: none;
+    }
+    .settings-pane .mini-btn.is-subtle:hover {
+      border-color: rgba(226, 232, 240, 0.98);
+      background: rgba(255, 255, 255, 0.92);
+      color: #334155;
+      box-shadow: none;
+    }
+    .settings-pane .mini-btn:focus-visible {
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.45);
+      box-shadow:
+        0 0 0 3px rgba(37, 99, 235, 0.14),
+        0 10px 20px rgba(148, 163, 184, 0.12);
+    }
+    .settings-pane .mini-btn.primary:focus-visible {
+      border-color: #0f6f48;
+      box-shadow:
+        0 0 0 3px rgba(19, 118, 79, 0.16),
+        0 12px 22px rgba(19, 118, 79, 0.2);
+    }
+    .settings-template-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 0;
+      margin-left: auto;
+    }
+    .settings-template-actions-group {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .settings-help-link {
       font-size: 12px;
       color: #2563eb;
@@ -9786,6 +9935,181 @@
       line-height: 1.5;
       color: #334155;
       overflow: auto;
+    }
+    .settings-template-feedback {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 0;
+      border-radius: 0;
+      border: 0;
+      background: transparent;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #64748b;
+    }
+    .settings-template-feedback.is-visible {
+      display: flex;
+    }
+    .settings-template-feedback.ok {
+      color: #166534;
+    }
+    .settings-template-feedback.warn {
+      color: #92400e;
+    }
+    .settings-template-feedback-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: currentColor;
+      flex: 0 0 auto;
+    }
+    .settings-template-preview-toggle {
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.96);
+      overflow: hidden;
+    }
+    .settings-template-preview-toggle summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+    .settings-template-preview-toggle summary::-webkit-details-marker {
+      display: none;
+    }
+    .settings-template-preview-meta {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+    }
+    .settings-template-preview-body {
+      padding: 0 14px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .settings-template-preview-frame {
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,252,0.98));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.88);
+      overflow: hidden;
+    }
+    .settings-template-preview-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(248, 250, 252, 0.96);
+    }
+    .settings-template-preview-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #172033;
+    }
+    .settings-template-preview-note {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .settings-template-preview-surface {
+      padding: 16px;
+    }
+    .settings-template-preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1600;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      background: rgba(15, 23, 42, 0.38);
+      backdrop-filter: blur(10px);
+    }
+    .settings-template-preview-modal.is-open {
+      display: flex;
+    }
+    .settings-template-preview-dialog {
+      width: min(860px, calc(100vw - 48px));
+      max-height: calc(100vh - 56px);
+      overflow: auto;
+      border-radius: 22px;
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
+    }
+    .settings-template-preview-dialog-head {
+      padding: 16px 18px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+    }
+    .settings-template-preview-dialog-copy {
+      display: grid;
+      gap: 4px;
+    }
+    .settings-template-preview-dialog-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #172033;
+    }
+    .settings-template-preview-dialog-note {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .settings-template-preview-dialog-close {
+      flex: 0 0 auto;
+    }
+    .settings-template-preview-dialog-body {
+      padding: 20px;
+      background:
+        radial-gradient(circle at top left, rgba(191, 219, 254, 0.2), transparent 30%),
+        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(255, 255, 255, 0.98));
+    }
+    .settings-template-preview-paper {
+      margin: 0 auto;
+      width: min(100%, 680px);
+      min-height: 420px;
+      padding: 32px 34px 40px;
+      border-radius: 22px;
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow:
+        0 20px 40px rgba(148, 163, 184, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    }
+    @media (max-width: 920px) {
+      .settings-template-editor-head,
+      .settings-template-footer {
+        align-items: flex-start;
+      }
+      .settings-template-editor-head {
+        flex-direction: column;
+      }
+      .settings-template-editor-chip {
+        align-self: flex-start;
+      }
+      .settings-template-actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+      }
+      .settings-template-actions-group {
+        justify-content: flex-start;
+      }
+      .settings-template-editor textarea {
+        min-height: 320px;
+      }
     }
     .settings-canonical-section {
       display: grid;
@@ -14422,7 +14746,7 @@
                         </span>
                         <span class="settings-nav-body">
                           <span class="settings-nav-title">自动化</span>
-                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">任务、建议与调试</span>
+                          <span class="settings-nav-meta" id="settingsNavAutomationMeta">定时任务、AI 待办与运行记录</span>
                         </span>
                         <span class="settings-stat-badge" id="settingsNavAutomationBadge">0</span>
                       </button>
@@ -14439,7 +14763,7 @@
                         </span>
                         <span class="settings-nav-body">
                           <span class="settings-nav-title">支持</span>
-                          <span class="settings-nav-meta" id="settingsNavSupportMeta">反馈入口与桌面说明</span>
+                          <span class="settings-nav-meta" id="settingsNavSupportMeta">问题反馈、帮助入口与本地说明</span>
                         </span>
                         <span class="settings-stat-badge" id="settingsNavSupportBadge">反馈</span>
                       </button>
@@ -14450,7 +14774,7 @@
                     <p class="settings-nav-card-subtitle">中栏负责定位类别，右侧负责真正的参数编辑。</p>
                     <div class="settings-sidebar-focus-pill" id="settingsSidebarFocusPill">工作区 · 待同步</div>
                     <div class="settings-nav-card-note" id="settingsSidebarFocusBody">
-                      先确认当前笔记库的状态和默认路径，再决定是否切换卡片盒根目录。
+                      查看当前状态和默认路径。
                     </div>
                   </section>
                   <section class="settings-nav-card settings-nav-assist-card">
@@ -14474,40 +14798,23 @@
                       <div class="settings-pane-note">笔记库与路径。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneWorkspaceBody">
-                      <section class="settings-card" id="settingsCardCurrentVault">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">当前笔记库</div>
-                            <div class="settings-card-note">路径与状态。</div>
-                          </div>
-                        </div>
-                        <div class="settings-stat-row" id="settingsVaultStats">
-                          <span class="settings-stat-badge warn">等待读取</span>
-                        </div>
-                        <div id="settingsCurrentVault" class="settings-path-display">尚未读取</div>
-                        <div id="settingsVaultDetail" class="settings-card-note">读取状态。</div>
-                        <div class="import-actions">
-                          <button class="mini-btn" id="settingsRefreshVault">刷新当前笔记库</button>
-                          <button class="mini-btn" id="settingsSwitchVault">切换并初始化</button>
-                        </div>
-                      </section>
-
                       <section class="settings-card" id="settingsCardSwitchVault">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">切换工作区</div>
-                            <div class="settings-card-note">选择目标路径。</div>
+                            <div class="settings-card-title">笔记库目录</div>
+                            <div class="settings-card-note" id="settingsVaultSwitchHint">选择一个真实存在的笔记库目录。</div>
                           </div>
                         </div>
                         <div class="import-grid">
                           <label for="settingsVaultPath">笔记库路径</label>
                           <div class="path-picker">
                             <input id="settingsVaultPath" placeholder="例如：E:\Users\you\Documents\yansilu-vault" />
-                            <button class="mini-btn" id="settingsBrowseVault" type="button">浏览...</button>
+                            <button class="mini-btn is-subtle" id="settingsBrowseVault" type="button">浏览...</button>
                           </div>
                         </div>
-                        <div class="settings-footnote">
-                          会重载目录与标签页。
+                        <div class="import-actions">
+                          <button class="mini-btn is-subtle" id="settingsRefreshVault">重新检查</button>
+                          <button class="mini-btn primary" id="settingsSwitchVault" type="button">选好后切换</button>
                         </div>
                       </section>
                     </div>
@@ -14523,80 +14830,62 @@
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneTemplatesBody">
                       <section class="settings-card" id="settingsCardPermanentTemplate">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">永久笔记模板</div>
-                            <div class="settings-card-note">永久笔记模板。</div>
+                        <div id="settingsPermanentTemplateDetail">
+                          <div class="settings-template-editor">
+                            <div class="settings-template-editor-shell">
+                              <div class="settings-template-editor-head">
+                                <div class="settings-template-editor-copy">
+                                  <div class="settings-template-editor-title">Markdown 模板</div>
+                                  <div class="settings-template-editor-note">新建永久笔记时会按这里生成。</div>
+                                </div>
+                                <div class="settings-template-editor-chip">永久笔记</div>
+                              </div>
+                              <textarea id="settingsPermanentTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                            </div>
                           </div>
-                        </div>
-                        <div class="settings-stat-row" id="settingsPermanentTemplateStats">
-                          <span class="settings-stat-badge">统一骨架</span>
-                          <span class="settings-stat-badge">Markdown 落盘</span>
-                          <span class="settings-stat-badge warn">待保存修改</span>
-                        </div>
-                        <div id="settingsPermanentTemplateSummary" class="settings-card-note">保存后用于新建永久笔记。</div>
-                        <div class="settings-help-actions">
-                          <button
-                            class="mini-btn"
-                            id="settingsOpenPermanentTemplateConfig"
-                            type="button"
-                            aria-expanded="false"
-                            aria-controls="settingsPermanentTemplateDetail"
-                          >
-                            打开永久笔记模板设置
-                          </button>
-                        </div>
-                        <div id="settingsPermanentTemplateDetail" class="hidden">
-                          <div class="settings-footnote">建议保留统一骨架。</div>
-                          <ul class="settings-mini-list" id="settingsPermanentTemplateFieldList"></ul>
-                          <div class="import-grid">
-                            <label for="settingsPermanentTemplateEditor">模板 Markdown</label>
-                            <textarea id="settingsPermanentTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                          <div class="settings-template-footer">
+                            <div class="settings-template-feedback" id="settingsPermanentTemplateFeedback">
+                              <span class="settings-template-feedback-dot" aria-hidden="true"></span>
+                              <span id="settingsPermanentTemplateFeedbackText">保存后会用于后续新建。</span>
+                            </div>
+                            <div class="settings-template-actions">
+                              <div class="settings-template-actions-group">
+                                <button class="mini-btn" id="settingsPreviewPermanentTemplate" type="button">预览效果</button>
+                                <button class="mini-btn primary" id="settingsSavePermanentTemplate" type="button">保存模板</button>
+                                <button class="mini-btn is-subtle" id="settingsResetPermanentTemplate" type="button">恢复默认</button>
+                              </div>
+                            </div>
                           </div>
-                          <div class="settings-help-actions">
-                            <button class="mini-btn primary" id="settingsSavePermanentTemplate" type="button">保存永久笔记模板</button>
-                            <button class="mini-btn" id="settingsResetPermanentTemplate" type="button">恢复默认模板</button>
-                          </div>
-                          <pre class="settings-code" id="settingsPermanentTemplatePreview">等待加载模板预览。</pre>
                         </div>
                       </section>
 
                       <section class="settings-card" id="settingsCardLiteratureTemplate">
-                        <div class="settings-card-head">
-                          <div>
-                            <div class="settings-card-title">文献笔记模板</div>
-                            <div class="settings-card-note">文献笔记模板。</div>
+                        <div id="settingsLiteratureTemplateDetail">
+                          <div class="settings-template-editor">
+                            <div class="settings-template-editor-shell">
+                              <div class="settings-template-editor-head">
+                                <div class="settings-template-editor-copy">
+                                  <div class="settings-template-editor-title">Markdown 模板</div>
+                                  <div class="settings-template-editor-note">新建文献笔记时会按这里生成。</div>
+                                </div>
+                                <div class="settings-template-editor-chip">文献笔记</div>
+                              </div>
+                              <textarea id="settingsLiteratureTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                            </div>
                           </div>
-                        </div>
-                        <div class="settings-stat-row" id="settingsLiteratureTemplateStats">
-                          <span class="settings-stat-badge">文献模板</span>
-                          <span class="settings-stat-badge">Markdown 落盘</span>
-                          <span class="settings-stat-badge warn">待保存修改</span>
-                        </div>
-                        <div id="settingsLiteratureTemplateSummary" class="settings-card-note">保存后用于新建文献笔记。</div>
-                        <div class="settings-help-actions">
-                          <button
-                            class="mini-btn"
-                            id="settingsOpenLiteratureTemplateConfig"
-                            type="button"
-                            aria-expanded="false"
-                            aria-controls="settingsLiteratureTemplateDetail"
-                          >
-                            打开文献笔记模板设置
-                          </button>
-                        </div>
-                        <div id="settingsLiteratureTemplateDetail" class="hidden">
-                          <div class="settings-footnote">建议保留引用、原文、转述。</div>
-                          <ul class="settings-mini-list" id="settingsLiteratureTemplateFieldList"></ul>
-                          <div class="import-grid">
-                            <label for="settingsLiteratureTemplateEditor">模板 Markdown</label>
-                            <textarea id="settingsLiteratureTemplateEditor" rows="14" spellcheck="false" placeholder="# {{title}}"></textarea>
+                          <div class="settings-template-footer">
+                            <div class="settings-template-feedback" id="settingsLiteratureTemplateFeedback">
+                              <span class="settings-template-feedback-dot" aria-hidden="true"></span>
+                              <span id="settingsLiteratureTemplateFeedbackText">保存后会用于后续新建。</span>
+                            </div>
+                            <div class="settings-template-actions">
+                              <div class="settings-template-actions-group">
+                                <button class="mini-btn" id="settingsPreviewLiteratureTemplate" type="button">预览效果</button>
+                                <button class="mini-btn primary" id="settingsSaveLiteratureTemplate" type="button">保存模板</button>
+                                <button class="mini-btn is-subtle" id="settingsResetLiteratureTemplate" type="button">恢复默认</button>
+                              </div>
+                            </div>
                           </div>
-                          <div class="settings-help-actions">
-                            <button class="mini-btn primary" id="settingsSaveLiteratureTemplate" type="button">保存文献笔记模板</button>
-                            <button class="mini-btn" id="settingsResetLiteratureTemplate" type="button">恢复默认模板</button>
-                          </div>
-                          <pre class="settings-code" id="settingsLiteratureTemplatePreview">等待加载模板预览。</pre>
                         </div>
                       </section>
                     </div>
@@ -14615,7 +14904,7 @@
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">AI 模式</div>
-                            <div class="settings-card-note">模式、模型与测试。</div>
+                            <div class="settings-card-note">选择 AI 方案并测试连接。</div>
                           </div>
                         </div>
                         <div class="settings-ai-layout">
@@ -14691,12 +14980,12 @@
                             <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式显示 Ollama 选项。</div>
                             <div class="settings-ai-actions">
                               <div class="settings-ai-actions-main">
-                                <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                                <a class="mini-btn hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                                <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                                <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
                                 <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen2.5:7b</button>
                               </div>
                               <div class="settings-ai-actions-secondary">
-                                <button class="mini-btn" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>
+                                <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>
                                 <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试连接</button>
                                 <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                               </div>
@@ -14776,26 +15065,26 @@
                     <div class="settings-pane-head">
                       <div class="settings-pane-headline">
                         <div class="settings-pane-kicker">Automation</div>
-                        <div class="settings-pane-title">自动化设置</div>
+                        <div class="settings-pane-title">自动处理</div>
                       </div>
-                      <div class="settings-pane-note">任务与调试。</div>
+                      <div class="settings-pane-note">定时任务、AI 待办与运行记录。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAutomationBody">
                       <section class="settings-card" id="settingsCardAutomation">
                         <div id="settingsScheduledTasksPanel">
-                          <div class="scheduled-task-empty">计划任务已就绪，等待加载。</div>
+                          <div class="scheduled-task-empty">定时任务区域已准备好，等待加载。</div>
                         </div>
                       </section>
 
                       <section class="settings-card" id="settingsCardAutomationSuggestions">
                         <div id="settingsAiSuggestionsPanel">
-                          <div class="scheduled-task-empty">AI 建议已就绪，等待加载。</div>
+                          <div class="scheduled-task-empty">AI 待办区域已准备好，等待加载。</div>
                         </div>
                       </section>
 
                       <section class="settings-card" id="settingsCardAutomationDebug">
                         <div id="settingsAiCanonicalDebug">
-                          <div class="settings-canonical-empty">还没有捕获到 AI 标准载荷。</div>
+                          <div class="settings-canonical-empty">这里会显示最近一次运行记录。</div>
                         </div>
                       </section>
                     </div>
@@ -14805,7 +15094,7 @@
                     <div class="settings-pane-head">
                       <div class="settings-pane-headline">
                         <div class="settings-pane-kicker">Support</div>
-                        <div class="settings-pane-title">支持设置</div>
+                        <div class="settings-pane-title">帮助与反馈</div>
                       </div>
                       <div class="settings-pane-note">帮助与反馈。</div>
                     </div>
@@ -14813,8 +15102,8 @@
                       <section class="settings-card" id="settingsDesktopHelpCard">
                         <div class="settings-card-head">
                           <div>
-                            <div class="settings-card-title">桌面端说明</div>
-                            <div class="settings-card-note">桌面文件与路径。</div>
+                            <div class="settings-card-title">本地使用说明</div>
+                            <div class="settings-card-note">查看本地文件与路径规则。</div>
                           </div>
                         </div>
                         <ul class="settings-mini-list">
@@ -14828,7 +15117,7 @@
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">反馈与帮助</div>
-                            <div class="settings-card-note">GitHub Issue。</div>
+                            <div class="settings-card-note">提交问题，或提出功能想法。</div>
                           </div>
                         </div>
                         <div class="settings-help-meta">
@@ -14842,12 +15131,12 @@
                         <div class="settings-help-actions">
                           <button class="mini-btn" id="settingsOpenBugReport" type="button">反馈问题</button>
                           <button class="mini-btn" id="settingsOpenFeatureRequest" type="button">功能建议</button>
-                          <button class="mini-btn" id="settingsCopyFeedbackDiagnostics" type="button">复制诊断信息</button>
+                          <button class="mini-btn is-subtle" id="settingsCopyFeedbackDiagnostics" type="button">复制问题信息</button>
                         </div>
                         <ul class="settings-help-list">
                           <li>问题反馈：适合报错、卡住、数据异常、界面异常。</li>
                           <li>功能建议：适合流程建议、产品方向、交互优化。</li>
-                          <li>复制诊断信息：默认只带版本、模块、页面和当前选中对象，不直接带笔记库路径。</li>
+                          <li>复制问题信息：默认只带版本、模块、页面和当前选中对象，不直接带笔记库路径。</li>
                           <li>如果后面切换反馈仓库，只需要更新这一处 owner/repo 配置。</li>
                         </ul>
                       </section>
@@ -14855,6 +15144,20 @@
                   </section>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-template-preview-modal" id="settingsTemplatePreviewModal" aria-hidden="true">
+          <div class="settings-template-preview-dialog">
+            <div class="settings-template-preview-dialog-head">
+              <div class="settings-template-preview-dialog-copy">
+                <div class="settings-template-preview-dialog-title" id="settingsTemplatePreviewTitle">模板预览</div>
+                <div class="settings-template-preview-dialog-note" id="settingsTemplatePreviewNote">这里显示新笔记的大致样子。</div>
+              </div>
+              <button class="mini-btn settings-template-preview-dialog-close" id="settingsTemplatePreviewClose" type="button">关闭</button>
+            </div>
+            <div class="settings-template-preview-dialog-body">
+              <div class="settings-template-preview-paper markdown-preview" id="settingsTemplatePreviewBody"></div>
             </div>
           </div>
         </div>

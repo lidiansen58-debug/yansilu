@@ -338,7 +338,9 @@ const settingsState = {
       text: "",
       draftText: "",
       draftActive: false,
-      history: []
+      history: [],
+      feedbackTone: "",
+      feedbackText: ""
     },
     literature: {
       panelOpen: false,
@@ -346,7 +348,9 @@ const settingsState = {
       text: "",
       draftText: "",
       draftActive: false,
-      history: []
+      history: [],
+      feedbackTone: "",
+      feedbackText: ""
     }
   },
   ai: {
@@ -474,14 +478,13 @@ const SETTINGS_SECTIONS = Object.freeze([
   }
 ]);
 const SETTINGS_DETAIL_ITEMS = Object.freeze([
-  { id: "current-vault", label: "当前笔记库", group: "卡片盒", sectionId: "workspace", cardIds: ["settingsCardCurrentVault"] },
-  { id: "switch-vault", label: "切换工作区", group: "卡片盒", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
+  { id: "current-vault", label: "笔记库", group: "卡片盒", sectionId: "workspace", cardIds: ["settingsCardSwitchVault"] },
   { id: "permanent-template", label: "永久笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardPermanentTemplate"] },
   { id: "literature-template", label: "文献笔记模板", group: "模板", sectionId: "templates", cardIds: ["settingsCardLiteratureTemplate"] },
   { id: "ai-settings", label: "AI 设置", group: "智能", sectionId: "ai", cardIds: ["settingsCardAiSettings"] },
-  { id: "automation", label: "自动化任务", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation", "settingsCardAutomationSuggestions", "settingsCardAutomationDebug"] },
-  { id: "desktop-help", label: "桌面说明", group: "支持", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
-  { id: "feedback", label: "反馈与诊断", group: "支持", sectionId: "support", cardIds: ["settingsFeedbackCard"] }
+  { id: "automation", label: "自动处理", group: "智能", sectionId: "automation", cardIds: ["settingsCardAutomation", "settingsCardAutomationSuggestions", "settingsCardAutomationDebug"] },
+  { id: "desktop-help", label: "本地使用说明", group: "支持", sectionId: "support", cardIds: ["settingsDesktopHelpCard"] },
+  { id: "feedback", label: "问题反馈", group: "支持", sectionId: "support", cardIds: ["settingsFeedbackCard"] }
 ]);
 
 function settingsSectionChromeMap() {
@@ -506,11 +509,11 @@ function settingsSectionChromeMap() {
     },
     automation: {
       badge: String(automationCount),
-      meta: `任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / 建议 ${Number(settingsState.ai.suggestionsTotal || 0)}`
+      meta: `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`
     },
     support: {
       badge: FEEDBACK_REPOSITORY_READY ? "GitHub" : "待绑定",
-      meta: FEEDBACK_REPOSITORY_READY ? FEEDBACK_REPOSITORY : "反馈入口与桌面说明"
+      meta: FEEDBACK_REPOSITORY_READY ? FEEDBACK_REPOSITORY : "问题反馈与本地说明"
     }
   };
 }
@@ -577,6 +580,76 @@ function settingsSectionSidebarIconSvg(sectionId = "") {
   return icons[normalized] || icons.workspace;
 }
 
+function settingsItemSidebarIconSvg(itemId = "") {
+  const normalized = normalizeSettingsItem(itemId);
+  const icons = {
+    "current-vault": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l1.6 2H17.5A2.5 2.5 0 0 1 20 9.5v7A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"></path>
+        <path d="M8 11h8"></path>
+        <path d="M8 14h5"></path>
+      </svg>
+    `,
+    "switch-vault": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H10l1.4 1.8H17.5A2.5 2.5 0 0 1 20 10.3v5.2A2.5 2.5 0 0 1 17.5 18h-11A2.5 2.5 0 0 1 4 15.5z"></path>
+        <path d="M10 12h8"></path>
+        <path d="m15 9 3 3-3 3"></path>
+      </svg>
+    `,
+    "permanent-template": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M7 4.5h7l4 4v11A2.5 2.5 0 0 1 15.5 22h-8A2.5 2.5 0 0 1 5 19.5v-12A3 3 0 0 1 8 4.5z"></path>
+        <path d="M14 4.5v4h4"></path>
+        <path d="M8.5 13h7"></path>
+        <path d="M8.5 16h5"></path>
+        <path d="m8.5 9.5 1.4 1.4L12.8 8"></path>
+      </svg>
+    `,
+    "literature-template": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 4.5h9A2.5 2.5 0 0 1 18 7v12.5l-3.5-2-3.5 2-3.5-2-3.5 2V7A2.5 2.5 0 0 1 6.5 4.5z"></path>
+        <path d="M8 9h8"></path>
+        <path d="M8 12h6"></path>
+        <path d="M8 15h4"></path>
+      </svg>
+    `,
+    "ai-settings": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="6.5" y="6.5" width="11" height="11" rx="2.5"></rect>
+        <path d="M12 3.5v3"></path>
+        <path d="M12 17.5v3"></path>
+        <path d="M3.5 12h3"></path>
+        <path d="M17.5 12h3"></path>
+        <circle cx="12" cy="12" r="2.4"></circle>
+      </svg>
+    `,
+    automation: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5"></circle>
+        <path d="M12 7.5v4.5l3 1.8"></path>
+        <path d="m16.8 5.8 1.4-1.4"></path>
+      </svg>
+    `,
+    "desktop-help": `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4.5" y="5.5" width="15" height="10.5" rx="2"></rect>
+        <path d="M8 19h8"></path>
+        <path d="M10 16v3"></path>
+        <path d="M14 16v3"></path>
+      </svg>
+    `,
+    feedback: `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.5 6.5h11A2.5 2.5 0 0 1 20 9v6a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3v-3H6.5A2.5 2.5 0 0 1 4 15V9a2.5 2.5 0 0 1 2.5-2.5z"></path>
+        <path d="M9 11h6"></path>
+        <path d="M9 14h4"></path>
+      </svg>
+    `
+  };
+  return icons[normalized] || settingsSectionSidebarIconSvg(settingsDetailItemConfig(normalized).sectionId);
+}
+
 function normalizeSettingsItem(itemId = "") {
   const requested = String(itemId || "").trim().toLowerCase();
   return SETTINGS_DETAIL_ITEMS.some((item) => item.id === requested) ? requested : SETTINGS_DETAIL_ITEMS[0].id;
@@ -587,14 +660,40 @@ function settingsDetailItemConfig(itemId = "") {
   return SETTINGS_DETAIL_ITEMS.find((item) => item.id === normalized) || SETTINGS_DETAIL_ITEMS[0];
 }
 
+function settingsItemSummary(itemId = "") {
+  const summaries = {
+    "current-vault": "在这里直接选择并切换笔记库路径。",
+    "permanent-template": "设置新建永久笔记时使用的默认内容。",
+    "literature-template": "设置新建文献笔记时使用的默认内容。",
+    "ai-settings": "设置 AI 使用方式、服务和试运行。",
+    automation: "查看定时任务、AI 待办和运行记录。",
+    "desktop-help": "查看本地文件、路径和切换规则。",
+    feedback: "提交问题、功能想法，或复制问题信息。"
+  };
+  return summaries[normalizeSettingsItem(itemId)] || "右侧只显示当前点击设置项相关的内容。";
+}
+
+function formatSettingsUserError(errorMessage = "") {
+  const text = String(errorMessage || "").trim();
+  if (!text) return "";
+  if (/ENOENT|no such file or directory/i.test(text)) return "找不到当前笔记库路径，请重新选择或切换笔记库。";
+  if (/EACCES|EPERM|permission denied/i.test(text)) return "当前路径没有访问权限，请检查文件夹权限后再试。";
+  if (/timed out|timeout/i.test(text)) return "读取超时，请稍后重试。";
+  return text.length > 120 ? "读取失败，请重试；如果仍然失败，请重新选择笔记库路径。" : text;
+}
+
+function settingsVaultPathMissing() {
+  return /找不到当前笔记库路径|ENOENT|no such file or directory/i.test(String(settingsState.error || "").trim());
+}
+
 function settingsSectionGuidanceMap() {
   const currentVault = settingsState.vault?.vaultPath
     ? settingsLeafLabel(settingsState.vault.vaultPath)
-    : "当前笔记库";
+    : "笔记库";
   const aiSummary = settingsAiOverviewSummary();
   return {
     workspace: {
-      focus: `先确认 ${currentVault} 的状态和默认路径，再决定是否切换卡片盒根目录。`,
+      focus: `查看 ${currentVault} 的状态和默认路径。`,
       notes: [
         "切换笔记库会关闭当前标签页，并重新加载目录树与缓存上下文。",
         "缓存可以重建，Markdown 主内容不能丢。",
@@ -618,19 +717,19 @@ function settingsSectionGuidanceMap() {
       ]
     },
     automation: {
-      focus: "把计划任务、AI 建议和调试快照放在一起核对，先分清什么会执行、什么只是建议。",
+      focus: "把定时任务、AI 待办和运行记录放在一起核对，先分清什么会执行、什么只是建议。",
       notes: [
-        "计划任务和建议计数只反映入口量，不会直接改写笔记。",
-        "AI 建议默认停留在待确认层，需要你显式采纳。",
-        "调试面板更适合排查路由状态和建议堆积。"
+        "定时任务和待办计数只反映入口量，不会直接改写笔记。",
+        "AI 待办默认停留在待确认层，需要你显式采纳。",
+        "运行记录更适合排查连接状态和待办堆积。"
       ]
     },
     support: {
-      focus: "先确认反馈仓库和桌面说明入口，再决定是提交 Issue 还是复制诊断信息。",
+      focus: "先确认反馈入口和本地说明，再决定是提交问题还是复制问题信息。",
       notes: [
         "反馈入口会优先带上当前版本、模块和上下文信息。",
-        "桌面帮助页主要解释路径、本地文件和工作区切换行为。",
-        "复制诊断信息前注意不要把敏感密钥一并带出去。"
+        "本地使用说明主要解释路径、本地文件和工作区切换行为。",
+        "复制问题信息前注意不要把敏感密钥一并带出去。"
       ]
     }
   };
@@ -639,7 +738,6 @@ function settingsSectionGuidanceMap() {
 function settingsSidebarNavigationHtml() {
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   const chromeMap = settingsSectionChromeMap();
-  const guidance = settingsSectionGuidanceMap()[activeItem.sectionId] || {};
   const groups = ["卡片盒", "模板", "智能", "支持"];
   const groupHtml = groups.map((group) => {
     const items = SETTINGS_DETAIL_ITEMS.filter((item) => item.group === group).map((item) => {
@@ -652,7 +750,7 @@ function settingsSidebarNavigationHtml() {
           data-settings-item="${escapeHtml(item.id)}"
           aria-pressed="${isActive ? "true" : "false"}"
         >
-          <span class="settings-sidebar-menu-icon">${settingsSectionSidebarIconSvg(item.sectionId)}</span>
+          <span class="settings-sidebar-menu-icon">${settingsItemSidebarIconSvg(item.id)}</span>
           <span class="settings-sidebar-menu-copy">
             <span class="settings-sidebar-menu-title">${escapeHtml(item.label)}</span>
             <span class="settings-sidebar-menu-meta">${escapeHtml(chrome.meta || settingsSectionConfig(item.sectionId).label)}</span>
@@ -677,10 +775,6 @@ function settingsSidebarNavigationHtml() {
       </button>
       <div class="settings-sidebar-menu">
         ${groupHtml}
-      </div>
-      <div class="module-sidebar-card settings-sidebar-tip-card">
-        <h3>当前项</h3>
-        <p>${escapeHtml(activeItem.label)}</p>
       </div>
     </div>
   `;
@@ -6827,6 +6921,13 @@ function renderAiRoutePreview() {
   const accessMessage = String(access.message || "").trim() === "Platform-managed AI can run without a user-provided key."
     ? "平台托管 AI 可直接运行，不需要用户自行提供密钥。"
     : String(access.message || "").trim();
+  const accessLabelMap = {
+    none: "无需额外密钥",
+    optional: "可选密钥",
+    required: "需要密钥",
+    platform_managed: "平台托管"
+  };
+  const accessLabel = accessLabelMap[String(access.keyMode || "").trim()] || (access.ready ? "可直接使用" : "需要进一步配置");
   stats.innerHTML = [
     `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
     `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "可直接使用" : "需要配置 Key"}</span>`,
@@ -6842,9 +6943,9 @@ function renderAiRoutePreview() {
     : "";
   detail.innerHTML = `
     <div><strong>${escapeHtml(providerDisplayLabel())}</strong></div>
-    <div>AI 方案：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))} <code>(${escapeHtml(preview.modelPack || settingsState.ai.modelPack || "Starter Auto")})</code></div>
-    <div>当前模型：${escapeHtml(route.modelRef || "自动选择")} / 档位：${escapeHtml(route.selectedTier || "standard")}</div>
-    <div>服务来源：${escapeHtml(provider.providerId || "未标识")} / 授权方式：${escapeHtml(access.keyMode || "未标识")}</div>
+    <div>AI 方案：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))}</div>
+    <div>当前模型：${escapeHtml(route.modelRef || "自动选择")}</div>
+    <div>授权方式：${escapeHtml(accessLabel)}</div>
     ${localRuntimeLine}
     ${hybridLine}
     <div>${escapeHtml(healthDetail)}</div>
@@ -7312,12 +7413,12 @@ function renderSettingsWorkbenchChrome() {
   if (workspaceMetaEl) {
     workspaceMetaEl.textContent = vault
       ? `${vault.initialized ? "已初始化" : "待初始化"} · ${vault.defaultVaultPath ? `默认：${settingsLeafLabel(vault.defaultVaultPath)}` : "等待默认路径"}`
-      : (settingsState.error || "笔记库状态会在这里汇总。");
+      : (formatSettingsUserError(settingsState.error) || "笔记库状态会在这里汇总。");
   }
   if (aiRoute) aiRoute.textContent = aiSummary.value;
   if (aiMeta) aiMeta.textContent = aiSummary.meta || "当前使用的模型、服务和连接状态。";
   if (automationValue) automationValue.textContent = `${automationCount} 个入口项`;
-  if (automationMeta) automationMeta.textContent = `计划任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 建议 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
+  if (automationMeta) automationMeta.textContent = `定时任务 ${Number(settingsState.ai.scheduledTasksTotal || 0)} / AI 待办 ${Number(settingsState.ai.suggestionsTotal || 0)}`;
 }
 
 function renderSettingsSidebarColumn() {
@@ -7367,13 +7468,13 @@ function filterSettingsSidebarMenu(query = "") {
 function renderSettingsDetailFocus() {
   const activeItem = settingsDetailItemConfig(settingsState.activeItem);
   const config = settingsSectionConfig(activeItem.sectionId);
-  const guidance = settingsSectionGuidanceMap()[activeItem.sectionId] || {};
+  const visibleCardIds = new Set(activeItem.cardIds || []);
   SETTINGS_DETAIL_ITEMS.forEach((item) => {
     item.cardIds.forEach((cardId) => {
       const card = $(cardId);
       if (!card) return;
       const belongsToActivePane = item.sectionId === config.id;
-      const visible = belongsToActivePane && item.id === activeItem.id;
+      const visible = belongsToActivePane && visibleCardIds.has(cardId);
       card.classList.toggle("hidden", !visible);
     });
   });
@@ -7381,7 +7482,7 @@ function renderSettingsDetailFocus() {
   const paneTitle = pane?.querySelector(".settings-pane-title");
   const paneNote = pane?.querySelector(".settings-pane-note");
   if (paneTitle) paneTitle.textContent = activeItem.label;
-  if (paneNote) paneNote.textContent = guidance.focus || "右侧只显示当前点击设置项相关的内容。";
+  if (paneNote) paneNote.textContent = settingsItemSummary(activeItem.id);
 }
 
 function renderSettingsPanel() {
@@ -7389,26 +7490,23 @@ function renderSettingsPanel() {
   renderSettingsWorkbenchChrome();
   renderSettingsSidebarColumn();
   renderSettingsDetailFocus();
-  const current = $("settingsCurrentVault");
   const input = $("settingsVaultPath");
-  const detail = $("settingsVaultDetail");
-  const stats = $("settingsVaultStats");
-  if (!current || !input || !detail || !stats) return;
+  const switchHint = $("settingsVaultSwitchHint");
+  const switchButton = $("settingsSwitchVault");
+  if (!input || !switchHint || !switchButton) return;
   const vault = settingsState.vault;
-  current.textContent = vault?.vaultPath || "尚未读取";
   if (vault?.vaultPath && !String(input.value || "").trim()) input.value = vault.vaultPath;
   if (vault) {
-    const initialized = Boolean(vault.initialized);
-    const usingDefault = vault.vaultPath && vault.defaultVaultPath && String(vault.vaultPath) === String(vault.defaultVaultPath);
-    stats.innerHTML = `
-      <span class="settings-stat-badge ${initialized ? "ok" : "warn"}">${initialized ? "已初始化" : "待初始化"}</span>
-      <span class="settings-stat-badge">${usingDefault ? "默认笔记库" : "自定义笔记库"}</span>
-      <span class="settings-stat-badge">Markdown 主内容</span>
-    `;
-    detail.textContent = `默认路径：${vault.defaultVaultPath || "未知"}；确认后会用这个路径替换当前目录树与缓存上下文。`;
+    switchHint.textContent = vault.vaultPath
+      ? `当前使用：${vault.vaultPath}`
+      : "选择一个真实存在的笔记库目录。";
+    switchButton.textContent = "切换到这个路径";
   } else {
-    stats.innerHTML = `<span class="settings-stat-badge warn">等待读取</span>`;
-    detail.textContent = settingsState.error || "点击“刷新当前笔记库”读取当前状态。";
+    const missingPath = settingsVaultPathMissing();
+    switchHint.textContent = missingPath
+      ? "当前路径已失效，请重新选一个笔记库目录。"
+      : (formatSettingsUserError(settingsState.error) || "选择一个真实存在的笔记库目录。");
+    switchButton.textContent = "选好后切换";
   }
 
   const feedbackBadge = $("settingsFeedbackRepoBadge");
@@ -7493,10 +7591,8 @@ function noteTemplateCardCopy(kind = "") {
   if (String(kind || "").trim().toLowerCase() === "literature") {
     return {
       stats: ["文献模板", "普通 Markdown"],
-      summaryClosed: "保存后用于新建文献笔记。",
-      summaryOpen: "编辑模板内容。",
-      openLabel: "编辑文献模板",
-      closeLabel: "收起",
+      summaryClosed: "修改后会用于后续新建文献笔记。",
+      summaryOpen: "修改后会用于后续新建文献笔记。",
       statusClosed: "待保存修改",
       statusOpen: "正在编辑",
       previewTitle: "示例文献笔记"
@@ -7504,10 +7600,8 @@ function noteTemplateCardCopy(kind = "") {
   }
   return {
     stats: ["统一骨架", "普通 Markdown"],
-    summaryClosed: "保存后用于新建永久笔记。",
-    summaryOpen: "编辑模板内容。",
-    openLabel: "编辑永久模板",
-    closeLabel: "收起",
+    summaryClosed: "修改后会用于后续新建永久笔记。",
+    summaryOpen: "修改后会用于后续新建永久笔记。",
     statusClosed: "待保存修改",
     statusOpen: "正在编辑",
     previewTitle: "示例永久笔记"
@@ -7526,24 +7620,117 @@ function noteTemplateSaveButtonElementId(kind = "") {
     : "settingsSavePermanentTemplate";
 }
 
+function noteTemplateFeedbackElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateFeedback"
+    : "settingsPermanentTemplateFeedback";
+}
+
+function noteTemplateFeedbackTextElementId(kind = "") {
+  return String(kind || "").trim().toLowerCase() === "literature"
+    ? "settingsLiteratureTemplateFeedbackText"
+    : "settingsPermanentTemplateFeedbackText";
+}
+
+function escapePreviewInline(text = "") {
+  return escapeHtml(String(text || ""))
+    .replace(/\[\[([^\]]+)\]\]/g, '<span class="preview-wikilink">[[$1]]</span>')
+    .replace(/(^|\s)#([^\s#]+)/g, '$1<span class="preview-tag">#$2</span>');
+}
+
+function renderTemplateMarkdownPreviewHtml(source = "") {
+  const lines = String(source || "").replace(/\r\n/g, "\n").split("\n");
+  const html = [];
+  let paragraph = [];
+  let listItems = [];
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    html.push(`<p>${escapePreviewInline(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  }
+
+  function flushList() {
+    if (!listItems.length) return;
+    html.push(`<ul>${listItems.map((item) => `<li>${escapePreviewInline(item)}</li>`).join("")}</ul>`);
+    listItems = [];
+  }
+
+  for (const rawLine of lines) {
+    const line = String(rawLine || "");
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+    if (/^#\s+/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<h1>${escapePreviewInline(trimmed.replace(/^#\s+/, ""))}</h1>`);
+      continue;
+    }
+    if (/^##\s+/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<h2>${escapePreviewInline(trimmed.replace(/^##\s+/, ""))}</h2>`);
+      continue;
+    }
+    if (/^>\s*/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      html.push(`<blockquote>${escapePreviewInline(trimmed.replace(/^>\s*/, ""))}</blockquote>`);
+      continue;
+    }
+    if (/^-\s+/.test(trimmed)) {
+      flushParagraph();
+      listItems.push(trimmed.replace(/^-\s+/, ""));
+      continue;
+    }
+    flushList();
+    paragraph.push(trimmed);
+  }
+
+  flushParagraph();
+  flushList();
+  return html.join("") || `<div class="markdown-preview-empty">还没有可预览的内容。</div>`;
+}
+
 function noteTemplateDraftValidation(kind = "", source = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
   if (cleanKind !== "literature") return { ok: true, message: "" };
   return validateLiteratureTemplateSource(source);
 }
 
-function setNoteTemplatePanelOpen(kind = "", nextOpen = false) {
+function openNoteTemplatePreview(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  if (!settingsState.noteTemplates?.[cleanKind]) return;
-  settingsState.noteTemplates[cleanKind].panelOpen = nextOpen === true;
+  const stateEntry = settingsState.noteTemplates?.[cleanKind];
+  if (!stateEntry) return;
+  const source = normalizeNoteTemplateSource(
+    stateEntry.draftActive ? stateEntry.draftText : stateEntry.text,
+    cleanKind
+  );
+  const validation = noteTemplateDraftValidation(cleanKind, source);
+  const copy = noteTemplateCardCopy(cleanKind);
+  const modal = $("settingsTemplatePreviewModal");
+  const title = $("settingsTemplatePreviewTitle");
+  const note = $("settingsTemplatePreviewNote");
+  const body = $("settingsTemplatePreviewBody");
+  if (!modal || !title || !note || !body) return;
+  title.textContent = cleanKind === "literature" ? "文献笔记模板预览" : "永久笔记模板预览";
+  note.textContent = validation.ok ? "这里会按真实笔记的样子显示。" : `当前内容还不能保存：${validation.message}`;
+  body.innerHTML = validation.ok
+    ? renderTemplateMarkdownPreviewHtml(applyTitleToNoteTemplate(source, copy.previewTitle, cleanKind))
+    : `<div class="markdown-preview-empty">模板当前不能保存：${escapeHtml(validation.message)}</div>`;
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
 }
 
-function toggleNoteTemplatePanel(kind = "") {
-  const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const current = settingsState.noteTemplates?.[cleanKind]?.panelOpen === true;
-  setNoteTemplatePanelOpen(cleanKind, !current);
-  renderSettingsPanel();
-  setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板设置已${current ? "收起" : "打开"}`, "ok");
+function closeNoteTemplatePreview() {
+  const modal = $("settingsTemplatePreviewModal");
+  if (!modal) return;
+  modal.classList.remove("is-open");
+  modal.setAttribute("aria-hidden", "true");
 }
 
 function saveNoteTemplateFromEditor(kind = "") {
@@ -7555,6 +7742,9 @@ function saveNoteTemplateFromEditor(kind = "") {
   if (cleanKind === "literature") {
     const validation = validateLiteratureTemplateSource(nextSource);
     if (!validation.ok) {
+      settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
+      settingsState.noteTemplates[cleanKind].feedbackText = validation.message || "文献模板当前还不能保存。";
+      renderSettingsPanel();
       setStatus(validation.message || "文献模板当前形状不受支持", "warn");
       return;
     }
@@ -7569,6 +7759,8 @@ function saveNoteTemplateFromEditor(kind = "") {
   settingsState.noteTemplates[cleanKind].text = nextSource;
   settingsState.noteTemplates[cleanKind].draftText = nextSource;
   settingsState.noteTemplates[cleanKind].draftActive = false;
+  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
+  settingsState.noteTemplates[cleanKind].feedbackText = "已保存，新建时会使用这个模板。";
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已保存，后续新建会采用新模板`, "ok");
@@ -7585,6 +7777,8 @@ function resetNoteTemplateToDefault(kind = "") {
   settingsState.noteTemplates[cleanKind].text = defaultTemplateSourceForKind(cleanKind);
   settingsState.noteTemplates[cleanKind].draftText = settingsState.noteTemplates[cleanKind].text;
   settingsState.noteTemplates[cleanKind].draftActive = false;
+  settingsState.noteTemplates[cleanKind].feedbackTone = "ok";
+  settingsState.noteTemplates[cleanKind].feedbackText = "已恢复默认模板。";
   persistNoteTemplateSettingsToStorage();
   renderSettingsPanel();
   setStatus(`${cleanKind === "literature" ? "文献笔记" : "永久笔记"}模板已恢复默认`, "ok");
@@ -7592,24 +7786,19 @@ function resetNoteTemplateToDefault(kind = "") {
 
 function updateNoteTemplatePreviewFromEditor(kind = "") {
   const cleanKind = String(kind || "").trim().toLowerCase() === "literature" ? "literature" : "permanent";
-  const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
   const editorField = $(noteTemplateEditorElementId(cleanKind));
   const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
-  const preview = $(`settings${capitalizedKind}TemplatePreview`);
-  if (!preview) return;
-  const copy = noteTemplateCardCopy(cleanKind);
   const draftSource = normalizeDraftBuffer(editorField?.value || "");
   settingsState.noteTemplates[cleanKind].draftText = draftSource;
   settingsState.noteTemplates[cleanKind].draftActive = true;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(draftSource, cleanKind));
+  settingsState.noteTemplates[cleanKind].feedbackTone = "warn";
+  settingsState.noteTemplates[cleanKind].feedbackText = validation.ok ? "有未保存修改。" : `当前内容还不能保存：${validation.message}`;
   if (saveButton) {
     saveButton.disabled = !validation.ok;
     saveButton.title = validation.ok ? "" : validation.message;
     saveButton.dataset.tip = saveButton.title;
   }
-  preview.textContent = validation.ok
-    ? applyTitleToNoteTemplate(draftSource, copy.previewTitle, cleanKind)
-    : `模板当前不能保存：${validation.message}`;
 }
 
 function renderNoteTemplateSettingsCard(kind = "") {
@@ -7617,58 +7806,54 @@ function renderNoteTemplateSettingsCard(kind = "") {
   const capitalizedKind = cleanKind === "literature" ? "Literature" : "Permanent";
   const stats = $(`settings${capitalizedKind}TemplateStats`);
   const summary = $(`settings${capitalizedKind}TemplateSummary`);
-  const button = $(`settingsOpen${capitalizedKind}TemplateConfig`);
   const detail = $(`settings${capitalizedKind}TemplateDetail`);
-  const list = $(`settings${capitalizedKind}TemplateFieldList`);
-  const preview = $(`settings${capitalizedKind}TemplatePreview`);
   const editorField = $(`settings${capitalizedKind}TemplateEditor`);
   const saveButton = $(noteTemplateSaveButtonElementId(cleanKind));
+  const feedback = $(noteTemplateFeedbackElementId(cleanKind));
+  const feedbackText = $(noteTemplateFeedbackTextElementId(cleanKind));
   const stateEntry = settingsState.noteTemplates?.[cleanKind] || {
-    panelOpen: false,
     text: defaultTemplateSourceForKind(cleanKind),
     draftText: defaultTemplateSourceForKind(cleanKind),
-    draftActive: false
+    draftActive: false,
+    feedbackTone: "",
+    feedbackText: ""
   };
-  const open = stateEntry.panelOpen === true;
   const copy = noteTemplateCardCopy(cleanKind);
-  const fieldMeta = noteTemplateFieldMeta(cleanKind);
   const savedSource = normalizeNoteTemplateSource(stateEntry.text, cleanKind);
   const draftSource = normalizeDraftBuffer(stateEntry.draftText || "");
-  const visibleSource = open && stateEntry.draftActive === true ? draftSource : savedSource;
+  const visibleSource = stateEntry.draftActive === true ? draftSource : savedSource;
   const validation = noteTemplateDraftValidation(cleanKind, normalizeNoteTemplateSource(visibleSource, cleanKind));
 
   if (stats) {
+    const draftBadgeText = !validation.ok
+      ? "当前草稿不可保存"
+      : stateEntry.draftActive
+        ? copy.statusClosed
+        : "已保存";
     stats.innerHTML = `
       <span class="settings-stat-badge ok">${escapeHtml(copy.stats[0])}</span>
       <span class="settings-stat-badge">${escapeHtml(copy.stats[1])}</span>
-      <span class="settings-stat-badge ${open ? (validation.ok ? "ok" : "warn") : "warn"}">${escapeHtml(open ? (validation.ok ? copy.statusOpen : "当前草稿不可保存") : copy.statusClosed)}</span>
+      <span class="settings-stat-badge ${validation.ok ? (stateEntry.draftActive ? "warn" : "ok") : "warn"}">${escapeHtml(draftBadgeText)}</span>
     `;
   }
   if (summary) {
-    summary.textContent = open
-      ? validation.ok
-        ? copy.summaryOpen
-        : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`
-      : copy.summaryClosed;
+    summary.textContent = validation.ok
+      ? copy.summaryOpen
+      : `${copy.summaryOpen} 当前草稿还不能保存：${validation.message}`;
   }
-  if (button) {
-    button.textContent = open ? copy.closeLabel : copy.openLabel;
-    button.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  if (detail) detail.classList.toggle("hidden", !open);
-  if (list) {
-    list.innerHTML = fieldMeta.map((field) => `<li><strong>${escapeHtml(field.label)}</strong>：${escapeHtml(field.note)}</li>`).join("");
-  }
+  if (detail) detail.classList.remove("hidden");
   if (editorField && String(editorField.value || "") !== visibleSource) editorField.value = visibleSource;
   if (saveButton) {
     saveButton.disabled = !validation.ok;
     saveButton.title = validation.ok ? "" : validation.message;
     saveButton.dataset.tip = saveButton.title;
   }
-  if (preview) {
-    preview.textContent = validation.ok
-      ? applyTitleToNoteTemplate(visibleSource, copy.previewTitle, cleanKind)
-      : `模板当前不能保存：${validation.message}`;
+  if (feedback && feedbackText) {
+    const visibleFeedback = String(stateEntry.feedbackText || "").trim();
+    feedback.classList.toggle("is-visible", Boolean(visibleFeedback));
+    feedback.classList.toggle("ok", stateEntry.feedbackTone === "ok");
+    feedback.classList.toggle("warn", stateEntry.feedbackTone === "warn");
+    feedbackText.textContent = visibleFeedback;
   }
 }
 
@@ -15592,12 +15777,22 @@ $("settingsBrowseVault")?.addEventListener("click", async () => {
 
 $("settingsSwitchVault")?.addEventListener("click", async () => {
   setSettingsSection("workspace", { render: false });
-  const vaultPath = String($("settingsVaultPath")?.value || "").trim();
-  if (!vaultPath) return setStatus("请先选择或输入笔记库路径", "warn");
-  if (!editor.confirmDiscardDirtyTabs("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
   try {
-    const vault = await desktopCommands.switchVault(vaultPath);
-    settingsState.vault = vault;
+    const currentInputPath = String($("settingsVaultPath")?.value || "").trim();
+    const defaultPath = currentInputPath || settingsState.vault?.vaultPath || "";
+    let nextPath = currentInputPath;
+    if (!currentInputPath) {
+      const picked = await desktopCommands.pickVaultDirectory({ defaultPath });
+      if (!picked.path) {
+        setStatus("未选择新的笔记库路径", "warn");
+        return;
+      }
+      nextPath = String(picked.path || "").trim();
+      if ($("settingsVaultPath")) $("settingsVaultPath").value = nextPath;
+    }
+    if (!editor.confirmDiscardDirtyTabs("切换笔记库会关闭当前所有打开的笔记，未同步更改会丢失。是否继续？")) return;
+    const nextVault = await desktopCommands.switchVault(nextPath);
+    settingsState.vault = nextVault;
     loadNoteTemplateSettingsFromStorage();
     state.notes = [];
     state.tabs = [];
@@ -15608,20 +15803,20 @@ $("settingsSwitchVault")?.addEventListener("click", async () => {
     state.selectedFolderId = "dir_original_default";
     await syncNotesForDirectory(state.selectedFolderId);
     renderAll();
-    setStatus(`已切换并初始化笔记库：${vault.vaultPath}`, "ok");
+    setStatus(`已重新选择并初始化笔记库：${nextVault.vaultPath}`, "ok");
   } catch (error) {
     setStatus(`切换笔记库失败：${String(error?.message || error)}`, "bad");
   }
 });
 
-$("settingsOpenPermanentTemplateConfig")?.addEventListener("click", () => {
+$("settingsPreviewPermanentTemplate")?.addEventListener("click", () => {
   setSettingsSection("templates", { render: false });
-  toggleNoteTemplatePanel("permanent");
+  openNoteTemplatePreview("permanent");
 });
 
-$("settingsOpenLiteratureTemplateConfig")?.addEventListener("click", () => {
+$("settingsPreviewLiteratureTemplate")?.addEventListener("click", () => {
   setSettingsSection("templates", { render: false });
-  toggleNoteTemplatePanel("literature");
+  openNoteTemplatePreview("literature");
 });
 
 $("settingsSavePermanentTemplate")?.addEventListener("click", () => {
@@ -15646,6 +15841,14 @@ $("settingsPermanentTemplateEditor")?.addEventListener("input", () => {
 
 $("settingsLiteratureTemplateEditor")?.addEventListener("input", () => {
   updateNoteTemplatePreviewFromEditor("literature");
+});
+
+$("settingsTemplatePreviewClose")?.addEventListener("click", () => {
+  closeNoteTemplatePreview();
+});
+
+$("settingsTemplatePreviewModal")?.addEventListener("click", (event) => {
+  if (event.target === $("settingsTemplatePreviewModal")) closeNoteTemplatePreview();
 });
 
 $("settingsAiRuntimeMode")?.addEventListener("change", async (event) => {
@@ -15953,9 +16156,9 @@ $("settingsAiSuggestionsPanel")?.addEventListener("click", async (event) => {
 $("settingsCopyFeedbackDiagnostics")?.addEventListener("click", async () => {
   try {
     await copyTextToClipboard(buildFeedbackDiagnosticText());
-    setStatus("已复制反馈诊断信息", "ok");
+    setStatus("已复制问题信息", "ok");
   } catch (error) {
-    setStatus(`复制反馈诊断信息失败：${String(error?.message || error)}`, "bad");
+    setStatus(`复制问题信息失败：${String(error?.message || error)}`, "bad");
   }
 });
 
