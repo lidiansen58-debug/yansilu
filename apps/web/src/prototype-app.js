@@ -489,8 +489,15 @@ const SETTINGS_DETAIL_ITEMS = Object.freeze([
 
 function settingsSectionChromeMap() {
   const vault = settingsState.vault;
-  const workspaceBadge = vault ? (vault.initialized ? "已初始化" : "待初始化") : "待同步";
-  const workspaceMeta = vault?.vaultPath ? settingsLeafLabel(vault.vaultPath) : "选择或切换笔记库";
+  const missingPath = settingsVaultPathMissing();
+  const workspaceBadge = missingPath
+    ? "路径失效"
+    : vault
+      ? (vault.initialized ? "已初始化" : "待初始化")
+      : "待同步";
+  const workspaceMeta = missingPath
+    ? "当前路径失效，请重新选择"
+    : (vault?.vaultPath ? settingsLeafLabel(vault.vaultPath) : "选择或切换笔记库");
   const templateDraftCount = ["permanent", "literature"].filter((kind) => settingsState.noteTemplates?.[kind]?.draftActive).length;
   const aiSummary = settingsAiOverviewSummary();
   const automationCount = Number(settingsState.ai.scheduledTasksTotal || 0) + Number(settingsState.ai.suggestionsTotal || 0);

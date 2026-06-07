@@ -38,14 +38,8 @@ async function pickByTauri(defaultPath = "") {
 async function pickByBrowser(defaultPath = "") {
   if (typeof window === "undefined") return "";
 
-  if ("showDirectoryPicker" in window) {
-    try {
-      const dir = await window.showDirectoryPicker();
-      if (dir?.name) return String(dir.name).trim();
-    } catch {
-      // Fall through to prompt-based fallback in browser test/prototype environments.
-    }
-  }
+  // Browser directory handles do not expose a local absolute path, but vault switching
+  // requires a concrete path string. Keep the browser fallback on the explicit prompt flow.
 
   const selected = window.prompt("请输入目录路径（浏览器降级模式）", defaultPath || "");
   return selected ? String(selected).trim() : "";
