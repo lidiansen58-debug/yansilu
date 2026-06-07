@@ -4154,8 +4154,8 @@ test("prototype settings switches and initializes the active vault", async (t) =
 
   await page.locator('.rail-btn[data-module="settings"]').click();
   await waitFor(async () => {
-    const currentVaultText = await page.locator("#settingsCurrentVault").textContent();
-    assert.equal(path.resolve(String(currentVaultText || "").trim()), path.resolve(vaultPath));
+    const currentVaultPath = await page.locator("#settingsVaultPath").inputValue();
+    assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(vaultPath));
   }, 7000);
 
   await page.locator("#settingsVaultPath").fill(nextVaultPath);
@@ -4166,8 +4166,8 @@ test("prototype settings switches and initializes the active vault", async (t) =
     assert.equal(path.resolve(health.json.vaultPath), path.resolve(nextVaultPath));
   }, 10000);
   await waitFor(async () => {
-    const currentVaultText = await page.locator("#settingsCurrentVault").textContent();
-    assert.equal(path.resolve(String(currentVaultText || "").trim()), path.resolve(nextVaultPath));
+    const currentVaultPath = await page.locator("#settingsVaultPath").inputValue();
+    assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(nextVaultPath));
   }, 7000);
 
   await fs.access(path.join(nextVaultPath, ".yansilu", "vault.json"));
@@ -4197,8 +4197,8 @@ test("prototype settings browse vault uses picker fallback and fills the path", 
 
   await page.locator('.rail-btn[data-module="settings"]').click();
   await waitFor(async () => {
-    const currentVaultText = await page.locator("#settingsCurrentVault").textContent();
-    assert.equal(path.resolve(String(currentVaultText || "").trim()), path.resolve(vaultPath));
+    const currentVaultPath = await page.locator("#settingsVaultPath").inputValue();
+    assert.equal(path.resolve(String(currentVaultPath || "").trim()), path.resolve(vaultPath));
   }, 7000);
 
   await page.evaluate((pickedPath) => {
@@ -4238,25 +4238,20 @@ test("prototype settings exposes the permanent note template entry", async (t) =
 
   await openSettingsModule(page, "templates");
 
-  const toggle = page.locator("#settingsOpenPermanentTemplateConfig");
+  const editor = page.locator("#settingsPermanentTemplateEditor");
   await waitFor(async () => {
-    assert.equal(await toggle.isVisible(), true);
+    assert.equal(await editor.isVisible(), true);
   }, 5000);
-  assert.match(String(await page.locator("#settingsPermanentTemplateSummary").textContent() || ""), /新建模板|Markdown 骨架/);
-  assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+  assert.match(await editor.inputValue(), /## 核心观点/);
 
-  await toggle.click();
-
+  await page.locator("#settingsPreviewPermanentTemplate").click();
   await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
+    assert.equal(await page.locator("#settingsTemplatePreviewModal").getAttribute("aria-hidden"), "false");
   }, 5000);
-  assert.match(String(await toggle.textContent() || ""), /收起永久笔记模板设置/);
-  assert.match(String(await page.locator("#settingsPermanentTemplateFieldList").textContent() || ""), /核心观点/);
-  assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /## 核心观点/);
-
-  await toggle.click();
+  assert.match(String(await page.locator("#settingsTemplatePreviewBody").textContent() || ""), /核心观点/);
+  await page.locator("#settingsTemplatePreviewClose").click();
   await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), false);
+    assert.equal(await page.locator("#settingsTemplatePreviewModal").getAttribute("aria-hidden"), "true");
   }, 5000);
 });
 
@@ -4280,32 +4275,27 @@ test("prototype settings keeps template drafts across same-vault refreshes", asy
 `;
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
-  }, 5000);
 
   await page.locator("#settingsPermanentTemplateEditor").fill(draftTemplate);
   await waitFor(async () => {
-    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+    assert.match(String(await page.locator("#settingsPermanentTemplateFeedbackText").textContent() || ""), /有未保存修改/);
   }, 5000);
 
   await openSettingsModule(page, "workspace");
   await page.locator("#settingsRefreshVault").click();
   await waitFor(async () => {
-    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
-    assert.ok(currentVaultText.length > 0);
-    assert.notEqual(currentVaultText, "尚未读取");
+    const currentVaultPath = String(await page.locator("#settingsVaultPath").inputValue() || "").trim();
+    assert.ok(currentVaultPath.length > 0);
   }, 10000);
   await waitFor(async () => {
     assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
-    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+    assert.match(String(await page.locator("#settingsPermanentTemplateFeedbackText").textContent() || ""), /有未保存修改/);
   }, 5000);
 
   await openSettingsModule(page, "templates");
   await waitFor(async () => {
     assert.equal(await page.locator("#settingsPermanentTemplateEditor").inputValue(), draftTemplate);
-    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是还没保存的模板草稿。/);
+    assert.match(String(await page.locator("#settingsPermanentTemplateFeedbackText").textContent() || ""), /有未保存修改/);
   }, 5000);
 
   await page.locator("#settingsPermanentTemplateEditor").fill("");
@@ -4349,16 +4339,14 @@ test("prototype literature template preview surfaces invalid shapes before save"
 `;
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsLiteratureTemplateDetail").isVisible(), true);
-  }, 5000);
   await page.locator("#settingsLiteratureTemplateEditor").fill(invalidLiteratureTemplate);
+  await page.locator("#settingsPreviewLiteratureTemplate").click();
   await waitFor(async () => {
-    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.match(String(await page.locator("#settingsTemplatePreviewBody").textContent() || ""), /模板当前不能保存/);
     assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
-    assert.match(String(await page.locator("#settingsLiteratureTemplateSummary").textContent() || ""), /当前草稿还不能保存/);
+    assert.match(String(await page.locator("#settingsLiteratureTemplateFeedbackText").textContent() || ""), /当前内容还不能保存/);
   }, 5000);
+  await page.locator("#settingsTemplatePreviewClose").click();
 });
 
 test("prototype falls back to default literature template when stored template is invalid", async (t) => {
@@ -4400,11 +4388,12 @@ test("prototype falls back to default literature template when stored template i
   const { page } = stack;
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
+  await page.locator("#settingsPreviewLiteratureTemplate").click();
   await waitFor(async () => {
-    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /模板当前不能保存/);
+    assert.match(String(await page.locator("#settingsTemplatePreviewBody").textContent() || ""), /模板当前不能保存/);
     assert.equal(await page.locator("#settingsSaveLiteratureTemplate").isDisabled(), true);
   }, 5000);
+  await page.locator("#settingsTemplatePreviewClose").click();
 
   await page.locator('[data-action="quick-literature"]').click();
   await page.locator("#btnNewNote").click();
@@ -4476,13 +4465,11 @@ test("prototype migrates legacy global note templates into the active vault scop
 
   await openSettingsModule(page, "workspace");
   await waitFor(async () => {
-    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
-    assert.equal(path.resolve(currentVaultText), path.resolve(vaultPath));
+    const currentVaultPath = String(await page.locator("#settingsVaultPath").inputValue() || "").trim();
+    assert.equal(path.resolve(currentVaultPath), path.resolve(vaultPath));
   }, 10000);
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
   await waitFor(async () => {
     assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
     assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
@@ -4513,13 +4500,11 @@ test("prototype migrates legacy global note templates into the active vault scop
   await page.locator("#settingsVaultPath").fill(nextVaultPath);
   await page.locator("#settingsSwitchVault").click();
   await waitFor(async () => {
-    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
-    assert.equal(path.resolve(currentVaultText), path.resolve(nextVaultPath));
+    const currentVaultPath = String(await page.locator("#settingsVaultPath").inputValue() || "").trim();
+    assert.equal(path.resolve(currentVaultPath), path.resolve(nextVaultPath));
   }, 10000);
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
   await waitFor(async () => {
     assert.match(await page.locator("#settingsPermanentTemplateEditor").inputValue(), /这是旧版全局永久模板。/);
     assert.match(await page.locator("#settingsLiteratureTemplateEditor").inputValue(), /这是旧版全文献模板。/);
@@ -4565,20 +4550,12 @@ test("prototype settings saved literature and permanent templates drive later ne
 
   await openSettingsModule(page, "workspace");
   await waitFor(async () => {
-    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
-    assert.ok(currentVaultText.length > 0);
-    assert.notEqual(currentVaultText, "尚未读取");
+    const currentVaultPath = String(await page.locator("#settingsVaultPath").inputValue() || "").trim();
+    assert.ok(currentVaultPath.length > 0);
   }, 10000);
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
-  }, 5000);
   await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
-  await waitFor(async () => {
-    assert.match(String(await page.locator("#settingsPermanentTemplatePreview").textContent() || ""), /这是新的永久模板起手句。/);
-  }, 5000);
   await page.locator("#settingsSavePermanentTemplate").click();
   assert.match(
     String(
@@ -4593,14 +4570,7 @@ test("prototype settings saved literature and permanent templates drive later ne
     /这是新的永久模板起手句。/
   );
 
-  await page.locator("#settingsOpenLiteratureTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsLiteratureTemplateDetail").isVisible(), true);
-  }, 5000);
   await page.locator("#settingsLiteratureTemplateEditor").fill(literatureTemplate);
-  await waitFor(async () => {
-    assert.match(String(await page.locator("#settingsLiteratureTemplatePreview").textContent() || ""), /这是新的文献模板起手句。/);
-  }, 5000);
   await page.locator("#settingsSaveLiteratureTemplate").click();
   assert.match(
     String(
@@ -4679,14 +4649,10 @@ test("prototype note templates stay scoped to the active vault and old untitled 
 
   await openSettingsModule(page, "workspace");
   await waitFor(async () => {
-    const currentVaultText = String(await page.locator("#settingsCurrentVault").textContent() || "").trim();
-    assert.equal(path.resolve(currentVaultText), path.resolve(vaultPath));
+    const currentVaultPath = String(await page.locator("#settingsVaultPath").inputValue() || "").trim();
+    assert.equal(path.resolve(currentVaultPath), path.resolve(vaultPath));
   }, 10000);
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
-  }, 5000);
   await page.evaluate((value) => {
     const editor = document.querySelector("#settingsPermanentTemplateEditor");
     if (!editor) throw new Error("missing permanent template editor");
@@ -4772,10 +4738,6 @@ Original evidence block.
   const literatureNoteId = createdLiterature.json.item.id;
 
   await openSettingsModule(page, "templates");
-  await page.locator("#settingsOpenPermanentTemplateConfig").click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#settingsPermanentTemplateDetail").isVisible(), true);
-  }, 5000);
   await page.locator("#settingsPermanentTemplateEditor").fill(permanentTemplate);
   await page.locator("#settingsSavePermanentTemplate").click();
 

@@ -7505,7 +7505,7 @@ function renderSettingsPanel() {
   if (vault?.vaultPath && !String(input.value || "").trim()) input.value = vault.vaultPath;
   if (vault) {
     switchHint.textContent = vault.vaultPath
-      ? `当前使用：${vault.vaultPath}`
+      ? `当前使用：${settingsLeafLabel(vault.vaultPath)}${vault.initialized ? " · 已就绪" : ""}`
       : "选择一个真实存在的笔记库目录。";
     switchButton.textContent = "切换到这个路径";
   } else {
