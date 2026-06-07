@@ -12108,8 +12108,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="9" markerHeight="9" refX="7.2" refY="4.5" orient="auto" markerUnits="strokeWidth">
-          <path d="M 1.5 1.8 L 7.1 4.5 L 1.5 7.2" fill="none" stroke="${escapeHtml(color)}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="5.2" markerHeight="5.2" refX="4.45" refY="2.6" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0.9 1.05 L 4.45 2.6 L 0.9 4.15" fill="none" stroke="${escapeHtml(color)}" stroke-opacity="0.68" stroke-width="0.76" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
