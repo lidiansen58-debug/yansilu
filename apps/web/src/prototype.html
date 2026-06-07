@@ -1533,71 +1533,56 @@
       line-height: 1;
     }
     .toolbar-command-wrap {
-      position: relative;
       display: inline-flex;
       align-items: center;
     }
     .toolbar-command-menu {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      z-index: 90;
-      width: min(320px, calc(100vw - 32px));
-      padding: 10px;
-      border: 1px solid rgba(198, 209, 216, 0.92);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.98);
-      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.82);
-    }
-    .toolbar-command-menu input {
-      width: 100%;
-      height: 34px;
-      border: 1px solid #d5dde6;
-      border-radius: 7px;
-      padding: 0 10px;
-      color: #273444;
-      font-size: 13px;
-      background: #f8fafc;
-      outline: none;
-    }
-    .toolbar-command-menu input:focus {
-      border-color: #7aa7d9;
-      box-shadow: var(--focus-ring);
-      background: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      position: static;
+      width: auto;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
     .toolbar-command-list {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(48px, 1fr));
-      gap: 6px;
-      max-height: 280px;
-      overflow: auto;
-      margin-top: 8px;
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      margin-top: 0;
     }
     .toolbar-command-item {
       border: 0;
-      border-radius: 7px;
-      padding: 8px 6px;
-      display: grid;
-      justify-items: center;
-      gap: 4px;
+      border-radius: 0;
+      padding: 0;
+      height: 36px;
+      width: 36px;
+      min-width: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
       text-align: center;
       color: #273444;
       background: transparent;
       cursor: pointer;
+      white-space: nowrap;
     }
     .toolbar-command-item:hover,
     .toolbar-command-item:focus-visible {
       outline: none;
-      background: #eef5f2;
+      background: rgba(239, 248, 244, 0.62);
     }
     .toolbar-command-item strong {
-      font-size: 12px;
-      line-height: 1.2;
+      display: none;
     }
     .toolbar-command-item span {
       color: #64748b;
       font-size: 12px;
-      line-height: 1.35;
+      line-height: 1;
     }
     .toolbar-command-item span:not(.toolbar-command-icon) {
       display: none;
@@ -11697,7 +11682,7 @@
     }
 
     .editor-wrap {
-      padding: 0 82px 24px clamp(16px, 3vw, 34px);
+      padding: 0;
     }
 
     .md-panel .editor-host,
@@ -11711,9 +11696,10 @@
     .editor-host,
     .wysiwyg-host,
     .markdown-preview {
-      min-height: calc(100dvh - 132px);
+      min-height: 0;
+      height: 100%;
       border-color: rgba(62, 72, 64, 0.13);
-      border-radius: 0 0 18px 18px;
+      border-radius: 0;
       background:
         linear-gradient(90deg, rgba(15, 118, 110, 0.018) 1px, transparent 1px),
         linear-gradient(180deg, rgba(138, 111, 61, 0.018) 1px, transparent 1px),
@@ -11786,7 +11772,7 @@
     }
 
     .editor-host .cm-scroller {
-      padding: 28px 0 44px;
+      padding: 18px 0 20px;
     }
 
     .editor-host .cm-line {
@@ -11795,13 +11781,14 @@
 
     .editor-host .cm-content,
     .wysiwyg-host .toastui-editor-contents {
-      max-width: 850px;
+      max-width: none;
+      width: 100%;
       font-size: 18px;
       line-height: 1.84;
     }
 
     .wysiwyg-host .toastui-editor-contents {
-      padding: 32px clamp(18px, 3.2vw, 42px) 46px;
+      padding: 18px 20px 20px;
     }
 
     .wysiwyg-host .toastui-editor-contents h1 {
@@ -11841,7 +11828,7 @@
 
     .app[data-focus-mode="true"] .editor-wrap,
     html.editor-only .editor-wrap {
-      padding: 0 82px 24px clamp(16px, 5vw, 54px);
+      padding: 0;
     }
 
     @media (max-width: 1180px) {
@@ -11851,8 +11838,8 @@
         margin-right: 76px;
       }
       .editor-wrap {
-        padding-left: clamp(12px, 2.4vw, 24px);
-        padding-right: 76px;
+        padding-left: 0;
+        padding-right: 0;
       }
     }
 
@@ -12087,7 +12074,7 @@
     #editorWorkspace > .editor-wrap,
     .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
     html.editor-only #editorWorkspace > .editor-wrap {
-      padding: 12px clamp(18px, 4vw, 58px) 22px !important;
+      padding: 0 !important;
     }
 
     .panel.floating,
@@ -12144,22 +12131,22 @@
     #editorWorkspace > .editor-wrap,
     .app[data-focus-mode="true"] #editorWorkspace > .editor-wrap,
     html.editor-only #editorWorkspace > .editor-wrap {
-      padding: 10px 28px 22px !important;
+      padding: 0 !important;
     }
 
     .editor-host .cm-content,
     .wysiwyg-host .toastui-editor-contents {
-      max-width: 960px !important;
-      margin-left: 0 !important;
-      margin-right: auto !important;
+      max-width: none !important;
+      width: 100% !important;
+      margin: 0 !important;
     }
 
     .editor-host .cm-line {
-      padding: 0 28px !important;
+      padding: 0 20px !important;
     }
 
     .wysiwyg-host .toastui-editor-contents {
-      padding: 30px 28px 44px !important;
+      padding: 18px 20px 20px !important;
     }
 
     .editor-helper:not(:hover):not(:focus-within) {
@@ -12663,11 +12650,12 @@
     .editor-stage-shell {
       position: relative;
       --paper: #fcfffd;
-      display: grid;
-      grid-template-rows: auto 1fr;
+      display: flex;
+      flex-direction: column;
       flex: 1 1 auto;
+      height: 100%;
       min-height: 0;
-      margin: 12px 12px 16px;
+      margin: 8px 12px 0;
       border: 1px solid rgba(156, 182, 173, 0.22);
       border-radius: 0;
       background:
@@ -12694,6 +12682,7 @@
     .editor-stage-top {
       position: relative;
       display: grid;
+      flex: 0 0 auto;
       gap: 0;
       padding: 6px 16px 0;
       border-bottom: 0;
@@ -12782,7 +12771,7 @@
       max-width: none !important;
       max-height: none !important;
       margin: 0 !important;
-      padding: 2px 2px 2px !important;
+      padding: 0 2px !important;
       display: flex !important;
       flex-direction: row !important;
       flex-wrap: wrap !important;
@@ -12823,6 +12812,10 @@
       padding-right: 8px !important;
       border-left: 0 !important;
       border-right: 1px solid rgba(176, 201, 192, 0.16) !important;
+    }
+
+    .editor-stage-shell .toolbar-group-view-actions {
+      margin-left: auto !important;
     }
 
     .editor-stage-shell .toolbar-segment {
@@ -12902,7 +12895,15 @@
     .editor-stage-shell .editor-wrap,
     .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
     html.editor-only .editor-stage-shell .editor-wrap {
-      padding: 0 0 14px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      grid-template-rows: minmax(0, 1fr) !important;
+      flex: 1 1 0 !important;
+      align-self: stretch !important;
+      min-height: 0 !important;
+      min-block-size: 0 !important;
+      height: auto !important;
+      padding: 0 !important;
       gap: 0 !important;
       margin-top: 0;
       background: transparent;
@@ -12911,13 +12912,19 @@
 
     .editor-stage-shell .md-panel {
       position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
       z-index: 1;
       margin-top: 0;
+      padding: 0;
       border: 0 !important;
       border-radius: 0 !important;
       background: transparent !important;
       box-shadow: none !important;
-      overflow: visible;
+      overflow: hidden;
     }
 
     .editor-stage-shell .md-panel .panel-head.editor-intent {
@@ -12925,7 +12932,24 @@
     }
 
     .editor-stage-shell .markdown-split {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      height: 100%;
+      min-height: 0;
       background: transparent;
+      overflow: hidden;
+    }
+
+    .editor-stage-shell .markdown-editor-col,
+    .editor-stage-shell .markdown-wysiwyg-col,
+    .editor-stage-shell .markdown-source-col {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
     }
 
     .editor-stage-shell .md-panel .editor-host,
@@ -12939,8 +12963,13 @@
     html.editor-only .editor-stage-shell .md-panel .markdown-preview {
       width: 100%;
       max-width: none;
-      min-height: calc(100dvh - 260px);
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
       margin: 0;
+      padding-top: 0;
       border: 0 !important;
       border-radius: 0 !important;
       background:
@@ -12949,15 +12978,98 @@
         var(--paper) !important;
       background-size: 56px 56px, 56px 56px, auto !important;
       box-shadow: none !important;
+      overflow: hidden;
+    }
+
+    .editor-stage-shell .md-panel .editor-host::after,
+    .editor-stage-shell .md-panel .wysiwyg-host::after {
+      inset: 0;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .editor-stage-shell .editor-host .cm-editor,
+    .editor-stage-shell .editor-host .cm-scroller,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-main,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-main-container,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-md-container,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-ww-container,
+    .editor-stage-shell .wysiwyg-host .ProseMirror,
+    .editor-stage-shell .md-panel .markdown-preview {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .editor-stage-shell .editor-host .cm-scroller,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-ww-container,
+    .editor-stage-shell .md-panel .markdown-preview {
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .editor-stage-shell .editor-relations-below {
-      max-width: none;
-      margin-top: 0;
-      border-color: rgba(176, 201, 192, 0.18);
-      border-radius: 20px;
-      background: rgba(248, 253, 251, 0.74);
-      box-shadow: 0 14px 30px rgba(36, 62, 57, 0.05);
+      display: none !important;
+    }
+
+    .editor-stage-shell .md-panel .panel-head,
+    .editor-stage-shell .md-panel .editor-host,
+    .editor-stage-shell .md-panel .wysiwyg-host {
+      max-width: none !important;
+      margin-inline: 0 !important;
+    }
+
+    .editor-stage-shell .editor-host,
+    .editor-stage-shell .wysiwyg-host {
+      padding: 0 !important;
+    }
+
+    .editor-stage-shell .editor-host::before,
+    .editor-stage-shell .wysiwyg-host::before {
+      display: none;
+    }
+
+    .editor-stage-shell .editor-host .cm-content,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-contents {
+      max-width: none !important;
+      width: 100% !important;
+      margin: 0 !important;
+    }
+
+    .editor-stage-shell .wysiwyg-host .toastui-editor-defaultUI,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-main,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-main-container,
+    .editor-stage-shell .wysiwyg-host .toastui-editor-ww-container,
+    .editor-stage-shell .wysiwyg-host .ProseMirror {
+      width: 100% !important;
+      min-height: 100% !important;
+      height: 100% !important;
+    }
+
+    .editor-stage-shell .wysiwyg-host .ProseMirror {
+      overflow-y: auto !important;
+      padding: 18px 20px 20px !important;
+      white-space: normal;
+    }
+
+    .editor-stage-shell .wysiwyg-host .ProseMirror > div {
+      min-height: 100%;
+    }
+
+    .editor-stage-shell .editor-host .cm-line {
+      padding: 0 20px !important;
+    }
+
+    .editor-stage-shell .wysiwyg-host .toastui-editor-contents {
+      padding: 18px 20px 20px !important;
+    }
+
+    .editor-stage-shell .markdown-split.editor-mode-source,
+    .editor-stage-shell .markdown-split.editor-mode-source .markdown-source-col,
+    .editor-stage-shell .markdown-split.editor-mode-source .editor-host,
+    .editor-stage-shell .markdown-split.editor-mode-source .editor-host .cm-editor,
+    .editor-stage-shell .markdown-split.editor-mode-source .editor-host .cm-scroller {
+      min-height: calc(100dvh - 168px) !important;
     }
 
     @media (max-width: 900px) {
@@ -12978,7 +13090,7 @@
       .editor-stage-shell .editor-wrap,
       .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
       html.editor-only .editor-stage-shell .editor-wrap {
-        padding: 0 0 10px !important;
+        padding: 0 !important;
       }
     }
 
@@ -13017,7 +13129,7 @@
       .editor-stage-shell .editor-wrap,
       .app[data-focus-mode="true"] .editor-stage-shell .editor-wrap,
       html.editor-only .editor-stage-shell .editor-wrap {
-        padding: 0 0 8px !important;
+        padding: 0 !important;
       }
 
       .editor-stage-shell .md-panel .editor-host,
@@ -13029,7 +13141,7 @@
       html.editor-only .editor-stage-shell .md-panel .editor-host,
       html.editor-only .editor-stage-shell .md-panel .wysiwyg-host,
       html.editor-only .editor-stage-shell .md-panel .markdown-preview {
-        min-height: calc(100dvh - 228px);
+        min-height: 0;
       }
     }
 
@@ -13207,7 +13319,7 @@
   <div class="app">
     <aside class="rail">
       <div class="rail-group">
-        <button class="rail-btn quick-entry current-root" data-action="quick-original" title="永久笔记工作台" data-tip="永久笔记" aria-label="永久笔记工作台">
+        <button class="rail-btn quick-entry current-root" data-action="quick-original" title="永久笔记" data-tip="永久笔记" aria-label="永久笔记">
           <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M8 2.35l1.55 3.15 3.48.5-2.52 2.45.6 3.45L8 10.25 4.9 11.9l.6-3.45L2.98 6l3.47-.5z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/>
           </svg>
@@ -13314,7 +13426,7 @@
             <div class="tabs" id="tabs"></div>
             <div class="crumb" id="breadcrumb"></div>
             <div class="toolbar">
-          <div class="toolbar-group">
+          <div class="toolbar-group toolbar-group-editor-actions">
             <button class="tb tb-icon" data-md="bold" title="加粗 Ctrl/Cmd+B" data-tip="加粗 Ctrl/Cmd+B" aria-label="加粗"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="3.3" y="11.8" font-size="11.5">B</text></svg></button>
             <button class="tb tb-icon" data-md="italic" title="斜体 Ctrl/Cmd+I" data-tip="斜体 Ctrl/Cmd+I" aria-label="斜体"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><text class="tb-svg-text" x="5.4" y="11.6" font-size="11.5" transform="skewX(-14)">I</text></svg></button>
             <div class="toolbar-segment heading-segment" aria-label="标题级别">
@@ -13331,28 +13443,26 @@
               </select>
             </div>
             <div class="toolbar-command-wrap">
-              <button class="tb tb-label has-icon" id="btnToolbarCommandSearch" type="button" title="更多低频操作" data-tip="更多操作" aria-label="更多低频操作" aria-expanded="false" aria-controls="toolbarCommandMenu"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.25 6.35 8 10.1l3.75-3.75" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg><span>更多</span></button>
-              <div class="toolbar-command-menu hidden" id="toolbarCommandMenu" role="menu" aria-label="低频编辑操作">
-                <input class="hidden" id="toolbarCommandSearchInput" type="search" autocomplete="off" aria-label="筛选低频编辑操作" />
+              <div class="toolbar-command-menu" id="toolbarCommandMenu" role="toolbar" aria-label="低频编辑操作">
                 <div class="toolbar-command-list" id="toolbarCommandList">
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="quote" role="menuitem"><span class="toolbar-command-icon">“</span><strong>引用</strong><span>把当前段落变成引用</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="checklist" role="menuitem"><span class="toolbar-command-icon">☑</span><strong>任务</strong><span>插入可勾选条目</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="code" role="menuitem"><span class="toolbar-command-icon">&lt;/&gt;</span><strong>代码</strong><span>插入 fenced code block</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table" role="menuitem"><span class="toolbar-command-icon">▦</span><strong>表格</strong><span>插入基础 Markdown 表格</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="hr" role="menuitem"><span class="toolbar-command-icon">—</span><strong>分割</strong><span>插入章节分隔</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" role="menuitem"><span class="toolbar-command-icon">→</span><strong>加行</strong><span>在当前表格末尾补一行</span></button>
-                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" role="menuitem"><span class="toolbar-command-icon">→</span><strong>加列</strong><span>在当前表格右侧补一列</span></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="quote" title="引用" data-tip="引用"><span class="toolbar-command-icon">“</span><strong>引用</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="checklist" title="任务" data-tip="任务"><span class="toolbar-command-icon">☑</span><strong>任务</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="code" title="代码" data-tip="代码"><span class="toolbar-command-icon">&lt;/&gt;</span><strong>代码</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table" title="表格" data-tip="表格"><span class="toolbar-command-icon">▦</span><strong>表格</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="hr" title="分割" data-tip="分割"><span class="toolbar-command-icon">—</span><strong>分割</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-row" title="加行" data-tip="加行"><span class="toolbar-command-icon">→</span><strong>加行</strong></button>
+                  <button type="button" class="toolbar-command-item" data-toolbar-command="table-column" title="加列" data-tip="加列"><span class="toolbar-command-icon">↔</span><strong>加列</strong></button>
                 </div>
               </div>
             </div>
           </div>
-          <div class="toolbar-group">
+          <div class="toolbar-group toolbar-group-view-actions">
             <div class="toolbar-segment" role="tablist" aria-label="编辑器视图模式">
                 <button class="tb tb-label has-icon" id="btnModeToggle" title="切换到源码模式 Ctrl/Cmd+2" data-tip="切换到源码模式 Ctrl/Cmd+2" aria-label="切换编辑器模式"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.2h10v9.6H3z" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 6.05l1.4 1.95L5 9.95M11 6.05L9.6 8 11 9.95M7.4 10.55l1.2-5.1" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/></svg><span>源码模式</span></button>
               <button class="tb tb-label has-icon hidden" id="btnModeSplit" title="" data-tip="" aria-label="保留"></button>
             </div>
             <button class="tb tb-label has-icon" id="btnFocusMode" title="专注模式：收起导航和关联，只保留当前笔记" data-tip="专注模式：收起导航和关联，只保留当前笔记" aria-label="专注模式" aria-pressed="false"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2c1.3 1.45 2.95 2.25 5 2.45-.25 4.25-1.95 6.9-5 9.1-3.05-2.2-4.75-4.85-5-9.1 2.05-.2 3.7-1 5-2.45z" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/><path d="M5.2 8.05c1.05-.2 1.9-.7 2.8-1.6.72.74 1.55 1.25 2.62 1.48" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg><span>专注模式</span></button>
-            <button class="tb tb-label has-icon" id="btnShowRelated" title="展开关联侧栏" data-tip="展开关联侧栏" aria-label="关联侧栏"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.15 4.15H12v5.8H6.15M6.15 4.15L3.6 6.7M6.15 4.15L3.6 1.6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.85 11.85H4v-5.8h5.85M9.85 11.85l2.55-2.55M9.85 11.85l2.55 2.55" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity=".75"/></svg></button>
+            <button class="tb tb-label has-icon" id="btnShowRelated" title="展开关联侧栏" data-tip="展开关联侧栏" aria-label="关联侧栏"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.15" y="2.45" width="11.7" height="11.1" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M6.05 3.45v9.1" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><rect x="3.1" y="4.2" width="2.05" height="7.6" rx="1.02" fill="currentColor" opacity=".12"/><path d="M7.8 5.3h3.2M7.8 8h3.2M7.8 10.7h2.2" fill="none" stroke="currentColor" stroke-width="1.05" stroke-linecap="round" opacity=".92"/></svg></button>
           </div>
           <div class="toolbar-group">
             <button class="tb tb-label has-icon hidden" id="btnCompleteNote" title="标记完成" data-tip="标记完成" aria-label="标记完成"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.15"/><path d="M5 8.2l2 2.05 4.1-4.15" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -13365,6 +13475,7 @@
             <button class="tb tb-label has-icon relation-primary hidden" id="btnInsertLink" title="关联笔记 [[" data-tip="关联笔记 [[" aria-label="关联笔记"><svg class="tb-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.7 10.9l-1.55 1.56a2.3 2.3 0 1 1-3.25-3.25L2.75 7.4M10.3 5.1l1.55-1.56a2.3 2.3 0 1 1 3.25 3.25L13.25 8.6M5.6 8h4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>关联笔记</span></button>
           </div>
         </div>
+          </div>
         <div class="editor-wrap">
           <div class="panel hidden" id="linkPicker">
             <div class="link-picker-head">
@@ -13499,57 +13610,6 @@
                   </div>
                   <div class="literature-reflection-note">
                     没有转述时，这条文献笔记只能停留在草稿状态；有判断种子或追问后，才适合继续记录永久笔记。                  </div>
-                </section>
-              </div>
-            </div>
-            <div class="literature-workspace hidden" id="permanentWorkspace">
-              <div class="literature-head">
-                <h3>永久笔记工作台</h3>
-                <p>这里固定保留一套轻量骨架：观点、理由、边界、关联。需要自由排版或补充原始 Markdown 时，随时切回源码模式。</p>
-              </div>
-              <div class="literature-title">
-                <label for="permanentTitleInput">标题</label>
-                <input id="permanentTitleInput" placeholder="这条永久笔记最终要承担什么判断？" />
-              </div>
-              <div class="literature-grid">
-                <section class="literature-card">
-                  <div class="literature-card-head">
-                    <div>
-                      <div class="literature-card-title">判断骨架</div>
-                      <div class="literature-card-note">先把这条笔记写成一个你愿意长期承担的判断单元，再补它为什么成立。</div>
-                    </div>
-                  </div>
-                  <div class="literature-field">
-                    <label for="permanentCoreClaimInput">核心观点</label>
-                    <textarea id="permanentCoreClaimInput" placeholder="写出一句可被反驳、可被引用、也值得被保留的判断"></textarea>
-                  </div>
-                  <div class="literature-field compact">
-                    <label for="permanentWhyTrueInput">为什么成立</label>
-                    <textarea id="permanentWhyTrueInput" placeholder="写清它依赖哪些理由、证据、经验或推理链条"></textarea>
-                  </div>
-                </section>
-                <section class="literature-card">
-                  <div class="literature-card-head">
-                    <div>
-                      <div class="literature-card-title">约束与去向</div>
-                      <div class="literature-card-note">不要只写顺滑的一面；补上边界、反例和后续可延伸的关联线索。</div>
-                    </div>
-                  </div>
-                  <div class="literature-field compact">
-                    <label for="permanentBoundaryInput">边界 / 反例</label>
-                    <textarea id="permanentBoundaryInput" placeholder="这条判断在什么条件下不成立，或最可能被什么反例推翻？"></textarea>
-                  </div>
-                  <div class="literature-field compact">
-                    <label for="permanentRelatedCluesInput">关联线索</label>
-                    <textarea id="permanentRelatedCluesInput" placeholder="记录相关笔记、来源线索、待连接主题或后续写作去向"></textarea>
-                  </div>
-                  <div class="literature-field compact">
-                    <label for="permanentSupplementInput">补充内容</label>
-                    <textarea id="permanentSupplementInput" placeholder="这里会保留旧笔记里暂时映射不到核心骨架的内容，也可手动补充备注"></textarea>
-                  </div>
-                  <div class="literature-reflection-note">
-                    旧笔记里不符合这套骨架的内容，会先落在“补充内容”里，避免强制迁移或直接丢失信息。
-                  </div>
                 </section>
               </div>
             </div>

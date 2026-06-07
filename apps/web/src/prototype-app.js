@@ -807,9 +807,26 @@ function defaultLiteratureTemplateSource(title = "{{title}}") {
     "",
     "## 原文",
     "",
-    "",
+    "> 在这里放可核对的原文摘录、页码或关键句。",
     "## 转述",
     "",
+    "> 用你自己的话重写，不要贴原句。",
+    "## 判断种子",
+    "",
+    "- 这条材料最值得保留的判断是：",
+    "",
+    "## 追问",
+    "",
+    "- 它还没有解释清楚什么？",
+    "- 下一步应该去验证什么？",
+    "",
+    "## 边界 / 反例",
+    "",
+    "- 这条材料在什么条件下不成立，或不足以支撑判断？",
+    "",
+    "## 保留原因",
+    "",
+    "- 它为什么值得进入你的系统？",
     ""
   ].join("\n");
 }
@@ -828,12 +845,28 @@ function literatureTemplateSectionLabelCandidates() {
 }
 
 function defaultPermanentTemplateSource(title = "{{title}}") {
-  return composePermanentWorkspace(
-    {
-      title: String(title || "{{title}}").trim() || "{{title}}"
-    },
-    { includeEmptySections: true }
-  );
+  return [
+    `# ${String(title || "{{title}}").trim() || "{{title}}"}`,
+    "",
+    "## 核心观点",
+    "",
+    "> 写成一句可被反驳、可被引用、值得保留的判断。",
+    "## 为什么成立",
+    "",
+    "> 说明这条判断依赖的理由、证据或经验。",
+    "## 证据 / 来源",
+    "",
+    "- 来自哪条文献笔记、经验、案例或观察？",
+    "",
+    "## 关联线索",
+    "",
+    "- 它连接到哪些已有笔记、主题或写作项目？",
+    "",
+    "## 边界 / 反例",
+    "",
+    "- 这条判断在什么条件下不成立？",
+    ""
+  ].join("\n");
 }
 
 function defaultTemplateSourceForKind(kind = "") {
@@ -5996,7 +6029,7 @@ function renderDistillationPanel() {
       ? `<div class="distillation-empty">当前筛选下没有条目。可以切回“全部”，或继续进入写作中心。</div>`
       : activeCount === 0 && writingReadyCount > 0
         ? `<div class="distillation-empty">当前没有待提纯条目。已确认观点可以进入写作中心。</div>`
-        : `<div class="distillation-empty">还没有可提纯的永久笔记。先在永久笔记工作台新建或导入一条笔记。</div>`;
+        : `<div class="distillation-empty">还没有可提纯的永久笔记。先新建或导入一条永久笔记。</div>`;
   const nextActiveItem = items.find((item) => item.stage !== "confirmed") || null;
   const primaryAction = nextActiveItem ? "open-next" : writingReadyCount > 0 ? "open-writing" : "create-permanent";
   const primaryActionLabel = primaryAction === "open-writing" ? "进入写作中心" : primaryAction === "create-permanent" ? "新建永久笔记" : "继续观点提纯";
@@ -6186,6 +6219,7 @@ async function createNoteInSelectedFolder(options = {}) {
   const preferTitleSelection = options.preferTitleSelection !== false;
   const openInStandalone = options.openInStandalone === true;
   const reuseUntitled = options.reuseUntitled !== false;
+  const preferPlainEditor = options.preferPlainEditor === true;
   try {
     const cleanup = await cleanupDuplicateUntitledPlaceholders(folderId);
     if (reuseUntitled && cleanup.kept) {
@@ -6193,7 +6227,7 @@ async function createNoteInSelectedFolder(options = {}) {
       if (openInStandalone) {
         openStandaloneEditorWindow(cleanup.kept.id);
       } else {
-        openNoteById(cleanup.kept.id, { preferTitleSelection });
+        openNoteById(cleanup.kept.id, { preferTitleSelection, preferPlainEditor });
       }
       return { note: cleanup.kept, remote: !isLocalOnlyNote(cleanup.kept), reused: true, cleanedCount: cleanup.removed };
     }
@@ -6211,7 +6245,7 @@ async function createNoteInSelectedFolder(options = {}) {
     if (openInStandalone) {
       openStandaloneEditorWindow(note.id);
     } else {
-      openNoteById(note.id, { preferTitleSelection });
+      openNoteById(note.id, { preferTitleSelection, preferPlainEditor });
     }
     return { note, remote: true, cleanedCount: cleanup.removed };
   } catch (error) {
@@ -6232,7 +6266,7 @@ async function createNoteInSelectedFolder(options = {}) {
     if (openInStandalone) {
       openStandaloneEditorWindow(fallback.id);
     } else {
-      openNoteById(fallback.id, { preferTitleSelection });
+      openNoteById(fallback.id, { preferTitleSelection, preferPlainEditor });
     }
     return { note: fallback, remote: false, error };
   }
@@ -6255,7 +6289,7 @@ async function createPrimaryOriginalNote(options = {}) {
   }
 
   try {
-    const result = await createNoteInSelectedFolder(options);
+    const result = await createNoteInSelectedFolder({ ...options, preferPlainEditor: true });
     return { ...result, switchedToOriginal, previousRootId, previousFolderId };
   } catch (error) {
     state.browserRootId = previousRootId;
@@ -15170,13 +15204,6 @@ const editor = new EditorPane({
     literatureSupportsJudgment: $("literatureSupportsJudgmentInput"),
     literatureQuestion: $("literatureQuestionInput"),
     literatureBoundary: $("literatureBoundaryInput"),
-    permanentWorkspace: $("permanentWorkspace"),
-    permanentTitle: $("permanentTitleInput"),
-    permanentCoreClaim: $("permanentCoreClaimInput"),
-    permanentWhyTrue: $("permanentWhyTrueInput"),
-    permanentBoundary: $("permanentBoundaryInput"),
-    permanentRelatedClues: $("permanentRelatedCluesInput"),
-    permanentSupplement: $("permanentSupplementInput"),
     previewPanel: $("markdownPreviewPanel"),
     preview: $("markdownPreview"),
     editorThinkingStatus: $("editorThinkingStatus"),
@@ -15207,9 +15234,7 @@ const editor = new EditorPane({
     insertLink: $("btnInsertLink"),
     insertImage: $("btnInsertImage"),
     insertTag: $("btnInsertTag"),
-    toolbarCommandBtn: $("btnToolbarCommandSearch"),
     toolbarCommandMenu: $("toolbarCommandMenu"),
-    toolbarCommandSearchInput: $("toolbarCommandSearchInput"),
     toolbarCommandList: $("toolbarCommandList"),
     headingLevel: $("headingLevelSelect"),
     assetImageInput: $("assetImageInput"),

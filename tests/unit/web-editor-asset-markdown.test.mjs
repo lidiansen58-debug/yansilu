@@ -355,7 +355,7 @@ test("validateLiteratureTemplateSource rejects extra top-level custom sections",
   assert.match(validation.message, /只支持重命名现有顶层 section|额外的二级标题|顶层 section/);
 });
 
-test("validateLiteratureTemplateSource allows renamed partial literature templates", () => {
+test("validateLiteratureTemplateSource allows renamed partial literature templates for backward compatibility", () => {
   const validation = validateLiteratureTemplateSource(`# {{title}}
 
 ## Source Card
@@ -367,6 +367,58 @@ test("validateLiteratureTemplateSource allows renamed partial literature templat
 
   assert.equal(validation.ok, true);
   assert.equal(validation.message, "");
+});
+
+test("validateLiteratureTemplateSource allows fully renamed literature templates", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## Source Card
+
+## Excerpt
+
+## My Paraphrase
+
+## Claim Seed
+
+## Open Question
+
+## Constraints
+
+## Why Keep
+`);
+
+  assert.equal(validation.ok, true);
+  assert.equal(validation.message, "");
+});
+
+test("validateLiteratureTemplateSource rejects short templates that do not look like literature notes", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## 核心观点
+
+## 关联线索
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /至少保留 3 个顶层 section|来源 \/ 原文 \/ 转述/);
+});
+
+test("validateLiteratureTemplateSource rejects permanent-note skeletons even when they have several top-level sections", () => {
+  const validation = validateLiteratureTemplateSource(`# {{title}}
+
+## 核心观点
+
+## 为什么成立
+
+## 证据 / 来源
+
+## 关联线索
+
+## 边界 / 反例
+`);
+
+  assert.equal(validation.ok, false);
+  assert.match(validation.message, /来源 \/ 原文 \/ 转述|完整的 7 个顶层 section/);
 });
 
 test("validateLiteratureTemplateSource rejects mixed full literature templates that replace a slot with custom heading", () => {
