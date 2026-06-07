@@ -204,11 +204,23 @@ async function openAiInboxModule(page) {
   }, 5000);
 }
 
-async function openSettingsModule(page) {
+function settingsPaneId(section = "workspace") {
+  const normalized = String(section || "workspace").trim() || "workspace";
+  return `#settingsPane${normalized.slice(0, 1).toUpperCase()}${normalized.slice(1)}`;
+}
+
+async function openSettingsModule(page, section = "workspace") {
   await page.locator('.rail-btn[data-module="settings"]').click();
   await waitFor(async () => {
     assert.equal(await page.evaluate(() => window.__prototypeState?.module || ""), "settings");
     assert.equal(await page.locator("#settingsPanel").isVisible(), true);
+  }, 5000);
+  const normalizedSection = String(section || "workspace").trim() || "workspace";
+  const navButton = page.locator(`#settingsSectionNav [data-settings-section="${normalizedSection}"]`);
+  await navButton.click();
+  await waitFor(async () => {
+    assert.equal(await navButton.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.locator(settingsPaneId(normalizedSection)).isVisible(), true);
   }, 5000);
 }
 
