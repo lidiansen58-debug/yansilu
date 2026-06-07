@@ -186,15 +186,11 @@ async function waitForPrototypeReady(page) {
 }
 
 async function chooseToolbarCommand(page, command) {
-  await page.locator("#btnToolbarCommandSearch").click();
   const item = page.locator(`[data-toolbar-command="${command}"]`);
   await waitFor(async () => {
     assert.equal(await item.isVisible(), true);
   }, 4000);
   await item.click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#toolbarCommandMenu").isVisible(), false);
-  }, 4000);
 }
 
 async function optionalPlaywright(t) {
@@ -922,7 +918,7 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     assert.match(String(statusText || ""), /当前修改已同步|文献笔记已完成|已同步到 Markdown/);
   }, 10000);
 
-  assert.equal(await page.locator("#btnToolbarCommandSearch").isVisible(), true);
+  assert.equal(await page.locator('[data-toolbar-command="code"]').isVisible(), true);
 });
 
 test("prototype literature note with missing metadata has no toolbar recording action", async (t) => {
@@ -4608,7 +4604,15 @@ test("prototype settings saved literature and permanent templates drive later ne
     assert.match(value, /这是新的永久模板起手句。/);
     assert.match(value, /- \[\[模板测试\]\]/);
   }, 5000);
-  await page.locator("#permanentTitleInput").fill("已有永久笔记");
+  await ensureSourceMode(page);
+  await waitForEditableNoteSurface(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText("# 已有永久笔记\n\n这是新的永久模板起手句。\n\n## 关联线索\n\n- [[模板测试]]");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /^# 已有永久笔记/m);
+  }, 5000);
 
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
@@ -4774,7 +4778,8 @@ Original evidence block.
 
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
-    assert.equal(await page.locator("#permanentWorkspace").isVisible().catch(() => false), false);
+    assert.equal(await page.locator("#permanentWorkspace").count(), 0);
+    assert.equal(await page.locator("#markdownSplit").isVisible(), true);
     assert.match(value, /这是一条来自模板前言的提醒。/);
     assert.match(value, /## 自定义问题/);
     assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);
