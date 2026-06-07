@@ -292,7 +292,7 @@ test("originality payload keeps linked literature sources by folder root when no
   assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
 });
 
-test("editor defaults back to wysiwyg when switching from source mode into a compatible note", () => {
+test("editor keeps source mode when switching notes unless the tab explicitly prefers the plain editor", () => {
   const state = createInitialState();
   state.previewMode = "source";
   const pane = Object.create(EditorPane.prototype);
@@ -314,7 +314,64 @@ A stable claim.
     body: note.body,
     savedTitle: "Structured note",
     savedBody: note.body,
-    dirty: false
+    dirty: false,
+    preferPlainEditor: false
+  };
+
+  state.tabs = [tab];
+  state.activeTabId = tab.id;
+  pane.state = state;
+  pane.lastFilledNoteId = "pn_previous";
+  pane.els = {
+    result: { innerHTML: "" },
+    literatureWorkspace: { classList: createClassList() },
+    markdownSplit: { classList: createClassList() },
+    modeEdit: { classList: createClassList() },
+    modeSplit: { classList: createClassList() }
+  };
+  pane.activeNote = () => note;
+  pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
+  pane.renderEmptyEditorState = () => {};
+  pane.setEditorValue = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderRelated = () => {};
+  pane.renderPreview = () => {};
+  pane.renderPreviewVisibility = () => {};
+  pane.renderInspectorVisibility = () => {};
+  pane.renderSaveHint = () => {};
+  pane.updateToolbarFormattingState = () => {};
+  pane.applyPendingEditorFocus = () => {};
+
+  pane.fillEditorFromTab();
+
+  assert.equal(state.previewMode, "source");
+  assert.equal(pane.lastFilledNoteId, note.id);
+});
+
+test("editor returns to wysiwyg once when a new tab explicitly prefers the plain editor", () => {
+  const state = createInitialState();
+  state.previewMode = "source";
+  const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "pn_plain_editor",
+    folderId: "dir_original_default",
+    noteType: "",
+    body: `# Structured note
+
+## 鏍稿績瑙傜偣
+
+A stable claim.
+`
+  };
+  const tab = {
+    id: "tab_pn_plain_editor",
+    noteId: note.id,
+    title: "Structured note",
+    body: note.body,
+    savedTitle: "Structured note",
+    savedBody: note.body,
+    dirty: false,
+    preferPlainEditor: true
   };
 
   state.tabs = [tab];
@@ -344,7 +401,7 @@ A stable claim.
   pane.fillEditorFromTab();
 
   assert.equal(state.previewMode, "wysiwyg");
-  assert.equal(pane.lastFilledNoteId, note.id);
+  assert.equal(tab.preferPlainEditor, false);
 });
 
 
@@ -465,7 +522,7 @@ This custom section should stay top-level.
   assert.doesNotMatch(normalized, /### 自定义问题/);
 });
 
-test.skip("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
+test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to plain wysiwyg mode", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -496,12 +553,12 @@ test.skip("renderPreviewVisibility keeps source markdown as the single source of
 
   pane.renderPreviewVisibility();
 
-  assert.equal(nextEditorValue, "# Stale rich value\n\n* $$widget0 [[Wrong]]$$");
+  assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
 
-test("renderPreviewVisibility uses the rich editor value for permanent notes in plain editor mode", () => {
+test("renderPreviewVisibility prefers the synced textarea value over stale rich-editor content", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -532,7 +589,7 @@ test("renderPreviewVisibility uses the rich editor value for permanent notes in 
 
   pane.renderPreviewVisibility();
 
-  assert.equal(nextEditorValue, "# Stale rich value\n\n* $$widget0 [[Wrong]]$$");
+  assert.equal(nextEditorValue, "# Source truth\n\n## 关联线索\n\n- [[From source mode]]");
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
