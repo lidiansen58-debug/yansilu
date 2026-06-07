@@ -348,6 +348,42 @@ A stable claim.
   assert.equal(pane.lastFilledNoteId, note.id);
 });
 
+test("renderPreviewVisibility keeps an intentionally emptied textarea instead of reviving stale editor content", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+  const split = { classList: createClassList() };
+  const modeEdit = createToolbarButtonStub();
+  const modeSplit = { classList: createClassList() };
+  let nextEditorValue = "not-called";
+
+  pane.state = state;
+  pane.els = {
+    body: { value: "" },
+    markdownSplit: split,
+    previewPanel: { classList: createClassList() },
+    modeEdit,
+    modeSplit
+  };
+  pane.activeNote = () => ({ id: "pn_empty", folderId: "dir_original_default", noteType: "" });
+  pane.pendingEditorSelection = null;
+  pane.richEditor = { getValue: () => "# Stale rich value", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Stale source value", focus() {} };
+  pane.normalizedSelectionRangeForValue = () => null;
+  pane.setEditorValue = (value) => {
+    nextEditorValue = value;
+  };
+  pane.updateModeToggleButton = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderContextualToolbarState = () => {};
+
+  pane.renderPreviewVisibility();
+
+  assert.equal(nextEditorValue, "");
+  assert.equal(modeEdit.classList.contains("active"), false);
+  assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
+});
+
 test("editor returns to wysiwyg once when a new tab explicitly prefers the plain editor", () => {
   const state = createInitialState();
   state.previewMode = "source";
