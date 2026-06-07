@@ -186,15 +186,11 @@ async function waitForPrototypeReady(page) {
 }
 
 async function chooseToolbarCommand(page, command) {
-  await page.locator("#btnToolbarCommandSearch").click();
   const item = page.locator(`[data-toolbar-command="${command}"]`);
   await waitFor(async () => {
     assert.equal(await item.isVisible(), true);
   }, 4000);
   await item.click();
-  await waitFor(async () => {
-    assert.equal(await page.locator("#toolbarCommandMenu").isVisible(), false);
-  }, 4000);
 }
 
 async function optionalPlaywright(t) {
@@ -845,118 +841,6 @@ test("prototype permanent note can save and persists content after authorship co
   }, 10000);
 });
 
-test("prototype permanent note structured workspace round-trips through source mode without losing fields", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright);
-  if (!stack) return;
-  const { apiBase, page } = stack;
-
-  const fixture = {
-    title: "Structured Roundtrip Claim",
-    coreClaim: "A permanent note should keep one durable claim instead of pretending to be a subject-specific template.",
-    whyTrue: "The stable unit here is a judgment with reasons, not a discipline label.",
-    boundary: "This breaks down when the note is still raw evidence rather than a judgment I can defend.",
-    related: "[[Source Boundary]]\n- connect to writing basket\n#permanent-roundtrip"
-  };
-
-  await page.waitForFunction(() => document.querySelector("#importPanel")?.classList.contains("hidden"));
-  await page.locator("#btnNewNote").click();
-  await page.waitForSelector(".tab.active");
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#permanentWorkspace").isVisible(), true);
-    assert.equal(await page.locator("#markdownSplit").isVisible().catch(() => false), false);
-  }, 7000);
-
-  await page.locator("#permanentTitleInput").fill(fixture.title);
-  await page.locator("#permanentCoreClaimInput").fill(fixture.coreClaim);
-  await page.locator("#permanentWhyTrueInput").fill(fixture.whyTrue);
-  await page.locator("#permanentBoundaryInput").fill(fixture.boundary);
-  await page.locator("#permanentRelatedCluesInput").fill(fixture.related);
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#permanentTitleInput").inputValue(), fixture.title);
-    assert.match((await page.locator(".tab.active .tab-title").textContent()) || "", /Structured Roundtrip Claim/);
-  }, 7000);
-
-  await page.locator("#btnModeToggle").click();
-
-  await waitFor(async () => {
-    const editorValue = await page.locator("#editorBody").inputValue();
-    assert.match(editorValue, new RegExp(`^# ${escapeRegExp(fixture.title)}`));
-    assert.match(editorValue, /## 核心观点/);
-    assert.match(editorValue, new RegExp(escapeRegExp(fixture.coreClaim)));
-    assert.match(editorValue, /## 为什么成立/);
-    assert.match(editorValue, new RegExp(escapeRegExp(fixture.whyTrue)));
-    assert.match(editorValue, /## 边界 \/ 反例/);
-    assert.match(editorValue, new RegExp(escapeRegExp(fixture.boundary)));
-    assert.match(editorValue, /## 关联线索/);
-    assert.match(editorValue, new RegExp(escapeRegExp("[[Source Boundary]]")));
-    assert.match(editorValue, /#permanent-roundtrip/);
-    assert.doesNotMatch(editorValue, /## 补充内容/);
-  }, 7000);
-
-  await page.evaluate(() => {
-    const rich = window.__prototypeEditor?.richEditor;
-    if (!rich || typeof rich.getValue !== "function") return false;
-    const original = rich.getValue.bind(rich);
-    window.__permanentRoundtripOriginalRichGetValue = original;
-    rich.getValue = () => "# stale rich cache\n\n## 关联线索\n$$widget-stale$$";
-    return true;
-  });
-
-  await confirmAuthorshipIfVisible(page, {
-    claim: "Structured Roundtrip Claim 的内容已由我确认后保存。"
-  });
-  await page.keyboard.press(process.platform === "darwin" ? "Meta+S" : "Control+S");
-
-  const noteId = await waitFor(async () => {
-    const activeNoteId = await page.evaluate(() => window.__prototypeEditor?.activeNote?.()?.id || "");
-    assert.ok(activeNoteId);
-    const savedNote = await fetchJson(apiBase, `/api/v1/notes/${encodeURIComponent(activeNoteId)}`);
-    assert.equal(savedNote.status, 200);
-    assert.match(savedNote.json.item.body || "", new RegExp(escapeRegExp(fixture.coreClaim)));
-    assert.doesNotMatch(savedNote.json.item.body || "", /## 补充内容/);
-    return activeNoteId;
-  }, 10000);
-
-  await page.locator("#btnModeToggle").click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#permanentWorkspace").isVisible(), true);
-    assert.equal(await page.locator("#permanentTitleInput").inputValue(), fixture.title);
-    assert.equal(await page.locator("#permanentCoreClaimInput").inputValue(), fixture.coreClaim);
-    assert.equal(await page.locator("#permanentWhyTrueInput").inputValue(), fixture.whyTrue);
-    assert.equal(await page.locator("#permanentBoundaryInput").inputValue(), fixture.boundary);
-    const related = await page.locator("#permanentRelatedCluesInput").inputValue();
-    assert.match(related, /\[\[Source Boundary\]\]/);
-    assert.match(related, /#permanent-roundtrip/);
-    assert.doesNotMatch(related, /\$\$widget-stale\$\$/);
-  }, 7000);
-
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForPrototypeReady(page);
-  await page.locator('[data-action="quick-original"]').click();
-  await page.locator('.explorer-item[data-kind="file"]', { hasText: fixture.title }).click();
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#permanentWorkspace").isVisible(), true);
-    assert.equal(await page.locator("#permanentTitleInput").inputValue(), fixture.title);
-    assert.equal(await page.locator("#permanentCoreClaimInput").inputValue(), fixture.coreClaim);
-    const related = await page.locator("#permanentRelatedCluesInput").inputValue();
-    assert.match(related, /\[\[Source Boundary\]\]/);
-    assert.doesNotMatch(related, /\$\$widget-stale\$\$/);
-  }, 7000);
-
-  assert.ok(noteId);
-});
 
 test("prototype literature note keeps permanent-note actions out of the editor toolbar", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
@@ -1034,7 +918,7 @@ test("prototype literature note keeps permanent-note actions out of the editor t
     assert.match(String(statusText || ""), /当前修改已同步|文献笔记已完成|已同步到 Markdown/);
   }, 10000);
 
-  assert.equal(await page.locator("#btnToolbarCommandSearch").isVisible(), true);
+  assert.equal(await page.locator('[data-toolbar-command="code"]').isVisible(), true);
 });
 
 test("prototype literature note with missing metadata has no toolbar recording action", async (t) => {
@@ -1476,66 +1360,6 @@ test("prototype root boxes keep source-note and isolated badges scoped to their 
   assert.ok(permanentStates.some((value) => value === "permanent-isolated"));
 });
 
-test("prototype mobile viewport keeps permanent-note entry usable", async (t) => {
-  if (process.env.RUN_BROWSER_E2E !== "1") {
-    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
-    return;
-  }
-
-  const playwright = await optionalPlaywright(t);
-  if (!playwright) return;
-
-  const stack = await startPrototypeStack(t, playwright, {
-    beforeGoto: async (page) => {
-      await page.setViewportSize({ width: 390, height: 844 });
-    }
-  });
-  if (!stack) return;
-  const { page } = stack;
-  await page.locator('[data-action="quick-original"]').click();
-  await page.waitForTimeout(200);
-
-  const mobileEntry = await page.evaluate(() => {
-    const fab = document.querySelector("#btnMobileNewNote");
-    const sidebarCta = document.querySelector("#btnNewNote");
-    const box = (el) => {
-      if (!el) return null;
-      const rect = el.getBoundingClientRect();
-      return { width: rect.width, height: rect.height, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
-    };
-    const visible = (el) => {
-      if (!el) return false;
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-    };
-    return {
-      viewportWidth: window.innerWidth,
-      fabVisible: visible(fab),
-      fabText: fab?.textContent?.trim() || "",
-      fabBox: box(fab),
-      sidebarCtaVisible: visible(sidebarCta)
-    };
-  });
-
-  assert.equal(mobileEntry.fabVisible, true);
-  assert.match(mobileEntry.fabText, /永久|新建永久笔记/);
-  assert.equal(mobileEntry.sidebarCtaVisible, false);
-  assert.ok(mobileEntry.fabBox.width >= 56);
-  assert.ok(mobileEntry.fabBox.height >= 36);
-  assert.ok(mobileEntry.fabBox.right <= mobileEntry.viewportWidth);
-
-  await page.locator("#btnMobileNewNote").click();
-  await page.waitForSelector(".tab.active");
-
-  await waitFor(async () => {
-    assert.equal(await page.locator("#permanentWorkspace").isVisible(), true);
-    assert.equal(await page.locator("#markdownSplit").isVisible().catch(() => false), false);
-    assert.equal(await page.locator("#permanentTitleInput").inputValue(), "未命名笔记");
-    assert.equal(await page.locator("#permanentCoreClaimInput").inputValue(), "");
-    assert.equal(await page.locator("#permanentWhyTrueInput").inputValue(), "");
-  }, 7000);
-});
 
 test("prototype clears stale bottom thinking notice on note switch", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
@@ -4780,7 +4604,15 @@ test("prototype settings saved literature and permanent templates drive later ne
     assert.match(value, /这是新的永久模板起手句。/);
     assert.match(value, /- \[\[模板测试\]\]/);
   }, 5000);
-  await page.locator("#permanentTitleInput").fill("已有永久笔记");
+  await ensureSourceMode(page);
+  await waitForEditableNoteSurface(page);
+  await focusEditorContent(page);
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+  await page.keyboard.insertText("# 已有永久笔记\n\n这是新的永久模板起手句。\n\n## 关联线索\n\n- [[模板测试]]");
+  await waitFor(async () => {
+    const value = await page.locator("#editorBody").inputValue();
+    assert.match(value, /^# 已有永久笔记/m);
+  }, 5000);
 
   await page.locator("#btnNewNote").click();
   await waitFor(async () => {
@@ -4946,7 +4778,8 @@ Original evidence block.
 
   await waitFor(async () => {
     const value = await page.locator("#editorBody").inputValue();
-    assert.equal(await page.locator("#permanentWorkspace").isVisible().catch(() => false), false);
+    assert.equal(await page.locator("#permanentWorkspace").count(), 0);
+    assert.equal(await page.locator("#markdownSplit").isVisible(), true);
     assert.match(value, /这是一条来自模板前言的提醒。/);
     assert.match(value, /## 自定义问题/);
     assert.match(value, /这个 section 应该跟着模板一起进入来源生成的永久笔记。/);

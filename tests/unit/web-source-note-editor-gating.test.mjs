@@ -106,7 +106,7 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.match(button.title, /永久笔记/);
 });
 
-test("editor keeps related-panel access for permanent notes and disables inline insert in structured mode", () => {
+test("editor keeps related-panel access and inline insert for permanent notes in the plain editor", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -120,7 +120,7 @@ test("editor keeps related-panel access for permanent notes and disables inline 
   pane.renderRelationToolbarButtons();
 
   assert.equal(insertLink.classList.contains("hidden"), false);
-  assert.equal(insertLink.disabled, true);
+  assert.equal(insertLink.disabled, false);
   assert.equal(insertLink.title, "关联笔记 [[");
   assert.equal(showRelated.classList.contains("hidden"), false);
   assert.equal(showRelated.disabled, false);
@@ -292,78 +292,38 @@ test("originality payload keeps linked literature sources by folder root when no
   assert.deepEqual(payload.permanent[0].citations, [{ source_id: "src_from_ln_source" }]);
 });
 
-test("editor opens permanent notes in structured workspace by default", () => {
-  const state = createInitialState();
-  state.previewMode = "wysiwyg";
-  const pane = Object.create(EditorPane.prototype);
-
-  pane.state = state;
-  pane.els = {
-    permanentWorkspace: { classList: createClassList() },
-    literatureWorkspace: { classList: createClassList() },
-    markdownSplit: { classList: createClassList() },
-    modeEdit: { classList: createClassList() },
-    modeSplit: { classList: createClassList() }
-  };
-  pane.activeNote = () => ({ id: "pn_structured", folderId: "dir_original_default", noteType: "" });
-
-  pane.renderPermanentWorkspace();
-
-  assert.equal(pane.isPermanentWorkspaceActive(), true);
-  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), false);
-  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), true);
-});
-
-test("editor falls back to source markdown panel for permanent notes in source mode", () => {
+test("editor keeps source mode when switching notes unless the tab explicitly prefers the plain editor", () => {
   const state = createInitialState();
   state.previewMode = "source";
   const pane = Object.create(EditorPane.prototype);
+  const note = {
+    id: "pn_default_wysiwyg",
+    folderId: "dir_original_default",
+    noteType: "",
+    body: `# Structured note
 
-  pane.state = state;
-  pane.els = {
-    permanentWorkspace: { classList: createClassList() },
-    literatureWorkspace: { classList: createClassList() },
-    markdownSplit: { classList: createClassList() },
-    modeEdit: { classList: createClassList() },
-    modeSplit: { classList: createClassList() }
+## 核心观点
+
+A stable claim.
+`
   };
-  pane.activeNote = () => ({ id: "pn_source", folderId: "dir_original_default", noteType: "" });
-
-  pane.renderPermanentWorkspace();
-
-  assert.equal(pane.isPermanentWorkspaceActive(), false);
-  assert.equal(pane.els.permanentWorkspace.classList.contains("hidden"), true);
-  assert.equal(pane.els.markdownSplit.classList.contains("hidden"), false);
-});
-
-test("editor forces source mode for permanent notes that do not fit the structured workspace", () => {
-  const state = createInitialState();
-  state.previewMode = "wysiwyg";
-  const pane = Object.create(EditorPane.prototype);
-  const note = { id: "pn_custom_shape", folderId: "dir_original_default", noteType: "", body: `# Custom shape
-
-Template preface stays outside fixed fields.
-
-## 自定义问题
-
-Only custom sections live in this permanent note.
-` };
   const tab = {
-    id: "tab_pn_custom_shape",
+    id: "tab_pn_default_wysiwyg",
     noteId: note.id,
-    title: "Custom shape",
+    title: "Structured note",
     body: note.body,
-    savedTitle: "Custom shape",
+    savedTitle: "Structured note",
     savedBody: note.body,
-    dirty: false
+    dirty: false,
+    preferPlainEditor: false
   };
 
   state.tabs = [tab];
   state.activeTabId = tab.id;
   pane.state = state;
+  pane.lastFilledNoteId = "pn_previous";
   pane.els = {
     result: { innerHTML: "" },
-    permanentWorkspace: { classList: createClassList() },
     literatureWorkspace: { classList: createClassList() },
     markdownSplit: { classList: createClassList() },
     modeEdit: { classList: createClassList() },
@@ -373,7 +333,6 @@ Only custom sections live in this permanent note.
   pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
   pane.renderEmptyEditorState = () => {};
   pane.setEditorValue = () => {};
-  pane.renderPermanentWorkspace = () => {};
   pane.renderLiteratureWorkspace = () => {};
   pane.renderRelated = () => {};
   pane.renderPreview = () => {};
@@ -386,41 +345,77 @@ Only custom sections live in this permanent note.
   pane.fillEditorFromTab();
 
   assert.equal(state.previewMode, "source");
-  assert.equal(pane.isPermanentWorkspaceEligible(note), false);
+  assert.equal(pane.lastFilledNoteId, note.id);
 });
 
-test("editor restores structured mode when leaving a custom-shape permanent note", () => {
+test("renderPreviewVisibility keeps an intentionally emptied textarea instead of reviving stale editor content", () => {
+  const state = createInitialState();
+  state.previewMode = "wysiwyg";
+  const pane = Object.create(EditorPane.prototype);
+  const split = { classList: createClassList() };
+  const modeEdit = createToolbarButtonStub();
+  const modeSplit = { classList: createClassList() };
+  let nextEditorValue = "not-called";
+
+  pane.state = state;
+  pane.els = {
+    body: { value: "" },
+    markdownSplit: split,
+    previewPanel: { classList: createClassList() },
+    modeEdit,
+    modeSplit
+  };
+  pane.activeNote = () => ({ id: "pn_empty", folderId: "dir_original_default", noteType: "" });
+  pane.pendingEditorSelection = null;
+  pane.richEditor = { getValue: () => "# Stale rich value", focus() {} };
+  pane.markdownEditor = { getValue: () => "# Stale source value", focus() {} };
+  pane.normalizedSelectionRangeForValue = () => null;
+  pane.setEditorValue = (value) => {
+    nextEditorValue = value;
+  };
+  pane.updateModeToggleButton = () => {};
+  pane.renderLiteratureWorkspace = () => {};
+  pane.renderContextualToolbarState = () => {};
+
+  pane.renderPreviewVisibility();
+
+  assert.equal(nextEditorValue, "");
+  assert.equal(modeEdit.classList.contains("active"), false);
+  assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
+});
+
+test("editor returns to wysiwyg once when a new tab explicitly prefers the plain editor", () => {
   const state = createInitialState();
   state.previewMode = "source";
-  state.forcedSourcePreviewNoteId = "pn_custom_shape";
   const pane = Object.create(EditorPane.prototype);
   const note = {
-    id: "pn_structured_return",
+    id: "pn_plain_editor",
     folderId: "dir_original_default",
     noteType: "",
     body: `# Structured note
 
-## 核心观点
+## 鏍稿績瑙傜偣
 
 A stable claim.
 `
   };
   const tab = {
-    id: "tab_pn_structured_return",
+    id: "tab_pn_plain_editor",
     noteId: note.id,
     title: "Structured note",
     body: note.body,
     savedTitle: "Structured note",
     savedBody: note.body,
-    dirty: false
+    dirty: false,
+    preferPlainEditor: true
   };
 
   state.tabs = [tab];
   state.activeTabId = tab.id;
   pane.state = state;
+  pane.lastFilledNoteId = "pn_previous";
   pane.els = {
     result: { innerHTML: "" },
-    permanentWorkspace: { classList: createClassList() },
     literatureWorkspace: { classList: createClassList() },
     markdownSplit: { classList: createClassList() },
     modeEdit: { classList: createClassList() },
@@ -430,7 +425,6 @@ A stable claim.
   pane.ensureTabAuthorshipState = () => ({ claim: "", confirmed: true, confirmedBody: "" });
   pane.renderEmptyEditorState = () => {};
   pane.setEditorValue = () => {};
-  pane.renderPermanentWorkspace = () => {};
   pane.renderLiteratureWorkspace = () => {};
   pane.renderRelated = () => {};
   pane.renderPreview = () => {};
@@ -443,9 +437,9 @@ A stable claim.
   pane.fillEditorFromTab();
 
   assert.equal(state.previewMode, "wysiwyg");
-  assert.equal(state.forcedSourcePreviewNoteId, "");
-  assert.equal(pane.isPermanentWorkspaceEligible(note), true);
+  assert.equal(tab.preferPlainEditor, false);
 });
+
 
 test("editor preserves matched historical literature headings when structured fields save back", () => {
   const state = createInitialState();
@@ -564,7 +558,7 @@ This custom section should stay top-level.
   assert.doesNotMatch(normalized, /### 自定义问题/);
 });
 
-test.skip("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
+test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to plain wysiwyg mode", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -590,7 +584,6 @@ test.skip("renderPreviewVisibility keeps source markdown as the single source of
     nextEditorValue = value;
   };
   pane.updateModeToggleButton = () => {};
-  pane.renderPermanentWorkspace = () => {};
   pane.renderLiteratureWorkspace = () => {};
   pane.renderContextualToolbarState = () => {};
 
@@ -601,7 +594,7 @@ test.skip("renderPreviewVisibility keeps source markdown as the single source of
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
 
-test("renderPreviewVisibility keeps source markdown as the single source of truth when returning to structured permanent mode", () => {
+test("renderPreviewVisibility prefers the synced textarea value over stale rich-editor content", () => {
   const state = createInitialState();
   state.previewMode = "wysiwyg";
   const pane = Object.create(EditorPane.prototype);
@@ -627,7 +620,6 @@ test("renderPreviewVisibility keeps source markdown as the single source of trut
     nextEditorValue = value;
   };
   pane.updateModeToggleButton = () => {};
-  pane.renderPermanentWorkspace = () => {};
   pane.renderLiteratureWorkspace = () => {};
   pane.renderContextualToolbarState = () => {};
 
@@ -637,3 +629,4 @@ test("renderPreviewVisibility keeps source markdown as the single source of trut
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
+

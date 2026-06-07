@@ -409,6 +409,7 @@ export function validateLiteratureTemplateSource(templateSource = "") {
 
   const usedKeys = new Set();
   let unresolvedCount = 0;
+  let permanentHeadingCount = 0;
   for (const section of sections) {
     const heading = normalizeFieldText(section?.heading || "");
     if (!heading) continue;
@@ -422,14 +423,17 @@ export function validateLiteratureTemplateSource(templateSource = "") {
       usedKeys.add(matchedKey);
       continue;
     }
+    if (Object.keys(PERMANENT_SECTION_LABELS).some((key) => permanentSectionLabelsFor(key).some((label) => normalizeLooseText(label) === headingToken))) {
+      permanentHeadingCount += 1;
+    }
     unresolvedCount += 1;
   }
 
   const remainingSlots = LITERATURE_SECTION_ORDER.length - usedKeys.size;
-  if (sections.length > 0 && usedKeys.size === 0 && sections.length < 3) {
+  if (sections.length > 0 && sections.length < LITERATURE_SECTION_ORDER.length && usedKeys.size < 3 && permanentHeadingCount > 0) {
     return {
       ok: false,
-      message: "文献模板至少要能看出“来源 / 原文 / 转述”这类骨架；如果要整体改名，请至少保留 3 个顶层 section。"
+      message: `文献模板至少要能看出“来源 / 原文 / 转述”这类骨架；如果要整体改名，请至少保留 3 个顶层 section，并保留完整的 ${LITERATURE_SECTION_ORDER.length} 个顶层 section。`
     };
   }
   if (sections.length === LITERATURE_SECTION_ORDER.length && unresolvedCount > 0 && usedKeys.size > 0) {
@@ -3157,17 +3161,18 @@ export class EditorPane {
     this.ensureTabAuthorshipState(t, this.activeNote());
     const activeNote = this.activeNote();
     const activeNoteId = String(activeNote?.id || "").trim();
-    const noteChanged = activeNoteId !== String(this.lastFilledNoteId || "").trim();
     const forcedSourceNoteId = String(this.state.forcedSourcePreviewNoteId || "").trim();
+    const preferPlainEditor = t.preferPlainEditor === true;
     if (this.isOriginalNote(activeNote) && forcedSourceNoteId && forcedSourceNoteId !== activeNoteId && this.isSourceMode()) {
       this.state.previewMode = "wysiwyg";
       this.state.forcedSourcePreviewNoteId = "";
     } else if (this.isOriginalNote(activeNote) && forcedSourceNoteId === activeNoteId) {
       this.state.forcedSourcePreviewNoteId = "";
     }
-    if (noteChanged && this.isSourceMode() && !forcedSourceNoteId) {
+    if (preferPlainEditor && this.isSourceMode() && !forcedSourceNoteId) {
       this.state.previewMode = "wysiwyg";
     }
+    t.preferPlainEditor = false;
     this.lastFilledNoteId = activeNoteId;
     this.renderEmptyEditorState();
     this.setEditorValue(t.body || "");
@@ -3815,11 +3820,15 @@ export class EditorPane {
     this.updateModeToggleButton(mode);
     this.els.modeSplit?.classList.add("hidden");
     if (this.richEditor && this.markdownEditor) {
-      const content = this.isSourceMode()
+      const textareaValue =
+        this.els.body && typeof this.els.body.value === "string"
+          ? this.els.body.value
+          : null;
+      const content = textareaValue ?? (this.isSourceMode()
         ? this.markdownEditor.getValue()
         : this.isStructuredWorkspaceActive()
-          ? String(this.els.body?.value || "")
-          : this.richEditor.getValue();
+          ? ""
+          : this.richEditor.getValue());
       const normalizedPendingSelection = this.normalizedSelectionRangeForValue(content, pendingSelection);
       this.setEditorValue(content);
       if (!this.isStructuredWorkspaceActive()) {
