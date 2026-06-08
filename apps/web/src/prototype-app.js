@@ -10864,6 +10864,7 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
   const meta = graphReadingLensMeta(lens);
   const priorityEdgeKeys = new Set();
   const priorityNodeIds = new Set();
+  const nodeMap = new Map((Array.isArray(nodes) ? nodes : []).map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
   visibleEdges.forEach(({ edge }) => {
     if (!graphEdgeMatchesReadingLens(edge, meta.key)) return;
     const edgeKey = graphEdgeSelectionKey(edge);
@@ -10888,6 +10889,51 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
     });
     nodes.forEach((node) => {
       if (node?.isGraphIsolatedCandidate) priorityNodeIds.add(String(node.id || "").trim());
+    });
+  }
+  if (nodes.length >= 80 && visibleEdges.length >= 120) {
+    const lensEdgeLimit = meta.key === "bridge" ? 12 : meta.key === "argument" ? 16 : 20;
+    const scoredEdges = visibleEdges
+      .filter(({ edge }) => {
+        const edgeKey = graphEdgeSelectionKey(edge);
+        return edgeKey && priorityEdgeKeys.has(edgeKey);
+      })
+      .map(({ edge }) => {
+        const edgeKey = graphEdgeSelectionKey(edge);
+        const relationGroup = graphRelationVisual(edge?.relationType).key;
+        const fromNode = nodeMap.get(String(edge?.fromNoteId || "").trim());
+        const toNode = nodeMap.get(String(edge?.toNoteId || "").trim());
+        const fromRank = graphNodeStarRank(fromNode?.starTier);
+        const toRank = graphNodeStarRank(toNode?.starTier);
+        const strongest = Math.max(fromRank, toRank);
+        const weakest = Math.min(fromRank, toRank);
+        const groupWeight =
+          relationGroup === "bridge"
+            ? 3.8
+            : relationGroup === "conflict"
+              ? 3.4
+              : relationGroup === "boundary"
+                ? 3.1
+                : relationGroup === "support"
+                  ? 2.8
+                  : relationGroup === "flow"
+                    ? 2.5
+                    : 1.6;
+        const degreeWeight = (Number(fromNode?.degree || 0) + Number(toNode?.degree || 0)) * 0.06;
+        return {
+          edgeKey,
+          noteIds: [String(edge?.fromNoteId || "").trim(), String(edge?.toNoteId || "").trim()].filter(Boolean),
+          score: groupWeight + strongest * 1.2 + weakest * 0.65 + degreeWeight
+        };
+      })
+      .sort((left, right) => right.score - left.score);
+    priorityEdgeKeys.clear();
+    priorityNodeIds.clear();
+    scoredEdges.slice(0, lensEdgeLimit).forEach((item) => {
+      priorityEdgeKeys.add(item.edgeKey);
+      item.noteIds.forEach((id) => {
+        if (id) priorityNodeIds.add(id);
+      });
     });
   }
   if (nodes.length > 8 && priorityNodeIds.size >= nodes.length) {
@@ -12078,7 +12124,14 @@ function graphNodeShowsAsPoint(node = {}) {
   return tier === "dust" || tier === "minor";
 }
 
-function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
+function graphDenseGalaxyMode({ nodes = [], edges = [], filterActive = false } = {}) {
+  if (filterActive) return false;
+  const nodeCount = Array.isArray(nodes) ? nodes.length : 0;
+  const edgeCount = Array.isArray(edges) ? edges.length : 0;
+  return nodeCount >= 80 || edgeCount >= 140;
+}
+
+function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
   const from = nodeMap.get(String(edge?.fromNoteId || "").trim());
   const to = nodeMap.get(String(edge?.toNoteId || "").trim());
   const fromRank = graphNodeStarRank(from?.starTier);
@@ -12087,7 +12140,19 @@ function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map()) {
   const weakest = Math.min(fromRank, toRank);
   const relationType = String(edge?.relationType || "").trim().toLowerCase();
   const relationGroup = graphRelationVisual(relationType).key;
+  const denseMode = options.denseMode === true;
+  const intercluster = options.intercluster === true;
   if (relationGroup === "index") return true;
+  if (denseMode) {
+    if (relationGroup === "bridge") return strongest >= 3;
+    if (relationGroup === "flow") {
+      return intercluster ? strongest >= 3 && weakest >= 2 : strongest >= 4 && weakest >= 2;
+    }
+    if (["support", "conflict", "boundary"].includes(relationGroup)) {
+      return intercluster ? strongest >= 4 && weakest >= 2 : strongest >= 4 && weakest >= 3;
+    }
+    return false;
+  }
   if (strongest >= 4) return true;
   if (relationGroup === "bridge") return strongest >= 3;
   if (["support", "conflict", "boundary", "flow"].includes(relationGroup)) {
@@ -12107,7 +12172,9 @@ function graphEdgeShouldRender({
   inSelectedTheme = false,
   inSelectedBridge = false,
   lensPriority = false,
-  visualKey = ""
+  visualKey = "",
+  denseMode = false,
+  intercluster = false
 } = {}) {
   if (zoomKey !== "fit") return true;
   if (filterActive) {
@@ -12117,6 +12184,9 @@ function graphEdgeShouldRender({
   }
   if (graphViewModeForRelationType(relationType) === "structure" || visualKey === "index") {
     return fitVisible || lensPriority || selected || inSelectedTheme || inSelectedBridge;
+  }
+  if (denseMode) {
+    return fitVisible || lensPriority || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge || (intercluster && connectsFocus);
   }
   return fitVisible || lensPriority || selected || inSelectedNodeNeighborhood || inSelectedTheme || inSelectedBridge;
 }
@@ -12852,6 +12922,11 @@ function renderGraphVisualMap({
     )
     .join("");
   const denseDirectoryMode = !filterActive;
+  const denseGalaxyMode = graphDenseGalaxyMode({
+    nodes: layout.nodes,
+    edges,
+    filterActive
+  });
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
@@ -12934,7 +13009,15 @@ function renderGraphVisualMap({
       const label = graphShortTitle(title, labelLimit);
       const labelY = node.y + node.radius + 12;
       const metaY = labelY + 11;
-      const labelQuota = denseDirectoryMode
+      const labelQuota = denseGalaxyMode
+        ? (
+            zoom.key === "detail"
+              ? 3
+              : zoom.key === "read"
+                ? 1
+                : 0
+          )
+        : denseDirectoryMode
         ? zoom.key === "detail"
           ? 5
           : zoom.key === "read"
@@ -13000,7 +13083,17 @@ function renderGraphVisualMap({
       const glintRadius = Math.max(1.2, Number(node.radius || 0) * 0.12);
       const glintX = Number(node.x || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
       const glintY = Number(node.y || 0) - Math.max(1.2, Number(node.radius || 0) * 0.24);
-      const pointLike = graphNodeShowsAsPoint(node);
+      const pointLike =
+        graphNodeShowsAsPoint(node) ||
+        (denseGalaxyMode &&
+          zoom.key === "fit" &&
+          !node.isHub &&
+          !node.isFocused &&
+          !selected &&
+          !inSelectedTheme &&
+          !selectedIsolated &&
+          !inSelectedBridge &&
+          starRank <= 2);
       const clusterArmDepth = Math.max(0, Math.min(1, Number(node.clusterArmDepth || 0)));
       const pointFade = pointLike ? Math.max(0.36, 0.94 - clusterArmDepth * 0.48) : 1;
       const glintFade = pointLike ? Math.max(0.18, 0.82 - clusterArmDepth * 0.52) : 1;
@@ -13027,7 +13120,7 @@ function renderGraphVisualMap({
       const rationale = String(edge.rationale || "").trim();
       const sourceLabel = graphRelationSourceLabel(edge.createdBy);
       const relationGroup = graphRelationGroupMeta(edge.relationType);
-      const showEdgePin = (filterActive || zoom.key !== "fit") && visual.key !== "index";
+      const showEdgePin = (filterActive || zoom.key !== "fit") && visual.key !== "index" && !denseGalaxyMode;
       const edgeKey = graphEdgeSelectionKey(edge);
       const selected = selectedEdgeKey === edgeKey;
       const fromId = String(edge?.fromNoteId || "").trim();
@@ -13040,7 +13133,10 @@ function renderGraphVisualMap({
       const intercluster = fromClusterIndex >= 0 && toClusterIndex >= 0 && fromClusterIndex !== toClusterIndex;
       const lensPriority = !filterActive && readingLensState.active && readingLensState.priorityEdgeKeys.has(edgeKey);
       const lensSecondary = !filterActive && readingLensState.active && !lensPriority;
-      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap);
+      const fitVisible = graphEdgeVisibleAtFit(edge, layout.nodeMap, {
+        denseMode: denseGalaxyMode,
+        intercluster
+      });
       const renderEdge = graphEdgeShouldRender({
         zoomKey: zoom.key,
         filterActive,
@@ -13052,7 +13148,9 @@ function renderGraphVisualMap({
         inSelectedTheme,
         inSelectedBridge,
         lensPriority,
-        visualKey: visual.key
+        visualKey: visual.key,
+        denseMode: denseGalaxyMode,
+        intercluster
       });
       if (!renderEdge) return "";
       return `
