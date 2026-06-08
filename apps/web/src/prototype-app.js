@@ -10864,6 +10864,7 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
   const meta = graphReadingLensMeta(lens);
   const priorityEdgeKeys = new Set();
   const priorityNodeIds = new Set();
+  const protectedNodeIds = new Set();
   const nodeMap = new Map((Array.isArray(nodes) ? nodes : []).map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
   visibleEdges.forEach(({ edge }) => {
     if (!graphEdgeMatchesReadingLens(edge, meta.key)) return;
@@ -10884,17 +10885,25 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
     bridgeGaps.forEach((gap) => {
       [...(gap?.noteIds || []), ...(gap?.targetNoteIds || [])].forEach((id) => {
         const noteId = String(id || "").trim();
-        if (noteId) priorityNodeIds.add(noteId);
+        if (noteId) {
+          priorityNodeIds.add(noteId);
+          protectedNodeIds.add(noteId);
+        }
       });
     });
     nodes.forEach((node) => {
-      if (node?.isGraphIsolatedCandidate) priorityNodeIds.add(String(node.id || "").trim());
+      if (node?.isGraphIsolatedCandidate) {
+        const noteId = String(node.id || "").trim();
+        if (noteId) {
+          priorityNodeIds.add(noteId);
+          protectedNodeIds.add(noteId);
+        }
+      }
     });
   }
   if (nodes.length >= 80 && visibleEdges.length >= 120) {
     const originalPriorityEdgeKeys = new Set(priorityEdgeKeys);
-    const preservedNodeIds = new Set(priorityNodeIds);
-    const lensEdgeLimit = meta.key === "bridge" ? 12 : meta.key === "argument" ? 16 : 20;
+    const lensEdgeLimit = meta.key === "bridge" ? 8 : meta.key === "argument" ? 12 : 14;
     const scoredEdges = visibleEdges
       .filter(({ edge }) => {
         const edgeKey = graphEdgeSelectionKey(edge);
@@ -10942,13 +10951,13 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
       if (!edgeKey || !originalPriorityEdgeKeys.has(edgeKey)) return;
       const fromId = String(edge?.fromNoteId || "").trim();
       const toId = String(edge?.toNoteId || "").trim();
-      if (preservedNodeIds.has(fromId) || preservedNodeIds.has(toId)) {
+      if (protectedNodeIds.has(fromId) || protectedNodeIds.has(toId)) {
         priorityEdgeKeys.add(edgeKey);
         if (fromId) priorityNodeIds.add(fromId);
         if (toId) priorityNodeIds.add(toId);
       }
     });
-    preservedNodeIds.forEach((id) => {
+    protectedNodeIds.forEach((id) => {
       if (id) priorityNodeIds.add(id);
     });
   }
