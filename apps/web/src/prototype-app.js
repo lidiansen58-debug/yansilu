@@ -14605,7 +14605,8 @@ async function runGraphAiAnalysis() {
   }
 }
 
-async function importYijingKnowledgeNetworkDemo() {
+async function importYijingKnowledgeNetworkDemo(options = {}) {
+  const { startup = false } = options;
   const button = $("graphSeedYijing");
   const previousDisabled = Boolean(button?.disabled);
   if (button) button.disabled = true;
@@ -14619,6 +14620,15 @@ async function importYijingKnowledgeNetworkDemo() {
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
     if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    if (startup) {
+      // Demo routes should always reopen into a readable graph state instead of
+      // inheriting a stale persisted filter like "index"/structure from a
+      // previous session, which can make the imported graph look empty.
+      setGraphRelationTypeFilter("meaningful", { persist: false });
+      graphState.readingLens = "insight";
+      graphState.selection = null;
+      graphState.legendOpen = false;
+    }
     await refreshDirectoryGraph();
     renderAll();
     const summary = result?.summary || {};
@@ -14632,7 +14642,8 @@ async function importYijingKnowledgeNetworkDemo() {
   }
 }
 
-async function importYijingRichAcceptanceDemo() {
+async function importYijingRichAcceptanceDemo(options = {}) {
+  const { startup = false } = options;
   const button = $("graphSeedYijingRich");
   const previousDisabled = Boolean(button?.disabled);
   if (button) button.disabled = true;
@@ -14646,6 +14657,15 @@ async function importYijingRichAcceptanceDemo() {
     state.selectedFolderId = directoryId;
     await syncNotesForDirectory(directoryId);
     if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
+    if (startup) {
+      // Demo routes should always reopen into a readable graph state instead of
+      // inheriting a stale persisted filter like "index"/structure from a
+      // previous session, which can make the imported graph look empty.
+      setGraphRelationTypeFilter("meaningful", { persist: false });
+      graphState.readingLens = "insight";
+      graphState.selection = null;
+      graphState.legendOpen = false;
+    }
     await refreshDirectoryGraph();
     renderAll();
     const counts = result?.counts || {};
@@ -18317,7 +18337,7 @@ async function bootstrap() {
     startupDemo === "smart-notes-product-thinking" || startupDemo === "smart-notes"
       ? await importSmartNotesProductThinkingDemo({ startup: true })
       : startupDemo === "yijing-rich" || startupDemo === "yijing"
-        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo() : importYijingRichAcceptanceDemo())
+        ? await (startupDemo === "yijing" ? importYijingKnowledgeNetworkDemo({ startup: true }) : importYijingRichAcceptanceDemo({ startup: true }))
         : false;
   if (openedDemo) {
     renderAll();
