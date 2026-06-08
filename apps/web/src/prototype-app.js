@@ -10892,11 +10892,13 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
     });
   }
   if (nodes.length >= 80 && visibleEdges.length >= 120) {
+    const originalPriorityEdgeKeys = new Set(priorityEdgeKeys);
+    const preservedNodeIds = new Set(priorityNodeIds);
     const lensEdgeLimit = meta.key === "bridge" ? 12 : meta.key === "argument" ? 16 : 20;
     const scoredEdges = visibleEdges
       .filter(({ edge }) => {
         const edgeKey = graphEdgeSelectionKey(edge);
-        return edgeKey && priorityEdgeKeys.has(edgeKey);
+        return edgeKey && originalPriorityEdgeKeys.has(edgeKey);
       })
       .map(({ edge }) => {
         const edgeKey = graphEdgeSelectionKey(edge);
@@ -10934,6 +10936,20 @@ function graphBuildReadingLensState({ nodes = [], visibleEdges = [], bridgeGaps 
       item.noteIds.forEach((id) => {
         if (id) priorityNodeIds.add(id);
       });
+    });
+    visibleEdges.forEach(({ edge }) => {
+      const edgeKey = graphEdgeSelectionKey(edge);
+      if (!edgeKey || !originalPriorityEdgeKeys.has(edgeKey)) return;
+      const fromId = String(edge?.fromNoteId || "").trim();
+      const toId = String(edge?.toNoteId || "").trim();
+      if (preservedNodeIds.has(fromId) || preservedNodeIds.has(toId)) {
+        priorityEdgeKeys.add(edgeKey);
+        if (fromId) priorityNodeIds.add(fromId);
+        if (toId) priorityNodeIds.add(toId);
+      }
+    });
+    preservedNodeIds.forEach((id) => {
+      if (id) priorityNodeIds.add(id);
     });
   }
   if (nodes.length > 8 && priorityNodeIds.size >= nodes.length) {
@@ -12128,7 +12144,7 @@ function graphDenseGalaxyMode({ nodes = [], edges = [], filterActive = false } =
   if (filterActive) return false;
   const nodeCount = Array.isArray(nodes) ? nodes.length : 0;
   const edgeCount = Array.isArray(edges) ? edges.length : 0;
-  return nodeCount >= 80 || edgeCount >= 140;
+  return edgeCount >= 140 || (nodeCount >= 80 && edgeCount >= 60);
 }
 
 function graphEdgeVisibleAtFit(edge = {}, nodeMap = new Map(), options = {}) {
