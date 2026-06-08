@@ -14864,6 +14864,17 @@ async function runGraphAiAnalysis() {
   }
 }
 
+function resetGraphDemoPresentationState() {
+  setGraphRelationTypeFilter("meaningful", { persist: false });
+  graphState.readingLens = "insight";
+  graphState.selection = null;
+  graphState.legendOpen = false;
+  graphState.zoom = "fit";
+  graphState.expanded = false;
+  graphState.workbenchPanelOpen = false;
+  graphState.workbenchPanelTab = "clues";
+}
+
 async function importYijingKnowledgeNetworkDemo(options = {}) {
   const { startup = false } = options;
   const button = $("graphSeedYijing");
@@ -14880,13 +14891,10 @@ async function importYijingKnowledgeNetworkDemo(options = {}) {
     await syncNotesForDirectory(directoryId);
     if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
     if (startup) {
-      // Demo routes should always reopen into a readable graph state instead of
-      // inheriting a stale persisted filter like "index"/structure from a
-      // previous session, which can make the imported graph look empty.
-      setGraphRelationTypeFilter("meaningful", { persist: false });
-      graphState.readingLens = "insight";
-      graphState.selection = null;
-      graphState.legendOpen = false;
+      // Demo routes should always reopen into a readable, stable first-screen
+      // graph state instead of inheriting stale filters or expanded UI state
+      // from a previous session.
+      resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
     renderAll();
@@ -14917,13 +14925,10 @@ async function importYijingRichAcceptanceDemo(options = {}) {
     await syncNotesForDirectory(directoryId);
     if (result?.firstNoteId) state.selectedFileId = result.firstNoteId;
     if (startup) {
-      // Demo routes should always reopen into a readable graph state instead of
-      // inheriting a stale persisted filter like "index"/structure from a
-      // previous session, which can make the imported graph look empty.
-      setGraphRelationTypeFilter("meaningful", { persist: false });
-      graphState.readingLens = "insight";
-      graphState.selection = null;
-      graphState.legendOpen = false;
+      // Demo routes should always reopen into a readable, stable first-screen
+      // graph state instead of inheriting stale filters or expanded UI state
+      // from a previous session.
+      resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
     renderAll();
@@ -14971,6 +14976,12 @@ async function importSmartNotesProductThinkingDemo(options = {}) {
           writingState.scaffoldMarkdown = scaffold.export?.markdown || scaffold.item?.markdown || "";
         }
       } catch {}
+    }
+    if (startup) {
+      // Demo routes should always reopen into a readable, stable first-screen
+      // graph state instead of inheriting stale filters or expanded UI state
+      // from a previous session.
+      resetGraphDemoPresentationState();
     }
     await refreshDirectoryGraph();
     if (startup) activateModule("explorer");
