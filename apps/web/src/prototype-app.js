@@ -14867,6 +14867,7 @@ async function runGraphAiAnalysis() {
 function resetGraphDemoPresentationState() {
   setGraphRelationTypeFilter("meaningful", { persist: false });
   graphState.readingLens = "insight";
+  graphState.focusDepth = "1";
   graphState.selection = null;
   graphState.legendOpen = false;
   graphState.zoom = "fit";
