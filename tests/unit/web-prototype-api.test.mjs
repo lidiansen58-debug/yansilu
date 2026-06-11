@@ -742,6 +742,44 @@ test("prototype API pulls an Ollama local runtime model", async () => {
   }
 });
 
+test("prototype API can request enabling a pulled Ollama model", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-pull-enable-model", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          model: "qwen3:4b",
+          status: "success",
+          enabled: {
+            preferences: { modelPack: "Starter Auto" },
+            providerConfig: { providerId: "local_private_gateway" }
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const result = await api.pullOllamaModel("qwen3:4b", { enable: true, runtimeMode: "hybrid" });
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/pull-model");
+    assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen3:4b", enable: true, runtimeMode: "hybrid" });
+    assert.equal(result.enabled.preferences.modelPack, "Starter Auto");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
 test("prototype API forces accept-link confirmation", async () => {
   const previousFetch = globalThis.fetch;
   const api = await importPrototypeApi("ai-inbox-accept-link", { __API_BASE__: "http://127.0.0.1:3999" });

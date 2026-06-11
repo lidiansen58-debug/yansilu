@@ -1,6 +1,6 @@
 const API_BASE = String(process.env.API_BASE || "http://localhost:3000").replace(/\/+$/, "");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/+$/, "");
-const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen2.5:3b").trim();
+const OLLAMA_MODEL = String(process.env.OLLAMA_MODEL || "qwen3:4b").trim();
 
 const providerId = "ollama_local_gateway";
 const logicalRefs = [

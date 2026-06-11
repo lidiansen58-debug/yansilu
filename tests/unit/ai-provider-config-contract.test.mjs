@@ -159,7 +159,7 @@ test("provider config applies Ollama local defaults", () => {
   assert.equal(config.healthCheck.endpointUrl, "http://localhost:11434/api/tags");
   assert.equal(config.runtimeModelMap["ollama_local_gateway:local_private"], undefined);
   assert.equal(descriptor.endpointUrl, "http://localhost:11434/v1/chat/completions");
-  assert.equal(descriptor.runtimeModelMap["ollama_local_gateway:local_private"], "qwen2.5:3b");
+  assert.equal(descriptor.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:4b");
 });
 
 test("provider config supports MiniCPM local and remote gateway paths", () => {

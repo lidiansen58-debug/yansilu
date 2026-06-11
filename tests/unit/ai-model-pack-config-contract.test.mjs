@@ -97,7 +97,7 @@ test("built-in model packs compile into a valid config bundle", () => {
   assert.equal(ollamaLocal.provider_preset, "ollama_local_gateway");
   assert.equal(ollamaLocal.privacy.default_mode, "local_only");
   assert.equal(ollamaLocalProvider.local_execution, true);
-  assert.equal(ollamaLocalProvider.runtime_model_map["ollama_local_gateway:local_private"], "qwen2.5:3b");
+  assert.equal(ollamaLocalProvider.runtime_model_map["ollama_local_gateway:local_private"], "qwen3:4b");
   assert.equal(minicpmLocal.provider_preset, "minicpm_local_gateway");
   assert.equal(minicpmLocal.privacy.default_mode, "local_only");
   assert.equal(minicpmRemote.provider_preset, "minicpm_remote_gateway");

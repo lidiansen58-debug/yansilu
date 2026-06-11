@@ -232,6 +232,16 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(initial.json.item.access.keyMode, "platform_managed");
   assert.equal(initial.json.item.access.ready, true);
 
+  const localOnlyCloudPackPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Starter Auto",
+    userMode: "Auto",
+    privacyMode: "local_only"
+  });
+  assert.equal(localOnlyCloudPackPreview.status, 200, JSON.stringify(localOnlyCloudPackPreview.json));
+  assert.equal(localOnlyCloudPackPreview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(localOnlyCloudPackPreview.json.item.route.localOnly, true);
+  assert.equal(localOnlyCloudPackPreview.json.item.access.keyMode, "no_key");
+
   const chinaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "China Optimized",
     userMode: "Auto"
@@ -422,6 +432,97 @@ test("AI local runtime API can pull an Ollama model", async (t) => {
     model: "https://example.test/model"
   });
   assert.equal(invalid.status, 400, JSON.stringify(invalid.json));
+});
+
+test("AI local runtime API can enable a pulled Ollama model", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-local-enable-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const ollama = await startOllamaProbeServer([]);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      OLLAMA_BASE_URL: ollama.baseUrl
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => ollama.close());
+  await waitForHealth(baseUrl);
+
+  const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
+    model: "qwen3:4b",
+    enable: true
+  });
+  assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
+  assert.equal(pulled.json.item.model, "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.preferences.modelPack, "Ollama Local");
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.providerConfig.providerId, "ollama_local_gateway");
+  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:4b");
+
+  const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.item.modelPack, "Ollama Local");
+  assert.equal(preview.json.item.provider.providerId, "ollama_local_gateway");
+  assert.equal(preview.json.item.route.modelRef, "ollama_local_gateway:qwen3:4b");
+});
+
+test("AI local runtime API preserves hybrid mode when enabling a pulled Ollama model", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-local-enable-hybrid-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const ollama = await startOllamaProbeServer([]);
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      OLLAMA_BASE_URL: ollama.baseUrl
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => ollama.close());
+  await waitForHealth(baseUrl);
+
+  const pulled = await postJson(baseUrl, "/api/v1/ai/local-runtimes/ollama/pull-model", {
+    model: "qwen3:4b",
+    enable: true,
+    runtimeMode: "hybrid"
+  });
+  assert.equal(pulled.status, 200, JSON.stringify(pulled.json));
+  assert.equal(pulled.json.item.enabled.preferences.modelPack, "Starter Auto");
+  assert.equal(pulled.json.item.enabled.preferences.userMode, "Auto");
+  assert.equal(pulled.json.item.enabled.preferences.privacy.allowCloud, true);
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.runtimeMode, "hybrid");
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localProviderPreset, "local_private_gateway");
+  assert.equal(pulled.json.item.enabled.preferences.advancedSettings.localModel, "qwen3:4b");
+  assert.equal(pulled.json.item.enabled.providerConfig.providerId, "local_private_gateway");
+  assert.equal(pulled.json.item.enabled.providerConfig.runtimeModelMap["local_private_gateway:local_private"], "qwen3:4b");
+
+  const cloudPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {});
+  assert.equal(cloudPreview.status, 200, JSON.stringify(cloudPreview.json));
+  assert.equal(cloudPreview.json.item.modelPack, "Starter Auto");
+  assert.equal(cloudPreview.json.item.provider.providerId, "platform_managed_openai");
+
+  const localPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelTier: "cheap_fast",
+    taskType: "summary"
+  });
+  assert.equal(localPreview.status, 200, JSON.stringify(localPreview.json));
+  assert.equal(localPreview.json.item.modelPack, "Starter Auto");
+  assert.equal(localPreview.json.item.provider.providerId, "local_private_gateway");
+  assert.equal(localPreview.json.item.route.modelRef, "local_private_gateway:qwen3:4b");
+  assert.equal(localPreview.json.item.access.keyMode, "no_key");
 });
 
 test("AI scheduled task API manages tasks and runs due scoped tasks", async (t) => {
