@@ -11258,7 +11258,7 @@ function graphBuildIsolatedVisualNodes({ isolatedNotes = [], allNodes = [], curr
   return visualNodes;
 }
 
-function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [] } = {}) {
+function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
   const kind = String(selection?.kind || "").trim().toLowerCase();
   if (kind === "theme") {
     const theme = resolveGraphThemeSelection(selection, topicCandidates);
@@ -11322,6 +11322,20 @@ function normalizeGraphSelectionForVisibleItems(selection = null, { nodes = [], 
           toNoteId: String(edge?.toNoteId || "").trim(),
           relationType: String(edge?.relationType || "").trim().toLowerCase(),
           relationId: String(edge?.id || "").trim()
+        }
+      : null;
+  }
+  if (kind === "cluster") {
+    const clusterKey = String(selection?.clusterKey || "").trim();
+    const cluster = (Array.isArray(clusterMeta) ? clusterMeta : []).find((item) => String(item?.clusterKey || "").trim() === clusterKey);
+    return cluster
+      ? {
+          kind: "cluster",
+          clusterKey,
+          clusterIndex: Number(cluster.clusterIndex || 0),
+          title: String(cluster.title || `星系 ${Number(cluster.clusterIndex || 0) + 1}`).trim(),
+          anchorId: String(cluster.anchorId || "").trim(),
+          memberIds: uniqueStrings(cluster.memberIds || [])
         }
       : null;
   }
@@ -11969,9 +11983,236 @@ function renderGraphBridgeSelectionPanel({ selection = null, bridgeGaps = [], no
   });
 }
 
-function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [] } = {}) {
-  const normalized = normalizeGraphSelectionForVisibleItems(selection, { nodes: [...nodeMap.values()], edges, topicCandidates, isolatedNotes, bridgeGaps });
+function graphUniqueClusterMeta(clusterMeta = []) {
+  const byKey = new Map();
+  (Array.isArray(clusterMeta) ? clusterMeta : []).forEach((cluster) => {
+    const key = String(cluster?.clusterKey || "").trim();
+    if (!key || byKey.has(key)) return;
+    byKey.set(key, {
+      ...cluster,
+      clusterKey: key,
+      title: String(cluster?.title || `星系 ${Number(cluster?.clusterIndex || 0) + 1}`).trim() || `星系 ${Number(cluster?.clusterIndex || 0) + 1}`,
+      memberIds: uniqueStrings(cluster?.memberIds || [])
+    });
+  });
+  return [...byKey.values()];
+}
+
+function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [] } = {}) {
+  const memberIds = uniqueStrings(cluster?.memberIds || []);
+  const memberSet = new Set(memberIds);
+  const memberEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    const fromInside = memberSet.has(String(edge?.fromNoteId || "").trim());
+    const toInside = memberSet.has(String(edge?.toNoteId || "").trim());
+    return fromInside && toInside;
+  });
+  const externalEdges = (Array.isArray(edges) ? edges : []).filter((edge) => {
+    const fromInside = memberSet.has(String(edge?.fromNoteId || "").trim());
+    const toInside = memberSet.has(String(edge?.toNoteId || "").trim());
+    return (fromInside || toInside) && fromInside !== toInside;
+  });
+  const counts = graphRelationGroupCounts(memberEdges);
+  const coreNotes = memberIds
+    .map((id) => nodeMap.get(id))
+    .filter(Boolean)
+    .sort((left, right) => Number(right?.degree || 0) - Number(left?.degree || 0) || String(left?.title || "").localeCompare(String(right?.title || ""), "zh-Hans-CN"));
+  let label = "早期星系";
+  let detail = "这里已经出现聚集，但还需要先判断它们是不是在回答同一个研究问题。";
+  let next = "先挑两颗最亮的星，写清它们为什么属于同一个问题。";
+  if (memberIds.length >= 8 && memberEdges.length >= Math.max(4, Math.ceil(memberIds.length * 0.55))) {
+    label = "主题星系较成熟";
+    detail = "这里不只是材料相近，已经有一定内部关系，可以尝试提炼成一个主题判断。";
+    next = "把这个星系改写成一句可争论的判断，再补一条反方或边界关系。";
+  } else if (memberIds.length >= 5 || memberEdges.length >= 3) {
+    label = "值得继续验证";
+    detail = "这里有明显聚集，但主题边界还不够清楚，容易把相似材料误当成论证。";
+    next = "优先补一条簇内关系理由，确认这组笔记是在支撑同一个问题。";
+  }
+  if (externalEdges.length >= 3) {
+    next = "这个星系和外部连接不少，先判断它是独立主题，还是需要拆成桥接段落。";
+  }
+  if (!counts.conflict && !counts.boundary && memberIds.length >= 5) {
+    detail = `${detail} 目前反方或边界偏少，后续写作时容易显得过顺。`;
+  }
+  return {
+    label,
+    detail,
+    next,
+    memberIds,
+    memberEdges,
+    externalEdges,
+    counts,
+    coreNotes
+  };
+}
+
+function renderGraphClusterSelectionPanel({ selection = null, clusterMeta = [], nodeMap = new Map(), edges = [] } = {}) {
+  const normalized = normalizeGraphSelectionForVisibleItems(selection, { nodes: [...nodeMap.values()], edges, clusterMeta });
+  if (!normalized || normalized.kind !== "cluster") return "";
+  const cluster = graphUniqueClusterMeta(clusterMeta).find((item) => item.clusterKey === normalized.clusterKey) || normalized;
+  const meta = graphClusterResearchMeta(cluster, { nodeMap, edges });
+  const coreNotes = meta.coreNotes.slice(0, 5);
+  const firstNoteId = String(coreNotes[0]?.id || normalized.anchorId || "").trim();
+  const prompts = [
+    "这个星系能否写成一句研究问题，还是只是材料聚集？",
+    meta.counts.conflict || meta.counts.boundary ? "已有张力关系：它是否揭示了主题边界？" : "它缺哪条反方、限定或反例，才能避免主题过顺？",
+    meta.externalEdges.length ? "这些外部引力线是桥接机会，还是说明这个星系应该拆分？" : "它是否需要一条通向其他星系的桥接关系？"
+  ];
+  return renderGraphSelectionShell({
+    className: "is-cluster",
+    ariaLabel: "星系摘要",
+    kicker: "星系摘要",
+    title: normalized.title || cluster.title || "未命名星系",
+    meta: `${meta.memberIds.length} 条笔记 · ${meta.memberEdges.length} 条簇内关系`,
+    closeLabel: "收起星系摘要",
+    roleLabel: meta.label,
+    roleDetail: meta.detail,
+    body: `
+      <div class="graph-selection-metrics" aria-label="星系研究结构">
+        ${renderGraphSelectionMetrics([
+          { label: "星星", value: `${meta.memberIds.length} 颗` },
+          { label: "内部引力线", value: `${meta.memberEdges.length} 条` },
+          { label: "外部连接", value: `${meta.externalEdges.length} 条` },
+          { label: "边界/张力", value: `${(meta.counts.boundary || 0) + (meta.counts.conflict || 0)} 条` }
+        ])}
+      </div>
+      <section class="graph-selection-reason">
+        <small>研究判断</small>
+        <p>${escapeHtml(meta.next)}</p>
+      </section>
+      <section class="graph-theme-notes" aria-label="星系核心笔记">
+        <strong>核心亮星</strong>
+        ${coreNotes
+          .map(
+            (note) => `
+              <button class="graph-theme-note" type="button" data-open-note="${escapeHtml(note.id)}">
+                <span>${escapeHtml(note.title || note.id)}</span>
+                <small>连接 ${escapeHtml(String(note.degree || 0))} 条</small>
+              </button>
+            `
+          )
+          .join("")}
+      </section>
+      <section class="graph-selection-prompts">
+        <strong>下一步问题</strong>
+        ${prompts.map((prompt) => `<p>${escapeHtml(prompt)}</p>`).join("")}
+      </section>`,
+    actions: `
+      <button class="graph-selection-action is-primary" type="button" data-open-note="${escapeHtml(firstNoteId)}"${firstNoteId ? "" : " disabled"}>打开核心笔记</button>
+      <button class="graph-selection-action" type="button" data-open-note="${escapeHtml(firstNoteId)}" data-graph-followup-action="relations" data-graph-basket-note-ids="${escapeHtml(meta.memberIds.join(","))}"${firstNoteId ? "" : " disabled"}>补星系关系</button>`
+  });
+}
+
+function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {
+  const clusters = graphUniqueClusterMeta(clusterMeta);
+  const nodeMap = new Map((Array.isArray(nodes) ? nodes : []).map((node) => [String(node?.id || "").trim(), node]).filter(([id]) => id));
+  const clusterSummaries = clusters
+    .map((cluster) => ({
+      cluster,
+      meta: graphClusterResearchMeta(cluster, { nodeMap, edges })
+    }))
+    .sort((left, right) => right.meta.memberIds.length - left.meta.memberIds.length || right.meta.memberEdges.length - left.meta.memberEdges.length);
+  const themeQualities = graphRankThemeCandidates(topicCandidates, { nodeMap, edges }).map((item) => item.quality);
+  const matureThemeCount = themeQualities.filter((quality) => quality?.tone === "mature").length;
+  const testingThemeCount = themeQualities.filter((quality) => quality?.tone === "testing").length;
+  const relationCounts = graphRelationGroupCounts(edges);
+  const brightNodes = [...nodeMap.values()]
+    .sort((left, right) => Number(right?.degree || 0) - Number(left?.degree || 0) || String(left?.title || "").localeCompare(String(right?.title || ""), "zh-Hans-CN"))
+    .slice(0, 3);
+  const clueTotal = Number(clueSummary?.total || 0);
+  const questionTotal = Number(questionSummary?.total || 0);
+  const verdict = clusters.length
+    ? `这批笔记形成 ${clusters.length} 个主要星系，其中 ${matureThemeCount || testingThemeCount || 0} 个已经有成题迹象。`
+    : `这批笔记还没有明显星系，先从最亮的笔记补关系。`;
+  const risk =
+    Number(bridgeGaps?.length || 0) || clueTotal
+      ? `当前最值得处理的是 ${Number(bridgeGaps?.length || 0) || clueTotal} 条桥接/关系线索。`
+      : relationCounts.total && !relationCounts.conflict && !relationCounts.boundary
+        ? "关系已有基础，但反方和边界偏少。"
+        : "结构比较安静，可以从亮星继续追问。";
+  return {
+    clusters: clusterSummaries,
+    brightNodes,
+    relationCounts,
+    matureThemeCount,
+    testingThemeCount,
+    clueTotal,
+    questionTotal,
+    verdict,
+    risk
+  };
+}
+
+function renderGraphResearchNavigatorPanel({ nodes = [], edges = [], topicCandidates = [], bridgeGaps = [], clusterMeta = [], clueSummary = null, questionSummary = null } = {}) {
+  const nav = graphResearchNavigatorState({ nodes, edges, topicCandidates, bridgeGaps, clusterMeta, clueSummary, questionSummary });
+  const clusterCards = nav.clusters.slice(0, 3);
+  return `
+    <aside class="graph-research-navigator" aria-label="研究导航">
+      <div class="graph-research-head">
+        <span>研究导航</span>
+        <strong>先看全局，再点亮星</strong>
+      </div>
+      <section class="graph-research-verdict">
+        <strong>${escapeHtml(nav.verdict)}</strong>
+        <p>${escapeHtml(nav.risk)}</p>
+      </section>
+      <div class="graph-selection-metrics" aria-label="图谱研究摘要">
+        ${renderGraphSelectionMetrics([
+          { label: "星系", value: `${nav.clusters.length} 个` },
+          { label: "亮星", value: `${nav.brightNodes.length} 颗` },
+          { label: "论证线", value: `${(nav.relationCounts.support || 0) + (nav.relationCounts.conflict || 0) + (nav.relationCounts.boundary || 0)} 条` },
+          { label: "待处理", value: `${nav.clueTotal + nav.questionTotal} 项` }
+        ])}
+      </div>
+      ${
+        clusterCards.length
+          ? `<section class="graph-research-section">
+              <strong>主要星系</strong>
+              ${clusterCards
+                .map(
+                  ({ cluster, meta }) => `
+                    <button class="graph-research-card" type="button" data-graph-select-cluster="${escapeHtml(cluster.clusterKey)}">
+                      <span>${escapeHtml(cluster.title)}</span>
+                      <small>${escapeHtml(meta.label)} · ${escapeHtml(String(meta.memberIds.length))} 条笔记</small>
+                    </button>
+                  `
+                )
+                .join("")}
+            </section>`
+          : ""
+      }
+      ${
+        nav.brightNodes.length
+          ? `<section class="graph-research-section">
+              <strong>值得先看的亮星</strong>
+              ${nav.brightNodes
+                .map(
+                  (node) => `
+                    <button class="graph-research-card" type="button" data-node-id="${escapeHtml(node.id)}" data-graph-select-node="${escapeHtml(node.id)}">
+                      <span>${escapeHtml(node.title || node.id)}</span>
+                      <small>连接 ${escapeHtml(String(node.degree || 0))} 条，适合先判断角色</small>
+                    </button>
+                  `
+                )
+                .join("")}
+            </section>`
+          : ""
+      }
+      <section class="graph-selection-prompts">
+        <strong>现在可以这样读</strong>
+        <p>远看星系判断主题分布；点星系看成熟度；点亮星看为什么重要；点引力线复核关系理由。</p>
+        <p>如果画面很密，先别追每一条线，优先处理右侧提示的星系、亮星和待处理线索。</p>
+      </section>
+    </aside>
+  `;
+}
+
+function renderGraphSelectionPanel({ selection = null, nodeMap = new Map(), edges = [], topicCandidates = [], isolatedNotes = [], bridgeGaps = [], clusterMeta = [] } = {}) {
+  const normalized = normalizeGraphSelectionForVisibleItems(selection, { nodes: [...nodeMap.values()], edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta });
   if (!normalized) return "";
+  if (normalized.kind === "cluster") {
+    return renderGraphClusterSelectionPanel({ selection: normalized, clusterMeta, nodeMap, edges });
+  }
   if (normalized.kind === "theme") {
     return renderGraphThemeSelectionPanel({ selection: normalized, topicCandidates, nodeMap, edges });
   }
@@ -12277,7 +12518,11 @@ function renderGraphClusterGlow(clusterMeta = []) {
   return items
     .map((cluster) => {
       const tone = String(cluster.tone || "teal").trim();
-      return `<ellipse class="graph-map-cluster-glow is-${escapeHtml(tone)}" cx="${cluster.cx}" cy="${cluster.cy}" rx="${cluster.rx}" ry="${cluster.ry}" opacity="${Number(cluster.opacity || 0.18).toFixed(2)}" transform="rotate(${cluster.rotation || 0} ${cluster.cx} ${cluster.cy})"></ellipse>`;
+      const clusterKey = String(cluster.clusterKey || "").trim();
+      const attrs = clusterKey
+        ? ` data-graph-select-cluster="${escapeHtml(clusterKey)}" tabindex="0" role="button" aria-label="${escapeHtml(`查看星系摘要：${cluster.title || "未命名星系"}`)}"`
+        : "";
+      return `<ellipse class="graph-map-cluster-glow is-${escapeHtml(tone)}" cx="${cluster.cx}" cy="${cluster.cy}" rx="${cluster.rx}" ry="${cluster.ry}" opacity="${Number(cluster.opacity || 0.18).toFixed(2)}" transform="rotate(${cluster.rotation || 0} ${cluster.cx} ${cluster.cy})"${attrs}></ellipse>`;
     })
     .join("");
 }
@@ -12593,10 +12838,13 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
   const clusterMeta = !focusedNoteId
     ? clusterMembers
         .flatMap((memberIds, clusterIndex) => {
+          const anchorId = anchorOrder[clusterIndex] || "";
+          const clusterMemberIds = [...new Set([anchorId, ...memberIds].filter(Boolean))];
           const members = memberIds
             .map((memberId) => layoutNodes.find((node) => node.id === memberId))
             .filter(Boolean);
           if (!members.length) return [];
+          const anchorNode = anchorId ? nodeMap.get(anchorId) : null;
           const minX = Math.min(...members.map((node) => Number(node.x || 0)));
           const maxX = Math.max(...members.map((node) => Number(node.x || 0)));
           const minY = Math.min(...members.map((node) => Number(node.y || 0)));
@@ -12612,8 +12860,16 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
           const ry = Math.max(44, Math.round((maxY - minY) * 0.66 + 38));
           const tone = ["teal", "sky", "bridge", "mist"][clusterIndex % 4];
           const rotation = Math.round((((clusterCenter.angle || 0) * 180) / Math.PI) + 90);
+          const baseMeta = {
+            clusterKey: `cluster-${clusterIndex}`,
+            clusterIndex,
+            title: String(anchorNode?.title || members[0]?.title || `星系 ${clusterIndex + 1}`).trim() || `星系 ${clusterIndex + 1}`,
+            anchorId,
+            memberIds: clusterMemberIds
+          };
           return [
             {
+              ...baseMeta,
               cx,
               cy,
               rx,
@@ -12623,6 +12879,7 @@ function graphBuildVisualLayout(nodes = [], edges = [], options = {}) {
               opacity: Math.max(0.12, 0.18 - clusterIndex * 0.012)
             },
             {
+              ...baseMeta,
               cx: Math.round(cx + Math.cos(clusterCenter.angle || 0) * 6),
               cy: Math.round(cy + Math.sin(clusterCenter.angle || 0) * 5),
               rx: Math.max(28, Math.round(rx * 0.3)),
@@ -12955,7 +13212,7 @@ function renderGraphVisualMap({
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
   const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
   const legendOpen = graphState.legendOpen === true;
-  const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
+  const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta: layout.clusterMeta });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
   const selectedNodeNeighborhood = new Set(selectedNodeId ? [selectedNodeId, ...(adjacencyMap.get(selectedNodeId) || [])] : []);
   const selectedEdgeKey = activeSelection?.kind === "edge" ? activeSelection.edgeKey : "";
@@ -13018,11 +13275,24 @@ function renderGraphVisualMap({
     edges,
     topicCandidates,
     isolatedNotes,
-    bridgeGaps
+    bridgeGaps,
+    clusterMeta: layout.clusterMeta
   });
+  const researchNavigatorMarkup =
+    !filterActive && !selectionContextMarkup && !workbenchPanelMarkup
+      ? renderGraphResearchNavigatorPanel({
+          nodes: layout.nodes,
+          edges,
+          topicCandidates,
+          bridgeGaps,
+          clusterMeta: layout.clusterMeta,
+          clueSummary,
+          questionSummary: questionSpotSummary
+        })
+      : "";
   const sidePanelParts = [
     !filterActive ? workbenchPanelMarkup : "",
-    selectionContextMarkup || focusContextMarkup
+    selectionContextMarkup || focusContextMarkup || researchNavigatorMarkup
   ].filter(Boolean);
   const sidePanelMarkup = sidePanelParts.length ? `<div class="graph-side-stack">${sidePanelParts.join("")}</div>` : "";
   const nodeMarkup = layout.nodes
@@ -13485,7 +13755,7 @@ function centerGraphViewportIfZoomed() {
 function beginGraphViewportDrag(viewport, event) {
   if (!viewport || event.button !== 0) return false;
   const ignoredTarget = event.target.closest(
-    ".graph-map-floater, .graph-hover-card, .graph-focus-context, .graph-selection-panel, .graph-thinking-panel, .graph-workbench-panel, .graph-map-node, .graph-map-edge-group"
+    ".graph-map-floater, .graph-hover-card, .graph-focus-context, .graph-selection-panel, .graph-thinking-panel, .graph-workbench-panel, .graph-research-navigator, .graph-map-node, .graph-map-edge-group, .graph-map-cluster-glow"
   );
   if (ignoredTarget) return false;
   graphViewportDragState.active = true;
@@ -14672,7 +14942,9 @@ function renderGraphPanel() {
   const focusedRelationTypeStats = showingFocusedNote
     ? graphBuildFocusedRelationTypeStats(scoped.nodes, scoped.edges, scoped.allNodes, activeFilters)
     : null;
-  graphState.selection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: visualNodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
+  if (String(graphState.selection?.kind || "").trim().toLowerCase() !== "cluster") {
+    graphState.selection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: visualNodes, edges, topicCandidates, isolatedNotes, bridgeGaps });
+  }
   const notices = [];
   const lastLoadedAtLabel = formatClockTime(graphState.lastLoadedAt);
   const lastErrorAtLabel = formatClockTime(graphState.lastErrorAt);
@@ -17765,6 +18037,24 @@ $("graphCanvas")?.addEventListener("click", async (event) => {
     setStatus("已收起图谱思考详情", "ok");
     return;
   }
+  const clusterSelection = event.target.closest("[data-graph-select-cluster]");
+  if (clusterSelection) {
+    const clusterKey = String(clusterSelection.getAttribute("data-graph-select-cluster") || "").trim();
+    if (clusterKey) {
+      openGraphSelection({ kind: "cluster", clusterKey });
+      setStatus("已打开星系摘要", "ok");
+    }
+    return;
+  }
+  const nodeSelection = event.target.closest("[data-graph-select-node]");
+  if (nodeSelection) {
+    const nodeId = String(nodeSelection.getAttribute("data-graph-select-node") || nodeSelection.getAttribute("data-node-id") || "").trim();
+    if (nodeId) {
+      openGraphSelection({ kind: "node", nodeId });
+      setStatus(`已选中笔记角色：${String(nodeSelection.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
+    }
+    return;
+  }
   const themeSelection = event.target.closest("[data-graph-select-theme]");
   if (themeSelection) {
     const topicKey = String(themeSelection.getAttribute("data-graph-select-theme") || "").trim();
@@ -18099,6 +18389,26 @@ $("graphCanvas")?.addEventListener("keydown", (event) => {
       relationType: graphFollowup.getAttribute("data-graph-relation-type"),
       basketNoteIds: graphFollowup.getAttribute("data-graph-basket-note-ids")
     });
+    return;
+  }
+  const clusterSelection = event.target.closest("[data-graph-select-cluster]");
+  if (clusterSelection) {
+    event.preventDefault();
+    const clusterKey = String(clusterSelection.getAttribute("data-graph-select-cluster") || "").trim();
+    if (clusterKey) {
+      openGraphSelection({ kind: "cluster", clusterKey });
+      setStatus("已打开星系摘要", "ok");
+    }
+    return;
+  }
+  const nodeSelection = event.target.closest("[data-graph-select-node]");
+  if (nodeSelection) {
+    event.preventDefault();
+    const nodeId = String(nodeSelection.getAttribute("data-graph-select-node") || nodeSelection.getAttribute("data-node-id") || "").trim();
+    if (nodeId) {
+      openGraphSelection({ kind: "node", nodeId });
+      setStatus(`已选中笔记角色：${String(nodeSelection.getAttribute("data-node-title") || nodeId).trim() || nodeId}`, "ok");
+    }
     return;
   }
   const graphNode = event.target.closest(".graph-map-node[data-node-id]");
