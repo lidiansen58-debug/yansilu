@@ -77,8 +77,11 @@ test("graph clusters are selectable research objects with their own summary pane
 
 test("graph research details cover nodes and relation gravity lines with next actions", () => {
   const source = readPrototypeApp();
+  const html = readPrototypeHtml();
 
   assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
+  assert.match(source, /class="graph-overlay-close graph-selection-close"/);
+  assert.doesNotMatch(source, /data-graph-selection-close[^>]*>收起<\/button>/);
   assert.match(source, /kicker: "笔记角色"/);
   assert.match(source, /roleLabel: role\.label/);
   assert.match(source, /补一条关系/);
@@ -86,6 +89,9 @@ test("graph research details cover nodes and relation gravity lines with next ac
   assert.match(source, /roleLabel: review\.label/);
   assert.match(source, /<strong>复核问题<\/strong>/);
   assert.match(source, /data-graph-relation-adjustment/);
+
+  assert.match(html, /\.graph-selection-close \{[\s\S]*position: absolute;[\s\S]*right: 10px;/);
+  assert.match(html, /\.graph-map-floater \{[\s\S]*position: sticky;[\s\S]*left: 12px;/);
 });
 
 test("graph AI analysis opens the question workbench instead of navigating away", () => {

@@ -4988,11 +4988,12 @@
       max-height: calc(100vh - 180px);
     }
     .graph-selection-head {
+      position: relative;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 10px;
-      padding: 12px 13px;
+      padding: 12px 42px 12px 13px;
       border: 1px solid #d8e5ec;
       border-radius: 16px;
       background: rgba(255, 255, 255, 0.94);
@@ -5021,6 +5022,11 @@
       font-size: 12px;
       line-height: 1.45;
       overflow-wrap: anywhere;
+    }
+    .graph-selection-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
     }
     .graph-selection-role,
     .graph-selection-reason,
@@ -5532,18 +5538,20 @@
       height: max(460px, var(--graph-zoom-height));
     }
     .graph-map-floater {
-      position: absolute;
+      position: sticky;
       top: 12px;
-      right: 12px;
-      z-index: 4;
-      display: flex;
-      justify-content: flex-end;
+      left: 12px;
+      z-index: 12;
+      display: inline-flex;
+      width: max-content;
+      max-width: calc(100% - 24px);
+      justify-content: flex-start;
       gap: 8px;
-      margin: 0;
+      margin: 0 0 -48px 12px;
       pointer-events: none;
     }
     .graph-utility-drawer-wrap + .graph-map-body .graph-map-floater {
-      top: 108px;
+      top: 12px;
     }
     .graph-map-floater .graph-expand-btn,
     .graph-map-floater .graph-zoom-controls {

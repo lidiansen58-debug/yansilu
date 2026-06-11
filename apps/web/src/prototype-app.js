@@ -11557,7 +11557,7 @@ function renderGraphSelectionShell({ className = "", ariaLabel = "", kicker = ""
           <strong>${escapeHtml(title || "未命名对象")}</strong>
           ${meta ? `<small>${escapeHtml(meta)}</small>` : ""}
         </div>
-        <button class="mini-btn is-ghost" type="button" data-graph-selection-close aria-label="${escapeHtml(closeLabel)}">收起</button>
+        <button class="graph-overlay-close graph-selection-close" type="button" data-graph-selection-close aria-label="${escapeHtml(closeLabel)}" title="${escapeHtml(closeLabel)}">${renderGraphIcon("close")}</button>
       </div>
       ${
         roleLabel || roleDetail
