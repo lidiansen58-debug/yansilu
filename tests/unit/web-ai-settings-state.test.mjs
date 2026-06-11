@@ -17,22 +17,27 @@ test("AI settings state normalizes runtime aliases and local pack detection", ()
   assert.equal(normalizeAiRuntimeMode("mixed"), "hybrid");
   assert.equal(normalizeAiRuntimeMode("remote"), "cloud_only");
   assert.equal(isLocalModelPack("Privacy First"), true);
+  assert.equal(isLocalModelPack("privacy_first"), true);
   assert.equal(isLocalModelPack("MiniCPM Local"), true);
   assert.equal(isLocalModelPack("Starter Auto"), false);
   assert.equal(providerPresetForModelPack("Global Optimized"), "openai_compatible_gateway");
+  assert.equal(providerPresetForModelPack("global optimized"), "openai_compatible_gateway");
+  assert.equal(providerPresetForModelPack("global_optimized"), "openai_compatible_gateway");
   assert.equal(providerPresetForModelPack("China Optimized"), "china_optimized_gateway");
+  assert.equal(providerPresetForModelPack("china_optimized"), "china_optimized_gateway");
   assert.equal(providerPresetForModelPack("MiniCPM Remote"), "minicpm_remote_gateway");
+  assert.equal(providerPresetForModelPack("minicpm remote"), "minicpm_remote_gateway");
 });
 
 test("AI settings state promotes explicit local packs into local-only flow", () => {
   assert.deepEqual(
     canonicalizeAiSettingsSelection({
       runtimeMode: "auto",
-      modelPack: "Ollama Local"
+      modelPack: "ollama_local"
     }),
     {
       runtimeMode: "local_only",
-      modelPack: "Ollama Local",
+      modelPack: "ollama_local",
       userMode: "Local / Private",
       providerPreset: "ollama_local_gateway",
       localFlowActive: true
@@ -61,11 +66,11 @@ test("AI settings state preserves remote provider presets", () => {
   assert.deepEqual(
     canonicalizeAiSettingsSelection({
       runtimeMode: "auto",
-      modelPack: "MiniCPM Remote"
+      modelPack: "minicpm remote"
     }),
     {
       runtimeMode: "auto",
-      modelPack: "MiniCPM Remote",
+      modelPack: "minicpm remote",
       userMode: "Auto",
       providerPreset: "minicpm_remote_gateway",
       localFlowActive: false

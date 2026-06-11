@@ -604,6 +604,9 @@ async function buildAiRoutePreview(input = {}) {
   const store = await aiPreferencesStore();
   const storedPreferences = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
   const storedSettings = preferencesToSettingsInput(storedPreferences);
+  const draftEndpointUrl = cleanText(input.endpointUrl || input.endpoint_url);
+  const draftRuntimeModelMap = input.runtimeModelMap || input.runtime_model_map;
+  const hasProviderConfigDraft = Boolean(draftEndpointUrl || hasRuntimeModelMapEntries(draftRuntimeModelMap));
   const advancedSettings = {
     ...(storedSettings.advancedSettings || {}),
     ...(input.advancedSettings || input.advanced_settings || {})
@@ -640,18 +643,51 @@ async function buildAiRoutePreview(input = {}) {
   if (providerConfig) {
     const configSettings = providerConfigToSettingsInput(providerConfig);
     const secretRef = settingsInput.secretRef || configSettings.secretRef;
+    const endpointUrl = draftEndpointUrl || configSettings.endpointUrl || settingsInput.endpointUrl;
     const providerDescriptorInput = {
       ...(configSettings.providerDescriptor || {}),
+      endpointUrl,
       secretRef
     };
     Object.assign(settingsInput, {
       ...configSettings,
+      endpointUrl,
       secretRef,
       providerDescriptor: providerDescriptorInput,
       runtimeModelMap: {
         ...(configSettings.runtimeModelMap || {}),
         ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
       }
+    });
+  }
+  const previewProviderId = cleanText(settingsInput.providerPreset || userSettings.providerPreset);
+  if (previewProviderId === "platform_managed_openai" && hasProviderConfigDraft) {
+    const error = new Error("platform-managed AI does not accept endpointUrl or runtimeModelMap overrides");
+    error.code = "AI_PROVIDER_CONFIG_INVALID";
+    throw error;
+  }
+  if (previewProviderId && previewProviderId !== "platform_managed_openai" && hasProviderConfigDraft) {
+    const draftProviderConfig = assertValidAiProviderConfig({
+      ...(providerConfig || {}),
+      providerId: previewProviderId,
+      authMode: cleanText(settingsInput.authMode) || providerConfig?.authMode,
+      secretRef: cleanText(settingsInput.secretRef) || providerConfig?.secretRef,
+      endpointUrl: cleanText(settingsInput.endpointUrl) || providerConfig?.endpointUrl,
+      runtimeModelMap: mergeRuntimeModelMaps(providerConfig?.runtimeModelMap, settingsInput.runtimeModelMap)
+    });
+    const draftSettings = providerConfigToSettingsInput(draftProviderConfig);
+    const secretRef = cleanText(settingsInput.secretRef) || draftSettings.secretRef;
+    const endpointUrl = cleanText(settingsInput.endpointUrl) || draftSettings.endpointUrl;
+    Object.assign(settingsInput, {
+      ...draftSettings,
+      endpointUrl,
+      secretRef,
+      providerDescriptor: {
+        ...(draftSettings.providerDescriptor || {}),
+        endpointUrl,
+        secretRef
+      },
+      runtimeModelMap: mergeRuntimeModelMaps(draftSettings.runtimeModelMap, settingsInput.runtimeModelMap)
     });
   }
   const providerDescriptor = resolveProviderDescriptor(settingsInput);

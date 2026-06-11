@@ -1,13 +1,20 @@
-const LOCAL_MODEL_PACKS = new Set(["Privacy First", "Ollama Local", "MiniCPM Local"]);
+const LOCAL_MODEL_PACK_KEYS = new Set(["privacy", "privacy_first", "ollama", "ollama_local", "minicpm", "minicpm_local"]);
 const LOCAL_PROVIDER_IDS = new Set(["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"]);
 const MODEL_PACK_PROVIDER_PRESETS = {
-  "Low Cost Research": "openai_compatible_gateway",
-  "Global Optimized": "openai_compatible_gateway",
-  "China Optimized": "china_optimized_gateway",
-  "Privacy First": "local_private_gateway",
-  "Ollama Local": "ollama_local_gateway",
-  "MiniCPM Local": "minicpm_local_gateway",
-  "MiniCPM Remote": "minicpm_remote_gateway"
+  low_cost: "openai_compatible_gateway",
+  low_cost_research: "openai_compatible_gateway",
+  global: "openai_compatible_gateway",
+  global_optimized: "openai_compatible_gateway",
+  china: "china_optimized_gateway",
+  china_optimized: "china_optimized_gateway",
+  privacy: "local_private_gateway",
+  privacy_first: "local_private_gateway",
+  ollama: "ollama_local_gateway",
+  ollama_local: "ollama_local_gateway",
+  minicpm: "minicpm_local_gateway",
+  minicpm_local: "minicpm_local_gateway",
+  minicpm_remote: "minicpm_remote_gateway",
+  minicpm_third_party: "minicpm_remote_gateway"
 };
 export const DEFAULT_AI_SETTINGS_SELECTION = Object.freeze({
   runtimeMode: "auto",
@@ -27,15 +34,19 @@ export function normalizeAiRuntimeMode(value = "") {
 }
 
 export function isLocalModelPack(modelPack = "") {
-  return LOCAL_MODEL_PACKS.has(String(modelPack || "").trim());
+  return LOCAL_MODEL_PACK_KEYS.has(normalizedModelPackKey(modelPack));
 }
 
 export function isLocalProviderId(providerId = "") {
   return LOCAL_PROVIDER_IDS.has(String(providerId || "").trim());
 }
 
+function normalizedModelPackKey(modelPack = "") {
+  return String(modelPack || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
+}
+
 export function providerPresetForModelPack(modelPack = "") {
-  return MODEL_PACK_PROVIDER_PRESETS[String(modelPack || "").trim()] || "platform_managed_openai";
+  return MODEL_PACK_PROVIDER_PRESETS[normalizedModelPackKey(modelPack)] || "platform_managed_openai";
 }
 
 export function localProviderPresetForModelPack(modelPack = "") {

@@ -391,6 +391,19 @@ test("AI test chat validates unsaved provider settings before network execution"
   assert.equal(preview.json.item.provider.providerId, "openai_compatible_gateway");
   assert.equal(preview.json.item.access.ready, true);
 
+  const unsafePreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Global Optimized",
+    providerPreset: "openai_compatible_gateway",
+    endpointUrl: "http://example.test/v1/chat/completions",
+    secretRef: "env:REMOTE_TEST_KEY",
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard": "remote-test-model"
+    }
+  });
+  assert.equal(unsafePreview.status, 400, JSON.stringify(unsafePreview.json));
+  assert.equal(unsafePreview.json.error.code, "AI_ROUTE_PREVIEW_FAILED");
+  assert.match(unsafePreview.json.error.message, /non-local provider endpoints must use https/);
+
   const unsafe = await postJson(baseUrl, "/api/v1/ai/test-chat", {
     prompt: "This should not run.",
     modelPack: "Global Optimized",
