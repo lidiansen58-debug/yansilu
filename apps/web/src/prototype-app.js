@@ -126,6 +126,7 @@ import {
   isAiLocalFlowActive,
   isLocalModelPack,
   localProviderPresetForModelPack,
+  providerPresetForModelPack,
   shouldUseOllamaLocalRuntimeForSelection
 } from "./ai-settings-state.js";
 import {
@@ -1498,17 +1499,6 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
   writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
-}
-
-function providerPresetForModelPack(modelPack = "") {
-  const normalized = String(modelPack || "").trim().toLowerCase();
-  if (normalized === "low cost research" || normalized === "global optimized") return "openai_compatible_gateway";
-  if (normalized === "china optimized") return "china_optimized_gateway";
-  if (normalized === "privacy first") return "local_private_gateway";
-  if (normalized === "ollama local") return "ollama_local_gateway";
-  if (normalized === "minicpm local") return "minicpm_local_gateway";
-  if (normalized === "minicpm remote") return "minicpm_remote_gateway";
-  return "platform_managed_openai";
 }
 
 function defaultProviderEndpointUrl(providerId = "") {
