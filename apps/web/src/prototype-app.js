@@ -366,6 +366,7 @@ const settingsState = {
     secretRef: "",
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
+    remoteRuntimeModel: "",
     localModel: "",
     localRuntimeStatus: "unknown",
     localRuntimeModels: [],
@@ -892,12 +893,14 @@ const AI_ADVANCED_MODEL_REF_KEY = "yansilu:ai:advanced-model-ref";
 const AI_SECRET_REF_KEY = "yansilu:ai:secret-ref";
 const AI_PROVIDER_ENDPOINT_URL_KEY = "yansilu:ai:provider-endpoint-url";
 const AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY = "yansilu:ai:provider-health-endpoint-url";
+const AI_REMOTE_RUNTIME_MODEL_KEY = "yansilu:ai:remote-runtime-model";
 const AI_LOCAL_MODEL_KEY = "yansilu:ai:local-model";
 const GRAPH_ORIGINAL_SCOPE_DIRECTORY_ID = "dir_original_default";
 const OLLAMA_CHAT_ENDPOINT_URL = "http://127.0.0.1:11434/v1/chat/completions";
 const OLLAMA_HEALTH_ENDPOINT_URL = "http://127.0.0.1:11434/api/tags";
 const OLLAMA_RECOMMENDED_MODEL = "qwen3:4b";
 const AI_LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
+const AI_REMOTE_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail"];
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 loadAiSettingsFromStorage();
 loadNoteTemplateSettingsFromStorage();
@@ -1471,6 +1474,7 @@ function loadAiSettingsFromStorage() {
   const storedSecretRef = String(readStoredText(AI_SECRET_REF_KEY, "") || "").trim();
   const storedEndpointUrl = String(readStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, "") || "").trim();
   const storedHealthEndpointUrl = String(readStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, "") || "").trim();
+  const storedRemoteRuntimeModel = String(readStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, "") || "").trim();
   const storedLocalModel = String(readStoredText(AI_LOCAL_MODEL_KEY, "") || "").trim();
   if (storedRuntimeMode) settingsState.ai.runtimeMode = normalizeAiRuntimeMode(storedRuntimeMode);
   if (storedMode) settingsState.ai.userMode = storedMode;
@@ -1479,6 +1483,7 @@ function loadAiSettingsFromStorage() {
   settingsState.ai.secretRef = storedSecretRef;
   settingsState.ai.providerEndpointUrl = storedEndpointUrl;
   settingsState.ai.providerHealthEndpointUrl = storedHealthEndpointUrl;
+  settingsState.ai.remoteRuntimeModel = storedRemoteRuntimeModel;
   settingsState.ai.localModel = storedLocalModel;
   reconcileAiSelectionState();
 }
@@ -1491,6 +1496,7 @@ function persistAiSettingsToStorage() {
   writeStoredText(AI_SECRET_REF_KEY, settingsState.ai.secretRef);
   writeStoredText(AI_PROVIDER_ENDPOINT_URL_KEY, settingsState.ai.providerEndpointUrl);
   writeStoredText(AI_PROVIDER_HEALTH_ENDPOINT_URL_KEY, settingsState.ai.providerHealthEndpointUrl);
+  writeStoredText(AI_REMOTE_RUNTIME_MODEL_KEY, settingsState.ai.remoteRuntimeModel);
   writeStoredText(AI_LOCAL_MODEL_KEY, settingsState.ai.localModel);
 }
 
@@ -1515,6 +1521,34 @@ function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = "") {
   const id = String(providerId || "").trim();
   if (id === "ollama_local_gateway") return OLLAMA_HEALTH_ENDPOINT_URL;
   return String(endpointUrl || "").trim();
+}
+
+function isLocalProviderId(providerId = "") {
+  return ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(String(providerId || "").trim());
+}
+
+function isRemoteConfigurableProviderId(providerId = "") {
+  const id = String(providerId || "").trim();
+  return Boolean(id && id !== "platform_managed_openai" && !isLocalProviderId(id));
+}
+
+function runtimeModelMapForRemoteModel(providerId = "", modelName = "") {
+  const id = String(providerId || "").trim();
+  const model = String(modelName || "").trim();
+  if (!id || !model || !isRemoteConfigurableProviderId(id)) return {};
+  return Object.fromEntries(AI_REMOTE_MODEL_TIERS.map((tier) => [`${id}:${tier}`, model]));
+}
+
+function remoteRuntimeModelFromMap(providerId = "", runtimeModelMap = {}) {
+  const id = String(providerId || "").trim();
+  const map = runtimeModelMap && typeof runtimeModelMap === "object" && !Array.isArray(runtimeModelMap) ? runtimeModelMap : {};
+  const preferredKeys = AI_REMOTE_MODEL_TIERS.map((tier) => `${id}:${tier}`);
+  for (const key of preferredKeys) {
+    const model = String(map[key] || "").trim();
+    if (model) return model;
+  }
+  const first = Object.entries(map).find(([key, value]) => String(key || "").startsWith(`${id}:`) && String(value || "").trim());
+  return first ? String(first[1] || "").trim() : "";
 }
 
 function normalizeAiRuntimeMode(value = "") {
@@ -1600,11 +1634,13 @@ function reconcileAiSelectionState(options = {}) {
   if (options.resetProviderState === true || previousProviderPreset !== nextSelection.providerPreset) {
     settingsState.ai.providerEndpointUrl = "";
     settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.remoteRuntimeModel = "";
     settingsState.ai.secretRef = "";
   }
   if (nextSelection.providerPreset === "platform_managed_openai") {
     settingsState.ai.providerEndpointUrl = "";
     settingsState.ai.providerHealthEndpointUrl = "";
+    settingsState.ai.remoteRuntimeModel = "";
     settingsState.ai.secretRef = "";
   }
   settingsState.ai.providerConfigError = "";
@@ -1678,16 +1714,36 @@ function applyActiveAiProviderConfigToState() {
     const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
     if (endpointUrl) settingsState.ai.providerEndpointUrl = endpointUrl;
     if (healthEndpointUrl) settingsState.ai.providerHealthEndpointUrl = healthEndpointUrl;
+    if (!isRemoteConfigurableProviderId(providerId)) settingsState.ai.remoteRuntimeModel = "";
     return;
   }
-  settingsState.ai.providerEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
-  settingsState.ai.providerHealthEndpointUrl = String(
+  const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
+  const configuredHealthEndpointUrl = String(
     config.healthCheck?.endpointUrl ||
       config.health_check?.endpoint_url ||
-      settingsState.ai.providerHealthEndpointUrl ||
       ""
   ).trim();
-  settingsState.ai.secretRef = String(config.secretRef || config.secret_ref || settingsState.ai.secretRef || "").trim();
+  const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
+  if (!settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
+    settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
+  }
+  if (!settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
+    settingsState.ai.providerHealthEndpointUrl = configuredHealthEndpointUrl;
+  }
+  if (!settingsState.ai.secretRef && configuredSecretRef) {
+    settingsState.ai.secretRef = configuredSecretRef;
+  }
+  if (isRemoteConfigurableProviderId(providerId)) {
+    const configuredRemoteModel = remoteRuntimeModelFromMap(
+      providerId,
+      config.runtimeModelMap || config.runtime_model_map || {}
+    );
+    if (!settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
+      settingsState.ai.remoteRuntimeModel = configuredRemoteModel;
+    }
+  } else {
+    settingsState.ai.remoteRuntimeModel = "";
+  }
 }
 
 function aiSettingsPayload() {
@@ -1698,9 +1754,14 @@ function aiSettingsPayload() {
     providerPreset: localProviderPresetForModelPack(settingsState.ai.modelPack)
   });
   const localProviderPreset = preferredLocalProviderPresetForSelection();
+  const providerPreset = providerPresetForModelPack(selection.modelPack);
+  const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerPreset, settingsState.ai.remoteRuntimeModel);
   return {
     userMode: settingsState.ai.userMode,
     modelPack: selection.modelPack,
+    ...(providerPreset ? { providerPreset } : {}),
+    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
+    ...(Object.keys(remoteRuntimeModelMap).length ? { runtimeModelMap: remoteRuntimeModelMap } : {}),
     privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
     fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
     advancedSettings: {
@@ -1721,7 +1782,9 @@ function aiProviderConfigPayload(options = {}) {
   ).trim();
   const secretRef = String(options.secretRef || settingsState.ai.secretRef || "").trim();
   const localModel = String(options.localModel || settingsState.ai.localModel || "").trim();
+  const remoteRuntimeModel = String(options.remoteRuntimeModel || settingsState.ai.remoteRuntimeModel || "").trim();
   const localProviderConfig = Boolean(localModel) && ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
+  const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerId, remoteRuntimeModel);
   return {
     providerId,
     authMode: options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview),
@@ -1731,6 +1794,11 @@ function aiProviderConfigPayload(options = {}) {
     ...(localProviderConfig
       ? {
           runtimeModelMap: Object.fromEntries(AI_LOCAL_MODEL_TIERS.map((tier) => [`${providerId}:${tier}`, localModel]))
+        }
+      : {}),
+    ...(!localProviderConfig && Object.keys(remoteRuntimeModelMap).length
+      ? {
+          runtimeModelMap: remoteRuntimeModelMap
         }
       : {}),
     ...((healthEndpointUrl || endpointUrl)
@@ -6996,7 +7064,9 @@ function renderAiRoutePreview() {
       "China Optimized": "国内优化",
       "Global Optimized": "全球网关",
       "Privacy First": "本地私密",
-      "Ollama Local": "Ollama 本地"
+      "Ollama Local": "Ollama 本地",
+      "MiniCPM Local": "MiniCPM 本地",
+      "MiniCPM Remote": "MiniCPM 远程"
     };
     return labels[key] || key || "默认自动";
   }
@@ -7032,6 +7102,13 @@ function renderAiRoutePreview() {
   const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
     ? `<div>本地：${escapeHtml(localRuntimeSummaryText())}</div>`
     : "";
+  const providerId = String(provider.providerId || currentAiProviderId()).trim();
+  const remoteRuntimeModel = isRemoteConfigurableProviderId(providerId)
+    ? String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, activeAiProviderConfig()?.runtimeModelMap || activeAiProviderConfig()?.runtime_model_map || {}) || "").trim()
+    : "";
+  const remoteRuntimeLine = remoteRuntimeModel
+    ? `<div>远程运行模型：${escapeHtml(remoteRuntimeModel)}</div>`
+    : "";
   const hybridLine = runtimeMode === "hybrid"
     ? `<div>混合：隐私或快速任务优先走本地，较重任务仍可能走云端。</div>`
     : "";
@@ -7039,6 +7116,7 @@ function renderAiRoutePreview() {
     <div><strong>${escapeHtml(providerDisplayLabel())}</strong></div>
     <div>AI 方案：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))}</div>
     <div>当前模型：${escapeHtml(route.modelRef || "自动选择")}</div>
+    ${remoteRuntimeLine}
     <div>授权方式：${escapeHtml(accessLabel)}</div>
     ${localRuntimeLine}
     ${hybridLine}
@@ -7331,6 +7409,18 @@ function renderAiLocalModelControls() {
 }
 
 function renderAiProviderConfigControls() {
+  const providerId = currentAiProviderId();
+  const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
+  const remoteModelInput = $("settingsAiRemoteRuntimeModel");
+  if (remoteModelInput) {
+    const stored = String(settingsState.ai.remoteRuntimeModel || "").trim();
+    if (String(remoteModelInput.value || "") !== stored) remoteModelInput.value = stored;
+    remoteModelInput.disabled = !remoteConfigurable;
+    remoteModelInput.placeholder = remoteConfigurable
+      ? "例如：gpt-4o-mini、deepseek-chat、minicpm"
+      : "仅远程网关需要填写";
+  }
+
   const endpointInput = $("settingsAiProviderEndpointUrl");
   if (endpointInput) {
     const stored = String(settingsState.ai.providerEndpointUrl || "").trim();
@@ -7342,7 +7432,6 @@ function renderAiProviderConfigControls() {
     if (String(healthEndpointInput.value || "") !== stored) healthEndpointInput.value = stored;
   }
 
-  const providerId = currentAiProviderId();
   const config = activeAiProviderConfig();
   const healthRecord = settingsState.ai.providerHealthResult?.record || null;
   const badge = $("settingsAiProviderConfigBadge");
@@ -7355,13 +7444,14 @@ function renderAiProviderConfigControls() {
     }
     const endpointReady = Boolean(String(config?.endpointUrl || config?.endpoint_url || settingsState.ai.providerEndpointUrl || "").trim());
     const secretReady = Boolean(String(config?.secretRef || config?.secret_ref || settingsState.ai.secretRef || "").trim());
+    const remoteModelReady = Boolean(String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, config?.runtimeModelMap || config?.runtime_model_map || {}) || "").trim());
     if (settingsState.ai.providerHealthChecking) badge.textContent = "测试中";
     else if (healthRecord?.status === "healthy") badge.textContent = `健康 ${healthRecord.latencyMs || 0}ms`;
     else if (healthRecord) badge.textContent = `状态 ${healthRecord.status || "未检测"}`;
     else if (settingsState.ai.providerConfigSaving) badge.textContent = "保存中";
     else if (settingsState.ai.providerConfigError) badge.textContent = "配置失败";
     else if (providerId === "platform_managed_openai") badge.textContent = "平台托管";
-    else if (config) badge.textContent = endpointReady || secretReady ? "已配置" : "已保存";
+    else if (config) badge.textContent = endpointReady || secretReady || remoteModelReady ? "已配置" : "已保存";
     else badge.textContent = "未配置";
   }
 
@@ -16870,6 +16960,21 @@ $("settingsAiSecretRef")?.addEventListener("input", (event) => {
   persistAiSettingsToStorage();
 });
 
+$("settingsAiRemoteRuntimeModel")?.addEventListener("input", (event) => {
+  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
+  settingsState.ai.providerConfigError = "";
+  settingsState.ai.providerHealthResult = null;
+  persistAiSettingsToStorage();
+});
+
+$("settingsAiRemoteRuntimeModel")?.addEventListener("blur", (event) => {
+  settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
+  persistAiSettingsToStorage();
+  refreshAiRoutePreview();
+  renderSettingsPanel();
+  setStatus(settingsState.ai.remoteRuntimeModel ? "远程模型已保存到当前配置草稿" : "远程模型已清空", "ok");
+});
+
 $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
   settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
@@ -16901,6 +17006,12 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
       prompt,
       userMode: settingsState.ai.userMode,
       modelPack: settingsState.ai.modelPack,
+      providerPreset: providerPresetForModelPack(settingsState.ai.modelPack),
+      authMode: authModeForProvider(currentAiProviderId(), settingsState.ai.routePreview),
+      secretRef: settingsState.ai.secretRef,
+      endpointUrl: settingsState.ai.providerEndpointUrl,
+      modelRef: settingsState.ai.advancedModelRef,
+      runtimeModelMap: runtimeModelMapForRemoteModel(currentAiProviderId(), settingsState.ai.remoteRuntimeModel),
       modelTier: "standard",
       privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
     });

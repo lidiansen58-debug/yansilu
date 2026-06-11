@@ -15447,6 +15447,8 @@
                                 <option value="Global Optimized">全球网关（Global Optimized）</option>
                                 <option value="Privacy First">本地私密（Privacy First）</option>
                                 <option value="Ollama Local">Ollama 本地（Ollama Local）</option>
+                                <option value="MiniCPM Local">MiniCPM 本地（MiniCPM Local）</option>
+                                <option value="MiniCPM Remote">MiniCPM 远程（MiniCPM Remote）</option>
                               </select>
 
                               <label for="settingsAiUserMode">使用模式</label>
@@ -15499,6 +15501,9 @@
                             </summary>
                             <div class="settings-ai-advanced-body">
                               <div class="settings-ai-grid">
+                                <label for="settingsAiRemoteRuntimeModel">远程模型</label>
+                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4o-mini、deepseek-chat、minicpm" />
+
                                 <label for="settingsAiAdvancedModelRef">指定模型</label>
                                 <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择，例如：platform_managed_openai:standard" />
 

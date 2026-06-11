@@ -613,7 +613,9 @@ async function buildAiRoutePreview(input = {}) {
     modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
     providerPreset: input.providerPreset || input.provider_preset || storedSettings.providerPreset,
     authMode: input.authMode || input.auth_mode || storedSettings.authMode,
+    endpointUrl: input.endpointUrl || input.endpoint_url || storedSettings.endpointUrl,
     secretRef: advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings }),
+    runtimeModelMap: mergeRuntimeModelMaps(storedSettings.runtimeModelMap, input.runtimeModelMap, input.runtime_model_map),
     privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
     budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
     fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
@@ -2988,9 +2990,16 @@ const server = http.createServer(async (req, res) => {
           ...baseSettingsInput,
           userMode: body.userMode ?? body.user_mode ?? baseSettingsInput.userMode,
           modelPack: body.modelPack ?? body.model_pack ?? baseSettingsInput.modelPack,
+          providerPreset: body.providerPreset ?? body.provider_preset ?? baseSettingsInput.providerPreset,
           authMode: body.authMode ?? body.auth_mode ?? baseSettingsInput.authMode,
           secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
-          modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
+          endpointUrl: body.endpointUrl ?? body.endpoint_url ?? baseSettingsInput.endpointUrl,
+          modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef,
+          runtimeModelMap: mergeRuntimeModelMaps(
+            baseSettingsInput.runtimeModelMap,
+            body.runtimeModelMap,
+            body.runtime_model_map
+          )
         };
 
         const baseUserSettings = resolveAiUserSettings(settingsInput);
@@ -3009,7 +3018,14 @@ const server = http.createServer(async (req, res) => {
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
         const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
-        const mergedSettings = { ...routedSettingsInput, ...providerSettings };
+        const mergedSettings = {
+          ...routedSettingsInput,
+          ...providerSettings,
+          secretRef: cleanText(routedSettingsInput.secretRef) || providerSettings.secretRef,
+          endpointUrl: cleanText(routedSettingsInput.endpointUrl) || providerSettings.endpointUrl,
+          modelRef: cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef,
+          runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, routedSettingsInput.runtimeModelMap)
+        };
 
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);
         const modelRoute = resolveModelRoute({

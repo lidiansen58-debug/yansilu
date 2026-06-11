@@ -357,6 +357,56 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(preview.json.item.access.ready, true);
 });
 
+test("AI test chat can run unsaved remote gateway settings with runtime model map", async (t) => {
+  const vaultPath = await makeTempDir("yansilu-ai-remote-test-chat-vault-");
+  const port = await findFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const chatServer = await startOpenAiCompatibleChatServer();
+
+  const child = spawn(process.execPath, ["apps/api/src/server.mjs"], {
+    cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      API_PORT: String(port),
+      VAULT_PATH: vaultPath,
+      REMOTE_TEST_KEY: "test-key"
+    },
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+
+  t.after(() => child.kill());
+  t.after(() => chatServer.close());
+  await waitForHealth(baseUrl);
+
+  const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Global Optimized",
+    providerPreset: "openai_compatible_gateway",
+    endpointUrl: chatServer.endpointUrl,
+    secretRef: "env:REMOTE_TEST_KEY",
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard": "remote-test-model"
+    }
+  });
+  assert.equal(preview.status, 200, JSON.stringify(preview.json));
+  assert.equal(preview.json.item.provider.providerId, "openai_compatible_gateway");
+  assert.equal(preview.json.item.access.ready, true);
+
+  const tested = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "Say hello from the configured remote model.",
+    modelPack: "Global Optimized",
+    providerPreset: "openai_compatible_gateway",
+    endpointUrl: chatServer.endpointUrl,
+    secretRef: "env:REMOTE_TEST_KEY",
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard": "remote-test-model"
+    }
+  });
+  assert.equal(tested.status, 200, JSON.stringify(tested.json));
+  assert.equal(tested.json.item.providerId, "openai_compatible_gateway");
+  assert.equal(tested.json.item.modelRef, "openai_compatible_gateway:standard");
+  assert.equal(chatServer.lastRequest().model, "remote-test-model");
+});
+
 test("AI local runtime API detects Ollama-compatible models", async (t) => {
   const vaultPath = await makeTempDir("yansilu-ai-local-runtime-vault-");
   const port = await findFreePort();
