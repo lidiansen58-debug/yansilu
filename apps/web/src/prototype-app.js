@@ -10839,7 +10839,7 @@ function renderGraphWorkbenchEntryPills({ clueSummary = null, questionSummary = 
       ${entries
         .map(({ meta, total }) => {
           const active = graphState.workbenchPanelOpen === true && graphWorkbenchTabMeta(graphState.workbenchPanelTab).key === meta.key;
-          const label = total > 0 ? `${meta.label} ${total}` : meta.emptyLabel;
+          const label = total > 0 ? meta.label : meta.emptyLabel;
           return `
             <button class="graph-workbench-entry${active ? " is-active" : ""}${total <= 0 ? " is-empty" : ""}" type="button" data-graph-workbench-entry="${escapeHtml(meta.key)}" aria-pressed="${active}" title="${escapeHtml(meta.note)}">
               <span>${escapeHtml(label)}</span>
