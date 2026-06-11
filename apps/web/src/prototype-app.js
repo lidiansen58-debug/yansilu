@@ -125,7 +125,8 @@ import {
   canonicalizeAiSettingsSelection,
   isAiLocalFlowActive,
   isLocalModelPack,
-  localProviderPresetForModelPack
+  localProviderPresetForModelPack,
+  shouldUseOllamaLocalRuntimeForSelection
 } from "./ai-settings-state.js";
 import {
   analyzeDirectoryGraph,
@@ -1571,9 +1572,11 @@ function preferredLocalProviderPresetForSelection() {
 }
 
 function shouldUseOllamaLocalRuntime() {
-  const providerId = preferredLocalProviderPresetForSelection();
-  const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
-  return providerId === "ollama_local_gateway" || (providerId === "local_private_gateway" && runtimeMode === "hybrid");
+  return shouldUseOllamaLocalRuntimeForSelection({
+    runtimeMode: settingsState.ai.runtimeMode,
+    modelPack: settingsState.ai.modelPack,
+    providerPreset: preferredLocalProviderPresetForSelection()
+  });
 }
 
 function reconcileAiSelectionState(options = {}) {
