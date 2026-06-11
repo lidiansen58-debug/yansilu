@@ -46,19 +46,47 @@ function Read-EnvMap([string]$FilePath) {
   return $map
 }
 
+function Get-ListeningPorts {
+  $used = [System.Collections.Generic.HashSet[int]]::new()
+  try {
+    Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object {
+      $port = 0
+      if ([int]::TryParse([string]$_.LocalPort, [ref]$port) -and $port -gt 0) {
+        [void]$used.Add($port)
+      }
+    }
+    $used
+    return
+  } catch {
+    foreach ($line in (& netstat -ano -p tcp 2>$null)) {
+      if ($line -match "^\s*TCP\s+\S+:(\d+)\s+\S+\s+LISTENING\s+\d+\s*$") {
+        [void]$used.Add([int]$Matches[1])
+      }
+    }
+    $used
+    return
+  }
+}
+
 function Get-UsedPorts([string]$RootDir) {
   $used = [System.Collections.Generic.HashSet[int]]::new()
-  if (-not (Test-Path -LiteralPath $RootDir)) { return (, $used) }
-
-  Get-ChildItem -Recurse -File -LiteralPath $RootDir -Filter ".env.worktree" -ErrorAction SilentlyContinue | ForEach-Object {
-    $envMap = Read-EnvMap $_.FullName
-    foreach ($k in @("API_PORT", "WEB_PORT")) {
-      if ($envMap.ContainsKey($k)) {
-        $n = 0
-        if ([int]::TryParse($envMap[$k], [ref]$n)) {
-          [void]$used.Add($n)
+  if (Test-Path -LiteralPath $RootDir) {
+    Get-ChildItem -Recurse -File -LiteralPath $RootDir -Filter ".env.worktree" -ErrorAction SilentlyContinue | ForEach-Object {
+      $envMap = Read-EnvMap $_.FullName
+      foreach ($k in @("API_PORT", "WEB_PORT")) {
+        if ($envMap.ContainsKey($k)) {
+          $n = 0
+          if ([int]::TryParse($envMap[$k], [ref]$n)) {
+            [void]$used.Add($n)
+          }
         }
       }
+    }
+  }
+
+  foreach ($port in (Get-ListeningPorts)) {
+    if ($port -is [int]) {
+      [void]$used.Add($port)
     }
   }
   return (, $used)

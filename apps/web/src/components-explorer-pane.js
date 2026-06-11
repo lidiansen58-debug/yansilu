@@ -83,6 +83,16 @@ function resolvedNoteType(state, note = null) {
   return "";
 }
 
+const UNTITLED_NOTE_TITLE = "\u672a\u547d\u540d\u7b14\u8bb0";
+
+function noteNeedsMatureWarningState(note = null) {
+  const status = String(note?.status || "").trim().toLowerCase();
+  const title = String(note?.title || "").trim();
+  if (status === "draft") return false;
+  if (title === UNTITLED_NOTE_TITLE) return false;
+  return true;
+}
+
 function generatedOriginalBadge(state, note = null) {
   const noteType = resolvedNoteType(state, note);
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
@@ -97,6 +107,7 @@ function generatedOriginalBadge(state, note = null) {
 function sourcePermanentState(state, note = null) {
   const noteType = resolvedNoteType(state, note) || String(note?.noteType || "").trim().toLowerCase();
   if (noteType !== "fleeting" && noteType !== "literature") return "";
+  if (!noteNeedsMatureWarningState(note)) return "";
   const generatedId = String(note?.generatedOriginalNoteId || note?.generated_original_note_id || "").trim();
   return generatedId ? "source-linked" : "source-pending";
 }
@@ -721,6 +732,7 @@ export class ExplorerPane {
   noteIsDisconnected(note) {
     const noteType = resolvedNoteType(this.state, note);
     if (noteType !== "original" && noteType !== "permanent") return false;
+    if (!noteNeedsMatureWarningState(note)) return false;
     const storedStatus = noteRelationNetworkStatus(note);
     if (storedStatus === "isolated") return true;
     if (storedStatus === "connected") return false;

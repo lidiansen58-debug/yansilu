@@ -1,5 +1,13 @@
 const LOCAL_MODEL_PACKS = new Set(["Privacy First", "Ollama Local", "MiniCPM Local"]);
 const LOCAL_PROVIDER_IDS = new Set(["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"]);
+export const DEFAULT_AI_SETTINGS_SELECTION = Object.freeze({
+  runtimeMode: "auto",
+  userMode: "Auto",
+  modelPack: "Starter Auto",
+  localModel: "",
+  advancedModelRef: "",
+  secretRef: ""
+});
 
 export function normalizeAiRuntimeMode(value = "") {
   const mode = String(value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
@@ -75,4 +83,21 @@ export function canonicalizeAiSettingsSelection(input = {}, options = {}) {
 
 export function isAiLocalFlowActive(input = {}) {
   return canonicalizeAiSettingsSelection(input).localFlowActive;
+}
+
+export function aiSettingsSelectionFromPreferences(preferences = null) {
+  const prefs = preferences || {};
+  const advancedSettings = prefs.advancedSettings || prefs.advanced_settings || {};
+  const selection = canonicalizeAiSettingsSelection({
+    runtimeMode: advancedSettings.runtimeMode || advancedSettings.runtime_mode || DEFAULT_AI_SETTINGS_SELECTION.runtimeMode,
+    modelPack: prefs.modelPack || prefs.model_pack || DEFAULT_AI_SETTINGS_SELECTION.modelPack,
+    userMode: prefs.userMode || prefs.user_mode || DEFAULT_AI_SETTINGS_SELECTION.userMode
+  });
+
+  return {
+    ...selection,
+    localModel: String(advancedSettings.localModel || advancedSettings.local_model || "").trim(),
+    advancedModelRef: String(advancedSettings.modelRef || advancedSettings.model_ref || "").trim(),
+    secretRef: String(advancedSettings.secretRef || advancedSettings.secret_ref || "").trim()
+  };
 }
