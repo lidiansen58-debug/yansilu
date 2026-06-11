@@ -14874,6 +14874,17 @@ function resetGraphDemoPresentationState() {
   graphState.expanded = false;
   graphState.workbenchPanelOpen = false;
   graphState.workbenchPanelTab = "clues";
+  graphState.thinkingPanelOpen = false;
+  graphState.thinkingPanelVisible = true;
+  graphState.thinkingFilter = "all";
+  graphState.utilityDrawerOpen = false;
+  graphState.utilityDrawerVisible = true;
+  graphState.utilityDrawerPosition = null;
+  graphState.sectionOpen = {
+    "bridge-gaps": false,
+    "review-queue": false,
+    "ai-analysis": false
+  };
 }
 
 async function importYijingKnowledgeNetworkDemo(options = {}) {
