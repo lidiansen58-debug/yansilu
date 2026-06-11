@@ -93,6 +93,7 @@ import {
   listScheduledAgentTaskTemplates,
   preferencesToSettingsInput,
   providerConfigToSettingsInput,
+  assertValidAiProviderConfig,
   resolveAiUserSettings,
   resolveModelRoute,
   resolveProviderDescriptor,
@@ -3017,7 +3018,18 @@ const server = http.createServer(async (req, res) => {
         const providerPreset = String(routedSettingsInput.providerPreset || userSettings.providerPreset || "").trim();
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
-        const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        if (providerPreset && providerPreset !== "platform_managed_openai") {
+          const draftProviderConfig = assertValidAiProviderConfig({
+            ...(providerConfig || {}),
+            providerId: providerPreset,
+            authMode: cleanText(routedSettingsInput.authMode) || providerConfig?.authMode,
+            secretRef: cleanText(routedSettingsInput.secretRef) || providerConfig?.secretRef,
+            endpointUrl: cleanText(routedSettingsInput.endpointUrl) || providerConfig?.endpointUrl,
+            runtimeModelMap: mergeRuntimeModelMaps(providerConfig?.runtimeModelMap, routedSettingsInput.runtimeModelMap)
+          });
+          providerSettings = providerConfigToSettingsInput(draftProviderConfig);
+        }
         const mergedSettings = {
           ...routedSettingsInput,
           ...providerSettings,

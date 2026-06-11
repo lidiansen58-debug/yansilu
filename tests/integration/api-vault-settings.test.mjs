@@ -357,7 +357,7 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(preview.json.item.access.ready, true);
 });
 
-test("AI test chat can run unsaved remote gateway settings with runtime model map", async (t) => {
+test("AI test chat validates unsaved provider settings before network execution", async (t) => {
   const vaultPath = await makeTempDir("yansilu-ai-remote-test-chat-vault-");
   const port = await findFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -381,7 +381,7 @@ test("AI test chat can run unsaved remote gateway settings with runtime model ma
   const preview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "Global Optimized",
     providerPreset: "openai_compatible_gateway",
-    endpointUrl: chatServer.endpointUrl,
+    endpointUrl: "https://remote-gateway.example.test/v1/chat/completions",
     secretRef: "env:REMOTE_TEST_KEY",
     runtimeModelMap: {
       "openai_compatible_gateway:standard": "remote-test-model"
@@ -391,20 +391,33 @@ test("AI test chat can run unsaved remote gateway settings with runtime model ma
   assert.equal(preview.json.item.provider.providerId, "openai_compatible_gateway");
   assert.equal(preview.json.item.access.ready, true);
 
-  const tested = await postJson(baseUrl, "/api/v1/ai/test-chat", {
-    prompt: "Say hello from the configured remote model.",
+  const unsafe = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not run.",
     modelPack: "Global Optimized",
     providerPreset: "openai_compatible_gateway",
-    endpointUrl: chatServer.endpointUrl,
+    endpointUrl: "http://example.test/v1/chat/completions",
     secretRef: "env:REMOTE_TEST_KEY",
     runtimeModelMap: {
       "openai_compatible_gateway:standard": "remote-test-model"
     }
   });
+  assert.equal(unsafe.status, 400, JSON.stringify(unsafe.json));
+  assert.equal(unsafe.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
+
+  const tested = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "Say hello from the configured remote model.",
+    modelPack: "Starter Auto",
+    providerPreset: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "local_private_gateway:standard": "local-draft-model"
+    }
+  });
   assert.equal(tested.status, 200, JSON.stringify(tested.json));
-  assert.equal(tested.json.item.providerId, "openai_compatible_gateway");
-  assert.equal(tested.json.item.modelRef, "openai_compatible_gateway:standard");
-  assert.equal(chatServer.lastRequest().model, "remote-test-model");
+  assert.equal(tested.json.item.providerId, "local_private_gateway");
+  assert.equal(tested.json.item.modelRef, "local_private_gateway:standard");
+  assert.equal(chatServer.lastRequest().model, "local-draft-model");
 });
 
 test("AI local runtime API detects Ollama-compatible models", async (t) => {
