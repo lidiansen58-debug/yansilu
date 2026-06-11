@@ -41,6 +41,59 @@ test("graph workbench panel replaces map-covering clue and question floaters", (
   assert.match(html, /\.graph-side-stack \{[\s\S]*display: grid;[\s\S]*align-content: start;/);
 });
 
+test("graph research navigator explains the map before users drill into details", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function renderGraphResearchNavigatorPanel\(\{ nodes = \[\], edges = \[\], topicCandidates = \[\], bridgeGaps = \[\], clusterMeta = \[\], clueSummary = null, questionSummary = null \} = \{\}\) \{/);
+  assert.match(source, /graphResearchNavigatorState\(\{ nodes, edges, topicCandidates, bridgeGaps, clusterMeta, clueSummary, questionSummary \}\)/);
+  assert.match(source, /<aside class="graph-research-navigator" aria-label="研究导航">/);
+  assert.match(source, /这批笔记形成 \$\{clusters\.length\} 个主要星系/);
+  assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(cluster\.clusterKey\)\}"/);
+  assert.match(source, /data-graph-select-node="\$\{escapeHtml\(node\.id\)\}"/);
+  assert.match(source, /selectionContextMarkup \|\| focusContextMarkup \|\| researchNavigatorMarkup/);
+
+  assert.match(html, /\.graph-research-navigator \{[\s\S]*display: grid;[\s\S]*padding: 14px;/);
+  assert.match(html, /\.graph-research-verdict \{[\s\S]*radial-gradient/);
+  assert.match(html, /\.graph-research-card:hover,[\s\S]*\.graph-research-card:focus-visible \{[\s\S]*transform: translateY\(-1px\);/);
+});
+
+test("graph clusters are selectable research objects with their own summary panel", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphClusterResearchMeta\(cluster = \{\}, \{ nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /function renderGraphClusterSelectionPanel\(\{ selection = null, clusterMeta = \[\], nodeMap = new Map\(\), edges = \[\] \} = \{\}\) \{/);
+  assert.match(source, /kind: "cluster"/);
+  assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(clusterKey\)\}"/);
+  assert.match(source, /openGraphSelection\(\{ kind: "cluster", clusterKey \}\);/);
+  assert.match(source, /kicker: "星系摘要"/);
+  assert.match(source, /roleLabel: meta\.label/);
+  assert.match(source, /补星系关系/);
+
+  assert.match(html, /\.graph-map-cluster-glows \{[\s\S]*pointer-events: auto;/);
+  assert.match(html, /\.graph-map-cluster-glow \{[\s\S]*cursor: pointer;[\s\S]*pointer-events: visiblePainted;/);
+});
+
+test("graph research details cover nodes and relation gravity lines with next actions", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /if \(String\(graphState\.selection\?\.kind \|\| ""\)\.trim\(\)\.toLowerCase\(\) !== "cluster"\) \{/);
+  assert.match(source, /class="graph-overlay-close graph-selection-close"/);
+  assert.doesNotMatch(source, /data-graph-selection-close[^>]*>收起<\/button>/);
+  assert.match(source, /kicker: "笔记角色"/);
+  assert.match(source, /roleLabel: role\.label/);
+  assert.match(source, /补一条关系/);
+  assert.match(source, /kicker: "关系复核"/);
+  assert.match(source, /roleLabel: review\.label/);
+  assert.match(source, /<strong>复核问题<\/strong>/);
+  assert.match(source, /data-graph-relation-adjustment/);
+
+  assert.match(html, /\.graph-selection-close \{[\s\S]*position: absolute;[\s\S]*right: 10px;/);
+  assert.match(html, /\.graph-map-floater \{[\s\S]*position: sticky;[\s\S]*left: 12px;/);
+});
+
 test("graph AI analysis opens the question workbench instead of navigating away", () => {
   const source = readPrototypeApp();
   const match = source.match(/async function runGraphAiAnalysis\(\) \{([\s\S]*?)\n\}/);

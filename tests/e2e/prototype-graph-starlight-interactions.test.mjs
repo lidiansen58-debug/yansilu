@@ -105,6 +105,60 @@ async function openMockedGraph(page, webBase) {
   }, 10000);
 }
 
+test("prototype graph research navigator opens cluster and bright-star explanations", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { page, webBase } = stack;
+
+  await mockGraphEndpoints(page);
+  await openMockedGraph(page, webBase);
+
+  await waitFor(async () => {
+    assert.ok(await page.locator(".graph-research-navigator").isVisible());
+    const copy = await page.locator(".graph-research-navigator").textContent();
+    assert.match(copy || "", /研究导航/);
+    assert.match(copy || "", /主要星系/);
+  }, 3000);
+
+  await page.locator('.graph-research-card[data-graph-select-cluster]').first().click();
+  await waitFor(async () => {
+    assert.ok(await page.locator(".graph-selection-panel.is-cluster").isVisible());
+    const copy = await page.locator(".graph-selection-panel.is-cluster").textContent();
+    assert.match(copy || "", /星系摘要/);
+    assert.match(copy || "", /下一步问题/);
+  }, 3000);
+
+  await page.locator("[data-graph-selection-close]").click();
+  await waitFor(async () => {
+    assert.ok(await page.locator(".graph-research-navigator").isVisible());
+  }, 3000);
+
+  await page.locator('.graph-research-card[data-graph-select-node]').first().click();
+  await waitFor(async () => {
+    assert.ok(await page.locator(".graph-selection-panel.is-node").isVisible());
+    const copy = await page.locator(".graph-selection-panel.is-node").textContent();
+    assert.match(copy || "", /笔记角色/);
+    assert.match(copy || "", /接下来可以问/);
+  }, 3000);
+
+  await page.locator(".graph-map-edge-group[data-edge-from]").first().focus();
+  await page.keyboard.press("Enter");
+  await waitFor(async () => {
+    assert.ok(await page.locator(".graph-selection-panel.is-edge").isVisible());
+    const copy = await page.locator(".graph-selection-panel.is-edge").textContent();
+    assert.match(copy || "", /关系复核/);
+    assert.match(copy || "", /复核问题/);
+  }, 3000);
+});
+
 test("prototype graph starfield workbench, density hint, and zoom controls stay interactive", async (t) => {
   if (process.env.RUN_BROWSER_E2E !== "1") {
     t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");

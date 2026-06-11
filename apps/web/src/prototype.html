@@ -4693,6 +4693,93 @@
       display: grid;
       gap: 12px;
     }
+    .graph-research-navigator {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 14px;
+      border-bottom: 1px solid #e1e9f1;
+    }
+    .graph-research-head {
+      display: grid;
+      gap: 3px;
+    }
+    .graph-research-head span {
+      color: #0f6f48;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .08em;
+    }
+    .graph-research-head strong {
+      color: #172033;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+    .graph-research-verdict {
+      display: grid;
+      gap: 7px;
+      padding: 13px;
+      border: 1px solid rgba(190, 215, 224, 0.86);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(124, 242, 230, 0.18), transparent 32%),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(246, 252, 250, 0.94));
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.055);
+    }
+    .graph-research-verdict strong {
+      color: #172033;
+      font-size: 14px;
+      line-height: 1.48;
+    }
+    .graph-research-verdict p {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.58;
+    }
+    .graph-research-section {
+      display: grid;
+      gap: 8px;
+    }
+    .graph-research-section > strong {
+      color: #243047;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .graph-research-card {
+      display: grid;
+      gap: 4px;
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid rgba(213, 226, 233, 0.96);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.88);
+      color: inherit;
+      cursor: pointer;
+      font: inherit;
+      padding: 10px 11px;
+      text-align: left;
+      transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .graph-research-card:hover,
+    .graph-research-card:focus-visible {
+      border-color: rgba(15, 111, 72, 0.24);
+      box-shadow: 0 12px 22px rgba(15, 111, 72, 0.08);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .graph-research-card span {
+      color: #172033;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .graph-research-card small {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
     .graph-focus-context {
       display: grid;
       align-content: start;
@@ -4901,11 +4988,12 @@
       max-height: calc(100vh - 180px);
     }
     .graph-selection-head {
+      position: relative;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 10px;
-      padding: 12px 13px;
+      padding: 12px 42px 12px 13px;
       border: 1px solid #d8e5ec;
       border-radius: 16px;
       background: rgba(255, 255, 255, 0.94);
@@ -4934,6 +5022,11 @@
       font-size: 12px;
       line-height: 1.45;
       overflow-wrap: anywhere;
+    }
+    .graph-selection-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
     }
     .graph-selection-role,
     .graph-selection-reason,
@@ -5445,18 +5538,20 @@
       height: max(460px, var(--graph-zoom-height));
     }
     .graph-map-floater {
-      position: absolute;
+      position: sticky;
       top: 12px;
-      right: 12px;
-      z-index: 4;
-      display: flex;
-      justify-content: flex-end;
+      left: 12px;
+      z-index: 12;
+      display: inline-flex;
+      width: max-content;
+      max-width: calc(100% - 24px);
+      justify-content: flex-start;
       gap: 8px;
-      margin: 0;
+      margin: 0 0 -48px 12px;
       pointer-events: none;
     }
     .graph-utility-drawer-wrap + .graph-map-body .graph-map-floater {
-      top: 108px;
+      top: 12px;
     }
     .graph-map-floater .graph-expand-btn,
     .graph-map-floater .graph-zoom-controls {
@@ -5590,7 +5685,7 @@
       opacity: .86;
     }
     .graph-map-cluster-glows {
-      pointer-events: none;
+      pointer-events: auto;
       mix-blend-mode: screen;
       opacity: .84;
     }
@@ -5618,6 +5713,15 @@
       stroke: none;
       transform-origin: center;
       animation: graphNebulaDrift 26s ease-in-out infinite alternate;
+      cursor: pointer;
+      pointer-events: visiblePainted;
+      transition: opacity .16s ease, filter .16s ease;
+    }
+    .graph-map-cluster-glow:hover,
+    .graph-map-cluster-glow:focus-visible {
+      opacity: .38;
+      outline: none;
+      filter: drop-shadow(0 0 10px rgba(124, 242, 230, 0.22));
     }
     .graph-map-cluster-glow.is-teal {
       fill: rgba(124, 242, 230, 0.28);
