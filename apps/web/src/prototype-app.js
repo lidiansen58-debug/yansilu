@@ -10603,11 +10603,11 @@ function renderGraphBridgeGapSection(bridgeGaps = [], options = {}) {
                 const sourceTitle = String(gap?.noteTitles?.[0] || sourceNoteId || "当前笔记").trim() || "当前笔记";
                 const targetNoteId = String(gap?.targetNoteIds?.[0] || "").trim();
                 const targetTitle = String(gap?.targetNoteTitles?.[0] || targetNoteId || "").trim();
-                const rationale = String(gap?.suggestedAction || gap?.rationale || "").trim();
                 const gapType = String(gap?.gapType || "bridge_gap").trim().toLowerCase();
                 const counterpartSummary = targetTitle
                   ? `建议先把它和「${targetTitle}」补上一条说得清理由的关联。`
                   : "它现在还挂在主结构外面，先补一条能把它带回来的关联。";
+                const rationale = graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, counterpartSummary);
                 const metaLabel = gapType === "disconnected_cluster" ? "断裂簇" : "孤立笔记";
                 const highlightNodeIds = [sourceNoteId, targetNoteId].filter(Boolean).join(",");
                 return `
@@ -10686,6 +10686,7 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOver
   if (field === "relationType") {
     const counts = statsOverride?.counts && typeof statsOverride.counts === "object" ? statsOverride.counts : fallbackCounts;
     const selectedKey = normalizeGraphRelationTypeFilter(selected, "meaningful");
+    const structureFallback = statsOverride?.structureFallback === true;
     const meaningfulCount =
       Number.isFinite(Number(statsOverride?.meaningfulCount))
         ? Number(statsOverride.meaningfulCount)
@@ -10706,13 +10707,16 @@ function graphFilterOptions(edges, field, selected, allLabel, labelFn, statsOver
     if (noisyCount > 0) {
       leadingOptions.push(`<option value="noisy"${selectedKey === "noisy" ? " selected" : ""}>只看链接线索 (${noisyCount})</option>`);
     }
-    if (indexCount > 0) {
-      leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>只看主题归属 (${indexCount})</option>`);
+    if (indexCount > 0 || structureFallback) {
+      const indexLabel = structureFallback && selectedKey === "index" ? "结构星图（星系聚类）" : "只看主题归属";
+      const indexDisplayCount = structureFallback && selectedKey === "index" ? meaningfulCount || totalCount : indexCount;
+      leadingOptions.push(`<option value="index"${selectedKey === "index" ? " selected" : ""}>${escapeHtml(indexLabel)} (${indexDisplayCount})</option>`);
     }
     const selectedTypeHasOption =
       selectedKey === "meaningful" ||
       selectedKey === "all" ||
       (selectedKey === "noisy" && noisyCount > 0) ||
+      (selectedKey === "index" && structureFallback) ||
       (selectedKey === "index" && indexCount > 0) ||
       (selectedKey !== "meaningful" &&
         selectedKey !== "all" &&
@@ -10841,6 +10845,39 @@ function renderGraphRelationTypeFilter(edges = [], selected = "meaningful", comp
       </select>
     </div>
   `;
+}
+
+function graphHasMeaningfulStructureEdges(edges = []) {
+  return (Array.isArray(edges) ? edges : []).some((edge) =>
+    GRAPH_MEANINGFUL_RELATION_TYPES.has(String(edge?.relationType || "associated_with").trim().toLowerCase())
+  );
+}
+
+function graphStructureFallbackEdges(edges = [], filters = {}) {
+  const baseFilters = { ...filters, relationType: "meaningful" };
+  return (Array.isArray(edges) ? edges : []).filter((edge) => graphEdgeMatchesFilters(edge, baseFilters));
+}
+
+function graphLocalizedActionText(value = "", fallback = "") {
+  const text = String(value || "").trim();
+  const defaultText = String(fallback || "").trim();
+  if (!text) return defaultText;
+  if (/Add an intermediate note or an explicit relation/i.test(text)) {
+    return "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。";
+  }
+  if (/Add a bridge note or an explicit relation/i.test(text)) {
+    return "补一条桥接笔记，或建立一条能把这个星系接回主结构的明确关系。";
+  }
+  if (/isolated from the rest/i.test(text)) {
+    return "这条笔记暂时游离在当前图谱之外，需要判断是保留独立，还是补一条关系。";
+  }
+  if (/disconnected from the main note cluster/i.test(text)) {
+    return "这个聚集暂时没有接回主星系，需要判断是否补一条桥接关系。";
+  }
+  if (/[A-Za-z]/.test(text) && !/[\u4e00-\u9fff]/.test(text)) {
+    return defaultText || "这里需要补一句中文判断，再决定是否建立关系。";
+  }
+  return text;
 }
 
 const GRAPH_READING_LENS_META = {
@@ -12121,14 +12158,17 @@ function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [
     .map((id) => nodeMap.get(id))
     .filter(Boolean)
     .sort((left, right) => Number(right?.degree || 0) - Number(left?.degree || 0) || String(left?.title || "").localeCompare(String(right?.title || ""), "zh-Hans-CN"));
+  let tone = "early";
   let label = "早期星系";
   let detail = "这里已经出现聚集，但还需要先判断它们是不是在回答同一个研究问题。";
   let next = "先挑两颗最亮的星，写清它们为什么属于同一个问题。";
   if (memberIds.length >= 8 && memberEdges.length >= Math.max(4, Math.ceil(memberIds.length * 0.55))) {
+    tone = "mature";
     label = "主题星系较成熟";
     detail = "这里不只是材料相近，已经有一定内部关系，可以尝试提炼成一个主题判断。";
     next = "把这个星系改写成一句可争论的判断，再补一条反方或边界关系。";
   } else if (memberIds.length >= 5 || memberEdges.length >= 3) {
+    tone = "testing";
     label = "值得继续验证";
     detail = "这里有明显聚集，但主题边界还不够清楚，容易把相似材料误当成论证。";
     next = "优先补一条簇内关系理由，确认这组笔记是在支撑同一个问题。";
@@ -12140,6 +12180,7 @@ function graphClusterResearchMeta(cluster = {}, { nodeMap = new Map(), edges = [
     detail = `${detail} 目前反方或边界偏少，后续写作时容易显得过顺。`;
   }
   return {
+    tone,
     label,
     detail,
     next,
@@ -12217,9 +12258,9 @@ function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates =
       meta: graphClusterResearchMeta(cluster, { nodeMap, edges })
     }))
     .sort((left, right) => right.meta.memberIds.length - left.meta.memberIds.length || right.meta.memberEdges.length - left.meta.memberEdges.length);
-  const themeQualities = graphRankThemeCandidates(topicCandidates, { nodeMap, edges }).map((item) => item.quality);
-  const matureThemeCount = themeQualities.filter((quality) => quality?.tone === "mature").length;
-  const testingThemeCount = themeQualities.filter((quality) => quality?.tone === "testing").length;
+  const matureClusterCount = clusterSummaries.filter((item) => item.meta?.tone === "mature").length;
+  const testingClusterCount = clusterSummaries.filter((item) => item.meta?.tone === "testing").length;
+  const promisingClusterCount = matureClusterCount + testingClusterCount;
   const relationCounts = graphRelationGroupCounts(edges);
   const brightNodes = [...nodeMap.values()]
     .sort((left, right) => Number(right?.degree || 0) - Number(left?.degree || 0) || String(left?.title || "").localeCompare(String(right?.title || ""), "zh-Hans-CN"))
@@ -12227,7 +12268,9 @@ function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates =
   const clueTotal = Number(clueSummary?.total || 0);
   const questionTotal = Number(questionSummary?.total || 0);
   const verdict = clusters.length
-    ? `这批笔记形成 ${clusters.length} 个主要星系，其中 ${matureThemeCount || testingThemeCount || 0} 个已经有成题迹象。`
+    ? promisingClusterCount
+      ? `这批笔记形成 ${clusters.length} 个主要星系，其中 ${promisingClusterCount} 个已经值得继续提炼成题。`
+      : `这批笔记形成 ${clusters.length} 个主要星系，但还需要先补关系理由，别急着定题。`
     : `这批笔记还没有明显星系，先从最亮的笔记补关系。`;
   const risk =
     Number(bridgeGaps?.length || 0) || clueTotal
@@ -12239,8 +12282,9 @@ function graphResearchNavigatorState({ nodes = [], edges = [], topicCandidates =
     clusters: clusterSummaries,
     brightNodes,
     relationCounts,
-    matureThemeCount,
-    testingThemeCount,
+    matureClusterCount,
+    testingClusterCount,
+    promisingClusterCount,
     clueTotal,
     questionTotal,
     verdict,
@@ -13264,7 +13308,8 @@ function renderGraphVisualMap({
   clueSummary = null,
   workbenchPanelMarkup = "",
   workbenchEntryMarkup = "",
-  toolbarMarkup = ""
+  toolbarMarkup = "",
+  structureFallback = false
 } = {}) {
   const normalizedFocusedNoteId = String(focusedNoteId || "").trim();
   const focusDepth = graphFocusDepthMeta(graphState.focusDepth);
@@ -13315,7 +13360,15 @@ function renderGraphVisualMap({
     filterActive
   });
   const showDensityHint = shouldShowGraphDensityHint({ dense: layout.nodes.length > 120, filterActive });
-  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true) : "";
+  const compactRelationFilterStats = structureFallback
+    ? {
+        structureFallback: true,
+        totalCount: relationFilterEdges.length,
+        meaningfulCount: edges.length,
+        indexCount: 0
+      }
+    : null;
+  const compactRelationFilterMarkup = !filterActive ? renderGraphRelationTypeFilter(relationFilterEdges, relationType, true, compactRelationFilterStats) : "";
   const legendOpen = graphState.legendOpen === true;
   const activeSelection = normalizeGraphSelectionForVisibleItems(graphState.selection, { nodes: layout.nodes, edges, topicCandidates, isolatedNotes, bridgeGaps, clusterMeta: layout.clusterMeta });
   const selectedNodeId = activeSelection?.kind === "node" ? activeSelection.nodeId : "";
@@ -13601,6 +13654,7 @@ function renderGraphVisualMap({
                 </div>
               </div>
               ${renderGraphReadingLensControls(readingLens.key, legendOpen, workbenchEntryMarkup)}
+              ${structureFallback ? `<div class="graph-structure-fallback-note">当前没有主题归属关系，已用星系聚类显示结构星图。</div>` : ""}
               ${showDensityHint ? `<div class="graph-density-hint">当前图比较密，建议直接拖动到局部区域，再配合悬停或放大继续看。</div>` : ""}
             `
         }
@@ -14480,7 +14534,7 @@ function buildGraphThinkingItems({ nodes = [], edges = [], bridgeGaps = [], revi
       kicker: gapType === "disconnected_cluster" ? "断裂簇" : "桥接机会",
       title: sourceTitle,
       meta: targetTitle ? `建议连接到「${targetTitle}」` : "孤立待判断",
-      detail: String(gap?.suggestedAction || gap?.rationale || "这条笔记可能需要一条中间判断，才能回到当前结构。").trim(),
+      detail: graphLocalizedActionText(gap?.suggestedAction || gap?.rationale, "这条笔记可能需要一条中间判断，才能回到当前结构。"),
       question: targetTitle ? `它和「${targetTitle}」之间缺的是证据、限定、反方，还是一个中间概念？` : "它应当保持独立，还是只是缺少一条桥接关系？",
       actionLabel: "判断桥接",
       actionAttrs: `data-graph-select-bridge="${escapeHtml(bridgeKey)}" data-graph-bridge-note="${escapeHtml(sourceNoteId)}"${targetNoteId ? ` data-graph-target-note="${escapeHtml(targetNoteId)}"` : ""}`,
@@ -14640,6 +14694,49 @@ function renderGraphThinkingItems(items = [], filter = "all") {
   `;
 }
 
+function graphWorkbenchPriorityItems(items = [], activeKey = "questions") {
+  const list = Array.isArray(items) ? items : [];
+  const filtered =
+    activeKey === "clues"
+      ? list.filter((item) => item.view === "organize" || ["bridge", "review", "isolated"].includes(String(item.tone || "").trim()))
+      : list;
+  return filtered.slice(0, 3);
+}
+
+function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") {
+  const priorityItems = graphWorkbenchPriorityItems(items, activeKey);
+  if (!priorityItems.length) return "";
+  const title = activeKey === "clues" ? "最该先处理的 3 条线索" : "最该先追问的 3 处";
+  const note = activeKey === "clues"
+    ? "先处理这些，图谱会最快变清楚。"
+    : "先追问这些，最容易长出下一步判断。";
+  return `
+    <section class="graph-priority-queue" aria-label="${escapeHtml(title)}">
+      <div class="graph-priority-queue-head">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(note)}</span>
+      </div>
+      <div class="graph-priority-queue-list">
+        ${priorityItems
+          .map((item, index) => {
+            const highlightAttrs = graphThinkingHighlightAttrs(item);
+            return `
+              <article class="graph-priority-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
+                <button class="graph-priority-item-main" type="button" ${item.actionAttrs || ""}>
+                  <span>${escapeHtml(`优先 ${index + 1} · ${item.kicker || "待判断"}`)}</span>
+                  <strong>${escapeHtml(item.title || "待判断线索")}</strong>
+                  <small>${escapeHtml(item.question || item.detail || "这里值得继续判断。")}</small>
+                </button>
+                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs}>${escapeHtml(item.actionLabel || "查看")}</button>` : ""}
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderGraphThinkingReviewNote(summary = {}) {
   const artifactCount = Number(summary?.artifactCount || 0);
   if (!artifactCount) return "";
@@ -14717,6 +14814,7 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
     activeTab.key === "clues"
       ? clueSectionsMarkup || `<div class="graph-empty">当前范围暂时没有明显需要整理的关系线索。</div>`
       : renderGraphThinkingPanelContent({ summary: questionSummary, items: thinkingItems, includeSummary: false });
+  const priorityMarkup = renderGraphWorkbenchPriorityQueue(thinkingItems, activeTab.key);
   return `
     <aside class="graph-workbench-panel" aria-label="图谱辅助工作台">
       <div class="graph-workbench-panel-head">
@@ -14741,6 +14839,7 @@ function renderGraphWorkbenchPanel({ clueSummary = {}, questionSummary = {}, clu
           : ""
       }
       <div class="graph-workbench-panel-body">
+        ${priorityMarkup}
         ${bodyMarkup}
       </div>
     </aside>
@@ -15025,7 +15124,11 @@ function renderGraphPanel() {
   const conflictItems = Array.isArray(graphState.conflicts?.conflicts) ? graphState.conflicts.conflicts : [];
   const reviewQueueTotal = Number(graphState.reviewQueue?.total || 0);
   const bridgeGaps = Array.isArray(graphInsights.bridgeGaps) ? graphInsights.bridgeGaps : [];
-  const filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
+  let filteredEdges = focused.edges.filter((edge) => graphEdgeMatchesFilters(edge, activeFilters));
+  const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges.length && graphHasMeaningfulStructureEdges(focused.edges);
+  if (structureFallback) {
+    filteredEdges = graphStructureFallbackEdges(focused.edges, activeFilters);
+  }
   const visibleNodeIds = new Set(filteredEdges.flatMap((edge) => [edge.fromNoteId, edge.toNoteId]).filter(Boolean));
   let visibleNodes =
     effectiveRelationType === "all"
@@ -15159,7 +15262,8 @@ function renderGraphPanel() {
       clueSummary,
       workbenchPanelMarkup,
       workbenchEntryMarkup,
-      toolbarMarkup
+      toolbarMarkup,
+      structureFallback
     })}
   `;
 }

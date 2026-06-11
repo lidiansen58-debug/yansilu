@@ -1142,8 +1142,8 @@ function buildGraphInsights(nodes, edges) {
         gapType: "isolated_note",
         noteIds: [onlyId],
         noteTitles: [onlyTitle],
-        rationale: "This note is isolated from the rest of the current directory graph.",
-        suggestedAction: "Add an intermediate note or an explicit relation that explains how it connects to an existing argument."
+        rationale: "这条笔记暂时游离在当前目录图谱之外。",
+        suggestedAction: "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。"
       });
       return;
     }
@@ -1154,8 +1154,8 @@ function buildGraphInsights(nodes, edges) {
         gapType: "disconnected_cluster",
         noteIds: component.noteIds,
         noteTitles: component.noteTitles,
-        rationale: "This cluster is disconnected from the main note cluster in the current directory.",
-        suggestedAction: "Add a bridge note or an explicit relation that connects this cluster back to the main structure.",
+        rationale: "这个聚集暂时没有接回当前目录的主星系。",
+        suggestedAction: "补一条桥接笔记，或建立一条能把这个星系接回主结构的明确关系。",
         targetNoteIds: primaryComponent.noteIds,
         targetNoteTitles: primaryComponent.noteTitles
       });

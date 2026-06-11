@@ -14,6 +14,10 @@ function readPrototypeHtml() {
   return fs.readFileSync(path.join(repoRoot, "apps/web/src/prototype.html"), "utf8");
 }
 
+function readDomainCatalogStore() {
+  return fs.readFileSync(path.join(repoRoot, "packages/domain/src/note-catalog-store.mjs"), "utf8");
+}
+
 test("graph workbench entries live beside reading lenses and legend", () => {
   const source = readPrototypeApp();
 
@@ -56,6 +60,45 @@ test("graph research navigator explains the map before users drill into details"
   assert.match(html, /\.graph-research-navigator \{[\s\S]*display: grid;[\s\S]*padding: 14px;/);
   assert.match(html, /\.graph-research-verdict \{[\s\S]*radial-gradient/);
   assert.match(html, /\.graph-research-card:hover,[\s\S]*\.graph-research-card:focus-visible \{[\s\S]*transform: translateY\(-1px\);/);
+});
+
+test("graph structure view falls back to galaxy clusters instead of an empty map", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /function graphHasMeaningfulStructureEdges\(edges = \[\]\) \{/);
+  assert.match(source, /function graphStructureFallbackEdges\(edges = \[\], filters = \{\}\) \{/);
+  assert.match(source, /const structureFallback = effectiveRelationType === "index" && !showingFocusedNote && !filteredEdges\.length && graphHasMeaningfulStructureEdges\(focused\.edges\);/);
+  assert.match(source, /filteredEdges = graphStructureFallbackEdges\(focused\.edges, activeFilters\);/);
+  assert.match(source, /当前没有主题归属关系，已用星系聚类显示结构星图。/);
+  assert.match(source, /结构星图（星系聚类）/);
+  assert.match(html, /\.graph-structure-fallback-note \{[\s\S]*background: rgba\(239, 250, 255, 0\.9\);/);
+});
+
+test("graph research navigator uses cluster maturity for global verdicts", () => {
+  const source = readPrototypeApp();
+
+  assert.match(source, /const matureClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "mature"\)\.length;/);
+  assert.match(source, /const testingClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "testing"\)\.length;/);
+  assert.match(source, /const promisingClusterCount = matureClusterCount \+ testingClusterCount;/);
+  assert.match(source, /其中 \$\{promisingClusterCount\} 个已经值得继续提炼成题。/);
+  assert.doesNotMatch(source, /matureThemeCount/);
+});
+
+test("graph workbench prioritizes Chinese clue and question actions", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+  const domain = readDomainCatalogStore();
+
+  assert.match(source, /function graphLocalizedActionText\(value = "", fallback = ""\) \{/);
+  assert.match(source, /补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。/);
+  assert.match(source, /detail: graphLocalizedActionText\(gap\?\.suggestedAction \|\| gap\?\.rationale/);
+  assert.match(source, /function renderGraphWorkbenchPriorityQueue\(items = \[\], activeKey = "questions"\) \{/);
+  assert.match(source, /最该先处理的 3 条线索/);
+  assert.match(source, /最该先追问的 3 处/);
+  assert.match(html, /\.graph-priority-queue \{[\s\S]*display: grid;[\s\S]*radial-gradient/);
+  assert.match(domain, /suggestedAction: "补一条中间判断，或建立一条能说清理由的关系，把它接回现有论证。"/);
+  assert.doesNotMatch(domain, /Add an intermediate note or an explicit relation/);
 });
 
 test("graph clusters are selectable research objects with their own summary panel", () => {

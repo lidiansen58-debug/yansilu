@@ -4098,6 +4098,21 @@
       font-weight: 700;
       line-height: 1.35;
     }
+    .graph-structure-fallback-note {
+      margin-top: 1px;
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(137, 190, 211, 0.52);
+      background: rgba(239, 250, 255, 0.9);
+      color: #2f647b;
+      font-size: 11px;
+      font-weight: 760;
+      line-height: 1.35;
+    }
     .graph-focus-depth {
       margin-top: 6px;
       display: flex;
@@ -4692,6 +4707,116 @@
     .graph-workbench-panel-body {
       display: grid;
       gap: 12px;
+    }
+    .graph-priority-queue {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border: 1px solid rgba(188, 222, 209, 0.9);
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(124, 242, 230, 0.12), transparent 34%),
+        linear-gradient(145deg, rgba(247, 253, 250, 0.98), rgba(255, 255, 255, 0.94));
+      box-shadow: 0 10px 22px rgba(15, 111, 72, 0.05);
+    }
+    .graph-priority-queue-head {
+      display: grid;
+      gap: 3px;
+    }
+    .graph-priority-queue-head strong {
+      color: #172033;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .graph-priority-queue-head span {
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .graph-priority-queue-list {
+      display: grid;
+      gap: 7px;
+    }
+    .graph-priority-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px;
+      align-items: stretch;
+    }
+    .graph-priority-item-main {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+      border: 1px solid rgba(216, 229, 236, 0.96);
+      border-left: 3px solid #0f6f48;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #172033;
+      cursor: pointer;
+      font: inherit;
+      padding: 9px 10px;
+      text-align: left;
+      transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .graph-priority-item-main:hover,
+    .graph-priority-item-main:focus-visible {
+      border-color: #b9ddc9;
+      background: #f7fbf9;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.055);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .graph-priority-item.is-bridge .graph-priority-item-main {
+      border-left-color: #3457d5;
+    }
+    .graph-priority-item.is-review .graph-priority-item-main {
+      border-left-color: #a96800;
+    }
+    .graph-priority-item.is-conflict .graph-priority-item-main {
+      border-left-color: #b23b55;
+    }
+    .graph-priority-item.is-isolated .graph-priority-item-main {
+      border-left-color: #64748b;
+    }
+    .graph-priority-item-main span {
+      color: #0f6f48;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+    .graph-priority-item-main strong {
+      color: #172033;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .graph-priority-item-main small {
+      color: #526174;
+      font-size: 11px;
+      line-height: 1.48;
+    }
+    .graph-priority-item-action {
+      align-self: start;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid #cfe4d9;
+      border-radius: 10px;
+      background: #f3fbf6;
+      color: #0f6f48;
+      cursor: pointer;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 850;
+      transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+      white-space: nowrap;
+    }
+    .graph-priority-item-action:hover,
+    .graph-priority-item-action:focus-visible {
+      background: #e8f7ee;
+      border-color: #9dceb4;
+      color: #0b5d3c;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+      outline: none;
     }
     .graph-research-navigator {
       display: grid;
@@ -7472,6 +7597,9 @@
         display: grid;
       }
       .graph-thinking-item {
+        grid-template-columns: 1fr;
+      }
+      .graph-priority-item {
         grid-template-columns: 1fr;
       }
       .graph-thinking-review-note {
