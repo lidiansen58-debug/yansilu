@@ -14883,6 +14883,7 @@ function resetGraphDemoPresentationState() {
   graphState.utilityDrawerPosition = null;
   graphState.sectionOpen = {
     "bridge-gaps": false,
+    "weak-relations": false,
     "review-queue": false,
     "ai-analysis": false
   };
