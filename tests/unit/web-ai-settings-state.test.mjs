@@ -8,6 +8,7 @@ import {
   isLocalModelPack,
   localProviderPresetForModelPack,
   normalizeAiRuntimeMode,
+  providerPresetForModelPack,
   shouldUseOllamaLocalRuntimeForSelection
 } from "../../apps/web/src/ai-settings-state.js";
 
@@ -18,6 +19,9 @@ test("AI settings state normalizes runtime aliases and local pack detection", ()
   assert.equal(isLocalModelPack("Privacy First"), true);
   assert.equal(isLocalModelPack("MiniCPM Local"), true);
   assert.equal(isLocalModelPack("Starter Auto"), false);
+  assert.equal(providerPresetForModelPack("Global Optimized"), "openai_compatible_gateway");
+  assert.equal(providerPresetForModelPack("China Optimized"), "china_optimized_gateway");
+  assert.equal(providerPresetForModelPack("MiniCPM Remote"), "minicpm_remote_gateway");
 });
 
 test("AI settings state promotes explicit local packs into local-only flow", () => {
@@ -49,6 +53,37 @@ test("AI settings state keeps local-only mode on a local pack", () => {
       userMode: "Balanced",
       providerPreset: "local_private_gateway",
       localFlowActive: true
+    }
+  );
+});
+
+test("AI settings state preserves remote provider presets", () => {
+  assert.deepEqual(
+    canonicalizeAiSettingsSelection({
+      runtimeMode: "auto",
+      modelPack: "MiniCPM Remote"
+    }),
+    {
+      runtimeMode: "auto",
+      modelPack: "MiniCPM Remote",
+      userMode: "Auto",
+      providerPreset: "minicpm_remote_gateway",
+      localFlowActive: false
+    }
+  );
+
+  assert.deepEqual(
+    canonicalizeAiSettingsSelection({
+      runtimeMode: "cloud_only",
+      modelPack: "Global Optimized",
+      providerPreset: "openai_compatible_gateway"
+    }),
+    {
+      runtimeMode: "cloud_only",
+      modelPack: "Global Optimized",
+      userMode: "Balanced",
+      providerPreset: "openai_compatible_gateway",
+      localFlowActive: false
     }
   );
 });

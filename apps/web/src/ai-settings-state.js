@@ -1,5 +1,14 @@
 const LOCAL_MODEL_PACKS = new Set(["Privacy First", "Ollama Local", "MiniCPM Local"]);
 const LOCAL_PROVIDER_IDS = new Set(["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"]);
+const MODEL_PACK_PROVIDER_PRESETS = {
+  "Low Cost Research": "openai_compatible_gateway",
+  "Global Optimized": "openai_compatible_gateway",
+  "China Optimized": "china_optimized_gateway",
+  "Privacy First": "local_private_gateway",
+  "Ollama Local": "ollama_local_gateway",
+  "MiniCPM Local": "minicpm_local_gateway",
+  "MiniCPM Remote": "minicpm_remote_gateway"
+};
 export const DEFAULT_AI_SETTINGS_SELECTION = Object.freeze({
   runtimeMode: "auto",
   userMode: "Auto",
@@ -25,12 +34,13 @@ export function isLocalProviderId(providerId = "") {
   return LOCAL_PROVIDER_IDS.has(String(providerId || "").trim());
 }
 
+export function providerPresetForModelPack(modelPack = "") {
+  return MODEL_PACK_PROVIDER_PRESETS[String(modelPack || "").trim()] || "platform_managed_openai";
+}
+
 export function localProviderPresetForModelPack(modelPack = "") {
-  const pack = String(modelPack || "").trim();
-  if (pack === "Ollama Local") return "ollama_local_gateway";
-  if (pack === "MiniCPM Local") return "minicpm_local_gateway";
-  if (pack === "Privacy First") return "local_private_gateway";
-  return "";
+  const providerId = providerPresetForModelPack(modelPack);
+  return isLocalProviderId(providerId) ? providerId : "";
 }
 
 export function shouldUseOllamaLocalRuntimeForSelection(input = {}) {
@@ -60,6 +70,7 @@ function defaultUserModeForSelection({ runtimeMode = "auto", modelPack = "" } = 
 export function canonicalizeAiSettingsSelection(input = {}, options = {}) {
   let runtimeMode = normalizeAiRuntimeMode(input.runtimeMode);
   let modelPack = String(input.modelPack || "").trim() || defaultModelPackForRuntimeMode(runtimeMode);
+  const requestedModelPack = modelPack;
   const syncUserMode = options.syncUserMode === true;
 
   if (runtimeMode === "local_only" && !isLocalModelPack(modelPack)) {
@@ -72,10 +83,11 @@ export function canonicalizeAiSettingsSelection(input = {}, options = {}) {
 
   if (!modelPack) modelPack = defaultModelPackForRuntimeMode(runtimeMode);
 
-  const providerPreset =
-    String(input.providerPreset || "").trim() ||
-    localProviderPresetForModelPack(modelPack) ||
-    "platform_managed_openai";
+  const derivedProviderPreset = providerPresetForModelPack(modelPack);
+  const explicitProviderPreset = String(input.providerPreset || input.provider_preset || "").trim();
+  const providerPreset = explicitProviderPreset && modelPack === requestedModelPack
+    ? explicitProviderPreset
+    : derivedProviderPreset;
   const userMode = syncUserMode
     ? defaultUserModeForSelection({ runtimeMode, modelPack })
     : String(input.userMode || "").trim() || defaultUserModeForSelection({ runtimeMode, modelPack });
