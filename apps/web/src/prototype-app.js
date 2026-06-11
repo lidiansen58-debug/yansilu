@@ -12940,8 +12940,8 @@ function renderGraphVisualMap({
   const markers = Object.entries(GRAPH_RELATION_MARKER_COLORS)
     .map(
       ([key, color]) => `
-        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="5.2" markerHeight="5.2" refX="4.45" refY="2.6" orient="auto" markerUnits="strokeWidth">
-          <path d="M 0.9 1.05 L 4.45 2.6 L 0.9 4.15" fill="none" stroke="${escapeHtml(color)}" stroke-opacity="0.68" stroke-width="0.76" stroke-linecap="round" stroke-linejoin="round"></path>
+        <marker id="graph-arrow-${escapeHtml(key)}" markerWidth="4.2" markerHeight="4.2" refX="3.5" refY="2.1" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0.8 0.9 L 3.5 2.1 L 0.8 3.3" fill="none" stroke="${escapeHtml(color)}" stroke-opacity="0.48" stroke-width="0.52" stroke-linecap="round" stroke-linejoin="round"></path>
         </marker>
       `
     )
@@ -14852,6 +14852,8 @@ async function runGraphAiAnalysis() {
     graphState.thinkingPanelVisible = true;
     graphState.thinkingPanelOpen = true;
     graphState.thinkingFilter = "all";
+    graphState.workbenchPanelOpen = true;
+    graphState.workbenchPanelTab = "questions";
     setStatus(
       count ? `AI 图谱初判已生成 ${count} 条待审候选，已在可追问处展开` : "AI 图谱初判完成，已打开可追问处",
       count ? "ok" : ""
