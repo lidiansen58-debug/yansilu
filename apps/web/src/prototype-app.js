@@ -14849,6 +14849,7 @@ async function runGraphAiAnalysis() {
     });
     graphState.aiAnalysis = result;
     const count = Number(result?.reviewItems?.summary?.artifactCount || 0);
+    graphState.thinkingPanelVisible = true;
     graphState.thinkingPanelOpen = true;
     graphState.thinkingFilter = "all";
     setStatus(
