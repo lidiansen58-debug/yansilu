@@ -33,6 +33,18 @@ export function localProviderPresetForModelPack(modelPack = "") {
   return "";
 }
 
+export function shouldUseOllamaLocalRuntimeForSelection(input = {}) {
+  const runtimeMode = normalizeAiRuntimeMode(input.runtimeMode || input.runtime_mode);
+  const providerId = String(
+    input.providerPreset ||
+      input.provider_preset ||
+      localProviderPresetForModelPack(input.modelPack || input.model_pack) ||
+      ""
+  ).trim();
+  if (providerId === "ollama_local_gateway") return true;
+  return providerId === "local_private_gateway" && ["local_only", "hybrid"].includes(runtimeMode);
+}
+
 function defaultModelPackForRuntimeMode(runtimeMode = "auto") {
   const mode = normalizeAiRuntimeMode(runtimeMode);
   if (mode === "local_only") return "Privacy First";

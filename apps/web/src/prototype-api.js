@@ -106,11 +106,15 @@ export async function fetchOllamaModels() {
   return json.item || null;
 }
 
-export async function pullOllamaModel(model) {
+export async function pullOllamaModel(model, options = {}) {
   const json = await request("/api/v1/ai/local-runtimes/ollama/pull-model", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: String(model || "").trim() })
+    body: JSON.stringify({
+      model: String(model || "").trim(),
+      ...(options?.enable === true || options?.enableLocal === true ? { enable: true } : {}),
+      ...(options?.runtimeMode ? { runtimeMode: String(options.runtimeMode).trim() } : {})
+    })
   });
   return json.item || null;
 }

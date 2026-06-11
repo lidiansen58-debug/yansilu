@@ -20,6 +20,14 @@ function defaultModelPackForMode(userMode) {
   return cleanText(userMode) === "Local / Private" ? "Privacy First" : "Starter Auto";
 }
 
+function normalizeRuntimeMode(value = "") {
+  const mode = cleanText(value).toLowerCase().replace(/[\s/-]+/g, "_");
+  if (["local", "local_only", "private"].includes(mode)) return "local_only";
+  if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
+  if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
+  return "auto";
+}
+
 export function normalizeAiPreferences(input = {}, existing = {}) {
   const now = new Date().toISOString();
   const userId = cleanText(input.userId || input.user_id || existing.userId) || "local_user";
@@ -61,9 +69,14 @@ export function preferencesToSettingsInput(preferences = null) {
   const advancedSettings = preferences.advancedSettings || {};
   const advancedModelRef = cleanText(advancedSettings.modelRef || advancedSettings.model_ref);
   const advancedSecretRef = cleanText(advancedSettings.secretRef || advancedSettings.secret_ref);
+  const localProviderPreset = cleanText(advancedSettings.localProviderPreset || advancedSettings.local_provider_preset);
+  const localModel = cleanText(advancedSettings.localModel || advancedSettings.local_model);
+  const runtimeMode = normalizeRuntimeMode(advancedSettings.runtimeMode || advancedSettings.runtime_mode);
+  const localProviderActive = Boolean(localProviderPreset && localModel && runtimeMode === "local_only");
   return {
     userMode: preferences.userMode,
     modelPack: preferences.modelPack,
+    ...(localProviderActive ? { providerPreset: localProviderPreset } : {}),
     ...(advancedModelRef ? { modelRef: advancedModelRef } : {}),
     ...(advancedSecretRef ? { secretRef: advancedSecretRef } : {}),
     fallbackPolicy: preferences.fallbackPolicy || {},

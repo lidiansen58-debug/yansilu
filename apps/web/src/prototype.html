@@ -11569,6 +11569,24 @@
         grid-column: 2;
         justify-self: flex-start;
       }
+      .app.settings-desktop-lock {
+        grid-template-columns: 56px minmax(0, 1fr);
+      }
+      .app.settings-desktop-lock .sidebar {
+        display: none;
+      }
+      .app.settings-desktop-lock .main,
+      .app.settings-desktop-lock #moduleWorkspace.settings-mode .module-stage,
+      .app.settings-desktop-lock #settingsPanel {
+        min-width: 0;
+        width: 100%;
+        overflow: visible;
+      }
+      .app.settings-desktop-lock #settingsPanel .settings-grid,
+      .app.settings-desktop-lock #settingsPanel .settings-ai-hero,
+      .app.settings-desktop-lock #settingsPanel .settings-canonical-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
       .settings-map-title-row {
         display: grid;
       }
@@ -15450,7 +15468,7 @@
                               <div class="settings-ai-actions-main">
                                 <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
                                 <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen2.5:7b</button>
+                                <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
                               </div>
                               <div class="settings-ai-actions-secondary">
                                 <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存当前服务配置</button>

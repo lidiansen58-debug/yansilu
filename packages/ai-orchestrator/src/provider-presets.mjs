@@ -165,12 +165,12 @@ const PROVIDER_PRESETS = {
       local_private: "ollama_local_gateway:local_private"
     },
     runtimeModelMap: {
-      "ollama_local_gateway:router_fast": "qwen2.5:3b",
-      "ollama_local_gateway:cheap_fast": "qwen2.5:3b",
-      "ollama_local_gateway:standard": "qwen2.5:3b",
-      "ollama_local_gateway:strong_reasoning": "qwen2.5:3b",
-      "ollama_local_gateway:guardrail": "qwen2.5:3b",
-      "ollama_local_gateway:local_private": "qwen2.5:3b"
+      "ollama_local_gateway:router_fast": "qwen3:4b",
+      "ollama_local_gateway:cheap_fast": "qwen3:4b",
+      "ollama_local_gateway:standard": "qwen3:4b",
+      "ollama_local_gateway:strong_reasoning": "qwen3:4b",
+      "ollama_local_gateway:guardrail": "qwen3:4b",
+      "ollama_local_gateway:local_private": "qwen3:4b"
     }
   },
   minicpm_local_gateway: {

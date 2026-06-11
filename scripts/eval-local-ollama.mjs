@@ -25,7 +25,7 @@ async function fetchJson(pathname) {
 function preferredModelName(models = []) {
   const names = models.map((model) => String(model?.name || model?.model || "").trim()).filter(Boolean);
   if (OLLAMA_MODEL) return OLLAMA_MODEL;
-  for (const pattern of [/qwen2\.5.*7b/i, /qwen.*7b/i, /qwen2\.5.*3b/i, /llama3\.1.*8b/i, /phi.*3\.5/i, /gemma2.*2b/i]) {
+  for (const pattern of [/qwen3.*4b/i, /llama3\.2.*3b/i, /gemma3.*4b/i, /qwen2\.5.*7b/i, /qwen.*7b/i, /qwen2\.5.*3b/i, /llama3\.1.*8b/i, /phi.*3\.5/i, /gemma2.*2b/i]) {
     const match = names.find((name) => pattern.test(name));
     if (match) return match;
   }
@@ -164,7 +164,7 @@ async function main() {
   const modelName = preferredModelName(Array.isArray(tags.models) ? tags.models : []);
   if (!modelName) {
     console.error("Ollama is reachable, but no models are installed.");
-    console.error("Suggested small models: qwen2.5:7b, qwen2.5:3b, llama3.1:8b, phi3.5:latest, gemma2:2b.");
+    console.error("Suggested small models: qwen3:4b, llama3.2:3b, gemma3:4b, qwen2.5:7b, qwen2.5:3b.");
     process.exitCode = 2;
     return;
   }

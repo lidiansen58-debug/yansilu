@@ -770,7 +770,7 @@ test("provider presets expose normalized descriptors and model maps", () => {
   assert.equal(ollamaLocal.adapterType, "local_gateway");
   assert.equal(ollamaLocal.localExecution, true);
   assert.equal(ollamaLocal.endpointUrl, "http://localhost:11434/v1/chat/completions");
-  assert.equal(ollamaLocal.runtimeModelMap["ollama_local_gateway:local_private"], "qwen2.5:3b");
+  assert.equal(ollamaLocal.runtimeModelMap["ollama_local_gateway:local_private"], "qwen3:4b");
   assert.equal(minicpmLocal.adapterType, "local_gateway");
   assert.equal(minicpmLocal.localExecution, true);
   assert.equal(minicpmLocal.modelMap.local_private, "minicpm_local_gateway:local_private");
@@ -1456,10 +1456,10 @@ test("openai-compatible adapter applies Ollama local defaults", () => {
 
   assert.equal(request.endpointUrl, "http://localhost:11434/v1/chat/completions");
   assert.equal(request.auth.authMode, "local_no_key");
-  assert.equal(request.body.model, "qwen2.5:3b");
+  assert.equal(request.body.model, "qwen3:4b");
   assert.equal(request.metadata.providerId, "ollama_local_gateway");
   assert.equal(request.metadata.modelRef, "ollama_local_gateway:local_private");
-  assert.equal(request.metadata.runtimeModelRef, "qwen2.5:3b");
+  assert.equal(request.metadata.runtimeModelRef, "qwen3:4b");
 });
 
 test("openai-compatible executor builds authenticated fetch requests through secret refs", async () => {

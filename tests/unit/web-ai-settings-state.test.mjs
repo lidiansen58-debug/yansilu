@@ -7,7 +7,8 @@ import {
   isAiLocalFlowActive,
   isLocalModelPack,
   localProviderPresetForModelPack,
-  normalizeAiRuntimeMode
+  normalizeAiRuntimeMode,
+  shouldUseOllamaLocalRuntimeForSelection
 } from "../../apps/web/src/ai-settings-state.js";
 
 test("AI settings state normalizes runtime aliases and local pack detection", () => {
@@ -82,6 +83,22 @@ test("AI settings state can sync user mode and derive local flow badges", () => 
   assert.equal(hybrid.userMode, "Auto");
   assert.equal(isAiLocalFlowActive({ runtimeMode: "hybrid", modelPack: "Starter Auto" }), true);
   assert.equal(localProviderPresetForModelPack("Ollama Local"), "ollama_local_gateway");
+});
+
+test("AI settings state allows Ollama runtime saves for local private routes without touching MiniCPM", () => {
+  assert.equal(shouldUseOllamaLocalRuntimeForSelection({
+    runtimeMode: "local_only",
+    modelPack: "Privacy First"
+  }), true);
+  assert.equal(shouldUseOllamaLocalRuntimeForSelection({
+    runtimeMode: "hybrid",
+    modelPack: "Starter Auto",
+    providerPreset: "local_private_gateway"
+  }), true);
+  assert.equal(shouldUseOllamaLocalRuntimeForSelection({
+    runtimeMode: "local_only",
+    modelPack: "MiniCPM Local"
+  }), false);
 });
 
 test("AI settings state rebuilds vault preferences and clears missing overrides", () => {

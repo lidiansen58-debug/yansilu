@@ -121,6 +121,9 @@ const CWD = process.cwd();
 const DEFAULT_VAULT_PATH = path.resolve(process.env.VAULT_PATH || path.join(CWD, "vault-example", "yansilu-vault"));
 const YIJING_KNOWLEDGE_NETWORK_FIXTURE_PATH = path.join(CWD, "tests", "fixtures", "knowledge-network", "yijing-network.json");
 const OLLAMA_BASE_URL = String(process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/+$/, "");
+const OLLAMA_RECOMMENDED_MODEL = "qwen3:4b";
+const OLLAMA_RECOMMENDED_MODELS = ["qwen3:4b", "llama3.2:3b", "gemma3:4b", "qwen2.5:7b", "qwen2.5:3b"];
+const LOCAL_MODEL_TIERS = ["router_fast", "cheap_fast", "standard", "strong_reasoning", "guardrail", "local_private"];
 let VAULT_PATH = DEFAULT_VAULT_PATH;
 let AUTH_STATE_PATH = path.resolve(DEFAULT_VAULT_PATH, ".yansilu", "auth-state.json");
 const STRIPE_SECRET_KEY = String(process.env.STRIPE_SECRET_KEY || "").trim();
@@ -318,6 +321,217 @@ function normalizeOllamaModel(model = {}) {
   };
 }
 
+function runtimeModelMapForLocalModel(providerId = "ollama_local_gateway", modelName = OLLAMA_RECOMMENDED_MODEL) {
+  const cleanProviderId = cleanText(providerId) || "ollama_local_gateway";
+  const cleanModel = cleanText(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  return Object.fromEntries(LOCAL_MODEL_TIERS.map((tier) => [`${cleanProviderId}:${tier}`, cleanModel]));
+}
+
+function preferredOllamaModelNames(models = []) {
+  const installedNames = (Array.isArray(models) ? models : [])
+    .map((model) => cleanText(model?.name || model?.model || model))
+    .filter(Boolean);
+  const seen = new Set();
+  return [...installedNames, ...OLLAMA_RECOMMENDED_MODELS].filter((name) => {
+    const key = name.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function ollamaSetupGuide(status = "unavailable", models = []) {
+  const hasModels = Array.isArray(models) && models.length > 0;
+  if (status !== "available") {
+    return {
+      nextAction: "install_or_start_ollama",
+      installUrl: "https://ollama.com/download",
+      steps: [
+        "下载并安装 Ollama。",
+        "启动 Ollama，让它在后台运行。",
+        "回到研思录，重新检测 Ollama。"
+      ]
+    };
+  }
+  if (!hasModels) {
+    return {
+      nextAction: "pull_recommended_model",
+      recommendedModel: OLLAMA_RECOMMENDED_MODEL,
+      steps: [
+        `下载推荐模型 ${OLLAMA_RECOMMENDED_MODEL}。`,
+        "下载完成后，研思录会把它设为本地模型。",
+        "运行一次测试聊天，确认请求走本地模型。"
+      ]
+    };
+  }
+  return {
+    nextAction: "select_or_test_model",
+    recommendedModel: preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL,
+    steps: [
+      "从已安装模型里选择一个作为本地模型。",
+      "保存当前服务配置。",
+      "运行一次测试聊天，确认模型可用。"
+    ]
+  };
+}
+
+function normalizeLocalRuntimeMode(value = "") {
+  const mode = cleanText(value).toLowerCase().replace(/[\s/-]+/g, "_");
+  if (mode === "hybrid" || mode === "mixed" || mode === "local_cloud") return "hybrid";
+  return "local_only";
+}
+
+function normalizeAiRuntimeModeForRouting(value = "") {
+  const mode = cleanText(value).toLowerCase().replace(/[\s/-]+/g, "_");
+  if (["local", "local_only", "private"].includes(mode)) return "local_only";
+  if (["hybrid", "mixed", "local_cloud"].includes(mode)) return "hybrid";
+  if (["cloud", "cloud_only", "remote"].includes(mode)) return "cloud_only";
+  return "auto";
+}
+
+function advancedSettingsFrom(input = {}) {
+  return input.advancedSettings || input.advanced_settings || {};
+}
+
+function runtimeModeFromSettings(input = {}) {
+  const advancedSettings = advancedSettingsFrom(input);
+  return normalizeAiRuntimeModeForRouting(input.runtimeMode || input.runtime_mode || advancedSettings.runtimeMode || advancedSettings.runtime_mode);
+}
+
+function localModelFromSettings(input = {}) {
+  const advancedSettings = advancedSettingsFrom(input);
+  return cleanText(input.localModel || input.local_model || advancedSettings.localModel || advancedSettings.local_model);
+}
+
+function isLocalProviderPreset(value = "") {
+  return ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(cleanText(value));
+}
+
+function localProviderPresetFromSettings(input = {}, userSettings = {}) {
+  const advancedSettings = advancedSettingsFrom(input);
+  const providerPreset = cleanText(
+    input.localProviderPreset ||
+      input.local_provider_preset ||
+      advancedSettings.localProviderPreset ||
+      advancedSettings.local_provider_preset ||
+      input.providerPreset ||
+      input.provider_preset ||
+      userSettings.providerPreset ||
+      userSettings.provider_preset
+  );
+  return isLocalProviderPreset(providerPreset) ? providerPreset : "local_private_gateway";
+}
+
+function requestedModelTier(input = {}, agent = {}) {
+  return cleanText(input.modelTier || input.model_tier || agent.defaultModelTier || agent.default_model_tier) || "standard";
+}
+
+function shouldPreferLocalForHybridRoute({ settingsInput = {}, userSettings = {}, input = {}, agent = {}, privacyMode = "normal" } = {}) {
+  if (privacyMode === "local_only") return { preferLocal: true, reason: "privacy_local_only" };
+  if (input.forceCloud === true || input.force_cloud === true) return { preferLocal: false, reason: "force_cloud" };
+  if (input.forceLocal === true || input.force_local === true) return { preferLocal: true, reason: "force_local" };
+
+  const runtimeMode = runtimeModeFromSettings(settingsInput);
+  const hybridEnabled = runtimeMode === "hybrid" || (userSettings.privacy?.localPreferred === true && userSettings.privacy?.allowCloud !== false);
+  if (!hybridEnabled) return { preferLocal: false, reason: "hybrid_disabled" };
+  if (!localModelFromSettings(settingsInput)) return { preferLocal: false, reason: "local_model_missing" };
+
+  const agentId = cleanText(agent.agentId || agent.agent_id);
+  const taskType = cleanText(input.taskType || input.task_type).toLowerCase();
+  const tier = requestedModelTier(input, agent);
+  if (agentId === "connection_agent") return { preferLocal: true, reason: "lightweight_agent" };
+  if (["router_fast", "cheap_fast", "guardrail", "local_private"].includes(tier)) return { preferLocal: true, reason: "lightweight_tier" };
+  if (/relation|link|tag|classif|summar|summary|title|quick/.test(taskType)) return { preferLocal: true, reason: "lightweight_task" };
+  return { preferLocal: false, reason: "cloud_preferred_task" };
+}
+
+function settingsForHybridRoute({ settingsInput = {}, userSettings = {}, input = {}, agent = {}, privacyMode = "normal" } = {}) {
+  const decision = shouldPreferLocalForHybridRoute({ settingsInput, userSettings, input, agent, privacyMode });
+  if (!decision.preferLocal) return { settingsInput, decision };
+
+  const localProviderPreset = localProviderPresetFromSettings(settingsInput, userSettings);
+  const localModel = localModelFromSettings(settingsInput);
+  const modelRef = localModel ? `${localProviderPreset}:${localModel}` : advancedModelRefFrom(settingsInput);
+  return {
+    settingsInput: {
+      ...settingsInput,
+      providerPreset: localProviderPreset,
+      provider_preset: localProviderPreset,
+      authMode: cleanText(settingsInput.authMode || settingsInput.auth_mode) || "local_no_key",
+      ...(modelRef ? { modelRef } : {}),
+      advancedSettings: {
+        ...advancedSettingsFrom(settingsInput),
+        ...(modelRef ? { modelRef } : {})
+      }
+    },
+    decision: {
+      ...decision,
+      providerPreset: localProviderPreset,
+      modelRef
+    }
+  };
+}
+
+async function enableOllamaLocalModel(modelName = OLLAMA_RECOMMENDED_MODEL, options = {}) {
+  await initVault(VAULT_PATH);
+  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
+  const runtimeMode = normalizeLocalRuntimeMode(options.runtimeMode || options.runtime_mode);
+  const providerId = runtimeMode === "hybrid" ? "local_private_gateway" : "ollama_local_gateway";
+  const modelPack = runtimeMode === "hybrid" ? "Starter Auto" : "Ollama Local";
+  const userMode = runtimeMode === "hybrid" ? "Auto" : "Local / Private";
+  const privacy = runtimeMode === "hybrid"
+    ? { defaultMode: "normal", allowCloud: true, localPreferred: true }
+    : { defaultMode: "local_only", allowCloud: false, localPreferred: true };
+  const fallbackPolicy = runtimeMode === "hybrid"
+    ? {
+        allowSameProviderFallback: true,
+        allowCrossProviderFallback: true,
+        allowCloudFallback: true,
+        requiresConfirmationForCloud: false,
+        localPreferred: true
+      }
+    : {
+        allowSameProviderFallback: true,
+        allowCrossProviderFallback: false,
+        allowCloudFallback: false,
+        requiresConfirmationForCloud: true
+      };
+  const preferencesStore = await aiPreferencesStore();
+  const preferences = preferencesStore.setUserPreferences({
+    workspaceId: "local_workspace",
+    userId: "local_user",
+    userMode,
+    modelPack,
+    privacy,
+    fallbackPolicy,
+    advancedSettings: {
+      runtimeMode,
+      localModel: model,
+      localProviderPreset: providerId,
+      ...(runtimeMode === "local_only" ? { modelRef: `${providerId}:${model}` } : {})
+    }
+  });
+  const configStore = await aiProviderConfigStore();
+  const providerConfig = configStore.setProviderConfig({
+    providerId,
+    displayName: "Ollama Local",
+    adapterType: "local_gateway",
+    status: "enabled",
+    authMode: "local_no_key",
+    endpointUrl: `${OLLAMA_BASE_URL}/v1/chat/completions`,
+    runtimeModelMap: runtimeModelMapForLocalModel(providerId, model),
+    healthCheck: {
+      enabled: true,
+      endpointUrl: `${OLLAMA_BASE_URL}/api/tags`,
+      method: "GET",
+      timeoutMs: 5000,
+      expectedStatus: 200,
+      intervalSeconds: 300
+    }
+  });
+  return { preferences, providerConfig };
+}
+
 async function buildOllamaModelsPreview() {
   const healthEndpointUrl = `${OLLAMA_BASE_URL}/api/tags`;
   const chatEndpointUrl = `${OLLAMA_BASE_URL}/v1/chat/completions`;
@@ -334,10 +548,9 @@ async function buildOllamaModelsPreview() {
       healthEndpointUrl,
       latencyMs: Date.now() - startedAt,
       models,
-      recommendedModels: models
-        .map((model) => model.name)
-        .filter((name) => /qwen|llama|phi|gemma|mistral/i.test(name))
-        .slice(0, 6),
+      recommendedModels: preferredOllamaModelNames(models).slice(0, 8),
+      recommendedModel: preferredOllamaModelNames(models)[0] || OLLAMA_RECOMMENDED_MODEL,
+      setupGuide: ollamaSetupGuide(response.ok ? "available" : "unavailable", models),
       message: response.ok ? "" : `Ollama returned HTTP ${response.status}`
     };
   } catch (error) {
@@ -350,14 +563,16 @@ async function buildOllamaModelsPreview() {
       healthEndpointUrl,
       latencyMs: Date.now() - startedAt,
       models: [],
-      recommendedModels: ["qwen2.5:7b", "qwen2.5:3b", "llama3.1:8b", "phi3.5:latest", "gemma2:2b"],
+      recommendedModels: [...OLLAMA_RECOMMENDED_MODELS],
+      recommendedModel: OLLAMA_RECOMMENDED_MODEL,
+      setupGuide: ollamaSetupGuide("unavailable", []),
       message: cleanText(error?.message) || "Ollama is not reachable."
     };
   }
 }
 
-async function pullOllamaModel(modelName = "qwen2.5:7b") {
-  const model = normalizeOllamaPullModelName(modelName) || "qwen2.5:7b";
+async function pullOllamaModel(modelName = OLLAMA_RECOMMENDED_MODEL) {
+  const model = normalizeOllamaPullModelName(modelName) || OLLAMA_RECOMMENDED_MODEL;
   const startedAt = Date.now();
   const pullEndpointUrl = `${OLLAMA_BASE_URL}/api/pull`;
   const { response, json } = await fetchJsonWithTimeout(pullEndpointUrl, {
@@ -407,7 +622,16 @@ async function buildAiRoutePreview(input = {}) {
   const modelRef = advancedModelRefFrom({ ...settingsInput, ...input, advancedSettings });
   if (modelRef) settingsInput.modelRef = modelRef;
 
-  const userSettings = resolveAiUserSettings(settingsInput);
+  let userSettings = resolveAiUserSettings(settingsInput);
+  const routeAgent = {
+    agentId: "settings_preview_agent",
+    defaultModelTier: cleanText(input.modelTier || input.model_tier) || "standard",
+    requiredCapabilities: ["structured_output"]
+  };
+  const privacyMode = cleanText(input.privacyMode || input.privacy_mode || userSettings.privacy.defaultMode) || "normal";
+  const hybridRoute = settingsForHybridRoute({ settingsInput, userSettings, input, agent: routeAgent, privacyMode });
+  Object.assign(settingsInput, hybridRoute.settingsInput);
+  userSettings = resolveAiUserSettings(settingsInput);
   const configStore = await aiProviderConfigStore();
   const providerConfig = configStore.getProviderConfig({ providerId: settingsInput.providerPreset || userSettings.providerPreset });
   if (providerConfig) {
@@ -428,7 +652,6 @@ async function buildAiRoutePreview(input = {}) {
     });
   }
   const providerDescriptor = resolveProviderDescriptor(settingsInput);
-  const privacyMode = cleanText(input.privacyMode || input.privacy_mode || userSettings.privacy.defaultMode) || "normal";
   const cloudAllowed = userSettings.privacy.allowCloud !== false && privacyMode !== "local_only";
   const route = resolveModelRoute({
     ...settingsInput,
@@ -439,12 +662,8 @@ async function buildAiRoutePreview(input = {}) {
         cloudAllowed
       }
     },
-    agent: {
-      agentId: "settings_preview_agent",
-      defaultModelTier: cleanText(input.modelTier || input.model_tier) || "standard",
-      requiredCapabilities: ["structured_output"]
-    },
-    modelRef
+    agent: routeAgent,
+    modelRef: cleanText(settingsInput.modelRef) || modelRef
   });
   const healthStore = await aiProviderHealthStore();
   const latestProviderHealth = healthStore.getLatestProviderHealth({ providerId: providerDescriptor.providerId });
@@ -601,21 +820,31 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     advancedSettings
   };
 
-  const userSettings = resolveAiUserSettings(settingsInput);
-  const providerId = cleanText(settingsInput.providerPreset || settingsInput.providerId || settingsInput.provider_id || userSettings.providerPreset);
+  const baseUserSettings = resolveAiUserSettings(settingsInput);
+  const privacyMode =
+    cleanText(defaults.privacyMode || input.privacyMode || input.privacy_mode) ||
+    baseUserSettings.privacy?.defaultMode ||
+    "normal";
+  const routeAgent = {
+    agentId: cleanText(input.agentId || input.agent_id || defaults.agentId || defaults.agent_id),
+    defaultModelTier: input.modelTier ?? input.model_tier ?? defaults.modelTier ?? "standard"
+  };
+  const hybridRoute = settingsForHybridRoute({ settingsInput, userSettings: baseUserSettings, input, agent: routeAgent, privacyMode });
+  const routedSettingsInput = hybridRoute.settingsInput;
+  const providerId = cleanText(routedSettingsInput.providerPreset || routedSettingsInput.providerId || routedSettingsInput.provider_id || baseUserSettings.providerPreset);
   const configStore = await aiProviderConfigStore();
   const providerConfig = providerId ? configStore.getProviderConfig({ providerId }) : null;
   const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
   const mergedSettings = {
-    ...settingsInput,
+    ...routedSettingsInput,
     ...providerSettings,
-    secretRef: cleanText(settingsInput.secretRef) || providerSettings.secretRef,
-    modelRef: cleanText(settingsInput.modelRef) || providerSettings.modelRef,
+    secretRef: cleanText(routedSettingsInput.secretRef) || providerSettings.secretRef,
+    modelRef: cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef,
     headers: {
       ...(providerSettings.headers || {}),
-      ...(settingsInput.headers || {})
+      ...(routedSettingsInput.headers || {})
     },
-    runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, settingsInput.runtimeModelMap)
+    runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, routedSettingsInput.runtimeModelMap)
   };
   const providerDescriptor = resolveProviderDescriptor(mergedSettings);
   const resolvedUserSettings = resolveAiUserSettings(mergedSettings);
@@ -624,7 +853,7 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
     providerDescriptor,
     userMode: input.userMode ?? input.user_mode ?? defaults.userMode ?? resolvedUserSettings.userMode,
     modelTier: input.modelTier ?? input.model_tier ?? defaults.modelTier ?? "standard",
-    privacyMode: defaults.privacyMode || input.privacyMode || input.privacy_mode || resolvedUserSettings.privacy?.defaultMode
+    privacyMode
   });
   const useMockProviderAdapters = enabledFlag(input, "useMockProviderAdapters", "use_mock_provider_adapters");
   const registry = createProviderAdapterRegistry({
@@ -2614,6 +2843,11 @@ const server = http.createServer(async (req, res) => {
         const requestedModel = normalizeOllamaPullModelName(body.model || body.modelName || body.model_name);
         if (!requestedModel) return sendJson(res, 400, err("OLLAMA_MODEL_REQUIRED", "valid Ollama model name required", rid));
         const item = await pullOllamaModel(requestedModel);
+        if (body.enable === true || body.enable_local === true || body.enableLocal === true) {
+          item.enabled = await enableOllamaLocalModel(item.model, {
+            runtimeMode: body.runtimeMode || body.runtime_mode
+          });
+        }
         return sendJson(res, 200, {
           item,
           requestId: rid,
@@ -2759,19 +2993,31 @@ const server = http.createServer(async (req, res) => {
           modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
         };
 
-        const userSettings = resolveAiUserSettings(settingsInput);
-        const providerPreset = String(userSettings.providerPreset || "").trim();
+        const baseUserSettings = resolveAiUserSettings(settingsInput);
+        const modelTier = body.modelTier ?? body.model_tier ?? "standard";
+        const privacyMode = body.privacyMode ?? body.privacy_mode ?? baseUserSettings.privacy?.defaultMode ?? "normal";
+        const hybridRoute = settingsForHybridRoute({
+          settingsInput,
+          userSettings: baseUserSettings,
+          input: body,
+          agent: { agentId: "test_chat_agent", defaultModelTier: modelTier },
+          privacyMode
+        });
+        const routedSettingsInput = hybridRoute.settingsInput;
+        const userSettings = resolveAiUserSettings(routedSettingsInput);
+        const providerPreset = String(routedSettingsInput.providerPreset || userSettings.providerPreset || "").trim();
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
         const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
-        const mergedSettings = { ...settingsInput, ...providerSettings };
+        const mergedSettings = { ...routedSettingsInput, ...providerSettings };
 
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);
         const modelRoute = resolveModelRoute({
+          ...mergedSettings,
           providerDescriptor,
           userMode: userSettings.userMode,
-          modelTier: body.modelTier ?? body.model_tier ?? "standard",
-          privacyMode: body.privacyMode ?? body.privacy_mode ?? userSettings.privacy?.defaultMode ?? "normal"
+          modelTier,
+          privacyMode
         });
 
         runtime = await createAiHarnessRuntime({
@@ -3852,18 +4098,27 @@ const server = http.createServer(async (req, res) => {
           secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
           modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef
         };
-        const userSettings = resolveAiUserSettings(settingsInput);
-        const providerPreset = String(userSettings.providerPreset || "").trim();
+        const artifactPrivacyMode = String(artifact?.privacy?.mode || artifact?.privacy_mode || "").trim();
+        const baseUserSettings = resolveAiUserSettings(settingsInput);
+        const privacyMode = body.privacyMode ?? body.privacy_mode ?? artifactPrivacyMode ?? baseUserSettings.privacy?.defaultMode ?? "normal";
+        const modelTier = body.modelTier ?? body.model_tier ?? "cheap_fast";
+        const hybridRoute = settingsForHybridRoute({
+          settingsInput,
+          userSettings: baseUserSettings,
+          input: { taskType: "summary", ...body, modelTier },
+          agent: { agentId: "ai_inbox_summary_agent", defaultModelTier: modelTier },
+          privacyMode
+        });
+        const routedSettingsInput = hybridRoute.settingsInput;
+        const userSettings = resolveAiUserSettings(routedSettingsInput);
+        const providerPreset = String(routedSettingsInput.providerPreset || userSettings.providerPreset || "").trim();
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
         const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
-        const mergedSettings = { ...settingsInput, ...providerSettings };
+        const mergedSettings = { ...routedSettingsInput, ...providerSettings };
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);
-
-        const artifactPrivacyMode = String(artifact?.privacy?.mode || artifact?.privacy_mode || "").trim();
-        const privacyMode = body.privacyMode ?? body.privacy_mode ?? artifactPrivacyMode ?? userSettings.privacy?.defaultMode ?? "normal";
-        const modelTier = body.modelTier ?? body.model_tier ?? "cheap_fast";
         const modelRoute = resolveModelRoute({
+          ...mergedSettings,
           providerDescriptor,
           userMode: userSettings.userMode,
           modelTier,
