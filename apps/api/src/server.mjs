@@ -1565,10 +1565,10 @@ function payloadWithAdoptedFieldSuggestion(artifact = {}, fieldSuggestion = {}, 
 }
 
 function payloadWithRejectedFieldSuggestion(artifact = {}, suggestion = null) {
+  const copyJson = (value) => JSON.parse(JSON.stringify(value));
   const payload = artifact.payload && typeof artifact.payload === "object" ? artifact.payload : {};
   const originalSuggestion = payload.fieldSuggestion || payload.field_suggestion;
   if (!originalSuggestion || typeof originalSuggestion !== "object") return payload;
-  const copyJson = (value) => JSON.parse(JSON.stringify(value ?? null));
   const nextSource = suggestion && typeof suggestion === "object" && !Array.isArray(suggestion) ? suggestion : originalSuggestion;
   const nextProvenance = nextSource.provenance && typeof nextSource.provenance === "object" ? nextSource.provenance : {};
   const nextHistory = Array.isArray(nextSource.history)

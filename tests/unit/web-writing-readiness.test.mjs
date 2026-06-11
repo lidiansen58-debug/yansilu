@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { EditorPane } from "../../apps/web/src/components-editor-pane.js";
+import { createInitialState } from "../../apps/web/src/prototype-store.js";
 
 function createPane() {
-  return Object.create(EditorPane.prototype);
+  const pane = Object.create(EditorPane.prototype);
+  pane.state = createInitialState();
+  return pane;
 }
 
 test("writing readiness blocks notes without authorship confirmation", () => {

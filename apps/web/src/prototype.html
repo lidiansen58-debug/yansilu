@@ -5677,6 +5677,7 @@
       stroke-linecap: round;
       stroke-linejoin: round;
       opacity: 0.12;
+      opacity: 0.38;
       marker-end: var(--graph-edge-marker, none);
       pointer-events: stroke;
       cursor: pointer;
@@ -5691,6 +5692,8 @@
       stroke-linecap: round;
       stroke-linejoin: round;
       opacity: 0.09;
+      pointer-events: none;
+      filter: blur(1.7px);
       pointer-events: none;
       filter: blur(1.7px);
       vector-effect: non-scaling-stroke;
@@ -5786,6 +5789,7 @@
       stroke-dasharray: 1 8;
       stroke-width: 0.3;
       opacity: 0.1;
+      opacity: 0.14;
       filter: none;
     }
     .graph-map-svg[data-graph-zoom="fit"] .graph-map-edge {
@@ -5836,6 +5840,8 @@
     .graph-map-edge-group:focus-visible .graph-map-edge {
       opacity: 0.62;
       stroke-width: 0.72;
+      opacity: 0.76;
+      stroke-width: 0.92;
     }
     .graph-map-edge-group:hover .graph-map-edge-underlay,
     .graph-map-edge-group:focus-visible .graph-map-edge-underlay {
@@ -5864,6 +5870,16 @@
       opacity: 0.045;
       stroke-width: 0.42;
     }
+    .graph-map-edge-group.is-focused-path .graph-map-edge {
+      opacity: 0.62;
+      stroke-width: 0.88;
+      filter: drop-shadow(0 0 4px rgba(129, 218, 255, 0.08));
+      animation: graphLanePulse 5.8s ease-in-out infinite;
+    }
+    .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge {
+      opacity: 0.12;
+      stroke-width: 0.56;
+    }
     .graph-map-panel.has-reading-lens:not(.is-selecting-node):not(.is-hovering-node):not(.is-hovering-edge):not(.is-hovering-thinking) .graph-map-edge-group.is-lens-secondary .graph-map-edge-underlay {
       opacity: 0.018;
     }
@@ -5871,12 +5887,17 @@
       opacity: 0.56;
       stroke-width: 0.74;
       filter: drop-shadow(0 0 3px rgba(15, 111, 72, 0.045));
+      opacity: 0.66;
+      stroke-width: 0.84;
+      filter: drop-shadow(0 0 4px rgba(15, 111, 72, 0.06));
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge,
     .graph-map-panel.is-hovering-thinking .graph-map-edge-group.is-dimmed .graph-map-edge {
       opacity: 0.022;
       stroke-width: 0.34;
+      opacity: 0.06;
+      stroke-width: 0.42;
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-dimmed .graph-map-edge-underlay,
@@ -5889,6 +5910,9 @@
       opacity: 0.7;
       stroke-width: 0.8;
       filter: drop-shadow(0 0 3px rgba(15, 111, 72, 0.06));
+      opacity: 0.84;
+      stroke-width: 0.98;
+      filter: drop-shadow(0 0 4px rgba(15, 111, 72, 0.08));
     }
     .graph-map-panel.is-hovering-node .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
     .graph-map-panel.is-hovering-edge .graph-map-edge-group.is-hovered .graph-map-edge-underlay,
@@ -5903,12 +5927,18 @@
     .graph-map-edge-group.is-selected .graph-map-edge-underlay {
       opacity: 0.24;
       stroke-width: 1.46;
+    }
+    .graph-map-edge-group.is-selected .graph-map-edge-underlay {
+      opacity: 0.28;
+      stroke-width: 1.8;
       stroke: rgba(233, 249, 255, 0.92);
       filter: blur(1.5px);
     }
     .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge {
       opacity: 0.022;
       stroke-width: 0.34;
+      opacity: 0.06;
+      stroke-width: 0.4;
     }
     .graph-map-panel.is-selecting-node .graph-map-edge-group:not(.is-selected-neighborhood) .graph-map-edge-underlay {
       opacity: 0.012;
@@ -5917,6 +5947,9 @@
       opacity: 0.62;
       stroke-width: 0.78;
       filter: drop-shadow(0 0 3px rgba(15, 111, 72, 0.06));
+      opacity: 0.74;
+      stroke-width: 0.9;
+      filter: drop-shadow(0 0 4px rgba(15, 111, 72, 0.08));
     }
     .graph-map-edge-group.is-selected-neighborhood .graph-map-edge-underlay {
       opacity: .22;
@@ -7234,9 +7267,7 @@
       .graph-canvas-toolbar {
         justify-content: flex-start;
       }
-      .graph-advanced-controls .graph-filters {
-        left: 0;
-        right: auto;
+      .graph-toolbar-filter-panel {
         width: min(100%, calc(100vw - 48px));
       }
       .graph-flow-strip,

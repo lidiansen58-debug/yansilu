@@ -624,7 +624,16 @@ test("OpenAI Agents SDK runtime builds an SDK agent and normalizes final output"
 });
 
 test("OpenAI Agents SDK runtime constructs real SDK tools without a network call", async () => {
-  const realSdk = await import("@openai/agents");
+  let realSdk;
+  try {
+    realSdk = await import("@openai/agents");
+  } catch (error) {
+    if (error?.code === "ERR_MODULE_NOT_FOUND") {
+      test.skip("Install @openai/agents to exercise the real SDK construction path.");
+      return;
+    }
+    throw error;
+  }
   let capturedSdkAgent = null;
   const sdk = {
     Agent: realSdk.Agent,

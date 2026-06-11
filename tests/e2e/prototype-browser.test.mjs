@@ -4844,6 +4844,105 @@ test("prototype import panel previews and confirms realistic Obsidian import", a
   if (!stack) return;
   const { apiBase, page } = stack;
 
+  const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "markdown-basic");
+
+  await openImportsModule(page);
+  await page.fill("#importPath", fixturePath);
+  await page.fill("#importPayload", "");
+  await page.fill("#importOptions", JSON.stringify({ detectWikilinks: true, detectAliases: true }));
+  await page.click("#btnImportPreview");
+
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "preview"');
+  });
+  const previewCard = page.locator('#importResult .result-card[data-result-stage="preview"]');
+  await previewCard.waitFor();
+  await previewCard.locator("details.result-candidates-detail summary").click();
+  await page.waitForFunction(() => {
+    const card = document.querySelector('#importResult .result-card[data-result-stage="preview"]');
+    const text = card?.textContent || "";
+    return text.includes("Fixture Import Note") && text.includes("文献笔记");
+  });
+
+  const previewResultText = await page.locator("#importResult").textContent();
+  assert.match(previewResultText || "", /"importRecordId":\s*"/);
+  const importRecordId = await page.inputValue("#importRecordId");
+  assert.ok(importRecordId.startsWith("imp_"));
+
+  const sourceGroup = page.locator("#importResult .candidate-group").filter({
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
+  });
+  const literatureGroup = page.locator("#importResult .candidate-group").filter({
+    has: page.locator(".candidate-group-title", { hasText: /^文献笔记$/ })
+  });
+  await sourceGroup.waitFor();
+  const sourceCheckbox = sourceGroup.locator(".candidate-checkbox").first();
+  const literatureCheckbox = literatureGroup.locator(".candidate-checkbox").first();
+  await expectChecked(sourceCheckbox, true);
+  await expectChecked(literatureCheckbox, true);
+  await literatureCheckbox.uncheck();
+  await waitFor(async () => {
+    const buttonText = await page.locator("#btnImportConfirm").textContent();
+    assert.match(buttonText || "", /1\/2/);
+  }, 7000);
+
+  await page.click("#btnCloseImportOperationResult");
+  await page.click("#btnImportConfirm");
+  await page.waitForFunction(() => {
+    const text = document.querySelector("#importResult")?.textContent || "";
+    return text.includes('"stage": "confirm"') && text.includes('"status": "completed"');
+  });
+  const confirmCard = page.locator('#importResult .result-card[data-result-stage="confirm"]');
+  await confirmCard.waitFor();
+  await confirmCard.locator("details.result-candidates-detail summary").click();
+
+  const confirmResultText = await page.locator("#importResult").textContent();
+  assert.match(confirmResultText || "", /"sources":\s*1/);
+  assert.match(confirmResultText || "", /"literatureNotes":\s*0/);
+  assert.match(confirmResultText || "", /"selectedCandidates":\s*1/);
+  assert.match(confirmResultText || "", /"notes\/sources"/);
+  await page.locator("#importResult .candidate-summary-title").first().waitFor();
+  await page.locator("#importResult .candidate-summary-item", { hasText: "Fixture Import Note" }).waitFor();
+  await confirmCard.locator("details.result-skip-detail summary").click();
+  await page.locator('#importResult [data-skip-focus="unselected"]').click();
+  await page.waitForFunction(() => {
+    const result = document.querySelector("#importResult");
+    const bannerText = result?.querySelector(".candidate-focus-banner")?.textContent || "";
+    const focusedText = result?.querySelector(".candidate-item.is-focused .candidate-title")?.textContent || "";
+    const inlineNotes = Array.from(result?.querySelectorAll(".candidate-inline-note") || []).map((item) => item.textContent || "");
+    return bannerText.includes("未勾选跳过") && focusedText.includes("Fixture Import Note") && inlineNotes.some((text) => text.includes("确认前取消勾选"));
+  });
+  const sourceConfirmGroup = page.locator("#importResult .candidate-group").filter({
+    has: page.locator(".candidate-group-title", { hasText: /^来源卡片$/ })
+  });
+  await page.waitForFunction(() => {
+    const groups = Array.from(document.querySelectorAll("#importResult .candidate-group"));
+    const sourceGroup = groups.find((group) => (group.querySelector(".candidate-group-title")?.textContent || "").trim() === "来源卡片");
+    return Boolean(sourceGroup?.querySelector(".candidate-item.is-muted"));
+  });
+  await page.evaluate(() => document.querySelector('#importResult [data-clear-candidate-focus="1"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await page.waitForFunction(() => !document.querySelector("#importResult .candidate-focus-banner"));
+  await page.waitForFunction(() => !document.querySelector("#importResult .candidate-item.is-focused"));
+
+  const importedLiteratureNotes = await fetchJson(apiBase, "/api/v1/directories/dir_literature_default/notes");
+  assert.equal(importedLiteratureNotes.status, 200);
+  assert.equal(importedLiteratureNotes.json.total, 0);
+});
+
+test("prototype import panel confirms and rolls back realistic Obsidian vault import", async (t) => {
+  if (process.env.RUN_BROWSER_E2E !== "1") {
+    t.skip("Set RUN_BROWSER_E2E=1 to enable browser e2e in local runs.");
+    return;
+  }
+
+  const playwright = await optionalPlaywright(t);
+  if (!playwright) return;
+
+  const stack = await startPrototypeStack(t, playwright);
+  if (!stack) return;
+  const { apiBase, page, vaultPath } = stack;
+
   const fixturePath = path.join(REPO_ROOT, "tests", "fixtures", "imports", "obsidian-realistic-vault");
 
   await openImportsModule(page);
@@ -4925,11 +5024,14 @@ test("prototype export panel exports markdown files through real API", async (t)
   if (!stack) return;
   const { apiBase, page, vaultPath } = stack;
 
-  const createdNote = await postJson(apiBase, "/api/v1/notes", {
+  const createdNote = await createWritingReadyPermanentNote(apiBase, {
     directoryId: "dir_original_default",
-    body: "# Export panel note\n\nThis note should be exported from the browser UI with a [resource file](../../assets/browser-export/asset.txt)."
+    title: "Export panel note",
+    body: "# Export panel note\n\nThis note should be exported from the browser UI with a [resource file](../../assets/browser-export/asset.txt).",
+    thesis: "Export panel notes can be exported through the browser UI.",
+    threeLineSummary: "Export panel note summary.\nIt is ready for export.\nIt includes an asset link.",
+    boundaryOrCounterpoint: "Need to keep linked assets with exported markdown."
   });
-  assert.equal(createdNote.status, 201);
   await fs.mkdir(path.join(vaultPath, "assets", "browser-export"), { recursive: true });
   await fs.writeFile(path.join(vaultPath, "assets", "browser-export", "asset.txt"), "browser asset", "utf8");
 
@@ -4938,18 +5040,19 @@ test("prototype export panel exports markdown files through real API", async (t)
   await page.click("#importWorkspaceTabExport");
   await page.locator("#exportCardMount:not([hidden])").waitFor();
   await page.fill("#exportTargetPath", exportTargetPath);
-  await page.click("#btnExportMarkdown");
-
-  await page.waitForFunction(() => {
-    const text = document.querySelector("#exportResult")?.textContent || "";
-    return text.includes('"stage": "export_markdown"') && text.includes('"assetFiles": 1');
+  await page.evaluate(() => {
+    document.querySelector("#btnExportMarkdown")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   await page.locator("#importOperationResultModal:not(.hidden)").waitFor();
 
+  await waitFor(async () => {
+    const files = await listMarkdownFiles(exportTargetPath);
+    assert.ok(files.length >= 1);
+  }, 30000);
+
   const exportResultText = await page.locator("#exportResult").textContent();
-  assert.match(exportResultText || "", /"exportJobId":\s*"exp_/);
-  assert.match(exportResultText || "", /"status":\s*"queued"/);
-  assert.match(exportResultText || "", /"copiedBreakdown":/);
+  assert.match(exportResultText || "", /导出完成|导出文件已经写到目标目录/);
+  assert.match(exportResultText || "", /"copied":\s*2/);
   assert.match(exportResultText || "", /"assetFiles":\s*1/);
 
   const exportedFiles = await listMarkdownFiles(exportTargetPath);

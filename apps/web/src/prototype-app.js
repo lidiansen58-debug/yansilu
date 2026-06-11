@@ -12645,11 +12645,12 @@ function graphEdgePath(edge, nodeMap) {
   if (!from || !to) return null;
 
   if (from.id === to.id) {
-    const loopRadius = from.radius + 18;
+    const loopRadius = from.radius + 14;
+    const loopLift = loopRadius * 1.6;
     return {
-      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius} ${from.y - loopRadius * 2}, ${from.x + loopRadius * 2} ${from.y}, ${from.x + from.radius + 5} ${from.y}`,
+      d: `M ${from.x} ${from.y - from.radius - 3} C ${from.x + loopRadius * 0.7} ${from.y - loopLift}, ${from.x + loopRadius * 1.9} ${from.y - loopRadius * 0.24}, ${from.x + from.radius + 5} ${from.y}`,
       labelX: from.x + loopRadius + 4,
-      labelY: from.y - loopRadius,
+      labelY: from.y - loopRadius * 0.88,
       titleX: from.x,
       titleY: from.y
     };
@@ -12674,22 +12675,24 @@ function graphEdgePath(edge, nodeMap) {
         : relationGroup === "boundary"
           ? 1.12
           : 1;
-  const curveMagnitude = Math.min(78, Math.max(18, length * 0.12 * curveBoost));
-  const curve = signedSeed === 0 ? curveMagnitude * 0.35 : signedSeed * curveMagnitude;
+  const curveMagnitude = Math.min(42, Math.max(12, length * 0.09 * curveBoost));
+  const curve = signedSeed === 0 ? curveMagnitude * 0.3 : signedSeed * curveMagnitude;
+  const driftSeed = ((graphHash(`${edge.fromNoteId}:${edge.toNoteId}:${edge.relationType}:drift`) % 9) - 4) / 4;
+  const forwardDrift = driftSeed * Math.min(18, Math.max(6, length * 0.042));
   const midX = (startX + endX) / 2;
   const midY = (startY + endY) / 2;
   const controlOffsetX = -unitY * curve;
   const controlOffsetY = unitX * curve;
-  const control1X = startX + dx * 0.32 + controlOffsetX;
-  const control1Y = startY + dy * 0.32 + controlOffsetY;
-  const control2X = startX + dx * 0.68 + controlOffsetX;
-  const control2Y = startY + dy * 0.68 + controlOffsetY;
-  const labelX = midX + controlOffsetX * 0.62;
-  const labelY = midY + controlOffsetY * 0.62;
+  const control1X = startX + dx * 0.28 + controlOffsetX - unitX * forwardDrift;
+  const control1Y = startY + dy * 0.28 + controlOffsetY - unitY * forwardDrift;
+  const control2X = startX + dx * 0.72 + controlOffsetX + unitX * forwardDrift;
+  const control2Y = startY + dy * 0.72 + controlOffsetY + unitY * forwardDrift;
+  const labelX = midX + controlOffsetX * 0.54;
+  const labelY = midY + controlOffsetY * 0.54;
   return {
     d: `M ${startX.toFixed(1)} ${startY.toFixed(1)} C ${control1X.toFixed(1)} ${control1Y.toFixed(1)} ${control2X.toFixed(1)} ${control2Y.toFixed(1)} ${endX.toFixed(1)} ${endY.toFixed(1)}`,
     labelX: Math.round(labelX),
-    labelY: Math.round(labelY - 8),
+    labelY: Math.round(labelY - 6),
     titleX: Math.round(midX),
     titleY: Math.round(midY)
   };

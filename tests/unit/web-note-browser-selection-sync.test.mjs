@@ -7,16 +7,17 @@ import {
   readPrototypeHtmlSource
 } from "./copy-source-helpers.mjs";
 
-test("explorer keeps a distinct current-note state when the editor still has an active tab", async () => {
+test("explorer keeps a distinct current-note state when the editor still has an active tab outside graph mode", async () => {
   const source = await readComponentsExplorerPaneSource();
   const html = await readPrototypeHtmlSource();
 
   assert.ok(source.includes("currentEditorNoteId() {"));
   assert.ok(source.includes("const fileIsSelected = this.state.selectedFileId === note.id;"));
   assert.ok(source.includes("const fileIsCurrent = this.currentEditorNoteId() === note.id;"));
+  assert.ok(source.includes('const showCurrentNoteState = fileIsCurrent && this.state.module !== "graph";'));
   assert.ok(source.includes("item-badge-current"));
   assert.ok(source.includes('`${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`'));
-  assert.ok(source.includes('${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}'));
+  assert.ok(source.includes('${fileIsSelected ? "active" : ""} ${showCurrentNoteState ? "is-current-note" : ""}'));
   assert.ok(html.includes(".item-badge-current {"));
   assert.ok(html.includes(".file-row.is-current-note:not(.active) {"));
 });
