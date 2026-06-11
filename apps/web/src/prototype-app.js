@@ -17002,16 +17002,18 @@ $("btnAiTestChatRun")?.addEventListener("click", async () => {
   settingsState.ai.testOutput = "";
   renderSettingsPanel();
   try {
+    const providerId = currentAiProviderId();
+    const runtimeModelMap = runtimeModelMapForRemoteModel(providerId, settingsState.ai.remoteRuntimeModel);
     const result = await runAiTestChat({
       prompt,
       userMode: settingsState.ai.userMode,
       modelPack: settingsState.ai.modelPack,
       providerPreset: providerPresetForModelPack(settingsState.ai.modelPack),
-      authMode: authModeForProvider(currentAiProviderId(), settingsState.ai.routePreview),
+      authMode: authModeForProvider(providerId, settingsState.ai.routePreview),
       secretRef: settingsState.ai.secretRef,
-      endpointUrl: settingsState.ai.providerEndpointUrl,
       modelRef: settingsState.ai.advancedModelRef,
-      runtimeModelMap: runtimeModelMapForRemoteModel(currentAiProviderId(), settingsState.ai.remoteRuntimeModel),
+      ...(providerId !== "platform_managed_openai" ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
+      ...(Object.keys(runtimeModelMap).length ? { runtimeModelMap } : {}),
       modelTier: "standard",
       privacyMode: settingsState.ai.routePreview?.privacy?.mode || ""
     });
