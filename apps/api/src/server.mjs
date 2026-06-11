@@ -718,6 +718,15 @@ function mergeRuntimeModelMaps(...values) {
   );
 }
 
+function hasRuntimeModelMapEntries(value = null) {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.entries(value).some(([key, runtimeModel]) => cleanText(key) && cleanText(runtimeModel))
+  );
+}
+
 function wantsCanonical(url) {
   const value = cleanText(url?.searchParams?.get("canonical")).toLowerCase();
   return value === "1" || value === "true" || value === "yes";
@@ -3019,6 +3028,20 @@ const server = http.createServer(async (req, res) => {
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
         let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+        if (
+          providerPreset === "platform_managed_openai" &&
+          (cleanText(body.endpointUrl || body.endpoint_url) || hasRuntimeModelMapEntries(body.runtimeModelMap || body.runtime_model_map))
+        ) {
+          return sendJson(
+            res,
+            400,
+            err(
+              "AI_PROVIDER_CONFIG_INVALID",
+              "platform-managed AI does not accept endpointUrl or runtimeModelMap overrides",
+              rid
+            )
+          );
+        }
         if (providerPreset && providerPreset !== "platform_managed_openai") {
           const draftProviderConfig = assertValidAiProviderConfig({
             ...(providerConfig || {}),

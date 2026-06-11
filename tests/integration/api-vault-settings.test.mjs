@@ -404,6 +404,18 @@ test("AI test chat validates unsaved provider settings before network execution"
   assert.equal(unsafe.status, 400, JSON.stringify(unsafe.json));
   assert.equal(unsafe.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
 
+  const unsafePlatform = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not run on an overridden platform endpoint.",
+    modelPack: "Starter Auto",
+    providerPreset: "platform_managed_openai",
+    endpointUrl: "http://example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "platform_managed_openai:standard": "custom-platform-model"
+    }
+  });
+  assert.equal(unsafePlatform.status, 400, JSON.stringify(unsafePlatform.json));
+  assert.equal(unsafePlatform.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
+
   const tested = await postJson(baseUrl, "/api/v1/ai/test-chat", {
     prompt: "Say hello from the configured remote model.",
     modelPack: "Starter Auto",
