@@ -522,7 +522,7 @@ function settingsSectionChromeMap() {
     },
     ai: {
       badge: settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
-      meta: aiSummary.meta || "研究场景、模型来源与连接状态"
+      meta: aiSummary.meta || "本地环境、远程环境与使用方式"
     },
     automation: {
       badge: String(automationCount),
@@ -682,7 +682,7 @@ function settingsItemSummary(itemId = "") {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "设置研究场景、模型来源和试运行。",
+    "ai-settings": "按顺序准备本地/远程 AI 环境，再选择使用方式。",
     automation: "查看定时任务、AI 待办和运行记录。",
     "desktop-help": "查看本地文件、路径和切换规则。",
     feedback: "提交问题、功能想法，或复制问题信息。"
@@ -726,11 +726,11 @@ function settingsSectionGuidanceMap() {
       ]
     },
     ai: {
-      focus: `先确认当前 AI 方案 ${aiSummary.value}，再决定是否需要接入本地模型或远程服务。`,
+      focus: `先准备本地和远程 AI 环境，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
       notes: [
-        "不确定时保持自动，研思录会按任务选择合适路线。",
-        "处理未公开材料时，优先考虑仅本地或混合模式。",
-        "接入自有网关后，先保存服务配置，再用一句短句试运行。"
+        "第 1 步先看本地 Ollama 和本地模型是否需要启用。",
+        "第 2 步再处理远程网关、密钥名称和连接测试。",
+        "环境确认后再选择自动、仅本地、仅远程或混合，并用一句短句试运行。"
       ]
     },
     automation: {
@@ -7180,7 +7180,7 @@ function renderAiSettingsExperience() {
     : runtimeMode === "hybrid"
       ? "混合"
       : runtimeMode === "cloud_only"
-        ? "仅云端"
+        ? "仅远程"
         : "自动";
   const localRuntimeLabel = localMode
     ? localStatus === "available"
@@ -7246,7 +7246,7 @@ function renderAiSettingsExperience() {
       ];
       if (guideAction === "install_or_start_ollama" && guideSteps.length) {
         steps = [
-          { state: "complete", title: "已切到本地模型流程", note: runtimeMode === "hybrid" ? "混合模式已启用，本地模型就绪后会参与轻量任务。" : "仅本地模式已启用，本地模型就绪前不会默认使用云端。" },
+          { state: "complete", title: "已切到本地模型流程", note: runtimeMode === "hybrid" ? "混合模式已启用，本地模型就绪后会参与轻量任务。" : "仅本地模式已启用，本地模型就绪前不会默认使用远程服务。" },
           { state: "current", title: guideSteps[0] || "下载并启动 Ollama", note: guideSteps[1] || "安装后保持 Ollama 在后台运行。" },
           { state: "pending", title: guideSteps[2] || "回到研思录重新检测", note: "检测成功后会显示本地模型列表。" }
         ];
@@ -7288,7 +7288,7 @@ function renderAiSettingsExperience() {
       setupTitle = "本地模型已经就绪";
       setupBody = runtimeMode === "hybrid"
         ? `当前已选中 ${localModel}。混合模式会优先把敏感或轻量任务放到本地，复杂任务仍可保留远程服务。`
-        : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖云端。`;
+        : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖远程服务。`;
       quickstartLabel = "本地已就绪";
       steps = [
         { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
@@ -7509,7 +7509,7 @@ function settingsLeafLabel(value = "", fallback = "默认笔记库") {
 function settingsAiRuntimeModeLabel(value = "") {
   const normalized = normalizeAiRuntimeMode(value || "auto");
   if (normalized === "local_only") return "仅本地";
-  if (normalized === "cloud_only") return "仅云端";
+  if (normalized === "cloud_only") return "仅远程";
   if (normalized === "hybrid") return "混合";
   return "自动";
 }

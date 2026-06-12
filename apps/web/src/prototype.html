@@ -10011,6 +10011,38 @@
       color: #5c6b7b;
       overflow-wrap: anywhere;
     }
+    .settings-ai-order {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .settings-ai-order-item {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(214, 223, 232, 0.9);
+      background: rgba(248, 251, 253, 0.9);
+    }
+    .settings-ai-order-index {
+      font-size: 11px;
+      font-weight: 800;
+      color: #2c6a90;
+    }
+    .settings-ai-order-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #172033;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-order-note {
+      font-size: 11px;
+      line-height: 1.45;
+      color: #64748b;
+      overflow-wrap: anywhere;
+    }
     .settings-ai-section {
       display: grid;
       gap: 10px;
@@ -11625,6 +11657,9 @@
         font-size: 18px;
       }
       .settings-ai-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-ai-order {
         grid-template-columns: minmax(0, 1fr);
       }
       .settings-field-note {
@@ -15241,7 +15276,7 @@
                         </span>
                         <span class="settings-nav-body">
                           <span class="settings-nav-title">AI</span>
-                          <span class="settings-nav-meta" id="settingsNavAiMeta">研究场景、模型来源与连接状态</span>
+                          <span class="settings-nav-meta" id="settingsNavAiMeta">本地环境、远程环境与使用方式</span>
                         </span>
                         <span class="settings-stat-badge" id="settingsNavAiBadge">Auto</span>
                       </button>
@@ -15405,14 +15440,14 @@
                         <div class="settings-pane-kicker">AI</div>
                         <div class="settings-pane-title">AI 设置</div>
                       </div>
-                      <div class="settings-pane-note">使用方式与连接状态。</div>
+                      <div class="settings-pane-note">按顺序准备 AI 环境，再选择使用方式。</div>
                     </div>
                     <div class="settings-pane-stack" id="settingsPaneAiBody">
                       <section class="settings-card" id="settingsCardAiSettings">
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">AI 助手设置</div>
-                            <div class="settings-card-note">先选研究场景，再确认模型来源；不确定时保持推荐项。</div>
+                            <div class="settings-card-note">按顺序准备环境、选择方案，再试运行确认；不确定时保持默认。</div>
                           </div>
                         </div>
                         <div class="settings-ai-layout">
@@ -15446,18 +15481,109 @@
                             </section>
                           </div>
 
+                          <section class="settings-ai-section" aria-label="AI 设置顺序">
+                            <div class="settings-ai-section-head">
+                              <div class="settings-ai-section-title">推荐设置顺序</div>
+                              <div class="settings-ai-section-note">先把能用的环境准备好，再决定研究任务要走本地、远程还是自动。</div>
+                            </div>
+                            <div class="settings-ai-order">
+                              <div class="settings-ai-order-item">
+                                <span class="settings-ai-order-index">第 1 步</span>
+                                <span class="settings-ai-order-title">本地 AI 环境</span>
+                                <span class="settings-ai-order-note">用于敏感材料、离线研究和本机模型。</span>
+                              </div>
+                              <div class="settings-ai-order-item">
+                                <span class="settings-ai-order-index">第 2 步</span>
+                                <span class="settings-ai-order-title">远程 AI 环境</span>
+                                <span class="settings-ai-order-note">用于自有网关、云端模型或团队统一服务。</span>
+                              </div>
+                              <div class="settings-ai-order-item">
+                                <span class="settings-ai-order-index">第 3 步</span>
+                                <span class="settings-ai-order-title">选择使用方式</span>
+                                <span class="settings-ai-order-note">决定日常研究走自动、本地、远程或混合。</span>
+                              </div>
+                              <div class="settings-ai-order-item">
+                                <span class="settings-ai-order-index">第 4 步</span>
+                                <span class="settings-ai-order-title">试运行确认</span>
+                                <span class="settings-ai-order-note">用一句不含敏感内容的话检查是否可用。</span>
+                              </div>
+                            </div>
+                          </section>
+
                           <section class="settings-ai-section">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">研究场景</div>
-                              <div class="settings-ai-section-note">先选你希望 AI 如何参与研究；后面的服务配置会跟着变化。</div>
+                              <div class="settings-ai-section-title">第 1 步：本地 AI 环境</div>
+                              <div class="settings-ai-section-note">如果要处理未公开材料，先确认这台电脑是否有可用的本地模型。</div>
+                            </div>
+                            <div class="settings-ai-grid">
+                              <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
+                              <select id="settingsAiLocalModel">
+                                <option value="">检测 Ollama 后选择</option>
+                              </select>
+                              <div class="settings-field-note">本地模型只在“仅本地”或“混合”时必须准备；日常自动模式可以先跳过。</div>
+                            </div>
+                            <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
+                            <div class="settings-ai-actions">
+                              <div class="settings-ai-actions-main">
+                                <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                                <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                                <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
+                              </div>
+                            </div>
+                          </section>
+
+                          <details class="settings-ai-advanced" id="settingsAiAdvancedSection">
+                            <summary class="settings-ai-advanced-summary">
+                              <span class="settings-ai-advanced-copy">
+                                <span class="settings-ai-advanced-title">第 2 步：远程 AI 环境</span>
+                                <span class="settings-ai-advanced-meta">接入自有网关、云端模型或团队服务时填写；默认平台服务可跳过。</span>
+                              </span>
+                              <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
+                            </summary>
+                            <div class="settings-ai-advanced-body">
+                              <div class="settings-ai-grid">
+                                <label for="settingsAiRemoteRuntimeModel">远程模型</label>
+                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4o-mini、deepseek-chat、minicpm" />
+                                <div class="settings-field-note">选择“全球网关”或“MiniCPM 远程”时填写；这里填服务商实际模型名。</div>
+
+                                <label for="settingsAiSecretRef">密钥名称</label>
+                                <input id="settingsAiSecretRef" spellcheck="false" placeholder="只填名称，不直接填写真实 Key，例如：secret_china_gateway" />
+                                <div class="settings-field-note is-important">这里只写密钥的名字或环境变量引用，不要粘贴真实 API Key。</div>
+
+                                <label for="settingsAiProviderEndpointUrl">服务地址</label>
+                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="云端网关地址，例如：https://gateway.example.com/v1/chat/completions" />
+                                <div class="settings-field-note">远程服务建议使用 HTTPS；不知道服务地址时先向团队管理员确认。</div>
+
+                                <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
+                                <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="留空 = 使用上面的服务地址；例如：https://gateway.example.com/health" />
+                                <div class="settings-field-note">不知道怎么填可以留空；需要单独健康检查时再指定。</div>
+
+                                <label for="settingsAiAdvancedModelRef">指定模型</label>
+                                <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择，例如：platform_managed_openai:standard" />
+                                <div class="settings-field-note">通常留空。只有调试路由时才手动填写完整模型引用。</div>
+                              </div>
+                              <div class="settings-ai-actions">
+                                <div class="settings-ai-actions-secondary">
+                                  <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存服务连接</button>
+                                  <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试服务连接</button>
+                                  <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+
+                          <section class="settings-ai-section">
+                            <div class="settings-ai-section-head">
+                              <div class="settings-ai-section-title">第 3 步：选择 AI 使用方式</div>
+                              <div class="settings-ai-section-note">本地和远程环境准备好后，再选择日常研究任务如何调用 AI。</div>
                             </div>
                             <div class="settings-ai-grid">
                               <label for="settingsAiRuntimeMode">AI 使用方式</label>
                               <select id="settingsAiRuntimeMode">
                                 <option value="auto">自动（推荐，多数研究任务）</option>
                                 <option value="local_only">仅本地（敏感资料优先）</option>
-                                <option value="cloud_only">仅云端（使用远程服务）</option>
-                                <option value="hybrid">混合（敏感任务本地，重任务云端）</option>
+                                <option value="cloud_only">仅远程（使用远程服务）</option>
+                                <option value="hybrid">混合（敏感任务本地，重任务远程）</option>
                               </select>
                               <div class="settings-field-note">不知道怎么选时保持“自动”；需要处理未公开材料时再切到“仅本地”或“混合”。</div>
 
@@ -15475,7 +15601,7 @@
                               </select>
                               <div class="settings-field-note">这是预设方案，不是单个模型名；具体模型会在下方预览里显示。</div>
 
-                              <label for="settingsAiUserMode">使用模式</label>
+                              <label for="settingsAiUserMode">使用偏好</label>
                               <select id="settingsAiUserMode">
                                 <option value="Auto">自动安排</option>
                                 <option value="Economy">节省成本</option>
@@ -15484,30 +15610,12 @@
                                 <option value="Local / Private">本地 / 私密</option>
                               </select>
                               <div class="settings-field-note">这个选项影响任务分配偏好：更快、更省，或更重视推理质量。</div>
-
-                              <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
-                              <select id="settingsAiLocalModel">
-                                <option value="">检测 Ollama 后选择</option>
-                              </select>
-                            </div>
-                            <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
-                            <div class="settings-ai-actions">
-                              <div class="settings-ai-actions-main">
-                                <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                                <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
-                              </div>
-                              <div class="settings-ai-actions-secondary">
-                                <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存服务连接</button>
-                                <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试服务连接</button>
-                                <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
-                              </div>
                             </div>
                           </section>
 
                           <section class="settings-ai-section">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">实际使用预览</div>
+                              <div class="settings-ai-section-title">第 4 步：实际使用预览</div>
                               <div class="settings-ai-section-note">保存或切换后看这里，确认真正会走哪个服务和模型。</div>
                             </div>
                             <div class="settings-stat-row" id="settingsAiRouteStats">
@@ -15516,44 +15624,11 @@
                             <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
                           </section>
 
-                          <details class="settings-ai-advanced" id="settingsAiAdvancedSection">
-                            <summary class="settings-ai-advanced-summary">
-                              <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">服务连接与模型指定</span>
-                                <span class="settings-ai-advanced-meta">只有接入自有网关、远程模型或排查连接时需要填写。</span>
-                              </span>
-                              <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
-                            </summary>
-                            <div class="settings-ai-advanced-body">
-                              <div class="settings-ai-grid">
-                                <label for="settingsAiRemoteRuntimeModel">远程模型</label>
-                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4o-mini、deepseek-chat、minicpm" />
-                                <div class="settings-field-note">选择“全球网关”或“MiniCPM 远程”时填写；这里填服务商实际模型名。</div>
-
-                                <label for="settingsAiAdvancedModelRef">指定模型</label>
-                                <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择，例如：platform_managed_openai:standard" />
-                                <div class="settings-field-note">通常留空。只有调试路由时才手动填写完整模型引用。</div>
-
-                                <label for="settingsAiSecretRef">密钥名称</label>
-                                <input id="settingsAiSecretRef" spellcheck="false" placeholder="只填名称，不直接填写真实 Key，例如：secret_china_gateway" />
-                                <div class="settings-field-note is-important">这里只写密钥的名字或环境变量引用，不要粘贴真实 API Key。</div>
-
-                                <label for="settingsAiProviderEndpointUrl">服务地址</label>
-                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="云端网关或本地地址，例如：https://gateway.example.com/v1/chat/completions" />
-                                <div class="settings-field-note">远程服务建议使用 HTTPS；本地 Ollama 通常会自动填写。</div>
-
-                                <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
-                                <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="留空 = 使用上面的服务地址；例如：http://localhost:11434/api/tags" />
-                                <div class="settings-field-note">不知道怎么填可以留空；需要单独健康检查时再指定。</div>
-                              </div>
-                            </div>
-                          </details>
-
                           <details class="settings-ai-advanced" id="settingsAiLabSection">
                             <summary class="settings-ai-advanced-summary">
                               <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">试运行</span>
-                                <span class="settings-ai-advanced-meta">保存后发一条短句，确认当前设置能正常返回。</span>
+                                <span class="settings-ai-advanced-title">第 4 步：试运行</span>
+                                <span class="settings-ai-advanced-meta">用一句短句确认当前设置能正常返回，再开始正式使用。</span>
                               </span>
                               <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
                             </summary>
@@ -15577,7 +15652,7 @@
                             </div>
                           </details>
 
-                          <div class="settings-footnote">研究人员日常只需要改“研究场景”和“AI 方案”；服务地址、密钥名称和指定模型留给接入自有服务时使用。</div>
+                          <div class="settings-footnote">推荐顺序：先检测本地 AI 环境，再配置远程 AI 环境，随后选择 AI 使用方式和方案，最后试运行确认。</div>
                         </div>
                       </section>
                     </div>
