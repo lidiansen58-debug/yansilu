@@ -128,13 +128,13 @@ function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles =
 
 function folderStateTitle(state = "") {
   if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这个目录下还有未入星系的永久笔记，建议补关系并入知识网络。";
+  if (state === "permanent-isolated") return "这个目录下还有未加入关系网络的孤立笔记。";
   return "";
 }
 
 function noteIconStateTitle(state = "", sourceKind = "") {
   if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这条永久笔记未入星系，建议补一条关系并入知识网络。";
+  if (state === "permanent-isolated") return "这条永久笔记还没有加入关系网络。";
   return "";
 }
 
@@ -162,7 +162,7 @@ function thinkingStatusBadge(note = null) {
 }
 
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记未入星系，建议补一条关系并入知识网络。">未入星系</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有加入关系网络。">孤立笔记</span>`;
 }
 
 function sourcePermanentBadge(state = "", sourceKind = "") {
@@ -204,31 +204,31 @@ export function explorerNewNoteButtonCopy(state = {}) {
   const noteType = typeFromFolder(state, folderId);
   if (noteType === "literature") {
     return {
-      label: "创建文件笔记",
-      title: "在当前文献目录创建文件笔记",
-      ariaLabel: "在当前文献目录创建文件笔记",
-      kindLabel: "文献",
+      label: "",
+      title: "新建文献笔记",
+      ariaLabel: "在当前文献目录新建文献笔记",
+      kindLabel: "",
       entryKind: "literature",
-      mobileLabel: "文献"
+      mobileLabel: ""
     };
   }
   if (noteType === "fleeting") {
     return {
-      label: "创建文件笔记",
-      title: "在当前随笔目录创建文件笔记",
-      ariaLabel: "在当前随笔目录创建文件笔记",
-      kindLabel: "随笔",
+      label: "",
+      title: "新建随笔",
+      ariaLabel: "在当前随笔目录新建随笔",
+      kindLabel: "",
       entryKind: "fleeting",
-      mobileLabel: "随笔"
+      mobileLabel: ""
     };
   }
   return {
-    label: "新建笔记",
+    label: "",
     title: "新建永久笔记",
     ariaLabel: "在当前永久笔记目录新建笔记",
     kindLabel: "",
     entryKind: "permanent",
-    mobileLabel: "永久"
+    mobileLabel: ""
   };
 }
 
@@ -262,8 +262,6 @@ export class ExplorerPane {
 
     this.dragPayload = null;
     this.currentDropTargetId = null;
-    this.collapsedDisconnectedGroups = new Set();
-    this.autoCollapsedDisconnectedGroups = new Set();
     this.expandedFolders = new Set(
       this.state.folders.filter((f) => !f.hidden && f.parentId === null).map((f) => f.id)
     );
@@ -277,11 +275,7 @@ export class ExplorerPane {
     const copy = explorerNewNoteButtonCopy(this.state);
     button.title = copy.title;
     button.dataset.tip = copy.title;
-    button.classList.remove("is-source-note-entry");
     button.dataset.noteEntryKind = copy.entryKind || "permanent";
-    if (copy.entryKind === "fleeting" || copy.entryKind === "literature") {
-      button.classList.add("is-source-note-entry");
-    }
     const folderId = resolveExplorerNewNoteFolderId(this.state);
     const noteType = typeFromFolder(this.state, folderId);
     const ariaLabel = noteType === "literature" ? `${copy.ariaLabel}（文献）` : noteType === "permanent" ? `${copy.ariaLabel}（永久）` : copy.ariaLabel;
@@ -298,18 +292,6 @@ export class ExplorerPane {
       this.expandedFolders.add(cursor.id);
       cursor = cursor.parentId ? folderById(this.state, cursor.parentId) : null;
     }
-  }
-
-  collapseDisconnectedGroup(folderId, { auto = false } = {}) {
-    const cleanId = String(folderId || "").trim();
-    if (!cleanId) return;
-    this.collapsedDisconnectedGroups.add(cleanId);
-    if (auto) this.autoCollapsedDisconnectedGroups.add(cleanId);
-  }
-
-  restoreAutoCollapsedDisconnectedGroups() {
-    this.autoCollapsedDisconnectedGroups.forEach((folderId) => this.collapsedDisconnectedGroups.delete(folderId));
-    this.autoCollapsedDisconnectedGroups.clear();
   }
 
   bind() {
@@ -349,19 +331,6 @@ export class ExplorerPane {
         e.stopPropagation();
         const noteId = String(relationButton.dataset.associateNote || "").trim();
         if (noteId) this.onStateChange("open-note-relations", { noteId, source: "explorer-browser" });
-        return;
-      }
-
-      const disconnectedToggle = e.target.closest("button[data-toggle-disconnected-group]");
-      if (disconnectedToggle) {
-        e.preventDefault();
-        e.stopPropagation();
-        const folderId = String(disconnectedToggle.dataset.toggleDisconnectedGroup || "").trim();
-        if (!folderId) return;
-        this.autoCollapsedDisconnectedGroups.delete(folderId);
-        if (this.collapsedDisconnectedGroups.has(folderId)) this.collapsedDisconnectedGroups.delete(folderId);
-        else this.collapsedDisconnectedGroups.add(folderId);
-        this.render();
         return;
       }
 
@@ -472,6 +441,7 @@ export class ExplorerPane {
 
       const kind = item.dataset.kind;
       const id = item.dataset.id;
+      const graphContext = this.state.module === "graph";
 
       if (kind === "folder") {
         const folder = folderById(this.state, id);
@@ -480,17 +450,22 @@ export class ExplorerPane {
           x: e.clientX,
           y: e.clientY,
           target: { kind, id },
-          actions: [
-            { key: "open", label: "打开目录", icon: "↗" },
-            { key: "new-note-here", label: "在此新建笔记", shortcut: "Ctrl+N", icon: "+" },
-            { key: "new-child", label: "新建子目录...", icon: "▸" },
-            { type: "separator" },
-            { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-            { key: "set-folder-path", label: "设置保存位置...", icon: "⌂" },
-            { key: "reveal-folder", label: "在系统文件管理器中显示", disabled: !folder?.fsPath, icon: "⌂" },
-            { key: "toggle-hidden", label: folder?.hidden ? "显示目录" : "隐藏目录", disabled: isDefault, icon: "◌" },
-            { key: "delete", label: "删除", danger: true, disabled: isDefault, icon: "✕" }
-          ],
+          actions: graphContext
+            ? [
+                { key: "open", label: "查看此范围", icon: "↗" },
+                { key: "refresh-graph", label: "刷新图谱", icon: "↻" }
+              ]
+            : [
+                { key: "open", label: "打开目录", icon: "↗" },
+                { key: "new-note-here", label: "在此新建笔记", shortcut: "Ctrl+N", icon: "+" },
+                { key: "new-child", label: "新建子目录...", icon: "▸" },
+                { type: "separator" },
+                { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
+                { key: "set-folder-path", label: "设置保存位置...", icon: "⌂" },
+                { key: "reveal-folder", label: "在系统文件管理器中显示", disabled: !folder?.fsPath, icon: "⌂" },
+                { key: "toggle-hidden", label: folder?.hidden ? "显示目录" : "隐藏目录", disabled: isDefault, icon: "◌" },
+                { key: "delete", label: "删除", danger: true, disabled: isDefault, icon: "✕" }
+              ],
           onAction: (action, target) => void this.handleContextAction(action, target)
         });
       }
@@ -501,15 +476,20 @@ export class ExplorerPane {
           x: e.clientX,
           y: e.clientY,
           target: { kind, id },
-          actions: [
-            { key: "open", label: "打开笔记", icon: "↗" },
-            ...(canRecordPermanentFromNote(this.state, note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
-            { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
-            { key: "move", label: "移动到...", icon: "⇄" },
-            { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
-            { type: "separator" },
-            { key: "delete", label: "删除", danger: true, icon: "✕" }
-          ],
+          actions: graphContext
+            ? [
+                { key: "open", label: "查看笔记", icon: "↗" },
+                { key: "associate-note", label: "关联笔记", icon: "⇄" }
+              ]
+            : [
+                { key: "open", label: "打开笔记", icon: "↗" },
+                ...(canRecordPermanentFromNote(this.state, note) ? [{ key: "record-permanent", label: "创建永久笔记...", icon: "+" }, { type: "separator" }] : []),
+                { key: "rename", label: "重命名", shortcut: "F2", icon: "✎" },
+                { key: "move", label: "移动到...", icon: "⇄" },
+                { key: "reveal-note", label: "显示 Markdown 文件位置", icon: "⌂" },
+                { type: "separator" },
+                { key: "delete", label: "删除", danger: true, icon: "✕" }
+              ],
           onAction: (action, target) => void this.handleContextAction(action, target)
         });
       }
@@ -564,6 +544,7 @@ export class ExplorerPane {
     if (payload.kind === "file") {
       const note = this.state.notes.find((n) => n.id === payload.id);
       if (!note) return false;
+      this.expandedFolders.add(targetFolderId);
       return { ok: true, kind: "file", id: note.id, targetFolderId };
     }
 
@@ -608,6 +589,12 @@ export class ExplorerPane {
         this.expandedFolders.add(f.id);
         this.onStateChange("select-folder", { folderId: f.id });
         this.onStatus(`已打开目录：${displayFolderName(f)}`, "ok");
+      }
+      if (action === "refresh-graph") {
+        this.expandedFolders.add(f.id);
+        this.onStateChange("select-folder", { folderId: f.id });
+        this.onStateChange("refresh-graph");
+        return;
       }
       if (action === "new-note-here") {
         this.expandedFolders.add(f.id);
@@ -659,7 +646,17 @@ export class ExplorerPane {
     if (target.kind === "file") {
       const n = this.state.notes.find((x) => x.id === target.id);
       if (!n) return;
-      if (action === "open") this.onOpenNote(n.id);
+      if (action === "open") {
+        if (this.state.module === "graph") {
+          this.onStateChange("graph-focus-note", { noteId: n.id });
+        } else {
+          this.onOpenNote(n.id);
+        }
+      }
+      if (action === "associate-note") {
+        this.onStateChange("open-note-relations", { noteId: n.id, source: "graph-context-menu" });
+        return;
+      }
       if (action === "rename") {
         const title = prompt("重命名笔记：", n.title);
         if (title && title.trim()) {
@@ -915,8 +912,6 @@ export class ExplorerPane {
     const folderHasDisconnected = this.isPermanentNoteBrowserScope(folder.id) && this.folderHasDisconnectedNotes(folder.id);
     const folderState = folderHasPendingSource ? "source-pending" : folderHasDisconnected ? "permanent-isolated" : "";
     const folderTitle = folderStateTitle(folderState);
-    const connectedFiles = allFiles.filter((note) => !this.noteIsDisconnected(note));
-    const disconnectedFiles = allFiles.filter((note) => this.noteIsDisconnected(note));
     const pendingSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => canRecordPermanentFromNote(this.state, note)) : [];
     const completedSourceFiles = this.isSourceNoteBrowserScope(folder.id) ? allFiles.filter((note) => !canRecordPermanentFromNote(this.state, note)) : [];
     const folderTrail = [
@@ -937,11 +932,7 @@ export class ExplorerPane {
     if (!expanded) return folderRow;
 
     const fileRows = this.isPermanentNoteBrowserScope(folder.id)
-      ? [
-          connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
-          disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(folder.id, depth + 1, false, disconnectedFiles.length) : "",
-          disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
-        ].join("")
+      ? allFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
       : this.isSourceNoteBrowserScope(folder.id)
         ? [
             pendingSourceFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
@@ -1029,11 +1020,12 @@ export class ExplorerPane {
     const currentBadge = fileIsCurrent && !fileIsSelected
       ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
       : "";
-    const associateButton = disconnected && (permanentSimplifiedScope || !simplifiedNoteBrowser)
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="补一条真实关系，把这条永久笔记并入你的知识网络">接入网络</button>`
+    const showAssociateButton = disconnected && (this.state.module === "graph" || !permanentSimplifiedScope);
+    const associateButton = showAssociateButton
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="关联笔记：选择相关笔记，并写下它们为什么有关">关联笔记</button>`
       : "";
     const trail = permanentSimplifiedScope
-      ? `${disconnectedBadge}${associateButton}`
+      ? this.state.module === "graph" ? associateButton : ""
       : sourceSimplifiedScope
         ? sourcePermanentBadge(sourceState, noteType)
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
@@ -1048,57 +1040,6 @@ export class ExplorerPane {
         <div class="item-trail">${trail}</div>
       </div>
     `;
-  }
-
-  renderDisconnectedGroupLabel(depth) {
-    return `
-      <div class="tree-group-label is-warning" style="--depth:${depth};">
-        <span class="tree-indent"></span>
-        <span class="tree-group-pill"><i aria-hidden="true">✦</i><span>未入星系</span><em>待接入网络</em></span>
-      </div>
-    `;
-  }
-
-  renderDisconnectedGroupToggle(folderId, depth, collapsed = true) {
-    return `
-      <div class="tree-group-label is-warning" style="--depth:${depth};">
-        <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}"><i aria-hidden="true">✦</i><span>${collapsed ? "▸" : "▾"} 未入星系</span><em>待接入网络</em></button>
-      </div>
-    `;
-  }
-
-  renderDisconnectedGroupToggleClean(folderId, depth, collapsed = true, count = 0) {
-    const countLabel = Number(count || 0) > 0 ? `<small>${Number(count || 0)}</small>` : "";
-    return `
-      <div class="tree-group-label is-warning" style="--depth:${depth};">
-        <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}" title="这些永久笔记还没有进入关系网络，建议逐步补关系并入知识网络"><i aria-hidden="true">✦</i><span>${collapsed ? "▸" : "▾"} 未入星系</span>${countLabel}<em>待接入网络</em></button>
-      </div>
-    `;
-  }
-
-  renderDisconnectedQueue(notes = [], depth = 0, groupId = "all-disconnected") {
-    if (!Array.isArray(notes) || !notes.length) return "";
-    const collapsed = this.collapsedDisconnectedGroups.has(groupId);
-    return `
-      <section class="tree-disconnected-queue" aria-label="孤立笔记待接入队列">
-        ${this.renderDisconnectedGroupToggleClean(groupId, depth, collapsed, notes.length)}
-        <div class="tree-disconnected-queue-note">这些永久笔记还没有进入知识网络，建议逐条补关系。</div>
-        ${collapsed ? "" : notes.map((note) => this.renderFileNode(note, depth + 1)).join("")}
-      </section>
-    `;
-  }
-
-  renderGroupedFileRows(files = [], depth = 0, groupId = "") {
-    const connectedFiles = files.filter((note) => !this.noteIsDisconnected(note));
-    const disconnectedFiles = files.filter((note) => this.noteIsDisconnected(note));
-    const disconnectedCollapsed = this.collapsedDisconnectedGroups.has(groupId);
-    return [
-      connectedFiles.map((note) => this.renderFileNode(note, depth)).join(""),
-      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedCollapsed, disconnectedFiles.length) : "",
-      disconnectedCollapsed ? "" : disconnectedFiles.map((note) => this.renderFileNode(note, depth)).join("")
-    ].join("");
   }
 
   render() {
@@ -1131,11 +1072,8 @@ export class ExplorerPane {
       return;
     }
 
-    const rootFileRows = flattenGraphRoot ? this.renderGroupedFileRows(rootFiles, 0, scopedRoot?.id || "dir_original_default") : rootFiles.map((note) => this.renderFileNode(note, 0)).join("");
-    const disconnectedQueue = this.isPermanentNoteBrowserScope(scopedRoot?.id)
-      ? this.renderDisconnectedQueue(this.disconnectedNotesInScope(scopedRoot.id, q), 0, "all-disconnected")
-      : "";
-    this.els.listArea.innerHTML = `<div class="tree-root">${disconnectedQueue}${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
+    const rootFileRows = rootFiles.map((note) => this.renderFileNode(note, 0)).join("");
+    this.els.listArea.innerHTML = `<div class="tree-root">${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
     this.scheduleRevealPreferredVisibleRow();
   }
 }

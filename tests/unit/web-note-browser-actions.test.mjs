@@ -61,18 +61,20 @@ test("note browser new action follows the current material root", () => {
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_literature_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "创建文件笔记",
-    title: "在当前文献目录创建文件笔记",
-    ariaLabel: "在当前文献目录创建文件笔记",
-    kindLabel: "文献",
+    label: "",
+    title: "新建文献笔记",
+    ariaLabel: "在当前文献目录新建文献笔记",
+    kindLabel: "",
     entryKind: "literature",
-    mobileLabel: "文献"
+    mobileLabel: ""
   });
 });
 
-test("source-note boxes make the create-file-note action visually distinct", () => {
+test("note boxes use one unified create-note action style", () => {
   const state = createInitialState();
   const classes = new Set();
+  const labelNode = { textContent: "stale" };
+  const metaNode = { textContent: "stale" };
   const newNoteButton = {
     classList: {
       add(token) { classes.add(token); },
@@ -88,8 +90,8 @@ test("source-note boxes make the create-file-note action visually distinct", () 
       this[name] = value;
     },
     querySelector(selector) {
-      if (selector === ".new-note-action-label") return { textContent: "" };
-      if (selector === ".new-note-action-meta") return { textContent: "" };
+      if (selector === ".new-note-action-label") return labelNode;
+      if (selector === ".new-note-action-meta") return metaNode;
       return null;
     },
     addEventListener() {}
@@ -111,18 +113,20 @@ test("source-note boxes make the create-file-note action visually distinct", () 
   state.selectedFolderId = "dir_fleeting_default";
   explorer.syncNewNoteButton();
 
-  assert.equal(classes.has("is-source-note-entry"), true);
+  assert.equal(classes.has("is-source-note-entry"), false);
   assert.equal(newNoteButton.dataset.noteEntryKind, "fleeting");
-  assert.equal(newNoteButton.title, "在当前随笔目录创建文件笔记");
+  assert.equal(newNoteButton.title, "新建随笔");
+  assert.equal(labelNode.textContent, "");
+  assert.equal(metaNode.textContent, "");
 });
 
-test("prototype sidebar sync also keeps source-note create action visually distinct", () => {
+test("prototype sidebar sync uses one create action style across note roots", () => {
   const source = readRepoFile("apps/web/src/prototype-app.js");
   const match = source.match(/function syncNewNoteButtons\(\) \{([\s\S]*?)\n\}/);
 
   assert.ok(match, "expected syncNewNoteButtons() to exist");
   assert.match(match[1], /button\.dataset\.noteEntryKind = copy\.entryKind \|\| "permanent";/);
-  assert.match(match[1], /button\.classList\.toggle\("is-source-note-entry", copy\.entryKind === "fleeting" \|\| copy\.entryKind === "literature"\);/);
+  assert.doesNotMatch(match[1], /is-source-note-entry/);
 });
 
 test("note browser new action falls back to current root when selection is stale", () => {
@@ -133,12 +137,12 @@ test("note browser new action falls back to current root when selection is stale
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_fleeting_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "创建文件笔记",
-    title: "在当前随笔目录创建文件笔记",
-    ariaLabel: "在当前随笔目录创建文件笔记",
-    kindLabel: "随笔",
+    label: "",
+    title: "新建随笔",
+    ariaLabel: "在当前随笔目录新建随笔",
+    kindLabel: "",
     entryKind: "fleeting",
-    mobileLabel: "随笔"
+    mobileLabel: ""
   });
 });
 
@@ -150,12 +154,12 @@ test("note browser new action names permanent notes without legacy original copy
 
   assert.equal(resolveExplorerNewNoteFolderId(state), "dir_original_default");
   assert.deepEqual(explorerNewNoteButtonCopy(state), {
-    label: "新建笔记",
+    label: "",
     title: "新建永久笔记",
     ariaLabel: "在当前永久笔记目录新建笔记",
     kindLabel: "",
     entryKind: "permanent",
-    mobileLabel: "永久"
+    mobileLabel: ""
   });
 });
 
@@ -164,6 +168,22 @@ test("editor toolbar does not render the file attachment button", () => {
 
   assert.doesNotMatch(html, /id="btnInsertFile"/);
   assert.doesNotMatch(html, /插入文件附件/);
+});
+
+test("editor toolbar exposes heading levels as a visible select", () => {
+  const html = readRepoFile("apps/web/src/prototype.html");
+  const headingMarkup = html.match(/<div class="toolbar-segment heading-segment"[\s\S]*?<\/div>/)?.[0] || "";
+
+  assert.match(headingMarkup, /id="headingLevelSelect"/);
+  assert.doesNotMatch(headingMarkup, /<svg\b/);
+  assert.match(headingMarkup, /<option value="p">正文<\/option>/);
+  for (const level of [1, 2, 3, 4, 5, 6]) {
+    assert.match(headingMarkup, new RegExp(`<option value="${level}">H${level}<\\/option>`));
+  }
+  assert.match(
+    html,
+    /#editorWorkspace \.editor-stage-shell \.heading-level-select[\s\S]*opacity: 1 !important;/
+  );
 });
 
 test("file context menu keeps move user-facing and removes id or properties utilities", () => {
@@ -179,6 +199,35 @@ test("file context menu keeps move user-facing and removes id or properties util
   assert.doesNotMatch(menuSource, /label: "属性"/);
 });
 
+test("graph note tree context menus only expose graph actions", () => {
+  const source = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const menuStart = source.indexOf('      const graphContext = this.state.module === "graph";');
+  const menuEnd = source.indexOf("  isDescendantFolder(", menuStart);
+
+  assert.ok(menuStart >= 0 && menuEnd > menuStart, "expected graph context menu branch to exist");
+  const menuSource = source.slice(menuStart, menuEnd);
+  const graphFolderActions = menuSource.match(/actions: graphContext\s*\?\s*\[([\s\S]*?)\]\s*:\s*\[/)?.[1] || "";
+  const graphFileActions = menuSource.match(/if \(kind === "file"\)[\s\S]*?actions: graphContext\s*\?\s*\[([\s\S]*?)\]\s*:\s*\[/)?.[1] || "";
+
+  assert.match(graphFolderActions, /label: "查看此范围"/);
+  assert.match(graphFolderActions, /label: "刷新图谱"/);
+  assert.doesNotMatch(graphFolderActions, /重命名|新建|删除|显示|保存位置|隐藏/);
+
+  assert.match(graphFileActions, /label: "查看笔记"/);
+  assert.match(graphFileActions, /label: "关联笔记"/);
+  assert.doesNotMatch(graphFileActions, /重命名|移动到|删除|Markdown|创建永久笔记/);
+});
+
+test("graph note tree context menu actions route to graph handlers", () => {
+  const explorerSource = readRepoFile("apps/web/src/components-explorer-pane.js");
+  const appSource = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(explorerSource, /if \(action === "refresh-graph"\) \{[\s\S]*this\.onStateChange\("refresh-graph"\);[\s\S]*return;/);
+  assert.match(explorerSource, /if \(action === "associate-note"\) \{[\s\S]*this\.onStateChange\("open-note-relations", \{ noteId: n\.id, source: "graph-context-menu" \}\);[\s\S]*return;/);
+  assert.match(explorerSource, /if \(this\.state\.module === "graph"\) \{[\s\S]*this\.onStateChange\("graph-focus-note", \{ noteId: n\.id \}\);/);
+  assert.match(appSource, /if \(reason === "refresh-graph"\) \{[\s\S]*const refreshed = await refreshDirectoryGraph\(\);/);
+});
+
 test("file move action uses the directory picker instead of prompting for ids", () => {
   const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const match = source.match(/if \(action === "move"\) \{([\s\S]*?)\n\s*if \(action === "record-permanent"\)/);
@@ -190,6 +239,20 @@ test("file move action uses the directory picker instead of prompting for ids", 
   assert.match(fnBody, /note-move/);
   assert.doesNotMatch(fnBody, /prompt\(/);
   assert.doesNotMatch(fnBody, /目录 ID/);
+});
+
+test("dragging a note onto a folder expands the target folder", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.folders.push({ id: "dir_drag_target", name: "Drag Target", parentId: "dir_original_default", hidden: false });
+  state.notes.push({ id: "perm_drag_source", title: "Drag Source", folderId: "dir_original_default", noteType: "permanent" });
+  explorer.expandedFolders.delete("dir_drag_target");
+
+  const result = explorer.movePayloadToFolder({ kind: "file", id: "perm_drag_source" }, "dir_drag_target");
+
+  assert.deepEqual(result, { ok: true, kind: "file", id: "perm_drag_source", targetFolderId: "dir_drag_target" });
+  assert.equal(explorer.expandedFolders.has("dir_drag_target"), true);
 });
 
 test("folder context menu removes id and properties utilities", () => {
@@ -374,7 +437,7 @@ test("note browser only tracks whether a folder subtree still has isolated perma
   assert.equal(explorer.folderHasDisconnectedNotes("dir_literature_default"), false);
 });
 
-test("permanent note browser collects isolated notes into a top action queue", () => {
+test("permanent note browser keeps isolated notes inline without a top action queue", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -390,15 +453,51 @@ test("permanent note browser collects isolated notes into a top action queue", (
   state.browserRootId = "dir_original_default";
   state.graphConnectedNoteIds = new Set(["pn_001", "pn_002", "perm_queue_connected"]);
   state.graphConnectivityReady = true;
+  explorer.expandedFolders.add("dir_queue_a");
+  explorer.expandedFolders.add("dir_queue_b");
 
   explorer.render();
   const html = explorer.els.listArea.innerHTML;
 
-  assert.match(html, /tree-disconnected-queue/);
-  assert.match(html, /data-associate-note="perm_queue_iso_a"/);
-  assert.match(html, /data-associate-note="perm_queue_iso_b"/);
+  assert.doesNotMatch(html, /tree-disconnected-queue/);
+  assert.doesNotMatch(html, /data-associate-note="perm_queue_iso_a"/);
+  assert.doesNotMatch(html, /data-associate-note="perm_queue_iso_b"/);
   assert.doesNotMatch(html, /data-associate-note="perm_queue_connected"/);
-  assert.ok(html.indexOf("tree-disconnected-queue") < html.indexOf("dir_queue_a"));
+  assert.match(html, /data-id="perm_queue_iso_a"/);
+  assert.match(html, /data-id="perm_queue_iso_b"/);
+  assert.match(html, /data-note-state="permanent-isolated"/);
+});
+
+test("graph note browser keeps isolated permanent notes inline with direct relation actions", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.module = "graph";
+  state.browserRootId = "dir_original_default";
+  state.folders.push({ id: "dir_graph_group", name: "Graph Group", parentId: "dir_original_default", hidden: false });
+  state.notes.push(
+    { id: "perm_graph_connected", title: "Graph Connected", folderId: "dir_graph_group", noteType: "permanent" },
+    { id: "perm_graph_isolated", title: "Graph Isolated", folderId: "dir_graph_group", noteType: "permanent" }
+  );
+  state.graphConnectedNoteIds = new Set(["pn_001", "pn_002", "perm_graph_connected"]);
+  state.graphConnectivityReady = true;
+  explorer.expandedFolders.add("dir_graph_group");
+
+  explorer.render();
+  const html = explorer.els.listArea.innerHTML;
+  const connectedIndex = html.indexOf("perm_graph_connected");
+  const isolatedIndex = html.indexOf("perm_graph_isolated");
+
+  assert.ok(connectedIndex >= 0, "expected connected note row to render");
+  assert.ok(isolatedIndex >= 0, "expected isolated note row to render");
+  assert.ok(connectedIndex < isolatedIndex, "expected graph browser to keep directory note order");
+  assert.doesNotMatch(html, /data-toggle-disconnected-group/);
+  assert.doesNotMatch(html, /tree-group-label/);
+  assert.match(html, /is-disconnected[\s\S]*data-id="perm_graph_isolated"/);
+  assert.match(html, /data-note-state="permanent-isolated"/);
+  assert.match(html, /data-associate-note="perm_graph_isolated"/);
+  assert.match(html, /关联笔记/);
+  assert.doesNotMatch(html, /未入星系|接入网络|建立关系/);
 });
 
 test("graph browser keeps folder selection ahead of current editor note highlight", () => {
@@ -434,8 +533,34 @@ test("note browser action buttons stop row click fallthrough", () => {
   const clickBody = source.match(/this\.els\.listArea\.addEventListener\("click", \(e\) => \{([\s\S]*?)\n\s*\}\);/)?.[1] || "";
 
   assert.match(clickBody, /const relationButton = e\.target\.closest\("button\[data-associate-note\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
-  assert.match(clickBody, /const disconnectedToggle = e\.target\.closest\("button\[data-toggle-disconnected-group\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
   assert.match(clickBody, /const toggleBtn = e\.target\.closest\("button\[data-toggle-folder\]"\);[\s\S]*e\.preventDefault\(\);[\s\S]*e\.stopPropagation\(\);/);
+});
+
+test("selected note delete key reuses the note delete flow", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const keydownBody = source.match(/document\.addEventListener\("keydown", \(e\) => \{([\s\S]*?)\n\}\);/)?.[1] || "";
+
+  assert.match(keydownBody, /e\.key === "Delete"[\s\S]*state\.module === "explorer"/);
+  assert.match(keydownBody, /state\.selectedFileId \|\| activeTab\?\.noteId/);
+  assert.match(keydownBody, /explorer\.handleContextAction\("delete", \{ kind: "file", id: noteId \}\)/);
+});
+
+test("note delete updates client state even when using local fallback data", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const deleteBranch = source.match(/if \(reason === "note-delete"\) \{([\s\S]*?)\n\s*if \(reason === "directory-update"\)/)?.[1] || "";
+
+  assert.match(source, /function removeNoteFromClientState\(noteId = ""\) \{/);
+  assert.match(deleteBranch, /if \(!usingLocalFallbackData\) \{[\s\S]*await deleteNote\(payload\.noteId\);[\s\S]*\}/);
+  assert.match(deleteBranch, /removeNoteFromClientState\(payload\.noteId\);/);
+});
+
+test("dragged note move updates client state when using local fallback data", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const moveBranch = source.match(/if \(reason === "note-move"\) \{([\s\S]*?)\n\s*if \(reason === "note-delete"\)/)?.[1] || "";
+
+  assert.match(source, /function moveNoteInClientState\(noteId = "", directoryId = "", moved = null\) \{/);
+  assert.match(moveBranch, /if \(!usingLocalFallbackData\) \{[\s\S]*moved = await moveNote\(payload\.noteId, payload\.directoryId\);[\s\S]*\}/);
+  assert.match(moveBranch, /moveNoteInClientState\(payload\.noteId, payload\.directoryId, moved\);/);
 });
 
 test("note browsers show isolated folder flags without counts only for the permanent root scope", () => {
@@ -512,11 +637,11 @@ test("note browsers keep disconnected notes visually behind connected notes insi
   assert.ok(connectedIndex >= 0, "expected connected note row to render");
   assert.ok(disconnectedIndex >= 0, "expected disconnected note row to render");
   assert.ok(connectedIndex < disconnectedIndex, "expected connected note rows to appear before disconnected ones");
-  assert.match(html, /未入星系/);
-  assert.match(html, /data-associate-note="perm_disconnected"/);
+  assert.match(html, /data-note-state="permanent-isolated"/);
+  assert.doesNotMatch(html, /data-associate-note="perm_disconnected"/);
 });
 
-test("note browsers surface unclustered permanent notes with a relation action in simplified scopes", () => {
+test("permanent note browser surfaces isolated notes with icon state only", () => {
   const state = createInitialState();
   const explorer = createExplorerForTest(state);
 
@@ -532,10 +657,10 @@ test("note browsers surface unclustered permanent notes with a relation action i
   }, 0);
 
   assert.match(html, /data-note-state="permanent-isolated"/);
-  assert.match(html, /未入星系/);
-  assert.match(html, /data-associate-note="pn_001"/);
-  assert.match(html, /item-inline-action warn/);
-  assert.match(html, /接入网络/);
+  assert.doesNotMatch(html, /item-badge-warning/);
+  assert.doesNotMatch(html, /data-associate-note="pn_001"/);
+  assert.doesNotMatch(html, /item-inline-action warn/);
+  assert.doesNotMatch(html, /接入网络/);
   assert.doesNotMatch(html, /item-badge-thinking/);
   assert.doesNotMatch(html, /item-badge-original-record/);
 });
@@ -685,10 +810,10 @@ test("note browsers keep richer note actions and thinking badges outside simplif
     thinkingStatus: { label: "待补推理", nextAction: "补一条关系", severity: "next", status: "open" }
   }, 0);
 
-  assert.match(html, /未入星系/);
+  assert.match(html, /孤立笔记/);
   assert.match(html, /item-badge-thinking/);
   assert.match(html, /data-associate-note="perm_custom"/);
-  assert.match(html, /接入网络/);
+  assert.match(html, /关联笔记/);
 });
 
 test("note browsers keep generated-original badges for notes explicitly marked as literature", () => {
