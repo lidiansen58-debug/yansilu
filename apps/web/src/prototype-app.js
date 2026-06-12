@@ -682,7 +682,7 @@ function settingsItemSummary(itemId = "") {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "按顺序准备本地/远程 AI 环境，再选择使用方式。",
+    "ai-settings": "先完成 AI 基础设置，再确认状态和试运行。",
     automation: "查看定时任务、AI 待办和运行记录。",
     "desktop-help": "查看本地文件、路径和切换规则。",
     feedback: "提交问题、功能想法，或复制问题信息。"
@@ -726,11 +726,11 @@ function settingsSectionGuidanceMap() {
       ]
     },
     ai: {
-      focus: `先准备本地和远程 AI 环境，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
+      focus: `先完成 AI 基础设置，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
       notes: [
-        "第 1 步先看本地 Ollama 和本地模型是否需要启用。",
-        "第 2 步再处理远程网关、密钥名称和连接测试。",
-        "环境确认后再选择自动、仅本地、仅远程或混合，并用一句短句试运行。"
+        "基础设置先处理本地 AI 环境、远程 AI 环境和使用方式。",
+        "状态摘要只用于确认结果，不放在用户开始设置前面。",
+        "基础设置完成后，再用一句不含敏感内容的短句试运行。"
       ]
     },
     automation: {

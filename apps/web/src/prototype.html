@@ -10011,38 +10011,6 @@
       color: #5c6b7b;
       overflow-wrap: anywhere;
     }
-    .settings-ai-order {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .settings-ai-order-item {
-      display: grid;
-      gap: 3px;
-      min-width: 0;
-      padding: 9px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(214, 223, 232, 0.9);
-      background: rgba(248, 251, 253, 0.9);
-    }
-    .settings-ai-order-index {
-      font-size: 11px;
-      font-weight: 800;
-      color: #2c6a90;
-    }
-    .settings-ai-order-title {
-      font-size: 12px;
-      font-weight: 800;
-      color: #172033;
-      line-height: 1.35;
-      overflow-wrap: anywhere;
-    }
-    .settings-ai-order-note {
-      font-size: 11px;
-      line-height: 1.45;
-      color: #64748b;
-      overflow-wrap: anywhere;
-    }
     .settings-ai-section {
       display: grid;
       gap: 10px;
@@ -11657,9 +11625,6 @@
         font-size: 18px;
       }
       .settings-ai-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .settings-ai-order {
         grid-template-columns: minmax(0, 1fr);
       }
       .settings-field-note {
@@ -15447,72 +15412,20 @@
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">AI 助手设置</div>
-                            <div class="settings-card-note">按顺序准备环境、选择方案，再试运行确认；不确定时保持默认。</div>
+                            <div class="settings-card-note">先完成基础设置：本地环境、远程环境、使用方式；状态和试运行放到后面确认。</div>
                           </div>
                         </div>
                         <div class="settings-ai-layout">
-                          <div class="settings-ai-hero">
-                            <section class="settings-ai-overview" aria-live="polite">
-                              <div class="settings-ai-kicker">当前 AI 状态</div>
-                              <div class="settings-ai-headline" id="settingsAiSetupTitle">当前 AI 方案</div>
-                              <div class="settings-ai-body" id="settingsAiSetupBody">默认自动。</div>
-                              <div class="settings-stat-row" id="settingsAiSetupBadges">
-                                <span class="settings-stat-badge warn">等待同步</span>
-                              </div>
-                            </section>
-
-                            <section class="settings-ai-quickstart" aria-live="polite">
-                              <div class="settings-ai-quickstart-head">
-                                <div>
-                                  <div class="settings-ai-kicker">本地模型向导</div>
-                                  <div class="settings-ai-section-note">适合敏感材料或离线研究。</div>
-                                </div>
-                                <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
-                              </div>
-                              <div class="settings-ai-step-list" id="settingsAiSetupSteps">
-                                <div class="settings-ai-step is-current">
-                                  <span class="settings-ai-step-index">1</span>
-                                  <div>
-                                    <span class="settings-ai-step-title">选择模式</span>
-                                    <span class="settings-ai-step-note">本地模式会显示 Ollama 选项。</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </section>
-                          </div>
-
-                          <section class="settings-ai-section" aria-label="AI 设置顺序">
+                          <section class="settings-ai-section" aria-label="AI 基础设置说明">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">推荐设置顺序</div>
-                              <div class="settings-ai-section-note">先把能用的环境准备好，再决定研究任务要走本地、远程还是自动。</div>
-                            </div>
-                            <div class="settings-ai-order">
-                              <div class="settings-ai-order-item">
-                                <span class="settings-ai-order-index">第 1 步</span>
-                                <span class="settings-ai-order-title">本地 AI 环境</span>
-                                <span class="settings-ai-order-note">用于敏感材料、离线研究和本机模型。</span>
-                              </div>
-                              <div class="settings-ai-order-item">
-                                <span class="settings-ai-order-index">第 2 步</span>
-                                <span class="settings-ai-order-title">远程 AI 环境</span>
-                                <span class="settings-ai-order-note">用于自有网关、云端模型或团队统一服务。</span>
-                              </div>
-                              <div class="settings-ai-order-item">
-                                <span class="settings-ai-order-index">第 3 步</span>
-                                <span class="settings-ai-order-title">选择使用方式</span>
-                                <span class="settings-ai-order-note">决定日常研究走自动、本地、远程或混合。</span>
-                              </div>
-                              <div class="settings-ai-order-item">
-                                <span class="settings-ai-order-index">第 4 步</span>
-                                <span class="settings-ai-order-title">试运行确认</span>
-                                <span class="settings-ai-order-note">用一句不含敏感内容的话检查是否可用。</span>
-                              </div>
+                              <div class="settings-ai-section-title">基础设置</div>
+                              <div class="settings-ai-section-note">按下面 3 组完成即可：先本地，再远程，最后选择研思录日常怎么使用 AI。</div>
                             </div>
                           </section>
 
                           <section class="settings-ai-section">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">第 1 步：本地 AI 环境</div>
+                              <div class="settings-ai-section-title">基础设置 1：本地 AI 环境</div>
                               <div class="settings-ai-section-note">如果要处理未公开材料，先确认这台电脑是否有可用的本地模型。</div>
                             </div>
                             <div class="settings-ai-grid">
@@ -15532,10 +15445,10 @@
                             </div>
                           </section>
 
-                          <details class="settings-ai-advanced" id="settingsAiAdvancedSection">
+                          <details class="settings-ai-advanced" id="settingsAiAdvancedSection" open>
                             <summary class="settings-ai-advanced-summary">
                               <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">第 2 步：远程 AI 环境</span>
+                                <span class="settings-ai-advanced-title">基础设置 2：远程 AI 环境</span>
                                 <span class="settings-ai-advanced-meta">接入自有网关、云端模型或团队服务时填写；默认平台服务可跳过。</span>
                               </span>
                               <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
@@ -15574,7 +15487,7 @@
 
                           <section class="settings-ai-section">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">第 3 步：选择 AI 使用方式</div>
+                              <div class="settings-ai-section-title">基础设置 3：选择 AI 使用方式</div>
                               <div class="settings-ai-section-note">本地和远程环境准备好后，再选择日常研究任务如何调用 AI。</div>
                             </div>
                             <div class="settings-ai-grid">
@@ -15613,9 +15526,39 @@
                             </div>
                           </section>
 
+                          <div class="settings-ai-hero">
+                            <section class="settings-ai-overview" aria-live="polite">
+                              <div class="settings-ai-kicker">设置结果确认</div>
+                              <div class="settings-ai-headline" id="settingsAiSetupTitle">当前 AI 方案</div>
+                              <div class="settings-ai-body" id="settingsAiSetupBody">默认自动。</div>
+                              <div class="settings-stat-row" id="settingsAiSetupBadges">
+                                <span class="settings-stat-badge warn">等待同步</span>
+                              </div>
+                            </section>
+
+                            <section class="settings-ai-quickstart" aria-live="polite">
+                              <div class="settings-ai-quickstart-head">
+                                <div>
+                                  <div class="settings-ai-kicker">本地模型状态</div>
+                                  <div class="settings-ai-section-note">用于确认本地环境是否已经可用。</div>
+                                </div>
+                                <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
+                              </div>
+                              <div class="settings-ai-step-list" id="settingsAiSetupSteps">
+                                <div class="settings-ai-step is-current">
+                                  <span class="settings-ai-step-index">1</span>
+                                  <div>
+                                    <span class="settings-ai-step-title">选择模式</span>
+                                    <span class="settings-ai-step-note">本地模式会显示 Ollama 选项。</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </section>
+                          </div>
+
                           <section class="settings-ai-section">
                             <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">第 4 步：实际使用预览</div>
+                              <div class="settings-ai-section-title">设置确认：实际使用预览</div>
                               <div class="settings-ai-section-note">保存或切换后看这里，确认真正会走哪个服务和模型。</div>
                             </div>
                             <div class="settings-stat-row" id="settingsAiRouteStats">
@@ -15627,7 +15570,7 @@
                           <details class="settings-ai-advanced" id="settingsAiLabSection">
                             <summary class="settings-ai-advanced-summary">
                               <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">第 4 步：试运行</span>
+                                <span class="settings-ai-advanced-title">设置确认：试运行</span>
                                 <span class="settings-ai-advanced-meta">用一句短句确认当前设置能正常返回，再开始正式使用。</span>
                               </span>
                               <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
@@ -15652,7 +15595,7 @@
                             </div>
                           </details>
 
-                          <div class="settings-footnote">推荐顺序：先检测本地 AI 环境，再配置远程 AI 环境，随后选择 AI 使用方式和方案，最后试运行确认。</div>
+                          <div class="settings-footnote">基础设置完成后，再看状态预览并试运行；日常研究不需要理解模型参数。</div>
                         </div>
                       </section>
                     </div>
