@@ -522,7 +522,7 @@ function settingsSectionChromeMap() {
     },
     ai: {
       badge: settingsAiRuntimeModeLabel(settingsState.ai.runtimeMode),
-      meta: aiSummary.meta || "使用方式、AI 方案与连接状态"
+      meta: aiSummary.meta || "研究场景、模型来源与连接状态"
     },
     automation: {
       badge: String(automationCount),
@@ -682,7 +682,7 @@ function settingsItemSummary(itemId = "") {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "设置 AI 使用方式、服务和试运行。",
+    "ai-settings": "设置研究场景、模型来源和试运行。",
     automation: "查看定时任务、AI 待办和运行记录。",
     "desktop-help": "查看本地文件、路径和切换规则。",
     feedback: "提交问题、功能想法，或复制问题信息。"
@@ -726,11 +726,11 @@ function settingsSectionGuidanceMap() {
       ]
     },
     ai: {
-      focus: `先确认当前 AI 方案 ${aiSummary.value}，再处理 AI 方案、服务配置和测试请求。`,
+      focus: `先确认当前 AI 方案 ${aiSummary.value}，再决定是否需要接入本地模型或远程服务。`,
       notes: [
-        "先选使用方式，再看 AI 方案和高级选项，避免一上来堆满参数。",
-        "新工作区如果没有存过偏好，应回到默认 AI 设置。",
-        "试运行前先检查密钥名称、指定模型和服务配置是否完整。"
+        "不确定时保持自动，研思录会按任务选择合适路线。",
+        "处理未公开材料时，优先考虑仅本地或混合模式。",
+        "接入自有网关后，先保存服务配置，再用一句短句试运行。"
       ]
     },
     automation: {
@@ -7007,7 +7007,7 @@ function renderAiRoutePreview() {
 
   if (settingsState.ai.routePreviewLoading) {
     stats.innerHTML = `<span class="settings-stat-badge warn">正在预览</span>`;
-    detail.textContent = "正在根据当前设置计算会使用的模型和服务...";
+    detail.textContent = "正在根据当前选择判断会使用的服务和模型...";
     return;
   }
 
@@ -7020,7 +7020,7 @@ function renderAiRoutePreview() {
   const preview = settingsState.ai.routePreview;
   if (!preview) {
     stats.innerHTML = `<span class="settings-stat-badge warn">等待同步</span>`;
-    detail.textContent = "刷新当前笔记库后会显示这套设置实际会使用的模型和服务。";
+    detail.textContent = "设置同步后，这里会显示研思录实际会调用的服务和模型。";
     return;
   }
 
@@ -7070,8 +7070,8 @@ function renderAiRoutePreview() {
   };
   const healthTone = healthStatus === "healthy" ? "ok" : healthStatus === "unknown" ? "" : "warn";
   const healthDetail = healthStatus === "unknown"
-    ? "服务健康：尚未测试连接"
-    : `服务健康：${healthLabels[healthStatus] || healthStatus}${health.latencyMs ? ` / ${health.latencyMs}ms` : ""}`;
+    ? "连接状态：尚未测试"
+    : `连接状态：${healthLabels[healthStatus] || healthStatus}${health.latencyMs ? ` / ${health.latencyMs}ms` : ""}`;
   const accessMessage = String(access.message || "").trim() === "Platform-managed AI can run without a user-provided key."
     ? "平台托管 AI 可直接运行，不需要用户自行提供密钥。"
     : String(access.message || "").trim();
@@ -7083,8 +7083,8 @@ function renderAiRoutePreview() {
   };
   const accessLabel = accessLabelMap[String(access.keyMode || "").trim()] || (access.ready ? "可直接使用" : "需要进一步配置");
   stats.innerHTML = [
-    `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "云端可用"}</span>`,
-    `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "可直接使用" : "需要配置 Key"}</span>`,
+    `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "可用远程服务"}</span>`,
+    `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "授权已就绪" : "需要密钥名称"}</span>`,
     `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">手动指定</span>` : `<span class="settings-stat-badge">自动选择</span>`
   ].join("");
@@ -7097,15 +7097,15 @@ function renderAiRoutePreview() {
     ? String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, activeAiProviderConfig()?.runtimeModelMap || activeAiProviderConfig()?.runtime_model_map || {}) || "").trim()
     : "";
   const remoteRuntimeLine = remoteRuntimeModel
-    ? `<div>远程运行模型：${escapeHtml(remoteRuntimeModel)}</div>`
+    ? `<div>远程实际模型：${escapeHtml(remoteRuntimeModel)}</div>`
     : "";
   const hybridLine = runtimeMode === "hybrid"
-    ? `<div>混合：隐私或快速任务优先走本地，较重任务仍可能走云端。</div>`
+    ? `<div>混合模式：敏感或轻量任务优先本地，复杂任务可走远程。</div>`
     : "";
   detail.innerHTML = `
-    <div><strong>${escapeHtml(providerDisplayLabel())}</strong></div>
+    <div><strong>当前服务：${escapeHtml(providerDisplayLabel())}</strong></div>
     <div>AI 方案：${escapeHtml(modelPackDisplayLabel(preview.modelPack || settingsState.ai.modelPack || "Starter Auto"))}</div>
-    <div>当前模型：${escapeHtml(route.modelRef || "自动选择")}</div>
+    <div>将使用的模型：${escapeHtml(route.modelRef || "自动选择")}</div>
     ${remoteRuntimeLine}
     <div>授权方式：${escapeHtml(accessLabel)}</div>
     ${localRuntimeLine}
@@ -7214,33 +7214,33 @@ function renderAiSettingsExperience() {
     .map((item) => `<span class="settings-stat-badge ${item.tone ? escapeHtml(item.tone) : ""}">${escapeHtml(item.text)}</span>`)
     .join("");
 
-  let setupTitle = "当前以云端优先方式运行";
-  let setupBody = "如果你现在主要想先用起来，保留自动或仅云端就够了；想把敏感笔记尽量留在本机，再切到“仅本地”或“混合”。";
-  let quickstartLabel = "云端优先";
-  let helperText = "想启用本地模型，先把上面的 AI 使用方式切到“仅本地”或“混合”。";
+  let setupTitle = "当前适合日常研究任务";
+  let setupBody = "默认设置会自动选择合适的服务，适合阅读、摘要、整理和一般写作辅助。需要处理敏感材料时，再切到“仅本地”或“混合”。";
+  let quickstartLabel = "自动推荐";
+  let helperText = "只有需要本地模型时，才需要安装并检测 Ollama；日常研究可以先保持自动。";
   let steps = [
-    { state: "complete", title: "当前模式已经可以直接使用", note: "你现在不需要额外安装本地推理环境。" },
-    { state: "current", title: "如果要本地模型，再切到“仅本地”或“混合”", note: "这样研思录才会进入 Ollama 本地模型流程。" },
-    { state: "pending", title: "检测 Ollama 并选择本地模型", note: "切换后会出现本地模型检测、下载和选择。" }
+    { state: "complete", title: "默认方案已可使用", note: "不需要先理解模型参数，也不需要安装本地环境。" },
+    { state: "current", title: "需要私密处理时再切换", note: "把 AI 使用方式改为“仅本地”或“混合”，再按提示检测本地模型。" },
+    { state: "pending", title: "用一句短句试运行", note: "保存设置后，发一句不含敏感内容的测试语确认连接。" }
   ];
 
   if (localFlowActive) {
-    helperText = "本地模式下，推荐顺序是：先检测 Ollama，再下载或选择模型，最后试运行一次确认是否走本地。";
+    helperText = "本地模式下，推荐顺序是：检测 Ollama，下载或选择模型，最后用一句短句试运行。";
     if (settingsState.ai.localRuntimeChecking) {
       setupTitle = "正在检测本地模型环境";
-      setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内就会返回状态。";
+      setupBody = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型，通常几秒内会返回状态。";
       quickstartLabel = "检测中";
       steps = [
-        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}，后续操作都会围绕本地模型展开。` },
+        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
         { state: "current", title: "正在检测 Ollama", note: "如果等待过久，先确认 Ollama 应用是否已经启动。" },
         { state: "pending", title: "检测完成后选择或下载模型", note: `建议优先从 ${OLLAMA_RECOMMENDED_MODEL} 开始。` }
       ];
     } else if (localStatus !== "available") {
       setupTitle = "先让 Ollama 在这台电脑上启动";
-      setupBody = "研思录已经进入本地模型流程，但当前还没连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
+      setupBody = "当前还没有连上 Ollama。先安装并启动 Ollama，再回来点“检测 Ollama”。";
       quickstartLabel = "等待 Ollama";
       steps = [
-        { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先用本地模型，较重任务仍可保留云端。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
+        { state: "complete", title: "已进入本地模型流程", note: `${runtimeMode === "hybrid" ? "混合模式会优先使用本地模型。" : "仅本地模式会尽量把 AI 任务留在这台电脑上。"} ` },
         { state: "current", title: "下载并启动 Ollama", note: "如果还没安装，点“下载 Ollama”；安装后保持它在后台运行。" },
         { state: "pending", title: "回到研思录，点“检测 Ollama”", note: "检测成功后，研思录会自动列出可选的本地模型。" }
       ];
@@ -7251,13 +7251,13 @@ function renderAiSettingsExperience() {
           { state: "pending", title: guideSteps[2] || "回到研思录重新检测", note: "检测成功后会显示本地模型列表。" }
         ];
       }
-      helperText = "如果你刚装好 Ollama，但这里还显示未连接，通常是因为 Ollama 服务还没启动，或者还没完成第一次初始化。";
+      helperText = "如果刚装好 Ollama 但仍显示未连接，先确认 Ollama 应用已经启动。";
     } else if (!models.length) {
       setupTitle = "Ollama 已连上，还差一个本地模型";
-      setupBody = `本地推理环境已经可用，但这台电脑里还没有可运行的模型。直接点“下载 ${guideRecommendedModel}”即可开始。`;
+      setupBody = `Ollama 已经可用，但这台电脑里还没有可运行的模型。直接点“下载 ${guideRecommendedModel}”即可开始。`;
       quickstartLabel = "等待模型";
       steps = [
-        { state: "complete", title: "Ollama 已连接", note: "研思录已经能访问这台电脑上的本地推理服务。" },
+        { state: "complete", title: "Ollama 已连接", note: "研思录已经能访问这台电脑上的本地模型服务。" },
         { state: "current", title: "下载第一个本地模型", note: `推荐先从 ${guideRecommendedModel} 开始，兼顾效果和资源占用。` },
         { state: "pending", title: "下载后回来选择它并测试", note: "模型下载完成后，下面的本地模型下拉框会自动出现选项。" }
       ];
@@ -7270,12 +7270,12 @@ function renderAiSettingsExperience() {
       }
     } else if (!localModel) {
       setupTitle = "本地模型已经可选，再选一个就能开始";
-      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个，研思录就会补齐本地连接。";
+      setupBody = "Ollama 和模型都已经准备好了。现在从“本地模型”里选一个即可。";
       quickstartLabel = "选择模型";
       steps = [
         { state: "complete", title: "Ollama 已连接", note: "本地推理服务在线。" },
         { state: "complete", title: "至少有一个本地模型可用", note: `当前检测到 ${models.length} 个模型。` },
-        { state: "current", title: "从下拉框里选一个模型", note: "选中后，建议立刻试运行一次，确认现在确实走本地。" }
+        { state: "current", title: "从下拉框里选一个模型", note: "选中后建议试运行一次，确认当前确实走本地。" }
       ];
       if (guideAction === "select_or_test_model" && guideSteps.length) {
         steps = [
@@ -7287,13 +7287,13 @@ function renderAiSettingsExperience() {
     } else {
       setupTitle = "本地模型已经就绪";
       setupBody = runtimeMode === "hybrid"
-        ? `当前已选中 ${localModel}。混合模式会优先把隐私或快速任务放到本地，较重任务仍可能保留云端。`
+        ? `当前已选中 ${localModel}。混合模式会优先把敏感或轻量任务放到本地，复杂任务仍可保留远程服务。`
         : `当前已选中 ${localModel}。仅本地模式会尽量把 AI 任务留在这台电脑上，不再默认依赖云端。`;
       quickstartLabel = "本地已就绪";
       steps = [
         { state: "complete", title: "已切到本地模型流程", note: `${runtimeMode === "hybrid" ? "当前是混合模式" : "当前是仅本地模式"}。` },
         { state: "complete", title: "Ollama 和模型都已准备好", note: `当前使用 ${localModel}。` },
-        { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一次确认连接", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果，你可以继续微调设置。" : "现在最适合试运行一次，确认内容已经从本地模型返回。" }
+        { state: settingsState.ai.testOutput ? "complete" : "current", title: "试运行一次确认连接", note: settingsState.ai.testOutput ? "最近一次测试已经返回结果。" : "现在适合试运行一次，确认内容从本地模型返回。" }
       ];
     }
   }
@@ -7303,7 +7303,7 @@ function renderAiSettingsExperience() {
   quickstartStatus.textContent = quickstartLabel;
   quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
   quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
-  quickstartStatus.classList.toggle("muted", quickstartLabel === "云端优先");
+  quickstartStatus.classList.toggle("muted", quickstartLabel === "自动推荐");
   stepsEl.innerHTML = steps
     .map((step, index) => `
       <div class="settings-ai-step ${escapeHtml(step.state === "complete" ? "is-complete" : step.state === "current" ? "is-current" : "")}">
@@ -7407,8 +7407,8 @@ function renderAiProviderConfigControls() {
     if (String(remoteModelInput.value || "") !== stored) remoteModelInput.value = stored;
     remoteModelInput.disabled = !remoteConfigurable;
     remoteModelInput.placeholder = remoteConfigurable
-      ? "例如：gpt-4o-mini、deepseek-chat、minicpm"
-      : "仅远程网关需要填写";
+      ? "服务商提供的模型名，例如：deepseek-chat、minicpm"
+      : "当前方案不需要填写远程模型";
   }
 
   const endpointInput = $("settingsAiProviderEndpointUrl");
@@ -7452,8 +7452,8 @@ function renderAiProviderConfigControls() {
     saveButton.textContent = settingsState.ai.providerConfigSaving
       ? "保存中..."
       : platformManaged
-        ? "平台托管无需配置"
-        : "保存当前服务配置";
+        ? "默认服务无需保存"
+        : "保存服务连接";
   }
 
   const checkButton = $("settingsAiCheckProviderHealth");
@@ -7469,7 +7469,7 @@ function renderAiProviderConfigControls() {
       ? "测试中..."
       : platformManaged
         ? "平台托管"
-        : "测试连接";
+        : "测试服务连接";
   }
 }
 
