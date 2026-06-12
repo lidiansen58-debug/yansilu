@@ -67,13 +67,6 @@ test("graph research navigator explains the map before users drill into details"
   assert.match(source, /\{ label: "待处理线索", value: `\$\{nav\.pendingTotal\} 项`, hint: "待补关系或追问" \}/);
   assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(cluster\.clusterKey\)\}"/);
   assert.match(source, /data-graph-select-node="\$\{escapeHtml\(node\.id\)\}"/);
-  assert.match(html, /\.graph-research-next \{[\s\S]*border-radius: 15px;/);
-  assert.match(html, /\.graph-selection-metrics em \{[\s\S]*font-size: 10px;/);
-  return;
-
-  assert.match(source, /function renderGraphResearchNavigatorPanel\(\{ nodes = \[\], edges = \[\], topicCandidates = \[\], bridgeGaps = \[\], clusterMeta = \[\], clueSummary = null, questionSummary = null \} = \{\}\) \{/);
-  assert.match(source, /graphResearchNavigatorState\(\{ nodes, edges, topicCandidates, bridgeGaps, clusterMeta, clueSummary, questionSummary \}\)/);
-  assert.match(source, /<aside class="graph-research-navigator" aria-label="研究导航">/);
   assert.match(source, /data-graph-research-close/);
   assert.match(source, /function renderGraphResearchNavigatorEntry\(open = false\) \{/);
   assert.match(source, /const label = "概览";/);
@@ -83,14 +76,12 @@ test("graph research navigator explains the map before users drill into details"
   assert.match(source, /const researchNavigatorHidden = graphState\.researchNavigatorHidden === true \|\| researchNavigatorAutoHidden;/);
   assert.match(source, /const researchNavigatorOpen = !filterActive && researchNavigatorHidden !== true && !selectionContextMarkup && !workbenchPanelMarkup;/);
   assert.match(source, /!filterActive && !selectionContextMarkup[\s\S]*renderGraphResearchNavigatorEntry\(researchNavigatorOpen\)/);
-  assert.match(source, /graphState\.researchNavigatorHidden = true;[\s\S]*setStatus\("已收起研究导航", "ok"\);/);
-  assert.match(source, /graphState\.researchNavigatorHidden = true;[\s\S]*graphState\.researchNavigatorTouched = true;/);
-  assert.match(source, /graphState\.researchNavigatorHidden = false;[\s\S]*graphState\.researchNavigatorTouched = true;[\s\S]*setStatus\("已显示研究导航", "ok"\);/);
-  assert.match(source, /这批笔记形成 \$\{clusters\.length\} 个主要星系/);
-  assert.match(source, /data-graph-select-cluster="\$\{escapeHtml\(cluster\.clusterKey\)\}"/);
-  assert.match(source, /data-graph-select-node="\$\{escapeHtml\(node\.id\)\}"/);
+  assert.match(source, /graphState\.researchNavigatorHidden = true;[\s\S]*setStatus\("已收起概览", "ok"\);/);
+  assert.match(source, /graphState\.researchNavigatorHidden = false;[\s\S]*graphState\.researchNavigatorTouched = true;[\s\S]*setStatus\("已显示概览", "ok"\);/);
   assert.match(source, /selectionContextMarkup \|\| focusContextMarkup \|\| researchNavigatorMarkup/);
 
+  assert.match(html, /\.graph-research-next \{[\s\S]*border-radius: 15px;/);
+  assert.match(html, /\.graph-selection-metrics em \{[\s\S]*font-size: 10px;/);
   assert.match(html, /\.graph-research-navigator \{[\s\S]*position: relative;[\s\S]*display: grid;[\s\S]*padding: 14px;/);
   assert.match(html, /\.graph-research-close \{[\s\S]*position: absolute;[\s\S]*right: 12px;/);
   assert.match(html, /\.graph-research-entry \{[\s\S]*color: #0f6f48;/);
@@ -120,13 +111,7 @@ test("graph research navigator uses cluster maturity for global verdicts", () =>
   assert.match(source, /const headline = clusters\.length/);
   assert.match(source, /const nextAction = clusters\.length/);
   assert.match(source, /const pendingNote = pendingTotal/);
-  assert.doesNotMatch(source, /matureThemeCount/);
-  return;
-
-  assert.match(source, /const matureClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "mature"\)\.length;/);
-  assert.match(source, /const testingClusterCount = clusterSummaries\.filter\(\(item\) => item\.meta\?\.tone === "testing"\)\.length;/);
-  assert.match(source, /const promisingClusterCount = matureClusterCount \+ testingClusterCount;/);
-  assert.match(source, /其中 \$\{promisingClusterCount\} 个已经值得继续提炼成题。/);
+  assert.match(source, /其中 \$\{promisingClusterCount\} 个可以继续提炼成研究问题或文章判断。/);
   assert.doesNotMatch(source, /matureThemeCount/);
 });
 
