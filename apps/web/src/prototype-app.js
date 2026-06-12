@@ -7053,8 +7053,27 @@ function renderAiRoutePreview() {
   const provider = preview.provider || {};
   const route = preview.route || {};
   const access = preview.access || {};
+  const providerId = String(provider.providerId || currentAiProviderId()).trim();
+  const providerConfig = activeAiProviderConfig();
+  const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
+  const remoteRuntimeModel = remoteConfigurable
+    ? String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, providerConfig?.runtimeModelMap || providerConfig?.runtime_model_map || {}) || "").trim()
+    : "";
+  const remoteEndpointUrl = remoteConfigurable
+    ? String(settingsState.ai.providerEndpointUrl || providerConfig?.endpointUrl || providerConfig?.endpoint_url || "").trim()
+    : "";
+  const remoteConfigReady = !remoteConfigurable || Boolean(remoteEndpointUrl && remoteRuntimeModel);
+  const setupReady = access.ready === true && remoteConfigReady;
+  const setupStatusLabel = !access.ready
+    ? "需要密钥名称"
+    : remoteConfigReady
+      ? (remoteConfigurable ? "连接信息已填" : "授权已就绪")
+      : !remoteEndpointUrl && !remoteRuntimeModel
+        ? "需要服务地址/模型"
+        : !remoteEndpointUrl
+          ? "需要服务地址"
+          : "需要远程模型";
   function providerDisplayLabel() {
-    const providerId = String(provider.providerId || "").trim();
     const displayName = String(provider.displayName || "").trim();
     if (providerId === "platform_managed_openai") return "平台托管 OpenAI";
     if (displayName === "Platform Managed OpenAI") return "平台托管 OpenAI";
@@ -7092,25 +7111,22 @@ function renderAiRoutePreview() {
     ? "平台托管 AI 可直接运行，不需要用户自行提供密钥。"
     : String(access.message || "").trim();
   const accessLabelMap = {
-    none: "无需额外密钥",
-    optional: "可选密钥",
-    required: "需要密钥",
+    no_key: "无需额外密钥",
+    workspace_key: "工作区密钥",
+    user_key: "用户密钥",
+    enterprise_secret: "企业密钥",
     platform_managed: "平台托管"
   };
-  const accessLabel = accessLabelMap[String(access.keyMode || "").trim()] || (access.ready ? "可直接使用" : "需要进一步配置");
+  const accessLabel = accessLabelMap[String(access.keyMode || "").trim()] || (access.ready ? "密钥已配置" : "需要进一步配置");
   stats.innerHTML = [
-    `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "可用远程服务"}</span>`,
-    `<span class="settings-stat-badge ${access.ready ? "ok" : "warn"}">${access.ready ? "授权已就绪" : "需要密钥名称"}</span>`,
+    `<span class="settings-stat-badge ${route.localOnly ? "ok" : ""}">${route.localOnly ? "本地/私密" : "远程服务"}</span>`,
+    `<span class="settings-stat-badge ${setupReady ? "ok" : "warn"}">${setupStatusLabel}</span>`,
     `<span class="settings-stat-badge ${healthTone}">${healthLabels[healthStatus] || healthStatus}</span>`,
     route.advancedOverride ? `<span class="settings-stat-badge warn">手动指定</span>` : `<span class="settings-stat-badge">自动选择</span>`
   ].join("");
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   const localRuntimeLine = ["local_only", "hybrid"].includes(runtimeMode)
     ? `<div>本地：${escapeHtml(localRuntimeSummaryText())}</div>`
-    : "";
-  const providerId = String(provider.providerId || currentAiProviderId()).trim();
-  const remoteRuntimeModel = isRemoteConfigurableProviderId(providerId)
-    ? String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, activeAiProviderConfig()?.runtimeModelMap || activeAiProviderConfig()?.runtime_model_map || {}) || "").trim()
     : "";
   const remoteRuntimeLine = remoteRuntimeModel
     ? `<div>远程实际模型：${escapeHtml(remoteRuntimeModel)}</div>`
