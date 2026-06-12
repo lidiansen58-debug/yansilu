@@ -1832,6 +1832,7 @@ function applyAiPreferencesToSettingsState(preferences = null) {
   settingsState.ai.secretRef = nextAiSelection.secretRef;
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
+  settingsState.ai.remoteRuntimeModel = "";
   reconcileAiSelectionState({ resetRoutePreview: false });
 }
 
