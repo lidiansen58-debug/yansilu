@@ -1544,6 +1544,13 @@ function remoteRuntimeModelFromMap(providerId = "", runtimeModelMap = {}) {
   return first ? String(first[1] || "").trim() : "";
 }
 
+function enabledProviderHealthEndpointUrl(config = null) {
+  const healthCheck = config?.healthCheck || config?.health_check || {};
+  const enabled = healthCheck.enabled === true || healthCheck.enabled === "true";
+  if (!enabled) return "";
+  return String(healthCheck.endpointUrl || healthCheck.endpoint_url || "").trim();
+}
+
 function normalizeAiRuntimeMode(value = "") {
   const mode = String(value || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
   if (["local", "local_only", "private"].includes(mode)) return "local_only";
@@ -1711,11 +1718,7 @@ function applyActiveAiProviderConfigToState() {
     return;
   }
   const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
-  const configuredHealthEndpointUrl = String(
-    config.healthCheck?.endpointUrl ||
-      config.health_check?.endpoint_url ||
-      ""
-  ).trim();
+  const configuredHealthEndpointUrl = enabledProviderHealthEndpointUrl(config);
   const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
   if (!settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
     settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
