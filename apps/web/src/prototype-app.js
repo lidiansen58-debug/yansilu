@@ -682,7 +682,7 @@ function settingsItemSummary(itemId = "") {
     "current-vault": "在这里直接选择并切换笔记库路径。",
     "permanent-template": "设置新建永久笔记时使用的默认内容。",
     "literature-template": "设置新建文献笔记时使用的默认内容。",
-    "ai-settings": "先完成 AI 基础设置，再确认状态和试运行。",
+    "ai-settings": "从本地大模型或远程大模型入口开始配置。",
     automation: "查看定时任务、AI 待办和运行记录。",
     "desktop-help": "查看本地文件、路径和切换规则。",
     feedback: "提交问题、功能想法，或复制问题信息。"
@@ -726,11 +726,11 @@ function settingsSectionGuidanceMap() {
       ]
     },
     ai: {
-      focus: `先完成 AI 基础设置，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
+      focus: `先选择“本地大模型”或“远程大模型”入口，再确认当前 AI 方案 ${aiSummary.value} 是否适合日常研究。`,
       notes: [
-        "基础设置先处理本地 AI 环境、远程 AI 环境和使用方式。",
-        "状态摘要只用于确认结果，不放在用户开始设置前面。",
-        "基础设置完成后，再用一句不含敏感内容的短句试运行。"
+        "本地大模型适合敏感资料和离线研究。",
+        "远程大模型适合团队网关、云端模型或统一服务。",
+        "入口向导完成后，再用一句不含敏感内容的短句试运行。"
       ]
     },
     automation: {
@@ -7500,6 +7500,28 @@ function openSettingsAiDialog(name = "") {
   dialog.classList.remove("hidden");
   const firstField = dialog.querySelector("select, input, textarea, button");
   if (firstField instanceof HTMLElement) firstField.focus({ preventScroll: true });
+}
+
+async function applySettingsAiQuickSetup(kind = "") {
+  const normalized = String(kind || "").trim();
+  if (normalized === "local") {
+    settingsState.ai.runtimeMode = "local_only";
+    settingsState.ai.modelPack = "Ollama Local";
+    settingsState.ai.userMode = "Local / Private";
+  } else if (normalized === "remote") {
+    settingsState.ai.runtimeMode = "cloud_only";
+    settingsState.ai.modelPack = "Global Optimized";
+    settingsState.ai.userMode = "Balanced";
+  } else {
+    return;
+  }
+  reconcileAiSelectionState({ syncUserMode: true, resetProviderState: true });
+  persistAiSettingsToStorage();
+  await syncAiSettingsToApi();
+  await refreshAiRoutePreview();
+  renderSettingsPanel();
+  openSettingsAiDialog(normalized);
+  setStatus(normalized === "local" ? "已切换为本地大模型设置流程" : "已切换为远程大模型设置流程", "ok");
 }
 
 function activateModule(moduleName) {
@@ -17090,7 +17112,12 @@ $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
   await pullRecommendedOllamaModel();
 });
 
-$("settingsCardAiSettings")?.addEventListener("click", (event) => {
+$("settingsCardAiSettings")?.addEventListener("click", async (event) => {
+  const quickSetupButton = event.target.closest("[data-settings-ai-quick-setup]");
+  if (quickSetupButton) {
+    await applySettingsAiQuickSetup(quickSetupButton.getAttribute("data-settings-ai-quick-setup"));
+    return;
+  }
   const openButton = event.target.closest("[data-settings-ai-dialog-open]");
   if (openButton) {
     openSettingsAiDialog(openButton.getAttribute("data-settings-ai-dialog-open"));
