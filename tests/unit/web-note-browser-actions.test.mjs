@@ -346,6 +346,34 @@ test("permanent note browser collects isolated notes into a top action queue", (
   assert.ok(html.indexOf("tree-disconnected-queue") < html.indexOf("dir_queue_a"));
 });
 
+test("graph browser keeps folder selection ahead of current editor note highlight", () => {
+  const state = createInitialState();
+  const explorer = createExplorerForTest(state);
+
+  state.module = "graph";
+  state.browserRootId = "dir_original_default";
+  state.selectedFolderId = "dir_original_method";
+  state.selectedFileId = null;
+  state.tabs = [{ id: "tab-current", noteId: "pn_001" }];
+  state.activeTabId = "tab-current";
+
+  assert.equal(
+    explorer.preferredVisibleRowSelector(),
+    '.explorer-item[data-kind="folder"][data-id="dir_original_method"]'
+  );
+  const currentNoteRow = explorer.renderFileNode(state.notes.find((note) => note.id === "pn_001"), 1);
+  assert.doesNotMatch(currentNoteRow, /is-current-note/);
+  assert.doesNotMatch(currentNoteRow, /item-badge-current/);
+});
+
+test("graph folder selection does not expand back to the current editor note path", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const selectFolderBranch = source.match(/if \(reason === "select-folder"\) \{([\s\S]*?)\n\s*renderAll\(\);/)?.[1] || "";
+
+  assert.match(selectFolderBranch, /expandGraphBrowserTree\(\);[\s\S]*explorer\?\.render\?\.\(\);/);
+  assert.match(selectFolderBranch, /if \(state\.module !== "graph"\) explorer\?\.expandCurrentEditorNotePathInRoot\?\.\(state\.browserRootId\);/);
+});
+
 test("note browser action buttons stop row click fallthrough", () => {
   const source = readRepoFile("apps/web/src/components-explorer-pane.js");
   const clickBody = source.match(/this\.els\.listArea\.addEventListener\("click", \(e\) => \{([\s\S]*?)\n\s*\}\);/)?.[1] || "";

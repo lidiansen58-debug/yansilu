@@ -958,9 +958,10 @@ export class ExplorerPane {
   preferredVisibleRowSelector() {
     const selectedFileId = String(this.state.selectedFileId || "").trim();
     if (selectedFileId) return `.explorer-item[data-kind="file"][data-id="${selectedFileId}"]`;
+    const selectedFolderId = String(this.state.selectedFolderId || "").trim();
+    if (this.state.module === "graph" && selectedFolderId) return `.explorer-item[data-kind="folder"][data-id="${selectedFolderId}"]`;
     const currentNoteId = this.currentEditorNoteId();
     if (currentNoteId) return `.explorer-item[data-kind="file"][data-id="${currentNoteId}"]`;
-    const selectedFolderId = String(this.state.selectedFolderId || "").trim();
     if (selectedFolderId) return `.explorer-item[data-kind="folder"][data-id="${selectedFolderId}"]`;
     return "";
   }
@@ -1007,7 +1008,8 @@ export class ExplorerPane {
     const noteIconTitle = noteIconStateTitle(noteIconState, noteType);
     const thinkingClass = thinkingBadge && !simplifiedNoteBrowser ? "has-thinking-status" : "";
     const fileIsSelected = this.state.selectedFileId === note.id;
-    const fileIsCurrent = this.currentEditorNoteId() === note.id;
+    const showCurrentEditorMarker = this.state.module !== "graph";
+    const fileIsCurrent = showCurrentEditorMarker && this.currentEditorNoteId() === note.id;
     const currentBadge = fileIsCurrent && !fileIsSelected
       ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
       : "";

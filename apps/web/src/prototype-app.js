@@ -14242,7 +14242,8 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
                       const rationale = String(item.rationale || "").trim();
                       const relationGroup = graphRelationGroupMeta(item.relationType);
                       return `
-                        <button class="graph-review-card" type="button" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
+                        <div class="graph-review-card" role="button" tabindex="0" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}">
+                          <button class="graph-review-action mini-btn" type="button" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}" aria-label="补关系理由：${escapeHtml(sourceTitle)} 到 ${escapeHtml(targetTitle)}" title="补关系理由">补理由</button>
                           <span class="graph-review-main">
                             <span class="graph-review-title">${escapeHtml(sourceTitle)} → ${escapeHtml(targetTitle)}</span>
                             <span class="graph-review-meta">
@@ -14251,10 +14252,7 @@ function renderRelationReviewQueueSection(reviewQueue, options = {}) {
                             </span>
                             <small>${escapeHtml(rationale && rationale !== "markdown_wikilink" ? rationale : "尚未写清这条关系为什么成立。")}</small>
                           </span>
-                          <span class="graph-review-actions">
-                            <span class="mini-btn" data-graph-followup-action="relations-edit" data-open-note="${escapeHtml(item.fromNoteId || source.id || "")}" data-graph-relation-id="${escapeHtml(item.id || "")}">去补关系理由</span>
-                          </span>
-                        </button>
+                        </div>
                       `;
                     })
                     .join("")}
@@ -14491,6 +14489,15 @@ function graphThinkingFilterMeta(value = "all") {
   if (key === "theme") return { key: "theme", label: "主题", note: "只看可能形成主题或索引卡的聚集。" };
   if (key === "organize") return { key: "organize", label: "整理", note: "只看孤立、桥接、关系复核和错位线索。" };
   return { key: "all", label: "全部", note: "按优先级列出当前最值得继续判断的地方。" };
+}
+
+function graphCompactActionLabel(label = "查看") {
+  const text = String(label || "查看").trim() || "查看";
+  if (/补.*理由/.test(text)) return "补理由";
+  if (/桥接|复核|评估|判断|核对|整理|改类型|拆分/.test(text)) return "判断";
+  if (/关联/.test(text)) return "关联";
+  if (/查看/.test(text)) return "查看";
+  return text.length > 4 ? text.slice(0, 4) : text;
 }
 
 function graphThinkingNoteTitle(nodeMap = new Map(), id = "", fallback = "相关笔记") {
@@ -14791,6 +14798,8 @@ function renderGraphThinkingItems(items = [], filter = "all") {
         .slice(0, 8)
         .map((item) => {
           const highlightAttrs = graphThinkingHighlightAttrs(item);
+          const actionLabel = item.actionLabel || "查看";
+          const compactActionLabel = graphCompactActionLabel(actionLabel);
           return `
             <article class="graph-thinking-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
               <button class="graph-thinking-item-main" type="button" ${item.actionAttrs || ""}>
@@ -14800,7 +14809,7 @@ function renderGraphThinkingItems(items = [], filter = "all") {
                 <em>${escapeHtml(item.detail || "这里值得继续判断。")}</em>
                 ${item.question ? `<span class="graph-thinking-question"><small>可追问</small>${escapeHtml(item.question)}</span>` : ""}
               </button>
-              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs}>${escapeHtml(item.actionLabel || "查看")}</button>` : ""}
+              ${item.actionAttrs ? `<button class="graph-thinking-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待判断线索")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
             </article>
           `;
         })
@@ -14835,6 +14844,8 @@ function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") 
         ${priorityItems
           .map((item, index) => {
             const highlightAttrs = graphThinkingHighlightAttrs(item);
+            const actionLabel = item.actionLabel || "查看";
+            const compactActionLabel = graphCompactActionLabel(actionLabel);
             return `
               <article class="graph-priority-item is-${escapeHtml(item.tone || "neutral")}"${highlightAttrs ? ` ${highlightAttrs}` : ""}>
                 <button class="graph-priority-item-main" type="button" ${item.actionAttrs || ""}>
@@ -14842,7 +14853,7 @@ function renderGraphWorkbenchPriorityQueue(items = [], activeKey = "questions") 
                   <strong>${escapeHtml(item.title || "待判断线索")}</strong>
                   <small>${escapeHtml(item.question || item.detail || "这里值得继续判断。")}</small>
                 </button>
-                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs}>${escapeHtml(item.actionLabel || "查看")}</button>` : ""}
+                ${item.actionAttrs ? `<button class="graph-priority-item-action" type="button" ${item.actionAttrs} aria-label="${escapeHtml(actionLabel)}：${escapeHtml(item.title || "待判断线索")}" title="${escapeHtml(actionLabel)}">${escapeHtml(compactActionLabel)}</button>` : ""}
               </article>
             `;
           })
@@ -16219,9 +16230,10 @@ async function handleStateChange(reason, payload = {}) {
         applyExplorerSelectionContext({ clearSelectedFile: true, expandFolder: false });
         explorer?.restoreAutoCollapsedDisconnectedGroups?.();
         expandGraphBrowserTree();
+        explorer?.render?.();
       }
       await syncNotesForDirectory(state.selectedFolderId);
-      explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);
+      if (state.module !== "graph") explorer?.expandCurrentEditorNotePathInRoot?.(state.browserRootId);
       if (state.module === "graph") await refreshDirectoryGraph();
     } catch (error) {
       setStatus(`目录加载失败，保留本地数据：${String(error?.message || error)}`, "warn");
