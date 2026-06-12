@@ -1513,7 +1513,7 @@ function defaultProviderEndpointUrl(providerId = "") {
 function defaultProviderHealthEndpointUrl(providerId = "", endpointUrl = "") {
   const id = String(providerId || "").trim();
   if (id === "ollama_local_gateway") return OLLAMA_HEALTH_ENDPOINT_URL;
-  return String(endpointUrl || "").trim();
+  return "";
 }
 
 function isLocalProviderId(providerId = "") {
@@ -1794,11 +1794,11 @@ function aiProviderConfigPayload(options = {}) {
           runtimeModelMap: remoteRuntimeModelMap
         }
       : {}),
-    ...((healthEndpointUrl || endpointUrl)
+    ...(healthEndpointUrl
       ? {
           healthCheck: {
             enabled: true,
-            endpointUrl: healthEndpointUrl || endpointUrl,
+            endpointUrl: healthEndpointUrl,
             method: "GET",
             timeoutMs: 5000,
             expectedStatus: 200,
@@ -2047,6 +2047,17 @@ async function syncAiProviderConfigToApi() {
 async function checkCurrentAiProviderHealth() {
   const providerId = currentAiProviderId();
   if (!providerId || providerId === "platform_managed_openai") return false;
+  const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
+  const healthEndpointUrl = String(
+    settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
+  ).trim();
+  if (!healthEndpointUrl) {
+    settingsState.ai.providerConfigError = "";
+    settingsState.ai.providerHealthResult = null;
+    renderSettingsPanel();
+    setStatus("未填写检测地址；请用 AI 试运行确认远程服务是否可用。", "warn");
+    return false;
+  }
   settingsState.ai.providerHealthChecking = true;
   settingsState.ai.providerConfigError = "";
   renderSettingsPanel();
@@ -2054,10 +2065,6 @@ async function checkCurrentAiProviderHealth() {
     const saved = await saveAiProviderConfig(aiProviderConfigPayload());
     upsertAiProviderConfig(saved);
     applyActiveAiProviderConfigToState();
-    const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
-    const healthEndpointUrl = String(
-      settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || endpointUrl
-    ).trim();
     const result = await checkAiProviderHealth(providerId, {
       networkEnabled: true,
       healthCheck: {
@@ -7468,16 +7475,22 @@ function renderAiProviderConfigControls() {
   const checkButton = $("settingsAiCheckProviderHealth");
   if (checkButton) {
     const platformManaged = providerId === "platform_managed_openai";
+    const endpointUrl = String(settingsState.ai.providerEndpointUrl || defaultProviderEndpointUrl(providerId) || "").trim();
+    const healthEndpointUrl = String(
+      settingsState.ai.providerHealthEndpointUrl || defaultProviderHealthEndpointUrl(providerId, endpointUrl) || ""
+    ).trim();
     checkButton.disabled =
       settingsState.ai.providerConfigSaving ||
       settingsState.ai.providerHealthChecking ||
       !providerId ||
       platformManaged ||
-      !String(settingsState.ai.providerHealthEndpointUrl || settingsState.ai.providerEndpointUrl || "").trim();
+      !healthEndpointUrl;
     checkButton.textContent = settingsState.ai.providerHealthChecking
       ? "测试中..."
       : platformManaged
         ? "平台托管"
+        : !healthEndpointUrl
+          ? "填写检测地址后测试"
         : "测试服务连接";
   }
 }
