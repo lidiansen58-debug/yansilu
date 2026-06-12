@@ -9,7 +9,7 @@ function folderIconSvg(isRoot = false, state = "") {
       <circle cx="12.4" cy="13.4" r=".35" fill="#fff8ee"/>
     `
     : cleanState === "permanent-isolated"
-      ? `<circle cx="12.2" cy="12.1" r="3.05" fill="none" stroke="#d92d20" stroke-width="1.25" stroke-dasharray="1.8 1.7"/>`
+      ? `<circle cx="12.2" cy="12.1" r="3.05" fill="none" stroke="#34b6c9" stroke-width="1.25" stroke-dasharray="1.8 1.7"/>`
       : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -24,9 +24,9 @@ function fileIconSvg(state = "", sourceKind = "") {
   const cleanState = String(state || "").trim();
   const cleanSourceKind = String(sourceKind || "").trim();
   const isPermanent = cleanState === "permanent-isolated";
-  const pageFill = isPermanent ? "#26312f" : "#f8fafc";
-  const foldFill = isPermanent ? "#3c4845" : "#eef2f7";
-  const lineStroke = isPermanent ? "#fff8ee" : "#7c8796";
+  const pageFill = isPermanent ? "#f2fbff" : "#f8fafc";
+  const foldFill = isPermanent ? "#dff7ff" : "#eef2f7";
+  const lineStroke = isPermanent ? "#195e76" : "#7c8796";
   const sourceOverlay = cleanSourceKind === "literature"
     ? `
       <circle cx="3.7" cy="12.2" r="2.45" fill="#dbeafe" stroke="#3f78a8" stroke-width=".9"/>
@@ -41,7 +41,8 @@ function fileIconSvg(state = "", sourceKind = "") {
   const stateOverlay = cleanState === "source-pending"
     ? `<circle cx="12.35" cy="12.15" r="2.35" fill="#d92d20" stroke="#fff8ee" stroke-width="1.05"/>`
     : cleanState === "permanent-isolated"
-        ? `<circle cx="8" cy="8" r="6.15" fill="none" stroke="#d92d20" stroke-width="1.15" stroke-dasharray="2 1.8"/>`
+        ? `<circle cx="8" cy="8" r="6.15" fill="none" stroke="#34b6c9" stroke-width="1.05" stroke-dasharray="2 1.8"/>
+           <circle cx="12" cy="4.3" r="1.25" fill="#34d399" stroke="#f2fbff" stroke-width=".55"/>`
         : "";
   return `
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -127,13 +128,13 @@ function folderHasPendingSourceNotes(state = {}, folderId = "", getFolderFiles =
 
 function folderStateTitle(state = "") {
   if (state === "source-pending") return "这个目录下还有随笔或文献笔记没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这个目录下还有永久笔记没有进入关系网络。";
+  if (state === "permanent-isolated") return "这个目录下还有未入星系的永久笔记，建议补关系并入知识网络。";
   return "";
 }
 
 function noteIconStateTitle(state = "", sourceKind = "") {
   if (state === "source-pending") return sourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
-  if (state === "permanent-isolated") return "这条永久笔记还没有进入关系网络。";
+  if (state === "permanent-isolated") return "这条永久笔记未入星系，建议补一条关系并入知识网络。";
   return "";
 }
 
@@ -161,7 +162,7 @@ function thinkingStatusBadge(note = null) {
 }
 
 function disconnectedNoteBadge() {
-  return `<span class="item-badge item-badge-warning" title="这条永久笔记还没有进入关系网络。">孤立</span>`;
+  return `<span class="item-badge item-badge-warning" title="这条永久笔记未入星系，建议补一条关系并入知识网络。">未入星系</span>`;
 }
 
 function displayFolderName(folder) {
@@ -328,6 +329,8 @@ export class ExplorerPane {
     this.els.listArea.addEventListener("click", (e) => {
       const relationButton = e.target.closest("button[data-associate-note]");
       if (relationButton) {
+        e.preventDefault();
+        e.stopPropagation();
         const noteId = String(relationButton.dataset.associateNote || "").trim();
         if (noteId) this.onStateChange("open-note-relations", { noteId, source: "explorer-browser" });
         return;
@@ -335,6 +338,8 @@ export class ExplorerPane {
 
       const disconnectedToggle = e.target.closest("button[data-toggle-disconnected-group]");
       if (disconnectedToggle) {
+        e.preventDefault();
+        e.stopPropagation();
         const folderId = String(disconnectedToggle.dataset.toggleDisconnectedGroup || "").trim();
         if (!folderId) return;
         this.autoCollapsedDisconnectedGroups.delete(folderId);
@@ -346,6 +351,8 @@ export class ExplorerPane {
 
       const toggleBtn = e.target.closest("button[data-toggle-folder]");
       if (toggleBtn) {
+        e.preventDefault();
+        e.stopPropagation();
         const id = toggleBtn.dataset.toggleFolder;
         if (this.expandedFolders.has(id)) this.expandedFolders.delete(id);
         else this.expandedFolders.add(id);
@@ -754,6 +761,30 @@ export class ExplorerPane {
     return hasDisconnected;
   }
 
+  disconnectedNotesInScope(rootId = this.state.browserRootId, q = "") {
+    const root = String(rootId || "").trim();
+    if (!root || !this.isPermanentNoteBrowserScope(root)) return [];
+    const folderIds = new Set([root]);
+    const queue = [root];
+    while (queue.length) {
+      const current = queue.shift();
+      this.getFolderChildren(current).forEach((child) => {
+        if (!child?.id || folderIds.has(child.id)) return;
+        folderIds.add(child.id);
+        queue.push(child.id);
+      });
+    }
+    return this.state.notes
+      .filter((note) => folderIds.has(String(note?.folderId || "").trim()))
+      .filter((note) => this.noteIsDisconnected(note))
+      .filter((note) => this.fileMatches(note, q))
+      .sort((a, b) => {
+        const scoreDiff = this.noteSearchScore(a, q) - this.noteSearchScore(b, q);
+        if (scoreDiff) return scoreDiff;
+        return String(a.title || "").localeCompare(String(b.title || ""), "zh-CN");
+      });
+  }
+
   folderHasPendingSourceNotes(folderId, memo = new Map()) {
     return folderHasPendingSourceNotes(
       this.state,
@@ -892,6 +923,7 @@ export class ExplorerPane {
     const fileRows = this.isPermanentNoteBrowserScope(folder.id)
       ? [
           connectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join(""),
+          disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(folder.id, depth + 1, false, disconnectedFiles.length) : "",
           disconnectedFiles.map((note) => this.renderFileNode(note, depth + 1)).join("")
         ].join("")
       : this.isSourceNoteBrowserScope(folder.id)
@@ -979,11 +1011,11 @@ export class ExplorerPane {
     const currentBadge = fileIsCurrent && !fileIsSelected
       ? `<span class="item-badge item-badge-current" title="当前编辑中的笔记。">当前</span>`
       : "";
-    const associateButton = disconnected && !simplifiedNoteBrowser
-      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="去给这条永久笔记补一条关系，把它接入网络">补关系</button>`
+    const associateButton = disconnected && (permanentSimplifiedScope || !simplifiedNoteBrowser)
+      ? `<button class="item-inline-action warn" type="button" data-associate-note="${escapeHtml(note.id)}" title="补一条真实关系，把这条永久笔记并入你的知识网络">接入网络</button>`
       : "";
     const trail = permanentSimplifiedScope
-      ? ""
+      ? `${disconnectedBadge}${associateButton}`
       : sourceSimplifiedScope
         ? ""
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
@@ -1004,7 +1036,7 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <span class="tree-group-pill">孤立</span>
+        <span class="tree-group-pill"><i aria-hidden="true">✦</i><span>未入星系</span><em>待接入网络</em></span>
       </div>
     `;
   }
@@ -1013,17 +1045,30 @@ export class ExplorerPane {
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}"><i aria-hidden="true">✦</i><span>${collapsed ? "▸" : "▾"} 未入星系</span><em>待接入网络</em></button>
       </div>
     `;
   }
 
-  renderDisconnectedGroupToggleClean(folderId, depth, collapsed = true) {
+  renderDisconnectedGroupToggleClean(folderId, depth, collapsed = true, count = 0) {
+    const countLabel = Number(count || 0) > 0 ? `<small>${Number(count || 0)}</small>` : "";
     return `
       <div class="tree-group-label is-warning" style="--depth:${depth};">
         <span class="tree-indent"></span>
-        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"} 孤立</button>
+        <button class="tree-group-pill tree-group-toggle" type="button" data-toggle-disconnected-group="${escapeHtml(folderId)}" aria-expanded="${collapsed ? "false" : "true"}" title="这些永久笔记还没有进入关系网络，建议逐步补关系并入知识网络"><i aria-hidden="true">✦</i><span>${collapsed ? "▸" : "▾"} 未入星系</span>${countLabel}<em>待接入网络</em></button>
       </div>
+    `;
+  }
+
+  renderDisconnectedQueue(notes = [], depth = 0, groupId = "all-disconnected") {
+    if (!Array.isArray(notes) || !notes.length) return "";
+    const collapsed = this.collapsedDisconnectedGroups.has(groupId);
+    return `
+      <section class="tree-disconnected-queue" aria-label="孤立笔记待接入队列">
+        ${this.renderDisconnectedGroupToggleClean(groupId, depth, collapsed, notes.length)}
+        <div class="tree-disconnected-queue-note">这些永久笔记还没有进入知识网络，建议逐条补关系。</div>
+        ${collapsed ? "" : notes.map((note) => this.renderFileNode(note, depth + 1)).join("")}
+      </section>
     `;
   }
 
@@ -1033,7 +1078,7 @@ export class ExplorerPane {
     const disconnectedCollapsed = this.collapsedDisconnectedGroups.has(groupId);
     return [
       connectedFiles.map((note) => this.renderFileNode(note, depth)).join(""),
-      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedCollapsed) : "",
+      disconnectedFiles.length ? this.renderDisconnectedGroupToggleClean(groupId, depth, disconnectedCollapsed, disconnectedFiles.length) : "",
       disconnectedCollapsed ? "" : disconnectedFiles.map((note) => this.renderFileNode(note, depth)).join("")
     ].join("");
   }
@@ -1069,7 +1114,10 @@ export class ExplorerPane {
     }
 
     const rootFileRows = flattenGraphRoot ? this.renderGroupedFileRows(rootFiles, 0, scopedRoot?.id || "dir_original_default") : rootFiles.map((note) => this.renderFileNode(note, 0)).join("");
-    this.els.listArea.innerHTML = `<div class="tree-root">${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
+    const disconnectedQueue = this.isPermanentNoteBrowserScope(scopedRoot?.id)
+      ? this.renderDisconnectedQueue(this.disconnectedNotesInScope(scopedRoot.id, q), 0, "all-disconnected")
+      : "";
+    this.els.listArea.innerHTML = `<div class="tree-root">${disconnectedQueue}${roots.map((r) => this.renderFolderNode(r, 0, q, memo)).join("")}${rootFileRows}</div>`;
     this.scheduleRevealPreferredVisibleRow();
   }
 }

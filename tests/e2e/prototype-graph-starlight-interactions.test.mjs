@@ -122,10 +122,16 @@ test("prototype graph research navigator opens cluster and bright-star explanati
   await openMockedGraph(page, webBase);
 
   await waitFor(async () => {
+    assert.ok(await page.locator('[data-graph-research-open]').isVisible());
+  }, 3000);
+  await page.locator('[data-graph-research-open]').click();
+
+  await waitFor(async () => {
     assert.ok(await page.locator(".graph-research-navigator").isVisible());
     const copy = await page.locator(".graph-research-navigator").textContent();
-    assert.match(copy || "", /研究导航/);
-    assert.match(copy || "", /主要星系/);
+    assert.match(copy || "", /图谱概览/);
+    assert.match(copy || "", /主题星系/);
+    assert.match(copy || "", /待处理线索/);
   }, 3000);
 
   await page.locator('.graph-research-card[data-graph-select-cluster]').first().click();
@@ -271,6 +277,9 @@ test("prototype graph AI analysis reopens the follow-up workbench after it was h
   await page.locator('[data-graph-workbench-entry="questions"]').click();
   await waitFor(async () => {
     assert.ok(await page.locator(".graph-workbench-panel").isVisible());
+    assert.equal(await page.locator('[data-graph-research-open]').count(), 1);
+    assert.equal(await page.locator('[data-graph-workbench-entry="clues"]').count(), 1);
+    assert.equal(await page.locator('[data-graph-workbench-entry="questions"]').count(), 1);
   }, 3000);
   await page.locator("[data-graph-workbench-close]").click();
   await waitFor(async () => {
