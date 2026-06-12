@@ -209,6 +209,7 @@ const GRAPH_FOCUS_CONTEXT_MODE_KEY = "yansilu:graph:focus-context-mode";
 const state = createInitialState();
 let usingLocalFallbackData = false;
 let lastChosenPermanentDirectoryId = "dir_original_default";
+let graphModuleActivationGuardUntil = 0;
 state.literatureQueueFocusNoteIds = [];
 state.literatureQueueFocusLabel = "";
 state.graphConnectivityReady = false;
@@ -18867,9 +18868,13 @@ document.querySelectorAll(".rail-btn[data-module]").forEach((btn) => {
     event.preventDefault();
     event.stopPropagation();
     const targetModule = btn.dataset.module;
+    if (targetModule === "graph") graphModuleActivationGuardUntil = Date.now() + 1800;
     activateModule(targetModule);
     if (targetModule === "graph" && state.module === "graph") {
       await refreshDirectoryGraph();
+      if (state.module !== "graph" && Date.now() < graphModuleActivationGuardUntil) {
+        activateModule("graph");
+      }
       if (state.module === "graph") setStatus("已打开永久笔记关系图谱", "ok");
 	    }
 	    if (targetModule === "aiInbox" && state.module === "aiInbox") {
@@ -18962,12 +18967,16 @@ document.querySelectorAll("[data-action^='quick-']").forEach((btn) => {
   btn.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const action = btn.dataset.action;
+    if (action === "quick-original" && Date.now() < graphModuleActivationGuardUntil) {
+      setStatus("已停留在关系图谱", "ok");
+      return;
+    }
     const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
     if (activeTab?.dirty) {
       editor.updateActiveTabFromEditor();
       void editor.autoSaveTabById(activeTab.id, "switch-root");
     }
-    const action = btn.dataset.action;
     if (action === "quick-fleeting") {
       state.browserRootId = "dir_fleeting_default";
       state.selectedFolderId = "dir_fleeting_default";
