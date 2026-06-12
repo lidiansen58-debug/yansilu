@@ -155,6 +155,17 @@ test("graph workbench prioritizes Chinese clue and question actions", () => {
   assert.doesNotMatch(domain, /Add an intermediate note or an explicit relation/);
 });
 
+test("graph map side panel does not stretch a second dark canvas below the map", () => {
+  const source = readPrototypeApp();
+  const html = readPrototypeHtml();
+
+  assert.match(source, /<div class="graph-map-stage\$\{sidePanelMarkup \? " has-side-panel" : ""\}">/);
+  assert.match(html, /\.graph-map-stage\.has-side-panel \{[\s\S]*min-height: 0;[\s\S]*background: transparent;[\s\S]*overflow: visible;/);
+  assert.match(html, /\.graph-map-stage\.has-side-panel::before,[\s\S]*\.graph-map-stage\.has-side-panel::after \{[\s\S]*display: none;/);
+  assert.match(html, /\.graph-map-body\.has-side-panel \{[\s\S]*align-items: start;[\s\S]*min-height: 0;/);
+  assert.match(html, /\.graph-map-stage\.has-side-panel \.graph-map-canvas \{[\s\S]*overflow: hidden;[\s\S]*linear-gradient\(180deg, #030812 0%, #060d18 42%, #091423 100%\);/);
+});
+
 test("graph clusters are selectable research objects with their own summary panel", () => {
   const source = readPrototypeApp();
   const html = readPrototypeHtml();

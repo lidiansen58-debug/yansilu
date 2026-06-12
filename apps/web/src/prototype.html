@@ -297,19 +297,30 @@
       white-space: nowrap;
     }
     .new-note-action.is-source-note-entry {
-      min-width: 30px;
-      width: 30px;
-      padding: 0;
+      width: auto;
+      min-width: 118px;
+      padding: 0 9px;
+      gap: 7px;
+      display: inline-flex;
+      background: linear-gradient(180deg, rgba(241, 250, 247, 0.98), rgba(228, 246, 239, 0.98));
+      border-color: rgba(20, 145, 102, 0.32);
+      color: #0f6f55;
+      box-shadow: 0 10px 20px rgba(15, 118, 85, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
     }
     .new-note-action.is-source-note-entry:hover {
-      border-color: #d7dce3;
-      background: #ffffff;
-      color: inherit;
-      box-shadow: none;
+      border-color: rgba(20, 145, 102, 0.42);
+      background: linear-gradient(180deg, rgba(234, 249, 244, 1), rgba(219, 242, 234, 1));
+      color: #0c5f49;
+      box-shadow: 0 12px 22px rgba(15, 118, 85, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.82);
     }
     .new-note-action.is-source-note-entry .new-note-action-label,
     .new-note-action.is-source-note-entry .new-note-action-meta {
-      display: none;
+      display: inline-flex;
+    }
+    .new-note-action.is-source-note-entry .new-note-action-label {
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
     }
     .new-note-action.is-source-note-entry[data-note-entry-kind="fleeting"] .new-note-action-meta {
       background: rgba(180, 83, 9, 0.12);
@@ -4590,6 +4601,15 @@
       mix-blend-mode: screen;
       animation: graphStageSweep 22s linear infinite;
     }
+    .graph-map-stage.has-side-panel {
+      min-height: 0;
+      background: transparent;
+      overflow: visible;
+    }
+    .graph-map-stage.has-side-panel::before,
+    .graph-map-stage.has-side-panel::after {
+      display: none;
+    }
     .graph-map-empty-canvas {
       min-height: var(--graph-map-height);
       display: grid;
@@ -4701,6 +4721,8 @@
     }
     .graph-map-body.has-side-panel {
       grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+      align-items: start;
+      min-height: 0;
     }
     .graph-side-stack {
       display: grid;
@@ -5832,6 +5854,15 @@
       min-height: var(--graph-map-height);
       height: var(--graph-map-height);
       display: grid;
+    }
+    .graph-map-stage.has-side-panel .graph-map-canvas {
+      overflow: hidden;
+      border-radius: 0 0 28px 28px;
+      background:
+        radial-gradient(circle at 16% 20%, rgba(93, 223, 240, 0.22), transparent 28%),
+        radial-gradient(circle at 82% 18%, rgba(103, 157, 255, 0.16), transparent 24%),
+        radial-gradient(circle at 54% 76%, rgba(39, 180, 184, 0.12), transparent 30%),
+        linear-gradient(180deg, #030812 0%, #060d18 42%, #091423 100%);
     }
     .graph-map-viewport {
       min-height: 0;

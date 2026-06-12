@@ -165,6 +165,19 @@ function disconnectedNoteBadge() {
   return `<span class="item-badge item-badge-warning" title="这条永久笔记未入星系，建议补一条关系并入知识网络。">未入星系</span>`;
 }
 
+function sourcePermanentBadge(state = "", sourceKind = "") {
+  const cleanState = String(state || "").trim();
+  const cleanSourceKind = String(sourceKind || "").trim();
+  if (cleanState === "source-pending") {
+    const title = cleanSourceKind === "literature" ? "这条文献笔记还没有创建永久笔记。" : "这条随笔还没有创建永久笔记。";
+    return `<span class="item-badge item-badge-warning" data-source-kind="${escapeHtml(cleanSourceKind)}" title="${escapeHtml(title)}">待转永久</span>`;
+  }
+  if (cleanState === "source-linked") {
+    return `<span class="item-badge item-badge-original-record" title="这条素材已经创建过永久笔记。">已转永久</span>`;
+  }
+  return "";
+}
+
 function displayFolderName(folder) {
   if (!folder) return "目录";
   if (folder.id === "dir_original_default") return "永久笔记盒";
@@ -266,6 +279,9 @@ export class ExplorerPane {
     button.dataset.tip = copy.title;
     button.classList.remove("is-source-note-entry");
     button.dataset.noteEntryKind = copy.entryKind || "permanent";
+    if (copy.entryKind === "fleeting" || copy.entryKind === "literature") {
+      button.classList.add("is-source-note-entry");
+    }
     const folderId = resolveExplorerNewNoteFolderId(this.state);
     const noteType = typeFromFolder(this.state, folderId);
     const ariaLabel = noteType === "literature" ? `${copy.ariaLabel}（文献）` : noteType === "permanent" ? `${copy.ariaLabel}（永久）` : copy.ariaLabel;
@@ -1019,7 +1035,7 @@ export class ExplorerPane {
     const trail = permanentSimplifiedScope
       ? `${disconnectedBadge}${associateButton}`
       : sourceSimplifiedScope
-        ? ""
+        ? sourcePermanentBadge(sourceState, noteType)
       : `${currentBadge}${disconnectedBadge}${thinkingBadge}${originalBadge}${associateButton}`;
     return `
       <div class="explorer-item tree-row file-row ${thinkingClass} ${disconnected ? "is-disconnected" : ""} ${fileIsSelected ? "active" : ""} ${fileIsCurrent ? "is-current-note" : ""}" data-kind="file" data-id="${note.id}" draggable="true" style="--depth:${depth};">

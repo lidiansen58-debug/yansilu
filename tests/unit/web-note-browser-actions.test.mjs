@@ -70,6 +70,61 @@ test("note browser new action follows the current material root", () => {
   });
 });
 
+test("source-note boxes make the create-file-note action visually distinct", () => {
+  const state = createInitialState();
+  const classes = new Set();
+  const newNoteButton = {
+    classList: {
+      add(token) { classes.add(token); },
+      remove(token) { classes.delete(token); },
+      toggle(token, force) {
+        if (force === false) classes.delete(token);
+        else classes.add(token);
+      }
+    },
+    dataset: {},
+    title: "",
+    setAttribute(name, value) {
+      this[name] = value;
+    },
+    querySelector(selector) {
+      if (selector === ".new-note-action-label") return { textContent: "" };
+      if (selector === ".new-note-action-meta") return { textContent: "" };
+      return null;
+    },
+    addEventListener() {}
+  };
+  const explorer = new ExplorerPane({
+    state,
+    elements: {
+      ...createStubElements(),
+      newNoteBtn: newNoteButton
+    },
+    contextMenu: { show() {} },
+    createBoxDialog: { setOptions() {}, open() {} },
+    onOpenNote() {},
+    onStatus() {},
+    onStateChange() {}
+  });
+
+  state.browserRootId = "dir_fleeting_default";
+  state.selectedFolderId = "dir_fleeting_default";
+  explorer.syncNewNoteButton();
+
+  assert.equal(classes.has("is-source-note-entry"), true);
+  assert.equal(newNoteButton.dataset.noteEntryKind, "fleeting");
+  assert.equal(newNoteButton.title, "在当前随笔目录创建文件笔记");
+});
+
+test("prototype sidebar sync also keeps source-note create action visually distinct", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+  const match = source.match(/function syncNewNoteButtons\(\) \{([\s\S]*?)\n\}/);
+
+  assert.ok(match, "expected syncNewNoteButtons() to exist");
+  assert.match(match[1], /button\.dataset\.noteEntryKind = copy\.entryKind \|\| "permanent";/);
+  assert.match(match[1], /button\.classList\.toggle\("is-source-note-entry", copy\.entryKind === "fleeting" \|\| copy\.entryKind === "literature"\);/);
+});
+
 test("note browser new action falls back to current root when selection is stale", () => {
   const state = createInitialState();
 
@@ -522,8 +577,10 @@ test("source-note boxes surface notes that still have not been turned into perma
   }, 0);
 
   assert.match(pendingHtml, /data-note-state="source-pending"/);
+  assert.match(pendingHtml, />待转永久</);
   assert.doesNotMatch(pendingHtml, /data-note-state="permanent-isolated"/);
   assert.match(doneHtml, /data-note-state=""/);
+  assert.doesNotMatch(doneHtml, />待转永久</);
 });
 
 test("source-note browser uses different pending badges for fleeting and literature notes", () => {

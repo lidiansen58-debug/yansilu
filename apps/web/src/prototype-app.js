@@ -5685,6 +5685,8 @@ function syncNewNoteButtons() {
     button.title = label;
     button.setAttribute("aria-label", label);
     button.dataset.tip = label;
+    button.dataset.noteEntryKind = copy.entryKind || "permanent";
+    button.classList.toggle("is-source-note-entry", copy.entryKind === "fleeting" || copy.entryKind === "literature");
   }
   const mobileLabel = mobileNew?.querySelector("span");
   if (mobileLabel) mobileLabel.textContent = shortLabel;
@@ -6141,8 +6143,8 @@ function permanentDirectoryDialogOptions() {
     label: directoryPathLabel(folder.id),
     hint:
       folder.id === "dir_original_default"
-        ? "先放到永久笔记盒根目录，后面再整理也可以。"
-        : `会创建到“${folder.name}”目录，创建后会直接打开继续编辑。`
+        ? "会在永久笔记盒根目录创建，之后可以再移动整理。"
+        : `会在这个目录创建，创建后直接打开继续编辑。`
   }));
 }
 
@@ -13738,7 +13740,7 @@ function renderGraphVisualMap({
             </div>`
           : ""
       }
-      <div class="graph-map-stage">
+      <div class="graph-map-stage${sidePanelMarkup ? " has-side-panel" : ""}">
         ${
           layout.nodes.length
             ? `
