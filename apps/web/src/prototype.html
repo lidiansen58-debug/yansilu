@@ -9889,7 +9889,97 @@
     }
     .settings-ai-layout {
       display: grid;
+      gap: 10px;
+    }
+    .settings-ai-primary {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid rgba(214, 223, 232, 0.92);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 253, 0.96));
+      min-width: 0;
+    }
+    .settings-ai-primary-head {
+      display: flex;
       gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+      min-width: 0;
+    }
+    .settings-ai-primary-title {
+      font-size: 18px;
+      font-weight: 850;
+      line-height: 1.25;
+      color: #172033;
+    }
+    .settings-ai-primary-note {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #64748b;
+    }
+    .settings-ai-compact-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+    .settings-ai-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-ai-field label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
+    .settings-ai-field select,
+    .settings-ai-field input,
+    .settings-ai-field textarea {
+      min-width: 0;
+    }
+    .settings-ai-quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      min-width: 0;
+    }
+    .settings-ai-tool-button {
+      min-height: 70px;
+      padding: 12px;
+      border: 1px solid rgba(214, 223, 232, 0.92);
+      border-radius: 12px;
+      background: #fff;
+      color: #172033;
+      display: grid;
+      gap: 5px;
+      align-content: start;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+    .settings-ai-tool-button:hover {
+      border-color: rgba(44, 106, 144, 0.35);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.07);
+      transform: translateY(-1px);
+    }
+    .settings-ai-tool-title {
+      font-size: 13px;
+      font-weight: 850;
+      line-height: 1.35;
+    }
+    .settings-ai-tool-note {
+      font-size: 11px;
+      line-height: 1.45;
+      color: #64748b;
+    }
+    .settings-ai-compact-preview {
+      display: grid;
+      gap: 7px;
+      padding-top: 2px;
     }
     .settings-ai-hero {
       display: grid;
@@ -10238,6 +10328,66 @@
       color: #64748b;
       line-height: 1.55;
       overflow-wrap: anywhere;
+    }
+    .settings-ai-popover {
+      position: fixed;
+      inset: 0;
+      z-index: 4000;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.34);
+      backdrop-filter: blur(8px);
+    }
+    .settings-ai-popover.hidden {
+      display: none;
+    }
+    .settings-ai-popover-panel {
+      width: min(720px, calc(100vw - 32px));
+      max-height: min(760px, calc(100vh - 32px));
+      overflow: auto;
+      border: 1px solid rgba(214, 223, 232, 0.96);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+      display: grid;
+      gap: 0;
+    }
+    .settings-ai-popover-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid #e5edf4;
+    }
+    .settings-ai-popover-title {
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 850;
+      color: #172033;
+    }
+    .settings-ai-popover-note {
+      margin-top: 4px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #64748b;
+    }
+    .settings-ai-popover-close {
+      min-width: 36px;
+      min-height: 36px;
+      border: 1px solid #dbe6f0;
+      border-radius: 999px;
+      background: #f8fbff;
+      color: #334155;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .settings-ai-popover-body {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
     }
     .settings-mini-list {
       margin: 0;
@@ -11626,6 +11776,26 @@
       }
       .settings-ai-grid {
         grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-ai-primary-head,
+      .settings-ai-compact-grid,
+      .settings-ai-quick-actions {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .settings-ai-primary-head {
+        display: grid;
+      }
+      .settings-ai-popover {
+        padding: 12px;
+      }
+      .settings-ai-popover-panel {
+        width: calc(100vw - 24px);
+        max-height: calc(100vh - 24px);
+        border-radius: 14px;
+      }
+      .settings-ai-popover-head,
+      .settings-ai-popover-body {
+        padding: 14px;
       }
       .settings-field-note {
         grid-column: 1;
@@ -15412,190 +15582,178 @@
                         <div class="settings-card-head">
                           <div>
                             <div class="settings-card-title">AI 助手设置</div>
-                            <div class="settings-card-note">先完成基础设置：本地环境、远程环境、使用方式；状态和试运行放到后面确认。</div>
+                            <div class="settings-card-note">选择 AI 的使用方式和方案；本地、远程、试运行放在浮窗里处理。</div>
                           </div>
                         </div>
                         <div class="settings-ai-layout">
-                          <section class="settings-ai-section" aria-label="AI 基础设置说明">
-                            <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">基础设置</div>
-                              <div class="settings-ai-section-note">按下面 3 组完成即可：先本地，再远程，最后选择研思录日常怎么使用 AI。</div>
+                          <section class="settings-ai-primary" aria-label="AI 主要设置">
+                            <div class="settings-ai-primary-head">
+                              <div>
+                                <div class="settings-ai-primary-title">主要设置</div>
+                                <div class="settings-ai-primary-note">多数研究人员只需要确认这三项。</div>
+                              </div>
+                              <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                             </div>
-                          </section>
-
-                          <section class="settings-ai-section">
-                            <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">基础设置 1：本地 AI 环境</div>
-                              <div class="settings-ai-section-note">如果要处理未公开材料，先确认这台电脑是否有可用的本地模型。</div>
-                            </div>
-                            <div class="settings-ai-grid">
-                              <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
-                              <select id="settingsAiLocalModel">
-                                <option value="">检测 Ollama 后选择</option>
-                              </select>
-                              <div class="settings-field-note">本地模型只在“仅本地”或“混合”时必须准备；日常自动模式可以先跳过。</div>
-                            </div>
-                            <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
-                            <div class="settings-ai-actions">
-                              <div class="settings-ai-actions-main">
-                                <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                                <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
+                            <div class="settings-ai-compact-grid">
+                              <div class="settings-ai-field">
+                                <label for="settingsAiRuntimeMode">AI 使用方式</label>
+                                <select id="settingsAiRuntimeMode">
+                                  <option value="auto">自动（推荐）</option>
+                                  <option value="local_only">仅本地</option>
+                                  <option value="cloud_only">仅远程</option>
+                                  <option value="hybrid">混合</option>
+                                </select>
+                              </div>
+                              <div class="settings-ai-field">
+                                <label for="settingsAiModelPack">AI 方案</label>
+                                <select id="settingsAiModelPack">
+                                  <option value="Starter Auto">默认自动：日常研究</option>
+                                  <option value="Low Cost Research">低成本研究</option>
+                                  <option value="Deep Work">深度工作</option>
+                                  <option value="China Optimized">国内优化</option>
+                                  <option value="Global Optimized">全球网关</option>
+                                  <option value="Privacy First">本地私密</option>
+                                  <option value="Ollama Local">Ollama 本地</option>
+                                  <option value="MiniCPM Local">MiniCPM 本地</option>
+                                  <option value="MiniCPM Remote">MiniCPM 远程</option>
+                                </select>
+                              </div>
+                              <div class="settings-ai-field">
+                                <label for="settingsAiUserMode">使用偏好</label>
+                                <select id="settingsAiUserMode">
+                                  <option value="Auto">自动安排</option>
+                                  <option value="Economy">节省成本</option>
+                                  <option value="Balanced">均衡质量</option>
+                                  <option value="Deep Thinking">深度思考</option>
+                                  <option value="Local / Private">本地 / 私密</option>
+                                </select>
                               </div>
                             </div>
+                            <div class="settings-ai-quick-actions" aria-label="AI 细节操作">
+                              <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="local">
+                                <span class="settings-ai-tool-title">本地环境</span>
+                                <span class="settings-ai-tool-note">检测 Ollama，选择本地模型。</span>
+                                <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
+                              </button>
+                              <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="remote">
+                                <span class="settings-ai-tool-title">远程服务</span>
+                                <span class="settings-ai-tool-note">配置模型、密钥名称和服务地址。</span>
+                                <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
+                              </button>
+                              <button class="settings-ai-tool-button" type="button" data-settings-ai-dialog-open="test">
+                                <span class="settings-ai-tool-title">试运行</span>
+                                <span class="settings-ai-tool-note">发一句短句确认 AI 可以返回。</span>
+                                <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
+                              </button>
+                            </div>
+                            <div class="settings-ai-compact-preview">
+                              <div class="settings-stat-row" id="settingsAiSetupBadges">
+                                <span class="settings-stat-badge warn">等待同步</span>
+                              </div>
+                              <div class="settings-stat-row" id="settingsAiRouteStats">
+                                <span class="settings-stat-badge warn">等待同步</span>
+                              </div>
+                              <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
+                            </div>
                           </section>
 
-                          <details class="settings-ai-advanced" id="settingsAiAdvancedSection" open>
-                            <summary class="settings-ai-advanced-summary">
-                              <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">基础设置 2：远程 AI 环境</span>
-                                <span class="settings-ai-advanced-meta">接入自有网关、云端模型或团队服务时填写；默认平台服务可跳过。</span>
-                              </span>
-                              <span class="settings-stat-badge muted" id="settingsAiAdvancedBadge">保持默认</span>
-                            </summary>
-                            <div class="settings-ai-advanced-body">
+                          <div class="settings-footnote">默认自动适合大多数研究任务；只有需要隐私、本地模型或团队网关时再打开对应浮窗。</div>
+                        </div>
+                        <div class="settings-ai-popover hidden" id="settingsAiLocalDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiLocalDialogTitle">
+                          <div class="settings-ai-popover-panel">
+                            <div class="settings-ai-popover-head">
+                              <div>
+                                <div class="settings-ai-popover-title" id="settingsAiLocalDialogTitle">本地 AI 环境</div>
+                                <div class="settings-ai-popover-note">用于敏感材料、离线研究或本机模型。</div>
+                              </div>
+                              <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
+                            </div>
+                            <div class="settings-ai-popover-body">
+                              <div class="settings-ai-grid">
+                                <label for="settingsAiLocalModel" id="settingsAiLocalModelLabel">本地模型</label>
+                                <select id="settingsAiLocalModel">
+                                  <option value="">检测 Ollama 后选择</option>
+                                </select>
+                                <div class="settings-field-note">只在“仅本地”或“混合”时需要；日常自动模式可以跳过。</div>
+                              </div>
+                              <div class="settings-ai-inline-note" id="settingsAiLocalHint">本地模式会显示 Ollama 检测和模型选择。</div>
+                              <div class="settings-ai-actions">
+                                <div class="settings-ai-actions-main">
+                                  <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
+                                </div>
+                              </div>
+                              <div class="settings-ai-step-list" id="settingsAiSetupSteps"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="settings-ai-popover hidden" id="settingsAiRemoteDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiRemoteDialogTitle">
+                          <div class="settings-ai-popover-panel">
+                            <div class="settings-ai-popover-head">
+                              <div>
+                                <div class="settings-ai-popover-title" id="settingsAiRemoteDialogTitle">远程 AI 服务</div>
+                                <div class="settings-ai-popover-note">接入自有网关或团队统一服务时填写。</div>
+                              </div>
+                              <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
+                            </div>
+                            <div class="settings-ai-popover-body">
                               <div class="settings-ai-grid">
                                 <label for="settingsAiRemoteRuntimeModel">远程模型</label>
-                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：gpt-4o-mini、deepseek-chat、minicpm" />
-                                <div class="settings-field-note">选择“全球网关”或“MiniCPM 远程”时填写；这里填服务商实际模型名。</div>
+                                <input id="settingsAiRemoteRuntimeModel" spellcheck="false" placeholder="例如：deepseek-chat、minicpm" />
+                                <div class="settings-field-note">选择远程网关时填写服务商实际模型名。</div>
 
                                 <label for="settingsAiSecretRef">密钥名称</label>
-                                <input id="settingsAiSecretRef" spellcheck="false" placeholder="只填名称，不直接填写真实 Key，例如：secret_china_gateway" />
-                                <div class="settings-field-note is-important">这里只写密钥的名字或环境变量引用，不要粘贴真实 API Key。</div>
+                                <input id="settingsAiSecretRef" spellcheck="false" placeholder="只填名称，例如：secret_china_gateway" />
+                                <div class="settings-field-note is-important">这里只写密钥名称或环境变量引用，不要粘贴真实 API Key。</div>
 
                                 <label for="settingsAiProviderEndpointUrl">服务地址</label>
-                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="云端网关地址，例如：https://gateway.example.com/v1/chat/completions" />
-                                <div class="settings-field-note">远程服务建议使用 HTTPS；不知道服务地址时先向团队管理员确认。</div>
+                                <input id="settingsAiProviderEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="https://gateway.example.com/v1/chat/completions" />
+                                <div class="settings-field-note">远程服务建议使用 HTTPS。</div>
 
                                 <label for="settingsAiProviderHealthEndpointUrl">检测地址</label>
-                                <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="留空 = 使用上面的服务地址；例如：https://gateway.example.com/health" />
-                                <div class="settings-field-note">不知道怎么填可以留空；需要单独健康检查时再指定。</div>
+                                <input id="settingsAiProviderHealthEndpointUrl" type="url" inputmode="url" spellcheck="false" placeholder="留空 = 使用服务地址" />
+                                <div class="settings-field-note">不知道怎么填可以留空。</div>
 
                                 <label for="settingsAiAdvancedModelRef">指定模型</label>
-                                <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择，例如：platform_managed_openai:standard" />
-                                <div class="settings-field-note">通常留空。只有调试路由时才手动填写完整模型引用。</div>
+                                <input id="settingsAiAdvancedModelRef" spellcheck="false" placeholder="留空 = 自动选择" />
+                                <div class="settings-field-note">通常留空，只在调试路由时填写。</div>
                               </div>
                               <div class="settings-ai-actions">
                                 <div class="settings-ai-actions-secondary">
                                   <button class="mini-btn primary" id="settingsAiSaveProviderConfig" type="button">保存服务连接</button>
                                   <button class="mini-btn" id="settingsAiCheckProviderHealth" type="button">测试服务连接</button>
-                                  <span class="settings-stat-badge" id="settingsAiProviderConfigBadge">未配置</span>
                                 </div>
                               </div>
                             </div>
-                          </details>
-
-                          <section class="settings-ai-section">
-                            <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">基础设置 3：选择 AI 使用方式</div>
-                              <div class="settings-ai-section-note">本地和远程环境准备好后，再选择日常研究任务如何调用 AI。</div>
-                            </div>
-                            <div class="settings-ai-grid">
-                              <label for="settingsAiRuntimeMode">AI 使用方式</label>
-                              <select id="settingsAiRuntimeMode">
-                                <option value="auto">自动（推荐，多数研究任务）</option>
-                                <option value="local_only">仅本地（敏感资料优先）</option>
-                                <option value="cloud_only">仅远程（使用远程服务）</option>
-                                <option value="hybrid">混合（敏感任务本地，重任务远程）</option>
-                              </select>
-                              <div class="settings-field-note">不知道怎么选时保持“自动”；需要处理未公开材料时再切到“仅本地”或“混合”。</div>
-
-                              <label for="settingsAiModelPack">AI 方案</label>
-                              <select id="settingsAiModelPack">
-                                <option value="Starter Auto">默认自动：日常阅读、摘要、整理</option>
-                                <option value="Low Cost Research">低成本研究：大量扫描和初筛</option>
-                                <option value="Deep Work">深度工作：写作、综合和推理</option>
-                                <option value="China Optimized">国内优化：国内网关更稳定时使用</option>
-                                <option value="Global Optimized">全球网关：接入 OpenAI 兼容服务</option>
-                                <option value="Privacy First">本地私密：尽量留在本机</option>
-                                <option value="Ollama Local">Ollama 本地：使用本机 Ollama</option>
-                                <option value="MiniCPM Local">MiniCPM 本地：使用本地 MiniCPM</option>
-                                <option value="MiniCPM Remote">MiniCPM 远程：接入远程 MiniCPM 网关</option>
-                              </select>
-                              <div class="settings-field-note">这是预设方案，不是单个模型名；具体模型会在下方预览里显示。</div>
-
-                              <label for="settingsAiUserMode">使用偏好</label>
-                              <select id="settingsAiUserMode">
-                                <option value="Auto">自动安排</option>
-                                <option value="Economy">节省成本</option>
-                                <option value="Balanced">均衡质量</option>
-                                <option value="Deep Thinking">深度思考</option>
-                                <option value="Local / Private">本地 / 私密</option>
-                              </select>
-                              <div class="settings-field-note">这个选项影响任务分配偏好：更快、更省，或更重视推理质量。</div>
-                            </div>
-                          </section>
-
-                          <div class="settings-ai-hero">
-                            <section class="settings-ai-overview" aria-live="polite">
-                              <div class="settings-ai-kicker">设置结果确认</div>
-                              <div class="settings-ai-headline" id="settingsAiSetupTitle">当前 AI 方案</div>
-                              <div class="settings-ai-body" id="settingsAiSetupBody">默认自动。</div>
-                              <div class="settings-stat-row" id="settingsAiSetupBadges">
-                                <span class="settings-stat-badge warn">等待同步</span>
-                              </div>
-                            </section>
-
-                            <section class="settings-ai-quickstart" aria-live="polite">
-                              <div class="settings-ai-quickstart-head">
-                                <div>
-                                  <div class="settings-ai-kicker">本地模型状态</div>
-                                  <div class="settings-ai-section-note">用于确认本地环境是否已经可用。</div>
-                                </div>
-                                <span class="settings-stat-badge muted" id="settingsAiQuickstartStatus">未开始</span>
-                              </div>
-                              <div class="settings-ai-step-list" id="settingsAiSetupSteps">
-                                <div class="settings-ai-step is-current">
-                                  <span class="settings-ai-step-index">1</span>
-                                  <div>
-                                    <span class="settings-ai-step-title">选择模式</span>
-                                    <span class="settings-ai-step-note">本地模式会显示 Ollama 选项。</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </section>
                           </div>
+                        </div>
 
-                          <section class="settings-ai-section">
-                            <div class="settings-ai-section-head">
-                              <div class="settings-ai-section-title">设置确认：实际使用预览</div>
-                              <div class="settings-ai-section-note">保存或切换后看这里，确认真正会走哪个服务和模型。</div>
+                        <div class="settings-ai-popover hidden" id="settingsAiTestDialog" role="dialog" aria-modal="true" aria-labelledby="settingsAiTestDialogTitle">
+                          <div class="settings-ai-popover-panel">
+                            <div class="settings-ai-popover-head">
+                              <div>
+                                <div class="settings-ai-popover-title" id="settingsAiTestDialogTitle">AI 试运行</div>
+                                <div class="settings-ai-popover-note">用一句不含敏感内容的话确认当前设置可用。</div>
+                              </div>
+                              <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
-                            <div class="settings-stat-row" id="settingsAiRouteStats">
-                              <span class="settings-stat-badge warn">等待同步</span>
-                            </div>
-                            <div class="settings-route-preview" id="settingsAiRoutePreview">显示当前会使用的模型和服务。</div>
-                          </section>
-
-                          <details class="settings-ai-advanced" id="settingsAiLabSection">
-                            <summary class="settings-ai-advanced-summary">
-                              <span class="settings-ai-advanced-copy">
-                                <span class="settings-ai-advanced-title">设置确认：试运行</span>
-                                <span class="settings-ai-advanced-meta">用一句短句确认当前设置能正常返回，再开始正式使用。</span>
-                              </span>
-                              <span class="settings-stat-badge muted" id="settingsAiLabBadge">等待运行</span>
-                            </summary>
-                            <div class="settings-ai-advanced-body">
-                              <div class="settings-kv">
-                                <div class="settings-kv-body">
-                                  <div class="settings-ai-grid">
-                                    <label for="settingsAiTestPrompt">测试内容</label>
-                                    <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。"></textarea>
-                                    <div class="settings-field-note">建议用不含敏感内容的一句话测试；返回结果只用于确认连接和模型选择。</div>
-                                    <div></div>
-                                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                      <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
-                                      <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
-                                      <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
-                                    </div>
-                                  </div>
-                                  <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:0;">（空）</pre>
+                            <div class="settings-ai-popover-body">
+                              <div class="settings-ai-grid">
+                                <label for="settingsAiTestPrompt">测试内容</label>
+                                <textarea id="settingsAiTestPrompt" rows="3" placeholder="例如：请用一句话总结“研究笔记应该先记录问题，再整理结论”。"></textarea>
+                                <div class="settings-field-note">返回结果只用于确认连接和模型选择。</div>
+                                <div></div>
+                                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                  <button class="mini-btn primary" id="btnAiTestChatRun" type="button">运行</button>
+                                  <button class="mini-btn" id="btnAiTestChatCopy" type="button">复制</button>
+                                  <span class="settings-stat-badge" id="settingsAiTestChatMeta">等待运行</span>
                                 </div>
                               </div>
+                              <pre class="settings-code" id="settingsAiTestChatOutput" style="white-space:pre-wrap; word-break:break-word; margin:0;">（空）</pre>
                             </div>
-                          </details>
-
-                          <div class="settings-footnote">基础设置完成后，再看状态预览并试运行；日常研究不需要理解模型参数。</div>
+                          </div>
                         </div>
                       </section>
                     </div>

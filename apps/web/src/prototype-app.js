@@ -7124,7 +7124,7 @@ function renderAiSettingsExperience() {
   const localHint = $("settingsAiLocalHint");
   const advancedBadge = $("settingsAiAdvancedBadge");
   const labBadge = $("settingsAiLabBadge");
-  if (!title || !body || !badges || !quickstartStatus || !stepsEl || !localHint || !advancedBadge || !labBadge) return;
+  if (!badges || !localHint || !advancedBadge || !labBadge) return;
 
   const runtimeMode = normalizeAiRuntimeMode(settingsState.ai.runtimeMode);
   const localMode = runtimeMode === "local_only" || runtimeMode === "hybrid";
@@ -7298,23 +7298,27 @@ function renderAiSettingsExperience() {
     }
   }
 
-  title.textContent = setupTitle;
-  body.textContent = setupBody;
-  quickstartStatus.textContent = quickstartLabel;
-  quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
-  quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
-  quickstartStatus.classList.toggle("muted", quickstartLabel === "自动推荐");
-  stepsEl.innerHTML = steps
-    .map((step, index) => `
-      <div class="settings-ai-step ${escapeHtml(step.state === "complete" ? "is-complete" : step.state === "current" ? "is-current" : "")}">
-        <span class="settings-ai-step-index">${step.state === "complete" ? "✓" : index + 1}</span>
-        <div>
-          <span class="settings-ai-step-title">${escapeHtml(step.title)}</span>
-          <span class="settings-ai-step-note">${escapeHtml(step.note)}</span>
+  if (title) title.textContent = setupTitle;
+  if (body) body.textContent = setupBody;
+  if (quickstartStatus) {
+    quickstartStatus.textContent = quickstartLabel;
+    quickstartStatus.classList.toggle("ok", quickstartLabel === "本地已就绪");
+    quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
+    quickstartStatus.classList.toggle("muted", quickstartLabel === "自动推荐");
+  }
+  if (stepsEl) {
+    stepsEl.innerHTML = steps
+      .map((step, index) => `
+        <div class="settings-ai-step ${escapeHtml(step.state === "complete" ? "is-complete" : step.state === "current" ? "is-current" : "")}">
+          <span class="settings-ai-step-index">${step.state === "complete" ? "✓" : index + 1}</span>
+          <div>
+            <span class="settings-ai-step-title">${escapeHtml(step.title)}</span>
+            <span class="settings-ai-step-note">${escapeHtml(step.note)}</span>
+          </div>
         </div>
-      </div>
-    `)
-    .join("");
+      `)
+      .join("");
+  }
   localHint.textContent = helperText;
 
   advancedBadge.textContent = advancedFields
@@ -7471,6 +7475,31 @@ function renderAiProviderConfigControls() {
         ? "平台托管"
         : "测试服务连接";
   }
+}
+
+function settingsAiDialogByName(name = "") {
+  const normalized = String(name || "").trim();
+  const map = {
+    local: "settingsAiLocalDialog",
+    remote: "settingsAiRemoteDialog",
+    test: "settingsAiTestDialog"
+  };
+  return $(map[normalized] || "");
+}
+
+function closeSettingsAiDialogs() {
+  ["settingsAiLocalDialog", "settingsAiRemoteDialog", "settingsAiTestDialog"].forEach((id) => {
+    $(id)?.classList.add("hidden");
+  });
+}
+
+function openSettingsAiDialog(name = "") {
+  const dialog = settingsAiDialogByName(name);
+  if (!dialog) return;
+  closeSettingsAiDialogs();
+  dialog.classList.remove("hidden");
+  const firstField = dialog.querySelector("select, input, textarea, button");
+  if (firstField instanceof HTMLElement) firstField.focus({ preventScroll: true });
 }
 
 function activateModule(moduleName) {
@@ -17059,6 +17088,24 @@ $("settingsAiDetectOllama")?.addEventListener("click", async () => {
 
 $("settingsAiPullOllamaModel")?.addEventListener("click", async () => {
   await pullRecommendedOllamaModel();
+});
+
+$("settingsCardAiSettings")?.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-settings-ai-dialog-open]");
+  if (openButton) {
+    openSettingsAiDialog(openButton.getAttribute("data-settings-ai-dialog-open"));
+    return;
+  }
+  if (event.target.closest("[data-settings-ai-dialog-close]")) {
+    closeSettingsAiDialogs();
+    return;
+  }
+  const popover = event.target.closest(".settings-ai-popover");
+  if (popover && event.target === popover) closeSettingsAiDialogs();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSettingsAiDialogs();
 });
 
 $("settingsScheduledTasksPanel")?.addEventListener("click", async (event) => {
