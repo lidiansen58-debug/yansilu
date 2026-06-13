@@ -2066,6 +2066,45 @@ function renderRelationQualityMeter(rationale = "", insightQuestion = "") {
   `;
 }
 
+function relationFollowupSuggestionForDraft({
+  noteId = "",
+  relationId = "",
+  relationType = "",
+  rationale = "",
+  insightQuestion = "",
+  targetTitle = ""
+} = {}) {
+  const cleanNoteId = String(noteId || "").trim();
+  const cleanRelationId = String(relationId || "").trim();
+  if (!cleanNoteId || !cleanRelationId) return null;
+  const cleanType = String(relationType || "").trim().toLowerCase();
+  const quality = relationQualityEvaluation(rationale, insightQuestion);
+  if (quality.level === "strong") return null;
+
+  const missingQuestion = !String(insightQuestion || "").trim();
+  const thinReason = quality.level === "empty" || quality.level === "basic";
+  const bridgeLike = RELATION_BRIDGE_TYPES.has(cleanType);
+  const target = String(targetTitle || "").trim();
+  const targetSuffix = target ? `：${target}` : "";
+  const text = bridgeLike
+    ? `这条桥接关系建议补一个边界${targetSuffix}`
+    : missingQuestion
+      ? `这条关系还可以补一个后续问题${targetSuffix}`
+      : thinReason
+        ? `这条关系理由还需要再具体一点${targetSuffix}`
+        : `这条关系可以再补证据或边界${targetSuffix}`;
+
+  return {
+    noteId: cleanNoteId,
+    relationId: cleanRelationId,
+    text,
+    actionLabel: "补理由",
+    laterLabel: "稍后",
+    focusSelector: '[data-edit-relation-form] textarea[name="rationale"]',
+    qualityLevel: quality.level
+  };
+}
+
 function excerptFromBody(body = "", fallbackTitle = "") {
   const lines = String(body || "")
     .replace(/\r\n/g, "\n")
@@ -2169,6 +2208,7 @@ export class EditorPane {
       selectedTemplateVariant: "",
       rememberedTemplateVariantLabel: ""
     };
+    this.relationFollowupSuggestion = null;
     this.relationTargetSearchSerial = 0;
     this.relationTargetSearchTimer = null;
     this.noteAiAnalysisByNoteId = new Map();
@@ -6071,6 +6111,28 @@ export class EditorPane {
     };
   }
 
+  setRelationFollowupSuggestion(suggestion = null) {
+    this.relationFollowupSuggestion = suggestion?.noteId && suggestion?.relationId ? suggestion : null;
+  }
+
+  clearRelationFollowupSuggestion() {
+    this.relationFollowupSuggestion = null;
+  }
+
+  renderRelationFollowupSuggestion(noteId = "") {
+    const suggestion = this.relationFollowupSuggestion;
+    if (!suggestion || String(suggestion.noteId || "") !== String(noteId || "")) return "";
+    return `
+      <div class="relation-followup-suggestion" data-relation-followup-suggestion data-relation-id="${escapeHtml(suggestion.relationId)}">
+        <div class="relation-followup-suggestion-text">${escapeHtml(suggestion.text || "这条关系还可以补理由。")}</div>
+        <div class="relation-followup-suggestion-actions">
+          <button class="mini-btn primary" type="button" data-relation-action="open-followup-reason" data-relation-id="${escapeHtml(suggestion.relationId)}">${escapeHtml(suggestion.actionLabel || "补理由")}</button>
+          <button class="mini-btn is-ghost" type="button" data-relation-action="dismiss-followup">${escapeHtml(suggestion.laterLabel || "稍后")}</button>
+        </div>
+      </div>
+    `;
+  }
+
   renderSemanticRelationItem(link, direction) {
     const endpoint = this.relationEndpoint(link, direction);
     const type = String(link?.relationType || "").trim().toLowerCase();
@@ -6415,6 +6477,7 @@ export class EditorPane {
           <span class="inspector-chip">桥接 ${bridgeCount}</span>
           ${markdownCount ? `<span class="inspector-chip">wikilink ${markdownCount}</span>` : ""}
         </div>
+        ${this.renderRelationFollowupSuggestion(noteId)}
         ${
           explicitLinks.length
             ? `
@@ -8404,6 +8467,16 @@ export class EditorPane {
           : `关系已建立：${note.title || note.id} -> ${target?.title || toNoteId}`,
         "ok"
       );
+      this.setRelationFollowupSuggestion(
+        relationFollowupSuggestionForDraft({
+          noteId: note.id,
+          relationId: relation?.id || relation?.relationId || "",
+          relationType,
+          rationale,
+          insightQuestion,
+          targetTitle: target?.title || toNoteId
+        })
+      );
       this.resetRelationPanelState(note.id);
       this.renderRelated(relation?.created === false ? "关系已存在，已复用。" : "关系已建立。");
     } catch (error) {
@@ -8432,7 +8505,7 @@ export class EditorPane {
       return;
     }
     try {
-      await createNoteRelation(note.id, {
+      const relation = await createNoteRelation(note.id, {
         toNoteId: target.id,
         relationType: draft.relationType,
         rationale: draft.rationale,
@@ -8446,6 +8519,16 @@ export class EditorPane {
       this.handleEditorInput();
       await this.saveActiveNote({ autoSave: true, trigger: "promote-inline-relation", skipOriginalityCheck: true });
       this.onStatus(`已升级为正式关系：${note.title || note.id} -> ${target.title || target.id}`, "ok");
+      this.setRelationFollowupSuggestion(
+        relationFollowupSuggestionForDraft({
+          noteId: note.id,
+          relationId: relation?.id || relation?.relationId || "",
+          relationType: draft.relationType,
+          rationale: draft.rationale,
+          insightQuestion: "",
+          targetTitle: target.title || target.id
+        })
+      );
       this.resetRelationPanelState(note.id);
       this.renderRelated("已升级为正式语义关系。");
     } catch (error) {
@@ -9069,6 +9152,25 @@ export class EditorPane {
       if (relationAction) {
         const action = relationAction.dataset.relationAction;
         if (action === "open-create") this.openCreateRelationForm();
+        if (action === "open-followup-reason") {
+          const relationId = relationAction.dataset.relationId || this.relationFollowupSuggestion?.relationId || "";
+          this.openEditRelationForm(relationId, {
+            entryHint: "这条关系已经建立。现在补一句更具体的理由，后面写作时会更容易复用。"
+          });
+          window.setTimeout(() => {
+            this.jumpToInspectorSection("[data-edit-relation-form]", {
+              focus: true,
+              focusSelector: '[data-edit-relation-form] textarea[name="rationale"]'
+            });
+          }, 40);
+          this.clearRelationFollowupSuggestion();
+          return;
+        }
+        if (action === "dismiss-followup") {
+          this.clearRelationFollowupSuggestion();
+          this.renderRelated();
+          return;
+        }
         if (action === "cancel-create") {
           this.resetRelationPanelState();
           this.renderRelated();
