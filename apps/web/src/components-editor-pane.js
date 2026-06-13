@@ -3391,9 +3391,9 @@ export class EditorPane {
     button.classList.toggle("hidden", !visible);
     button.disabled = !visible;
     button.dataset.sourceNoteId = visible ? note.id : "";
-    button.title = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.dataset.tip = visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记";
-    button.setAttribute("aria-label", visible ? "先选目录，再创建永久笔记" : "当前笔记不需要创建永久笔记");
+    button.title = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.dataset.tip = visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记";
+    button.setAttribute("aria-label", visible ? "创建永久笔记" : "当前笔记不需要创建永久笔记");
   }
 
   renderRelationToolbarButtons() {
@@ -9788,6 +9788,13 @@ export class EditorPane {
     if (!tab) return this.onStatus("请先打开一个笔记", "warn");
     const note = this.state.notes.find((n) => n.id === tab.noteId);
     if (!note) return this.onStatus("找不到对应笔记", "bad");
+    const savingTabId = tab.id;
+    const savingNoteId = note.id;
+    const savingTabIsActive = () => this.state.activeTabId === savingTabId;
+    const setSavingTabUiState = (mode, message = "") => {
+      tab.saveUiState = { mode, message };
+      if (savingTabIsActive()) this.renderSaveHint();
+    };
     const markLiteratureComplete = options?.markLiteratureComplete === true;
     const skipOriginalityCheck = options?.skipOriginalityCheck === true;
 
@@ -9813,20 +9820,20 @@ export class EditorPane {
       const completion = this.literatureCompletionState(note);
       if (markLiteratureComplete && !completion.hasParaphrase) {
         const message = reflectionQuestionsHint("文献笔记还不能标记完成。");
-        this.setSaveUiState("blocked", message);
+        setSavingTabUiState("blocked", message);
         this.onStatus("文献笔记缺少转述，不能标记为已完成", "warn");
         return;
       }
       if (markLiteratureComplete && !completion.hasOriginalText) {
         const message = reflectionQuestionsHint("文献笔记还不能标记完成。");
-        this.setSaveUiState("blocked", message);
+        setSavingTabUiState("blocked", message);
         this.onStatus("文献笔记缺少原文摘录，不能标记为已完成", "warn");
         return;
       }
       if (markLiteratureComplete && !completion.hasCitationMetadata) {
         const missing = completion.missingCitationFields.join("、");
         const message = `文献笔记还不能标记完成。缺少引用信息：${missing}`;
-        this.setSaveUiState("blocked", message);
+        setSavingTabUiState("blocked", message);
         this.onStatus(`文献笔记缺少引用信息：${missing}`, "warn");
         return;
       }
@@ -9850,7 +9857,7 @@ export class EditorPane {
         originality = { status: "warning", similarity: 0, reasons: ["check_unavailable"] };
       }
       if (originality?.status === "blocked") {
-        this.setSaveUiState("blocked", reflectionQuestionsHint("当前文件：原创性检测阻止继续推进，请先重写。"));
+        setSavingTabUiState("blocked", reflectionQuestionsHint("当前文件：原创性检测阻止继续推进，请先重写。"));
         return;
       }
       note.originalityStatus = originality?.status || "warning";
@@ -9870,6 +9877,7 @@ export class EditorPane {
     }
     this.renderRelated();
     const saved = await this.onStateChange("save-note", {
+      noteId: savingNoteId,
       status: nextStatus,
       originalityStatus: note.originalityStatus,
       originalitySimilarity: note.originalitySimilarity,
@@ -9879,13 +9887,13 @@ export class EditorPane {
     if (saved === false || (saved && typeof saved === "object" && saved.ok === false)) {
       tab.dirty = true;
       this.writeDraft(tab);
-      this.setSaveUiState(
+      setSavingTabUiState(
         String(saved?.saveMode || "error").trim() || "error",
         String(saved?.saveMessage || "当前文件：同步失败，修改仍保留在编辑器中。")
       );
       return;
     }
-    if (saved && typeof saved === "object" && saved.id) {
+    if (saved && typeof saved === "object" && String(saved.id || "") === savingNoteId) {
       const savedBody = typeof saved.body === "string" ? saved.body : tab.body;
       note.title = saved.title || titleFromBody(savedBody);
       note.body = savedBody;
@@ -9904,8 +9912,8 @@ export class EditorPane {
     this.syncPlaceholderTitleArmed(tab);
     tab.dirty = false;
     this.clearDraft(tab.noteId);
-    this.setSaveUiState("saved", "当前文件：已自动同步");
-    this.setEditorValue(tab.body);
+    setSavingTabUiState("saved", "当前文件：已自动同步");
+    if (savingTabIsActive()) this.setEditorValue(tab.body);
     if (this.isOriginalNote(note)) {
       this.onStatus(
         note.originalityStatus === "pass" ? "永久笔记已同步" : "永久笔记已同步，但仍建议继续打磨",

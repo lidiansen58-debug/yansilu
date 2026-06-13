@@ -5747,7 +5747,6 @@ function renderExplorerSidebarFlow(rootId = state.browserRootId) {
 function syncNewNoteButtons() {
   const copy = explorerNewNoteButtonCopy(state);
   const label = copy.title || copy.label;
-  const shortLabel = copy.mobileLabel || copy.kindLabel || copy.label;
   const sidebarNew = $("btnNewNote");
   const mobileNew = $("btnMobileNewNote");
   for (const button of [sidebarNew, mobileNew].filter(Boolean)) {
@@ -5755,10 +5754,9 @@ function syncNewNoteButtons() {
     button.setAttribute("aria-label", label);
     button.dataset.tip = label;
     button.dataset.noteEntryKind = copy.entryKind || "permanent";
-    button.classList.toggle("is-source-note-entry", copy.entryKind === "fleeting" || copy.entryKind === "literature");
   }
   const mobileLabel = mobileNew?.querySelector("span");
-  if (mobileLabel) mobileLabel.textContent = shortLabel;
+  if (mobileLabel) mobileLabel.textContent = "";
 }
 
 function renderSidebarTitle() {
@@ -5825,7 +5823,7 @@ function renderSidebarTitle() {
     if (moduleSidebar) moduleSidebar.innerHTML = "";
     if (sidebarFoot) {
       sidebarFoot.classList.remove("hidden");
-      sidebarFoot.textContent = "未入星系笔记会在这里集中提醒，可逐条接入知识网络。";
+      sidebarFoot.textContent = "孤立笔记会在这里集中提醒，可逐条关联笔记，加入关系网络。";
     }
     return;
   }
@@ -6986,7 +6984,7 @@ function syncMobileNewNoteButton() {
   const permanentLike = noteType === "permanent" || noteType === "original";
   button.setAttribute("aria-label", noteType === "literature" ? `${copy.ariaLabel}（文摘）` : permanentLike ? `${copy.ariaLabel}（永久）` : copy.ariaLabel);
   const label = button.querySelector("span");
-  if (label) label.textContent = permanentLike ? "永久" : noteType === "literature" ? "文摘" : copy.label.replace(/^新建/, "");
+  if (label) label.textContent = "";
 }
 
 function renderModulePanels() {
@@ -11325,13 +11323,12 @@ function graphLoadErrorMessage(error) {
 }
 
 function renderGraphErrorState(message = "") {
-  const text = String(message || "图谱加载失败。").trim() || "图谱加载失败。";
   return `
-    <div class="graph-empty bad graph-error-card">
-      <strong>这次图谱没有顺利读出来</strong>
-      <span>${escapeHtml(text)}</span>
+    <div class="graph-empty graph-error-card">
+      <strong>图谱暂时没有读出来</strong>
+      <span>当前笔记树仍然可以浏览和编辑。等本地服务恢复后，可以再刷新图谱。</span>
       <div class="graph-empty-actions">
-        <button class="mini-btn primary" type="button" data-graph-retry="refresh">重新读取图谱</button>
+        <button class="mini-btn primary" type="button" data-graph-retry="refresh">刷新图谱</button>
       </div>
     </div>
   `;
@@ -11349,7 +11346,7 @@ function renderGraphInlineNotice({ tone = "info", title = "", message = "", retr
       </div>
       ${
         retry
-          ? `<div class="graph-empty-actions"><button class="mini-btn primary" type="button" data-graph-retry="refresh">重新读取图谱</button></div>`
+          ? `<div class="graph-empty-actions"><button class="mini-btn primary" type="button" data-graph-retry="refresh">刷新图谱</button></div>`
           : ""
       }
     </div>
@@ -15392,7 +15389,7 @@ function renderGraphPanel() {
     state.graphVisibleNoteIds = new Set();
     state.graphVisibleNoteIdsReady = true;
     syncAllNoteRelationNetworkStatuses({ connectivityReady: false, connectedIds: null });
-    summary.textContent = `图谱加载失败：${graphState.error}`;
+    summary.textContent = "图谱暂时无法读取，笔记树仍可正常使用。";
     canvas.innerHTML = renderGraphErrorState(graphState.error);
     return;
   }
@@ -16261,7 +16258,40 @@ function graphFollowupDraftTemplates({ action = "", sourceLabel = "", targetLabe
   return withVariants("", [], "");
 }
 
+function removeNoteFromClientState(noteId = "") {
+  const cleanNoteId = String(noteId || "").trim();
+  if (!cleanNoteId) return false;
+  state.notes = state.notes.filter((note) => note.id !== cleanNoteId);
+  state.tabs = state.tabs.filter((tab) => tab.noteId !== cleanNoteId);
+  if (state.selectedFileId === cleanNoteId) state.selectedFileId = null;
+  if (state.activeTabId && !state.tabs.find((tab) => tab.id === state.activeTabId)) {
+    state.activeTabId = state.tabs[0]?.id || null;
+  }
+  return true;
+}
+
+function moveNoteInClientState(noteId = "", directoryId = "", moved = null) {
+  const cleanNoteId = String(noteId || "").trim();
+  const cleanDirectoryId = String(directoryId || "").trim();
+  if (!cleanNoteId || !cleanDirectoryId) return false;
+  const note = state.notes.find((item) => item.id === cleanNoteId);
+  if (!note) return false;
+  note.folderId = String(moved?.directoryId || cleanDirectoryId).trim() || cleanDirectoryId;
+  note.noteType = typeFromFolder(state, note.folderId);
+  note.markdownPath = moved?.markdownPath || note.markdownPath;
+  note.updatedAt = moved?.updatedAt || new Date().toISOString();
+  state.selectedFolderId = note.folderId;
+  state.selectedFileId = note.id;
+  return true;
+}
+
 async function handleStateChange(reason, payload = {}) {
+  if (reason === "refresh-graph") {
+    const refreshed = await refreshDirectoryGraph();
+    setStatus(refreshed ? "永久笔记关系图谱已刷新" : `图谱刷新失败：${graphState.error || "请重试"}`, refreshed ? "ok" : "warn");
+    return refreshed;
+  }
+
   if (reason === "create-primary-note") {
     const result = await createPrimaryOriginalNote({ preferTitleSelection: true });
     if (result.reused) {
@@ -16727,16 +16757,12 @@ async function handleStateChange(reason, payload = {}) {
 
   if (reason === "note-move") {
     try {
-      const moved = await moveNote(payload.noteId, payload.directoryId);
-      const note = state.notes.find((n) => n.id === payload.noteId);
-      if (note && moved) {
-        note.folderId = moved.directoryId || payload.directoryId;
-        note.noteType = typeFromFolder(state, note.folderId);
-        note.markdownPath = moved.markdownPath || note.markdownPath;
-        note.updatedAt = moved.updatedAt || new Date().toISOString();
+      let moved = null;
+      if (!usingLocalFallbackData) {
+        moved = await moveNote(payload.noteId, payload.directoryId);
       }
-      state.selectedFolderId = payload.directoryId;
-      setStatus("已移动笔记并落盘", "ok");
+      moveNoteInClientState(payload.noteId, payload.directoryId, moved);
+      setStatus(usingLocalFallbackData ? "已在本地示例中移动笔记" : "已移动笔记并落盘", "ok");
     } catch (error) {
       setStatus(`移动失败：${String(error?.message || error)}`, "bad");
     }
@@ -16746,13 +16772,11 @@ async function handleStateChange(reason, payload = {}) {
 
   if (reason === "note-delete") {
     try {
-      await deleteNote(payload.noteId);
-      state.notes = state.notes.filter((n) => n.id !== payload.noteId);
-      state.tabs = state.tabs.filter((t) => t.noteId !== payload.noteId);
-      if (state.activeTabId && !state.tabs.find((t) => t.id === state.activeTabId)) {
-        state.activeTabId = state.tabs[0]?.id || null;
+      if (!usingLocalFallbackData) {
+        await deleteNote(payload.noteId);
       }
-      setStatus("已删除笔记并落盘", "ok");
+      removeNoteFromClientState(payload.noteId);
+      setStatus(usingLocalFallbackData ? "已从本地示例中删除笔记" : "已删除笔记并落盘", "ok");
     } catch (error) {
       setStatus(`删除失败：${String(error?.message || error)}`, "bad");
     }
@@ -19231,7 +19255,7 @@ document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
 
 document.addEventListener("keydown", (e) => {
   const tag = (e.target?.tagName || "").toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "select" || e.isComposing) return;
+  if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable || e.isComposing) return;
 
   if (e.key === "F2") {
     if (state.selectedFileId) {
@@ -19243,6 +19267,16 @@ document.addEventListener("keydown", (e) => {
     if (state.selectedFolderId) {
       explorer.handleContextAction("rename", { kind: "folder", id: state.selectedFolderId });
       renderAll();
+      e.preventDefault();
+      return;
+    }
+  }
+
+  if (e.key === "Delete" && !e.ctrlKey && !e.altKey && !e.metaKey && state.module === "explorer") {
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId);
+    const noteId = String(state.selectedFileId || activeTab?.noteId || "").trim();
+    if (noteId && state.notes.some((note) => note.id === noteId)) {
+      void explorer.handleContextAction("delete", { kind: "file", id: noteId });
       e.preventDefault();
       return;
     }

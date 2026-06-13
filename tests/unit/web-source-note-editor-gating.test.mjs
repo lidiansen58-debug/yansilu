@@ -103,7 +103,8 @@ test("editor keeps the permanent-note button visible for fleeting notes even whe
   assert.equal(button.disabled, false);
   assert.equal(button.classList.contains("hidden"), false);
   assert.equal(button.dataset.sourceNoteId, "fn_missing");
-  assert.match(button.title, /永久笔记/);
+  assert.equal(button.title, "创建永久笔记");
+  assert.equal(button["aria-label"], "创建永久笔记");
 });
 
 test("editor keeps related-panel access and inline insert for permanent notes in the plain editor", () => {
@@ -440,6 +441,86 @@ A stable claim.
   assert.equal(tab.preferPlainEditor, false);
 });
 
+test("saving a note does not repaint the visible editor after switching tabs", async () => {
+  const state = createInitialState();
+  const pane = Object.create(EditorPane.prototype);
+  const noteA = {
+    id: "note_a",
+    title: "Note A",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    status: "draft",
+    body: "# Note A\n\nold"
+  };
+  const noteB = {
+    id: "note_b",
+    title: "Note B",
+    folderId: "dir_original_default",
+    noteType: "permanent",
+    status: "draft",
+    body: "# Note B\n\nbody"
+  };
+  const tabA = {
+    id: "tab_note_a",
+    noteId: noteA.id,
+    title: noteA.title,
+    body: "# Note A\n\nedited",
+    savedTitle: noteA.title,
+    savedBody: noteA.body,
+    dirty: true,
+    saveUiState: { mode: "dirty", message: "" }
+  };
+  const tabB = {
+    id: "tab_note_b",
+    noteId: noteB.id,
+    title: noteB.title,
+    body: noteB.body,
+    savedTitle: noteB.title,
+    savedBody: noteB.body,
+    dirty: false,
+    saveUiState: { mode: "saved", message: "" }
+  };
+  let visibleEditorValue = "";
+  let savePayload = null;
+
+  state.notes = [noteA, noteB];
+  state.tabs = [tabA, tabB];
+  state.activeTabId = tabA.id;
+  pane.state = state;
+  pane.els = {};
+  pane.getEditorValue = () => tabA.body;
+  pane.setEditorValue = (value) => {
+    visibleEditorValue = value;
+  };
+  pane.onStatus = () => {};
+  pane.renderSaveHint = () => {};
+  pane.renderRelated = () => {};
+  pane.renderTabs = () => {};
+  pane.renderThinkingStatus = () => {};
+  pane.writeDraft = () => {};
+  pane.clearDraft = () => {};
+  pane.runOriginalityCheck = async () => ({ status: "warning", similarity: 0 });
+  pane.onStateChange = async (_reason, payload) => {
+    savePayload = payload;
+    state.activeTabId = tabB.id;
+    return {
+      id: noteA.id,
+      title: "Note A",
+      body: tabA.body,
+      status: "draft"
+    };
+  };
+
+  await pane.performSaveActiveNote();
+
+  assert.equal(savePayload.noteId, noteA.id);
+  assert.equal(state.activeTabId, tabB.id);
+  assert.equal(visibleEditorValue, "");
+  assert.equal(tabA.dirty, false);
+  assert.equal(tabA.saveUiState.mode, "saved");
+  assert.equal(tabB.body, noteB.body);
+});
+
 
 test("editor preserves matched historical literature headings when structured fields save back", () => {
   const state = createInitialState();
@@ -629,4 +710,3 @@ test("renderPreviewVisibility prefers the synced textarea value over stale rich-
   assert.equal(modeEdit.classList.contains("active"), false);
   assert.equal(split.classList.contains("editor-mode-wysiwyg"), true);
 });
-
