@@ -2,6 +2,8 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { execFile, spawn } from "node:child_process";
+import net from "node:net";
 
 import {
   publicImportRecord,
@@ -582,6 +584,149 @@ async function buildOllamaModelsPreview() {
       message: cleanText(error?.message) || "Ollama is not reachable."
     };
   }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+async function fileExists(filePath = "") {
+  if (!filePath) return false;
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveOllamaCommand() {
+  const explicitBin = cleanText(process.env.OLLAMA_BIN);
+  const candidates = explicitBin ? [explicitBin] : [];
+  if (process.platform === "win32") {
+    const localAppData = cleanText(process.env.LOCALAPPDATA);
+    const programFiles = cleanText(process.env.ProgramFiles);
+    const programFilesX86 = cleanText(process.env["ProgramFiles(x86)"]);
+    if (localAppData) candidates.push(path.join(localAppData, "Programs", "Ollama", "ollama.exe"));
+    if (programFiles) candidates.push(path.join(programFiles, "Ollama", "ollama.exe"));
+    if (programFilesX86) candidates.push(path.join(programFilesX86, "Ollama", "ollama.exe"));
+  } else {
+    candidates.push("/opt/homebrew/bin/ollama", "/usr/local/bin/ollama", "/usr/bin/ollama");
+  }
+
+  const checked = [];
+  for (const candidate of candidates) {
+    const normalized = cleanText(candidate);
+    if (!normalized || checked.includes(normalized)) continue;
+    checked.push(normalized);
+    if (await fileExists(normalized)) return { command: normalized, checked };
+  }
+  return { command: "ollama", checked };
+}
+
+async function waitForOllamaRuntimeStatus(targetStatus, timeoutMs = 8000) {
+  const startedAt = Date.now();
+  let latest = await buildOllamaModelsPreview();
+  while (latest.status !== targetStatus && Date.now() - startedAt < timeoutMs) {
+    await wait(500);
+    latest = await buildOllamaModelsPreview();
+  }
+  return latest;
+}
+
+async function startOllamaRuntime() {
+  const current = await buildOllamaModelsPreview();
+  if (current.status === "available") {
+    return {
+      runtimeId: "ollama",
+      status: "already_running",
+      runtime: current,
+      message: "Ollama is already running."
+    };
+  }
+
+  let spawnError = null;
+  const ollamaCommand = await resolveOllamaCommand();
+  try {
+    const child = spawn(ollamaCommand.command, ["serve"], {
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true
+    });
+    child.once("error", (error) => {
+      spawnError = error;
+    });
+    child.unref();
+    await wait(350);
+    if (spawnError) throw spawnError;
+  } catch (error) {
+    error.details = {
+      installUrl: "https://ollama.com/download",
+      command: `${ollamaCommand.command} serve`,
+      checkedPaths: ollamaCommand.checked
+    };
+    throw error;
+  }
+
+  const runtime = await waitForOllamaRuntimeStatus("available", 9000);
+  return {
+    runtimeId: "ollama",
+    status: runtime.status === "available" ? "started" : "starting",
+    runtime,
+    message: runtime.status === "available"
+      ? "Ollama started."
+      : "Ollama start command was sent, but the runtime is not reachable yet."
+  };
+}
+
+function execFileQuiet(command, args = []) {
+  return new Promise((resolve) => {
+    execFile(command, args, { windowsHide: true }, (error, stdout, stderr) => {
+      resolve({
+        command,
+        args,
+        ok: !error,
+        code: error?.code ?? 0,
+        message: cleanText(error?.message || stderr || stdout || "")
+      });
+    });
+  });
+}
+
+async function stopOllamaRuntime() {
+  const current = await buildOllamaModelsPreview();
+  if (current.status !== "available") {
+    return {
+      runtimeId: "ollama",
+      status: "already_stopped",
+      runtime: current,
+      message: "Ollama is not reachable."
+    };
+  }
+
+  const commands = process.platform === "win32"
+    ? [
+        ["taskkill", ["/IM", "ollama.exe", "/F", "/T"]],
+        ["taskkill", ["/IM", "ollama app.exe", "/F", "/T"]]
+      ]
+    : [
+        ["pkill", ["-f", "ollama serve"]],
+        ["pkill", ["-x", "ollama"]]
+      ];
+  const results = [];
+  for (const [command, args] of commands) {
+    results.push(await execFileQuiet(command, args));
+  }
+  const runtime = await waitForOllamaRuntimeStatus("unavailable", 6000);
+  return {
+    runtimeId: "ollama",
+    status: runtime.status === "unavailable" ? "stopped" : "stopping",
+    runtime,
+    message: runtime.status === "unavailable"
+      ? "Ollama stopped."
+      : "Stop command was sent, but Ollama is still reachable.",
+    commands: results
+  };
 }
 
 async function pullOllamaModel(modelName = OLLAMA_RECOMMENDED_MODEL) {
@@ -1287,9 +1432,80 @@ function sendJson(res, status, body) {
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization"
+    "Access-Control-Allow-Headers": "Content-Type,X-Request-Id,Authorization,X-Yansilu-Local-Runtime-Control"
   });
   res.end(status === 204 ? "" : JSON.stringify(body, null, 2));
+}
+
+function hostWithoutPort(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.startsWith("[")) return raw.slice(1, raw.indexOf("]") >= 0 ? raw.indexOf("]") : undefined);
+  return raw.split(":")[0] || raw;
+}
+
+function isLoopbackHost(value = "") {
+  const host = hostWithoutPort(value);
+  if (host === "localhost" || host.endsWith(".localhost") || host === "::1") return true;
+  if (host.startsWith("::ffff:")) return isLoopbackHost(host.slice("::ffff:".length));
+  return net.isIP(host) === 4 && host.startsWith("127.");
+}
+
+function isLoopbackRemoteAddress(value = "") {
+  const address = String(value || "").trim().toLowerCase();
+  return address === "::1" || address.startsWith("127.") || address.startsWith("::ffff:127.");
+}
+
+function isAllowedLocalOrigin(origin = "") {
+  const raw = String(origin || "").trim();
+  if (!raw) return true;
+  if (raw === "null") return false;
+  try {
+    const parsed = new URL(raw);
+    return isLoopbackHost(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedLocalRuntimeControlOrigin(origin = "", host = "") {
+  const raw = String(origin || "").trim();
+  if (!raw) return true;
+  if (!isAllowedLocalOrigin(raw)) return false;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  const requestHost = String(host || "").trim().toLowerCase();
+  const originHost = parsed.host.toLowerCase();
+  if (requestHost && originHost === requestHost) return true;
+  const allowedPorts = new Set(
+    String(process.env.YANSILU_LOCAL_APP_PORTS || "3000,5173,5174,5175")
+      .split(",")
+      .map((port) => port.trim())
+      .filter(Boolean)
+  );
+  return allowedPorts.has(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
+}
+
+function assertLocalRuntimeControlAllowed(req) {
+  if (!isLoopbackRemoteAddress(req.socket?.remoteAddress || "")) {
+    const error = new Error("local runtime controls only accept requests from this computer");
+    error.status = 403;
+    throw error;
+  }
+  if (!isAllowedLocalRuntimeControlOrigin(req.headers.origin || "", req.headers.host || "")) {
+    const error = new Error("local runtime controls only accept the Yansilu local app origin");
+    error.status = 403;
+    throw error;
+  }
+  if (String(req.headers["x-yansilu-local-runtime-control"] || "").trim() !== "1") {
+    const error = new Error("local runtime controls require an explicit Yansilu runtime-control header");
+    error.status = 403;
+    throw error;
+  }
 }
 
 function sendBinary(res, status, contentType, body) {
@@ -3006,8 +3222,38 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/start") {
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const item = await startOllamaRuntime();
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        const status = error?.status || (error?.code === "ENOENT" ? 404 : 502);
+        return sendJson(res, status, err("OLLAMA_START_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/stop") {
+      try {
+        assertLocalRuntimeControlAllowed(req);
+        const item = await stopOllamaRuntime();
+        return sendJson(res, 200, {
+          item,
+          requestId: rid,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        return sendJson(res, error?.status || 502, err("OLLAMA_STOP_FAILED", String(error?.message || error), rid, error?.details || {}));
+      }
+    }
+
     if (req.method === "POST" && url.pathname === "/api/v1/ai/local-runtimes/ollama/pull-model") {
       try {
+        assertLocalRuntimeControlAllowed(req);
         const body = await readJson(req);
         const requestedModel = normalizeOllamaPullModelName(body.model || body.modelName || body.model_name);
         if (!requestedModel) return sendJson(res, 400, err("OLLAMA_MODEL_REQUIRED", "valid Ollama model name required", rid));
@@ -3023,7 +3269,7 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
-        return sendJson(res, 502, err("OLLAMA_PULL_FAILED", String(error?.message || error), rid, error?.details || {}));
+        return sendJson(res, error?.status || 502, err("OLLAMA_PULL_FAILED", String(error?.message || error), rid, error?.details || {}));
       }
     }
 

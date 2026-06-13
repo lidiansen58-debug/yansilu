@@ -7,6 +7,7 @@ const API_BASE =
     window.__API_BASE__ !== "__API_BASE__" &&
     window.__API_BASE__.trim()) ||
   "http://localhost:3000";
+const LOCAL_RUNTIME_CONTROL_HEADERS = { "X-Yansilu-Local-Runtime-Control": "1" };
 
 async function request(pathname, options = {}) {
   const url = `${API_BASE}${pathname}`;
@@ -106,10 +107,26 @@ export async function fetchOllamaModels() {
   return json.item || null;
 }
 
+export async function startOllamaRuntime() {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/start", {
+    method: "POST",
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
+export async function stopOllamaRuntime() {
+  const json = await request("/api/v1/ai/local-runtimes/ollama/stop", {
+    method: "POST",
+    headers: LOCAL_RUNTIME_CONTROL_HEADERS
+  });
+  return json.item || null;
+}
+
 export async function pullOllamaModel(model, options = {}) {
   const json = await request("/api/v1/ai/local-runtimes/ollama/pull-model", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...LOCAL_RUNTIME_CONTROL_HEADERS },
     body: JSON.stringify({
       model: String(model || "").trim(),
       ...(options?.enable === true || options?.enableLocal === true ? { enable: true } : {}),

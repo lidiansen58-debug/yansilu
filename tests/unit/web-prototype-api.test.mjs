@@ -733,9 +733,82 @@ test("prototype API pulls an Ollama local runtime model", async () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/pull-model");
     assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
     assert.deepEqual(JSON.parse(calls[0].options.body), { model: "qwen2.5:7b" });
     assert.equal(result.status, "success");
     assert.equal(result.runtime.models[0].name, "qwen2.5:7b");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API starts the Ollama local runtime", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-start-runtime", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "started",
+          runtime: { status: "available", models: [{ name: "qwen2.5:7b" }] }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const result = await api.startOllamaRuntime();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/start");
+    assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
+    assert.equal(result.status, "started");
+    assert.equal(result.runtime.models[0].name, "qwen2.5:7b");
+  } finally {
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
+});
+
+test("prototype API stops the Ollama local runtime", async () => {
+  const previousFetch = globalThis.fetch;
+  const api = await importPrototypeApi("ollama-stop-runtime", { __API_BASE__: "http://127.0.0.1:3999" });
+  const calls = [];
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    return new Response(
+      JSON.stringify({
+        item: {
+          runtimeId: "ollama",
+          status: "stopped",
+          runtime: { status: "unavailable", models: [] }
+        }
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  try {
+    const result = await api.stopOllamaRuntime();
+
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "http://127.0.0.1:3999/api/v1/ai/local-runtimes/ollama/stop");
+    assert.equal(calls[0].options.method, "POST");
+    assert.equal(calls[0].options.headers["X-Yansilu-Local-Runtime-Control"], "1");
+    assert.equal(result.status, "stopped");
+    assert.equal(result.runtime.status, "unavailable");
   } finally {
     if (previousFetch === undefined) delete globalThis.fetch;
     else globalThis.fetch = previousFetch;
