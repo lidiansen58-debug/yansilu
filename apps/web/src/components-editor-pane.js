@@ -6888,11 +6888,13 @@ export class EditorPane {
     const result = await this.onStateChange("run-note-ai-analysis", {
       noteId: note.id,
       relatedNoteIds: this.relatedPermanentNoteIds(note),
-      persistArtifacts: true
+      persistArtifacts: true,
+      openInbox: false
     });
     if (result) {
       this.noteAiAnalysisByNoteId.set(note.id, result);
       this.renderRelated();
+      void this.refreshNoteAiSuggestions(note.id);
     }
   }
 
@@ -6987,7 +6989,7 @@ export class EditorPane {
                 }
               </div>
             `
-            : `<div class="related-empty">分析结果会进入 AI Inbox；这里先显示摘要，不会自动确认关系、主题或改写笔记。</div>`
+            : `<div class="related-empty">分析结果会留在当前笔记的 AI 建议区；需要完整记录时也可以打开审阅中心，不会自动确认关系、主题或改写笔记。</div>`
         }
       </section>
     `;
@@ -8683,6 +8685,7 @@ export class EditorPane {
                 note,
                 this.buildMainPathOverviewV2({ forward, backward, tagRelated, relations: null, relationState: "loading" })
               )}
+              ${this.renderPermanentNoteAiAnalysisSection(note)}
               ${this.renderPermanentNoteDistillationSection(note)}
               ${this.renderInlineDraftRelationSection(note, tab)}
               ${this.renderCurrentRelationSection(note.id, {

@@ -33,6 +33,14 @@ function fieldLabel(field = "") {
   return normalized || "对象级建议";
 }
 
+function scopeLabel(scope = "") {
+  const normalized = cleanText(scope);
+  if (normalized === "note_field") return "字段建议";
+  if (normalized === "note") return "整条笔记";
+  if (normalized === "relation") return "关系建议";
+  return normalized || "AI 建议";
+}
+
 function suggestionPreview(content, field = "") {
   if (typeof content === "string") return cleanText(content);
   if (!content || typeof content !== "object") return "";
@@ -50,7 +58,7 @@ function actionLabel(action = "") {
   const labels = {
     adopted_as_draft: "采纳为草稿",
     edited: "标记已编辑",
-    confirmed: "确认观点",
+    confirmed: "确认建议",
     rejected: "忽略"
   };
   return labels[cleanText(action)] || cleanText(action);
@@ -82,16 +90,22 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
     return `<div class="related-empty bad">AI 建议加载失败：${escapeHtml(state.error)}</div>`;
   }
   if (!items.length) {
-    return `<div class="related-empty">这条笔记目前还没有待审 AI 建议。全局 AI Inbox 仍可作为巡检和兜底入口。</div>`;
+    return `
+      <div class="related-empty">
+        这条笔记暂时没有待审 AI 建议。可以先运行上方的 AI 分析；生成的候选会留在这里，由你决定是否采纳。
+      </div>
+    `;
   }
 
   return `
     <div class="semantic-relation-group">
       <div class="semantic-relation-group-head">
-        <strong>关联 AI 建议</strong>
+        <strong>当前笔记的 AI 建议</strong>
         <span>${escapeHtml(items.length)}</span>
       </div>
-      <div class="related-empty">先在这里按字段审阅、采纳为草稿、编辑、再确认；全局 AI Inbox 只保留为巡检中心。</div>
+      <div class="related-empty">
+        先在当前笔记里审阅：采纳只是写入草稿，确认前仍需要你检查和编辑。
+      </div>
       <div class="inspector-list">
         ${items
           .map((item) => {
@@ -104,13 +118,13 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
               <section class="related-item" data-note-ai-suggestion-id="${escapeHtml(item.id)}">
                 <span class="related-item-title">${escapeHtml(fieldLabel(field))}</span>
                 <span class="related-item-meta">
-                  ${escapeHtml(item.scope || "note_field")}
+                  ${escapeHtml(scopeLabel(item.scope))}
                   <span class="ai-inbox-badge tone-${escapeHtml(aiSuggestionStatusTone(item.status) || "muted")}">${escapeHtml(aiSuggestionStatusLabel(item.status))}</span>
                 </span>
                 <span class="related-item-preview">${escapeHtml(suggestionPreview(item.content, field) || "这条建议还没有可展示的候选内容。")}</span>
                 <span class="related-item-badges">
                   <span class="related-item-badge">${escapeHtml(item.target?.field ? `字段：${fieldLabel(field)}` : "对象级建议")}</span>
-                  ${item.sourceArtifactId ? `<span class="related-item-badge">artifact ${escapeHtml(item.sourceArtifactId)}</span>` : ""}
+                  ${item.sourceArtifactId ? `<span class="related-item-badge">来源 ${escapeHtml(item.sourceArtifactId)}</span>` : ""}
                 </span>
                 ${
                   notice
@@ -141,7 +155,7 @@ export function renderNoteEmbeddedAiWorkspace(state = {}) {
                     data-note-ai-open-inbox="${escapeHtml(item.sourceArtifactId || "")}"
                     ${busy ? "disabled" : ""}
                   >
-                    去 AI Inbox 巡检
+                    打开完整审阅
                   </button>
                 </div>
               </section>

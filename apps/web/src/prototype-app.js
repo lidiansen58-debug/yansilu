@@ -16757,18 +16757,22 @@ async function handleStateChange(reason, payload = {}) {
         persistArtifacts: payload.persistArtifacts !== false
       });
       const artifactCount = Number(result?.reviewItems?.storedArtifactIds?.length || result?.reviewItems?.artifacts?.length || 0);
-      aiInboxState.filters = normalizeAiInboxFilters({
-        ...aiInboxState.filters,
-        view: "pending",
-        sourceNoteId: noteId
-      });
-      aiInboxState.detail = null;
-      aiInboxState.selectedArtifactId = "";
-      activateModule("aiInbox");
-      await openAiInboxModule();
+      if (payload.openInbox !== false) {
+        aiInboxState.filters = normalizeAiInboxFilters({
+          ...aiInboxState.filters,
+          view: "pending",
+          sourceNoteId: noteId
+        });
+        aiInboxState.detail = null;
+        aiInboxState.selectedArtifactId = "";
+        activateModule("aiInbox");
+        await openAiInboxModule();
+      }
       setStatus(
         artifactCount
-          ? `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
+          ? payload.openInbox === false
+            ? `已生成 ${artifactCount} 条待审 AI 建议，可在当前笔记里处理`
+            : `已生成 ${artifactCount} 条待审核 AI 建议，已按当前笔记打开 AI Inbox`
           : "本地 AI 分析完成，暂时没有新的待审核建议",
         artifactCount ? "ok" : "warn"
       );
