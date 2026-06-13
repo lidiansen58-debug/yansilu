@@ -261,6 +261,10 @@ function providerConfigFromStore(providerConfigStore = null, providerDescriptor 
   return providerConfigStore.getProviderConfig({ providerId });
 }
 
+function isDisabledProviderConfig(providerConfig = null) {
+  return cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled";
+}
+
 function scheduledProviderDescriptor(input = {}, task = {}) {
   const baseDescriptor = resolveProviderDescriptor({
     userMode: task.model?.userMode,
@@ -411,6 +415,26 @@ export function preflightScheduledTaskProviderHealth(input = {}) {
     fallbackPolicy: input.fallbackPolicy || input.fallback_policy,
     requiredCapabilities: agent.requiredCapabilities || ["structured_output"]
   });
+
+  if (isDisabledProviderConfig(providerConfig)) {
+    return {
+      status: "skipped",
+      allowed: false,
+      action: "skip_scheduled",
+      fallbackUsed: false,
+      reason: "provider_config_disabled",
+      route,
+      selection: null,
+      summary: {
+        action: "skip_scheduled",
+        fallbackUsed: false,
+        fallbackReason: "provider_config_disabled"
+      },
+      selectedProviderDescriptor: providerDescriptor,
+      selectedModelRef: route.modelRef,
+      providerConfigId: providerConfig?.id || ""
+    };
+  }
 
   if (!providerHealthStore && rawCandidates.length === 0 && !input.primaryProvider && !input.primary_provider) {
     return {

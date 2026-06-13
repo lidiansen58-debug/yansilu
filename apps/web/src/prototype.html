@@ -10405,6 +10405,57 @@
       display: grid;
       gap: 8px;
     }
+    .settings-ai-local-guide {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid #cfe0ea;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f8fcff, #eef7fb);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    }
+    .settings-ai-local-guide[data-state="blocked"] {
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, #fffaf2, #fff4df);
+    }
+    .settings-ai-local-guide[data-state="ready"] {
+      border-color: #bbf7d0;
+      background: linear-gradient(180deg, #f5fff8, #ecfdf3);
+    }
+    .settings-ai-local-guide-copy {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .settings-ai-local-guide-title {
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 850;
+      color: #172033;
+    }
+    .settings-ai-local-guide-body,
+    .settings-ai-local-guide-hint {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #475569;
+      overflow-wrap: anywhere;
+    }
+    .settings-ai-local-guide-hint {
+      color: #64748b;
+    }
+    .settings-ai-local-guide-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 190px;
+    }
+    .settings-ai-local-guide-actions .mini-btn {
+      min-height: 36px;
+      white-space: nowrap;
+    }
     .settings-ai-wizard-list {
       display: grid;
       gap: 10px;
@@ -12211,6 +12262,13 @@
       .settings-ai-popover-head,
       .settings-ai-popover-body {
         padding: 14px;
+      }
+      .settings-ai-local-guide {
+        grid-template-columns: 1fr;
+      }
+      .settings-ai-local-guide-actions {
+        justify-content: flex-start;
+        min-width: 0;
       }
       .settings-field-note {
         grid-column: 1;
@@ -16143,15 +16201,26 @@
                               <button class="settings-ai-popover-close" type="button" data-settings-ai-dialog-close aria-label="关闭">×</button>
                             </div>
                             <div class="settings-ai-popover-body">
+                              <div class="settings-ai-local-guide" id="settingsAiLocalGuide" data-state="idle">
+                                <div class="settings-ai-local-guide-copy">
+                                  <span class="settings-stat-badge muted" id="settingsAiLocalGuideBadge">第 1 步</span>
+                                  <div class="settings-ai-local-guide-title" id="settingsAiLocalGuideTitle">先启用本地大模型</div>
+                                  <div class="settings-ai-local-guide-body" id="settingsAiLocalGuideBody">点击“使用本地大模型”，然后检测这台电脑是否已经安装并启动 Ollama。</div>
+                                  <div class="settings-ai-local-guide-hint" id="settingsAiLocalGuideHint">没有安装时，会在这里给出 Ollama 下载入口。</div>
+                                </div>
+                                <div class="settings-ai-local-guide-actions" aria-label="本地大模型设置操作">
+                                  <button class="mini-btn primary" id="settingsAiUseLocalSetup" type="button" data-settings-ai-quick-setup="local">使用本地大模型</button>
+                                  <button class="mini-btn" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
+                                  <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
+                                  <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
+                                </div>
+                              </div>
                               <div class="settings-ai-wizard-list">
                                 <div class="settings-ai-wizard-step">
                                   <span class="settings-ai-wizard-index">1</span>
                                   <div class="settings-ai-wizard-copy">
                                     <span class="settings-ai-wizard-title">切换到本地模式</span>
                                     <span class="settings-ai-wizard-note">研思录会优先把 AI 任务留在这台电脑上。</span>
-                                    <div class="settings-ai-wizard-action">
-                                      <button class="mini-btn primary" type="button" data-settings-ai-quick-setup="local">使用本地大模型</button>
-                                    </div>
                                   </div>
                                 </div>
                                 <div class="settings-ai-wizard-step">
@@ -16159,11 +16228,6 @@
                                   <div class="settings-ai-wizard-copy">
                                     <span class="settings-ai-wizard-title">检测本地 Ollama</span>
                                     <span class="settings-ai-wizard-note">如果没有安装，可以直接打开下载入口。</span>
-                                    <div class="settings-ai-wizard-action">
-                                      <button class="mini-btn is-subtle" id="settingsAiDetectOllama" type="button">检测 Ollama</button>
-                                      <a class="mini-btn is-subtle hidden" id="settingsAiDownloadOllama" href="https://ollama.com/download" target="_blank" rel="noreferrer">下载 Ollama</a>
-                                      <button class="mini-btn primary hidden" id="settingsAiPullOllamaModel" type="button">下载 qwen3:4b</button>
-                                    </div>
                                   </div>
                                 </div>
                                 <div class="settings-ai-wizard-step">

@@ -252,6 +252,16 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(chinaPreview.json.item.access.ready, false);
   assert.equal(chinaPreview.json.item.access.nextAction, "configure_workspace_key");
 
+  const secretOnlyPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto",
+    advancedSettings: { secretRef: "secret_china_gateway" }
+  });
+  assert.equal(secretOnlyPreview.status, 200, JSON.stringify(secretOnlyPreview.json));
+  assert.equal(secretOnlyPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(secretOnlyPreview.json.item.access.ready, true);
+  assert.equal(secretOnlyPreview.json.item.access.secretRefConfigured, true);
+
   const ollamaPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "Ollama Local",
     userMode: "Local / Private"
@@ -307,6 +317,50 @@ test("AI preferences API previews the effective model route", async (t) => {
   assert.equal(storedGatewayPreview.json.item.provider.providerId, "china_optimized_gateway");
   assert.equal(storedGatewayPreview.json.item.access.ready, true);
   assert.equal(storedGatewayPreview.json.item.access.secretRefConfigured, true);
+
+  const clearedSecretPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto",
+    advancedSettings: { secretRef: "" }
+  });
+  assert.equal(clearedSecretPreview.status, 200, JSON.stringify(clearedSecretPreview.json));
+  assert.equal(clearedSecretPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(clearedSecretPreview.json.item.access.ready, false);
+  assert.equal(clearedSecretPreview.json.item.access.secretRefConfigured, false);
+
+  const disabledGateway = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    status: "disabled",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(disabledGateway.status, 200, JSON.stringify(disabledGateway.json));
+
+  const disabledGatewayPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto"
+  });
+  assert.equal(disabledGatewayPreview.status, 400, JSON.stringify(disabledGatewayPreview.json));
+  assert.equal(disabledGatewayPreview.json.error.code, "AI_PROVIDER_CONFIG_DISABLED");
+  assert.equal(disabledGatewayPreview.json.error.details.providerId, "china_optimized_gateway");
+
+  const restoredGatewayPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "China Optimized",
+    userMode: "Auto",
+    providerPreset: "china_optimized_gateway",
+    authMode: "workspace_managed",
+    secretRef: "secret_china_gateway",
+    endpointUrl: "https://china-gateway-restored.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "china_optimized_gateway:standard": "qwen-plus"
+    }
+  });
+  assert.equal(restoredGatewayPreview.status, 200, JSON.stringify(restoredGatewayPreview.json));
+  assert.equal(restoredGatewayPreview.json.item.provider.providerId, "china_optimized_gateway");
+  assert.equal(restoredGatewayPreview.json.item.access.ready, true);
+  assert.equal(restoredGatewayPreview.json.item.access.secretRefConfigured, true);
 
   const localProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
     providerId: "local_private_gateway",
@@ -391,6 +445,64 @@ test("AI test chat validates unsaved provider settings before network execution"
   assert.equal(preview.json.item.provider.providerId, "openai_compatible_gateway");
   assert.equal(preview.json.item.access.ready, true);
 
+  const storedRemoteConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "env:REMOTE_TEST_KEY",
+    endpointUrl: "https://stored-remote-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard": "stored-remote-model"
+    }
+  });
+  assert.equal(storedRemoteConfig.status, 200, JSON.stringify(storedRemoteConfig.json));
+
+  const clearedPreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
+    modelPack: "Global Optimized",
+    providerPreset: "openai_compatible_gateway",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(clearedPreview.status, 400, JSON.stringify(clearedPreview.json));
+  assert.equal(clearedPreview.json.error.code, "AI_ROUTE_PREVIEW_FAILED");
+  assert.match(clearedPreview.json.error.message, /endpoint/i);
+
+  const clearedRemoteSecretTest = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not reuse the stored remote secret.",
+    modelPack: "Global Optimized",
+    providerPreset: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "openai_compatible_gateway:standard": "remote-test-model"
+    }
+  });
+  assert.equal(clearedRemoteSecretTest.status, 400, JSON.stringify(clearedRemoteSecretTest.json));
+  assert.equal(clearedRemoteSecretTest.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
+  assert.equal(chatServer.lastRequest(), null);
+
+  const storedLocalConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: chatServer.endpointUrl,
+    runtimeModelMap: {
+      "local_private_gateway:standard": "stored-local-model"
+    }
+  });
+  assert.equal(storedLocalConfig.status, 200, JSON.stringify(storedLocalConfig.json));
+
+  const clearedTest = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should not reuse the stored remote config.",
+    modelPack: "Privacy First",
+    providerPreset: "local_private_gateway",
+    authMode: "local_no_key",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(clearedTest.status, 400, JSON.stringify(clearedTest.json));
+  assert.equal(clearedTest.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
+  assert.equal(chatServer.lastRequest(), null);
+
   const unsafePreview = await postJson(baseUrl, "/api/v1/ai/route-preview", {
     modelPack: "Global Optimized",
     providerPreset: "openai_compatible_gateway",
@@ -429,8 +541,26 @@ test("AI test chat validates unsaved provider settings before network execution"
   assert.equal(unsafePlatform.status, 400, JSON.stringify(unsafePlatform.json));
   assert.equal(unsafePlatform.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
 
+  const disabledLocalConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    status: "disabled",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(disabledLocalConfig.status, 200, JSON.stringify(disabledLocalConfig.json));
+
+  const disabledWithoutDraft = await postJson(baseUrl, "/api/v1/ai/test-chat", {
+    prompt: "This should stay blocked without a provider draft.",
+    modelPack: "Privacy First",
+    providerPreset: "local_private_gateway",
+    authMode: "local_no_key"
+  });
+  assert.equal(disabledWithoutDraft.status, 400, JSON.stringify(disabledWithoutDraft.json));
+  assert.equal(disabledWithoutDraft.json.error.code, "AI_PROVIDER_CONFIG_DISABLED");
+
   const tested = await postJson(baseUrl, "/api/v1/ai/test-chat", {
-    prompt: "Say hello from the configured remote model.",
+    prompt: "Say hello from a refreshed local provider draft.",
     modelPack: "Starter Auto",
     providerPreset: "local_private_gateway",
     authMode: "local_no_key",
@@ -1099,4 +1229,18 @@ test("AI inbox summarize runs current local route and persists summary decision"
   assert.equal(detail.status, 200, JSON.stringify(detail.json));
   assert.equal(detail.json.item.latestDecision.decision, "revised");
   assert.match(detail.json.item.latestDecision.comment, /Recommended action: accept_link/);
+
+  const disabledProviderConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "ollama_local_gateway",
+    adapterType: "local_gateway",
+    status: "disabled",
+    authMode: "local_no_key",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(disabledProviderConfig.status, 200, JSON.stringify(disabledProviderConfig.json));
+
+  const blockedSummary = await postJson(baseUrl, "/api/v1/ai/inbox/artifact_local_summary/summarize", {});
+  assert.equal(blockedSummary.status, 400, JSON.stringify(blockedSummary.json));
+  assert.equal(blockedSummary.json.error.code, "AI_PROVIDER_CONFIG_DISABLED");
 });

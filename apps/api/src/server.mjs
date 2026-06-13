@@ -229,6 +229,18 @@ function authSummary(authMode = "", options = {}) {
   };
 }
 
+function disabledProviderConfigError(providerConfig = null) {
+  const error = new Error("AI provider config is disabled.");
+  error.code = "AI_PROVIDER_CONFIG_DISABLED";
+  error.status = 400;
+  error.details = {
+    providerId: cleanText(providerConfig?.providerId || providerConfig?.provider_id),
+    providerConfigId: cleanText(providerConfig?.id || providerConfig?.configId || providerConfig?.config_id),
+    configStatus: cleanText(providerConfig?.status || providerConfig?.status_text)
+  };
+  return error;
+}
+
 function assertProviderResponseSucceeded(response = {}, code = "AI_PROVIDER_REQUEST_FAILED") {
   if (response?.status === "succeeded") return;
   const providerError = response?.error || {};
@@ -604,22 +616,37 @@ async function buildAiRoutePreview(input = {}) {
   const store = await aiPreferencesStore();
   const storedPreferences = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
   const storedSettings = preferencesToSettingsInput(storedPreferences);
-  const draftEndpointUrl = cleanText(input.endpointUrl || input.endpoint_url);
-  const draftRuntimeModelMap = input.runtimeModelMap || input.runtime_model_map;
-  const hasProviderConfigDraft = Boolean(draftEndpointUrl || hasRuntimeModelMapEntries(draftRuntimeModelMap));
+  const advancedSettingsInput = input.advancedSettings || input.advanced_settings || {};
+  const draftEndpointValue = firstOwnValue(input, ["endpointUrl", "endpoint_url"]);
+  const draftRuntimeModelMap = firstOwnValue(input, ["runtimeModelMap", "runtime_model_map"]);
+  const draftSecretRefValue = firstOwnValue(
+    input,
+    ["secretRef", "secret_ref"],
+    firstOwnValue(advancedSettingsInput, ["secretRef", "secret_ref"])
+  );
+  const hasDraftEndpointUrl = draftEndpointValue !== undefined;
+  const hasDraftRuntimeModelMap = draftRuntimeModelMap !== undefined;
+  const hasDraftSecretRef = draftSecretRefValue !== undefined;
+  const hasProviderConfigDraft = hasDraftEndpointUrl || hasDraftRuntimeModelMap;
   const advancedSettings = {
     ...(storedSettings.advancedSettings || {}),
-    ...(input.advancedSettings || input.advanced_settings || {})
+    ...advancedSettingsInput
   };
+  const settingsSecretRef = hasDraftSecretRef
+    ? cleanText(draftSecretRefValue)
+    : advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings });
+  const settingsRuntimeModelMap = hasDraftRuntimeModelMap
+    ? mergeRuntimeModelMaps(draftRuntimeModelMap)
+    : mergeRuntimeModelMaps(storedSettings.runtimeModelMap);
   const settingsInput = {
     ...storedSettings,
     userMode: input.userMode || input.user_mode || storedSettings.userMode,
     modelPack: input.modelPack || input.model_pack || storedSettings.modelPack,
     providerPreset: input.providerPreset || input.provider_preset || storedSettings.providerPreset,
     authMode: input.authMode || input.auth_mode || storedSettings.authMode,
-    endpointUrl: input.endpointUrl || input.endpoint_url || storedSettings.endpointUrl,
-    secretRef: advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings }),
-    runtimeModelMap: mergeRuntimeModelMaps(storedSettings.runtimeModelMap, input.runtimeModelMap, input.runtime_model_map),
+    endpointUrl: hasDraftEndpointUrl ? cleanText(draftEndpointValue) : storedSettings.endpointUrl,
+    secretRef: settingsSecretRef,
+    runtimeModelMap: settingsRuntimeModelMap,
     privacy: { ...(storedSettings.privacy || {}), ...(input.privacy || {}) },
     budget: { ...(storedSettings.budget || {}), ...(input.budget || {}) },
     fallbackPolicy: { ...(storedSettings.fallbackPolicy || {}), ...(input.fallbackPolicy || input.fallback_policy || {}) },
@@ -640,10 +667,20 @@ async function buildAiRoutePreview(input = {}) {
   userSettings = resolveAiUserSettings(settingsInput);
   const configStore = await aiProviderConfigStore();
   const providerConfig = configStore.getProviderConfig({ providerId: settingsInput.providerPreset || userSettings.providerPreset });
+  const hasStoredProviderConfigDraft = hasProviderConfigDraft;
+  if (!hasStoredProviderConfigDraft && cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled") {
+    throw disabledProviderConfigError(providerConfig);
+  }
   if (providerConfig) {
     const configSettings = providerConfigToSettingsInput(providerConfig);
-    const secretRef = settingsInput.secretRef || configSettings.secretRef;
-    const endpointUrl = draftEndpointUrl || configSettings.endpointUrl || settingsInput.endpointUrl;
+    const secretRef = hasDraftSecretRef ? settingsInput.secretRef : settingsInput.secretRef || configSettings.secretRef;
+    const endpointUrl = hasDraftEndpointUrl ? settingsInput.endpointUrl : configSettings.endpointUrl || settingsInput.endpointUrl;
+    const runtimeModelMap = hasDraftRuntimeModelMap
+      ? settingsInput.runtimeModelMap
+      : {
+          ...(configSettings.runtimeModelMap || {}),
+          ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
+        };
     const providerDescriptorInput = {
       ...(configSettings.providerDescriptor || {}),
       endpointUrl,
@@ -654,40 +691,47 @@ async function buildAiRoutePreview(input = {}) {
       endpointUrl,
       secretRef,
       providerDescriptor: providerDescriptorInput,
-      runtimeModelMap: {
-        ...(configSettings.runtimeModelMap || {}),
-        ...(settingsInput.runtimeModelMap || settingsInput.runtime_model_map || {})
-      }
+      runtimeModelMap
     });
   }
   const previewProviderId = cleanText(settingsInput.providerPreset || userSettings.providerPreset);
-  if (previewProviderId === "platform_managed_openai" && hasProviderConfigDraft) {
+  if (
+    previewProviderId === "platform_managed_openai" &&
+    ((hasDraftEndpointUrl && cleanText(draftEndpointValue)) || (hasDraftRuntimeModelMap && hasRuntimeModelMapEntries(draftRuntimeModelMap)))
+  ) {
     const error = new Error("platform-managed AI does not accept endpointUrl or runtimeModelMap overrides");
     error.code = "AI_PROVIDER_CONFIG_INVALID";
     throw error;
   }
-  if (previewProviderId && previewProviderId !== "platform_managed_openai" && hasProviderConfigDraft) {
-    const draftProviderConfig = assertValidAiProviderConfig({
-      ...(providerConfig || {}),
+  if (previewProviderId && previewProviderId !== "platform_managed_openai" && hasStoredProviderConfigDraft) {
+    const draftProviderConfigInput = {
       providerId: previewProviderId,
-      authMode: cleanText(settingsInput.authMode) || providerConfig?.authMode,
-      secretRef: cleanText(settingsInput.secretRef) || providerConfig?.secretRef,
-      endpointUrl: cleanText(settingsInput.endpointUrl) || providerConfig?.endpointUrl,
-      runtimeModelMap: mergeRuntimeModelMaps(providerConfig?.runtimeModelMap, settingsInput.runtimeModelMap)
-    });
+      status: "enabled",
+      authMode: cleanText(settingsInput.authMode) || providerConfig?.authMode
+    };
+    if (hasDraftSecretRef || cleanText(settingsInput.secretRef)) draftProviderConfigInput.secretRef = settingsInput.secretRef;
+    if (hasDraftEndpointUrl || cleanText(settingsInput.endpointUrl)) draftProviderConfigInput.endpointUrl = settingsInput.endpointUrl;
+    if (hasDraftRuntimeModelMap || hasRuntimeModelMapEntries(settingsInput.runtimeModelMap)) {
+      draftProviderConfigInput.runtimeModelMap = settingsInput.runtimeModelMap;
+    }
+    const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
     const draftSettings = providerConfigToSettingsInput(draftProviderConfig);
-    const secretRef = cleanText(settingsInput.secretRef) || draftSettings.secretRef;
-    const endpointUrl = cleanText(settingsInput.endpointUrl) || draftSettings.endpointUrl;
+    const secretRef = hasDraftSecretRef ? settingsInput.secretRef : cleanText(settingsInput.secretRef) || draftSettings.secretRef;
+    const endpointUrl = hasDraftEndpointUrl ? settingsInput.endpointUrl : cleanText(settingsInput.endpointUrl) || draftSettings.endpointUrl;
+    const runtimeModelMap = hasDraftRuntimeModelMap
+      ? draftSettings.runtimeModelMap
+      : mergeRuntimeModelMaps(draftSettings.runtimeModelMap, settingsInput.runtimeModelMap);
+    const providerDescriptorInput = {
+      ...(draftSettings.providerDescriptor || {}),
+      endpointUrl,
+      secretRef
+    };
     Object.assign(settingsInput, {
       ...draftSettings,
       endpointUrl,
       secretRef,
-      providerDescriptor: {
-        ...(draftSettings.providerDescriptor || {}),
-        endpointUrl,
-        secretRef
-      },
-      runtimeModelMap: mergeRuntimeModelMaps(draftSettings.runtimeModelMap, settingsInput.runtimeModelMap)
+      providerDescriptor: providerDescriptorInput,
+      runtimeModelMap
     });
   }
   const providerDescriptor = resolveProviderDescriptor(settingsInput);
@@ -733,7 +777,7 @@ async function buildAiRoutePreview(input = {}) {
       localPreferred: userSettings.privacy.localPreferred === true
     },
     access: authSummary(route.authMode || userSettings.authMode || providerDescriptor.authMode, {
-      secretRef: providerDescriptor.secretRef || settingsInput.secretRef
+      secretRef: hasDraftSecretRef ? settingsInput.secretRef : providerDescriptor.secretRef || settingsInput.secretRef
     }),
     health: providerHealthPreview(latestProviderHealth)
   };
@@ -745,6 +789,17 @@ function enabledFlag(input = {}, camelKey = "", snakeKey = "") {
 
 function disabledFlag(input = {}, camelKey = "", snakeKey = "") {
   return input[camelKey] === false || (snakeKey && input[snakeKey] === false);
+}
+
+function hasOwn(value = {}, key = "") {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
+function firstOwnValue(value = {}, keys = [], fallback = undefined) {
+  for (const key of keys) {
+    if (hasOwn(value, key)) return value[key];
+  }
+  return fallback;
 }
 
 function mergeRuntimeModelMaps(...values) {
@@ -828,34 +883,77 @@ function requestModelFromRoute(providerDescriptor = {}, modelRoute = {}, explici
   };
 }
 
+function mergeSettingsWithProviderSettings(routedSettingsInput = {}, providerSettings = {}, options = {}) {
+  const hasSecretRef = options.hasSecretRef === true;
+  const hasEndpointUrl = options.hasEndpointUrl === true;
+  const hasRuntimeModelMap = options.hasRuntimeModelMap === true;
+  const secretRef = hasSecretRef
+    ? cleanText(routedSettingsInput.secretRef || routedSettingsInput.secret_ref)
+    : cleanText(routedSettingsInput.secretRef || routedSettingsInput.secret_ref) || providerSettings.secretRef;
+  const endpointUrl = hasEndpointUrl
+    ? cleanText(routedSettingsInput.endpointUrl || routedSettingsInput.endpoint_url)
+    : cleanText(routedSettingsInput.endpointUrl || routedSettingsInput.endpoint_url) || providerSettings.endpointUrl;
+  const runtimeModelMap = hasRuntimeModelMap
+    ? mergeRuntimeModelMaps(routedSettingsInput.runtimeModelMap, routedSettingsInput.runtime_model_map)
+    : mergeRuntimeModelMaps(providerSettings.runtimeModelMap, providerSettings.runtime_model_map, routedSettingsInput.runtimeModelMap, routedSettingsInput.runtime_model_map);
+  const providerDescriptorSource = providerSettings.providerDescriptor || providerSettings.provider_descriptor || routedSettingsInput.providerDescriptor || routedSettingsInput.provider_descriptor || null;
+  return {
+    ...routedSettingsInput,
+    ...providerSettings,
+    secretRef,
+    endpointUrl,
+    ...(providerDescriptorSource
+      ? {
+          providerDescriptor: {
+            ...providerDescriptorSource,
+            secretRef,
+            endpointUrl
+          }
+        }
+      : {}),
+    runtimeModelMap
+  };
+}
+
 async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
   await initVault(VAULT_PATH);
   const preferencesStore = await aiPreferencesStore();
   const storedPreferences = preferencesStore.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" });
   const storedSettings = preferencesToSettingsInput(storedPreferences);
+  const advancedSettingsInput = input.advancedSettings || input.advanced_settings || {};
+  const inputEndpointValue = firstOwnValue(input, ["endpointUrl", "endpoint_url"]);
+  const inputRuntimeModelMap = firstOwnValue(input, ["runtimeModelMap", "runtime_model_map"]);
+  const inputSecretRefValue = firstOwnValue(
+    input,
+    ["secretRef", "secret_ref"],
+    firstOwnValue(advancedSettingsInput, ["secretRef", "secret_ref"])
+  );
+  const hasInputEndpointUrl = inputEndpointValue !== undefined;
+  const hasInputRuntimeModelMap = inputRuntimeModelMap !== undefined;
+  const hasInputSecretRef = inputSecretRefValue !== undefined;
   const advancedSettings = {
     ...(storedSettings.advancedSettings || {}),
-    ...(input.advancedSettings || input.advanced_settings || {})
+    ...advancedSettingsInput
   };
+  const settingsSecretRef = hasInputSecretRef
+    ? cleanText(inputSecretRefValue)
+    : advancedSecretRefFrom({ ...storedSettings, ...input, advancedSettings });
   const settingsInput = {
     ...storedSettings,
     userMode: input.userMode ?? input.user_mode ?? defaults.userMode ?? storedSettings.userMode,
     modelPack: input.modelPack ?? input.model_pack ?? defaults.modelPack ?? storedSettings.modelPack,
     providerPreset: input.providerPreset ?? input.provider_preset ?? defaults.providerPreset ?? storedSettings.providerPreset,
     authMode: input.authMode ?? input.auth_mode ?? defaults.authMode ?? storedSettings.authMode,
-    secretRef: input.secretRef ?? input.secret_ref ?? storedSettings.secretRef,
-    endpointUrl: input.endpointUrl ?? input.endpoint_url ?? storedSettings.endpointUrl,
+    secretRef: settingsSecretRef,
+    endpointUrl: hasInputEndpointUrl ? cleanText(inputEndpointValue) : storedSettings.endpointUrl,
     modelRef: input.modelRef ?? input.model_ref ?? storedSettings.modelRef,
     headers: {
       ...(storedSettings.headers || {}),
       ...(input.headers || {})
     },
-    runtimeModelMap: mergeRuntimeModelMaps(
-      storedSettings.runtimeModelMap,
-      storedSettings.runtime_model_map,
-      input.runtimeModelMap,
-      input.runtime_model_map
-    ),
+    runtimeModelMap: hasInputRuntimeModelMap
+      ? mergeRuntimeModelMaps(inputRuntimeModelMap)
+      : mergeRuntimeModelMaps(storedSettings.runtimeModelMap, storedSettings.runtime_model_map),
     privacy: {
       ...(storedSettings.privacy || {}),
       ...(input.privacy || {}),
@@ -882,17 +980,40 @@ async function resolveAnalysisProviderExecution(input = {}, defaults = {}) {
   const providerId = cleanText(routedSettingsInput.providerPreset || routedSettingsInput.providerId || routedSettingsInput.provider_id || baseUserSettings.providerPreset);
   const configStore = await aiProviderConfigStore();
   const providerConfig = providerId ? configStore.getProviderConfig({ providerId }) : null;
-  const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
-  const mergedSettings = {
-    ...routedSettingsInput,
-    ...providerSettings,
-    secretRef: cleanText(routedSettingsInput.secretRef) || providerSettings.secretRef,
-    modelRef: cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef,
-    headers: {
-      ...(providerSettings.headers || {}),
-      ...(routedSettingsInput.headers || {})
-    },
-    runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, routedSettingsInput.runtimeModelMap)
+  const hasProviderConfigDraft = hasInputEndpointUrl || hasInputRuntimeModelMap || hasInputSecretRef;
+  if (
+    providerId === "platform_managed_openai" &&
+    ((hasInputEndpointUrl && cleanText(inputEndpointValue)) || (hasInputRuntimeModelMap && hasRuntimeModelMapEntries(inputRuntimeModelMap)))
+  ) {
+    const error = new Error("platform-managed AI does not accept endpointUrl or runtimeModelMap overrides");
+    error.code = "AI_PROVIDER_CONFIG_INVALID";
+    throw error;
+  }
+  let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
+  if (providerId && providerId !== "platform_managed_openai" && hasProviderConfigDraft) {
+    const draftProviderConfigInput = {
+      providerId,
+      status: "enabled",
+      authMode: cleanText(routedSettingsInput.authMode) || providerConfig?.authMode
+    };
+    if (hasInputSecretRef || cleanText(routedSettingsInput.secretRef)) draftProviderConfigInput.secretRef = routedSettingsInput.secretRef;
+    if (hasInputEndpointUrl || cleanText(routedSettingsInput.endpointUrl)) draftProviderConfigInput.endpointUrl = routedSettingsInput.endpointUrl;
+    if (hasInputRuntimeModelMap || hasRuntimeModelMapEntries(routedSettingsInput.runtimeModelMap)) {
+      draftProviderConfigInput.runtimeModelMap = routedSettingsInput.runtimeModelMap;
+    }
+    const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
+    providerSettings = providerConfigToSettingsInput(draftProviderConfig);
+  }
+  if (!hasProviderConfigDraft && cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled") throw disabledProviderConfigError(providerConfig);
+  const mergedSettings = mergeSettingsWithProviderSettings(routedSettingsInput, providerSettings, {
+    hasSecretRef: hasInputSecretRef,
+    hasEndpointUrl: hasInputEndpointUrl,
+    hasRuntimeModelMap: hasInputRuntimeModelMap
+  });
+  mergedSettings.modelRef = cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef;
+  mergedSettings.headers = {
+    ...(providerSettings.headers || {}),
+    ...(routedSettingsInput.headers || {})
   };
   const providerDescriptor = resolveProviderDescriptor(mergedSettings);
   const resolvedUserSettings = resolveAiUserSettings(mergedSettings);
@@ -3005,6 +3126,9 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
+        if (error?.code === "AI_PROVIDER_CONFIG_DISABLED") {
+          return sendJson(res, 400, err(error.code, String(error?.message || error), rid, error?.details));
+        }
         return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
       }
     }
@@ -3019,6 +3143,9 @@ const server = http.createServer(async (req, res) => {
           timestamp: new Date().toISOString()
         });
       } catch (error) {
+        if (error?.code === "AI_PROVIDER_CONFIG_DISABLED") {
+          return sendJson(res, 400, err(error.code, String(error?.message || error), rid, error?.details));
+        }
         return sendJson(res, 400, err("AI_ROUTE_PREVIEW_FAILED", String(error?.message || error), rid));
       }
     }
@@ -3031,6 +3158,12 @@ const server = http.createServer(async (req, res) => {
         const store = await aiPreferencesStore();
         const prefs = store.getUserPreferences({ workspaceId: "local_workspace", userId: "local_user" }) || {};
         const baseSettingsInput = preferencesToSettingsInput(prefs);
+        const bodyEndpointValue = firstOwnValue(body, ["endpointUrl", "endpoint_url"]);
+        const bodySecretRefValue = firstOwnValue(body, ["secretRef", "secret_ref"]);
+        const bodyRuntimeModelMap = firstOwnValue(body, ["runtimeModelMap", "runtime_model_map"]);
+        const hasBodyEndpointUrl = bodyEndpointValue !== undefined;
+        const hasBodySecretRef = bodySecretRefValue !== undefined;
+        const hasBodyRuntimeModelMap = bodyRuntimeModelMap !== undefined;
 
         const settingsInput = {
           ...baseSettingsInput,
@@ -3041,11 +3174,9 @@ const server = http.createServer(async (req, res) => {
           secretRef: body.secretRef ?? body.secret_ref ?? baseSettingsInput.secretRef,
           endpointUrl: body.endpointUrl ?? body.endpoint_url ?? baseSettingsInput.endpointUrl,
           modelRef: body.modelRef ?? body.model_ref ?? baseSettingsInput.modelRef,
-          runtimeModelMap: mergeRuntimeModelMaps(
-            baseSettingsInput.runtimeModelMap,
-            body.runtimeModelMap,
-            body.runtime_model_map
-          )
+          runtimeModelMap: hasBodyRuntimeModelMap
+            ? mergeRuntimeModelMaps(bodyRuntimeModelMap)
+            : mergeRuntimeModelMaps(baseSettingsInput.runtimeModelMap)
         };
 
         const baseUserSettings = resolveAiUserSettings(settingsInput);
@@ -3063,10 +3194,11 @@ const server = http.createServer(async (req, res) => {
         const providerPreset = String(routedSettingsInput.providerPreset || userSettings.providerPreset || "").trim();
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
+        const hasProviderConfigDraft = hasBodyEndpointUrl || hasBodyRuntimeModelMap || hasBodySecretRef;
         let providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
         if (
           providerPreset === "platform_managed_openai" &&
-          (cleanText(body.endpointUrl || body.endpoint_url) || hasRuntimeModelMapEntries(body.runtimeModelMap || body.runtime_model_map))
+          ((hasBodyEndpointUrl && cleanText(bodyEndpointValue)) || (hasBodyRuntimeModelMap && hasRuntimeModelMapEntries(bodyRuntimeModelMap)))
         ) {
           return sendJson(
             res,
@@ -3078,25 +3210,32 @@ const server = http.createServer(async (req, res) => {
             )
           );
         }
-        if (providerPreset && providerPreset !== "platform_managed_openai") {
-          const draftProviderConfig = assertValidAiProviderConfig({
-            ...(providerConfig || {}),
+        if (providerPreset && providerPreset !== "platform_managed_openai" && hasProviderConfigDraft) {
+          const draftProviderConfigInput = {
             providerId: providerPreset,
-            authMode: cleanText(routedSettingsInput.authMode) || providerConfig?.authMode,
-            secretRef: cleanText(routedSettingsInput.secretRef) || providerConfig?.secretRef,
-            endpointUrl: cleanText(routedSettingsInput.endpointUrl) || providerConfig?.endpointUrl,
-            runtimeModelMap: mergeRuntimeModelMaps(providerConfig?.runtimeModelMap, routedSettingsInput.runtimeModelMap)
-          });
+            status: "enabled",
+            authMode: cleanText(routedSettingsInput.authMode) || providerConfig?.authMode
+          };
+          if (hasBodySecretRef || cleanText(routedSettingsInput.secretRef)) draftProviderConfigInput.secretRef = routedSettingsInput.secretRef;
+          if (hasBodyEndpointUrl || cleanText(routedSettingsInput.endpointUrl)) draftProviderConfigInput.endpointUrl = routedSettingsInput.endpointUrl;
+          if (hasBodyRuntimeModelMap || hasRuntimeModelMapEntries(routedSettingsInput.runtimeModelMap)) {
+            draftProviderConfigInput.runtimeModelMap = routedSettingsInput.runtimeModelMap;
+          }
+          const draftProviderConfig = assertValidAiProviderConfig(draftProviderConfigInput, providerConfig || {});
           providerSettings = providerConfigToSettingsInput(draftProviderConfig);
         }
-        const mergedSettings = {
-          ...routedSettingsInput,
-          ...providerSettings,
-          secretRef: cleanText(routedSettingsInput.secretRef) || providerSettings.secretRef,
-          endpointUrl: cleanText(routedSettingsInput.endpointUrl) || providerSettings.endpointUrl,
-          modelRef: cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef,
-          runtimeModelMap: mergeRuntimeModelMaps(providerSettings.runtimeModelMap, routedSettingsInput.runtimeModelMap)
-        };
+        if (!hasProviderConfigDraft && cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled") {
+          return sendJson(res, 400, err("AI_PROVIDER_CONFIG_DISABLED", "AI provider config is disabled.", rid, {
+            providerId: providerPreset,
+            providerConfigId: providerConfig?.id || providerConfig?.configId || providerConfig?.config_id
+          }));
+        }
+        const mergedSettings = mergeSettingsWithProviderSettings(routedSettingsInput, providerSettings, {
+          hasSecretRef: hasBodySecretRef,
+          hasEndpointUrl: hasBodyEndpointUrl,
+          hasRuntimeModelMap: hasBodyRuntimeModelMap
+        });
+        mergedSettings.modelRef = cleanText(routedSettingsInput.modelRef) || providerSettings.modelRef;
 
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);
         const modelRoute = resolveModelRoute({
@@ -4201,6 +4340,12 @@ const server = http.createServer(async (req, res) => {
         const providerPreset = String(routedSettingsInput.providerPreset || userSettings.providerPreset || "").trim();
         const configStore = await aiProviderConfigStore();
         const providerConfig = providerPreset ? configStore.getProviderConfig({ providerId: providerPreset }) : null;
+        if (cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled") {
+          return sendJson(res, 400, err("AI_PROVIDER_CONFIG_DISABLED", "AI provider config is disabled.", rid, {
+            providerId: providerPreset,
+            providerConfigId: providerConfig?.id || providerConfig?.configId || providerConfig?.config_id
+          }));
+        }
         const providerSettings = providerConfig ? providerConfigToSettingsInput(providerConfig) : {};
         const mergedSettings = { ...routedSettingsInput, ...providerSettings };
         const providerDescriptor = resolveProviderDescriptor(mergedSettings);

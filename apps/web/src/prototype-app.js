@@ -371,6 +371,12 @@ const settingsState = {
     providerEndpointUrl: "",
     providerHealthEndpointUrl: "",
     remoteRuntimeModel: "",
+    providerDraftTouched: {
+      secretRef: false,
+      providerEndpointUrl: false,
+      providerHealthEndpointUrl: false,
+      remoteRuntimeModel: false
+    },
     localModel: "",
     localRuntimeStatus: "unknown",
     localRuntimeModels: [],
@@ -1613,6 +1619,24 @@ function shouldUseOllamaLocalRuntime() {
   });
 }
 
+function resetAiProviderDraftTouched() {
+  settingsState.ai.providerDraftTouched = {
+    secretRef: false,
+    providerEndpointUrl: false,
+    providerHealthEndpointUrl: false,
+    remoteRuntimeModel: false
+  };
+}
+
+function markAiProviderDraftTouched(field = "") {
+  if (!settingsState.ai.providerDraftTouched || typeof settingsState.ai.providerDraftTouched !== "object") {
+    resetAiProviderDraftTouched();
+  }
+  if (field && Object.hasOwn(settingsState.ai.providerDraftTouched, field)) {
+    settingsState.ai.providerDraftTouched[field] = true;
+  }
+}
+
 function reconcileAiSelectionState(options = {}) {
   const previousModelPack = String(settingsState.ai.modelPack || "").trim();
   const previousProviderPreset = providerPresetForModelPack(previousModelPack);
@@ -1636,12 +1660,14 @@ function reconcileAiSelectionState(options = {}) {
     settingsState.ai.providerHealthEndpointUrl = "";
     settingsState.ai.remoteRuntimeModel = "";
     settingsState.ai.secretRef = "";
+    resetAiProviderDraftTouched();
   }
   if (nextSelection.providerPreset === "platform_managed_openai") {
     settingsState.ai.providerEndpointUrl = "";
     settingsState.ai.providerHealthEndpointUrl = "";
     settingsState.ai.remoteRuntimeModel = "";
     settingsState.ai.secretRef = "";
+    resetAiProviderDraftTouched();
   }
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
@@ -1660,7 +1686,9 @@ function reconcileAiSelectionState(options = {}) {
     settingsState.ai.advancedModelRef = "";
   }
 
-  applyActiveAiProviderConfigToState();
+  if (options.applyProviderConfig !== false) {
+    applyActiveAiProviderConfigToState();
+  }
   return nextSelection;
 }
 
@@ -1697,6 +1725,10 @@ function authModeForProvider(providerId = "", preview = null) {
   return "workspace_managed";
 }
 
+function providerAuthModeRequiresSecret(authMode = "") {
+  return ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(String(authMode || "").trim());
+}
+
 function currentAiProviderId() {
   return String(settingsState.ai.routePreview?.provider?.providerId || providerPresetForModelPack(settingsState.ai.modelPack)).trim();
 }
@@ -1709,6 +1741,7 @@ function activeAiProviderConfig() {
 function applyActiveAiProviderConfigToState() {
   const providerId = currentAiProviderId();
   const config = activeAiProviderConfig();
+  const draftTouched = settingsState.ai.providerDraftTouched || {};
   if (!config) {
     const endpointUrl = defaultProviderEndpointUrl(providerId);
     const healthEndpointUrl = defaultProviderHealthEndpointUrl(providerId, endpointUrl);
@@ -1720,13 +1753,13 @@ function applyActiveAiProviderConfigToState() {
   const configuredEndpointUrl = String(config.endpointUrl || config.endpoint_url || "").trim();
   const configuredHealthEndpointUrl = enabledProviderHealthEndpointUrl(config);
   const configuredSecretRef = String(config.secretRef || config.secret_ref || "").trim();
-  if (!settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
+  if (!draftTouched.providerEndpointUrl && !settingsState.ai.providerEndpointUrl && configuredEndpointUrl) {
     settingsState.ai.providerEndpointUrl = configuredEndpointUrl;
   }
-  if (!settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
+  if (!draftTouched.providerHealthEndpointUrl && !settingsState.ai.providerHealthEndpointUrl && configuredHealthEndpointUrl) {
     settingsState.ai.providerHealthEndpointUrl = configuredHealthEndpointUrl;
   }
-  if (!settingsState.ai.secretRef && configuredSecretRef) {
+  if (!draftTouched.secretRef && !settingsState.ai.secretRef && configuredSecretRef) {
     settingsState.ai.secretRef = configuredSecretRef;
   }
   if (isRemoteConfigurableProviderId(providerId)) {
@@ -1734,12 +1767,34 @@ function applyActiveAiProviderConfigToState() {
       providerId,
       config.runtimeModelMap || config.runtime_model_map || {}
     );
-    if (!settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
+    if (!draftTouched.remoteRuntimeModel && !settingsState.ai.remoteRuntimeModel && configuredRemoteModel) {
       settingsState.ai.remoteRuntimeModel = configuredRemoteModel;
     }
   } else {
     settingsState.ai.remoteRuntimeModel = "";
   }
+}
+
+function aiRemoteTestBlockedReason() {
+  const providerId = currentAiProviderId();
+  if (!isRemoteConfigurableProviderId(providerId)) return "";
+  const endpointUrl = String(settingsState.ai.providerEndpointUrl || "").trim();
+  const remoteRuntimeModel = String(settingsState.ai.remoteRuntimeModel || "").trim();
+  const secretRef = String(settingsState.ai.secretRef || "").trim();
+  const draftTouched = settingsState.ai.providerDraftTouched || {};
+  const access = settingsState.ai.routePreview?.access || {};
+  const authMode = authModeForProvider(providerId, settingsState.ai.routePreview);
+  const requiresSecret = ["workspace_managed", "byok_advanced", "enterprise_secret"].includes(authMode);
+  const secretReady = !requiresSecret
+    ? true
+    : draftTouched.secretRef
+      ? Boolean(secretRef)
+      : access.ready === true || (access.ready !== false && Boolean(secretRef));
+  if (!endpointUrl && !remoteRuntimeModel) return "请先填写远程服务地址和远程模型";
+  if (!endpointUrl) return "请先填写远程服务地址";
+  if (!remoteRuntimeModel) return "请先填写远程模型";
+  if (!secretReady) return "请先填写密钥名称";
+  return "";
 }
 
 function aiSettingsPayload() {
@@ -1751,13 +1806,19 @@ function aiSettingsPayload() {
   });
   const localProviderPreset = preferredLocalProviderPresetForSelection();
   const providerPreset = providerPresetForModelPack(selection.modelPack);
+  const draftTouched = settingsState.ai.providerDraftTouched || {};
+  const endpointUrl = String(settingsState.ai.providerEndpointUrl || "").trim();
+  const secretRef = String(settingsState.ai.secretRef || "").trim();
   const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerPreset, settingsState.ai.remoteRuntimeModel);
+  const shouldSendEndpointUrl = draftTouched.providerEndpointUrl || Boolean(endpointUrl);
+  const shouldSendRemoteRuntimeMap = draftTouched.remoteRuntimeModel || Boolean(Object.keys(remoteRuntimeModelMap).length);
+  const shouldSendSecretRef = draftTouched.secretRef || Boolean(secretRef);
   return {
     userMode: settingsState.ai.userMode,
     modelPack: selection.modelPack,
     ...(providerPreset ? { providerPreset } : {}),
-    ...(settingsState.ai.providerEndpointUrl ? { endpointUrl: settingsState.ai.providerEndpointUrl } : {}),
-    ...(Object.keys(remoteRuntimeModelMap).length ? { runtimeModelMap: remoteRuntimeModelMap } : {}),
+    ...(shouldSendEndpointUrl ? { endpointUrl } : {}),
+    ...(shouldSendRemoteRuntimeMap ? { runtimeModelMap: remoteRuntimeModelMap } : {}),
     privacy: aiPrivacyPolicyForRuntimeMode(selection.runtimeMode),
     fallbackPolicy: aiFallbackPolicyForRuntimeMode(selection.runtimeMode),
     advancedSettings: {
@@ -1765,7 +1826,7 @@ function aiSettingsPayload() {
       ...(settingsState.ai.localModel ? { localModel: settingsState.ai.localModel } : {}),
       ...(settingsState.ai.localModel ? { localProviderPreset } : {}),
       ...(settingsState.ai.advancedModelRef ? { modelRef: settingsState.ai.advancedModelRef } : {}),
-      ...(settingsState.ai.secretRef ? { secretRef: settingsState.ai.secretRef } : {})
+      ...(shouldSendSecretRef ? { secretRef } : {})
     }
   };
 }
@@ -1780,19 +1841,25 @@ function aiProviderConfigPayload(options = {}) {
   const localModel = String(options.localModel || settingsState.ai.localModel || "").trim();
   const remoteRuntimeModel = String(options.remoteRuntimeModel || settingsState.ai.remoteRuntimeModel || "").trim();
   const localProviderConfig = Boolean(localModel) && ["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"].includes(providerId);
+  const remoteConfigurableProvider = isRemoteConfigurableProviderId(providerId);
   const remoteRuntimeModelMap = runtimeModelMapForRemoteModel(providerId, remoteRuntimeModel);
+  const authMode = options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview);
+  const secretReady = !providerAuthModeRequiresSecret(authMode) || Boolean(secretRef);
+  const configRunnable = remoteConfigurableProvider
+    ? Boolean(endpointUrl && remoteRuntimeModel && secretReady)
+    : Boolean(endpointUrl);
   return {
     providerId,
-    authMode: options.authMode || authModeForProvider(providerId, settingsState.ai.routePreview),
-    status: "enabled",
-    ...(secretRef ? { secretRef } : {}),
-    ...(endpointUrl ? { endpointUrl } : {}),
+    authMode,
+    status: configRunnable ? "enabled" : "disabled",
+    secretRef,
+    endpointUrl,
     ...(localProviderConfig
       ? {
           runtimeModelMap: Object.fromEntries(AI_LOCAL_MODEL_TIERS.map((tier) => [`${providerId}:${tier}`, localModel]))
         }
       : {}),
-    ...(!localProviderConfig && Object.keys(remoteRuntimeModelMap).length
+    ...(!localProviderConfig && remoteConfigurableProvider
       ? {
           runtimeModelMap: remoteRuntimeModelMap
         }
@@ -1808,7 +1875,16 @@ function aiProviderConfigPayload(options = {}) {
             intervalSeconds: 300
           }
         }
-      : {})
+      : {
+          healthCheck: {
+            enabled: false,
+            endpointUrl: "",
+            method: "GET",
+            timeoutMs: 5000,
+            expectedStatus: 200,
+            intervalSeconds: 300
+          }
+        })
   };
 }
 
@@ -1822,7 +1898,7 @@ function upsertAiProviderConfig(config = null) {
   ];
 }
 
-function applyAiPreferencesToSettingsState(preferences = null) {
+function applyAiPreferencesToSettingsState(preferences = null, options = {}) {
   const nextAiSelection = aiSettingsSelectionFromPreferences(preferences);
   settingsState.ai.runtimeMode = nextAiSelection.runtimeMode;
   settingsState.ai.userMode = nextAiSelection.userMode;
@@ -1833,7 +1909,11 @@ function applyAiPreferencesToSettingsState(preferences = null) {
   settingsState.ai.providerEndpointUrl = "";
   settingsState.ai.providerHealthEndpointUrl = "";
   settingsState.ai.remoteRuntimeModel = "";
-  reconcileAiSelectionState({ resetRoutePreview: false });
+  resetAiProviderDraftTouched();
+  reconcileAiSelectionState({
+    resetRoutePreview: false,
+    applyProviderConfig: options.applyProviderConfig
+  });
 }
 
 async function syncAiSettingsToApi() {
@@ -1856,6 +1936,7 @@ async function saveLocalOllamaProviderConfig() {
     healthEndpointUrl
   }));
   upsertAiProviderConfig(saved);
+  resetAiProviderDraftTouched();
   return saved;
 }
 
@@ -1942,7 +2023,7 @@ async function detectOllamaModels(options = {}) {
         setStatus(count ? `已检测到 ${count} 个 Ollama 本地模型。` : "Ollama 可连接，但还没有本地模型。", count ? "ok" : "warn");
       } else {
         const message = settingsState.ai.localRuntimeError || "Ollama 当前不可用。";
-        setStatus(`Ollama 不可用：${message}`, "warn");
+        setStatus(`未检测到 Ollama：${message}。请先下载安装并启动 Ollama。`, "warn");
       }
     }
     return runtime;
@@ -1953,7 +2034,7 @@ async function detectOllamaModels(options = {}) {
     settingsState.ai.localRuntimeChatEndpointUrl = "";
     settingsState.ai.localRuntimeHealthEndpointUrl = "";
     settingsState.ai.localRuntimeError = String(error?.message || error);
-    if (options.silent !== true) setStatus(`Ollama 检测失败：${settingsState.ai.localRuntimeError}`, "warn");
+    if (options.silent !== true) setStatus(`Ollama 检测失败：${settingsState.ai.localRuntimeError}。请先下载安装并启动 Ollama。`, "warn");
     return null;
   } finally {
     settingsState.ai.localRuntimeChecking = false;
@@ -2035,6 +2116,7 @@ async function syncAiProviderConfigToApi() {
     applyActiveAiProviderConfigToState();
     persistAiSettingsToStorage();
     await syncAiSettingsToApi();
+    resetAiProviderDraftTouched();
     await refreshAiRoutePreview({ render: false });
     setStatus(`AI 服务配置已保存：${providerId}`, "ok");
     return true;
@@ -2068,6 +2150,7 @@ async function checkCurrentAiProviderHealth() {
   try {
     const saved = await saveAiProviderConfig(aiProviderConfigPayload());
     upsertAiProviderConfig(saved);
+    resetAiProviderDraftTouched();
     applyActiveAiProviderConfigToState();
     const result = await checkAiProviderHealth(providerId, {
       networkEnabled: true,
@@ -7053,12 +7136,17 @@ function renderAiRoutePreview() {
   const access = preview.access || {};
   const providerId = String(provider.providerId || currentAiProviderId()).trim();
   const providerConfig = activeAiProviderConfig();
+  const draftTouched = settingsState.ai.providerDraftTouched || {};
   const remoteConfigurable = isRemoteConfigurableProviderId(providerId);
   const remoteRuntimeModel = remoteConfigurable
-    ? String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, providerConfig?.runtimeModelMap || providerConfig?.runtime_model_map || {}) || "").trim()
+    ? String(draftTouched.remoteRuntimeModel
+      ? settingsState.ai.remoteRuntimeModel
+      : settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, providerConfig?.runtimeModelMap || providerConfig?.runtime_model_map || {}) || "").trim()
     : "";
   const remoteEndpointUrl = remoteConfigurable
-    ? String(settingsState.ai.providerEndpointUrl || providerConfig?.endpointUrl || providerConfig?.endpoint_url || "").trim()
+    ? String(draftTouched.providerEndpointUrl
+      ? settingsState.ai.providerEndpointUrl
+      : settingsState.ai.providerEndpointUrl || providerConfig?.endpointUrl || providerConfig?.endpoint_url || "").trim()
     : "";
   const remoteConfigReady = !remoteConfigurable || Boolean(remoteEndpointUrl && remoteRuntimeModel);
   const setupReady = access.ready === true && remoteConfigReady;
@@ -7336,6 +7424,67 @@ function renderAiSettingsExperience() {
     quickstartStatus.classList.toggle("warn", ["等待 Ollama", "等待模型", "选择模型", "检测中"].includes(quickstartLabel));
     quickstartStatus.classList.toggle("muted", quickstartLabel === "自动推荐");
   }
+  const localGuide = $("settingsAiLocalGuide");
+  const localGuideBadge = $("settingsAiLocalGuideBadge");
+  const localGuideTitle = $("settingsAiLocalGuideTitle");
+  const localGuideBody = $("settingsAiLocalGuideBody");
+  const localGuideHint = $("settingsAiLocalGuideHint");
+  let localGuideState = "idle";
+  let localGuideBadgeText = "第 1 步";
+  let localGuideTone = "muted";
+  let localGuideTitleText = "先启用本地大模型";
+  let localGuideBodyText = "点击“使用本地大模型”，然后检测这台电脑是否已经安装并启动 Ollama。";
+  let localGuideHintText = "没有安装时，会在这里给出 Ollama 下载入口。";
+  if (localFlowActive) {
+    if (settingsState.ai.localRuntimeChecking) {
+      localGuideState = "checking";
+      localGuideBadgeText = "正在检测";
+      localGuideTone = "warn";
+      localGuideTitleText = "正在检查 Ollama 是否可用";
+      localGuideBodyText = "研思录正在检查这台电脑上的 Ollama 服务和已安装模型。";
+      localGuideHintText = "如果长时间没有结果，先确认 Ollama 应用是否已经启动。";
+    } else if (localStatus !== "available") {
+      localGuideState = "blocked";
+      localGuideBadgeText = "需要安装";
+      localGuideTone = "warn";
+      localGuideTitleText = "还没有检测到 Ollama";
+      localGuideBodyText = "先下载并安装 Ollama，安装后保持它在后台运行，再回到这里点“检测 Ollama”。";
+      localGuideHintText = `下载地址：${String(setupGuide?.installUrl || "https://ollama.com/download").trim() || "https://ollama.com/download"}`;
+    } else if (!models.length) {
+      localGuideState = "blocked";
+      localGuideBadgeText = "需要模型";
+      localGuideTone = "warn";
+      localGuideTitleText = "Ollama 已启动，还缺一个本地模型";
+      localGuideBodyText = `点击“下载 ${guideRecommendedModel}”，研思录会把推荐模型下载到这台电脑。`;
+      localGuideHintText = "下载可能需要几分钟，完成后会自动检测并保存当前本地配置。";
+    } else if (!localModel) {
+      localGuideState = "idle";
+      localGuideBadgeText = "选择模型";
+      localGuideTone = "warn";
+      localGuideTitleText = "Ollama 已可用，选择一个本地模型";
+      localGuideBodyText = `当前检测到 ${models.length} 个模型。从下面的“本地模型”下拉框里选一个即可。`;
+      localGuideHintText = "选中后建议打开“试运行”，确认返回确实来自本地模型。";
+    } else {
+      localGuideState = "ready";
+      localGuideBadgeText = "已就绪";
+      localGuideTone = "ok";
+      localGuideTitleText = "本地大模型已经可以使用";
+      localGuideBodyText = `当前本地模型：${localModel}。接下来可以试运行一句短句，或回到日常使用方式保持自动。`;
+      localGuideHintText = runtimeMode === "hybrid"
+        ? "混合模式会优先把敏感或轻量任务放到本地，复杂任务可继续走远程。"
+        : "仅本地模式会尽量把 AI 任务留在这台电脑上。";
+    }
+  }
+  if (localGuide) localGuide.dataset.state = localGuideState;
+  if (localGuideBadge) {
+    localGuideBadge.textContent = localGuideBadgeText;
+    localGuideBadge.classList.toggle("ok", localGuideTone === "ok");
+    localGuideBadge.classList.toggle("warn", localGuideTone === "warn");
+    localGuideBadge.classList.toggle("muted", localGuideTone === "muted");
+  }
+  if (localGuideTitle) localGuideTitle.textContent = localGuideTitleText;
+  if (localGuideBody) localGuideBody.textContent = localGuideBodyText;
+  if (localGuideHint) localGuideHint.textContent = localGuideHintText;
   if (stepsEl) {
     stepsEl.innerHTML = steps
       .map((step, index) => `
@@ -7382,6 +7531,7 @@ function renderAiLocalModelControls() {
     modelPack: settingsState.ai.modelPack,
     providerId
   });
+  const localSetupActive = showLocalModel && (runtimeMode === "local_only" || runtimeMode === "hybrid" || isLocalModelPack(settingsState.ai.modelPack));
   modelSelect?.classList.toggle("hidden", !showLocalModel);
   modelLabel?.classList.toggle("hidden", !showLocalModel);
   if (modelSelect) {
@@ -7404,12 +7554,23 @@ function renderAiLocalModelControls() {
   }
 
   const detectButton = $("settingsAiDetectOllama");
+  const useLocalButton = $("settingsAiUseLocalSetup");
+  if (useLocalButton) {
+    useLocalButton.disabled = localSetupActive || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling;
+    useLocalButton.textContent = localSetupActive ? "已启用本地模式" : "使用本地大模型";
+    useLocalButton.classList.toggle("primary", !localSetupActive);
+    useLocalButton.classList.toggle("is-subtle", localSetupActive);
+  }
   if (detectButton) {
-    detectButton.disabled = settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling;
-    detectButton.textContent = settingsState.ai.localRuntimeChecking ? "正在检测 Ollama..." : "检测 Ollama";
+    detectButton.disabled = !localSetupActive || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling;
+    detectButton.textContent = !localSetupActive
+      ? "先启用本地模式"
+      : settingsState.ai.localRuntimeChecking
+        ? "正在检测 Ollama..."
+        : "检测 Ollama";
   }
 
-  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !showLocalModel || settingsState.ai.localRuntimeStatus === "available");
+  $("settingsAiDownloadOllama")?.classList.toggle("hidden", !localSetupActive || settingsState.ai.localRuntimeStatus === "available");
   const downloadLink = $("settingsAiDownloadOllama");
   if (downloadLink) {
     const guide = currentOllamaSetupGuide();
@@ -7422,8 +7583,8 @@ function renderAiLocalModelControls() {
     const modelName = ollamaPullModelName();
     const installed = hasLocalModel(modelName);
     const runtimeAvailable = settingsState.ai.localRuntimeStatus === "available";
-    pullButton.classList.toggle("hidden", !showLocalModel || !runtimeAvailable);
-    pullButton.disabled = !showLocalModel || !runtimeAvailable || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
+    pullButton.classList.toggle("hidden", !localSetupActive || !runtimeAvailable || installed);
+    pullButton.disabled = !localSetupActive || !runtimeAvailable || settingsState.ai.localRuntimeChecking || settingsState.ai.localRuntimePulling || installed;
     pullButton.textContent = settingsState.ai.localRuntimePulling
       ? `正在下载 ${modelName}...`
       : installed
@@ -7466,16 +7627,30 @@ function renderAiProviderConfigControls() {
       badge.classList.toggle("ok", healthRecord.status === "healthy");
       badge.classList.toggle("warn", healthRecord.status !== "healthy");
     }
-    const endpointReady = Boolean(String(config?.endpointUrl || config?.endpoint_url || settingsState.ai.providerEndpointUrl || "").trim());
-    const secretReady = Boolean(String(config?.secretRef || config?.secret_ref || settingsState.ai.secretRef || "").trim());
-    const remoteModelReady = Boolean(String(settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, config?.runtimeModelMap || config?.runtime_model_map || {}) || "").trim());
+    const draftTouched = settingsState.ai.providerDraftTouched || {};
+    const endpointValue = draftTouched.providerEndpointUrl
+      ? settingsState.ai.providerEndpointUrl
+      : settingsState.ai.providerEndpointUrl || config?.endpointUrl || config?.endpoint_url || "";
+    const secretValue = draftTouched.secretRef
+      ? settingsState.ai.secretRef
+      : settingsState.ai.secretRef || config?.secretRef || config?.secret_ref || "";
+    const remoteModelValue = draftTouched.remoteRuntimeModel
+      ? settingsState.ai.remoteRuntimeModel
+      : settingsState.ai.remoteRuntimeModel || remoteRuntimeModelFromMap(providerId, config?.runtimeModelMap || config?.runtime_model_map || {}) || "";
+    const endpointReady = Boolean(String(endpointValue || "").trim());
+    const secretReady = Boolean(String(secretValue || "").trim());
+    const remoteModelReady = Boolean(String(remoteModelValue || "").trim());
+    const configReady = remoteConfigurable
+      ? endpointReady && remoteModelReady
+      : endpointReady || secretReady || remoteModelReady;
     if (settingsState.ai.providerHealthChecking) badge.textContent = "测试中";
     else if (healthRecord?.status === "healthy") badge.textContent = `健康 ${healthRecord.latencyMs || 0}ms`;
     else if (healthRecord) badge.textContent = `状态 ${healthRecord.status || "未检测"}`;
     else if (settingsState.ai.providerConfigSaving) badge.textContent = "保存中";
     else if (settingsState.ai.providerConfigError) badge.textContent = "配置失败";
     else if (providerId === "platform_managed_openai") badge.textContent = "平台托管";
-    else if (config) badge.textContent = endpointReady || secretReady || remoteModelReady ? "已配置" : "已保存";
+    else if (config && String(config.status || "").trim() === "disabled") badge.textContent = "未启用";
+    else if (config) badge.textContent = configReady ? "已配置" : "未完成";
     else badge.textContent = "未配置";
   }
 
@@ -7858,10 +8033,22 @@ function renderSettingsPanel() {
     if (String(testPrompt.value || "") !== stored) testPrompt.value = stored;
   }
   const testMeta = $("settingsAiTestChatMeta");
+  const testRunButton = $("btnAiTestChatRun");
+  const testBlockedReason = aiRemoteTestBlockedReason();
+  if (testRunButton) {
+    testRunButton.disabled = settingsState.ai.testRunning || Boolean(testBlockedReason);
+    testRunButton.textContent = settingsState.ai.testRunning
+      ? "运行中..."
+      : testBlockedReason
+        ? "先完成远程设置"
+        : "运行";
+    if (testBlockedReason) testRunButton.setAttribute("title", testBlockedReason);
+    else testRunButton.removeAttribute("title");
+  }
   if (testMeta) {
-    const meta = settingsState.ai.testRunning ? "运行中..." : settingsState.ai.testMeta || "等待运行";
+    const meta = settingsState.ai.testRunning ? "运行中..." : settingsState.ai.testMeta || testBlockedReason || "等待运行";
     testMeta.textContent = meta;
-    testMeta.classList.toggle("warn", settingsState.ai.testRunning);
+    testMeta.classList.toggle("warn", settingsState.ai.testRunning || Boolean(testBlockedReason));
   }
   const testOutput = $("settingsAiTestChatOutput");
   if (testOutput) {
@@ -10266,10 +10453,11 @@ async function refreshVaultSettings() {
     settingsState.vault = await fetchVaultInfo();
     loadNoteTemplateSettingsFromStorage();
     const prefs = await fetchAiPreferences().catch(() => null);
-    applyAiPreferencesToSettingsState(prefs);
+    applyAiPreferencesToSettingsState(prefs, { applyProviderConfig: false });
     persistAiSettingsToStorage();
     settingsState.ai.providerConfigs = await fetchAiProviderConfigs().catch(() => []);
     applyActiveAiProviderConfigToState();
+    persistAiSettingsToStorage();
     if (isAiLocalFlowActive({
       runtimeMode: settingsState.ai.runtimeMode,
       modelPack: settingsState.ai.modelPack,
@@ -17297,49 +17485,70 @@ $("settingsAiAdvancedModelRef")?.addEventListener("blur", (event) => {
   setStatus(next ? "指定模型已保存" : "指定模型已清空（恢复自动选择）", "ok");
 });
 
-$("settingsAiSecretRef")?.addEventListener("blur", (event) => {
+$("settingsAiSecretRef")?.addEventListener("blur", async (event) => {
   const next = String(event?.target?.value || "").trim();
+  markAiProviderDraftTouched("secretRef");
   settingsState.ai.secretRef = next;
   persistAiSettingsToStorage();
-  syncAiSettingsToApi();
-  refreshAiRoutePreview();
+  const saved = await syncAiProviderConfigToApi();
+  if (!saved) {
+    renderSettingsPanel();
+    return;
+  }
   renderSettingsPanel();
-  setStatus(next ? "密钥名称已保存" : "密钥名称已清空", "ok");
+  setStatus(next ? "密钥名称已保存到服务连接" : "密钥名称已清空，服务连接已停用", "ok");
 });
 
 $("settingsAiSecretRef")?.addEventListener("input", (event) => {
+  markAiProviderDraftTouched("secretRef");
   settingsState.ai.secretRef = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   persistAiSettingsToStorage();
+  renderSettingsPanel();
 });
 
 $("settingsAiRemoteRuntimeModel")?.addEventListener("input", (event) => {
+  markAiProviderDraftTouched("remoteRuntimeModel");
   settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   persistAiSettingsToStorage();
+  renderSettingsPanel();
 });
 
-$("settingsAiRemoteRuntimeModel")?.addEventListener("blur", (event) => {
+$("settingsAiRemoteRuntimeModel")?.addEventListener("blur", async (event) => {
+  markAiProviderDraftTouched("remoteRuntimeModel");
   settingsState.ai.remoteRuntimeModel = String(event?.target?.value || "").trim();
   persistAiSettingsToStorage();
-  refreshAiRoutePreview();
+  const saved = await syncAiProviderConfigToApi();
+  if (!saved) {
+    renderSettingsPanel();
+    return;
+  }
   renderSettingsPanel();
-  setStatus(settingsState.ai.remoteRuntimeModel ? "远程模型已保存到当前配置草稿" : "远程模型已清空", "ok");
+  setStatus(settingsState.ai.remoteRuntimeModel ? "远程模型已保存到服务连接" : "远程模型已清空，服务连接已停用", "ok");
 });
 
 $("settingsAiProviderEndpointUrl")?.addEventListener("input", (event) => {
+  markAiProviderDraftTouched("providerEndpointUrl");
   settingsState.ai.providerEndpointUrl = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
   persistAiSettingsToStorage();
+  renderSettingsPanel();
 });
 
-$("settingsAiProviderEndpointUrl")?.addEventListener("blur", (event) => {
+$("settingsAiProviderEndpointUrl")?.addEventListener("blur", async (event) => {
   const next = String(event?.target?.value || "").trim();
+  markAiProviderDraftTouched("providerEndpointUrl");
   settingsState.ai.providerEndpointUrl = next;
   persistAiSettingsToStorage();
+  const saved = await syncAiProviderConfigToApi();
+  if (!saved) {
+    renderSettingsPanel();
+    return;
+  }
   renderSettingsPanel();
 });
 
@@ -17351,6 +17560,13 @@ $("settingsAiTestPrompt")?.addEventListener("input", (event) => {
 $("btnAiTestChatRun")?.addEventListener("click", async () => {
   const prompt = String($("settingsAiTestPrompt")?.value || settingsState.ai.testPrompt || "").trim();
   if (!prompt) return setStatus("先输入一条测试内容", "warn");
+  const blockedReason = aiRemoteTestBlockedReason();
+  if (blockedReason) {
+    settingsState.ai.testMeta = blockedReason;
+    settingsState.ai.testOutput = "";
+    renderSettingsPanel();
+    return setStatus(`${blockedReason}后再试运行`, "warn");
+  }
   settingsState.ai.testRunning = true;
   settingsState.ai.testMeta = "";
   settingsState.ai.testOutput = "";
@@ -17396,6 +17612,7 @@ $("btnAiTestChatCopy")?.addEventListener("click", async () => {
 });
 
 $("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
+  markAiProviderDraftTouched("providerHealthEndpointUrl");
   settingsState.ai.providerHealthEndpointUrl = String(event?.target?.value || "").trim();
   settingsState.ai.providerConfigError = "";
   settingsState.ai.providerHealthResult = null;
@@ -17404,6 +17621,7 @@ $("settingsAiProviderHealthEndpointUrl")?.addEventListener("input", (event) => {
 
 $("settingsAiProviderHealthEndpointUrl")?.addEventListener("blur", (event) => {
   const next = String(event?.target?.value || "").trim();
+  markAiProviderDraftTouched("providerHealthEndpointUrl");
   settingsState.ai.providerHealthEndpointUrl = next;
   persistAiSettingsToStorage();
   renderSettingsPanel();

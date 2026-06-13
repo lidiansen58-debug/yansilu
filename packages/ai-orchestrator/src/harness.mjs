@@ -381,6 +381,10 @@ function shouldBlockForProviderHealth(health = null, input = {}) {
   return trigger === "scheduled_task" || input.background === true;
 }
 
+function isDisabledProviderConfig(providerConfig = null) {
+  return cleanText(providerConfig?.status || providerConfig?.status_text) === "disabled";
+}
+
 export function createAiHarness(options = {}) {
   const registry = options.agentRegistry || createAgentRegistry(options.agentDefinitions);
   const runLog = options.runLog || createInMemoryRunLog();
@@ -448,6 +452,38 @@ export function createAiHarness(options = {}) {
       });
 
       try {
+        if (isDisabledProviderConfig(providerConfig)) {
+          runLog.addEvent(run.agentRunId, {
+            eventType: "ai_provider_config_loaded",
+            status: "blocked",
+            summary: {
+              providerConfigId: providerConfig.id,
+              providerId: providerConfig.providerId,
+              authMode: providerConfig.authMode,
+              configStatus: providerConfig.status,
+              endpointConfigured: Boolean(providerConfig.endpointUrl),
+              secretRefConfigured: Boolean(providerConfig.secretRef)
+            }
+          });
+          runLog.addEvent(run.agentRunId, {
+            eventType: "run_guardrail",
+            status: "blocked",
+            summary: {
+              reason: "provider_config_disabled",
+              providerId: providerConfig.providerId,
+              providerConfigId: providerConfig.id
+            },
+            error: {
+              errorType: "AI_PROVIDER_CONFIG_DISABLED",
+              message: "AI provider config is disabled.",
+              retryable: false
+            }
+          });
+          const error = new Error("AI provider config is disabled.");
+          error.code = "AI_PROVIDER_CONFIG_DISABLED";
+          error.runStatus = "blocked";
+          throw error;
+        }
         runLog.addEvent(run.agentRunId, {
           eventType: "provider_adapter_selected",
           summary: {
