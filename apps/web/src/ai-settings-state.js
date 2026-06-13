@@ -1,5 +1,21 @@
-const LOCAL_MODEL_PACKS = new Set(["Privacy First", "Ollama Local", "MiniCPM Local"]);
+const LOCAL_MODEL_PACK_KEYS = new Set(["privacy", "privacy_first", "ollama", "ollama_local", "minicpm", "minicpm_local"]);
 const LOCAL_PROVIDER_IDS = new Set(["local_private_gateway", "ollama_local_gateway", "minicpm_local_gateway"]);
+const MODEL_PACK_PROVIDER_PRESETS = {
+  low_cost: "openai_compatible_gateway",
+  low_cost_research: "openai_compatible_gateway",
+  global: "openai_compatible_gateway",
+  global_optimized: "openai_compatible_gateway",
+  china: "china_optimized_gateway",
+  china_optimized: "china_optimized_gateway",
+  privacy: "local_private_gateway",
+  privacy_first: "local_private_gateway",
+  ollama: "ollama_local_gateway",
+  ollama_local: "ollama_local_gateway",
+  minicpm: "minicpm_local_gateway",
+  minicpm_local: "minicpm_local_gateway",
+  minicpm_remote: "minicpm_remote_gateway",
+  minicpm_third_party: "minicpm_remote_gateway"
+};
 export const DEFAULT_AI_SETTINGS_SELECTION = Object.freeze({
   runtimeMode: "auto",
   userMode: "Auto",
@@ -18,19 +34,24 @@ export function normalizeAiRuntimeMode(value = "") {
 }
 
 export function isLocalModelPack(modelPack = "") {
-  return LOCAL_MODEL_PACKS.has(String(modelPack || "").trim());
+  return LOCAL_MODEL_PACK_KEYS.has(normalizedModelPackKey(modelPack));
 }
 
 export function isLocalProviderId(providerId = "") {
   return LOCAL_PROVIDER_IDS.has(String(providerId || "").trim());
 }
 
+function normalizedModelPackKey(modelPack = "") {
+  return String(modelPack || "").trim().toLowerCase().replace(/[\s/-]+/g, "_");
+}
+
+export function providerPresetForModelPack(modelPack = "") {
+  return MODEL_PACK_PROVIDER_PRESETS[normalizedModelPackKey(modelPack)] || "platform_managed_openai";
+}
+
 export function localProviderPresetForModelPack(modelPack = "") {
-  const pack = String(modelPack || "").trim();
-  if (pack === "Ollama Local") return "ollama_local_gateway";
-  if (pack === "MiniCPM Local") return "minicpm_local_gateway";
-  if (pack === "Privacy First") return "local_private_gateway";
-  return "";
+  const providerId = providerPresetForModelPack(modelPack);
+  return isLocalProviderId(providerId) ? providerId : "";
 }
 
 export function shouldUseOllamaLocalRuntimeForSelection(input = {}) {
@@ -60,6 +81,7 @@ function defaultUserModeForSelection({ runtimeMode = "auto", modelPack = "" } = 
 export function canonicalizeAiSettingsSelection(input = {}, options = {}) {
   let runtimeMode = normalizeAiRuntimeMode(input.runtimeMode);
   let modelPack = String(input.modelPack || "").trim() || defaultModelPackForRuntimeMode(runtimeMode);
+  const requestedModelPack = modelPack;
   const syncUserMode = options.syncUserMode === true;
 
   if (runtimeMode === "local_only" && !isLocalModelPack(modelPack)) {
@@ -72,10 +94,11 @@ export function canonicalizeAiSettingsSelection(input = {}, options = {}) {
 
   if (!modelPack) modelPack = defaultModelPackForRuntimeMode(runtimeMode);
 
-  const providerPreset =
-    String(input.providerPreset || "").trim() ||
-    localProviderPresetForModelPack(modelPack) ||
-    "platform_managed_openai";
+  const derivedProviderPreset = providerPresetForModelPack(modelPack);
+  const explicitProviderPreset = String(input.providerPreset || input.provider_preset || "").trim();
+  const providerPreset = explicitProviderPreset && modelPack === requestedModelPack
+    ? explicitProviderPreset
+    : derivedProviderPreset;
   const userMode = syncUserMode
     ? defaultUserModeForSelection({ runtimeMode, modelPack })
     : String(input.userMode || "").trim() || defaultUserModeForSelection({ runtimeMode, modelPack });

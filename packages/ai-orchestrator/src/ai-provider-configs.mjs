@@ -25,6 +25,17 @@ function cleanObject(value = {}) {
   return result;
 }
 
+function hasOwn(value = {}, key = "") {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
+function firstOwnValue(value = {}, keys = [], fallback = undefined) {
+  for (const key of keys) {
+    if (hasOwn(value, key)) return value[key];
+  }
+  return fallback;
+}
+
 function providerConfigId(providerId) {
   return `provider_${cleanText(providerId)}`;
 }
@@ -39,9 +50,10 @@ function basePreset(providerId) {
 
 function normalizeHealthCheck(input = {}, endpointUrl = "") {
   const enabled = input.enabled === true || input.enabled === "true";
+  const endpointValue = firstOwnValue(input, ["endpointUrl", "endpoint_url"], endpointUrl);
   return {
     enabled,
-    endpointUrl: cleanText(input.endpointUrl || input.endpoint_url) || endpointUrl,
+    endpointUrl: cleanText(endpointValue),
     method: cleanText(input.method || "GET").toUpperCase(),
     timeoutMs: Number(input.timeoutMs ?? input.timeout_ms ?? 5000),
     expectedStatus: Number(input.expectedStatus ?? input.expected_status ?? 200),
@@ -59,11 +71,12 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
 
   const now = new Date().toISOString();
   const base = basePreset(providerId);
-  const capabilities = cleanObject(input.capabilities || existing.capabilities || {});
-  const modelMap = cleanObject(input.modelMap || input.model_map || existing.modelMap || {});
-  const runtimeModelMap = cleanObject(input.runtimeModelMap || input.runtime_model_map || existing.runtimeModelMap || {});
-  const headers = cleanObject(input.headers || input.headers_json || existing.headers || {});
-  const endpointUrl = cleanText(input.endpointUrl || input.endpoint_url || existing.endpointUrl || base.endpointUrl);
+  const capabilities = cleanObject(firstOwnValue(input, ["capabilities"], existing.capabilities || {}));
+  const modelMap = cleanObject(firstOwnValue(input, ["modelMap", "model_map"], existing.modelMap || {}));
+  const runtimeModelMap = cleanObject(firstOwnValue(input, ["runtimeModelMap", "runtime_model_map"], existing.runtimeModelMap || {}));
+  const headers = cleanObject(firstOwnValue(input, ["headers", "headers_json"], existing.headers || {}));
+  const endpointUrl = cleanText(firstOwnValue(input, ["endpointUrl", "endpoint_url"], existing.endpointUrl || base.endpointUrl));
+  const healthCheckInput = firstOwnValue(input, ["healthCheck", "health_check"], existing.healthCheck || existing.health_check || base.healthCheck || {});
 
   const normalized = {
     id: cleanText(input.id || input.configId || input.config_id || existing.id) || providerConfigId(providerId),
@@ -72,13 +85,13 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
     adapterType: cleanText(input.adapterType || input.adapter_type || existing.adapterType) || base.adapterType || "aggregated_gateway",
     status: cleanText(input.status || existing.status) || "enabled",
     authMode: cleanText(input.authMode || input.auth_mode || existing.authMode) || base.authMode || base.authModes?.[0] || "",
-    secretRef: cleanText(input.secretRef || input.secret_ref || existing.secretRef),
+    secretRef: cleanText(firstOwnValue(input, ["secretRef", "secret_ref"], existing.secretRef)),
     endpointUrl,
     headers,
     capabilities,
     modelMap,
     runtimeModelMap,
-    healthCheck: normalizeHealthCheck(input.healthCheck || input.health_check || existing.healthCheck || existing.health_check || base.healthCheck || {}, endpointUrl),
+    healthCheck: normalizeHealthCheck(healthCheckInput, endpointUrl),
     createdAt: cleanText(existing.createdAt || existing.created_at || input.createdAt || input.created_at) || now,
     updatedAt: cleanText(input.updatedAt || input.updated_at) || now
   };
@@ -89,6 +102,13 @@ export function normalizeAiProviderConfig(input = {}, existing = {}) {
 export function providerConfigToDescriptorInput(config = null) {
   if (!config) return null;
   const base = basePreset(config.providerId);
+  const disabled = cleanText(config.status) === "disabled";
+  const runtimeModelMap = disabled
+    ? { ...(config.runtimeModelMap || {}) }
+    : {
+        ...(base.runtimeModelMap || {}),
+        ...(config.runtimeModelMap || {})
+      };
   return {
     ...base,
     providerId: config.providerId,
@@ -97,8 +117,8 @@ export function providerConfigToDescriptorInput(config = null) {
     status: config.status || base.status,
     authModes: base.authModes || [],
     authMode: config.authMode || base.authMode,
-    secretRef: config.secretRef || base.secretRef,
-    endpointUrl: config.endpointUrl || base.endpointUrl,
+    secretRef: disabled ? config.secretRef : config.secretRef || base.secretRef,
+    endpointUrl: disabled ? config.endpointUrl : config.endpointUrl || base.endpointUrl,
     regions: base.regions || [],
     noviceVisible: base.noviceVisible === true,
     supportsHealthCheck: base.supportsHealthCheck !== false,
@@ -114,10 +134,7 @@ export function providerConfigToDescriptorInput(config = null) {
       ...(config.capabilities || {})
     },
     modelMap: Object.keys(config.modelMap || {}).length ? config.modelMap : base.modelMap || {},
-    runtimeModelMap: {
-      ...(base.runtimeModelMap || {}),
-      ...(config.runtimeModelMap || {})
-    },
+    runtimeModelMap,
     healthCheck: config.healthCheck,
     configId: config.id
   };
@@ -227,7 +244,7 @@ function validateSecretBoundary(errors, input = {}, config = {}) {
     }
   }
 
-  if (requiresSecretRef(config.authMode) && !config.secretRef) {
+  if (config.status !== "disabled" && requiresSecretRef(config.authMode) && !config.secretRef) {
     addError(errors, "secretRef", "secret_ref_required", `${config.authMode} provider configs must reference a secret`);
   }
 
@@ -257,11 +274,11 @@ function validateHealthCheck(errors, config = {}) {
   });
 }
 
-export function validateAiProviderConfig(input = {}) {
+export function validateAiProviderConfig(input = {}, existing = {}) {
   const errors = [];
   let config = null;
   try {
-    config = normalizeAiProviderConfig(input);
+    config = normalizeAiProviderConfig(input, existing);
   } catch (error) {
     return {
       valid: false,
@@ -313,8 +330,8 @@ export function validateAiProviderConfig(input = {}) {
   return { valid: errors.length === 0, errors, config };
 }
 
-export function assertValidAiProviderConfig(input = {}) {
-  const result = validateAiProviderConfig(input);
+export function assertValidAiProviderConfig(input = {}, existing = {}) {
+  const result = validateAiProviderConfig(input, existing);
   if (!result.valid) {
     const error = new Error(`Invalid AI provider config: ${result.errors.map((item) => `${item.path} ${item.message}`).join("; ")}`);
     error.code = "AI_PROVIDER_CONFIG_INVALID";
@@ -334,7 +351,7 @@ export function createInMemoryAiProviderConfigStore(options = {}) {
   function setProviderConfig(input = {}) {
     const lookup = cleanText(input.id || input.configId || input.config_id);
     const existing = lookup ? configs.get(lookup) : providerIdIndex.get(cleanText(input.providerId || input.provider_id));
-    const normalized = assertValidAiProviderConfig({ ...(existing || {}), ...input });
+    const normalized = assertValidAiProviderConfig(input, existing || {});
     configs.set(normalized.id, normalized);
     providerIdIndex.set(normalized.providerId, normalized);
     return jsonClone(normalized);

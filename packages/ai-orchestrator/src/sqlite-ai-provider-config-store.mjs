@@ -123,7 +123,7 @@ export async function createSqliteAiProviderConfigStore(options = {}) {
     const lookup = cleanText(input.id || input.configId || input.config_id);
     const providerId = cleanText(input.providerId || input.provider_id);
     const existing = getProviderConfig({ id: lookup, providerId }) || {};
-    const config = assertValidAiProviderConfig({ ...existing, ...input });
+    const config = assertValidAiProviderConfig(input, existing);
     db.prepare(
       `INSERT INTO ai_provider_configs
         (id, provider_id, display_name, adapter_type, status, auth_mode, secret_ref, endpoint_url,

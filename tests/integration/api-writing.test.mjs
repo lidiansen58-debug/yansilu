@@ -230,26 +230,85 @@ test("writing AI analysis API requires confirmation and stores review-only remot
   const executed = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
     userConfirmedRemoteModel: true,
     executeRemoteModel: true,
-    providerPreset: "openai_compatible_gateway",
-    modelPack: "Global Optimized",
-    authMode: "workspace_managed",
-    secretRef: "env:YANSILU_TEST_PROVIDER_KEY",
+    providerPreset: "local_private_gateway",
+    modelPack: "Privacy First",
+    authMode: "local_no_key",
     endpointUrl: `${remoteProvider.baseUrl}/v1/chat/completions`,
+    runtimeModelMap: {
+      "local_private_gateway:strong_reasoning": "local-strong-model"
+    },
     writingGoal: "Prepare a source-grounded outline.",
     noteIds: [note.json.item.id],
-    model: "gpt-strong",
+    model: "local-strong-model",
     persistArtifacts: false
   });
   assert.equal(executed.status, 200, JSON.stringify(executed.json));
   assert.equal(executed.json.item.modelExecution.status, "succeeded");
-  assert.equal(executed.json.item.modelExecution.providerId, "openai_compatible_gateway");
+  assert.equal(executed.json.item.modelExecution.providerId, "local_private_gateway");
   assert.equal(executed.json.item.result.analysisMode, "remote_strong_model_writing");
   assert.equal(executed.json.item.result.provenance.cloudModelUsed, true);
   assert.deepEqual(executed.json.item.result.artifacts.map((item) => item.type), ["WritingMove", "OutlineDraft", "SourceGap"]);
   assert.ok(executed.json.item.result.artifacts.every((item) => item.status === "pending_review"));
   assert.equal(remoteProvider.requests.length, 1);
-  assert.equal(remoteProvider.requests[0].body.model, "gpt-strong");
-  assert.match(remoteProvider.requests[0].headers.authorization || "", /^Bearer test-key$/);
+  assert.equal(remoteProvider.requests[0].body.model, "local-strong-model");
+
+  const storedRemoteConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "openai_compatible_gateway",
+    authMode: "workspace_managed",
+    secretRef: "env:YANSILU_TEST_PROVIDER_KEY",
+    endpointUrl: "https://stored-remote-gateway.example.test/v1/chat/completions",
+    runtimeModelMap: {
+      "openai_compatible_gateway:strong_reasoning": "stored-strong-model"
+    }
+  });
+  assert.equal(storedRemoteConfig.status, 200, JSON.stringify(storedRemoteConfig.json));
+
+  const clearedExecution = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    userConfirmedRemoteModel: true,
+    executeRemoteModel: true,
+    providerPreset: "openai_compatible_gateway",
+    modelPack: "Global Optimized",
+    authMode: "workspace_managed",
+    secretRef: "",
+    endpointUrl: "",
+    runtimeModelMap: {},
+    writingGoal: "This should not reuse stored provider settings.",
+    noteIds: [note.json.item.id],
+    persistArtifacts: false
+  });
+  assert.equal(clearedExecution.status, 400, JSON.stringify(clearedExecution.json));
+  assert.equal(clearedExecution.json.error.code, "AI_PROVIDER_CONFIG_INVALID");
+  assert.equal(remoteProvider.requests.length, 1);
+
+  const disabledLocalConfig = await postJson(baseUrl, "/api/v1/ai/provider-configs", {
+    providerId: "local_private_gateway",
+    authMode: "local_no_key",
+    status: "disabled",
+    endpointUrl: "",
+    runtimeModelMap: {}
+  });
+  assert.equal(disabledLocalConfig.status, 200, JSON.stringify(disabledLocalConfig.json));
+
+  const restoredExecution = await postJson(baseUrl, "/api/v1/writing/ai-analysis", {
+    userConfirmedRemoteModel: true,
+    executeRemoteModel: true,
+    providerPreset: "local_private_gateway",
+    modelPack: "Privacy First",
+    authMode: "local_no_key",
+    endpointUrl: `${remoteProvider.baseUrl}/v1/chat/completions`,
+    runtimeModelMap: {
+      "local_private_gateway:strong_reasoning": "local-restored-model"
+    },
+    writingGoal: "This should use the refreshed provider draft.",
+    noteIds: [note.json.item.id],
+    model: "local-restored-model",
+    persistArtifacts: false
+  });
+  assert.equal(restoredExecution.status, 200, JSON.stringify(restoredExecution.json));
+  assert.equal(restoredExecution.json.item.modelExecution.status, "succeeded");
+  assert.equal(restoredExecution.json.item.modelExecution.providerId, "local_private_gateway");
+  assert.equal(remoteProvider.requests.length, 2);
+  assert.equal(remoteProvider.requests[1].body.model, "local-restored-model");
 });
 
 test("writing APIs create project basket and draft scaffold from permanent notes", async (t) => {
