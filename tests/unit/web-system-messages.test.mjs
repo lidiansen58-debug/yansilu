@@ -17,11 +17,14 @@ test("prototype exposes a system messages entry and history modal", () => {
   assert.match(html, /id="systemMessagesButton"/);
   assert.match(html, /data-action="open-system-messages"/);
   assert.match(html, /id="systemMessageModal"/);
+  assert.match(html, /aria-describedby="systemMessageModalNote"/);
   assert.match(html, /id="systemMessageList"/);
+  assert.match(html, /id="systemMessageList"[^>]*aria-label="系统消息列表"[^>]*aria-live="polite"/);
   assert.match(html, /id="btnSystemMessageOpenAiInbox"/);
   assert.match(html, /AI 建议、关系提醒和系统提示会保留在这里/);
   assert.match(html, /\.rail-btn\.has-unread::before/);
   assert.match(html, /\.system-message-item\.is-unread/);
+  assert.match(html, /\.system-message-actions \.mini-btn\s*\{/);
 });
 
 test("system messages are persisted, readable, and actionable", () => {
@@ -32,9 +35,19 @@ test("system messages are persisted, readable, and actionable", () => {
   assert.match(source, /function addSystemMessage\(message = \{\}, \{ interrupt = false \} = \{\}\)/);
   assert.match(source, /if \(interrupt\) openSystemMessages\(\{ latestOnly: true \}\)/);
   assert.match(source, /function markSystemMessagesRead\(\)/);
+  assert.match(source, /button\.setAttribute\("aria-label", unreadCount \? `系统消息，\$\{unreadCount\} 条未读` : "系统消息"\)/);
+  assert.match(source, /markReadButton\.disabled = unreadCount === 0/);
   assert.match(source, /systemMessagesButton"\)\?\.addEventListener\("click"/);
   assert.match(source, /data-system-message-action/);
   assert.match(source, /action === "open-ai-inbox"/);
+});
+
+test("system message modal can be dismissed with Escape", () => {
+  const source = readRepoFile("apps/web/src/prototype-app.js");
+
+  assert.match(source, /function isSystemMessageModalOpen\(\)/);
+  assert.match(source, /e\.key === "Escape" && isSystemMessageModalOpen\(\)/);
+  assert.match(source, /closeSystemMessages\(\);\s*e\.preventDefault\(\);/);
 });
 
 test("AI analysis writes an interrupting system message when suggestions are created", () => {

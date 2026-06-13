@@ -1198,11 +1198,17 @@ function systemMessageActionLabel(message = {}) {
 function renderSystemMessages() {
   const list = $("systemMessageList");
   const button = $("systemMessagesButton");
+  const markReadButton = $("btnSystemMessageMarkRead");
   const unreadCount = systemMessages.filter((item) => item.read !== true).length;
   button?.classList.toggle("has-unread", unreadCount > 0);
   if (button) {
     button.title = unreadCount ? `系统消息（${unreadCount} 条未读）` : "系统消息";
     button.dataset.tip = unreadCount ? `系统消息 ${unreadCount}` : "系统消息";
+    button.setAttribute("aria-label", unreadCount ? `系统消息，${unreadCount} 条未读` : "系统消息");
+  }
+  if (markReadButton) {
+    markReadButton.disabled = unreadCount === 0;
+    markReadButton.title = unreadCount === 0 ? "没有未读系统消息" : "全部标记已读";
   }
   if (!list) return;
   if (!systemMessages.length) {
@@ -1243,6 +1249,11 @@ function openSystemMessages({ latestOnly = false } = {}) {
 
 function closeSystemMessages() {
   $("systemMessageModal")?.classList.add("hidden");
+}
+
+function isSystemMessageModalOpen() {
+  const modal = $("systemMessageModal");
+  return !!modal && !modal.classList.contains("hidden");
 }
 
 function markSystemMessagesRead() {
@@ -19807,6 +19818,12 @@ document.querySelectorAll("[data-action='open-handoff']").forEach((btn) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isSystemMessageModalOpen()) {
+    closeSystemMessages();
+    e.preventDefault();
+    return;
+  }
+
   const tag = (e.target?.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable || e.isComposing) return;
 
